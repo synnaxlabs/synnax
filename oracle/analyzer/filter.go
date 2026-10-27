@@ -28,14 +28,19 @@ import (
 const (
 	// filterKeyword separates a filter definition's name from its target.
 	filterKeyword = "filter"
+	// filterName is the name of every filter definition, which the generators and the
+	// clients rely on.
+	filterName = "Where"
 )
 
 // treeFields are the fields every expanded filter starts with.
 var treeFields = []string{"and", "or", "not"}
 
-// builderNames are the names that the generated builders give their own functions, so a
-// line cannot take them. A line also cannot start with includePrefix.
-var builderNames = []string{"where", "limit", "offset", "search", "one"}
+// builderNames are the names that the generated builders declare, so a line cannot take
+// them. A line also cannot start with includePrefix.
+var builderNames = []string{
+	"where", "limit", "offset", "search", "one", "filter", "builder",
+}
 
 const includePrefix = "include_"
 
@@ -50,6 +55,12 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 	if kw := idents[1].GetText(); kw != filterKeyword {
 		c.report(diagnostics.Errorf(
 			def, "%s: expected 'filter' before the target, got %q", name, kw,
+		))
+		return
+	}
+	if name != filterName {
+		c.report(diagnostics.Errorf(
+			def, "filter %s: a filter must be named %s", name, filterName,
 		))
 		return
 	}
@@ -393,22 +404,11 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 	if _, _, inVersionFile := paths.VersionFile(c.filePath); inVersionFile {
 		return
 	}
-	filters := lo.Filter(
+	where, ok := lo.Find(
 		c.table.TypesInNamespace(c.namespace),
-		func(t resolution.Type, _ int) bool { return t.Filter != nil },
+		func(t resolution.Type) bool { return t.Filter != nil },
 	)
-	if len(filters) == 0 {
-		return
-	}
-	where := filters[0]
-	if len(filters) > 1 {
-		c.report(diagnostics.Errorf(
-			filters[1].AST.(parser.IFilterDefContext),
-			"%s declares filters %s and %s; a schema declares at most one",
-			c.namespace,
-			where.Name,
-			filters[1].Name,
-		))
+	if !ok {
 		return
 	}
 	if expr, ok := where.Domains["go"].Expressions.Find("request_output"); ok &&
