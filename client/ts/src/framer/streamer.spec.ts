@@ -38,6 +38,29 @@ const quiet = (): void => {};
 
 const client = createTestClient();
 
+// The Core does not acknowledge an updated channel set, so a write can reach the relay
+// before the update does. readWhileWriting writes until the streamer reads a frame.
+const readWhileWriting = async (
+  streamer: Streamer,
+  key: channel.Key,
+): Promise<Frame> => {
+  const writer = await client.openWriter({ start: TimeStamp.now(), channels: key });
+  let reading = true;
+  const writing = (async () => {
+    while (reading) {
+      await writer.write(key, new Float64Array([1]));
+      await sleep.sleep(TimeSpan.milliseconds(20));
+    }
+  })();
+  try {
+    return await streamer.read();
+  } finally {
+    reading = false;
+    await writing;
+    await writer.close();
+  }
+};
+
 describe("Streamer", () => {
   describe("standard", () => {
     test("happy path", async () => {
@@ -141,6 +164,15 @@ describe("Streamer", () => {
     });
     it("should throw an error when the streamer is opened with a channel that does not exist", async () => {
       await expect(client.openStreamer([5678])).rejects.toThrow("not found");
+    });
+    it("should read frames of the channels set after an empty set of channels", async () => {
+      const ch = await newVirtualChannel(client);
+      const streamer = await client.openStreamer(ch.key);
+      await streamer.update([]);
+      await streamer.update([ch.key]);
+      const fr = await readWhileWriting(streamer, ch.key);
+      streamer.close();
+      expect(Array.from(fr.get(ch.key))).toEqual([1]);
     });
     describe("excludeGroups", () => {
       test("should filter out frames from a writer whose group matches", async () => {
