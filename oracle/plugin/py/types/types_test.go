@@ -2563,28 +2563,24 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 		},
 	)
 
-	It(
-		"Should panic on a union default that does not set its discriminator",
-		func(ctx SpecContext) {
-			withDefault := source + `
-			Item struct { scale Scale = { slope = 2 } }
-		`
+	DescribeTable(
+		"Should panic on an invalid union default",
+		func(ctx SpecContext, literal, message string) {
+			withDefault := source + "\nItem struct { scale Scale = " + literal + " }\n"
 			Expect(func() {
 				MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
-			}).To(PanicWith(ContainSubstring("does not set its discriminator type")))
+			}).To(PanicWith(ContainSubstring(message)))
 		},
-	)
-
-	It(
-		"Should panic on a union default that names an unknown variant",
-		func(ctx SpecContext) {
-			withDefault := source + `
-			Item struct { scale Scale = { type = "cubic" } }
-		`
-			Expect(func() {
-				MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
-			}).To(PanicWith(ContainSubstring(`names unknown variant "cubic"`)))
-		},
+		Entry(
+			"without its discriminator",
+			"{ slope = 2 }",
+			"does not set its discriminator type",
+		),
+		Entry(
+			"with an unknown variant",
+			`{ type = "cubic" }`,
+			`names unknown variant "cubic"`,
+		),
 	)
 
 	It(
@@ -2605,6 +2601,45 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 				Config union on variant {
 					tracked {
 						status status.Info
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			ExpectContent(resp, "task/types_gen.py").ToContain(
+				`from synnax import status as status_`,
+				`status: status_.Info`,
+			)
+		},
+	)
+
+	It(
+		"Should alias a module import that a flattened base field shadows",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
+				@py output "client/py/synnax/status"
+
+				Info struct {
+					key uuid
+				}
+			`)
+			loader.Add("schemas/common", `
+				import "schemas/status"
+
+				@py output "client/py/synnax/common"
+
+				Base struct {
+					status status.Info
+					name   string
+				}
+			`)
+			source := `
+				import "schemas/common"
+
+				@py output "client/py/synnax/task"
+
+				Config union on variant extends common.Base {
+					tracked {
+						-name
 					}
 				}
 			`

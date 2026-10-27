@@ -7,23 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type Series, TimeStamp } from "@synnaxlabs/x";
-
-import { type framer } from "@/framer";
+import { type TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 export const secondsLinspace = (start: number, n: number): TimeStamp[] =>
   Array.from({ length: n }, (_, i) => start + i).map((n) => TimeStamp.seconds(n));
 
-const isRaw = (dt: DataType): boolean => dt.isVariable || dt.equals(DataType.UINT8);
+/** A clock that moves only when advanced. */
+export class ManualClock {
+  private time: TimeStamp;
 
-/** Narrows every numeric series to float32, anchoring bigints on an offset. Mirrors
- * the transform the visualization layer injects for WebGL rendering. */
-export const glTransform: framer.Transform = {
-  resolveDataType: (dt: DataType) => (isRaw(dt) ? dt : DataType.FLOAT32),
-  convert: (series: Series, offset) => {
-    if (isRaw(series.dataType)) return series;
-    if (offset == null && series.dataType.usesBigInt && series.length > 0)
-      offset = BigInt(series.data[0]);
-    return series.convert(DataType.FLOAT32, offset);
-  },
-};
+  constructor(start: TimeStamp = TimeStamp.seconds(1000)) {
+    this.time = start;
+  }
+
+  /** @returns the time on the clock. */
+  now = (): TimeStamp => this.time;
+
+  /** Moves the clock forward by the span. */
+  advance(span: TimeSpan): void {
+    this.time = this.time.add(span);
+  }
+}

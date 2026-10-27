@@ -24,7 +24,6 @@ from console.layout import LayoutClient
 from console.page import ConsolePage, PageType
 from console.plot import Plot
 from console.project import ProjectClient
-from framework.run_dir import resolve_results_path
 from framework.utils import resolve_channel_placeholders
 
 T = TypeVar("T", bound=ConsolePage)
@@ -539,7 +538,7 @@ class PagesClient(ResourceClient):
             self.ctx_menu.click_option("Export")
 
         download = download_info.value
-        save_path = resolve_results_path(f"{name}_export.json")
+        save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
         self.layout.close_left_toolbar()
 
