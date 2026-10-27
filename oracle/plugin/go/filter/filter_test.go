@@ -64,6 +64,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				kind   Kind
 				tags   string[]
 				owner  uuid     { @filter scalar }
+				alias  string   { @filter scalar }
 				@retrieve
 			}
 		`
@@ -127,7 +128,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"return re.MatchString(e.Base().Name), nil",
+					"return match(e.Base().Name), nil",
 					"fs = append(fs, MatchTypes(l.In...))",
 				)
 		})
@@ -173,32 +174,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should compile a regex and reject an invalid one at its path", func(
-			ctx SpecContext,
-		) {
-			resp := MustGenerate(ctx, thing+`
-				Where filter Thing {
-					name
-				}
-			`, "thing", loader, p)
-			ExpectContent(resp, "where.gen.go").
-				ToBeValidGoSource().
-				ToContain(
-					`"regexp"`,
-					"pattern := *l.Regex",
-					`pattern = "(?i)" + pattern`,
-					"re, err := regexp.Compile(pattern)",
-					"errors.Wrap(validate.ErrValidation, err.Error())",
-					`"name",`,
-					`"regex",`,
-					"e *Thing,",
-					"return re.MatchString(e.Name), nil",
-				)
-		})
-
-		It("Should match text operators and ignore case through x/filter", func(
-			ctx SpecContext,
-		) {
+		It("Should match text operators through x/filter", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {
 					name
@@ -208,11 +184,35 @@ var _ = Describe("Go Filter Plugin", func() {
 				ToBeValidGoSource().
 				ToContain(
 					`/x/go/filter"`,
+					"text := *l",
 					"if !l.CaseInsensitive {",
 					"fs = append(fs, MatchNames(*l.Eq))",
-					"if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {",
-					"return filter.MatchesString(op, e.Name), nil",
-				)
+					"fs = append(fs, MatchNames(l.In...))",
+					"text.In = nil",
+					"text.Eq = nil",
+					"match, err := filter.CompileString(text)",
+					`return nil, validate.PathedError(err, "name")`,
+					"e *Thing,",
+					"return match(e.Name), nil",
+				).
+				ToNotContain(`"regexp"`, `/x/go/errors"`)
+		})
+
+		It("Should match an in on a scalar text line through x/filter", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					alias
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"fs = append(fs, MatchAlias(*l.Eq))",
+					"match, err := filter.CompileString(text)",
+				).
+				ToNotContain("MatchAlias(l.In...)", "text.In = nil")
 		})
 
 		It("Should reject an invalid enum value at its path", func(ctx SpecContext) {
@@ -267,7 +267,31 @@ var _ = Describe("Go Filter Plugin", func() {
 					"fs = append(fs, MatchOverlaps(*l))",
 					"fs = append(fs, MatchLabels(l...))",
 				).
-				ToNotContain(`"regexp"`, `/gorp"`)
+				ToNotContain(`"regexp"`, `/gorp"`, "ErrNoOperator")
+		})
+
+		It("Should reject a bare line that sets no operator", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					name
+					count
+					tags
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"if l.Eq == nil && l.In == nil {",
+					"if l.Eq == nil && l.In == nil && l.Contains == nil && "+
+						"l.StartsWith == nil &&\n\t\t\tl.Regex == nil {",
+					"if l.Eq == nil && l.In == nil && l.Gt == nil && l.Gte == nil && "+
+						"l.Lt == nil &&\n\t\t\tl.Lte == nil {",
+					"if l.Any == nil {",
+					`return nil, validate.PathedError(filter.ErrNoOperator, "name")`,
+					`return nil, validate.PathedError(filter.ErrNoOperator, "tags")`,
+				).
+				ToNotContain("l.CaseInsensitive == nil")
 		})
 
 		It("Should decode the retrieve request strictly", func(ctx SpecContext) {

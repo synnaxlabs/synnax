@@ -172,11 +172,6 @@ public:
     [[nodiscard]]
     x::errors::Error del(Key key) const;
 
-    /// @brief Lists all tasks on the rack.
-    /// @returns A pair containing the list of tasks and an error if one occurred.
-    [[nodiscard]]
-    std::pair<std::vector<Task>, x::errors::Error> list() const;
-
     [[nodiscard]] Client scope_to_rack(const rack::Key &rack_key) const {
         auto c = *this;
         c.rack = rack_key;

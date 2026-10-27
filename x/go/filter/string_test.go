@@ -13,17 +13,25 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/filter"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("MatchesString", func() {
+var _ = Describe("CompileString", func() {
 	DescribeTable(
-		"Should check every operator but regex",
+		"Should match every operator",
 		func(s filter.String, v string, expected bool) {
-			Expect(filter.MatchesString(s, v)).To(Equal(expected))
+			match := MustSucceed(filter.CompileString(s))
+			Expect(match(v)).To(Equal(expected))
 		},
-		Entry("an empty operator", filter.String{}, "Tank", true),
+		Entry("no operator", filter.String{}, "Tank", true),
 		Entry("eq", filter.String{Eq: new("Tank")}, "Tank", true),
-		Entry("eq of a different case", filter.String{Eq: new("tank")}, "Tank", false),
+		Entry(
+			"eq of a different case",
+			filter.String{Eq: new("tank")},
+			"Tank",
+			false,
+		),
 		Entry("in", filter.String{In: []string{"a", "Tank"}}, "Tank", true),
 		Entry("an empty in", filter.String{In: []string{}}, "Tank", false),
 		Entry("contains", filter.String{Contains: new("an")}, "Tank", true),
@@ -40,23 +48,72 @@ var _ = Describe("MatchesString", func() {
 			"Tank",
 			false,
 		),
+		Entry("regex", filter.String{Regex: new("^T.n")}, "Tank", true),
+		Entry(
+			"regex of a different case",
+			filter.String{Regex: new("^t")},
+			"Tank",
+			false,
+		),
 		Entry(
 			"every operator",
 			filter.String{Eq: new("Tank"), Contains: new("x")},
 			"Tank",
 			false,
 		),
-		Entry("a regex", filter.String{Regex: new("^x")}, "Tank", true),
 	)
+
 	DescribeTable("Should ignore case with CaseInsensitive",
 		func(s filter.String, v string) {
 			s.CaseInsensitive = true
-			Expect(filter.MatchesString(s, v)).To(BeTrue())
+			match := MustSucceed(filter.CompileString(s))
+			Expect(match(v)).To(BeTrue())
 		},
 		Entry("eq", filter.String{Eq: new("TANK")}, "tank"),
 		Entry("in", filter.String{In: []string{"TANK"}}, "tank"),
 		Entry("contains", filter.String{Contains: new("AN")}, "tank"),
 		Entry("starts_with", filter.String{StartsWith: new("TA")}, "tank"),
+		Entry("regex", filter.String{Regex: new("^TA")}, "tank"),
 		Entry("a letter outside ASCII", filter.String{Eq: new("ÄRGER")}, "ärger"),
 	)
+
+	DescribeTable("Should fold case by Unicode simple case folding",
+		func(operand, v string, expected bool) {
+			eq := MustSucceed(filter.CompileString(
+				filter.String{Eq: new(operand), CaseInsensitive: true},
+			))
+			Expect(eq(v)).To(Equal(expected))
+			re := MustSucceed(filter.CompileString(
+				filter.String{
+					Regex:           new("^" + operand + "$"),
+					CaseInsensitive: true,
+				},
+			))
+			Expect(re(v)).To(Equal(expected))
+		},
+		Entry("a Greek final sigma", "οδοσ", "ΟΔΟΣ", true),
+		Entry("a final and a medial sigma", "σ", "ς", true),
+		Entry("a long s", "s", "ſ", true),
+		Entry("the Kelvin sign", "k", "K", true),
+		Entry("a Turkish dotted capital I", "i", "İ", false),
+	)
+
+	It("Should fold contains and starts_with by the same rule", func() {
+		match := MustSucceed(filter.CompileString(filter.String{
+			Contains:        new("σ"),
+			StartsWith:      new("Κ"),
+			CaseInsensitive: true,
+		}))
+		Expect(match("κάτς")).To(BeTrue())
+	})
+
+	It("Should reject an invalid regex at its path", func() {
+		_, err := filter.CompileString(filter.String{Regex: new("(")})
+		Expect(err).To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"regex: error parsing regexp: missing closing ): `(`: validation error",
+			),
+		))
+	})
 })

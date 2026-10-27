@@ -12,7 +12,6 @@
 package view
 
 import (
-	"regexp"
 	"strconv"
 
 	"github.com/synnaxlabs/gorp"
@@ -47,6 +46,9 @@ func MatchWhere(w Where) (Filter, error) {
 		fs = append(fs, Not(not))
 	}
 	if l := w.Key; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "key")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchKeys(*l.Eq))
 		}
@@ -55,6 +57,11 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Name; l != nil {
+		if l.Eq == nil && l.In == nil && l.Contains == nil && l.StartsWith == nil &&
+			l.Regex == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "name")
+		}
+		text := *l
 		if !l.CaseInsensitive {
 			if l.Eq != nil {
 				fs = append(fs, MatchNames(*l.Eq))
@@ -62,40 +69,28 @@ func MatchWhere(w Where) (Filter, error) {
 			if l.In != nil {
 				fs = append(fs, MatchNames(l.In...))
 			}
+			text.In = nil
+			text.Eq = nil
 		}
-		if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {
-			op := *l
-			fs = append(fs, Match(func(
-				_ gorp.Context,
-				_ Retrieve,
-				e *View,
-			) (bool, error) {
-				return filter.MatchesString(op, e.Base().Name), nil
-			}))
-		}
-		if l.Regex != nil {
-			pattern := *l.Regex
-			if l.CaseInsensitive {
-				pattern = "(?i)" + pattern
-			}
-			re, err := regexp.Compile(pattern)
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
 			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"name",
-					"regex",
-				)
+				return nil, validate.PathedError(err, "name")
 			}
 			fs = append(fs, Match(func(
 				_ gorp.Context,
 				_ Retrieve,
 				e *View,
 			) (bool, error) {
-				return re.MatchString(e.Base().Name), nil
+				return match(e.Base().Name), nil
 			}))
 		}
 	}
 	if l := w.Type; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "type")
+		}
 		if l.Eq != nil {
 			if !l.Eq.IsValid() {
 				return nil, validate.PathedError(

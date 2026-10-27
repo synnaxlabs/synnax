@@ -116,8 +116,8 @@ TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
     );
 }
 
-/// @brief it should correctly list the tasks on a rack.
-TEST(TaskTests, testListTasks) {
+/// @brief it should retrieve every task on the client's rack when given no conditions.
+TEST(TaskTests, testRetrieveAll) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -127,7 +127,7 @@ TEST(TaskTests, testListTasks) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(m));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list());
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve());
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
     ASSERT_EQ(tasks[0].rack, r.key);
