@@ -113,6 +113,13 @@ jobs:
           BASE: ${{ steps.base.outputs.sha }}
           SURFACE: ${{ matrix.surface }}
         run: |
+          # A branch older than the surface reports cannot be compared, so a human
+          # reviews it.
+          if [ ! -x .github/scripts/surface.sh ]; then
+            mkdir -p "out/surface-$SURFACE"
+            echo error > "out/surface-$SURFACE/status"
+            exit 0
+          fi
           git worktree add --detach ../base "$BASE"
           .github/scripts/surface.sh "$SURFACE" ../base . "out/surface-$SURFACE"
 

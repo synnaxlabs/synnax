@@ -9,7 +9,13 @@
 
 import "@/select/Dialog.css";
 
-import { type ReactNode, useState } from "react";
+import { destructor } from "@synnaxlabs/x";
+import {
+  type PropsWithChildren,
+  type ReactNode,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
@@ -19,8 +25,14 @@ import { ClosedContext } from "@/select/scope";
 /** Props for {@link Dialog}. */
 export interface DialogProps extends Omit<BaseDialog.DialogProps, "passthrough"> {}
 
-const createDetached = (): HTMLElement | null =>
-  typeof document === "undefined" ? null : document.createElement("div");
+const subscribe = (): destructor.Destructor => destructor.NOOP;
+const getSnapshot = (): boolean => true;
+const getServerSnapshot = (): boolean => false;
+
+const Closed = ({ children }: PropsWithChildren): ReactNode => {
+  const [detached] = useState(() => document.createElement("div"));
+  return createPortal(<ClosedContext value>{children}</ClosedContext>, detached);
+};
 
 /**
  * The floating surface of a selection. While closed it renders its children into an
@@ -29,12 +41,9 @@ const createDetached = (): HTMLElement | null =>
  */
 export const Dialog = ({ className, children, ...rest }: DialogProps): ReactNode => {
   const { visible } = BaseDialog.useContext();
-  const [detached] = useState(createDetached);
-  if (!visible)
-    return (
-      detached != null &&
-      createPortal(<ClosedContext value>{children}</ClosedContext>, detached)
-    );
+  // False on the server and during hydration, since the server renders no portal.
+  const hydrated = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  if (!visible) return hydrated && <Closed>{children}</Closed>;
   return (
     <BaseDialog.Dialog
       {...rest}

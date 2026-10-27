@@ -24,3 +24,6 @@ export const LOGIN_URL = `${PORTAL_URL}/desktop/login`;
 
 /** The route that renews a linked machine's license. */
 export const RENEW_URL = `${PORTAL_URL}/api/desktop/renew`;
+
+/** The route that logs a linked machine out of its account. */
+export const UNLINK_URL = `${PORTAL_URL}/api/desktop/unlink`;
