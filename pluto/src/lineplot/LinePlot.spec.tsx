@@ -16,7 +16,14 @@ import {
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { color, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  type RenderResult,
+  waitFor,
+} from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -101,18 +108,21 @@ describe("LinePlot", () => {
 
   const renderPlot = async (items: Haul.Item[], editable = true) => {
     const plot = await client.lineplots.create(projectKey, { name: id.create() });
-    const result = render(
-      <Haul.Provider>
-        <Source items={items} />
-        <Suspense fallback={null}>
-          <LinePlot.Suspended linePlotKey={plot.key}>
-            <LinePlot.LinePlot aetherKey="plot" editable={editable} />
-            <Probe plotKey={plot.key} />
-          </LinePlot.Suspended>
-        </Suspense>
-      </Haul.Provider>,
-      { wrapper },
-    );
+    let result!: RenderResult;
+    await act(async () => {
+      result = render(
+        <Haul.Provider>
+          <Source items={items} />
+          <Suspense fallback={null}>
+            <LinePlot.Suspended linePlotKey={plot.key}>
+              <LinePlot.LinePlot aetherKey="plot" editable={editable} />
+              <Probe plotKey={plot.key} />
+            </LinePlot.Suspended>
+          </Suspense>
+        </Haul.Provider>,
+        { wrapper },
+      );
+    });
     const viewport = await waitFor(() => {
       const el = result.container.querySelector(".pluto-line-plot__viewport");
       if (el == null) throw new Error("the plot area did not render");
