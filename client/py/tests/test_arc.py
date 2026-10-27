@@ -12,7 +12,6 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from x import filter
 from x.testutil import assert_eventually
 
 
@@ -87,8 +86,8 @@ class TestArc:
         retrieved_keys = {arc.key for arc in retrieved}
         assert retrieved_keys == set(keys)
 
-    def test_retrieve_where(self, client: sy.Synnax) -> None:
-        """Should keep Arcs that match a filter tree and the given keys."""
+    def test_retrieve_conditions(self, client: sy.Synnax) -> None:
+        """Should keep Arcs that match every condition and the given keys."""
         prefix = f"test-arc-where-{uuid4()}"
         created = client.arcs.create(
             [
@@ -97,9 +96,10 @@ class TestArc:
             ]
         )
         keys = [arc.key for arc in created]
-        where = sy.arc.Where(name=filter.String(regex=f"^{prefix}-b$"))
-        retrieved = client.arcs.retrieve(where=where, keys=keys)
+        retrieved = client.arcs.retrieve(sy.arc.name.regex(f"^{prefix}-b$"), keys=keys)
         assert [arc.key for arc in retrieved] == [created[1].key]
+        assert client.arcs.retrieve(f"{prefix}-a").key == created[0].key
+        assert client.arcs.retrieve(created[1].key).name == f"{prefix}-b"
 
     def test_retrieve_compiled(self, client: sy.Synnax) -> None:
         """Should return the compiled program when include_program is True."""

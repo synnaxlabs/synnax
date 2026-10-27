@@ -8,12 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import uuid
-from uuid import UUID
 
 import pytest
 
 import synnax as sy
-from x import filter
 
 
 @pytest.mark.access
@@ -90,12 +88,14 @@ class TestAccessClient:
         matched = client.access.policies.retrieve(subjects=subjects, keys=keys)
         assert [p.key for p in matched] == [held.key]
         unmatched = client.access.policies.retrieve(
-            where=sy.access.policy.Where(
-                not_=sy.access.policy.Where(subjects=subjects)
-            ),
-            keys=keys,
+            ~sy.access.policy.subjects.has_any(subjects), keys=keys
         )
         assert [p.key for p in unmatched] == [other.key]
+        assert client.access.policies.retrieve(held.key).key == held.key
+        one = client.access.policies.retrieve(
+            sy.access.policy.subjects.has_any(subjects), keys=keys, one=True
+        )
+        assert one.key == held.key
 
     def test_delete_by_key(
         self, two_policies: list[sy.Policy], client: sy.Synnax
@@ -167,15 +167,21 @@ class TestRoleClient:
         assert role.key == two_roles[0].key
         assert role.name == two_roles[0].name
 
-    def test_retrieve_where(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
-        """Should keep roles that match a filter tree and the given keys."""
-        where = sy.access.role.Where(
-            not_=sy.access.role.Where(key=filter.Set[UUID](eq=two_roles[0].key))
-        )
+    def test_retrieve_conditions(
+        self, two_roles: list[sy.Role], client: sy.Synnax
+    ) -> None:
+        """Should keep roles that match every condition and the given keys."""
         roles = client.access.roles.retrieve(
-            where=where, keys=[two_roles[0].key, two_roles[1].key]
+            ~sy.access.role.key.eq(two_roles[0].key),
+            keys=[two_roles[0].key, two_roles[1].key],
         )
         assert [r.key for r in roles] == [two_roles[1].key]
+
+    def test_retrieve_by_bare_name(self, client: sy.Synnax) -> None:
+        """Should retrieve a role by a key or a name passed as the first argument."""
+        role = client.access.roles.create(sy.Role(name=str(uuid.uuid4())))
+        assert client.access.roles.retrieve(role.name).key == role.key
+        assert client.access.roles.retrieve(role.key).name == role.name
 
     def test_retrieve_multiple(
         self, two_roles: list[sy.Role], client: sy.Synnax

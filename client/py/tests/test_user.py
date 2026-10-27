@@ -14,7 +14,6 @@ from uuid import uuid4 as uuid
 import pytest
 
 import synnax as sy
-from x import filter
 
 
 @pytest.fixture
@@ -137,15 +136,26 @@ class TestUserClient:
         """Should return no users for an empty key list."""
         assert client.users.retrieve(keys=[]) == []
 
-    def test_retrieve_where(
+    def test_retrieve_conditions(
         self, client: sy.Synnax, new_user_list: list[sy.user.New]
     ) -> None:
-        """Should keep users that match a filter tree and the given usernames."""
+        """Should keep users that match every condition and the given usernames."""
         users = client.users.create(users=new_user_list[:2])
-        where = sy.user.Where(
-            not_=sy.user.Where(key=filter.Set[sy.user.Key](eq=users[0].key))
-        )
         retrieved = client.users.retrieve(
-            where=where, usernames=[u.username for u in users]
+            ~sy.user.key.eq(users[0].key), usernames=[u.username for u in users]
         )
         assert [u.key for u in retrieved] == [users[1].key]
+
+    def test_retrieve_by_bare_username(
+        self, client: sy.Synnax, new_user_list: list[sy.user.New]
+    ) -> None:
+        """Should retrieve a user by a key or a username passed as the first
+        argument.
+        """
+        users = client.users.create(users=new_user_list[:2])
+        assert client.users.retrieve(users[0].username).key == users[0].key
+        assert client.users.retrieve(users[0].key).username == users[0].username
+        usernames = [u.username for u in users]
+        assert len(client.users.retrieve(usernames)) == 2
+        with pytest.raises(sy.MultipleFoundError):
+            client.users.retrieve(sy.user.username.in_(usernames), one=True)
