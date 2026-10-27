@@ -526,10 +526,10 @@ jobs:
       - name: Check unused code
         run: pnpm knip
 
-      - name: Check exports that only tests use
+      - name: Check exports that only their own module's specs use
         # Report-only until the current findings are fixed.
         continue-on-error: true
-        run: pnpm knip --production --include exports,types
+        run: python3 scripts/check_exports_ts.py
 
   lint-integration:
     needs: changes
