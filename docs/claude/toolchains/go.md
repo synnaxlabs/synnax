@@ -57,7 +57,8 @@ defer func() {
 
 `fmt.Errorf` is forbidden in all cases (including `%w`), as are the std `errors` package
 and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)`,
-`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`.
+`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`. The `depguard` and
+`forbidigo` linters enforce it.
 
 ### Rule 3: Sentinel errors for matchable conditions
 

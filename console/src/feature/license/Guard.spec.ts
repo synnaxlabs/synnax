@@ -15,10 +15,18 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { TimeSpan } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { GUARDED_CONTENT, renderGuard } from "@/feature/license/testutil";
+import {
+  findPortalLink,
+  GUARDED_CONTENT,
+  HANDOFF_CODE,
+  renderGuard,
+} from "@/feature/license/testutil";
+import { License } from "@/platform/license";
+import { stubHub } from "@/platform/license/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
@@ -56,6 +64,7 @@ const MISSING_TITLE = "This Core needs a license";
 const getKeyField = (): HTMLElement =>
   screen.getByRole("textbox", { name: "License key" });
 
+/** Waits for the button that opens the portal, and returns the link it opens. */
 describe("License.Guard", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -78,7 +87,11 @@ describe("License.Guard", () => {
   it("should say when the license on the Core has expired", async () => {
     await renderGuard(null, EXPIRED_STATUS);
     expect(screen.getByText("This Core's license has expired")).toBeTruthy();
-    expect(screen.getByText("Get a new key from your Synnax account.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Get a new license key on the Synnax portal. It comes back here on its own.",
+      ),
+    ).toBeTruthy();
   });
 
   it("should offer no way to check the connection again", async () => {
@@ -125,30 +138,99 @@ describe("License.Guard", () => {
     });
   });
 
-  it("should link to the account page with the host fingerprint", async () => {
+  it("should open the portal with the fingerprint and a handoff code", async () => {
     const client = createTestClient();
     const { fingerprint } = await client.license.retrieve();
     expect(fingerprint.length).toBeGreaterThan(0);
     await renderGuard(client, UNLICENSED_STATUS);
-    await waitFor(() => {
-      const href = screen.getByText("Get a key").closest("a")?.getAttribute("href");
-      expect(new URL(href ?? "").searchParams.get("fingerprint")).toBe(
-        fingerprint.join(", "),
-      );
-    });
+    const url = new URL(await findPortalLink("Activate on the portal"));
+    expect(url.searchParams.get("fingerprint")).toBe(fingerprint.join(","));
+    expect(url.searchParams.get("handoff")).toMatch(HANDOFF_CODE);
   });
 
-  it("should copy the host fingerprint", async () => {
+  it("should copy the link that the portal opens with", async () => {
     const writeText = stubClipboardWriteText();
-    const client = createTestClient();
-    const { fingerprint } = await client.license.retrieve();
-    expect(fingerprint.length).toBeGreaterThan(0);
-    await renderGuard(client, UNLICENSED_STATUS);
-    const copy = findButton("Copy fingerprint");
-    await waitFor(() => expect(copy.getAttribute("aria-disabled")).toBeNull());
-    fireEvent.click(copy);
-    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
-    expect(writeText).toHaveBeenCalledWith(fingerprint.join(", "));
+    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    const href = await findPortalLink("Activate on the portal");
+    fireEvent.click(findButton("Copy link"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(href));
+    expect(
+      await screen.findByText("Waiting for the portal. This updates on its own."),
+    ).toBeTruthy();
+  });
+
+  it("should activate the license key that the portal hands back", async () => {
+    const hub = stubHub(async () => Response.json({ key: "not-a-license-key" }));
+    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    const code = new URL(
+      await findPortalLink("Activate on the portal"),
+    ).searchParams.get("handoff");
+    fireEvent.click(screen.getByText("Activate on the portal"));
+    expect(await screen.findByText("Failed to activate license")).toBeTruthy();
+    expect(hub).toHaveBeenCalledWith(
+      License.HANDOFF_URL,
+      expect.objectContaining({ headers: { authorization: `Bearer ${code}` } }),
+    );
+  });
+
+  it("should wait for a portal it cannot reach", async () => {
+    const hub = stubHub(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    await findPortalLink("Activate on the portal");
+    fireEvent.click(screen.getByText("Activate on the portal"));
+    await waitFor(() => expect(hub).toHaveBeenCalledTimes(2));
+    expect(
+      screen.getByText("Waiting for the portal. This updates on its own."),
+    ).toBeTruthy();
+  });
+
+  it("should ask again when the portal does not answer", async () => {
+    const hub = stubHub(
+      async (_, init) =>
+        await new Promise((_, reject) => {
+          const signal = init?.signal;
+          if (signal == null) throw new Error("the request has no signal");
+          signal.addEventListener("abort", () =>
+            reject(new DOMException("The request was aborted", "AbortError")),
+          );
+        }),
+    );
+    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    await findPortalLink("Activate on the portal");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fireEvent.click(screen.getByText("Activate on the portal"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(15).milliseconds);
+    });
+    expect(hub).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByText("Waiting for the portal. This updates on its own."),
+    ).toBeTruthy();
+  });
+
+  it("should ask the portal less often after ten minutes", async () => {
+    const hub = stubHub(async () => new Response(null, { status: 204 }));
+    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    await findPortalLink("Activate on the portal");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fireEvent.click(screen.getByText("Activate on the portal"));
+    const wait = async (span: TimeSpan): Promise<void> =>
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(span.milliseconds);
+      });
+    await wait(TimeSpan.minutes(10));
+    expect(hub).toHaveBeenCalledTimes(300);
+    hub.mockClear();
+    await wait(TimeSpan.minutes(10));
+    expect(hub).toHaveBeenCalledTimes(10);
   });
 
   it("should report a license key the Core rejects", async () => {
