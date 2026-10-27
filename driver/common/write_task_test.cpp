@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <future>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/sync/list.h"
@@ -314,6 +316,87 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     // The live sink was not closed and reopened.
     EXPECT_EQ(mock_streamer_factory->streamer_opens.load(std::memory_order_acquire), 1);
     ASSERT_TRUE(write_task.stop("stop_cmd", true));
+}
+
+namespace {
+/// @brief creates a write task with one command channel and no state channels.
+std::unique_ptr<WriteTask> create_write_task(
+    const std::shared_ptr<driver::task::MockContext> &ctx,
+    const std::shared_ptr<pipeline::mock::StreamerFactory> &streamer_factory,
+    MockSink *&sink
+) {
+    auto s = std::make_unique<MockSink>(
+        x::telem::Rate(0),
+        std::vector<Sink::Output>{{1, std::nullopt}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    sink = s.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    return std::make_unique<WriteTask>(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(s),
+        std::make_shared<pipeline::mock::WriterFactory>(),
+        streamer_factory
+    );
+}
+}
+
+/// @brief it should answer a start only after the command streamer opens, so a
+/// command written after the answer reaches the sink.
+TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
+    auto streamer_factory = pipeline::mock::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    std::promise<void> open;
+    streamer_factory->open_gate = open.get_future().share();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_FALSE(write_task->start("start_cmd_2"));
+    EXPECT_TRUE(ctx->snapshot().empty());
+    open.set_value();
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[0].details.cmd, "start_cmd");
+    EXPECT_EQ(statuses[1].details.cmd, "start_cmd_2");
+    for (const auto &status: statuses) {
+        EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+        EXPECT_EQ(status.message, "Started task");
+        EXPECT_TRUE(status.details.running);
+    }
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+}
+
+/// @brief it should report a failed start and release the sink when the command
+/// streamer fails to open.
+TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
+    auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+        std::vector{x::errors::UNKNOWN},
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
+    );
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    write_task->start("start_cmd");
+    // The failed start sends its reply, then a stop status.
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[0];
+    EXPECT_EQ(status.details.cmd, "start_cmd");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_FALSE(status.details.running);
+    EXPECT_EQ(sink->stop_count, 1);
+    write_task->stop("stop_cmd", true);
+    EXPECT_EQ(sink->stop_count, 1);
 }
 
 /// @brief a task whose sink has no state channels never starts the state pipeline.
