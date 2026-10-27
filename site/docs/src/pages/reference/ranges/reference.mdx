@@ -107,10 +107,8 @@ To keep a local range, right-click it in the ranges toolbar and select **Save to
 
 ## Errors
 
-| Client     | Error                | When                                                                       |
-| ---------- | -------------------- | -------------------------------------------------------------------------- |
-| Python     | `QueryError`         | A retrieve by name matches no range or more than one range.                |
-| Python     | `NotFoundError`      | A retrieve by key matches no range. It is a kind of `QueryError`.          |
-| TypeScript | `NotFoundError`      | A retrieve matches no range.                                               |
-| TypeScript | `MultipleFoundError` | A retrieve by name matches more than one range.                            |
-| Both       | Validation error     | A create has an empty name, a zero start or end, or a start after its end. |
+| Error                | When                                                                       |
+| -------------------- | -------------------------------------------------------------------------- |
+| `NotFoundError`      | A retrieve matches no range.                                               |
+| `MultipleFoundError` | A retrieve by name matches more than one range.                            |
+| Validation error     | A create has an empty name, a zero start or end, or a start after its end. |
