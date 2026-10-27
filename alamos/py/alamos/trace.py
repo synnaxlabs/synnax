@@ -74,7 +74,7 @@ class _Span:
 class _NoopSpan:
     """Span that does nothing."""
 
-    key: str
+    key: str = ""
 
     def _(self) -> Span:
         return self
@@ -121,7 +121,8 @@ class Tracer:
     def trace(self, key: str, env: Environment) -> Iterator[Span]:
         """
         Starts a new span with the given key and environment. If a span already exists
-        on the current context, the new span is made as its child.
+        on the current context, the new span is made as its child. The span does not
+        record exceptions raised in its body: call record_exception on it.
 
         :param key: The key of the span.
         :param env: The environment to run the span under.
@@ -132,8 +133,11 @@ class Tracer:
         if self.noop or not self._filter(env) or self._otel_tracer is None:
             yield _NOOP_SPAN
             return
-        with self._otel_tracer.start_as_current_span(key) as span:
-            yield _Span(otel=span, key=self._meta.extend_path_(key))
+        path = self._meta.extend_path_(key)
+        with self._otel_tracer.start_as_current_span(
+            path, record_exception=False, set_status_on_exception=False
+        ) as span:
+            yield _Span(otel=span, key=path)
 
     @contextmanager
     def debug(self, key: str) -> Iterator[Span]:
