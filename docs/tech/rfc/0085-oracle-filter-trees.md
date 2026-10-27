@@ -308,7 +308,8 @@ client.tasks.retrieve(
   of §2.6.
 - **Shortcuts**: A key or a name returns one record by the same rule, and a list of
   either returns a list. A shortcut also takes include options. Python keeps its shipped
-  `key=` and `name=` keywords.
+  `key=` and `name=` keywords. In TypeScript and C++, a device takes only a key: a
+  device key is free text, so a name can look like a key.
 - **Stored trees**: `entity.where(tree)` turns a stored `where`, such as a saved view's,
   into a condition. TypeScript `retrieve` also takes a whole request, which Pluto
   queries pass through the cache.
@@ -386,10 +387,10 @@ and its flat fields go away together, since a client must match the Core's versi
   `filter.String`, in the interpreter, the TypeScript `matches`, and the case table.
 - **Phase 8: The TypeScript builder.** An Oracle plugin generates the lines, the entity
   functions, and the options of §2.7. Every TypeScript `retrieve` takes conditions and
-  options, and every entity with a name takes the key and name shortcuts. A docs page
-  teaches the builder.
+  options, and every entity with a name takes the key and name shortcuts.
 - **Phase 9: The Python builder.** The same, with keyword options. Every entity takes a
-  key or a name as its first argument.
+  key or a name as its first argument. A docs page teaches the builder in both
+  languages.
 - **Phase 10: The C++ builder.** The same, with a variadic `retrieve`.
 
 ## 4 What this RFC does not cover
