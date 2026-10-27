@@ -102,3 +102,12 @@ Neither script touches `.oracle` schema files.
 `asan_suppressions.txt`, `lsan_suppressions.txt`, `ubsan_suppressions.txt` — suppression
 lists for ASan/LSan/UBSan runs against the C++ driver. Add an entry here instead of
 disabling a sanitizer wholesale.
+
+## Runner fleet (`runners/`)
+
+The controller for the self-hosted CI runners, deployed to the `Sandbox-Windows` EC2
+instance. `controller.py` polls GitHub and EC2, writes fleet state to the Synnax Core on
+that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC2 starts
+and stops. Its own uv project and CI job. A pool in `scaler.py` must use the label the
+workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
+instance.

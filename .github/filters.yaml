@@ -277,6 +277,11 @@ client_py: &client_py
   - *x_py
   - client/py/**
 
+exports_go:
+  - *core
+  - *freighter_integration
+  - *oracle
+
 exports_py:
   - *client_py
   - *py
@@ -381,6 +386,10 @@ ci_scripts:
 scripts:
   - *py
   - scripts/**
+
+runners:
+  - *py
+  - scripts/runners/**
 
 console_build: &console_build
   - *console

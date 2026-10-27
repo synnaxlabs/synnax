@@ -13,8 +13,8 @@
 
 #include "freighter/cpp/freighter.h"
 #include "freighter/cpp/grpc/grpc.h"
-#include "freighter/cpp/grpc/mock/freighter/cpp/grpc/mock/service.grpc.pb.h"
-#include "freighter/cpp/grpc/mock/server.h"
+#include "freighter/cpp/grpc/testutil/freighter/cpp/grpc/testutil/service.grpc.pb.h"
+#include "freighter/cpp/grpc/testutil/server.h"
 #include "x/cpp/env/env.h"
 #include "x/cpp/test/test.h"
 
@@ -24,12 +24,12 @@ using RS = test::Message;
 using UNARY_RPC = test::UnaryMessageService;
 
 /// A self-signed certificate that is its own CA.
-const std::string CERT_PATH = "freighter/cpp/grpc/mock/test_cert.pem";
-const std::string KEY_PATH = "freighter/cpp/grpc/mock/test_key.pem";
+const std::string CERT_PATH = "freighter/cpp/grpc/testutil/test_cert.pem";
+const std::string KEY_PATH = "freighter/cpp/grpc/testutil/test_key.pem";
 /// A leaf certificate signed by test_ca_cert.pem.
-const std::string LEAF_CERT_PATH = "freighter/cpp/grpc/mock/test_leaf_cert.pem";
-const std::string LEAF_KEY_PATH = "freighter/cpp/grpc/mock/test_leaf_key.pem";
-const std::string CA_CERT_PATH = "freighter/cpp/grpc/mock/test_ca_cert.pem";
+const std::string LEAF_CERT_PATH = "freighter/cpp/grpc/testutil/test_leaf_cert.pem";
+const std::string LEAF_KEY_PATH = "freighter/cpp/grpc/testutil/test_leaf_key.pem";
+const std::string CA_CERT_PATH = "freighter/cpp/grpc/testutil/test_ca_cert.pem";
 const std::string TLS_TARGET = "localhost:8083";
 const std::string PLAIN_TARGET = "localhost:8084";
 
@@ -53,65 +53,65 @@ std::pair<RS, x::errors::Error> send_trusting(const std::string &roots_path) {
 /// @brief a secure pool completes a request against a TLS server whose self-signed
 /// certificate is the trust anchor.
 TEST(testTLS, secureClientReachesTLSServer) {
-    std::thread s(mock::tls_server, TLS_TARGET, CERT_PATH, KEY_PATH);
-    mock::wait_for_servers();
+    std::thread s(testutil::tls_server, TLS_TARGET, CERT_PATH, KEY_PATH);
+    testutil::wait_for_servers();
     const auto res = ASSERT_NIL_P(send_trusting(CERT_PATH));
     ASSERT_EQ(res.payload(), EXPECTED);
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
 /// @brief a secure pool trusts a leaf certificate directly, without its issuing CA.
 TEST(testTLS, leafCertificateIsTrustAnchor) {
-    std::thread s(mock::tls_server, TLS_TARGET, LEAF_CERT_PATH, LEAF_KEY_PATH);
-    mock::wait_for_servers();
+    std::thread s(testutil::tls_server, TLS_TARGET, LEAF_CERT_PATH, LEAF_KEY_PATH);
+    testutil::wait_for_servers();
     const auto res = ASSERT_NIL_P(send_trusting(LEAF_CERT_PATH));
     ASSERT_EQ(res.payload(), EXPECTED);
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
 /// @brief a secure pool trusts a leaf certificate through its issuing CA.
 TEST(testTLS, issuingCAIsTrustAnchor) {
-    std::thread s(mock::tls_server, TLS_TARGET, LEAF_CERT_PATH, LEAF_KEY_PATH);
-    mock::wait_for_servers();
+    std::thread s(testutil::tls_server, TLS_TARGET, LEAF_CERT_PATH, LEAF_KEY_PATH);
+    testutil::wait_for_servers();
     const auto res = ASSERT_NIL_P(send_trusting(CA_CERT_PATH));
     ASSERT_EQ(res.payload(), EXPECTED);
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
 /// @brief a secure pool rejects a server whose certificate chains to no trust anchor.
 TEST(testTLS, unrelatedTrustAnchorRejectsServer) {
-    std::thread s(mock::tls_server, TLS_TARGET, LEAF_CERT_PATH, LEAF_KEY_PATH);
-    mock::wait_for_servers();
+    std::thread s(testutil::tls_server, TLS_TARGET, LEAF_CERT_PATH, LEAF_KEY_PATH);
+    testutil::wait_for_servers();
     ASSERT_OCCURRED_AS_P(send_trusting(CERT_PATH), UNREACHABLE);
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
 /// @brief a plaintext pool cannot reach a TLS server.
 TEST(testTLS, insecureClientFailsAgainstTLSServer) {
-    std::thread s(mock::tls_server, TLS_TARGET, CERT_PATH, KEY_PATH);
-    mock::wait_for_servers();
+    std::thread s(testutil::tls_server, TLS_TARGET, CERT_PATH, KEY_PATH);
+    testutil::wait_for_servers();
     const auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, TLS_TARGET);
     auto req = message();
     ASSERT_OCCURRED_AS_P(client.send("", req), UNREACHABLE);
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
 /// @brief a secure pool cannot reach a plaintext server.
 TEST(testTLS, secureClientFailsAgainstPlaintextServer) {
-    std::thread s(mock::server, PLAIN_TARGET);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, PLAIN_TARGET);
+    testutil::wait_for_servers();
     x::env::set(priv::ROOTS_FILE_ENV, CERT_PATH);
     const auto pool = std::make_shared<Pool>(true);
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, PLAIN_TARGET);
     auto req = message();
     ASSERT_OCCURRED_AS_P(client.send("", req), UNREACHABLE);
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 }
