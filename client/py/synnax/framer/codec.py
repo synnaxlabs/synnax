@@ -282,7 +282,7 @@ class Codec:
 
         state = self._states.get(curr_seq_num)
         if state is None:
-            return FramePayload()
+            raise ValidationError(f"remote sent invalid sequence number {curr_seq_num}")
 
         to_del = None
         for seq_num in self._states:
