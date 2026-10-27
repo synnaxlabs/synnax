@@ -16,7 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/samber/lo"
@@ -411,12 +410,29 @@ func BootupCore(
 		if *cfg.insecure {
 			scheme = "http"
 		}
-		cfg.L.Warn(fmt.Sprintf(
-			"no active license on this Core. Host fingerprint: %s. Open the "+
-				"Console at %s to activate.",
-			strings.Join(licenseInfo.Fingerprint, ", "),
-			scheme+"://"+string(cfg.listeners.AdvertiseAddress()),
-		))
+		console := scheme + "://" + string(cfg.listeners.AdvertiseAddress())
+		if len(licenseInfo.Fingerprint) == 0 {
+			cfg.L.Warn(fmt.Sprintf(
+				"no active license on this Core, and it reports no network hardware "+
+					"to bind one to. Ask Synnax Labs for a floating license, then "+
+					"activate it in the Console at %s.",
+				console,
+			))
+		} else {
+			hostname, err := os.Hostname()
+			if err != nil {
+				cfg.L.Warn(
+					"failed to read the host name for the activation link",
+					zap.Error(err),
+				)
+			}
+			cfg.L.Warn(fmt.Sprintf(
+				"no active license on this Core. To activate it, open the Console at "+
+					"%s, or open this link on any computer: %s",
+				console,
+				licenseInfo.Fingerprint.ActivationURL(hostname),
+			))
+		}
 	}
 
 	if onServerStarted != nil {
