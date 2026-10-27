@@ -44,6 +44,10 @@ export class Client {
     this.client = client;
   }
 
+  /**
+   * @returns the key of the channel with the alias.
+   * @throws {NotFoundError} if no channel has the alias.
+   */
   resolve(aliases: string): Promise<channel.Key>;
 
   resolve(aliases: string[]): Promise<Record<string, channel.Key>>;
@@ -98,6 +102,10 @@ export class Client {
     ).aliases;
   }
 
+  /**
+   * @returns the alias of the channel.
+   * @throws {NotFoundError} if the channel has no alias.
+   */
   async retrieve(alias: channel.Key): Promise<string>;
   async retrieve(aliases: channel.Key[]): Promise<Record<channel.Key, string>>;
 
