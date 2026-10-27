@@ -610,7 +610,10 @@ func renderGoFile(
 			}
 			data.Decls = append(data.Decls, declData{Struct: &s})
 		case declUnion:
-			u := processUnion(d.typ, procData)
+			u, err := processUnion(d.typ, procData)
+			if err != nil {
+				return nil, nil, err
+			}
 			data.Decls = append(data.Decls, declData{Union: &u})
 		}
 	}
