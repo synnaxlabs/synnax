@@ -17,7 +17,7 @@ import { POST as roleRoute } from "@/pages/api/organizations/[key]/members/[user
 import { POST as renameRoute } from "@/pages/api/organizations/[key]/name";
 import { POST as registerRoute } from "@/pages/api/organizations/index";
 import { event, type Organization, organization } from "@/server/db/schema";
-import { type Memory, openMemory } from "@/server/db/testutil";
+import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
 import { badRequest } from "@/server/errors";
 import { NOW } from "@/server/license/testutil";
@@ -124,6 +124,13 @@ describe("organization routes", () => {
       ]);
     });
 
+    it("should send nothing when the invitation cannot be recorded", async () => {
+      h.signIn(ADMIN);
+      const res = await failingEvents(store, "invite", invite);
+      expect(res.status).toBe(500);
+      expect(h.directory.invitations).toEqual([]);
+    });
+
     it("should let staff invite to a team they are not on", async () => {
       h.signIn(STAFF);
       expect((await invite()).status).toBe(204);
@@ -189,6 +196,17 @@ describe("organization routes", () => {
           },
         }),
       ]);
+    });
+
+    it("should keep the role when the change cannot be recorded", async () => {
+      h.signIn(ADMIN);
+      const res = await failingEvents(
+        store,
+        "change_role",
+        async () => await setRole(MEMBER, ADMIN_ROLE),
+      );
+      expect(res.status).toBe(500);
+      expect(roleOf(MEMBER)).toBe(MEMBER_ROLE);
     });
 
     it("should let staff change a role", async () => {
@@ -260,6 +278,17 @@ describe("organization routes", () => {
       ]);
     });
 
+    it("should keep the member when the removal cannot be recorded", async () => {
+      h.signIn(ADMIN);
+      const res = await failingEvents(
+        store,
+        "remove_member",
+        async () => await remove(MEMBER),
+      );
+      expect(res.status).toBe(500);
+      expect(roleOf(MEMBER)).toBe(MEMBER_ROLE);
+    });
+
     it("should let staff remove a member", async () => {
       h.signIn(STAFF);
       expect((await remove(MEMBER)).status).toBe(204);
@@ -317,6 +346,17 @@ describe("organization routes", () => {
           detail: { email: "cy@acme.com", role: MEMBER_ROLE },
         }),
       ]);
+    });
+
+    it("should keep an invitation whose cancellation cannot be recorded", async () => {
+      h.signIn(ADMIN);
+      const res = await failingEvents(
+        store,
+        "revoke_invitation",
+        async () => await revoke("inv_0"),
+      );
+      expect(res.status).toBe(500);
+      expect(await h.directory.outstanding(ACME)).toHaveLength(1);
     });
 
     it("should let staff cancel an invitation", async () => {
@@ -494,6 +534,19 @@ describe("organization routes", () => {
           detail: { name: "Acme Rockets", from: "Acme" },
         }),
       ]);
+    });
+
+    it("should keep the name when the rename cannot be recorded", async () => {
+      h.signIn(STAFF);
+      const res = await failingEvents(
+        store,
+        "rename_organization",
+        async () => await rename("Acme Rockets"),
+      );
+      expect(res.status).toBe(500);
+      expect(await h.directory.team(ACME)).toEqual({ clerkOrgID: ACME, name: "Acme" });
+      const [row] = await store.query.select().from(organization);
+      expect(row.name).toBe("Acme");
     });
 
     it("should change nothing for the same name", async () => {

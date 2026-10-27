@@ -13,17 +13,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type EventPage } from "@/server/event";
+import { type Activity } from "@/page";
 import { dateTime, describeEvent, machineName } from "@/ui/format";
 import { Empty } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
-export interface ActivityTableProps {
-  page: EventPage;
-  /** actors is the name each Clerk user id in the page reads as. */
-  actors: Record<string, string>;
-  /** olderHref links the next page, or is null on the last one. */
-  olderHref: string | null;
+export interface ActivityTableProps extends Activity {
   /** organizations shows each event's organization in its own column. */
   organizations?: boolean;
   /** filtered says the page is filtered, for the message when it is empty. */

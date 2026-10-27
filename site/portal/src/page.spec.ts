@@ -275,6 +275,12 @@ describe("page", () => {
       );
     });
 
+    it("should refuse an inherited object key as a category", async () => {
+      await expect(read("?category=toString")).rejects.toThrow(
+        new HTTPError(400, "Invalid category"),
+      );
+    });
+
     it("should refuse a page that is not a number", async () => {
       await expect(read("?before=abc")).rejects.toThrow(
         new HTTPError(400, "Invalid page"),

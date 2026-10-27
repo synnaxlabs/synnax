@@ -15,8 +15,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
+import { type Activity } from "@/page";
 import { type Member, type Sent } from "@/server/directory";
-import { type EventPage } from "@/server/event";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { type Held } from "@/server/license/list";
 import { type Team } from "@/server/member";
@@ -50,12 +50,8 @@ interface MembersTab {
   invitations: Sent[];
 }
 
-interface ActivityTab {
+interface ActivityTab extends Activity {
   tab: "activity";
-  page: EventPage;
-  actors: Record<string, string>;
-  /** olderHref links the next page, or is null on the last one. */
-  olderHref: string | null;
 }
 
 export type OrganizationProps = { team: Team } & (

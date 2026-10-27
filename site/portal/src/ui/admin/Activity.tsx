@@ -13,7 +13,8 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useId } from "react";
 
-import { type Category, type EventPage } from "@/server/event";
+import { type Activity as ActivityData } from "@/page";
+import { type Category } from "@/server/event";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
 import { navigate } from "@/ui/api";
 import { Page } from "@/ui/Page";
@@ -33,12 +34,8 @@ export interface ActivityFilter {
   staff: boolean;
 }
 
-export interface ActivityProps {
-  page: EventPage;
-  actors: Record<string, string>;
+export interface ActivityProps extends ActivityData {
   filter: ActivityFilter;
-  /** olderHref links the next page, or is null on the last one. */
-  olderHref: string | null;
 }
 
 const activityHref = ({ category, staff }: ActivityFilter): string => {

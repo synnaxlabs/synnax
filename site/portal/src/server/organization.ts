@@ -162,7 +162,8 @@ export interface RenameArgs {
 }
 
 /**
- * rename changes a team's name in Clerk and in the portal.
+ * rename changes a team's name in Clerk and in the portal, and records it. Nothing
+ * changes when Clerk or the event write fails.
  * @throws {HTTPError} 400 for an empty or taken name.
  */
 export const rename = async (
@@ -174,18 +175,22 @@ export const rename = async (
   if (trimmed === team.name) return team;
   if (trimmed.toLowerCase() !== team.name.toLowerCase())
     await requireUnique(directory, trimmed);
-  await directory.rename(team.clerkOrgID, trimmed);
-  const [row] = await mirrorTeams(store, [
-    { clerkOrgID: team.clerkOrgID, name: trimmed },
-  ]);
-  await store.query.insert(event).values({
-    at: now,
-    kind: "rename_organization",
-    actor,
-    organization: team.key,
-    detail: { name: trimmed, from: team.name },
+  return await store.transact(async (tx) => {
+    const [row] = await tx
+      .update(organization)
+      .set({ name: trimmed })
+      .where(eq(organization.key, team.key))
+      .returning();
+    await tx.insert(event).values({
+      at: now,
+      kind: "rename_organization",
+      actor,
+      organization: team.key,
+      detail: { name: trimmed, from: team.name },
+    });
+    await directory.rename(team.clerkOrgID, trimmed);
+    return row;
   });
-  return row;
 };
 
 /**

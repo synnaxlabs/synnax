@@ -50,7 +50,8 @@ const CATEGORIES = {
 
 export type Category = keyof typeof CATEGORIES;
 
-export const isCategory = (value: string): value is Category => value in CATEGORIES;
+export const isCategory = (value: string): value is Category =>
+  Object.hasOwn(CATEGORIES, value);
 
 /** Entry is an event with the names of the records it concerns. */
 export interface Entry {
@@ -63,7 +64,7 @@ export interface Entry {
   machine: { name: string | null; fingerprint: string[] } | null;
 }
 
-export interface EventQuery {
+export interface Query {
   organization?: string;
   category?: Category;
   /** actors keeps only the events these Clerk user ids made. */
@@ -73,18 +74,18 @@ export interface EventQuery {
   limit?: number;
 }
 
-export interface EventPage {
+export interface Page {
   /** entries are newest first. */
   entries: Entry[];
   /** next is the `before` that reads the page after this one, or null for the last. */
   next: number | null;
 }
 
-/** listEvents reads a page of audit events, newest first. Staff only. */
-export const listEvents = async (
+/** list reads a page of audit events, newest first. Staff only. */
+export const list = async (
   store: Store,
-  { organization: org, category, actors, before, limit = 50 }: EventQuery,
-): Promise<EventPage> => {
+  { organization: org, category, actors, before, limit = 50 }: Query,
+): Promise<Page> => {
   const where: SQL[] = [];
   if (org != null) where.push(eq(event.organization, org));
   if (category != null) where.push(inArray(event.kind, [...CATEGORIES[category]]));

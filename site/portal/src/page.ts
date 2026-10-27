@@ -13,12 +13,7 @@ import { type Portal } from "@/portal";
 import { type Organization, type OrganizationKind } from "@/server/db/schema";
 import { ADMIN_ROLE } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
-import {
-  type EventPage,
-  type EventQuery,
-  isCategory,
-  listEvents,
-} from "@/server/event";
+import { isCategory, list, type Page, type Query } from "@/server/event";
 import {
   invitationsFor,
   type Invited,
@@ -129,7 +124,7 @@ export const failure = (err: unknown): { status: number; message: string } => {
 
 /** Activity is a page of the audit log as a staff page shows it. */
 export interface Activity {
-  page: EventPage;
+  page: Page;
   /** actors is the name each person in the page reads as. */
   actors: Record<string, string>;
   /** olderHref links the next page, or is null on the last one. */
@@ -144,7 +139,7 @@ export interface Activity {
 export const readActivity = async (
   { store, directory, staffOrgID }: Portal,
   url: URL,
-  query: EventQuery = {},
+  query: Query = {},
 ): Promise<Activity> => {
   const params = url.searchParams;
   const before = params.get("before");
@@ -161,7 +156,7 @@ export const readActivity = async (
     query.actors = (await directory.roster(staffOrgID))
       .filter((m) => m.role === ADMIN_ROLE)
       .map((m) => m.userID);
-  const page = await listEvents(store, query);
+  const page = await list(store, query);
   // A machine acting on its own seat has its activation key as the actor.
   const people = page.entries
     .filter(({ event: e }) => e.actor !== e.activation)

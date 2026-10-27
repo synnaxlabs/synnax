@@ -32,16 +32,24 @@ const requireRole = (role: string): void => {
   if (role !== ADMIN_ROLE && role !== MEMBER_ROLE) throw badRequest("Choose a role");
 };
 
+/**
+ * record writes the event of a change and applies the change in Clerk in one
+ * transaction. A failed event write applies nothing, and a failed change leaves no
+ * event.
+ */
 const record = async (
   store: Store,
   { team, actor, now }: Change,
   kind: EventKind,
   detail: Record<string, unknown>,
-): Promise<void> => {
-  await store.query
-    .insert(event)
-    .values({ at: now, kind, actor, organization: team.key, detail });
-};
+  apply: () => Promise<void>,
+): Promise<void> =>
+  await store.transact(async (tx) => {
+    await tx
+      .insert(event)
+      .values({ at: now, kind, actor, organization: team.key, detail });
+    await apply();
+  });
 
 export interface InviteArgs extends Change {
   email: string;
@@ -63,14 +71,20 @@ export const invite = async (
   const address = email.trim();
   if (address === "") throw badRequest("Enter an email address");
   requireRole(role);
-  await directory.invite({
-    clerkOrgID: change.team.clerkOrgID,
-    email: address,
-    role,
-    inviterUserID: change.actor,
-    redirectURL,
-  });
-  await record(store, change, "invite", { email: address, role });
+  await record(
+    store,
+    change,
+    "invite",
+    { email: address, role },
+    async () =>
+      await directory.invite({
+        clerkOrgID: change.team.clerkOrgID,
+        email: address,
+        role,
+        inviterUserID: change.actor,
+        redirectURL,
+      }),
+  );
 };
 
 export interface RevokeInvitationArgs extends Change {
@@ -89,11 +103,13 @@ export const revokeInvitation = async (
   const sent = await directory.outstanding(change.team.clerkOrgID);
   const found = sent.find((s) => s.invitationID === invitationID);
   if (found == null) throw notFound("Invitation");
-  await directory.revokeInvitation(change.team.clerkOrgID, invitationID);
-  await record(store, change, "revoke_invitation", {
-    email: found.email,
-    role: found.role,
-  });
+  await record(
+    store,
+    change,
+    "revoke_invitation",
+    { email: found.email, role: found.role },
+    async () => await directory.revokeInvitation(change.team.clerkOrgID, invitationID),
+  );
 };
 
 export interface MemberArgs extends Change {
@@ -136,13 +152,13 @@ export const changeRole = async (
   const { roster, member } = await find(directory, args);
   if (member.role === role) return;
   keepAnAdmin(roster, member);
-  await directory.setRole(args.team.clerkOrgID, member.userID, role);
-  await record(store, args, "change_role", {
-    member: member.userID,
-    email: member.email,
-    from: member.role,
-    to: role,
-  });
+  await record(
+    store,
+    args,
+    "change_role",
+    { member: member.userID, email: member.email, from: member.role, to: role },
+    async () => await directory.setRole(args.team.clerkOrgID, member.userID, role),
+  );
 };
 
 /**
@@ -157,9 +173,11 @@ export const remove = async (
 ): Promise<void> => {
   const { roster, member } = await find(directory, args);
   keepAnAdmin(roster, member);
-  await directory.remove(args.team.clerkOrgID, member.userID);
-  await record(store, args, "remove_member", {
-    member: member.userID,
-    email: member.email,
-  });
+  await record(
+    store,
+    args,
+    "remove_member",
+    { member: member.userID, email: member.email },
+    async () => await directory.remove(args.team.clerkOrgID, member.userID),
+  );
 };
