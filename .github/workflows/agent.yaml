@@ -7,9 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs Claude Code or Codex on an agent runner through scripts/agent/run. Each agent
-# writes to GitHub as its own GitHub App, never as a person. The fleet controller starts
-# a stopped runner for the queued job.
+# Runs Claude Code or Codex on an agent runner through scripts/agent/run, with the CLI
+# login of the runner's seat. Each agent writes to GitHub as its own GitHub App, never
+# as a person. The fleet controller starts a stopped runner for the queued job.
 name: Agent
 
 on:
@@ -141,8 +141,11 @@ jobs:
         run: gh pr checkout "$PR"
 
       # A runner can stay stopped for weeks, so every job takes the latest agent CLIs.
+      # The runners on an instance share the CLIs, so one job updates them at a time.
       - name: Update the agent CLIs
-        run: sudo npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
+        run: |
+          sudo flock /run/lock/agent-cli npm install -g \
+            @anthropic-ai/claude-code@latest @openai/codex@latest
 
       - name: Set up the task
         if: inputs.setup != ''
@@ -157,8 +160,6 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
           AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
-          CLAUDE_CODE_OAUTH_TOKEN:
-            ${{ env.AGENT == 'claude' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           PROMPT: ${{ inputs.prompt }}
           OUTPUT: ${{ inputs.output }}
           PR: ${{ inputs.pr }}

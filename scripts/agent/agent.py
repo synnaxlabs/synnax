@@ -36,8 +36,8 @@ time, in Unix seconds, as the `limited-until` step output and exits with LIMITED
 
 Environment: AGENT_DEFAULT picks the agent when --agent is absent. GH_TOKEN is the
 GitHub App installation token for `gh` and for Git pushes. AGENT_GIT_NAME and
-AGENT_GIT_EMAIL are the bot identity for commits. CLAUDE_CODE_OAUTH_TOKEN or a Codex
-login authenticates the CLI. pr and comment need a clean checkout.
+AGENT_GIT_EMAIL are the bot identity for commits. A Claude Code or Codex login
+authenticates the CLI. pr and comment need a clean checkout.
 """
 
 import argparse
