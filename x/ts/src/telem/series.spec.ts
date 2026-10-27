@@ -3220,6 +3220,13 @@ describe("MultiSeries", () => {
       expect(multiSeries1.series[1]).toBe(series2);
     });
 
+    it("should push a MultiSeries to itself", () => {
+      const series = new Series({ data: [1, 2, 3], dataType: DataType.FLOAT32 });
+      const multiSeries = new MultiSeries([series]);
+      multiSeries.push(multiSeries);
+      expect(multiSeries.series).toEqual([series, series]);
+    });
+
     it("should maintain data type consistency when pushing series", () => {
       const series1 = new Series({ data: [1, 2, 3], dataType: DataType.FLOAT32 });
       const series2 = new Series({ data: [4, 5, 6], dataType: DataType.FLOAT32 });
