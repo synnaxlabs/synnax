@@ -183,29 +183,30 @@ describe("Reducer", () => {
       ]);
     });
 
-    it("should average float32 series by the integer types their channels store", () => {
-      const y = new Series(new Float32Array([0, 1, 0, 1]));
-      const [r] = new Reducer().reduce([op(ramp(4), y)], "average", 4, {
-        x: DataType.TIMESTAMP,
-        y: DataType.INT16,
+    it("should round down the average of integer series", () => {
+      const x = new Series({
+        data: new BigInt64Array([0n, 1n, 2n, 3n]),
+        dataType: DataType.TIMESTAMP,
       });
-      expect(Array.from(r.x)).toEqual([1]);
+      const y = new Series(new Int16Array([0, 1, 0, 1]));
+      const r = reduceOne(op(x, y), "average", 4);
+      expect(Array.from(r.x.glData)).toEqual([1]);
       expect(Array.from(r.y)).toEqual([0]);
     });
 
     it("should scale the mean of a partial group to its count", () => {
       const y = new Series(new Float64Array([0.1, 0.2, 2.3]));
       const r = reduceOne(op(ramp(3), y), "average", 4);
-      expect(Array.from(r.y)).toEqual([0.8666666666666665]);
+      expect(Array.from(r.y)).toEqual(f32(0.8666666666666665));
     });
 
-    it("should keep an integer mean exact when the sum passes 2^53", () => {
+    it("should average an integer group whose sum passes 2^53", () => {
       const n = 2 ** 22;
       const data = new Uint32Array(n)
         .fill(2 ** 32 - 3, 0, 3 * 2 ** 20)
         .fill(1, 3 * 2 ** 20);
       const r = reduceOne(op(ramp(n), new Series(data)), "average", n);
-      expect(Array.from(r.y)).toEqual([3221225470]);
+      expect(Array.from(r.y)).toEqual(f32(3221225470));
     });
 
     it("should propagate a NaN in a group", () => {
@@ -287,6 +288,20 @@ describe("Reducer", () => {
     expect(r.x.sampleOffset).toBe(100n);
     expect(r.y.sampleOffset).toBe(5);
     expect(r.x.timeRange).toBe(xRange);
+  });
+
+  it("should reduce a bigint series to float32 off its first sample", () => {
+    const first = TimeStamp.seconds(1_750_000_000).valueOf();
+    const x = new Series({
+      data: new BigInt64Array([first, first + 10n, first + 20n, first + 30n]),
+      dataType: DataType.TIMESTAMP,
+    });
+    const y = new Series(new Float64Array([1, 5, 2, 0]));
+    const r = reduceOne(op(x, y), "min_max", 4);
+    expect(r.x.dataType).toEqual(DataType.FLOAT32);
+    expect(r.y.dataType).toEqual(DataType.FLOAT32);
+    expect(Array.from(r.x)).toEqual([first + 10n, first + 30n]);
+    expect(Array.from(r.y)).toEqual([5, 0]);
   });
 
   it("should return ops of reduced series unchanged", () => {
