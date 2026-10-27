@@ -6,6 +6,10 @@ easy to get wrong by hand.
 
 ## Formatting
 
+- `fix.sh` — adds copyright headers to files and formats them with Prettier, Ruff,
+  `golangci-lint fmt`, and clang-format. With no arguments it fixes files changed
+  against the merge base with `origin/main`; `--staged` fixes staged files and stages
+  the fixes; file arguments fix only those files. It skips a formatter it cannot find.
 - Go has no repo script: format with `golangci-lint fmt` in the module (dry run:
   `--diff`), driven by the formatters in the root `.golangci.yaml`.
 - `clang_format.sh <path>` / `clang_format.sh --files <f1> <f2> ...` — formats
