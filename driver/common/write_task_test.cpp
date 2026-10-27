@@ -361,12 +361,13 @@ TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
 
     ASSERT_TRUE(write_task->start("start_cmd"));
     ASSERT_FALSE(write_task->start("start_cmd_2"));
-    EXPECT_EQ(ctx->statuses.size(), 0);
+    EXPECT_TRUE(ctx->snapshot().empty());
     open.set_value();
-    ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
-    EXPECT_EQ(ctx->statuses[1].details.cmd, "start_cmd_2");
-    for (const auto &status: ctx->statuses) {
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[0].details.cmd, "start_cmd");
+    EXPECT_EQ(statuses[1].details.cmd, "start_cmd_2");
+    for (const auto &status: statuses) {
         EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
         EXPECT_EQ(status.message, "Started task");
         EXPECT_TRUE(status.details.running);
@@ -386,13 +387,14 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
     auto write_task = create_write_task(ctx, streamer_factory, sink);
 
     write_task->start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    const auto &status = ctx->statuses[0];
+    // The failed start sends its reply, then a stop status.
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[0];
     EXPECT_EQ(status.details.cmd, "start_cmd");
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to start task");
     EXPECT_FALSE(status.details.running);
-    ASSERT_EVENTUALLY_EQ(sink->stop_count, 1);
+    EXPECT_EQ(sink->stop_count, 1);
     write_task->stop("stop_cmd", true);
     EXPECT_EQ(sink->stop_count, 1);
 }
