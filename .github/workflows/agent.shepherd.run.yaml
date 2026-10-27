@@ -1,0 +1,97 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls an agent to bring one pull request to done when the gate allows it and work is
+# left. Every run counts as one attempt. At the cap, the gate labels the pull request
+# agent/needs-human and asks for a person. The agent's pushes and reviews wake Agent -
+# Shepherd again, so the cap bounds the loop. Attempt comments use GITHUB_TOKEN, which
+# starts no workflows.
+
+name: Agent - Shepherd run
+
+on:
+  workflow_call:
+    inputs:
+      pr:
+        description: The pull request number
+        required: true
+        type: number
+
+permissions: {}
+
+jobs:
+  gate:
+    name: Gate
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      prompt: ${{ steps.gate.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Gate the attempt and find the work
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENT_LOGINS: ${{ vars.AGENT_LOGINS }}
+          PR: ${{ inputs.pr }}
+          CAP: 5
+        run: |
+          VERDICT=$(.github/scripts/agent_gate.sh "$PR" shepherd "$CAP")
+          echo "$VERDICT"
+          read -r verdict attempt <<< "$VERDICT"
+          [ "$verdict" != skip ] || exit 0
+          WORK=$(.github/scripts/shepherd_work.sh "$PR")
+          echo "Work: ${WORK:-none}"
+          [ -n "$WORK" ] || exit 0
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          COMMENTS="repos/$GITHUB_REPOSITORY/issues/$PR/comments"
+          if [ "$verdict" = stop ]; then
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" > /dev/null \
+              -f 'labels[]=agent/needs-human'
+            gh api "$COMMENTS" > /dev/null -f body="Agents stopped after attempt \
+          ${CAP} of ${CAP}. A person must look. Remove the \`agent/needs-human\` label to \
+          let agents try again."
+            exit 0
+          fi
+          gh api "$COMMENTS" > /dev/null -f body="<!-- agent:shepherd -->
+          Agent attempt ${attempt} of ${CAP}: [run](${RUN_URL})."
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/shepherd.md
+            printf '\nThe pull request is #%s. The gate found this work:\n\n%s\n' \
+              "$PR" "$WORK"
+            echo "$EOF"
+            echo run=true
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    permissions:
+      actions: write
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.gate.outputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: comment
+      pr: ${{ inputs.pr }}
+      timeout-minutes: 90
+    secrets: inherit
