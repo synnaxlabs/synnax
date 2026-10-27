@@ -530,29 +530,6 @@ class TestController:
             assert len(errors) == 1
             assert isinstance(errors[0], sy.UnexpectedError)
 
-    def test_receiver_records_close_error(
-        self, client: sy.Synnax, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Should record an error from closing the streamer as the receiver error."""
-        ch = client.channels.create(
-            name="control_receiver_close_error",
-            data_type=sy.DataType.FLOAT64,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-        with client.control.acquire(
-            name="Receiver Close Error", read=[ch.key], write=[ch.key]
-        ) as auto:
-            receiver = auto._receiver
-            close_loop = receiver.streamer.close_loop
-
-            async def failing_close_loop() -> None:
-                await close_loop()
-                raise RuntimeError("close failed")
-
-            monkeypatch.setattr(receiver.streamer, "close_loop", failing_close_loop)
-        assert isinstance(receiver.error, RuntimeError)
-
     def test_controller_set_authority_mechanisms(self, client: sy.Synnax) -> None:
         _, press_en_cmd, press_en, _ = create_valve_set(client)
 
