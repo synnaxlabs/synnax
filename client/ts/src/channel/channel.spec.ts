@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { Channel } from "@/channel/client";
 import { statusKey } from "@/channel/payload";
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
   createProxiedTestClient,

@@ -12,8 +12,8 @@ import { type record, zod } from "@synnaxlabs/x";
 import { assert, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { Deleted } from "@/query/deleted";
 

@@ -10,7 +10,7 @@
 import { id, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { type rack } from "@/rack";
 import { statusKey } from "@/rack/client";

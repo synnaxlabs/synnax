@@ -10,8 +10,8 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { NotFoundError } from "@/errors";
 import { group } from "@/group";
+import { NotFoundError } from "@/index";
 import { log } from "@/log";
 import { ontologyID } from "@/project/types.gen";
 import { createTestClient } from "@/testutil";

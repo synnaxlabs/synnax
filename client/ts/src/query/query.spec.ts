@@ -15,7 +15,7 @@ import {
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
-} from "@/errors";
+} from "@/index";
 import { query } from "@/query";
 import { Deleted } from "@/query/deleted";
 import { Space, type SpaceHooks } from "@/query/query";

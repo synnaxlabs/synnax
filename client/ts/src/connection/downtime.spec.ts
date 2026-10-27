@@ -10,7 +10,7 @@
 import { type breaker, observe, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { DisconnectedError, isConnectionError } from "@/errors";
+import { DisconnectedError, isConnectionError } from "@/index";
 import {
   createProxiedTestClient,
   FAST_RETRY,

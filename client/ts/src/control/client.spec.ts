@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { type channel } from "@/channel";
 import { type RetrieveMultipleParams } from "@/control/client";
 import { type KeyedState } from "@/control/state";
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { createTestClient } from "@/testutil";
 

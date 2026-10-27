@@ -13,8 +13,8 @@ import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
 import { type channel } from "@/channel";
-import { DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { DisconnectedError, NotFoundError } from "@/index";
 import { type query } from "@/query";
 import { createStreamer, type Streamer, type StreamerParams } from "@/query/streamer";
 import { createFetchListener, Table } from "@/query/table";

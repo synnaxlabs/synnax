@@ -27,7 +27,7 @@ import {
   DisconnectedError,
   ExpiredLicenseError,
   MissingLicenseError,
-} from "@/errors";
+} from "@/index";
 import { license } from "@/license";
 import { query } from "@/query";
 import { TEST_CLIENT_PARAMS } from "@/testutil";

@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { connection } from "@/connection";
-import { AccessDeniedError, InvalidLicenseError } from "@/errors";
+import { AccessDeniedError, InvalidLicenseError } from "@/index";
 import { license } from "@/license";
 import { ontology } from "@/ontology";
 import { query } from "@/query";

@@ -10,7 +10,7 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { rename } from "@/lineplot/actions.gen";
 import { type LinePlot } from "@/lineplot/types.gen";
 import { query } from "@/query";
