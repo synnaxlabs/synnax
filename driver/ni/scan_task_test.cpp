@@ -7,13 +7,198 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstring>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "absl/base/log_severity.h"
+#include "absl/log/globals.h"
+#include "absl/log/log_entry.h"
+#include "absl/log/log_sink.h"
+#include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/json.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/ni/scan_task.h"
+#include "driver/ni/syscfg/api.h"
+#include "driver/ni/syscfg/sugared.h"
 
 namespace driver::ni {
+namespace {
+/// @brief syscfg::API that enumerates a single physical device.
+class SingleDeviceAPI final : public syscfg::API {
+    std::string serial;
+    std::string product_name;
+    bool enumerated = false;
+
+    static NISysCfgStatus copy(void *value, const std::string &str) {
+        std::strcpy(static_cast<char *>(value), str.c_str());
+        return NISysCfg_OK;
+    }
+
+public:
+    SingleDeviceAPI(std::string serial, std::string product_name):
+        serial(std::move(serial)), product_name(std::move(product_name)) {}
+
+    NISYSCFGCFUNC InitializeSession(
+        const char *,
+        const char *,
+        const char *,
+        NISysCfgLocale,
+        NISysCfgBool,
+        unsigned int,
+        NISysCfgEnumExpertHandle *,
+        NISysCfgSessionHandle *
+    ) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC CreateFilter(NISysCfgSessionHandle, NISysCfgFilterHandle *) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCDECL
+    SetFilterProperty(NISysCfgFilterHandle, NISysCfgFilterProperty, ...) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC CloseHandle(void *) override { return NISysCfg_OK; }
+
+    NISYSCFGCFUNC FindHardware(
+        NISysCfgSessionHandle,
+        NISysCfgFilterMode,
+        NISysCfgFilterHandle,
+        const char *,
+        NISysCfgEnumResourceHandle *
+    ) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC NextResource(
+        NISysCfgSessionHandle,
+        NISysCfgEnumResourceHandle,
+        NISysCfgResourceHandle *
+    ) override {
+        if (this->enumerated) return NISysCfg_EndOfEnum;
+        this->enumerated = true;
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC GetResourceProperty(
+        NISysCfgResourceHandle,
+        const NISysCfgResourceProperty propertyID,
+        void *value
+    ) override {
+        switch (propertyID) {
+            case NISysCfgResourcePropertyIsSimulated:
+            case NISysCfgResourcePropertyIsChassis:
+                *static_cast<NISysCfgBool *>(value) = NISysCfgBoolFalse;
+                return NISysCfg_OK;
+            case NISysCfgResourcePropertySerialNumber:
+                return copy(value, this->serial);
+            case NISysCfgResourcePropertyProductName:
+                return copy(value, this->product_name);
+            default:
+                return copy(value, "");
+        }
+    }
+
+    NISYSCFGCFUNC GetResourceIndexedProperty(
+        NISysCfgResourceHandle,
+        const NISysCfgIndexedProperty propertyID,
+        unsigned int,
+        void *value
+    ) override {
+        if (propertyID == NISysCfgIndexedPropertyExpertResourceName)
+            return copy(value, "\"Mod1\"");
+        return copy(value, "Mod1");
+    }
+
+    NISYSCFGCFUNC
+    GetStatusDescriptionW(NISysCfgSessionHandle, NISysCfgStatus, wchar_t **) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC
+    SetFilterPropertyV(NISysCfgFilterHandle, NISysCfgFilterProperty, va_list) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC FreeDetailedStringW(wchar_t[]) override { return NISysCfg_OK; }
+};
+
+/// @brief records every log entry at VLOG level 1 for the lifetime of the capture.
+class LogCapture final : public absl::LogSink {
+    int prev_vlog_level;
+    std::vector<std::pair<absl::LogSeverity, std::string>> entries;
+
+public:
+    LogCapture(): prev_vlog_level(absl::SetGlobalVLogLevel(1)) {
+        absl::AddLogSink(this);
+    }
+
+    ~LogCapture() override {
+        absl::RemoveLogSink(this);
+        absl::SetGlobalVLogLevel(this->prev_vlog_level);
+    }
+
+    void Send(const absl::LogEntry &entry) override {
+        this->entries.emplace_back(entry.log_severity(), entry.text_message());
+    }
+
+    /// @brief returns the severity of every entry whose text equals msg.
+    [[nodiscard]] std::vector<absl::LogSeverity>
+    severities(const std::string &msg) const {
+        std::vector<absl::LogSeverity> out;
+        for (const auto &[severity, text]: this->entries)
+            if (text == msg) out.push_back(severity);
+        return out;
+    }
+};
+
+/// @brief runs one scan over a single device and expects it to be filtered.
+void scan_filtered(const std::string &serial, const std::string &product_name) {
+    const auto api = std::make_shared<syscfg::SugaredAPI>(
+        std::make_shared<SingleDeviceAPI>(serial, product_name)
+    );
+    x::json::json j = x::json::json::object();
+    auto p = x::json::Parser(j);
+    Scanner scanner(api, ScanTaskConfig(p), synnax::task::Task{});
+    ASSERT_NIL(scanner.start());
+    const auto [devices, err] = scanner.scan(common::ScannerContext{});
+    ASSERT_NIL(err);
+    EXPECT_TRUE(devices.empty());
+    ASSERT_NIL(scanner.stop());
+}
+}
+
+/// @brief it should log a filtered cRIO only at VLOG(1).
+TEST(ScanTaskTest, testFilteredCRIOLogsVerbose) {
+    const LogCapture logs;
+    scan_filtered("022B5288", "NI cRIO-9040");
+    EXPECT_EQ(
+        logs.severities(
+            "[ni.scan_task] device ignored by filter: 022B5288 (model: cRIO-9040)"
+        ),
+        std::vector{absl::LogSeverity::kInfo}
+    );
+}
+
+/// @brief it should log a filtered non-cRIO device as a warning.
+TEST(ScanTaskTest, testFilteredUnknownLogsWarning) {
+    const LogCapture logs;
+    scan_filtered("01ABCDEF", "Unknown");
+    EXPECT_EQ(
+        logs.severities(
+            "[ni.scan_task] device ignored by filter: 01ABCDEF (model: nown)"
+        ),
+        std::vector{absl::LogSeverity::kWarning}
+    );
+}
 /// @brief it should parse scan task configuration with defaults and custom values.
 TEST(ScanTaskTest, testConfigParse) {
     // Test default configuration

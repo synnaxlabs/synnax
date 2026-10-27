@@ -145,8 +145,13 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
     auto err = x::errors::NIL;
     if (this->cfg.should_ignore(dev.model)) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "device ignored by filter: " << dev.key
-                     << " (model: " << dev.model << ")";
+        const auto msg = SCAN_LOG_PREFIX + "device ignored by filter: " + dev.key +
+                         " (model: " + dev.model + ")";
+        // cRIO chassis are scanned but not used as programmable devices (FPGA, RT).
+        if (dev.model.starts_with("cRIO"))
+            VLOG(1) << msg;
+        else
+            LOG(WARNING) << msg;
         err = SKIP_DEVICE_ERR;
     } else {
         VLOG(1) << SCAN_LOG_PREFIX << "device validated successfully: " << dev.key

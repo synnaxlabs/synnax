@@ -62,8 +62,14 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ni",
+        "//driver/ni/syscfg",
         "//driver/pipeline/mock",
         "//x/cpp/test",
+        "@abseil-cpp//absl/base:log_severity",
+        "@abseil-cpp//absl/log:globals",
+        "@abseil-cpp//absl/log:log_entry",
+        "@abseil-cpp//absl/log:log_sink",
+        "@abseil-cpp//absl/log:log_sink_registry",
         "@googletest//:gtest_main",
     ],
 )
