@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -38,7 +38,7 @@ type benchEnv struct {
 // newBenchEnv creates count calculated channels off one stored channel.
 func newBenchEnv(b *testing.B, count int) *benchEnv {
 	gomega.RegisterTestingT(b)
-	node := mock.OpenNode(b.Context())
+	node := testutil.OpenNode(b.Context())
 	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
 		b.Fatalf("failed to open ontology: %v", err)

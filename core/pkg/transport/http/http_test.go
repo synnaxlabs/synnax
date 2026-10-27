@@ -26,12 +26,12 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -77,12 +77,12 @@ var _ = Describe("HTTP", func() {
 	Describe("License gate", func() {
 		var (
 			app    *fiber.App
-			signer svcmock.Signer
+			signer svctestutil.Signer
 		)
 		creds := auth.Credentials{Username: "root", Password: "root"}
 		BeforeEach(func(ctx SpecContext) {
-			node := mock.NewNode(ctx)
-			signer = svcmock.NewSigner()
+			node := testutil.NewNode(ctx)
+			signer = svctestutil.NewSigner()
 			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 				Insecure: new(true),
 			}))
@@ -183,7 +183,7 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/license/activate",
 				func() any {
 					return apilicense.ActivateRequest{
-						Key: signer.Sign(svcmock.NewLicense()),
+						Key: signer.Sign(svctestutil.NewLicense()),
 					}
 				},
 			),

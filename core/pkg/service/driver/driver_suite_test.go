@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	node         mock.Node
+	node         testutil.Node
 	db           *gorp.DB
 	rackService  *rack.Service
 	taskService  *task.Service
@@ -45,7 +45,7 @@ var (
 	channelSvc   *channel.Service
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
-	hostProvider = mock.NewStaticHostProvider(1)
+	hostProvider = testutil.NewStaticHostProvider(1)
 )
 
 func TestDriver(t *testing.T) {
@@ -57,7 +57,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db = node.DB
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{

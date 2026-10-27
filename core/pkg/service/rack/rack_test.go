@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -68,7 +68,7 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	cfg.DB = db
 	cfg.Ontology = otg
 	cfg.Group = g
-	cfg.HostProvider = mock.NewStaticHostProvider(1)
+	cfg.HostProvider = testutil.NewStaticHostProvider(1)
 	cfg.Status = stat
 	svc := MustSucceed(rack.OpenService(ctx, cfg))
 	return stack{
