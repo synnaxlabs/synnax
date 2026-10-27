@@ -16,14 +16,16 @@ name: Preview
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, closed]
+    types: [opened, synchronize, reopened, labeled, unlabeled, closed]
 
-# A new push or the close cancels the run it replaces. Any other label gets a group of
-# its own, so it skips without cancelling a deploy or a teardown.
+# A new push or the close cancels the run it replaces. A removed label, or an added one
+# other than preview, gets a group of its own, so it never cancels a deploy or a
+# teardown.
 concurrency:
   group:
-    preview-${{ github.event.pull_request.number }}${{ github.event.action == 'labeled'
-    && github.event.label.name != 'preview' && format('-{0}', github.run_id) || '' }}
+    preview-${{ github.event.pull_request.number }}${{ (github.event.action ==
+    'unlabeled' || (github.event.action == 'labeled' && github.event.label.name !=
+    'preview')) && format('-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 permissions: {}
@@ -37,7 +39,8 @@ jobs:
     if:
       github.event.pull_request.head.repo.full_name == github.repository &&
       vars.PREVIEW_INSTANCE_ID != '' && github.event.action != 'closed' &&
-      (github.event.action != 'labeled' || github.event.label.name == 'preview')
+      github.event.action != 'unlabeled' && (github.event.action != 'labeled' ||
+      github.event.label.name == 'preview')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -179,6 +182,33 @@ jobs:
             for a simulated tank pressurization.
 
             Built from ${{ github.event.pull_request.head.sha }}.
+
+  # Eviction keeps previews waiting on a human review, so the host learns when the
+  # review/human label changes without a redeploy.
+  mark:
+    if:
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_INSTANCE_ID != '' && github.event.label.name == 'review/human' &&
+      (github.event.action == 'labeled' || github.event.action == 'unlabeled')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.PREVIEW_ROLE_ARN }}
+          aws-region: ${{ vars.PREVIEW_REGION }}
+
+      - name: Mark the preview
+        env:
+          COMMAND: >-
+            /usr/local/bin/preview mark ${{ env.PR }} ${{ github.event.action ==
+            'labeled' && 'human' || 'none' }}
+          INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
+        run: .github/scripts/run_preview_command.sh
 
   teardown:
     if:

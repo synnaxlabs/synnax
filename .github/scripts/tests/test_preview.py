@@ -87,8 +87,8 @@ class Host:
     def ready(self) -> None:
         (self.path / "ready").touch()
 
-    def containers(self, *rows: tuple[int, int] | tuple[int, int, int]) -> None:
-        text = "".join(" ".join(map(str, row)) + "\n" for row in rows)
+    def containers(self, *rows: tuple[int, int]) -> None:
+        text = "".join(f"{pr} {deployed}\n" for pr, deployed in rows)
         (self.path / "containers").write_text(text)
 
     def viewed(self, pr: int, at: int) -> None:
@@ -102,6 +102,9 @@ class Host:
     def docker(self) -> list[str]:
         return [c.split(" | ")[0] for c in self.calls() if c.startswith("docker ")]
 
+    def mark(self, pr: int) -> Path:
+        return self.sites / f"pr-{pr}.human"
+
     def site(self, pr: int) -> Path:
         return self.sites / f"pr-{pr}.caddy"
 
@@ -114,7 +117,7 @@ def host(tmp_path: Path) -> Host:
 class TestUp:
     """Tests for starting or replacing the Core for a pull request."""
 
-    def test_starts_core_and_routes_it(self, host: Host) -> None:
+    def test_should_start_the_core_and_route_to_it(self, host: Host) -> None:
         host.ready()
         result = host.run("up", "12", "registry/synnax-preview:pr-12")
         assert result.returncode == 0, result.stderr
@@ -142,7 +145,7 @@ class TestUp:
             "}\n"
         )
 
-    def test_passes_license_to_core(self, host: Host) -> None:
+    def test_should_pass_the_license_to_the_core(self, host: Host) -> None:
         host.ready()
         host.run("up", "12", "image")
         run = next(c for c in host.calls() if c.startswith("docker run"))
@@ -151,18 +154,20 @@ class TestUp:
         assert "--name /synnax-preview/license-key" in get
         assert "--region us-east-1" in get
 
-    def test_license_failure_keeps_running_core(self, host: Host) -> None:
+    def test_should_keep_the_running_core_when_the_license_fails(
+        self, host: Host
+    ) -> None:
         (host.path / "aws_fails").touch()
         result = host.run("up", "12", "image")
         assert result.returncode != 0
         assert host.docker() == []
 
-    def test_takes_lock_first(self, host: Host) -> None:
+    def test_should_take_the_lock_first(self, host: Host) -> None:
         host.ready()
         host.run("up", "12", "image")
         assert host.calls()[0] == "flock 9"
 
-    def test_core_never_ready(self, host: Host) -> None:
+    def test_should_fail_when_the_core_never_starts(self, host: Host) -> None:
         result = host.run("up", "12", "image")
         assert result.returncode == 1
         assert "did not start" in result.stderr
@@ -176,7 +181,7 @@ class TestCap:
     def evicted(self, result: subprocess.CompletedProcess[str]) -> list[str]:
         return [ln for ln in result.stdout.splitlines() if ln.startswith("evicted")]
 
-    def test_removes_oldest_at_cap(self, host: Host) -> None:
+    def test_should_remove_the_oldest_preview_at_the_cap(self, host: Host) -> None:
         host.ready()
         host.containers((13, 200), (12, 100))
         host.site(12).write_text("route")
@@ -190,14 +195,17 @@ class TestCap:
             "docker rm --force synnax-pr-14",
         ]
 
-    def test_removes_unmarked_before_human_review(self, host: Host) -> None:
+    def test_should_remove_unmarked_previews_before_human_reviews(
+        self, host: Host
+    ) -> None:
         host.ready()
-        host.containers((12, 100, 1), (13, 200, 0))
+        host.containers((12, 100), (13, 200))
+        host.mark(12).touch()
         result = host.run("up", "14", "image")
         assert result.returncode == 0, result.stderr
         assert self.evicted(result) == ["evicted 13"]
 
-    def test_recent_view_keeps_a_preview(self, host: Host) -> None:
+    def test_should_keep_a_recently_viewed_preview(self, host: Host) -> None:
         host.ready()
         host.containers((12, 100), (13, 200))
         host.viewed(12, 300)
@@ -208,13 +216,18 @@ class TestCap:
         assert self.evicted(result) == ["evicted 13"]
         assert not (host.logs / "pr-13.log").exists()
 
-    def test_marks_human_review(self, host: Host) -> None:
+    def test_should_mark_a_human_review(self, host: Host) -> None:
         host.ready()
         assert host.run("up", "12", "image", "human").returncode == 0
-        run = next(c for c in host.docker() if c.startswith("docker run"))
-        assert "--label synnax.preview.human=1" in run
+        assert host.mark(12).exists()
 
-    def test_pull_failure_removes_nothing(self, host: Host) -> None:
+    def test_should_clear_the_human_review_mark(self, host: Host) -> None:
+        host.ready()
+        host.mark(12).touch()
+        assert host.run("up", "12", "image").returncode == 0
+        assert not host.mark(12).exists()
+
+    def test_should_remove_nothing_when_the_pull_fails(self, host: Host) -> None:
         (host.path / "pull_fails").touch()
         host.containers((12, 100), (13, 200))
         result = host.run("up", "14", "image")
@@ -222,21 +235,21 @@ class TestCap:
         assert self.evicted(result) == []
         assert not [c for c in host.docker() if c.startswith("docker rm")]
 
-    def test_replacing_a_preview_removes_nothing(self, host: Host) -> None:
+    def test_should_remove_nothing_when_replacing_a_preview(self, host: Host) -> None:
         host.ready()
         host.containers((12, 100), (13, 200))
         result = host.run("up", "12", "image")
         assert result.returncode == 0, result.stderr
         assert self.evicted(result) == []
 
-    def test_below_cap_removes_nothing(self, host: Host) -> None:
+    def test_should_remove_nothing_below_the_cap(self, host: Host) -> None:
         host.ready()
         host.containers((12, 100))
         result = host.run("up", "14", "image")
         assert result.returncode == 0, result.stderr
         assert self.evicted(result) == []
 
-    def test_over_cap_removes_down_to_room_for_one(self, host: Host) -> None:
+    def test_should_remove_enough_to_make_room_over_the_cap(self, host: Host) -> None:
         host.ready()
         host.containers((12, 300), (13, 100), (14, 200))
         result = host.run("up", "15", "image")
@@ -244,11 +257,30 @@ class TestCap:
         assert self.evicted(result) == ["evicted 13", "evicted 14"]
 
 
+class TestMark:
+    """Tests for marking a pull request that waits on a human review."""
+
+    def test_should_mark_a_human_review(self, host: Host) -> None:
+        assert host.run("mark", "12", "human").returncode == 0
+        assert host.mark(12).exists()
+
+    def test_should_clear_the_human_review_mark(self, host: Host) -> None:
+        host.mark(12).touch()
+        assert host.run("mark", "12", "none").returncode == 0
+        assert not host.mark(12).exists()
+
+    def test_should_reject_an_unknown_mark(self, host: Host) -> None:
+        result = host.run("mark", "12", "bot")
+        assert result.returncode == 1
+        assert "invalid review mark" in result.stderr
+
+
 class TestDown:
     """Tests for removing the Core for a pull request."""
 
-    def test_removes_core_and_route(self, host: Host) -> None:
+    def test_should_remove_the_core_route_and_mark(self, host: Host) -> None:
         host.site(12).write_text("route")
+        host.mark(12).touch()
         result = host.run("down", "12")
         assert result.returncode == 0, result.stderr
         assert host.docker() == [
@@ -256,12 +288,13 @@ class TestDown:
             "docker exec caddy caddy reload --config /etc/caddy/Caddyfile",
         ]
         assert not host.site(12).exists()
+        assert not host.mark(12).exists()
 
 
 class TestSweep:
     """Tests for removing previews past the TTL."""
 
-    def test_removes_only_expired(self, host: Host) -> None:
+    def test_should_remove_only_expired_previews(self, host: Host) -> None:
         now = int(time.time())
         host.containers((12, now - 8 * 86400), (13, now - 86400))
         host.site(12).write_text("route")
@@ -283,19 +316,21 @@ class TestArguments:
     @pytest.mark.parametrize(
         "args", [("up", "abc", "image"), ("down", "12;rm"), ("down", "")]
     )
-    def test_invalid_pr(self, host: Host, args: tuple[str, ...]) -> None:
+    def test_should_reject_an_invalid_pull_request(
+        self, host: Host, args: tuple[str, ...]
+    ) -> None:
         result = host.run(*args)
         assert result.returncode == 1
         assert "invalid pull request number" in result.stderr
         assert host.docker() == []
 
-    def test_invalid_review_mark(self, host: Host) -> None:
+    def test_should_reject_an_invalid_review_mark(self, host: Host) -> None:
         result = host.run("up", "12", "image", "bot")
         assert result.returncode == 1
         assert "invalid review mark" in result.stderr
         assert host.docker() == []
 
-    def test_unknown_command(self, host: Host) -> None:
+    def test_should_reject_an_unknown_command(self, host: Host) -> None:
         result = host.run("restart")
         assert result.returncode == 2
         assert "usage:" in result.stderr
