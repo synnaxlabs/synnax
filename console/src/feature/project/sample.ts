@@ -20,6 +20,9 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 
+import SEQUENCE from "@/feature/project/sampleSequence.arc?raw";
+import SIMULATOR from "@/feature/project/sampleSimulator.arc?raw";
+
 const NAME = "Sample project";
 
 // Fixed keys make each new sample overwrite the last one, even after a rename, so only
@@ -41,70 +44,6 @@ const PRESS_VLV_CMD = "sample_press_vlv_cmd";
 const VENT_VLV_CMD = "sample_vent_vlv_cmd";
 const START_CMD = "sample_start_cmd";
 const ABORT_CMD = "sample_abort_cmd";
-
-const SIMULATOR = `import time
-
-// Simulates a tank that fills from a 500 psi nitrogen supply through the press valve
-// and empties through the vent valve.
-func step() {
-    pressure f64 $= 0
-    if ${PRESS_VLV_CMD} == 1 {
-        pressure += (500 - pressure) * 0.02
-    }
-    if ${VENT_VLV_CMD} == 1 {
-        pressure -= pressure * 0.05
-    }
-    pressure -= pressure * 0.0002
-    ${TANK_PT} = pressure
-    ${PRESS_VLV_STATE} = ${PRESS_VLV_CMD}
-    ${VENT_VLV_STATE} = ${VENT_VLV_CMD}
-}
-
-time.interval{period=100ms} -> step{}
-`;
-
-const SEQUENCE = `import control
-import time
-
-// The sequence outranks the schematic, so a Start click does not take the valves. An
-// operator takes a valve with its control chip.
-authority 100
-
-sequence press {
-    stage idle {
-        0 -> ${PRESS_VLV_CMD}
-        0 -> ${VENT_VLV_CMD}
-        ${START_CMD} == 1 => pressurize
-    }
-    stage pressurize {
-        control.set_authority{value=100}
-        1 -> ${PRESS_VLV_CMD}
-        0 -> ${VENT_VLV_CMD}
-        ${TANK_PT} > 450 => abort
-        ${ABORT_CMD} == 1 => abort
-        ${TANK_PT} > 300 => hold
-    }
-    stage hold {
-        0 -> ${PRESS_VLV_CMD}
-        ${ABORT_CMD} == 1 => abort
-        time.wait{duration=10s} => vent
-    }
-    stage vent {
-        1 -> ${VENT_VLV_CMD}
-        ${TANK_PT} < 5 => idle
-    }
-    // Abort raises the sequence to the authority of a control chip, so its commands
-    // reach a valve an operator holds.
-    stage abort {
-        control.set_authority{value=255}
-        0 -> ${PRESS_VLV_CMD}
-        1 -> ${VENT_VLV_CMD}
-        ${START_CMD} == 1 => pressurize
-    }
-}
-
-true => press
-`;
 
 type Channels = Record<
   | typeof INDEX
