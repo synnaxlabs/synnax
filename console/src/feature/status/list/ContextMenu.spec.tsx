@@ -66,7 +66,7 @@ describe("status list context menu", () => {
     const store = await renderMenu([s.key]);
     fireEvent.click(await screen.findByText("Favorite"));
     await waitFor(() =>
-      expect(Session.Status.selectFavorites(store.getState())).toEqual([s.key]),
+      expect(store.getState()[Session.Status.SLICE_NAME].favorites).toEqual([s.key]),
     );
     expect(await screen.findByText("Unfavorite")).toBeTruthy();
   });
@@ -82,7 +82,7 @@ describe("status list context menu", () => {
     const store = await renderMenu([s.key], [s.key]);
     fireEvent.click(await screen.findByText("Unfavorite"));
     await waitFor(() =>
-      expect(Session.Status.selectFavorites(store.getState())).toEqual([]),
+      expect(store.getState()[Session.Status.SLICE_NAME].favorites).toEqual([]),
     );
   });
 
