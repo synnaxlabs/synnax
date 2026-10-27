@@ -29,7 +29,7 @@ const thing = (key: string, size = 1): Thing => ({ key, name: `${key}-name`, siz
 type Where = {
   and?: Where[];
   key?: { eq?: string; in?: string[] };
-  name?: { eq?: string };
+  name?: { eq?: string; in?: string[] };
 };
 
 const whereZ: z.ZodType<Where> = z.object({
@@ -39,7 +39,9 @@ const whereZ: z.ZodType<Where> = z.object({
   key: z
     .object({ eq: z.string().optional(), in: z.string().array().optional() })
     .optional(),
-  name: z.object({ eq: z.string().optional() }).optional(),
+  name: z
+    .object({ eq: z.string().optional(), in: z.string().array().optional() })
+    .optional(),
 });
 
 const requestZ = z.object({
@@ -47,6 +49,7 @@ const requestZ = z.object({
   where: whereZ.optional(),
   minSize: z.number().optional(),
   searchTerm: z.string().optional(),
+  includeTags: z.boolean().optional(),
 });
 interface Request extends z.infer<typeof requestZ> {}
 
@@ -96,6 +99,7 @@ class Client extends query.Retriever<Condition, typeof paramsZ, string, Thing> {
     super(cache, {
       name: "thing",
       table: store,
+      names: { key: z.string().length(1) },
       request: {
         schema: paramsZ,
         fetch: async (req) => await fetchRequest(req),
@@ -775,6 +779,51 @@ describe("Retriever", () => {
       void client.retrieve(filter.limit(1));
       // @ts-expect-error one goes after every other part
       void client.retrieve(filter.one(), name.eq("a"));
+      // @ts-expect-error a key takes only include options
+      void client.retrieve(["a"], filter.limit(1));
+    });
+  });
+
+  describe("shortcuts", () => {
+    const newClient = (records: Thing[]) => {
+      const fetchRequest = vi.fn(async (_: Request) => records);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      return { client, fetchRequest };
+    };
+    const includeTags = filter.include("includeTags");
+
+    it("should read one record by name", async () => {
+      const { client, fetchRequest } = newClient([thing("a")]);
+      expect(await client.retrieve("a-name")).toEqual(thing("a"));
+      expect(fetchRequest).toHaveBeenCalledWith({ where: { name: { eq: "a-name" } } });
+    });
+
+    it("should read the records with the names in a list", async () => {
+      const { client, fetchRequest } = newClient([thing("a"), thing("b")]);
+      const records = await client.retrieve(["a-name", "b-name"]);
+      expect(records).toEqual([thing("a"), thing("b")]);
+      expect(fetchRequest).toHaveBeenCalledWith({
+        where: { name: { in: ["a-name", "b-name"] } },
+      });
+    });
+
+    it("should apply include options to a key", async () => {
+      const { client, fetchRequest } = newClient([thing("a")]);
+      expect(await client.retrieve("a", includeTags())).toEqual(thing("a"));
+      expect(fetchRequest).toHaveBeenCalledWith({
+        where: { key: { eq: "a" } },
+        includeTags: true,
+      });
+    });
+
+    it("should throw a NotFoundError when no record has the name", async () => {
+      const { client } = newClient([]);
+      await expect(client.retrieve("x-name")).rejects.toThrow(NotFoundError);
+    });
+
+    it("should throw a MultipleFoundError when two records have the name", async () => {
+      const { client } = newClient([thing("a"), thing("b")]);
+      await expect(client.retrieve("a-name")).rejects.toThrow(MultipleFoundError);
     });
   });
 });

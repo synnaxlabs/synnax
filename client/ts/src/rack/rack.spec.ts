@@ -12,7 +12,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { type rack } from "@/rack";
+import { rack } from "@/rack";
 import { statusKey } from "@/rack/client";
 import { status } from "@/status";
 import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
@@ -163,6 +163,12 @@ describe("Rack", () => {
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
     });
+    it("should retrieve a rack by a bare name", async () => {
+      const name = `rack-${id.create()}`;
+      const r = await client.racks.create({ name });
+      const retrieved = await client.racks.retrieve(name);
+      expect(retrieved.key).toBe(r.key);
+    });
     it("should retrieve racks that match any branch of an or", async () => {
       const [a, b, c] = await client.racks.create([
         { name: `rack-or-${id.create()}` },
@@ -261,6 +267,15 @@ describe("Rack", () => {
         })
         .toBeDefined();
       expect(status?.details?.rack).toBe(r.key);
+    });
+    it("should include the rack's status with an include option", async () => {
+      const r = await client.racks.create({ name: "test" });
+      await expect
+        .poll(async () => {
+          const retrieved = await client.racks.retrieve(r.key, rack.includeStatus());
+          return retrieved.status?.details?.rack;
+        })
+        .toBe(r.key);
     });
     it("should include the status for multiple racks", async () => {
       const r1 = await client.racks.create({ name: "test1" });

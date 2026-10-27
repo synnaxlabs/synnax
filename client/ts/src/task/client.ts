@@ -388,6 +388,7 @@ export interface ClientConfig {
 
 type ListParts = query.ListParts<Condition, typeof retrieveMultiParamsZ>;
 type OneParts = query.OneParts<Condition, typeof retrieveMultiParamsZ>;
+type ShortcutOptions = query.ShortcutOptions<Condition, typeof retrieveMultiParamsZ>;
 
 /**
  * Creates, reads, deletes, and commands tasks on a Core. Reach it through
@@ -492,6 +493,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "task",
       table: store,
+      names: { key: keyZ },
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
@@ -582,8 +584,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves the tasks that match every condition in parts, or one task when
-   * parts end with `one()`.
+   * Retrieves the tasks that match every condition in parts, or one task when parts
+   * end with `one()`.
    */
   async retrieve(...parts: OneParts): Promise<Task>;
   async retrieve(...parts: ListParts): Promise<Task[]>;
@@ -591,17 +593,20 @@ export class Client extends query.Retriever<
     params: RetrieveSingleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
   async retrieve(params: Key | RetrieveSingleParams): Promise<Task>;
+
+  /** Retrieves a task by key or name, with each include option applied. */
+  async retrieve(key: Key | string, ...options: ShortcutOptions): Promise<Task>;
+  async retrieve(keys: Key[] | string[], ...options: ShortcutOptions): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
     params: RetrieveMultipleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
   async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    ...args:
-      ListParts | OneParts | [rawParams: Key | (RetrieveParams & RetrieveSchemas<S>)]
+    ...args: unknown[]
   ): Promise<Task<S> | Task<S>[]> {
     if (this.isParts(args))
       return (await this.retrieveParts(args)) as Task<S> | Task<S>[];
-    const [rawParams] = args;
+    const [rawParams] = args as [Key | (RetrieveParams & RetrieveSchemas<S>)];
     const { schemas, ...params } =
       typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const isSingle = z.validate(singleRetrieveParamsZ, params);

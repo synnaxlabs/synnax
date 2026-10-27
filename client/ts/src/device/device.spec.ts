@@ -259,6 +259,20 @@ describe("Device", async () => {
       expect(retrieved.make).toBe("ni");
     });
 
+    it("should retrieve a device by its key with an include option", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "test",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const retrieved = await client.devices.retrieve(d.key, device.includeStatus());
+      expect(retrieved.key).toBe(d.key);
+    });
+
     it("should retrieve multiple devices by their keys", async () => {
       const d1 = await client.devices.create({
         key: id.create(),
