@@ -138,6 +138,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
     where: { key: { in: devices } },
     schemas: Device.SCHEMAS,
   });
+  PlatformDevice.checkFound(devices, allDevices);
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1)
     throw new Error("Cannot create task with channels from multiple racks");

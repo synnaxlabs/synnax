@@ -200,21 +200,16 @@ export class Client extends query.Retriever<
 
   private async fetchRequest({ parent, ...req }: MultipleRequest): Promise<Group[]> {
     if (parent == null) return await this.execRetrieve(req);
-    const { where, ...options } = req;
-    if (where == null) return await this.fetchChildren(parent, options);
-    const keys = (await this.fetchChildren(parent, {})).map((g) => g.key);
+    const keys = (await this.fetchChildren(parent)).map((g) => g.key);
     if (keys.length === 0) return [];
     const children: Where = { key: { in: keys } };
-    return await this.execRetrieve({ ...options, where: { and: [where, children] } });
+    const where = req.where == null ? children : { and: [req.where, children] };
+    return await this.execRetrieve({ ...req, where });
   }
 
-  private async fetchChildren(
-    parent: ontology.ID,
-    options: Omit<RetrieveRequest, "where">,
-  ): Promise<Group[]> {
+  private async fetchChildren(parent: ontology.ID): Promise<Group[]> {
     const res = await this.requireOntology().children.retrieve({
       ids: parent,
-      ...options,
       types: ["group"],
     });
     const groups = res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));
