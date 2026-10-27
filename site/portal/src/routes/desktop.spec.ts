@@ -13,6 +13,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
 import { OPTIONS, POST as renewRoute } from "@/pages/api/desktop/renew";
+import { POST as desktopUnlinkRoute } from "@/pages/api/desktop/unlink";
 import { activation, event, license } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { hashSecret } from "@/server/license/desktop";
@@ -72,6 +73,13 @@ describe("desktop routes", () => {
 
   const postUnlink = async (key: string) =>
     await unlinkRoute(createAPIContext(harness.portal, { params: { key } }));
+
+  const postDesktopUnlink = async (authorization?: string) =>
+    await desktopUnlinkRoute(
+      createAPIContext(harness.portal, {
+        headers: authorization == null ? {} : { authorization },
+      }),
+    );
 
   describe("POST /api/desktop/link", () => {
     it("should refuse a visitor who is not logged in", async () => {
@@ -181,6 +189,44 @@ describe("desktop routes", () => {
       const linked = await linkAs("user_a");
       expect((await postUnlink(linked.activation)).status).toBe(204);
       const res = await postRenew(`Bearer ${linked.secret}`);
+      expect(res.status).toBe(403);
+      expect(await body(res)).toEqual({
+        error: "This machine is not logged in",
+        code: "unlinked",
+      });
+    });
+  });
+
+  describe("POST /api/desktop/unlink", () => {
+    it("should log out the machine the bearer secret belongs to", async () => {
+      const linked = await linkAs("user_a");
+      harness.signIn(null);
+      const res = await postDesktopUnlink(`Bearer ${linked.secret}`);
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      const [act] = await store.query
+        .select()
+        .from(activation)
+        .where(eq(activation.key, linked.activation));
+      expect(act.releasedAt).not.toBeNull();
+      const unlinks = (await store.query.select().from(event)).filter(
+        (e) => e.kind === "unlink",
+      );
+      expect(unlinks).toEqual([expect.objectContaining({ actor: linked.activation })]);
+      expect((await postRenew(`Bearer ${linked.secret}`)).status).toBe(403);
+    });
+
+    it("should refuse a request without a bearer secret", async () => {
+      const res = await postDesktopUnlink();
+      expect(res.status).toBe(401);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      expect(await body(res)).toEqual({ error: "Log in first" });
+    });
+
+    it("should refuse a machine that was logged out", async () => {
+      const linked = await linkAs("user_a");
+      expect((await postDesktopUnlink(`Bearer ${linked.secret}`)).status).toBe(204);
+      const res = await postDesktopUnlink(`Bearer ${linked.secret}`);
       expect(res.status).toBe(403);
       expect(await body(res)).toEqual({
         error: "This machine is not logged in",

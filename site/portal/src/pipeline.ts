@@ -31,10 +31,10 @@ const CSP = [
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
- * RENEW authenticates with a bearer secret and no cookie, so a request from any origin
- * is safe there.
+ * BEARER_ROUTES authenticate with a bearer secret and no cookie, so a request from any
+ * origin is safe there.
  */
-const RENEW = "/api/desktop/renew";
+const BEARER_ROUTES = new Set(["/api/desktop/renew", "/api/desktop/unlink"]);
 
 /**
  * crossOrigin reports whether a request that changes state came from another origin. A
@@ -50,7 +50,7 @@ const crossOrigin = ({ method, headers }: Request, url: URL): boolean => {
 
 /** origin refuses a cross-origin request that changes state. */
 const origin: MiddlewareHandler = async ({ request, url }, next) => {
-  if (url.pathname !== RENEW && crossOrigin(request, url))
+  if (!BEARER_ROUTES.has(url.pathname) && crossOrigin(request, url))
     return toResponse(forbidden("Cross-site requests are not allowed"));
   return await next();
 };

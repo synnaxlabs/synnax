@@ -140,6 +140,13 @@ The command then creates a rack for the Driver and an API key for that rack. It 
 only the API key, never the password, and the Driver logs in as its rack with the key.
 When the output shows `API key saved successfully!`, the Driver is logged in.
 
+An upgraded Driver that saved a username and password does this at its first start, and
+keeps its rack. If that user cannot create racks, the Driver logs the warning
+`Failed to enroll Driver`, and keeps logging in with the password. To fix it, run
+`login` as a user that can create racks, or create an API key for the rack in the
+Console and set it as `api_key` in the
+[configuration](/reference/enterprise/driver/configuration#parameters).
+
 ### Log in to a Core that uses TLS
 
 Answer `Y` to `Secure` when the Core uses TLS, and give the host name of the

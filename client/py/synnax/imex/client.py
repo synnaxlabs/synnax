@@ -7,10 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal
 
 from freighter import FileTransport
 from synnax import ontology
 from x.fs import FilePath
+
+Encoding = Literal["JSON"]
+"""The serialization of an exported resource. Only ``"JSON"`` is supported."""
 
 
 class Client:

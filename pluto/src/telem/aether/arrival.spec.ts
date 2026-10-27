@@ -15,7 +15,7 @@ import { createFactory } from "@/telem/aether/factory";
 import { sourcePipeline } from "@/telem/aether/pipeline";
 import { streamChannelValue } from "@/telem/aether/remote";
 import { type BooleanSource } from "@/telem/aether/telem";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { withinBounds } from "@/telem/aether/transformers";
 
 const START = TimeStamp.seconds(1_000_000);
