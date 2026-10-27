@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
+  AccessDeniedError,
   channel,
   DataType,
   type framer,
-  type status as cstatus,
+  status as cstatus,
 } from "@synnaxlabs/client";
 import { id, MultiSeries, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -74,6 +75,8 @@ describe("StreamMultiChannelLog", () => {
     stored = new Map<channel.Key, MultiSeries>();
     readF = vi.fn();
     readGate: Promise<void> = Promise.resolve();
+    streamVariant: cstatus.Variant = "success";
+    statusHandlers: framer.StatusHandler[] = [];
 
     channels = {
       retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
@@ -108,7 +111,14 @@ describe("StreamMultiChannelLog", () => {
         this.streamHandler = handler;
         this.streamKeys = keys;
         this.streamF(handler, keys);
-        return telemTest.mockSubscription(this.streamDestructorF);
+        return {
+          ...telemTest.mockSubscription(this.streamDestructorF),
+          status: () => cstatus.create({ variant: this.streamVariant, message: "" }),
+          onStatusChange: (h: framer.StatusHandler) => {
+            this.statusHandlers.push(h);
+            return () => {};
+          },
+        };
       },
     };
 
@@ -1045,6 +1055,54 @@ describe("StreamMultiChannelLog", () => {
       expect(log.value().map((e) => e.value)).toEqual(["a"]);
     });
 
+    it("should read stored samples only once the stream is open", async () => {
+      c.streamVariant = "loading";
+      c.stored.set(IDX, new MultiSeries([times([80], 0n)]));
+      c.stored.set(DATA, new MultiSeries([strings(["x"], 0n)]));
+      const { log } = create();
+      log.value();
+      await expect.poll(() => c.streamHandler != null).toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(c.readF).not.toHaveBeenCalled();
+      c.streamVariant = "success";
+      c.statusHandlers.forEach((h) =>
+        h(DATA, cstatus.create({ variant: "success", message: "" })),
+      );
+      await expect.poll(() => log.value().map((e) => e.value)).toEqual(["x"]);
+    });
+
+    it("should not read the stored samples again after an access denial", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        c.readGate = Promise.reject(new AccessDeniedError("denied"));
+        c.readGate.catch(() => {});
+        const { log, statuses } = create();
+        await waitForResolve(log);
+        vi.advanceTimersByTime(20_000);
+        await Promise.resolve();
+        expect(c.readF).toHaveBeenCalledTimes(1);
+        expect(statuses.map((s) => s.message)).toEqual(["Failed to read log channels"]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("should report a failed read only once while it retries", async () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        c.readGate = Promise.reject(new Error("read failed"));
+        c.readGate.catch(() => {});
+        const { log, statuses } = create();
+        await waitForResolve(log);
+        vi.advanceTimersByTime(5_000);
+        await expect.poll(() => c.readF.mock.calls.length).toBe(2);
+        await new Promise((resolve) => queueMicrotask(() => resolve(null)));
+        expect(statuses.map((s) => s.message)).toEqual(["Failed to read log channels"]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("should read the stored samples again after a failed read", async () => {
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
       try {
@@ -1174,6 +1232,40 @@ describe("StreamMultiChannelLog", () => {
         [IDX, 2],
         [IDX, 4],
       ]);
+    });
+
+    it("should keep distinct samples that share a time", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([90, 91, 91, 92], 0n)])],
+          [DATA, new MultiSeries([strings(["a", "b", "c", "d"], 0n)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["a", "b", "c", "d"]);
+    });
+
+    it("should not repeat replayed samples that share a time", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      const index = times([90, 90], 0n);
+      const data = strings(["a", "b"], 0n);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([index])],
+          [DATA, new MultiSeries([data])],
+        ]),
+      );
+      log.setChannels([DATA, DATA_2]);
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([index])],
+          [DATA, new MultiSeries([data])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["a", "b"]);
     });
 
     it("should keep held samples when a channel is added", async () => {

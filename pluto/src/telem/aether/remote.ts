@@ -95,7 +95,7 @@ export const DISCONNECTED_STATUS: cstatus.Crude = {
 };
 
 // Retrying only fixes connectivity; a definitive rejection recurs on every attempt.
-const isDefinitive = (e: unknown): boolean =>
+export const isDefinitive = (e: unknown): boolean =>
   AccessDeniedError.matches(e) ||
   ValidationError.matches(e) ||
   NotFoundError.matches(e);

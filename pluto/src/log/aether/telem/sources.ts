@@ -27,7 +27,7 @@ import {
 } from "@/log/aether/telem/types";
 import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
-import { type Client, DISCONNECTED_STATUS } from "@/telem/aether/remote";
+import { type Client, DISCONNECTED_STATUS, isDefinitive } from "@/telem/aether/remote";
 import { AbstractSource } from "@/telem/aether/telem";
 
 const MAX_ENTRIES = 100_000;
@@ -62,12 +62,15 @@ interface ChannelMeta {
   // Whether the log holds the channel's stored samples.
   historyRead: boolean;
   indexBuffers: Series[];
-  // The latest sample time in the log. A streamed sample at or before it is a
-  // duplicate. Sample time is the one identity the stream and stored reads share.
+  // The time and alignment of the latest sample in the log. A streamed sample at or
+  // before them is a duplicate. Distinct samples can share a time, so the alignment of
+  // a streamed sample breaks the tie. It is null after a stored read, which covers
+  // every sample at its time.
   highWater: bigint | null;
   // The first sample time the stream delivered. A stored sample at or after it is a
   // duplicate.
   streamStart: bigint | null;
+  highAlignment: bigint | null;
   // Whether the log has reported dropping samples whose index samples never arrived.
   untimedDropReported: boolean;
 }
@@ -155,29 +158,37 @@ export class StreamMultiChannelLog
     this.stopStreaming?.();
     this.stopStreaming = undefined;
     let unread: ChannelMeta[];
+    let subscription: framer.Subscription;
+    let keys: channel.Key[];
     try {
       const channels = await Promise.all(
         this._channels.map(async (ch) => await client.channels.retrieve(ch)),
       );
       if (generation !== this.readGeneration) return;
       unread = this.updateChannelMeta(channels);
-      this.stream(client);
+      keys = this.streamKeys();
+      subscription = this.stream(client, keys);
     } catch (e) {
       if (generation !== this.readGeneration) return;
       this.valid = false;
       this.onStatusChange?.(cstatus.fromException(e, "Failed to stream log channels"));
       return;
     }
-    // The stream opens first, so a slow read never delays live entries.
+    // The stored read starts once the stream is open, so no sample written between the
+    // two misses both.
+    await subscribed(subscription, keys);
+    if (generation !== this.readGeneration) return;
     await this.readHistory(client, generation, unread);
   }
 
   // Reads the stored samples of the indexed channels in metas. Channels whose reads fail
-  // read again after HISTORY_RETRY_DELAY.
+  // for a reason a retry can fix read again after HISTORY_RETRY_DELAY. Only the first
+  // attempt reports a failure.
   private async readHistory(
     client: Client,
     generation: number,
     metas: ChannelMeta[],
+    retry: boolean = false,
   ): Promise<void> {
     const indexed = metas.filter(({ index }) => index !== 0);
     const results = await Promise.allSettled(
@@ -190,8 +201,8 @@ export class StreamMultiChannelLog
     results.forEach((res, i) => {
       const meta = indexed[i];
       if (res.status === "rejected") {
-        failed.push(meta);
-        error = res.reason;
+        if (!isDefinitive(res.reason)) failed.push(meta);
+        error ??= res.reason;
         return;
       }
       meta.historyRead = true;
@@ -200,15 +211,16 @@ export class StreamMultiChannelLog
     // One stable sort instead of an insert per entry.
     if (entries.length > 0) this.entries = [...this.entries, ...entries].sort(byTime);
     this.gcEntries();
-    if (failed.length > 0) {
+    if (error != null && !retry)
       this.onStatusChange?.(
         cstatus.fromException(error, "Failed to read log channels"),
       );
+    if (failed.length > 0)
       this.retryTimer = setTimeout(
-        () => void this.readHistory(client, generation, failed),
+        () => void this.readHistory(client, generation, failed, true),
         HISTORY_RETRY_DELAY.milliseconds,
       );
-    }
+
     this.notify();
   }
 
@@ -242,6 +254,7 @@ export class StreamMultiChannelLog
         indexBuffers: kept?.indexBuffers ?? [],
         highWater: existing?.highWater ?? null,
         streamStart: existing?.streamStart ?? null,
+        highAlignment: existing?.highAlignment ?? null,
         untimedDropReported: existing?.untimedDropReported ?? false,
       };
       this.channelMeta.set(ch.key, meta);
@@ -250,12 +263,16 @@ export class StreamMultiChannelLog
     return unread;
   }
 
-  private stream(client: Client): void {
+  private streamKeys(): channel.Key[] {
     const keys = new Set<channel.Key>();
     for (const { key, index } of this.channelMeta.values()) {
       keys.add(key);
       if (index !== 0) keys.add(index);
     }
+    return [...keys];
+  }
+
+  private stream(client: Client, keys: channel.Key[]): framer.Subscription {
     const handler: framer.StreamHandler = (res) => {
       let pushed = 0;
       for (const meta of this.channelMeta.values()) {
@@ -278,7 +295,9 @@ export class StreamMultiChannelLog
       if (pushed > 0) this.notify();
     };
     // The exact feed, since the feed rounds sample times to float32.
-    this.stopStreaming = client.exactFeed.stream(handler, [...keys]).close;
+    const subscription = client.exactFeed.stream(handler, keys);
+    this.stopStreaming = subscription.close;
+    return subscription;
   }
 
   // Pushes the pending samples in order, up to the first one whose index sample has not
@@ -340,8 +359,8 @@ export class StreamMultiChannelLog
         if (meta.indexBuffers.some((s) => s.alignment > alignment)) continue;
         return { pushed, cursor: i };
       }
-      if (meta.highWater != null && time <= meta.highWater) continue;
-      meta.highWater = time;
+      if (isReplayed(meta, time, alignment)) continue;
+      [meta.highWater, meta.highAlignment] = [time, alignment];
       meta.streamStart ??= time;
       pushed += this.insert(meta, buf, i, time);
     }
@@ -366,7 +385,8 @@ export class StreamMultiChannelLog
         const group = toEntries(meta, s, i, time);
         groups.push(group);
         count += group.length;
-        if (meta.highWater == null || time > meta.highWater) meta.highWater = time;
+        if (meta.highWater == null || time >= meta.highWater)
+          [meta.highWater, meta.highAlignment] = [time, null];
       }
     }
     return groups.reverse().flat();
@@ -450,9 +470,31 @@ const readLatest = async (
   }
 };
 
+// Resolves once no key of subscription is still subscribing.
+const subscribed = async (
+  subscription: framer.Subscription,
+  keys: channel.Key[],
+): Promise<void> =>
+  await new Promise((resolve) => {
+    const done = (): boolean =>
+      keys.every((k) => subscription.status(k).variant !== "loading");
+    if (done()) return resolve();
+    const stop = subscription.onStatusChange(() => {
+      if (!done()) return;
+      stop();
+      resolve();
+    });
+  });
+
 const byTime = (a: LogEntry, b: LogEntry): number => {
   const [ta, tb] = [a.timestamp.valueOf(), b.timestamp.valueOf()];
   return ta < tb ? -1 : ta > tb ? 1 : 0;
+};
+
+const isReplayed = (meta: ChannelMeta, time: bigint, alignment: bigint): boolean => {
+  if (meta.highWater == null || time > meta.highWater) return false;
+  if (time < meta.highWater) return true;
+  return meta.highAlignment == null || alignment <= meta.highAlignment;
 };
 
 const sampleAlignment = (s: Series, i: number): bigint =>

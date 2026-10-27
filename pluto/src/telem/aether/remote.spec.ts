@@ -1827,7 +1827,7 @@ describe("remote", () => {
         });
         client = telemTest.createClient(core);
       });
-      afterEach(async () => await client.feed.close());
+      afterEach(async () => await client.close());
 
       // stream subscribes to the channel as another view of it would, then streams the
       // given number of its samples.
