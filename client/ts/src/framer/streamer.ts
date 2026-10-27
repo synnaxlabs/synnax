@@ -78,7 +78,7 @@ export type StreamerConfig = z.input<typeof streamerConfigZ>;
  * client's openStreamer method, never directly. Read frames with `read` or by
  * iterating the streamer. Close it in a `finally` block to free its resources.
  *
- * @see https://docs.synnaxlabs.com/reference/client/working-with-data/streaming-data
+ * @see https://docs.synnaxlabs.com/reference/client/stream-data
  */
 export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   /** The keys of the channels currently being streamed from. */

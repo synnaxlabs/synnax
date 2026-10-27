@@ -9,7 +9,7 @@
 
 """Parses the phase table at the end of an RFC and prints it as JSON.
 
-The table format is in docs/tech/rfc/CLAUDE.md. Exits non-zero with every error
+The table format is in docs/tech/rfc/AGENTS.md. Exits non-zero with every error
 found when the table is missing or malformed.
 
 Usage: phase_table.py <rfc.md>
