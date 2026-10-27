@@ -33,10 +33,10 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
 export interface Core extends z.infer<typeof coreZ> {}
 
 /** The local Core a desktop session starts with. */
-export const LOCAL_KEY = "LOCAL";
+const LOCAL_KEY = "LOCAL";
 
 /** The public demo Core. */
-export const DEMO_KEY = "DEMO";
+const DEMO_KEY = "DEMO";
 
 /**
  * The Core serving a browser Console. Stored state is scoped to the page's origin and a

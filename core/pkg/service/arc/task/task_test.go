@@ -353,7 +353,7 @@ var _ = Describe("Task", Ordered, func() {
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
-				To(HaveOccurred())
+				To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 		})
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
@@ -410,7 +410,7 @@ var _ = Describe("Task", Ordered, func() {
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask, "cmd-1")).Error().
-				To(HaveOccurred())
+				To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 			var stat task.Status
 			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 				Where(status.MatchKeys[task.StatusDetails](svcTask.OntologyID().String())).
@@ -597,7 +597,7 @@ var _ = Describe("Task", Ordered, func() {
 					Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 				}
 				Expect(factory.ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
-					To(HaveOccurred())
+					To(MatchError(ContainSubstring(`"/arc_key": invalid uuid`)))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
