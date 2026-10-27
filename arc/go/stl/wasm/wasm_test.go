@@ -1156,11 +1156,11 @@ var _ = Describe("WASM", func() {
 				}
 
 				source := `
-func emit_period{period i64 ns} (trigger f32) i64 {
+func emit_period(period i64 ns) {trigger f32} i64 {
     return period
 }
 
-trigger_ch -> emit_period{period=1s}
+trigger_ch -> emit_period(period=1s)
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -3564,7 +3564,7 @@ sequence main {
 					},
 				}
 
-				// Original example: func count_rising{counter chan f32}(input u8) {
+				// Original example: func count_rising(counter chan f32) {input u8} {
 				//     prev u8 $= input
 				//     if input != 0 and prev == 0 { counter = counter + 1.0 }
 				//     prev = input
@@ -4149,12 +4149,12 @@ sequence main {
 				}
 
 				source := `
-func tolerance_alarm{
+func tolerance_alarm(
     tolerance_upper f32,
     tolerance_lower f32,
     set_point chan f32,
     samples i64
-} (value f32) u8 {
+) {value f32} u8 {
     count i64 $= 0
     sp := set_point
 
@@ -4172,7 +4172,7 @@ func tolerance_alarm{
     return 0
 }
 
-input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3} -> output_ch
+input_val -> tolerance_alarm(tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3) -> output_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4295,15 +4295,15 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				}
 
 				source := `
-func writer{
+func writer(
     output chan f32
-} (value f32) u8 {
+) {value f32} u8 {
     out := output
     out = value * 2.0
     return 0
 }
 
-input_ch -> writer{output=write_target} -> sink_ch
+input_ch -> writer(output=write_target) -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4359,16 +4359,16 @@ input_ch -> writer{output=write_target} -> sink_ch
 				}
 
 				source := `
-func writer{
+func writer(
     output chan f32
-} (value f32) u8 {
+) {value f32} u8 {
     out := output
     out2 := out
     out2 = value * 3.0
     return 0
 }
 
-input_ch -> writer{output=write_target} -> sink_ch
+input_ch -> writer(output=write_target) -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4423,13 +4423,13 @@ input_ch -> writer{output=write_target} -> sink_ch
 				}
 
 				source := `
-func writer{} (value f32) u8 {
+func writer() {value f32} u8 {
     out := output_ch
     out = value * 4.0
     return 0
 }
 
-input_ch -> writer{} -> sink_ch
+input_ch -> writer() -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4486,7 +4486,7 @@ input_ch -> writer{} -> sink_ch
 				}
 
 				source := `
-func writer{} (value f32) u8 {
+func writer() {value f32} u8 {
     a := output_ch
     b := a
     c := b
@@ -4494,7 +4494,7 @@ func writer{} (value f32) u8 {
     return 0
 }
 
-input_ch -> writer{} -> sink_ch
+input_ch -> writer() -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4550,7 +4550,7 @@ input_ch -> writer{} -> sink_ch
 				}
 
 				source := `
-func writer{} (value f32) u8 {
+func writer() {value f32} u8 {
     out1 := output_ch
     out2 := output_ch
     out1 = value * 2.0
@@ -4558,7 +4558,7 @@ func writer{} (value f32) u8 {
     return 0
 }
 
-input_ch -> writer{} -> sink_ch
+input_ch -> writer() -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4618,7 +4618,7 @@ input_ch -> writer{} -> sink_ch
 				}
 
 				source := `
-func checker{} (value f32) u8 {
+func checker() {value f32} u8 {
     sp := set_point_ch
     threshold := sp
     if (value > threshold) {
@@ -4627,7 +4627,7 @@ func checker{} (value f32) u8 {
     return 0
 }
 
-input_ch -> checker{} -> output_ch
+input_ch -> checker() -> output_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4708,17 +4708,17 @@ input_ch -> checker{} -> output_ch
 				}
 
 				source := `
-func increment{
+func increment(
     counter chan f32
-} (trigger u8) u8 {
+) {trigger u8} u8 {
     if trigger != 0 {
         counter = counter + 1.0
     }
     return 0
 }
 
-input_1 -> increment{counter=counter_1} -> sink_1
-input_2 -> increment{counter=counter_2} -> sink_2
+input_1 -> increment(counter=counter_1) -> sink_1
+input_2 -> increment(counter=counter_2) -> sink_2
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 101, DataType: telem.Uint8T},
@@ -4793,7 +4793,7 @@ input_2 -> increment{counter=counter_2} -> sink_2
 				}
 
 				source := `
-func count_local (trigger u8) u8 {
+func count_local() {trigger u8} u8 {
     counter $= counter_ch
     prev $= trigger
     if trigger != 0 and prev == 0 {
@@ -4803,7 +4803,7 @@ func count_local (trigger u8) u8 {
     return 0
 }
 
-input_ch -> count_local{} -> sink_ch
+input_ch -> count_local() -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
