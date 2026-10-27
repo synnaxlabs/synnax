@@ -21,7 +21,6 @@ const sample = (lang: string): Samples["python"] => ({
 const SAMPLES: Samples = {
   python: sample("py"),
   typescript: sample("ts"),
-  cpp: sample("cpp"),
 };
 
 const panels = (container: HTMLElement): string[] =>
@@ -43,13 +42,13 @@ describe("SDKShowcase", () => {
 
   it("should show every sample of the selected language", () => {
     const { container } = render(<SDKShowcase samples={SAMPLES} />);
-    fireEvent.click(screen.getByText("C++"));
-    expect(screen.getByText("C++").className).toContain("viz-tab--active");
+    fireEvent.click(screen.getByText("TypeScript"));
+    expect(screen.getByText("TypeScript").className).toContain("viz-tab--active");
     expect(screen.getByText("Python").className).not.toContain("viz-tab--active");
     expect(panels(container)).toEqual([
-      "Stream: cpp-stream",
-      "Write: cpp-write",
-      "Read: cpp-read",
+      "Stream: ts-stream",
+      "Write: ts-write",
+      "Read: ts-read",
     ]);
   });
 });

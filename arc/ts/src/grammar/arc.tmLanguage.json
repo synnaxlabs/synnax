@@ -36,9 +36,6 @@
       "include": "#functions"
     },
     {
-      "include": "#invocations"
-    },
-    {
       "include": "#namespaces"
     },
     {
@@ -280,26 +277,8 @@
     "functions": {
       "patterns": [
         {
-          "name": "meta.function.arc",
-          "begin": "\\b(func)\\s+(\\w+)\\s*\\(",
-          "beginCaptures": {
-            "1": {
-              "name": "keyword.other.arc"
-            },
-            "2": {
-              "name": "entity.name.function.arc"
-            }
-          },
-          "end": "\\)",
-          "patterns": [
-            {
-              "include": "#function-parameters"
-            }
-          ]
-        },
-        {
           "name": "support.function.builtin.arc",
-          "match": "\\b(len|now|pow|interval|wait|range)\\b(?=\\s*[({])"
+          "match": "\\b(len|now|pow|interval|wait|range)\\b(?=\\s*\\()"
         },
         {
           "name": "entity.name.function.arc",
@@ -358,25 +337,6 @@
         }
       ]
     },
-    "invocations": {
-      "patterns": [
-        {
-          "name": "meta.stage.invocation.arc",
-          "begin": "\\b(?!(?:i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str|bool|series|chan|if|else|return|func|sequence|stage)\\b)(\\w+)\\{",
-          "beginCaptures": {
-            "1": {
-              "name": "entity.name.function.arc"
-            }
-          },
-          "end": "\\}",
-          "patterns": [
-            {
-              "include": "$self"
-            }
-          ]
-        }
-      ]
-    },
     "namespaces": {
       "patterns": [
         {
@@ -390,20 +350,6 @@
         {
           "name": "variable.other.arc",
           "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
-        }
-      ]
-    },
-    "function-parameters": {
-      "patterns": [
-        {
-          "include": "#types"
-        },
-        {
-          "include": "#identifiers"
-        },
-        {
-          "name": "punctuation.separator.arc",
-          "match": ","
         }
       ]
     }

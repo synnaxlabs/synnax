@@ -15,6 +15,7 @@ import {
   serial,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -36,10 +37,18 @@ export const EVENT_KINDS = [
   "release",
   "rename",
   "revoke",
+  "restore",
   "expiry_notice",
   "link",
   "renew",
   "unlink",
+  "register",
+  "rename_organization",
+  "invite",
+  "revoke_invitation",
+  "accept_invitation",
+  "change_role",
+  "remove_member",
 ] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
 
@@ -93,6 +102,37 @@ export const activation = pgTable(
   (t) => [index("activation_license_idx").on(t.license)],
 );
 export type Activation = typeof activation.$inferSelect;
+
+/** invitation asks someone to join a team. Accepting or revoking it deletes it. */
+export const invitation = pgTable(
+  "invitation",
+  {
+    key: uuid("key").primaryKey().defaultRandom(),
+    organization: uuid("organization")
+      .notNull()
+      .references(() => organization.key),
+    /** email is the lowercase address the invitation is for. */
+    email: text("email").notNull(),
+    role: text("role").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    unique("invitation_organization_email_unique").on(t.organization, t.email),
+    index("invitation_email_idx").on(t.email),
+  ],
+);
+export type Invitation = typeof invitation.$inferSelect;
+
+/**
+ * handoff holds a license key until the Console that asked for it collects it. The
+ * Console proves that it asked with the code whose SHA-256 is codeHash.
+ */
+export const handoff = pgTable("handoff", {
+  codeHash: text("code_hash").primaryKey(),
+  key: text("key").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
 
 export const event = pgTable(
   "event",

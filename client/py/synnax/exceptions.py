@@ -9,26 +9,28 @@
 
 import json
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 import freighter
+from x.exceptions import Error, ExceptionPayload, Provider, Registry
 
 _FREIGHTER_EXCEPTION_PREFIX = "sy."
 
 
-class ConfigurationError(Exception):
+class ConfigurationError(Error):
     """Raised when a configuration error occurs."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "configuration"
 
 
-class ValidationError(Exception):
+class ValidationError(Error):
     """Raised when a validation error occurs."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "validation"
 
 
-class ControlError(Exception):
+class ControlError(Error):
     """Raised when a control error occurs."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "control"
@@ -40,15 +42,13 @@ class UnauthorizedError(ControlError):
     TYPE = ControlError.TYPE + ".unauthorized"
 
 
-class AuthError(Exception):
+class AuthError(Error):
     """Raised when an authentication error occurs."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "auth"
 
 
-class InvalidCredentials(AuthError):
-    """Raised when invalid credentials are provided."""
-
+class _InvalidCredentials(AuthError):
     TYPE = AuthError.TYPE + ".invalid-credentials"
 
 
@@ -76,7 +76,7 @@ class AccessDenied(AuthError):
     TYPE = AuthError.TYPE + ".access_denied"
 
 
-class LicenseError(Exception):
+class LicenseError(Error):
     """Raised when the Core refuses a request over its license."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "license"
@@ -106,19 +106,27 @@ class LicenseFingerprintMismatch(LicenseError):
     TYPE = LicenseError.TYPE + ".fingerprint"
 
 
+class LicenseEditionMismatch(LicenseError):
+    """Raised when a Desktop license is active on a Core that listens on an address
+    other than loopback.
+    """
+
+    TYPE = LicenseError.TYPE + ".edition"
+
+
 class LicenseLimitExceeded(LicenseError):
     """Raised when a channel would exceed the license's channel cap."""
 
     TYPE = LicenseError.TYPE + ".too_many"
 
 
-class UnexpectedError(Exception):
+class UnexpectedError(Error):
     """Raised when an unexpected error occurs."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "unexpected"
 
 
-class QueryError(Exception):
+class QueryError(Error):
     """Raised when a query error occurs, such as an item not found."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query"
@@ -136,7 +144,7 @@ class MultipleFoundError(QueryError):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "query.multiple_results"
 
 
-class RouteError(Exception):
+class RouteError(Error):
     """Raised when an API routing error occurs, such as a 404."""
 
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "route"
@@ -163,7 +171,7 @@ class PathError(ValidationError):
         super().__init__(f"{'.'.join(path)}: {error}")
 
 
-def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
+def _decode(registry: Registry, encoded: ExceptionPayload) -> Exception | None:
     if encoded.type is None:
         return None if encoded.data is None else UnexpectedError(encoded.data)
 
@@ -171,8 +179,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
         return None
 
     if encoded.type.startswith(AuthError.TYPE):
-        if encoded.type.startswith(InvalidCredentials.TYPE):
-            return InvalidCredentials(encoded.data)
+        if encoded.type.startswith(_InvalidCredentials.TYPE):
+            return _InvalidCredentials(encoded.data)
         if encoded.type.startswith(InvalidToken.TYPE):
             return InvalidToken(encoded.data)
         if encoded.type.startswith(ExpiredToken.TYPE):
@@ -192,9 +200,7 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
                 return UnexpectedError(encoded.data)
             try:
                 data = json.loads(encoded.data)
-                decoded_err = freighter.decode_exception(
-                    freighter.ExceptionPayload(**data["error"])
-                )
+                decoded_err = registry.decode(ExceptionPayload(**data["error"]))
                 if decoded_err is None:
                     return UnexpectedError(encoded.data)
                 return PathError(
@@ -229,6 +235,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
             return ExpiredLicense(encoded.data)
         if encoded.type.startswith(InvalidLicense.TYPE):
             return InvalidLicense(encoded.data)
+        if encoded.type.startswith(LicenseEditionMismatch.TYPE):
+            return LicenseEditionMismatch(encoded.data)
         if encoded.type.startswith(LicenseFingerprintMismatch.TYPE):
             return LicenseFingerprintMismatch(encoded.data)
         if encoded.type.startswith(LicenseLimitExceeded.TYPE):
@@ -238,8 +246,13 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     return UnexpectedError(encoded.data)
 
 
-def _encode(err: Exception) -> freighter.ExceptionPayload | None:
-    raise NotImplementedError
+def _encode(_: Exception) -> ExceptionPayload | None:
+    return None
 
 
-freighter.register_exception(_encode, _decode)
+def create_registry() -> Registry:
+    """:returns: a registry that decodes the errors of Freighter and the Core."""
+    registry = Registry()
+    registry.register(freighter.EXCEPTION_PROVIDER)
+    registry.register(Provider(encode=_encode, decode=partial(_decode, registry)))
+    return registry

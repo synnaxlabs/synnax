@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { License } from "@/platform/license";
 
 /** The URL scheme the hub hands a login back through. */
-export const SCHEME = "synnax-desktop";
+const SCHEME = "synnax-desktop";
 
 const LINK_HOST = "activate";
 
@@ -85,49 +84,4 @@ export const parseLink = (url: string): Linked => {
     user: read("user"),
     analyticsAllowed: parsed.searchParams.get("analytics") === "on",
   };
-};
-
-export type RenewResult =
-  { variant: "renewed"; key: string } | { variant: "unlinked"; message: string };
-
-/** The code the hub puts on a refusal for a machine it no longer knows. */
-const UNLINKED_CODE = "unlinked";
-
-const refusalZ = z.object({ error: z.string(), code: z.string().optional() });
-const renewedZ = z.object({ key: z.string() });
-
-interface Refusal {
-  message: string;
-  code?: string;
-}
-
-const readRefusal = async (res: Response): Promise<Refusal> => {
-  try {
-    const body = refusalZ.safeParse(await res.json());
-    if (body.success) return { message: body.data.error, code: body.data.code };
-  } catch {
-    // A body that is not JSON carries no message.
-  }
-  return { message: res.statusText };
-};
-
-/**
- * Asks the hub for a fresh license key for the machine the secret belongs to. Unlinked
- * means the hub no longer knows the machine, so the secret is spent. Only the hub's own
- * unlinked answer counts: a proxy can refuse with the same status.
- * @throws {Error} if the hub cannot be reached or refuses for another reason.
- */
-export const renew = async (secret: string): Promise<RenewResult> => {
-  const res = await fetch(License.RENEW_URL, {
-    method: "POST",
-    headers: { authorization: `Bearer ${secret}` },
-  });
-  if (res.ok) {
-    const { key } = renewedZ.parse(await res.json());
-    return { variant: "renewed", key };
-  }
-  const { message, code } = await readRefusal(res);
-  if ((res.status === 401 || res.status === 403) && code === UNLINKED_CODE)
-    return { variant: "unlinked", message };
-  throw new Error(`Could not renew the license: ${message}`);
 };

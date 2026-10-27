@@ -38,7 +38,6 @@ cc_library(
         "//driver/ethercat/engine",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
-        "//driver/ethercat/mock",
         "//driver/ethercat/soem",
         "//driver/ethercat/telem",
         "//driver/ethercat/topology",
@@ -70,8 +69,8 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ethercat",
-        "//driver/ethercat/mock",
-        "//driver/pipeline/mock",
+        "//driver/ethercat/testutil",
+        "//driver/pipeline/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
