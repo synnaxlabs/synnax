@@ -285,11 +285,22 @@ export class Client extends query.Retriever<
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     const tsk = await this.retrieveTask(key);
     if (tsk != null) await this.cfg.tasks.rename(tsk.key, name);
-    const rename = () => query.partialUpdate(this.store, key, { name });
-    await query.optimistic({
-      rollbacks: [rename()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () => await this.dispatcher.send(key, [renameAction({ name })]),
+    // Restores only the name, so the rollback cannot undo edits made after it.
+    const rename = (): destructor.Destructor => {
+      const prev = this.store.get(key)?.name ?? name;
+      query.partialUpdate(this.store, key, { name });
+      return () => query.partialUpdate(this.store, key, { name: prev });
+    };
+    const rollback = rename();
+    try {
+      await opts.onOptimistic?.();
+    } catch (e) {
+      rollback();
+      throw errors.fromUnknown(e);
+    }
+    await this.dispatcher.send(key, [renameAction({ name })], {
+      rollback,
+      reapply: rename,
     });
     rename();
   }

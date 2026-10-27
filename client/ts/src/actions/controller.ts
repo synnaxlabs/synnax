@@ -189,17 +189,37 @@ export interface ControllerParams<
   now?: () => TimeStamp;
 }
 
-/** Dispatches sent together as one, with one rollback per dispatch. */
+/** A local edit waiting on its send. */
+export interface Edit {
+  /** Reverts the edit. */
+  rollback: destructor.Destructor;
+  /** Applies the edit again to the current document, returning its new rollback. */
+  reapply: () => destructor.Destructor;
+}
+
+/** Dispatches sent together as one. */
 interface Batch<Action> {
   dispatchKey: string;
   actions: Action[];
-  rollbacks: destructor.Destructor[];
+  edits: Edit[];
   result: PromiseWithResolvers<void>;
 }
 
 interface Queue<Action> {
   next: Batch<Action> | null;
 }
+
+const revert = (batch: Batch<unknown>): void =>
+  batch.edits.toReversed().forEach((edit) => edit.rollback());
+
+// Rolls back a failed batch's edits. Rollbacks restore the state from before their
+// edit, so they run newest first, and the queued batch's edits then go back on top.
+const rollBack = (failed: Batch<unknown>, queue: Queue<unknown>): void => {
+  const queued = queue.next;
+  if (queued != null) revert(queued);
+  revert(failed);
+  queued?.edits.forEach((edit) => (edit.rollback = edit.reapply()));
+};
 
 /**
  * Owns the action-dispatch loop for one document table: local replay with
@@ -271,16 +291,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Sends actions that are already applied locally. When nothing is in flight for the
-   * document, they go out at once. Otherwise they join the batch that goes out as one
-   * dispatch when the in-flight send settles. If the batch fails, every rollback in it
-   * runs, newest first, and the returned promise rejects.
+   * Sends the actions of a local edit the caller already made, in order with the
+   * document's other dispatches. When nothing is in flight for the document, they go
+   * out at once. Otherwise they join the batch that goes out as one dispatch when the
+   * in-flight send settles. Rejects, with the edit rolled back, when the send fails.
    */
-  async send(
-    key: Key,
-    actions: Action[],
-    rollback: destructor.Destructor = destructor.NOOP,
-  ): Promise<void> {
+  async send(key: Key, actions: Action[], edit: Edit): Promise<void> {
     let queue = this.queues.get(key);
     const inFlight = queue != null;
     if (queue == null) {
@@ -291,14 +307,14 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       queue.next = {
         dispatchKey: id.create(),
         actions: [],
-        rollbacks: [],
+        edits: [],
         result: Promise.withResolvers<void>(),
       };
       this.registerOutstandingDispatch(key, queue.next.dispatchKey);
     }
     const batch = queue.next;
     batch.actions.push(...actions);
-    batch.rollbacks.push(rollback);
+    batch.edits.push(edit);
     if (!inFlight) void this.drain(key, queue);
     await batch.result.promise;
   }
@@ -311,12 +327,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         await this.params.send(key, batch.actions, batch.dispatchKey);
         batch.result.resolve();
       } catch (e) {
-        const outstanding = this.outstandingDispatches.get(key);
-        outstanding?.delete(batch.dispatchKey);
-        batch.rollbacks.reverse().forEach((rollback) => rollback());
-        // The rollback also reverted the local replay of the batch queued behind this
-        // one, so that batch's echo must apply it again.
-        outstanding?.forEach((entry) => (entry.disturbed = true));
+        this.outstandingDispatches.get(key)?.delete(batch.dispatchKey);
+        rollBack(batch, queue);
         batch.result.reject(errors.fromUnknown(e));
       }
     }
@@ -420,11 +432,13 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return {
       actions: side === "undo" ? entry.inverse : entry.forward,
       commit: () =>
-        this.updateUndo(key, (s) => ({
-          ...s,
-          [side]: s[side].slice(0, idx),
-          [other]: [...s[other], entry],
-        })),
+        this.updateUndo(key, (s) => {
+          // The entry is gone when a failed send rolled back the dispatch that
+          // pushed it.
+          const i = s[side].indexOf(entry);
+          if (i === -1) return s;
+          return { ...s, [side]: s[side].slice(0, i), [other]: [...s[other], entry] };
+        }),
     };
   }
 
@@ -442,16 +456,36 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const processed = preprocess == null ? actions : preprocess(current, actions);
     const r = this.replay(key, processed, { skipPreprocess: true });
     if (r == null) return false;
-    const stackRollback = commitStack(r);
+    const rollback = this.commit(r, commitStack);
     // A replay that left the state untouched has nothing for the server: no
     // document change, no broadcast worth echoing. The stack mutation still
     // runs above so undo/redo consume their entry instead of pinning it.
     if (!r.changed) return true;
-    await this.send(key, r.processed, () => {
-      stackRollback();
-      r.rollback();
+    await this.send(key, processed, {
+      rollback,
+      reapply: () => this.reapply(key, processed, commitStack),
     });
     return true;
+  }
+
+  private commit(
+    r: ReplayResult<Action>,
+    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
+  ): destructor.Destructor {
+    const stackRollback = commitStack(r);
+    return () => {
+      stackRollback();
+      r.rollback();
+    };
+  }
+
+  private reapply(
+    key: Key,
+    actions: Action[],
+    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
+  ): destructor.Destructor {
+    const r = this.replay(key, actions, { skipPreprocess: true });
+    return r == null ? destructor.NOOP : this.commit(r, commitStack);
   }
 
   /**
@@ -526,9 +560,15 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           targets,
           kind,
         );
-        await this.send(key, accumulated, () => {
-          stackRollback();
-          this.docs.set(key, initial);
+        await this.send(key, accumulated, {
+          rollback: () => {
+            stackRollback();
+            this.docs.set(key, initial);
+          },
+          reapply: () =>
+            this.reapply(key, accumulated, (r) =>
+              this.recordEntry(key, accumulated, r.inverse, r.targets, kind),
+            ),
         });
         return true;
       },

@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import {
   Controller,
+  type Edit,
   type Frame,
   type Reducer,
   type SendDispatch,
@@ -591,22 +592,70 @@ describe("actions.Controller", () => {
       expect(controller.hasUndo("k")).toBe(true);
     });
 
-    it("rolls back a failed in-flight dispatch and still sends the batch", async () => {
+    // Fails the sends whose call numbers are listed, counting from 1.
+    const createFailingSend = (...failing: number[]) => {
       const send = vi.fn<SendDispatch<string, Action>>(async () => {
-        if (send.mock.calls.length === 1) throw new Error("rejected");
+        if (failing.includes(send.mock.calls.length)) throw new Error("rejected");
       });
+      return send;
+    };
+
+    // Sets a value outside the reducer, as a client's rename does.
+    const name = (docs: Table<string, Doc>, value: number): Edit => {
+      const reapply = () =>
+        docs.set("k", (d) => (d == null ? d : { values: { ...d.values, n: value } }));
+      return { rollback: reapply(), reapply };
+    };
+
+    it("applies the batch over the state before a failed in-flight dispatch", async () => {
+      const send = createFailingSend(1);
       const { docs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
       const one = controller.dispatch("k", [set("a", 1)]);
-      const two = controller.dispatch("k", [set("b", 2)]);
+      const two = controller.dispatch("k", [set("a", 2)]);
       await expect(one).rejects.toThrow("rejected");
       expect(await two).toBe(true);
-      expect(send).toHaveBeenCalledTimes(2);
-      // The rollback restored the state before the first dispatch, so the batch's
-      // echo applies the batch again.
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
       const [, batch, batchKey] = send.mock.calls[1];
       controller.applyRemote("k", 1, batchKey, batch);
-      expect(docs.get("k")).toEqual({ values: { a: 0, b: 2 } });
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+      expect(controller.prepareUndo("k")?.actions).toEqual([set("a", 0)]);
+    });
+
+    it("restores the original state when the in-flight dispatch and the batch fail", async () => {
+      const { docs, controller } = setupStore({ send: createFailingSend(1, 2) });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("a", 2)]);
+      await expect(one).rejects.toThrow("rejected");
+      await expect(two).rejects.toThrow("rejected");
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+      expect(controller.hasUndo("k")).toBe(false);
+    });
+
+    it("keeps a batched rename when only the in-flight dispatch fails", async () => {
+      const { docs, controller } = setupStore({ send: createFailingSend(1) });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const renamed = controller.send("k", [{ type: "noop" }], name(docs, 7));
+      const two = controller.dispatch("k", [set("b", 2)]);
+      await expect(one).rejects.toThrow("rejected");
+      await Promise.all([renamed, two]);
+      expect(docs.get("k")).toEqual({ values: { a: 0, n: 7, b: 2 } });
+    });
+
+    it("rolls back a batched rename in order with the batch's dispatches", async () => {
+      const { docs, controller } = setupStore({ send: createFailingSend(1, 2) });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("b", 2)]);
+      const renamed = controller.send("k", [{ type: "noop" }], name(docs, 7));
+      const three = controller.dispatch("k", [set("c", 3)]);
+      await expect(one).rejects.toThrow("rejected");
+      await expect(two).rejects.toThrow("rejected");
+      await expect(renamed).rejects.toThrow("rejected");
+      await expect(three).rejects.toThrow("rejected");
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
     });
 
     it("rolls back every dispatch in a failed batch, newest first", async () => {
@@ -655,7 +704,10 @@ describe("actions.Controller", () => {
       prime(docs, "k", { a: 0 });
       const one = controller.dispatch("k", [set("a", 1)]);
       const two = controller.dispatch("k", [set("a", 2)]);
-      const tagged = controller.send("k", [{ type: "tag", key: "a", tag: "x" }]);
+      const tagged = controller.send("k", [{ type: "tag", key: "a", tag: "x" }], {
+        rollback: destructor.NOOP,
+        reapply: () => destructor.NOOP,
+      });
       gate.resolve();
       await Promise.all([one, two, tagged]);
       expect(send.mock.calls[1][1]).toEqual([
