@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type License } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 
 export type Denial = "revoked" | "expired" | "no_seats";
 
@@ -21,7 +21,7 @@ export const DENIAL_MESSAGES: Record<Denial, string> = {
  * deny returns why a license can no longer issue a license key at `now`, or undefined
  * when it can. An expired subscription with a fallback version still issues.
  */
-export const deny = (license: License, now: Date): Denial | undefined => {
+export const deny = (license: schema.License, now: Date): Denial | undefined => {
   if (license.revokedAt != null) return "revoked";
   if (
     license.expiresAt != null &&

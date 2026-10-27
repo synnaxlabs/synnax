@@ -9,43 +9,39 @@
 
 import { and, count, desc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
 
-import { type Reader } from "@/server/db/db";
-import {
-  activation,
-  type License,
-  license,
-  type Organization,
-  organization,
-} from "@/server/db/schema";
+import { type Reader, schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 
 /** Held is a license beside the number of machines holding one of its seats. */
 export interface Held {
-  license: License;
+  license: schema.License;
   seats: number;
 }
 
 /** Owned is a license beside the organization it belongs to. */
 export interface Owned {
-  license: License;
-  organization: Organization;
+  license: schema.License;
+  organization: schema.Organization;
 }
 
 const listHeld = async (db: Reader, where?: SQL): Promise<Held[]> =>
   await db
-    .select({ license, seats: count(activation.key) })
-    .from(license)
+    .select({ license: schema.license, seats: count(schema.activation.key) })
+    .from(schema.license)
     .leftJoin(
-      activation,
-      and(eq(activation.license, license.key), isNull(activation.releasedAt)),
+      schema.activation,
+      and(
+        eq(schema.activation.license, schema.license.key),
+        isNull(schema.activation.releasedAt),
+      ),
     )
     .where(where)
-    .groupBy(license.key)
-    .orderBy(desc(license.issuedAt));
+    .groupBy(schema.license.key)
+    .orderBy(desc(schema.license.issuedAt));
 
 /** listForOrganization returns an organization's licenses, newest first. */
 export const listForOrganization = async (db: Reader, org: string): Promise<Held[]> =>
-  await listHeld(db, eq(license.organization, org));
+  await listHeld(db, eq(schema.license.organization, org));
 
 /** listAllHeld returns every license and its seats in use, newest first. Staff only. */
 export const listAllHeld = async (db: Reader): Promise<Held[]> => await listHeld(db);
@@ -56,15 +52,25 @@ export const listAllHeld = async (db: Reader): Promise<Held[]> => await listHeld
  */
 export const listAll = async (db: Reader): Promise<(Owned & Held)[]> =>
   await db
-    .select({ license, organization, seats: count(activation.key) })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
-    .leftJoin(
-      activation,
-      and(eq(activation.license, license.key), isNull(activation.releasedAt)),
+    .select({
+      license: schema.license,
+      organization: schema.organization,
+      seats: count(schema.activation.key),
+    })
+    .from(schema.license)
+    .innerJoin(
+      schema.organization,
+      eq(schema.license.organization, schema.organization.key),
     )
-    .groupBy(license.key, organization.key)
-    .orderBy(desc(license.issuedAt));
+    .leftJoin(
+      schema.activation,
+      and(
+        eq(schema.activation.license, schema.license.key),
+        isNull(schema.activation.releasedAt),
+      ),
+    )
+    .groupBy(schema.license.key, schema.organization.key)
+    .orderBy(desc(schema.license.issuedAt));
 
 /**
  * listActivatable returns the licenses of `orgs` that a machine can activate against
@@ -77,16 +83,19 @@ export const listActivatable = async (
 ): Promise<Owned[]> => {
   if (orgs.length === 0) return [];
   const rows = await db
-    .select({ license, organization })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
+    .select({ license: schema.license, organization: schema.organization })
+    .from(schema.license)
+    .innerJoin(
+      schema.organization,
+      eq(schema.license.organization, schema.organization.key),
+    )
     .where(
       and(
-        inArray(license.organization, orgs),
-        isNull(license.revokedAt),
-        ne(license.edition, "desktop"),
+        inArray(schema.license.organization, orgs),
+        isNull(schema.license.revokedAt),
+        ne(schema.license.edition, "desktop"),
       ),
     )
-    .orderBy(desc(license.issuedAt));
+    .orderBy(desc(schema.license.issuedAt));
   return rows.filter((r) => deny(r.license, now) == null);
 };

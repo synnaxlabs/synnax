@@ -9,18 +9,18 @@
 
 import { type license as client } from "@synnaxlabs/client";
 
-import { type Edition, type License } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 
 export const CLAIMS_VERSION = 1;
 export const FINGERPRINT_SCHEME = 1;
 
-const EDITION_CODES: Record<Edition, client.Edition> = {
+const EDITION_CODES: Record<schema.Edition, client.Edition> = {
   desktop: "d",
   enterprise: "e",
 };
 
 export interface BuildArgs {
-  license: License;
+  license: schema.License;
   /** Machine fingerprints to bind the license key to. Empty for a floating key. */
   fingerprint: string[];
   now: Date;

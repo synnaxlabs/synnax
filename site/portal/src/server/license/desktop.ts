@@ -11,15 +11,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { and, desc, eq, isNull } from "drizzle-orm";
 
-import { type Reader, type Store } from "@/server/db/db";
-import {
-  type Activation,
-  activation,
-  event,
-  type License,
-  license,
-  organization,
-} from "@/server/db/schema";
+import { type Reader, schema, type Store } from "@/server/db";
 import { badRequest, forbidden, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
 import { sign, type Signer } from "@/server/license/sign";
@@ -51,13 +43,13 @@ export interface LinkArgs {
 export interface Linked {
   key: string;
   secret: string;
-  activation: Activation;
-  license: License;
+  activation: schema.Activation;
+  license: schema.License;
 }
 
 export interface Machine {
-  activation: Activation;
-  license: License;
+  activation: schema.Activation;
+  license: schema.License;
 }
 
 /** superseded picks the linked machines that share a hash with the one logging in. */
@@ -75,17 +67,17 @@ export const machinesFor = async (
   organization: string,
 ): Promise<Machine[]> =>
   await db
-    .select({ activation, license })
-    .from(activation)
-    .innerJoin(license, eq(activation.license, license.key))
+    .select({ activation: schema.activation, license: schema.license })
+    .from(schema.activation)
+    .innerJoin(schema.license, eq(schema.activation.license, schema.license.key))
     .where(
       and(
-        eq(license.organization, organization),
-        eq(license.edition, "desktop"),
-        isNull(activation.releasedAt),
+        eq(schema.license.organization, organization),
+        eq(schema.license.edition, "desktop"),
+        isNull(schema.activation.releasedAt),
       ),
     )
-    .orderBy(desc(activation.lastSeen));
+    .orderBy(desc(schema.activation.lastSeen));
 
 /**
  * link issues a desktop license for the user's personal organization, bound to one
@@ -103,21 +95,21 @@ export const link = async (
   const linked = await store.transact(async (tx) => {
     // Serializes a user's links, so a concurrent one sees this link and supersedes it.
     await tx
-      .select({ key: organization.key })
-      .from(organization)
-      .where(eq(organization.key, org.key))
+      .select({ key: schema.organization.key })
+      .from(schema.organization)
+      .where(eq(schema.organization.key, org.key))
       .for("update");
     const machines = await machinesFor(tx, org.key);
     for (const old of superseded(machines, fingerprint)) {
       await tx
-        .update(activation)
+        .update(schema.activation)
         .set({ releasedAt: now, renewalSecretHash: null })
-        .where(eq(activation.key, old.activation.key));
+        .where(eq(schema.activation.key, old.activation.key));
       await tx
-        .update(license)
+        .update(schema.license)
         .set({ revokedAt: old.license.revokedAt ?? now })
-        .where(eq(license.key, old.license.key));
-      await tx.insert(event).values({
+        .where(eq(schema.license.key, old.license.key));
+      await tx.insert(schema.event).values({
         at: now,
         kind: "unlink",
         actor: userID,
@@ -128,7 +120,7 @@ export const link = async (
       });
     }
     const [lic] = await tx
-      .insert(license)
+      .insert(schema.license)
       .values({
         organization: org.key,
         edition: "desktop",
@@ -142,7 +134,7 @@ export const link = async (
       })
       .returning();
     const [act] = await tx
-      .insert(activation)
+      .insert(schema.activation)
       .values({
         license: lic.key,
         fingerprint,
@@ -152,7 +144,7 @@ export const link = async (
         lastSeen: now,
       })
       .returning();
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "link",
       actor: userID,
@@ -181,10 +173,10 @@ const LOGGED_OUT = "This machine was logged out. Log in again.";
  */
 export const resolve = async (store: Store, secret: string): Promise<Machine> => {
   const [row] = await store.query
-    .select({ activation, license })
-    .from(activation)
-    .innerJoin(license, eq(activation.license, license.key))
-    .where(eq(activation.renewalSecretHash, hashSecret(secret)));
+    .select({ activation: schema.activation, license: schema.license })
+    .from(schema.activation)
+    .innerJoin(schema.license, eq(schema.activation.license, schema.license.key))
+    .where(eq(schema.activation.renewalSecretHash, hashSecret(secret)));
   if (row == null) throw forbidden("This machine is not logged in", UNLINKED);
   if (row.activation.releasedAt != null || row.license.revokedAt != null)
     throw forbidden(LOGGED_OUT, UNLINKED);
@@ -205,19 +197,21 @@ export const renew = async (
   store: Store,
   signer: Signer,
   { machine: row, now }: RenewArgs,
-): Promise<{ key: string; license: License }> =>
+): Promise<{ key: string; license: schema.License }> =>
   await store.transact(async (tx) => {
     const [lic] = await tx
-      .update(license)
+      .update(schema.license)
       .set({ expiresAt: expiryFrom(now) })
-      .where(and(eq(license.key, row.license.key), isNull(license.revokedAt)))
+      .where(
+        and(eq(schema.license.key, row.license.key), isNull(schema.license.revokedAt)),
+      )
       .returning();
     if (lic == null) throw forbidden(LOGGED_OUT, UNLINKED);
     await tx
-      .update(activation)
+      .update(schema.activation)
       .set({ lastSeen: now })
-      .where(eq(activation.key, row.activation.key));
-    await tx.insert(event).values({
+      .where(eq(schema.activation.key, row.activation.key));
+    await tx.insert(schema.event).values({
       at: now,
       kind: "renew",
       actor: row.activation.key,
@@ -249,23 +243,23 @@ export const unlink = async (
   { activationKey, actor, now }: UnlinkArgs,
 ): Promise<void> => {
   const [row] = await store.query
-    .select({ activation, license })
-    .from(activation)
-    .innerJoin(license, eq(activation.license, license.key))
-    .where(eq(activation.key, activationKey));
+    .select({ activation: schema.activation, license: schema.license })
+    .from(schema.activation)
+    .innerJoin(schema.license, eq(schema.activation.license, schema.license.key))
+    .where(eq(schema.activation.key, activationKey));
   if (row == null) throw notFound("Activation");
   if (row.license.edition !== "desktop")
     throw badRequest("Only a Synnax Desktop machine can be logged out");
   await store.transact(async (tx) => {
     await tx
-      .update(activation)
+      .update(schema.activation)
       .set({ releasedAt: row.activation.releasedAt ?? now, renewalSecretHash: null })
-      .where(eq(activation.key, activationKey));
+      .where(eq(schema.activation.key, activationKey));
     await tx
-      .update(license)
+      .update(schema.license)
       .set({ revokedAt: row.license.revokedAt ?? now })
-      .where(eq(license.key, row.license.key));
-    await tx.insert(event).values({
+      .where(eq(schema.license.key, row.license.key));
+    await tx.insert(schema.event).values({
       at: now,
       kind: "unlink",
       actor,

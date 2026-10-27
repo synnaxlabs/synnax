@@ -9,7 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
   listActivatable,
@@ -22,8 +22,8 @@ import { createActivation, createLicense, createOrganization } from "@/testutil"
 
 describe("list", () => {
   let store: Memory;
-  let acme: Organization;
-  let globex: Organization;
+  let acme: schema.Organization;
+  let globex: schema.Organization;
   beforeAll(async () => {
     store = await openMemory();
   });
