@@ -6,6 +6,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -17,9 +18,15 @@ The `stable` module removes short changes from a signal. Import it with `import 
 
 Passes a value only after the value stays the same for `duration`.
 
-| Parameter  | Type     | Required | Default | Meaning                                                 |
-| ---------- | -------- | -------- | ------- | ------------------------------------------------------- |
-| `duration` | `i64 ns` | Yes      |         | How long the value must stay the same, such as `500ms`. |
+<Field.List>
+
+<Field.Item name="duration" type="i64 ns" required id="for-duration">
+
+How long the value must stay the same, such as `500ms`.
+
+</Field.Item>
+
+</Field.List>
 
 `duration` takes a literal or a variable. A new variable value applies from the next
 change of the input value.
