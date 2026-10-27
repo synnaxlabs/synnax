@@ -1,0 +1,325 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Line plots"
+description:
+  "Plot live and past channel data, zoom and measure it, and set up the plot."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="console/line-plots/hero"
+  layout="layered"
+  tone="soft"
+  palette="blue-violet"
+/>
+
+A line plot graphs the values of channels over time. It shows live data as it arrives,
+or the data of past [ranges](/reference/ranges). Use a line plot to watch a test, to
+compare runs, and to measure and export data.
+
+<Divider.Divider x />
+
+## Create a line plot
+
+1. Click <Icon.Add /> in the tab bar, or press **Ctrl+T** (**Cmd+T** on macOS).
+2. Select **Line plot**.
+3. Press **V** to open the component toolbar.
+4. On the **Data** tab, select one or more channels in **Y1**.
+
+The plot shows the last 30 seconds of data and adds each new sample when it arrives. If
+a range is active, the plot shows that range instead.
+
+You can also run the "Create line plot" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette). In the
+channels toolbar, double-click a channel to add it to the focused line plot, or to a new
+line plot when none is focused.
+
+<Video id="console/line-plots/create" />
+
+<Divider.Divider x />
+
+## Choose a time range
+
+The **Ranges** field on the **Data** tab sets the time that the plot shows. Select one
+or more items:
+
+- A rolling span, such as **Rolling 30s** or **Rolling 1h**, shows live data. The plot
+  moves as new samples arrive.
+- **Custom** sets your own rolling span. Enter a duration such as `1h 30m`.
+- A range shows the data of that range. The list holds your favorite ranges and the
+  ranges that you added to plots. To add a range to the list,
+  [favorite it](/reference/ranges/find#favorites).
+
+To plot a range from the ranges toolbar, right-click the range and select **Add to new
+plot**. To add it to the focused line plot, select **Add to active plot**.
+
+Each range keeps its real times, so two runs on different days sit apart on the x-axis.
+
+The plot marks each range in Synnax that overlaps the visible time as a shaded band with
+its name. Right-click a band to select **View details**, **Open in new plot**, or
+**Download as CSV**. To hide the bands, click <Icon.Range /> in the top right of the
+plot.
+
+<Divider.Divider x />
+
+## Add channels to the plot
+
+On the **Data** tab:
+
+- **Y1** plots channels against the left axis.
+- **Y2** plots channels against the right axis. Use it for channels with a different
+  unit, such as temperature next to pressure.
+- **X1** sets the channel of the x-axis. Leave it empty to plot against time.
+
+You can also drag a channel from the channels toolbar onto an axis of the plot.
+
+The axis lists do not show virtual, `string`, `json`, or `uuid` channels. To see text
+values, use a [log](/reference/visualize/logs).
+
+<Divider.Divider x />
+
+## Zoom, pan, and pause
+
+The buttons in the top right of the plot set what a drag does: **Zoom** (<Icon.Zoom />),
+**Pan** (<Icon.Pan />), or **Select** (<Icon.Selection />). Zoom is the default.
+
+| Gesture                | Zoom mode       | Pan mode        | Select mode     |
+| ---------------------- | --------------- | --------------- | --------------- |
+| Drag                   | Zoom to the box | Pan             | Select a region |
+| Shift+drag             | Pan             | Zoom to the box | Pan             |
+| Alt+drag or right-drag | Select a region | Select a region | Zoom to the box |
+| Middle-drag            | Pan             | Pan             | Pan             |
+| Scroll                 | Zoom at cursor  | Zoom at cursor  | Zoom at cursor  |
+| Ctrl+scroll            | Zoom the y-axis | Zoom the y-axis | Zoom the y-axis |
+| Alt+scroll             | Zoom the x-axis | Zoom the x-axis | Zoom the x-axis |
+| Ctrl+click             | Reset zoom      | Reset zoom      | Reset zoom      |
+
+On macOS, use **Cmd** for **Ctrl** and **Option** for **Alt**. Press **Esc** to cancel a
+drag. To reset the zoom, you can also click <Icon.Expand />.
+
+To stop a live plot from moving, click <Icon.Pause /> or press **H**. Click <Icon.Play
+/> or press **H** again to resume. When you resume, the plot resets its zoom.
+
+To show the time and the value of each line under the cursor, turn on **Show tooltip on
+hover** (<Icon.Tooltip />). It is on by default.
+
+<Divider.Divider x />
+
+## How the plot loads data
+
+A line plot does not draw each sample of a long time range. It loads groups of samples
+that fit the width of the plot. The **Aggregation** and **Detail** of each line set how
+the plot draws the groups. See [lines](#lines).
+
+- **Zoom in** -> the plot loads finer data for the new view. The coarse data stays on
+  the plot until the finer data arrives.
+- **Pan past the time range** -> the plot loads the data there. To go back to the time
+  range, click <Icon.Expand /> or **Ctrl+click** the plot.
+- **First load** -> while the plot loads a range, or a rolling span longer than one
+  minute, it shows a message such as **Fetching 1h of data**.
+
+<Divider.Divider x />
+
+## Select a region
+
+1. Hold **Alt** (**Option** on macOS) and drag across the plot.
+2. Right-click the selection.
+3. Select an action:
+   - **Copy ISO time range**, **Copy Python time range**, or **Copy TypeScript time
+     range** copies the start and end of the selection.
+   - **Create range from selection** opens the create range dialog with the times of the
+     selection. See [create ranges](/reference/ranges/create).
+   - **Download region as CSV** downloads the data of the selection. See
+     [export data](/reference/ranges/export).
+
+To download the data of the whole plot, click <Icon.CSV /> in the component toolbar.
+
+<Divider.Divider x />
+
+## Measure between two points
+
+1. Click <Icon.Rule /> (**Open measure tool**) in the top right of the plot.
+2. Click a point on a line. Then click a second point.
+
+The plot shows the difference in time (ΔX), the difference in value (ΔY), and the slope
+between the two points. Each point snaps to the nearest sample. To move a point, press
+**1** or **2**, then click a new position. Pause a live plot first, so the points stay
+in place.
+
+<Video id="console/line-plots/slope" />
+
+<Divider.Divider x />
+
+## Add a rule
+
+A rule is a horizontal line at a fixed value, such as a pressure limit. The **Rules**
+tab calls rules "annotations".
+
+1. Open the component toolbar and select the **Rules** tab.
+2. Click **Add annotation**.
+3. Set the label, the value, the axis, and the color.
+
+To move a rule, drag it on the plot.
+
+<Divider.Divider x />
+
+## Use the legend
+
+The legend lists each line with its color and label.
+
+- Click the eye beside a line to hide or show it.
+- Click a color swatch to change the color of the line.
+- Click a label to rename the line. The channel keeps its name.
+- Drag the legend to move it.
+
+<Divider.Divider x />
+
+## Toolbar reference
+
+Open the component toolbar with **V**, or double-click the plot. The header has buttons
+to download the data as CSV, export the plot, and copy a link to it.
+
+<Video id="console/line-plots/toolbar" />
+
+### Data
+
+| Field  | Default     | Description                                       |
+| ------ | ----------- | ------------------------------------------------- |
+| Ranges | Rolling 30s | The rolling spans and ranges that the plot shows. |
+| Y1     | None        | Channels plotted against the left axis.           |
+| Y2     | None        | Channels plotted against the right axis.          |
+| X1     | None (time) | The channel of the x-axis.                        |
+
+### Lines
+
+Each line has one row. The fields have tooltips, not labels.
+
+| Field        | Default      | Description                                                                                |
+| ------------ | ------------ | ------------------------------------------------------------------------------------------ |
+| Label        | Channel name | The name in the legend.                                                                    |
+| Stroke width | 2            | The thickness of the line, from 1 to 10.                                                   |
+| Aggregation  | Min/max      | **Min/max** draws the lowest and highest sample of each group. **Average** draws the mean. |
+| Detail       | Medium       | **Low**, **Medium**, or **High**: one group per four, two, or one pixel columns.           |
+| Color        | Automatic    | The color of the line.                                                                     |
+
+Aggregation shows only for a line whose X1 is time or an index channel. A line whose X1
+is a different channel draws the first sample of each group.
+
+### Axes
+
+| Field                 | Default   | Description                                                    |
+| --------------------- | --------- | -------------------------------------------------------------- |
+| Lower and upper bound | Automatic | The limits of the axis. Click the auto button to fit the data. |
+| Tick spacing          | 75        | The space between ticks in pixels, from 1 to 200.              |
+| Label                 | None      | The title of the axis.                                         |
+| Label direction       | Vertical  | The direction of the title. Y-axes only.                       |
+| Label size            | Small     | The size of the title.                                         |
+
+### Properties
+
+| Field       | Default   | Description                                      |
+| ----------- | --------- | ------------------------------------------------ |
+| Title       | Line plot | The title of the plot. It also renames the plot. |
+| Show title  | Off       | Shows the title above the plot.                  |
+| Show legend | On        | Shows the legend.                                |
+
+### Rules
+
+| Field      | Default   | Description                              |
+| ---------- | --------- | ---------------------------------------- |
+| Label      | None      | The text beside the rule.                |
+| Units      | None      | The units after the value.               |
+| Position   | None      | The value where the rule sits.           |
+| Axis       | Y1        | The axis of the rule, **Y1** or **Y2**.  |
+| Color      | Automatic | The color of the rule.                   |
+| Line width | 1         | The thickness of the rule, from 1 to 10. |
+| Line dash  | 0         | The length of the dashes, from 0 to 50.  |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### The plot is empty
+
+<Problem.Body>
+<Problem.Cause>
+
+The time range has no data for the channels.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **The range has no samples** -> make sure that **Ranges** has a rolling span or a
+  range in which the channels have samples.
+- **No live data arrives** -> check that a task or a script writes to the channels.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A range is not in the Ranges list
+
+<Problem.Body>
+<Problem.Cause>
+
+The list holds only your favorite ranges and ranges that you added to plots.
+
+</Problem.Cause>
+<Problem.Fix>
+
+[Favorite the range](/reference/ranges/find#favorites), or right-click it in the ranges
+toolbar and select **Add to active plot**.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A channel is not in the Y1 list
+
+<Problem.Body>
+<Problem.Cause>
+
+The axis lists hide virtual, `string`, `json`, and `uuid` channels.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use a [log](/reference/visualize/logs) for text values.
+
+</Problem.Fix>
+</Problem.Body>
+
+### The toolbar says the plot is not editable
+
+<Problem.Body>
+<Problem.Cause>
+
+You do not have permission to change the plot. You can still zoom, pan, and select.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Ask an administrator for access.
+
+</Problem.Fix>
+</Problem.Body>
+
+### H does not pause the plot
+
+<Problem.Body>
+<Problem.Cause>
+
+**H** needs permission to change the plot.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click <Icon.Pause /> instead.
+
+</Problem.Fix>
+</Problem.Body>

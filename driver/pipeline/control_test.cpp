@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <future>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
@@ -132,5 +135,47 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
 /// @brief it should wait out an unlicensed Core and succeed once it is licensed.
 TEST(ControlPipeline, testOpenRetryUnlicensed) {
     assert_open_retries(synnax::errors::LICENSE_MISSING);
+}
+/// @brief it should tell the sink once the streamer is open.
+TEST(ControlPipeline, OpenedFollowsStreamerOpen) {
+    const auto factory = mock::simple_streamer_factory(
+        {1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    std::promise<void> release;
+    factory->open_gate = release.get_future().share();
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{.channels = {1}},
+        sink,
+        x::breaker::Config{}
+    );
+    ASSERT_TRUE(control.start());
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    EXPECT_EQ(sink->opens.load(), 0);
+    release.set_value();
+    ASSERT_EVENTUALLY_EQ(sink->opens.load(), 1);
+    control.stop();
+}
+
+/// @brief it should not tell the sink the streamer is open when it fails to open.
+TEST(ControlPipeline, OpenedSkippedOnOpenFailure) {
+    const auto factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{x::errors::UNKNOWN},
+        std::make_shared<std::vector<mock::StreamerConfig>>()
+    );
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{}
+    );
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_EQ(factory->streamer_opens.load(), 1);
+    control.stop();
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
+    ASSERT_EQ(sink->opens.load(), 0);
 }
 }

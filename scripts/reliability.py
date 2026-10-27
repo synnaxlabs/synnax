@@ -84,13 +84,15 @@ JOBS: dict[str, tuple[str, str, list[str]]] = {
     "oracle": ("toolchain", "go", ["oracle"]),
     "docs": ("toolchain", "ts", ["site/docs"]),
     "vite-plugin": ("toolchain", "ts", ["configs/vite"]),
+    "eslint-config": ("toolchain", "ts", ["configs/eslint"]),
     "scripts": ("toolchain", "py", ["scripts"]),
     "ci-scripts": ("toolchain", "py", [".github/scripts"]),
 }
 
 # CI test jobs left off the page: lint and schema checks, websites outside the release,
-# and grammar snapshots that declare no named tests.
+# grammar snapshots that declare no named tests, and sanitizer reruns of listed tests.
 UNLISTED = {
+    "driver-tsan",
     "foundation",
     "lint-integration",
     "oracle-language",
@@ -447,12 +449,13 @@ def main() -> None:
     run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
     sha = run["head_sha"]
     subprocess.run(["git", "fetch", "-q", "origin", sha], cwd=ROOT, check=True)
+    # GitHub returns HTTP 502 for pages of 50 or more jobs on a full release run.
     run_jobs = [
         json.loads(line)
         for line in gh(
             "api",
             "--paginate",
-            f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=100",
+            f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=30",
             "-q",
             ".jobs[]|{name,conclusion,html_url,labels,started_at,completed_at}|tojson",
         ).splitlines()

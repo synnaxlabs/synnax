@@ -26,8 +26,9 @@ The purpose of this document, and the entire `docs/tech` directory, is to:
 
 The first step to working with the Synnax platform is to understand the high level
 components that make up the system. The best way to do this is to read the
-[concepts](https://docs.synnaxlabs.com/reference/concepts/overview) section of the
-official documentation.
+[channels](https://docs.synnaxlabs.com/reference/channels) and
+[ranges](https://docs.synnaxlabs.com/reference/ranges) sections of the official
+documentation.
 
 As a supplement, read through the [telemetry concepts](telemetry.md) document. This
 provides a detailed guide on what telemetry is, and how Synnax leverages the properties

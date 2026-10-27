@@ -2,7 +2,7 @@
 title: "Version 0.43 release notes"
 ---
 
-import { Image, Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -16,7 +16,14 @@ export const components = mdxOverrides;
     breakingChanges
 >
 
-<Image id="releases/0-43-0/thumbnail" themed={false} extension="svg" />
+<Hero.Hero
+  image="releases/0-43-0/thumbnail"
+  themed={false}
+  extension="svg"
+  layout="framed"
+  tone="soft"
+  palette="blue-violet"
+/>
 
 Synnax v0.43 is a maintenance release that focuses on bug fixes and stability
 improvements to the Synnax Core and Console UI, along with a few minor features.
