@@ -1681,6 +1681,60 @@ var _ = Describe("Python Types Plugin", func() {
 						ToNotContain("class Color(")
 				})
 
+			It("Should reference a hand-written struct by its import alias",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+							@py name "rgba"
+						}
+
+						Band struct {
+							rgba Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from x.color.color import rgba as rgba_`,
+							`rgba: rgba_`,
+						)
+				})
+
+			It("Should import the variant a hand-written union default names",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Scale union on type {
+							none {}
+							linear {
+								slope float64
+							}
+							@py hand
+							@py include "x/py/x/color/scale"
+						}
+
+						Band struct {
+							scale  Scale = none
+							linear Scale = { type = "linear", slope = 2 }
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from x.color.scale import Scale`,
+							`from x.color.scale import NoneScale`,
+							`from x.color.scale import LinearScale`,
+							`default_factory=lambda: NoneScale(type="none")`,
+							`default_factory=lambda: LinearScale(type="linear", slope=2)`,
+						)
+				})
+
 			It("Should import a hand-written struct that an alias names",
 				func(ctx SpecContext) {
 					source := `
