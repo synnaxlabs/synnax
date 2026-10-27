@@ -10,10 +10,14 @@
 #pragma once
 
 #include <cstddef>
+#include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/describe.h"
 
 namespace synnax::errors {
 /// @brief the base of every license error the Core returns.
@@ -70,5 +74,29 @@ inline x::errors::Error multiple_found_error(
         "Expected one " + name + details::where_clause(where) + ", but found " +
             std::to_string(count)
     );
+}
+
+/// @returns the one record that a retrieve found, or the error of the retrieve.
+/// @param name the singular kind of record, such as "range".
+/// @param where the filter that selected the records, for the error message.
+/// @param retrieved the records and error that the retrieve returned.
+/// @returns a NOT_FOUND error if retrieved holds no record, and a MULTIPLE_RESULTS
+/// error if it holds more than one.
+template<typename T, typename W>
+[[nodiscard]] std::pair<T, x::errors::Error> exactly_one(
+    const std::string &name,
+    const std::optional<W> &where,
+    std::pair<std::vector<T>, x::errors::Error> retrieved
+) {
+    auto &[records, err] = retrieved;
+    if (err) return {T{}, err};
+    if (records.empty())
+        return {T{}, not_found_error(name, x::filter::describe(where))};
+    if (records.size() > 1)
+        return {
+            T{},
+            multiple_found_error(name, x::filter::describe(where), records.size())
+        };
+    return {std::move(records.front()), x::errors::NIL};
 }
 }

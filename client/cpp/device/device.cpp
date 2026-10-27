@@ -13,7 +13,6 @@
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/rack/rack.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/filter/describe.h"
 
 namespace synnax::device {
 Client::Client(
@@ -40,23 +39,7 @@ Client::retrieve(const RetrieveRequest &req) const {
 
 std::pair<Device, x::errors::Error>
 Client::retrieve_one(const RetrieveRequest &req) const {
-    auto [devices, err] = this->retrieve(req);
-    if (err) return {Device{}, err};
-    if (devices.empty())
-        return {
-            Device{},
-            errors::not_found_error("device", x::filter::describe(req.where))
-        };
-    if (devices.size() > 1)
-        return {
-            Device{},
-            errors::multiple_found_error(
-                "device",
-                x::filter::describe(req.where),
-                devices.size()
-            )
-        };
-    return {std::move(devices[0]), x::errors::NIL};
+    return errors::exactly_one("device", req.where, this->retrieve(req));
 }
 
 x::errors::Error Client::create(Device &device) const {

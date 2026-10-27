@@ -97,23 +97,7 @@ std::pair<Channel, x::errors::Error> Client::retrieve_one(
     const RetrieveRequest &req,
     const std::optional<Where> &described
 ) const {
-    auto [channels, err] = this->retrieve(req);
-    if (err) return {Channel{}, err};
-    if (channels.empty())
-        return {
-            Channel{},
-            errors::not_found_error("channel", x::filter::describe(described))
-        };
-    if (channels.size() > 1)
-        return {
-            Channel{},
-            errors::multiple_found_error(
-                "channel",
-                x::filter::describe(described),
-                channels.size()
-            )
-        };
-    return {std::move(channels[0]), x::errors::NIL};
+    return errors::exactly_one("channel", described, this->retrieve(req));
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>

@@ -20,7 +20,6 @@
 #include "client/cpp/status/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/filter/describe.h"
 #include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/status/pb/status.pb.h"
@@ -249,23 +248,7 @@ private:
     template<typename Details>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
     retrieve_one(const RetrieveRequest &req) const {
-        auto [statuses, err] = this->retrieve<Details>(req);
-        if (err) return {synnax::status::Status<Details>{}, err};
-        if (statuses.empty())
-            return {
-                synnax::status::Status<Details>{},
-                errors::not_found_error("status", x::filter::describe(req.where))
-            };
-        if (statuses.size() > 1)
-            return {
-                synnax::status::Status<Details>{},
-                errors::multiple_found_error(
-                    "status",
-                    x::filter::describe(req.where),
-                    statuses.size()
-                )
-            };
-        return {std::move(statuses[0]), x::errors::NIL};
+        return errors::exactly_one("status", req.where, this->retrieve<Details>(req));
     }
 
     std::shared_ptr<RetrieveClient> retrieve_client;
