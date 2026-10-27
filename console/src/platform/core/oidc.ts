@@ -137,6 +137,7 @@ const pendingZ = z.object({
  * Starts a login through a provider from the browser Console: saves the verifier for
  * the page load that follows, then leaves for the provider's login page. The provider
  * redirects back to the Console's own origin.
+ * @throws {Error} when the browser cannot create the PKCE pair or save the login.
  */
 export const beginBrowserLogin = async (
   core: string,

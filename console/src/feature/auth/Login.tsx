@@ -118,6 +118,7 @@ export const Login = (): ReactElement => {
   const [selectedKey, setSelectedKey] = useState<string | undefined>(activeKey);
   const selectedCore = Session.Core.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
+  const store = Session.useStore();
   const [step, setStep] = useState<Step>(() =>
     servingCore != null || activeKey != null ? "login" : "cores",
   );
@@ -147,17 +148,24 @@ export const Login = (): ReactElement => {
       try {
         if (Session.Runtime.ENGINE !== "tauri")
           await Core.beginBrowserLogin(core.key, login);
-        else {
-          await Core.loginDesktop(core, login);
-          // a user who left the login surface has moved on
-          if (mounted.current)
-            dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
-        }
+        else await Core.loginDesktop(core, login);
       } catch (e) {
         failure = errors.fromUnknown(e);
       }
       setPendingProvider(undefined);
       if (failure != null) throw failure;
+      if (Session.Runtime.ENGINE !== "tauri") return;
+      const current = Session.Core.selectState(store.getState(), core.key);
+      // the token is saved under the address the login started with
+      if (
+        current?.host !== core.host ||
+        current.port !== core.port ||
+        current.secure !== core.secure
+      )
+        throw new Error("The Core's address changed during the login. Log in again.");
+      // a user who left the login surface has moved on
+      if (mounted.current)
+        dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
     }, `Failed to log in with ${login.provider}`);
   };
 
