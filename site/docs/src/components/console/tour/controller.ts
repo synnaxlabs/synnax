@@ -130,9 +130,11 @@ const place = ({ root, step: index }: Tour): void => {
   arrow.dataset.side = side ?? "";
   const midX = (rect.left + rect.right) / 2;
   const midY = (rect.top + rect.bottom) / 2;
-  if (side === "left" || side === "right")
-    arrow.style.top = `${clamp(midY - y, 16, cardHeight - 16)}px`;
-  else arrow.style.left = `${clamp(midX - x, 16, cardWidth - 16)}px`;
+  const vertical = side === "left" || side === "right";
+  Object.assign(arrow.style, {
+    top: vertical ? `${clamp(midY - y, 16, cardHeight - 16)}px` : "",
+    left: vertical ? "" : `${clamp(midX - x, 16, cardWidth - 16)}px`,
+  });
 };
 
 const show = (root: HTMLElement, still: string): void => {
