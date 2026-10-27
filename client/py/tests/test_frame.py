@@ -86,6 +86,64 @@ class TestFrame:
 
 
 @pytest.mark.framer
+@pytest.mark.telem
+class TestFrameToDF:
+    def test_name_columns(self) -> None:
+        """Should use the channel names of a name-keyed frame as the columns."""
+        f = sy.Frame({"big": sy.Series([1, 2]), "dog": sy.Series([3, 4])})
+        df = f.to_df()
+        assert list(df.columns) == ["big", "dog"]
+        assert list(df["dog"]) == [3, 4]
+
+    def test_known_names_of_keys(self) -> None:
+        """Should use the channel names the frame knows for key columns."""
+        f = sy.Frame({1: sy.Series([1, 2]), 2: sy.Series([3, 4])})
+        f.names = {1: "big", 2: "dog"}
+        df = f.to_df()
+        assert list(df.columns) == ["big", "dog"]
+        assert list(df["big"]) == [1, 2]
+
+    def test_key_fallback(self) -> None:
+        """Should use the channel key when the frame does not know the name."""
+        f = sy.Frame({1: sy.Series([1, 2]), 2: sy.Series([3, 4])})
+        f.names = {2: "dog"}
+        assert list(f.to_df().columns) == [1, "dog"]
+
+    def test_shared_name_uses_keys(self) -> None:
+        """Should use the channel keys for channels that share a name."""
+        f = sy.Frame(
+            {1: sy.Series([1]), 2: sy.Series([2]), 3: sy.Series([3])},
+        )
+        f.names = {1: "big", 2: "big", 3: "dog"}
+        df = f.to_df()
+        assert list(df) == [1, 2, "dog"]
+        assert list(df[2]) == [2]
+
+    def test_channel_order(self) -> None:
+        """Should order the columns by the first appearance of each channel."""
+        f = sy.Frame(
+            [30, 10, 20, 10],
+            [
+                sy.Series([1, 2]),
+                sy.Series([3]),
+                sy.Series([5, 6]),
+                sy.Series([4]),
+            ],
+        )
+        df = f.to_df()
+        assert list(df) == [30, 10, 20]
+        assert list(df[10]) == [3, 4]
+
+    def test_append_merges_names(self) -> None:
+        """Should keep the channel names of an appended frame."""
+        f = sy.Frame()
+        other = sy.Frame({1: sy.Series([1, 2])})
+        other.names = {1: "big"}
+        f.append(other)
+        assert list(f.to_df().columns) == ["big"]
+
+
+@pytest.mark.framer
 class TestWriteFrameAdapter:
     @pytest.fixture(scope="class")
     @classmethod
@@ -721,3 +779,73 @@ class TestReadFrameAdapter:
         adapted_keys = adapter.adapt(frame_keys)
         # Should return unchanged (keys)
         assert adapted_keys.channels == [ch1.key, ch2.key]
+
+    def test_adapt_records_names_with_keys(
+        self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
+    ) -> None:
+        """Should record the channel names in a key-keyed frame."""
+        ch1, ch2, _ = channels
+        adapter = ReadFrameAdapter(client.channels._retriever)
+        adapter.update([ch1.key, ch2.key])
+        frame = sy.Frame(
+            [ch1.key, ch2.key],
+            [
+                sy.Series([1.0], data_type=sy.DataType.FLOAT64),
+                sy.Series([10], data_type=sy.DataType.INT64),
+            ],
+        )
+        adapted = adapter.adapt(frame)
+        assert adapted.channels == [ch1.key, ch2.key]
+        assert list(adapted.to_df().columns) == [ch1.name, ch2.name]
+
+    @pytest.mark.parametrize("by_name", [True, False])
+    def test_adapt_sorts_into_requested_order(
+        self,
+        client: sy.Synnax,
+        channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+        by_name: bool,
+    ) -> None:
+        """Should sort the series into the order of the requested channels."""
+        ch1, ch2, ch3 = channels
+        requested = [ch3, ch1, ch2]
+        adapter = ReadFrameAdapter(client.channels._retriever)
+        if by_name:
+            adapter.update([ch.name for ch in requested])
+        else:
+            adapter.update([ch.key for ch in requested])
+        frame = sy.Frame(
+            [ch1.key, ch2.key, ch3.key],
+            [
+                sy.Series([1.0], data_type=sy.DataType.FLOAT64),
+                sy.Series([10], data_type=sy.DataType.INT64),
+                sy.Series([100.0], data_type=sy.DataType.FLOAT32),
+            ],
+        )
+        adapted = adapter.adapt(frame)
+        assert list(adapted.to_df().columns) == [ch.name for ch in requested]
+        assert list(adapted.to_df()[ch3.name]) == [100.0]
+
+    @pytest.mark.parametrize("by_name", [True, False])
+    def test_adapt_keeps_first_position_of_repeated_channel(
+        self,
+        client: sy.Synnax,
+        channels: tuple[sy.Channel, sy.Channel, sy.Channel],
+        by_name: bool,
+    ) -> None:
+        """Should order a repeated channel by its first requested position."""
+        ch1, ch2, _ = channels
+        requested = [ch1, ch2, ch1]
+        adapter = ReadFrameAdapter(client.channels._retriever)
+        if by_name:
+            adapter.update([ch.name for ch in requested])
+        else:
+            adapter.update([ch.key for ch in requested])
+        frame = sy.Frame(
+            [ch2.key, ch1.key],
+            [
+                sy.Series([10], data_type=sy.DataType.INT64),
+                sy.Series([1.0], data_type=sy.DataType.FLOAT64),
+            ],
+        )
+        adapted = adapter.adapt(frame)
+        assert list(adapted.to_df().columns) == [ch1.name, ch2.name]

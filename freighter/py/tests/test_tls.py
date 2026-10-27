@@ -27,7 +27,7 @@ from freighter import (
 )
 from x.codec import JSONCodec
 
-from .interface import Message
+from .interface import Message, create_registry
 
 
 class _EchoHandler(BaseHTTPRequestHandler):
@@ -102,18 +102,20 @@ def ws_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
 
 
 def _send(url: URL, ctx: ssl.SSLContext) -> Message:
-    client = HTTPClient(url, JSONCodec(), ssl_context=ctx)
+    client = HTTPClient(url, JSONCodec(), create_registry(), ssl_context=ctx)
     return client.send("/echo", Message(id=1, message="hi"), Message)
 
 
 def _stream(url: URL, ctx: ssl.SSLContext) -> None:
-    client = WebsocketClient(encoder=JSONCodec(), base_url=url, ssl_context=ctx)
+    client = WebsocketClient(
+        encoder=JSONCodec(), registry=create_registry(), base_url=url, ssl_context=ctx
+    )
     client.stream("/stream", Message, Message).close_send()
 
 
 async def _stream_async(url: URL, ctx: ssl.SSLContext) -> None:
     client = AsyncWebsocketClient(
-        encoder=JSONCodec(), base_url=url, ssl_context=ctx
+        encoder=JSONCodec(), registry=create_registry(), base_url=url, ssl_context=ctx
     ).with_codec(JSONCodec())
     await (await client.stream("/stream", Message, Message)).close_send()
 
