@@ -181,6 +181,8 @@ export interface Info {
   nodeKey: number;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
+  /** The check's round trip. The skew is off by at most half of it. */
+  roundTrip: TimeSpan;
   license: license.State;
 }
 
@@ -288,7 +290,10 @@ const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   // the check traverses the auth middleware, so a response is proof of auth
   authenticated: true,
   clockSkew: info.clockSkew,
-  clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
+  // A slow round trip is not skew, so only skew beyond its error bound counts.
+  clockSkewExceeded: info.clockSkew
+    .abs()
+    .greaterThan(config.clockSkewThreshold.add(info.roundTrip.div(2))),
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
   license: info.license,
 });

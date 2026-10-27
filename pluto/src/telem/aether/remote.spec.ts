@@ -28,7 +28,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { createFactory, type CreateOptions } from "@/telem/aether/factory";
 import {
@@ -45,6 +45,7 @@ import {
   type ValueProps,
 } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
+import { line } from "@/vis/line/aether";
 
 const RATE = Rate.hz(100);
 const START = TimeStamp.seconds(1_000_000);
@@ -782,6 +783,156 @@ describe("remote", () => {
       });
       expect(statuses).toHaveLength(1);
     });
+  });
+
+  // A line pairs x and y by alignment, and the Core streams a sample with an alignment
+  // that never pairs with the one it reads back.
+  describe("live line", () => {
+    const LIVE_START = TimeStamp.seconds(100);
+    const PERIOD = TimeSpan.milliseconds(100);
+
+    const createLive = (): { core: SyntheticCore; client: Client } => {
+      const core = new SyntheticCore({
+        rate: 10,
+        start: LIVE_START,
+        now: LIVE_START.add(TimeSpan.seconds(1)),
+      });
+      return { core, client: connect(core) };
+    };
+
+    // Subscribes to the channel as another view of it would, then streams the given
+    // number of its samples.
+    const stream = async (
+      core: SyntheticCore,
+      client: Client,
+      key: channel.Key,
+      count: number,
+    ): Promise<void> => {
+      const sub = client.feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1 },
+      });
+      closers.push(() => sub.close());
+      // The read lands once the stream acks the channel, so later samples stream.
+      await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+      for (let i = 0; i < count; i++) {
+        core.advance(PERIOD);
+        await sleep.sleep(TimeSpan.ZERO);
+      }
+    };
+
+    // Opens the x and y sources of a live line of the data channel as a line plot does,
+    // with the index as the line's X channel or with no X channel.
+    const createLine = (
+      core: SyntheticCore,
+      client: Client,
+      span: TimeSpan,
+      indexAsX: boolean,
+    ): [ChannelData, ChannelData] => {
+      const yChannel = core.data[0].key;
+      const xChannel = indexAsX ? core.index.key : 0;
+      const create = (props: Partial<ChannelDataProps>): ChannelData => {
+        const source = new ChannelData(
+          client,
+          { channel: yChannel, window: dynamicWindow(span), xChannel, ...props },
+          undefined,
+          core.now,
+          BREAKER,
+        );
+        closers.push(() => source.cleanup());
+        return source;
+      };
+      const x = create(indexAsX ? { channel: xChannel } : { useIndexOfChannel: true });
+      return [x, create({})];
+    };
+
+    const sample = (t: TimeStamp): number =>
+      Math.round(t.span(LIVE_START).seconds / PERIOD.seconds);
+
+    const samples = (from: number, to: number): number[] =>
+      Array.from({ length: to - from }, (_, i) => from + i);
+
+    // Returns the index of every sample a line of x and y draws, in order.
+    const drawn = (x: ChannelData, y: ChannelData, shown?: ValueProps): number[] =>
+      line
+        .buildDrawOperations(
+          x.value(shown).data[1],
+          y.value(shown).data[1],
+          line.DEFAULT_OVERLAP_THRESHOLD,
+        )
+        .flatMap((op) =>
+          Array.from({ length: op.count }, (_, i) => {
+            const t = op.x.at(op.xOffset + i, true);
+            assert(typeof t === "bigint");
+            return sample(new TimeStamp(t));
+          }),
+        )
+        .sort((a, b) => a - b);
+
+    const STREAMING = [
+      {
+        streaming: "index",
+        channels: (core: SyntheticCore) => [core.index.key],
+        indexAsX: false,
+      },
+      {
+        streaming: "data channel",
+        channels: (core: SyntheticCore) => [core.data[0].key],
+        indexAsX: false,
+      },
+      {
+        streaming: "index and then its data channel",
+        channels: (core: SyntheticCore) => [core.index.key, core.data[0].key],
+        indexAsX: false,
+      },
+      {
+        streaming: "index, its X channel,",
+        channels: (core: SyntheticCore) => [core.index.key],
+        indexAsX: true,
+      },
+    ];
+
+    it.each(STREAMING)(
+      "should draw every sample of a line added while its $streaming streams",
+      async ({ channels, indexAsX }) => {
+        const { core, client } = createLive();
+        for (const key of channels(core)) await stream(core, client, key, 20);
+        const [x, y] = createLine(core, client, TimeSpan.seconds(30), indexAsX);
+        await expect
+          .poll(() => drawn(x, y), POLL)
+          .toEqual(samples(0, sample(core.now())));
+      },
+    );
+
+    // A paused view stays put while the line moves on, so it soon draws from blocks
+    // reduced for history.
+    it.each(STREAMING)(
+      "should keep every sample of a paused line added while its $streaming streams",
+      async ({ channels, indexAsX }) => {
+        const { core, client } = createLive();
+        for (const key of channels(core)) await stream(core, client, key, 200);
+        const span = TimeSpan.seconds(2);
+        const [x, y] = createLine(core, client, span, indexAsX);
+        const end = core.now();
+        const [from, to] = [sample(end.sub(span)), sample(end)];
+        await expect
+          .poll(() => drawn(x, y), POLL)
+          .toEqual(expect.arrayContaining(samples(from, to)));
+        const paused: ValueProps = {
+          bounds: { lower: ns(end.sub(span)), upper: ns(end) },
+          points: 2000,
+        };
+        for (let i = 0; i < 10; i++) {
+          core.advance(TimeSpan.seconds(1));
+          x.value(paused);
+          y.value(paused);
+          await sleep.sleep(TimeSpan.milliseconds(20));
+        }
+        await expect
+          .poll(() => drawn(x, y, paused).filter((i) => i >= from && i < to), POLL)
+          .toEqual(samples(from, to));
+      },
+    );
   });
 
   describe("disconnected", () => {

@@ -24,6 +24,11 @@ on:
         description: "Runner label ('ubuntu-test-bot' or 'windows-test-bot')"
         type: string
         required: true
+      hosted_os:
+        description: GitHub-hosted runner for the suites the matrix marks hosted
+        type: string
+        required: false
+        default: ""
       flags:
         description: "Additional flags to pass to test-conductor"
         type: string
@@ -35,8 +40,8 @@ jobs:
     name: ${{ matrix.name }}
     timeout-minutes: 30
     runs-on:
-      - self-hosted
-      - ${{ inputs.os }}
+      ${{ matrix.hosted && inputs.hosted_os || fromJSON(format('["self-hosted", "{0}"]',
+      inputs.os)) }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(inputs.test_matrix) }}
@@ -74,9 +79,13 @@ jobs:
         with:
           version: latest-known
 
+      # The Console cases use only Chromium. On Windows, --with-deps adds the Media
+      # Foundation feature that only WebKit needs, which takes 3 minutes.
       - name: Install Playwright
         working-directory: integration
-        run: uv run playwright install --with-deps
+        run: >-
+          uv run playwright install ${{ runner.os == 'Linux' && '--with-deps' || '' }}
+          chromium
 
       - name: Start resource sampler (Windows)
         id: sampler-win
