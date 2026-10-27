@@ -34,5 +34,7 @@ Radius struct {
         which expands to this canonical shape.
     """
     @go marshal
+    @py hand
+    @py include "x/py/x/border/border"
     @ts hand
 }

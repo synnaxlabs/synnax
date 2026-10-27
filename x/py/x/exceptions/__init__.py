@@ -11,18 +11,18 @@ from x.exceptions.exceptions import (
     ContiguityError,
     DecoderFunc,
     EncoderFunc,
+    Error,
     ExceptionPayload,
-    decode_exception,
-    encode_exception,
-    register_exception,
+    Provider,
+    Registry,
 )
 
 __all__ = [
     "ContiguityError",
     "DecoderFunc",
     "EncoderFunc",
+    "Error",
     "ExceptionPayload",
-    "decode_exception",
-    "encode_exception",
-    "register_exception",
+    "Provider",
+    "Registry",
 ]

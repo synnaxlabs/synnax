@@ -11,8 +11,7 @@ import { binary, url, zod } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { Unreachable } from "@/errors";
-import { HTTPClient } from "@/http";
+import { HTTPClient, Unreachable } from "@/index";
 
 const ENDPOINT = new url.URL({
   host: "127.0.0.1",

@@ -1,0 +1,77 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+exports_files(
+    [
+        "test_cert.pem",
+        "test_key.pem",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "testutil",
+    srcs = ["server.cpp"],
+    hdrs = ["server.h"],
+    copts = select({
+        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
+        "@platforms//os:windows": [
+            "/wd4191",
+            "/D_WIN32_WINNT=0x0A00",
+        ],
+        "//conditions:default": [],
+    }),
+    defines = [
+        "CPPHTTPLIB_OPENSSL_SUPPORT",
+        # The default backlog of 5 drops connects when tests open more at once and the
+        # accept thread lags. A dropped SYN waits at least 1s for a resend.
+        "CPPHTTPLIB_LISTEN_BACKLOG=128",
+    ],
+    # cpp-httplib's TLS system-cert loading calls Apple's Security framework on macOS.
+    linkopts = select({
+        "@platforms//os:macos": [
+            "-framework CoreFoundation",
+            "-framework Security",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/http/types",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@cpp-httplib//:cpp-httplib",
+    ],
+)
+
+cc_test(
+    name = "server_test",
+    srcs = ["server_test.cpp"],
+    copts = select({
+        # cpp-httplib >= 0.46 hard-errors unless _WIN32_WINNT targets Windows 10+.
+        "@platforms//os:windows": [
+            "/wd4191",
+            "/D_WIN32_WINNT=0x0A00",
+        ],
+        "//conditions:default": [],
+    }),
+    data = [
+        "test_cert.pem",
+        "test_key.pem",
+    ],
+    deps = [
+        ":testutil",
+        "//x/cpp/test",
+        "@cpp-httplib//:cpp-httplib",
+        "@googletest//:gtest_main",
+    ],
+)

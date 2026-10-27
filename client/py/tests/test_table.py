@@ -10,8 +10,10 @@
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
+from synnax import table
 from synnax.exceptions import NotFoundError
 
 
@@ -20,8 +22,48 @@ def project(client: sy.Synnax) -> sy.Project:
     return client.projects.create(name="Table Project")
 
 
-@pytest.mark.table
 class TestTable:
+    def test_round_trip(self) -> None:
+        """Should parse rows, columns, and cells and dump them back unchanged."""
+        t = table.Table.model_validate(
+            {
+                "name": "Readings",
+                "rows": [{"key": "r", "cells": ["a", "b"]}],
+                "columns": [{"key": "c1"}, {"key": "c2", "size": 100}],
+                "cells": {
+                    "a": {"variant": "text", "value": "Pressure"},
+                    "b": {"variant": "value", "channel": 1, "units": "psi"},
+                },
+            }
+        )
+        assert isinstance(t.cells["a"], table.TextCellConfig)
+        assert isinstance(t.cells["b"], table.ValueCellConfig)
+        assert t.rows[0].size == 36
+        assert t.columns[0].size == 72
+        assert table.Table.model_validate_json(t.model_dump_json()) == t
+
+    def test_cell(self) -> None:
+        """Should select the cell config variant of a keyed cell."""
+        cell = table.Cell.model_validate({"key": "a", "config": {"variant": "value"}})
+        assert isinstance(cell.config, table.ValueCellConfig)
+        assert cell.config.redline.bands == []
+
+    def test_row_size(self) -> None:
+        """Should reject a row smaller than one pixel."""
+        with pytest.raises(ValidationError):
+            table.Row(size=0)
+
+    def test_ontology_id(self) -> None:
+        """Should build the ontology ID of a table."""
+        key = uuid4()
+        assert table.ontology_id(key).type == table.ONTOLOGY_TYPE.type
+        assert table.ontology_id(key).key == str(key)
+        t = table.Table(name="Readings")
+        assert hash(t) == hash(t.key)
+
+
+@pytest.mark.table
+class TestClient:
     def test_create(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create an empty table from a name."""
         t = client.tables.create(project.key, name="Test Table")
@@ -29,31 +71,31 @@ class TestTable:
         assert t.rows == []
 
     def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:
-        """Should create a table with rows, columns, and cells."""
-        row = sy.table.Row(cells=["a", "b"])
+        """Should persist the rows, columns, and cells of a table."""
+        row = table.Row(cells=["a", "b"])
         t = client.tables.create(
             project.key,
-            sy.table.Table(
+            table.Table(
                 name="Full Table",
                 rows=[row],
-                columns=[sy.table.Column(), sy.table.Column(size=120)],
+                columns=[table.Column(), table.Column(size=120)],
                 cells={
-                    "a": sy.table.TextCellConfig(value="Pressure"),
-                    "b": sy.table.ValueCellConfig(units="psi"),
+                    "a": table.TextCellConfig(value="Pressure"),
+                    "b": table.ValueCellConfig(units="psi"),
                 },
             ),
         )
         retrieved = client.tables.retrieve(key=t.key)
         assert retrieved.rows == [row]
         assert retrieved.columns[1].size == 120
-        assert retrieved.cells["a"] == sy.table.TextCellConfig(value="Pressure")
-        assert retrieved.cells["b"] == sy.table.ValueCellConfig(units="psi")
+        assert retrieved.cells["a"] == table.TextCellConfig(value="Pressure")
+        assert retrieved.cells["b"] == table.ValueCellConfig(units="psi")
 
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple tables."""
         tables = client.tables.create(
             project.key,
-            [sy.table.Table(name="Multi 1"), sy.table.Table(name="Multi 2")],
+            [table.Table(name="Multi 1"), table.Table(name="Multi 2")],
         )
         assert [t.name for t in tables] == ["Multi 1", "Multi 2"]
 
