@@ -918,9 +918,11 @@ class TestChannelWriteRead:
         d = seconds_linspace(1, 10)
         start = 1 * sy.TimeSpan.SECOND
         channel.write(start, d)
-        data = channel.read(start, (start + len(d)) * sy.TimeSpan.SECOND)
+        data = channel.read(start, start + len(d) * sy.TimeSpan.SECOND)
         assert data.time_range is not None
         assert data.time_range.start == start
         assert len(d) == len(data)
-        assert data.time_range.end == start + (len(d) - 1) * sy.TimeSpan.SECOND + 1
+        assert data.time_range.end == (
+            start + (len(d) - 1) * sy.TimeSpan.SECOND + sy.TimeSpan.NANOSECOND
+        )
         assert np.array_equal(data, d)

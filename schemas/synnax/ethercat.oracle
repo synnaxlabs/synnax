@@ -17,25 +17,6 @@ import "schemas/x/telem"
 @py output  "client/py/synnax/ethercat"
 @ts output  "client/ts/src/ethercat"
 
-PDOAddress struct {
-    index      uint16 = 0 {
-        @doc value "is the CoE object dictionary index of the PDO entry."
-    }
-    sub_index  uint8 = 0 {
-        @doc value "is the CoE object dictionary sub-index of the PDO entry."
-    }
-    bit_length uint8 = 16 {
-        @doc value "is the size of the PDO entry, in bits."
-    }
-    data_type  telem.DataType = "uint16" {
-        @doc value "is the data type of the PDO entry."
-        @ts type   "string"
-    }
-
-    @doc value  "addresses a PDO entry explicitly in the CoE object dictionary."
-    @go marshal
-}
-
 BaseReadChannel struct {
     key      string = create {
         @doc value "uniquely identifies the channel within the task."
@@ -59,15 +40,29 @@ BaseReadChannel struct {
 }
 
 ReadChannel union on type extends BaseReadChannel {
-    automatic {
-        pdo string = "" {
-            @doc value "is the name of the PDO entry to resolve on the slave."
+    entry {
+        index     uint16         {
+            @doc value "is the CoE object dictionary index of the PDO entry."
+        }
+        sub_index uint8          {
+            @doc value "is the CoE object dictionary sub-index of the PDO entry."
+        }
+        data_type telem.DataType {
+            @doc value "is the data type of the PDO entry."
+            @ts type   "string"
         }
 
-        @doc value "resolves its PDO address from the slave's discovered PDOs."
+        @doc value "addresses a PDO entry by its CoE index and sub-index."
     }
-    manual extends PDOAddress {
-        @doc value "specifies its PDO address inline."
+    unresolved {
+        pdo string {
+            @doc value "is the entry name that matched no single entry on the slave."
+        }
+
+        @doc value """
+            is a channel whose PDO entry name matched no single entry on its slave. It
+            must be given an entry before the task runs.
+        """
     }
 
     @doc value  """
@@ -109,15 +104,29 @@ BaseWriteChannel struct {
 }
 
 WriteChannel union on type extends BaseWriteChannel {
-    automatic {
-        pdo string = "" {
-            @doc value "is the name of the PDO entry to resolve on the slave."
+    entry {
+        index     uint16         {
+            @doc value "is the CoE object dictionary index of the PDO entry."
+        }
+        sub_index uint8          {
+            @doc value "is the CoE object dictionary sub-index of the PDO entry."
+        }
+        data_type telem.DataType {
+            @doc value "is the data type of the PDO entry."
+            @ts type   "string"
         }
 
-        @doc value "resolves its PDO address from the slave's discovered PDOs."
+        @doc value "addresses a PDO entry by its CoE index and sub-index."
     }
-    manual extends PDOAddress {
-        @doc value "specifies its PDO address inline."
+    unresolved {
+        pdo string {
+            @doc value "is the entry name that matched no single entry on the slave."
+        }
+
+        @doc value """
+            is a channel whose PDO entry name matched no single entry on its slave. It
+            must be given an entry before the task runs.
+        """
     }
 
     @doc value  """
