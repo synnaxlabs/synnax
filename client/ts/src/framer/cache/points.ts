@@ -427,7 +427,14 @@ export class Points {
   // tilesEnd is where tiles stop for the boundary: the boundary, or the start of a raw
   // series that crosses it, so no span draws twice.
   private tilesEnd(boundary: TimeStamp): TimeStamp {
-    const first = this.raw.find((s) => s.timeRange.end.after(boundary));
+    // A raw series ends within its block, though an open one's range ends at MAX.
+    const first = this.raw.find((s) => {
+      const { end } = tileRange({
+        level: RAW_LEVEL,
+        index: rawIndex(s.timeRange.start),
+      });
+      return TimeStamp.min(s.timeRange.end, end).after(boundary);
+    });
     return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
   }
 

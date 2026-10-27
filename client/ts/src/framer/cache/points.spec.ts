@@ -366,8 +366,7 @@ describe("Points", () => {
           points.value();
         }
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
-        const large = reduced.filter((tr) => !isTile(tr) && tr.span.greaterThan(block));
-        expect(large).toEqual([]);
+        expect(reduced.filter((tr) => !isTile(tr))).toEqual([]);
         const ranges = reduced.map((tr) => `${tr.start.valueOf()}/${tr.end.valueOf()}`);
         expect(new Set(ranges).size).toBe(ranges.length);
       } finally {
