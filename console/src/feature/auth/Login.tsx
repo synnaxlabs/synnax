@@ -84,6 +84,28 @@ const useAccepted = (core?: auth.MethodsParams): Accepted => {
 };
 
 /**
+ * Finishes a browser login the provider redirected back from, before any guard chooses
+ * between the login surface and a session the browser already holds.
+ */
+export const useCompleteBrowserLogin = (): void => {
+  const cores = Session.Core.useSelectMany();
+  const servingCore = Core.detectConnection();
+  const dispatch = Session.useDispatch();
+  const handleError = Status.useErrorHandler();
+  useEffect(() => {
+    handleError(() => {
+      const completed = Core.completeBrowserLogin();
+      if (completed == null) return;
+      const core = cores.find((c) => c.key === completed.core) ?? servingCore;
+      if (core == null) return;
+      const oidc = completed.credentials;
+      dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
+      dispatch(Session.Core.select(core.key));
+    }, "Failed to log in");
+  }, []);
+};
+
+/**
  * Full-screen login surface. Serves both initial login and credential re-entry after
  * the active Core rejects auth, where submitting resumes its connection.
  */
@@ -114,24 +136,6 @@ export const Login = (): ReactElement => {
     return () => {
       mounted.current = false;
     };
-  }, []);
-
-  const connect = (
-    core: Pick<Session.Core.Core, "host" | "key" | "name" | "port" | "secure">,
-    oidc: auth.OIDCCredentials,
-  ): void => {
-    dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
-    dispatch(Session.Core.select(core.key));
-  };
-
-  // the browser Console comes back here from its provider with a code to log in with
-  useEffect(() => {
-    handleError(() => {
-      const completed = Core.completeBrowserLogin();
-      if (completed == null) return;
-      const core = cores.find((c) => c.key === completed.core) ?? servingCore;
-      if (core != null) connect(core, completed.credentials);
-    }, "Failed to log in");
   }, []);
 
   const handleProvider = (login: auth.OIDCLogin): void => {
