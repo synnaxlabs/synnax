@@ -100,7 +100,7 @@ const renderTriggers = async (ui?: ReactNode) => {
     () => {
       Triggers.use();
       return {
-        overlaid: Session.Panel.useSelectOverlaid(),
+        isOverlaid: Session.Panel.useGetIsOverlaid(),
         modals: Modals.useStore("app/triggers.spec"),
       };
     },
@@ -164,9 +164,9 @@ describe("app/triggers", () => {
     it("should stop overlaying the focused tab", async () => {
       const { result, store } = await renderTriggers();
       act(() => void store.dispatch(Session.Panel.startOverlaying({})));
-      expect(result.current.overlaid).toBe(true);
+      expect(result.current.isOverlaid()).toBe(true);
       act(pressEscape);
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
 
     it("should stop overlaying when a first press was claimed elsewhere", async () => {
@@ -176,7 +176,7 @@ describe("app/triggers", () => {
       act(pressEscape);
       act(() => void store.dispatch(Session.Panel.startOverlaying({})));
       act(pressEscape);
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
   });
 
@@ -185,24 +185,24 @@ describe("app/triggers", () => {
       const { result, store } = await renderTriggers();
       focusTab(store);
       act(() => press(CONTROL, "KeyL"));
-      expect(result.current.overlaid).toBe(true);
+      expect(result.current.isOverlaid()).toBe(true);
       act(() => press(CONTROL, "KeyL"));
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
 
     it("should also leave focus mode on Escape", async () => {
       const { result, store } = await renderTriggers();
       focusTab(store);
       act(() => press(CONTROL, "KeyL"));
-      expect(result.current.overlaid).toBe(true);
+      expect(result.current.isOverlaid()).toBe(true);
       act(pressEscape);
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
 
     it("should stay out of focus mode when no tab is focused", async () => {
       const { result } = await renderTriggers();
       act(() => press(CONTROL, "KeyL"));
-      expect(result.current.overlaid).toBe(false);
+      expect(result.current.isOverlaid()).toBe(false);
     });
   });
 

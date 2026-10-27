@@ -46,9 +46,7 @@ class AuthError(Exception):
     TYPE = _FREIGHTER_EXCEPTION_PREFIX + "auth"
 
 
-class InvalidCredentials(AuthError):
-    """Raised when invalid credentials are provided."""
-
+class _InvalidCredentials(AuthError):
     TYPE = AuthError.TYPE + ".invalid-credentials"
 
 
@@ -62,6 +60,12 @@ class ExpiredToken(AuthError):
     """Raised when a token has expired."""
 
     TYPE = AuthError.TYPE + ".expired_token"
+
+
+class SessionEnded(AuthError):
+    """Raised when the session a request or stream used has ended."""
+
+    TYPE = AuthError.TYPE + ".session_ended"
 
 
 class AccessDenied(AuthError):
@@ -165,12 +169,14 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
         return None
 
     if encoded.type.startswith(AuthError.TYPE):
-        if encoded.type.startswith(InvalidCredentials.TYPE):
-            return InvalidCredentials(encoded.data)
+        if encoded.type.startswith(_InvalidCredentials.TYPE):
+            return _InvalidCredentials(encoded.data)
         if encoded.type.startswith(InvalidToken.TYPE):
             return InvalidToken(encoded.data)
         if encoded.type.startswith(ExpiredToken.TYPE):
             return ExpiredToken(encoded.data)
+        if encoded.type.startswith(SessionEnded.TYPE):
+            return SessionEnded(encoded.data)
         if encoded.type.startswith(AccessDenied.TYPE):
             return AccessDenied(encoded.data)
         return AuthError(encoded.data)

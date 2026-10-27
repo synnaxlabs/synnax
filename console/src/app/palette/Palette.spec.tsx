@@ -17,6 +17,8 @@ import { Docs } from "@/feature/docs";
 import { Modals } from "@/platform/modals";
 import { createConsoleWrapper, selectTestProject } from "@/testutil";
 
+const READ_DOCS = "Read documentation";
+
 const renderAppPalette = async () => {
   const client = createTestClient();
   const { wrapper, store } = await createConsoleWrapper({ client });
@@ -114,10 +116,10 @@ describe("Palette", () => {
     // permission queries answer, and the list is virtual, so a row read off the
     // unfiltered list is recycled out of view before the click reaches it.
     fireEvent.change(await paletteInput(), {
-      target: { value: `${FeatureCommand.PREFIX}${Docs.ReadCommand.commandName}` },
+      target: { value: `${FeatureCommand.PREFIX}${READ_DOCS}` },
     });
     const item = await screen.findByRole("option", {
-      name: Docs.ReadCommand.commandName,
+      name: READ_DOCS,
     });
     await act(async () => {
       fireEvent.click(item);
@@ -132,9 +134,9 @@ describe("Palette", () => {
     await renderAppPalette();
     fireEvent.change(await openPalette(), { target: { value: FeatureCommand.PREFIX } });
     fireEvent.change(await paletteInput(), {
-      target: { value: `${FeatureCommand.PREFIX}${Docs.ReadCommand.commandName}` },
+      target: { value: `${FeatureCommand.PREFIX}${READ_DOCS}` },
     });
-    await screen.findByRole("option", { name: Docs.ReadCommand.commandName });
+    await screen.findByRole("option", { name: READ_DOCS });
     await act(async () => {
       fireEvent.keyDown(window, { code: "Enter" });
     });

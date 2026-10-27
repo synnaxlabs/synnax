@@ -12,14 +12,18 @@ import { waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { follow } from "@/app/analytics/core";
-import { type Embedded } from "@/feature/embedded";
-import { clearSupervisor, mockSupervisor } from "@/feature/embedded/testutil";
+import {
+  clearSupervisor,
+  type History,
+  mockSupervisor,
+  type Status,
+} from "@/feature/embedded/testutil";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 
-const FAILED: Embedded.Status = { state: "failed", message: "failed to start" };
+const FAILED: Status = { state: "failed", message: "failed to start" };
 
-const NEVER_STARTED: Embedded.History = {
+const NEVER_STARTED: History = {
   starts: 0,
   exits: 3,
   failures: 1,
@@ -29,7 +33,7 @@ const NEVER_STARTED: Embedded.History = {
   lastExit: { reason: "failed_to_start", message: "failed to start", uptimeSeconds: 0 },
 };
 
-const EXITED_AFTER_READY: Embedded.History = {
+const EXITED_AFTER_READY: History = {
   starts: 1,
   exits: 1,
   failures: 0,
@@ -39,7 +43,7 @@ const EXITED_AFTER_READY: Embedded.History = {
   lastExit: { reason: "crashed", message: "exited with 3", uptimeSeconds: 1 },
 };
 
-const followCore = async (initial: Embedded.History) => {
+const followCore = async (initial: History) => {
   let history = initial;
   const sink = createTestSink();
   const supervisor = mockSupervisor(() => FAILED, {
@@ -53,7 +57,7 @@ const followCore = async (initial: Embedded.History) => {
     captured: (event: Parameters<Analytics.Sink["capture"]>[0]) =>
       sink.capture.mock.calls.filter(([name]) => name === event),
     /** Delivers a status change and waits until the app has read the next history. */
-    change: async (next: Embedded.History): Promise<void> => {
+    change: async (next: History): Promise<void> => {
       const before = reads();
       history = next;
       await emit("supervisor://status", FAILED);

@@ -4,7 +4,7 @@ How a change gets into `main`. Setup lives in the package guides
 ([Core](core/CONTRIBUTING.md), [Console](console/CONTRIBUTING.md),
 [Pluto](pluto/CONTRIBUTING.md), [TypeScript client](client/ts/CONTRIBUTING.md),
 [Python client](client/py/CONTRIBUTING.md), [docs site](site/docs/CONTRIBUTING.md)),
-design in the [RFCs](docs/tech/rfc), and code style in [CLAUDE.md](CLAUDE.md).
+design in the [RFCs](docs/tech/rfc), and code style in [AGENTS.md](AGENTS.md).
 
 ## Branches and pull requests
 
@@ -77,7 +77,7 @@ release that removes it. A flag past that release is a bug: promote or delete.
 3. **Promote** after at least one stable Desktop release, in a `review/human` PR that
    only flips or deletes the flag and removes the dark branches. The reviewer reads the
    feature as it stands on `main`, from the umbrella issue's PR list, and holds it to
-   the enterprise bar: the `CLAUDE.md` principles, tests, docs, no dev-only path left. A
+   the enterprise bar: the `AGENTS.md` principles, tests, docs, no dev-only path left. A
    feature that fails stays in Desktop until a later promotion passes.
 
 ## Issue priority
