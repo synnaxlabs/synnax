@@ -43,7 +43,7 @@ const core = new SyntheticCore({
   now: START.add(TimeSpan.hours(1)),
 });
 const client = telemTest.createClient(core);
-afterAll(async () => await client.feed.close());
+afterAll(async () => await client.close());
 
 const view = (): View => ({
   bounds: new TimeRange(core.now().sub(SPAN), core.now()).numericBounds,

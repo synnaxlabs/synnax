@@ -51,9 +51,11 @@ interface ChannelMeta {
   readCursor: number;
   skipInitialBatch: boolean;
   indexBuffers: Series[];
-  // The latest sample time in the log. A streamed sample at or before it is a
-  // duplicate that a restarted stream replays.
+  // The time and alignment of the latest sample in the log. A streamed sample at or
+  // before them is a duplicate that a restarted stream replays. Distinct samples can
+  // share a time, so the alignment breaks the tie.
   highWater: bigint | null;
+  highAlignment: bigint | null;
   // Whether the log has reported dropping samples whose index samples never arrived.
   untimedDropReported: boolean;
 }
@@ -178,6 +180,7 @@ export class StreamMultiChannelLog
         skipInitialBatch: isRestart && index === 0,
         indexBuffers: kept?.indexBuffers ?? [],
         highWater: existing?.highWater ?? null,
+        highAlignment: existing?.highAlignment ?? null,
         untimedDropReported: existing?.untimedDropReported ?? false,
       });
     }
@@ -273,8 +276,8 @@ export class StreamMultiChannelLog
         if (meta.indexBuffers.some((s) => s.alignment > alignment)) continue;
         return { pushed, cursor: i };
       }
-      if (meta.highWater != null && time <= meta.highWater) continue;
-      meta.highWater = time;
+      if (isReplayed(meta, time, alignment)) continue;
+      [meta.highWater, meta.highAlignment] = [time, alignment];
       pushed += this.insert(meta, buf, i, time);
     }
     return { pushed, cursor: buf.length };
@@ -333,6 +336,12 @@ const toEntries = (
     value: line,
     continuation: j > 0,
   }));
+};
+
+const isReplayed = (meta: ChannelMeta, time: bigint, alignment: bigint): boolean => {
+  if (meta.highWater == null || time > meta.highWater) return false;
+  if (time < meta.highWater) return true;
+  return meta.highAlignment == null || alignment <= meta.highAlignment;
 };
 
 const sampleAlignment = (s: Series, i: number): bigint =>

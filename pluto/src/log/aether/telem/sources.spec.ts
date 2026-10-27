@@ -939,6 +939,40 @@ describe("StreamMultiChannelLog", () => {
       expect(log.value().map((e) => e.value)).toEqual(["x", "y", "z"]);
     });
 
+    it("should keep distinct samples that share a time", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([90, 91, 91, 92], 0n)])],
+          [DATA, new MultiSeries([strings(["a", "b", "c", "d"], 0n)])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["a", "b", "c", "d"]);
+    });
+
+    it("should not repeat replayed samples that share a time", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      const index = times([90, 90], 0n);
+      const data = strings(["a", "b"], 0n);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([index])],
+          [DATA, new MultiSeries([data])],
+        ]),
+      );
+      log.setChannels([DATA, DATA_2]);
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([index])],
+          [DATA, new MultiSeries([data])],
+        ]),
+      );
+      expect(log.value().map((e) => e.value)).toEqual(["a", "b"]);
+    });
+
     it("should keep held samples when a channel is added", async () => {
       const { log } = create();
       await waitForResolve(log);
