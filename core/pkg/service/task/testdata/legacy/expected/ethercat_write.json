@@ -11,10 +11,9 @@
       "pdo": "Analog Output Ch2",
       "state_channel": 9111,
       "state_channel_name": "fixture_ecat_auto_out_state",
-      "type": "automatic"
+      "type": "unresolved"
     },
     {
-      "bit_length": 8,
       "cmd_channel": 9120,
       "cmd_channel_name": "fixture_ecat_manual_out_cmd",
       "data_type": "uint8",
@@ -26,7 +25,7 @@
       "state_channel": 9121,
       "state_channel_name": "fixture_ecat_manual_out_state",
       "sub_index": 2,
-      "type": "manual"
+      "type": "entry"
     }
   ],
   "data_saving_disabled": true,

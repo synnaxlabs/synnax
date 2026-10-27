@@ -7,14 +7,49 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { border, box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
+import {
+  border,
+  box,
+  color,
+  type destructor,
+  dimensions,
+  scale,
+  xy,
+} from "@synnaxlabs/x";
 
 import { text } from "@/text/aether";
 import { applyOverScan } from "@/vis/render/util";
 
+/**
+ * A fade from the text's fill color to transparent, in the units of its position. Color
+ * glyphs such as emoji ignore the fill color, so they do not fade.
+ */
+export interface TextFade {
+  /** end is how far right of the text's position the text turns transparent. */
+  end: number;
+  /** width is the length of the fade, which finishes at end. */
+  width: number;
+}
+
 export interface FillTextOptions {
   useAtlas?: boolean;
+  /** fade fades out the text. An atlas cannot draw a fade, so setting both throws. */
+  fade?: TextFade;
 }
+
+// Both stops share the fill's color, so the fade changes only its alpha.
+const fadeGradient = (
+  ctx: OffscreenCanvasRenderingContext2D,
+  { end, width }: TextFade,
+): CanvasGradient => {
+  const fill =
+    typeof ctx.fillStyle === "string" ? color.fromCSS(ctx.fillStyle) : undefined;
+  if (fill == null) throw new Error("Text can fade only from a solid fill color");
+  const gradient = ctx.createLinearGradient(end - width, 0, end, 0);
+  gradient.addColorStop(0, color.hex(fill));
+  gradient.addColorStop(1, color.hex(color.setAlpha(fill, 0)));
+  return gradient;
+};
 
 export type Radii = number | DOMPointInit | Array<number | DOMPointInit>;
 
@@ -625,18 +660,61 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
     maxWidth?: number | undefined,
     options: FillTextOptions = {},
   ): void {
+    const { fade } = options;
+    if (options.useAtlas === true && fade != null)
+      throw new Error("A text atlas cannot fade text");
     const [useAtlas, fillStyle] = this.checkAtlasFillStyle(options.useAtlas);
     if (useAtlas) {
       const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
       atlas.fillText(this, text, x, y);
       return;
     }
-    this.wrapped.fillText(
-      text,
-      this.scale_.x.pos(x),
-      this.scale_.y.pos(y),
-      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
-    );
+    this.drawText("fill", text, xy.construct(x, y), maxWidth, xy.ONE, fade);
+  }
+
+  // Scaling a position does not scale glyphs, so each context passes its position and
+  // magnification down, and the bottom one applies the magnification as a transform.
+  // maxWidth and the fade are in glyph units, so the transform scales them too.
+  private drawText(
+    mode: "fill" | "stroke",
+    text: string,
+    position: xy.XY,
+    maxWidth: number | undefined,
+    magnification: xy.XY,
+    fade?: TextFade,
+  ): void {
+    const pos = this.scale_.pos(position);
+    const mag = this.scale_.dim(magnification);
+    if (this.wrapped instanceof SugaredOffscreenCanvasRenderingContext2D) {
+      this.wrapped.drawText(mode, text, pos, maxWidth, mag, fade);
+      return;
+    }
+    const { wrapped: w } = this;
+    const draw = (x: number, y: number): void => {
+      if (mode === "fill") w.fillText(text, x, y, maxWidth);
+      else w.strokeText(text, x, y, maxWidth);
+    };
+    const magnified = !xy.equals(mag, xy.ONE);
+    if (!magnified && fade == null) {
+      draw(pos.x, pos.y);
+      return;
+    }
+    w.save();
+    w.translate(pos.x, pos.y);
+    if (magnified) {
+      // An inverted scale flips positions, but text never draws mirrored.
+      const glyphScale = xy.construct(Math.abs(mag.x), Math.abs(mag.y));
+      w.scale(glyphScale.x, glyphScale.y);
+      if (mode === "stroke") {
+        // The stroke settings hold the x scale already, so undo it under the transform.
+        w.lineWidth /= glyphScale.x;
+        w.setLineDash(w.getLineDash().map((segment) => segment / glyphScale.x));
+        w.lineDashOffset /= glyphScale.x;
+      }
+    }
+    if (fade != null) w.fillStyle = fadeGradient(w, fade);
+    draw(0, 0);
+    w.restore();
   }
 
   measureText(text: string): TextMetrics {
@@ -653,12 +731,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
   }
 
   strokeText(text: string, x: number, y: number, maxWidth?: number | undefined): void {
-    this.wrapped.strokeText(
-      text,
-      this.scale_.x.pos(x),
-      this.scale_.y.pos(y),
-      maxWidth != null ? this.scale_.x.dim(maxWidth) : undefined,
-    );
+    this.drawText("stroke", text, xy.construct(x, y), maxWidth, xy.ONE);
   }
 
   get direction(): CanvasDirection {

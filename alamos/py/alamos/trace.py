@@ -71,7 +71,7 @@ class _Span:
         self.otel.set_status(StatusCode.ERROR)
 
 
-class NoopSpan:
+class _NoopSpan:
     """Span that does nothing."""
 
     key: str
@@ -82,7 +82,7 @@ class NoopSpan:
     def record_exception(self, exc: Exception | None) -> None: ...
 
 
-_NOOP_SPAN = NoopSpan()
+_NOOP_SPAN = _NoopSpan()
 
 
 class Tracer:
