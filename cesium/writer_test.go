@@ -3836,8 +3836,10 @@ var _ = Describe("Writer Behavior", func() {
 								telem.NewSeriesV[int64](1, 2, 3, 4, 5),
 							},
 						)))
-						_, err := w.Commit()
-						Expect(err).To(HaveOccurred())
+						Expect(
+							w.Commit(),
+						).Error().
+							To(MatchError(index.ErrDiscontinuous))
 						Expect(
 							w.Close(),
 						).To(MatchError(ContainSubstring("does not exist in the index")))

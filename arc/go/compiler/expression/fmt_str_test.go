@@ -255,9 +255,8 @@ var _ = Describe("Format String Compilation", func() {
 				// error branch in compileRawStringLiteral.
 				expr := MustSucceed(parser.ParseExpression(`f"{"`))
 				ctx := NewContext(bCtx)
-				_, err := expression.Compile(ctx.Child(expr))
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("unmatched"))
+				Expect(expression.Compile(ctx.Child(expr))).Error().
+					To(MatchError(ContainSubstring("unmatched '{'")))
 			},
 		)
 	})

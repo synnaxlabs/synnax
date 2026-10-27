@@ -1,0 +1,249 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "EtherCAT write task"
+description: "Write command channel values to the output PDOs of EtherCAT modules."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Channel } from "@/components/channel";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An EtherCAT write task writes the values of command channels to the output PDOs of one
+or more modules on one network. For example, a valve on a schematic can switch an output
+of an EL2004 module.
+
+Each output also has a state channel. The state channel shows the last command that the
+task wrote. The Driver does not read the state back from the module.
+
+Before you start, you need
+[configured modules](/reference/hardware/ethercat/configure-device).
+
+<Divider.Divider x />
+
+## PDO channels
+
+Each channel writes one entry of an output PDO. The channel selects the entry by its CoE
+address: an index and a sub-index. The Console lists the entries of a module with their
+addresses. For example, an EL2004 names all four outputs `Output`, at `0x7000:01`,
+`0x7010:01`, `0x7020:01`, and `0x7030:01`.
+
+The data type of a channel must be a number type of the same size as its entry, in whole
+bytes. Each EL2004 output is 1 bit, so it takes `uint8` or `int8`.
+
+All modules in a task must be on the same port. The network cycles at least as fast as
+the **Execution rate**, so a higher rate sends new commands to the modules sooner. When
+the task stops, its outputs go to zero, unless another running write task commanded
+them. See
+[how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
+
+<Divider.Divider x />
+
+## Create an EtherCAT write task
+
+When you create command channels with a client library, give each one its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click a module and select **Create write task**.
+2. Set **Execution rate** and **State update rate**.
+3. Click **Add channel**, then select the module in **Slave device**. A new channel
+   starts with the module of the last channel.
+4. Select an entry in **Entry**. **Data type** then shows the type of the entry.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates a command channel and a state channel for each output. It names them
+after the identifier of the module and the name of the entry. If the module has more
+than one entry with that name, the Console adds the PDO name, or the address when the
+module gives no PDO name. For a module with the identifier `do1` and no PDO names, the
+`Output` entry at `0x7000:01` gives `do1_Output_7000_01_cmd`,
+`do1_Output_7000_01_cmd_time`, and `do1_Output_7000_01_state`, with the index
+`do1_state_time`.
+
+<Video id="hardware/ethercat/write-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import ethercat
+
+module = client.devices.retrieve(key="<module key>")
+cmd_time = client.channels.create(
+    name="valve_1_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="valve_1_cmd", index=cmd_time.key, data_type=sy.DataType.UINT8
+)
+state_time = client.channels.create(
+    name="do1_state_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+state = client.channels.create(
+    name="valve_1_state", index=state_time.key, data_type=sy.DataType.UINT8
+)
+
+task = ethercat.WriteTask(
+    name="Valves",
+    channels=[
+        ethercat.EntryWriteChannel(
+            device=module.key,
+            index=0x7000,
+            sub_index=0x01,
+            data_type=sy.DataType.UINT8,
+            cmd_channel=cmd.key,
+            state_channel=state.key,
+        )
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+To find an entry by its name, use
+`ethercat.find_entry(module, "<name>", direction="output")`. It returns the `index`,
+`sub_index`, and `data_type` of the entry. It raises `sy.NotFoundError` if no entry has
+the name, and `sy.MultipleFoundError` if entries at more than one address have it. To
+select one of them, also pass `pdo_name`, the name of the PDO that holds the entry.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first.
+
+```typescript
+import { ethercat } from "@synnaxlabs/client";
+
+const module = await client.devices.retrieve({ key: "<module key>" });
+const cmdTime = await client.channels.create({
+  name: "valve_1_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const cmd = await client.channels.create({
+  name: "valve_1_cmd",
+  index: cmdTime.key,
+  dataType: "uint8",
+});
+
+const task = await client.tasks.create({
+  name: "Valves",
+  rack: module.rack,
+  type: "ethercat_write",
+  config: ethercat.writeConfigZ.parse({
+    channels: [
+      {
+        type: "entry",
+        device: module.key,
+        index: 0x7000,
+        subIndex: 0x01,
+        dataType: "uint8",
+        cmdChannel: cmd.key,
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+In code, the state channel is optional. With no state channel, the task does not report
+the output value.
+
+To find an entry by its name, use `ethercat.findEntry(outputs, "<name>")`, where
+`outputs` is `pdos.outputs` of the device properties. It throws `NotFoundError` if no
+entry has the name, and `MultipleFoundError` if entries at more than one address have
+it. To select one of them, pass the name of the PDO that holds the entry as the third
+argument.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Execution rate    | `execution_rate`       | 1000 Hz | The lowest rate of the network on the port. Up to 10 kHz. |
+| State update rate | `state_rate`           | 25 Hz   | How often the task writes the state channels.             |
+| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Each channel has a `device`, the key of the module (**Slave device**), a `cmd_channel`,
+and a `state_channel`. A `state_channel` of 0 means no state channel. Each table shows
+the Console label of a setting, with its Python field under it.
+
+<Channel.Types>
+
+<Channel.Type
+  name="Entry"
+  type="entry"
+  python="EntryWriteChannel"
+>
+
+Writes one output entry at its CoE address.
+
+| Setting                                   | Default | Notes                                        |
+| ----------------------------------------- | ------- | -------------------------------------------- |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x7000:01`.        |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry. |
+
+</Channel.Type>
+
+</Channel.Types>
+
+A task from an earlier release can also hold an `unresolved` channel
+(`UnresolvedWriteChannel`). It has the name of an entry, but no address. See
+[troubleshooting](#a-channel-from-an-earlier-release-has-no-entry).
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### A channel from an earlier release has no entry
+
+Earlier releases could select an entry by its name. If the module has more than one
+entry with that name, or none, the upgrade cannot find the address of the entry. The
+Console marks the channel with an error, and the task does not start. The error reads
+"... matches more than one output entry ..." or "... matches no output entry ...".
+
+Select an entry for the channel in **Entry**. The first entry in the list with that name
+is the one that the task wrote before, and it keeps the old channels.
+
+### "All slaves must be on the same network"
+
+The task uses modules on two ports. Create one task for each port.
+
+### "Slave ... has no output entry at ..."
+
+The module has no output entry at the address of the channel. Select an entry from the
+list again. In code, use an address that the Console lists, or find the entry by its
+name.
+
+### "Data type ... does not fit entry ..."
+
+The data type of the channel has a different size from the entry. Select a number type
+of the same size, such as `uint8` for a 1-bit output. From code, the Driver reports
+"data type ... is ... but entry ... holds ...".
+
+### "More than one channel uses entry ..."
+
+Two channels of the task use the same entry. Select a different entry for one of them.
+From code, the Driver reports "another channel already uses entry ...".
+
+For other problems, see
+[Configure an EtherCAT device](/reference/hardware/ethercat/configure-device#troubleshooting)
+and [Troubleshoot hardware](/reference/hardware/troubleshooting).
