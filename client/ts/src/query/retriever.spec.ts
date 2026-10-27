@@ -827,6 +827,17 @@ describe("Retriever", () => {
       await expect(res).rejects.toThrow('thing not found matching "x-name"');
     });
 
+    it("should reject a name in getCached and onChange", async () => {
+      const { client } = newClient([thing("a")]);
+      await client.retrieve("a-name");
+      expect(() => client.getCached("a-name")).toThrow(
+        '"a-name" is not a thing key. Select by name with a request whose where has ' +
+          "a name condition.",
+      );
+      expect(() => client.onChange(["a-name"], () => {})).toThrow(ValidationError);
+      expect(client.getCached("a")).toEqual(thing("a"));
+    });
+
     it("should throw a MultipleFoundError when two records have the name", async () => {
       const { client } = newClient([thing("a"), thing("b")]);
       const res = client.retrieve("a-name");
