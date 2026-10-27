@@ -154,3 +154,17 @@ jobs:
 
       - name: Publish release
         run: gh release edit "$TAG" --draft=false
+
+  deploy-docs:
+    name: Deploy docs
+    needs: publish
+    # The docs read stable versions at build time, so a stable release redeploys them.
+    if: ${{ !inputs.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the docs deploy hook
+        env:
+          HOOK: ${{ secrets.DOCS_DEPLOY_HOOK }}
+        run: |
+          [ -n "$HOOK" ] || { echo "::error::DOCS_DEPLOY_HOOK is not set"; exit 1; }
+          curl --fail-with-body --silent --show-error --request POST "$HOOK"
