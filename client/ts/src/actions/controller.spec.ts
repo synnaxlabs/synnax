@@ -648,6 +648,21 @@ describe("actions.Controller", () => {
       expect(controller.prepareRedo("k")?.actions).toEqual([set("b", 2)]);
     });
 
+    it("drops a queued undo of a dispatch whose send failed", async () => {
+      const send = createFailingSend(2);
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0, b: 0 });
+      expect(await controller.dispatch("k", [set("a", 1)])).toBe(true);
+      const two = controller.dispatch("k", [set("b", 2)]);
+      const undone = controller.undo("k");
+      await expect(two).rejects.toThrow("rejected");
+      expect(await undone).toBe(true);
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 0 } });
+      expect(controller.prepareUndo("k")?.actions).toEqual([set("a", 0)]);
+      expect(controller.hasRedo("k")).toBe(false);
+    });
+
     it("keeps a batched rename when only the in-flight dispatch fails", async () => {
       const { docs, controller } = setupStore({ send: createFailingSend(1) });
       prime(docs, "k", { a: 0 });
