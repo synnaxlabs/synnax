@@ -78,12 +78,13 @@ variable "ttl_days" {
   default     = 2
 }
 
-# The defaults fit a t3.large (2 vCPUs, 8 GiB): six previews take 1.5 vCPUs and 6 GiB,
-# which leaves the rest for Caddy, Docker, and the SSM agent.
+# The defaults fit a t3.large (2 vCPUs, 8 GiB). Fifteen previews may take 6000 MiB,
+# which leaves about 1.8 GiB for Caddy, Docker, and the SSM agent. The CPU limit is a
+# ceiling for a starting Core: an idle one uses about 1% of a vCPU.
 variable "max_previews" {
   description = "Previews the host runs at once. A new one removes the oldest."
   type        = number
-  default     = 6
+  default     = 15
 }
 
 variable "preview_cpus" {
@@ -95,7 +96,7 @@ variable "preview_cpus" {
 variable "preview_memory" {
   description = "Memory each preview Core may use, as docker run --memory takes it."
   type        = string
-  default     = "1g"
+  default     = "400m"
 }
 
 data "aws_ssm_parameter" "ami" {
