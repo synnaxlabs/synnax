@@ -58,6 +58,11 @@ mode_from_pb(::service::arc::pb::Mode pb) {
 }
 
 inline std::pair<::service::arc::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::arc::pb::UuidSet &pb);
+
+inline std::pair<::service::arc::pb::UuidSet, x::errors::Error>
 uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
     ::service::arc::pb::UuidSet pb;
     if (self.eq.has_value()) pb.set_eq(self.eq->to_string());

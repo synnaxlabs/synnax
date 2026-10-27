@@ -749,7 +749,7 @@ func MatchKeys(keys ...{{$ret.KeyType}}) Filter {
 {{- if .IsBool}}
 // {{.Func}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their
 // {{.GoName}} field.
-func {{.Func}}(v bool) Filter {
+func {{.Func}}(v {{.GoType}}) Filter {
 	return func({{if .IndexFieldName}}r {{end}}Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- if .IndexFieldName}}
 		return r.indexes.{{.IndexFieldName}}.Filter(v)
