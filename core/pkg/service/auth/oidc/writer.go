@@ -35,7 +35,7 @@ func (w Writer) Create(
 	account Account,
 ) (Link, error) {
 	l := Link{
-		Key:      linkKey(subject, account.Provider),
+		Key:      linkKey(account),
 		Subject:  subject,
 		Provider: account.Provider,
 		Account:  account.ID,
@@ -63,10 +63,11 @@ func (w Writer) Create(
 	return l, nil
 }
 
-// linkKey is the same for every link of subject to provider, so links made at once by
-// one subject overwrite each other instead of passing the existence check together.
-func linkKey(subject ontology.ID, provider string) Key {
-	sum := sha256.Sum256([]byte(subject.String() + "\x00" + provider))
+// linkKey is the same for every link to account, so links to one account made at once
+// overwrite each other instead of passing the existence check together. The account
+// then logs in as one user.
+func linkKey(account Account) Key {
+	sum := sha256.Sum256([]byte(account.Provider + "\x00" + account.ID))
 	var k Key
 	copy(k[:], sum[:16])
 	k[6] = k[6]&0x0f | 0x80
