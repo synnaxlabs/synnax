@@ -19,7 +19,7 @@ import (
 
 func TestStrconv(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Strconv Suite")
+	RunSpecs(t, "Strconv Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

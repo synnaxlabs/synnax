@@ -20,8 +20,9 @@
 namespace x::strings {
 
 /// @brief Formats v as the shortest text that parses back to v. The text is in exponent
-/// notation below 1e-6 or from 1e21, with an unpadded exponent (1e-7, 1e+21). NaN is
-/// "NaN", and infinities are "Infinity" and "-Infinity".
+/// notation when the decimal exponent of its shortest digits is below -6 or from 21,
+/// with an unpadded exponent (1e-7, 1e+21). NaN is "NaN", and infinities are "Infinity"
+/// and "-Infinity".
 template<std::floating_point T>
 std::string format_float(T v) {
     if (std::isnan(v)) return "NaN";
@@ -44,8 +45,7 @@ std::string format_float(T v) {
     for (size_t i = neg ? 1 : 0; i < e; ++i)
         if (sci[i] != '.') digits += sci[i];
     std::string out = neg ? "-" : "";
-    const double a = std::abs(static_cast<double>(v));
-    if (a != 0 && (a < 1e-6 || a >= 1e21)) {
+    if (exp < -6 || exp >= 21) {
         out += digits[0];
         if (digits.size() > 1) out += "." + digits.substr(1);
         return out + (exp < 0 ? "e-" : "e+") + std::to_string(std::abs(exp));

@@ -41,6 +41,8 @@ var _ = Describe("AppendFloat", func() {
 		Entry("negative infinity", math.Inf(-1), 64, "-Infinity"),
 		Entry("float32 at its own precision", float64(float32(0.1)), 32, "0.1"),
 		Entry("float32 with an exponent", float64(float32(1e30)), 32, "1e+30"),
+		Entry("float32 at 1e-6", float64(float32(1e-6)), 32, "0.000001"),
+		Entry("float32 below 1e-6", float64(float32(1.5e-7)), 32, "1.5e-7"),
 		Entry("float32 infinity", float64(float32(math.Inf(1))), 32, "Infinity"),
 		Entry(
 			"float32 with fewer digits than its integer part",
