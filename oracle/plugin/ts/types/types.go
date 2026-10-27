@@ -3112,9 +3112,9 @@ type structData struct {
 	AllParamsOptional        bool
 	Handwritten              bool
 	IsRecursive              bool
-	// Strict is true for a filter request, which rejects unknown keys, so a stale field
-	// fails instead of selecting every record. It leaves its defaults to the Core, so
-	// the cache sees only the fields that a caller set.
+	// Strict is true for a filter, its request, and its operator types. Each rejects
+	// unknown keys, so a stale field fails instead of selecting every record. Each
+	// leaves its defaults to the Core, so the cache sees only the fields a caller set.
 	Strict             bool
 	IsAlias            bool
 	IsSingleParam      bool

@@ -54,10 +54,11 @@ def conditions[C: filter.Condition](
     :param condition: The condition class of the entity.
     :raises TypeError: If an argument is not a condition of the entity.
     """
-    conds = [a for a in args if isinstance(a, condition)]
+    conds: list[C] = []
     for arg in args:
         if not isinstance(arg, condition):
             raise TypeError(f"{arg!r} is not a {kind} condition")
+        conds.append(arg)
     return conds
 
 

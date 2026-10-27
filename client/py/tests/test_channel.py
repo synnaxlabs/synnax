@@ -953,6 +953,7 @@ class TestChannelWriteRead:
 
 class TestBuilder:
     def test_join(self) -> None:
+        """Should join channel conditions into one Where tree."""
         where = filter.join(
             sy.channel.Where,
             [
