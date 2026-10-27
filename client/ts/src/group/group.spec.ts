@@ -42,6 +42,40 @@ describe("Group", () => {
       expect(g2.name).toEqual("updated-name");
     });
   });
+  describe("retrieve", () => {
+    it("should retrieve the groups that match where", async () => {
+      const a = await client.groups.create({ parent: ontology.ROOT_ID, name: "a" });
+      const b = await client.groups.create({ parent: ontology.ROOT_ID, name: "b" });
+      const groups = await client.groups.retrieve({
+        where: { key: { in: [a.key, b.key] } },
+      });
+      expect(groups.map((g) => g.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    it("should retrieve the groups that match a condition", async () => {
+      const a = await client.groups.create({ parent: ontology.ROOT_ID, name: "a" });
+      await client.groups.create({ parent: ontology.ROOT_ID, name: "b" });
+      const groups = await client.groups.retrieve(group.key.in([a.key]));
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
+    it("should retrieve the children of a parent that match where", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `parent-${id.create()}`,
+      });
+      const parentID = group.ontologyID(parent.key);
+      const a = await client.groups.create({ parent: parentID, name: "a" });
+      await client.groups.create({ parent: parentID, name: "b" });
+      const outside = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "outside",
+      });
+      const groups = await client.groups.retrieve({
+        parent: parentID,
+        where: { key: { in: [a.key, outside.key] } },
+      });
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
+  });
   describe("rename", () => {
     it("should correctly rename a group", async () => {
       const name = `group-${Math.random()}`;
