@@ -585,14 +585,16 @@ describe("line", () => {
           .map((c) => [Number(c.args[1]), Number(c.args[2])]);
       const remove = () => h.deleteChild("line");
       const line = h.child<Line>("line");
-      const hide = () =>
-        h.setChildState("line", Line.TYPE, { ...line.state, visible: false });
+      const update = (next: Partial<State>) =>
+        h.setChildState("line", Line.TYPE, { ...line.state, ...next });
+      const hide = () => update({ visible: false });
       return {
         line,
         calls,
         draws,
         strips,
         remove,
+        update,
         hide,
         xSource,
         ySource,
@@ -734,6 +736,24 @@ describe("line", () => {
         m.ySource.status = telem.LOADING_STATUS;
         m.line.render(PROPS);
         expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+
+      it("should report fetching for a load after the first, with no data", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
+      });
+
+      it("should report loading for the first load of a new source", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        const y = createSource([]);
+        y.status = telem.LOADING_STATUS;
+        m.update({ y: sourceSpec(y) });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
       });
 
       it("should report neither once its sources leave loading", () => {

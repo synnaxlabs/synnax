@@ -66,12 +66,17 @@ type Result = telem.Result<[bounds.Bounds, MultiSeries]>;
 
 const isLoading = ({ status }: Result): boolean => status.variant === "loading";
 
-type LoadingState = "none" | "empty" | "drawn";
+type LoadingState = "none" | "loading" | "fetching";
 
-const loadingState = (x: Result, y: Result, hidden: boolean): LoadingState => {
+const loadingState = (
+  x: Result,
+  y: Result,
+  loaded: boolean,
+  hidden: boolean,
+): LoadingState => {
   if (!isLoading(x) && !isLoading(y)) return "none";
-  if (x.data[1].length > 0 && y.data[1].length > 0) return "drawn";
-  return hidden ? "none" : "empty";
+  if (loaded || (x.data[1].length > 0 && y.data[1].length > 0)) return "fetching";
+  return hidden ? "none" : "loading";
 };
 
 const safelyGetDataValue = (
@@ -306,6 +311,8 @@ interface InternalState {
   // aggregation and loadingState come from the data the line last drew.
   aggregation?: Aggregation;
   loadingState?: LoadingState;
+  // loaded is true once both sources leave loading, until either source changes.
+  loaded?: boolean;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -317,8 +324,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const createOptions: telem.CreateOptions = {
       onStatusChange: status.useAdder(ctx),
     };
+    const { xTelem, yTelem } = i;
     i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
     i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
+    if (i.xTelem !== xTelem || i.yTelem !== yTelem) i.loaded = false;
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
@@ -339,14 +348,14 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender("layout");
   }
 
-  /** True while a source loads and the line drew no data on its last render. */
+  /** True while the first load of a source runs and the line drew no data for it. */
   get loading(): boolean {
-    return this.internal.loadingState === "empty";
+    return this.internal.loadingState === "loading";
   }
 
-  /** True while a source loads and the line drew the data it has on its last render. */
+  /** True while a source loads after its first load, or while the line drew data. */
   get fetching(): boolean {
-    return this.internal.loadingState === "drawn";
+    return this.internal.loadingState === "fetching";
   }
 
   xBounds(): DataBounds {
@@ -458,7 +467,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const valueProps = this.read(v);
     const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
-    i.loadingState = loadingState(x, y, loadingHidden);
+    i.loadingState = loadingState(x, y, i.loaded === true, loadingHidden);
+    if (!isLoading(x) && !isLoading(y)) i.loaded = true;
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
     const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
