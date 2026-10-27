@@ -37,7 +37,7 @@ cc_test(
     ],
     deps = [
         "//driver/bypass/pipeline",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/sync",
         "//x/cpp/test",
         "@googletest//:gtest_main",
