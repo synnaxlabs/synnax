@@ -23,16 +23,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
-import { lineTest } from "@/vis/line/aether/test";
+import { lineTest } from "@/vis/line/aether/testutil";
 import { type render } from "@/vis/render";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const stubLineStateZ = z.object({
   loading: z.boolean(),

@@ -51,6 +51,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
+      actionlint: ${{ steps.filter.outputs.actionlint }}
       alamos_go: ${{ steps.filter.outputs.alamos_go }}
       alamos_py: ${{ steps.filter.outputs.alamos_py }}
       alamos_ts: ${{ steps.filter.outputs.alamos_ts }}
@@ -108,6 +109,11 @@ jobs:
         id: filter
         with:
           filters: .github/filters.yaml
+
+  actionlint:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.actionlint == 'true'
+    uses: ./.github/workflows/lint.actionlint.yaml
 
   alamos-go:
     needs: changes
@@ -539,10 +545,10 @@ jobs:
       - name: Check unused code
         run: pnpm knip
 
-      - name: Check exports that only tests use
+      - name: Check exports that only their own module's specs use
         # Report-only until the current findings are fixed.
         continue-on-error: true
-        run: pnpm knip --production --include exports,types
+        run: python3 scripts/check_exports_ts.py
 
   lint-integration:
     needs: changes
@@ -776,6 +782,7 @@ jobs:
     name: OK
     if: always()
     needs:
+      - actionlint
       - alamos-go
       - alamos-py
       - alamos-ts

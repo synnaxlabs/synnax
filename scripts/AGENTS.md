@@ -35,6 +35,10 @@ Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo scr
   Tests may import names from a test utility (`testutil`, `test`, or `mock`). Fix a
   finding with a leading underscore, or move the helper into a test utility. The package
   list is `PACKAGES` in the script.
+- `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
+  module or test code use. It runs Knip in production mode, then traces each finding. An
+  export that only other modules' tests use is allowed only in a test utility directory
+  (`testutil`, `test`, or `mock`).
 
 ## Copyright headers
 

@@ -47,29 +47,21 @@ def prompt_client_options(ctx: Context) -> Options:
     )
 
 
-def connect_client(ctx: Context) -> Synnax | None:
-    """Connects to a Synnax server. Prompts the user for the connection parameters if
-    no configuration file exists.
-
-    :param ctx: The context of the current flow.
-    :return: The connected Synnax py, or None if the connection failed.
-    """
-    opts = load_options()
-    if opts is None:
-        opts = prompt_client_options(ctx)
-    else:
-        ctx.console.info("Using saved credentials.")
-    return connect_from_options(ctx, opts)
-
-
-def connect_from_options(ctx: Context, opts: Options) -> Synnax | None:
+def from_context(ctx: Context, opts: Options | None = None) -> Synnax | None:
     """Connects to a Synnax server. Prints user-friendly messages to the console if
     the connection fails.
 
     :param ctx: The context of the current flow.
-    :param opts: The options to connect to a Synnax server.
-    :return: The connected Synnax py, or None if the connection failed.
+    :param opts: The options to connect with. If None, loads the saved options, or
+        prompts the user for them if no configuration file exists.
+    :returns: The connected client, or None if the connection failed.
     """
+    if opts is None:
+        opts = load_options()
+        if opts is None:
+            opts = prompt_client_options(ctx)
+        else:
+            ctx.console.info("Using saved credentials.")
     try:
         client = Synnax(**opts.model_dump())
     except Unreachable:
