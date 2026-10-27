@@ -135,6 +135,19 @@ describe("createWindow", () => {
   });
 });
 
+// Returns a main-window store, its runtime, and the label of its pre-rendered spare.
+const withPrerender = async () => {
+  const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
+  const store = await configureStore<StoreState>({
+    runtime,
+    reducer: { drift: reducer as Reducer<SliceState> },
+  });
+  const label = (): string =>
+    Object.keys(store.getState().drift.windows).find((l) => l !== MAIN_WINDOW)!;
+  await expect.poll(label).toBeDefined();
+  return { store, runtime, label: label() };
+};
+
 describe("assignLabel", () => {
   // Any window may open another one, and the one that dispatches is the one that
   // names it. Waiting for the main window to do the naming left the dispatching
@@ -169,6 +182,15 @@ describe("assignLabel", () => {
       emitter: "b",
     });
     expect(store.getState().drift.windows.la?.key).toEqual("a");
+  });
+
+  it("should keep the pre-render label an emitted create carries", async () => {
+    const { store, runtime } = await withPrerender();
+    runtime.subscribeCallback({
+      action: createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+      emitter: "b",
+    });
+    expect(store.getState().drift.windows.pa?.key).toEqual("prerender");
   });
 });
 
@@ -208,23 +230,11 @@ describe("setWindowProps", () => {
 });
 
 describe("focusWindow", () => {
-  const withPrerender = async () => {
-    const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
-    const store = await configureStore<StoreState>({
-      runtime,
-      reducer: { drift: reducer as Reducer<SliceState> },
-    });
-    const label = (): string =>
-      Object.keys(store.getState().drift.windows).find((l) => l !== MAIN_WINDOW)!;
-    await expect.poll(label).toBeDefined();
-    return { store, label: label() };
-  };
-
   // A pre-render runs the whole app, so anything the app focuses on startup is
   // dispatched from there too, with the pre-render's own label.
   it("should leave an unreserved pre-rendered window hidden", async () => {
     const { store, label } = await withPrerender();
-    store.dispatch(focusWindow({ key: "prerender" }));
+    store.dispatch(focusWindow({ key: label }));
     const win = store.getState().drift.windows[label];
     expect(win.visible).toEqual(false);
     expect(win.focusCount).toEqual(0);
