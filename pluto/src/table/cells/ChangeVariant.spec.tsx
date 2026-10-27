@@ -10,11 +10,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ChangeVariant } from "@/table/cells/ChangeVariant";
+import { Cell } from "@/table/cells";
 
 describe("ChangeVariant", () => {
   it("should list every variant when opened", () => {
-    render(<ChangeVariant value="text" onChange={vi.fn()} />);
+    render(<Cell.ChangeVariant value="text" onChange={vi.fn()} />);
     fireEvent.click(screen.getByLabelText("Change cell type"));
     expect(screen.getByRole("option", { name: "Text" })).toBeDefined();
     expect(screen.getByRole("option", { name: "Value" })).toBeDefined();
@@ -22,7 +22,7 @@ describe("ChangeVariant", () => {
 
   it("should call onChange with the picked variant", () => {
     const onChange = vi.fn();
-    render(<ChangeVariant value="text" onChange={onChange} />);
+    render(<Cell.ChangeVariant value="text" onChange={onChange} />);
     fireEvent.click(screen.getByLabelText("Change cell type"));
     fireEvent.click(screen.getByText("Value"));
     expect(onChange).toHaveBeenCalledWith("value", expect.anything());

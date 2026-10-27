@@ -14,7 +14,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { configZ } from "@/arc/graph/node/source/config";
+import { Source } from "@/arc/graph/node/source";
 import { Form } from "@/arc/graph/node/source/Form";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
@@ -36,7 +36,7 @@ describe("source.Form", () => {
     const { findByLabelText, value } = renderForm(
       <Form />,
       { type: "on", channel: ch.key },
-      configZ,
+      Source.configZ,
       wrapper,
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
