@@ -22,7 +22,7 @@ import { type status } from "@/status";
 /** Draws a channel across a window with about count points. */
 export interface PointsLimit {
   variant: "points";
-  /** About how many points to draw across the view. */
+  /** About how many points to draw across the view. Finite and not negative. */
   count: number;
   aggregation: Aggregation;
   /** Reduces with min_max, so the bounds of the samples keep their extremes. */
@@ -83,7 +83,11 @@ export interface Snapshot {
 export interface Subscription {
   /** @returns the samples of the channel. The channel must be in the request. */
   value: (key: channel.Key) => Snapshot;
-  /** Replaces the request. An equal request does nothing. */
+  /**
+   * Replaces the request. An equal request does nothing.
+   * @throws {ValidationError} if the count of a points limit is not finite or is
+   * negative.
+   */
   update: (request: SubscribeRequest) => void;
   /** Registers a handler called when new samples or a new status are available. */
   onChange: (handler: () => void) => destructor.Destructor;

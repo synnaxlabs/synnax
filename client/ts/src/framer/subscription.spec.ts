@@ -22,7 +22,7 @@ import {
 import { assert, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnexpectedError, UnsupportedError } from "@/errors";
+import { UnexpectedError, UnsupportedError, ValidationError } from "@/errors";
 import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { index as tileIndex, tileRange, tileSpan } from "@/framer/cache/grid";
 import { type Feed, type FeedOptions } from "@/framer/feed";
@@ -1771,6 +1771,24 @@ describe("Feed.subscribe", () => {
         await expect
           .poll(() => sub.value(b).series.series.at(-1)?.length, POLL)
           .toBe(100);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it.each([Infinity, NaN, -1])("should reject a point count of %s", async (count) => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const request = createStatic(core.data[0].key);
+      const invalid = { ...request, limit: { ...request.limit, count } };
+      const error = new ValidationError(
+        `points limit count ${count} must be finite and not negative`,
+      );
+      const sub = feed.subscribe(request);
+      try {
+        expect(() => feed.subscribe(invalid)).toThrow(error);
+        expect(() => sub.update(invalid)).toThrow(error);
       } finally {
         sub.close();
         await feed.close();
