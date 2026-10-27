@@ -603,6 +603,8 @@ jobs:
     if: inputs.full || needs.changes.outputs.lint_integration == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: integration
+      coverage_module: framework
       directory: integration
     secrets: inherit
 
