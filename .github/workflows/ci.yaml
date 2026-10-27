@@ -304,11 +304,21 @@ jobs:
   desktop-shell:
     needs: changes
     if: inputs.full || needs.changes.outputs.console == 'true'
-    # macOS compiles the Tauri shell with no extra system packages.
-    runs-on: macos-latest
+    name: desktop-shell (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux compiles code that macOS skips, such as the deep-link handler. The
+        # Ubuntu version matches the release build.
+        os: [macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+
+      - name: Set up Tauri on Linux
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/setup-tauri-linux
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2

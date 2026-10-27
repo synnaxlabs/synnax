@@ -82,12 +82,9 @@ jobs:
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
         run: .github/scripts/import_apple_certificate.sh
 
-      - name: Install Linux build dependencies
+      - name: Set up Tauri on Linux
         if: env.OS_NAME == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
-            librsvg2-dev patchelf file
+        uses: ./.github/actions/setup-tauri-linux
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
