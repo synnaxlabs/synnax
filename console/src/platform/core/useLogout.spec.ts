@@ -47,7 +47,7 @@ describe("Core.useLogout", () => {
     expect(Session.Core.selectState(state, core.key)?.password).toBe("");
     await waitFor(() => expect(client.auth.authenticated).toBe(false));
     await waitFor(() =>
-      expect(deleted).toEqual([{ account: "http://localhost:9090" }]),
+      expect(deleted).toEqual([{ account: "http://synnax@localhost:9090" }]),
     );
     const other = createTestClient();
     const keys = (await other.auth.retrieveSessions()).map(({ key }) => key);
@@ -71,7 +71,7 @@ describe("Core.useLogout", () => {
     });
     act(() => result.current());
     await waitFor(() =>
-      expect(deleted).toEqual([{ account: "http://localhost:9090" }]),
+      expect(deleted).toEqual([{ account: "http://synnax@localhost:9090" }]),
     );
   });
 
@@ -93,7 +93,7 @@ describe("Core.useLogout", () => {
     });
     act(() => result.current());
     await waitFor(() =>
-      expect(deleted).toEqual([{ account: "http://localhost:9090" }]),
+      expect(deleted).toEqual([{ account: "http://synnax@localhost:9090" }]),
     );
   });
 });
