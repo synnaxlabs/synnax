@@ -24,7 +24,7 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 500,
         maxConcurrentRequests: 6,
         auth: { type: "none" },
-        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_PROPERTIES.healthCheck,
         write: {},
         read: {},
         version: 1,
@@ -40,7 +40,7 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 100,
         maxConcurrentRequests: 6,
         auth: { type: "bearer", token: "my-token" },
-        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_PROPERTIES.healthCheck,
         write: {},
         read: {},
         version: 1,
@@ -69,7 +69,7 @@ describe("HTTP Device Properties", () => {
         timeoutMs: 100,
         maxConcurrentRequests: 6,
         auth: { type: "basic", username: "user", password: "pass" },
-        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_PROPERTIES.healthCheck,
         write: {},
         read: {},
         version: 1,
@@ -120,7 +120,7 @@ describe("HTTP Device Properties", () => {
           header: "X-API-Key",
           key: "secret",
         },
-        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_PROPERTIES.healthCheck,
         write: {},
         read: {},
         version: 1,
@@ -159,7 +159,7 @@ describe("HTTP Device Properties", () => {
           parameter: "api_key",
           key: "secret",
         },
-        healthCheck: HTTP.Device.ZERO_HEALTH_CHECK,
+        healthCheck: HTTP.Device.ZERO_PROPERTIES.healthCheck,
         write: {},
         read: {},
         version: 1,
@@ -423,10 +423,10 @@ describe("HTTP Device Properties", () => {
       expect(result.healthCheck.validateResponse).toBe(false);
     });
 
-    it("should default a v1 config with no health check to ZERO_HEALTH_CHECK", () => {
+    it("should default a v1 config with no health check to the zero health check", () => {
       const { healthCheck: _, ...rest } = HTTP.Device.ZERO_PROPERTIES;
       const result = HTTP.Device.propertiesZ.parse(rest);
-      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_HEALTH_CHECK);
+      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_PROPERTIES.healthCheck);
     });
   });
 
@@ -588,7 +588,7 @@ describe("HTTP Device Properties", () => {
         readIndexes: {},
       };
       const result = HTTP.Device.propertiesZ.parse(v0Config);
-      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_HEALTH_CHECK);
+      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_PROPERTIES.healthCheck);
       expect(result.write).toEqual({});
     });
 
@@ -629,13 +629,13 @@ describe("HTTP Device Properties", () => {
       expect(result.write).toEqual({});
     });
 
-    it("should set healthCheck to ZERO_HEALTH_CHECK on migration", () => {
+    it("should set healthCheck to the zero health check on migration", () => {
       const v0Config = {
         auth: { type: "none" },
         readIndexes: {},
       };
       const result = HTTP.Device.propertiesZ.parse(v0Config);
-      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_HEALTH_CHECK);
+      expect(result.healthCheck).toEqual(HTTP.Device.ZERO_PROPERTIES.healthCheck);
     });
 
     it("should set max concurrent requests to 6 on migration", () => {

@@ -38,7 +38,7 @@ class State:
             raise AttributeError(name) from e
 
 
-class LatestState:
+class Latest:
     _state: State
 
     def __init__(self, state: State) -> None:
