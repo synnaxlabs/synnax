@@ -14,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
+import { type Invited } from "@/server/invitation";
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
@@ -41,20 +42,23 @@ export interface LoginProps {
   /** target is where to land after logging in. */
   target: string;
   /**
-   * ticket is the token of a team invitation sent to an existing account. With one, the
-   * page logs in with the ticket and accepts the invitation.
+   * invited is the team invitation the visitor came to accept, or null for none. Its
+   * address fills the email field and cannot change.
    */
-  ticket: string | null;
+  invited: Invited | null;
 }
 
-/** Login logs a user in with email and password, Google, Microsoft, or a ticket. */
-export const Login = ({ target, ticket }: LoginProps): ReactElement => {
+/** Login logs a user in with email and password, Google, or Microsoft. */
+export const Login = ({ target, invited }: LoginProps): ReactElement => {
   const clerk = useClerk();
   // factor is the second step Clerk asked for, or null while on the password step.
   const [factor, setFactor] = useState<CodeFactor | null>(null);
   const [backup, setBackup] = useState<CodeFactor | null>(null);
   const [oauthError, setOAuthError] = useState<string | null>(null);
-  const methods = Form.use({ values: { email: "", password: "" }, schema });
+  const methods = Form.use({
+    values: { email: invited?.invitation.email ?? "", password: "" },
+    schema,
+  });
   const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
 
   // proceed finishes a sign-in, or moves to the second step Clerk asks for.
@@ -77,12 +81,6 @@ export const Login = ({ target, ticket }: LoginProps): ReactElement => {
     if (clerk?.client == null || !methods.validate()) return;
     const { email, password } = methods.value();
     const res = await clerk.client.signIn.create({ identifier: email, password });
-    await proceed(clerk, res);
-  });
-
-  const accept = useAction(async () => {
-    if (clerk?.client == null || ticket == null) return;
-    const res = await clerk.client.signIn.create({ strategy: "ticket", ticket });
     await proceed(clerk, res);
   });
 
@@ -140,33 +138,14 @@ export const Login = ({ target, ticket }: LoginProps): ReactElement => {
       </Card>
     );
 
-  if (ticket != null)
-    return (
-      <Card
-        title="Join your team"
-        description="Log in to accept the invitation"
-        error={accept.error}
-      >
-        <Button.Button
-          variant="filled"
-          size="large"
-          full="x"
-          justify="center"
-          onClick={accept.run}
-          disabled={clerk == null}
-          status={accept.loading ? "loading" : undefined}
-          trigger={["Enter"]}
-        >
-          Accept and log in
-          <Icon.Arrow.Right />
-        </Button.Button>
-      </Card>
-    );
-
   return (
     <Card
       title="Log in"
-      description="Manage your Synnax licenses"
+      description={
+        invited == null
+          ? "Manage your Synnax licenses"
+          : `Join ${invited.team.name} on Synnax`
+      }
       error={login.error ?? oauthError}
       footer={
         <Text.Text level="small" color={9}>
@@ -189,14 +168,23 @@ export const Login = ({ target, ticket }: LoginProps): ReactElement => {
           label="Email"
           required={false}
           padHelpText={false}
-          inputProps={{ type: "email", autoComplete: "email", autoFocus: true }}
+          inputProps={{
+            type: "email",
+            autoComplete: "email",
+            autoFocus: invited == null,
+            disabled: invited != null,
+          }}
         />
         <Form.TextField
           path="password"
           label="Password"
           required={false}
           padHelpText={false}
-          inputProps={{ type: "password", autoComplete: "current-password" }}
+          inputProps={{
+            type: "password",
+            autoComplete: "current-password",
+            autoFocus: invited != null,
+          }}
         />
         <Button.Button
           variant="filled"
