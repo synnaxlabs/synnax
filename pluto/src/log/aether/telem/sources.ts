@@ -97,6 +97,9 @@ interface Meta {
   // exhausted is true when the entries hold the channel's first stored sample, or the
   // channel stores none.
   exhausted: boolean;
+  // The count of the next older page. It grows while pages hold only samples at the
+  // oldest time, which the entries already hold.
+  pageSize: number;
 }
 
 /**
@@ -125,8 +128,9 @@ export class StreamMultiChannelLog
   private status = telem.SUCCESS_STATUS;
   private valid = false;
   private generation = 0;
-  // pages counts the channel changes and resets that end a running older page read.
-  private pages = 0;
+  // abort ends the running older page read, whose results go stale on a channel
+  // change, a reset, or an eviction.
+  private abort: AbortController | null = null;
   private paging = false;
   // full is true once an older page passed maxEntries.
   private full = false;
@@ -196,21 +200,22 @@ export class StreamMultiChannelLog
     client: telem.Client,
     metas: Array<[channel.Key, Meta]>,
   ): Promise<void> {
-    const pages = this.pages;
-    this.paging = true;
+    const abort = new AbortController();
+    [this.abort, this.paging] = [abort, true];
+    const { signal } = abort;
     const read = await Promise.all(
       metas.map(
-        async ([key, { index, oldest }]) =>
-          await readPage(client, key, index!, oldest!),
+        async ([key, { index, oldest, pageSize }]) =>
+          await readPage(client, key, index!, oldest!, pageSize, signal),
       ),
     );
-    if (pages !== this.pages) return;
+    if (signal.aborted) return;
     const failed = read.find((p) => p.status.variant === "error")?.status;
     if (failed != null) {
       if (failed.description !== this.pageFailure?.description)
         this.onStatusChange?.(failed);
       this.pageFailure = failed;
-      if ((await this.pageBreaker.wait()) && pages === this.pages) this.paging = false;
+      if ((await this.pageBreaker.wait()) && !signal.aborted) this.paging = false;
       return;
     }
     [this.paging, this.pageFailure] = [false, undefined];
@@ -252,9 +257,11 @@ export class StreamMultiChannelLog
         const [{ time, alignment }] = own.map((item) => item.p);
         meta.oldest = { time: time.valueOf(), alignment };
       }
-      // A full page that holds no new sample cannot move the channel back.
-      meta.exhausted =
-        (!full && own.length === samples.length) || (full && samples.length === 0);
+      meta.exhausted = !full && own.length === samples.length;
+      // A full page of samples the entries hold reads more next time, up to maxEntries.
+      if (!full || samples.length > 0) meta.pageSize = OLDER_PAGE_SIZE;
+      else if (meta.pageSize >= this.maxEntries) meta.exhausted = true;
+      else meta.pageSize *= 2;
     });
     if (shown.length > 0)
       this.insert(
@@ -264,9 +271,14 @@ export class StreamMultiChannelLog
     this.notify();
   }
 
+  private cancelPage(): void {
+    this.abort?.abort();
+    [this.abort, this.paging] = [null, false];
+  }
+
   private endPaging(): void {
-    this.pages++;
-    [this.paging, this.full] = [false, false];
+    this.cancelPage();
+    this.full = false;
     this.pageBreaker.reset();
   }
 
@@ -449,8 +461,8 @@ export class StreamMultiChannelLog
   }
 
   // Inserts each group of entries at its place in time order: after the entries that
-  // share its time, or before them when prepended from an older page. groups holds the entries of one
-  // sample per group.
+  // share its time, or before them when prepended from an older page. groups holds the
+  // entries of one sample per group.
   private insert(groups: LogEntry[][], prepended = false): void {
     groups.sort((a, b) => compareTimes(a[0], b[0]));
     const first = groups[0][0].timestamp.valueOf();
@@ -492,6 +504,7 @@ export class StreamMultiChannelLog
         ? entries[excess].timestamp.valueOf()
         : entries[entries.length - 1].timestamp.valueOf() + 1n;
     entries.splice(0, excess);
+    this.cancelPage();
     this.metas.forEach((m) => {
       if (m.oldest == null || m.oldest.time >= cut) return;
       [m.oldest, m.exhausted] = [{ time: cut, alignment: null }, false];
@@ -527,6 +540,7 @@ const toMeta = (ch: channel.Channel): Meta => {
     pending: [],
     dropWarned: false,
     exhausted: index == null,
+    pageSize: OLDER_PAGE_SIZE,
   };
 };
 
@@ -561,8 +575,10 @@ const before = (p: { time: TimeStamp; alignment: bigint }, oldest: Oldest): bool
 const settled = async (
   subscription: framer.Subscription,
   keys: channel.Key[],
-): Promise<framer.Snapshot[]> =>
+  signal: AbortSignal,
+): Promise<framer.Snapshot[] | null> =>
   await new Promise((resolve) => {
+    signal.addEventListener("abort", () => resolve(null));
     const check = (): void => {
       const snapshots = keys.map((k) => subscription.value(k));
       if (
@@ -578,22 +594,30 @@ const settled = async (
     check();
   });
 
-// Reads the newest OLDER_PAGE_SIZE stored samples of the channel that are older than
-// the oldest one held. A sample whose index sample the read misses is left out.
+// Reads the newest count stored samples of the channel up to the oldest one held, and
+// returns those older than it. A sample whose index sample the read misses is left
+// out. An aborted read returns an empty page.
 const readPage = async (
   client: telem.Client,
   key: channel.Key,
   index: channel.Key,
   oldest: Oldest,
+  count: number,
+  signal: AbortSignal,
 ): Promise<Page> => {
   const end = oldest.alignment == null ? oldest.time : oldest.time + 1n;
   const keys = index === key ? [key] : [key, index];
   const subscription = client.feed.subscribe({
     keys,
     window: staticWindow(new TimeRange(TimeStamp.MIN, new TimeStamp(end))),
-    limit: { variant: "latest", count: OLDER_PAGE_SIZE },
+    limit: { variant: "latest", count },
   });
-  const [data, times = data] = await settled(subscription, keys);
+  const snapshots = await settled(subscription, keys, signal);
+  if (snapshots == null) {
+    subscription.close();
+    return { samples: [], full: false, status: telem.SUCCESS_STATUS };
+  }
+  const [data, times = data] = snapshots;
   const status = cstatus.worst(data.status, times.status)!;
   const samples: Page["samples"] = [];
   for (const s of data.series.series)
@@ -611,7 +635,7 @@ const readPage = async (
       const p = { ...sample, time: new TimeStamp(raw) };
       if (before(p, oldest)) samples.push(p);
     }
-  const full = data.series.length >= OLDER_PAGE_SIZE;
+  const full = data.series.length >= count;
   subscription.close();
   return { samples, full, status };
 };

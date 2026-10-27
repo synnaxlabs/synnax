@@ -640,12 +640,10 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, STORED));
     });
 
-    it("should keep every sample of a time that a page splits", async () => {
-      const core = createCore();
+    // Returns a client whose reads serve STORED samples of a at the times of time.
+    const served = (core: SyntheticCore, time: (i: number) => bigint) => {
       const [a] = core.data.map((c) => c.key);
-      // Seven samples share each time, so pages split runs of one time.
-      const time = (i: number): bigint => START.valueOf() + BigInt(Math.floor(i / 7));
-      const client = connect(core, {
+      return connect(core, {
         readLatest: async (_, count, tr) => {
           let hi = STORED;
           while (hi > 0 && time(hi - 1) >= tr.end.valueOf()) hi--;
@@ -660,12 +658,64 @@ describe("StreamMultiChannelLog", () => {
           return frame;
         },
       });
-      const log = open(core, client, { channels: [a] });
+    };
+
+    const all = Array.from({ length: STORED }, (_, i) => String(i));
+
+    it("should keep every sample of a time that a page splits", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      // Seven samples share each time, so pages split runs of one time.
+      const time = (i: number): bigint => START.valueOf() + BigInt(Math.floor(i / 7));
+      const log = open(core, served(core, time), { channels: [a] });
       await settle(log, PAGE);
       await page(log, STORED);
-      expect(valuesOf(entriesOf(log), a)).toEqual(
-        Array.from({ length: STORED }, (_, i) => String(i)),
-      );
+      expect(valuesOf(entriesOf(log), a)).toEqual(all);
+    });
+
+    it("should read past more samples at the oldest time than a page holds", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      // Samples 1,000 to 3,999 share one time, and the open read holds 1,500 of them.
+      const time = (i: number): bigint =>
+        START.valueOf() + BigInt(i < 1_000 ? i : i < 4_000 ? 1_000 : i - 3_000);
+      const log = open(core, served(core, time), { channels: [a] });
+      await settle(log, PAGE);
+      await page(log, STORED);
+      expect(valuesOf(entriesOf(log), a)).toEqual(all);
+    });
+
+    it("should drop a page that an eviction made stale", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let held = false;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      let waiting = false;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (held && tr.end.valueOf() !== TimeStamp.MAX.valueOf()) {
+            waiting = true;
+            await released;
+          }
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a] }, undefined, PAGE + 500);
+      await settle(log, PAGE);
+      held = true;
+      log.loadOlder();
+      await expect.poll(() => waiting, POLL).toBe(true);
+      core.advance(TimeSpan.seconds(60));
+      await expect.poll(() => entriesOf(log).length, POLL).toBeLessThan(PAGE);
+      release();
+      held = false;
+      await expect
+        .poll(() => {
+          log.loadOlder();
+          return entriesOf(log).length;
+        }, POLL)
+        .toBe(PAGE + 500);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, PAGE + 500));
     });
 
     it("should stop reading older pages once a page passes maxEntries", async () => {
