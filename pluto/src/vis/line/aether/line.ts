@@ -10,6 +10,7 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   bounds,
   box,
   color,
@@ -17,8 +18,11 @@ import {
   type destructor,
   type direction,
   type MultiSeries,
+  POINTS_PER_GROUP,
   scale,
+  type Series,
   type SeriesDigest,
+  TimeSpan,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -27,7 +31,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
-import { seriesOverlap, windowBounds } from "@/vis/line/aether/bounds";
+import { forEachPair, windowBounds } from "@/vis/line/aether/bounds";
 import {
   bridgeVertices,
   buildDrawOperations,
@@ -36,7 +40,7 @@ import {
   finiteRuns,
 } from "@/vis/line/aether/draw";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
-import { groupSize, Reducer } from "@/vis/line/aether/reduce";
+import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
 import { render } from "@/vis/render";
@@ -53,7 +57,32 @@ export const stateZ = z.object({
     .number()
     .positive()
     .default(1 / 2),
+  /** True when the line reports no loading while it has no data. */
+  loadingHidden: z.boolean().default(false),
 });
+
+// A zoom waits this long for its span to hold before the line's sources read for it.
+const ZOOM_SETTLE = TimeSpan.milliseconds(150);
+
+// The line reduces data by this when its y source reports no aggregation.
+const DEFAULT_AGGREGATION: Aggregation = "min_max";
+
+type Result = telem.Result<[bounds.Bounds, MultiSeries]>;
+
+const isLoading = ({ status }: Result): boolean => status.variant === "loading";
+
+type LoadingState = "none" | "loading" | "fetching";
+
+const loadingState = (
+  x: Result,
+  y: Result,
+  loaded: boolean,
+  hidden: boolean,
+): LoadingState => {
+  if (!isLoading(x) && !isLoading(y)) return "none";
+  if (loaded || (x.data[1].length > 0 && y.data[1].length > 0)) return "fetching";
+  return hidden ? "none" : "loading";
+};
 
 const safelyGetDataValue = (
   series: number,
@@ -75,6 +104,12 @@ export interface FindResult {
   label?: string;
   units?: string;
   bounds: bounds.Bounds;
+}
+
+/** Bounds of a line's data, and whether a source still loads the data. */
+export interface DataBounds {
+  bounds: bounds.Bounds;
+  loading: boolean;
 }
 
 export interface LineProps {
@@ -130,16 +165,11 @@ export class GLProgram extends render.GLProgram {
     this.uniformXY("u_offset_aggregate", aggregateOffset);
   }
 
-  draw(
-    op: DrawOperation,
-    instances: number,
-    xDataType: DataType,
-    yDataType: DataType,
-  ): void {
+  draw(op: DrawOperation, instances: number): void {
     const { gl } = this.renderCtx;
     const { x, y, xOffset, yOffset } = op;
-    this.bindAttrBuffer("x", x.glBuffer, 1, xOffset, xDataType);
-    this.bindAttrBuffer("y", y.glBuffer, 1, yOffset, yDataType);
+    this.bindAttrBuffer("x", x.glBuffer, 1, xOffset, x.glDataType);
+    this.bindAttrBuffer("y", y.glBuffer, 1, yOffset, y.glDataType);
     for (const [first, count] of finiteRuns(op))
       gl.drawArraysInstanced(gl.LINE_STRIP, first, count, instances);
   }
@@ -286,6 +316,15 @@ interface InternalState {
   stopListeningYTelem?: destructor.Destructor;
   requestRender: render.Requestor;
   reducer: Reducer;
+  // zoom is the log2 span of the last bounds drawn, and settleTimer runs until that
+  // zoom has held for ZOOM_SETTLE.
+  zoom?: number;
+  settleTimer?: ReturnType<typeof setTimeout>;
+  // aggregation and loadingState come from the data the line last drew.
+  aggregation?: Aggregation;
+  loadingState?: LoadingState;
+  // loaded is true once both sources leave loading, until either source changes.
+  loaded?: boolean;
 }
 
 export class Line extends aether.Leaf<typeof stateZ, InternalState> {
@@ -297,8 +336,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const createOptions: telem.CreateOptions = {
       onStatusChange: status.useAdder(ctx),
     };
+    const { xTelem, yTelem } = i;
     i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
     i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
+    if (i.xTelem !== xTelem || i.yTelem !== yTelem) i.loaded = false;
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
     i.requestRender = render.useRequestor(ctx);
@@ -312,24 +353,26 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   afterDelete(): void {
     const { internal: i } = this;
+    clearTimeout(i.settleTimer);
     i.xTelem.cleanup?.();
     i.yTelem.cleanup?.();
     i.reducer.release();
     i.requestRender("layout");
   }
 
+  /** True while the first load of a source runs and the line drew no data for it. */
   get loading(): boolean {
-    const { xTelem, yTelem } = this.internal;
-    return (xTelem.loading?.() ?? false) || (yTelem.loading?.() ?? false);
+    return this.internal.loadingState === "loading";
   }
 
+  /** True while a source loads after its first load, or while the line drew data. */
   get fetching(): boolean {
-    const { xTelem, yTelem } = this.internal;
-    return (xTelem.fetching?.() ?? false) || (yTelem.fetching?.() ?? false);
+    return this.internal.loadingState === "fetching";
   }
 
-  xBounds(): bounds.Bounds {
-    return this.internal.xTelem.value()[0];
+  xBounds(): DataBounds {
+    const x = this.internal.xTelem.value();
+    return { bounds: x.data[0], loading: isLoading(x) };
   }
 
   /**
@@ -338,19 +381,23 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
    * source's full bounds are used instead.
    * @returns the y bounds of this line's samples inside the window.
    */
-  yBounds(xWindow: bounds.Bounds): bounds.Bounds {
+  yBounds(xWindow: bounds.Bounds): DataBounds {
     const { xTelem, yTelem } = this.internal;
     const valueProps = { extremesKept: true };
-    const [b, yData] = yTelem.value(valueProps);
-    if (!bounds.isFinite(xWindow)) return b;
-    const [, xData] = xTelem.value(valueProps);
-    return windowBounds(xData, yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b);
+    const y = yTelem.value(valueProps);
+    const [b, yData] = y.data;
+    if (!bounds.isFinite(xWindow)) return { bounds: b, loading: isLoading(y) };
+    const x = xTelem.value(valueProps);
+    return {
+      bounds: windowBounds(x.data[1], yData, xWindow, DEFAULT_OVERLAP_THRESHOLD, b),
+      loading: isLoading(x) || isLoading(y),
+    };
   }
 
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
-    const valueProps = { view: view(props) };
-    const [, xData] = xTelem.value(valueProps);
+    const valueProps = this.read(view(props));
+    const [, xData] = xTelem.value(valueProps).data;
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
       const v = x.binarySearch(target);
@@ -374,12 +421,16 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (index === -1 || series === -1 || !this.state.visible) return result;
 
     const xSeries = xData.series[series];
-    const [, yData] = yTelem.value(valueProps);
+    const [, yData] = yTelem.value(valueProps).data;
     const alignment = xSeries.alignment + BigInt(index) * xSeries.alignmentMultiple;
-    const ySeries = yData.series.find(
-      (ys) =>
-        seriesOverlap(xSeries, ys, DEFAULT_OVERLAP_THRESHOLD) &&
-        bounds.contains(ys.alignmentBounds, alignment),
+    let ySeries: Series | undefined;
+    forEachPair(
+      [xSeries],
+      yData.series,
+      DEFAULT_OVERLAP_THRESHOLD,
+      (_, y, start, end) => {
+        if (alignment >= start && alignment < end) ySeries ??= y;
+      },
     );
     if (ySeries == null) return result;
     result.value.x = safelyGetDataValue(series, index, xData);
@@ -395,27 +446,52 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     return result;
   }
 
+  // read returns the value props of the view. A zoom gives the sources points only once
+  // its span holds, so a fast zoom does not read the spans it passes through. A pan
+  // reads at once.
+  private read({ bounds: b, width }: View): telem.ValueProps {
+    const { internal: i } = this;
+    const zoom = Math.ceil(Math.log2(bounds.span(b)));
+    if (zoom !== i.zoom) {
+      i.zoom = zoom;
+      clearTimeout(i.settleTimer);
+      i.settleTimer = setTimeout(() => {
+        i.settleTimer = undefined;
+        i.requestRender("data");
+      }, ZOOM_SETTLE.milliseconds);
+    }
+    if (i.settleTimer != null) return { bounds: b };
+    const perGroup = POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
+    return { bounds: b, points: width * this.state.groupsPerColumn * perGroup };
+  }
+
   render(props: LineProps): void {
-    if (this.deleted || !this.state.visible) return;
-    const { xTelem, yTelem, lineCtx: ctx, reducer } = this.internal;
-    const { groupsPerColumn } = this.state;
-    // Full-resolution data reduces as the source reduces its tiles.
-    const aggregation = yTelem.aggregation?.() ?? "min_max";
+    const { internal: i } = this;
+    if (this.deleted) return;
+    if (!this.state.visible) {
+      i.loadingState = undefined;
+      return;
+    }
+    const { xTelem, yTelem, lineCtx: ctx, reducer } = i;
+    const { groupsPerColumn, loadingHidden } = this.state;
     const { dataToDecimalScale } = props;
-    const valueProps = { view: view(props) };
-    const [[, xData], [, yData]] = [xTelem.value(valueProps), yTelem.value(valueProps)];
-    const full = buildDrawOperations(xData, yData, DEFAULT_OVERLAP_THRESHOLD);
-    const size = groupSize(full, valueProps.view, groupsPerColumn);
-    const ops = reducer.reduce(full, aggregation, size, {
-      x: xTelem.dataType?.() ?? null,
-      y: yTelem.dataType?.() ?? null,
-    });
+    const v = view(props);
+    const valueProps = this.read(v);
+    const x = xTelem.value(valueProps);
+    const y = yTelem.value(valueProps);
+    i.loadingState = loadingState(x, y, i.loaded === true, loadingHidden);
+    if (!isLoading(x) && !isLoading(y)) i.loaded = true;
+    // Full-resolution data reduces with the aggregation of the source's reduced reads.
+    i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;
+    const full = buildDrawOperations(x.data[1], y.data[1], DEFAULT_OVERLAP_THRESHOLD);
+    const size = groupSize(full, v, groupsPerColumn);
+    const ops = reducer.reduce(full, i.aggregation, size);
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
       x.updateGLBuffer(ctx.renderCtx);
       y.updateGLBuffer(ctx.renderCtx);
     });
-    const prog = ctx.getProgram(yData.dataType);
+    const prog = ctx.getProgram(ops[0].y.glDataType);
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       scale: dataToDecimalScale.transform,
@@ -428,7 +504,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     ops.forEach((op) => {
       const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
       prog.bindScale(scaleTransform, regionTransform);
-      prog.draw(op, instances, xData.dataType, yData.dataType);
+      prog.draw(op, instances);
     });
     clearProg();
     const bridges = bridgeVertices(ops, dataToDecimalScale);
@@ -443,7 +519,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 }
 
 // view returns the part of the x range that the region shows.
-const view = ({ region, dataToDecimalScale }: LineProps): telem.View => {
+const view = ({ region, dataToDecimalScale }: LineProps): View => {
   const decimalToData = dataToDecimalScale.x.reverse();
   return {
     bounds: { lower: decimalToData.pos(0), upper: decimalToData.pos(1) },
@@ -479,8 +555,8 @@ const replicateBuffer = (buf: Float32Array, times: number): Float32Array => {
 
 const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
   scale.translate(
-    scale.x.dim(Number(op.x.sampleOffset)),
-    scale.y.dim(Number(op.y.sampleOffset)),
+    scale.x.dim(Number(op.x.glOffset)),
+    scale.y.dim(Number(op.y.glOffset)),
   );
 
 export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };
