@@ -10,11 +10,11 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement } from "react";
+import { type ReactElement, useEffect } from "react";
 
 import { ADMIN_ROLE } from "@/server/directory";
 import { type Invited } from "@/server/invitation";
-import { scoped } from "@/shell";
+import { invitationPath, JOIN_PARAM, scoped } from "@/shell";
 import { navigate, post, reload } from "@/ui/api";
 import { Auth } from "@/ui/auth";
 import { useClerk } from "@/ui/clerk";
@@ -34,6 +34,11 @@ export interface AcceptProps {
   /** viewer is the logged-in visitor, or null for one who is logged out. */
   viewer: Viewer | null;
   now: Date;
+  /**
+   * confirmed is true when the visitor comes back from logging in to accept, so the
+   * page joins without a click.
+   */
+  confirmed: boolean;
 }
 
 const invitedAs = (role: string): string =>
@@ -73,7 +78,7 @@ const Closed = ({
 );
 
 const Guest = ({ invitation: inv, team }: Invited): ReactElement => {
-  const path = `/invitations/${inv.key}`;
+  const path = `${invitationPath(inv.key)}?${JOIN_PARAM}`;
   return (
     <Auth.Card
       title={`Join ${team.name}`}
@@ -136,15 +141,22 @@ const Mismatch = ({
   );
 };
 
+interface JoinProps extends ViewedProps, Pick<AcceptProps, "confirmed"> {}
+
 const Join = ({
   invited: { invitation: inv, team },
   viewer,
-}: ViewedProps): ReactElement => {
+  confirmed,
+}: JoinProps): ReactElement => {
   const logOut = useLogOut();
   const join = useAction(async () => {
     await post(`/api/invitations/${inv.key}/accept`);
     navigate(scoped("/", team));
   });
+  // The visitor chose to join before they left to log in, so the card joins on arrival.
+  useEffect(() => {
+    if (confirmed) join.run();
+  }, [confirmed]);
   return (
     <Auth.Card
       title={`Join ${team.name}`}
@@ -179,7 +191,12 @@ const Join = ({
  * Accept is the page an invitation email links to. It joins the team for a visitor
  * logged in with the invited address, and asks anyone else to log in with it.
  */
-export const Accept = ({ invited, viewer, now }: AcceptProps): ReactElement => {
+export const Accept = ({
+  invited,
+  viewer,
+  now,
+  confirmed,
+}: AcceptProps): ReactElement => {
   if (invited == null)
     return (
       <Closed
@@ -198,5 +215,5 @@ export const Accept = ({ invited, viewer, now }: AcceptProps): ReactElement => {
   if (viewer == null) return <Guest {...invited} />;
   if (!viewer.addresses.includes(inv.email))
     return <Mismatch invited={invited} viewer={viewer} />;
-  return <Join invited={invited} viewer={viewer} />;
+  return <Join invited={invited} viewer={viewer} confirmed={confirmed} />;
 };

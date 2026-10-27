@@ -11,7 +11,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
-import { addressedTo, list, retrieve } from "@/server/invitation";
+import { addressedTo, linked, list, retrieve } from "@/server/invitation";
 import { NOW } from "@/server/license/testutil";
 import { createInvitation, createOrganization } from "@/testutil";
 
@@ -51,6 +51,31 @@ describe("invitation", () => {
     it("should return null for an unknown or malformed key", async () => {
       expect(await retrieve(store.query, crypto.randomUUID())).toBeNull();
       expect(await retrieve(store.query, "inv_1")).toBeNull();
+    });
+  });
+
+  describe("linked", () => {
+    it("should find the invitation behind a page path and its query", async () => {
+      const sent = await createInvitation(store, {
+        organization: acme.key,
+        email: "cy@acme.com",
+      });
+      const found = await linked(store.query, `/invitations/${sent.key}?join`);
+      expect(found?.invitation).toEqual(sent);
+    });
+
+    it("should return null for any other path", async () => {
+      const { key } = await createInvitation(store, {
+        organization: acme.key,
+        email: "cy@acme.com",
+      });
+      for (const path of [
+        "/",
+        `/licenses/${key}`,
+        `/invitations/${key}/accept`,
+        `/admin/invitations/${key}`,
+      ])
+        expect(await linked(store.query, path)).toBeNull();
     });
   });
 

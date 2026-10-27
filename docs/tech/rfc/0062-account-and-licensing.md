@@ -313,9 +313,11 @@ team always keeps one admin.
 The portal owns team invitations. An invitation is for one email address and stays open
 for 30 days. Its link opens a page that only shows it, and a visitor logged in with a
 matching verified address accepts it there. Accepting adds the Clerk membership through
-the backend API, which sends no email, so Clerk never sends an invitation. The link
-holds no secret, because only the invited address can accept. Inviting an address again
-sends its invitation again with a new expiry.
+the backend API, which sends no email, so Clerk never sends an invitation. A visitor who
+logs in or signs up from the page gets the invited address filled in and locked, and
+joins on the way back without a click. The link holds no secret, because only the
+invited address can accept. Inviting an address again sends its invitation again with a
+new expiry.
 
 Neon Postgres holds the portal's tables through Drizzle:
 

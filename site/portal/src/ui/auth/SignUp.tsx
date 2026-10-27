@@ -14,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
+import { type Invited } from "@/server/invitation";
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
@@ -35,15 +36,25 @@ type Step = "details" | "verify";
 export interface SignUpProps {
   /** target is where to land after signing up. */
   target: string;
+  /**
+   * invited is the team invitation the visitor came to accept, or null for none. Its
+   * address fills the email field and cannot change.
+   */
+  invited: Invited | null;
 }
 
 /** SignUp creates an account with email and password, Google, or Microsoft. */
-export const SignUp = ({ target }: SignUpProps): ReactElement => {
+export const SignUp = ({ target, invited }: SignUpProps): ReactElement => {
   const clerk = useClerk();
   const [step, setStep] = useState<Step>("details");
   const [oauthError, setOAuthError] = useState<string | null>(null);
   const methods = Form.use({
-    values: { firstName: "", lastName: "", email: "", password: "" },
+    values: {
+      firstName: "",
+      lastName: "",
+      email: invited?.invitation.email ?? "",
+      password: "",
+    },
     schema,
   });
   const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
@@ -105,7 +116,11 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
   return (
     <Card
       title="Create an account"
-      description="Activate machines and manage licenses"
+      description={
+        invited == null
+          ? "Activate machines and manage licenses"
+          : `Join ${invited.team.name} on Synnax`
+      }
       error={create.error ?? oauthError}
       footer={
         <Text.Text level="small" color={9}>
@@ -129,7 +144,11 @@ export const SignUp = ({ target }: SignUpProps): ReactElement => {
           label="Email"
           required={false}
           padHelpText={false}
-          inputProps={{ type: "email", autoComplete: "email" }}
+          inputProps={{
+            type: "email",
+            autoComplete: "email",
+            disabled: invited != null,
+          }}
         />
         <Password />
         <div id="clerk-captcha" />

@@ -27,6 +27,7 @@ import {
   roleName,
   ROLES,
 } from "@/server/directory";
+import { invitationPath } from "@/shell";
 import { post, reload } from "@/ui/api";
 import { date } from "@/ui/format";
 import { Modal } from "@/ui/modal";
@@ -244,7 +245,7 @@ const Sent = ({ organization, invitation: inv, now }: SentProps): ReactElement =
         <Button.Copy
           variant="text"
           size="small"
-          text={() => new URL(`/invitations/${inv.key}`, window.location.origin).href}
+          text={() => new URL(invitationPath(inv.key), window.location.origin).href}
           tooltip="Copy the invitation link. Only its address can accept it."
           aria-label="Copy invitation link"
         />

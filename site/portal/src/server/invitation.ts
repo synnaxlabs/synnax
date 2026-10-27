@@ -23,6 +23,7 @@ import { badRequest, forbidden, notFound } from "@/server/errors";
 import { type Mailer, type Notice } from "@/server/mail";
 import { type Change, requireRole, type Team } from "@/server/member";
 import { type Session } from "@/server/session";
+import { invitationPath } from "@/shell";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -57,6 +58,16 @@ export const retrieve = async (db: Reader, key: string): Promise<Invited | null>
   return row == null ? null : invited(row);
 };
 
+/**
+ * linked returns the invitation whose page `path` is, such as a login's target, or null
+ * for any other path.
+ */
+export const linked = async (db: Reader, path: string): Promise<Invited | null> => {
+  const pathname = URL.parse(path, "http://portal.invalid")?.pathname ?? "";
+  const key = pathname.split("/").at(-1) ?? "";
+  return pathname === invitationPath(key) ? await retrieve(db, key) : null;
+};
+
 /** addressedTo returns the open invitations to any of `addresses`, newest first. */
 export const addressedTo = async (
   db: Reader,
@@ -89,7 +100,7 @@ const notice = (inv: Invitation, team: Team, inviter: string): Notice => ({
     { label: "Role", value: roleName(inv.role) },
     { label: "Expires", value: inv.expiresAt.toISOString().slice(0, 10) },
   ],
-  action: { label: "Accept invitation", href: `/invitations/${inv.key}` },
+  action: { label: "Accept invitation", href: invitationPath(inv.key) },
   reason: "If you did not expect this invitation, you can ignore it.",
 });
 
