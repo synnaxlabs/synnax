@@ -454,10 +454,10 @@ class Client:
         :raises NotFoundError: If a single channel is requested and not found.
         :raises MultipleFoundError: If a single name, or one, matches more than one
             channel.
-        :raises TypeError: If args are neither channel conditions nor a channel.
+        :raises TypeError: If args are not channel conditions, or follow a key or name.
         """
         positional: tuple[object, ...] = args
-        if isinstance(channel, filter.Condition):
+        if isinstance(channel, filter.Condition) or len(args) > 0:
             positional = (channel, *args)
             channel = None
         conditions = util.conditions("Channel", positional, Condition)
