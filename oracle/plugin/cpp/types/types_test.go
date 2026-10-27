@@ -1187,6 +1187,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			func(ctx SpecContext) {
 				// First, set up the "status" namespace with an omitted type
 				statusSource := `
+				@cpp output "x/cpp/status"
 				@cpp hand
 				@cpp include "x/cpp/status/status.h"
 
@@ -1215,7 +1216,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, rackSource, "rack", loader)
-				Expect(diag.Ok()).To(BeTrue())
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1228,7 +1229,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`#include "x/cpp/status/status.h"`))
 				Expect(
 					content,
-				).To(ContainSubstring(`using RackStatus = ::status::Status<StatusDetails>;`))
+				).To(ContainSubstring(`using RackStatus = ::x::status::Status<StatusDetails>;`))
 				Expect(
 					content,
 				).To(ContainSubstring(`std::optional<RackStatus> status;`))

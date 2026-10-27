@@ -9,8 +9,9 @@ rules. Nobody watches this session, so do not ask questions.
    Follow them.
 2. Fix only what you can prove. A finding you are not sure of goes in the report, not in
    a PR.
-3. Each PR holds one idea, branches from `main`, and merges alone. Aim for under 200
-   changed lines. Never stack PRs. There is no limit on the number of PRs.
+3. Each PR holds one idea and branches from `main`, or stacks on an open PR the change
+   needs (root `AGENTS.md`, Rule 3). Aim for under 200 changed lines. There is no limit
+   on the number of PRs.
 4. Keep each change mechanical. Change behavior only to remove the fault the theme
    names, such as a race. Never change stored shapes or wire formats, never bump
    versions, and never hand-edit generated code.
@@ -41,7 +42,8 @@ change such code as a side effect of a cleanup. In your report, write only
   interface: CLI commands or flags, a client API, how the Console looks or behaves, or
   anything under `schemas/`.
 - Never add a co-author line or a "Generated with" footer.
-- Open it with `gh pr create --base main --title ... --body ... --label ...`.
+- Open it with `gh pr create --base <base> --title ... --body ... --label ...`. The base
+  is `main`, or the parent's branch for a stacked PR.
 
 ## When you find nothing
 
