@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -90,4 +91,29 @@ var _ = Describe("RetrieveRequest", func() {
 		Entry("at the top", `{"keys":["00000000-0000-4000-8000-00000000000a"]}`),
 		Entry("in a nested where", `{"where":{"or":[{"keys":[]}]}}`),
 	)
+
+	DescribeTable(
+		"Should reject a MessagePack member that the request does not declare",
+		func(body map[string]any) {
+			data := MustSucceed(msgpack.Marshal(body))
+			var req apiranger.RetrieveRequest
+			Expect(msgpack.Unmarshal(data, &req)).
+				To(MatchError(`msgpack: unknown field "keys"`))
+		},
+		Entry("at the top", map[string]any{"keys": []string{"a"}}),
+		Entry("in a nested where", map[string]any{
+			"where": map[string]any{"or": []any{map[string]any{"keys": []any{}}}},
+		}),
+	)
+
+	It("Should decode a MessagePack request that it declares", func() {
+		data := MustSucceed(msgpack.Marshal(map[string]any{
+			"where": map[string]any{"name": map[string]any{"eq": "a"}},
+			"limit": 5,
+		}))
+		var req apiranger.RetrieveRequest
+		Expect(msgpack.Unmarshal(data, &req)).To(Succeed())
+		Expect(req.Where.Name.Eq).To(HaveValue(Equal("a")))
+		Expect(req.Limit).To(HaveValue(BeEquivalentTo(5)))
+	})
 })
