@@ -171,8 +171,8 @@ class Client:
         limit: int | None = None,
         offset: int = 0,
     ) -> User | list[User]:
-        """Retrieves users that match every condition and filter. Returns one user for
-        a key, a username, or one, and a list otherwise.
+        """Retrieves users that match every condition and filter. Returns one user for a
+        key, a username, or one, and a list otherwise.
 
         :param args: Conditions from the user builder, such as
             ``user.username.eq("synnax")``, or one key, username, or list of either.

@@ -16,7 +16,7 @@ import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The `retrieve` method of every client takes a key, a name, or a list of either. To find
+The `retrieve` method of most clients takes a key, a name, or a list of either. To find
 records by other properties, pass conditions. A condition such as
 `channel.name.contains("pressure")` selects the records that match it.
 
@@ -52,8 +52,8 @@ A key or a name returns one record. The client raises a `NotFoundError` when no 
 matches, and a `MultipleFoundError` when more than one record matches. A list returns a
 list and leaves out the records that do not exist.
 
-A device takes only a key. A device key is free text, so a name can look like a key. To
-find a device by name, use a condition.
+Some clients, such as devices and statuses, take only a key. A device key is free text,
+so a name can look like a key. To find a device by name, use a condition.
 
 <Divider.Divider x />
 

@@ -584,8 +584,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves the tasks that match every condition in parts, or one task when parts
-   * end with `one()`.
+   * Retrieves the tasks that match every condition in parts, or one task when parts end
+   * with `one()`.
    */
   async retrieve(...parts: OneParts): Promise<Task>;
   async retrieve(...parts: ListParts): Promise<Task[]>;
@@ -606,7 +606,8 @@ export class Client extends query.Retriever<
   ): Promise<Task<S> | Task<S>[]> {
     if (this.isParts(args))
       return (await this.retrieveParts(args)) as Task<S> | Task<S>[];
-    const [rawParams] = args as [Key | (RetrieveParams & RetrieveSchemas<S>)];
+    const [rawParams] = args as [Key | Key[] | (RetrieveParams & RetrieveSchemas<S>)];
+    if (Array.isArray(rawParams)) return (await super.retrieve(rawParams)) as Task<S>[];
     const { schemas, ...params } =
       typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const isSingle = z.validate(singleRetrieveParamsZ, params);
