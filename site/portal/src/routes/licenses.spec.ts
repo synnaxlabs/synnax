@@ -287,6 +287,17 @@ describe("license routes", () => {
         expect(await licenses()).toHaveLength(1);
       });
 
+      it("should save nothing when the admin lookup fails", async () => {
+        h.portal.directory = {
+          ...h.portal.directory,
+          roster: async () => {
+            throw new Error("clerk: down");
+          },
+        };
+        await expectError(await post(SUBSCRIPTION), 500, "Internal error");
+        expect(await licenses()).toEqual([]);
+      });
+
       it("should default the channel cap to unlimited", async () => {
         await post({ ...SUBSCRIPTION, channels: "" });
         expect((await licenses())[0].channels).toBe(0);
