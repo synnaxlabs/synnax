@@ -616,6 +616,10 @@ func (r RetrieveRequest) Apply(q {{$.Service}}Retrieve{{$.Args}}) ({{$.Service}}
 	}
 {{- end}}
 	if r.Limit != nil {
+		// Gorp reads a zero limit as no limit, and an empty key set matches no record.
+		if *r.Limit == 0 {
+			return q.Where({{$.Service}}MatchKeys{{$.Args}}()), nil
+		}
 		q = q.Limit(int(*r.Limit))
 	}
 	return q.Offset(int(r.Offset)), nil

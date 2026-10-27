@@ -17,6 +17,8 @@ import { Status } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { getSelected } from "@/platform/status/filter/selected";
+
 const TRIGGER_PROPS: Select.MultipleTriggerProps<status.Variant> = {
   hideTags: true,
   variant: "text",
@@ -38,7 +40,7 @@ export const MenuItem = (): ReactElement => (
 const selectVariantRenderProp = Component.renderProp(
   ({ value, onChange }: Input.Control<VariantSet>) => (
     <Status.SelectMultipleVariants
-      value={value?.in ?? []}
+      value={getSelected(value)}
       // An empty in matches nothing, so no selection drops the line.
       onChange={(variants) =>
         onChange(variants.length === 0 ? undefined : { in: variants })
