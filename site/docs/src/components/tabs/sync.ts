@@ -155,6 +155,8 @@ export const start = (queries: Queries): void => {
       const value = fromURL ?? query(key).initial?.() ?? null;
       if (value == null) continue;
       if (fromURL == null) {
+        const offered = `[${QUERY_ATTRIBUTE}="${key}"] [data-tab-key="${value}"]`;
+        if (document.querySelector(offered) == null) continue;
         url.searchParams.set(key, value);
         replaced = true;
       }

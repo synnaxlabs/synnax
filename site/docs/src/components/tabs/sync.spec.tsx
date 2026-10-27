@@ -77,6 +77,14 @@ describe("tabs sync", () => {
       expect(changes).toHaveBeenCalledWith("typescript");
     });
 
+    it("should leave a remembered choice the page does not offer out of the URL", () => {
+      stored = "go";
+      show(<Tabs tabs={TABS} queryParamKey="client" python={panels} typescript="ts" />);
+      expect(selected(frames()[0])).toEqual(["python"]);
+      expect(window.location.search).toBe("");
+      expect(changes).not.toHaveBeenCalled();
+    });
+
     it("should prefer the URL over the remembered choice", () => {
       stored = "python";
       window.history.replaceState(null, "", "/reference/page?client=typescript");
