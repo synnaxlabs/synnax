@@ -1,0 +1,260 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Write a test sequence"
+description:
+  "Add timeouts, leak checks, rate checks, and ranges to an Arc test sequence."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A test sequence moves hardware through stages, such as pressurize, hold, and vent, and
+goes to an abort stage when a value is unsafe. This page starts from the sequence that
+you write in the [Arc tutorial](/reference/control/arc/get-started), and adds the checks
+that a real test needs.
+
+Before you start, you need these channels:
+
+| Channel         | Type             | What it holds                                                                                                  |
+| --------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
+| `press_vlv_cmd` | `uint8`          | The press valve command, sent by a [write task](/reference/hardware/tasks#write-tasks).                        |
+| `vent_vlv_cmd`  | `uint8`          | The vent valve command.                                                                                        |
+| `tank_pt`       | `float64`        | The tank pressure in psi, from a read task.                                                                    |
+| `start_cmd`     | `uint8`, virtual | `1` from a start button. See [start a sequence from a schematic](/reference/control/arc/start-from-schematic). |
+| `abort_cmd`     | `uint8`, virtual | `1` from an abort button.                                                                                      |
+
+<Divider.Divider x />
+
+## Start from the tutorial sequence
+
+This is the sequence from the tutorial, with the channel names above:
+
+```arc channels="start_cmd, abort_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="press, idle, pressurize, hold, vent, abort"
+import time
+
+sequence press {
+    stage idle {
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
+    }
+    stage pressurize {
+        1 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        tank_pt > 450 => abort
+        abort_cmd == 1 => abort
+        tank_pt > 300 => hold
+    }
+    stage hold {
+        0 -> press_vlv_cmd
+        abort_cmd == 1 => abort
+        time.wait{duration=10s} => vent
+    }
+    stage vent {
+        1 -> vent_vlv_cmd
+        tank_pt < 5 => idle
+    }
+    stage abort {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
+    }
+}
+
+true => press
+```
+
+The sequence keeps every stage in one sequence, and `true => press` keeps it running, so
+each click on the start button starts a new run. The tutorial explains each line. For
+how stages start and stop, see the
+[execution model](/reference/control/arc/execution-model).
+
+<Divider.Divider x />
+
+## Add a timeout
+
+If the press valve sticks closed, `pressurize` waits forever. Add a timer as the last
+transition of the stage:
+
+```arc channels="tank_pt, abort_cmd" bodies="abort, hold"
+stage pressurize {
+    // ...
+    tank_pt > 300 => hold
+    time.wait{duration=60s} => abort
+}
+```
+
+The timer starts again each time `pressurize` starts. The first true transition in the
+code wins, so the safety checks above it still come first.
+
+<Divider.Divider x />
+
+## Add a leak check
+
+In `hold`, a falling pressure means a leak. Add the over-pressure check and a leak
+check:
+
+```arc channels="tank_pt, abort_cmd" bodies="abort, vent"
+stage hold {
+    0 -> press_vlv_cmd
+    tank_pt > 450 => abort
+    abort_cmd == 1 => abort
+    tank_pt < 250 => abort
+    time.wait{duration=10s} => vent
+}
+```
+
+The check cannot fire when `hold` starts, because a stage reacts only to values that
+arrive after it starts.
+
+<Divider.Divider x />
+
+## Abort on a fast pressure rise
+
+A pressure that rises too fast can mean a failed regulator. Compute the rate of change
+in `pressurize`, and abort above a limit:
+
+```arc channels="tank_pt" bodies="abort, too_fast"
+import math
+
+func too_fast(rate f64) bool {
+    return rate > 50
+}
+
+// in stage pressurize:
+tank_pt -> math.derivative{} -> too_fast{} => abort
+```
+
+`math.derivative` gives the change per second, so this check aborts above 50 psi/s. Its
+first value after the stage starts is 0. A derivative of a noisy sensor is noisy too:
+0.1 psi of noise at 1 kHz is about 100 psi/s. Before you choose the limit, write the
+rate to a channel and plot it during a real run:
+`tank_pt -> math.derivative{} -> tank_pt_rate`.
+
+<Divider.Divider x />
+
+## Go from abort to a safe stop
+
+Add a `done` stage that both `vent` and `abort` go to when the tank is empty, and that
+waits for the next start:
+
+```arc channels="tank_pt, start_cmd, vent_vlv_cmd" bodies="done, pressurize"
+stage vent {
+    1 -> vent_vlv_cmd
+    tank_pt < 5 => done
+}
+stage abort {
+    0 -> press_vlv_cmd
+    1 -> vent_vlv_cmd
+    tank_pt < 5 => done
+}
+stage done {
+    0 -> vent_vlv_cmd
+    start_cmd == 1 => pressurize
+}
+```
+
+After an abort, the next click on the start button starts a new run at once. If your
+operators must check the hardware first, add a stage that waits for a separate reset
+button before `done`.
+
+<Divider.Divider x />
+
+## Mark each run with a range
+
+A [range](/reference/ranges) marks the time of each run, so you can find its data later.
+Create the range when `pressurize` starts, and end it in `done`:
+
+```arc bodies="press, pressurize, done"
+import ranges
+
+sequence press {
+    range_key str $= ""
+    // ...
+    stage pressurize {
+        ranges.create{name="Press test", color="#3bc454"} -> range_key
+        // ...
+    }
+    // ...
+    stage done {
+        ranges.end{key=range_key}
+        // ...
+    }
+}
+```
+
+`range_key` is a variable of the sequence. `ranges.create` stores the key of the new
+range in it, and `ranges.end` reads it when `done` starts. Each run shows as a range
+named `Press test`. Line plots show only ranges that have a color. For more patterns,
+see [create ranges in Arc](/reference/ranges/arc).
+
+<Divider.Divider x />
+
+## The full sequence
+
+```arc channels="start_cmd, abort_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="press, idle, pressurize, hold, vent, abort, done, too_fast"
+import math
+import ranges
+import time
+
+func too_fast(rate f64) bool {
+    return rate > 50
+}
+
+sequence press {
+    range_key str $= ""
+
+    stage idle {
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
+    }
+    stage pressurize {
+        ranges.create{name="Press test", color="#3bc454"} -> range_key
+        1 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        tank_pt > 450 => abort
+        tank_pt -> math.derivative{} -> too_fast{} => abort
+        abort_cmd == 1 => abort
+        tank_pt > 300 => hold
+        time.wait{duration=60s} => abort
+    }
+    stage hold {
+        0 -> press_vlv_cmd
+        tank_pt > 450 => abort
+        abort_cmd == 1 => abort
+        tank_pt < 250 => abort
+        time.wait{duration=10s} => vent
+    }
+    stage vent {
+        1 -> vent_vlv_cmd
+        tank_pt < 5 => done
+    }
+    stage abort {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+        tank_pt < 5 => done
+    }
+    stage done {
+        ranges.end{key=range_key}
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
+    }
+}
+
+true => press
+```
+
+A redeploy during a run starts the sequence again in `idle`, which closes both valves
+with the tank under pressure, and leaves the range of that run open. Stop the test
+before you redeploy.
+
+<Divider.Divider x />
+
+## Let an operator take over
+
+The sequence writes at authority 255, the default, so an operator cannot take control of
+the valves from a schematic. To let them, add `authority 100` after the imports, and
+raise the authority to 255 in `abort`. See
+[set authority in an Arc automation](/reference/control/authority?client=arc#set-authority).

@@ -4,8 +4,10 @@
 
 uv workspace (members defined in root `pyproject.toml`): `/client/py/` (Synnax client),
 `/alamos/py/` (instrumentation), `/freighter/py/` (transport), `/integration/` (test
-conductor). Python 3.12+; internal deps resolve via workspace sources. Build backend:
-hatchling.
+conductor). Internal deps resolve via workspace sources. Build backend: hatchling.
+
+The workspace and CI run the Python in `.python-version`. Published packages support
+3.12+: Ruff `target-version` and mypy `python_version` reject newer syntax and APIs.
 
 ## Commands
 

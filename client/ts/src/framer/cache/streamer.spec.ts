@@ -257,6 +257,24 @@ describe("MultiplexedStreamer", () => {
       await streamer.close();
     });
 
+    it("should narrow a rejected key without waiting between attempts", async () => {
+      const ms = rejectingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(1);
+      const sub = streamer.stream(() => {}, [2, 4, 5, BAD]);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(sub.status(2).variant).toEqual("success");
+      expect(sub.status(4).variant).toEqual("success");
+      expect(sub.status(5).variant).toEqual("success");
+      expect(sub.status(BAD).variant).toEqual("error");
+      await streamer.close();
+    });
+
     it("should retry a rejected key once its demand returns", async () => {
       let attempts = 0;
       const ms = rejectingStreamer([1]);
@@ -324,8 +342,7 @@ describe("MultiplexedStreamer", () => {
       expect(responses).toHaveLength(1);
       expect(responses[0].get(1)?.series.length).toEqual(0);
       expect(sub.status(1).variant).toEqual("loading");
-      // Advance past the 100ms reconcile delay plus enough 5ms read cycles to get
-      // well over 5 responses.
+      // Advance through enough 5ms read cycles to get well over 5 responses.
       await vi.advanceTimersByTimeAsync(200);
       sub.close();
 
@@ -401,7 +418,7 @@ describe("MultiplexedStreamer", () => {
       });
 
       const sub1 = streamer.stream(() => {}, [1]);
-      // Advance so reconcile #1 is mid-open (sleep ends at T=400).
+      // Advance so reconcile #1 is mid-open (sleep ends at T=300).
       await vi.advanceTimersByTimeAsync(150);
       const sub2 = streamer.stream(() => {}, [2]);
       await vi.advanceTimersByTimeAsync(700);
@@ -415,6 +432,59 @@ describe("MultiplexedStreamer", () => {
 
       sub1.close();
       sub2.close();
+    });
+  });
+
+  describe("update timing", () => {
+    it("should open the stream on the next task after the first subscription", async () => {
+      const open = vi.fn(createStreamOpener([pendingStreamer([1])]));
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: open,
+      });
+      streamer.stream(() => {}, [1]);
+      expect(open).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(open).toHaveBeenCalledOnce();
+      await streamer.close();
+    });
+
+    it("should open one stream with every key subscribed in the same task", async () => {
+      const open = vi.fn(createStreamOpener([pendingStreamer([1, 2, 3])]));
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: open,
+      });
+      streamer.stream(() => {}, [1]);
+      streamer.stream(() => {}, [2]);
+      streamer.stream(() => {}, [3]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(open).toHaveBeenCalledOnce();
+      expect(open).toHaveBeenCalledWith(
+        expect.objectContaining({ channels: [1, 2, 3] }),
+        expect.anything(),
+      );
+      await streamer.close();
+    });
+
+    it("should update the stream at most once per 100 ms while demand keeps changing", async () => {
+      const ms = pendingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms]),
+      });
+      streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(1);
+      for (let key = 2; key <= 31; key++) {
+        streamer.stream(() => {}, [key]);
+        await vi.advanceTimersByTimeAsync(10);
+      }
+      await vi.advanceTimersByTimeAsync(100);
+      expect(ms.updateVi).toHaveBeenCalledTimes(3);
+      expect(ms.updateVi).toHaveBeenLastCalledWith(
+        Array.from({ length: 31 }, (_, i) => i + 1),
+      );
+      await streamer.close();
     });
   });
 
@@ -475,11 +545,28 @@ describe("MultiplexedStreamer", () => {
       expect(ms1.closeVi).not.toHaveBeenCalled();
 
       sub.close();
-      // removalDelay (50ms) + reconcile delay (100ms) + slack so the no-keys branch
-      // tears down the streamer.
+      // removalDelay (50ms) + slack so the no-keys branch tears down the streamer.
       await vi.advanceTimersByTimeAsync(300);
 
       expect(ms1.closeVi).toHaveBeenCalled();
+    });
+
+    it("should release a subscription closed twice", async () => {
+      const ms1 = pendingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms1]),
+        removalDelay: TimeSpan.milliseconds(50),
+      });
+
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      sub.close();
+      sub.close();
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(ms1.closeVi).toHaveBeenCalled();
+      await streamer.close();
     });
 
     it("should throw when stream() is called after close()", async () => {
@@ -949,6 +1036,18 @@ describe("MultiplexedStreamer", () => {
       const sub = streamer.stream(() => {}, [1]);
       await vi.advanceTimersByTimeAsync(200);
       sub.close();
+      expect(vi.getTimerCount()).toBeGreaterThan(baseline);
+      await streamer.close();
+      expect(vi.getTimerCount()).toEqual(baseline);
+    });
+
+    it("should cancel a pending stream update on close", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const baseline = vi.getTimerCount();
+      streamer.stream(() => {}, [1]);
       expect(vi.getTimerCount()).toBeGreaterThan(baseline);
       await streamer.close();
       expect(vi.getTimerCount()).toEqual(baseline);
