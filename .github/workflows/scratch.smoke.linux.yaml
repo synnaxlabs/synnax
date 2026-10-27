@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, ubuntu-24.04]
-        dmabuf: [default]
+        dmabuf: [default, disabled]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -26,7 +26,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: synnax-console-v0.0.0-linux
-          run-id: 40597383975
+          run-id: 40601455510
           github-token: ${{ github.token }}
           path: bundles
 
