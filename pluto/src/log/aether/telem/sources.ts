@@ -323,7 +323,7 @@ export class StreamMultiChannelLog
     const first = groups[0][0].timestamp.valueOf();
     const last = this.entries.at(-1)?.timestamp.valueOf();
     if (last == null || last <= first) {
-      groups.forEach((g) => this.entries.push(...g));
+      groups.forEach((g) => append(this.entries, g));
       return;
     }
     let i = upperBound(this.entries, first);
@@ -332,7 +332,7 @@ export class StreamMultiChannelLog
       const t = g[0].timestamp.valueOf();
       while (i < this.entries.length && this.entries[i].timestamp.valueOf() <= t)
         merged.push(this.entries[i++]);
-      merged.push(...g);
+      append(merged, g);
     }
     for (; i < this.entries.length; i++) merged.push(this.entries[i]);
     this.entries = merged;
@@ -428,6 +428,12 @@ const toEntries = (
     value: line,
     continuation: j > 0,
   }));
+};
+
+// Appends in a loop, since a spread of a sample with many lines passes the argument
+// limit.
+const append = (to: LogEntry[], from: LogEntry[]): void => {
+  for (const e of from) to.push(e);
 };
 
 const compareTimes = (a: LogEntry, b: LogEntry): number => {

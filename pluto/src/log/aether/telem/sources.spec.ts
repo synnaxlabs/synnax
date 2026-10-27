@@ -529,6 +529,17 @@ describe("StreamMultiChannelLog", () => {
       );
     });
 
+    it("should show a sample with more lines than the argument limit", async () => {
+      const lines = 200_000;
+      const core = createCore({
+        text: (i) => (i === 0 ? `${"x\n".repeat(lines - 1)}x` : "y"),
+      });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2 * lines);
+      await settle(log, lines + HISTORY - 1);
+    });
+
     // History reads hand the log series of any data type, stamped by the index.
     const historyOf = (core: SyntheticCore, key: channel.Key, series: Series) =>
       connect(core, {
