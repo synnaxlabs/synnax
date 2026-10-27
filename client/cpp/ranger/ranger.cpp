@@ -27,27 +27,29 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.ranges), x::errors::NIL};
 }
 
-std::pair<Range, x::errors::Error> Client::retrieve_by_key(const Key &key) const {
-    auto [ranges, err] = this->retrieve(
-        {.where = Where{.key = x::filter::Set<Key>{.eq = key}}}
-    );
+std::pair<Range, x::errors::Error>
+Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    auto [ranges, err] = this->retrieve(req);
     if (err) return {Range(), err};
-    if (ranges.empty())
-        return {Range(), errors::not_found_error("range", "key " + key.to_string())};
-    return {ranges[0], x::errors::NIL};
+    if (ranges.empty()) return {Range(), errors::not_found_error("range", query)};
+    if (ranges.size() > 1)
+        return {Range(), errors::multiple_found_error("ranges", query)};
+    return {std::move(ranges[0]), x::errors::NIL};
+}
+
+std::pair<Range, x::errors::Error> Client::retrieve_by_key(const Key &key) const {
+    return this->retrieve_one(
+        {.where = Where{.key = x::filter::Set<Key>{.eq = key}}},
+        "key " + key.to_string()
+    );
 }
 
 std::pair<Range, x::errors::Error>
 Client::retrieve_by_name(const std::string &name) const {
-    auto [ranges, err] = this->retrieve(
-        {.where = Where{.name = x::filter::String{.eq = name}}}
+    return this->retrieve_one(
+        {.where = Where{.name = x::filter::String{.eq = name}}},
+        "name " + name
     );
-    if (err) return {Range(), err};
-    if (ranges.empty())
-        return {Range(), errors::not_found_error("range", "name " + name)};
-    if (ranges.size() > 1)
-        return {Range(), errors::multiple_found_error("ranges", "name " + name)};
-    return {ranges[0], x::errors::NIL};
 }
 
 std::pair<std::vector<Range>, x::errors::Error>

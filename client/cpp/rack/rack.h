@@ -17,6 +17,7 @@
 #include "google/protobuf/empty.pb.h"
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/rack/builder.gen.h"
 #include "client/cpp/rack/proto.gen.h"
 #include "client/cpp/rack/types.gen.h"
 #include "client/cpp/task/task.h"
@@ -139,6 +140,22 @@ public:
     [[nodiscard]]
     std::pair<std::vector<Rack>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
+
+    /// @brief Retrieves the racks that match every condition in parts, with each option
+    /// in parts applied.
+    /// @returns the racks, or one rack when parts end with rack::one(). One rack is an
+    /// error when no rack or more than one rack matches.
+    template<typename... Parts>
+        requires x::filter::parts<Where, RetrieveRequest, Parts...>
+    [[nodiscard]] auto retrieve(Parts... parts) const {
+        const auto req = x::filter::request<Where, RetrieveRequest>(
+            std::move(parts)...
+        );
+        if constexpr (x::filter::returns_one<Parts...>)
+            return this->retrieve_one(req, x::filter::describe(req.where));
+        else
+            return this->retrieve(req);
+    }
 
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.

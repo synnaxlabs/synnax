@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/ranger/builder.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "client/cpp/ranger/proto.gen.h"
@@ -55,6 +56,22 @@ public:
     [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
 
+    /// @brief Retrieves the ranges that match every condition in parts, with each
+    /// option in parts applied.
+    /// @returns the ranges, or one range when parts end with ranger::one(). One range
+    /// is an error when no range or more than one range matches.
+    template<typename... Parts>
+        requires x::filter::parts<Where, RetrieveRequest, Parts...>
+    [[nodiscard]] auto retrieve(Parts... parts) const {
+        const auto req = x::filter::request<Where, RetrieveRequest>(
+            std::move(parts)...
+        );
+        if constexpr (x::filter::returns_one<Parts...>)
+            return this->retrieve_one(req, x::filter::describe(req.where));
+        else
+            return this->retrieve(req);
+    }
+
     /// @brief retrieves the range with the given key.
     [[nodiscard]] std::pair<Range, x::errors::Error>
     retrieve_by_key(const Key &key) const;
@@ -87,6 +104,9 @@ public:
     set_end(const Key &key, x::telem::TimeStamp end) const;
 
 private:
+    [[nodiscard]] std::pair<Range, x::errors::Error>
+    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+
     /// @brief range retrieval transport.
     std::unique_ptr<RetrieveClient> retrieve_client;
     /// @brief create retrieval transport.

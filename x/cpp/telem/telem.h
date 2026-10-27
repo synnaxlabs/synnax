@@ -619,6 +619,14 @@ public:
     static std::pair<TimeRange, x::errors::Error> from_proto(const pb::TimeRange &pb);
 };
 
+inline TimeRange TimeRange::parse(x::json::Parser parser) {
+    return {parser.field<TimeStamp>("start"), parser.field<TimeStamp>("end")};
+}
+
+inline x::json::json TimeRange::to_json() const {
+    return {{"start", this->start.nanoseconds()}, {"end", this->end.nanoseconds()}};
+}
+
 inline std::pair<pb::TimeRange, x::errors::Error> TimeRange::to_proto() const {
     pb::TimeRange pb;
     pb.set_start(this->start.to_proto());

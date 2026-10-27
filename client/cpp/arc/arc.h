@@ -15,6 +15,7 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/arc/builder.gen.h"
 #include "client/cpp/arc/proto.gen.h"
 #include "client/cpp/arc/types.gen.h"
 #include "freighter/cpp/freighter.h"
@@ -126,6 +127,23 @@ public:
     /// @brief Retrieves the Arc programs that req selects.
     [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
+
+    /// @brief Retrieves the Arc programs that match every condition in parts, with each
+    /// option in parts applied.
+    /// @returns the Arc programs, or one Arc program when parts end with arc::one().
+    /// One Arc program is an error when no Arc program or more than one Arc program
+    /// matches.
+    template<typename... Parts>
+        requires x::filter::parts<Where, RetrieveRequest, Parts...>
+    [[nodiscard]] auto retrieve(Parts... parts) const {
+        const auto req = x::filter::request<Where, RetrieveRequest>(
+            std::move(parts)...
+        );
+        if constexpr (x::filter::returns_one<Parts...>)
+            return this->retrieve_one(req, x::filter::describe(req.where));
+        else
+            return this->retrieve(req);
+    }
 
     /// @brief Deletes an Arc program by its key.
     /// @param key The key of the Arc program to delete.

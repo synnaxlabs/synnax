@@ -408,6 +408,64 @@ TEST(DeviceTests, testRetrieveWhere) {
     ASSERT_EQ(keys, (std::set<Key>{devs[0].key, devs[1].key}));
 }
 
+/// @brief it should retrieve the devices that match every condition.
+TEST(DeviceTests, testRetrieveConditions) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    const auto rand = std::to_string(gen_rand_device());
+    std::vector<Device> devs;
+    for (int i = 0; i < 3; ++i) {
+        auto d = Device{
+            .key = "cond_d" + std::to_string(i) + "_" + rand,
+            .rack = r.key,
+            .location = "loc",
+            .make = "cond_make_" + std::to_string(i),
+            .model = "model",
+            .name = "cond_device_" + std::to_string(i),
+        };
+        ASSERT_NIL(client.devices.create(d));
+        devs.push_back(d);
+    }
+    const auto devices = ASSERT_NIL_P(client.devices.retrieve(
+        device::make.eq(devs[0].make) || device::key.eq(devs[1].key),
+        device::rack.eq(r.key)
+    ));
+    std::set<Key> keys;
+    for (const auto &d: devices)
+        keys.insert(d.key);
+    ASSERT_EQ(keys, (std::set<Key>{devs[0].key, devs[1].key}));
+}
+
+/// @brief it should retrieve one device with each include option applied.
+TEST(DeviceTests, testRetrieveOne) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto d = Device{
+        .key = "one_d_" + std::to_string(gen_rand_device()),
+        .rack = r.key,
+        .location = "loc",
+        .make = "make",
+        .model = "model",
+        .name = "one_device",
+        .status = device::Status{
+            .variant = synnax::status::VARIANT_SUCCESS,
+            .message = "Device OK",
+            .time = x::telem::TimeStamp::now(),
+        }
+    };
+    ASSERT_NIL(client.devices.create(d));
+    const auto retrieved = ASSERT_NIL_P(client.devices.retrieve(
+        device::key.eq(d.key),
+        device::include_status(),
+        device::one()
+    ));
+    ASSERT_EQ(retrieved.key, d.key);
+    ASSERT_TRUE(retrieved.status.has_value());
+    ASSERT_EQ(retrieved.status.value().message, "Device OK");
+}
+
 /// @brief it should treat a missing key as a non-match in a list retrieve.
 TEST(DeviceTests, testRetrieveMissingKey) {
     const auto client = new_test_client();

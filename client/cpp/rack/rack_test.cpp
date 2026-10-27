@@ -182,6 +182,36 @@ TEST(RackTests, testRetrieveWhere) {
     ASSERT_EQ(keys, (std::set<Key>{a.key, b.key}));
 }
 
+/// @brief it should retrieve the racks that match every condition.
+TEST(RackTests, testRetrieveConditions) {
+    const auto client = new_test_client();
+    auto a = Rack{.name = "test_rack_cond_a", .integrations = {"labjack"}};
+    auto b = Rack{.name = "test_rack_cond_b" + std::to_string(gen_rand())};
+    auto c = Rack{.name = "test_rack_cond_c"};
+    ASSERT_NIL(client.racks.create(a));
+    ASSERT_NIL(client.racks.create(b));
+    ASSERT_NIL(client.racks.create(c));
+    const auto racks = ASSERT_NIL_P(client.racks.retrieve(
+        rack::integrations.has("labjack") || rack::name.eq(b.name),
+        rack::key.in({a.key, b.key, c.key})
+    ));
+    std::set<Key> keys;
+    for (const auto &r: racks)
+        keys.insert(r.key);
+    ASSERT_EQ(keys, (std::set<Key>{a.key, b.key}));
+}
+
+/// @brief it should retrieve one rack that matches every condition.
+TEST(RackTests, testRetrieveOne) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack_one" + std::to_string(gen_rand())};
+    ASSERT_NIL(client.racks.create(r));
+    const auto retrieved = ASSERT_NIL_P(
+        client.racks.retrieve(rack::name.eq(r.name), rack::one())
+    );
+    ASSERT_EQ(retrieved.key, r.key);
+}
+
 /// @brief it should update integrations on upsert.
 TEST(RackTests, testUpdateIntegrationsOnUpsert) {
     const auto client = new_test_client();
