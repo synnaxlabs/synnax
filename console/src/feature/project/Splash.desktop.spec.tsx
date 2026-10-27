@@ -23,7 +23,7 @@ describe("project/Splash", () => {
   it("should offer no log out and name no Core", async () => {
     const { store } = await renderWithConsole(<Project.Splash />);
     act(() => {
-      store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      store.dispatch(Session.Core.select("LOCAL"));
     });
     const name = Session.Core.selectSelected(store.getState())?.name;
     if (name == null) throw new Error("no Core is selected");
