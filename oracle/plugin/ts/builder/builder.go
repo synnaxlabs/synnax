@@ -95,8 +95,10 @@ var kinds = map[string]string{
 	resolution.OperatorString:   "string",
 }
 
-// reserved holds the JavaScript reserved words, which a line exports under an alias.
+// reserved holds the JavaScript reserved words and the names strict mode forbids as
+// bindings, which a line exports under an alias.
 var reserved = set.New(
+	"arguments", "eval",
 	"await", "break", "case", "catch", "class", "const", "continue", "debugger",
 	"default", "delete", "do", "else", "enum", "export", "extends", "false",
 	"finally", "for", "function", "if", "implements", "import", "in", "instanceof",
