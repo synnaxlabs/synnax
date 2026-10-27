@@ -9,7 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type Organization, organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { memory } from "@/server/directory";
 import {
@@ -38,7 +38,10 @@ const SESSION: Session = {
   staff: false,
 };
 
-const organizationOf = (key: string, kind: Organization["kind"]): Organization => ({
+const organizationOf = (
+  key: string,
+  kind: schema.Organization["kind"],
+): schema.Organization => ({
   key,
   kind,
   name: key,
@@ -63,14 +66,14 @@ describe("organization", () => {
         ownerUserID: "user_a",
         clerkOrgID: null,
       });
-      expect(await store.query.select().from(organization)).toHaveLength(1);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(1);
     });
 
     it("should return the existing organization without renaming it", async () => {
       const first = await ensurePersonal(store, { userID: "user_a", name: "Ada" });
       const second = await ensurePersonal(store, { userID: "user_a", name: "Other" });
       expect(second).toEqual(first);
-      expect(await store.query.select().from(organization)).toHaveLength(1);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(1);
     });
 
     it("should return the one organization when two requests race", async () => {
@@ -79,7 +82,7 @@ describe("organization", () => {
         ensurePersonal(store, { userID: "user_a", name: "Ada" }),
       ]);
       expect(a.key).toBe(b.key);
-      expect(await store.query.select().from(organization)).toHaveLength(1);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(1);
     });
   });
 
@@ -105,7 +108,7 @@ describe("organization", () => {
       ]);
       expect(second.key).toBe(first.key);
       expect(second.name).toBe("Acme Corp");
-      expect(await store.query.select().from(organization)).toHaveLength(1);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(1);
     });
 
     it("should return the rows in the order given", async () => {
@@ -138,7 +141,7 @@ describe("organization", () => {
         status: 400,
         message: "Clerk has no organization org_missing",
       });
-      expect(await store.query.select().from(organization)).toHaveLength(0);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(0);
     });
   });
 
@@ -186,14 +189,14 @@ describe("organization", () => {
         ["team", "Acme"],
         ["team", "Globex"],
       ]);
-      expect(await store.query.select().from(organization)).toHaveLength(3);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(3);
     });
 
     it("should not duplicate organizations on a second call", async () => {
       const first = await organizationsFor(store, SESSION);
       const second = await organizationsFor(store, SESSION);
       expect(second.map((o) => o.key).sort()).toEqual(first.map((o) => o.key).sort());
-      expect(await store.query.select().from(organization)).toHaveLength(3);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(3);
     });
   });
 
@@ -288,7 +291,7 @@ describe("organization", () => {
         members: 0,
         licenses: [],
       });
-      expect(await store.query.select().from(organization)).toHaveLength(1);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(1);
     });
 
     it("should list nothing when Clerk has no teams", async () => {

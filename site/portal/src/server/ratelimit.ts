@@ -9,8 +9,7 @@
 
 import { and, count, eq, gt, inArray } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
-import { event } from "@/server/db/schema";
+import { schema, type Store } from "@/server/db";
 import { tooMany } from "@/server/errors";
 
 export const WINDOW_MS = 60 * 60 * 1000;
@@ -37,19 +36,23 @@ export const check = async (
   const since = new Date(now.getTime() - WINDOW_MS);
   const [byActor] = await store.query
     .select({ n: count() })
-    .from(event)
+    .from(schema.event)
     .where(
-      and(eq(event.actor, actor), inArray(event.kind, COUNTED), gt(event.at, since)),
+      and(
+        eq(schema.event.actor, actor),
+        inArray(schema.event.kind, COUNTED),
+        gt(schema.event.at, since),
+      ),
     );
   if (byActor.n >= PER_ACTOR) throw tooMany();
   const [byOrg] = await store.query
     .select({ n: count() })
-    .from(event)
+    .from(schema.event)
     .where(
       and(
-        eq(event.organization, organization),
-        inArray(event.kind, COUNTED),
-        gt(event.at, since),
+        eq(schema.event.organization, organization),
+        inArray(schema.event.kind, COUNTED),
+        gt(schema.event.at, since),
       ),
     );
   if (byOrg.n >= PER_ORGANIZATION) throw tooMany();

@@ -10,14 +10,7 @@
 import { desc, eq } from "drizzle-orm";
 
 import { type Portal } from "@/portal";
-import {
-  type Activation,
-  activation,
-  type License,
-  license,
-  type Organization,
-  organization,
-} from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { ADMIN_ROLE } from "@/server/directory";
 import { forbidden, notFound } from "@/server/errors";
 import { type Team } from "@/server/member";
@@ -25,9 +18,9 @@ import { isMember, retrieve } from "@/server/organization";
 import { type Session } from "@/server/session";
 
 export interface LicenseView {
-  license: License;
-  organization: Organization;
-  activations: Activation[];
+  license: schema.License;
+  organization: schema.Organization;
+  activations: schema.Activation[];
 }
 
 const view = async (
@@ -36,17 +29,20 @@ const view = async (
   key: string,
 ): Promise<LicenseView | undefined> => {
   const [found] = await store.query
-    .select({ license, organization })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
-    .where(eq(license.key, key));
+    .select({ license: schema.license, organization: schema.organization })
+    .from(schema.license)
+    .innerJoin(
+      schema.organization,
+      eq(schema.license.organization, schema.organization.key),
+    )
+    .where(eq(schema.license.key, key));
   if (found == null) return undefined;
   if (!session.staff && !isMember(found.organization, session)) return undefined;
   const activations = await store.query
     .select()
-    .from(activation)
-    .where(eq(activation.license, key))
-    .orderBy(desc(activation.lastSeen));
+    .from(schema.activation)
+    .where(eq(schema.activation.license, key))
+    .orderBy(desc(schema.activation.lastSeen));
   return { ...found, activations };
 };
 
@@ -70,11 +66,11 @@ export const activationFor = async (
   portal: Portal,
   session: Session,
   key: string,
-): Promise<{ activation: Activation } & LicenseView> => {
+): Promise<{ activation: schema.Activation } & LicenseView> => {
   const [act] = await portal.store.query
     .select()
-    .from(activation)
-    .where(eq(activation.key, key));
+    .from(schema.activation)
+    .where(eq(schema.activation.key, key));
   const found = act == null ? undefined : await view(portal, session, act.license);
   if (found == null) throw notFound("Activation");
   return { activation: act, ...found };

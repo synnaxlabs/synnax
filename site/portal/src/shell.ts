@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Organization } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 
 /** HOME is where a login lands when nothing sent the visitor. */
 export const HOME = "/";
@@ -39,14 +39,14 @@ export interface Link {
 export const invitationPath = (key: string): string => `/invitations/${key}`;
 
 /** scoped adds the scope to a portal path, so a link keeps the scope it came from. */
-export const scoped = (path: string, scope: Organization): string =>
+export const scoped = (path: string, scope: schema.Organization): string =>
   `${path}?org=${scope.key}`;
 
 /**
  * tabs returns the tab row for a scope. A personal scope has its devices, a team scope
  * its licenses and members. Staff get an admin tab in every scope.
  */
-export const tabs = (scope: Organization, staff: boolean): Link[] => {
+export const tabs = (scope: schema.Organization, staff: boolean): Link[] => {
   const sections: Link[] =
     scope.kind === "personal"
       ? [

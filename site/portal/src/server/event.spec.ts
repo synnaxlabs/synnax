@@ -9,12 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  event,
-  type EventKind,
-  type License,
-  type Organization,
-} from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { list, listForLicense } from "@/server/event";
 import { HASH_A, NOW } from "@/server/license/testutil";
@@ -24,8 +19,8 @@ const MINUTE = 60 * 1000;
 
 describe("event.listForLicense", () => {
   let store: Memory;
-  let lic: License;
-  let other: License;
+  let lic: schema.License;
+  let other: schema.License;
   beforeAll(async () => {
     store = await openMemory();
   });
@@ -38,7 +33,7 @@ describe("event.listForLicense", () => {
 
   const record = async (license: string, minutesAgo: number, actor = "user_a") => {
     const [row] = await store.query
-      .insert(event)
+      .insert(schema.event)
       .values({
         kind: "download",
         actor,
@@ -77,9 +72,9 @@ describe("event.listForLicense", () => {
 
 describe("event.list", () => {
   let store: Memory;
-  let acme: Organization;
-  let globex: Organization;
-  let lic: License;
+  let acme: schema.Organization;
+  let globex: schema.Organization;
+  let lic: schema.License;
   beforeAll(async () => {
     store = await openMemory();
   });
@@ -99,13 +94,13 @@ describe("event.list", () => {
   });
 
   const record = async (
-    kind: EventKind,
+    kind: schema.EventKind,
     organization: string,
     actor = "user_a",
     extra: { license?: string; activation?: string } = {},
   ) => {
     const [row] = await store.query
-      .insert(event)
+      .insert(schema.event)
       .values({ kind, actor, organization, at: NOW, ...extra })
       .returning();
     return row;
