@@ -99,6 +99,31 @@ TEST(CodecTests, OutOfSyncCodecs) {
     assert_frames_equal(frame2, decoded_frame3);
 }
 
+/// @brief it should reject a frame encoded with channels older than the last frame
+/// decoded.
+TEST(CodecTests, RejectsFrameOlderThanLastDecoded) {
+    auto client = new_test_client();
+    auto [idx_ch, data_ch] = create_indexed_pair(client);
+    Codec encoder(client.channels);
+    Codec decoder(client.channels);
+    ASSERT_NIL(encoder.update(std::vector{idx_ch.key}));
+    ASSERT_NIL(decoder.update(std::vector{idx_ch.key}));
+    const auto frame = x::telem::Frame(
+        idx_ch.key,
+        x::telem::Series(x::telem::TimeStamp(x::telem::SECOND))
+    );
+    std::vector<uint8_t> stale;
+    ASSERT_NIL(encoder.encode(frame, stale));
+    ASSERT_NIL(encoder.update(std::vector{idx_ch.key, data_ch.key}));
+    ASSERT_NIL(decoder.update(std::vector{idx_ch.key, data_ch.key}));
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(encoder.encode(frame, encoded));
+    ASSERT_NIL_P(decoder.decode(encoded));
+    const auto [_, err] = decoder.decode(stale);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, "remote sent invalid sequence number 1");
+}
+
 /// @brief it should decode frames while another thread updates the codec, as a streamer
 /// does when set_channels runs beside read.
 TEST(CodecTests, DecodeWhileUpdating) {

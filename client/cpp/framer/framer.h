@@ -137,8 +137,11 @@ class Codec {
     /// relevant channel keys and data types for encoding/decoding frames.
     std::unordered_map<std::uint32_t, State> states;
 
-    /// @brief guards seq_num and states, so update() can run while another thread
-    /// encodes or decodes. It lives on the heap so the codec stays movable.
+    /// @brief the lowest sequence number that states can hold.
+    std::uint32_t oldest = 0;
+
+    /// @brief guards seq_num, states, and oldest, so update() can run while another
+    /// thread encodes or decodes. It lives on the heap so the codec stays movable.
     std::unique_ptr<std::mutex> mu = std::make_unique<std::mutex>();
 
     /// @brief used to retrieve channels when updating the codec state.
@@ -177,13 +180,13 @@ public:
     /// @param data The byte vector to decode.
     /// @return The decoded frame.
     [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error>
-    decode(const std::vector<std::uint8_t> &data) const;
+    decode(const std::vector<std::uint8_t> &data);
 
     /// @brief decodes a frame from the provided byte array and size.
     /// @param data The byte array to decode.
     /// @param size The size of the byte array.
     [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error>
-    decode(const std::uint8_t *data, std::size_t size) const;
+    decode(const std::uint8_t *data, std::size_t size);
 };
 
 /// @brief configuration for opening a new streamer.
@@ -225,7 +228,7 @@ public:
     /// closed.
     /// @note read is not safe to call concurrently with itself or with close(), but
     /// it is safe to call concurrently with setChannels().
-    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error> read() const;
+    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error> read();
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
     /// channels set during construction or a previous call to setChannels().
