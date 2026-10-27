@@ -100,7 +100,7 @@ class TestPanel:
     ) -> None:
         """Should search for panels by name."""
         prefix = "searchable-panel"
-        client.panels.create(
+        created = client.panels.create(
             [
                 sy.Panel(name=f"{prefix}-1", parent=parent),
                 sy.Panel(name=f"{prefix}-2", parent=parent),
@@ -109,7 +109,7 @@ class TestPanel:
 
         def check() -> None:
             results = client.panels.retrieve(search_term=prefix)
-            assert len(results) >= 2
+            assert {p.key for p in created} <= {p.key for p in results}
             assert all(prefix in p.name for p in results)
 
         assert_eventually(check)
