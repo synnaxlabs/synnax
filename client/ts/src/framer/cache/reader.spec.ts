@@ -574,6 +574,32 @@ describe("Reader", () => {
       );
     });
 
+    it("should reject a read whose channel retrieve hangs", async () => {
+      const { reader, fetches } = createReader({
+        batchDebounce: TimeSpan.milliseconds(10),
+        fetchTimeout: TimeSpan.milliseconds(50),
+        beforeRetrieve: async () => await new Promise<never>(() => {}),
+      });
+      const hung = reader.fill(new TimeRange(at(10), at(20)), 2);
+      await expect(hung).rejects.toSatisfy((e) => Unreachable.matches(e));
+      await expect(hung).rejects.toThrow("retrieve of channels 2 timed out after 50ms");
+      expect(fetches).toHaveLength(0);
+    });
+
+    it("should change no block with a fetch that lands after its timeout", async () => {
+      const gate = createGate();
+      const { reader, store } = createReader({
+        batchDebounce: TimeSpan.milliseconds(10),
+        fetchTimeout: TimeSpan.milliseconds(50),
+        before: gate.wait,
+      });
+      const late = reader.fill(new TimeRange(at(10), at(20)), 2);
+      await expect(late).rejects.toSatisfy((e) => Unreachable.matches(e));
+      gate.open();
+      await sleep.sleep(TimeSpan.milliseconds(10));
+      expect(store.raw(2, 100).coveredEnd).toEqual(blockRange(100).start);
+    });
+
     it("should serve other blocks while a fetch hangs", async () => {
       const { reader, read } = createReader({
         batchDebounce: TimeSpan.milliseconds(10),

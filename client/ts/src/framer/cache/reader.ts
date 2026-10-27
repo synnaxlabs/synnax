@@ -86,8 +86,9 @@ export interface ReaderProps {
    */
   batchDebounce?: TimeSpan;
   /**
-   * Deadline for a single remote fetch. A fetch that does not settle within it rejects
-   * the reads it serves with an Unreachable error.
+   * Deadline for each Core call of a fetch. A call that does not settle within it
+   * rejects the reads it serves with an Unreachable error, and its late answer changes
+   * no block.
    * @default TimeSpan.seconds(30)
    */
   fetchTimeout?: TimeSpan;
@@ -222,18 +223,10 @@ export class Reader {
 
   // Never throws: every outcome settles the group's entries.
   private async fetch(group: Group): Promise<void> {
-    const { fetchTimeout } = this.props;
     const { entries } = group;
     const tr = new TimeRange(group.start, group.end);
     try {
-      const refetch = await sync.withTimeout(
-        this.load(group, tr),
-        fetchTimeout,
-        () =>
-          new Unreachable({
-            message: `block read for ${tr.toString()} timed out after ${fetchTimeout.toString()}`,
-          }),
-      );
+      const refetch = await this.load(group, tr);
       entries.forEach(({ req, resolve }) => {
         if (!refetch.has(req)) return resolve();
         resolve(this.enqueue(req));
@@ -271,7 +264,10 @@ export class Reader {
     );
     const channels = [...requested.keys()];
     const refetch = new Set<Request>();
-    const payloads = await retrieveChannels(channels);
+    const payloads = await this.timed(
+      retrieveChannels(channels),
+      `retrieve of channels ${channels.join(", ")}`,
+    );
     if (this.closed) return refetch;
     // indexOf holds the index of each channel read, or 0 for a channel with none.
     const indexOf = new Map<channel.Key, channel.Key>();
@@ -296,7 +292,10 @@ export class Reader {
     });
     let frame: Frame;
     try {
-      frame = await readRemote(tr, [...indexOf.keys()]);
+      frame = await this.timed(
+        readRemote(tr, [...indexOf.keys()]),
+        `block read for ${tr.toString()}`,
+      );
     } finally {
       stopWatching();
     }
@@ -374,6 +373,20 @@ export class Reader {
       });
     });
     return refetch;
+  }
+
+  // Rejects with Unreachable once the call outlasts the fetch timeout. A late answer
+  // never resumes the fetch, so it changes no block.
+  private async timed<T>(call: Promise<T>, name: string): Promise<T> {
+    const { fetchTimeout } = this.props;
+    return await sync.withTimeout(
+      call,
+      fetchTimeout,
+      () =>
+        new Unreachable({
+          message: `${name} timed out after ${fetchTimeout.toString()}`,
+        }),
+    );
   }
 
   /**
