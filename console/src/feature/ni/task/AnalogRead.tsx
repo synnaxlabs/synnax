@@ -150,6 +150,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
     where: { key: { in: devices } },
     schemas: Device.SCHEMAS,
   });
+  PlatformDevice.checkFound(devices, allDevices);
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
     const first = allDevices[0];
