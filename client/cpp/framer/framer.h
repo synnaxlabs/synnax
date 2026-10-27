@@ -282,7 +282,7 @@ enum WriterMode : uint8_t {
 };
 
 /// @brief configuration for opening a new Writer. For more information on writers,
-/// see https://docs.synnaxlabs.com/concepts/write.
+/// see https://docs.synnaxlabs.com/reference/client/write-data.
 struct WriterConfig {
     /// @brief The channels to write to.
     std::vector<channel::Key> channels;
@@ -368,7 +368,7 @@ public:
     /// monotonically increasing int64 unix epoch timestamps.
     ///
     /// For more information, see
-    /// https://docs.synnaxlabs.com/reference/concepts/writes.
+    /// https://docs.synnaxlabs.com/reference/client/write-data.
     ///
     /// @returns false if an error occurred in the write pipeline. After an error
     /// occurs, the caller must acknowledge the error by calling error() or close() on
