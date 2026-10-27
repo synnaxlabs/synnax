@@ -961,6 +961,35 @@ describe("Series", () => {
         "variable length series cannot be used in WebGL",
       );
     });
+
+    describe("after the context is restored", () => {
+      it("should upload every written sample to a new buffer", () => {
+        const series = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32 });
+        series.write(new Series({ data: new Float32Array([1, 2]) }));
+        const controller = new MockGLBufferController();
+        series.updateGLBuffer(controller);
+        const lost = series.glBuffer;
+        controller.generation++;
+        series.updateGLBuffer(controller);
+        expect(controller.createBufferMock).toHaveBeenCalledTimes(2);
+        expect(series.glBuffer).not.toEqual(lost);
+        const buf = controller.buffers[series.glBuffer as number];
+        expect(new Float32Array(buf)).toEqual(new Float32Array([1, 2, 0, 0]));
+      });
+
+      it("should not delete a buffer made before the restore", () => {
+        const series = new Series({
+          data: new Float32Array([1, 2, 3]),
+          dataType: DataType.FLOAT32,
+        });
+        const controller = new MockGLBufferController();
+        series.acquire(controller);
+        controller.generation++;
+        series.release();
+        expect(controller.deleteBufferMock).not.toHaveBeenCalled();
+        expect(() => series.glBuffer).toThrow("gl buffer not initialized");
+      });
+    });
   });
 
   describe("glDataType", () => {

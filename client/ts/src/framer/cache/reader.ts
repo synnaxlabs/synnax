@@ -9,11 +9,11 @@
 
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
-  debounce,
   type destructor,
   errors,
   MultiSeries,
   type Reduction,
+  scheduler,
   type Series,
   sync,
   TimeRange,
@@ -69,7 +69,7 @@ interface Group {
   start: TimeStamp;
   end: TimeStamp;
   catchUp: boolean;
-  entries: Array<debounce.Entry<Request>>;
+  entries: Array<scheduler.BatcherEntry<Request>>;
 }
 
 export interface ReaderProps {
@@ -107,7 +107,7 @@ export interface ReaderProps {
  */
 export class Reader {
   private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
-  private readonly batcher: debounce.Batcher<Request>;
+  private readonly batcher: scheduler.Batcher<Request>;
   private closed = false;
 
   constructor(props: ReaderProps) {
@@ -120,7 +120,7 @@ export class Reader {
       now = () => TimeStamp.now(),
     } = props;
     this.props = { readRemote, retrieveChannels, store, fetchTimeout, now };
-    this.batcher = new debounce.Batcher({
+    this.batcher = new scheduler.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
     });
@@ -205,8 +205,10 @@ export class Reader {
     return this.props.store.hold(block, this.batcher.enqueue({ block, end, catchUp }));
   }
 
-  private async batchRead(entries: Array<debounce.Entry<Request>>): Promise<void> {
-    const byChannel = new Map<string, Array<debounce.Entry<Request>>>();
+  private async batchRead(
+    entries: Array<scheduler.BatcherEntry<Request>>,
+  ): Promise<void> {
+    const byChannel = new Map<string, Array<scheduler.BatcherEntry<Request>>>();
     for (const entry of entries) {
       const { block, end, catchUp } = entry.req;
       // A fetch that landed while the request waited may have covered it, and a joined
@@ -426,7 +428,7 @@ const newestEnd = (parts: Part[], start: TimeStamp): TimeStamp => {
 // Splits one channel's pending requests into runs of adjacent blocks that one Core read
 // can fill: a run starts at the coverage end of its first block, and every later block
 // in it has no coverage.
-const runs = (entries: Array<debounce.Entry<Request>>): Group[] => {
+const runs = (entries: Array<scheduler.BatcherEntry<Request>>): Group[] => {
   const sorted = [...entries].sort((a, b) => a.req.block.index - b.req.block.index);
   const out: Group[] = [];
   for (const entry of sorted) {

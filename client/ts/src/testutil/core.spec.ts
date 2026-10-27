@@ -201,7 +201,7 @@ describe("SyntheticCore", () => {
           res.get(core.index.key)?.series.forEach((s) => received.push(s.alignment)),
         [core.index.key],
       );
-      // The feed opens its stream after a debounce, and drops samples written before.
+      // The feed opens its stream asynchronously, and drops samples written before.
       await expect
         .poll(() => {
           core.advance(TimeSpan.milliseconds(10));

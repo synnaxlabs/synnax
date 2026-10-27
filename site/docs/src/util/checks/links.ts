@@ -20,6 +20,10 @@ const IGNORED_HOSTS: string[] = ["automation.omron.com"];
 // Sentinel origin for resolving relative hrefs; any other host is external.
 const INTERNAL = "http://internal.invalid";
 
+// The site's own absolute links resolve against this build. The live site serves the
+// last deploy, so a page this build adds would 404 there.
+const SELF_HOST = "docs.synnaxlabs.com";
+
 // npm's website blocks non-browser requests, so package links are validated against the
 // registry API instead: 200 = the package/version exists, 404 = dead.
 const NPM_HOSTS = ["npmjs.com", "www.npmjs.com"];
@@ -48,6 +52,8 @@ const checkRef = async (
     return `unparseable href "${href}"`;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.host === SELF_HOST)
+    url = new URL(`${url.pathname}${url.search}${url.hash}`, INTERNAL);
   if (url.host !== "internal.invalid") {
     if (IGNORED_HOSTS.includes(url.host)) return null;
     return await ctx.fetchOk(externalURL(url));
