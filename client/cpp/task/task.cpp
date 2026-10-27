@@ -66,8 +66,4 @@ x::errors::Error Client::del(const Key key) const {
     auto [res, err] = task_delete_client->send("/task/delete", req);
     return err;
 }
-
-std::pair<std::vector<Task>, x::errors::Error> Client::list() const {
-    return this->retrieve(RetrieveRequest{});
-}
 }
