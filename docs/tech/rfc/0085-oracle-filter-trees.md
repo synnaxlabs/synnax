@@ -239,7 +239,8 @@ in Django `get`, SQLAlchemy `one`, and Entity Framework `Single`. In Python,
 more than one matches. A list retrieve drops missing keys. A caller that needs every
 record checks for itself, as the framer and the C++ channel client do.
 
-The error states the filter as a sentence, the same in every client:
+The error states the filter as a sentence of one form in every client, with the field
+names of the client's language:
 `Expected one range where name starts with "press", but found 2`, or
 `Found no range where key = 12`.
 
