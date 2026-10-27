@@ -226,6 +226,28 @@ var _ = Describe("TS Filter Plugin", func() {
 			)))
 		})
 
+		It("Should reject a response type with a type parameter and no default", func(
+			ctx SpecContext,
+		) {
+			req := MustGenerateRequest(ctx, `
+				import "schemas/x/filter"
+
+				@ts output "client/ts/src/thing"
+
+				Thing struct<T> {
+					key   uuid { @key }
+					value T
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				"filter thing.Where: the type parameter T of Thing needs a default, since " +
+					"the matcher names Thing with no type arguments",
+			))
+		})
+
 		It("Should reject an operator member it cannot check", func(ctx SpecContext) {
 			loader.Add(
 				"schemas/x/filter",
