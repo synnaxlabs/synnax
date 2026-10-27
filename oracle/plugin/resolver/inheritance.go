@@ -53,11 +53,11 @@ func DefaultOnlyOverrides(
 	return out
 }
 
-// HasStructuralOverride reports whether form redeclares an inherited field with a
+// hasStructuralOverride reports whether form redeclares an inherited field with a
 // different type or optionality. Neither Go embedding nor C++ inheritance can restate
 // an inherited field, so such a struct must be flattened; leaving it inherited emits a
 // second field beside the inherited one.
-func HasStructuralOverride(
+func hasStructuralOverride(
 	form resolution.StructForm,
 	table *resolution.Table,
 ) bool {
@@ -120,7 +120,7 @@ func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool
 	if HasDomainOmissions(form) {
 		return false
 	}
-	if HasStructuralOverride(form, table) {
+	if hasStructuralOverride(form, table) {
 		return false
 	}
 	return true
