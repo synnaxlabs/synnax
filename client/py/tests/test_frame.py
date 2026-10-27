@@ -107,6 +107,12 @@ class TestFrame:
             f["big"]
         assert list(f[2]) == [3, 4]
 
+    def test_get_by_key_with_shared_name(self) -> None:
+        """Should not match a name column whose name two channels share."""
+        f = sy.Frame([1, "big"], [sy.Series([1, 2]), sy.Series([3, 4])])
+        f.names = {1: "big", 2: "big"}
+        assert list(f[1]) == [1, 2]
+
 
 @pytest.mark.framer
 @pytest.mark.telem

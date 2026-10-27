@@ -193,12 +193,11 @@ class Frame:
 
     def _columns(self, key: channel.Key | str) -> set[channel.Key | str]:
         if isinstance(key, channel.Key):
-            return {key} if key not in self.names else {key, self.names[key]}
-        keys = [
-            k
-            for k in dict.fromkeys(self.channels)
-            if isinstance(k, channel.Key) and self.names.get(k) == key
-        ]
+            name = self.names.get(key)
+            if name is None or list(self.names.values()).count(name) > 1:
+                return {key}
+            return {key, name}
+        keys = [k for k, name in self.names.items() if name == key]
         if len(keys) > 1:
             raise MultipleFoundError(
                 f"Channels {keys} in the frame share the name {key}. Use a key."
