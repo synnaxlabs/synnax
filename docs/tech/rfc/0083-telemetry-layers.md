@@ -130,10 +130,11 @@ const { series, status, time: newest } = sub.value(pressure);
 - **`window`**: A `telem.Window` (`x/ts/src/telem/telem.ts:2089`). The `Feed` resolves a
   `dynamic` window against its own clock, so the rolling edge has one owner.
 - **`points` limit**: About `count` points across the drawn range: the `view`, or the
-  whole window. A `view` may reach past a `static` window, as on a zoom out or a pan.
-  The `Feed` picks the tiles from the range and the count. `extremesKept` keeps minimum
-  and maximum blocks for the axis bounds when the line draws another aggregation. A
-  `count` of `Infinity` reads raw samples only.
+  whole window. A `view` may reach past a `static` window, as on a zoom out or a pan. A
+  `settling` limit draws the `view` from the blocks held and reads none, so a fast zoom
+  reads no level it passes. The `Feed` picks the tiles from the range and the count.
+  `extremesKept` keeps minimum and maximum blocks for the axis bounds when the line
+  draws another aggregation. A `count` of `Infinity` reads raw samples only.
 - **`latest` limit**: The newest `count` raw samples in the window, or across all time
   when the request has no window. A value asks for 1, and a log asks for its page size.
 - **Snapshot**: `value(key)` returns exact series over the drawn range, a status, and
