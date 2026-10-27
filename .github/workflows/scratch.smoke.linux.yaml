@@ -1,0 +1,78 @@
+# Temporary smoke test for SY-5376. Not for merge.
+name: Scratch - Linux Console smoke test
+
+on:
+  push:
+    branches: [sy-5376-smoke-scratch]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke (${{ matrix.os }}, dmabuf ${{ matrix.dmabuf }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        dmabuf: [default, disabled]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Download AppImage
+        uses: actions/download-artifact@v8
+        with:
+          name: synnax-console-v0.0.0-linux
+          run-id: 40597383975
+          github-token: ${{ github.token }}
+          path: bundles
+
+      - name: Install display and FUSE
+        run: |
+          sudo apt-get update
+          if [ "${{ matrix.os }}" = ubuntu-24.04 ]; then FUSE=libfuse2t64; else FUSE=libfuse2; fi
+          sudo apt-get install -y xvfb imagemagick x11-utils "$FUSE"
+
+      - name: Launch AppImage and screenshot
+        env:
+          DISPLAY: ":99"
+        run: |
+          ls -la bundles
+          APPIMAGE=$(ls bundles/*.AppImage)
+          chmod +x "$APPIMAGE"
+          if [ "${{ matrix.dmabuf }}" = disabled ]; then
+            export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          fi
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 3
+          "$APPIMAGE" > app.log 2>&1 &
+          PID=$!
+          sleep 60
+          xwininfo -root -tree | grep -i synnax || true
+          import -window root screenshot.png
+          if kill -0 "$PID"; then echo "App still running"; else echo "App exited"; fi
+          cat app.log
+
+      - name: Install the .deb and launch it
+        env:
+          DISPLAY: ":99"
+        run: |
+          sudo apt-get install -y ./bundles/*.deb
+          dpkg-deb -I bundles/*.deb
+          BIN=$(dpkg-deb -c bundles/*.deb | awk '{print $6}' | grep '^./usr/bin/.' | head -1 | sed 's/^\.//')
+          echo "Binary: $BIN"
+          pkill -f AppImage || true
+          sleep 2
+          "$BIN" > deb.log 2>&1 &
+          sleep 45
+          import -window root screenshot-deb.png
+          cat deb.log
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-${{ matrix.os }}-${{ matrix.dmabuf }}
+          path: |
+            screenshot*.png
+            *.log
