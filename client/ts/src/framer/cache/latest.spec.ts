@@ -254,8 +254,9 @@ describe("Latest", () => {
       await expect.poll(() => latest.value().series.length, POLL).toBe(10);
       core.restart();
       release();
-      // The read running at the drop lands, then a read fills the samples after it.
-      await expect.poll(() => waiting, POLL).toBe(2);
+      // The reconnect replaces the read running at the drop with a read up to the
+      // newest sample held, then a read fills the samples after it.
+      await expect.poll(() => waiting, POLL).toBe(3);
       await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
       const times = timesOf(latest);
       expect(times).toHaveLength(1000);
