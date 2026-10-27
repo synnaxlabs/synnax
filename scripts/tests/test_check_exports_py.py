@@ -134,6 +134,24 @@ class TestCheck:
         )
         assert names(tmp_path) == []
 
+    def test_should_keep_the_value_of_an_annotated_type_alias_in_use(
+        self, tmp_path: Path
+    ) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "from widget.parts import Alias, Quoted\n",
+                "lib/widget/parts.py": (
+                    "from typing import TypeAlias\n\n"
+                    "class Valve: ...\n\n"
+                    "class Mode: ...\n\n"
+                    "Alias: TypeAlias = Valve\n"
+                    "Quoted: TypeAlias = 'Mode'\n"
+                ),
+            },
+        )
+        assert names(tmp_path) == []
+
     def test_should_keep_names_in_a_quoted_tuple_annotation(
         self, tmp_path: Path
     ) -> None:

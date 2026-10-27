@@ -236,6 +236,8 @@ def annotation_names(node: ast.stmt) -> set[str]:
                 exprs += signature(item)
     elif isinstance(node, ast.AnnAssign):
         exprs.append(node.annotation)
+        if node.value is not None and "TypeAlias" in ast.unparse(node.annotation):
+            exprs.append(node.value)
     elif isinstance(node, ast.TypeAlias | ast.Assign):
         exprs.append(node.value)
     names: set[str] = set()
