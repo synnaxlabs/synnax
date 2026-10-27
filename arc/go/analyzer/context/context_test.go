@@ -29,7 +29,7 @@ var _ = Describe("Context", func() {
 			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
 			Expect(ctx.Context).To(Equal(specCtx))
 			Expect(ctx.Scope).ToNot(BeNil())
-			Expect(ctx.Diagnostics).To(HaveOccurred())
+			Expect(ctx.Diagnostics).To(HaveValue(BeEmpty()))
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 			Expect(ctx.Constraints).ToNot(BeNil())
 			Expect(ctx.TypeMap).ToNot(BeNil())

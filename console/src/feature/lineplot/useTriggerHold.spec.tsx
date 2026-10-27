@@ -21,16 +21,20 @@ const renderTriggerHold = async (enabled: boolean) => {
   const plot = await client.lineplots.create(await project(), {
     name: uniqueName("plot"),
   });
-  const { wrapper: Console, store } = await createConsoleWrapper({ client });
+  const { wrapper: Console } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <Triggers.Provider>{children}</Triggers.Provider>
     </Console>
   );
-  renderHook(() => useTriggerHold({ key: plot.key, enabled: () => enabled }), {
-    wrapper: Wrapper,
-  });
-  return { store, key: plot.key };
+  const { result } = renderHook(
+    () => {
+      useTriggerHold({ key: plot.key, enabled: () => enabled });
+      return Session.LinePlot.useSelectControlState({ key: plot.key }).hold;
+    },
+    { wrapper: Wrapper },
+  );
+  return result;
 };
 
 const pressHold = () => {
@@ -40,26 +44,15 @@ const pressHold = () => {
 
 describe("lineplot useTriggerHold", () => {
   it("should toggle the plot's hold when enabled", async () => {
-    const { store, key } = await renderTriggerHold(true);
-    expect(
-      Session.LinePlot.selectControlState({ state: store.getState(), key }).hold,
-    ).toBe(false);
+    const hold = await renderTriggerHold(true);
+    expect(hold.current).toBe(false);
     pressHold();
-    await waitFor(() =>
-      expect(
-        Session.LinePlot.selectControlState({ state: store.getState(), key }).hold,
-      ).toBe(true),
-    );
+    await waitFor(() => expect(hold.current).toBe(true));
   });
 
   it("should leave the plot's hold alone when not enabled", async () => {
-    const { store, key } = await renderTriggerHold(false);
+    const hold = await renderTriggerHold(false);
     pressHold();
-    await expect
-      .poll(
-        () =>
-          Session.LinePlot.selectControlState({ state: store.getState(), key }).hold,
-      )
-      .toBe(false);
+    await expect.poll(() => hold.current).toBe(false);
   });
 });

@@ -15,16 +15,13 @@ import { EOF } from "@synnaxlabs/freighter";
 import { breaker, errors, observe, sync, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import {
-  AccessDeniedError,
-  LicenseError,
-  NotFoundError,
-  ValidationError,
-} from "@/errors";
+import { LicenseError } from "@/errors";
 import { type Frame } from "@/framer/frame";
+import { isDefinitive } from "@/framer/retry";
 import {
   type Streamer,
   type StreamerConfig,
+  type StreamerUpdateOptions,
   type StreamOpener,
 } from "@/framer/streamer";
 
@@ -169,13 +166,7 @@ export class HardenedStreamer implements Streamer {
         // attempt. Expired and invalid tokens are not definitive: the auth
         // middleware refreshes them, and a later attempt gets a fresh budget. A
         // license refusal lasts until activation, after which the connection reopens.
-        if (
-          AccessDeniedError.matches(err) ||
-          ValidationError.matches(err) ||
-          NotFoundError.matches(err) ||
-          LicenseError.matches(err)
-        )
-          throw err;
+        if (isDefinitive(err) || LicenseError.matches(err)) throw err;
         if (!(await this.breaker.wait())) throw err;
         // close() interrupts the backoff above, so re-check: a retired
         // streamer's failed reconnect is expected, not a fault to report.
@@ -202,15 +193,26 @@ export class HardenedStreamer implements Streamer {
     await this.reconnecting;
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  async update(
+    channels: channel.Params,
+    options?: StreamerUpdateOptions,
+  ): Promise<void> {
     if (this.closed) throw new EOF();
+    const prev = this.config.channels;
     this.config.channels = channels;
     try {
-      await this.wrapped.update(channels);
+      await this.wrapped.update(channels, options);
     } catch (e) {
-      if (this.closed || EOF.matches(e)) throw errors.fromUnknown(e);
-      await this.reconnect(errors.fromUnknown(e));
-      return await this.update(channels);
+      if (this.closed) throw new EOF();
+      const err = errors.fromUnknown(e);
+      // A rejection of the keys recurs on every retry, and leaves the stream as it was.
+      if (isDefinitive(err)) {
+        this.config.channels = prev;
+        throw err;
+      }
+      // an EOF the client did not ask for is a drop, as in read
+      await this.reconnect(err);
+      return await this.update(channels, options);
     }
   }
 
