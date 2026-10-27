@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import logging
+
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
@@ -38,3 +40,8 @@ def instrumentation(provider: TracerProvider) -> Instrumentation:
             otel_provider=provider, otel_propagator=TraceContextTextMapPropagator()
         ),
     )
+
+
+@pytest.fixture
+def base() -> logging.Logger:
+    return logging.getLogger("alamos_test")
