@@ -30,6 +30,11 @@ easy to get wrong by hand.
 
 Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo script.
 
+- `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
+  module or test code use. It runs Knip in production mode, then traces each finding. An
+  export that only other modules' tests use is allowed only in a test utility directory
+  (`testutil`, `test`, or `mock`).
+
 ## Copyright headers
 
 - `update_copyrights.sh` — rewrites or inserts the BSL header (from

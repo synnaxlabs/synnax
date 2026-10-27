@@ -11,7 +11,6 @@ import { describe, expect, it, test } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
-import { MockGLBufferController } from "@/mock/MockGLBufferController";
 import { type CrudeSeries, isCrudeSeries, MultiSeries, Series } from "@/telem/series";
 import {
   type CrudeDataType,
@@ -21,6 +20,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@/telem/telem";
+import { MockGLBufferController } from "@/testutil";
 
 // Valid UUID v4 bytes (version 4, variant 1)
 const SAMPLE_UUID_BYTES = new Uint8Array([

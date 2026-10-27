@@ -18,6 +18,11 @@ ci: &ci
   - .github/filters.yaml
   - .github/workflows/ci.yaml
 
+actionlint:
+  - .github/actionlint.yaml
+  - .github/actions/**
+  - .github/workflows/**
+
 bazel: &bazel
   - .bazelignore
   - .bazeliskrc
@@ -243,6 +248,7 @@ knip:
   - *console
   - *ts
   - oracle/lsp/extensions/vscode/**
+  - scripts/check_exports_ts.py
   - site/common/**
   - site/docs/**
   - site/foundation/**
@@ -270,6 +276,11 @@ client_py: &client_py
   - *py
   - *x_py
   - client/py/**
+
+exports_go:
+  - *core
+  - *freighter_integration
+  - *oracle
 
 py_packages:
   - *client_py

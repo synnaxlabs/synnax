@@ -10,7 +10,7 @@
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { TestSource } from "@/telem/aether/test/source";
+import { TestSource } from "@/telem/aether/testutil/source";
 import {
   BandColor,
   type BandColorProps,
