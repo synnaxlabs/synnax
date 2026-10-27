@@ -95,7 +95,19 @@ describe("invalidate", () => {
     answers[1](2);
     expect(await second).toBe(2);
     answers[0](1);
-    expect(await first).toBe(1);
+    expect(await first).toBe(2);
+    expect([...local.settled.values()]).toEqual([{ data: 2 }]);
+  });
+
+  it("refetches for a reader waiting on a fetch it discarded", async () => {
+    const local = newLocal();
+    const { answers, fetch } = fetcher(local);
+    const first = fetch();
+    invalidate(local, query.hash(params.query));
+    answers[0](1);
+    await vi.waitFor(() => expect(answers).toHaveLength(2));
+    answers[1](2);
+    expect(await first).toBe(2);
     expect([...local.settled.values()]).toEqual([{ data: 2 }]);
   });
 

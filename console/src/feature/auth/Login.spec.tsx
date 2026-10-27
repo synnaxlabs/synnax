@@ -12,6 +12,7 @@ import { type AddressInfo } from "node:net";
 
 import { AuthError, connection } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -35,7 +36,10 @@ const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" }
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
 
 // No test Core turns passwords off, so a local server answers the methods request.
-const serveMethods = async (methods: string[]): Promise<number> => {
+const serveMethods = async (
+  methods: string[],
+  onServed?: () => void,
+): Promise<number> => {
   const server = createServer((req, res) => {
     req.resume();
     req.on("end", () => {
@@ -45,7 +49,7 @@ const serveMethods = async (methods: string[]): Promise<number> => {
         return;
       }
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify({ methods }));
+      res.end(JSON.stringify({ methods }), onServed);
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -104,11 +108,16 @@ describe("auth/Login", () => {
   });
 
   it("should keep the password form when the Core accepts passwords", async () => {
-    const port = await serveMethods(["password", "api_key"]);
+    let served!: () => void;
+    const answered = new Promise<void>((resolve) => (served = resolve));
+    const port = await serveMethods(["password", "api_key"], () => served());
     await renderLogin({ ...ALPHA, host: "127.0.0.1", port });
     fireEvent.click(await screen.findByText(ALPHA.name));
-    expect(await screen.findByPlaceholderText(USERNAME_PLACEHOLDER)).toBeTruthy();
-    expect(screen.queryByText("Password login is off")).toBeNull();
+    await answered;
+    await expectAlways(() => {
+      expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).not.toBeNull();
+      expect(screen.queryByText("Password login is off")).toBeNull();
+    });
   });
 
   it("should hide the password form when the Core refuses passwords", async () => {
