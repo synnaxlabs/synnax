@@ -27,6 +27,11 @@ on:
         required: false
         type: string
         default: ""
+      coverage_flag:
+        description: The Codecov flag for the Ubuntu coverage, or empty for none
+        required: false
+        type: string
+        default: ""
       directories:
         description: Directories clang-format checks, separated by spaces
         required: false
@@ -183,14 +188,36 @@ jobs:
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
+        env:
+          # A coverage run also runs the tests, so they run once.
+          COMMAND:
+            ${{ inputs.coverage_flag != '' && 'coverage --combined_report=lcov' ||
+            'test' }}
         run: |
           lsan="$GITHUB_WORKSPACE/scripts/sanitizers/lsan_suppressions.txt"
           # shellcheck disable=SC2086 # Splits the flag list into arguments.
-          bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 \
+          bazel $COMMAND $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 \
             ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
             --test_env=LSAN_OPTIONS=suppressions="$lsan" \
             ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
             ${{ inputs.test_flags }}
+
+      - name: Find the coverage report
+        if: runner.os == 'Linux' && inputs.coverage_flag != ''
+        id: coverage
+        run: |
+          report="$(bazel info output_path)/_coverage/_coverage_report.dat"
+          echo "file=$report" >> "$GITHUB_OUTPUT"
+
+      - name: Upload coverage
+        if: runner.os == 'Linux' && inputs.coverage_flag != ''
+        uses: codecov/codecov-action@v7
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: ${{ steps.coverage.outputs.file }}
+          flags: ${{ inputs.coverage_flag }}
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
