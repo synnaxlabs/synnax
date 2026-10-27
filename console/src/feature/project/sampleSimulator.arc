@@ -16,4 +16,4 @@ func step() {
     sample_vent_vlv_state = sample_vent_vlv_cmd
 }
 
-time.interval{period=100ms} -> step{}
+time.interval(period=100ms) -> step()

@@ -50,7 +50,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/arc",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//driver/task",
         "//x/cpp/defer",
         "//x/cpp/sync",

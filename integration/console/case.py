@@ -9,7 +9,7 @@
 
 import os
 import random
-from typing import cast
+from typing import Any, cast
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -26,7 +26,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import synnax as sy
 from console.console import Console
 from framework.models import DEFAULT_CONNECTION, STATUS, SynnaxConnection
-from framework.run_dir import resolve_results_path
 from framework.test_case import TestCase
 
 
@@ -57,7 +56,7 @@ class ConsoleCase(TestCase):
         synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
-        **params: object,
+        **params: Any,
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
         self.playwright = None
@@ -135,7 +134,7 @@ class ConsoleCase(TestCase):
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 
         self.log(f"Console found on port {port}")
-        self.console = Console(self.page, self.client)
+        self.console = Console(self.page, self.client, self.results_dir)
 
     def _login(self) -> None:
         username = self.synnax_connection.username
@@ -207,7 +206,7 @@ class ConsoleCase(TestCase):
         failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)
         try:
             if self._status in failed_states:
-                trace_path = resolve_results_path("trace.zip")
+                trace_path = str(self.results_dir / "trace.zip")
                 self.context.tracing.stop(path=trace_path)
                 self.log(f"Trace saved: {trace_path}")
             else:

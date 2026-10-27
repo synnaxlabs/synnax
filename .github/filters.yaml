@@ -282,6 +282,11 @@ client_py: &client_py
   - *x_py
   - client/py/**
 
+exports_go:
+  - *core
+  - *freighter_integration
+  - *oracle
+
 py_packages:
   - *client_py
   - .github/scripts/pin_internal_deps.sh
@@ -380,6 +385,10 @@ ci_scripts:
 scripts:
   - *py
   - scripts/**
+
+runners:
+  - *py
+  - scripts/runners/**
 
 console_build: &console_build
   - *console

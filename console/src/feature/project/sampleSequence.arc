@@ -12,7 +12,7 @@ sequence press {
         sample_start_cmd == 1 => pressurize
     }
     stage pressurize {
-        control.set_authority{value=100}
+        control.set_authority(value=100)
         1 -> sample_press_vlv_cmd
         0 -> sample_vent_vlv_cmd
         sample_tank_pt > 450 => abort
@@ -22,7 +22,7 @@ sequence press {
     stage hold {
         0 -> sample_press_vlv_cmd
         sample_abort_cmd == 1 => abort
-        time.wait{duration=10s} => vent
+        time.wait(duration=10s) => vent
     }
     stage vent {
         1 -> sample_vent_vlv_cmd
@@ -31,7 +31,7 @@ sequence press {
     // Abort raises the sequence to the authority of a control chip, so its commands
     // reach a valve an operator holds.
     stage abort {
-        control.set_authority{value=255}
+        control.set_authority(value=255)
         0 -> sample_press_vlv_cmd
         1 -> sample_vent_vlv_cmd
         sample_start_cmd == 1 => pressurize
