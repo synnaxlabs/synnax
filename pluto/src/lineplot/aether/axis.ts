@@ -13,7 +13,7 @@ import {
   box,
   direction,
   scale,
-  throttle,
+  scheduler,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -126,7 +126,7 @@ export abstract class BaseAxis<
       ...this.state,
     });
     render.request(ctx, "layout");
-    i.updateBounds ??= throttle(
+    i.updateBounds ??= scheduler.throttle(
       (b) => this.setState((p) => ({ ...p, bounds: b })),
       autoBoundUpdateInterval,
     );
