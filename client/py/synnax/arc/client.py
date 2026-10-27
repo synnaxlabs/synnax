@@ -202,17 +202,17 @@ class Client:
         offset: int = 0,
         include_program: bool = False,
     ) -> Arc | list[Arc]:
-        """Retrieve Arcs that match every condition and filter. Returns one Arc for a
+        """Retrieves Arcs that match every condition and filter. Returns one Arc for a
         key, a name, or one, and a list otherwise.
 
-        :param args: Conditions from the arc builder, such as
+        :param args: Conditions from the Arc builder, such as
             ``arc.name.contains("press")``, or one key, name, or list of either.
         :param one: Returns the one Arc that matches, instead of a list.
         :param include_program: Whether the Core compiles each Arc and sets its
             program. The Core raises an error if any Arc fails to compile.
         :raises NotFoundError: If a single Arc is requested and none matches.
-        :raises MultipleFoundError: If a single Arc is requested by name or one and
-            more than one matches.
+        :raises MultipleFoundError: If a single Arc is requested by name or one and more
+            than one matches.
         :raises TypeError: If args are neither Arc conditions nor a shortcut.
         """
         conditions, query = util.shortcut(
