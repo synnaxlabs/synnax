@@ -375,9 +375,9 @@ var _ = Describe("Filter definitions", func() {
 			Entry("a line that removes a domain",
 				"Where filter Thing {\n name -@doc\n}",
 				"filter Where: line name cannot remove domains"),
-			Entry("a filter named like a type",
-				"Thing filter Thing {\n key\n}",
-				"duplicate type definition: test.Thing"),
+			Entry("a filter not named Where",
+				"Selection filter Thing {\n key\n}",
+				"filter Selection: a filter must be named Where"),
 			Entry("a reserved line",
 				"Where filter Thing {\n and\n}",
 				`filter Where: "and" is reserved for the tree`),
@@ -404,8 +404,8 @@ var _ = Describe("Filter definitions", func() {
 				"Where filter Thing<string> {\n key\n}",
 				"filter Where: the target must be a plain type reference"),
 			Entry("two filters in one schema",
-				"Where filter Thing {\n key\n}\nOther2 filter Thing {\n key\n}",
-				"declares filters Where and Other2; a schema declares at most one"),
+				"Where filter Thing {\n key\n}\nWhere filter Thing {\n key\n}",
+				"duplicate type definition: test.Where"),
 		)
 
 		DescribeTable("Should reject a type-level @key outside a distinct type",
