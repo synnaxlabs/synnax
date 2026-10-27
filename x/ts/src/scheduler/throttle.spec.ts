@@ -148,9 +148,98 @@ describe("throttle", () => {
     expect(fn).toHaveBeenNthCalledWith(3, 30);
   });
 
-  it("should not throttle the execution of the given function if the time is 0", () => {
+  it("should invoke the function synchronously when the wait period is 0", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, TimeSpan.ZERO);
-    expect(throttled).toBe(fn);
+    throttled(10);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenLastCalledWith(10);
+  });
+
+  describe("cancel", () => {
+    it("should drop a pending call", () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      throttled(10);
+      throttled.cancel();
+      vi.advanceTimersByTime(200);
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    it("should drop a pending trailing call", () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      throttled(10);
+      vi.advanceTimersByTime(0);
+      throttled(20);
+      throttled.cancel();
+      vi.advanceTimersByTime(200);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenLastCalledWith(10);
+    });
+
+    it("should allow a new call after cancellation", () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      throttled(10);
+      throttled.cancel();
+      throttled(20);
+      vi.advanceTimersByTime(0);
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenLastCalledWith(20);
+    });
+
+    it("should be a no-op for a zero-wait throttle", () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, TimeSpan.ZERO);
+      expect(() => throttled.cancel()).not.toThrow();
+      throttled(10);
+      expect(fn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("flush", () => {
+    it("should run a pending call at once with the latest arguments", () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      throttled(10);
+      throttled(20);
+      throttled.flush();
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenLastCalledWith(20);
+      vi.advanceTimersByTime(200);
+      expect(fn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should run a pending trailing call without waiting for the period", () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      throttled(10);
+      vi.advanceTimersByTime(0);
+      throttled(20);
+      throttled.flush();
+      expect(fn).toHaveBeenCalledTimes(2);
+      expect(fn).toHaveBeenLastCalledWith(20);
+    });
+
+    it("should start the wait period at the flushed call", () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      throttled(10);
+      throttled.flush();
+      throttled(20);
+      vi.advanceTimersByTime(99);
+      expect(fn).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(1);
+      expect(fn).toHaveBeenCalledTimes(2);
+      expect(fn).toHaveBeenLastCalledWith(20);
+    });
+
+    it("should be a no-op when no call is pending", () => {
+      const fn = vi.fn();
+      const throttled = throttle(fn, TimeSpan.milliseconds(100));
+      throttled.flush();
+      expect(fn).not.toHaveBeenCalled();
+    });
   });
 });

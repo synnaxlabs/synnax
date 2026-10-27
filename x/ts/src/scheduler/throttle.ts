@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type DebouncedFn } from "@/scheduler/debounce";
 import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem/telem";
+
+/** The function returned by throttle. It carries the same handles as a debounce. */
+export type ThrottledFn<Args extends unknown[]> = DebouncedFn<Args>;
+
+const noop = (): void => {};
 
 /**
  * @returns a function that calls `func` with its latest arguments at most once per
@@ -17,9 +23,14 @@ import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem/telem";
 export const throttle = <Args extends unknown[]>(
   func: (...args: Args) => void,
   waitFor: CrudeTimeSpan,
-): ((...args: Args) => void) => {
+): ThrottledFn<Args> => {
   const throttlePeriod = new TimeSpan(waitFor);
-  if (throttlePeriod.valueOf() <= 0) return func;
+  if (throttlePeriod.valueOf() <= 0) {
+    const passthrough = ((...args: Args) => func(...args)) as ThrottledFn<Args>;
+    passthrough.cancel = noop;
+    passthrough.flush = noop;
+    return passthrough;
+  }
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let lastInvokeTime: TimeStamp = TimeStamp.MIN;
   let latestArgs: Args | null = null;
@@ -31,7 +42,7 @@ export const throttle = <Args extends unknown[]>(
     latestArgs = null;
     func(...args);
   };
-  return (...args: Args): void => {
+  const throttled = ((...args: Args): void => {
     latestArgs = args;
     if (timeout !== undefined) return;
     const remaining = throttlePeriod.sub(TimeStamp.since(lastInvokeTime));
@@ -41,5 +52,16 @@ export const throttle = <Args extends unknown[]>(
         ? 0
         : remaining.milliseconds;
     timeout = setTimeout(invoke, wait);
+  }) as ThrottledFn<Args>;
+  throttled.cancel = (): void => {
+    clearTimeout(timeout);
+    timeout = undefined;
+    latestArgs = null;
   };
+  throttled.flush = (): void => {
+    if (timeout === undefined) return;
+    clearTimeout(timeout);
+    invoke();
+  };
+  return throttled;
 };
