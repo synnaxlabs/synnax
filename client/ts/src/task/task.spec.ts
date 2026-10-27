@@ -362,6 +362,12 @@ describe("Task", async () => {
         expect(result.map((t) => t.key).sort()).toEqual(keysToQuery.sort());
       });
 
+      it("should retrieve tasks by a list of keys", async () => {
+        const keys = testTasks.slice(0, 2).map((t) => t.key);
+        const result = await client.tasks.retrieve(keys);
+        expect(result.map((t) => t.key).sort()).toEqual(keys.sort());
+      });
+
       it("should retrieve tasks by multiple names", async () => {
         const namesToQuery = ["sensor_task1", "actuator_task1"];
         const result = await client.tasks.retrieve({
