@@ -77,6 +77,16 @@ describe("useModal", () => {
     expect(getIconButtons(document.body, "delete")).toHaveLength(0);
   });
 
+  it("should offer a rack key to a caller who may change the rack", async () => {
+    const owner = createTestClient();
+    const r = await owner.racks.create({ name: uniqueName("rack") });
+    const id = rack.ontologyID(r.key);
+    const driver = await createTestClientWithRole(owner, "Driver");
+    await openModal(useModal, { client: driver, params: { subject: id } });
+    await screen.findByText("No API keys");
+    expect(findButton("Create key")).toBeTruthy();
+  });
+
   it("should set the caller's own password given the current one", async () => {
     const self = await createTestClientWithRole(createTestClient(), "Viewer");
     const { username } = self.params;
