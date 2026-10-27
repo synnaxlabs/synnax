@@ -1692,9 +1692,6 @@ importers:
       '@synnaxlabs/lyra':
         specifier: 'catalog:'
         version: link:../../lyra
-      '@synnaxlabs/site-common':
-        specifier: 'catalog:'
-        version: link:../common
       '@synnaxlabs/x':
         specifier: 'catalog:'
         version: link:../../x/ts

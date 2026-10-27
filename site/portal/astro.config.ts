@@ -10,25 +10,20 @@
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import clerk from "@clerk/astro";
-import { integration } from "@synnaxlabs/site-common/integration";
 import { layers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
 
 const secret = envField.string({ context: "server", access: "secret" });
 
 export default defineConfig({
-  integrations: [
-    integration({ unlisted: true }),
-    react(),
-    clerk({ signInUrl: "/login", signUpUrl: "/sign-up" }),
-  ],
+  integrations: [react(), clerk({ signInUrl: "/login", signUpUrl: "/sign-up" })],
   output: "server",
   adapter: vercel(),
   // Astro's check refuses the Desktop renewal. src/pipeline.ts checks origins instead.
   security: { checkOrigin: false },
   // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
   vite: {
-    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
+    ssr: { noExternal: ["@synnaxlabs/lyra"] },
     css: {
       postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
     },

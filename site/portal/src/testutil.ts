@@ -100,7 +100,6 @@ export interface ContextArgs {
   body?: unknown;
   headers?: Record<string, string>;
   cookies?: Record<string, string>;
-  prerendered?: boolean;
 }
 
 /** Cookies is the cookie jar a {@link createAPIContext} context reads and writes. */
@@ -116,7 +115,6 @@ export const createAPIContext = (
     body,
     headers = {},
     cookies = {},
-    prerendered = false,
   }: ContextArgs = {},
 ): APIContext & { jar: Cookies } => {
   const url = new URL(path, "https://portal.synnaxlabs.com");
@@ -132,7 +130,6 @@ export const createAPIContext = (
     url,
     request: new Request(url, init),
     locals: { portal },
-    isPrerendered: prerendered,
     jar,
     cookies: {
       get: (name: string) => {
