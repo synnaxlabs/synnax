@@ -869,7 +869,9 @@ var _ = Describe("Status", Ordered, func() {
 			})).To(Succeed())
 			var retrieved status.Status[DetailsA]
 			retrieveA := svc.NewRetrieve[DetailsA]()
-			Expect(retrieveA.Entry(&retrieved).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(
+				retrieveA.Entry(&retrieved).Exec(ctx, tx),
+			).To(MatchError(ContainSubstring("all codecs failed to decode")))
 		})
 	})
 
