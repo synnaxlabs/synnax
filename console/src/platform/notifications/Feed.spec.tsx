@@ -46,8 +46,6 @@ const Content: Notifications.Notification = ({ status }) => (
 );
 Content.match = (status) => status.key === "special";
 
-const Suppressed = Notifications.createSuppressed((status) => status.key === "hidden");
-
 describe("Notifications", () => {
   installPortalRoot();
 
@@ -63,83 +61,25 @@ describe("Notifications", () => {
     expect(screen.getByText("Custom content for original")).toBeTruthy();
   });
 
-  it("suppresses a status when its matching component renders nothing", async () => {
-    await addStatus({ key: "hidden", variant: "info", message: "Should not appear" }, [
-      Suppressed,
-    ]);
-    expect(screen.queryByText("Should not appear")).toBeNull();
-  });
-
-  describe("matchVariants", () => {
-    const loadingOrSuccess = Notifications.createSuppressed(
-      Notifications.matchVariants("loading", "success"),
-    );
-
-    it("matches a status whose variant is in the list", async () => {
-      await addStatus({ key: "n1", variant: "success", message: "Done" }, [
-        loadingOrSuccess,
-      ]);
-      expect(screen.queryByText("Done")).toBeNull();
-    });
-
-    it("does not match a status whose variant is absent from the list", async () => {
-      await addStatus({ key: "n1", variant: "error", message: "Failed" }, [
-        loadingOrSuccess,
-      ]);
-      expect(screen.getByText("Failed")).toBeTruthy();
-    });
-  });
-
   describe("matchPrefix", () => {
-    const rackPrefix = Notifications.createSuppressed(
-      Notifications.matchPrefix("rack"),
+    const Rack: Notifications.Notification = ({ status }) => (
+      <span>Rack notification: {status.message}</span>
     );
+    Rack.match = Notifications.matchPrefix("rack");
 
     it("matches a status whose key starts with the prefix", async () => {
       await addStatus({ key: "rack.heartbeat", variant: "info", message: "Rack" }, [
-        rackPrefix,
+        Rack,
       ]);
-      expect(screen.queryByText("Rack")).toBeNull();
+      expect(screen.getByText("Rack notification: Rack")).toBeTruthy();
     });
 
     it("does not match a status whose key lacks the prefix", async () => {
       await addStatus({ key: "device.heartbeat", variant: "info", message: "Device" }, [
-        rackPrefix,
+        Rack,
       ]);
       expect(screen.getByText("Device")).toBeTruthy();
-    });
-  });
-
-  describe("composeMatchers", () => {
-    const both = Notifications.createSuppressed(
-      Notifications.composeMatchers(
-        Notifications.matchPrefix("rack"),
-        Notifications.matchVariants("success"),
-      ),
-    );
-
-    it("matches when every composed matcher matches", async () => {
-      await addStatus(
-        { key: "rack.heartbeat", variant: "success", message: "Rack ok" },
-        [both],
-      );
-      expect(screen.queryByText("Rack ok")).toBeNull();
-    });
-
-    it("does not match when only some composed matchers match", async () => {
-      await addStatus(
-        { key: "rack.heartbeat", variant: "error", message: "Rack failed" },
-        [both],
-      );
-      expect(screen.getByText("Rack failed")).toBeTruthy();
-    });
-
-    it("matches everything when composed with no matchers", async () => {
-      const vacuous = Notifications.createSuppressed(Notifications.composeMatchers());
-      await addStatus({ key: "anything", variant: "info", message: "Anything" }, [
-        vacuous,
-      ]);
-      expect(screen.queryByText("Anything")).toBeNull();
+      expect(screen.queryByText(/Rack notification/)).toBeNull();
     });
   });
 
@@ -215,10 +155,14 @@ describe("Notifications", () => {
       fireEvent.click(screen.getByText("add"));
     };
 
-    const createCrudes = (count: number, keyPrefix = "n"): status.Crude[] =>
+    const createCrudes = (
+      count: number,
+      keyPrefix = "n",
+      variant: status.Variant = "info",
+    ): status.Crude[] =>
       Array.from({ length: count }, (_, i) => ({
         key: `${keyPrefix}${i + 1}`,
-        variant: "info" as const,
+        variant,
         message: `Message ${keyPrefix}${i + 1}`,
       }));
 
@@ -255,12 +199,9 @@ describe("Notifications", () => {
     });
 
     it("does not count suppressed statuses toward the cap or overflow", async () => {
-      const suppressed = Notifications.createSuppressed(
-        Notifications.matchPrefix("hidden"),
-      );
       await addStatuses(
-        [...createCrudes(2, "hidden"), ...createCrudes(4)],
-        [suppressed],
+        [...createCrudes(2, "hidden", "success"), ...createCrudes(4)],
+        [Notifications.createSuppressRoutineForPrefix("hidden")],
       );
       expect(screen.getByText("Message n1")).toBeTruthy();
       expect(screen.getByText("Message n4")).toBeTruthy();
