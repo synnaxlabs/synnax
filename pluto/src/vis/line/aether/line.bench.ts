@@ -22,7 +22,7 @@ import { type BenchRunOptions, test } from "vitest";
 
 import { type telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { windowBounds } from "@/vis/line/aether/bounds";
 import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
 import { Line, type LineProps } from "@/vis/line/aether/line";

@@ -17,7 +17,7 @@ import { assert, describe, expect, it } from "vitest";
 import { Node } from "@/schematic/node";
 import { ScaleForm } from "@/schematic/node/general/scale/Form";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 

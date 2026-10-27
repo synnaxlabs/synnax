@@ -17,7 +17,7 @@ import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

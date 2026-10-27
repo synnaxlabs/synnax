@@ -115,7 +115,7 @@ describe("Code", () => {
         languageServer,
       };
       // Loaded after the reset, so the provider reads the same Synnax context.
-      const { createSynnaxWrapper } = await import("@/testutil/Synnax");
+      const { createSynnaxWrapper } = await import("@/testutil");
       const { Provider, useMonaco, usePreload } = await loadProvider();
       const SynnaxWrapper = createSynnaxWrapper({ client: createTestClient() });
       const Preload = (): null => {

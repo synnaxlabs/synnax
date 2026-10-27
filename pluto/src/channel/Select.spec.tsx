@@ -11,7 +11,7 @@ import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/channel";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const TRIGGER_CLASS = "pluto-channel__trigger";
 

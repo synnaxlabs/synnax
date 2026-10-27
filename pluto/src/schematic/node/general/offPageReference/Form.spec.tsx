@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 
 import { Node } from "@/schematic/node";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 
 const CONFIG_Z = schematic.offPageReferenceNodeConfigZ;
 

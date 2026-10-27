@@ -10,7 +10,7 @@
 import { Profiler } from "react";
 import { describe, expect, it } from "vitest";
 
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 import { Theming } from "@/theming";
 
 describe("Theming.Provider", () => {

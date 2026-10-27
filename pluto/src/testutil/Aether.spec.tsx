@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { createAetherProvider } from "@/testutil/Aether";
+import { createAetherProvider } from "@/testutil";
 
 const testStateZ = z.object({
   value: z.number(),

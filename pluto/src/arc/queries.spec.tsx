@@ -17,8 +17,7 @@ import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "
 import { Arc } from "@/arc";
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 describe("Arc queries", () => {
   let controller: AbortController;

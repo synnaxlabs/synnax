@@ -16,8 +16,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 describe("queries", () => {
   let controller: AbortController;

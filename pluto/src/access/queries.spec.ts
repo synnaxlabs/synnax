@@ -28,8 +28,11 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { afterAll, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Access } from "@/access";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  renderHookSuspended,
+} from "@/testutil";
 
 const subjectOf = (c: Synnax): ontology.ID => {
   const u = c.users.current.getCached();

@@ -14,7 +14,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Static } from "@/schematic/node/custom/Static";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const VALID_SVG = '<svg viewBox="0 0 10 10"><rect width="10" height="10" /></svg>';
 

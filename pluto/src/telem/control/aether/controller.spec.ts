@@ -26,7 +26,7 @@ import {
   type SetChannelValue,
   setChannelValue,
 } from "@/telem/control/aether/controller";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 
 const client = createTestClient();
 

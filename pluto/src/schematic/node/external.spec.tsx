@@ -19,7 +19,7 @@ import {
   STATIC_SPECS,
   type Variant,
 } from "@/schematic/node/registry";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 

@@ -18,7 +18,7 @@ import {
   buildStack,
   type MountedProviders,
   type ProviderOptions,
-} from "@/testutil/providers";
+} from "@/testutil/internal/providers";
 
 /** Initial state for a child mounted under the component under test. */
 export interface MountChild {

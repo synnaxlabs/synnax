@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { noopBooleanSinkSpec } from "@/telem/aether/noop";
 import { telemTest } from "@/telem/aether/testutil";
 import { TelemTest } from "@/telem/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { Button } from "@/vis/button";
 import { button } from "@/vis/button/aether";
 

@@ -25,7 +25,7 @@ import {
   buildStack,
   type MountedProviders,
   type ProviderOptions,
-} from "@/testutil/providers";
+} from "@/testutil/internal";
 import { type canvasTest } from "@/vis/render/testutil";
 
 /** Options for {@link render}: provider toggles plus standard RTL render options

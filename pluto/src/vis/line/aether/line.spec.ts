@@ -28,7 +28,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
 import { Line, type LineProps, type State } from "@/vis/line/aether/line";
 import { lineTest } from "@/vis/line/aether/testutil";

@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 import { Node } from "@/schematic/node";
 import { LightForm } from "@/schematic/node/general/light/Form";
 import { Light } from "@/schematic/node/general/light/Primitive";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 

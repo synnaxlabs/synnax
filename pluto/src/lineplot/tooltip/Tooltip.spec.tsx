@@ -16,7 +16,7 @@ import { Frame } from "@/lineplot/Frame";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { Tooltip } from "@/lineplot/tooltip/Tooltip";
 import { Viewport } from "@/lineplot/Viewport";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const TOOLTIP_PATH = [
   "alamos",

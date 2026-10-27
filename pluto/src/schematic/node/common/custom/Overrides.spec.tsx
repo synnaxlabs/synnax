@@ -17,7 +17,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Custom } from "@/schematic/node/common/custom";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const formSchema = z.object({
   specKey: z.string(),

@@ -14,7 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 import { View } from "@/view";
 
 const client = createTestClient();
