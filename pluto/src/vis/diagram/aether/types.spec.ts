@@ -11,7 +11,7 @@ import { xy } from "@synnaxlabs/x";
 import { type NodeChange as RFNodeChange } from "@xyflow/react";
 import { describe, expect, it } from "vitest";
 
-import { translateNodeChangeForward } from "@/vis/diagram/aether/types";
+import { diagram } from "@/vis/diagram/aether";
 
 describe("translateNodeChangeForward", () => {
   describe("dimensions", () => {
@@ -22,7 +22,7 @@ describe("translateNodeChangeForward", () => {
         dimensions: { width: 40, height: 30 },
         resizing: true,
       };
-      expect(translateNodeChangeForward(change)).toBeNull();
+      expect(diagram.translateNodeChangeForward(change)).toBeNull();
     });
   });
 
@@ -34,7 +34,7 @@ describe("translateNodeChangeForward", () => {
         position: { x: 10, y: 20 },
         dragging: true,
       };
-      expect(translateNodeChangeForward(change)).toEqual({
+      expect(diagram.translateNodeChangeForward(change)).toEqual({
         type: "position",
         key: "n1",
         position: xy.construct(10, 20),
@@ -44,13 +44,13 @@ describe("translateNodeChangeForward", () => {
 
     it("defaults dragging to false and returns null without a position", () => {
       const change: RFNodeChange = { id: "n1", type: "position" };
-      expect(translateNodeChangeForward(change)).toBeNull();
+      expect(diagram.translateNodeChangeForward(change)).toBeNull();
     });
   });
 
   it("forwards remove changes", () => {
     const change: RFNodeChange = { id: "n1", type: "remove" };
-    expect(translateNodeChangeForward(change)).toEqual({
+    expect(diagram.translateNodeChangeForward(change)).toEqual({
       type: "remove",
       key: "n1",
     });
@@ -58,7 +58,7 @@ describe("translateNodeChangeForward", () => {
 
   it("forwards select changes", () => {
     const change: RFNodeChange = { id: "n1", type: "select", selected: true };
-    expect(translateNodeChangeForward(change)).toEqual({
+    expect(diagram.translateNodeChangeForward(change)).toEqual({
       type: "select",
       key: "n1",
       selected: true,

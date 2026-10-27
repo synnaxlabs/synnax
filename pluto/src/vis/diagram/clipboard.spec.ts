@@ -12,25 +12,17 @@ import { renderHook } from "@testing-library/react";
 import { type RefObject } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  type ClipboardAdapter,
-  type ClipboardEdge,
-  type ClipboardNode,
-  type PasteResult,
-  type Snapshot,
-  useClipboard,
-} from "@/vis/diagram/clipboard";
-import { type ClipboardHandler } from "@/vis/diagram/Diagram";
+import { Diagram } from "@/vis/diagram";
 
-type ClipboardEvent = Parameters<ClipboardHandler>[0];
+type ClipboardEvent = Parameters<Diagram.ClipboardHandler>[0];
 
 const MIME = "application/test-diagram";
 
-interface Node extends ClipboardNode {
+interface Node extends Diagram.ClipboardNode {
   type: string;
 }
 
-interface Edge extends ClipboardEdge {
+interface Edge extends Diagram.ClipboardEdge {
   key: string;
 }
 
@@ -68,8 +60,8 @@ const fakeClipboardEvent = (initial: Record<string, string> = {}) => {
 };
 
 const makeAdapter = (
-  snapshot: Snapshot<Node, Edge> | null,
-): ClipboardAdapter<Node, Edge> => ({
+  snapshot: Diagram.Snapshot<Node, Edge> | null,
+): Diagram.ClipboardAdapter<Node, Edge> => ({
   mime: MIME,
   edgeKey,
   getSnapshot: () => snapshot,
@@ -78,8 +70,8 @@ const makeAdapter = (
 });
 
 const pasteResultOf = (
-  adapter: ClipboardAdapter<Node, Edge>,
-): PasteResult<Node, Edge> => vi.mocked(adapter.apply).mock.calls[0][0];
+  adapter: Diagram.ClipboardAdapter<Node, Edge>,
+): Diagram.PasteResult<Node, Edge> => vi.mocked(adapter.apply).mock.calls[0][0];
 
 interface RenderClipboardOpts {
   onCut?: (remaining: string[]) => void;
@@ -87,10 +79,11 @@ interface RenderClipboardOpts {
 }
 
 const renderClipboard = (
-  adapter: ClipboardAdapter<Node, Edge>,
+  adapter: Diagram.ClipboardAdapter<Node, Edge>,
   selected?: string[],
   opts: RenderClipboardOpts = {},
-) => renderHook(() => useClipboard({ adapter, selected, ...opts })).result.current;
+) =>
+  renderHook(() => Diagram.useClipboard({ adapter, selected, ...opts })).result.current;
 
 const readPayload = (store: Map<string, string>) => JSON.parse(store.get(MIME) ?? "");
 
@@ -101,7 +94,7 @@ describe("clipboard", () => {
 
   describe("onCopy", () => {
     it("should write the selected nodes and edges to the clipboard", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.construct(0, 0)), node("b", xy.construct(10, 20))],
         edges: [edge("e1", "a", "b")],
         configs: {},
@@ -117,7 +110,7 @@ describe("clipboard", () => {
     });
 
     it("should write a human-readable description to text/plain", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
         edges: [edge("e1", "a", "b")],
         configs: {},
@@ -129,7 +122,7 @@ describe("clipboard", () => {
     });
 
     it("should singularize a single node and pluralize zero edges", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO)],
         edges: [],
         configs: {},
@@ -141,7 +134,7 @@ describe("clipboard", () => {
     });
 
     it("should only copy items that are selected", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO), node("b", xy.ZERO), node("c", xy.ZERO)],
         edges: [edge("e1", "a", "b"), edge("e2", "b", "c")],
         configs: {},
@@ -160,7 +153,7 @@ describe("clipboard", () => {
         b: { label: "B" },
         e1: { stroke: "red" },
       };
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
         edges: [edge("e1", "a", "b")],
         configs,
@@ -173,7 +166,7 @@ describe("clipboard", () => {
     });
 
     it("should compute the anchor as the centroid of the copied nodes", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.construct(0, 0)), node("b", xy.construct(10, 30))],
         edges: [],
         configs: {},
@@ -189,7 +182,7 @@ describe("clipboard", () => {
       vi.spyOn(window, "getSelection").mockReturnValue({
         toString: () => "selected text",
       } as Selection);
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO)],
         edges: [],
         configs: {},
@@ -210,7 +203,7 @@ describe("clipboard", () => {
     });
 
     it("should do nothing when nothing is selected", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO)],
         edges: [],
         configs: {},
@@ -223,7 +216,7 @@ describe("clipboard", () => {
     });
 
     it("should do nothing when the selection matches no nodes or edges", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO)],
         edges: [edge("e1", "a", "a")],
         configs: {},
@@ -238,7 +231,7 @@ describe("clipboard", () => {
 
   describe("onCut", () => {
     it("should write the selection and remove it from the diagram", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
         edges: [edge("e1", "a", "b")],
         configs: {},
@@ -258,7 +251,7 @@ describe("clipboard", () => {
     });
 
     it("should report the surviving selection to onCut", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO), node("b", xy.ZERO)],
         edges: [],
         configs: {},
@@ -275,7 +268,7 @@ describe("clipboard", () => {
     });
 
     it("should not invoke onCut when nothing was written", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO)],
         edges: [],
         configs: {},
@@ -288,7 +281,7 @@ describe("clipboard", () => {
     });
 
     it("should not remove anything when nothing is selected", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO)],
         edges: [],
         configs: {},
@@ -306,7 +299,7 @@ describe("clipboard", () => {
       vi.spyOn(window, "getSelection").mockReturnValue({
         toString: () => "selected text",
       } as Selection);
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.ZERO)],
         edges: [],
         configs: {},
@@ -475,7 +468,7 @@ describe("clipboard", () => {
 
   describe("round trip", () => {
     it("should copy a selection and paste it back as fresh nodes and edges", () => {
-      const snapshot: Snapshot<Node, Edge> = {
+      const snapshot: Diagram.Snapshot<Node, Edge> = {
         nodes: [node("a", xy.construct(0, 0)), node("b", xy.construct(20, 0))],
         edges: [edge("e1", "a", "b")],
         configs: { a: { label: "A" }, e1: { stroke: "red" } },
@@ -505,7 +498,7 @@ describe("clipboard", () => {
   });
 
   describe("menu triggers", () => {
-    const SNAPSHOT: Snapshot<Node, Edge> = {
+    const SNAPSHOT: Diagram.Snapshot<Node, Edge> = {
       nodes: [node("a", xy.ZERO), node("b", xy.construct(10, 20))],
       edges: [edge("e1", "a", "b")],
       configs: {},

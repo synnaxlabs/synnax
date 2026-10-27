@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
 import { renderAether } from "@/testutil/internal";
-import { Diagram } from "@/vis/diagram/aether/Diagram";
+import { diagram } from "@/vis/diagram/aether";
 import { canvasTest } from "@/vis/render/testutil";
 
 const REGION = box.construct({ x: 0, y: 0 }, { x: 100, y: 100 });
@@ -20,20 +20,20 @@ const REGION = box.construct({ x: 0, y: 0 }, { x: 100, y: 100 });
 describe("Diagram", () => {
   it("enqueues a render on initial mount", () => {
     const recorder = canvasTest.record();
-    renderAether(Diagram, {
+    renderAether(diagram.Diagram, {
       state: { position: xy.ZERO, zoom: 1, region: REGION, visible: true },
       render: recorder,
     });
     expect(recorder.loopCalls.length).toBeGreaterThan(0);
     expect(recorder.loopCalls[0].args[0]).toMatchObject({
-      key: expect.stringContaining(Diagram.TYPE),
+      key: expect.stringContaining(diagram.Diagram.TYPE),
       priority: "high",
     });
   });
 
   it("scissors and rescissors via the render closure on a state change", () => {
     const recorder = canvasTest.record();
-    const h = renderAether(Diagram, {
+    const h = renderAether(diagram.Diagram, {
       state: { position: xy.ZERO, zoom: 1, region: REGION, visible: true },
       render: recorder,
     });
@@ -44,7 +44,7 @@ describe("Diagram", () => {
 
   it("skips view-scale recomputation when visible stays false across updates", () => {
     const recorder = canvasTest.record();
-    const h = renderAether(Diagram, {
+    const h = renderAether(diagram.Diagram, {
       state: { position: xy.ZERO, zoom: 1, region: REGION, visible: false },
       render: recorder,
     });
@@ -55,7 +55,7 @@ describe("Diagram", () => {
 
   it("clears the auto-render interval on unmount", () => {
     const recorder = canvasTest.record();
-    const h = renderAether(Diagram, {
+    const h = renderAether(diagram.Diagram, {
       state: {
         position: xy.ZERO,
         zoom: 1,
@@ -72,7 +72,7 @@ describe("Diagram", () => {
 
   it("renders registered children when its render closure is invoked", () => {
     const recorder = canvasTest.record();
-    const h = renderAether(Diagram, {
+    const h = renderAether(diagram.Diagram, {
       state: { position: xy.ZERO, zoom: 1, region: REGION, visible: true },
       render: recorder,
       children: {

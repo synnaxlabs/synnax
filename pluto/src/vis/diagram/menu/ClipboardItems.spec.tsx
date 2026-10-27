@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/lyra/menu";
+import { Menu as Base } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  ClipboardItems,
-  type ClipboardItemsProps,
-} from "@/vis/diagram/menu/ClipboardItems";
+import { Menu } from "@/vis/diagram/menu";
 
-interface RenderProps extends Partial<ClipboardItemsProps> {}
+interface RenderProps extends Partial<Menu.ClipboardItemsProps> {}
 
 const renderItems = ({
   cut = vi.fn(),
@@ -26,9 +23,14 @@ const renderItems = ({
   hasSelection = true,
 }: RenderProps = {}) => {
   const c = render(
-    <Menu.Menu>
-      <ClipboardItems cut={cut} copy={copy} paste={paste} hasSelection={hasSelection} />
-    </Menu.Menu>,
+    <Base.Menu>
+      <Menu.ClipboardItems
+        cut={cut}
+        copy={copy}
+        paste={paste}
+        hasSelection={hasSelection}
+      />
+    </Base.Menu>,
   );
   return { c, cut, copy, paste };
 };
