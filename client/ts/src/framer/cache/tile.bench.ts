@@ -12,7 +12,9 @@ import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import { type channel } from "@/channel";
-import { TileReader, tileSpan, type TileSpec } from "@/framer/cache/tile";
+import { tileSpan } from "@/framer/cache/grid";
+import { Store } from "@/framer/cache/store";
+import { TileReader, type TileSpec } from "@/framer/cache/tile";
 import { SyntheticCore } from "@/testutil";
 
 // One week of 1kHz data. A plot 1000 pixels wide that shows the last day of it draws
@@ -29,7 +31,7 @@ const createReader = (core: SyntheticCore, budget?: Size): TileReader =>
   new TileReader({
     readRemote: async (tr, keys, reduction) => core.read(tr, keys, reduction),
     batchDebounce: TimeSpan.ZERO,
-    budget,
+    store: new Store({ budget }),
   });
 
 // specs returns the tiles of the last day for the index and every data channel.
@@ -122,7 +124,9 @@ const insertPastBudget = async (held: number): Promise<() => Promise<void>> => {
       return core.read(tr, keys, reduction);
     },
     batchDebounce: TimeSpan.ZERO,
-    budget: Size.bytes(1.1 * sizes.reduce((sum, b) => sum + b, 0)),
+    store: new Store({
+      budget: Size.bytes(1.1 * sizes.reduce((sum, b) => sum + b, 0)),
+    }),
   });
   const heldTiles = await Promise.all(heldSpecs.map(async (s) => await reader.read(s)));
   heldTiles.forEach((t) => t.acquire());

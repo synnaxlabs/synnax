@@ -7,39 +7,72 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { framer } from "@synnaxlabs/client";
-import { type Aggregation, type TimeRange } from "@synnaxlabs/x";
+import {
+  type Aggregation,
+  POINTS_PER_GROUP,
+  TimeRange,
+  TimeSpan,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 
-/** Identifies one tile of the grid: tile index of level. */
+/**
+ * Identifies one tile of the grid. Tiles at level L span 2^L milliseconds, and tile i
+ * of a level starts i spans after the Unix epoch.
+ */
 export interface Position {
   level: number;
   index: number;
 }
 
+/** A tile, optionally cut short at either end. */
+export interface Bounds extends Position {
+  /** Starts the range after the tile does. */
+  start?: TimeStamp;
+  /** Ends the range before the tile does. */
+  end?: TimeStamp;
+}
+
+/** @returns the span of every tile at the given level. */
+export const tileSpan = (level: number): TimeSpan =>
+  new TimeSpan(TimeSpan.MILLISECOND.valueOf() << BigInt(level));
+
+/** @returns the time range the tile covers, cut to its start and end. */
+export const tileRange = ({ level, index, start, end }: Bounds): TimeRange => {
+  const span = tileSpan(level).valueOf();
+  let lower = BigInt(index) * span;
+  let upper = lower + span;
+  if (start != null && start.valueOf() > lower) lower = start.valueOf();
+  if (end != null && end.valueOf() < upper) upper = end.valueOf();
+  return new TimeRange(lower, upper);
+};
+
 /** @returns the smallest level whose tiles span at least half of the range. */
 export const level = (tr: TimeRange): number => {
   const half = tr.span.valueOf() / 2n;
   let l = 0;
-  while (framer.tileSpan(l).valueOf() < half) l++;
+  while (tileSpan(l).valueOf() < half) l++;
   return l;
 };
 
+// Returns a / b rounded down, for a positive b.
+const floorDiv = (a: bigint, b: bigint): bigint => {
+  const q = a / b;
+  return a % b < 0n ? q - 1n : q;
+};
+
+/** @returns the index of the tile of the level that holds the timestamp. */
+export const index = (ts: TimeStamp, level: number): number =>
+  Number(floorDiv(ts.valueOf(), tileSpan(level).valueOf()));
+
 /** @returns the indexes of every tile of the level that overlaps the range. */
 export const indexes = (tr: TimeRange, level: number): number[] => {
-  const span = framer.tileSpan(level).valueOf();
-  const first = tr.start.valueOf() / span;
-  let last = (tr.end.valueOf() + span - 1n) / span;
+  const span = tileSpan(level).valueOf();
+  const first = floorDiv(tr.start.valueOf(), span);
+  let last = -floorDiv(-tr.end.valueOf(), span);
   if (last <= first) last = first + 1n;
   const out: number[] = [];
   for (let i = first; i < last; i++) out.push(Number(i));
   return out;
-};
-
-/** The points one aggregation group draws. */
-export const POINTS_PER_GROUP: Record<Aggregation, number> = {
-  min_max: 2,
-  average: 1,
-  decimate: 1,
 };
 
 export interface PointLimitProps {
@@ -68,7 +101,7 @@ export const pointLimit = ({
 }: PointLimitProps): number => {
   const groups = points / POINTS_PER_GROUP[drawn];
   const share =
-    (Number(framer.tileSpan(level).valueOf()) / Number(view.span.valueOf())) * groups;
+    (Number(tileSpan(level).valueOf()) / Number(view.span.valueOf())) * groups;
   return 2 ** Math.ceil(Math.log2(Math.max(share * POINTS_PER_GROUP[aggregation], 1)));
 };
 

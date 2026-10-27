@@ -15,5 +15,4 @@ export * from "@/telem/aether/provider";
 export * from "@/telem/aether/remote";
 export * from "@/telem/aether/static";
 export * from "@/telem/aether/telem";
-export { POINTS_PER_GROUP } from "@/telem/aether/tiles";
 export * from "@/telem/aether/transformers";

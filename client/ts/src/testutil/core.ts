@@ -23,6 +23,7 @@ import {
 
 import { channel } from "@/channel";
 import { NotFoundError } from "@/errors";
+import { type ChannelRetriever } from "@/framer/adapter";
 import { Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { type Streamer, type StreamerConfig, streamerConfigZ } from "@/framer/streamer";
@@ -102,12 +103,21 @@ export class SyntheticCore {
   /** @returns the time on the Core's clock. */
   now = (): TimeStamp => this.clock;
 
+  /** Retrieves the payloads of the Core's channels with the given keys. */
+  retrieveChannels: ChannelRetriever = async (params) => {
+    const keys = array.toArray(params);
+    return [this.index, ...this.data]
+      .filter((c) => keys.includes(c.key))
+      .map((c) => c.payload);
+  };
+
   /** Opens a feed that reads and streams from the Core. */
   openFeed(options: FeedOptions = {}): Feed {
     return new Feed({
       now: this.now,
       ...options,
       readRemote: async (tr, keys, reduction) => this.read(tr, keys, reduction),
+      retrieveChannels: this.retrieveChannels,
       openStreamer: async (config) => this.openStreamer(config),
       readLatest: async (keys) => this.readLatest(keys),
     });

@@ -28,7 +28,7 @@ import {
   UnexpectedError,
   ValidationError,
 } from "@/errors";
-import { type Cache } from "@/framer/cache/cache";
+import { type Store } from "@/framer/cache/store";
 import { type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { status } from "@/status";
 
@@ -78,7 +78,7 @@ interface Entry {
 }
 
 export interface MultiplexedStreamerProps {
-  cache: Cache;
+  store: Store;
   openStreamer: HardenedOpener;
   instrumentation?: alamos.Instrumentation;
   /**
@@ -148,14 +148,14 @@ export class MultiplexedStreamer {
 
   constructor(props: MultiplexedStreamerProps) {
     const {
-      cache,
+      store,
       openStreamer,
       instrumentation = alamos.NOOP,
       removalDelay = TimeSpan.seconds(5),
     } = props;
     this.props = {
       instrumentation,
-      cache,
+      store,
       openStreamer,
       removalDelay: new TimeSpan(removalDelay),
     };
@@ -184,14 +184,14 @@ export class MultiplexedStreamer {
   stream(handler: StreamHandler, keys: channel.Key[]): Subscription {
     if (this.connMu.closed)
       throw new UnexpectedError("stream() called on a closed telemetry streamer");
-    const { cache, instrumentation: ins } = this.props;
+    const { store, instrumentation: ins } = this.props;
     ins.L.debug("adding stream handler", { keys });
     // Deliver existing buffers before registration so a throwing handler leaves no
     // demand behind.
     const initial: Map<channel.Key, MultiSeries> = new Map(
       keys.map((key) => [
         key,
-        new MultiSeries(array.toArray<Series>(cache.get(key).leadingBuffer)),
+        new MultiSeries(array.toArray<Series>(store.leadingBuffer(key))),
       ]),
     );
     handler(initial);
@@ -305,11 +305,11 @@ export class MultiplexedStreamer {
     });
   }
 
-  // A flushed buffer stops claiming live coverage, so reads refetch the span the
-  // stream will not deliver.
+  // Closes the open blocks of the keys, so reads fetch the span the stream will not
+  // deliver.
   private flushBuffers(keys: Iterable<channel.Key>): void {
-    const { cache } = this.props;
-    for (const key of keys) cache.get(key).flushDynamic();
+    const { store } = this.props;
+    for (const key of keys) store.flush(key);
   }
 
   private async reconcile(): Promise<void> {
@@ -348,8 +348,7 @@ export class MultiplexedStreamer {
               signal: this.streamAbort.signal,
               onReopen: () =>
                 this.sentKeys.forEach((key) => this.setStatus(key, STREAMING)),
-              // Frames may drop until the reopen, so the buffers' live-coverage
-              // claims end here.
+              // Frames may drop until the reopen, so the open blocks close here.
               onDrop: () => {
                 this.flushBuffers(this.sentKeys);
                 this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
@@ -416,7 +415,7 @@ export class MultiplexedStreamer {
   }
 
   private async run(streamer: Streamer): Promise<void> {
-    const { cache, instrumentation: ins } = this.props;
+    const { store, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {
         // Group series by key in one pass; per-key get() scans the whole frame.
@@ -430,16 +429,11 @@ export class MultiplexedStreamer {
         const changed: Map<channel.Key, MultiSeries> = new Map();
         const demanded = this.demandedKeys();
         grouped.forEach((series, k) => {
-          try {
-            const unary = cache.get(k);
-            changed.set(k, unary.writeDynamic(new MultiSeries(series)));
-            // A frame for a key with no remaining demand arrived behind the
-            // stream update; its buffer must not claim live coverage.
-            if (!demanded.has(k)) unary.flushDynamic();
-            this.setStatus(k, STREAMING);
-          } catch (e) {
-            this.setStatus(k, status.fromException(e, "Failed to buffer channel"));
-          }
+          changed.set(k, store.write(k, new MultiSeries(series)));
+          // A frame for a key with no remaining demand arrived behind the stream
+          // update, so its block must not stay open.
+          if (!demanded.has(k)) store.flush(k);
+          this.setStatus(k, STREAMING);
         });
         if (changed.size !== 0)
           this.entries.forEach((e) => {

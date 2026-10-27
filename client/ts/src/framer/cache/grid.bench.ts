@@ -10,13 +10,7 @@
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { test } from "vitest";
 
-import {
-  choose,
-  indexes,
-  level,
-  pointLimit,
-  type Position,
-} from "@/telem/aether/tiles";
+import { choose, indexes, level, pointLimit, type Position } from "@/framer/cache/grid";
 
 // A line source runs each of these several times per frame.
 

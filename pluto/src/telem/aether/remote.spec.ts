@@ -976,7 +976,7 @@ describe("remote", () => {
     // Returns one series per tile. Data tiles hold [level, index], and index tiles hold
     // the tile's start and end. An average tile holds the mean of the two.
     const tileSeries = (spec: framer.TileSpec): MultiSeries => {
-      const tr = framer.tileRange(spec);
+      const tr = framer.grid.tileRange(spec);
       const alignment = (BigInt(spec.level) << 32n) + BigInt(spec.index);
       const average = spec.aggregation === "average";
       if (spec.key === INDEX_KEY) {
@@ -1309,7 +1309,7 @@ describe("remote", () => {
         new MultiSeries([
           new Series({
             data: new Uint8Array([spec.level, spec.index]),
-            timeRange: framer.tileRange(spec),
+            timeRange: framer.grid.tileRange(spec),
           }),
         ]);
 

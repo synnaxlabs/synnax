@@ -7,7 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { type TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 export const secondsLinspace = (start: number, n: number): TimeStamp[] =>
   Array.from({ length: n }, (_, i) => start + i).map((n) => TimeStamp.seconds(n));
+
+/** A clock that moves only when advanced. */
+export class ManualClock {
+  private time: TimeStamp;
+
+  constructor(start: TimeStamp = TimeStamp.seconds(1000)) {
+    this.time = start;
+  }
+
+  /** @returns the time on the clock. */
+  now = (): TimeStamp => this.time;
+
+  /** Moves the clock forward by the span. */
+  advance(span: TimeSpan): void {
+    this.time = this.time.add(span);
+  }
+}

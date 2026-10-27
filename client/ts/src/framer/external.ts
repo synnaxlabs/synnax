@@ -8,18 +8,14 @@
 // included in the file licenses/APL.txt.
 
 export { type ChannelRetriever } from "@/framer/adapter";
+export * as grid from "@/framer/cache/grid";
 export { type RemoteReader } from "@/framer/cache/reader";
 export {
   type StatusHandler,
   type StreamHandler,
   type Subscription,
 } from "@/framer/cache/streamer";
-export {
-  tileRange,
-  tileRequestKey,
-  tileSpan,
-  type TileSpec,
-} from "@/framer/cache/tile";
+export { tileRequestKey, type TileSpec } from "@/framer/cache/tile";
 export * from "@/framer/client";
 export * from "@/framer/feed";
 export * from "@/framer/frame";

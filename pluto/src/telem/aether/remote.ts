@@ -53,13 +53,6 @@ import {
   type Telem,
   type ValueProps,
 } from "@/telem/aether/telem";
-import {
-  choose,
-  indexes,
-  level,
-  pointLimit,
-  type Position,
-} from "@/telem/aether/tiles";
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
@@ -312,6 +305,18 @@ const pairOf = (
   return primitive.isZero(y) ? null : y;
 };
 
+// feed.read does not cut its series to the read's range, so a fetched sample past it
+// can repeat a streamed one. cut cuts each index series to tr. The data samples past tr
+// then have no index sample to pair with, so they never draw.
+const cut = (series: Series[], tr: TimeRange): Series[] =>
+  series
+    .map((s) =>
+      s.dataType.equals(DataType.TIMESTAMP)
+        ? s.sub(s.binarySearch(tr.start.valueOf()), s.binarySearch(tr.end.valueOf()))
+        : s,
+    )
+    .filter((s) => s.length > 0);
+
 // How long a seam waits before its read, matching the margin the cache gives commits.
 const SEAM_SETTLE = TimeSpan.seconds(1);
 
@@ -409,8 +414,9 @@ class LiveWindow {
       // Live data held across a long retry can start before the window.
       const start = this.config.start();
       if (!liveStart.after(start)) return;
-      const res = await client.feed.read(new TimeRange(start, liveStart), ch.key);
-      if (generation !== this.generation || !this.push(res.series)) return;
+      const tr = new TimeRange(start, liveStart);
+      const res = await client.feed.read(tr, ch.key);
+      if (generation !== this.generation || !this.push(cut(res.series, tr))) return;
       seam.backfillEnd = liveStart;
       void this.fillSeam(generation, client, ch.key, seam);
     } catch (e) {
@@ -450,9 +456,10 @@ class LiveWindow {
     const brk = newRetryBreaker(this.notifier, this.config.breakerConfig);
     while (generation === this.generation)
       try {
-        const res = await client.feed.read(new TimeRange(backfillEnd, liveStart), key);
+        const tr = new TimeRange(backfillEnd, liveStart);
+        const res = await client.feed.read(tr, key);
         if (generation !== this.generation) return;
-        if (this.push(res.series)) this.config.notify();
+        if (this.push(cut(res.series, tr))) this.config.notify();
         return;
       } catch (e) {
         this.config.failures.report(e, "Failed to read channel data");
@@ -795,8 +802,9 @@ export class TiledChannelData
   private rawFrom(): TimeStamp {
     const home = this.home();
     if (this.xy) return home.start;
-    const span = framer.tileSpan(level(home)).valueOf();
-    return new TimeStamp((home.start.valueOf() / span) * span);
+    const level = framer.grid.level(home);
+    const index = framer.grid.index(home.start, level);
+    return framer.grid.tileRange({ level, index }).start;
   }
 
   // cutoff returns the boundary after it moves to at most one home level tile behind
@@ -805,7 +813,7 @@ export class TiledChannelData
     const home = this.home();
     const floor = this.xy
       ? home.start
-      : this.rawFrom().sub(framer.tileSpan(level(home)));
+      : this.rawFrom().sub(framer.grid.tileSpan(framer.grid.level(home)));
     this.boundary = TimeStamp.max(this.boundary, floor);
     return this.boundary;
   }
@@ -843,15 +851,15 @@ export class TiledChannelData
       if (!end.after(view.start)) return [];
       if (view.end.after(end)) tiled = new TimeRange(view.start, end);
     }
-    const l = level(view);
-    const limit = pointLimit({
+    const l = framer.grid.level(view);
+    const limit = framer.grid.pointLimit({
       level: l,
       view,
       points: this.points,
       drawn: this.aggregation(),
       aggregation,
     });
-    return indexes(tiled, l).map((index) => {
+    return framer.grid.indexes(tiled, l).map((index) => {
       const spec: framer.TileSpec = {
         key,
         level: l,
@@ -859,7 +867,7 @@ export class TiledChannelData
         pointLimit: limit,
         aggregation,
       };
-      const tr = framer.tileRange(spec);
+      const tr = framer.grid.tileRange(spec);
       if (start != null && tr.start.before(start)) spec.start = start;
       if (end != null && tr.end.after(end)) spec.end = end;
       return spec;
@@ -869,7 +877,7 @@ export class TiledChannelData
   // find returns the held tile at the position: the preferred one, then one of the
   // aggregation, then one of another.
   private find(
-    p: Position,
+    p: framer.grid.Position,
     preferred: Map<string, string>,
     aggregation: Aggregation,
     tiles: Iterable<HeldTile> = this.held.values(),
@@ -923,16 +931,18 @@ export class TiledChannelData
     // it waits until the boundary moves.
     const end = this.live ? this.tilesEnd() : null;
     const drawable = [...this.held.values()].filter(
-      ({ spec }) => end == null || !framer.tileRange(spec).end.after(end),
+      ({ spec }) => end == null || !framer.grid.tileRange(spec).end.after(end),
     );
     const chosen =
       targets.length === 0
         ? []
-        : choose(
-            targets[0].level,
-            targets.map((t) => t.index),
-            drawable.map((t) => t.spec),
-          ).map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
+        : framer.grid
+            .choose(
+              targets[0].level,
+              targets.map((t) => t.index),
+              drawable.map((t) => t.spec),
+            )
+            .map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
     const out = chosen.flatMap((tile) => tile.series.series);
     if (prune) {
       // The tiles of the home view and of its bounds stay held, and so do the tiles

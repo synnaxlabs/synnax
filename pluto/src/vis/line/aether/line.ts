@@ -18,6 +18,7 @@ import {
   type destructor,
   type direction,
   type MultiSeries,
+  POINTS_PER_GROUP,
   scale,
   type Series,
   type SeriesDigest,
@@ -468,7 +469,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       }, ZOOM_SETTLE.milliseconds);
     }
     if (i.settleTimer != null) return { bounds: b };
-    const perGroup = telem.POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
+    const perGroup = POINTS_PER_GROUP[i.aggregation ?? DEFAULT_AGGREGATION];
     return { bounds: b, points: width * this.state.groupsPerColumn * perGroup };
   }
 

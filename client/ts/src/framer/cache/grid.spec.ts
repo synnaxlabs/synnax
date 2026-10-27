@@ -10,13 +10,62 @@
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { choose, indexes, level, pointLimit } from "@/telem/aether/tiles";
+import {
+  choose,
+  index,
+  indexes,
+  level,
+  pointLimit,
+  tileRange,
+  tileSpan,
+} from "@/framer/cache/grid";
 
 const ms = (n: number): TimeStamp => TimeStamp.milliseconds(n);
 const range = (start: number, end: number): TimeRange =>
   new TimeRange(ms(start), ms(end));
 
-describe("tiles", () => {
+describe("grid", () => {
+  describe("tileSpan", () => {
+    it("should span one millisecond at level zero", () => {
+      expect(tileSpan(0).equals(TimeSpan.milliseconds(1))).toBe(true);
+    });
+
+    it("should double the span with each level", () => {
+      expect(tileSpan(10).equals(TimeSpan.milliseconds(1024))).toBe(true);
+    });
+  });
+
+  describe("tileRange", () => {
+    it("should start the tile index spans after the epoch", () => {
+      const tr = tileRange({ level: 2, index: 3 });
+      expect(tr.start.equals(ms(12))).toBe(true);
+      expect(tr.end.equals(ms(16))).toBe(true);
+    });
+
+    it("should cut the range short at its end", () => {
+      const tr = tileRange({ level: 2, index: 3, end: ms(14) });
+      expect(tr.end.equals(ms(14))).toBe(true);
+    });
+
+    it("should cut the range short at its start", () => {
+      const tr = tileRange({ level: 2, index: 3, start: ms(13) });
+      expect(tr.start.equals(ms(13))).toBe(true);
+      expect(tr.end.equals(ms(16))).toBe(true);
+    });
+
+    it("should ignore a start before the tile", () => {
+      expect(tileRange({ level: 2, index: 3, start: ms(4) }).start.equals(ms(12))).toBe(
+        true,
+      );
+    });
+
+    it("should ignore an end after the tile", () => {
+      expect(tileRange({ level: 2, index: 3, end: ms(20) }).end.equals(ms(16))).toBe(
+        true,
+      );
+    });
+  });
+
   describe("level", () => {
     it("should pick the smallest level spanning half the range", () => {
       expect(level(range(0, 1000))).toBe(9);
@@ -36,9 +85,26 @@ describe("tiles", () => {
     });
   });
 
+  describe("index", () => {
+    it("should return the index of the tile that holds a timestamp", () => {
+      expect(index(TimeStamp.milliseconds(1023), 10)).toBe(0);
+      expect(index(TimeStamp.milliseconds(1024), 10)).toBe(1);
+    });
+
+    it("should round the index of a timestamp before the epoch down", () => {
+      expect(index(new TimeStamp(-1n), 10)).toBe(-1);
+      expect(index(TimeStamp.milliseconds(-1024), 10)).toBe(-1);
+    });
+  });
+
   describe("indexes", () => {
     it("should list every tile the range overlaps", () => {
       expect(indexes(range(1000, 3000), 10)).toEqual([0, 1, 2]);
+    });
+
+    it("should list the tiles of a range that crosses the epoch", () => {
+      expect(indexes(range(-1500, -1), 10)).toEqual([-2, -1]);
+      expect(indexes(range(-1, 1), 10)).toEqual([-1, 0]);
     });
 
     it("should exclude a tile that starts at the end of the range", () => {

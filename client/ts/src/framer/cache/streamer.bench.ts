@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import { type channel } from "@/channel";
 import { createKeys, createSequence } from "@/framer/benchutil";
-import { Cache } from "@/framer/cache/cache";
+import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { type Frame } from "@/framer/frame";
 import { type Streamer } from "@/framer/streamer";
@@ -58,19 +57,19 @@ class StubStreamer implements Streamer {
 
 let _sink = 0;
 
-// Drains a full frame sequence through the streamer into the cache. Each run pays
-// a fixed ~100ms demand-reconcile debounce on top of the ingest work, so use frame
-// counts large enough for ingest to dominate.
+// Drains a full frame sequence through the streamer into the store. Each run pays a
+// fixed ~100ms demand-reconcile debounce on top of the ingest work, so use frame counts
+// large enough for ingest to dominate.
 const runIngest = async (
   frames: Frame[],
   keys: channel.Key[],
   handlerCount: number,
 ): Promise<void> => {
-  const cache = new Cache({ gcInterval: TimeSpan.hours(1) });
+  const store = new Store();
   let drained = (): void => undefined;
   const done = new Promise<void>((res) => (drained = res));
   const stub = new StubStreamer(frames, keys, () => drained());
-  const streamer = new MultiplexedStreamer({ cache, openStreamer: async () => stub });
+  const streamer = new MultiplexedStreamer({ store, openStreamer: async () => stub });
   const perHandler = Math.ceil(keys.length / handlerCount);
   for (let i = 0; i < handlerCount; i++)
     streamer.stream(
@@ -81,7 +80,7 @@ const runIngest = async (
     );
   await done;
   await streamer.close();
-  cache.close();
+  store.close();
 };
 
 const BENCH_OPTS = { warmupIterations: 1, iterations: 3, time: 0 };
