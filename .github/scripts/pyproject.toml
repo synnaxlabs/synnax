@@ -49,3 +49,6 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 
 [tool.mypy]
 strict = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

@@ -222,7 +222,7 @@ var _ = Describe("Reader", func() {
 
 		It("Should return error on truncated data", func() {
 			r := orc.NewReader(bytesReader([]byte{0, 0}))
-			Expect(r.CollectionLen()).Error().To(HaveOccurred())
+			Expect(r.CollectionLen()).Error().To(MatchError(io.ErrUnexpectedEOF))
 		})
 	})
 
