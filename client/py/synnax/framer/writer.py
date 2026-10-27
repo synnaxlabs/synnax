@@ -34,7 +34,7 @@ from synnax.framer.codec import (
 from synnax.framer.frame import CrudeFrame, FramePayload, K
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
-from x.exceptions import Registry
+from x.exceptions import Error, Registry
 from x.lists import normalize
 
 
@@ -128,7 +128,7 @@ def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
 _ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
-class _WriterClosed(Exception): ...
+class WriterClosed(Error): ...
 
 
 class Writer:
@@ -403,20 +403,20 @@ class Writer:
 
     def _close(self, exc: Exception | None) -> None:
         if self._close_exc is not None:
-            if isinstance(self._close_exc, _WriterClosed):
+            if isinstance(self._close_exc, WriterClosed):
                 return
             raise self._close_exc
         self._close_exc = exc
         self._stream.close_send()
         while True:
             if self._close_exc is not None:
-                if isinstance(self._close_exc, _WriterClosed):
+                if isinstance(self._close_exc, WriterClosed):
                     return
                 raise self._close_exc
             try:
                 res = self._stream.receive()
             except EOF:
-                self._close_exc = _WriterClosed()
+                self._close_exc = WriterClosed()
                 continue
             except Exception as recv_exc:
                 self._close_exc = recv_exc

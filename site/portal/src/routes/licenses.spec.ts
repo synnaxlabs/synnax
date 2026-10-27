@@ -11,6 +11,7 @@ import { type APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { OPTIONS as handoffPreflight, POST as handoffRoute } from "@/pages/api/handoff";
 import { POST as activateRoute } from "@/pages/api/licenses/[key]/activate";
 import { POST as floatingRoute } from "@/pages/api/licenses/[key]/floating";
 import { POST as amendRoute } from "@/pages/api/licenses/[key]/index";
@@ -85,6 +86,9 @@ describe("license routes", () => {
 
   const call = async (route: APIRoute, args: ContextArgs = {}): Promise<Response> =>
     await route(createAPIContext(h.portal, args));
+
+  const collect = async (code: string): Promise<Response> =>
+    await call(handoffRoute, { headers: { authorization: `Bearer ${code}` } });
 
   const expectError = async (
     res: Response,
@@ -558,21 +562,21 @@ describe("license routes", () => {
       );
     });
 
-    it("should require at least one host hash", async () => {
+    it("should require a fingerprint", async () => {
       h.signIn(MEMBER);
       await expectError(
         await post({ ...MACHINE, fingerprint: " " }),
         400,
-        "Paste at least one host hash",
+        "Enter the machine's fingerprint",
       );
     });
 
-    it("should reject text that is not a host hash", async () => {
+    it("should reject text that is not a fingerprint", async () => {
       h.signIn(MEMBER);
       await expectError(
         await post({ ...MACHINE, fingerprint: "xyz" }),
         400,
-        '"xyz" is not a host hash',
+        '"xyz" is not part of a fingerprint',
       );
     });
 
@@ -594,7 +598,7 @@ describe("license routes", () => {
       );
       const [act] = await store.query.select().from(activation);
       expect(answer.activation).toBe(act.key);
-      expect(answer.filename).toBe("Test-rig.lic");
+      expect(answer.filename).toBe("Test-rig-Test-stand.lic");
       expect(readKey(answer.key)).toEqual({
         jti: lic.key,
         iat: seconds(NOW),
@@ -632,6 +636,27 @@ describe("license routes", () => {
           detail: { fingerprint: [HASH_A, HASH_B] },
         }),
       ]);
+    });
+
+    it("should hold the key for the Console that made the handoff code", async () => {
+      h.signIn(MEMBER);
+      const code = crypto.randomUUID();
+      const answer = await body<{ key: string }>(
+        await post({ ...MACHINE, handoff: code }),
+      );
+      const res = await collect(code);
+      expect(res.status).toBe(200);
+      expect(await body(res)).toEqual({ key: answer.key });
+    });
+
+    it("should reject a damaged handoff code", async () => {
+      h.signIn(MEMBER);
+      await expectError(
+        await post({ ...MACHINE, handoff: "short" }),
+        400,
+        "The link from the Console is damaged. Open it again.",
+      );
+      expect(await store.query.select().from(activation)).toEqual([]);
     });
 
     it("should let staff activate a license of any organization", async () => {
@@ -724,6 +749,56 @@ describe("license routes", () => {
         429,
         "Too many activations. Try again later.",
       );
+    });
+  });
+
+  describe("POST /api/handoff", () => {
+    const activateWith = async (code: string): Promise<string> => {
+      const lic = await createLicense(store, { organization: acme.key });
+      h.signIn(MEMBER);
+      const res = await call(activateRoute, {
+        params: { key: lic.key },
+        body: { fingerprint: HASH_A, name: "Test stand", handoff: code },
+      });
+      expect(res.status).toBe(200);
+      h.signIn(null);
+      return (await body<{ key: string }>(res)).key;
+    };
+
+    it("should hand the key over once, with no portal session", async () => {
+      const code = crypto.randomUUID();
+      const key = await activateWith(code);
+      const res = await collect(code);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      expect(await body(res)).toEqual({ key });
+      expect((await collect(code)).status).toBe(204);
+    });
+
+    it("should answer 204 while it holds no key for the code", async () => {
+      await activateWith(crypto.randomUUID());
+      const res = await collect(crypto.randomUUID());
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    });
+
+    it("should drop a key that nobody collects within an hour", async () => {
+      const code = crypto.randomUUID();
+      await activateWith(code);
+      h.portal.now = () => new Date(NOW.getTime() + 60 * 60 * 1000);
+      expect((await collect(code)).status).toBe(204);
+    });
+
+    it("should refuse a request without a bearer code", async () => {
+      const res = await call(handoffRoute);
+      expect(res.status).toBe(401);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    });
+
+    it("should answer the preflight for any origin", async () => {
+      const res = await call(handoffPreflight, { method: "OPTIONS" });
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-headers")).toBe("authorization");
     });
   });
 

@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -24,10 +24,10 @@ import (
 
 type Builder struct {
 	clustermock.Builder
-	OpNet       *mock.Network[kv.TxRequest, kv.TxRequest]
-	FeedbackNet *mock.Network[kv.FeedbackMessage, struct{}]
-	LeaseNet    *mock.Network[kv.TxRequest, struct{}]
-	RecoveryNet *mock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
+	OpNet       *freightertestutil.Network[kv.TxRequest, kv.TxRequest]
+	FeedbackNet *freightertestutil.Network[kv.FeedbackMessage, struct{}]
+	LeaseNet    *freightertestutil.Network[kv.TxRequest, struct{}]
+	RecoveryNet *freightertestutil.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 	KVs         map[node.Key]xkv.DB
 	// engines holds memkv.New() backing stores keyed by node so Close can
 	// shut them down. The kv.DB does not own its Engine, so the Builder
@@ -40,10 +40,10 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 	return &Builder{
 		BaseCfg:     baseKVCfg,
 		Builder:     *clustermock.NewBuilder(baseClusterCfg),
-		OpNet:       mock.NewNetwork[kv.TxRequest, kv.TxRequest](),
-		FeedbackNet: mock.NewNetwork[kv.FeedbackMessage, struct{}](),
-		LeaseNet:    mock.NewNetwork[kv.TxRequest, struct{}](),
-		RecoveryNet: mock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
+		OpNet:       freightertestutil.NewNetwork[kv.TxRequest, kv.TxRequest](),
+		FeedbackNet: freightertestutil.NewNetwork[kv.FeedbackMessage, struct{}](),
+		LeaseNet:    freightertestutil.NewNetwork[kv.TxRequest, struct{}](),
+		RecoveryNet: freightertestutil.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 		KVs:         make(map[node.Key]xkv.DB),
 		engines:     make(map[node.Key]xkv.DB),
 	}
