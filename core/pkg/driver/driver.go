@@ -517,7 +517,10 @@ func (d *Driver) savedKey() (string, error) {
 	if errors.Is(err, fs.ErrNotExist) {
 		return "", nil
 	}
-	return string(b), err
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 // writeFileAtomic replaces the file at path with data, so an interrupted write leaves
