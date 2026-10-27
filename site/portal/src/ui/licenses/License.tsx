@@ -19,16 +19,15 @@ import {
   type Organization,
 } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
+import { channels, term } from "@/server/license/limits";
 import { Fact, Facts } from "@/ui/Facts";
 import {
-  channels,
   date,
   dateTime,
   describeEvent,
   edition,
   machineName,
   statusOf,
-  term,
 } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { MachineMenu } from "@/ui/licenses/MachineMenu";
@@ -48,9 +47,9 @@ export interface LicenseProps {
   now: Date;
 }
 
-const MACHINE_COLUMNS = "minmax(0, 2fr) 12rem 12rem 6rem";
+const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 14rem 6rem";
 
-/** License shows one license: its terms, the machines holding seats, and its history. */
+/** License shows a license: its terms, the machines holding seats, and its history. */
 export const License = ({
   license: lic,
   organization,
@@ -64,15 +63,22 @@ export const License = ({
   const held = activations.filter((a) => a.releasedAt == null);
   const released = activations.filter((a) => a.releasedAt != null);
   const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
+  const parent =
+    staff && organization.kind === "team"
+      ? { label: organization.name, href: `/admin/organizations/${organization.key}` }
+      : undefined;
   return (
     <Page
       title={lic.label}
+      parent={parent}
       subtitle={
         <Flex.Box x align="center" gap="small">
           <StatusTag status={status} />
-          <Text.Text level="p" color={9}>
-            {organization.name}
-          </Text.Text>
+          {parent == null && (
+            <Text.Text level="p" color={9}>
+              {organization.name}
+            </Text.Text>
+          )}
         </Flex.Box>
       }
       actions={

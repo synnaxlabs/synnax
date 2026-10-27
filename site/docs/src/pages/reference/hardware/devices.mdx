@@ -1,0 +1,135 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Devices"
+description: "How devices get into Synnax, device identifiers, and device statuses."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A device is one piece of hardware or one server that the Driver reads from or writes to,
+such as an NI module, a LabJack, a PLC, or an OPC UA server. Each
+[task](/reference/hardware/tasks) reads from or writes to devices.
+
+<Divider.Divider x />
+
+## How devices get into Synnax
+
+To connect a device, click <Icon.Add /> (**Connect device**) in the devices toolbar, or
+run the "Connect device" command. The dialog lists the integrations in two groups:
+
+- **Connect by address** -> OPC UA, Modbus TCP, and HTTP servers. You enter the address
+  of the server, and **Connect from** selects the Driver that talks to it.
+- **Find hardware the Driver detects** -> NI, LabJack, and EtherCAT hardware. The dialog
+  shows each Driver with the devices that it found.
+
+If no running Driver supports an integration, the dialog shows the reason, such as "No
+running Driver has Modbus enabled", and you cannot connect that device type.
+
+The Driver finds NI, LabJack, and EtherCAT hardware by itself. Within a few seconds of
+you plugging in a device, the Console shows the notification "New \<model\> connected"
+with a **Configure** button. A LabJack on the network can take about a minute to appear.
+The Driver also finds simulated NI devices that you create in NI MAX, so you can try
+Synnax without hardware. It skips CompactRIO controllers.
+
+In the list of found hardware, click **Configure** on a device to give it a name and an
+[identifier](#identifiers). **Save and create read task** also opens a new read task for
+the device. **Scan now** makes the Drivers look again. If your device does not show,
+open **Not seeing your hardware?** for a list of checks.
+
+{/* Still to capture: hardware/devices/connect-picker -- the connect dialog and NI find view */}
+
+Each device select in a task form ends with an item that connects a new device, such as
+**Connect Modbus TCP server** or **Connect NI hardware**. The device that you connect
+there becomes the selected device.
+
+Each setup page shows the steps:
+[EtherCAT](/reference/hardware/ethercat/configure-device),
+[HTTP](/reference/hardware/http/connect-server),
+[LabJack](/reference/hardware/labjack/configure-device),
+[Modbus](/reference/hardware/modbus/connect-server),
+[National Instruments](/reference/hardware/ni/configure-device), and
+[OPC UA](/reference/hardware/opc-ua/connect-server).
+
+<Divider.Divider x />
+
+## Identifiers
+
+NI, LabJack, and EtherCAT devices have an identifier, such as `dev1`. The identifier
+starts the default names of the
+[channels that tasks create](/reference/channels#channels-that-tasks-create) for the
+device, such as `dev1_ai_0`. A name that you enter for a channel replaces the default.
+
+An identifier has 2 to 12 characters. It starts with a letter, and then holds only
+letters, numbers, and underscores. The Console suggests short identifiers from the
+device name.
+
+**Change identifier** changes the prefix of channels that tasks create later. Existing
+channels keep their names.
+
+<Divider.Divider x />
+
+## Devices toolbar
+
+To open the devices toolbar, click <Icon.Device /> in the left bar or press **D**. The
+toolbar shows each Driver, with its devices under it. NI modules show under their
+chassis. Each device shows its vendor logo, its name, its location, and a status dot.
+
+<Video id="hardware/devices/toolbar" />
+
+| Driver                 | What it is                                                     |
+| ---------------------- | -------------------------------------------------------------- |
+| Node 1 Embedded Driver | The Driver in Synnax Desktop or in a Synnax Core               |
+| Node 1                 | Runs Arc automations and PagerDuty alert tasks inside the Core |
+| The name of a computer | A standalone Driver on that computer                           |
+
+<Divider.Divider x />
+
+## Statuses
+
+Hover over a status dot to see its message.
+
+| Message                                        | Shown on                         | Meaning                                                   |
+| ---------------------------------------------- | -------------------------------- | --------------------------------------------------------- |
+| Driver is running                              | Driver                           | The Driver is connected to the Core.                      |
+| Driver not running                             | Driver                           | The Core has not heard from the Driver for a few seconds. |
+| Device present                                 | NI and LabJack devices           | The Driver found the device.                              |
+| Device connected                               | Modbus and HTTP devices          | The Driver reached the server.                            |
+| Server connected                               | OPC UA devices                   | The Driver reached the server.                            |
+| Failed to reach device, Failed to reach server | Modbus, OPC UA, and HTTP devices | The Driver cannot connect to the server.                  |
+| Health check failed                            | HTTP devices                     | The server answered, but the health check failed.         |
+| Discovered (\<n\> inputs, \<m\> outputs)       | EtherCAT devices                 | The Driver found the module on the network.               |
+| Failed to discover PDOs                        | EtherCAT devices                 | The Driver found the module, but not its PDOs.            |
+| Device disabled, Device enabled                | EtherCAT devices                 | You turned the module off or on for tasks.                |
+| Device disconnected                            | Found devices                    | The Driver no longer finds the device.                    |
+| Device status unknown                          | Any device                       | The device has no status yet.                             |
+
+To fix a warning or an error, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting).
+
+<Divider.Divider x />
+
+## Device menu
+
+Right-click a device in the devices toolbar to open its menu.
+
+| Item                                | What it does                                                                                   |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Rename                              | Changes the device name.                                                                       |
+| Configure                           | Names a new NI, LabJack, or EtherCAT device and sets its identifier.                           |
+| Change identifier                   | Changes the identifier of a configured NI, LabJack, or EtherCAT device.                        |
+| Edit connection                     | Changes the address and settings of a Modbus, OPC UA, or HTTP server.                          |
+| Disable, Enable                     | Turns an [EtherCAT module](/reference/hardware/ethercat/configure-device) off or on for tasks. |
+| Create read task, Create write task | Creates a task for the device. NI devices have one item for each NI task type.                 |
+| Copy properties                     | Copies the device properties to the clipboard as JSON.                                         |
+| Delete                              | Removes the device. The Driver adds found hardware back as a new device at its next scan.      |
+
+Creating a task for a device that is not configured opens **Configure** first.
+
+Right-click a Driver to open its menu. **Connect device** opens the connect dialog for
+that Driver. **Create Arc automation** creates an
+[Arc automation](/reference/control/arc) on that Driver. **Toggle NI device scanner**
+turns the search for NI hardware off or on.

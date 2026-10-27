@@ -15,7 +15,10 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"math/rand/v2"
+	"runtime"
 	"slices"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -641,6 +644,54 @@ var _ = Describe("Codec", func() {
 		)
 
 		It(
+			"Should reject a frame encoded with keys older than the last frame decoded",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				Expect(dec.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+				Expect(enc.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+				fr := frame.NewUnary(idxCh, telem.NewSeriesSecondsTSV(1, 2, 3))
+				stale := MustSucceed(enc.Encode(ctx, fr))
+				Expect(dec.Update(ctx, []channel.Key{idxCh, dataCh})).To(Succeed())
+				Expect(enc.Update(ctx, []channel.Key{idxCh, dataCh})).To(Succeed())
+				MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
+				Expect(dec.Decode(stale)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("remote sent invalid sequence number 1"),
+					),
+				))
+			},
+		)
+
+		It(
+			"Should not hold the keys of an update that a later update replaced",
+			func(ctx SpecContext) {
+				keys := make(channel.Keys, 2000)
+				r := make(mapResolver, len(keys))
+				for i := range keys {
+					keys[i] = channel.Key(i + 1)
+					r[keys[i]] = telem.Float32T
+				}
+				enc := codec.NewDynamic(r)
+				heap := func() int64 {
+					runtime.GC()
+					var m runtime.MemStats
+					runtime.ReadMemStats(&m)
+					return int64(m.HeapAlloc)
+				}
+				before := heap()
+				for range 200 {
+					Expect(enc.Update(ctx, keys)).To(Succeed())
+					MustSucceed(enc.Encode(ctx, framer.Frame{}))
+				}
+				// Each update of 2000 keys that the encoder holds takes about 150 KB.
+				Expect(heap() - before).To(BeNumerically("<", 5<<20))
+				runtime.KeepAlive(enc)
+			},
+		)
+
+		It(
 			"Should preserve alignment across rapid key churn (schematic pattern)",
 			func(ctx SpecContext) {
 				enc := codec.NewDynamic(resolver)
@@ -685,6 +736,116 @@ var _ = Describe("Codec", func() {
 					}
 					sample++
 				}
+			},
+		)
+
+		It(
+			"Should accept updates while no frame is encoded or decoded",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				only := channel.Keys{dataCh}
+				both := channel.Keys{dataCh, idxCh}
+				done := make(chan struct{})
+				go func() {
+					defer GinkgoRecover()
+					defer close(done)
+					for i := range 100 {
+						keys := only
+						if i%2 == 1 {
+							keys = both
+						}
+						Expect(enc.Update(ctx, keys)).To(Succeed())
+						Expect(dec.Update(ctx, keys)).To(Succeed())
+					}
+				}()
+				Eventually(done).Should(BeClosed())
+				fr := frame.NewMulti(
+					both,
+					[]telem.Series{
+						telem.NewSeriesV[float32](1, 2),
+						telem.NewSeriesSecondsTSV(1, 2),
+					},
+				)
+				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
+				Expect(decoded.Frame).To(telem.MatchFrame(fr.Frame))
+			},
+		)
+
+		It(
+			"Should encode the first frame after an update with the updated keys",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				only := channel.Keys{dataCh}
+				both := channel.Keys{dataCh, idxCh}
+				Expect(enc.Update(ctx, only)).To(Succeed())
+				Expect(dec.Update(ctx, only)).To(Succeed())
+				fr := frame.NewMulti(
+					both,
+					[]telem.Series{
+						telem.NewSeriesV[float32](1),
+						telem.NewSeriesSecondsTSV(1),
+					},
+				)
+				var (
+					// Encode is not safe for concurrent use, so encodeMu orders the two
+					// routines that encode, and checking keeps the loop from starving
+					// the check. Update takes no lock and races both.
+					encodeMu  sync.Mutex
+					checking  atomic.Bool
+					stop      = make(chan struct{})
+					stopped   = make(chan struct{})
+					encodeErr error
+				)
+				DeferCleanup(func() {
+					close(stop)
+					Eventually(stopped).Should(BeClosed())
+					Expect(encodeErr).To(Succeed())
+				})
+				// Encodes in a loop beside Update, as a stream's sending routine does,
+				// so an update can land in the middle of an encode. An assertion per
+				// pass slows the loop until it rarely hits the race, so the cleanup
+				// asserts the first error instead.
+				go func() {
+					defer close(stopped)
+					var buf bytes.Buffer
+					for encodeErr == nil {
+						select {
+						case <-stop:
+							return
+						default:
+						}
+						if checking.Load() {
+							continue
+						}
+						encodeMu.Lock()
+						buf.Reset()
+						encodeErr = enc.EncodeStream(ctx, &buf, framer.Frame{})
+						encodeMu.Unlock()
+					}
+				}()
+				mismatches := 0
+				for i := range 200_000 {
+					keys := only
+					if i%2 == 0 {
+						keys = both
+					}
+					Expect(enc.Update(ctx, keys)).To(Succeed())
+					Expect(dec.Update(ctx, keys)).To(Succeed())
+					checking.Store(true)
+					encoded := func() []byte {
+						encodeMu.Lock()
+						defer encodeMu.Unlock()
+						return MustSucceed(enc.Encode(ctx, fr))
+					}()
+					checking.Store(false)
+					decoded := MustSucceed(dec.Decode(encoded))
+					if (decoded.Get(idxCh).Len() > 0) != (len(keys) == 2) {
+						mismatches++
+					}
+				}
+				Expect(mismatches).To(BeZero())
 			},
 		)
 

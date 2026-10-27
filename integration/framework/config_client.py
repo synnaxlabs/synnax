@@ -24,7 +24,7 @@ from typing import Any
 from framework.target_filter import TargetFilter
 from framework.test_case import TestCase
 
-DEFAULT_TIMEOUT = 300.0
+_DEFAULT_TIMEOUT = 300.0
 """Seconds a test may run before the conductor marks it TIMEOUT, unless its
 definition sets `timeout`."""
 
@@ -52,7 +52,7 @@ class TestDefinition:
     name: str | None = None
     parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
     matrix: dict[str, list[Any]] | None = None
-    timeout: float = DEFAULT_TIMEOUT
+    timeout: float = _DEFAULT_TIMEOUT
     """Seconds the test may run before the conductor marks it TIMEOUT."""
 
     @property
@@ -199,14 +199,14 @@ class ConfigClient:
                     name=test.get("name", None),
                     parameters=test.get("parameters", {}),
                     matrix=test.get("matrix", None),
-                    timeout=_timeout(case_path, test.get("timeout", DEFAULT_TIMEOUT)),
+                    timeout=_timeout(case_path, test.get("timeout", _DEFAULT_TIMEOUT)),
                 )
 
                 class_defs = self._expand_test_classes(test_def)
                 for class_def in class_defs:
-                    # -f matches against both the file path (e.g. "migration/channels")
-                    # and the class name (e.g. "ChannelsSetup"), so you can filter into
-                    # individual classes: `tc migration -f setup` matches *Setup classes.
+                    # -f matches against both the file path (e.g. "driver/ni_read") and
+                    # the class name (e.g. "NIAnalogReadScaled"), so you can filter into
+                    # individual classes: `tc driver/ni -f Scaled` matches one class.
                     expanded = self._expand_parameters(class_def)
                     if target_filter.case_filter is not None:
                         matches_case = target_filter.matches_case(case_path)

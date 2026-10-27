@@ -1,0 +1,61 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Usage data"
+heading: "Synnax Desktop usage data"
+description:
+  "What usage data Synnax Desktop sends to Synnax Labs, and how to turn it off."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax Desktop sends usage data to Synnax Labs. We use it to find bugs and to learn
+which features people use. Synnax Desktop sends no usage data before you log in. The
+data goes to PostHog, which stores it in its US cloud for Synnax Labs.
+
+<Divider.Divider x />
+
+## When sharing is on
+
+The login page uses the country of your IP address to choose how it asks:
+
+- **EU, EEA, UK, Switzerland, and countries that we cannot identify** -> the login page
+  in your browser asks if you want to share usage data. Synnax Desktop sends usage data
+  only if you agree.
+- **Everywhere else** -> the login page in your browser shows a notice, and sharing is
+  on.
+
+You can change your choice at any time. See [turn off usage data](#turn-off-usage-data).
+
+<Divider.Divider x />
+
+## What Synnax Desktop sends
+
+| Data              | What it holds                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Launches          | A random ID for the install, the app version, the operating system, the processor type, and the time since the last launch.                        |
+| Screens           | The type of each tab that you look at, such as a line plot or a schematic. Not its name.                                                           |
+| Clicks            | The parts of the app that you click, with all text masked.                                                                                         |
+| Screen recordings | Recordings of the app window, with all text and inputs masked. Plots, logs, and values show blank.                                                 |
+| Actions           | When you create a channel, plot, schematic, or range, connect or configure a device, start a task, or deploy an automation. Types only, not names. |
+| The built-in Core | How long it takes to start, how long it ran, why it stopped, and the size of the data that a reset erased.                                         |
+| Crash reports     | The error message and where in the app it occurred. An error message can include the name of a channel or a device.                                |
+| Survey answers    | Your answers, if you answer a survey in the app.                                                                                                   |
+| Account           | The email address and ID of your Synnax account.                                                                                                   |
+
+PostHog also receives the IP address of the computer.
+
+Synnax Desktop does not send your recorded data, the values of your channels, or your
+files.
+
+<Divider.Divider x />
+
+## Turn off usage data
+
+In Synnax Desktop, run the "Change usage data settings" command, and turn off **Share
+usage data**. The app stops sending usage data at once. To share again, turn the switch
+on.
+
+For how Synnax Labs keeps and protects this data, and how to ask us to delete it, see
+the [privacy policy](/privacy-policy).

@@ -143,8 +143,8 @@ class Writer:
     used in most cases.
 
     For a detailed guide on writing data to Synnax, see
-    https://docs.synnaxlabs.com/reference/concepts/writes. A rough summary of the write
-    process is detailed below:
+    https://docs.synnaxlabs.com/reference/client/write-data. A rough summary of the
+    write process is detailed below:
 
     1. The writer is opened with a list of channel keys (or names). Each index starts
     at the first timestamp written to it, and a write fails if it overlaps existing

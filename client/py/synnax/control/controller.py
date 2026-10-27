@@ -29,13 +29,13 @@ Condition: TypeAlias = (
 )
 
 
-class Processor(Protocol):
+class _Processor(Protocol):
     event: Event
 
     def process(self, state: Controller) -> Any: ...
 
 
-class WaitUntil(Processor):
+class _WaitUntil(_Processor):
     event: Event
     callback: Condition
     exc: Exception | None
@@ -60,7 +60,7 @@ class WaitUntil(Processor):
         return None
 
 
-class RemainsTrueFor(Processor):
+class _RemainsTrueFor(_Processor):
     event: Event
     callback: Condition
     exc: Exception | None
@@ -321,7 +321,7 @@ class Controller:
     ) -> bool:
         if not callable(cond):
             raise ValueError("First argument to wait_until must be a callable.")
-        processor = WaitUntil(cond, reverse)
+        processor = _WaitUntil(cond, reverse)
         self._receiver.add_processor(processor)
         try:
             timeout_seconds = (
@@ -391,7 +391,7 @@ class Controller:
         """
         if not callable(cond):
             raise ValueError("First argument to remains_true_for must be a callable.")
-        processor = RemainsTrueFor(cond, percentage)
+        processor = _RemainsTrueFor(cond, percentage)
         self._receiver.add_processor(processor)
         try:
             timeout_seconds = TimeSpan.from_seconds(duration).seconds
@@ -509,7 +509,7 @@ class _Receiver(AsyncThread):
     channels: list[channel_.Payload]
     client: framer.Client
     streamer: framer.AsyncStreamer
-    processors: set[Processor]
+    processors: set[_Processor]
     lock: Lock
     retriever: channel_.Retriever
     controller: Controller
@@ -536,12 +536,12 @@ class _Receiver(AsyncThread):
         self.error = None
         self.exited = False
 
-    def add_processor(self, processor: Processor) -> None:
+    def add_processor(self, processor: _Processor) -> None:
         with self.lock:
             self.raise_error()
             self.processors.add(processor)
 
-    def remove_processor(self, processor: Processor) -> None:
+    def remove_processor(self, processor: _Processor) -> None:
         with self.lock:
             self.processors.remove(processor)
 

@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <set>
 #include <utility>
 #include <vector>
@@ -136,6 +137,13 @@ class Codec {
     /// relevant channel keys and data types for encoding/decoding frames.
     std::unordered_map<std::uint32_t, State> states;
 
+    /// @brief the lowest sequence number that states can hold.
+    std::uint32_t oldest = 0;
+
+    /// @brief guards seq_num, states, and oldest, so update() can run while another
+    /// thread encodes or decodes. It lives on the heap so the codec stays movable.
+    std::unique_ptr<std::mutex> mu = std::make_unique<std::mutex>();
+
     /// @brief used to retrieve channels when updating the codec state.
     channel::Client channel_client;
 
@@ -157,8 +165,9 @@ public:
     explicit Codec(channel::Client channel_client):
         channel_client(std::move(channel_client)) {}
 
-    /// @brief updates the codec to use the given channels. If the channels do not
-    /// exist, the codec will return a query::NOT_FOUND error.
+    /// @brief updates the codec to use the given channels. An empty list leaves the
+    /// codec unchanged. If the channels do not exist, the codec will return a
+    /// query::NOT_FOUND error.
     x::errors::Error update(const std::vector<channel::Key> &keys);
 
     /// @brief Encodes a frame into a byte array
@@ -171,13 +180,13 @@ public:
     /// @param data The byte vector to decode.
     /// @return The decoded frame.
     [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error>
-    decode(const std::vector<std::uint8_t> &data) const;
+    decode(const std::vector<std::uint8_t> &data);
 
     /// @brief decodes a frame from the provided byte array and size.
     /// @param data The byte array to decode.
     /// @param size The size of the byte array.
     [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error>
-    decode(const std::uint8_t *data, std::size_t size) const;
+    decode(const std::uint8_t *data, std::size_t size);
 };
 
 /// @brief configuration for opening a new streamer.
@@ -204,7 +213,7 @@ private:
 /// FrameClient.
 /// @see FrameClient
 ///
-/// @note read() and setChannels() can be called concurrently with one another, but
+/// @note read() and set_channels() can be called concurrently with one another, but
 /// they cannot be called concurrently with close() or with themselves.
 class Streamer {
 public:
@@ -217,17 +226,17 @@ public:
     /// @returns the next frame of telemetry received from the Synnax cluster and an
     /// error. If error.ok() is false, then the streamer has failed and must be
     /// closed.
-    /// @note read is not safe to call concurrently with itself or with close(), but
-    /// it is safe to call concurrently with setChannels().
-    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error> read() const;
+    /// @note read is not safe to call concurrently with itself or with close(), but it
+    /// is safe to call concurrently with set_channels().
+    [[nodiscard]] std::pair<x::telem::Frame, x::errors::Error> read();
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
-    /// channels set during construction or a previous call to setChannels().
+    /// channels set during construction or a previous call to set_channels().
     /// @returns an error. If error.ok() is false, then the streamer has failed and
     /// must be closed.
     /// @param channels - the channels to stream.
-    /// @note setChannels is not safe to call concurrently with itself or with
-    /// close(), but it is safe to call concurrently with read().
+    /// @note set_channels is not safe to call concurrently with itself or with close(),
+    /// but it is safe to call concurrently with read().
     [[nodiscard]] x::errors::Error
     set_channels(const std::vector<channel::Key> &channels);
 
@@ -282,7 +291,7 @@ enum WriterMode : uint8_t {
 };
 
 /// @brief configuration for opening a new Writer. For more information on writers,
-/// see https://docs.synnaxlabs.com/concepts/write.
+/// see https://docs.synnaxlabs.com/reference/client/write-data.
 struct WriterConfig {
     /// @brief The channels to write to.
     std::vector<channel::Key> channels;
@@ -369,7 +378,7 @@ public:
     /// monotonically increasing int64 unix epoch timestamps.
     ///
     /// For more information, see
-    /// https://docs.synnaxlabs.com/reference/concepts/writes.
+    /// https://docs.synnaxlabs.com/reference/client/write-data.
     ///
     /// @returns false if an error occurred in the write pipeline. After an error
     /// occurs, the caller must acknowledge the error by calling error() or close() on

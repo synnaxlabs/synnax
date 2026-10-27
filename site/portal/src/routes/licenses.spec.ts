@@ -14,6 +14,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { POST as activateRoute } from "@/pages/api/licenses/[key]/activate";
 import { POST as floatingRoute } from "@/pages/api/licenses/[key]/floating";
 import { POST as amendRoute } from "@/pages/api/licenses/[key]/index";
+import { POST as restoreRoute } from "@/pages/api/licenses/[key]/restore";
 import { POST as revokeRoute } from "@/pages/api/licenses/[key]/revoke";
 import { POST as issueRoute } from "@/pages/api/licenses/index";
 import {
@@ -26,6 +27,7 @@ import {
 } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
+import { issued, restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
 import {
@@ -253,6 +255,47 @@ describe("license routes", () => {
             detail: { nodes: 3, channels: 500, term: "subscription" },
           }),
         ]);
+      });
+
+      it("should mail the new license to the team's admins", async () => {
+        addPerson("user_admin", [ACME_ADMIN]);
+        await post(SUBSCRIPTION);
+        const [row] = await licenses();
+        expect(h.mail.sent).toEqual([
+          { to: ["user_admin@example.com"], ...issued(row, acme) },
+        ]);
+      });
+
+      it("should mail nobody when the team has no admin yet", async () => {
+        expect((await post(SUBSCRIPTION)).status).toBe(200);
+        expect(h.mail.sent).toEqual([]);
+      });
+
+      it("should say the license is issued when its mail fails", async () => {
+        addPerson("user_admin", [ACME_ADMIN]);
+        h.portal.mail = {
+          send: async () => {
+            throw new Error("mail: down");
+          },
+        };
+        await expectError(
+          await post(SUBSCRIPTION),
+          502,
+          '"Test stand" is issued, but the email to its admins failed. Open it from ' +
+            "the Licenses tab and send them its link.",
+        );
+        expect(await licenses()).toHaveLength(1);
+      });
+
+      it("should save nothing when the admin lookup fails", async () => {
+        h.portal.directory = {
+          ...h.portal.directory,
+          roster: async () => {
+            throw new Error("clerk: down");
+          },
+        };
+        await expectError(await post(SUBSCRIPTION), 500, "Internal error");
+        expect(await licenses()).toEqual([]);
       });
 
       it("should default the channel cap to unlimited", async () => {
@@ -789,13 +832,7 @@ describe("license routes", () => {
       h.signIn(STAFF);
       await post();
       expect(h.mail.sent).toEqual([
-        {
-          to: ["user_admin@example.com"],
-          subject: 'Your Synnax license "Test rig" was revoked',
-          text: expect.stringContaining(
-            'The Synnax license "Test rig" for Acme has been revoked.',
-          ),
-        },
+        { to: ["user_admin@example.com"], ...revoked(lic, acme) },
       ]);
     });
 
@@ -821,6 +858,63 @@ describe("license routes", () => {
       h.signIn(STAFF);
       expect((await post()).status).toBe(204);
       await expectError(await post(), 400, "This license is already revoked");
+      expect(h.mail.sent).toHaveLength(1);
+    });
+  });
+
+  describe("POST /api/licenses/[key]/restore", () => {
+    let lic: License;
+
+    beforeEach(async () => {
+      lic = await createLicense(store, { organization: acme.key, revokedAt: NOW });
+    });
+
+    const post = async (key: string = lic.key): Promise<Response> =>
+      await call(restoreRoute, { params: { key } });
+
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(), 401, "Log in first");
+    });
+
+    it("should reject a member who is not staff", async () => {
+      h.signIn(MEMBER);
+      await expectError(await post(), 403, "Staff only");
+    });
+
+    it("should answer 404 for an unknown license", async () => {
+      h.signIn(STAFF);
+      await expectError(await post(crypto.randomUUID()), 404, "License not found");
+    });
+
+    it("should restore the license and record it", async () => {
+      h.signIn(STAFF);
+      const res = await post();
+      expect(res.status).toBe(204);
+      expect((await licenses())[0].revokedAt).toBeNull();
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: "restore",
+          actor: STAFF,
+          organization: acme.key,
+          license: lic.key,
+        }),
+      ]);
+    });
+
+    it("should mail the team's admins", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.signIn(STAFF);
+      await post();
+      expect(h.mail.sent).toEqual([
+        { to: ["user_admin@example.com"], ...restored(lic, acme) },
+      ]);
+    });
+
+    it("should refuse a license that is not revoked without mailing", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.signIn(STAFF);
+      expect((await post()).status).toBe(204);
+      await expectError(await post(), 400, "This license is not revoked");
       expect(h.mail.sent).toHaveLength(1);
     });
   });

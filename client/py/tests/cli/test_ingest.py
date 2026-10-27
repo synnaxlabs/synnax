@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 
 import synnax as sy
-from synnax.cli.console import MockConsole
+from synnax.cli import console
 from synnax.cli.flow import Context
-from synnax.cli.ingest import pure_ingest
-from synnax.ingest.row import RowIngestionEngine
+from synnax.cli.ingest import _pure_ingest
+from synnax.ingest import row
 from synnax.io import FACTORY
 from synnax.io.csv import CSVReader
 from synnax.synnax import Synnax
@@ -29,7 +29,7 @@ from .data import DATA_DIR
 class TestIngest:
     def test_valid_ingest(self, client: Synnax) -> None:
         try:
-            c = MockConsole(
+            c = console.Mock(
                 responses=[
                     True,  # Ingest all channels?
                     True,  # Channels not found, create them?
@@ -42,7 +42,7 @@ class TestIngest:
                     random_name(),
                 ]
             )
-            pure_ingest(
+            _pure_ingest(
                 path_=DATA_DIR / "ingest_valid_1.csv",
                 client=client,
                 ctx=Context(console=c),
@@ -54,7 +54,7 @@ class TestIngest:
 
 
 @pytest.mark.cli
-class TestRowIngestionEngine:
+class TestRowEngine:
     def test_ingest_with_index(
         self,
         client: Synnax,
@@ -66,7 +66,7 @@ class TestRowIngestionEngine:
         client.write(1 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(1, 1)})
         path = tmp_path / "with_index.csv"
         path.write_text(f"{idx.name},{data.name}\n10000000000,1.5\n11000000000,2.5\n")
-        RowIngestionEngine(
+        row.Engine(
             client,
             FACTORY.new_reader(path),
             [idx, data],
@@ -91,7 +91,7 @@ class TestRowIngestionEngine:
         client.write(5 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(5, 2)})
         path = tmp_path / "without_index.csv"
         path.write_text(f"{idx.name},{data.name}\n5000000000,1.5\n6000000000,2.5\n")
-        RowIngestionEngine(
+        row.Engine(
             client,
             CSVReader(path, keys=[data.name]),
             [data],
