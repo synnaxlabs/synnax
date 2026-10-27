@@ -12,7 +12,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import tseslint from "typescript-eslint";
-import { describe, it } from "vitest";
+import { afterAll, describe, it } from "vitest";
 
 import { barrelImports } from "./barrelImports";
 
@@ -40,6 +40,8 @@ const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "barrel-impor
   fs.mkdirSync(path.dirname(full), { recursive: true });
   fs.writeFileSync(full, "");
 });
+
+afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
 
 const file = (name: string): string => path.join(root, name);
 
