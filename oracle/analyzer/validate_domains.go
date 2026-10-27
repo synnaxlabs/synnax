@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
 )
@@ -29,7 +30,8 @@ var generatedLangs = []string{"go", "ts", "py", "cpp"}
 //  1. A type that generates in a language must not reference a type omitted in
 //     that language (@lang omit means the type does not exist there). Fields
 //     with their own @lang omit or @lang type override escape the check, as do
-//     references to @lang hand types, which exist hand-written.
+//     references to @lang hand types, which exist hand-written. Nor may it
+//     reference a type with no output in that language.
 //  2. A file-level @lang output where every declared type omits the language —
 //     with no hand-written anchors or actions — generates nothing and should
 //     be removed.
@@ -72,6 +74,20 @@ func validateOmitRefs(
 						lang,
 					)
 					diag.Report(t.Namespace+".oracle", d)
+					return
+				}
+				if !hasOutput(resolved, lang, table) {
+					d := diagnostics.Errorf(
+						nil,
+						"%s generates for %s but %s references %s, which has no %s "+
+							"output",
+						t.QualifiedName,
+						lang,
+						context,
+						resolved.QualifiedName,
+						lang,
+					)
+					diag.Report(t.Namespace+".oracle", d)
 				}
 			}
 			visit(ref)
@@ -81,6 +97,10 @@ func validateOmitRefs(
 			if form.BorrowsEnum() {
 				check(form.Enum, "its discriminator enum")
 			}
+		case resolution.AliasForm:
+			check(form.Target, "its alias target")
+		case resolution.DistinctForm:
+			check(form.Base, "its base type")
 		case resolution.StructForm:
 			for _, ext := range form.Extends {
 				check(ext, "its extends clause")
@@ -336,6 +356,29 @@ func getFieldString(f resolution.Field, lang, expr string) string {
 		return v
 	}
 	return e.Values[0].IdentValue
+}
+
+// hasOutput reports whether the type exists in the language at some output path. An
+// enum without its own path takes the path of a struct in the same schema file.
+// Built-in and version-file types have no declared path, since plugins place them.
+func hasOutput(t resolution.Type, lang string, table *resolution.Table) bool {
+	switch t.Form.(type) {
+	case resolution.PrimitiveForm, resolution.BuiltinGenericForm:
+		return true
+	}
+	if getPath(t, lang) != "" {
+		return true
+	}
+	if _, _, ok := paths.VersionFile(t.FilePath); ok {
+		return true
+	}
+	if _, ok := t.Form.(resolution.EnumForm); !ok {
+		return false
+	}
+	return slices.ContainsFunc(table.StructTypes(), func(s resolution.Type) bool {
+		return s.Namespace == t.Namespace && s.FilePath == t.FilePath &&
+			getPath(s, lang) != ""
+	})
 }
 
 // getPath returns the type's output path for the language, or "".
