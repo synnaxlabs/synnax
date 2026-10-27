@@ -35,7 +35,7 @@ afterAll(async () => await Promise.all(closers.map(async (close) => await close(
 const createClient = (): { core: SyntheticCore; client: Client } => {
   const core = new SyntheticCore({ rate: 1000, start: START, now: NOW });
   const client = telemTest.createClient(core);
-  closers.push(async () => await client.feed.close());
+  closers.push(async () => await client.close());
   return { core, client };
 };
 

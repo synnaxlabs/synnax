@@ -117,7 +117,7 @@ const mount = async (
     frame,
     close: async () => {
       stack.driver.delete([aetherTest.ROOT_KEY]);
-      await client.feed.close();
+      await client.close();
     },
   };
   await settle(
