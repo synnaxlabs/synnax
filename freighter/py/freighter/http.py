@@ -25,7 +25,7 @@ from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.codec import Codec
-from x.exceptions import ExceptionPayload, decode_exception
+from x.exceptions import ExceptionPayload, Registry
 from x.fs import FilePath, stream_to_file
 
 _FILE_CONTENT_TYPES: dict[str, str] = {
@@ -74,11 +74,13 @@ class HTTPClient(MiddlewareCollector):
     _pool: PoolManager
     _endpoint: URL
     _codec: Codec
+    _registry: Registry
 
     def __init__(
         self,
         url: URL,
         codec: Codec,
+        registry: Registry,
         ssl_context: ssl.SSLContext | None = None,
         **kwargs: Any,
     ) -> None:
@@ -86,6 +88,7 @@ class HTTPClient(MiddlewareCollector):
         :param url: The base URL for the client.
         :param codec: The codec used to encode and decode typed request and response
             payloads.
+        :param registry: Decodes the errors that the server returns.
         :param ssl_context: The TLS context that verifies the server. The client uses
             HTTPS when set and plain HTTP when None.
         """
@@ -94,6 +97,7 @@ class HTTPClient(MiddlewareCollector):
             protocol="http" if ssl_context is None else "https"
         )
         self._codec = codec
+        self._registry = registry
         self._pool = PoolManager(ssl_context=ssl_context, **kwargs)
 
     def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
@@ -279,7 +283,7 @@ class HTTPClient(MiddlewareCollector):
                     raise ValueError(
                         f"failed to decode error response: {http_res.data!r}"
                     ) from e
-                decoded = decode_exception(payload)
+                decoded = self._registry.decode(payload)
                 if decoded is None:
                     raise ValueError(f"undecodable error response: {http_res.data!r}")
                 raise decoded

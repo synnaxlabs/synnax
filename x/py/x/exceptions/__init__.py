@@ -13,9 +13,8 @@ from x.exceptions.exceptions import (
     EncoderFunc,
     Error,
     ExceptionPayload,
-    decode_exception,
-    encode_exception,
-    register_exception,
+    Provider,
+    Registry,
 )
 
 __all__ = [
@@ -24,7 +23,6 @@ __all__ = [
     "EncoderFunc",
     "Error",
     "ExceptionPayload",
-    "decode_exception",
-    "encode_exception",
-    "register_exception",
+    "Provider",
+    "Registry",
 ]

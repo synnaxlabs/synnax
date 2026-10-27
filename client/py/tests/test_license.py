@@ -13,6 +13,7 @@ import pytest
 
 import freighter
 import synnax as sy
+from synnax.exceptions import create_registry
 
 
 @pytest.mark.license
@@ -45,7 +46,7 @@ class TestLicenseClient:
     )
     def test_decode(self, type_: str, exc: type[sy.LicenseError]) -> None:
         """Should decode each license error type the Core sends."""
-        err = freighter.decode_exception(
+        err = create_registry().decode(
             freighter.ExceptionPayload(type=type_, data="refused")
         )
         assert type(err) is exc

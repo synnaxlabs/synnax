@@ -13,6 +13,30 @@ import pytest
 
 import freighter
 import synnax as sy
+from synnax.exceptions import create_registry
+from x.exceptions import ExceptionPayload
+
+
+class TestCreateRegistry:
+    def test_freighter(self) -> None:
+        """Should decode the errors of Freighter."""
+        pld = ExceptionPayload(type=freighter.EOF.TYPE, data="EOF")
+        assert isinstance(create_registry().decode(pld), freighter.EOF)
+
+    def test_path_error(self) -> None:
+        """Should decode the error that a path error wraps."""
+        data = json.dumps(
+            {
+                "path": ["channel", "name"],
+                "error": {"type": sy.NotFoundError.TYPE, "data": "missing"},
+            }
+        )
+        err = create_registry().decode(
+            ExceptionPayload(type=sy.PathError.TYPE, data=data)
+        )
+        assert isinstance(err, sy.PathError)
+        assert err.path == ["channel", "name"]
+        assert isinstance(err.error, sy.NotFoundError)
 
 
 class TestError:
@@ -52,16 +76,14 @@ class TestError:
     )
     def test_decode(self, type_: str) -> None:
         """Should decode each error type that the Core sends into an Error."""
-        err = freighter.decode_exception(
-            freighter.ExceptionPayload(type=type_, data="refused")
-        )
+        err = create_registry().decode(ExceptionPayload(type=type_, data="refused"))
         assert isinstance(err, sy.Error)
 
     def test_decode_path(self) -> None:
         """Should decode a path error and its cause into Errors."""
         cause = {"type": "sy.validation", "data": "required"}
-        err = freighter.decode_exception(
-            freighter.ExceptionPayload(
+        err = create_registry().decode(
+            ExceptionPayload(
                 type="sy.validation.path",
                 data=json.dumps({"path": ["name"], "error": cause}),
             )
