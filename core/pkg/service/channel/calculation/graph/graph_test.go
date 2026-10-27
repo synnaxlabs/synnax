@@ -1459,21 +1459,24 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should fail to open with missing config", func(ctx SpecContext) {
-			Expect(graph.Open(ctx)).Error().To(HaveOccurred())
+			Expect(
+				graph.Open(ctx),
+			).Error().
+				To(MatchError(ContainSubstring("must be non-nil")))
 		})
 
 		It("Should fail to open with nil Channel", func(ctx SpecContext) {
 			Expect(
 				graph.Open(ctx, graph.Config{Status: statusSvc}),
 			).Error().
-				To(HaveOccurred())
+				To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 
 		It("Should fail to open with nil Status", func(ctx SpecContext) {
 			Expect(
 				graph.Open(ctx, graph.Config{Channel: channelSvc}),
 			).Error().
-				To(HaveOccurred())
+				To(MatchError(ContainSubstring("status: must be non-nil")))
 		})
 
 		It("Should fail to open with nil DB", func(ctx SpecContext) {
