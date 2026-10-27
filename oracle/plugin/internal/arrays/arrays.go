@@ -14,6 +14,7 @@ package arrays
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/plugin/pb/instance"
 	"github.com/synnaxlabs/oracle/resolution"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -136,7 +137,8 @@ func IsNested(typeRef resolution.TypeRef, table *resolution.Table) bool {
 // OptionalWrapperName derives the wrapper message name for an optional list in
 // namespace (e.g. "Label" -> "LabelList"), distinct from the nested-array "Wrapper"
 // suffix. An element from another namespace takes that namespace's name first, so
-// rack.Key is RackKeyList.
+// rack.Key is RackKeyList. A generic use takes its message name, so filter.Set<uuid> is
+// UuidSetList.
 func OptionalWrapperName(
 	typeRef resolution.TypeRef,
 	namespace string,
@@ -145,6 +147,9 @@ func OptionalWrapperName(
 	elemType, ok := ElementType(typeRef, table)
 	if !ok {
 		return "ListWrapper"
+	}
+	if inst, ok := instance.Of(elemType, namespace, table); ok {
+		return inst.Name + "List"
 	}
 	if resolved, ok := elemType.Resolve(table); ok {
 		name := lo.PascalCase(resolved.Name) + "List"
