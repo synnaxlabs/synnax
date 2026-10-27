@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -55,6 +55,11 @@ describe("Group", () => {
       const a = await client.groups.create({ parent: ontology.ROOT_ID, name: "a" });
       await client.groups.create({ parent: ontology.ROOT_ID, name: "b" });
       const groups = await client.groups.retrieve(group.key.in([a.key]));
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
+    it("should leave out a key that no group has", async () => {
+      const a = await client.groups.create({ parent: ontology.ROOT_ID, name: "a" });
+      const groups = await client.groups.retrieve(group.key.in([a.key, uuid.create()]));
       expect(groups.map((g) => g.key)).toEqual([a.key]);
     });
     it("should retrieve the children of a parent that match where", async () => {
