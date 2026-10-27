@@ -24,7 +24,7 @@ import {
   buildDrawOperations,
   DEFAULT_OVERLAP_THRESHOLD,
   type DrawOperation,
-} from "@/vis/line/aether/line";
+} from "@/vis/line/aether/draw";
 import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
 
 // Reduces the full-resolution samples of a live line 1000 pixels wide that shows the

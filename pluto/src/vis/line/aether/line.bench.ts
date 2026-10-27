@@ -24,12 +24,8 @@ import { type telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
 import { windowBounds } from "@/vis/line/aether/bounds";
-import {
-  buildDrawOperations,
-  DEFAULT_OVERLAP_THRESHOLD,
-  Line,
-  type LineProps,
-} from "@/vis/line/aether/line";
+import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
+import { Line, type LineProps } from "@/vis/line/aether/line";
 import { lineTest } from "@/vis/line/aether/test";
 import { canvasTest } from "@/vis/render/test";
 

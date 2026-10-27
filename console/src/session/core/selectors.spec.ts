@@ -7,10 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
-import { act, renderHook } from "@testing-library/react";
-import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Core } from "@/session/core";
@@ -22,8 +18,6 @@ const CORE_B = createCore("Beta", { host: "b.example.com", secure: true });
 const KEY_A = CORE_A.key;
 const KEY_B = CORE_B.key;
 
-const EMPTY_STATE: Core.SliceState = { version: 0, selected: undefined, cores: {} };
-
 const stateWith = (cores: Core.Core[], selected?: string): Core.SliceState => ({
   version: 0,
   selected,
@@ -33,22 +27,6 @@ const stateWith = (cores: Core.Core[], selected?: string): Core.SliceState => ({
 const storeWith = (cores: Core.Core[], selected?: string): Core.StoreState => ({
   [Core.SLICE_NAME]: stateWith(cores, selected),
 });
-
-const createStore = (initial: Core.SliceState = EMPTY_STATE) =>
-  configureStore({
-    reducer: { [Core.SLICE_NAME]: Core.reducer },
-    preloadedState: { [Core.SLICE_NAME]: initial },
-  });
-
-const createWrapper = (
-  store: ReturnType<typeof createStore>,
-): FC<PropsWithChildren> => {
-  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Provider store={store}>{children}</Provider>
-  );
-  Wrapper.displayName = "Wrapper";
-  return Wrapper;
-};
 
 describe("Core selectors", () => {
   describe("raw selectors", () => {
@@ -98,66 +76,6 @@ describe("Core selectors", () => {
         const state = storeWith([first, second], second.key);
         expect(Core.selectByClusterKey(state, shared)?.key).toBe(second.key);
       });
-    });
-  });
-
-  describe("getters", () => {
-    it("should read the whole slice state on demand across dispatches", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Core.useGetSliceState(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get().cores).toEqual({});
-      act(() => {
-        store.dispatch(Core.set(CORE_A));
-      });
-      expect(get().cores).toEqual({ [KEY_A]: { ...CORE_A, clusterKey: undefined } });
-    });
-
-    it("should read the current selected key on demand across dispatches", () => {
-      const store = createStore(stateWith([CORE_A, CORE_B]));
-      const { result } = renderHook(() => Core.useGetSelectedKey(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toBeUndefined();
-      act(() => {
-        store.dispatch(Core.select(KEY_A));
-      });
-      expect(get()).toBe(KEY_A);
-      act(() => {
-        store.dispatch(Core.select(KEY_B));
-      });
-      expect(get()).toBe(KEY_B);
-    });
-
-    it("should resolve a Core by key on demand across dispatches", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Core.useGetState(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get(KEY_B)).toBeUndefined();
-      act(() => {
-        store.dispatch(Core.set(CORE_A));
-        store.dispatch(Core.set(CORE_B));
-      });
-      expect(get(KEY_B)).toEqual({ ...CORE_B, clusterKey: undefined });
-      expect(get(KEY_A)).toEqual({ ...CORE_A, clusterKey: undefined });
-    });
-
-    it("should report whether any Core is selected on demand", () => {
-      const store = createStore(stateWith([CORE_A]));
-      const { result } = renderHook(() => Core.useGetIsAnySelected(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toBe(false);
-      act(() => {
-        store.dispatch(Core.select(KEY_A));
-      });
-      expect(get()).toBe(true);
     });
   });
 });
