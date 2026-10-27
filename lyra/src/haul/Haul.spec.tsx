@@ -247,6 +247,12 @@ describe("Haul", () => {
       fireEvent.drop(screen.getByTestId("target"));
       expect(screen.getByTestId("child").textContent).toBe("false");
     });
+
+    it("should ignore a drag that Haul does not track", () => {
+      renderOver();
+      fireEvent.dragEnter(screen.getByTestId("over"));
+      expect(screen.getByTestId("child").textContent).toBe("false");
+    });
   });
 
   describe("useDrop", () => {

@@ -422,17 +422,22 @@ export const useDragOver = (): UseDragOverReturn => {
   // Entering a child fires dragenter on it before dragleave on the parent.
   const depth = useRef(0);
   const [over, setOver] = useState(false);
+  const ref = useDraggingRef();
   const dragging = useDraggingState().items.length > 0;
   useEffect(() => {
     if (dragging) return;
     depth.current = 0;
     setOver(false);
   }, [dragging]);
+  // An untracked drag, such as an external file, never resets the state when it ends.
+  const tracked = () => ref.current.items.length > 0;
   const onDragEnter = () => {
+    if (!tracked()) return;
     depth.current += 1;
     setOver(true);
   };
   const onDragLeave = () => {
+    if (!tracked()) return;
     depth.current = Math.max(0, depth.current - 1);
     if (depth.current === 0) setOver(false);
   };
