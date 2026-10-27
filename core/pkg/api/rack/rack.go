@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -172,7 +174,14 @@ func (s *Service) enforceCreate(
 			return err
 		}
 	}
-	if len(existing) == len(racks) {
+	found := make(set.Set[rack.Key], len(existing))
+	for _, r := range existing {
+		found.Add(r.Key)
+	}
+	if !slices.ContainsFunc(
+		racks,
+		func(r rack.Rack) bool { return !found.Contains(r.Key) },
+	) {
 		return nil
 	}
 	return enforcer.Enforce(ctx, access.Request{
