@@ -44,6 +44,8 @@ class Host:
     def __init__(self, path: Path) -> None:
         self.path = path
         self.sites = path / "sites"
+        self.logs = path / "logs"
+        self.logs.mkdir()
         self.sites.mkdir()
         bin_dir = path / "bin"
         bin_dir.mkdir()
@@ -68,6 +70,7 @@ class Host:
             "PREVIEW_MAX=2\n"
             "PREVIEW_CPUS=0.25\n"
             "PREVIEW_MEMORY=1g\n"
+            f"PREVIEW_LOGS={self.logs}\n"
         )
         self.env = {
             **os.environ,
@@ -84,9 +87,14 @@ class Host:
     def ready(self) -> None:
         (self.path / "ready").touch()
 
-    def containers(self, *rows: tuple[int, int]) -> None:
-        text = "".join(f"{pr} {deployed}\n" for pr, deployed in rows)
+    def containers(self, *rows: tuple[int, int] | tuple[int, int, int]) -> None:
+        text = "".join(" ".join(map(str, row)) + "\n" for row in rows)
         (self.path / "containers").write_text(text)
+
+    def viewed(self, pr: int, at: int) -> None:
+        log = self.logs / f"pr-{pr}.log"
+        log.touch()
+        os.utime(log, (at, at))
 
     def calls(self) -> list[str]:
         return (self.path / "calls").read_text().splitlines()
@@ -126,7 +134,12 @@ class TestUp:
             "docker exec caddy caddy reload --config /etc/caddy/Caddyfile"
         )
         assert host.site(12).read_text() == (
-            "pr-12.preview.example.com {\n\treverse_proxy synnax-pr-12:9090\n}\n"
+            "pr-12.preview.example.com {\n"
+            "    log {\n"
+            f"        output file {host.logs}/pr-12.log\n"
+            "    }\n"
+            "    reverse_proxy synnax-pr-12:9090\n"
+            "}\n"
         )
 
     def test_passes_license_to_core(self, host: Host) -> None:
@@ -176,6 +189,30 @@ class TestCap:
             "docker rm --force synnax-pr-12",
             "docker rm --force synnax-pr-14",
         ]
+
+    def test_removes_unmarked_before_human_review(self, host: Host) -> None:
+        host.ready()
+        host.containers((12, 100, 1), (13, 200, 0))
+        result = host.run("up", "14", "image")
+        assert result.returncode == 0, result.stderr
+        assert self.evicted(result) == ["evicted 13"]
+
+    def test_recent_view_keeps_a_preview(self, host: Host) -> None:
+        host.ready()
+        host.containers((12, 100), (13, 200))
+        host.viewed(12, 300)
+        host.site(13).write_text("route")
+        host.viewed(13, 150)
+        result = host.run("up", "14", "image")
+        assert result.returncode == 0, result.stderr
+        assert self.evicted(result) == ["evicted 13"]
+        assert not (host.logs / "pr-13.log").exists()
+
+    def test_marks_human_review(self, host: Host) -> None:
+        host.ready()
+        assert host.run("up", "12", "image", "human").returncode == 0
+        run = next(c for c in host.docker() if c.startswith("docker run"))
+        assert "--label synnax.preview.human=1" in run
 
     def test_pull_failure_removes_nothing(self, host: Host) -> None:
         (host.path / "pull_fails").touch()
@@ -250,6 +287,12 @@ class TestArguments:
         result = host.run(*args)
         assert result.returncode == 1
         assert "invalid pull request number" in result.stderr
+        assert host.docker() == []
+
+    def test_invalid_review_mark(self, host: Host) -> None:
+        result = host.run("up", "12", "image", "bot")
+        assert result.returncode == 1
+        assert "invalid review mark" in result.stderr
         assert host.docker() == []
 
     def test_unknown_command(self, host: Host) -> None:

@@ -109,8 +109,11 @@ jobs:
         id: deploy
         shell: bash
         env:
+          # A preview waiting on a human review is evicted after the others.
           COMMAND: >-
-            /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }}
+            /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }} ${{
+            contains(github.event.pull_request.labels.*.name, 'review/human') && 'human'
+            || '' }}
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
         # Records the removed previews even when the deploy fails after removing them.
         run: |
@@ -129,10 +132,12 @@ jobs:
         run: |
           marker="<!-- Sticky Pull Request Commentpreview -->"
           issues="repos/$GITHUB_REPOSITORY/issues"
-          body=$(printf '%s\n\n%s\n%s\n%s' "### Preview" \
-            "Removed to make room for the preview of #$PR. Push a commit or add" \
-            "the \`preview\` label to deploy it again." "$marker")
           for pr in $EVICTED; do
+            checks="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$pr/checks"
+            body=$(printf '%s\n\n%s\n%s\n%s\n%s' "### Preview" \
+              "Evicted to make room for the preview of #$PR, so the link no longer" \
+              "works. To bring it back, re-run the **Preview** workflow from the" \
+              "[checks]($checks), or push a commit." "$marker")
             id=$(gh api --paginate "$issues/$pr/comments" \
               --jq ".[] | select(.body | contains(\"$marker\")) | .id")
             if [ -n "$id" ]; then
