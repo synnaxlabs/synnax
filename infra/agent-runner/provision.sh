@@ -9,7 +9,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Bootstraps an agent runner on Ubuntu 24.04. cloud-init runs it once, as root. It is a
+# Bootstraps a seat instance on Ubuntu 24.04. cloud-init runs it once, as root. It is a
 # Terraform template: write $VAR, never the brace form, which Terraform interpolates.
 
 set -euxo pipefail
@@ -21,9 +21,13 @@ BAZELISK_VERSION=1.30.0
 UV_VERSION=0.13.0
 PNPM_VERSION=12.14.0
 GOLANGCI_LINT_VERSION=2.15.0
-REPO=synnaxlabs/synnax
+ORG=synnaxlabs
+REPO=$ORG/synnax
 HOME_DIR=/home/runner
 IDLE_MINUTES=${idle_minutes}
+SEAT=${seat}
+AGENT=${agent}
+RUNNERS=${runners}
 export DEBIAN_FRONTEND=noninteractive
 
 # Stops the instance once no job has run for the idle period. It goes first, so a
@@ -94,7 +98,8 @@ common --repository_cache=$HOME_DIR/.cache/bazel-repo
 common --experimental_disk_cache_gc_max_size=100G
 EOF
 
-RUNNER_DIR=$HOME_DIR/actions-runner
+# Each runner copies this install, then updates itself.
+RUNNER_DIR=/opt/actions-runner
 mkdir -p "$RUNNER_DIR"
 RUNNER_URL=https://github.com/actions/runner/releases/download/v$RUNNER_VERSION
 curl -fsSL "$RUNNER_URL/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz" \
@@ -104,17 +109,31 @@ echo "PATH=/usr/local/go/bin:$HOME_DIR/go/bin:/usr/local/bin:/usr/bin:/bin" \
     > "$RUNNER_DIR/.env"
 chown -R runner:runner "$HOME_DIR"
 
-# Usage: register-agent-runner <registration token>
-cat > /usr/local/bin/register-agent-runner << EOF
+# Registers the seat's runners in the agent-runners group and starts each as a service.
+# All run as the runner user, so they share its agent login. A Claude seat adds a runner
+# that only Label - Classify uses, so a label never waits behind a long agent job.
+# Usage: register-agent-runners <organization registration token>
+cat > /usr/local/bin/register-agent-runners << EOF
 #!/bin/bash
 set -euo pipefail
-cd $RUNNER_DIR
-sudo -u runner ./config.sh --unattended --replace --url https://github.com/$REPO \
-    --token "\$1" --name "\$(hostname)" --labels ubuntu-agent-bot
-./svc.sh install runner
-./svc.sh start
+token=\$1
+register() {
+    dir=$HOME_DIR/runners/\$1
+    if [ -e "\$dir/.runner" ]; then return; fi
+    mkdir -p "\$dir"
+    cp -R $RUNNER_DIR/. "\$dir"
+    chown -R runner:runner "\$dir"
+    cd "\$dir"
+    sudo -u runner ./config.sh --unattended --replace --url https://github.com/$ORG \
+        --runnergroup agent-runners --token "\$token" --name "agent-$SEAT-\$1" \
+        --labels "\$2"
+    ./svc.sh install runner
+    ./svc.sh start
+}
+for i in \$(seq $RUNNERS); do register "\$i" "agent,agent-$AGENT,seat-$SEAT"; done
+if [ $AGENT = claude ]; then register classify "agent-classify,seat-$SEAT"; fi
 EOF
-chmod +x /usr/local/bin/register-agent-runner
+chmod +x /usr/local/bin/register-agent-runners
 
 # Warms the Go build cache and the pnpm store before the first job. A failed warm only
 # makes the first job slower, so it must not stop the idle timer from being installed.
