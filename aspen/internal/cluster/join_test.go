@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/gob"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -30,13 +30,13 @@ import (
 var _ = Describe("Open", func() {
 	Context("Valid Properties", func() {
 		var (
-			gossipNet *mock.Network[gossip.Message, gossip.Message]
-			pledgeNet *mock.Network[pledge.Request, pledge.Response]
+			gossipNet *freightertestutil.Network[gossip.Message, gossip.Message]
+			pledgeNet *freightertestutil.Network[pledge.Request, pledge.Response]
 		)
 
 		BeforeEach(func() {
-			gossipNet = mock.NewNetwork[gossip.Message, gossip.Message]()
-			pledgeNet = mock.NewNetwork[pledge.Request, pledge.Response]()
+			gossipNet = freightertestutil.NewNetwork[gossip.Message, gossip.Message]()
+			pledgeNet = freightertestutil.NewNetwork[pledge.Request, pledge.Response]()
 		})
 
 		Context("Name Cluster", func() {

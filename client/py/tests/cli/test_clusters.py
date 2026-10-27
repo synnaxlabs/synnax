@@ -15,8 +15,7 @@ from keyring.backend import KeyringBackend
 from keyring.errors import KeyringError, PasswordDeleteError
 
 import synnax as sy
-from synnax.cli import console
-from synnax.cli.connect import connect_client
+from synnax.cli import connect, console
 from synnax.cli.flow import Context
 from synnax.cli.login import run as login
 from synnax.config import Cluster, Clusters, File
@@ -247,14 +246,14 @@ class TestLogin:
 
 
 @pytest.mark.cli
-class TestConnectClient:
+class TestFromClusters:
     def test_prompts_without_saved_options(
         self, clusters: Clusters, login_info: tuple[str, int, str, str]
     ) -> None:
         """Should prompt for options and save nothing when none are saved."""
         host, port, username, password = login_info
         mock = console.Mock(responses=[host, port, username, password, False])
-        assert connect_client(Context(console=mock), clusters) is not None
+        assert connect.from_clusters(Context(console=mock), clusters) is not None
         assert clusters.get() is None
 
     def test_replaces_saved_password(
@@ -272,13 +271,13 @@ class TestConnectClient:
             keyring,
             Options(host=host, port=port, username=username, password=password),
         )
-        connected = connect_client(Context(console=console.Mock()), clusters)
+        connected = connect.from_clusters(Context(console=console.Mock()), clusters)
         assert connected is not None
         assert ("synnax", "default") not in keyring.values
         saved = clusters.get()
         assert saved is not None
         assert saved.options.api_key.startswith("syk_")
-        keyed = connect_client(Context(console=console.Mock()), clusters)
+        keyed = connect.from_clusters(Context(console=console.Mock()), clusters)
         assert keyed is not None
         assert keyed.auth.session is not None
         created = {k.key for k in client.auth.retrieve_keys()} - before
@@ -303,7 +302,7 @@ class TestConnectClient:
             Options(host=host, port=port, username=username, password=password),
         )
         block_config_writes(clusters)
-        connected = connect_client(Context(console=console.Mock()), clusters)
+        connected = connect.from_clusters(Context(console=console.Mock()), clusters)
         assert connected is not None
         assert keyring.values == {("synnax", "default"): password}
         assert {k.key for k in client.auth.retrieve_keys()} == before
@@ -326,8 +325,10 @@ class TestConnectClient:
             keyring,
             Options(host=host, port=port, username=username, password=password),
         )
-        assert connect_client(Context(console=console.Mock()), clusters) is not None
-        keyed = connect_client(Context(console=console.Mock()), clusters)
+        assert (
+            connect.from_clusters(Context(console=console.Mock()), clusters) is not None
+        )
+        keyed = connect.from_clusters(Context(console=console.Mock()), clusters)
         assert keyed is not None
         assert keyed.auth.session is not None
         assert keyed.auth.session.credential not in before

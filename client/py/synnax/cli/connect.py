@@ -51,7 +51,7 @@ def prompt_client_options(ctx: Context) -> Options:
     )
 
 
-def connect_client(ctx: Context, clusters: Clusters) -> Synnax | None:
+def from_clusters(ctx: Context, clusters: Clusters) -> Synnax | None:
     """Connects to a Synnax server. Prompts the user for the connection parameters if
     none are saved. A saved password is replaced with an API key after the connection
     succeeds.
@@ -62,9 +62,9 @@ def connect_client(ctx: Context, clusters: Clusters) -> Synnax | None:
     """
     cluster = clusters.get()
     if cluster is None:
-        return connect_from_options(ctx, prompt_client_options(ctx))
+        return from_context(ctx, prompt_client_options(ctx))
     ctx.console.info("Using saved credentials.")
-    client = connect_from_options(ctx, cluster.options)
+    client = from_context(ctx, cluster.options)
     if client is not None and not cluster.options.api_key:
         try:
             save_api_key(client, cluster.options, clusters)
@@ -112,13 +112,13 @@ def save_api_key(client: Synnax, opts: Options, clusters: Clusters) -> None:
         client.auth.delete_keys(previous_key)
 
 
-def connect_from_options(ctx: Context, opts: Options) -> Synnax | None:
+def from_context(ctx: Context, opts: Options) -> Synnax | None:
     """Connects to a Synnax server. Prints user-friendly messages to the console if
     the connection fails.
 
     :param ctx: The context of the current flow.
-    :param opts: The options to connect to a Synnax server.
-    :return: The connected Synnax py, or None if the connection failed.
+    :param opts: The options to connect with.
+    :returns: The connected client, or None if the connection failed.
     """
     try:
         client = Synnax(**opts.model_dump())
