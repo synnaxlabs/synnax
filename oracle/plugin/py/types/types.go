@@ -875,7 +875,7 @@ func buildExtendsExpr(
 	data *templateData,
 ) string {
 	baseName := getPyName(parent)
-	importLocalHand(parent, baseName, data)
+	baseName = importLocalHand(parent, baseName, data)
 
 	// A base class defined in another schema module must be imported and
 	// referenced through its module alias (e.g. task_.ReadConfig).
@@ -1351,7 +1351,7 @@ func pyStructLiteral(
 		}
 	}
 	className := getPyName(resolved)
-	importLocalHand(resolved, className, data)
+	className = importLocalHand(resolved, className, data)
 	if resolved.Namespace != data.Namespace {
 		outputPath := output.GetPath(resolved, "py")
 		if outputPath == "" {
@@ -1481,7 +1481,7 @@ func unionVariantToPython(
 ) string {
 	variantName := casing.VariantTypeName(getPyName(uv.Type), uv.Variant.Name)
 	if uv.Type.Namespace == data.Namespace {
-		return variantName
+		return importLocalHand(uv.Type, variantName, data)
 	}
 	outputPath := enum.FindOutputPath(uv.Type, table, "py")
 	if outputPath == "" {
@@ -1539,17 +1539,18 @@ func sizedIntBounds(
 
 // importLocalHand imports name from typ's `@py include` module when typ is
 // hand-written or omitted in the namespace being generated, since the generated file
-// declares no such type. A missing module is recorded so generation fails.
-func importLocalHand(typ resolution.Type, name string, data *templateData) {
+// declares no such type. It returns the name to reference, which is an alias when the
+// import takes one. A missing module is recorded so generation fails.
+func importLocalHand(typ resolution.Type, name string, data *templateData) string {
 	if typ.Namespace != data.Namespace || !omit.IsSkipped(typ, "py") {
-		return
+		return name
 	}
 	module := domain.GetStringFromType(typ, "py", "include")
 	if module == "" {
 		data.missingIncludes.Add(typ.QualifiedName)
-		return
+		return name
 	}
-	data.imports.addModuleImport(toPythonModulePath(module), name)
+	return data.imports.addModuleImport(toPythonModulePath(module), name)
 }
 
 func addCrossNamespaceImport(modulePath, typeName string, data *templateData) string {
@@ -1619,7 +1620,7 @@ func typeToPython(
 	}
 
 	pyName := getPyName(resolved)
-	importLocalHand(resolved, pyName, data)
+	pyName = importLocalHand(resolved, pyName, data)
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
 		if resolved.Namespace != data.Namespace {
@@ -1728,7 +1729,7 @@ func typeRefToPythonAlias(
 	// Get the base type name with proper import handling
 	// Use getPyName to respect @py name directives (e.g., GoStatus -> Status)
 	pyName := getPyName(resolved)
-	importLocalHand(resolved, pyName, data)
+	pyName = importLocalHand(resolved, pyName, data)
 	var baseName string
 	if resolved.Namespace != data.Namespace {
 		outputPath := output.GetPath(resolved, "py")
