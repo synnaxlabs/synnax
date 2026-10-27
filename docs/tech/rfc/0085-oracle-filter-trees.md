@@ -391,7 +391,9 @@ and its flat fields go away together, since a client must match the Core's versi
 - **Phase 9: The Python builder.** The same, with keyword options. Every entity takes a
   key or a name as its first argument. A docs page teaches the builder in both
   languages.
-- **Phase 10: The C++ builder.** The same, with a variadic `retrieve`.
+- **Phase 10: The C++ builder.** The same, with a variadic `retrieve`. Include options
+  replace each client's `RetrieveOptions`, and `retrieve` replaces the `retrieve_by_*`
+  methods.
 
 ## 4 What this RFC does not cover
 
