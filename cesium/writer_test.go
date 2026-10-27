@@ -3489,6 +3489,7 @@ var _ = Describe("Writer Behavior", func() {
 						Start:    10 * telem.SecondTS,
 					}))
 					write := func(stamps ...telem.TimeStamp) {
+						GinkgoHelper()
 						series := []telem.Series{telem.NewSeriesV(stamps...)}
 						for range keys[1:] {
 							series = append(
@@ -3501,16 +3502,14 @@ var _ = Describe("Writer Behavior", func() {
 					write(10*telem.SecondTS, 11*telem.SecondTS)
 					MustSucceed(w.Commit())
 					write(5*telem.SecondTS, 6*telem.SecondTS)
-					_, err := w.Commit()
-					Expect(err).To(MatchError(validate.ErrValidation))
-					Expect(
-						strings.Count(err.Error(), "must not be less than"),
-					).To(Equal(1))
-					err = w.Close()
-					Expect(err).To(MatchError(validate.ErrValidation))
-					Expect(
-						strings.Count(err.Error(), "must not be less than"),
-					).To(Equal(1))
+					matchOneCommitError := And(
+						MatchError(validate.ErrValidation),
+						WithTransform(func(err error) int {
+							return strings.Count(err.Error(), "must not be less than")
+						}, Equal(1)),
+					)
+					Expect(w.Commit()).Error().To(matchOneCommitError)
+					Expect(w.Close()).To(matchOneCommitError)
 				})
 
 				Context("Missing Channel", func() {
