@@ -46,6 +46,7 @@ class ReportClient:
                     "total": 0,
                     "passed": 0,
                     "flaky": 0,
+                    "skipped": 0,
                     "failed": 0,
                     "killed": 0,
                     "timeout": 0,
@@ -54,6 +55,7 @@ class ReportClient:
 
             passed = sum(1 for r in self._tests if r.status == STATUS.PASSED)
             flaky = sum(1 for r in self._tests if r.status == STATUS.FLAKY)
+            skipped = sum(1 for r in self._tests if r.status == STATUS.SKIPPED)
             failed = sum(1 for r in self._tests if r.status == STATUS.FAILED)
             killed = sum(1 for r in self._tests if r.status == STATUS.KILLED)
             timeout = sum(1 for r in self._tests if r.status == STATUS.TIMEOUT)
@@ -63,6 +65,7 @@ class ReportClient:
                 "total": len(self._tests),
                 "passed": passed,
                 "flaky": flaky,
+                "skipped": skipped,
                 "failed": failed,
                 "killed": killed,
                 "timeout": timeout,
@@ -136,6 +139,8 @@ class ReportClient:
                 "/".join(case_parts[1:]) if len(case_parts) > 1 else str(test)
             )
             self._log(f"{status_symbol} {display_name}{duration_str}", False)
+            if test.skip_reason:
+                self._log(f"SKIPPED: {test.skip_reason}", False)
             if test.error_message:
                 self._log(f"ERROR: {test.error_message}", True)
 
@@ -154,6 +159,8 @@ class ReportClient:
         self._log(f"Passed: {stats['passed']}", False)
         if stats["flaky"] > 0:
             self._log(f"Flaky: {stats['flaky']} (passed on retry)", False)
+        if stats["skipped"] > 0:
+            self._log(f"Skipped: {stats['skipped']}", False)
         self._log(
             f"Failed: {stats['total_failed']} "
             f"(includes {stats['failed']} failed, "

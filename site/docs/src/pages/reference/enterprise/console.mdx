@@ -1,0 +1,86 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Connect the Console"
+description: "Install the Synnax Console app, add a Synnax Core to it, and log in."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+import { Console } from "@/components/console";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Video } from "@/components/media/Media";
+
+export const components = mdxOverrides;
+
+The Synnax Console app runs on Windows and macOS and keeps a list of the Synnax Cores
+you connect to. Each Core also serves the Console to a web browser. For the hardware the
+Console needs, see
+[Console hardware](/reference/enterprise/requirements#console-hardware).
+
+<Divider.Divider x />
+
+## Install the Console app
+
+Download the latest release for your operating system:
+
+<Console.DownloadButton />
+
+Earlier versions are on the
+[Synnax releases page](https://github.com/synnaxlabs/synnax/releases).
+
+<Divider.Divider x />
+
+## Add a Core
+
+The **Cores** list starts with two Cores: **Local**, a Core on this computer at
+`localhost:9090`, and **Demo**. If your Core runs on this computer on port 9090, skip to
+[log in](#log-in).
+
+1. In the **Cores** list, click **Add a Core**.
+2. Enter a name for the Core.
+3. Enter the **Host** and the **Port** of the Core. The default port is 9090.
+4. If the Core uses TLS, turn on **Secure**. For a Core with a self-signed certificate,
+   first [install its certificate](/reference/enterprise/certificates) on this computer.
+5. Click **Connect**.
+
+The Core shows in the list. **Connected** means the Core answered. **Unreachable** means
+it did not answer or has no active license. To see the reason, hover over the status.
+
+To change a Core, right-click it in the list and select **Edit**, **Rename**, **Refresh
+connection**, or **Remove**.
+
+<Video id="console/clusters/connect" />
+
+<Divider.Divider x />
+
+## Log in
+
+1. In the **Cores** list, click the Core.
+2. Enter your **Username** and **Password**.
+3. Click **Log in**.
+
+The root user of a new Core is `synnax` with the password `seldon`, unless the Core
+started with other
+[`--username` and `--password`](/reference/enterprise/cli-reference#start) values. Other
+users get their credentials from the person who
+[registered them](/reference/enterprise/users).
+
+After you log in, the Console shows your projects. For a Core without a license, it
+shows an activation screen instead. See
+[activate from the Console](/reference/enterprise/license#activate-from-the-console).
+
+The Console opens on the login form of the last Core you used. To select a different
+Core, click <Icon.Arrow.Left /> at the top left.
+
+<Divider.Divider x />
+
+## Use the Console in a browser
+
+1. In a web browser, go to the address of the Core, for example
+   `http://synnax.example.com:9090`. For a Core with TLS, use `https://`.
+2. Enter your **Username** and **Password**, then click **Log in**.
+
+The browser Console connects to the Core that serves it. For a Core with a self-signed
+certificate, the browser warns about the certificate until you
+[install the certificate](/reference/enterprise/certificates) on your computer.

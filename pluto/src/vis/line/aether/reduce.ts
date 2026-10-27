@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/x";
 
 import { type telem } from "@/telem/aether";
-import { type DrawOperation } from "@/vis/line/aether/line";
+import { type DrawOperation } from "@/vis/line/aether/draw";
 
 type NumberArray = Exclude<TypedArray, BigInt64Array | BigUint64Array>;
 
