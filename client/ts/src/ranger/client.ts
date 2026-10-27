@@ -14,6 +14,7 @@ import {
   type CrudeTimeRange,
   deep,
   type destructor,
+  errors,
   type Series,
   TimeRange,
   zod,
@@ -21,7 +22,7 @@ import {
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { QueryError } from "@/errors";
+import { AccessDeniedError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -88,7 +89,11 @@ const createTables = (
   // Fetches missing relationship targets so compositions and membership
   // checks can see them.
   relationships.subscribe((event) => {
-    if (event.variant === "set") backfill(event.value).catch(cache.onError);
+    if (event.variant !== "set") return;
+    backfill(event.value).catch((exc: unknown) => {
+      // The relationship reaches callers who cannot read its target.
+      if (!AccessDeniedError.matches(exc)) cache.onError(errors.fromUnknown(exc));
+    });
   });
 
   const kvPairs = cache.createTable<string, kv.Pair>({

@@ -9,7 +9,7 @@
 
 import "@/feature/license/Activate.css";
 
-import { status } from "@synnaxlabs/client";
+import { ExpiredLicenseError, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -53,6 +53,7 @@ export interface ActivateProps {
  */
 export const Activate = ({ onBack }: ActivateProps): ReactElement => {
   const client = Synnax.use();
+  const { details } = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
   const logout = Session.useLogout();
   const handleError = Status.useErrorHandler();
@@ -61,6 +62,7 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
   const [activating, setActivating] = useState(false);
   const [error, setError] = useState<status.Status | null>(null);
   const fingerprint = result.data?.fingerprint ?? [];
+  const expired = ExpiredLicenseError.matches(details.error);
   const noHardware = result.data != null && fingerprint.length === 0;
 
   const pickFile = (): void =>
@@ -86,9 +88,10 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
     setActivating(false);
   };
 
-  const description = noHardware
-    ? "This Core reports no network hardware. Ask for a floating license."
-    : "Get a new key from your Synnax account.";
+  let description = "Get a key from your Synnax account, then paste it here.";
+  if (noHardware)
+    description = "This Core reports no network hardware. Ask for a floating license.";
+  else if (expired) description = "Get a new key from your Synnax account.";
 
   return (
     <Shell.Frame
@@ -100,7 +103,9 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
           <PlatformShell.Mark />
           <Flex.Box y align="center" gap="small" full="x">
             <Text.Text level="h4" weight={500} color={11}>
-              This Core's license has expired
+              {expired
+                ? "This Core's license has expired"
+                : "This Core needs a license"}
             </Text.Text>
             <Text.Text
               level="p"

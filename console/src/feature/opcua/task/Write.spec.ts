@@ -11,6 +11,7 @@ import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
@@ -52,7 +53,7 @@ const createWriteChannel = (): OPCUA.Task.WriteChannel => {
 const createWriteConfig = (
   device: string,
   channels: OPCUA.Task.WriteChannel[],
-): OPCUA.Task.WritePayload["config"] => ({
+): z.infer<OPCUA.Task.WriteSchemas["config"]> => ({
   ...OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
   device,
   channels,
@@ -65,8 +66,10 @@ const ZERO_DRAFT: task.New<OPCUA.Task.WriteSchemas> = {
   config: OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: OPCUA.Task.WritePayload["config"]) =>
-  await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.WRITE_SCHEMAS);
+const createDraft = async (
+  client: Synnax,
+  config: z.infer<OPCUA.Task.WriteSchemas["config"]>,
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.WRITE_SCHEMAS);
 
 describe("Write", () => {
   it("should create command and index channels on deploy", async () => {

@@ -89,22 +89,22 @@ class _Registry:
         return Exception(pld.data)
 
 
-REGISTRY = _Registry()
+_REGISTRY = _Registry()
 
 
 def register_exception(_encode: EncoderFunc, _decode: DecoderFunc) -> None:
     """Registers a custom error encoder and decoder with the exception registry."""
-    REGISTRY.register(_ExceptionProvider(_encode, _decode))
+    _REGISTRY.register(_ExceptionProvider(_encode, _decode))
 
 
 def encode_exception(exc: Exception) -> ExceptionPayload:
     """Encodes an exception into a payload that can be sent over the network."""
-    return REGISTRY.encode(exc)
+    return _REGISTRY.encode(exc)
 
 
 def decode_exception(encoded: ExceptionPayload | None) -> Exception | None:
     """Decodes an error payload into an exception."""
-    return None if encoded is None else REGISTRY.decode(encoded)
+    return None if encoded is None else _REGISTRY.decode(encoded)
 
 
 class ContiguityError(Exception):
