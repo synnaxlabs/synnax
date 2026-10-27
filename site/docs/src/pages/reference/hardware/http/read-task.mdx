@@ -1,0 +1,249 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "HTTP read task"
+description: "Poll a web API and record values from its JSON responses in channels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An HTTP read task sends requests to a web API at a fixed rate and records values from
+each JSON response in channels. For example, it can record the temperature and humidity
+from a weather station once a second.
+
+Before you start, you need a
+[connected HTTP server](/reference/hardware/http/connect-server).
+
+<Divider.Divider x />
+
+## Endpoints and fields
+
+An endpoint is one request: a method, a path, and optional query parameters, headers,
+and body. A field is one value in the JSON response, found by a
+[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901), such as `/temperature`.
+Each field records into one channel.
+
+- **Numbers** -> recorded as they are.
+- **Booleans** -> recorded as 1 and 0.
+- **Strings** -> converted with the **Enum mapping**, else read as a number. A string
+  channel records the text.
+
+Each endpoint has its own timestamps. Set the **Source** of an endpoint to one of these:
+
+- **Poll time** -> the Driver uses the time halfway through the request.
+- **Response value** -> the Driver reads the time from the response, at a **Pointer**,
+  in a **Format**: ISO 8601, or Unix time in seconds, milliseconds, microseconds, or
+  nanoseconds.
+
+<Divider.Divider x />
+
+## Create an HTTP read task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the server and select **Create read task**.
+2. Set **Rate**, the number of requests per second to each endpoint.
+3. Click **Add endpoint**, then set **Method** and **Path**, such as `/api/data`.
+4. Click **Add field** on the endpoint, then set **Pointer** and **Data type**.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates a channel for each field and an index channel for each endpoint. For
+a server named "Weather station", the path `/api/data` and the pointer `/temperature`
+give `Weather_station_api_data_temperature`, with the index
+`Weather_station_api_data_time`. To choose a name, set **Channel** before you start.
+
+<Video id="hardware/http/read-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create one index channel for each endpoint first.
+
+```python
+import synnax as sy
+from synnax import http
+
+server = client.devices.retrieve(name="Weather station")
+time = client.channels.create(
+    name="weather_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+temperature = client.channels.create(
+    name="weather_temperature", index=time.key, data_type=sy.DataType.FLOAT64
+)
+
+task = http.ReadTask(
+    name="Weather station read",
+    device=server.key,
+    rate=1,
+    endpoints=[
+        http.ReadEndpoint(
+            method="GET",
+            path="/api/data",
+            fields=[
+                http.ReadField(pointer="/temperature", channel=temperature.key)
+            ],
+        )
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create one index channel for each endpoint first.
+
+```typescript
+import { device, http } from "@synnaxlabs/client";
+
+const server = await client.devices.retrieve(
+  device.name.eq("Weather station"),
+  device.one(),
+);
+const time = await client.channels.create({
+  name: "weather_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const temperature = await client.channels.create({
+  name: "weather_temperature",
+  index: time.key,
+  dataType: "float64",
+});
+
+const task = await client.tasks.create({
+  name: "Weather station read",
+  rack: server.rack,
+  type: "http_read",
+  config: http.readConfigZ.parse({
+    device: server.key,
+    rate: 1,
+    endpoints: [
+      {
+        method: "GET",
+        path: "/api/data",
+        fields: [{ pointer: "/temperature", channel: temperature.key }],
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label | Python field           | Default | Notes                                                            |
+| ------------- | ---------------------- | ------- | ---------------------------------------------------------------- |
+| Rate          | `rate`                 | 1 Hz    | Requests per second to each endpoint. One sample for each field. |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).        |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.                     |
+
+Turn on **NaN fill** (`nan_fill_enabled=True` in Python, `nanFillEnabled: true` in
+TypeScript) to write `NaN` when a float field is missing or cannot be converted. It is
+off by default. With it off, an invalid field skips every field that shares its endpoint
+and index channel. Invalid non-float fields still skip that group.
+
+The HTTP read task has no stream rate. Each response is sent to the Core at once. See
+[read tasks](/reference/hardware/tasks#read-tasks).
+
+<Divider.Divider x />
+
+## Endpoint and field reference
+
+Each table shows the Console label of a setting, with its Python field under it. An
+endpoint has these settings:
+
+| Setting                                        | Default | Notes                                                           |
+| ---------------------------------------------- | ------- | --------------------------------------------------------------- |
+| Method <small>`method`</small>                 | `GET`   | `GET` or `POST` in the Console. Code accepts any method.        |
+| Path <small>`path`</small>                     |         | Added to the base address of the server.                        |
+| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.                                 |
+| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                                      |
+| Body <small>`body`</small>                     | Empty   | Sent only with methods that take a body, as `application/json`. |
+
+A field has these settings:
+
+| Setting                                   | Default   | Notes                                           |
+| ----------------------------------------- | --------- | ----------------------------------------------- |
+| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value.                  |
+| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel. |
+| Channel <small>`channel`</small>          |           | The channel that records the value.             |
+| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.    |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"index channel ... is referenced by fields on different endpoints"}>
+<Problem.Cause>
+
+Two endpoints record into channels that share one index channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each endpoint its own index channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Field ... not found in response from ..."}>
+<Problem.Cause>
+
+The response has no value at the pointer.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the pointer against a response from the server. Pointers start with `/` and are
+case sensitive.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Falling behind poll rate"}>
+<Problem.Cause>
+
+The requests take longer than one period. The description gives the number of endpoints
+and the read period.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower **Rate**, or increase **Concurrent requests** on the
+[server](/reference/hardware/http/connect-server#connection-options).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"The task stopped while the server was down."}>
+<Problem.Cause>
+
+The task tries again for a long time, then stops.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Start the task again when the server is back.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).
