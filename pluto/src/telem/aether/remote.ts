@@ -141,6 +141,9 @@ class ChannelValue<V>
   private subscription: framer.Subscription | null = null;
   private key: channel.Key | null = null;
   private converted: Converted<V> | null = null;
+  // notified is the value listeners last heard of. A read can convert a new sample
+  // before the subscription's notice runs.
+  private notified: Converted<V> | null = null;
   private generation = 0;
   private valid = false;
   private loading = true;
@@ -177,6 +180,7 @@ class ChannelValue<V>
     this.subscription = null;
     this.key = null;
     this.converted = null;
+    this.notified = null;
     this.valid = false;
     this.loading = true;
     this.failures.reset();
@@ -184,22 +188,20 @@ class ChannelValue<V>
 
   // Converts the newest sample when its series or length changes, since a string
   // conversion scans the series. A successful read with no samples, as after a delete,
-  // clears it. Returns true when the converted value changes.
-  private convert({ series, status }: framer.Snapshot): boolean {
+  // clears it.
+  private convert({ series, status }: framer.Snapshot): void {
     const last = series.series.at(-1);
     if (last == null || last.length === 0) {
-      if (this.converted == null || status.variant !== "success") return false;
-      this.converted = null;
-      return true;
+      if (status.variant === "success") this.converted = null;
+      return;
     }
     const prev = this.converted;
-    if (prev?.series === last && prev.length === last.length) return false;
+    if (prev?.series === last && prev.length === last.length) return;
     this.converted = {
       series: last,
       length: last.length,
       value: this.conversion.convert(last),
     };
-    return true;
   }
 
   /** Never rejects: a failure invalidates the source and reaches onStatusChange. */
@@ -223,9 +225,12 @@ class ChannelValue<V>
       subscription.onChange(() => {
         const snapshot = subscription.value(key);
         this.failures.observe(snapshot.status);
+        this.convert(snapshot);
         // A history change that rewrites the newest sample notifies too, so the value
         // redraws. Consumers that count arrivals compare its time.
-        if (this.convert(snapshot)) this.notify();
+        if (this.converted === this.notified) return;
+        this.notified = this.converted;
+        this.notify();
       });
     } catch (e) {
       if (generation !== this.generation) return;

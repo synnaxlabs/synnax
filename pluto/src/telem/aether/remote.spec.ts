@@ -146,6 +146,28 @@ describe("remote", () => {
       expect(latest).not.toBe(newest(createCore(), key).at(-1));
     });
 
+    it("should notify a live sample that a read converted first", async () => {
+      const core = createCore({ channels: 2 });
+      const client = connect(core);
+      const [a, b] = core.data.map(({ key }) => createNumber(client, key));
+      const heard = [vi.fn(), vi.fn()];
+      // Each notice reads the other source, as a pipeline over both does.
+      a.onChange(() => {
+        heard[0]();
+        b.value();
+      });
+      b.onChange(() => {
+        heard[1]();
+        a.value();
+      });
+      a.value();
+      b.value();
+      const counts = () => heard.map((h) => h.mock.calls.length);
+      await expect.poll(counts, POLL).toEqual([1, 1]);
+      core.advance(RATE.period);
+      await expect.poll(counts, POLL).toEqual([2, 2]);
+    });
+
     it("should notify a rewrite of the newest sample at its time", async () => {
       const core = createCore();
       const { key } = core.data[0];
