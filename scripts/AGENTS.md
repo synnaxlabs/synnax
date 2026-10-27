@@ -6,6 +6,10 @@ easy to get wrong by hand.
 
 ## Formatting
 
+- `fix.sh` — adds copyright headers to files and formats them with Prettier, Ruff,
+  `golangci-lint fmt`, and clang-format. With no arguments it fixes files changed
+  against the merge base with `origin/main`; `--staged` fixes staged files and stages
+  the fixes; file arguments fix only those files. It skips a formatter it cannot find.
 - Go has no repo script: format with `golangci-lint fmt` in the module (dry run:
   `--diff`), driven by the formatters in the root `.golangci.yaml`.
 - `clang_format.sh <path>` / `clang_format.sh --files <f1> <f2> ...` — formats
@@ -70,6 +74,12 @@ Neither script touches `.oracle` schema files.
   repo that a repo contents cache deletion left unloadable, or from a link against
   archives a dependency bump made stale. Only the Windows CI steps use it, because those
   runners hold one output base for weeks.
+
+## Coding agents
+
+- `agent/run` — runs Claude Code or Codex headless, then opens a PR, comments on a PR,
+  or writes a report under a GitHub App bot identity. `--dry-run` pushes nothing. The
+  module docstring in `agent/agent.py` lists the flags and the environment.
 
 ## Toolchain bootstrap
 

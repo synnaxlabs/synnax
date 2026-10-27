@@ -29,6 +29,10 @@ on:
           - dead-code
           - test-quality
           - docs-drift
+          - duplication-go
+          - duplication-ts
+          - duplication-python
+          - duplication-cpp
 
 permissions: {}
 
@@ -45,18 +49,29 @@ jobs:
       dead-code: ${{ steps.prompt.outputs.dead-code }}
       test-quality: ${{ steps.prompt.outputs.test-quality }}
       docs-drift: ${{ steps.prompt.outputs.docs-drift }}
+      duplication-go: ${{ steps.prompt.outputs.duplication-go }}
+      duplication-ts: ${{ steps.prompt.outputs.duplication-ts }}
+      duplication-python: ${{ steps.prompt.outputs.duplication-python }}
+      duplication-cpp: ${{ steps.prompt.outputs.duplication-cpp }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
-        with:
-          sparse-checkout: .github/agents
+
+      - name: Find duplicated code
+        if:
+          inputs.theme == '' || inputs.theme == 'all' || startsWith(inputs.theme,
+          'duplication-')
+        run:
+          npx --yes jscpd@5.4.1 --config .github/agents/nightly/jscpd.json --output
+          "$RUNNER_TEMP/jscpd" .
 
       - name: Write the prompts
         id: prompt
         env:
           THEME: ${{ inputs.theme || 'all' }}
         run: |
-          THEMES=(flake-hunt slop dead-code test-quality docs-drift)
+          THEMES=(flake-hunt slop dead-code test-quality docs-drift duplication-go
+            duplication-ts duplication-python duplication-cpp)
           [ "$THEME" = all ] || THEMES=("$THEME")
           echo "themes=$(jq --compact-output --null-input '$ARGS.positional' \
             --args "${THEMES[@]}")" >> "$GITHUB_OUTPUT"
@@ -66,7 +81,14 @@ jobs:
               echo "$theme<<$EOF"
               cat .github/agents/nightly/rules.md
               echo
-              cat ".github/agents/nightly/$theme.md"
+              if [[ $theme == duplication-* ]]; then
+                cat .github/agents/nightly/duplication.md
+                printf '\n## Clone groups\n\n'
+                python3 -I .github/scripts/clones.py "$RUNNER_TEMP/jscpd/jscpd-report.json" \
+                  --language "${theme#duplication-}" --top 40
+              else
+                cat ".github/agents/nightly/$theme.md"
+              fi
               printf '\nToday is %s. The theme is %s.\n' "$(date -u +%F)" "$theme"
               echo "$EOF"
             } >> "$GITHUB_OUTPUT"
@@ -85,6 +107,7 @@ jobs:
     permissions:
       actions: read
       contents: write
+      id-token: write
       issues: write
       pull-requests: write
     uses: ./.github/workflows/agent.yaml

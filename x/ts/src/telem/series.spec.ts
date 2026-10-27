@@ -915,6 +915,135 @@ describe("Series", () => {
       const buf = controller.buffers[series.glBuffer as number];
       expect(buf.byteLength).toEqual(series.byteCapacity.valueOf());
     });
+
+    it("should buffer a float64 series as float32", () => {
+      const series = new Series({ data: new Float64Array([1.5, 2.5, 3.5]) });
+      const controller = new MockGLBufferController();
+      series.updateGLBuffer(controller);
+      const buf = controller.buffers[series.glBuffer as number];
+      expect(new Float32Array(buf)).toEqual(new Float32Array([1.5, 2.5, 3.5]));
+      expect(series.dataType).toEqual(DataType.FLOAT64);
+    });
+
+    it("should buffer a bigint series relative to its first sample", () => {
+      const first = TimeStamp.seconds(1_750_000_000).valueOf();
+      const series = new Series({
+        data: new BigInt64Array([first, first + 1000n, first + 2000n]),
+        dataType: DataType.TIMESTAMP,
+      });
+      const controller = new MockGLBufferController();
+      series.updateGLBuffer(controller);
+      const buf = controller.buffers[series.glBuffer as number];
+      expect(new Float32Array(buf)).toEqual(new Float32Array([0, 1000, 2000]));
+      expect(series.glOffset).toEqual(first);
+      expect(series.at(2)).toEqual(first + 2000n);
+    });
+
+    it("should buffer only the samples written since the last update", () => {
+      const series = Series.alloc({ capacity: 10, dataType: DataType.INT64 });
+      const controller = new MockGLBufferController();
+      series.write(new Series({ data: new BigInt64Array([100n, 101n]) }));
+      series.updateGLBuffer(controller);
+      series.write(new Series({ data: new BigInt64Array([105n]) }));
+      series.updateGLBuffer(controller);
+      expect(controller.bufferSubDataMock).toHaveBeenCalledTimes(2);
+      expect(controller.bufferSubDataMock.mock.calls[1][1]).toEqual(8);
+      const buf = controller.buffers[series.glBuffer as number];
+      expect(buf.byteLength).toEqual(40);
+      expect(new Float32Array(buf).subarray(0, 3)).toEqual(new Float32Array([0, 1, 5]));
+      expect(series.glOffset).toEqual(100n);
+    });
+
+    it("should throw when buffering a variable length series", () => {
+      const series = new Series({ data: ["a", "b"] });
+      const controller = new MockGLBufferController();
+      expect(() => series.updateGLBuffer(controller)).toThrow(
+        "variable length series cannot be used in WebGL",
+      );
+    });
+
+    describe("after the context is restored", () => {
+      it("should upload every written sample to a new buffer", () => {
+        const series = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32 });
+        series.write(new Series({ data: new Float32Array([1, 2]) }));
+        const controller = new MockGLBufferController();
+        series.updateGLBuffer(controller);
+        const lost = series.glBuffer;
+        controller.generation++;
+        series.updateGLBuffer(controller);
+        expect(controller.createBufferMock).toHaveBeenCalledTimes(2);
+        expect(series.glBuffer).not.toEqual(lost);
+        const buf = controller.buffers[series.glBuffer as number];
+        expect(new Float32Array(buf)).toEqual(new Float32Array([1, 2, 0, 0]));
+      });
+
+      it("should not delete a buffer made before the restore", () => {
+        const series = new Series({
+          data: new Float32Array([1, 2, 3]),
+          dataType: DataType.FLOAT32,
+        });
+        const controller = new MockGLBufferController();
+        series.acquire(controller);
+        controller.generation++;
+        series.release();
+        expect(controller.deleteBufferMock).not.toHaveBeenCalled();
+        expect(() => series.glBuffer).toThrow("gl buffer not initialized");
+      });
+    });
+  });
+
+  describe("glDataType", () => {
+    it("should be UINT8 for a UINT8 series", () => {
+      const series = new Series({ data: new Uint8Array([1]) });
+      expect(series.glDataType).toEqual(DataType.UINT8);
+    });
+
+    it("should be FLOAT32 for every other numeric series", () => {
+      const types = [
+        DataType.FLOAT64,
+        DataType.INT16,
+        DataType.BOOLEAN,
+        DataType.INT64,
+      ];
+      types.forEach((dataType) =>
+        expect(new Series({ data: [1], dataType }).glDataType).toEqual(
+          DataType.FLOAT32,
+        ),
+      );
+    });
+  });
+
+  describe("glData", () => {
+    it("should return the data of a series that does not use bigints", () => {
+      const series = new Series({ data: new Int32Array([1, 2]), sampleOffset: 3 });
+      expect(series.glData).toBe(series.data);
+      expect(series.glOffset).toEqual(3);
+    });
+
+    it("should return a float32 copy of a bigint series", () => {
+      const series = new Series({ data: new BigUint64Array([7n, 9n]) });
+      expect(series.glData).toEqual(new Float32Array([0, 2]));
+      expect(series.glOffset).toEqual(7n);
+    });
+
+    it("should add the sample offset of a bigint series to its offset", () => {
+      const series = new Series({
+        data: new BigInt64Array([7n, 9n]),
+        sampleOffset: 3n,
+      });
+      expect(series.glData).toEqual(new Float32Array([0, 2]));
+      expect(series.glOffset).toEqual(10n);
+      expect(series.at(1)).toEqual(12n);
+    });
+
+    it("should keep the copy until the last reference is released", () => {
+      const series = new Series({ data: new BigInt64Array([7n, 9n]) });
+      series.acquire();
+      const copy = series.glData.buffer;
+      expect(series.glData.buffer).toBe(copy);
+      series.release();
+      expect(series.glData.buffer).not.toBe(copy);
+    });
   });
 
   describe("acquire", () => {
@@ -1068,6 +1197,14 @@ describe("Series", () => {
       series.write(writeOne);
       expect(series.binarySearch(3)).toEqual(2);
       expect(series.binarySearch(6)).toEqual(5);
+    });
+
+    it("should return the index of a timestamp equal to the value", () => {
+      const series = new Series({
+        data: new BigInt64Array([10n, 20n, 30n]),
+        dataType: DataType.TIMESTAMP,
+      });
+      expect(series.binarySearch(20n)).toEqual(1);
     });
   });
 
@@ -1444,6 +1581,29 @@ describe("Series", () => {
         alignment: 1n,
       });
       expect(a.alignmentBounds).toEqual({ lower: 1n, upper: 4n });
+    });
+
+    it("should return the same bounds while the length holds", () => {
+      const s = new Series({ data: new Float32Array([1, 2, 3]), alignment: 1n });
+      expect(s.alignmentBounds).toBe(s.alignmentBounds);
+    });
+
+    it("should return new bounds once the series grows", () => {
+      const s = Series.alloc({
+        capacity: 10,
+        dataType: DataType.FLOAT32,
+        alignment: 5n,
+      });
+      expect(s.alignmentBounds).toEqual({ lower: 5n, upper: 5n });
+      s.write(new Series({ data: new Float32Array([1, 2]) }));
+      expect(s.alignmentBounds).toEqual({ lower: 5n, upper: 7n });
+    });
+
+    it("should not let a caller change the bounds", () => {
+      const s = new Series({ data: new Float32Array([1, 2, 3]), alignment: 1n });
+      expect(() => {
+        s.alignmentBounds.upper = 0n;
+      }).toThrow(TypeError);
     });
   });
 
@@ -2985,16 +3145,11 @@ describe("MultiSeries", () => {
       expect(controller.bufferDataMock).not.toHaveBeenCalled();
     });
 
-    it("should throw error for non-FLOAT32/UINT8 series", () => {
-      const a = new Series({
-        data: new BigInt64Array([BigInt(1), BigInt(2)]),
-        dataType: DataType.INT64,
-      });
-      const multi = new MultiSeries([a]);
+    it("should throw for a variable length series", () => {
+      const multi = new MultiSeries([new Series({ data: ["a"] })]);
       const controller = new MockGLBufferController();
-
       expect(() => multi.updateGLBuffer(controller)).toThrow(
-        "Only FLOAT32 and UINT8 arrays can be used in WebGL",
+        "variable length series cannot be used in WebGL",
       );
     });
 
