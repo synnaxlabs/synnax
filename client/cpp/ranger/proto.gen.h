@@ -31,6 +31,11 @@
 namespace synnax::ranger {
 
 inline std::pair<::service::ranger::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::ranger::pb::UuidSet &pb);
+
+inline std::pair<::service::ranger::pb::UuidSet, x::errors::Error>
 uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
     ::service::ranger::pb::UuidSet pb;
     if (self.eq.has_value()) pb.set_eq(self.eq->to_string());

@@ -29,6 +29,16 @@
 namespace synnax::task {
 
 inline std::pair<::service::task::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::task::pb::UuidSet &pb);
+
+inline std::pair<::service::task::pb::RackKeySet, x::errors::Error>
+rack_key_set_to_proto(const ::x::filter::Set<::synnax::rack::Key> &self);
+inline std::pair<::x::filter::Set<::synnax::rack::Key>, x::errors::Error>
+rack_key_set_from_proto(const ::service::task::pb::RackKeySet &pb);
+
+inline std::pair<::service::task::pb::UuidSet, x::errors::Error>
 uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
     ::service::task::pb::UuidSet pb;
     if (self.eq.has_value()) pb.set_eq(self.eq->to_string());
