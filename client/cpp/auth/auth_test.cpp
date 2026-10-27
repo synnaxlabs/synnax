@@ -81,7 +81,7 @@ TEST(TestAuth, LoginSendsPasswordProof) {
 
 /// @brief it should log in with an API key proof.
 TEST(TestAuth, LoginSendsAPIKeyProof) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
     auto *create = mock_create_client.get();
