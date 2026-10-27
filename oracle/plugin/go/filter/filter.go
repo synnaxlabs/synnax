@@ -134,6 +134,8 @@ type lineData struct {
 	Typed bool
 	// Members are the members of a bare line's operator.
 	Members []string
+	// Operators are the Go names of the optional members, the ones that select values.
+	Operators []string
 	// Scalar is true when Func takes one value, so an `in` ORs one call per value.
 	Scalar bool
 	// Field is the selector that reads the target field, for members no matcher covers.
@@ -150,6 +152,27 @@ type lineData struct {
 
 // Has reports whether the line's operator has the member.
 func (l lineData) Has(member string) bool { return lo.Contains(l.Members, member) }
+
+// NoOperator returns the condition that the line sets no operator, wrapped to the line
+// width of the generated file.
+func (l lineData) NoOperator() string {
+	const width, start, indent = 88, len("\t\tif ") + 6, 12
+	var b strings.Builder
+	col := start
+	for i, op := range l.Operators {
+		term := "l." + op + " == nil"
+		if i > 0 && col+len(" && ")+len(term)+len(" {") > width {
+			b.WriteString(" &&\n\t\t\t")
+			col = indent
+		} else if i > 0 {
+			b.WriteString(" && ")
+			col += len(" && ")
+		}
+		b.WriteString(term)
+		col += len(term)
+	}
+	return b.String()
+}
 
 type comparisonData struct{ Member, Op string }
 
@@ -279,6 +302,12 @@ func generateFile(
 		ld.Members = lo.Map(opForm.Fields, func(f resolution.Field, _ int) string {
 			return f.Name
 		})
+		ld.Operators = lo.FilterMap(
+			opForm.Fields,
+			func(f resolution.Field, _ int) (string, bool) {
+				return naming.ToPascalCase(f.Name), f.Optional
+			},
+		)
 		for _, m := range ld.Members {
 			if !lo.Contains(known, m) {
 				return fail(
@@ -391,10 +420,11 @@ func addImports(data templateData, repoRoot string) {
 	data.AddExternal("strconv")
 	internal("validate", "x/go/validate")
 	hasText := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Text })
+	hasBare := lo.SomeBy(data.Lines, func(l lineData) bool { return !l.Typed })
 	needsMatch := hasText || lo.SomeBy(data.Lines, func(l lineData) bool {
 		return len(l.Comparisons()) > 0
 	})
-	if hasText {
+	if hasBare {
 		internal("filter", "x/go/filter")
 	}
 	if lo.SomeBy(data.Lines, func(l lineData) bool { return l.Enum }) {
@@ -453,6 +483,11 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 {{- range .Lines}}
 {{- $line := .}}
 	if l := w.{{.GoName}}; l != nil {
+{{- if not .Typed}}
+		if {{.NoOperator}} {
+			return nil, validate.PathedError(filter.ErrNoOperator, "{{.Path}}")
+		}
+{{- end}}
 {{- if .Typed}}
 		fs = append(fs, {{.Func}}{{$.TypeArgs}}({{if .Pointer}}*{{end}}l{{if .Variadic}}...{{end}}))
 {{- else if .Text}}

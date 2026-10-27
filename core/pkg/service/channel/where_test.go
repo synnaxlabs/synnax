@@ -107,4 +107,27 @@ var _ = Describe("Where", Ordered, func() {
 			),
 		))
 	})
+
+	DescribeTable("Should return a path error for an operator that sets no operator",
+		func(tree, message string) {
+			var w channel.Where
+			Expect(json.Unmarshal([]byte(tree), &w)).To(Succeed())
+			Expect(channel.MatchWhere(w)).Error().To(SatisfyAll(
+				BeAssignableToTypeOf(validate.PathError{}),
+				MatchError(message),
+			))
+		},
+		Entry("an empty key", `{"key":{}}`, "key: no operator set: validation error"),
+		Entry(
+			"case_insensitive alone",
+			`{"or":[{"name":{"case_insensitive":true}}]}`,
+			"or.0.name: no operator set: validation error",
+		),
+	)
+
+	It("Should match every channel for an empty node", func() {
+		var w channel.Where
+		Expect(json.Unmarshal([]byte(`{"and":[{}]}`), &w)).To(Succeed())
+		Expect(channel.MatchWhere(w)).Error().ToNot(HaveOccurred())
+	})
 })

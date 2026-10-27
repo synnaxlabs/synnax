@@ -45,6 +45,9 @@ func MatchWhere(w Where) (Filter, error) {
 		fs = append(fs, Not(not))
 	}
 	if l := w.Key; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "key")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchKeys(*l.Eq))
 		}
@@ -53,6 +56,10 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Name; l != nil {
+		if l.Eq == nil && l.In == nil && l.Contains == nil && l.StartsWith == nil &&
+			l.Regex == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "name")
+		}
 		text := *l
 		if !l.CaseInsensitive {
 			if l.Eq != nil {
@@ -80,6 +87,9 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Leaseholder; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "leaseholder")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchLeaseholders(*l.Eq))
 		}
@@ -88,6 +98,9 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.DataType; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "data_type")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchDataTypes(*l.Eq))
 		}
@@ -96,11 +109,17 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.IsIndex; l != nil {
+		if l.Eq == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "is_index")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchIsIndex(*l.Eq))
 		}
 	}
 	if l := w.Internal; l != nil {
+		if l.Eq == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "internal")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchInternal(*l.Eq))
 		}

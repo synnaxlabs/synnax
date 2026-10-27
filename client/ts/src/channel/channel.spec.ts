@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, test, vi } from "vitest";
 import { channel } from "@/channel";
 import { Channel } from "@/channel/client";
 import { statusKey } from "@/channel/payload";
-import { NotFoundError } from "@/errors";
+import { NotFoundError, PathError, ValidationError } from "@/errors";
 import { query } from "@/query";
 import {
   createProxiedTestClient,
@@ -237,6 +237,17 @@ describe("Channel", () => {
       await expect(
         async () => await client.channels.retrieve("1-1000"),
       ).rejects.toThrow(NotFoundError);
+    });
+    test("reject a condition whose operator is undefined", async () => {
+      const name: string | undefined = undefined;
+      await expect(
+        client.channels.retrieve({ where: { name: { eq: name } } }),
+      ).rejects.toThrow(
+        new PathError(
+          ["where", "name"],
+          new ValidationError("no operator set: validation error"),
+        ),
+      );
     });
     test("retrieve by name", async () => {
       const name = id.create();
