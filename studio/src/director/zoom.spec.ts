@@ -9,8 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ZOOM_RECT_MARGIN_PX } from "@/director/constants";
-import { fitAmount, plan } from "@/director/zoom";
+import { fitAmount, plan, ZOOM_RECT_MARGIN_PX } from "@/director";
 import { type Event, type Rect, type Timeline } from "@/timeline";
 
 const FPS = 60;

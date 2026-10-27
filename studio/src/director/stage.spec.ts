@@ -12,13 +12,16 @@ import { describe, expect, it } from "vitest";
 import {
   CARD_RISE_PX,
   CARD_S,
+  easeOutQuint,
   END_S,
   PACE_MAX_S,
+  type Plane,
+  stage,
   STAGE_REST,
+  type StagePlan,
   TARGET_FILL,
   WINDOW_FILL,
-} from "@/director/constants";
-import { easeOutQuint, type Plane, stage, type StagePlan } from "@/director/stage";
+} from "@/director";
 import { edit, FPS, SIZES } from "@/film";
 import { type Event, type Timeline } from "@/timeline";
 

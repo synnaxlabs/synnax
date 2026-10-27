@@ -10,8 +10,8 @@
 import cfg from "@synnaxlabs/eslint-config";
 import type { Linter } from "eslint";
 
-// Off until the deep imports in this package are fixed.
 export default [
   ...cfg,
-  { rules: { "synnax/barrel-imports": "off" } },
+  // Off until a decision on how the spec reaches entryHash, which no barrel exports.
+  { files: ["src/cli/hash.spec.ts"], rules: { "synnax/barrel-imports": "off" } },
 ] as Linter.Config[];

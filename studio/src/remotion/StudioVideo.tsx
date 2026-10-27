@@ -10,8 +10,7 @@
 import { type ReactElement } from "react";
 import { AbsoluteFill, Img, staticFile, useCurrentFrame } from "remotion";
 
-import { crop, motionBlur } from "@/director/camera";
-import { type Tracks } from "@/director/director";
+import { crop, motionBlur, type Tracks } from "@/director";
 import { Cursor } from "@/remotion/Cursor";
 import { Ripple, RIPPLE_TICKS } from "@/remotion/Ripple";
 import { type Meta, type Timeline } from "@/timeline";

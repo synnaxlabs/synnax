@@ -9,9 +9,16 @@
 
 import { describe, expect, it } from "vitest";
 
-import { CALLOUT_S, CARD_S, SCOPE_FADE_S, SCOPE_PAD } from "@/director/constants";
-import { overlay, type OverlayPlan, project } from "@/director/overlay";
-import { stage } from "@/director/stage";
+import {
+  CALLOUT_S,
+  CARD_S,
+  overlay,
+  type OverlayPlan,
+  project,
+  SCOPE_FADE_S,
+  SCOPE_PAD,
+  stage,
+} from "@/director";
 import { edit, FPS, overlays } from "@/film";
 import { type Event, type Timeline } from "@/timeline";
 
