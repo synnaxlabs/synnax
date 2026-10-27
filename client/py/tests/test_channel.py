@@ -273,20 +273,18 @@ class TestChannel:
         self,
         client: sy.Synnax,
     ) -> None:
-        """Should raise QueryError when retrieving a single channel with
-        multiple matches"""
-        with pytest.raises(sy.MultipleFoundError):
-            prefix = channel_name()
+        """Should raise MultipleFoundError when a single name matches two channels"""
+        prefix = channel_name()
+        for suffix in ("1", "2"):
             client.channels.create(
-                name=f"{prefix}1",
-                virtual=True,
-                data_type=sy.DataType.FLOAT64,
+                name=f"{prefix}{suffix}", virtual=True, data_type=sy.DataType.FLOAT64
             )
-            client.channels.create(
-                name=f"{prefix}2",
-                virtual=True,
-                data_type=sy.DataType.FLOAT64,
-            )
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=re.escape(
+                f'Expected one channel where name = "{prefix}.*", but found 2'
+            ),
+        ):
             client.channels.retrieve(f"{prefix}.*")
 
     def test_retrieve_by_regex(self, client: sy.Synnax) -> None:
