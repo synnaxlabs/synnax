@@ -42,7 +42,7 @@ const publishedLabel =
     });
 ---
 
-<article data-edition={edition}>
+<article class="docs-article" data-edition={edition}>
     <div class="article-top">
         {showBreadcrumb && url.split("/").length > 2 && (
             <Breadcrumb url={url} title={title} />
@@ -93,8 +93,10 @@ const publishedLabel =
 </article>
 
 <style is:global>
-    /* Content-box, so the cap holds the text column at every padding. */
-    article {
+    /* These rules can ship to pages with other articles, such as the releases page, so
+       they match only this article. :where keeps the specificity of a bare article.
+       Content-box, so the cap holds the text column at every padding. */
+    article:where(.docs-article) {
         position: relative;
         box-sizing: content-box;
         flex-basis: 122rem;
@@ -255,7 +257,7 @@ const publishedLabel =
 
     /* A pane owns the space at its edges, so the first and last blocks in it drop their
        outer margins. A tab panel and a disclosure are both panes. */
-    article :is(.pluto-tabs__content, .docs-details > .content) {
+    article:where(.docs-article) :is(.pluto-tabs__content, .docs-details > .content) {
         & > :first-child {
             margin-top: 0;
         }
@@ -276,7 +278,7 @@ const publishedLabel =
     /* Every ordered list in an article is a list of steps: a numbered square per step,
        joined by a line, with the content of each step in one column. The built-in
        list-item counter keeps the start of a list that continues after a block. */
-    article ol:not([class]) {
+    article:where(.docs-article) ol:not([class]) {
         margin: 3rem 0;
         padding: 0;
         list-style: none;

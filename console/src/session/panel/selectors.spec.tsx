@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { combineReducers, configureStore, type Store } from "@reduxjs/toolkit";
 import { panel, project, type Synnax } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
-import { Drift } from "@synnaxlabs/drift";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -31,6 +31,7 @@ import { pickSynchronizer } from "@/session/synchronizer/testutil";
 import {
   assertDefined,
   createConsoleWrapper,
+  createTestStore,
   type TestStore,
   uniqueName,
 } from "@/testutil";
@@ -69,12 +70,25 @@ const window = (overrides: Partial<Panel.WindowState>): Panel.WindowState => ({
   ...overrides,
 });
 
-const createWrapper = (store: ReturnType<typeof createStore>) => {
+const createWrapper = (store: Store) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>{children}</Provider>
   );
   Wrapper.displayName = "PanelSelectorsWrapper";
   return Wrapper;
+};
+
+const renderMounted = async (win: Panel.WindowState): Promise<panel.Key[]> => {
+  const store = await createTestStore({
+    preloadedState: {
+      [Panel.SLICE_NAME]: {
+        ...Panel.ZERO_SLICE_STATE,
+        windows: { [MAIN_WINDOW]: win },
+      },
+    },
+  });
+  return renderHook(() => Panel.useSelectMounted(), { wrapper: createWrapper(store) })
+    .result.current;
 };
 
 const PANEL = uuid.create();
@@ -84,16 +98,6 @@ const OTHER_TAB = uuid.create();
 
 describe("panel selectors", () => {
   describe("raw selectors", () => {
-    it("should return the panel slice state", () => {
-      const state = createState();
-      expect(Panel.selectSliceState(state)).toBe(state[Panel.SLICE_NAME]);
-    });
-
-    it("should return the active window's state", () => {
-      const win = window({ selected: PANEL });
-      expect(Panel.selectWindowState(createState(win))).toEqual(win);
-    });
-
     it("should return the active window's key alongside its state", () => {
       const base = createStore().getState();
       const windowKey = Drift.selectWindowKey(base);
@@ -125,10 +129,6 @@ describe("panel selectors", () => {
       expect(Panel.selectActiveWindow(state)).toBeNull();
     });
 
-    it("should fall back to the zero window state when the active window has none", () => {
-      expect(Panel.selectWindowState(createState())).toEqual(Panel.ZERO_WINDOW_STATE);
-    });
-
     it("should return the selected panel key", () => {
       const state = createState(window({ selected: PANEL }));
       expect(Panel.selectSelected(state)).toEqual(PANEL);
@@ -136,14 +136,13 @@ describe("panel selectors", () => {
 
     // A reload restores the selection with the keep-alive set cleared, so the
     // selected panel has to come back from the selection alone.
-    it("should mount the selected panel when the stored set is empty", () => {
-      const state = createState(window({ selected: PANEL }));
-      expect(Panel.selectMounted(state)).toEqual([PANEL]);
+    it("should mount the selected panel when the stored set is empty", async () => {
+      expect(await renderMounted(window({ selected: PANEL }))).toEqual([PANEL]);
     });
 
-    it("should return the stored set when the selected panel already heads it", () => {
+    it("should return the stored set when the selected panel already heads it", async () => {
       const win = window({ selected: PANEL, mounted: [PANEL, OTHER_PANEL] });
-      expect(Panel.selectMounted(createState(win))).toBe(win.mounted);
+      expect(await renderMounted(win)).toEqual(win.mounted);
     });
 
     it("should return a panel's selected tabs in order", () => {
@@ -441,23 +440,7 @@ describe("panel selectors", () => {
     });
   });
 
-  describe("useSelectOverlaid / useGetIsOverlaid", () => {
-    it("should reactively track the active window's overlaid flag", async () => {
-      const { Wrapper, store } = await setup();
-      const { result } = renderHook(() => Panel.useSelectOverlaid(), {
-        wrapper: Wrapper,
-      });
-      expect(result.current).toBe(false);
-      act(() => {
-        store.dispatch(Panel.startOverlaying({}));
-      });
-      expect(result.current).toBe(true);
-      act(() => {
-        store.dispatch(Panel.stopOverlaying({}));
-      });
-      expect(result.current).toBe(false);
-    });
-
+  describe("useGetIsOverlaid", () => {
     it("should read the overlaid flag on demand across dispatches", async () => {
       const { Wrapper, store } = await setup();
       const { result } = renderHook(() => Panel.useGetIsOverlaid(), {
@@ -684,7 +667,7 @@ describe("panel selectors", () => {
         result.current(TAB);
       });
       expect(Panel.selectSelectedTabs(store.getState(), PANEL)).toEqual([TAB]);
-      expect(Panel.selectWindowState(store.getState()).isOverlaid).toBe(true);
+      expect(Panel.selectActiveWindow(store.getState())?.state.isOverlaid).toBe(true);
     });
 
     it("should do nothing when no panel resolves", async () => {
@@ -695,7 +678,7 @@ describe("panel selectors", () => {
       act(() => {
         result.current(TAB);
       });
-      expect(Panel.selectWindowState(store.getState()).isOverlaid).toBe(false);
+      expect(Panel.selectActiveWindow(store.getState())?.state.isOverlaid).toBe(false);
     });
   });
 
@@ -801,23 +784,6 @@ describe("panel selectors", () => {
         store.dispatch(Panel.select({ key: OTHER_PANEL }));
       });
       expect(get()).toEqual(OTHER_PANEL);
-    });
-
-    it("should report whether any panel is selected on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Panel.useGetIsAnySelected(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toBe(false);
-      act(() => {
-        store.dispatch(Panel.select({ key: PANEL }));
-      });
-      expect(get()).toBe(true);
-      act(() => {
-        store.dispatch(Panel.clearSelected({}));
-      });
-      expect(get()).toBe(false);
     });
   });
 });

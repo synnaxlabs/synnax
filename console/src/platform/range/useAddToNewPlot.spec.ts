@@ -26,9 +26,10 @@ describe("Range.useAddToNewPlot", () => {
     const { result } = renderHook(() => Range.useAddToNewPlot(), { wrapper });
     act(() => result.current([a.key, b.key]));
     await waitFor(() => {
-      const keys = Session.Range.selectKeys(store.getState());
-      expect(keys).toContain(a.key);
-      expect(keys).toContain(b.key);
+      const { ranges } = store.getState()[Session.Range.SLICE_NAME];
+      expect(ranges.map(({ key }) => key)).toEqual(
+        expect.arrayContaining([a.key, b.key]),
+      );
     });
   });
 });
