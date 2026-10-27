@@ -814,6 +814,63 @@ describe("cached reads", () => {
     });
   });
 
+  describe("statuses", () => {
+    const createCalculated = async (): Promise<Channel> => {
+      const source = await createVirtual();
+      const ch = await client.channels.create({
+        name: `qry_${id.create()}`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      await setStatus(ch.key, "calculating");
+      return ch;
+    };
+
+    const setStatus = async (key: number, message: string): Promise<void> => {
+      await remote.statuses.set({
+        key: statusKey(key),
+        name: "Calculation Status",
+        variant: "info",
+        message,
+        time: TimeStamp.now(),
+      });
+    };
+
+    it("composes statuses only for a request that includes them", async () => {
+      const ch = await createCalculated();
+      const local = createTestClient();
+      await local.connect();
+      const where = { key: { in: [ch.key] } };
+      const [bare] = await local.channels.retrieve({ where });
+      expect(bare.status).toBeUndefined();
+      const [withStatus] = await local.channels.retrieve({
+        where,
+        includeStatus: true,
+      });
+      expect(withStatus.status?.message).toEqual("calculating");
+    });
+
+    it("delivers a remote status change to a request that includes them", async () => {
+      const ch = await createCalculated();
+      const req = { where: { key: { in: [ch.key] } }, includeStatus: true };
+      const results: Array<query.Cached<Channel[]> | undefined> = [];
+      const off = client.channels.onChange(req, (c) => results.push(c));
+      try {
+        await client.channels.retrieve(req);
+        await setStatus(ch.key, "done");
+        await expect
+          .poll(() => {
+            const last = results.at(-1);
+            return query.isLive(last) ? last[0].status?.message : undefined;
+          })
+          .toEqual("done");
+      } finally {
+        off();
+      }
+    });
+  });
+
   describe("aliases", () => {
     it("composes the alias for a single query under a range", async () => {
       const ch = await createVirtual();
