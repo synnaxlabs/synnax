@@ -215,7 +215,7 @@ export class Reader {
         const group = groups.get(key);
         if (group == null) groups.set(key, run);
         else {
-          group.entries.push(...run.entries);
+          for (const e of run.entries) group.entries.push(e);
           group.end = TimeStamp.max(group.end, run.end);
         }
       }),

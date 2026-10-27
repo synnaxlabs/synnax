@@ -22,6 +22,9 @@ import {
 } from "@/telem/telem";
 import { MockGLBufferController } from "@/testutil";
 
+// More items than a call takes as arguments.
+const MANY = 200_000;
+
 // Valid UUID v4 bytes (version 4, variant 1)
 const SAMPLE_UUID_BYTES = new Uint8Array([
   // First UUID: "123e4567-e89b-40d3-8056-426614174000",
@@ -2887,6 +2890,15 @@ describe("MultiSeries", () => {
       expect(multiSeries.bounds).toEqual({ lower: 1, upper: 6 });
     });
 
+    it("should calculate bounds across more series than a call takes", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2]),
+        dataType: DataType.FLOAT32,
+      });
+      const multiSeries = new MultiSeries(Array.from({ length: MANY }, () => series));
+      expect(multiSeries.bounds).toEqual({ lower: 1, upper: 2 });
+    });
+
     it("should handle negative numbers across series", () => {
       const series1 = new Series({
         data: new Float32Array([-5, -3, -1]),
@@ -3187,6 +3199,14 @@ describe("MultiSeries", () => {
       expect(multiSeries.series.length).toBe(2);
       expect(multiSeries.series[0]).toBe(series1);
       expect(multiSeries.series[1]).toBe(series2);
+    });
+
+    it("should push a MultiSeries of more series than a call takes", () => {
+      const series = new Series({ data: [1], dataType: DataType.FLOAT32 });
+      const many = new MultiSeries(Array.from({ length: MANY }, () => series));
+      const multiSeries = new MultiSeries();
+      multiSeries.push(many);
+      expect(multiSeries.series).toHaveLength(MANY);
     });
 
     it("should push a MultiSeries to another MultiSeries", () => {

@@ -1586,7 +1586,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     } else {
       if (this.series.length !== 0 && series.series.length !== 0 && !dtsEqual)
         throw invalidDataTypeError();
-      this.series.push(...series.series);
+      for (const s of series.series) this.series.push(s);
     }
   }
 
