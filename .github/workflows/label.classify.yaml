@@ -51,7 +51,8 @@ jobs:
           aws-region: us-east-1
 
       # Each running Claude seat keeps a runner free for this job, so it starts a seat
-      # only when none runs.
+      # only when none runs. A start fails only while the seat is stopping, and succeeds
+      # when a concurrent run already started it.
       - name: Start a Claude seat
         run: |
           filters=("Name=tag:project,Values=synnax-agents" "Name=tag:pool,Values=agent"
@@ -67,8 +68,11 @@ jobs:
             echo "No Claude seat instance exists" >&2
             exit 1
           fi
-          aws ec2 wait instance-stopped --instance-ids "$id"
-          aws ec2 start-instances --instance-ids "$id" > /dev/null
+          for _ in $(seq 60); do
+            if aws ec2 start-instances --instance-ids "$id" > /dev/null; then exit 0; fi
+            sleep 5
+          done
+          exit 1
 
   label:
     name: Label
