@@ -1049,7 +1049,7 @@ func broken() {
     x := := 5
     y = = 10
 }`)
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("extraneous input ':='")))
 				Expect(err).To(MatchError(ContainSubstring("3:9 error")))
 				Expect(err).To(MatchError(ContainSubstring("4:8 error")))
 			})
@@ -1173,8 +1173,10 @@ func broken() {
 			})
 
 			It("Should return error for invalid expression", func() {
-				_, err := parser.ParseExpression("2 + + 3")
-				Expect(err).To(HaveOccurred())
+				Expect(
+					parser.ParseExpression("2 + + 3"),
+				).Error().
+					To(MatchError(ContainSubstring("extraneous input '+'")))
 			})
 
 			It("Should handle empty expression", func() {

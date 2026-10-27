@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type LookupIndex } from "@/query/indexes";
 import { type Listener } from "@/query/streamer";
@@ -119,8 +119,9 @@ export interface TableParams<
 
 /**
  * Retrieves by key are strict: a batch containing any vanished key rejects with
- * NotFound instead of returning the survivors. Falls back to probing keys one at a time
- * so survivors are still distinguishable.
+ * NotFound instead of returning the survivors. Splits a rejected batch in halves until
+ * each vanished key stands alone, so a few vanished keys cost a few requests, not one
+ * per cached key.
  */
 const fetchSurvivors = async <Key extends record.Key, Value extends state.State>(
   fetch: NonNullable<TableParams<Key, Value>["fetch"]>,
@@ -132,17 +133,12 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
     if (!NotFoundError.matches(exc)) throw errors.fromUnknown(exc);
   }
   if (keys.length === 1) return [];
-  const probed = await Promise.all(
-    keys.map(async (key) => {
-      try {
-        return await fetch([key]);
-      } catch (exc) {
-        if (NotFoundError.matches(exc)) return [];
-        throw errors.fromUnknown(exc);
-      }
-    }),
-  );
-  return probed.flat();
+  const mid = Math.ceil(keys.length / 2);
+  const halves = await Promise.all([
+    fetchSurvivors(fetch, keys.slice(0, mid)),
+    fetchSurvivors(fetch, keys.slice(mid)),
+  ]);
+  return halves.flat();
 };
 
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
@@ -205,11 +201,12 @@ export class Table<
               try {
                 fetched = await fetch(Array.from(keys));
               } catch (exc) {
-                if (!NotFoundError.matches(exc) || requests.length === 1)
-                  throw errors.fromUnknown(exc);
+                const strict =
+                  NotFoundError.matches(exc) || AccessDeniedError.matches(exc);
+                if (!strict || requests.length === 1) throw errors.fromUnknown(exc);
                 // A strict fetch rejects the whole batch when any caller's key has
-                // vanished. Refetch per caller so each settles exactly as its own
-                // request would have, keeping the batch transparent.
+                // vanished or is denied. Refetch per caller so each settles exactly as
+                // its own request would have, keeping the batch transparent.
                 await Promise.all(
                   requests.map(async ({ req, resolve, reject }) => {
                     try {

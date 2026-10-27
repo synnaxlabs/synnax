@@ -138,9 +138,12 @@ ts1 = sy.TimeStamp.now()
 ts2 = ts1 + sy.TimeSpan.SECOND
 # Subtract a TimeSpan
 ts3 = ts1 - sy.TimeSpan.SECOND
-# Get the TimeSpan between two timestamps
-diff = ts2.span(ts1)
+# Subtract two timestamps to get the TimeSpan between them
+diff = ts2 - ts1
 ```
+
+Add or subtract a `TimeSpan`, not a bare number. `ts1 + 5` raises a `TypeError`; use
+`ts1 + 5 * sy.TimeSpan.SECOND` instead.
 
   </Fragment>
 
@@ -284,6 +287,10 @@ span2 = span1 + sy.TimeSpan.MINUTE
 diff = span2 - span1
 # Multiply by a scalar
 span3 = 5 * sy.TimeSpan.SECOND
+# Divide by a scalar to get a TimeSpan
+half = span1 / 2
+# Divide by a TimeSpan to get a float
+minutes = span1 / sy.TimeSpan.MINUTE  # 60.0
 ```
 
   </Fragment>

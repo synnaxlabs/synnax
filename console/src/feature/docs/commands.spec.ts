@@ -15,6 +15,8 @@ import { Docs } from "@/feature/docs";
 
 const client = createTestClient();
 
+const DOCS_URL = "https://docs.synnaxlabs.com/reference/console/get-started";
+
 describe("Docs Commands", () => {
   it("should open the docs in the browser when the read command is selected", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
@@ -25,7 +27,7 @@ describe("Docs Commands", () => {
     await openCommandPalette();
     await selectCommand("Read documentation");
     await vi.waitFor(() => {
-      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+      expect(open).toHaveBeenCalledWith(DOCS_URL, "_blank", "noopener,noreferrer");
     });
   });
 });
