@@ -54,6 +54,7 @@ var _ = Describe("Check", func() {
 			Expect(summarize(findings)).To(Equal([]finding{
 				{File: "lib.go", Kind: "func", Name: "Internal"},
 				{File: "lib.go", Kind: "func", Name: "Tested", TestsOnly: true},
+				{File: "lib.go", Kind: "func", Name: "OtherTests", TestsOnly: true},
 				{File: "lib.go", Kind: "var", Name: "Dead"},
 				{File: "lib.go", Kind: "method", Name: "Side"},
 				{File: "lib.go", Kind: "type", Name: "Handler"},
@@ -117,7 +118,7 @@ var _ = Describe("Check", func() {
 
 var _ = Describe("Finding", func() {
 	Describe("String", func() {
-		It("Should say when only the package's own tests use it", func() {
+		It("Should say when only test code uses it", func() {
 			f := exports.Finding{
 				Position:  token.Position{Filename: "a.go", Line: 3},
 				Kind:      "func",
@@ -125,7 +126,7 @@ var _ = Describe("Finding", func() {
 				TestsOnly: true,
 			}
 			Expect(f.String()).To(Equal(
-				"a.go:3: func Do is exported but only its own tests use it",
+				"a.go:3: func Do is exported but only test code uses it",
 			))
 		})
 

@@ -9,6 +9,12 @@
 
 package user_test
 
-import "example.com/a/lib"
+import (
+	"example.com/a/lib"
+	"example.com/a/testutil"
+)
 
-var _ = lib.OtherTests
+var (
+	_ = lib.OtherTests
+	_ = testutil.Helper
+)

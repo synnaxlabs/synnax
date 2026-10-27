@@ -45,7 +45,8 @@ type Finding struct {
 	Kind string
 	// Name is the identifier.
 	Name string
-	// TestsOnly is true when only the tests of its own package use the identifier.
+	// TestsOnly is true when only test code uses the identifier: test files, or the
+	// packages of test helpers.
 	TestsOnly bool
 }
 
@@ -53,7 +54,7 @@ type Finding struct {
 func (f Finding) String() string {
 	users := "no other package uses it"
 	if f.TestsOnly {
-		users = "only its own tests use it"
+		users = "only test code uses it"
 	}
 	return fmt.Sprintf(
 		"%s:%d: %s %s is exported but %s",
@@ -65,7 +66,8 @@ func (f Finding) String() string {
 // exported identifiers that no other package uses, sorted by position. An identifier
 // that only one GOOS builds is judged on that GOOS alone. Check keeps exported:
 //
-//   - an identifier that another package, or generated code, uses;
+//   - an identifier that generated code or another package's non-test code uses, or
+//     that another package's tests use when it lives in a test helper package;
 //   - a method that satisfies an interface or that template data can reach;
 //   - a type that the API of a kept identifier carries;
 //   - every constant of a const block when one of them is kept.
@@ -169,7 +171,7 @@ type symbol struct {
 	internal bool
 }
 
-var versionsPattern = regexp.MustCompile(`/versions/v[0-9]+$`)
+var versionsPattern = regexp.MustCompile(`/versions/(.+/)?v[0-9]+$`)
 
 // load returns the exported identifiers of the modules as built for goos, keyed by
 // declaration position, with kept set on each identifier that must stay exported.
@@ -323,15 +325,29 @@ func markUses(p *packages.Package, generated set.Set[string], syms map[string]*s
 			continue
 		}
 		file := p.Fset.Position(id.Pos()).Filename
+		test := strings.HasSuffix(file, "_test.go") || isTestUtility(user)
 		switch {
-		case user != s.pkg || generated.Contains(file):
+		case generated.Contains(file):
 			s.kept = true
-		case strings.HasSuffix(file, "_test.go"):
+		case user != s.pkg && (!test || isTestUtility(s.pkg)):
+			s.kept = true
+		case test:
 			s.tested = true
 		default:
 			s.internal = true
 		}
 	}
+}
+
+// isTestUtility reports whether the package at path holds test helpers: a path element
+// named testutil, test, or mock, or one that ends in mock.
+func isTestUtility(path string) bool {
+	for elem := range strings.SplitSeq(path, "/") {
+		if elem == "testutil" || elem == "test" || strings.HasSuffix(elem, "mock") {
+			return true
+		}
+	}
+	return false
 }
 
 func origin(obj types.Object) types.Object {
