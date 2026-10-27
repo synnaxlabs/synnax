@@ -135,9 +135,9 @@ describe("auth guard", () => {
     // duplicate.
     const selected = Session.Core.selectSelectedKey(store.getState());
     expect(selected).toBe(key);
-    const added = Session.Core.selectMany(store.getState())
+    const added = Object.values(store.getState()[Session.Core.SLICE_NAME].cores)
       .map(({ key: k }) => k)
-      .filter((k) => k !== Session.Core.LOCAL_KEY && k !== Session.Core.DEMO_KEY);
+      .filter((k) => k !== "LOCAL" && k !== "DEMO");
     expect(added).toEqual([selected]);
   });
 

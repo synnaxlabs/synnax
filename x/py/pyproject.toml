@@ -9,7 +9,8 @@
 
 [project]
 name = "synnax-x"
-version = "0.59.0"
+version = "0.60.0"
+readme = "README.md"
 description = "Shared Python utilities for Synnax"
 keywords = ["Synnax"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -69,6 +70,7 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 known-first-party = ["x"]
 
 [tool.mypy]
+python_version = "3.12"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true

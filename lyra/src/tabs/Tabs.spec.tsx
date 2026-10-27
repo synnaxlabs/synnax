@@ -494,7 +494,7 @@ describe("Tabs", () => {
     });
 
     it.each([
-      ["default", "pluto-btn--text", "pluto--sharp"],
+      ["default", "pluto-btn--text", "pluto--rounded-small"],
       ["pill", "pluto-btn--outlined", "pluto--rounded"],
       ["chip", "pluto-btn--outlined", "pluto--rounded"],
     ] as const)(

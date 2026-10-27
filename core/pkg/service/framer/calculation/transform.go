@@ -24,6 +24,8 @@ type transform struct {
 	streamerRequests confluence.Inlet[framer.StreamerRequest]
 	onStatusChange   OnStatusChange
 	calculators      calculator.Group
+	// opened closes on the source streamer's open ack, the first response.
+	opened chan struct{}
 }
 
 var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(
@@ -43,6 +45,11 @@ func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case req, ok := <-g.In.Outlet():
 				if !ok {
 					return nil
+				}
+				if g.opened != nil {
+					close(g.opened)
+					g.opened = nil
+					continue
 				}
 				output, changed, statuses := g.calculators.Next(ctx, req.Frame)
 				if len(statuses) > 0 {
