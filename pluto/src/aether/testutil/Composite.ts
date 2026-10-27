@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type UpdateCall } from "@/aether/test/Leaf";
+import { type UpdateCall } from "@/aether/testutil/Leaf";
 
 export const compositeStateZ = z.record(z.string(), z.unknown());
 export type CompositeState = z.infer<typeof compositeStateZ>;

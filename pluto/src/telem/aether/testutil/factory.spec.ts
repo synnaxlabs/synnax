@@ -11,7 +11,7 @@ import { type destructor } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { type Telem } from "@/telem/aether/telem";
-import { registerInstance, TestFactory } from "@/telem/aether/test/factory";
+import { registerInstance, TestFactory } from "@/telem/aether/testutil/factory";
 
 const createMockTelem = (): Telem => ({
   cleanup: () => {},

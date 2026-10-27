@@ -9,14 +9,14 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TEST_SOURCE_TYPE, TestFactory } from "@/telem/aether/test/factory";
+import { TEST_SOURCE_TYPE, TestFactory } from "@/telem/aether/testutil/factory";
 import {
   booleanSourceSpec,
   numberSourceSpec,
   source,
   stringSourceSpec,
   TestSource,
-} from "@/telem/aether/test/source";
+} from "@/telem/aether/testutil/source";
 
 describe("TestSource", () => {
   const sources: TestSource<unknown>[] = [];

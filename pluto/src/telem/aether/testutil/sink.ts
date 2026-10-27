@@ -16,7 +16,7 @@ import {
   type StringSinkSpec,
   type Telem,
 } from "@/telem/aether/telem";
-import { registerInstance, TEST_SINK_TYPE } from "@/telem/aether/test/factory";
+import { registerInstance, TEST_SINK_TYPE } from "@/telem/aether/testutil/factory";
 
 export class TestSink<V> extends observe.Observer<void> implements Sink<V>, Telem {
   static readonly TYPE = TEST_SINK_TYPE;

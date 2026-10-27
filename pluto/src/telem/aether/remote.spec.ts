@@ -44,7 +44,7 @@ import {
   type StringSource,
   type ValueProps,
 } from "@/telem/aether/telem";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { line } from "@/vis/line/aether";
 
 const RATE = Rate.hz(100);

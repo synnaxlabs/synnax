@@ -9,14 +9,14 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TEST_SINK_TYPE, TestFactory } from "@/telem/aether/test/factory";
+import { TEST_SINK_TYPE, TestFactory } from "@/telem/aether/testutil/factory";
 import {
   booleanSinkSpec,
   numberSinkSpec,
   sink,
   stringSinkSpec,
   TestSink,
-} from "@/telem/aether/test/sink";
+} from "@/telem/aether/testutil/sink";
 
 describe("TestSink", () => {
   const sinks: TestSink<unknown>[] = [];
