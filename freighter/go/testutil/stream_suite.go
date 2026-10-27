@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package test
+package testutil
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/testutil"
+	xtestutil "github.com/synnaxlabs/x/testutil"
 )
 
 func StreamSuite(
@@ -62,13 +62,13 @@ func StreamSuite(
 				defer cancel()
 
 				ginkgo.By("Opening the stream to the target without error")
-				stream := testutil.MustSucceed(client.Stream(cancelCtx, addr))
+				stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
 
 				ginkgo.By("Exchanging ten echo messages")
 				for i := range 10 {
 					gomega.Expect(stream.Send(Request{ID: i, Message: "Hello"})).
 						To(gomega.Succeed())
-					msg := testutil.MustSucceed(stream.Receive())
+					msg := xtestutil.MustSucceed(stream.Receive())
 					gomega.Expect(msg.ID).To(gomega.Equal(i + 1))
 					gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
 				}
@@ -103,9 +103,9 @@ func StreamSuite(
 						return nil
 					},
 				)
-				stream := testutil.MustSucceed(client.Stream(ctx, addr))
+				stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
 				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
-				msg := testutil.MustSucceed(stream.Receive())
+				msg := xtestutil.MustSucceed(stream.Receive())
 				gomega.Expect(msg.ID).To(gomega.Equal(1))
 				gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
 				gomega.Expect(stream.Receive()).
@@ -139,16 +139,16 @@ func StreamSuite(
 					},
 				)
 
-				stream := testutil.MustSucceed(client.Stream(ctx, addr))
+				stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
 				gomega.Expect(stream.Send(Request{ID: 1, Message: "Hello"})).
 					To(gomega.Succeed())
-				msg := testutil.MustSucceed(stream.Receive())
+				msg := xtestutil.MustSucceed(stream.Receive())
 				gomega.Expect(msg.ID).To(gomega.Equal(2))
 				gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
 				time.Sleep(WriteDeadline * 2)
 				gomega.Expect(stream.Send(Request{ID: 1, Message: "Hello"})).
 					To(gomega.Succeed())
-				msg = testutil.MustSucceed(stream.Receive())
+				msg = xtestutil.MustSucceed(stream.Receive())
 				gomega.Expect(msg.ID).To(gomega.Equal(2))
 				gomega.Expect(msg.Message).To(gomega.Equal("Hello"))
 				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
@@ -174,7 +174,7 @@ func StreamSuite(
 							return errors.New("zero is not allowed!")
 						},
 					)
-					stream := testutil.MustSucceed(client.Stream(ctx, addr))
+					stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
 					gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
 						To(gomega.Succeed())
 					gomega.Expect(stream.Receive()).
@@ -199,7 +199,7 @@ func StreamSuite(
 							return errors.New("zero is not allowed!")
 						},
 					)
-					stream := testutil.MustSucceed(client.Stream(ctx, addr))
+					stream := xtestutil.MustSucceed(client.Stream(ctx, addr))
 					gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
 						To(gomega.Succeed())
 					gomega.Expect(stream.Receive()).
@@ -229,7 +229,7 @@ func StreamSuite(
 						},
 					)
 					cancelCtx, cancel := context.WithCancel(ctx)
-					stream := testutil.MustSucceed(client.Stream(cancelCtx, addr))
+					stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
 					cancel()
 					gomega.Expect(stream.Receive()).
 						Error().
@@ -261,7 +261,7 @@ func StreamSuite(
 						cancelCtx, cancel := context.WithCancel(ctx)
 						defer cancel()
 
-						stream := testutil.MustSucceed(client.Stream(cancelCtx, addr))
+						stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
 						gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
 						gomega.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
 							To(gomega.MatchError(freighter.ErrStreamClosed))
@@ -284,7 +284,7 @@ func StreamSuite(
 						func(ctx context.Context, server freighter.ServerStream[Request, Response]) error {
 							defer close(serverClosed)
 							for i := range 10 {
-								req := testutil.MustSucceed(server.Receive())
+								req := xtestutil.MustSucceed(server.Receive())
 								gomega.Expect(server.Send(Response{
 									ID:      req.ID + i,
 									Message: req.Message,
@@ -295,7 +295,7 @@ func StreamSuite(
 					)
 					cancelCtx, cancel := context.WithCancel(ctx)
 					defer cancel()
-					stream := testutil.MustSucceed(client.Stream(cancelCtx, addr))
+					stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
 					gomega.Eventually(func(g gomega.Gomega) {
 						g.Expect(stream.Send(Request{ID: 0, Message: "Hello"})).
 							To(gomega.MatchError(freighter.EOF))
@@ -334,7 +334,7 @@ func StreamSuite(
 				}))
 				cancelCtx, cancel := context.WithCancel(ctx)
 				defer cancel()
-				stream := testutil.MustSucceed(client.Stream(cancelCtx, addr))
+				stream := xtestutil.MustSucceed(client.Stream(cancelCtx, addr))
 				gomega.Expect(stream.CloseSend()).To(gomega.Succeed())
 				gomega.Expect(stream.Receive()).
 					Error().
