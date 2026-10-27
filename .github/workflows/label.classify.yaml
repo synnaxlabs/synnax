@@ -101,11 +101,12 @@ jobs:
           app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
 
-      # The runners on an instance share the CLIs, so one job updates them at a time.
-      - name: Update the agent
+      # Every job installs the agent for itself, so an update never replaces a CLI that
+      # another job on the same instance runs.
+      - name: Install the agent
         run: |
-          sudo flock /run/lock/agent-cli npm install --global \
-            @anthropic-ai/claude-code@latest
+          npm install --prefix "$RUNNER_TEMP/cli" @anthropic-ai/claude-code@latest
+          echo "$RUNNER_TEMP/cli/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Classify
         env:
