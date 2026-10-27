@@ -19,6 +19,7 @@ cc_library(
     name = "device",
     srcs = ["device.cpp"],
     hdrs = [
+        "builder.gen.h",
         "device.h",
         "json.gen.h",
         "proto.gen.h",
