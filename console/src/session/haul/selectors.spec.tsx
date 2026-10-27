@@ -35,27 +35,6 @@ const dragging: PHaul.DraggingState = {
 };
 
 describe("haul selectors", () => {
-  describe("useSelectHauling", () => {
-    it("should return the zero dragging state by default", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Haul.useSelectHauling(), {
-        wrapper: createWrapper(store),
-      });
-      expect(result.current).toEqual(Haul.ZERO_SLICE_STATE.state);
-    });
-
-    it("should reflect a dispatched haul", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Haul.useSelectHauling(), {
-        wrapper: createWrapper(store),
-      });
-      act(() => {
-        store.dispatch(Haul.setHauled(dragging));
-      });
-      expect(result.current).toEqual(dragging);
-    });
-  });
-
   describe("useProviderProps", () => {
     const renderProps = (store: ReturnType<typeof createStore>) =>
       renderHook(() => Haul.useProviderProps(), { wrapper: createWrapper(store) });

@@ -88,10 +88,14 @@ describe("Status.List.Item", () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     render(<Fixture status={stat} />, { wrapper });
     await waitFor(() => expect(screen.getByText(stat.name)).toBeTruthy());
-    expect(Session.Status.selectIsFavorite(store.getState(), stat.key)).toBe(false);
+    expect(
+      store.getState()[Session.Status.SLICE_NAME].favorites.includes(stat.key),
+    ).toBe(false);
     fireEvent.click(favoriteCheckbox());
     await waitFor(() =>
-      expect(Session.Status.selectIsFavorite(store.getState(), stat.key)).toBe(true),
+      expect(
+        store.getState()[Session.Status.SLICE_NAME].favorites.includes(stat.key),
+      ).toBe(true),
     );
   });
 

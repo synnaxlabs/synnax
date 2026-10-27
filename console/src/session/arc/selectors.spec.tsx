@@ -25,7 +25,7 @@ import { createConsoleWrapper } from "@/testutil";
 
 const KEY = "arc-1";
 
-const customState = Arc.stateZ.parse({
+const customState: Arc.State = {
   graph: {
     editable: false,
     fitViewOnResize: true,
@@ -33,7 +33,7 @@ const customState = Arc.stateZ.parse({
     selected: ["a", "b"],
   },
   toolbar: { selectedTab: "properties" },
-});
+};
 
 const storeWith = (slice: Arc.SliceState) =>
   createSliceStore({
@@ -61,17 +61,17 @@ const createCustomStore = () =>
 
 describe("arc selector hooks", () => {
   it("should resolve the key from the surrounding scope", () => {
-    const { result } = renderHook(() => Arc.useSelect(), {
+    const { result } = renderHook(() => Arc.useSelectToolbar(), {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
-    expect(result.current).toEqual(customState);
+    expect(result.current).toEqual(customState.toolbar);
   });
 
   it("should let an explicit key override the scope", () => {
-    const { result } = renderHook(() => Arc.useSelect({ key: "absent" }), {
+    const { result } = renderHook(() => Arc.useSelectToolbar({ key: "absent" }), {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
-    expect(result.current).toEqual(Arc.ZERO_STATE);
+    expect(result.current).toEqual(Arc.ZERO_STATE.toolbar);
   });
 
   it("should return the selected elements", () => {
@@ -143,7 +143,6 @@ describe("arc selector stability under dispatch", () => {
     });
     const first = result.current;
     act(() => {
-      s.dispatch(Arc.create({ key: "arc-2" }));
       s.dispatch(Arc.selectToolbarTab({ key: "arc-2", tab: "stages" }));
     });
     expect(result.current).toBe(first);
@@ -154,7 +153,7 @@ describe("arc selector stability under dispatch", () => {
       version: 0,
       windows: inWindow({
         [KEY]: customState,
-        "arc-2": Arc.stateZ.parse({ toolbar: { selectedTab: "stages" } }),
+        "arc-2": { ...Arc.ZERO_STATE, toolbar: { selectedTab: "stages" } },
       }),
     });
     const { result, rerender } = renderHook(
@@ -164,51 +163,6 @@ describe("arc selector stability under dispatch", () => {
     expect(result.current.selectedTab).toBe("properties");
     rerender({ key: "arc-2" });
     expect(result.current.selectedTab).toBe("stages");
-  });
-});
-
-describe("arc getters", () => {
-  it("should read an arc's toolbar tab on demand across dispatches", () => {
-    const store = storeWith(Arc.ZERO_SLICE_STATE);
-    const { result } = renderHook(() => Arc.useGetToolbar(), {
-      wrapper: wrapperFor(store, KEY),
-    });
-    const get = result.current;
-    expect(get().selectedTab).toBe(Arc.ZERO_STATE.toolbar.selectedTab);
-    act(() => {
-      store.dispatch(Arc.create({ key: KEY }));
-      store.dispatch(Arc.selectToolbarTab({ key: KEY, tab: "properties" }));
-    });
-    expect(get().selectedTab).toBe("properties");
-  });
-
-  it("should reflect viewport mode changes without re-rendering the hook", () => {
-    const store = createCustomStore();
-    const { result } = renderHook(() => Arc.useGetViewportMode(), {
-      wrapper: wrapperFor(store, KEY),
-    });
-    const get = result.current;
-    expect(get()).toBe("pan");
-    act(() => {
-      store.dispatch(Arc.setViewportMode({ key: KEY, mode: "select" }));
-    });
-    expect(get()).toBe("select");
-  });
-
-  it("should resolve the key from scope and allow an explicit override", () => {
-    const { result } = renderHook(() => Arc.useGetToolbar(), {
-      wrapper: wrapperFor(createCustomStore(), "absent"),
-    });
-    expect(result.current().selectedTab).toBe(Arc.ZERO_STATE.toolbar.selectedTab);
-    expect(result.current({ key: KEY }).selectedTab).toBe("properties");
-  });
-
-  it("should read the editable flag on demand", () => {
-    const { result } = renderHook(() => Arc.useGetEditable(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe(false);
-    expect(result.current({ key: "absent" })).toBe(Arc.ZERO_STATE.graph.editable);
   });
 });
 
@@ -233,7 +187,9 @@ const setup = async ({ editable, userClient = client }: SetupParams) => {
     preloadedState: {
       [Arc.SLICE_NAME]: {
         version: 0,
-        windows: inWindow({ [KEY]: Arc.stateZ.parse({ graph: { editable } }) }),
+        windows: inWindow({
+          [KEY]: { ...Arc.ZERO_STATE, graph: { ...Arc.ZERO_STATE.graph, editable } },
+        }),
       },
     },
   });
