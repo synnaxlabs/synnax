@@ -511,7 +511,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			)))
 		},
 			Entry("for a field matcher", "active", "MatchActive"),
-			Entry("for the search filter", "search", "MatchSearch"),
+			Entry("for the keys filter", "keys", "MatchKeys"),
 		)
 
 		It("Should reject a constrained type parameter", func(ctx SpecContext) {

@@ -209,10 +209,6 @@ func generateFile(
 		return m.Func, struct{}{}
 	})
 	funcs["MatchKeys"] = struct{}{}
-	funcs["MatchWhere"] = struct{}{}
-	if hasSearch(target, table) {
-		funcs["MatchSearch"] = struct{}{}
-	}
 
 	data := templateData{
 		Manager: imports.NewManager(),
@@ -374,13 +370,6 @@ func generateRequestFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
-}
-
-func hasSearch(target resolution.Type, table *resolution.Table) bool {
-	fields, _ := resolution.RecordFields(target, table)
-	return lo.SomeBy(fields, func(f resolution.Field) bool {
-		return plugindomain.HasDomainFromField(f, "search")
-	})
 }
 
 func isStringEnum(ref resolution.TypeRef, table *resolution.Table) bool {
