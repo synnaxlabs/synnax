@@ -241,8 +241,9 @@ TEST(TestAuth, RenewForgetsEndedSession) {
         std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
     );
     auto *create = mock_create_client.get();
-    auto mock_renew_client = std::make_unique<
-        freighter::testutil::UnaryClient<google::protobuf::Empty, google::protobuf::Empty>>(
+    auto mock_renew_client = std::make_unique<freighter::testutil::UnaryClient<
+        google::protobuf::Empty,
+        google::protobuf::Empty>>(
         google::protobuf::Empty(),
         x::errors::Error(ERR_SESSION_ENDED, "")
     );
