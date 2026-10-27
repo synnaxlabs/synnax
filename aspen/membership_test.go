@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/aspen/mock"
+	"github.com/synnaxlabs/aspen/testutil"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -190,12 +190,12 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 							PledgeRetryScale:      1,
 							ClusterGossipInterval: 50 * time.Millisecond,
 						}
-						builder := &mock.Builder{
+						builder := &testutil.Builder{
 							DataDir: "./testdata",
 							DefaultOptions: []aspen.Option{
 								aspen.WithPropagationConfig(propConfig),
 							},
-							Nodes: make(map[aspen.NodeKey]mock.NodeInfo),
+							Nodes: make(map[aspen.NodeKey]testutil.NodeInfo),
 						}
 						defer func() {
 							Expect(builder.Cleanup()).To(Succeed())
