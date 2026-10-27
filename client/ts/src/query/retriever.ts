@@ -83,12 +83,14 @@ type OptionField<Z extends z.ZodType> =
  * A part of a retrieve: a condition of the type C, or an option that sets a field of
  * the request schema Z.
  */
-export type Part<C extends filter.Condition<string>, Z extends z.ZodType> =
-  C | filter.Option<OptionField<Z>>;
+export type Part<C extends filter.Condition<string>, Z extends z.ZodType> = filter.Part<
+  C,
+  OptionField<Z>
+>;
 
 /**
- * The parts of a retrieve that returns a list. A retriever with no condition type
- * takes none.
+ * The parts of a retrieve that returns a list. A retriever with no condition type takes
+ * none.
  */
 export type ListParts<C extends filter.Condition<string>, Z extends z.ZodType> = [
   C,
@@ -352,8 +354,8 @@ export abstract class Retriever<
    * fetching otherwise.
    *
    * Reads the record the params address, or every record matching them. A bare key is
-   * shorthand for `{ key }`; a bare key list is accepted by domains whose request schema
-   * unions in {@link keysRequestZ} or {@link keyListZ}.
+   * shorthand for `{ key }`; a bare key list is accepted by domains whose request
+   * schema unions in {@link keysRequestZ} or {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the record was
    * deleted, or if parts end with `one()` and no record matches.
    * @throws {MultipleFoundError} if parts end with `one()` and more than one record
