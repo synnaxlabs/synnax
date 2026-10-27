@@ -172,16 +172,30 @@ export interface EnsureFetchParams<Query extends query.Params, Data> {
 /** Joins the query's in-flight fetch, starting one when none exists. */
 export const ensureFetch = <Query extends query.Params, Data>(
   params: RetrieveParams<Query>,
-  { name, retrieve, getCached, onFetchError, local }: EnsureFetchParams<Query, Data>,
+  fetchParams: EnsureFetchParams<Query, Data>,
 ): Promise<Data> => {
+  const { name, retrieve, getCached, onFetchError, local } = fetchParams;
   const hash = query.hash(params.query);
+  // A reader waiting on a fetch that invalidate discarded gets the answer that replaced
+  // it, starting a fetch when no other reader has.
+  const follow = async (stale: () => Promise<Data>): Promise<Data> => {
+    const settled = local.settled.get(hash);
+    if (settled != null) {
+      if ("error" in settled) throw settled.error;
+      return settled.data;
+    }
+    if (local.inFlight.has(hash) || getCached?.(params) === undefined)
+      return await ensureFetch(params, fetchParams);
+    return await stale();
+  };
   let promise = local.inFlight.get(hash);
   if (promise == null) {
     const epoch = local.epoch;
     const generation = generationOf(local, hash);
     promise = retrieve(params).then(
-      (data) => {
-        if (generationOf(local, hash) !== generation) return data;
+      async (data) => {
+        if (generationOf(local, hash) !== generation)
+          return await follow(async () => data);
         // An answer the domain cache serves is read from there; one that never
         // reaches it is kept locally instead.
         if (getCached?.(params) === undefined) setSettled(local, hash, { data });
@@ -189,9 +203,12 @@ export const ensureFetch = <Query extends query.Params, Data>(
         local.inFlight.delete(hash);
         return data;
       },
-      (cause: unknown) => {
+      async (cause: unknown) => {
         const error = new Error(`Failed to retrieve ${name}`, { cause });
-        if (generationOf(local, hash) !== generation) throw error;
+        if (generationOf(local, hash) !== generation)
+          return await follow(async () => {
+            throw error;
+          });
         const retried = onFetchError?.(params, {
           cause,
           error,
@@ -199,7 +216,7 @@ export const ensureFetch = <Query extends query.Params, Data>(
           local,
           generation,
         });
-        if (retried != null) return retried;
+        if (retried != null) return await retried;
         // A failed fetch writes nothing getCached can serve, so the error must
         // settle locally or the next render refetches forever. A later cache
         // hit short-circuits before this entry is read. A reconnect that
