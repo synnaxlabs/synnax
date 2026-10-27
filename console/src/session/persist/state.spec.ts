@@ -1173,7 +1173,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should write a change still waiting on the debounce when flushed", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store, { debounceInterval: TimeSpan.hours(1) });
     driver.dispatch({ type: "a" }, ZERO_MOCK_STATE);
     await expect(store.length()).resolves.toBe(0);
