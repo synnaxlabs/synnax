@@ -124,7 +124,9 @@ jobs:
 
       - name: Check formatting
         if: matrix.format
-        run: uv run ruff format --check --diff .
+        run: |
+          uv run ruff format --check --diff . ||
+            { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
       - name: Check types
         run: uv run mypy ${{ inputs.type_check_dir }}
