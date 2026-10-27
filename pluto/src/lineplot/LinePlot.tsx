@@ -120,6 +120,7 @@ const createTelemetry = (
   const props = {
     window,
     xChannel,
+    yChannel,
     aggregation,
   };
   return {

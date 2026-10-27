@@ -1,0 +1,62 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Builds the Python packages that Deploy - Python publishes, the same way it does, and
+# checks the distributions before a release can ship them.
+
+name: Test - Python packages
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Check distributions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
+      - name: Pin internal dependency constraints
+        run: .github/scripts/pin_internal_deps.sh
+
+      - name: Build
+        run: |
+          for package in alamos/py x/py freighter/py client/py; do
+            uv build "$package" --out-dir dist
+          done
+
+      # W002 flags files with the same content, which every __init__.py that holds only
+      # the copyright header is.
+      - name: Check wheel contents
+        run: uvx check-wheel-contents@0.6.3 --ignore W002 dist/*.whl
+
+      - name: Check metadata
+        run: uvx twine@7.0.0 check dist/*
+
+      - name: Check that the synnax sdist leaves out examples
+        run: |
+          if tar -tzf dist/synnax-*.tar.gz | grep /examples/; then
+            echo "::error::The synnax sdist ships examples."
+            exit 1
+          fi
+
+      - name: Import the wheels in a clean environment
+        working-directory: ${{ runner.temp }}
+        run: |
+          uv venv --python 3.12 venv
+          uv pip install --python venv "$GITHUB_WORKSPACE"/dist/*.whl
+          venv/bin/python -I -c "import alamos, freighter, synnax, x"
+          venv/bin/sy --help
