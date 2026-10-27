@@ -1,0 +1,221 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Create ranges"
+description:
+  "Create ranges and child ranges in the Console, in code, or in an Arc automation."
+clients: ["console", "python", "typescript", "arc"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Create a [range](/reference/ranges) to mark a test, a run, or an event in your data.
+Divide a range into smaller intervals with child ranges. For every property of a range,
+see the [reference](/reference/ranges/reference#properties).
+
+| Use                             | When                                                  |
+| ------------------------------- | ----------------------------------------------------- |
+| The Console                     | An operator marks a test, or a region of a line plot. |
+| The Python or TypeScript client | A test script marks each run that it starts.          |
+| Arc                             | An automation marks each run, stage, or event.        |
+
+<Divider.Divider x />
+
+## Create a range
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+1. Open the create dialog in one of these ways:
+   - Click <Icon.Add /> in the ranges toolbar.
+   - Run the "Create range" command from the
+     [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+   - Select a region of a [line plot](/reference/visualize/line-plots#select-a-region),
+     right-click it, and select **Create range from selection**.
+2. Enter a name.
+3. Optional: change the start or end time on the timeline, and set a **Parent range**
+   and labels.
+4. Click **Save to Core**.
+
+A new range starts now and has no end, so it is in progress until you complete it.
+
+To keep the range only in this Console, click **Save locally**. A local range has no
+parent and no labels, and the ranges toolbar marks it with an **L**. To store it later,
+right-click it in the ranges toolbar and select **Save to Core**. See
+[saved and local ranges](/reference/ranges/reference#saved-and-local-ranges).
+
+<Video id="client/ranges/create" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+from datetime import datetime
+
+import synnax as sy
+
+my_range = client.ranges.create(
+    name="My Range",
+    time_range=sy.TimeRange(
+        start=sy.TimeStamp(datetime(2023, 2, 12, 12, 30)),
+        end=sy.TimeStamp(datetime(2023, 2, 12, 14, 30)),
+    ),
+)
+
+# A range that starts now and lasts two hours
+my_range = client.ranges.create(
+    name="My Range",
+    time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.HOUR * 2),
+)
+```
+
+To avoid a duplicate when a script runs more than once, pass
+`retrieve_if_name_exists=True`. When one range has the same name, the client returns it.
+When several do, it returns the one with the same time range.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+
+const myRange = await client.ranges.create({
+  name: "My Range",
+  timeRange: new TimeRange(
+    new TimeStamp("2023-02-12 12:30:00"),
+    new TimeStamp("2023-02-12 14:30:00"),
+  ),
+});
+
+// A range that starts now and lasts two hours
+const nextRange = await client.ranges.create({
+  name: "My Range",
+  timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
+});
+```
+
+  </Fragment>
+
+  <Fragment slot="arc">
+
+An [Arc automation](/reference/control/arc/introduction) creates a range when a test
+starts and ends it when the test ends. The range starts when `ranges.create` runs, and
+ends when `ranges.end` runs:
+
+```arc channels="start_cmd, stop_cmd" bodies="test, idle, run, done"
+import ranges
+
+sequence test {
+    run_key str $= ""
+    stage idle {
+        start_cmd == 1 => run
+    }
+    stage run {
+        ranges.create{name="Hotfire", color="#3bc454"} -> run_key
+        stop_cmd == 1 => done
+    }
+    stage done {
+        ranges.end{key=run_key}
+        start_cmd == 1 => run
+    }
+}
+
+true => test
+```
+
+For child ranges, aborts, and limits, see [create ranges in Arc](/reference/ranges/arc).
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Create child ranges
+
+[Child ranges](/reference/ranges#child-ranges) divide a range into smaller intervals.
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Set the **Parent range** in the create dialog. You can also right-click a range in the
+ranges toolbar or the range explorer and select **Create child range**, or click
+
+<Icon.Add /> in the child ranges section of the [range
+overview](/reference/ranges/find#range-overview).
+
+<Video id="client/ranges/create-child" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+child_range = parent_range.create_child_range(
+    name="My Child Range",
+    time_range=sy.TimeRange(start=start, end=end),
+)
+
+# Or pass the parent to create, for one or many children
+client.ranges.create(
+    [
+        sy.Range(name="Child A", time_range=tr_a, parent=parent_range),
+        sy.Range(name="Child B", time_range=tr_b, parent=parent_range),
+    ]
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const childRange = await client.ranges.create({
+  name: "My Child Range",
+  timeRange: new TimeRange(start, end),
+  parent: parentRange,
+});
+
+// Or create many children in one call
+await client.ranges.create([
+  { name: "Child A", timeRange: trA, parent: parentRange },
+  { name: "Child B", timeRange: trB, parent: parentRange },
+]);
+```
+
+  </Fragment>
+
+  <Fragment slot="arc">
+
+Give the key of the parent range to `parent`:
+
+```arc channels="start_cmd, tank_pt" bodies="test, run, hold"
+import ranges
+
+sequence test {
+    run_key str $= ""
+    stage run {
+        ranges.create{name="Press test", color="#3bc454"} -> run_key
+        tank_pt > 300.0 => hold
+    }
+    stage hold {
+        ranges.create{name="Hold", parent=run_key, color="#8b5cf6"}
+    }
+}
+
+start_cmd == 1 => test
+```
+
+To end each child range, see
+[mark each stage with a child range](/reference/ranges/arc#mark-each-stage-with-a-child-range).
+
+  </Fragment>
+</Client.Tabs>

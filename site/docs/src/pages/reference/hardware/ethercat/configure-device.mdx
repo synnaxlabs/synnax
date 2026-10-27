@@ -1,0 +1,299 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Configure an EtherCAT device"
+description: "Connect an EtherCAT network to the Driver and configure its modules."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Edition } from "@/components/edition";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
+import { Note } from "@/components/note";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+[EtherCAT](https://www.ethercat.org/) is a fieldbus that runs on a standard Ethernet
+port. The Driver is the EtherCAT master: it finds each module on the network and reads
+and writes the process data of the module, which EtherCAT calls PDOs. Before a task can
+use a module, you configure it.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+<Platforms integration="ethercat" />
+
+- An Ethernet port on the computer that runs the Driver, cabled to the first module. Use
+  a port for EtherCAT only, and do not connect it to a switch or to your office network.
+- Packet capture software:
+  - **Windows** -> install [Npcap](https://npcap.com/#download). The default install
+    options work.
+  - **Linux** and **macOS** -> nothing to install.
+
+<Edition.Enterprise>
+
+On Linux, if the [IgH EtherCAT Master](https://etherlab.org/en_GB/ethercat) kernel
+module is loaded, the Driver uses it instead of its built-in master.
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Network interface access
+
+EtherCAT sends raw Ethernet frames, so the Driver needs direct access to the network
+interface.
+
+| Platform                    | What the Driver needs                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Linux service               | Nothing. The service has raw Ethernet access and IgH access.                                                               |
+| Linux, embedded in the Core | Run the Core as root. Without IgH, you can also start the Core from a systemd unit with `AmbientCapabilities=CAP_NET_RAW`. |
+| NI Linux Real-Time          | Nothing. The service runs as root.                                                                                         |
+| Windows                     | [Npcap](https://npcap.com/#download).                                                                                      |
+| macOS                       | Root access, because only root can open the packet capture devices (`/dev/bpf*`).                                          |
+
+The Core's Docker image runs as a user without these permissions, so its embedded Driver
+cannot run EtherCAT tasks.
+
+<Edition.Enterprise>
+
+To start the Driver on Linux by hand, run it as root or give it the access that the
+service has. Without IgH, the Driver needs the raw Ethernet capability:
+
+```bash
+sudo setcap cap_net_raw+ep /usr/local/bin/synnax-driver
+```
+
+With IgH, the Driver needs access to the master device (`/dev/EtherCAT0`) instead.
+`sudo synnax-driver install` gives this access to the `synnax` group, so add your user
+to that group, then log in again:
+
+```bash
+sudo usermod -aG synnax $USER
+```
+
+<Note.Note variant="info">
+  A service installed by an older Driver does not have these permissions. To update it,
+  run `sudo synnax-driver install` again.
+</Note.Note>
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## How the Driver finds modules
+
+The Driver looks for EtherCAT modules on each wired Ethernet port every 5 seconds. It
+skips loopback, Wi-Fi, VPN, bridge, container, and other virtual ports, and it checks a
+port with no modules every 30 seconds. A module shows in the
+[devices toolbar](/reference/hardware/devices#devices-toolbar) under its Driver:
+
+- **Name** -> the name stored in the module, such as `EL3102`, or "EtherCAT Slave
+  \<position\>".
+- **Location** -> the port and the position of the module on the network, such as
+  `en5.Slot 2`.
+
+When no task uses the network, a module that you connect shows at the next scan, and a
+module that you remove shows **Device disconnected**. While a task uses the network, the
+list of modules does not change. To find new modules, stop the tasks on the port.
+
+The Driver reads the PDOs of a module from the module itself. If the module does not
+report them, the Driver uses a built-in catalog of Beckhoff and Dewesoft modules. If it
+cannot find them, the status of the module reads "Failed to discover PDOs", and its
+description gives the reason. To scan again,
+[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver). A module
+that the scan cannot read is not supported yet.
+
+<Divider.Divider x />
+
+## How the Driver runs a network
+
+- **One network per port** -> All read and write tasks on a port share one network.
+  Starting or stopping one task does not interrupt the others.
+- **Start and stop** -> The network starts when the first task on the port starts, and
+  stops when the last task stops.
+- **Cycle rate** -> The network cycles at the slowest rate that is a multiple of each
+  read task's sample rate and at least each write task's execution rate. The rate is
+  always between 100 Hz and 10 kHz. For example, read tasks at 250 Hz and 1 kHz make the
+  network cycle at 1 kHz. If no rate in that range is a multiple of every read rate,
+  such as for 3 kHz and 4 kHz, the task fails to start.
+- **Outputs** -> Each output holds the last value a write task commanded. When a write
+  task stops, its outputs go to zero. An output that another running write task
+  commanded keeps the last value of that task instead.
+- **Lost modules** -> When a module stops responding, the network continues to cycle,
+  and the Driver returns the module to operation when it responds again. Until then,
+  every read task on the port pauses with the warning "Failed to read data", and its
+  data starts again when the module responds.
+
+<Divider.Divider x />
+
+## Module status
+
+While a task uses the network, the status of each module shows its live state. The
+Driver updates it every 5 seconds.
+
+| Status                                    | Meaning                                                                                                                                                  |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Operational**                           | The module exchanges data in OP, the operational state of EtherCAT.                                                                                      |
+| **In SAFE-OP**, **In PRE-OP**             | The module left OP. The Driver is returning it to OP.                                                                                                    |
+| **Error in SAFE-OP**, **Error in PRE-OP** | The module reports an error. The status description shows the error text of the module. With IgH, the kernel log (`dmesg`) shows the error code instead. |
+| **Not responding**                        | The module does not answer. Check its power and cabling.                                                                                                 |
+| **Device disconnected**                   | The last scan did not find the module.                                                                                                                   |
+
+When no task uses the network, the status shows what the scan found, such as
+**Discovered (4 inputs, 2 outputs)** or **Failed to discover PDOs**.
+
+<Divider.Divider x />
+
+## Configure a device
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the module and select **Configure**. You can also
+   click **Configure** in the "New slave connected" notification. To list each module
+   that the Driver found, click <Icon.Add /> and select **EtherCAT network**.
+2. Enter a **Name** and an [**Identifier**](/reference/hardware/devices#identifiers), or
+   click one of the identifiers that the Console suggests.
+3. Click **Save**. To also open a read task for the module, click **Save and create read
+   task**.
+
+Configure each module that a task uses.
+
+<Video id="device-drivers/ethercat/configure-device/ethercat-configure" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Find modules and list their PDOs:
+
+```python
+for module in client.devices.retrieve(makes=["ethercat"]):
+    props = module.properties
+    print(module.name, props["network"], props["position"])
+    for pdo in props["pdos"]["inputs"]:
+        print("  in ", pdo["name"], hex(pdo["index"]), pdo["sub_index"], pdo["data_type"])
+    for pdo in props["pdos"]["outputs"]:
+        print("  out", pdo["name"], hex(pdo["index"]), pdo["sub_index"], pdo["data_type"])
+```
+
+Configure modules in the Console.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+Find modules and list their PDOs:
+
+```typescript
+import { device } from "@synnaxlabs/client";
+
+for (const module of await client.devices.retrieve(device.make.eq("ethercat"))) {
+  const { network, position, pdos } = module.properties;
+  console.log(module.name, network, position, JSON.stringify(pdos));
+}
+```
+
+Configure modules in the Console. TypeScript returns device properties in camel case.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Disable a device
+
+Disable a module to leave it out of the network, for example when it is not cabled yet.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the module and select **Disable**. To disable
+   several modules, select them first.
+2. The status changes to "Device disabled".
+
+The change applies the next time the network on the port starts: stop every task on the
+port, then start them again. To use the module again, right-click it and select
+**Enable**.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+module = client.devices.retrieve(key="<module key>")
+module.properties["enabled"] = False
+client.devices.create(module)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const module = await client.devices.retrieve({ key: "<module key>" });
+module.properties.enabled = false;
+await client.devices.create(module);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Device properties
+
+| Property                      | Meaning                                                     |
+| ----------------------------- | ----------------------------------------------------------- |
+| `name`                        | The name stored in the module.                              |
+| `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.             |
+| `revision`, `serial`          | The revision and serial number of the module, as numbers.   |
+| `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.   |
+| `position`                    | The position on the network. Starts at 1, or at 0 with IgH. |
+| `enabled`                     | `false` when the module is [disabled](#disable-a-device).   |
+| `pdos.inputs`, `pdos.outputs` | The PDO entries of the module. See below.                   |
+
+Each entry has a `name`, an `index` and a `sub_index` (its CoE address), a `bit_length`,
+and a `data_type`. When the module names its PDOs, an entry also has a `pdo_name`, the
+name of the PDO that holds it. TypeScript uses the same fields in camel case, such as
+`subIndex`.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### No modules show in the devices toolbar
+
+1. Check the cable from the port to the first module, and the power to the modules.
+2. Make sure that no other program uses the port.
+3. Check the [prerequisites](#prerequisites) and the
+   [network interface access](#network-interface-access), then
+   [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+### "EtherCAT is unavailable because a required packet capture library is not installed"
+
+A task shows this message when the Driver cannot load the packet capture software.
+Follow the [prerequisites](#prerequisites), then
+[restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+
+### "Failed to scan for devices"
+
+The Console shows this warning when the Driver cannot scan a port. The description gives
+the reason, such as no raw Ethernet access. See
+[network interface access](#network-interface-access).
+
+### "slave ... maps ... input and ... output bits, but its discovered PDO entries hold ... and ..."
+
+A task shows this error when the PDOs that the Driver found have a different size than
+the data that the module exchanges. The Driver does not read or write that module, so it
+does not give wrong values.
+[Restart the Driver](/reference/hardware/troubleshooting#restart-the-driver) to scan
+again. If the error stays, the module is not supported yet.
+
+### "device ... expected at position ... not found on bus"
+
+The network changed after you created the task. A module moved, or the Driver does not
+find it. Check the cables, then edit the channels of the task to use the modules that
+are on the network now.
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

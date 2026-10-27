@@ -1,0 +1,190 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Modbus write task"
+description:
+  "Write command channel values to the coils and holding registers of a Modbus server."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Channel } from "@/components/channel";
+import { Note } from "@/components/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A Modbus write task writes the values of command channels to the coils and holding
+registers of one Modbus server. For example, a button on a schematic can start a pump
+through a coil of a PLC. Modbus write tasks have no state channels.
+
+<Note.Note variant="warning">
+
+Each command writes every address from the lowest to the highest address of the task.
+Addresses between your channels get the values that the task read at its first command,
+until you configure the task again. If that first read fails, they get zeros. Keep the
+addresses of a write task together, or use one task for each group of addresses.
+
+</Note.Note>
+
+The Driver writes coils with function code 15 and holding registers with function
+code 16. A device that supports only function codes 05 and 06 cannot be written. One
+request can hold at most 123 registers or 1968 coils.
+
+Before you start, you need a
+[connected server](/reference/hardware/modbus/connect-server).
+
+<Divider.Divider x />
+
+## Create a Modbus write task
+
+When you create command channels with a client library, give each one its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the server and select **Create write task**.
+2. Click **Add channel**. Select **Coil** or **Holding register**, then enter the
+   address. For a holding register, select the **Data type**.
+3. Click <Icon.Play /> (**Start**).
+
+The Console creates a command channel and an index channel for each output. For the
+server `Pump skid PLC`, a coil at address 3 gives `Pump_skid_PLC_coil_output_3_cmd` and
+`Pump_skid_PLC_coil_output_3_cmd_time`. To use a different name, right-click the channel
+and select **Rename** before you start the task.
+
+<Video id="hardware/modbus/write-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import modbus
+
+dev = client.devices.retrieve(name="Pump skid PLC")
+cmd_time = client.channels.create(
+    name="pump_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+pump_cmd = client.channels.create(
+    name="pump_cmd", index=cmd_time.key, data_type=sy.DataType.UINT8
+)
+
+task = modbus.WriteTask(
+    name="Pump control",
+    device=dev.key,
+    channels=[modbus.CoilWriteChannel(address=3, channel=pump_cmd.key)],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first.
+
+```typescript
+import { device, modbus } from "@synnaxlabs/client";
+
+const dev = await client.devices.retrieve(
+  device.name.eq("Pump skid PLC"),
+  device.one(),
+);
+const cmdTime = await client.channels.create({
+  name: "pump_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const pumpCmd = await client.channels.create({
+  name: "pump_cmd",
+  index: cmdTime.key,
+  dataType: "uint8",
+});
+
+const task = await client.tasks.create({
+  name: "Pump control",
+  rack: dev.rack,
+  type: "modbus_write",
+  config: modbus.writeConfigZ.parse({
+    device: dev.key,
+    channels: [{ type: "coil", address: 3, channel: pumpCmd.key }],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+The task has the options **Data saving** and **Auto start**. See
+[task options](/reference/hardware/tasks#task-options). Python `WriteTask` has no
+`data_saving_disabled` argument.
+
+<Divider.Divider x />
+
+## Channel reference
+
+Each channel has an `address`, from 0 to 65535, and a `channel`, the command channel.
+Each table shows the Console label of a setting, with its Python field under it.
+
+<Channel.Types>
+
+<Channel.Type
+  name="Coil"
+  type="coil"
+  python="CoilWriteChannel"
+>
+
+Writes a coil. A command of 0 turns the coil off. Any other value turns it on.
+
+</Channel.Type>
+
+<Channel.Type
+  name="Holding register"
+  type="holding_register"
+  python="HoldingRegisterWriteChannel"
+>
+
+Writes a number to one or more holding registers.
+
+| Setting                              | Default | Notes                                                                                                                             |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                                   |
+| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two bytes in each register. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
+| Words <small>`words_swapped`</small> | device  | `True` writes the high word first. Only for 32-bit and 64-bit data types.                                                         |
+
+</Channel.Type>
+
+</Channel.Types>
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### A command changed a register that the task does not use
+
+The register is between two addresses of the task. See the warning at the top of this
+page.
+
+### "Illegal function"
+
+The device does not support function code 15 or 16. The Driver cannot write to it.
+
+### "Too many data"
+
+The addresses of the task span more than one request can hold. Move the channels closer
+together, or split them into two tasks.
+
+### The task stopped when the connection dropped
+
+The task stops on any connection error. Start the task again when the server is back.
+
+For other problems, see
+[Connect a Modbus server](/reference/hardware/modbus/connect-server#troubleshooting) and
+[Troubleshoot hardware](/reference/hardware/troubleshooting).

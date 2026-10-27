@@ -1,0 +1,331 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Tasks"
+description: "Read tasks, write tasks, timing, data saving, and the task lifecycle."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Diagram } from "@/components/diagram";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A task is a job that the Driver runs on one or more
+[devices](/reference/hardware/devices). A read task records the values of inputs in
+[channels](/reference/channels). A write task sends the values that you write to command
+channels to outputs. Synnax stores the configuration of each task, so you can stop a
+task and start it again later.
+
+Each task type has its own page in the vendor groups of this section, such as the
+[NI analog read task](/reference/hardware/ni/analog-read-task) or the
+[Modbus write task](/reference/hardware/modbus/write-task). To start and stop tasks, see
+[Start and stop tasks](/reference/hardware/start-and-stop-tasks).
+
+<Divider.Divider x />
+
+## Read tasks
+
+<Diagram.Block
+  title="A device sends values to a read task on the Driver. The read task writes them to channels in the Core. Plots, Arc automations, and client code read the channels."
+  nodes={[
+    {
+      key: "device",
+      label: "Device",
+      caption: "inputs",
+      icon: Icon.Hardware,
+      column: 0,
+    },
+    {
+      key: "task",
+      label: "Read task",
+      caption: "on the Driver",
+      icon: Icon.Task,
+      column: 1,
+    },
+    {
+      key: "channels",
+      label: "Channels",
+      caption: "in the Core",
+      icon: Icon.Channel,
+      column: 2,
+    },
+    {
+      key: "readers",
+      label: "Readers",
+      caption: "plots, Arc, code",
+      icon: Icon.LinePlot,
+      column: 3,
+    },
+  ]}
+  edges={[
+    { from: "device", to: "task" },
+    { from: "task", to: "channels" },
+    { from: "channels", to: "readers" },
+  ]}
+/>
+
+A read task samples its inputs at the **Sample rate**. It sends the samples to the Core
+in batches at the **Stream rate**. Each batch holds the sample rate divided by the
+stream rate samples for each channel. For example, a task that samples at 100 Hz and
+streams at 10 Hz sends batches of 10 samples.
+
+The stream rate must be equal to or less than the sample rate. A higher stream rate
+shows new values sooner, but sends more batches. The HTTP read task has one **Rate**
+field instead of the two rates.
+
+<Divider.Divider x />
+
+## Write tasks
+
+<Diagram.Block
+  title="A schematic, an Arc automation, or client code writes a value to a command channel. The write task on the Driver sends it to the device output, then writes the value to the state channel."
+  nodes={[
+    {
+      key: "writer",
+      label: "Writer",
+      caption: "schematic, Arc, code",
+      icon: Icon.Schematic,
+      column: 0,
+    },
+    {
+      key: "cmd",
+      label: "Command channel",
+      caption: "in the Core",
+      icon: Icon.Channel,
+      column: 1,
+    },
+    {
+      key: "task",
+      label: "Write task",
+      caption: "on the Driver",
+      icon: Icon.Task,
+      column: 2,
+    },
+    {
+      key: "device",
+      label: "Device",
+      caption: "outputs",
+      icon: Icon.Hardware,
+      column: 3,
+    },
+    {
+      key: "state",
+      label: "State channel",
+      caption: "in the Core",
+      icon: Icon.Channel,
+      column: 3,
+    },
+  ]}
+  edges={[
+    { from: "writer", to: "cmd" },
+    { from: "cmd", to: "task" },
+    { from: "task", to: "device" },
+    { from: "task", to: "state" },
+  ]}
+/>
+
+### Command channels
+
+Each output of a write task has a command channel. When a writer, such as a
+[schematic](/reference/visualize/schematics), an
+[Arc automation](/reference/control/arc), or client code, writes a value to the command
+channel, the task sends the value to the output. To control which writer can send
+commands, see [control authority](/reference/control/authority).
+
+### State channels
+
+NI, LabJack, and EtherCAT write tasks also have a state channel for each output. After
+the task sends a command to the output, it writes the same value to the state channel. A
+schematic valve can show the state channel, so it shows the value that the Driver sent,
+not only the value that you clicked.
+
+The state channel holds the last value that the Driver sent. It is not a measurement of
+the output. If a LabJack write fails, the state channel keeps the old value. An NI
+analog write that is out of range is an exception: see
+[the outputs stop changing](/reference/hardware/ni/analog-write-task#the-outputs-stop-changing-after-a-command).
+The task writes the state channels at the **State update rate**, and also right after
+each command.
+
+### Outputs with no state channel
+
+Modbus, OPC UA, and HTTP write tasks have no state channels. To see the value of an
+output, read it back with a read task, such as a
+[Modbus read task](/reference/hardware/modbus/read-task) on the same register.
+
+For the names of command and state channels, see
+[channels that tasks create](/reference/channels#channels-that-tasks-create).
+
+<Divider.Divider x />
+
+## Timing
+
+A hardware timed task uses the clock on the device. The Driver gives each sample a
+timestamp from the start of the batch and the sample rate. A software timed task has no
+device clock, so the Driver gives the samples timestamps from the computer clock when it
+reads them:
+
+- **Hardware timed** -> NI analog read, and LabJack read with no thermocouple channels.
+- **Software timed** -> NI digital read, NI counter read, LabJack read with thermocouple
+  channels, EtherCAT read, Modbus read, OPC UA read, HTTP read, and every write task.
+
+An HTTP read task can also take its timestamps from the server response. See
+[endpoints and fields](/reference/hardware/http/read-task#endpoints-and-fields). An
+EtherCAT read task can take its timestamps from the distributed clock of its modules.
+See [PDO channels](/reference/hardware/ethercat/read-task#pdo-channels).
+
+A hardware timed task that samples at 100 Hz and streams at 10 Hz gives these
+timestamps:
+
+| Sample | Time (s) | Batch  |
+| ------ | -------- | ------ |
+| 0      | 0.00     | First  |
+| 1      | 0.01     | First  |
+| ...    | ...      | ...    |
+| 9      | 0.09     | First  |
+| 10     | 0.10     | Second |
+| 11     | 0.11     | Second |
+
+The device clock and the computer clock drift apart over time. The Driver corrects the
+spacing between samples, so hardware timed samples stay in line with the computer clock
+and with software timed tasks on the same Driver. For example, the commands from a
+digital write task stay in line with the analog samples that they caused. Skew
+correction is on by default. To turn it off on a standalone Driver, see the
+[Driver configuration](/reference/enterprise/driver/configuration).
+
+<Divider.Divider x />
+
+## Data saving
+
+With **Data saving** off, a task sends live values to plots and other readers, but the
+Core does not store them. Turn data saving off to try a setup without storing its data.
+Read tasks and the NI, LabJack, EtherCAT, and Modbus write tasks have **Data saving**.
+
+To change data saving for a task, use the switch in its tab, or right-click the task in
+the tasks toolbar and select **Enable data saving** or **Disable data saving**. The menu
+item restarts a running task, so the change applies at once.
+
+<Divider.Divider x />
+
+## Task lifecycle
+
+A new task is a draft. Its status is "Task not deployed". The task tab saves each edit
+as you make it.
+
+When you click **Start** in the task tab, the Console checks the configuration and
+creates the channels that the task needs. The Driver then builds the task and starts it.
+When you stop a task, the Driver stops reading and writing, and Synnax keeps the
+configuration.
+
+Edits to a running task do not apply until you
+[redeploy it](/reference/hardware/start-and-stop-tasks#apply-edits-to-a-running-task).
+With **Auto start** on, the task starts each time the Driver starts.
+
+| Status                                      | Meaning                                                |
+| ------------------------------------------- | ------------------------------------------------------ |
+| Task not deployed                           | The task is a draft. It has never started.             |
+| Sending start command, Sending stop command | The Console sent the command and waits for the Driver. |
+| Started task, Task running                  | The task is running.                                   |
+| Stopped task                                | The task stopped.                                      |
+| Task status unknown                         | The Core has no status for the task.                   |
+
+The status shows at the bottom of the task tab. Click it to see the details and to copy
+them with **Copy diagnostics**. For device and Driver statuses, see
+[Devices](/reference/hardware/devices#statuses).
+
+<Divider.Divider x />
+
+## Task options
+
+Each task page lists the options that its task has.
+
+| Console label     | Python field           | TypeScript field     | Default                               |
+| ----------------- | ---------------------- | -------------------- | ------------------------------------- |
+| Sample rate       | `sample_rate`          | `sampleRate`         | 10 Hz, 50 Hz (OPC UA)                 |
+| Stream rate       | `stream_rate`          | `streamRate`         | 5 Hz, 25 Hz (OPC UA)                  |
+| State update rate | `state_rate`           | `stateRate`          | 10 Hz (NI, LabJack), 25 Hz (EtherCAT) |
+| Data saving       | `data_saving_disabled` | `dataSavingDisabled` | On (field `false`)                    |
+| Auto start        | `auto_start`           | `autoStart`          | Off                                   |
+
+The LabJack write task has no **Auto start** switch in the Console.
+
+<Divider.Divider x />
+
+## Tasks toolbar
+
+To open the tasks toolbar, click <Icon.Task /> in the left bar or press **T**. Each task
+shows its status, name, and type, and a button to start or stop it. To create a task,
+click <Icon.Add /> (**Create task**). Double-click a task to open it in a tab.
+
+Right-click a task to open its menu:
+
+| Item                                    | What it does                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------ |
+| Start, Stop                             | Starts or stops the selected tasks.                                            |
+| Redeploy                                | Applies saved edits to a running task. It shows only when edits are waiting.   |
+| Edit configuration                      | Opens the task in a tab.                                                       |
+| Rename                                  | Changes the task name.                                                         |
+| Enable data saving, Disable data saving | Turns [data saving](#data-saving) on or off.                                   |
+| Snapshot to \<range\>                   | Saves a copy of the task to the active [range](/reference/ranges#snapshots).   |
+| Export                                  | Saves the task as a JSON file. Run the "Import components" command to load it. |
+| Copy link                               | Copies a link to the task. Not in Synnax Desktop.                              |
+| Delete                                  | Deletes the task.                                                              |
+
+The task tab has buttons to **Copy Python code**, **Copy TypeScript code**, **Copy JSON
+configuration**, **Copy link** (not in Synnax Desktop), and **Export**. The code buttons
+copy a line that retrieves the task in a script.
+
+<Divider.Divider x />
+
+## Tasks in code
+
+<Client.Tabs exclude={["console"]}>
+  <Fragment slot="python">
+
+```python
+# Find tasks by name.
+task = client.tasks.retrieve(name="Tank sensors")
+tasks = client.tasks.retrieve(names=["Tank sensors", "Tank valves"])
+
+# List the tasks on the embedded Driver of the Core.
+for t in client.tasks.list():
+    print(t.name, t.type)
+
+# Copy a task with a new name.
+copy = client.tasks.copy(key=task.key, name="Tank sensors copy")
+
+# Delete a task.
+client.tasks.delete(copy.key)
+```
+
+`list()` with no argument returns only the tasks on the embedded Driver of the Core. To
+list the tasks of another Driver, pass its rack key: `client.tasks.list(rack=key)`.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+import { task } from "@synnaxlabs/client";
+
+// Find tasks by name.
+const sensors = await client.tasks.retrieve({ name: "Tank sensors" });
+const tasks = await client.tasks.retrieve(
+  task.name.in(["Tank sensors", "Tank valves"]),
+);
+
+// List the tasks on every Driver.
+for (const t of await client.tasks.list()) console.log(t.name, t.type);
+
+// Copy a task with a new name.
+const copy = await client.tasks.copy(sensors.key, "Tank sensors copy", false);
+
+// Delete a task.
+await client.tasks.delete(copy.key);
+```
+
+`list()` with no argument returns the tasks on every Driver. To list the tasks of one
+Driver, pass its rack key.
+
+  </Fragment>
+</Client.Tabs>
