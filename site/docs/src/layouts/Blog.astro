@@ -54,7 +54,7 @@ const posting = {
     <OutlineBar slot="subheader" headings={shown} outline={frontmatter.outline} />
     <section>
         <Article
-            url={Astro.url.pathname}
+            url={route}
             title={heading ?? title}
             description={description}
             showBreadcrumb={true}

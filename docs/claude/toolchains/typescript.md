@@ -19,6 +19,12 @@ orchestration.
 - `pnpm test` / `pnpm test:<pkg>`
 - `pnpm lint` / `pnpm fix` (also per-pkg variants)
 - `pnpm cycles` / `pnpm cycles:console` — circular dependency check (knip)
+- `python3 scripts/check_exports_ts.py` — exports that only their own module or test
+  code import. A module is the nearest directory with an index file. Drop the `export`
+  and make its specs test through the public API, or move a helper that other modules'
+  tests need into a `testutil` directory. When the package's users need the symbol,
+  export it from the package entry instead. A pattern in `knip.json` that ends in `!` is
+  production code.
 
 ### Console dev login
 
@@ -96,7 +102,7 @@ subject:
 
 ## Comments
 
-The universal body-comment and doc-comment rules in the root CLAUDE.md apply. TypeScript
+The universal body-comment and doc-comment rules in the root AGENTS.md apply. TypeScript
 form: JSDoc `/** */` directly above the declaration. Tags: `@param name - Description.`,
 `@returns`, `@throws {ErrType} if ...` (see Error Handling Rule 4), `{@link Symbol}` for
 cross-references. Never put types in JSDoc; the signature carries them.

@@ -10,6 +10,8 @@
 import { $clerkStore, $isLoadedStore, $userStore } from "@clerk/astro/client";
 import { useEffect, useState } from "react";
 
+import { reload } from "@/ui/api";
+
 export type Clerk = NonNullable<ReturnType<typeof $clerkStore.get>>;
 export type User = NonNullable<ReturnType<typeof $userStore.get>>;
 export type Organization = Awaited<ReturnType<Clerk["getOrganization"]>>;
@@ -36,6 +38,21 @@ export const useClerk = (): Clerk | null => {
   const loaded = useStore($isLoadedStore, false);
   const clerk = useStore($clerkStore, null);
   return loaded ? clerk : null;
+};
+
+/**
+ * useLogOut returns a function that logs the user out and reloads the page, which sends
+ * them through the login page and back. Returns undefined before clerk-js has loaded.
+ */
+export const useLogOut = (): (() => void) | undefined => {
+  const clerk = useClerk();
+  if (clerk == null) return undefined;
+  return () => {
+    void clerk.signOut(() => {
+      reload();
+      return Promise.resolve();
+    });
+  };
 };
 
 /** useUser returns the logged-in user, null when logged out, undefined when loading. */

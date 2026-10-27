@@ -411,6 +411,22 @@ class TestCodec:
         ):
             codec.decode(bytes(encoded))
 
+    def test_rejects_frame_older_than_last_decoded(self) -> None:
+        """Should reject a frame encoded with keys older than the last frame decoded."""
+        encoder = Codec([1], [sy.DataType.INT32])
+        decoder = Codec([1], [sy.DataType.INT32])
+        frame = sy.Frame(
+            channels=[1], series=[sy.Series(data=np.array([1, 2, 3], dtype=np.int32))]
+        )
+        stale = encoder.encode(frame)
+        encoder.update([1, 2], [sy.DataType.INT32, sy.DataType.INT64])
+        decoder.update([1, 2], [sy.DataType.INT32, sy.DataType.INT64])
+        decoder.decode(encoder.encode(frame))
+        with pytest.raises(
+            sy.ValidationError, match=r"^remote sent invalid sequence number 1$"
+        ):
+            decoder.decode(stale)
+
     def test_dynamic_codec_update(self) -> None:
         """Tests that the codec can be updated with new channels and correctly encode/decode after update"""
         codec = Codec()

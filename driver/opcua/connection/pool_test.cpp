@@ -15,7 +15,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/opcua/connection/connection.h"
-#include "driver/opcua/mock/server.h"
+#include "driver/opcua/testutil/server.h"
 
 namespace driver::opcua::connection {
 const std::string BREAKER_OPEN_TEXT = "The Driver paused new connections to the server "
@@ -24,9 +24,9 @@ const std::string BREAKER_OPEN_TEXT = "The Driver paused new connections to the 
 class ConnectionPoolTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        server_cfg_ = mock::ServerConfig::create_default();
+        server_cfg_ = testutil::ServerConfig::create_default();
         server_cfg_.port = 4845;
-        server_ = std::make_unique<mock::Server>(server_cfg_);
+        server_ = std::make_unique<testutil::Server>(server_cfg_);
         server_->start();
         ASSERT_TRUE(server_->wait_until_ready());
 
@@ -39,8 +39,8 @@ protected:
         if (server_) { server_->stop(); }
     }
 
-    mock::ServerConfig server_cfg_;
-    std::unique_ptr<mock::Server> server_;
+    testutil::ServerConfig server_cfg_;
+    std::unique_ptr<testutil::Server> server_;
     Config conn_cfg_;
 };
 
@@ -84,9 +84,9 @@ TEST_F(ConnectionPoolTest, MultipleSimultaneousConnections) {
 
 /// @brief it should create separate connections for different endpoints.
 TEST_F(ConnectionPoolTest, DifferentEndpoints) {
-    mock::ServerConfig server2_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server2_cfg = testutil::ServerConfig::create_default();
     server2_cfg.port = 4846;
-    mock::Server server2(server2_cfg);
+    testutil::Server server2(server2_cfg);
     server2.start();
     ASSERT_TRUE(server2.wait_until_ready());
 
@@ -213,7 +213,7 @@ TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
     server_->stop();
     server_.reset();
 
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -231,7 +231,7 @@ TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
     server_->stop();
     server_.reset();
 
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -320,7 +320,7 @@ TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
     server_->stop();
     server_.reset();
 
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -374,7 +374,7 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
     server_->stop();
     server_.reset();
 
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -425,9 +425,9 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
 ///   main:   thread B waits ~2s behind thread A's lock      → FAIL
 ///   update: thread B runs concurrently, completes quickly   → PASS
 TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
-    mock::ServerConfig server2_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server2_cfg = testutil::ServerConfig::create_default();
     server2_cfg.port = 4846;
-    mock::Server server2(server2_cfg);
+    testutil::Server server2(server2_cfg);
     server2.start();
     ASSERT_TRUE(server2.wait_until_ready());
 
@@ -544,10 +544,10 @@ TEST_F(ConnectionPoolTest, CustomSessionAndChannelTimeouts) {
 class SessionLimitPoolTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        server_cfg_ = mock::ServerConfig::create_default();
+        server_cfg_ = testutil::ServerConfig::create_default();
         server_cfg_.port = 4860;
         server_cfg_.max_sessions = 2;
-        server_ = std::make_unique<mock::Server>(server_cfg_);
+        server_ = std::make_unique<testutil::Server>(server_cfg_);
         server_->start();
         ASSERT_TRUE(server_->wait_until_ready());
 
@@ -560,8 +560,8 @@ protected:
         if (server_) server_->stop();
     }
 
-    mock::ServerConfig server_cfg_;
-    std::unique_ptr<mock::Server> server_;
+    testutil::ServerConfig server_cfg_;
+    std::unique_ptr<testutil::Server> server_;
     Config conn_cfg_;
 };
 
@@ -619,7 +619,7 @@ TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
     server_.reset();
 
     server_cfg_.max_sessions = 2;
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -759,7 +759,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
 
     // Restart server
     server_cfg_.max_sessions = 2;
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -806,7 +806,7 @@ TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
     server_.reset();
 
     server_cfg_.max_sessions = 2;
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 

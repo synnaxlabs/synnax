@@ -34,8 +34,25 @@ export const openMemory = async (): Promise<Memory> => {
     transact: async (fn) => await db.transaction(fn),
     clear: async () => {
       await db.execute(
-        sql`TRUNCATE event, activation, license, organization RESTART IDENTITY CASCADE`,
+        sql`TRUNCATE event, handoff, invitation, activation, license, organization
+          RESTART IDENTITY CASCADE`,
       );
     },
   };
+};
+
+/** failingEvents runs `body` while recording an event of `kind` fails. */
+export const failingEvents = async <T>(
+  store: Memory,
+  kind: string,
+  body: () => Promise<T>,
+): Promise<T> => {
+  await store.query.execute(
+    sql.raw(`alter table event add constraint failing check (kind <> '${kind}')`),
+  );
+  try {
+    return await body();
+  } finally {
+    await store.query.execute(sql`alter table event drop constraint failing`);
+  }
 };

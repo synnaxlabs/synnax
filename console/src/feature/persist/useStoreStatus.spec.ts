@@ -22,7 +22,7 @@ const render = async () =>
   });
 
 const warnings = <S extends { message: string }>(statuses: S[]): S[] =>
-  statuses.filter(({ message }) => message === Persist.UNAVAILABLE_MESSAGE);
+  statuses.filter(({ message }) => message === "This session will not be saved");
 
 describe("Persist.useStoreStatus", () => {
   it("should stay quiet while the store is usable", async () => {

@@ -19,7 +19,6 @@ cc_library(
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp/grpc",
         "//x/cpp/telem",
-        "//x/cpp/uuid",
         "@grpc//:grpc++",
     ],
 )
@@ -29,7 +28,7 @@ cc_test(
     srcs = ["auth_test.cpp"],
     deps = [
         "//client/cpp/auth",
-        "//freighter/cpp/mock",
+        "//freighter/cpp/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
