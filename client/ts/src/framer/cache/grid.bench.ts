@@ -10,13 +10,7 @@
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { test } from "vitest";
 
-import {
-  choose,
-  indexes,
-  level,
-  pointLimit,
-  type Position,
-} from "@/telem/aether/tiles";
+import { choose, indexes, level, pointLimit, type Position } from "@/framer/cache/grid";
 
 // A line source runs each of these several times per frame.
 
@@ -36,8 +30,8 @@ test("grid", async ({ bench }) => {
         void pointLimit({
           level: HOUR_LEVEL,
           view: HOUR,
-          width: 1000,
-          groupsPerColumn: 1 / 2,
+          points: 1000,
+          drawn: "min_max",
           aggregation: "min_max",
         }),
     ),
