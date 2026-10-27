@@ -566,6 +566,7 @@ export class Points {
   private request(spec: TileSpec): void {
     const key = tileRequestKey(spec);
     if (
+      this.limit.settling === true ||
       this.held.get(key)?.stale === false ||
       this.pending.has(key) ||
       this.retrying.has(key) ||

@@ -32,6 +32,8 @@ export interface PointsLimit {
    * Defaults to the window.
    */
   view?: TimeRange;
+  /** Draws the view from the samples held and reads none, as while a zoom moves. */
+  settling?: boolean;
 }
 
 /** Keeps the newest count samples of each channel. */
