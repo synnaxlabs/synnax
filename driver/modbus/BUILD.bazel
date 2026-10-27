@@ -47,8 +47,8 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/modbus",
-        "//driver/modbus/mock",
-        "//driver/pipeline/mock",
+        "//driver/modbus/testutil",
+        "//driver/pipeline/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
@@ -61,8 +61,8 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/modbus",
-        "//driver/modbus/mock",
-        "//driver/pipeline/mock",
+        "//driver/modbus/testutil",
+        "//driver/pipeline/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
