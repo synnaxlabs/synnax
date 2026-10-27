@@ -45,7 +45,8 @@ var _ = Describe("NewDecodeFallbackCodec", func() {
 		It(
 			"Should return the error of the last encoder if all codecs fail to encode",
 			func(ctx SpecContext) {
-				Expect(codec.Encode(ctx, make(chan int))).Error().To(HaveOccurred())
+				Expect(codec.Encode(ctx, make(chan int))).Error().
+					To(MatchError(ContainSubstring("kind=chan, type=chan int")))
 			},
 		)
 		It(
