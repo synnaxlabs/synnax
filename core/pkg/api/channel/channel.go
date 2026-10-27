@@ -249,7 +249,10 @@ func (s *Service) retrieve(
 		if err != nil {
 			return nil, err
 		}
-		return res, q.Exec(ctx, nil)
+		if err := q.Exec(ctx, nil); err != nil {
+			return nil, err
+		}
+		return res, nil
 	}
 	// The alias search pages the merged list, so the query carries only the where.
 	q, err := RetrieveRequest{Where: r.Where}.Apply(s.internal.NewRetrieve())
