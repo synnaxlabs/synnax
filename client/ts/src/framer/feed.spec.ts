@@ -32,6 +32,9 @@ import {
 } from "@/framer/subscription";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
+// More points than any window here holds samples, so every sample draws.
+const EXACT = 2 ** 20;
+
 const client = createTestClient();
 const feed = client.openFeed();
 afterAll(async () => await feed.close());
@@ -73,7 +76,7 @@ const createClock = (): (() => TimeStamp) => {
 const raw = (keys: channel.Key[], window: Window): PointsRequest => ({
   keys,
   window,
-  limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+  limit: { variant: "points", count: EXACT, aggregation: "min_max" },
 });
 
 const latest = (keys: channel.Key[], count = 1): LatestRequest => ({
