@@ -12,13 +12,13 @@ from typing import Literal, overload
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax import project
+from synnax import project as project_
 from synnax.lineplot.types_gen import Key, LinePlot
 from x.lists import normalize
 
 
 class _CreateRequest(BaseModel):
-    project: project.Key
+    project: project_.Key
     line_plots: list[LinePlot]
 
 
@@ -64,28 +64,28 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, *, project: project.Key, name: str) -> LinePlot: ...
+    def create(self, project: project_.Key, *, name: str) -> LinePlot: ...
 
     @overload
-    def create(self, line_plots: LinePlot, *, project: project.Key) -> LinePlot: ...
+    def create(self, project: project_.Key, line_plots: LinePlot) -> LinePlot: ...
 
     @overload
     def create(
-        self, line_plots: list[LinePlot], *, project: project.Key
+        self, project: project_.Key, line_plots: list[LinePlot]
     ) -> list[LinePlot]: ...
 
     def create(
         self,
+        project: project_.Key,
         line_plots: LinePlot | list[LinePlot] | None = None,
         *,
-        project: project.Key,
         name: str = "",
     ) -> LinePlot | list[LinePlot]:
         """Create one or more line plots in a project.
 
+        :param project: The key of the project that owns the line plots.
         :param line_plots: A single line plot or a list of them. When omitted, a line
             plot is created from the ``name`` keyword argument.
-        :param project: The key of the project that owns the line plots.
         :param name: The name of the line plot to create when ``line_plots`` is
             omitted.
         :returns: The created line plot, or a list of created line plots when
