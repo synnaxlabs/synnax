@@ -40,8 +40,14 @@ export default defineConfig({
   adapter: vercel({
     // Misses read Vercel's shared page cache, not the function, and pages refresh
     // with the release listing. The updater feeds stay uncached so a failed lookup
-    // never sticks.
-    isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
+    // never sticks, and the Desktop download picks an installer for each browser.
+    isr: {
+      expiration: 300,
+      exclude: [
+        /^\/releases\/[^/]+\/(latest|next)\.json$/,
+        /^\/releases\/desktop\/download\/?$/,
+      ],
+    },
   }),
   vite: {
     // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
