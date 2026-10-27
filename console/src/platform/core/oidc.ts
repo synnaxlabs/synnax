@@ -103,7 +103,7 @@ export const parseCallback = (query: string, state: string): string => {
  * refuses, or the Core rejects the code.
  */
 export const loginDesktop = async (
-  core: Pick<Session.Core.Core, "host" | "port" | "secure" | "username">,
+  core: Pick<Session.Core.Core, "host" | "port" | "secure">,
   login: auth.OIDCLogin,
 ): Promise<void> => {
   const { verifier, challenge } = await createPKCE();
@@ -120,7 +120,9 @@ export const loginDesktop = async (
     verifier,
     redirectUri,
   });
-  await writeToken(core, token);
+  // recordLogin clears the username, so the session is saved under the account the
+  // record has after it
+  await writeToken({ ...core, username: "" }, token);
 };
 
 const pendingZ = z.object({
