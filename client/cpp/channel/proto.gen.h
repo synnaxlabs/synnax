@@ -65,6 +65,21 @@ operation_type_from_pb(::service::channel::pb::OperationType pb) {
 }
 
 inline std::pair<::service::channel::pb::KeySet, x::errors::Error>
+key_set_to_proto(const ::x::filter::Set<Key> &self);
+inline std::pair<::x::filter::Set<Key>, x::errors::Error>
+key_set_from_proto(const ::service::channel::pb::KeySet &pb);
+
+inline std::pair<::service::channel::pb::NodeKeySet, x::errors::Error>
+node_key_set_to_proto(const ::x::filter::Set<::synnax::node::Key> &self);
+inline std::pair<::x::filter::Set<::synnax::node::Key>, x::errors::Error>
+node_key_set_from_proto(const ::service::channel::pb::NodeKeySet &pb);
+
+inline std::pair<::service::channel::pb::TelemDataTypeSet, x::errors::Error>
+telem_data_type_set_to_proto(const ::x::filter::Set<::x::telem::DataType> &self);
+inline std::pair<::x::filter::Set<::x::telem::DataType>, x::errors::Error>
+telem_data_type_set_from_proto(const ::service::channel::pb::TelemDataTypeSet &pb);
+
+inline std::pair<::service::channel::pb::KeySet, x::errors::Error>
 key_set_to_proto(const ::x::filter::Set<Key> &self) {
     ::service::channel::pb::KeySet pb;
     if (self.eq.has_value()) pb.set_eq(*self.eq);
