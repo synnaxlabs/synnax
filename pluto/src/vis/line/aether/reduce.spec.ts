@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type DrawOperation } from "@/vis/line/aether/line";
+import { type DrawOperation } from "@/vis/line/aether/draw";
 import { groupSize, Reducer } from "@/vis/line/aether/reduce";
 
 const alignment = (domain: number, sample: number): bigint =>
