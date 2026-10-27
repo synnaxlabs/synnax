@@ -302,7 +302,8 @@ export class Codec {
     const seqNum = view.getUint32(index, true);
     index += SEQ_NUM_SIZE;
     const state = this.states.get(seqNum);
-    if (state == null) return returnFrame;
+    if (state == null)
+      throw new ValidationError(`remote sent invalid sequence number ${seqNum}`);
     // The remote never encodes with an older state again.
     for (; this.oldest < seqNum; this.oldest++) this.states.delete(this.oldest);
 

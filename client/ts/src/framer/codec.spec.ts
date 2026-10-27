@@ -449,7 +449,7 @@ describe("encoder", () => {
       expect(decoded.series[0].data).toEqual(fr2.series[0].data);
     });
 
-    it("should drop a frame encoded with keys older than the last frame decoded", () => {
+    it("should reject a frame encoded with keys older than the last frame decoded", () => {
       const encoder = new Codec();
       const decoder = new Codec();
       encoder.update([1], [DataType.INT32]);
@@ -459,7 +459,9 @@ describe("encoder", () => {
       encoder.update([1, 2], [DataType.INT32, DataType.INT64]);
       decoder.update([1, 2], [DataType.INT32, DataType.INT64]);
       decoder.decode(encoder.encode(fr));
-      expect(new Frame(decoder.decode(stale)).series).toHaveLength(0);
+      expect(() => decoder.decode(stale)).toThrow(
+        new ValidationError("remote sent invalid sequence number 1"),
+      );
     });
   });
 
