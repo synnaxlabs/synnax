@@ -16,15 +16,15 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/opcua/connection/connection.h"
-#include "driver/opcua/mock/server.h"
+#include "driver/opcua/testutil/server.h"
 
 namespace driver::opcua::connection {
 class ConnectionPoolKeepAliveTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        server_cfg_ = mock::ServerConfig::create_default();
+        server_cfg_ = testutil::ServerConfig::create_default();
         server_cfg_.port = 4847;
-        server_ = std::make_unique<mock::Server>(server_cfg_);
+        server_ = std::make_unique<testutil::Server>(server_cfg_);
         server_->start();
         ASSERT_TRUE(server_->wait_until_ready());
 
@@ -37,8 +37,8 @@ protected:
         if (server_) { server_->stop(); }
     }
 
-    mock::ServerConfig server_cfg_;
-    std::unique_ptr<mock::Server> server_;
+    testutil::ServerConfig server_cfg_;
+    std::unique_ptr<testutil::Server> server_;
     Config conn_cfg_;
 };
 
