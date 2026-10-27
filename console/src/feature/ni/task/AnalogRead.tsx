@@ -15,8 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, id, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useByKeys } from "@/feature/ni/device/queries";
-import * as Device from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -104,7 +103,7 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
-  const devices = useByKeys(Task.useChannelDeviceKeys());
+  const devices = Device.useByKeys(Task.useChannelDeviceKeys());
   const resolve = (ch: AIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;

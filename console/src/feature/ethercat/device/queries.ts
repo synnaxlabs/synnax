@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, type ethercat } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, verbs } from "@synnaxlabs/x";
 
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
-import { type Channel } from "@/feature/ethercat/task/types";
 
 export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
@@ -41,7 +40,9 @@ export const useEnabledState = ({ keys }: EnabledStateParams): EnabledState => {
   };
 };
 
-export const useCommonNetwork = (channels: Channel[]) => {
+export const useCommonNetwork = (
+  channels: (ethercat.ReadChannel | ethercat.WriteChannel)[],
+) => {
   const keys = channels.map((ch) => ch.device).filter((c) => c != null);
   const firstDeviceKey = keys.length > 0 ? keys[0] : "";
   const { data: slave } = useResultSlave(

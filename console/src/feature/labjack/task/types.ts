@@ -10,12 +10,10 @@
 import { labjack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import * as Device from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export type Scale = labjack.Scale;
 export type ScaleType = labjack.ScaleType;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import * as Device from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import {
   type ReadChannelType,
   type WriteChannelType,

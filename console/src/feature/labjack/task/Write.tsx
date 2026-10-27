@@ -18,10 +18,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { use } from "@/feature/labjack/device/queries";
-import { Select } from "@/feature/labjack/device/Select";
-import { SelectPort } from "@/feature/labjack/device/SelectPort";
-import * as Device from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
@@ -45,7 +42,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
       <Task.Fields.DataSaving />
@@ -74,7 +71,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
           }}
         >
           {({ value, onChange, preview }) => (
-            <SelectPort
+            <Device.SelectPort
               value={value}
               onChange={onChange}
               preview={preview}
@@ -98,7 +95,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
               >
                 {selectWriteChannelType}
               </PForm.Field>
-            </SelectPort>
+            </Device.SelectPort>
           )}
         </PForm.Field>
       </Flex.Box>
@@ -165,7 +162,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
 };
 
 const Form: FC = PlatformDevice.wrapTaskForm({
-  use,
+  use: Device.use,
   useConfigure,
   Content: ChannelList,
 });

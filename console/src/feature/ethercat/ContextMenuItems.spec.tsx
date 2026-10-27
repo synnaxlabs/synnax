@@ -68,7 +68,7 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
       <>
         {loaders}
         <PMenu.Menu>
-          <EtherCAT.Device.ContextMenuItems {...props} />
+          <EtherCAT.ContextMenuItems {...props} />
         </PMenu.Menu>
       </>,
     );

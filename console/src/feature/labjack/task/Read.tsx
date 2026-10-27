@@ -14,10 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { use } from "@/feature/labjack/device/queries";
-import { Select } from "@/feature/labjack/device/Select";
-import { SelectPort } from "@/feature/labjack/device/SelectPort";
-import * as Device from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import {
   convertPortTypeToReadChannelType,
   convertReadChannelTypeToPortType,
@@ -45,7 +42,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
@@ -138,7 +135,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
         />
         <PForm.Field<string> path={`${path}.port`} label="Port">
           {({ value, onChange, preview }) => (
-            <SelectPort
+            <Device.SelectPort
               value={value}
               onChange={onChange}
               model={deviceModel}
@@ -237,7 +234,7 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
 };
 
 const Form: FC = PlatformDevice.wrapTaskForm({
-  use,
+  use: Device.use,
   useConfigure,
   Content: ChannelsForm,
 });

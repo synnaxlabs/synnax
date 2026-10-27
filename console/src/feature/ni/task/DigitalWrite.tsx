@@ -14,9 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/ni/device/queries";
-import { Select } from "@/feature/ni/device/Select";
-import * as Device from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
@@ -37,7 +35,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
       <Task.Fields.DataSaving />
@@ -67,7 +65,7 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
 const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (ch: DOChannel) => {
     if (dev == null) return null;
     const pair =

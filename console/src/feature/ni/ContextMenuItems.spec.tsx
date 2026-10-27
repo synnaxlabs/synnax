@@ -57,7 +57,7 @@ const renderContextMenu = async () => {
   await renderSuspended(
     <PMenu.Menu>
       <Errors.SuspenseBoundary loading={null}>
-        <NI.Device.ContextMenuItems {...props} />
+        <NI.ContextMenuItems {...props} />
       </Errors.SuspenseBoundary>
     </PMenu.Menu>,
     { wrapper },

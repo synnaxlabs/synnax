@@ -11,7 +11,7 @@ import { DisconnectedError, type rack } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 
-import { SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/ni/task/types";
+import { Device } from "@/feature/ni/device";
 
 /** Toggles the enabled state of the NI device scanner on a specific rack. */
 export const useToggleScanner = (rackKey: rack.Key) => {
@@ -22,9 +22,9 @@ export const useToggleScanner = (rackKey: rack.Key) => {
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const { config, payload } = await client.tasks.retrieve({
-        type: SCAN_TYPE,
+        type: Device.SCAN_TYPE,
         rack: rackKey,
-        schemas: SCAN_SCHEMAS,
+        schemas: Device.SCAN_SCHEMAS,
       });
       // Never write the status back: the Driver owns it and this copy may be stale.
       const {
@@ -35,7 +35,7 @@ export const useToggleScanner = (rackKey: rack.Key) => {
           config: { ...config, disabled: !config.disabled },
           status: undefined,
         },
-        SCAN_SCHEMAS,
+        Device.SCAN_SCHEMAS,
       );
       addStatus({
         variant: "success",

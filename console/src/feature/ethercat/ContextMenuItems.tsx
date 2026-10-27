@@ -12,29 +12,29 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 
-import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/queries";
+import { Device } from "@/feature/ethercat/device";
 import { Task } from "@/feature/ethercat/task";
-import { Device } from "@/platform/device";
+import { Device as PlatformDevice } from "@/platform/device";
 
 const TASK_CONTEXT_MENU_ITEMS = [
-  Device.createTaskContextMenuItem({
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "ethercat.readTask",
     label: "Create read task",
     useCreate: Task.useCreateRead,
   }),
-  Device.createTaskContextMenuItem({
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "ethercat.writeTask",
     label: "Create write task",
     useCreate: Task.useCreateWrite,
   }),
 ];
 
-export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
+export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
-  const { update: toggleEnabled } = useToggleEnabled();
+  const { update: toggleEnabled } = Device.useToggleEnabled();
 
-  const { allDisabled, allEnabled } = useEnabledState({ keys });
+  const { allDisabled, allEnabled } = Device.useEnabledState({ keys });
 
   const handleDisable = () => {
     toggleEnabled({ keys, enabled: false });
@@ -46,10 +46,10 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
 
   return (
     <>
-      <Device.ConfigureMenuItem {...props} />
-      <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      <PlatformDevice.ConfigureMenuItem {...props} />
+      <PlatformDevice.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
       <Menu.Divider />
-      <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
+      <PlatformDevice.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
       <Menu.Divider />
       {hasUpdatePermission && !allDisabled && (
         <Menu.Item itemKey="ethercat.disable" onClick={handleDisable}>

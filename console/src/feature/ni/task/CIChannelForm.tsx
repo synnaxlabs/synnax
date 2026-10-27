@@ -11,8 +11,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type FC } from "react";
 
-import { PortField } from "@/feature/ni/device/PortField";
-import { Select as SelectDevice } from "@/feature/ni/device/Select";
+import { Device } from "@/feature/ni/device";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { SelectCIChannelTypeField } from "@/feature/ni/task/SelectCIChannelTypeField";
@@ -570,8 +569,8 @@ export const CIChannelForm = ({ type, prefix }: CIChannelFormProps) => {
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <SelectDevice path={`${prefix}.device`} />
-        <PortField path={prefix} />
+        <Device.Select path={`${prefix}.device`} />
+        <Device.PortField path={prefix} />
       </Form.Section>
       <Form.Section title="Signal">
         <SelectCIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />

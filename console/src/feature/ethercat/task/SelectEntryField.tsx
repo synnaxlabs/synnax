@@ -15,7 +15,7 @@ import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
-import { useResultSlave } from "@/feature/ethercat/device/queries";
+import { Device } from "@/feature/ethercat/device";
 import {
   addressKey,
   type Channel,
@@ -40,7 +40,7 @@ export const SelectEntryField = ({
   schema,
 }: SelectEntryFieldProps): ReactElement => {
   const ch = PForm.useFieldValue<Channel>(path);
-  const { data: slave } = useResultSlave(
+  const { data: slave } = Device.useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const entries = uniqueEntries(slave?.properties.pdos[pdoType] ?? []);

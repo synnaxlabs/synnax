@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/feature/ni/device/ContextMenuItems";
 export * from "@/feature/ni/device/hardware";
 export * from "@/feature/ni/device/PortField";
 export * from "@/feature/ni/device/queries";
+export * from "@/feature/ni/device/scan";
 export * from "@/feature/ni/device/Select";
 export * from "@/feature/ni/device/types";
