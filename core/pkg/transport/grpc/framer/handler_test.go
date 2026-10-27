@@ -11,6 +11,7 @@ package framer
 
 import (
 	"context"
+	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -175,6 +176,46 @@ var _ = Describe("gRPC Framer Translators", func() {
 					out.Frame.SeriesAt(0),
 				).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1, 2, 3)))
 			},
+		)
+
+		It("Should round-trip a request for an ack", func(ctx SpecContext) {
+			rt := frameStreamerRequestTranslator{}
+			req := framer.StreamerRequest{AckRequested: true}
+			pbReq := MustSucceed(rt.Forward(ctx, req))
+			Expect(pbReq.AckRequested).To(BeTrue())
+			Expect(MustSucceed(rt.Backward(ctx, pbReq)).AckRequested).To(BeTrue())
+		})
+
+		DescribeTable(
+			"Should round-trip an ack",
+			func(
+				ctx SpecContext,
+				newTranslator func(context.Context) frameStreamerResponseTranslator,
+			) {
+				st := newTranslator(ctx)
+				res := framer.StreamerResponse{Ack: true}
+				pbRes := MustSucceed(st.Forward(ctx, res))
+				Expect(pbRes.Ack).To(BeTrue())
+				out := MustSucceed(st.Backward(ctx, pbRes))
+				Expect(out.Ack).To(BeTrue())
+				Expect(out.Frame.Empty()).To(BeTrue())
+			},
+			Entry(
+				"through the frame",
+				func(context.Context) frameStreamerResponseTranslator {
+					return frameStreamerResponseTranslator{}
+				},
+			),
+			Entry(
+				"through the codec",
+				func(ctx context.Context) frameStreamerResponseTranslator {
+					GinkgoHelper()
+					keys := createVirtualChannels(ctx, telem.Int64T, 1)
+					cdec := codec.NewDynamic(apiChannelSvc)
+					Expect(cdec.Update(ctx, keys)).To(Succeed())
+					return frameStreamerResponseTranslator{codec: cdec}
+				},
+			),
 		)
 
 		It(
@@ -383,7 +424,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 					Variant: int32(framer.IteratorResponseVariantData),
 					Buffer:  []byte{0x01, 0x02, 0x03},
 				}
-				Expect(t.Backward(ctx, pb)).Error().To(HaveOccurred())
+				Expect(t.Backward(ctx, pb)).Error().To(MatchError(io.ErrUnexpectedEOF))
 			},
 		)
 
@@ -449,7 +490,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 				Expect(
 					t.Backward(ctx, &StreamerResponse{Buffer: []byte{0x01, 0x02}}),
 				).Error().
-					To(HaveOccurred())
+					To(MatchError(io.ErrUnexpectedEOF))
 			},
 		)
 
@@ -495,7 +536,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 				Expect(
 					t.Backward(ctx, &WriterRequest{Buffer: []byte{0x01, 0x02}}),
 				).Error().
-					To(HaveOccurred())
+					To(MatchError(io.ErrUnexpectedEOF))
 			},
 		)
 

@@ -212,57 +212,6 @@ var _ = Describe("Inheritance", func() {
 		})
 	})
 
-	Describe("HasStructuralOverride", func() {
-		It("Should be false when nothing is redeclared", func(ctx SpecContext) {
-			form, table := analyze(ctx, `
-				@go output "pkg/test"
-
-				Base struct {
-					port string = ""
-				}
-
-				Child struct extends Base {
-					range float64 = 10
-				}
-			`, "Child")
-			Expect(resolver.HasStructuralOverride(form, table)).To(BeFalse())
-		})
-
-		It("Should be false when a redeclaration changes only the default", func(
-			ctx SpecContext,
-		) {
-			form, table := analyze(ctx, `
-				@go output "pkg/test"
-
-				Base struct {
-					port string = ""
-				}
-
-				Child struct extends Base {
-					port string = "AIN0"
-				}
-			`, "Child")
-			Expect(resolver.HasStructuralOverride(form, table)).To(BeFalse())
-		})
-
-		It("Should be true when a redeclaration changes the type", func(
-			ctx SpecContext,
-		) {
-			form, table := analyze(ctx, `
-				@go output "pkg/test"
-
-				Base struct {
-					port string = ""
-				}
-
-				Child struct extends Base {
-					port int32 = 4
-				}
-			`, "Child")
-			Expect(resolver.HasStructuralOverride(form, table)).To(BeTrue())
-		})
-	})
-
 	Describe("CanUseInheritance", func() {
 		It("Should be false without parents", func(ctx SpecContext) {
 			form, table := analyze(ctx, `

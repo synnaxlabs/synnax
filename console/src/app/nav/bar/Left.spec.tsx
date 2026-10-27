@@ -16,7 +16,7 @@ import { renderBar, withActiveProject } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
 import { getIconButton, type TestStore } from "@/testutil";
 
-const navState = (window: Partial<Session.Nav.WindowState> = {}) => ({
+const navState = (window: Partial<typeof Session.Nav.ZERO_WINDOW_STATE> = {}) => ({
   [Session.Nav.SLICE_NAME]: {
     version: 0 as const,
     windows: { [MAIN_WINDOW]: { ...Session.Nav.ZERO_WINDOW_STATE, ...window } },
@@ -30,9 +30,10 @@ const findItem = async (
   icon: string,
 ): Promise<HTMLButtonElement> => await waitFor(() => getIconButton(container, icon));
 
-const left = (store: TestStore) => Session.Nav.selectWindowState(store.getState()).left;
+const left = (store: TestStore) =>
+  store.getState()[Session.Nav.SLICE_NAME].windows[MAIN_WINDOW]?.left;
 const bottom = (store: TestStore) =>
-  Session.Nav.selectWindowState(store.getState()).bottom;
+  store.getState()[Session.Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom;
 
 describe("app/nav/bar/Left", () => {
   describe("rendering", () => {

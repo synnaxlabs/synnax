@@ -7,13 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it } from "vitest";
+import {
+  bounds,
+  color,
+  DataType,
+  MultiSeries,
+  Series,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
-import { type telem } from "@/telem/aether";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { buildStack } from "@/testutil/providers";
 import { Line } from "@/vis/line/aether/line";
@@ -68,6 +77,7 @@ interface Mount {
 describe("YAxis", () => {
   const teardowns: (() => void)[] = [];
   afterEach(() => {
+    vi.useRealTimers();
     for (const teardown of teardowns) teardown();
     teardowns.length = 0;
   });
@@ -181,6 +191,53 @@ describe("YAxis", () => {
       expect(m.axis.bounds(false, bounds.INFINITE)).toEqual(bounds.DECIMAL);
     });
 
+    it("should pad the data bounds by the auto bound padding", () => {
+      const m = mount({
+        lines: { line: { x: sourceSpec([0, 1]), y: sourceSpec([0, 10]) } },
+        axis: { autoBoundPadding: 0.1 },
+      });
+      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: -1, upper: 11 });
+    });
+
+    it("should expand equal data bounds by one", () => {
+      const m = mount({
+        lines: { line: { x: sourceSpec([0, 1]), y: sourceSpec([5, 5]) } },
+      });
+      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 4, upper: 6 });
+    });
+
+    it("should ignore a line without data", () => {
+      const m = mount({
+        lines: {
+          empty: { x: sourceSpec([]), y: sourceSpec([]) },
+          line: { x: sourceSpec([0, 1]), y: sourceSpec([0, 10]) },
+        },
+      });
+      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 0, upper: 10 });
+    });
+
+    it("should fall back to an hour from now on an empty time axis", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2030-01-02T03:04:05Z"));
+      const m = mount({ axis: { type: "time" }, hidden: ["nominal", "railed"] });
+      const now = TimeStamp.now();
+      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({
+        lower: Number(now.valueOf()),
+        upper: Number(now.add(TimeSpan.HOUR).valueOf()),
+      });
+    });
+
+    it("should move the empty time axis with the clock", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2030-01-02T03:04:05Z"));
+      const m = mount({ axis: { type: "time" }, hidden: ["nominal", "railed"] });
+      const first = m.axis.bounds(false, bounds.INFINITE);
+      vi.setSystemTime(new Date("2030-01-02T04:04:05Z"));
+      const second = m.axis.bounds(false, bounds.INFINITE);
+      expect(second.lower).toBeGreaterThan(first.lower);
+      expect(second.lower).toBe(Number(TimeStamp.now().valueOf()));
+    });
+
     it("should exclude a line that is hidden when it mounts", () => {
       const m = mount({ hidden: ["railed"] });
       expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
@@ -203,14 +260,13 @@ describe("YAxis", () => {
 
     it("should hold bounds only once its lines load", () => {
       const y = telemTest.source(seriesValue([1, 2, 3]));
-      let loading = true;
-      y.loading = () => loading;
+      y.status = telem.LOADING_STATUS;
       const m = mount({
         lines: { loading: { x: sourceSpec([0, 5, 10]), y: specOf(y) } },
       });
       expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 3 });
+      y.status = telem.SUCCESS_STATUS;
       y.setValue(seriesValue([1, 200]));
-      loading = false;
       expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 200 });
       y.setValue(seriesValue([1, 2]));
       expect(m.axis.bounds(true, bounds.INFINITE)).toEqual({ lower: 1, upper: 200 });
@@ -228,18 +284,25 @@ describe("YAxis", () => {
   describe("xBounds", () => {
     it("should cover every visible line", () => {
       const m = mount();
-      expect(m.axis.xBounds()).toEqual({ lower: 0, upper: 50 });
+      expect(m.axis.xBounds().bounds).toEqual({ lower: 0, upper: 50 });
     });
 
     it("should exclude a hidden line", () => {
       const m = mount();
       m.setVisible("railed", false);
-      expect(m.axis.xBounds()).toEqual({ lower: 0, upper: 10 });
+      expect(m.axis.xBounds().bounds).toEqual({ lower: 0, upper: 10 });
     });
 
     it("should return invalid bounds when every line is hidden", () => {
       const m = mount({ hidden: ["nominal", "railed"] });
-      expect(m.axis.xBounds()).toEqual(bounds.INVALID);
+      expect(m.axis.xBounds().bounds).toEqual(bounds.INVALID);
+    });
+
+    it("should report loading while a visible line's x source loads", () => {
+      const x = telemTest.source(seriesValue([0, 5, 10]));
+      x.status = telem.LOADING_STATUS;
+      const m = mount({ lines: { loading: { x: specOf(x), y: sourceSpec([1, 2]) } } });
+      expect(m.axis.xBounds().loading).toBe(true);
     });
   });
 });

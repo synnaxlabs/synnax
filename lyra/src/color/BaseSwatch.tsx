@@ -24,18 +24,13 @@ const TEXT_VAR = CSS.variable("swatch", "text");
 
 export type HaulItem = Haul.Item<typeof HAUL_TYPE, color.Hex, undefined>;
 
-export const createHaulItem = (key: color.Hex): HaulItem => ({
+const createHaulItem = (key: color.Hex): HaulItem => ({
   type: HAUL_TYPE,
   key,
 });
 
-export const isHaulItem = (item: Haul.Item): item is HaulItem =>
-  item.type === HAUL_TYPE;
-
-export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
-  items.filter(isHaulItem);
-
-export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
+const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
+  items.filter((item): item is HaulItem => item.type === HAUL_TYPE);
 
 export interface BaseSwatchProps extends Omit<
   Button.ButtonProps,

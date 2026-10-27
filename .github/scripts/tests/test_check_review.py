@@ -56,7 +56,7 @@ jq -r "$EXPR" "$FILE"
 
 
 class Harness:
-    """A fake gh serving one pull request's head, its check runs, and its edits."""
+    """A fake gh serving one pull request and the records the gate reads."""
 
     def __init__(self, path: Path) -> None:
         self.data = path / "gh"
@@ -78,9 +78,13 @@ class Harness:
         self.check_runs("head", ("Greptile Review", "success"))
         self.edits(greptile_edit(5))
 
-    def pull(self, author: str) -> None:
-        """Sets the account that opened the pull request."""
-        payload = {"head": {"sha": "head"}, "user": {"login": author}}
+    def pull(self, author: str, *labels: str) -> None:
+        """Sets the account that opened the pull request and its labels."""
+        payload = {
+            "head": {"sha": "head"},
+            "user": {"login": author},
+            "labels": [{"name": n} for n in labels or ("review/bot",)],
+        }
         (self.data / "pull.json").write_text(json.dumps(payload))
 
     def commits(self, *commits: dict[str, object]) -> None:
@@ -243,3 +247,29 @@ class TestDependabot:
     def test_requires_dependabot_to_open_it(self, harness: Harness) -> None:
         harness.pull("someone")
         assert harness.run()[0] == "pending"
+
+
+class TestTier:
+    """Tests for the review tier label requirement."""
+
+    def test_pends_without_a_tier(self, harness: Harness) -> None:
+        harness.pull("someone", "core")
+        state, description = harness.run()
+        assert state == "pending"
+        assert description == "waiting for one label: review/bot or review/human"
+
+    def test_pends_on_a_retired_tier(self, harness: Harness) -> None:
+        harness.pull("someone", "review/light")
+        assert harness.run()[0] == "pending"
+
+    def test_pends_on_two_tiers(self, harness: Harness) -> None:
+        harness.pull("someone", "review/bot", "review/human")
+        assert harness.run()[0] == "pending"
+
+    def test_passes_a_bot_tier_without_a_human(self, harness: Harness) -> None:
+        harness.pull("someone", "core", "review/bot")
+        assert harness.run()[0] == "success"
+
+    def test_passes_a_human_tier_without_an_approval(self, harness: Harness) -> None:
+        harness.pull("someone", "review/human")
+        assert harness.run() == ("success", "Greptile scored the head 5/5")
