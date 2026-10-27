@@ -247,7 +247,7 @@ sampling with 10 Hz streaming sends every sample immediately.
 ## Additional resources
 
 - [Modbus Protocol Specification](https://modbus.org/specs.php)
-- [Synnax Modbus Driver Documentation](https://docs.synnaxlabs.com/reference/driver/modbus/)
+- [Synnax Modbus Driver Documentation](https://docs.synnaxlabs.com/reference/hardware/modbus/)
 - [libmodbus Documentation](https://libmodbus.org/)
 
 ## Next steps

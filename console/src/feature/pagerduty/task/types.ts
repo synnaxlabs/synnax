@@ -30,8 +30,6 @@ export const deployAlertTaskConfigZ = alertTaskConfigZ.extend({
     }),
 });
 
-export interface AlertTaskConfig extends z.infer<typeof alertTaskConfigZ> {}
-
 export const ALERT_SCHEMAS = {
   type: z.literal(ALERT_TYPE),
   config: alertTaskConfigZ,
