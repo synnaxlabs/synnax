@@ -195,12 +195,11 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const update = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
     await query.optimistic({
-      rollbacks: update(),
+      rollbacks: [
+        query.partialUpdate(this.store, key, { name }),
+        this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+      ],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
@@ -210,7 +209,6 @@ export class Client extends query.Retriever<
           renameResZ,
         ),
     });
-    update();
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
