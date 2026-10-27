@@ -13,8 +13,8 @@
 #include "x/cpp/test/test.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "driver/http/mock/server.h"
 #include "driver/http/scan_task.h"
+#include "driver/http/testutil/server.h"
 
 namespace driver::http {
 namespace {
@@ -395,8 +395,8 @@ TEST(HTTPScanTask, ScannerConfig) {
 }
 
 TEST(HTTPScanTask, ScanHealthyDevice) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {.method = Method::GET, .path = "/health", .response_body = "{}"}
             },
@@ -428,8 +428,8 @@ TEST(HTTPScanTask, ScanHealthyDevice) {
 }
 
 TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -464,8 +464,8 @@ TEST(HTTPScanTask, ScanSuccessOnHTTP200) {
 }
 
 TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -504,8 +504,8 @@ TEST(HTTPScanTask, ScanFailsOnNon2xxStatus) {
 }
 
 TEST(HTTPScanTask, ScanRepeatedScans) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {.method = Method::GET, .path = "/health", .response_body = "{}"}
             },
@@ -571,8 +571,8 @@ TEST(HTTPScanTask, ScanUnreachableDevice) {
 }
 
 TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -624,8 +624,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationFailure) {
 }
 
 TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -673,8 +673,8 @@ TEST(HTTPScanTask, ScanHealthCheckValidationSuccess) {
 }
 
 TEST(HTTPScanTask, ScanConsoleSavedHealthCheckWithNullExpectedValue) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -740,8 +740,8 @@ TEST(HTTPScanTask, ScanNoDevices) {
 }
 
 TEST(HTTPScanTask, ScanMultipleDevices) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {.method = Method::GET, .path = "/health", .response_body = "{}"}
             },
@@ -847,8 +847,8 @@ TEST(HTTPScanTask, ScanInvalidDeviceProperties) {
 }
 
 TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/ping",
@@ -901,8 +901,8 @@ TEST(HTTPScanTask, ScanWithPOSTHealthCheck) {
 }
 
 TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -954,8 +954,8 @@ TEST(HTTPScanTask, ScanHealthCheckNonJSONResponse) {
 }
 
 TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -1007,8 +1007,8 @@ TEST(HTTPScanTask, ScanHealthCheckMissingPointer) {
 }
 
 TEST(HTTPScanTask, TestConnectionSuccess) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {.method = Method::GET, .path = "/health", .response_body = "{}"}
             },
@@ -1088,8 +1088,8 @@ TEST(HTTPScanTask, TestConnectionUnreachable) {
 }
 
 TEST(HTTPScanTask, TestConnectionValidationFailure) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -1143,8 +1143,8 @@ TEST(HTTPScanTask, TestConnectionValidationFailure) {
 }
 
 TEST(HTTPScanTask, TestConnectionNon2xxStatus) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
@@ -1215,11 +1215,11 @@ TEST(HTTPScanTask, ScanExecutesHealthChecksInParallel) {
     const auto DELAY = x::telem::MILLISECOND * 300;
     constexpr int MAX_PARALLEL_MS = 1000;
 
-    std::vector<std::unique_ptr<mock::Server>> servers;
+    std::vector<std::unique_ptr<testutil::Server>> servers;
     std::unordered_map<std::string, synnax::device::Device> devices;
 
     for (int i = 0; i < NUM_SERVERS; i++) {
-        auto server = std::make_unique<mock::Server>(mock::ServerConfig{
+        auto server = std::make_unique<testutil::Server>(testutil::ServerConfig{
             .routes = {{
                 .method = Method::GET,
                 .path = "/health",
