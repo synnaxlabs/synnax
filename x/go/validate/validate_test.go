@@ -49,6 +49,16 @@ var _ = Describe("Validate", func() {
 			Expect(v.Error()).To(MatchError("field: error message"))
 		})
 
+		It("Should keep every failure flat when later checks pass", func() {
+			v.Ternary("first", true, "first message")
+			v.Ternary("second", true, "second message")
+			for range 64 {
+				v.Ternary("other", false, "other message")
+			}
+			Expect(errors.UnwrapMulti(v.Error())).To(HaveLen(2))
+			Expect(v.Error()).To(MatchError(ContainSubstring("second: second message")))
+		})
+
 		It("Should return true if an error was accumulated", func() {
 			result := v.Ternary("field", true, "error message")
 			Expect(result).To(BeTrue())

@@ -19,6 +19,12 @@ type customError struct{ msg string }
 
 func (e *customError) Error() string { return e.msg }
 
+type aggregateError struct{ errs []error }
+
+func (e *aggregateError) Error() string { return "aggregate" }
+
+func (e *aggregateError) Unwrap() []error { return e.errs }
+
 var _ = Describe("Is", func() {
 	Describe("Is", func() {
 		It("Should work with sub-errors", func() {
@@ -161,6 +167,21 @@ var _ = Describe("Is", func() {
 			Expect(errors.UnwrapMulti(joined)).To(HaveLen(64))
 			Expect(joined.Error()).To(HavePrefix("err0\nerr1\n"))
 			Expect(joined.Error()).To(HaveSuffix("err62\nerr63"))
+		})
+
+		It("Should keep a multi-cause error that is not a join as one member", func() {
+			agg := &aggregateError{
+				errs: []error{errors.New("err1"), errors.New("err2")},
+			}
+			joined := errors.Join(agg, errors.New("err3"))
+			Expect(errors.UnwrapMulti(joined)).To(HaveLen(2))
+			var target *aggregateError
+			Expect(errors.As(joined, &target)).To(BeTrue())
+		})
+
+		It("Should return a sole joined error unchanged", func() {
+			joined := errors.Join(errors.New("err1"), errors.New("err2"))
+			Expect(errors.Join(joined, nil)).To(BeIdenticalTo(joined))
 		})
 
 		It("Should keep a wrapped join as one member", func() {
