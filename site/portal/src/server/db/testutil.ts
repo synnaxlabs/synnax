@@ -14,8 +14,8 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 
+import { schema } from "@/server/db";
 import { type Store } from "@/server/db/db";
-import * as schema from "@/server/db/schema";
 
 const MIGRATIONS = path.resolve(import.meta.dirname, "../../../drizzle");
 

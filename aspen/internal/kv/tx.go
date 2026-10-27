@@ -96,14 +96,14 @@ func (t *tx) applyOp(ctx context.Context, op Operation) error {
 		}
 	}
 	op.Key = bytes.Clone(op.Key)
-	t.digests = append(t.digests, op.Digest())
+	t.digests = append(t.digests, op.digest())
 	return nil
 }
 
 func (t *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	dm := make(map[node.Key]TxRequest)
 	for _, dig := range t.digests {
-		op := dig.Operation()
+		op := dig.operation()
 		if op.Variant == change.VariantSet {
 			v, closer, err := t.Get(ctx, dig.Key)
 			if errors.Is(err, query.ErrNotFound) {
@@ -167,7 +167,7 @@ func (tr TxRequest) commitTo(db kv.Atomic) (err error) {
 		if err = op.apply(tr.Context, tx); err != nil {
 			return err
 		}
-		if err = op.Digest().apply(tr.Context, tx); err != nil {
+		if err = op.digest().apply(tr.Context, tx); err != nil {
 			return err
 		}
 	}
@@ -190,7 +190,7 @@ func (tr TxRequest) reader() kv.TxReader {
 }
 
 func (tr TxRequest) digests() []Digest {
-	return lo.Map(tr.Operations, func(o Operation, _ int) Digest { return o.Digest() })
+	return lo.Map(tr.Operations, func(o Operation, _ int) Digest { return o.digest() })
 }
 
 func validateLeaseOption(maybeLease []any) (node.Key, error) {

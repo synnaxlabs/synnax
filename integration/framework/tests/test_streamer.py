@@ -35,6 +35,17 @@ def stop(streamer: Streamer) -> None:
 
 
 class TestStreamer:
+    def test_unseen_channel_has_no_value(
+        self, client: Client, streamer: Streamer
+    ) -> None:
+        """Should read None and not satisfy a wait for 0 before any sample."""
+        streamer.start()
+        assert streamer.read(CHANNEL) is None
+        assert not streamer.wait_for(CHANNEL, lambda v: v == 0, 0.1)
+        client.stream.push(sy.Frame({CHANNEL: sy.Series([0.0])}))
+        assert streamer.wait_for(CHANNEL, lambda v: v == 0, WAIT)
+        stop(streamer)
+
     def test_wait_for_value(self, client: Client, streamer: Streamer) -> None:
         """Should return True once the value satisfies the predicate."""
         streamer.start()
