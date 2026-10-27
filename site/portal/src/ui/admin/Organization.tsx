@@ -16,7 +16,8 @@ import { type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
 import { type Activity } from "@/page";
-import { type Member, type Sent } from "@/server/directory";
+import { type Invitation } from "@/server/db/schema";
+import { type Member } from "@/server/directory";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { type Held } from "@/server/license/list";
 import { type Team } from "@/server/member";
@@ -47,7 +48,8 @@ interface LicensesTab {
 interface MembersTab {
   tab: "members";
   roster: Member[];
-  invitations: Sent[];
+  invitations: Invitation[];
+  now: Date;
 }
 
 interface ActivityTab extends Activity {
@@ -103,6 +105,7 @@ export const Organization = (props: OrganizationProps): ReactElement => {
           roster={props.roster}
           invitations={props.invitations}
           manageable
+          now={props.now}
         />
       )}
       {props.tab === "activity" && (

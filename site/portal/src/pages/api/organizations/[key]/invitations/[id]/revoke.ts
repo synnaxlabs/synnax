@@ -11,19 +11,19 @@ import { type APIRoute } from "astro";
 
 import { teamFor } from "@/access";
 import { handle } from "@/respond";
-import { revokeInvitation } from "@/server/member";
+import { revoke } from "@/server/invitation";
 
-/** POST cancels a pending invitation to the team. Team admins and staff only. */
+/** POST revokes an invitation to the team. Team admins and staff only. */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
     const { portal } = context.locals;
     const session = await portal.session();
     const team = await teamFor(portal, session, context.params.key ?? "");
-    await revokeInvitation(portal.store, portal.directory, {
+    await revoke(portal.store, {
       team,
       actor: session.userID,
       now: portal.now(),
-      invitationID: context.params.id ?? "",
+      key: context.params.id ?? "",
     });
     return new Response(null, { status: 204 });
   });

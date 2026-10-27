@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Event, type License } from "@/server/db/schema";
-import { ADMIN_ROLE, MEMBER_ROLE } from "@/server/directory";
+import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
 
 export const date = (d: Date | null): string =>
@@ -100,6 +100,7 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   rename_organization: "Organization renamed",
   invite: "Invitation sent",
   revoke_invitation: "Invitation revoked",
+  accept_invitation: "Invitation accepted",
   change_role: "Role changed",
   remove_member: "Member removed",
 };
@@ -117,14 +118,6 @@ interface Narrator {
   /** actors is the name each Clerk user id reads as. */
   actors: Record<string, string>;
 }
-
-export const ROLES: { key: string; name: string }[] = [
-  { key: ADMIN_ROLE, name: "Admin" },
-  { key: MEMBER_ROLE, name: "Member" },
-];
-
-export const roleName = (role: string): string =>
-  ROLES.find((r) => r.key === role)?.name ?? role;
 
 const text = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined;

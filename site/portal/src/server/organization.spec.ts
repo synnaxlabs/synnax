@@ -15,7 +15,6 @@ import { memory } from "@/server/directory";
 import {
   adoptTeam,
   ensurePersonal,
-  invitationsFor,
   isMember,
   listForMember,
   listTeams,
@@ -195,28 +194,6 @@ describe("organization", () => {
       const second = await organizationsFor(store, SESSION);
       expect(second.map((o) => o.key).sort()).toEqual(first.map((o) => o.key).sort());
       expect(await store.query.select().from(organization)).toHaveLength(3);
-    });
-  });
-
-  describe("invitationsFor", () => {
-    it("should return each invitation with its mirrored team", async () => {
-      const directory = memory({
-        invited: {
-          user_a: [{ invitationID: "orginv_1", clerkOrgID: "org_acme", name: "Acme" }],
-        },
-      });
-      const [invited, ...rest] = await invitationsFor(store, directory, "user_a");
-      expect(rest).toEqual([]);
-      expect(invited.invitationID).toBe("orginv_1");
-      expect(invited.team).toMatchObject({ kind: "team", name: "Acme" });
-      const orgs = await organizationsFor(store, SESSION);
-      const acme = orgs.find((o) => o.clerkOrgID === "org_acme");
-      expect(invited.team.key).toBe(acme?.key);
-    });
-
-    it("should return nothing for a user with no invitations", async () => {
-      expect(await invitationsFor(store, memory(), "user_a")).toEqual([]);
-      expect(await store.query.select().from(organization)).toHaveLength(0);
     });
   });
 

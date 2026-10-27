@@ -19,25 +19,33 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import { type Organization } from "@/server/db/schema";
-import { ADMIN_ROLE, type Member, MEMBER_ROLE, type Sent } from "@/server/directory";
+import { type Invitation, type Organization } from "@/server/db/schema";
+import {
+  ADMIN_ROLE,
+  type Member,
+  MEMBER_ROLE,
+  roleName,
+  ROLES,
+} from "@/server/directory";
+import { invitationPath } from "@/shell";
 import { post, reload } from "@/ui/api";
-import { date, roleName, ROLES } from "@/ui/format";
+import { date } from "@/ui/format";
 import { Modal } from "@/ui/modal";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";
 
 const MEMBER_COLUMNS = "minmax(0, 2fr) minmax(0, 2fr) 16rem 4rem";
-const INVITATION_COLUMNS = "minmax(0, 4fr) 16rem 14rem 4rem";
+const INVITATION_COLUMNS = "minmax(0, 4fr) 16rem 14rem 8rem";
 
 export interface MembersProps {
   organization: Organization;
   roster: Member[];
-  /** invitations are the pending invitations, shown to an admin only. */
-  invitations: Sent[];
+  /** invitations are the team's invitations, shown to an admin only. */
+  invitations: Invitation[];
   /** userID is the signed-in user. */
   userID: string;
+  now: Date;
 }
 
 /** Members is a team's members page. Admins invite, remove, and change roles. */
@@ -46,6 +54,7 @@ export const Members = ({
   roster,
   invitations,
   userID,
+  now,
 }: MembersProps): ReactElement => {
   const role = roster.find((m) => m.userID === userID)?.role;
   const admin = role === ADMIN_ROLE;
@@ -65,6 +74,7 @@ export const Members = ({
         invitations={invitations}
         userID={userID}
         manageable={admin}
+        now={now}
       />
     </Page>
   );
@@ -84,6 +94,7 @@ export const Roster = ({
   invitations,
   userID,
   manageable,
+  now,
 }: RosterProps): ReactElement => (
   <Flex.Box y gap="huge" full="x">
     {roster.length === 0 ? (
@@ -111,9 +122,9 @@ export const Roster = ({
     )}
     {manageable && invitations.length > 0 && (
       <Section title="Invitations">
-        <Table columns={INVITATION_COLUMNS} head={["Email", "Role", "Sent", ""]}>
+        <Table columns={INVITATION_COLUMNS} head={["Email", "Role", "Expires", ""]}>
           {invitations.map((i) => (
-            <Invitation key={i.invitationID} organization={organization} sent={i} />
+            <Sent key={i.key} organization={organization} invitation={i} now={now} />
           ))}
         </Table>
       </Section>
@@ -196,35 +207,58 @@ const Entry = ({
   );
 };
 
-interface InvitationProps {
+interface SentProps {
   organization: Organization;
-  sent: Sent;
+  invitation: Invitation;
+  now: Date;
 }
 
-const Invitation = ({ organization, sent }: InvitationProps): ReactElement => {
-  const revoke = useAction(async () => {
-    await post(
-      `/api/organizations/${organization.key}/invitations/${sent.invitationID}/revoke`,
-    );
+const Sent = ({ organization, invitation: inv, now }: SentProps): ReactElement => {
+  const path = `/api/organizations/${organization.key}`;
+  const resend = useAction(async () => {
+    await post(`${path}/invite`, { email: inv.email, role: inv.role });
     reload();
   });
+  const revoke = useAction(async () => {
+    await post(`${path}/invitations/${inv.key}/revoke`);
+    reload();
+  });
+  const error = resend.error ?? revoke.error;
+  const expired = inv.expiresAt <= now;
   return (
     <Row columns={INVITATION_COLUMNS}>
       <Flex.Box y gap="tiny" className="portal-list__stack">
         <Text.Text level="p" overflow="ellipsis">
-          {sent.email}
+          {inv.email}
         </Text.Text>
-        {revoke.error != null && (
-          <Status.Summary variant="error" level="small" message={revoke.error} />
+        {error != null && (
+          <Status.Summary variant="error" level="small" message={error} />
         )}
       </Flex.Box>
       <Text.Text level="p" color={10}>
-        {roleName(sent.role)}
+        {roleName(inv.role)}
       </Text.Text>
-      <Text.Text level="p" color={10}>
-        {date(sent.sentAt)}
+      <Text.Text level="p" color={10} status={expired ? "error" : undefined}>
+        {expired ? "Expired" : date(inv.expiresAt)}
       </Text.Text>
-      <Flex.Box justify="end">
+      <Flex.Box x justify="end" gap="tiny">
+        <Button.Copy
+          variant="text"
+          size="small"
+          text={() => new URL(invitationPath(inv.key), window.location.origin).href}
+          tooltip="Copy the invitation link. Only its address can accept it."
+          aria-label="Copy invitation link"
+        />
+        <Button.Button
+          variant="text"
+          size="small"
+          status={resend.loading ? "loading" : undefined}
+          onClick={resend.run}
+          tooltip="Email it again with a new expiry"
+          aria-label="Resend invitation"
+        >
+          <Icon.Refresh />
+        </Button.Button>
         <Button.Button
           variant="text"
           size="small"

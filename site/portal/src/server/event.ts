@@ -44,7 +44,13 @@ const CATEGORIES = {
     "renew",
     "unlink",
   ],
-  members: ["invite", "revoke_invitation", "change_role", "remove_member"],
+  members: [
+    "invite",
+    "revoke_invitation",
+    "accept_invitation",
+    "change_role",
+    "remove_member",
+  ],
   organizations: ["register", "rename_organization"],
 } as const satisfies Record<string, EventKind[]>;
 

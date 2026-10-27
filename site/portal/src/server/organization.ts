@@ -15,9 +15,11 @@ import { type Query, type Store, type Tx } from "@/server/db/db";
 import { event, type Organization, organization } from "@/server/db/schema";
 import { ADMIN_ROLE, type Directory, type Listed } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
+import { invite } from "@/server/invitation";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { type Held, listAllHeld } from "@/server/license/list";
-import { invite, type Team } from "@/server/member";
+import { type Mailer } from "@/server/mail";
+import { type Team } from "@/server/member";
 import { type Session } from "@/server/session";
 
 export interface EnsurePersonalArgs {
@@ -89,8 +91,6 @@ export interface RegisterArgs {
   email: string;
   actor: string;
   now: Date;
-  /** redirectURL is the absolute URL the link in the invitation lands on. */
-  redirectURL: string;
 }
 
 const readName = (name: string): string => {
@@ -111,13 +111,14 @@ const requireUnique = async (directory: Directory, name: string): Promise<void> 
 /**
  * register creates a team with no members and invites its first admin. Staff never
  * join it. Nothing is registered when Clerk or the event write fails.
- * @throws {HTTPError} 400 for an empty or taken name or an invalid email, or when
- * Clerk refuses the invitation. The team stays registered after a refused invitation.
+ * @throws {HTTPError} 400 for an empty or taken name or an invalid email, and 502 when
+ * the invitation fails. The team stays registered after a failed invitation.
  */
 export const register = async (
   store: Store,
   directory: Directory,
-  { name, email, actor, now, redirectURL }: RegisterArgs,
+  mail: Mailer,
+  { name, email, actor, now }: RegisterArgs,
 ): Promise<Team> => {
   const trimmed = readName(name);
   const address = email.trim();
@@ -143,19 +144,19 @@ export const register = async (
       throw errors.fromUnknown(err);
     });
   try {
-    await invite(store, directory, {
+    await invite(store, directory, mail, {
       team,
       actor,
       now,
       email: address,
       role: ADMIN_ROLE,
-      redirectURL,
     });
   } catch (err) {
-    if (!(err instanceof HTTPError)) throw errors.fromUnknown(err);
-    throw badRequest(
-      `${trimmed} is registered, but Clerk refused the invitation: ${err.message} ` +
-        "Invite the admin from its Members tab.",
+    throw new HTTPError(
+      502,
+      `${trimmed} is registered, but its invitation failed. Invite the admin from ` +
+        "its Members tab.",
+      undefined,
       { cause: err },
     );
   }
@@ -257,27 +258,6 @@ export const organizationsFor = async (
   await ensurePersonal(store, { userID: session.userID, name: session.name });
   await mirrorTeams(store.query, session.teams);
   return await listForMember(store, session);
-};
-
-/** Invited is a team invitation the user has not accepted. */
-export interface Invited {
-  invitationID: string;
-  /** team is the organization the user joins by accepting. */
-  team: Organization;
-}
-
-/**
- * invitationsFor returns the team invitations the user has not accepted, mirroring each
- * team as {@link organizationsFor} does.
- */
-export const invitationsFor = async (
-  store: Store,
-  directory: Directory,
-  userID: string,
-): Promise<Invited[]> => {
-  const pending = await directory.pending(userID);
-  const teams = await mirrorTeams(store.query, pending);
-  return pending.map(({ invitationID }, i) => ({ invitationID, team: teams[i] }));
 };
 
 /**

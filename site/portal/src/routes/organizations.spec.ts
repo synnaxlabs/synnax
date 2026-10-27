@@ -16,10 +16,9 @@ import { POST as removeRoute } from "@/pages/api/organizations/[key]/members/[us
 import { POST as roleRoute } from "@/pages/api/organizations/[key]/members/[user]/role";
 import { POST as renameRoute } from "@/pages/api/organizations/[key]/name";
 import { POST as registerRoute } from "@/pages/api/organizations/index";
-import { event, type Organization, organization } from "@/server/db/schema";
+import { event, invitation, type Organization, organization } from "@/server/db/schema";
 import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
-import { badRequest } from "@/server/errors";
 import { NOW } from "@/server/license/testutil";
 import { mirrorTeams } from "@/server/organization";
 import {
@@ -27,6 +26,7 @@ import {
   type ContextArgs,
   createAPIContext,
   createHarness,
+  createInvitation,
   createOrganization,
   type Harness,
   STAFF_ORG_ID,
@@ -85,6 +85,14 @@ describe("organization routes", () => {
 
   const events = async () => await store.query.select().from(event);
 
+  const invitations = async () => await store.query.select().from(invitation);
+
+  const failMail = (): void => {
+    h.mail.send = async () => {
+      throw new Error("mail: down");
+    };
+  };
+
   const roleOf = (userID: string): string | undefined =>
     h.directory.members[userID]?.find((t) => t.clerkOrgID === ACME)?.role;
 
@@ -96,17 +104,33 @@ describe("organization routes", () => {
         body: { email: "cy@acme.com", role: MEMBER_ROLE, ...fields },
       });
 
-    it("should send an invitation whose link lands on the sign-up page", async () => {
+    it("should save and email an invitation open for 30 days", async () => {
       h.signIn(ADMIN);
-      const res = await invite({ email: " cy@acme.com " });
-      expect(res.status).toBe(204);
-      expect(h.directory.invitations).toEqual([
+      expect((await invite({ email: " Cy@Acme.com " })).status).toBe(204);
+      const [row] = await invitations();
+      expect(row).toMatchObject({
+        organization: acme.key,
+        email: "cy@acme.com",
+        role: MEMBER_ROLE,
+        sentAt: NOW,
+        expiresAt: new Date("2026-10-17T12:00:00Z"),
+      });
+      expect(h.mail.sent).toEqual([
         {
-          clerkOrgID: ACME,
-          email: "cy@acme.com",
-          role: MEMBER_ROLE,
-          inviterUserID: ADMIN,
-          redirectURL: "https://portal.synnaxlabs.com/sign-up",
+          to: ["cy@acme.com"],
+          subject: "Join Acme on Synnax",
+          heading: "Join Acme on Synnax",
+          paragraphs: [
+            "user_admin invited you to join Acme in the Synnax portal.",
+            "Log in or create an account with cy@acme.com to accept.",
+          ],
+          facts: [
+            { label: "Team", value: "Acme" },
+            { label: "Role", value: "Member" },
+            { label: "Expires", value: "2026-10-17" },
+          ],
+          action: { label: "Accept invitation", href: `/invitations/${row.key}` },
+          reason: "If you did not expect this invitation, you can ignore it.",
         },
       ]);
     });
@@ -125,34 +149,68 @@ describe("organization routes", () => {
       ]);
     });
 
-    it("should send nothing when the invitation cannot be recorded", async () => {
+    it("should save and send nothing when the event cannot be recorded", async () => {
       h.signIn(ADMIN);
-      const res = await failingEvents(store, "invite", invite);
-      expect(res.status).toBe(500);
-      expect(h.directory.invitations).toEqual([]);
+      await expectError(
+        await failingEvents(store, "invite", invite),
+        500,
+        "Internal error",
+      );
+      expect(await invitations()).toEqual([]);
+      expect(h.mail.sent).toEqual([]);
+    });
+
+    it("should save and record nothing when the email fails", async () => {
+      h.signIn(ADMIN);
+      failMail();
+      await expectError(await invite(), 500, "Internal error");
+      expect(await invitations()).toEqual([]);
+      expect(await events()).toEqual([]);
+    });
+
+    it("should send an open invitation again with a new role and expiry", async () => {
+      const sent = await createInvitation(store, {
+        organization: acme.key,
+        email: "cy@acme.com",
+        sentAt: new Date("2026-10-01T00:00:00Z"),
+        expiresAt: new Date("2026-10-02T00:00:00Z"),
+      });
+      h.signIn(ADMIN);
+      expect((await invite({ role: ADMIN_ROLE })).status).toBe(204);
+      expect(await invitations()).toEqual([
+        {
+          ...sent,
+          role: ADMIN_ROLE,
+          sentAt: NOW,
+          expiresAt: new Date("2026-10-17T12:00:00Z"),
+        },
+      ]);
+      expect(h.mail.sent[0].action.href).toBe(`/invitations/${sent.key}`);
     });
 
     it("should let staff invite to a team they are not on", async () => {
       h.signIn(STAFF);
       expect((await invite()).status).toBe(204);
-      expect(h.directory.invitations[0]).toMatchObject({ inviterUserID: null });
+      expect(h.mail.sent[0].paragraphs[0]).toBe(
+        "Synnax Labs invited you to join Acme in the Synnax portal.",
+      );
     });
 
     it("should refuse a visitor who is not logged in", async () => {
       await expectError(await invite(), 401, "Log in first");
-      expect(h.directory.invitations).toHaveLength(0);
+      expect(await invitations()).toEqual([]);
     });
 
     it("should refuse a member who is not an admin", async () => {
       h.signIn(MEMBER);
       await expectError(await invite(), 403, "Only a team admin can change members");
-      expect(h.directory.invitations).toHaveLength(0);
+      expect(await invitations()).toEqual([]);
     });
 
     it("should answer an admin of another team as if it did not exist", async () => {
       h.signIn(OUTSIDER);
       await expectError(await invite(), 404, "Organization not found");
-      expect(h.directory.invitations).toHaveLength(0);
+      expect(await invitations()).toEqual([]);
     });
 
     it("should answer 404 for a personal organization", async () => {
@@ -164,10 +222,21 @@ describe("organization routes", () => {
       await expectError(await invite({}, personal.key), 404, "Organization not found");
     });
 
-    it("should refuse an empty email", async () => {
+    it("should refuse an empty or invalid email", async () => {
       h.signIn(ADMIN);
-      await expectError(await invite({ email: "  " }), 400, "Enter an email address");
-      expect(await events()).toHaveLength(0);
+      for (const email of ["  ", "cy"])
+        await expectError(await invite({ email }), 400, "Enter an email address");
+      expect(await events()).toEqual([]);
+    });
+
+    it("should refuse someone already on the team, in any case", async () => {
+      h.signIn(ADMIN);
+      await expectError(
+        await invite({ email: "USER_MEMBER@acme.com" }),
+        400,
+        "user_member@acme.com is already on Acme",
+      );
+      expect(await invitations()).toEqual([]);
     });
 
     it("should refuse a role Clerk does not define", async () => {
@@ -322,23 +391,22 @@ describe("organization routes", () => {
   });
 
   describe("POST /api/organizations/[key]/invitations/[id]/revoke", () => {
-    beforeEach(() => {
-      h.directory.invitations.push({
-        clerkOrgID: ACME,
+    let sent: Awaited<ReturnType<typeof createInvitation>>;
+
+    beforeEach(async () => {
+      sent = await createInvitation(store, {
+        organization: acme.key,
         email: "cy@acme.com",
-        role: MEMBER_ROLE,
-        inviterUserID: ADMIN,
-        redirectURL: "https://portal.synnaxlabs.com/sign-up",
       });
     });
 
     const revoke = async (id: string) =>
       await call(revokeInvitationRoute, { params: { key: acme.key, id } });
 
-    it("should cancel the invitation and record it", async () => {
+    it("should delete the invitation and record it", async () => {
       h.signIn(ADMIN);
-      expect((await revoke("inv_0")).status).toBe(204);
-      expect(await h.directory.outstanding(ACME)).toEqual([]);
+      expect((await revoke(sent.key)).status).toBe(204);
+      expect(await invitations()).toEqual([]);
       expect(await events()).toEqual([
         expect.objectContaining({
           kind: "revoke_invitation",
@@ -349,32 +417,43 @@ describe("organization routes", () => {
       ]);
     });
 
-    it("should keep an invitation whose cancellation cannot be recorded", async () => {
+    it("should keep an invitation whose revocation cannot be recorded", async () => {
       h.signIn(ADMIN);
       const res = await failingEvents(
         store,
         "revoke_invitation",
-        async () => await revoke("inv_0"),
+        async () => await revoke(sent.key),
       );
-      expect(res.status).toBe(500);
-      expect(await h.directory.outstanding(ACME)).toHaveLength(1);
+      await expectError(res, 500, "Internal error");
+      expect(await invitations()).toEqual([sent]);
     });
 
-    it("should let staff cancel an invitation", async () => {
+    it("should let staff revoke an invitation", async () => {
       h.signIn(STAFF);
-      expect((await revoke("inv_0")).status).toBe(204);
+      expect((await revoke(sent.key)).status).toBe(204);
     });
 
     it("should answer 404 for an invitation the team does not have", async () => {
+      const other = await createOrganization(store, {
+        kind: "team",
+        name: "Other",
+        clerkOrgID: "org_other",
+      });
+      const elsewhere = await createInvitation(store, {
+        organization: other.key,
+        email: "cy@other.com",
+      });
       h.signIn(ADMIN);
-      await expectError(await revoke("inv_9"), 404, "Invitation not found");
-      expect(await events()).toHaveLength(0);
+      for (const id of [elsewhere.key, crypto.randomUUID(), "inv_9"])
+        await expectError(await revoke(id), 404, "Invitation not found");
+      expect(await invitations()).toHaveLength(2);
+      expect(await events()).toEqual([]);
     });
 
     it("should refuse a member who is not an admin", async () => {
       h.signIn(MEMBER);
       await expectError(
-        await revoke("inv_0"),
+        await revoke(sent.key),
         403,
         "Only a team admin can change members",
       );
@@ -410,17 +489,23 @@ describe("organization routes", () => {
       expect(await h.directory.roster("org_1")).toEqual([]);
     });
 
-    it("should invite the first admin to the sign-up page", async () => {
+    it("should invite the first admin from Synnax Labs", async () => {
       h.signIn(STAFF);
       await register({ email: " hank@globex.com " });
-      expect(h.directory.invitations).toEqual([
-        {
-          clerkOrgID: "org_1",
+      expect(await invitations()).toEqual([
+        expect.objectContaining({
+          organization: (await globex())?.key,
           email: "hank@globex.com",
           role: ADMIN_ROLE,
-          inviterUserID: null,
-          redirectURL: "https://portal.synnaxlabs.com/sign-up",
-        },
+        }),
+      ]);
+      expect(h.mail.sent).toEqual([
+        expect.objectContaining({
+          to: ["hank@globex.com"],
+          paragraphs: expect.arrayContaining([
+            "Synnax Labs invited you to join Globex in the Synnax portal.",
+          ]),
+        }),
       ]);
     });
 
@@ -444,19 +529,18 @@ describe("organization routes", () => {
       ]);
     });
 
-    it("should keep the team when Clerk refuses the invitation", async () => {
+    it("should keep the team when the invitation fails", async () => {
       h.signIn(STAFF);
-      h.directory.invite = async () => {
-        throw badRequest("The email address is blocked.");
-      };
+      failMail();
       await expectError(
         await register(),
-        400,
-        "Globex is registered, but Clerk refused the invitation: The email address " +
-          "is blocked. Invite the admin from its Members tab.",
+        502,
+        "Globex is registered, but its invitation failed. Invite the admin from its " +
+          "Members tab.",
       );
       expect(await globex()).toBeDefined();
       expect((await events()).map((e) => e.kind)).toEqual(["register"]);
+      expect(await invitations()).toEqual([]);
     });
 
     it("should register nothing when the event write fails", async () => {

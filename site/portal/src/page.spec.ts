@@ -9,7 +9,7 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { failure, invitee, load, loadScoped, readActivity, type Scoped } from "@/page";
+import { failure, load, loadScoped, readActivity, type Scoped } from "@/page";
 import { event, type EventKind, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HTTPError } from "@/server/errors";
@@ -72,28 +72,6 @@ describe("page", () => {
       await expect(
         load(createAPIContext(harness.portal, { method: "GET" })),
       ).rejects.toThrow("no Clerk user user_unknown");
-    });
-  });
-
-  describe("invitee", () => {
-    it("should return a logged-in visitor's email and invitations", async () => {
-      harness.directory.invited.user_a = [
-        { invitationID: "orginv_1", clerkOrgID: "org_acme", name: "Acme" },
-      ];
-      harness.signIn("user_a");
-      const invited = await invitee(
-        createAPIContext(harness.portal, { method: "GET" }),
-      );
-      expect(invited?.email).toBe("ada@example.com");
-      expect(invited?.invitations).toMatchObject([
-        { invitationID: "orginv_1", team: { kind: "team", name: "Acme" } },
-      ]);
-    });
-
-    it("should return null for a logged-out visitor", async () => {
-      expect(
-        await invitee(createAPIContext(harness.portal, { method: "GET" })),
-      ).toBeNull();
     });
   });
 

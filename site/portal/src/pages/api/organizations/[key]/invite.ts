@@ -11,11 +11,11 @@ import { type APIRoute } from "astro";
 
 import { teamFor } from "@/access";
 import { form, handle } from "@/respond";
-import { invite } from "@/server/member";
+import { invite } from "@/server/invitation";
 
 /**
- * POST emails `email` an invitation to join the team as `role`. The link in the email
- * lands on the portal's sign-up page. Team admins and staff only.
+ * POST emails `email` an invitation to join the team as `role`, or sends an open one
+ * again. Team admins and staff only.
  */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
@@ -23,13 +23,12 @@ export const POST: APIRoute = async (context) =>
     const session = await portal.session();
     const team = await teamFor(portal, session, context.params.key ?? "");
     const body = await form(context);
-    await invite(portal.store, portal.directory, {
+    await invite(portal.store, portal.directory, portal.mail, {
       team,
       actor: session.userID,
       now: portal.now(),
       email: body.email ?? "",
       role: body.role ?? "",
-      redirectURL: new URL("/sign-up", context.url.origin).href,
     });
     return new Response(null, { status: 204 });
   });
