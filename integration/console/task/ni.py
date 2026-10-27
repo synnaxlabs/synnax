@@ -123,7 +123,9 @@ class NITask(TaskPage):
         configured = layout.is_modal_open()
         if configured:
             modal = layout.page.locator(layout.MODAL_SELECTOR)
-            fill_configure(modal, name=dev_name, identifier=dev_name)
+            fill_configure(
+                modal, layout.notifications, name=dev_name, identifier=dev_name
+            )
             modal.wait_for(state="hidden", timeout=5000)
             # Configuring renames the device, and the field shows the new name late.
             layout.wait_for_dropdown_value("Device", dev_name)
