@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -85,6 +86,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostProvider:        mock.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
+		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	imexSvc := imex.NewService()
 	arcTaskSvc := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))

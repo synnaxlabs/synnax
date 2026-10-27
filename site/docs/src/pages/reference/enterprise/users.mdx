@@ -155,7 +155,7 @@ with a new `--password`. See the
 
 A Core has five roles. **All** means create, read, change, and delete.
 
-| Resources                                              | Owner | Engineer | Operator | Host           | Viewer |
+| Resources                                              | Owner | Engineer | Operator | Driver         | Viewer |
 | ------------------------------------------------------ | ----- | -------- | -------- | -------------- | ------ |
 | Channels                                               | All   | All      | Read     | Read           | Read   |
 | Ranges                                                 | All   | All      | All      | All            | Read   |
@@ -168,5 +168,6 @@ A Core has five roles. **All** means create, read, change, and delete.
 - **Engineer** -> sets up channels, hardware, automations, and visualizations.
 - **Operator** -> runs tests: writes live data to control hardware, and edits ranges. An
   Operator cannot create visualizations.
-- **Host** -> for a computer that runs a standalone Driver.
+- **Driver** -> given to each rack, so a Driver logs in as its rack. It can change its
+  rack, but cannot create or delete racks.
 - **Viewer** -> sees everything and changes nothing.

@@ -85,7 +85,7 @@ export const createTestClientWithPolicy = async (
 export const BUILT_IN_ROLES = [
   "Owner",
   "Engineer",
-  "Host",
+  "Driver",
   "Operator",
   "Viewer",
 ] as const;

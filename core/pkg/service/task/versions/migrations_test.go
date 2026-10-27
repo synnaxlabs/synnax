@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -61,6 +62,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				Group:        g,
 				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
+				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 			}))
 			testRack := &rack.Rack{Name: "Ancient Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
