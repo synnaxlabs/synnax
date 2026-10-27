@@ -15,8 +15,6 @@ import { type ReactElement } from "react";
 import { Button } from "@/platform/button";
 import { useEditModal } from "@/platform/label/useEditModal";
 
-export interface SelectSingleProps extends Label.SelectSingleProps {}
-
 const useAdd = (): (() => void) => {
   const openEdit = useEditModal();
   const { close } = Dialog.useContext();
@@ -39,10 +37,6 @@ const CreateButton = () => {
 // ungranted subject must leave the prop undefined rather than render nothing inside it.
 const useCreateFooter = (): ReactElement | undefined =>
   Access.useCreateGranted(label.TYPE_ONTOLOGY_ID) ? <CreateButton /> : undefined;
-
-export const SelectSingle = (props: SelectSingleProps) => (
-  <Label.SelectSingle {...props} footer={useCreateFooter()} />
-);
 
 export const SelectMultiple = (props: Label.SelectMultipleProps) => (
   <Label.SelectMultiple {...props} footer={useCreateFooter()} />
