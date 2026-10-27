@@ -14,7 +14,7 @@
 
 #include "x/cpp/test/test.h"
 
-#include "driver/http/mock/server.h"
+#include "driver/http/testutil/server.h"
 // Disable GCC 13 false positive warning in <regex> header (included by httplib.h)
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
@@ -28,7 +28,7 @@
 using namespace driver::http;
 
 TEST(MockServerTest, ServesGETRoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::GET,
         .path = "/ping",
@@ -36,7 +36,7 @@ TEST(MockServerTest, ServesGETRoute) {
         .response_body = "pong",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
     EXPECT_TRUE(server.base_url().find("http://") == 0);
 
@@ -50,14 +50,14 @@ TEST(MockServerTest, ServesGETRoute) {
 }
 
 TEST(MockServerTest, ServesPOSTRoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::POST,
         .path = "/submit",
         .status_code = 201,
         .response_body = R"({"id": 1})",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -70,7 +70,7 @@ TEST(MockServerTest, ServesPOSTRoute) {
 }
 
 TEST(MockServerTest, ServesPUTRoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::PUT,
         .path = "/update",
@@ -78,7 +78,7 @@ TEST(MockServerTest, ServesPUTRoute) {
         .response_body = "updated",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -91,14 +91,14 @@ TEST(MockServerTest, ServesPUTRoute) {
 }
 
 TEST(MockServerTest, ServesDELETERoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::DEL,
         .path = "/remove",
         .status_code = 204,
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -110,7 +110,7 @@ TEST(MockServerTest, ServesDELETERoute) {
 }
 
 TEST(MockServerTest, ServesPATCHRoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::PATCH,
         .path = "/patch",
@@ -118,7 +118,7 @@ TEST(MockServerTest, ServesPATCHRoute) {
         .response_body = "patched",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -131,13 +131,13 @@ TEST(MockServerTest, ServesPATCHRoute) {
 }
 
 TEST(MockServerTest, MultipleRoutes) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {
         {.method = Method::GET, .path = "/a", .response_body = "A"},
         {.method = Method::GET, .path = "/b", .response_body = "B"},
         {.method = Method::POST, .path = "/c", .response_body = "C"},
     };
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -158,7 +158,7 @@ TEST(MockServerTest, MultipleRoutes) {
 }
 
 TEST(MockServerTest, CustomStatusCode) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::GET,
         .path = "/error",
@@ -166,7 +166,7 @@ TEST(MockServerTest, CustomStatusCode) {
         .response_body = "service unavailable",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -179,7 +179,7 @@ TEST(MockServerTest, CustomStatusCode) {
 }
 
 TEST(MockServerTest, ResponseDelay) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::GET,
         .path = "/slow",
@@ -187,7 +187,7 @@ TEST(MockServerTest, ResponseDelay) {
         .content_type = "text/plain",
         .delay = 200 * x::telem::MILLISECOND,
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -206,14 +206,14 @@ TEST(MockServerTest, ResponseDelay) {
 }
 
 TEST(MockServerTest, LogsReceivedRequests) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::POST,
         .path = "/log",
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -229,14 +229,14 @@ TEST(MockServerTest, LogsReceivedRequests) {
 }
 
 TEST(MockServerTest, LogsQueryParams) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::GET,
         .path = "/search",
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -253,9 +253,9 @@ TEST(MockServerTest, LogsQueryParams) {
 }
 
 TEST(MockServerTest, BaseURLUsesHTTPScheme) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{.path = "/x", .response_body = "x"}};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     EXPECT_TRUE(server.base_url().find("http://") == 0);
@@ -265,12 +265,12 @@ TEST(MockServerTest, BaseURLUsesHTTPScheme) {
 }
 
 TEST(MockServerTest, BaseURLUsesHTTPSScheme) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.secure = true;
-    cfg.cert_path = "driver/http/mock/test_cert.pem";
-    cfg.key_path = "driver/http/mock/test_key.pem";
+    cfg.cert_path = "driver/http/testutil/test_cert.pem";
+    cfg.key_path = "driver/http/testutil/test_key.pem";
     cfg.routes = {{.path = "/x", .response_body = "x"}};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     EXPECT_TRUE(server.base_url().find("https://") == 0);
@@ -279,10 +279,10 @@ TEST(MockServerTest, BaseURLUsesHTTPSScheme) {
 }
 
 TEST(MockServerTest, SecureServesGetRoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.secure = true;
-    cfg.cert_path = "driver/http/mock/test_cert.pem";
-    cfg.key_path = "driver/http/mock/test_key.pem";
+    cfg.cert_path = "driver/http/testutil/test_cert.pem";
+    cfg.key_path = "driver/http/testutil/test_key.pem";
     cfg.routes = {{
         .method = Method::GET,
         .path = "/secure",
@@ -290,7 +290,7 @@ TEST(MockServerTest, SecureServesGetRoute) {
         .response_body = "secure-ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
     EXPECT_TRUE(server.base_url().find("https://") == 0);
 
@@ -305,17 +305,17 @@ TEST(MockServerTest, SecureServesGetRoute) {
 }
 
 TEST(MockServerTest, SecureServesPOSTRoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.secure = true;
-    cfg.cert_path = "driver/http/mock/test_cert.pem";
-    cfg.key_path = "driver/http/mock/test_key.pem";
+    cfg.cert_path = "driver/http/testutil/test_cert.pem";
+    cfg.key_path = "driver/http/testutil/test_key.pem";
     cfg.routes = {{
         .method = Method::POST,
         .path = "/secure-post",
         .status_code = 201,
         .response_body = R"({"ok": true})",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -333,17 +333,17 @@ TEST(MockServerTest, SecureServesPOSTRoute) {
 }
 
 TEST(MockServerTest, SecureLogsRequests) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.secure = true;
-    cfg.cert_path = "driver/http/mock/test_cert.pem";
-    cfg.key_path = "driver/http/mock/test_key.pem";
+    cfg.cert_path = "driver/http/testutil/test_cert.pem";
+    cfg.key_path = "driver/http/testutil/test_key.pem";
     cfg.routes = {{
         .method = Method::GET,
         .path = "/log-secure",
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -359,17 +359,17 @@ TEST(MockServerTest, SecureLogsRequests) {
 }
 
 TEST(MockServerTest, SecureInvalidCertFailsStart) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.secure = true;
     cfg.cert_path = "nonexistent_cert.pem";
     cfg.key_path = "nonexistent_key.pem";
     cfg.routes = {{.path = "/x", .response_body = "x"}};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     EXPECT_TRUE(server.start());
 }
 
 TEST(MockServerTest, ServesOptionsRoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::OPTIONS,
         .path = "/api/opts",
@@ -377,7 +377,7 @@ TEST(MockServerTest, ServesOptionsRoute) {
         .response_body = "",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -389,26 +389,26 @@ TEST(MockServerTest, ServesOptionsRoute) {
 }
 
 TEST(MockServerTest, HEADRouteRegistrationErrors) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{.method = Method::HEAD, .path = "/x", .response_body = "x"}};
-    EXPECT_THROW(mock::Server server(cfg), std::runtime_error);
+    EXPECT_THROW(testutil::Server server(cfg), std::runtime_error);
 }
 
 TEST(MockServerTest, TRACERouteRegistrationErrors) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{.method = Method::TRACE, .path = "/x", .response_body = "x"}};
-    EXPECT_THROW(mock::Server server(cfg), std::runtime_error);
+    EXPECT_THROW(testutil::Server server(cfg), std::runtime_error);
 }
 
 TEST(MockServerTest, CONNECTRouteRegistrationErrors) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{.method = Method::CONNECT, .path = "/x", .response_body = "x"}};
-    EXPECT_THROW(mock::Server server(cfg), std::runtime_error);
+    EXPECT_THROW(testutil::Server server(cfg), std::runtime_error);
 }
 
 /// @brief it should serve requests after a stop and restart on the same port.
 TEST(MockServerTest, RestartReusesSamePort) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::GET,
         .path = "/ping",
@@ -416,7 +416,7 @@ TEST(MockServerTest, RestartReusesSamePort) {
         .response_body = "pong",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     const auto url = server.base_url();
@@ -443,7 +443,7 @@ TEST(MockServerTest, RestartReusesSamePort) {
 
 /// @brief it should accumulate requests across restarts unless cleared.
 TEST(MockServerTest, RestartAccumulatesRequests) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::POST,
         .path = "/data",
@@ -451,7 +451,7 @@ TEST(MockServerTest, RestartAccumulatesRequests) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -475,7 +475,7 @@ TEST(MockServerTest, RestartAccumulatesRequests) {
 
 /// @brief it should clear all recorded requests.
 TEST(MockServerTest, ClearRequests) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::GET,
         .path = "/ping",
@@ -483,7 +483,7 @@ TEST(MockServerTest, ClearRequests) {
         .response_body = "pong",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -503,7 +503,7 @@ TEST(MockServerTest, ClearRequests) {
 
 /// @brief it should clear requests across a restart cycle.
 TEST(MockServerTest, ClearRequestsAcrossRestart) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::POST,
         .path = "/data",
@@ -511,7 +511,7 @@ TEST(MockServerTest, ClearRequestsAcrossRestart) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -532,7 +532,7 @@ TEST(MockServerTest, ClearRequestsAcrossRestart) {
 }
 
 TEST(MockServerTest, RedirectRoute) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {
         {
             .method = Method::GET,
@@ -548,7 +548,7 @@ TEST(MockServerTest, RedirectRoute) {
             .content_type = "text/plain",
         },
     };
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     // Without following redirects, the client should see the 302.
@@ -577,7 +577,7 @@ TEST(MockServerTest, RedirectRoute) {
 /// @brief remaining_failures should return the error status for the configured number
 /// of requests, then switch to 200.
 TEST(MockServerTest, RemainingFailuresCountdown) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::POST,
         .path = "/flaky",
@@ -585,7 +585,7 @@ TEST(MockServerTest, RemainingFailuresCountdown) {
         .response_body = R"({"error":"internal"})",
         .remaining_failures = 2,
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -613,7 +613,7 @@ TEST(MockServerTest, RemainingFailuresCountdown) {
 
 /// @brief remaining_failures=0 should always use the configured status_code.
 TEST(MockServerTest, RemainingFailuresZeroUsesConfiguredStatus) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::GET,
         .path = "/stable",
@@ -622,7 +622,7 @@ TEST(MockServerTest, RemainingFailuresZeroUsesConfiguredStatus) {
         .content_type = "text/plain",
         .remaining_failures = 0,
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -642,7 +642,7 @@ TEST(MockServerTest, RemainingFailuresZeroUsesConfiguredStatus) {
 /// @brief remaining_failures=1 should fail once then succeed on all subsequent
 /// requests.
 TEST(MockServerTest, RemainingFailuresOneFailsThenSucceeds) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::PUT,
         .path = "/once",
@@ -650,7 +650,7 @@ TEST(MockServerTest, RemainingFailuresOneFailsThenSucceeds) {
         .response_body = R"({"error":"rate limited"})",
         .remaining_failures = 1,
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());
@@ -672,7 +672,7 @@ TEST(MockServerTest, RemainingFailuresOneFailsThenSucceeds) {
 
 /// @brief remaining_failures counters should reset when the server is restarted.
 TEST(MockServerTest, RemainingFailuresResetsOnRestart) {
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {{
         .method = Method::POST,
         .path = "/reset",
@@ -680,7 +680,7 @@ TEST(MockServerTest, RemainingFailuresResetsOnRestart) {
         .response_body = R"({"error":"internal"})",
         .remaining_failures = 1,
     }};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     ASSERT_NIL(server.start());
 
     httplib::Client cli(server.base_url());

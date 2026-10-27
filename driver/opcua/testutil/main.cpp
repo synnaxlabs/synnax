@@ -12,7 +12,7 @@
 #include <iostream>
 #include <thread>
 
-#include "driver/opcua/mock/server.h"
+#include "driver/opcua/testutil/server.h"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the signal handler
 // clears it.
@@ -44,11 +44,11 @@ int main(int argc, char *argv[]) {
         std::cout << "Starting OPC UA Mock Server on port " << port << std::endl;
 
         // Create server configuration with comprehensive test nodes
-        auto config = mock::ServerConfig::create_default();
+        auto config = driver::opcua::testutil::ServerConfig::create_default();
         config.port = port;
 
         // Create and start the server
-        mock::Server server(config);
+        driver::opcua::testutil::Server server(config);
         server.start();
 
         std::cout << "\nOPC UA Mock Server is running with the following test nodes:"

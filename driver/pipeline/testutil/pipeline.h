@@ -19,7 +19,7 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 
-namespace driver::pipeline::mock {
+namespace driver::pipeline::testutil {
 // Configuration for a mock Streamer that allows controlling its behavior in tests.
 struct StreamerConfig {
     // A sequence of frames that the Streamer will return on each read() call.

@@ -27,7 +27,7 @@
 
 #include "driver/opcua/types/types.h"
 
-namespace mock {
+namespace driver::opcua::testutil {
 /// @brief the length of the TestDoubleArray node, which array mode tasks must match.
 constexpr std::size_t DOUBLE_ARRAY_SIZE = 5;
 

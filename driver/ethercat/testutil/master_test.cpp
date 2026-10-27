@@ -12,9 +12,9 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/ethercat/errors/errors.h"
-#include "driver/ethercat/mock/master.h"
+#include "driver/ethercat/testutil/master.h"
 
-namespace driver::ethercat::mock {
+namespace driver::ethercat::testutil {
 
 TEST(MasterConstruction, DefaultInterfaceName) {
     Master master;

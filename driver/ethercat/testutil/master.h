@@ -21,7 +21,7 @@
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
 
-namespace driver::ethercat::mock {
+namespace driver::ethercat::testutil {
 /// @brief an in-memory master. Inputs set by a test reach the process image on the next
 /// receive(), and outputs become visible to get_output() on the next send(), as they
 /// would on a real bus.

@@ -19,7 +19,7 @@ exports_files(
 )
 
 cc_library(
-    name = "mock",
+    name = "testutil",
     srcs = ["server.cpp"],
     hdrs = ["server.h"],
     copts = select({
@@ -69,7 +69,7 @@ cc_test(
         "test_key.pem",
     ],
     deps = [
-        ":mock",
+        ":testutil",
         "//x/cpp/test",
         "@cpp-httplib//:cpp-httplib",
         "@googletest//:gtest_main",

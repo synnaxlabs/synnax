@@ -36,7 +36,7 @@
 
 #include "driver/modbus/util/util.h"
 
-namespace driver::modbus::mock {
+namespace driver::modbus::testutil {
 /// @brief Configuration for a mock Modbus slave
 struct SlaveConfig {
     // Maps for storing configured values for each register type

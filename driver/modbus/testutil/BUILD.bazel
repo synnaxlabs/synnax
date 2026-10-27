@@ -12,7 +12,7 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "mock",
+    name = "testutil",
     hdrs = ["slave.h"],
     visibility = ["//visibility:public"],
     deps = [
@@ -28,7 +28,7 @@ cc_test(
     name = "slave_test",
     srcs = ["slave_test.cpp"],
     deps = [
-        ":mock",
+        ":testutil",
         "//vendor/libmodbus",
         "//x/cpp/test",
         "@googletest//:gtest_main",
@@ -36,14 +36,14 @@ cc_test(
 )
 
 cc_binary(
-    name = "mock_slave",
+    name = "slave",
     srcs = ["main.cpp"],
     linkopts = select({
         "@platforms//os:windows": ["ws2_32.lib"],
         "//conditions:default": [],
     }),
     deps = [
-        "//driver/modbus/mock",
+        "//driver/modbus/testutil",
         "//driver/modbus/util",
         "//vendor/libmodbus",
         "//x/cpp/errors",
