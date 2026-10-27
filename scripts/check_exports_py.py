@@ -10,9 +10,12 @@
 """Reports public Python names that no other module imports.
 
 A top-level name without a leading underscore is wrongly public when no other module
-imports it, except the tests of its own package. Rename it with a leading underscore.
-A name stays public when an `__init__.py` re-exports it, when a public name used
-elsewhere carries it in an annotation or a base class, or when a `pyproject.toml`
+imports it, except test code: tests, `conftest.py`, and test utilities. A test utility
+is a `testutil`, `test`, or `mock` module, a module under such a directory, or a module
+of a package that holds only test utilities; tests may import its names. Rename a
+finding with a leading underscore, or move a helper that tests need into a test
+utility. A name stays public when an `__init__.py` re-exports it, when a public name
+used elsewhere carries it in an annotation or a base class, or when a `pyproject.toml`
 entry point names it. The check skips generated files and `__init__.py` definitions.
 
     uv run --project scripts scripts/check_exports_py.py
@@ -38,18 +41,23 @@ class Package:
     checked: tuple[str, ...]
     """The import roots whose names the check reports."""
     tests: tuple[str, ...] = ("tests",)
-    """The directories whose imports do not keep a name of this package public."""
+    """The directories that hold test code."""
+    test_utility: bool = False
+    """Whether every checked module is a test utility, whose names tests may import."""
 
 
 PACKAGES = (
     Package("alamos/py", ("alamos",)),
     Package("client/py", ("synnax",)),
     Package("freighter/py", ("freighter",)),
-    Package("integration", ("console", "framework"), ("framework/tests",)),
+    Package(
+        "integration", ("console", "framework"), ("framework/tests", "tests"), True
+    ),
     Package("x/py", ("x",)),
 )
 
 SKIPPED_DIRS = {".venv", "node_modules", "build", "__pycache__"}
+TEST_UTILITY_DIRS = {"testutil", "test", "mock"}
 
 
 @dataclass
@@ -58,6 +66,9 @@ class Module:
     path: Path
     package: Package
     test: bool
+    """Whether the module is test code: a test, a conftest, or a test utility."""
+    utility: bool
+    """Whether the module is a test utility, whose names tests may import."""
     checked: bool
     tree: ast.Module
     generated: bool
@@ -77,7 +88,7 @@ class Finding:
 
     def __str__(self) -> str:
         users = (
-            "only its tests import it" if self.tests_only else "no module imports it"
+            "only test code imports it" if self.tests_only else "no module imports it"
         )
         return f"{self.path}:{self.line}: {self.name} is public but {users}"
 
@@ -103,6 +114,10 @@ def parse(source: str, path: Path) -> ast.Module:
         return ast.parse(source, str(path))
 
 
+def is_test_file(path: Path) -> bool:
+    return path.name == "conftest.py" or path.name.startswith("test_")
+
+
 def load(repo: Path, packages: tuple[Package, ...]) -> list[Module]:
     modules = []
     for pkg in packages:
@@ -111,15 +126,19 @@ def load(repo: Path, packages: tuple[Package, ...]) -> list[Module]:
             rel = path.relative_to(root)
             if SKIPPED_DIRS & set(rel.parts):
                 continue
-            test = any(rel.is_relative_to(t) for t in pkg.tests)
+            in_tests = any(rel.is_relative_to(t) for t in pkg.tests)
+            utility = pkg.test_utility or bool(
+                TEST_UTILITY_DIRS & set(rel.with_suffix("").parts)
+            )
             source = path.read_text()
             modules.append(
                 Module(
                     name=module_name(root, path),
                     path=path,
                     package=pkg,
-                    test=test,
-                    checked=not test and rel.parts[0] in pkg.checked,
+                    test=in_tests or utility or is_test_file(path),
+                    utility=utility,
+                    checked=not in_tests and rel.parts[0] in pkg.checked,
                     tree=parse(source, path),
                     generated=is_generated(path, source),
                 )
@@ -269,7 +288,7 @@ def walk(tree: ast.AST) -> Iterator[ast.AST]:
 def check(repo: Path, packages: tuple[Package, ...] = PACKAGES) -> list[Finding]:
     """Returns the wrongly public names in packages, sorted by path and line."""
     modules = load(repo, packages)
-    known = {m.name for m in modules if not m.test}
+    known = {m.name for m in modules if not m.test or m.utility}
     defs: dict[tuple[str, str], tuple[Module, ast.stmt]] = {}
     for m in modules:
         if not m.checked or m.generated or m.path.name == "__init__.py":
@@ -289,7 +308,7 @@ def check(repo: Path, packages: tuple[Package, ...] = PACKAGES) -> list[Finding]
             )
             for key in keys:
                 owner = defs.get(key)
-                if m.test and owner is not None and owner[0].package == m.package:
+                if m.test and owner is not None and not owner[0].utility:
                     tested.add(key)
                 else:
                     used.add(key)

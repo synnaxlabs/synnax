@@ -31,9 +31,10 @@ easy to get wrong by hand.
 Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo script.
 
 - `uv run --project scripts scripts/check_exports_py.py` — reports top-level Python
-  names without a leading underscore that no other module imports, except the tests of
-  their own package. Fix a finding with a leading underscore. The package list is
-  `PACKAGES` in the script.
+  names without a leading underscore that only their own module or test code imports.
+  Tests may import names from a test utility (`testutil`, `test`, or `mock`). Fix a
+  finding with a leading underscore, or move the helper into a test utility. The package
+  list is `PACKAGES` in the script.
 
 ## Copyright headers
 

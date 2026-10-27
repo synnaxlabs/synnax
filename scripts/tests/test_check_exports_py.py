@@ -105,7 +105,7 @@ class TestCheck:
             Finding("lib/widget/parts.py", 1, "LIMIT", tests_only=True)
         ]
 
-    def test_should_keep_a_name_the_tests_of_another_package_import(
+    def test_should_report_a_name_only_another_packages_tests_import(
         self, tmp_path: Path
     ) -> None:
         write(
@@ -116,7 +116,44 @@ class TestCheck:
                 "app/tests/test_run.py": "from widget.parts import LIMIT\n",
             },
         )
+        assert check(tmp_path, PACKAGES) == [
+            Finding("lib/widget/parts.py", 1, "LIMIT", tests_only=True)
+        ]
+
+    def test_should_keep_a_test_utility_name_another_packages_tests_import(
+        self, tmp_path: Path
+    ) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "",
+                "lib/widget/testutil/__init__.py": "",
+                "lib/widget/testutil/fake.py": "def fake_valve(): ...\n",
+                "app/tests/test_run.py": (
+                    "from widget.testutil.fake import fake_valve\n"
+                ),
+            },
+        )
         assert names(tmp_path) == []
+
+    def test_should_report_a_name_only_a_test_utility_imports(
+        self, tmp_path: Path
+    ) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "",
+                "lib/widget/parts.py": "LIMIT = 1\n",
+                "lib/widget/testutil/__init__.py": "",
+                "lib/widget/testutil/fake.py": (
+                    "from widget.parts import LIMIT\n\nFAKE = LIMIT\n"
+                ),
+                "app/tests/test_run.py": "from widget.testutil.fake import FAKE\n",
+            },
+        )
+        assert check(tmp_path, PACKAGES) == [
+            Finding("lib/widget/parts.py", 1, "LIMIT", tests_only=True)
+        ]
 
     def test_should_keep_a_type_in_the_signature_of_a_name_in_use(
         self, tmp_path: Path
