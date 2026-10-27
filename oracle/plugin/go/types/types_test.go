@@ -3123,6 +3123,38 @@ func (u View) Type() ViewType {
 		},
 	)
 
+	DescribeTable(
+		"Should reject a union getter that has the name of another union method",
+		func(ctx SpecContext, source, msg string) {
+			table, diag := analyzer.AnalyzeSource(ctx, source, "view", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(
+				"failed to generate out: view.Shape: " + msg,
+			))
+		},
+		Entry("when the tag getter has the name of a base getter", `
+			@go output "out"
+
+			Type struct { name string }
+
+			Shape union on type extends Type {
+				first { size int32 }
+			}
+		`, "the getter for the discriminator type has the name of another union "+
+			"method; rename the discriminator"),
+		Entry("when a base getter has the name of a method every union declares", `
+			@go output "out"
+
+			Validate struct { name string }
+
+			Shape union on type extends Validate {
+				first { size int32 }
+			}
+		`, "the getter for the base Validate has the name of another union method; "+
+			"rename the base"),
+	)
+
 	It(
 		"Should emit a single discriminator constant on one line",
 		func(ctx SpecContext) {
