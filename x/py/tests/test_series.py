@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import BaseModel, TypeAdapter
 
 from x import telem
 from x.interop import ArrayOperators
@@ -775,6 +776,13 @@ class TestSampleConversion:
             telem.to_int(value)
 
 
+_SERIES: TypeAdapter[telem.Series] = TypeAdapter(telem.Series)
+
+
+class _Holder(BaseModel):
+    series: telem.Series
+
+
 def _series() -> telem.Series:
     return telem.Series(np.array([1, 2, 3], dtype=np.int64))
 
@@ -873,11 +881,45 @@ class TestArrayOperators:
 @pytest.mark.series
 class TestSeriesModel:
     def test_round_trip(self) -> None:
-        """Should validate and serialize with the operator mixin in place"""
-        s = _series()
-        restored = telem.Series.model_validate(s.model_dump())
+        """Should validate a Series from its serialized form"""
+        s = telem.Series(
+            [1, 2, 3],
+            time_range=telem.TimeRange(1, 4),
+            alignment=7,
+            alignment_multiple=2,
+        )
+        restored = _SERIES.validate_python(_SERIES.dump_python(s))
         assert restored.data == s.data
-        assert np.array_equal(restored, s)
+        assert restored.data_type == s.data_type
+        assert restored.time_range == s.time_range
+        assert restored.alignment == s.alignment
+        assert restored.alignment_multiple == 2
+
+    def test_json_round_trip(self) -> None:
+        """Should round-trip a Series through JSON"""
+        s = telem.Series(["a", "b"])
+        restored = _SERIES.validate_json(_SERIES.dump_json(s))
+        assert list(restored) == ["a", "b"]
+
+    def test_instance(self) -> None:
+        """Should accept a Series instance as is"""
+        s = _series()
+        assert _SERIES.validate_python(s) is s
+
+    def test_model_field(self) -> None:
+        """Should validate a Series field of a model from a dict"""
+        m = _Holder.model_validate(
+            {"series": {"data_type": "float32", "data": telem.Series([1.5]).data}}
+        )
+        assert m.series.data_type == telem.DataType.FLOAT32
+
+    def test_iter(self) -> None:
+        """Should iterate over samples, not model fields"""
+        assert list(_series()) == [1, 2, 3]
+
+    def test_repr(self) -> None:
+        """Should name the data type and length in the representation"""
+        assert "len=3" in repr(_series())
 
 
 _INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)

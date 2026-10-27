@@ -34,7 +34,7 @@ export const openMemory = async (): Promise<Memory> => {
     transact: async (fn) => await db.transaction(fn),
     clear: async () => {
       await db.execute(
-        sql`TRUNCATE event, invitation, activation, license, organization
+        sql`TRUNCATE event, handoff, invitation, activation, license, organization
           RESTART IDENTITY CASCADE`,
       );
     },

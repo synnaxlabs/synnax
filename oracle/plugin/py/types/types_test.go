@@ -2563,6 +2563,26 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 		},
 	)
 
+	DescribeTable(
+		"Should panic on an invalid union default",
+		func(ctx SpecContext, literal, message string) {
+			withDefault := source + "\nItem struct { scale Scale = " + literal + " }\n"
+			Expect(func() {
+				MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			}).To(PanicWith(ContainSubstring(message)))
+		},
+		Entry(
+			"without its discriminator",
+			"{ slope = 2 }",
+			"does not set its discriminator type",
+		),
+		Entry(
+			"with an unknown variant",
+			`{ type = "cubic" }`,
+			`names unknown variant "cubic"`,
+		),
+	)
+
 	It(
 		"Should alias a module import that an inline variant field shadows",
 		func(ctx SpecContext) {
@@ -2581,6 +2601,45 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 				Config union on variant {
 					tracked {
 						status status.Info
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			ExpectContent(resp, "task/types_gen.py").ToContain(
+				`from synnax import status as status_`,
+				`status: status_.Info`,
+			)
+		},
+	)
+
+	It(
+		"Should alias a module import that a flattened base field shadows",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
+				@py output "client/py/synnax/status"
+
+				Info struct {
+					key uuid
+				}
+			`)
+			loader.Add("schemas/common", `
+				import "schemas/status"
+
+				@py output "client/py/synnax/common"
+
+				Base struct {
+					status status.Info
+					name   string
+				}
+			`)
+			source := `
+				import "schemas/common"
+
+				@py output "client/py/synnax/task"
+
+				Config union on variant extends common.Base {
+					tracked {
+						-name
 					}
 				}
 			`

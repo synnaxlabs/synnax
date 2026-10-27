@@ -10,9 +10,39 @@
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
+from synnax import log
 from synnax.exceptions import NotFoundError
+
+
+class TestLog:
+    def test_round_trip(self) -> None:
+        """Should parse channel entries and dump them back unchanged."""
+        lg = log.Log.model_validate(
+            {"name": "Events", "channels": [{"channel": 1, "color": "#00ff00"}]}
+        )
+        entry = lg.channels[0]
+        assert entry.precision == -1
+        assert entry.notation == "standard"
+        assert entry.timestamp == log.TimestampConfig(format="preciseDate", tz="local")
+        assert log.Log.model_validate_json(lg.model_dump_json()) == lg
+
+    def test_precision_bounds(self) -> None:
+        """Should reject a precision above the float64 limit."""
+        with pytest.raises(ValidationError):
+            log.ChannelEntry.model_validate(
+                {"channel": 1, "color": "#00ff00", "precision": 18}
+            )
+
+    def test_ontology_id(self) -> None:
+        """Should build the ontology ID of a log."""
+        key = uuid4()
+        assert log.ontology_id(key).type == log.ONTOLOGY_TYPE.type
+        assert log.ontology_id(key).key == str(key)
+        lg = log.Log(name="Events")
+        assert hash(lg) == hash(lg.key)
 
 
 @pytest.fixture
@@ -21,7 +51,7 @@ def project(client: sy.Synnax) -> sy.Project:
 
 
 @pytest.mark.log
-class TestLog:
+class TestClient:
     def test_create(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create a single log with default display configuration."""
         log = client.logs.create(project.key, sy.Log(name="Test Log"))
