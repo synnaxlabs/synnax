@@ -707,7 +707,15 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 				i++
 			}
 		case parser.ArcLexerLBRACE:
-			stack = append(stack, frame{kind: NestingFunction})
+			// A routing table's entries are flow statements of the enclosing body.
+			kind := NestingFunction
+			if i > 0 && isArrow(tokens[i-1]) {
+				kind = NestingTopLevel
+				if len(stack) > 0 {
+					kind = stack[len(stack)-1].kind
+				}
+			}
+			stack = append(stack, frame{kind: kind})
 		case parser.ArcLexerRBRACE:
 			if len(stack) > 0 {
 				stack = stack[:len(stack)-1]
@@ -718,6 +726,11 @@ func detectNesting(tokens []antlr.Token) NestingKind {
 		return NestingTopLevel
 	}
 	return stack[len(stack)-1].kind
+}
+
+func isArrow(t antlr.Token) bool {
+	tt := t.GetTokenType()
+	return tt == parser.ArcLexerARROW || tt == parser.ArcLexerTRANSITION
 }
 
 func extractInputContext(content string, pos protocol.Position) *inputContextInfo {
