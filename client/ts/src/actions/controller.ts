@@ -108,16 +108,13 @@ export interface Transaction<Action> {
   abort: () => void;
 }
 
-/** Sends an already-processed action list to the server. Supplied by the
- *  caller so the controller stays free of network concerns. */
-export type Send<Action> = (actions: Action[]) => Promise<void>;
-
 /**
- * Network send used by the dispatch/undo/redo loops. Receives the
- * controller-generated dispatch key that was registered as outstanding before
- * the call, so the broadcast echo is recognized as own.
+ * Sends a document's processed actions to the Core. Receives the controller-generated
+ * dispatch key that was registered as outstanding before the call, so the broadcast
+ * echo is recognized as own.
  */
-export type SendDispatch<Action> = (
+export type SendDispatch<Key, Action> = (
+  key: Key,
   actions: Action[],
   dispatchKey: string,
 ) => Promise<void>;
@@ -175,6 +172,9 @@ export interface ControllerParams<
   /** Reports listener errors that have no caller to throw to. */
   onError: (error: Error) => void;
   reduce: Reducer<State, Action>;
+  /** Sends dispatches to the Core. Supplied by the caller so the controller stays free
+   *  of network concerns. */
+  send: SendDispatch<Key, Action>;
   preprocess?: (state: State, actions: Action[]) => Action[];
   isUndoable?: (action: Action) => boolean;
   kindOf?: (actions: Action[]) => string;
@@ -187,6 +187,18 @@ export interface ControllerParams<
   stackCap?: number;
   /** Clock stamping entries for the coalesce window. Defaults to TimeStamp.now. */
   now?: () => TimeStamp;
+}
+
+/** Dispatches sent together as one, with one rollback per dispatch. */
+interface Batch<Action> {
+  dispatchKey: string;
+  actions: Action[];
+  rollbacks: destructor.Destructor[];
+  result: PromiseWithResolvers<void>;
+}
+
+interface Queue<Action> {
+  next: Batch<Action> | null;
 }
 
 /**
@@ -220,14 +232,16 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // order is the ground truth here; the wall clock ties within a millisecond
   // and steps on sleep/wake or NTP resync, so it cannot be trusted for this.
   private tick = 0;
-  // The Core applies dispatches in arrival order, so each document's sends go out one
-  // at a time.
-  private readonly sending = new Map<Key, Promise<void>>();
+  // The Core applies dispatches in arrival order, so each document has at most one send
+  // in flight. A key is present while its send is in flight, and holds the batch
+  // queued behind it.
+  private readonly queues = new Map<Key, Queue<Action>>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
       onError: opts.onError,
       reduce: opts.reduce,
+      send: opts.send,
       preprocess: opts.preprocess ?? ((_, a) => a),
       isUndoable: opts.isUndoable ?? (() => true),
       kindOf: opts.kindOf ?? (() => "default"),
@@ -256,18 +270,57 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.outstandingDispatches.delete(key);
   }
 
-  private async sendInOrder(key: Key, send: () => Promise<void>): Promise<void> {
-    const sent = (this.sending.get(key) ?? Promise.resolve()).then(send);
-    const settled = sent.then(
-      () => {},
-      () => {},
-    );
-    this.sending.set(key, settled);
-    try {
-      await sent;
-    } finally {
-      if (this.sending.get(key) === settled) this.sending.delete(key);
+  /**
+   * Sends actions that are already applied locally. When nothing is in flight for the
+   * document, they go out at once. Otherwise they join the batch that goes out as one
+   * dispatch when the in-flight send settles. If the batch fails, every rollback in it
+   * runs, newest first, and the returned promise rejects.
+   */
+  async send(
+    key: Key,
+    actions: Action[],
+    rollback: destructor.Destructor = destructor.NOOP,
+  ): Promise<void> {
+    let queue = this.queues.get(key);
+    const inFlight = queue != null;
+    if (queue == null) {
+      queue = { next: null };
+      this.queues.set(key, queue);
     }
+    if (queue.next == null) {
+      queue.next = {
+        dispatchKey: id.create(),
+        actions: [],
+        rollbacks: [],
+        result: Promise.withResolvers<void>(),
+      };
+      this.registerOutstandingDispatch(key, queue.next.dispatchKey);
+    }
+    const batch = queue.next;
+    batch.actions.push(...actions);
+    batch.rollbacks.push(rollback);
+    if (!inFlight) void this.drain(key, queue);
+    await batch.result.promise;
+  }
+
+  private async drain(key: Key, queue: Queue<Action>): Promise<void> {
+    while (queue.next != null) {
+      const batch = queue.next;
+      queue.next = null;
+      try {
+        await this.params.send(key, batch.actions, batch.dispatchKey);
+        batch.result.resolve();
+      } catch (e) {
+        const outstanding = this.outstandingDispatches.get(key);
+        outstanding?.delete(batch.dispatchKey);
+        batch.rollbacks.reverse().forEach((rollback) => rollback());
+        // The rollback also reverted the local replay of the batch queued behind this
+        // one, so that batch's echo must apply it again.
+        outstanding?.forEach((entry) => (entry.disturbed = true));
+        batch.result.reject(errors.fromUnknown(e));
+      }
+    }
+    this.queues.delete(key);
   }
 
   private updateUndo(
@@ -375,15 +428,13 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     };
   }
 
-  // Reduce + send with rollback: replay locally, run the per-op stack
-  // mutation, register the batch as outstanding *before* the network send
-  // (the broadcast echo can race the HTTP response), and roll back stack and
-  // state when the send fails. Returns false when the doc isn't cached.
+  // Reduce + send with rollback: replay locally, run the per-op stack mutation, and
+  // roll back stack and state when the send fails. Returns false when the doc isn't
+  // cached.
   private async applySend(
     key: Key,
     actions: Action[],
     commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
-    send: SendDispatch<Action>,
     preprocess?: Preprocess<State, Action>,
   ): Promise<boolean> {
     const current = this.docs.get(key);
@@ -396,16 +447,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     // document change, no broadcast worth echoing. The stack mutation still
     // runs above so undo/redo consume their entry instead of pinning it.
     if (!r.changed) return true;
-    const dispatchKey = id.create();
-    this.registerOutstandingDispatch(key, dispatchKey);
-    try {
-      await this.sendInOrder(key, async () => await send(r.processed, dispatchKey));
-      return true;
-    } catch (e) {
+    await this.send(key, r.processed, () => {
       stackRollback();
       r.rollback();
-      throw errors.fromUnknown(e);
-    }
+    });
+    return true;
   }
 
   /**
@@ -416,7 +462,6 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   async dispatch(
     key: Key,
     actions: Action[],
-    send: SendDispatch<Action>,
     opts: Options<State, Action> = {},
   ): Promise<boolean> {
     if (actions.length === 0) return true;
@@ -425,7 +470,6 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       actions,
       ({ processed, inverse, targets }) =>
         this.recordEntry(key, processed, inverse, targets),
-      send,
       opts.preprocess,
     );
   }
@@ -434,37 +478,17 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * Apply and send the top live undo entry, moving it to the redo stack. Returns false
    * when nothing is undoable. Rolls back and rethrows on send failure.
    */
-  async undo(key: Key, send: SendDispatch<Action>): Promise<boolean> {
+  async undo(key: Key): Promise<boolean> {
     const prepared = this.prepareUndo(key);
     if (prepared == null) return false;
-    return await this.applySend(key, prepared.actions, () => prepared.commit(), send);
+    return await this.applySend(key, prepared.actions, () => prepared.commit());
   }
 
   /** Mirror of {@link undo} for the redo stack. */
-  async redo(key: Key, send: SendDispatch<Action>): Promise<boolean> {
+  async redo(key: Key): Promise<boolean> {
     const prepared = this.prepareRedo(key);
     if (prepared == null) return false;
-    return await this.applySend(key, prepared.actions, () => prepared.commit(), send);
-  }
-
-  /**
-   * Stage actions committed atomically as one undoable entry, registering the batch as
-   * outstanding before the send so the broadcast echo is recognized as own.
-   */
-  transaction(
-    key: Key,
-    send: SendDispatch<Action>,
-    kind?: string,
-  ): Transaction<Action> {
-    return this.beginTransaction(
-      key,
-      async (actions) => {
-        const dispatchKey = id.create();
-        this.registerOutstandingDispatch(key, dispatchKey);
-        await this.sendInOrder(key, async () => await send(actions, dispatchKey));
-      },
-      kind,
-    );
+    return await this.applySend(key, prepared.actions, () => prepared.commit());
   }
 
   prepareUndo(key: Key): Reversal<Action> | null {
@@ -475,7 +499,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return this.prepareReversal(key, "redo");
   }
 
-  beginTransaction(key: Key, send: Send<Action>, kind?: string): Transaction<Action> {
+  /** Stage actions committed atomically as one undoable entry. */
+  transaction(key: Key, kind?: string): Transaction<Action> {
     const initial = this.docs.get(key);
     const accumulated: Action[] = [];
     let done = false;
@@ -501,14 +526,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           targets,
           kind,
         );
-        try {
-          await send(accumulated);
-          return true;
-        } catch (e) {
+        await this.send(key, accumulated, () => {
           stackRollback();
           this.docs.set(key, initial);
-          throw errors.fromUnknown(e);
-        }
+        });
+        return true;
       },
       abort: () => {
         if (done) return;
@@ -535,11 +557,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   /**
    * Register a dispatch as outstanding so when its broadcast echo arrives it
-   * can be recognized as own and a redundant reduce skipped. Called by the
-   * dispatcher *before* the network send so the registration always wins the
-   * race against a fast echo. A registration whose echo has already been
-   * applied (seq advanced past it) is silently dropped; that's the safe
-   * fallback when the echo arrives before the dispatch promise resolves.
+   * can be recognized as own and a redundant reduce skipped. Called when a batch opens,
+   * before it waits in the queue, so a foreign echo during the wait marks it disturbed
+   * and the registration always wins the race against a fast echo. A registration
+   * whose echo has already been applied (seq advanced past it) is silently dropped;
+   * that's the safe fallback when the echo arrives before the dispatch promise
+   * resolves.
    */
   registerOutstandingDispatch(key: Key, dispatchKey: string): void {
     let bucket = this.outstandingDispatches.get(key);

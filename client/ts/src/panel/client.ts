@@ -92,6 +92,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       store,
       onError: cache.onError,
       reduce: reduceAll,
+      send: async (key, actions, dispatchKey) => {
+        await cfg.unary.send(
+          "/panel/dispatch",
+          { key, dispatchKey, actions },
+          dispatchReqZ,
+          emptyResZ,
+        );
+      },
       kindOf,
       createOf,
     });
@@ -183,7 +191,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
+      commit: async () => await this.dispatcher.send(key, [renameAction({ name })]),
     });
     rename();
   }
@@ -198,12 +206,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     actions: Action | Action[],
     opts: actions.Options<Panel, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-      opts,
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions), opts);
   }
 
   /**
@@ -211,7 +214,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key);
   }
 
   /**
@@ -219,7 +222,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key);
   }
 
   /** Whether the panel has a live undo entry. */
@@ -242,25 +245,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
 
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
-  }
-
-  private dispatchSender(key: Key): actions.SendDispatch<Action> {
-    return async (actions, dispatchKey) =>
-      await this.sendDispatch(key, dispatchKey, actions);
-  }
-
-  private async sendDispatch(
-    key: Key,
-    dispatchKey: string,
-    actions: Action[],
-  ): Promise<void> {
-    await this.cfg.unary.send(
-      "/panel/dispatch",
-      { key, dispatchKey, actions },
-      dispatchReqZ,
-      emptyResZ,
-    );
+    return this.dispatcher.transaction(key, kind);
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

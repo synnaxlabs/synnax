@@ -12,15 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import {
-  array,
-  deep,
-  type destructor,
-  errors,
-  id,
-  primitive,
-  zod,
-} from "@synnaxlabs/x";
+import { array, deep, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { actions } from "@/actions";
@@ -167,6 +159,14 @@ export class Client extends query.Retriever<
       store,
       onError: cache.onError,
       reduce: reduceAll,
+      send: async (key, actions, dispatchKey) => {
+        await cfg.unary.send(
+          "/arc/dispatch",
+          { key, dispatchKey, actions },
+          dispatchReqZ,
+          emptyResZ,
+        );
+      },
       isUndoable,
       kindOf,
       createOf,
@@ -289,8 +289,7 @@ export class Client extends query.Retriever<
     await query.optimistic({
       rollbacks: [rename()],
       onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.sendDispatch(key, id.create(), [renameAction({ name })]),
+      commit: async () => await this.dispatcher.send(key, [renameAction({ name })]),
     });
     rename();
   }
@@ -345,12 +344,7 @@ export class Client extends query.Retriever<
     actions: Action | Action[],
     opts: actions.Options<Arc, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-      opts,
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions), opts);
   }
 
   /**
@@ -358,7 +352,7 @@ export class Client extends query.Retriever<
    * undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key);
   }
 
   /**
@@ -366,7 +360,7 @@ export class Client extends query.Retriever<
    * redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key);
   }
 
   /** Whether the Arc has a live undo entry. */
@@ -389,25 +383,7 @@ export class Client extends query.Retriever<
 
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
-  }
-
-  private dispatchSender(key: Key): actions.SendDispatch<Action> {
-    return async (actions, dispatchKey) =>
-      await this.sendDispatch(key, dispatchKey, actions);
-  }
-
-  private async sendDispatch(
-    key: Key,
-    dispatchKey: string,
-    actions: Action[],
-  ): Promise<void> {
-    await this.cfg.unary.send(
-      "/arc/dispatch",
-      { key, dispatchKey, actions },
-      dispatchReqZ,
-      emptyResZ,
-    );
+    return this.dispatcher.transaction(key, kind);
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {
