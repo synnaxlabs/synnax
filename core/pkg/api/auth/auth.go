@@ -189,6 +189,9 @@ func (s *Service) ChangePassword(
 	tx gorp.Tx,
 	req ChangePasswordRequest,
 ) (struct{}, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return struct{}{}, err
+	}
 	identity, err := s.password.Authenticate(ctx, proofOf(req.Credentials))
 	if err != nil {
 		return struct{}{}, err
@@ -206,4 +209,15 @@ func (s *Service) ChangePassword(
 
 func proofOf(creds Credentials) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{Credentials: creds}}
+}
+
+// MethodsResponse lists the login methods the Core accepts.
+type MethodsResponse struct {
+	// Methods are the accepted login methods, sorted.
+	Methods []auth.Method `json:"methods" msgpack:"methods"`
+}
+
+// Methods returns the login methods the Core accepts. It needs no session.
+func (s *Service) Methods(context.Context, struct{}) (MethodsResponse, error) {
+	return MethodsResponse{Methods: s.auth.Methods()}, nil
 }

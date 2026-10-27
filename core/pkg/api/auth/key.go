@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
@@ -63,6 +64,9 @@ func (s *Service) CreateKey(
 	tx gorp.Tx,
 	req KeyCreateRequest,
 ) (KeyCreateResponse, error) {
+	if err := s.auth.Accepts(auth.MethodAPIKey); err != nil {
+		return KeyCreateResponse{}, err
+	}
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
 	if subject.Type != ontology.ResourceTypeUser &&

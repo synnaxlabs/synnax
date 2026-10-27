@@ -126,6 +126,9 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
+	if err := s.auth.Accepts(svcauth.MethodPassword); err != nil {
+		return CreateResponse{}, err
+	}
 	passwordW := s.password.NewWriter(tx)
 	userW := s.internal.NewWriter(tx)
 	newUsers := make([]user.User, len(req.Users))

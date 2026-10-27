@@ -37,13 +37,16 @@ type PasswordSetRequest struct {
 // update that user, and ends every other session the old password opened. A caller
 // setting its own password must send the current one. It returns
 // [auth.ErrInvalidCredentials] for a wrong current password, a validation error when
-// the subject is not a user, and an error wrapping query.ErrNotFound when the user has
-// no password.
+// the password method is off or the subject is not a user, and an error wrapping
+// query.ErrNotFound when the user has no password.
 func (s *Service) SetPassword(
 	ctx context.Context,
 	tx gorp.Tx,
 	req PasswordSetRequest,
 ) (struct{}, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return struct{}{}, err
+	}
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
 	if subject.Type != ontology.ResourceTypeUser {

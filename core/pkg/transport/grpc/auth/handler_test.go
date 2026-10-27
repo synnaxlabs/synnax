@@ -70,6 +70,12 @@ type (
 		auth.KeyRetrieveResponse,
 		*grpcauth.KeyRetrieveResponse,
 	]
+	methodsServer = grpc.UnaryServer[
+		struct{},
+		*emptypb.Empty,
+		auth.MethodsResponse,
+		*grpcauth.MethodsResponse,
+	]
 	keyDeleteServer = grpc.UnaryServer[
 		auth.KeyDeleteRequest,
 		*grpcauth.KeyDeleteRequest,
@@ -101,6 +107,7 @@ var _ = Describe("Auth", func() {
 		transport   api.Transport
 		bindable    = grpcauth.New(&transport).(grpc.CompoundBindableTransport)
 		login       = transport.AuthLogin.(*loginServer)
+		methods     = transport.AuthMethods.(*methodsServer)
 		create      = transport.AuthSessionCreate.(*sessionCreateServer)
 		renew       = transport.AuthSessionRenew.(*sessionRenewServer)
 		retrieve    = transport.AuthSessionRetrieve.(*sessionRetrieveServer)
@@ -112,7 +119,7 @@ var _ = Describe("Auth", func() {
 
 	Describe("New", func() {
 		It("Should bind every auth server onto the API transport", func() {
-			Expect(bindable).To(HaveLen(8))
+			Expect(bindable).To(HaveLen(9))
 			Expect(transport.AuthLogin).To(BeIdenticalTo(bindable[0].(*loginServer)))
 			Expect(
 				transport.AuthSessionCreate,
@@ -135,6 +142,35 @@ var _ = Describe("Auth", func() {
 			Expect(
 				transport.AuthKeyDelete,
 			).To(BeIdenticalTo(bindable[7].(*keyDeleteServer)))
+			Expect(
+				transport.AuthMethods,
+			).To(BeIdenticalTo(bindable[8].(*methodsServer)))
+		})
+	})
+
+	Describe("MethodsResponse", func() {
+		It("Should round-trip the methods", func(ctx SpecContext) {
+			t := methods.ResponseTranslator
+			msg := auth.MethodsResponse{Methods: []svcauth.Method{
+				svcauth.MethodAPIKey,
+				svcauth.MethodPassword,
+			}}
+			fwd := MustSucceed(t.Forward(ctx, msg))
+			Expect(fwd.Methods).To(Equal([]string{"api_key", "password"}))
+			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
+		})
+		It("Should round-trip an empty method list", func(ctx SpecContext) {
+			t := methods.ResponseTranslator
+			msg := auth.MethodsResponse{Methods: []svcauth.Method{}}
+			Expect(
+				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
+			).To(Equal(msg))
+		})
+		It("Should reject an unknown method", func(ctx SpecContext) {
+			Expect(methods.ResponseTranslator.Backward(
+				ctx,
+				&grpcauth.MethodsResponse{Methods: []string{"carrier_pigeon"}},
+			)).Error().To(MatchError(validate.ErrValidation))
 		})
 	})
 

@@ -263,6 +263,50 @@ func (x *User) GetUsername() string {
 	return ""
 }
 
+type MethodsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Methods       []string               `protobuf:"bytes,1,rep,name=methods,proto3" json:"methods,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MethodsResponse) Reset() {
+	*x = MethodsResponse{}
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MethodsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MethodsResponse) ProtoMessage() {}
+
+func (x *MethodsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MethodsResponse.ProtoReflect.Descriptor instead.
+func (*MethodsResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *MethodsResponse) GetMethods() []string {
+	if x != nil {
+		return x.Methods
+	}
+	return nil
+}
+
 // Proof is what a subject presents to log in. The method selects which fields apply.
 type Proof struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -276,7 +320,7 @@ type Proof struct {
 
 func (x *Proof) Reset() {
 	*x = Proof{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -288,7 +332,7 @@ func (x *Proof) String() string {
 func (*Proof) ProtoMessage() {}
 
 func (x *Proof) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[4]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -301,7 +345,7 @@ func (x *Proof) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Proof.ProtoReflect.Descriptor instead.
 func (*Proof) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Proof) GetMethod() string {
@@ -343,7 +387,7 @@ type Subject struct {
 
 func (x *Subject) Reset() {
 	*x = Subject{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[5]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -355,7 +399,7 @@ func (x *Subject) String() string {
 func (*Subject) ProtoMessage() {}
 
 func (x *Subject) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[5]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -368,7 +412,7 @@ func (x *Subject) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Subject.ProtoReflect.Descriptor instead.
 func (*Subject) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Subject) GetType() string {
@@ -397,7 +441,7 @@ type Session struct {
 
 func (x *Session) Reset() {
 	*x = Session{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[6]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -409,7 +453,7 @@ func (x *Session) String() string {
 func (*Session) ProtoMessage() {}
 
 func (x *Session) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[6]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -422,7 +466,7 @@ func (x *Session) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Session.ProtoReflect.Descriptor instead.
 func (*Session) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Session) GetKey() string {
@@ -462,7 +506,7 @@ type SessionCreateRequest struct {
 
 func (x *SessionCreateRequest) Reset() {
 	*x = SessionCreateRequest{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[7]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -474,7 +518,7 @@ func (x *SessionCreateRequest) String() string {
 func (*SessionCreateRequest) ProtoMessage() {}
 
 func (x *SessionCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[7]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -487,7 +531,7 @@ func (x *SessionCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionCreateRequest.ProtoReflect.Descriptor instead.
 func (*SessionCreateRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{7}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SessionCreateRequest) GetProof() *Proof {
@@ -508,7 +552,7 @@ type SessionCreateResponse struct {
 
 func (x *SessionCreateResponse) Reset() {
 	*x = SessionCreateResponse{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[8]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -520,7 +564,7 @@ func (x *SessionCreateResponse) String() string {
 func (*SessionCreateResponse) ProtoMessage() {}
 
 func (x *SessionCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[8]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -533,7 +577,7 @@ func (x *SessionCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionCreateResponse.ProtoReflect.Descriptor instead.
 func (*SessionCreateResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{8}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SessionCreateResponse) GetToken() string {
@@ -567,7 +611,7 @@ type SessionRenewResponse struct {
 
 func (x *SessionRenewResponse) Reset() {
 	*x = SessionRenewResponse{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[9]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -579,7 +623,7 @@ func (x *SessionRenewResponse) String() string {
 func (*SessionRenewResponse) ProtoMessage() {}
 
 func (x *SessionRenewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[9]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -592,7 +636,7 @@ func (x *SessionRenewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionRenewResponse.ProtoReflect.Descriptor instead.
 func (*SessionRenewResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{9}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *SessionRenewResponse) GetSession() *Session {
@@ -618,7 +662,7 @@ type SessionRetrieveRequest struct {
 
 func (x *SessionRetrieveRequest) Reset() {
 	*x = SessionRetrieveRequest{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[10]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -630,7 +674,7 @@ func (x *SessionRetrieveRequest) String() string {
 func (*SessionRetrieveRequest) ProtoMessage() {}
 
 func (x *SessionRetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[10]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -643,7 +687,7 @@ func (x *SessionRetrieveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionRetrieveRequest.ProtoReflect.Descriptor instead.
 func (*SessionRetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{10}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *SessionRetrieveRequest) GetSubjects() []*Subject {
@@ -662,7 +706,7 @@ type SessionRetrieveResponse struct {
 
 func (x *SessionRetrieveResponse) Reset() {
 	*x = SessionRetrieveResponse{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[11]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -674,7 +718,7 @@ func (x *SessionRetrieveResponse) String() string {
 func (*SessionRetrieveResponse) ProtoMessage() {}
 
 func (x *SessionRetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[11]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -687,7 +731,7 @@ func (x *SessionRetrieveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionRetrieveResponse.ProtoReflect.Descriptor instead.
 func (*SessionRetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{11}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SessionRetrieveResponse) GetSessions() []*Session {
@@ -706,7 +750,7 @@ type SessionDeleteRequest struct {
 
 func (x *SessionDeleteRequest) Reset() {
 	*x = SessionDeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[12]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -718,7 +762,7 @@ func (x *SessionDeleteRequest) String() string {
 func (*SessionDeleteRequest) ProtoMessage() {}
 
 func (x *SessionDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[12]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -731,7 +775,7 @@ func (x *SessionDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionDeleteRequest.ProtoReflect.Descriptor instead.
 func (*SessionDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{12}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SessionDeleteRequest) GetKeys() []string {
@@ -753,7 +797,7 @@ type APIKey struct {
 
 func (x *APIKey) Reset() {
 	*x = APIKey{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[13]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -765,7 +809,7 @@ func (x *APIKey) String() string {
 func (*APIKey) ProtoMessage() {}
 
 func (x *APIKey) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[13]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -778,7 +822,7 @@ func (x *APIKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APIKey.ProtoReflect.Descriptor instead.
 func (*APIKey) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{13}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *APIKey) GetKey() string {
@@ -819,7 +863,7 @@ type KeyCreateRequest struct {
 
 func (x *KeyCreateRequest) Reset() {
 	*x = KeyCreateRequest{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[14]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -831,7 +875,7 @@ func (x *KeyCreateRequest) String() string {
 func (*KeyCreateRequest) ProtoMessage() {}
 
 func (x *KeyCreateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[14]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -844,7 +888,7 @@ func (x *KeyCreateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyCreateRequest.ProtoReflect.Descriptor instead.
 func (*KeyCreateRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{14}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *KeyCreateRequest) GetSubject() *Subject {
@@ -871,7 +915,7 @@ type KeyCreateResponse struct {
 
 func (x *KeyCreateResponse) Reset() {
 	*x = KeyCreateResponse{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -883,7 +927,7 @@ func (x *KeyCreateResponse) String() string {
 func (*KeyCreateResponse) ProtoMessage() {}
 
 func (x *KeyCreateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -896,7 +940,7 @@ func (x *KeyCreateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyCreateResponse.ProtoReflect.Descriptor instead.
 func (*KeyCreateResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{15}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *KeyCreateResponse) GetToken() string {
@@ -922,7 +966,7 @@ type KeyRetrieveRequest struct {
 
 func (x *KeyRetrieveRequest) Reset() {
 	*x = KeyRetrieveRequest{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[16]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -934,7 +978,7 @@ func (x *KeyRetrieveRequest) String() string {
 func (*KeyRetrieveRequest) ProtoMessage() {}
 
 func (x *KeyRetrieveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[16]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -947,7 +991,7 @@ func (x *KeyRetrieveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyRetrieveRequest.ProtoReflect.Descriptor instead.
 func (*KeyRetrieveRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{16}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *KeyRetrieveRequest) GetSubjects() []*Subject {
@@ -966,7 +1010,7 @@ type KeyRetrieveResponse struct {
 
 func (x *KeyRetrieveResponse) Reset() {
 	*x = KeyRetrieveResponse{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[17]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -978,7 +1022,7 @@ func (x *KeyRetrieveResponse) String() string {
 func (*KeyRetrieveResponse) ProtoMessage() {}
 
 func (x *KeyRetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[17]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -991,7 +1035,7 @@ func (x *KeyRetrieveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyRetrieveResponse.ProtoReflect.Descriptor instead.
 func (*KeyRetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{17}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *KeyRetrieveResponse) GetKeys() []*APIKey {
@@ -1010,7 +1054,7 @@ type KeyDeleteRequest struct {
 
 func (x *KeyDeleteRequest) Reset() {
 	*x = KeyDeleteRequest{}
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[18]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1022,7 +1066,7 @@ func (x *KeyDeleteRequest) String() string {
 func (*KeyDeleteRequest) ProtoMessage() {}
 
 func (x *KeyDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[18]
+	mi := &file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1035,7 +1079,7 @@ func (x *KeyDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KeyDeleteRequest.ProtoReflect.Descriptor instead.
 func (*KeyDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{18}
+	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *KeyDeleteRequest) GetKeys() []string {
@@ -1065,7 +1109,9 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\fcluster_info\x18\x03 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfo\"4\n" +
 	"\x04User\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\"i\n" +
+	"\busername\x18\x02 \x01(\tR\busername\"+\n" +
+	"\x0fMethodsResponse\x12\x18\n" +
+	"\amethods\x18\x01 \x03(\tR\amethods\"i\n" +
 	"\x05Proof\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +
@@ -1117,7 +1163,9 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x10KeyDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys2M\n" +
 	"\x10AuthLoginService\x129\n" +
-	"\x04Exec\x12\x17.grpc.auth.LoginRequest\x1a\x18.grpc.auth.LoginResponse2e\n" +
+	"\x04Exec\x12\x17.grpc.auth.LoginRequest\x1a\x18.grpc.auth.LoginResponse2P\n" +
+	"\x12AuthMethodsService\x12:\n" +
+	"\x04Exec\x12\x16.google.protobuf.Empty\x1a\x1a.grpc.auth.MethodsResponse2e\n" +
 	"\x18AuthSessionCreateService\x12I\n" +
 	"\x04Exec\x12\x1f.grpc.auth.SessionCreateRequest\x1a .grpc.auth.SessionCreateResponse2Z\n" +
 	"\x17AuthSessionRenewService\x12?\n" +
@@ -1147,63 +1195,66 @@ func file_core_pkg_transport_grpc_auth_auth_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_auth_auth_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_core_pkg_transport_grpc_auth_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_core_pkg_transport_grpc_auth_auth_proto_goTypes = []any{
 	(*ClusterInfo)(nil),             // 0: grpc.auth.ClusterInfo
 	(*LoginRequest)(nil),            // 1: grpc.auth.LoginRequest
 	(*LoginResponse)(nil),           // 2: grpc.auth.LoginResponse
 	(*User)(nil),                    // 3: grpc.auth.User
-	(*Proof)(nil),                   // 4: grpc.auth.Proof
-	(*Subject)(nil),                 // 5: grpc.auth.Subject
-	(*Session)(nil),                 // 6: grpc.auth.Session
-	(*SessionCreateRequest)(nil),    // 7: grpc.auth.SessionCreateRequest
-	(*SessionCreateResponse)(nil),   // 8: grpc.auth.SessionCreateResponse
-	(*SessionRenewResponse)(nil),    // 9: grpc.auth.SessionRenewResponse
-	(*SessionRetrieveRequest)(nil),  // 10: grpc.auth.SessionRetrieveRequest
-	(*SessionRetrieveResponse)(nil), // 11: grpc.auth.SessionRetrieveResponse
-	(*SessionDeleteRequest)(nil),    // 12: grpc.auth.SessionDeleteRequest
-	(*APIKey)(nil),                  // 13: grpc.auth.APIKey
-	(*KeyCreateRequest)(nil),        // 14: grpc.auth.KeyCreateRequest
-	(*KeyCreateResponse)(nil),       // 15: grpc.auth.KeyCreateResponse
-	(*KeyRetrieveRequest)(nil),      // 16: grpc.auth.KeyRetrieveRequest
-	(*KeyRetrieveResponse)(nil),     // 17: grpc.auth.KeyRetrieveResponse
-	(*KeyDeleteRequest)(nil),        // 18: grpc.auth.KeyDeleteRequest
-	(*emptypb.Empty)(nil),           // 19: google.protobuf.Empty
+	(*MethodsResponse)(nil),         // 4: grpc.auth.MethodsResponse
+	(*Proof)(nil),                   // 5: grpc.auth.Proof
+	(*Subject)(nil),                 // 6: grpc.auth.Subject
+	(*Session)(nil),                 // 7: grpc.auth.Session
+	(*SessionCreateRequest)(nil),    // 8: grpc.auth.SessionCreateRequest
+	(*SessionCreateResponse)(nil),   // 9: grpc.auth.SessionCreateResponse
+	(*SessionRenewResponse)(nil),    // 10: grpc.auth.SessionRenewResponse
+	(*SessionRetrieveRequest)(nil),  // 11: grpc.auth.SessionRetrieveRequest
+	(*SessionRetrieveResponse)(nil), // 12: grpc.auth.SessionRetrieveResponse
+	(*SessionDeleteRequest)(nil),    // 13: grpc.auth.SessionDeleteRequest
+	(*APIKey)(nil),                  // 14: grpc.auth.APIKey
+	(*KeyCreateRequest)(nil),        // 15: grpc.auth.KeyCreateRequest
+	(*KeyCreateResponse)(nil),       // 16: grpc.auth.KeyCreateResponse
+	(*KeyRetrieveRequest)(nil),      // 17: grpc.auth.KeyRetrieveRequest
+	(*KeyRetrieveResponse)(nil),     // 18: grpc.auth.KeyRetrieveResponse
+	(*KeyDeleteRequest)(nil),        // 19: grpc.auth.KeyDeleteRequest
+	(*emptypb.Empty)(nil),           // 20: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
 	3,  // 0: grpc.auth.LoginResponse.user:type_name -> grpc.auth.User
 	0,  // 1: grpc.auth.LoginResponse.cluster_info:type_name -> grpc.auth.ClusterInfo
-	5,  // 2: grpc.auth.Session.subject:type_name -> grpc.auth.Subject
-	4,  // 3: grpc.auth.SessionCreateRequest.proof:type_name -> grpc.auth.Proof
-	6,  // 4: grpc.auth.SessionCreateResponse.session:type_name -> grpc.auth.Session
+	6,  // 2: grpc.auth.Session.subject:type_name -> grpc.auth.Subject
+	5,  // 3: grpc.auth.SessionCreateRequest.proof:type_name -> grpc.auth.Proof
+	7,  // 4: grpc.auth.SessionCreateResponse.session:type_name -> grpc.auth.Session
 	3,  // 5: grpc.auth.SessionCreateResponse.user:type_name -> grpc.auth.User
-	6,  // 6: grpc.auth.SessionRenewResponse.session:type_name -> grpc.auth.Session
+	7,  // 6: grpc.auth.SessionRenewResponse.session:type_name -> grpc.auth.Session
 	3,  // 7: grpc.auth.SessionRenewResponse.user:type_name -> grpc.auth.User
-	5,  // 8: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
-	6,  // 9: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
-	5,  // 10: grpc.auth.APIKey.subject:type_name -> grpc.auth.Subject
-	5,  // 11: grpc.auth.KeyCreateRequest.subject:type_name -> grpc.auth.Subject
-	13, // 12: grpc.auth.KeyCreateResponse.key:type_name -> grpc.auth.APIKey
-	5,  // 13: grpc.auth.KeyRetrieveRequest.subjects:type_name -> grpc.auth.Subject
-	13, // 14: grpc.auth.KeyRetrieveResponse.keys:type_name -> grpc.auth.APIKey
+	6,  // 8: grpc.auth.SessionRetrieveRequest.subjects:type_name -> grpc.auth.Subject
+	7,  // 9: grpc.auth.SessionRetrieveResponse.sessions:type_name -> grpc.auth.Session
+	6,  // 10: grpc.auth.APIKey.subject:type_name -> grpc.auth.Subject
+	6,  // 11: grpc.auth.KeyCreateRequest.subject:type_name -> grpc.auth.Subject
+	14, // 12: grpc.auth.KeyCreateResponse.key:type_name -> grpc.auth.APIKey
+	6,  // 13: grpc.auth.KeyRetrieveRequest.subjects:type_name -> grpc.auth.Subject
+	14, // 14: grpc.auth.KeyRetrieveResponse.keys:type_name -> grpc.auth.APIKey
 	1,  // 15: grpc.auth.AuthLoginService.Exec:input_type -> grpc.auth.LoginRequest
-	7,  // 16: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
-	19, // 17: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
-	10, // 18: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
-	12, // 19: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
-	14, // 20: grpc.auth.AuthKeyCreateService.Exec:input_type -> grpc.auth.KeyCreateRequest
-	16, // 21: grpc.auth.AuthKeyRetrieveService.Exec:input_type -> grpc.auth.KeyRetrieveRequest
-	18, // 22: grpc.auth.AuthKeyDeleteService.Exec:input_type -> grpc.auth.KeyDeleteRequest
-	2,  // 23: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
-	8,  // 24: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
-	9,  // 25: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
-	11, // 26: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
-	19, // 27: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
-	15, // 28: grpc.auth.AuthKeyCreateService.Exec:output_type -> grpc.auth.KeyCreateResponse
-	17, // 29: grpc.auth.AuthKeyRetrieveService.Exec:output_type -> grpc.auth.KeyRetrieveResponse
-	19, // 30: grpc.auth.AuthKeyDeleteService.Exec:output_type -> google.protobuf.Empty
-	23, // [23:31] is the sub-list for method output_type
-	15, // [15:23] is the sub-list for method input_type
+	20, // 16: grpc.auth.AuthMethodsService.Exec:input_type -> google.protobuf.Empty
+	8,  // 17: grpc.auth.AuthSessionCreateService.Exec:input_type -> grpc.auth.SessionCreateRequest
+	20, // 18: grpc.auth.AuthSessionRenewService.Exec:input_type -> google.protobuf.Empty
+	11, // 19: grpc.auth.AuthSessionRetrieveService.Exec:input_type -> grpc.auth.SessionRetrieveRequest
+	13, // 20: grpc.auth.AuthSessionDeleteService.Exec:input_type -> grpc.auth.SessionDeleteRequest
+	15, // 21: grpc.auth.AuthKeyCreateService.Exec:input_type -> grpc.auth.KeyCreateRequest
+	17, // 22: grpc.auth.AuthKeyRetrieveService.Exec:input_type -> grpc.auth.KeyRetrieveRequest
+	19, // 23: grpc.auth.AuthKeyDeleteService.Exec:input_type -> grpc.auth.KeyDeleteRequest
+	2,  // 24: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
+	4,  // 25: grpc.auth.AuthMethodsService.Exec:output_type -> grpc.auth.MethodsResponse
+	9,  // 26: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
+	10, // 27: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
+	12, // 28: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
+	20, // 29: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
+	16, // 30: grpc.auth.AuthKeyCreateService.Exec:output_type -> grpc.auth.KeyCreateResponse
+	18, // 31: grpc.auth.AuthKeyRetrieveService.Exec:output_type -> grpc.auth.KeyRetrieveResponse
+	20, // 32: grpc.auth.AuthKeyDeleteService.Exec:output_type -> google.protobuf.Empty
+	24, // [24:33] is the sub-list for method output_type
+	15, // [15:24] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
 	15, // [15:15] is the sub-list for extension extendee
 	0,  // [0:15] is the sub-list for field type_name
@@ -1214,17 +1265,17 @@ func file_core_pkg_transport_grpc_auth_auth_proto_init() {
 	if File_core_pkg_transport_grpc_auth_auth_proto != nil {
 		return
 	}
-	file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[8].OneofWrappers = []any{}
 	file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[9].OneofWrappers = []any{}
+	file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_auth_auth_proto_rawDesc), len(file_core_pkg_transport_grpc_auth_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
-			NumServices:   8,
+			NumServices:   9,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_auth_auth_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_auth_auth_proto_depIdxs,
