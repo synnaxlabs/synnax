@@ -20,6 +20,7 @@
 
 #include "absl/log/log.h"
 
+#include "client/cpp/auth/auth.h"
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/thread/rt/rt.h"
@@ -43,8 +44,8 @@ namespace driver::rack {
 const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
 
 struct RemoteInfo {
-    /// @brief the rack an older Driver saved. It is read only to enroll that rack, and
-    /// never saved again.
+    /// @brief the rack an older Driver saved. It is saved again only while the Driver
+    /// cannot enroll it.
     synnax::rack::Key rack_key = 0;
     x::uuid::UUID cluster_key;
 
@@ -61,7 +62,9 @@ struct RemoteInfo {
     }
 
     [[nodiscard]] x::json::json to_json() const {
-        return {{"cluster_key", this->cluster_key.to_string()}};
+        x::json::json j = {{"cluster_key", this->cluster_key.to_string()}};
+        if (this->rack_key != 0) j["rack_key"] = this->rack_key;
+        return j;
     }
 };
 
@@ -199,11 +202,19 @@ struct Config {
         if (err) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
         if (cfg.connection.api_key.empty()) {
-            if (err = cfg.enroll(); err) return {cfg, err};
-            if (err = save_api_key(parser, cfg.connection.api_key); err)
+            err = cfg.enroll();
+            if (err && cfg.rack.key != 0 &&
+                err.matches(synnax::auth::ERR_ACCESS_DENIED))
+                LOG(WARNING) << "Failed to enroll Driver. " << err.data
+                             << " Until then, the Driver logs in with the password.";
+            else if (err)
                 return {cfg, err};
-            LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name
-                      << " and saved its API key" << x::log::RESET();
+            else {
+                if (err = save_api_key(parser, cfg.connection.api_key); err)
+                    return {cfg, err};
+                LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name
+                          << " and saved its API key" << x::log::RESET();
+            }
         }
         err = cfg.load_remote();
         if (err) return {cfg, err};
@@ -260,10 +271,13 @@ struct Config {
 
     /// @brief logs in with the username and password, then creates an API key for the
     /// rack an older Driver saved, or for a new rack when there is none. Sets the key
-    /// and the rack, and clears the username and password.
+    /// and the rack, and clears the username and password. Returns
+    /// synnax::auth::ERR_ACCESS_DENIED when the user cannot create the key, and sets
+    /// the rack only if it was saved.
     [[nodiscard]] x::errors::Error enroll();
 
-    /// @brief logs in with the API key and loads the rack it logs in as.
+    /// @brief logs in with the API key and loads the rack it logs in as. Without a key,
+    /// it logs in with the password and loads the saved rack.
     [[nodiscard]] x::errors::Error load_remote();
 };
 

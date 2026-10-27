@@ -15,6 +15,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Account } from "@/feature/account";
+import { type License } from "@/platform/license";
 import { Session } from "@/session";
 import { renderHookWithConsole, type TestStore } from "@/testutil";
 
@@ -54,14 +55,14 @@ interface Harness {
   activate: Mock<Account.RenewDeps["license"]["activate"]>;
   deactivate: Mock<Account.RenewDeps["license"]["deactivate"]>;
   store: TestStore;
-  renew: Mock<(secret: string) => Promise<Account.RenewResult>>;
+  renew: Mock<Account.RenewDeps["renew"]>;
   onError: Mock<(error: Error) => void>;
   statuses: () => Status.NotificationSpec[];
 }
 
 interface SetupOptions {
   license?: license.License;
-  result?: Account.RenewResult;
+  result?: License.RenewResult;
   account?: Session.Account.SliceState;
   interval?: TimeSpan;
   deactivateError?: Error;
