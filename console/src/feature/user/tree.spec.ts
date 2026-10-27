@@ -35,8 +35,8 @@ const Item = User.TREE_ITEMS.user;
 const createUser = async () =>
   await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
 
-const userResource = (key: string, username: string, rootUser = false) =>
-  createResource(user.ontologyID(key), username, { root_user: rootUser });
+const userResource = (key: string, name: string, rootUser = false) =>
+  createResource(user.ontologyID(key), name, { root_user: rootUser });
 
 const renderMenu = async (
   resources: ReturnType<typeof userResource>[],
@@ -51,7 +51,7 @@ const renderMenu = async (
 describe("user ontology service", () => {
   it("should expose rename, role, and delete actions for another user", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, u.username)]);
+    await renderMenu([userResource(u.key, u.name)]);
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Change role")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
@@ -60,7 +60,7 @@ describe("user ontology service", () => {
 
   it("should offer Reload Console", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, u.username)]);
+    await renderMenu([userResource(u.key, u.name)]);
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
@@ -74,24 +74,24 @@ describe("user ontology service", () => {
 
   it("should not offer a role change for the root user", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, u.username, true)]);
+    await renderMenu([userResource(u.key, u.name, true)]);
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.queryByText("Change role")).toBeNull();
   });
 
   it("should open the assign role modal for the selected user", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, u.username)]);
+    await renderMenu([userResource(u.key, u.name)]);
     await clickAndSettle("Change role");
-    expect(await screen.findByText(u.username)).toBeTruthy();
+    expect(await screen.findByText(u.name)).toBeTruthy();
     expect(findModalButton("Assign")).toBeTruthy();
   });
 
   it("should delete the user on the Core after confirmation", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, u.username)]);
+    await renderMenu([userResource(u.key, u.name)]);
     fireEvent.click(await screen.findByText("Delete"));
-    await screen.findByText(`Are you sure you want to delete ${u.username}?`);
+    await screen.findByText(`Are you sure you want to delete ${u.name}?`);
     fireEvent.click(findModalButton("Delete"));
     await waitFor(async () => {
       await expect(client.users.retrieve(u.key)).rejects.toSatisfy((e) =>
@@ -103,7 +103,6 @@ describe("user ontology service", () => {
   it("should build user haul items from the resource payload", () => {
     const data = {
       key: "u1",
-      username: "u",
       name: "",
       rootUser: false,
     };
@@ -116,8 +115,9 @@ describe("user ontology service", () => {
 
 describe("rename", () => {
   it("should rename the user on the Core and keep its username", async () => {
+    const username = uniqueName("user");
     const u = await client.users.create({
-      username: uniqueName("user"),
+      username,
       name: uniqueName("name"),
       password: "pwd12345",
     });
@@ -141,7 +141,7 @@ describe("rename", () => {
     await waitFor(async () => {
       const retrieved = await client.users.retrieve(u.key);
       expect(retrieved.name).toBe(renamed);
-      expect(retrieved.username).toBe(u.username);
+      expect((await client.users.retrieve({ username })).key).toBe(u.key);
     });
   });
 });
@@ -152,7 +152,7 @@ describe("permission to write the user", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client: await roles.get("Viewer"),
-      resources: [userResource(u.key, u.username)],
+      resources: [userResource(u.key, u.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();

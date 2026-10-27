@@ -74,15 +74,6 @@ func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
 		}).Exec(ctx, w.tx)
 }
 
-// Touch saves the user with the given key unchanged, so observers see a change to
-// data stored elsewhere, such as the username of the user's password.
-func (w Writer) Touch(ctx context.Context, key Key) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, User](key)).
-		Change(func(_ gorp.Context, u User) User { return u }).
-		Exec(ctx, w.tx)
-}
-
 func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](key)).

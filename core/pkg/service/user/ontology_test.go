@@ -113,7 +113,6 @@ var _ = Describe("Ontology", func() {
 					Data: map[string]any{
 						"key":       key.String(),
 						"name":      "Patrick Star",
-						"username":  "",
 						"root_user": false,
 					},
 				}),

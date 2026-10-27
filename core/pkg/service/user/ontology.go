@@ -45,7 +45,6 @@ func KeyFromOntologyID(id ontology.ID) (Key, error) { return uuid.Parse(id.Key) 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":       zyn.UUID(),
 	"name":      zyn.String(),
-	"username":  zyn.String(),
 	"root_user": zyn.Bool(),
 })
 

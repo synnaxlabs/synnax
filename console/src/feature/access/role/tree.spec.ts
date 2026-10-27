@@ -103,7 +103,6 @@ describe("role ontology service", () => {
     const userItem = (rootUser: boolean): Haul.Item =>
       User.createHaulItem({
         key: "u1",
-        username: "u",
         name: "",
         rootUser,
       });

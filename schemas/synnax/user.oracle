@@ -24,13 +24,6 @@ User struct {
         @doc value "is the user's display name."
         @search
     }
-    username  string {
-        @doc value  """
-            is the login name of the user's password, filled on read. It is empty for a
-            user with no password.
-        """
-        @go marshal omit
-    }
     root_user bool = false {
         @doc value """
             is true if this is a root/admin user with full system access. Root users

@@ -181,13 +181,10 @@ class TestSessions:
         """
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        user = admin.users.create(username=str(uuid4()), password="seldon")
-        ending = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
-        )
-        other = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
-        )
+        user_name = str(uuid4())
+        admin.users.create(username=user_name, password="seldon")
+        ending = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
+        other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert ending.auth.session is not None
         assert other.auth.session is not None
         other.auth.delete_sessions(ending.auth.session.key)
@@ -207,13 +204,10 @@ class TestSessions:
         """
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        user = admin.users.create(username=str(uuid4()), password="seldon")
-        closing = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
-        )
-        other = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
-        )
+        user_name = str(uuid4())
+        admin.users.create(username=user_name, password="seldon")
+        closing = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
+        other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert other.auth.session is not None
         assert len(other.auth.retrieve_sessions()) == 2
         closing.close()

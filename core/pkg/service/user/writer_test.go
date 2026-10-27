@@ -60,15 +60,6 @@ var _ = Describe("Writer", func() {
 			b := MustSucceed(w.Create(ctx, user.User{Name: "Twin"}))
 			Expect(a.Key).ToNot(Equal(b.Key))
 		})
-		It("Should not store the username", func(ctx SpecContext) {
-			u := MustSucceed(w.Create(ctx, user.User{Name: "a", Username: "a"}))
-			var stored user.User
-			Expect(svc.NewRetrieve().
-				Where(user.MatchKeys(u.Key)).
-				Entry(&stored).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(stored.Username).To(BeEmpty())
-		})
 		It(
 			"Should reject RootUser=true so the root-user invariant cannot be bypassed",
 			func(ctx SpecContext) {
@@ -91,18 +82,6 @@ var _ = Describe("Writer", func() {
 					Exec(ctx, tx),
 			).To(Succeed())
 			Expect(u.Name).To(Equal("Patrick Star"))
-		})
-	})
-	Describe("Touch", func() {
-		It("Should save the user unchanged", func(ctx SpecContext) {
-			u := MustSucceed(w.Create(ctx, user.User{Name: "a"}))
-			Expect(w.Touch(ctx, u.Key)).To(Succeed())
-			var stored user.User
-			Expect(svc.NewRetrieve().
-				Where(user.MatchKeys(u.Key)).
-				Entry(&stored).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(stored).To(Equal(u))
 		})
 	})
 	Describe("Delete", func() {

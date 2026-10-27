@@ -24,7 +24,6 @@ class New(BaseModel):
 class User(BaseModel):
     key: UUID
     name: str
-    username: str = ""
 
     @property
     def ontology_id(self) -> ontology.ID:

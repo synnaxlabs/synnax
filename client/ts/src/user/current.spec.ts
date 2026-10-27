@@ -20,11 +20,13 @@ const client = createTestClient();
 
 const { username, password } = TEST_CLIENT_PARAMS;
 
+const signedInKey = async () => (await client.users.retrieve({ username })).key;
+
 describe("current", () => {
   it("should retrieve the user before the client connects", async () => {
     const fresh = createTestClient();
     const u = await fresh.users.current.retrieve();
-    expect(u.username).toEqual(username);
+    expect(u.key).toEqual(await signedInKey());
   });
 
   it("should deliver the user to a subscriber that subscribed before the login", async () => {
@@ -34,7 +36,9 @@ describe("current", () => {
     try {
       expect(fresh.users.current.getCached()).toBeUndefined();
       await fresh.connect();
-      expect(handler).toHaveBeenLastCalledWith(expect.objectContaining({ username }));
+      expect(handler).toHaveBeenLastCalledWith(
+        expect.objectContaining({ key: await signedInKey() }),
+      );
     } finally {
       off();
     }
@@ -71,7 +75,7 @@ describe("current", () => {
       viewer.reauthenticate({ username, password });
       expect(viewer.users.current.getCached()).toBeUndefined();
       const u = await viewer.users.current.retrieve();
-      expect(u.username).toEqual(username);
+      expect(u.key).toEqual(await signedInKey());
       expect(handler).toHaveBeenLastCalledWith(u);
     } finally {
       off();

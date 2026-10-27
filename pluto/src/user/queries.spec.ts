@@ -112,7 +112,6 @@ describe("User queries", () => {
 
       const retrieved = await client.users.retrieve(testUser.key);
       expect(retrieved.name).toBe("Renamed User");
-      expect(retrieved.username).toBe(testUser.username);
     });
 
     it("should apply the rename optimistically", async () => {
@@ -164,7 +163,6 @@ describe("User queries", () => {
       });
 
       expect(result.current?.key).toEqual(testUser.key);
-      expect(result.current?.username).toEqual(testUser.username);
       expect(result.current?.name).toEqual(testUser.name);
     });
 
@@ -181,7 +179,6 @@ describe("User queries", () => {
       const { username } = TEST_CLIENT_PARAMS;
       const signedIn = await client.users.retrieve({ username });
       expect(result.current?.key).toEqual(signedIn.key);
-      expect(result.current?.username).toEqual(username);
     });
 
     it("should update the current user on a rename from another client", async () => {

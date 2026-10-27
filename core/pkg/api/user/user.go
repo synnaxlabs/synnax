@@ -141,7 +141,6 @@ func (s *Service) Create(
 		if err := passwordW.Set(ctx, u.OntologyID(), nu.Credentials); err != nil {
 			return CreateResponse{}, err
 		}
-		u.Username = nu.Username
 		newUsers[i] = u
 	}
 	return CreateResponse{Users: newUsers}, nil
@@ -182,11 +181,8 @@ func (s *Service) ChangeUsername(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	if err := s.password.NewWriter(tx).
-		Rename(ctx, user.OntologyID(req.Key), req.Username); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.NewWriter(tx).Touch(ctx, req.Key)
+	return struct{}{}, s.password.NewWriter(tx).
+		Rename(ctx, user.OntologyID(req.Key), req.Username)
 }
 
 type RenameRequest struct {
@@ -221,8 +217,8 @@ type (
 	}
 )
 
-// Retrieve returns the users with the provided keys or usernames, each with the
-// username of its password.
+// Retrieve returns the users with the provided keys or the provided usernames of their
+// passwords.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -252,9 +248,6 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.fillUsernames(ctx, users); err != nil {
-		return RetrieveResponse{}, err
-	}
 	return RetrieveResponse{Users: users}, nil
 }
 
@@ -281,29 +274,6 @@ func (s *Service) keysByUsername(
 		keys = append(keys, key)
 	}
 	return keys, nil
-}
-
-// fillUsernames sets each user's username from its password, leaving it empty for a
-// user with no password.
-func (s *Service) fillUsernames(ctx context.Context, users []user.User) error {
-	if len(users) == 0 {
-		return nil
-	}
-	var passwords []password.Password
-	if err := s.password.NewRetrieve().
-		Where(password.MatchSubjects(user.OntologyIDsFromUsers(users)...)).
-		Entries(&passwords).
-		Exec(ctx, nil); err != nil {
-		return err
-	}
-	usernames := make(map[ontology.ID]string, len(passwords))
-	for _, p := range passwords {
-		usernames[p.Subject] = p.Username
-	}
-	for i := range users {
-		users[i].Username = usernames[users[i].OntologyID()]
-	}
-	return nil
 }
 
 type DeleteRequest struct {

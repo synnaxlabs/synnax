@@ -82,11 +82,6 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: "user",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key } }) => ({
-    ...(await client.users.retrieve(key)),
-    password: "",
-    role: "",
-  }),
   update: async ({ client, value }) => {
     const v = value();
     const createdUser = await client.users.create({ key: uuid.create(), ...v });
@@ -116,7 +111,5 @@ export const { use, useResult, createResultSelector } = Flux.createRetrieve<
 });
 
 export const useResultKey = createResultSelector(({ key }) => key);
-
-export const useResultUsername = createResultSelector(({ username }) => username);
 
 export const useResultName = createResultSelector(({ name }) => name);

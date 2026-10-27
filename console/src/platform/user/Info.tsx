@@ -38,19 +38,15 @@ const Roles = (): ReactElement | null => {
 
 /** The logged-in user's name, falling back to their username. */
 export const useDisplayName = (): string => {
-  const { data: remoteUsername } = User.useResultUsername({});
   const { data: name } = User.useResultName({});
-  const core = Session.Core.useSelectSelected();
-  const username = remoteUsername ?? core?.username ?? "";
+  const username = Session.Core.useSelectSelected()?.username ?? "";
   return name != null && name !== "" ? name : username;
 };
 
 /** The logged-in user's name, roles, and username, for embedding in a dialog. */
 export const Info = (): ReactElement => {
-  const { data: remoteUsername } = User.useResultUsername({});
   const { data: fullName = "" } = User.useResultName({});
-  const core = Session.Core.useSelectSelected();
-  const username = remoteUsername ?? core?.username ?? "";
+  const username = Session.Core.useSelectSelected()?.username ?? "";
   const name = fullName !== "" ? fullName : username;
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>

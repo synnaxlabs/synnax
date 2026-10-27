@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -75,11 +74,6 @@ var _ = Describe("ServiceConfig", func() {
 				"group",
 				func(c *user.ServiceConfig) { c.Group = nil },
 				"group: must be non-nil",
-			),
-			Entry(
-				"password when signals are set",
-				func(c *user.ServiceConfig) { c.Signals = &signals.Provider{} },
-				"password: must be non-nil",
 			),
 		)
 	})

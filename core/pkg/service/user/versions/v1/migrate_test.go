@@ -49,7 +49,6 @@ var _ = Describe("v0 -> v1 User migration", func() {
 			LastName:  last,
 		})
 		Expect(u.Name).To(Equal(name))
-		Expect(u.Username).To(BeEmpty())
 	},
 		Entry("from both names", "Jane", "Doe", "Jane Doe"),
 		Entry("from the first name alone", "Jane", "", "Jane"),

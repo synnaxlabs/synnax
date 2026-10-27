@@ -426,6 +426,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Control) {
 		return nil, err
 	}
+	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
+		Instrumentation: cfg.Child("user"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Signals:         l.Signals,
+	}); !ok(err, l.User) {
+		return nil, err
+	}
 	if err = passwordversions.MoveLegacy(
 		ctx,
 		cfg.Distribution.DB,
@@ -438,16 +447,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		FIPS:            cfg.FIPS,
 	}); !ok(err, l.Password) {
-		return nil, err
-	}
-	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
-		Instrumentation: cfg.Child("user"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
-		Signals:         l.Signals,
-		Password:        l.Password,
-	}); !ok(err, l.User) {
 		return nil, err
 	}
 	var (

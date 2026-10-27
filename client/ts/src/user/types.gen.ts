@@ -26,11 +26,6 @@ export const userZ = z.object({
   /** name is the user's display name. */
   name: z.string(),
   /**
-   * username is the login name of the user's password, filled on read. It is empty for
-   * a user with no password.
-   */
-  username: z.string(),
-  /**
    * rootUser is true if this is a root/admin user with full system access. Root users
    * cannot be deleted.
    */
@@ -42,6 +37,7 @@ export const newZ = userZ
   .omit({ rootUser: true })
   .partial({ key: true, name: true })
   .extend({
+    username: z.string().min(1, "username is required"),
     password: z.string().min(1),
   });
 export interface New extends z.input<typeof newZ> {}

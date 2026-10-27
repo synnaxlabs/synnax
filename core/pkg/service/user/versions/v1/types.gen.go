@@ -23,9 +23,6 @@ type User struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is the user's display name.
 	Name string `json:"name" msgpack:"name"`
-	// Username is the login name of the user's password, filled on read. It is empty
-	// for a user with no password.
-	Username string `json:"username" msgpack:"username"`
 	// RootUser is true if this is a root/admin user with full system access. Root users
 	// cannot be deleted.
 	RootUser bool `json:"root_user" msgpack:"root_user"`

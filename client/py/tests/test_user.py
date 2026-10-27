@@ -46,7 +46,6 @@ def new_user_list() -> list[sy.user.New]:
 
 
 def compare_users(user: sy.user.User, new_user: sy.user.New) -> None:
-    assert user.username == new_user.username
     assert user.name == (new_user.name or new_user.username)
     if new_user.key is not None:
         assert user.key == new_user.key
@@ -97,11 +96,10 @@ class TestUserClient:
         user = client.users.create(user=new_user)
         username = str(uuid())
         client.users.change_username(user.key, username)
-        assert client.users.retrieve(key=user.key).username == username
+        assert client.users.retrieve(username=username).key == user.key
 
     def test_change_name(self, client: sy.Synnax, new_user: sy.user.New) -> None:
         user = client.users.create(user=new_user)
         client.users.change_name(user.key, name="Thomas Jefferson")
         retrieved = client.users.retrieve(key=user.key)
         assert retrieved.name == "Thomas Jefferson"
-        assert retrieved.username == user.username

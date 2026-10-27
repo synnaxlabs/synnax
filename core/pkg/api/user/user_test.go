@@ -43,7 +43,6 @@ func createUser(ctx SpecContext, username string) user.User {
 		Username: username,
 		Password: "p",
 	})).To(Succeed())
-	u.Username = username
 	return u
 }
 
@@ -65,7 +64,6 @@ var _ = Describe("Service", func() {
 					}),
 				)
 				Expect(res.Users).To(HaveLen(1))
-				Expect(res.Users[0].Username).To(Equal(username))
 				Expect(res.Users[0].Name).To(Equal("First Last"))
 				Expect(res.Users[0].Key).ToNot(Equal(uuid.Nil()))
 				MustSucceed(login(ctx, username, "p"))
@@ -134,7 +132,7 @@ var _ = Describe("Service", func() {
 			}))
 			Expect(res.Users).To(ConsistOf(u))
 		})
-		It("Should match and return the username of the password", func(
+		It("Should match the username of the password, not the user's name", func(
 			ctx SpecContext,
 		) {
 			name := "user-name-" + uuid.New().String()
@@ -149,7 +147,6 @@ var _ = Describe("Service", func() {
 			}))
 			Expect(res.Users).To(HaveLen(1))
 			Expect(res.Users[0].Key).To(Equal(u.Key))
-			Expect(res.Users[0].Username).To(Equal(password))
 			res = MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Usernames: []string{name},
 			}))
@@ -160,16 +157,6 @@ var _ = Describe("Service", func() {
 				Usernames: []string{"unknown-" + uuid.New().String()},
 			}))
 			Expect(res.Users).To(BeEmpty())
-		})
-		It("Should leave the username empty for a user with no password", func(
-			ctx SpecContext,
-		) {
-			u := MustSucceed(writer.Create(ctx, user.User{Name: "no-password"}))
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Keys: []user.Key{u.Key},
-			}))
-			Expect(res.Users).To(HaveLen(1))
-			Expect(res.Users[0].Username).To(BeEmpty())
 		})
 		It(
 			"Should deny access when the subject lacks retrieve permission on any user",
@@ -241,9 +228,9 @@ var _ = Describe("Service", func() {
 
 				res := MustSucceed(apiSvc.Retrieve(
 					rootCtx(ctx),
-					apiuser.RetrieveRequest{Keys: []user.Key{u.Key}},
+					apiuser.RetrieveRequest{Usernames: []string{newName}},
 				))
-				Expect(res.Users[0].Username).To(Equal(newName))
+				Expect(res.Users).To(ConsistOf(u))
 				MustSucceed(login(ctx, newName, "p"))
 				Expect(login(ctx, oldName, "p")).Error().
 					To(MatchError(auth.ErrInvalidCredentials))
