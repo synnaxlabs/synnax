@@ -78,6 +78,11 @@ type Config struct {
 	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
+	// OnHistoryChange receives the time range of each domain inserted before the last,
+	// each commit to a domain that is not the last, and each delete that removes data.
+	// It runs inline under the DB's locks and must not block or call back into the DB.
+	// [OPTIONAL]
+	OnHistoryChange func(context.Context, telem.TimeRange)
 }
 
 var (
@@ -108,6 +113,7 @@ func (c Config) Override(other Config) Config {
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GCThreshold = override.Numeric(c.GCThreshold, other.GCThreshold)
+	c.OnHistoryChange = override.Nil(c.OnHistoryChange, other.OnHistoryChange)
 	// Store 80% of the desired maximum file size as file size since we must leave some
 	// buffer for when we stop acquiring a new writer on a file.
 	c.FileSize = telem.Size(math.Round(0.8 * float64(c.FileSize)))
@@ -121,7 +127,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx := &index{}
+	idx := &index{onHistoryChange: cfg.OnHistoryChange}
 	idxPst, err := openIndexPersist(idx, cfg.FS)
 	if err != nil {
 		return nil, err
