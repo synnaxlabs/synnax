@@ -22,7 +22,7 @@ from tests.arc.arc import ArcCase
 # Negative-value variants are scoped to signed targets to avoid float→unsigned
 # trunc traps.
 ARC_CONVERSION_SOURCE = """
-func cast_i32(x i32) {
+func cast_i32() {x i32} {
     out_i32_to_i8  = i8(x)
     out_i32_to_i16 = i16(x)
     out_i32_to_i64 = i64(x)
@@ -34,9 +34,9 @@ func cast_i32(x i32) {
     out_i32_to_f64 = f64(x)
     out_i32_to_str = str(x)
 }
-in_i32 -> cast_i32{}
+in_i32 -> cast_i32()
 
-func cast_u32(x u32) {
+func cast_u32() {x u32} {
     out_u32_to_i8  = i8(x)
     out_u32_to_i16 = i16(x)
     out_u32_to_i32 = i32(x)
@@ -48,18 +48,18 @@ func cast_u32(x u32) {
     out_u32_to_f64 = f64(x)
     out_u32_to_str = str(x)
 }
-in_u32 -> cast_u32{}
+in_u32 -> cast_u32()
 
 // i64 source: only narrowing-wrap targets at 2^31 (i32 sign-flip, u32 in-range
 // bitcast, str decimal form).
-func cast_i64(x i64) {
+func cast_i64() {x i64} {
     out_i64_to_i32 = i32(x)
     out_i64_to_u32 = u32(x)
     out_i64_to_str = str(x)
 }
-in_i64 -> cast_i64{}
+in_i64 -> cast_i64()
 
-func cast_f32(x f32) {
+func cast_f32() {x f32} {
     out_f32_to_i8  = i8(x)
     out_f32_to_i64 = i64(x)
     out_f32_to_u8  = u8(x)
@@ -67,18 +67,18 @@ func cast_f32(x f32) {
     out_f32_to_f64 = f64(x)
     out_f32_to_str = str(x)
 }
-in_f32 -> cast_f32{}
+in_f32 -> cast_f32()
 
 // in_f32_neg avoids float→unsigned trunc traps by skipping unsigned int targets.
-func cast_f32_neg(x f32) {
+func cast_f32_neg() {x f32} {
     out_f32_neg_to_i8  = i8(x)
     out_f32_neg_to_i64 = i64(x)
     out_f32_neg_to_f64 = f64(x)
     out_f32_neg_to_str = str(x)
 }
-in_f32_neg -> cast_f32_neg{}
+in_f32_neg -> cast_f32_neg()
 
-func cast_f64(x f64) {
+func cast_f64() {x f64} {
     out_f64_to_i8  = i8(x)
     out_f64_to_i64 = i64(x)
     out_f64_to_u8  = u8(x)
@@ -86,15 +86,15 @@ func cast_f64(x f64) {
     out_f64_to_f32 = f32(x)
     out_f64_to_str = str(x)
 }
-in_f64 -> cast_f64{}
+in_f64 -> cast_f64()
 
-func cast_f64_neg(x f64) {
+func cast_f64_neg() {x f64} {
     out_f64_neg_to_i8  = i8(x)
     out_f64_neg_to_i64 = i64(x)
     out_f64_neg_to_f32 = f32(x)
     out_f64_neg_to_str = str(x)
 }
-in_f64_neg -> cast_f64_neg{}
+in_f64_neg -> cast_f64_neg()
 
 // ───────── Flow-context casts (inline expression in flow) ─────────
 // The cast.go path that compiles in-flow expressions differs from the WASM
