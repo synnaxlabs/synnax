@@ -51,7 +51,10 @@ func DefaultOptions() Options {
 }
 
 // Plugin generates the Go interpreter of each filter definition.
-type Plugin struct{ Options Options }
+type Plugin struct {
+	// Options sets the names of the generated files.
+	Options Options
+}
 
 // New creates a new go/filter plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
