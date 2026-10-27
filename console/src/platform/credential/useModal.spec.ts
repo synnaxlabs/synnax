@@ -17,7 +17,12 @@ import { describe, expect, it } from "vitest";
 
 import { useModal } from "@/platform/credential/useModal";
 import { findButton, openModal } from "@/platform/modals/testutil";
-import { getIconButton, getIconButtons, uniqueName } from "@/testutil";
+import {
+  createTestClientWithGrants,
+  getIconButton,
+  getIconButtons,
+  uniqueName,
+} from "@/testutil";
 
 // Fields render once the caller's permissions load, so wait for them.
 const type = async (placeholder: string, value: string): Promise<void> => {
@@ -81,10 +86,12 @@ describe("useModal", () => {
     const owner = createTestClient();
     const r = await owner.racks.create({ name: uniqueName("rack") });
     const id = rack.ontologyID(r.key);
-    const driver = await createTestClientWithRole(owner, "Driver");
-    await openModal(useModal, { client: driver, params: { subject: id } });
-    await screen.findByText("No API keys");
-    expect(findButton("Create key")).toBeTruthy();
+    const changer = await createTestClientWithGrants(owner, {
+      retrieve: [rack.TYPE_ONTOLOGY_ID],
+      update: [rack.TYPE_ONTOLOGY_ID],
+    });
+    await openModal(useModal, { client: changer, params: { subject: id } });
+    expect(await screen.findByText("Create key")).toBeTruthy();
   });
 
   it("should set the caller's own password given the current one", async () => {
