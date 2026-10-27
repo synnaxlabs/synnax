@@ -254,8 +254,9 @@ describe("Latest", () => {
       core.advance(TimeSpan.milliseconds(100));
       await expect.poll(() => latest.value().series.length, POLL).toBe(10);
       core.restart();
-      await expect.poll(() => waiting, POLL).toBe(2);
       release();
+      // The read running at the drop lands, then a read fills the samples after it.
+      await expect.poll(() => waiting, POLL).toBe(2);
       await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
       const times = timesOf(latest);
       expect(times).toHaveLength(1000);

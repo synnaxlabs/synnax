@@ -20,7 +20,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError, UnsupportedError } from "@/errors";
@@ -765,6 +765,35 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should draw samples stamped after the feed's clock", async () => {
+      const core = createCore();
+      const edge = tileRange({
+        level: RAW_LEVEL,
+        index: rawIndex(core.now()) + 1,
+      }).start;
+      core.advance(
+        new TimeSpan(
+          edge.valueOf() - core.now().valueOf() + TimeSpan.seconds(1).valueOf(),
+        ),
+      );
+      // The writer's clock runs ahead of the Core's, so the newest samples sit in a raw
+      // block after the one of now.
+      const feed = core.openFeed({
+        ...OPTIONS,
+        now: () => core.now().sub(TimeSpan.seconds(2)),
+      });
+      const key = core.index.key;
+      const sub = feed.subscribe(raw([key], TimeSpan.seconds(30)));
+      try {
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should release raw blocks behind the window", async () => {
       const core = createCore();
       const feed = core.openFeed({ ...OPTIONS, budget: Size.kilobytes(1) });
@@ -921,6 +950,42 @@ describe("Feed.subscribe", () => {
   });
 
   describe("restart and reconnect", () => {
+    it("should keep its tiles while the Core is down, and read them again after", async () => {
+      const core = createCore();
+      // The stream warns on each failed attempt to open again.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        window: staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(5)))),
+        limit: { variant: "points", count: 100, aggregation: "min_max" },
+      });
+      // A consumer reads a value on every change, as Pluto does.
+      sub.onChange(() => sub.value(key));
+      try {
+        await historyStreamed(core);
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        const { series } = sub.value(key);
+        const reads = core.reads;
+        core.disconnect();
+        await expect
+          .poll(() => warn.mock.calls.at(-1)?.[0], POLL)
+          .toMatchObject({ message: "failed to open streamer" });
+        expect(core.reads).toBe(reads);
+        expect(sub.value(key)).toMatchObject({
+          series,
+          status: { variant: "success" },
+        });
+        core.reconnect();
+        await expect.poll(() => core.reads, POLL).toBeGreaterThan(reads);
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should keep time order across a Core restart", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);
@@ -1110,6 +1175,37 @@ describe("Feed.subscribe", () => {
         expect(sub.value(a).status.variant).toBe("success");
         await expect.poll(() => sub.value(b).status.variant, POLL).toBe("success");
         expect(core.reads).toBe(reads + 1);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should count no streamed sample again after the stream reconnects", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1000 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        core.advance(TimeSpan.milliseconds(500));
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        const { appended } = sub.value(key);
+        assert(appended != null);
+        core.disconnect();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("warning");
+        core.advance(TimeSpan.seconds(1));
+        core.reconnect();
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        expectComplete(timesOf(sub.value(key)));
+        expect(sub.value(key).appended).toBe(appended + 100);
       } finally {
         sub.close();
         await feed.close();

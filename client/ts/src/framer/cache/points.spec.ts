@@ -197,6 +197,34 @@ describe("Points", () => {
       }
     });
 
+    it("should draw a settling view from held tiles and read none", async () => {
+      const core = createCore();
+      let tileReads = 0;
+      const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+        if (reduction != null) tileReads++;
+        return core.read(tr, keys, reduction);
+      });
+      const window = staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(8))));
+      const points = subscribe(core.data[0].key, window, TILED);
+      try {
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const reads = tileReads;
+        const view = new TimeRange(
+          START.add(TimeSpan.minutes(2)),
+          START.add(TimeSpan.minutes(3)),
+        );
+        points.update(window, { ...TILED, view, settling: true });
+        expect(points.value().series.length).toBeGreaterThan(0);
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        expect(tileReads).toBe(reads);
+        points.update(window, { ...TILED, view });
+        points.value();
+        await expect.poll(() => tileReads, POLL).toBeGreaterThan(reads);
+      } finally {
+        await close();
+      }
+    });
+
     it("should change the series when a tile lands", async () => {
       const core = createCore();
       const { subscribe, close } = createPoints(core);
