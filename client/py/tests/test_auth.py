@@ -63,11 +63,7 @@ class TestAuthRetry:
                 credential=uuid4(),
                 last_active=sy.TimeStamp(0),
             ),
-            user=sy.User(
-                key=user_key,
-                username="synnax",
-                name="Synnax Labs",
-            ),
+            user=sy.User(key=user_key, name="Synnax Labs"),
         )
         mock_login_client = MockUnaryClient(
             responses=[res, res], response_errors=[None, None]
