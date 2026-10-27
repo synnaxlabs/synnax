@@ -376,11 +376,17 @@ export class Client extends query.Retriever<
             const decoded = decodeDeleteChange(event.key);
             return decoded.range === query.rangeKey ? [decoded.channel] : null;
           }),
+          query.watch(statusStore, (event, query: RetrieveMultipleParams) =>
+            query.includeStatus === true ? affectedChannelKeys(event) : null,
+          ),
         ],
       },
       compose: (ch, query) => {
-        const { rangeKey } = query as RetrieveMultipleParams;
-        return rangeKey == null ? ch : this.composeAlias(ch.payload, rangeKey);
+        const { rangeKey, includeStatus } = query as RetrieveMultipleParams;
+        const composed = includeStatus === true ? this.compose(ch.payload) : ch;
+        return rangeKey == null
+          ? composed
+          : this.composeAlias(composed.payload, rangeKey);
       },
       single: { schema: singleParamsZ, space: single },
     });
@@ -652,18 +658,23 @@ export class Client extends query.Retriever<
 
   /**
    * Fetches channel payloads, with their aliases in the range when one is given.
-   * Missing channels are omitted, not thrown.
+   * Missing channels are omitted, not thrown. Saves the statuses the Core returns.
    */
   private async execRetrieve(
     request: RetrieveRequest,
     rangeKey?: ranger.Key,
   ): Promise<Payload[]> {
+    // A status that streams in during the fetch is newer than the fetched one.
+    const since = this.cfg.statuses.store.stamp();
     const res = await this.cfg.unary.send(
       "/channel/retrieve",
       { request, rangeKey },
       aliasedRetrieveRequestZ,
       retrieveResZ,
     );
+    res.channels.forEach(({ status }) => {
+      if (status != null) this.cfg.statuses.store.ingest(status, { since });
+    });
     return res.channels;
   }
 
