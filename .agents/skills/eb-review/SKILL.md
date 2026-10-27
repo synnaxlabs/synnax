@@ -1,6 +1,6 @@
 ---
 name: eb-review
-description:
+description: >-
   Process and hard rules for a fast software quality audit of work this session just
   produced, or of a solution being proposed before it is built. Use when asked to go
   back and review your changes, to check whether an approach holds up, or to audit a

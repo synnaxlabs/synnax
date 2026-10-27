@@ -1,12 +1,12 @@
 ---
 name: code-review
-description:
-  Process and hard rules for conducting code reviews in this repo: PRs, branches,
-  commit ranges, and working diffs. Use whenever reviewing any diff-shaped artifact,
-  walking the user through a change, or assessing mergeability. Extends and overrides
-  the built-in code-review skill. Enforces true-base attribution, a chunked reading
-  guide, verification before reporting, and severity discipline. Triaging incoming
-  comments on a PR you authored belongs to the `pr-comments` skill.
+description: >-
+  Process and hard rules for conducting code reviews in this repo: PRs, branches, commit
+  ranges, and working diffs. Use whenever reviewing any diff-shaped artifact, walking
+  the user through a change, or assessing mergeability. Extends and overrides the
+  built-in code-review skill. Enforces true-base attribution, a chunked reading guide,
+  verification before reporting, and severity discipline. Triaging incoming comments on
+  a PR you authored belongs to the `pr-comments` skill.
 ---
 
 # Code Review
