@@ -14,6 +14,7 @@ import { NotFoundError } from "@/errors";
 import { SyntheticCore } from "@/testutil/core";
 
 const DOMAIN = 1n << 32n;
+const LEADING_DOMAIN = (1n << 31n) << 32n;
 const MS = TimeSpan.MILLISECOND.valueOf();
 
 // One sample per millisecond from the epoch, so sample i is stamped i milliseconds.
@@ -167,7 +168,7 @@ describe("SyntheticCore", () => {
           return received.length;
         })
         .toBeGreaterThan(0);
-      expect(received[0] >= DOMAIN + 1000n).toBe(true);
+      expect(received[0] >= LEADING_DOMAIN + 1000n).toBe(true);
       sub.close();
       await feed.close();
     });

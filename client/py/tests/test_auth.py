@@ -86,7 +86,7 @@ class TestAuthRetry:
         ("type_", "exc"),
         [
             ("sy.auth", sy.AuthError),
-            ("sy.auth.invalid-credentials", sy.exceptions.InvalidCredentials),
+            ("sy.auth.invalid-credentials", sy.exceptions._InvalidCredentials),
             ("sy.auth.invalid_token", sy.InvalidToken),
             ("sy.auth.expired_token", sy.ExpiredToken),
             ("sy.auth.access_denied", sy.AccessDenied),

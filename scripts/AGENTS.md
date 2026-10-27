@@ -71,6 +71,12 @@ Neither script touches `.oracle` schema files.
   archives a dependency bump made stale. Only the Windows CI steps use it, because those
   runners hold one output base for weeks.
 
+## Coding agents
+
+- `agent/run` — runs Claude Code or Codex headless, then opens a PR, comments on a PR,
+  or writes a report under a GitHub App bot identity. `--dry-run` pushes nothing. The
+  module docstring in `agent/agent.py` lists the flags and the environment.
+
 ## Toolchain bootstrap
 
 - `install_antlr4.sh` — installs a pinned, checksum-verified antlr4 4.13.2 onto PATH,

@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -49,12 +50,12 @@ const ZERO_DRAFT: task.New<EtherCAT.Task.ReadSchemas> = {
 
 const createDraft = async (
   client: Synnax,
-  config: EtherCAT.Task.ReadPayload["config"],
+  config: z.infer<EtherCAT.Task.ReadSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.READ_SCHEMAS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
-const renderRead = async (config: EtherCAT.Task.ReadPayload["config"]) => {
+const renderRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
   const rendered = await renderTaskFormTab(EtherCAT.Task.Read, {

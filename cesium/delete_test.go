@@ -383,7 +383,6 @@ var _ = Describe("Delete", func() {
 
 									By("Deleting channel")
 									err := db.DeleteChannel(dependent)
-									Expect(err).To(HaveOccurred())
 									Expect(
 										err,
 									).To(MatchError(ContainSubstring("cannot delete channel [dependent]<%d> because it indexes data in channel [dependee]<%d>", dependent, dependee)))
@@ -1633,7 +1632,6 @@ var _ = Describe("Delete", func() {
 								[]cesium.ChannelKey{data, data2, index},
 								(11 * telem.SecondTS).Range(14*telem.SecondTS),
 							)
-							Expect(err).To(HaveOccurred())
 							Expect(
 								err,
 							).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
