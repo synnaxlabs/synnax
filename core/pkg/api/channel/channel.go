@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Key = channel.Key
@@ -197,6 +198,35 @@ type AliasedRetrieveRequest struct {
 func (r *AliasedRetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain AliasedRetrieveRequest
 	return json.UnmarshalDecode(dec, (*plain)(r), json.RejectUnknownMembers(true))
+}
+
+// DecodeMsgpack decodes the request and rejects a member that it does not declare, as
+// UnmarshalJSONFrom does.
+func (r *AliasedRetrieveRequest) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := dec.DecodeMapLen()
+	if err != nil {
+		return err
+	}
+	// Each member decodes on its own, because the decode of Request turns off the
+	// decoder's unknown-member check when it returns.
+	for range n {
+		name, err := dec.DecodeString()
+		if err != nil {
+			return err
+		}
+		switch name {
+		case "request":
+			err = dec.Decode(&r.Request)
+		case "range_key":
+			err = dec.Decode(&r.RangeKey)
+		default:
+			return errors.Newf("msgpack: unknown field %q", name)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Retrieve retrieves the channels that the request selects. It requires retrieve access
