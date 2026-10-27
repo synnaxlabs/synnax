@@ -1,0 +1,130 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { rack, user } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
+import { fireEvent, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+
+import { useModal } from "@/platform/credential/useModal";
+import { findButton, openModal } from "@/platform/modals/testutil";
+import { getIconButton, getIconButtons, uniqueName } from "@/testutil";
+
+// Fields render once the caller's permissions load, so wait for them.
+const type = async (placeholder: string, value: string): Promise<void> => {
+  fireEvent.change(await screen.findByPlaceholderText(placeholder), {
+    target: { value },
+  });
+};
+
+describe("useModal", () => {
+  it("should create a key, show it once, list it, and delete it", async () => {
+    const client = createTestClient();
+    const subject = await client.users.create({
+      username: uniqueName("user"),
+      password: "password123",
+    });
+    const id = user.ontologyID(subject.key);
+    await openModal(useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    const name = uniqueName("key");
+    await type("Key name", name);
+    fireEvent.click(findButton("Create key"));
+    await screen.findByText(name);
+    const [created] = await client.auth.retrieveKeys([id]);
+    expect(created.name).toEqual(name);
+    expect(screen.getByDisplayValue(/^syk_/)).toBeTruthy();
+    fireEvent.click(getIconButton(document.body, "delete"));
+    await screen.findByText("No API keys");
+    expect(screen.queryByDisplayValue(/^syk_/)).toBeNull();
+    expect(await client.auth.retrieveKeys([id])).toHaveLength(0);
+  });
+
+  it("should manage a rack's keys and offer no password", async () => {
+    const client = createTestClient();
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    const id = rack.ontologyID(r.key);
+    await openModal(useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    expect(screen.queryByPlaceholderText("New password")).toBeNull();
+    const name = uniqueName("key");
+    await type("Key name", name);
+    fireEvent.click(findButton("Create key"));
+    await screen.findByText(name);
+    expect(await client.auth.retrieveKeys([id])).toHaveLength(1);
+  });
+
+  it("should hide key actions the caller has no permission for", async () => {
+    const owner = createTestClient();
+    const r = await owner.racks.create({ name: uniqueName("rack") });
+    const id = rack.ontologyID(r.key);
+    const name = uniqueName("key");
+    await owner.auth.createKey({ subject: id, name });
+    const viewer = await createTestClientWithRole(owner, "Viewer");
+    await openModal(useModal, { client: viewer, params: { subject: id } });
+    await screen.findByText(name);
+    expect(screen.queryByText("Create key")).toBeNull();
+    expect(screen.queryByPlaceholderText("Key name")).toBeNull();
+    expect(getIconButtons(document.body, "delete")).toHaveLength(0);
+  });
+
+  it("should set the caller's own password given the current one", async () => {
+    const self = await createTestClientWithRole(createTestClient(), "Viewer");
+    const { username } = self.params;
+    await self.auth.retrieveSessions();
+    const { subject } = self.auth;
+    if (subject == null || username == null) throw new Error("not logged in");
+    await openModal(useModal, { client: self, params: { subject } });
+    await type("Current password", "test");
+    await type("New password", "changed123");
+    fireEvent.click(findButton("Set password"));
+    await expect
+      .poll(async () => {
+        try {
+          await createTestClient({
+            username,
+            password: "changed123",
+          }).auth.retrieveSessions();
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .toBe(true);
+  });
+
+  it("should let an owner set another user's password", async () => {
+    const client = createTestClient();
+    const username = uniqueName("user");
+    const subject = await client.users.create({ username, password: "password123" });
+    await openModal(useModal, {
+      client,
+      params: { subject: user.ontologyID(subject.key) },
+    });
+    expect(screen.queryByPlaceholderText("Current password")).toBeNull();
+    await type("New password", "changed123");
+    fireEvent.click(findButton("Set password"));
+    await expect
+      .poll(async () => {
+        try {
+          await createTestClient({
+            username,
+            password: "changed123",
+          }).auth.retrieveSessions();
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .toBe(true);
+  });
+});

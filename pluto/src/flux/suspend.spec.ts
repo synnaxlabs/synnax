@@ -7,14 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { query, type Synnax as Client } from "@synnaxlabs/client";
 import { describe, expect, it, vi } from "vitest";
 
-import { type LocalCache, setSettled, subscribeReader } from "@/flux/suspend";
+import {
+  ensureFetch,
+  invalidate,
+  type LocalCache,
+  setSettled,
+  subscribeReader,
+} from "@/flux/suspend";
 
 const newLocal = (): LocalCache<number> => ({
   epoch: 0,
   inFlight: new Map(),
   settled: new Map(),
+  generations: new Map(),
   listeners: new Map(),
 });
 
@@ -61,5 +69,40 @@ describe("subscribeReader", () => {
     const release = subscribeReader(local, "q", vi.fn());
     release();
     expect(local.listeners.has("q")).toBe(false);
+  });
+});
+
+describe("invalidate", () => {
+  const params = { client: null as unknown as Client, query: { key: "q" } };
+  const fetcher = (local: LocalCache<number>) => {
+    const answers: Array<(n: number) => void> = [];
+    const fetch = async (): Promise<number> =>
+      await ensureFetch(params, {
+        name: "number",
+        retrieve: async () => await new Promise<number>((r) => answers.push(r)),
+        local,
+      });
+    return { answers, fetch };
+  };
+
+  it("starts a new fetch instead of joining the one it discarded", async () => {
+    const local = newLocal();
+    const { answers, fetch } = fetcher(local);
+    const first = fetch();
+    invalidate(local, query.hash(params.query));
+    const second = fetch();
+    expect(answers).toHaveLength(2);
+    answers[1](2);
+    expect(await second).toBe(2);
+    answers[0](1);
+    expect(await first).toBe(1);
+    expect([...local.settled.values()]).toEqual([{ data: 2 }]);
+  });
+
+  it("drops the settled answer", () => {
+    const local = newLocal();
+    setSettled(local, "q", { data: 1 });
+    invalidate(local, "q");
+    expect(local.settled.has("q")).toBe(false);
   });
 });

@@ -47,6 +47,8 @@ export interface LocalCache<Data> {
   epoch: number;
   inFlight: Map<string, Promise<Data>>;
   settled: Map<string, Settled<Data>>;
+  /** Bumped by {@link invalidate}, so a fetch started before it settles nothing. */
+  generations: Map<string, number>;
   /** Readers by query hash. Write through {@link subscribeReader}. */
   listeners: Map<string, Set<() => void>>;
 }
@@ -93,6 +95,20 @@ export const subscribeReader = <Data>(
   };
 };
 
+/**
+ * Discards a query's settled answer and its in-flight fetch, so the next read fetches
+ * again and the older fetch's answer is dropped when it lands.
+ */
+export const invalidate = <Data>(local: LocalCache<Data>, hash: string): void => {
+  local.settled.delete(hash);
+  local.inFlight.delete(hash);
+  local.generations.set(hash, generationOf(local, hash) + 1);
+};
+
+/** Returns the query's generation, which {@link invalidate} advances. */
+export const generationOf = <Data>(local: LocalCache<Data>, hash: string): number =>
+  local.generations.get(hash) ?? 0;
+
 /** Tells the query's readers to re-read the domain cache and the settled entry. */
 export const notifyReaders = <Data>(local: LocalCache<Data>, hash: string): void =>
   local.listeners.get(hash)?.forEach((l) => l());
@@ -108,6 +124,7 @@ export const localFor = <Data>(
       epoch,
       inFlight: new Map(),
       settled: new Map(),
+      generations: new Map(),
       listeners: new Map(),
     };
     locals.set(client, local);
@@ -129,6 +146,8 @@ export interface FetchErrorParams<Data> {
   error: Error;
   hash: string;
   local: LocalCache<Data>;
+  /** The query's generation when the fetch started. */
+  generation: number;
 }
 
 export interface EnsureFetchParams<Query extends query.Params, Data> {
@@ -159,8 +178,10 @@ export const ensureFetch = <Query extends query.Params, Data>(
   let promise = local.inFlight.get(hash);
   if (promise == null) {
     const epoch = local.epoch;
+    const generation = generationOf(local, hash);
     promise = retrieve(params).then(
       (data) => {
+        if (generationOf(local, hash) !== generation) return data;
         // An answer the domain cache serves is read from there; one that never
         // reaches it is kept locally instead.
         if (getCached?.(params) === undefined) setSettled(local, hash, { data });
@@ -170,7 +191,14 @@ export const ensureFetch = <Query extends query.Params, Data>(
       },
       (cause: unknown) => {
         const error = new Error(`Failed to retrieve ${name}`, { cause });
-        const retried = onFetchError?.(params, { cause, error, hash, local });
+        if (generationOf(local, hash) !== generation) throw error;
+        const retried = onFetchError?.(params, {
+          cause,
+          error,
+          hash,
+          local,
+          generation,
+        });
         if (retried != null) return retried;
         // A failed fetch writes nothing getCached can serve, so the error must
         // settle locally or the next render refetches forever. A later cache

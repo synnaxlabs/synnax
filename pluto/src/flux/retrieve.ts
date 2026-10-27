@@ -41,6 +41,8 @@ import {
   ensureFetch,
   type EnsureFetchParams,
   fulfilled,
+  generationOf,
+  invalidate,
   type LocalCache,
   localFor,
   notifyReaders,
@@ -217,8 +219,8 @@ export interface UseEnsure<Query extends query.Params> {
 }
 
 /**
- * Returns a callback discarding a query's settled answer so the next suspending
- * read fetches again. A settled failure re-throws on every render, so resetting
+ * Returns a callback discarding a query's settled answer and any fetch still running,
+ * so the next suspending read fetches again. A settled failure re-throws on every render, so resetting
  * an error boundary alone lands straight back on it.
  */
 export interface UseInvalidate<Query extends query.Params> {
@@ -327,11 +329,13 @@ const waitForCreation = async <Query extends query.Params, Data extends query.Da
     onChange,
     getCached,
     local,
+    generation,
   }: Required<Pick<CreateRetrieveParams<Query, Data>, "onChange" | "getCached">> & {
     name: string;
     error: Error;
     hash: string;
     local: LocalCache<Data>;
+    generation: number;
   },
 ): Promise<Data> => {
   const epoch = local.epoch;
@@ -349,12 +353,13 @@ const waitForCreation = async <Query extends query.Params, Data extends query.Da
   try {
     result = await sync.withTimeout(found, NOT_FOUND_WAIT, () => {
       // A reconnect landed during the wait, so the not-found may no longer hold.
-      if (local.epoch === epoch) setSettled(local, hash, { error });
+      if (local.epoch === epoch && generationOf(local, hash) === generation)
+        setSettled(local, hash, { error });
       return error;
     });
   } finally {
     disconnect?.();
-    local.inFlight.delete(hash);
+    if (generationOf(local, hash) === generation) local.inFlight.delete(hash);
   }
   if (Deleted.matches<Data>(result))
     throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse);
@@ -373,6 +378,7 @@ interface RetryParams<Query extends query.Params, Data extends query.Data> exten
 > {
   hash: string;
   local: LocalCache<Data>;
+  generation: number;
 }
 
 /**
@@ -383,13 +389,15 @@ interface RetryParams<Query extends query.Params, Data extends query.Data> exten
  */
 const retryUnreachableFetch = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
-  { name, retrieve, getCached, hash, local }: RetryParams<Query, Data>,
+  { name, retrieve, getCached, hash, local, generation }: RetryParams<Query, Data>,
 ): Promise<Data> => {
   const epoch = local.epoch;
+  const current = (): boolean => generationOf(local, hash) === generation;
   const attempt = async (n: number): Promise<Data> => {
     await sleep.sleep(RETRY_BASE.milliseconds * 2 ** (n - 1));
     try {
       const data = await retrieve(params);
+      if (!current()) return data;
       if (getCached?.(params) === undefined) setSettled(local, hash, { data });
       else notifyReaders(local, hash);
       local.inFlight.delete(hash);
@@ -398,6 +406,7 @@ const retryUnreachableFetch = <Query extends query.Params, Data extends query.Da
       if (n < UNREACHABLE_RETRIES && isConnectionError(cause))
         return await attempt(n + 1);
       const error = new Error(`Failed to retrieve ${name}`, { cause });
+      if (!current()) throw error;
       local.inFlight.delete(hash);
       // A reconnect landed during the waits, so the failure may no longer hold.
       if (local.epoch === epoch) setSettled(local, hash, { error });
@@ -430,7 +439,7 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
   retrieve,
   getCached,
   local,
-  onFetchError: (params, { cause, error, hash }) => {
+  onFetchError: (params, { cause, error, hash, generation }) => {
     // A not-found on a query that awaits creation stays pending: the reference may have
     // outrun its document's create broadcast, which the subscription will deliver.
     if (
@@ -439,9 +448,24 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
       getCached != null &&
       NotFoundError.matches(cause)
     )
-      return waitForCreation(params, { name, error, hash, onChange, getCached, local });
+      return waitForCreation(params, {
+        name,
+        error,
+        hash,
+        onChange,
+        getCached,
+        local,
+        generation,
+      });
     if (retryUnreachable && isConnectionError(cause))
-      return retryUnreachableFetch(params, { name, retrieve, getCached, hash, local });
+      return retryUnreachableFetch(params, {
+        name,
+        retrieve,
+        getCached,
+        hash,
+        local,
+        generation,
+      });
     // Every other failure settles.
     return null;
   },
@@ -565,7 +589,7 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   return (q: Query) => {
     if (client == null) return;
     const normalized = normalizeQuery?.(q) ?? q;
-    localFor(locals, client).settled.delete(query.hash(normalized));
+    invalidate(localFor(locals, client), query.hash(normalized));
   };
 };
 
