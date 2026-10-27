@@ -1,0 +1,37 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+self-hosted-runner:
+  labels:
+    - macos-build-bot
+    - ubuntu-agent-bot
+    - ubuntu-build-bot
+    - ubuntu-test-bot
+    - windows-build-bot
+    - windows-test-bot
+
+config-variables:
+  - AGENT_DEFAULT
+  - AGENT_LOGINS
+  - AGENT_RUNNER_ROLE_ARN
+  - BAZEL_REMOTE_CACHE_GRPC_URL
+  - PREVIEW_DOMAIN
+  - PREVIEW_INSTANCE_ID
+  - PREVIEW_REGION
+  - PREVIEW_ROLE_ARN
+  - S3_CACHE_BUCKET
+  - S3_CACHE_REGION
+  - TURBO_TEAM
+  - WINDOWS_TEST_BOTS
+
+paths:
+  .github/workflows/cancel.merge-group.yaml:
+    ignore:
+      # GitHub sends the destroyed type, but actionlint knows only checks_requested.
+      - 'invalid activity type "destroyed"'

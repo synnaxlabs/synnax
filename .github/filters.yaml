@@ -18,6 +18,11 @@ ci: &ci
   - .github/filters.yaml
   - .github/workflows/ci.yaml
 
+actionlint:
+  - .github/actionlint.yaml
+  - .github/actions/**
+  - .github/workflows/**
+
 bazel: &bazel
   - .bazelignore
   - .bazeliskrc
