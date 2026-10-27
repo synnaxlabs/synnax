@@ -175,8 +175,7 @@ TEST(TaskTests, testRetrieveWhere) {
     );
 }
 
-/// @brief it should retrieve the tasks on the client's rack that match every
-/// condition.
+/// @brief it should retrieve the tasks on the client's rack that match every condition.
 TEST(TaskTests, testRetrieveConditions) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
@@ -250,7 +249,8 @@ TEST(TaskTests, testRetrieveOneMultipleFound) {
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     ASSERT_EQ(
         err.data,
-        R"(Multiple tasks matching filter {"type":{"case_insensitive":false,"eq":"pagerduty_alert"}} found.)"
+        R"(Multiple tasks matching filter {"type":{"case_insensitive":false,)"
+        R"("eq":"pagerduty_alert"}} found.)"
     );
 }
 

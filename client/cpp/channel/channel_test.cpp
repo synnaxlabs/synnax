@@ -347,7 +347,8 @@ TEST(TestChannel, testRetrieveOneNotFound) {
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
     ASSERT_EQ(
         err.data,
-        R"(channel matching filter {"name":{"case_insensitive":false,"eq":"not_a_channel_name_in_any_cluster"}} not found.)"
+        R"(channel matching filter {"name":{"case_insensitive":false,)"
+        R"("eq":"not_a_channel_name_in_any_cluster"}} not found.)"
     );
 }
 

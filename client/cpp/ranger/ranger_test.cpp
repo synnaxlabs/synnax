@@ -242,6 +242,12 @@ TEST(RangerTests, testRetrieveOneMultipleFound) {
         ranger::one()
     );
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
+    ASSERT_EQ(
+        err.data,
+        R"(Multiple ranges matching filter {"name":{"case_insensitive":false,)"
+        R"("starts_with":")" +
+            rand_name + R"("}} found.)"
+    );
 }
 
 /// @brief it should set a key-value pair on the range.
