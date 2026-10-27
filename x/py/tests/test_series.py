@@ -18,7 +18,7 @@ import pandas as pd
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from x import telem
 from x.interop import ArrayOperators
@@ -461,6 +461,8 @@ class TestVariableLengthSeries:
         assert s[-1] == "c"
         assert s[-2] == "b"
         assert s[-3] == "a"
+        with pytest.raises(IndexError):
+            s[-4]
 
     def test_string_index_out_of_bounds(self) -> None:
         """Should raise IndexError for out-of-bounds access"""
@@ -780,6 +782,10 @@ class TestSampleConversion:
 _SERIES: TypeAdapter[telem.Series] = TypeAdapter(telem.Series)
 
 
+class _TypedHolder(BaseModel):
+    series: telem.Series[np.float64]
+
+
 class _Holder(BaseModel):
     series: telem.Series
 
@@ -913,6 +919,24 @@ class TestSeriesModel:
             {"series": {"data_type": "float32", "data": telem.Series([1.5]).data}}
         )
         assert m.series.data_type == telem.DataType.FLOAT32
+
+    def test_typed_field(self) -> None:
+        """Should accept a typed field whose samples match"""
+        m = _TypedHolder.model_validate(
+            {"series": {"data_type": "float64", "data": telem.Series([1.5]).data}}
+        )
+        assert_type(m.series[0], np.float64)
+        assert _TypedHolder(series=telem.Series([2.5]).as_(np.float64)).series[0] == 2.5
+
+    @pytest.mark.parametrize(
+        "series",
+        [telem.Series(["text"]), {"data_type": "string", "data": b""}],
+        ids=["instance", "payload"],
+    )
+    def test_typed_field_mismatch(self, series: object) -> None:
+        """Should reject a typed field whose samples do not match"""
+        with pytest.raises(ValidationError, match="does not hold samples"):
+            _TypedHolder.model_validate({"series": series})
 
     def test_iter(self) -> None:
         """Should iterate over samples, not model fields"""

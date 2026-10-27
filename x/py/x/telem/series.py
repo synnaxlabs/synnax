@@ -13,7 +13,15 @@ import json
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime
-from typing import Any, Generic, NoReturn, Protocol, TypeAlias, overload
+from typing import (
+    Any,
+    Generic,
+    NoReturn,
+    Protocol,
+    TypeAlias,
+    get_args,
+    overload,
+)
 
 import numpy as np
 import numpy.typing as npt
@@ -130,8 +138,6 @@ class _VariableCodec(Generic[U]):
         self._decode = decode
 
     def get(self, data: bytes, index: int) -> U:
-        if index < 0:
-            index += sum(1 for _ in _iter_variable(data))
         for i, sample in enumerate(_iter_variable(data)):
             if i == index:
                 return self._decode(sample)
@@ -338,14 +344,32 @@ class Series(ArrayOperators, Generic[T]):
     ) -> core_schema.CoreSchema:
         """Implemented for pydantic validation. Should not be used externally."""
         payload = handler.generate_schema(_Payload)
-        return core_schema.union_schema(
+        serialization = core_schema.plain_serializer_function_ser_schema(
+            _to_payload, return_schema=payload
+        )
+        validation = core_schema.union_schema(
             [
                 core_schema.is_instance_schema(cls),
                 core_schema.no_info_after_validator_function(_from_payload, payload),
             ],
-            serialization=core_schema.plain_serializer_function_ser_schema(
-                _to_payload, return_schema=payload
-            ),
+        )
+        args = get_args(source_type)
+        if not args or args[0] == SampleValue:
+            validation["serialization"] = serialization
+            return validation
+        sample_type = args[0]
+        if not isinstance(sample_type, type):
+            raise TypeError(f"[Series] - cannot validate samples of {sample_type}")
+
+        def narrow(series: Series) -> Series:
+            # Pydantic reports only a ValueError as a validation error.
+            try:
+                return series.as_(sample_type)
+            except TypeError as e:
+                raise ValueError(str(e)) from e
+
+        return core_schema.no_info_after_validator_function(
+            narrow, validation, serialization=serialization
         )
 
     def as_(self, sample_type: type[U]) -> Series[U]:
@@ -402,6 +426,8 @@ class Series(ArrayOperators, Generic[T]):
         return self.__array__(dtype=dtype, copy=copy)
 
     def __getitem__(self, index: int) -> T:
+        if index < 0 and self.data_type.is_variable:
+            index += len(self)
         return self._codec.get(self.data, index)
 
     def __iter__(self) -> Iterator[T]:
