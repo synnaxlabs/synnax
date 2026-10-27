@@ -658,7 +658,9 @@ var _ = Describe("Type Unification", func() {
 				Reason: "test",
 			}
 			err := system.UnifyConstraint(constraint)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				err,
+			).To(MatchError(ContainSubstring("str is not compatible with i32")))
 
 			ue, ok := err.(*constraints.UnificationError)
 			Expect(ok).To(BeTrue(), "expected UnificationError")
@@ -673,7 +675,9 @@ var _ = Describe("Type Unification", func() {
 				Reason: "test",
 			}
 			err := system.UnifyConstraint(constraint)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				err,
+			).To(MatchError(ContainSubstring("f64 is not compatible with i64")))
 
 			ue, ok := err.(*constraints.UnificationError)
 			Expect(ok).To(BeTrue())
