@@ -38,14 +38,14 @@ const Default: Notification = ({ status, silence }) => (
 );
 Default.match = () => true;
 
-export const createSuppressed = (match: Matcher): Notification => {
+const createSuppressed = (match: Matcher): Notification => {
   const Suppressed: Notification = () => null;
   Suppressed.match = match;
   Suppressed.suppress = true;
   return Suppressed;
 };
 
-export const matchVariants =
+const matchVariants =
   (...variants: status.Variant[]): Matcher =>
   (stat: Status.NotificationSpec) =>
     variants.includes(stat.variant);
@@ -55,7 +55,7 @@ export const matchPrefix =
   (stat: Status.NotificationSpec) =>
     stat.key.startsWith(prefix);
 
-export const composeMatchers =
+const composeMatchers =
   (...matchers: Matcher[]): Matcher =>
   (stat: Status.NotificationSpec) =>
     matchers.every((m) => m(stat));

@@ -22,18 +22,18 @@ const isDenial = (err: unknown): boolean =>
   (err instanceof Error && err.cause != null && isDenial(err.cause));
 
 /**
- * Connects as a new user and primes its policy cache. Denials are tolerated: the Core
- * refuses restricted subjects by design, and the change-stream refusal logs after
- * teardown, which vitest counts as an unhandled error.
+ * Connects as a new user and primes its policy cache. By default, denials are
+ * tolerated: the Core refuses restricted subjects by design, and the change-stream
+ * refusal logs after teardown, which vitest counts as an unhandled error.
  */
-const connectAs = async (username: string, key: user.Key) => {
-  const client = createTestClient({
-    username,
-    password: "test",
-    onInternalError: (err) => {
-      if (!isDenial(err)) console.error(err);
-    },
-  });
+const connectAs = async (
+  username: string,
+  key: user.Key,
+  onInternalError: (err: Error) => void = (err) => {
+    if (!isDenial(err)) console.error(err);
+  },
+) => {
+  const client = createTestClient({ username, password: "test", onInternalError });
   try {
     await client.access.policies.retrieveForSubject(user.ontologyID(key));
   } catch (err) {
@@ -57,10 +57,13 @@ const createUser = async (client: Synnax) => {
  * Creates a client authenticated as a new user holding a role that carries the
  * policies. Pass several to grant different actions on different objects, which one
  * policy cannot express.
+ * @param onInternalError - Receives every internal error of the new client, denials
+ * included. Omit it to tolerate denials.
  */
 export const createTestClientWithPolicy = async (
   client: Synnax,
   pol: policy.New | policy.New[],
+  onInternalError?: (err: Error) => void,
 ) => {
   const u = await createUser(client);
   const policies = await Promise.all(
@@ -75,7 +78,7 @@ export const createTestClientWithPolicy = async (
     ...policies.map(({ key }) => policy.ontologyID(key)),
   );
   await client.access.roles.assign({ user: u.key, role: r.key });
-  return await connectAs(u.username, u.key);
+  return await connectAs(u.username, u.key, onInternalError);
 };
 
 /** The roles the Core provisions on startup. */

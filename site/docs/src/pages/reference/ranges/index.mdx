@@ -1,0 +1,129 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Ranges"
+heading: "Ranges"
+description: "Learn how ranges organize your data into tests, runs, and events."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Hero } from "@/components/hero";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="console/ranges/hero"
+  layout="bleed"
+  tone="soft"
+  palette="orange-yellow"
+/>
+
+A range is a named time interval that marks an important event in your data.
+[Channels](/reference/channels) group samples by their source. Ranges group samples by
+time period.
+
+A range has a name, a start time, and an end time. You do not add channels to a range. A
+range covers the data of every channel in its time interval.
+
+<Note.Note variant="info">
+  The interval includes its start and excludes its end.
+</Note.Note>
+
+<Divider.Divider x />
+
+## How teams use ranges
+
+A test operator creates a range for each test run, hotfire, or calibration. The range
+records when the run started and ended, and it holds the facts about the run: the part
+number, the procedure, and the test parameters.
+
+A test or data engineer uses ranges to find data later. They search for a range by name
+or label, plot it next to other runs, and [export it as CSV](/reference/ranges/export).
+They do not have to remember timestamps.
+
+Ranges also mark events outside of tests, such as anomalies and maintenance periods. An
+Arc automation can create these ranges for you. It can mark each test run, each stage,
+an abort, or each time a value is out of limits. See
+[create ranges in Arc](/reference/ranges/arc).
+
+You can save a range to the Synnax Core, where everyone sees it, or keep it only in your
+Console. See
+[saved and local ranges](/reference/ranges/reference#saved-and-local-ranges).
+
+<Divider.Divider x />
+
+## Stages
+
+The Console shows each range in one of three stages. The stage comes from the time range
+and the current time:
+
+- **To do**: The range starts in the future.
+- **In progress**: The range has started and has not ended. A range with no end time
+  stays in progress.
+- **Completed**: The range has ended.
+
+When you change the stage of a range in the Console, Synnax changes its start or end
+time. For example, when you complete an in-progress range, its end time becomes the
+current time. See [stages](/reference/ranges/reference#stages) for each change.
+
+<Divider.Divider x />
+
+## Metadata
+
+Metadata records the facts about the events in a range. Common examples are part
+numbers, links to procedures, and configuration values.
+
+Metadata is a set of key-value pairs. The key and the value are text. When the value is
+a link, the Console shows a button that opens it.
+
+Do not store large data, such as a 250 kB configuration file, as metadata. This can make
+Synnax slower. Store a link to the file in cloud storage or a Git repository.
+
+<Divider.Divider x />
+
+## Labels
+
+Labels put ranges into groups. Use them to show the test stand or assembly line of a
+range, the result of a test (success, failure), or any other category that your team
+uses. You can filter ranges by label.
+
+<Divider.Divider x />
+
+## Child ranges
+
+Child ranges divide a range into smaller intervals. For example, a campaign range can
+cover all the tests on one component, and a child range can mark each test in the
+campaign.
+
+A child range uses the channel aliases of its parent. It can set its own alias for a
+channel to replace the alias of the parent. When you delete a range, Synnax also deletes
+its child ranges.
+
+<Divider.Divider x />
+
+## Channel aliases
+
+An alias is a different name for a channel inside one range. For example, a device has
+three analog inputs: `ai_0`, `ai_1`, and `ai_2`. In one test, `ai_0` measures tank
+pressure, so you give it the alias `tank_pressure`. In a different test, `ai_0` measures
+temperature, so you give it the alias `temperature`.
+
+When you search for a channel in a range, you can use its name or its alias. To set an
+alias, see [channel aliases](/reference/ranges/aliases).
+
+<Divider.Divider x />
+
+## Snapshots
+
+A snapshot is a read-only copy of a task or a schematic that is attached to a range. A
+task snapshot keeps the calibrations, scales, and ports that a test used. A schematic
+snapshot keeps how the schematic looked. See
+[snapshot tasks and schematics](/reference/ranges/snapshots).
+
+<Divider.Divider x />
+
+## Next steps
+
+- [Create ranges](/reference/ranges/create) in the Console or in code.
+- [Find ranges](/reference/ranges/find) and open their range overview.
+- [Export the data](/reference/ranges/export) of a range as CSV.

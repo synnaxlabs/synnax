@@ -1,0 +1,57 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+
+import Portal from "@/layouts/Portal.astro";
+import { ADMIN_LINKS, type AdminSection } from "@/shell";
+import type { Organization } from "@/server/db/schema";
+import type { Session } from "@/server/session";
+
+interface Props {
+    title: string;
+    session: Session;
+    organizations: Organization[];
+    scope: Organization;
+    /**
+     * section is the staff console section the page lists. A page about one record has
+     * none, and links back to its list instead.
+     */
+    section?: AdminSection;
+}
+
+const { title, session, organizations, scope, section } = Astro.props;
+---
+
+<Portal
+    title={title}
+    session={session}
+    organizations={organizations}
+    scope={scope}
+    tab="admin"
+>
+    {session.staff && section != null && (
+        <nav class="portal-subtabs" aria-label="Admin">
+            {ADMIN_LINKS.map((link) => (
+                <Button.Button
+                    variant="text"
+                    size="small"
+                    weight={link.section === section ? 500 : 400}
+                    className="portal-tab"
+                    href={link.href}
+                    aria-current={link.section === section ? "page" : undefined}
+                >
+                    {link.label}
+                </Button.Button>
+            ))}
+        </nav>
+    )}
+    <slot />
+</Portal>
