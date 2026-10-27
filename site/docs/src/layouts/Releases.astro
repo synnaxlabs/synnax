@@ -68,6 +68,8 @@ const { headings, frontmatter } = Astro.props;
         flex-shrink: 1;
         flex-grow: 1;
         min-width: 0;
+        /* Lifts the article width cap, which sizes a single text column. */
+        max-width: none;
         padding: 5rem 8rem;
         & .release-wrapper {
             position: relative;
