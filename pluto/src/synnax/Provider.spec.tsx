@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
