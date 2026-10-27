@@ -21,6 +21,9 @@
 #                             Sets whether a pull request waits on a human review, as
 #                             its labels showed at <time> (Unix seconds). A mark older
 #                             than the saved one changes nothing.
+#   preview upgrade           Starts Caddy, or recreates it without its access log
+#                             mount, and applies the CPU and memory limits to the
+#                             running previews.
 #   preview down <pr>         Removes the Core for a pull request.
 #   preview sweep             Removes every Core deployed more than the TTL ago.
 
@@ -107,7 +110,8 @@ up() {
     docker rm --force "$name" > /dev/null
     # In-memory storage: each deploy starts from an empty Core.
     docker run --detach --name "$name" --network preview --restart unless-stopped \
-        --memory "$PREVIEW_MEMORY" --cpus "$PREVIEW_CPUS" --env SYNNAX_LICENSE_KEY \
+        --memory "$PREVIEW_MEMORY" --memory-swap "$PREVIEW_MEMORY" \
+        --cpus "$PREVIEW_CPUS" --env SYNNAX_LICENSE_KEY \
         --label synnax.preview="$pr" --label synnax.preview.deployed="$(date +%s)" \
         "$image" --listen 0.0.0.0:9090 --insecure --mem --no-driver > /dev/null
     for _ in $(seq 60); do
@@ -139,6 +143,25 @@ down() {
     reload_caddy
 }
 
+upgrade() {
+    local mounts preview
+    # No Caddy container yet, on a new host, reads as no mounts.
+    mounts=$(docker inspect -f '{{range .Mounts}}{{.Destination}} {{end}}' caddy \
+        2> /dev/null || true)
+    if [[ " $mounts " != *" $PREVIEW_LOGS "* ]]; then
+        mkdir -p "$PREVIEW_LOGS"
+        docker rm --force caddy > /dev/null
+        docker run --detach --name caddy --network preview --restart unless-stopped \
+            --publish 80:80 --publish 443:443 --volume /etc/caddy:/etc/caddy:ro \
+            --volume "$PREVIEW_LOGS:$PREVIEW_LOGS" --volume caddy_data:/data \
+            caddy:2.10 > /dev/null
+    fi
+    for preview in $(docker ps --all --quiet --filter label=synnax.preview); do
+        docker update --cpus "$PREVIEW_CPUS" --memory "$PREVIEW_MEMORY" \
+            --memory-swap "$PREVIEW_MEMORY" "$preview" > /dev/null
+    done
+}
+
 sweep() {
     local cutoff pr deployed
     cutoff=$(($(date +%s) - PREVIEW_TTL_DAYS * 86400))
@@ -151,11 +174,12 @@ sweep() {
 case "${1:-}" in
     up) up "$2" "$3" "${4:-}" "${5:-}" ;;
     mark) mark "$2" "${3:-}" "${4:-}" ;;
+    upgrade) upgrade ;;
     down) down "$2" ;;
     sweep) sweep ;;
     *)
         echo "usage: preview up <pr> <image> [human|none <time>]" \
-            "| mark <pr> human|none <time> | down <pr> | sweep" >&2
+            "| mark <pr> human|none <time> | upgrade | down <pr> | sweep" >&2
         exit 2
         ;;
 esac

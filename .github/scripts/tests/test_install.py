@@ -91,10 +91,11 @@ class TestInstall:
         swap = lines.index("mv /usr/local/bin/preview.new /usr/local/bin/preview")
         assert check < swap
 
-    def test_should_smoke_test_the_installed_script(self, sent: str) -> None:
+    def test_should_upgrade_and_smoke_test_the_host(self, sent: str) -> None:
         lines = sent.splitlines()
         swap = lines.index("mv /usr/local/bin/preview.new /usr/local/bin/preview")
-        assert lines[swap + 1 : swap + 3] == [
+        assert lines[swap + 1 : swap + 4] == [
+            "/usr/local/bin/preview upgrade",
             "/usr/local/bin/preview mark 1 none 0",
             "/usr/local/bin/preview down 1",
         ]

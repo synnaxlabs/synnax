@@ -16,7 +16,7 @@ set -euo pipefail
 dnf install -y docker amazon-ecr-credential-helper
 systemctl enable --now docker
 
-mkdir -p /root/.docker /etc/caddy/sites /var/log/caddy
+mkdir -p /root/.docker /etc/caddy/sites
 echo '{"credsStore": "ecr-login"}' > /root/.docker/config.json
 
 cat > /etc/synnax-preview.env << 'EOF'
@@ -33,11 +33,7 @@ EOF
 chmod +x /usr/local/bin/preview
 
 docker network create preview
-docker run --detach --name caddy --network preview --restart unless-stopped \
-    --publish 80:80 --publish 443:443 \
-    --volume /etc/caddy:/etc/caddy:ro --volume /var/log/caddy:/var/log/caddy \
-    --volume caddy_data:/data \
-    caddy:2.10
+/usr/local/bin/preview upgrade
 
 cat > /etc/systemd/system/preview-sweep.service << 'EOF'
 [Unit]

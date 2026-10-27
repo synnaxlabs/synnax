@@ -23,7 +23,14 @@ echo "docker $* | license=${SYNNAX_LICENSE_KEY:-}" >> "$FAKE_DIR/calls"
 case "$1 $2" in
     "exec synnax-"*) [[ -f "$FAKE_DIR/ready" ]] || exit 7 ;;
     "pull "*) [[ ! -f "$FAKE_DIR/pull_fails" ]] || exit 1 ;;
-    "ps "*) cat "$FAKE_DIR/containers" ;;
+    "inspect "*) cat "$FAKE_DIR/caddy_mounts" 2> /dev/null || exit 1 ;;
+    "ps "*)
+        if [[ $* == *--quiet* ]]; then
+            awk '{ print "synnax-pr-" $1 }' "$FAKE_DIR/containers"
+        else
+            cat "$FAKE_DIR/containers"
+        fi
+        ;;
 esac
 """
 
@@ -132,7 +139,7 @@ class TestUp:
         assert run.startswith("docker run --detach --name synnax-pr-12")
         assert "--label synnax.preview=12" in run
         assert "--env SYNNAX_LICENSE_KEY" in run
-        assert "--memory 1g --cpus 0.25" in run
+        assert "--memory 1g --memory-swap 1g --cpus 0.25" in run
         assert run.endswith(
             "registry/synnax-preview:pr-12 --listen 0.0.0.0:9090 --insecure --mem "
             "--no-driver"
@@ -287,6 +294,42 @@ class TestMark:
         result = host.run("mark", *args)
         assert result.returncode == 1
         assert "invalid review mark" in result.stderr
+
+
+class TestUpgrade:
+    """Tests for bringing Caddy and the running previews to the settings."""
+
+    def caddy_runs(self, host: Host) -> list[str]:
+        return [c for c in host.docker() if c.startswith("docker run")]
+
+    def test_should_start_caddy_with_the_access_log_mount(self, host: Host) -> None:
+        assert host.run("upgrade").returncode == 0
+        runs = self.caddy_runs(host)
+        assert len(runs) == 1
+        assert runs[0].startswith("docker run --detach --name caddy")
+        assert f"--volume {host.logs}:{host.logs}" in runs[0]
+
+    def test_should_recreate_caddy_without_the_mount(self, host: Host) -> None:
+        (host.path / "caddy_mounts").write_text("/etc/caddy /data\n")
+        assert host.run("upgrade").returncode == 0
+        assert "docker rm --force caddy" in host.docker()
+        assert len(self.caddy_runs(host)) == 1
+
+    def test_should_keep_caddy_with_the_mount(self, host: Host) -> None:
+        (host.path / "caddy_mounts").write_text(f"/etc/caddy {host.logs} /data\n")
+        assert host.run("upgrade").returncode == 0
+        assert self.caddy_runs(host) == []
+        assert "docker rm --force caddy" not in host.docker()
+
+    def test_should_apply_the_limits_to_running_previews(self, host: Host) -> None:
+        (host.path / "caddy_mounts").write_text(f"{host.logs}\n")
+        host.containers((12, 100), (13, 200))
+        assert host.run("upgrade").returncode == 0
+        updates = [c for c in host.docker() if c.startswith("docker update")]
+        assert updates == [
+            f"docker update --cpus 0.25 --memory 1g --memory-swap 1g synnax-pr-{pr}"
+            for pr in (12, 13)
+        ]
 
 
 class TestDown:
