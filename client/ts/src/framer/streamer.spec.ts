@@ -17,7 +17,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { assert, describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
 import { AccessDeniedError, ExpiredTokenError, MissingLicenseError } from "@/errors";
@@ -39,11 +39,12 @@ const quiet = (): void => {};
 const client = createTestClient();
 
 // The Core does not acknowledge an updated channel set, so a write can reach the relay
-// before the update does. readWhileWriting writes until the streamer reads a frame.
+// before the update does. readWhileWriting writes until the streamer reads a frame, and
+// returns null if it reads none within five seconds.
 const readWhileWriting = async (
   streamer: Streamer,
   key: channel.Key,
-): Promise<Frame> => {
+): Promise<Frame | null> => {
   const writer = await client.openWriter({ start: TimeStamp.now(), channels: key });
   let reading = true;
   const writing = (async () => {
@@ -53,7 +54,10 @@ const readWhileWriting = async (
     }
   })();
   try {
-    return await streamer.read();
+    return await Promise.race([
+      streamer.read(),
+      sleep.sleep(TimeSpan.seconds(5)).then(() => null),
+    ]);
   } finally {
     reading = false;
     await writing;
@@ -172,6 +176,7 @@ describe("Streamer", () => {
       await streamer.update([ch.key]);
       const fr = await readWhileWriting(streamer, ch.key);
       streamer.close();
+      assert(fr != null);
       expect(Array.from(fr.get(ch.key))).toEqual([1]);
     });
     describe("excludeGroups", () => {
