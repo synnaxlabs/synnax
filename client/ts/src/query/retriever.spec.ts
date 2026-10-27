@@ -822,12 +822,18 @@ describe("Retriever", () => {
 
     it("should throw a NotFoundError when no record has the name", async () => {
       const { client } = newClient([]);
-      await expect(client.retrieve("x-name")).rejects.toThrow(NotFoundError);
+      const res = client.retrieve("x-name");
+      await expect(res).rejects.toThrow(NotFoundError);
+      await expect(res).rejects.toThrow('thing not found matching "x-name"');
     });
 
     it("should throw a MultipleFoundError when two records have the name", async () => {
       const { client } = newClient([thing("a"), thing("b")]);
-      await expect(client.retrieve("a-name")).rejects.toThrow(MultipleFoundError);
+      const res = client.retrieve("a-name");
+      await expect(res).rejects.toThrow(MultipleFoundError);
+      await expect(res).rejects.toThrow(
+        'Expected one thing matching "a-name", but found 2',
+      );
     });
   });
 });

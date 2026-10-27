@@ -460,7 +460,6 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "range",
       table: ranges,
-      names: { key: keyZ },
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
