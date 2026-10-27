@@ -57,10 +57,19 @@ func Encode(ctx context.Context, e error, internal bool) Payload {
 
 // Expected returns true if a registered provider encodes err. Such errors, for example
 // validation, not found, and unauthorized errors, report a fault in a request, not in
-// the code, so their stack traces have no use. Expected returns false for nil.
+// the code, so their stack traces have no use. A joined error is expected only if
+// every member is. Expected returns false for nil.
 func Expected(ctx context.Context, err error) bool {
 	if err == nil {
 		return false
+	}
+	if members := UnwrapMulti(err); members != nil {
+		for _, m := range members {
+			if !Expected(ctx, m) {
+				return false
+			}
+		}
+		return true
 	}
 	for _, p := range _registry.providers {
 		if _, ok := p.encode(ctx, err); ok {

@@ -102,6 +102,19 @@ var _ = Describe("Ferrors", Ordered, func() {
 				errors.Expected(ctx, errors.Wrap(errMyCustomOne, "ctx")),
 			).To(BeTrue())
 		})
+		It("Should return true for a join of registered errors", func(ctx SpecContext) {
+			Expect(
+				errors.Expected(ctx, errors.Join(errMyCustomOne, errMyCustomTwo)),
+			).To(BeTrue())
+		})
+		It(
+			"Should return false for a join with an unknown error",
+			func(ctx SpecContext) {
+				Expect(
+					errors.Expected(ctx, errors.Join(errMyCustomOne, errors.New("x"))),
+				).To(BeFalse())
+			},
+		)
 		It("Should return false for an unknown error", func(ctx SpecContext) {
 			Expect(errors.Expected(ctx, errors.New("unknown"))).To(BeFalse())
 		})
