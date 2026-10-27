@@ -48,15 +48,15 @@ describe("current", () => {
     const off = viewer.users.current.onChange(handler);
     try {
       const { key } = await viewer.users.current.retrieve();
-      await client.users.rename(key, "Abigail", "Adams");
+      await client.users.rename(key, "Abigail Adams");
       await expect
         .poll(() => {
           const cached = viewer.users.current.getCached();
-          return query.isLive(cached) && cached.firstName === "Abigail";
+          return query.isLive(cached) && cached.name === "Abigail Adams";
         })
         .toBe(true);
       expect(handler).toHaveBeenCalledWith(
-        expect.objectContaining({ firstName: "Abigail" }),
+        expect.objectContaining({ name: "Abigail Adams" }),
       );
     } finally {
       off();

@@ -124,8 +124,7 @@ describe("Access Queries", () => {
       const u = await client.users.create({
         username: id.create(),
         password: "test",
-        firstName: "test",
-        lastName: "test",
+        name: "test test",
       });
       const p = await client.access.policies.create({
         name: id.create(),
@@ -164,8 +163,7 @@ describe("Access Queries", () => {
         const u = await client.users.create({
           username: id.create(),
           password: "test",
-          firstName: "test",
-          lastName: "test",
+          name: "test test",
         });
         username = u.username;
         const base = await client.access.policies.create({

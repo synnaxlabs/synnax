@@ -53,7 +53,7 @@ describe("User.Info", () => {
     expect(await screen.findByText("Viewer")).toBeTruthy();
   });
 
-  it("should show the subject's full name and username", async () => {
+  it("should show the subject's name and username", async () => {
     const root = createTestClient();
     const other = await createTestClientWithRole(root, "Viewer");
     const { wrapper } = await createConsoleWrapper({
@@ -61,7 +61,7 @@ describe("User.Info", () => {
       preloadedState: createStateWithUser("fallback_user"),
     });
     render(<User.Info />, { wrapper });
-    expect(await screen.findByText("test test")).toBeTruthy();
+    expect(await screen.findByText("test")).toBeTruthy();
     const { username } = await other.users.current.retrieve();
     expect(await screen.findByText(username)).toBeTruthy();
   });

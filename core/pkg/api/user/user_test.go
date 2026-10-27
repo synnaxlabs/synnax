@@ -29,9 +29,7 @@ import (
 // assert on identity-bearing behavior (e.g., the self-rename guard).
 func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 	GinkgoHelper()
-	u := MustSucceed(writer.Create(ctx, user.User{
-		Username: "non-root-" + uuid.New().String(),
-	}))
+	u := MustSucceed(writer.Create(ctx, user.User{Name: "non-root"}))
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", u.OntologyID())
 	return fctx, u
@@ -40,11 +38,12 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 // createUser creates a user and a password holding username.
 func createUser(ctx SpecContext, username string) user.User {
 	GinkgoHelper()
-	u := MustSucceed(writer.Create(ctx, user.User{Username: username}))
+	u := MustSucceed(writer.Create(ctx, user.User{Name: username}))
 	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
 		Username: username,
 		Password: "p",
 	})).To(Succeed())
+	u.Username = username
 	return u
 }
 
@@ -58,22 +57,30 @@ var _ = Describe("Service", func() {
 					apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
 						Users: []apiuser.NewUser{
 							{
-								Username:  username,
-								Password:  "p",
-								FirstName: "First",
-								LastName:  "Last",
+								Username: username,
+								Password: "p",
+								Name:     "First Last",
 							},
 						},
 					}),
 				)
 				Expect(res.Users).To(HaveLen(1))
 				Expect(res.Users[0].Username).To(Equal(username))
-				Expect(res.Users[0].FirstName).To(Equal("First"))
-				Expect(res.Users[0].LastName).To(Equal("Last"))
+				Expect(res.Users[0].Name).To(Equal("First Last"))
 				Expect(res.Users[0].Key).ToNot(Equal(uuid.Nil()))
 				MustSucceed(login(ctx, username, "p"))
 			},
 		)
+		It("Should name a user after its username by default", func(ctx SpecContext) {
+			username := uuid.New().String()
+			res := MustSucceed(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+				Users: []apiuser.NewUser{{
+					Username: username,
+					Password: "p",
+				}},
+			}))
+			Expect(res.Users[0].Name).To(Equal(username))
+		})
 		It(
 			"Should deny access when the subject lacks create permission",
 			func(ctx SpecContext) {
@@ -94,14 +101,8 @@ var _ = Describe("Service", func() {
 				tx := DeferClose(db.OpenTx())
 				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
 					Users: []apiuser.NewUser{
-						{
-							Username: username,
-							Password: "p",
-						},
-						{
-							Username: username,
-							Password: "p",
-						},
+						{Username: username, Password: "p"},
+						{Username: username, Password: "p"},
 					},
 				})).Error().To(MatchError(auth.ErrRepeatedUsername))
 				Expect(login(ctx, username, "p")).Error().
@@ -136,10 +137,9 @@ var _ = Describe("Service", func() {
 		It("Should match and return the username of the password", func(
 			ctx SpecContext,
 		) {
+			name := "user-name-" + uuid.New().String()
 			password := "password-name-" + uuid.New().String()
-			u := MustSucceed(writer.Create(ctx, user.User{
-				Username: "record-name-" + uuid.New().String(),
-			}))
+			u := MustSucceed(writer.Create(ctx, user.User{Name: name}))
 			Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
 				Username: password,
 				Password: "p",
@@ -151,7 +151,7 @@ var _ = Describe("Service", func() {
 			Expect(res.Users[0].Key).To(Equal(u.Key))
 			Expect(res.Users[0].Username).To(Equal(password))
 			res = MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Usernames: []string{u.Username},
+				Usernames: []string{name},
 			}))
 			Expect(res.Users).To(BeEmpty())
 		})
@@ -164,9 +164,7 @@ var _ = Describe("Service", func() {
 		It("Should leave the username empty for a user with no password", func(
 			ctx SpecContext,
 		) {
-			u := MustSucceed(writer.Create(ctx, user.User{
-				Username: "no-password-" + uuid.New().String(),
-			}))
+			u := MustSucceed(writer.Create(ctx, user.User{Name: "no-password"}))
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Keys: []user.Key{u.Key},
 			}))
@@ -195,34 +193,27 @@ var _ = Describe("Service", func() {
 
 	Describe("Rename", func() {
 		It(
-			"Should update the first and last name of the target user",
+			"Should update the name of the target user",
 			func(ctx SpecContext) {
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: "rename-" + uuid.New().String(),
-				}))
+				u := MustSucceed(writer.Create(ctx, user.User{Name: "rename"}))
 				Expect(apiSvc.Rename(rootCtx(ctx), db, apiuser.RenameRequest{
-					Key:       u.Key,
-					FirstName: "Renamed",
-					LastName:  "User",
+					Key:  u.Key,
+					Name: "Renamed User",
 				})).Error().ToNot(HaveOccurred())
 				var updated user.User
 				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
 					Entry(&updated).Exec(ctx, nil)).To(Succeed())
-				Expect(updated.FirstName).To(Equal("Renamed"))
-				Expect(updated.LastName).To(Equal("User"))
+				Expect(updated.Name).To(Equal("Renamed User"))
 			},
 		)
 		It(
 			"Should deny access when the subject lacks update permission",
 			func(ctx SpecContext) {
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: "rename-denied-" + uuid.New().String(),
-				}))
+				u := MustSucceed(writer.Create(ctx, user.User{Name: "rename-denied"}))
 				fctx, _ := nonRootCtx(ctx)
 				Expect(apiSvc.Rename(fctx, db, apiuser.RenameRequest{
-					Key:       u.Key,
-					FirstName: "Should",
-					LastName:  "NotApply",
+					Key:  u.Key,
+					Name: "Should Not Apply",
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
@@ -230,19 +221,11 @@ var _ = Describe("Service", func() {
 
 	Describe("ChangeUsername", func() {
 		It(
-			"Should rename the user and its password",
+			"Should rename the user's password",
 			func(ctx SpecContext) {
 				oldName := "change-username-" + uuid.New().String()
 				newName := "change-username-new-" + uuid.New().String()
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: oldName,
-				}))
-				Expect(
-					passwordSvc.NewWriter(nil).
-						Set(ctx, u.OntologyID(), auth.Credentials{
-							Username: oldName, Password: "p",
-						}),
-				).To(Succeed())
+				u := createUser(ctx, oldName)
 
 				Expect(
 					apiSvc.ChangeUsername(
@@ -256,10 +239,11 @@ var _ = Describe("Service", func() {
 				).Error().
 					ToNot(HaveOccurred())
 
-				var updated user.User
-				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
-					Entry(&updated).Exec(ctx, nil)).To(Succeed())
-				Expect(updated.Username).To(Equal(newName))
+				res := MustSucceed(apiSvc.Retrieve(
+					rootCtx(ctx),
+					apiuser.RetrieveRequest{Keys: []user.Key{u.Key}},
+				))
+				Expect(res.Users[0].Username).To(Equal(newName))
 				MustSucceed(login(ctx, newName, "p"))
 				Expect(login(ctx, oldName, "p")).Error().
 					To(MatchError(auth.ErrInvalidCredentials))
@@ -269,9 +253,7 @@ var _ = Describe("Service", func() {
 			"Should be a no-op when the target name already matches",
 			func(ctx SpecContext) {
 				username := "change-username-noop-" + uuid.New().String()
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: username,
-				}))
+				u := createUser(ctx, username)
 				Expect(
 					apiSvc.ChangeUsername(
 						rootCtx(ctx),
@@ -314,9 +296,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should deny access when the subject lacks update permission",
 			func(ctx SpecContext) {
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: "change-username-denied-" + uuid.New().String(),
-				}))
+				u := createUser(ctx, "change-username-denied-"+uuid.New().String())
 				fctx, _ := nonRootCtx(ctx)
 				Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
 					Key:      u.Key,
@@ -328,12 +308,11 @@ var _ = Describe("Service", func() {
 			"Should return auth.ErrRepeatedUsername when the target name is already taken",
 			func(ctx SpecContext) {
 				taken := "change-username-taken-" + uuid.New().String()
-				MustSucceed(writer.Create(ctx, user.User{
-					Username: taken,
-				}))
-				target := MustSucceed(writer.Create(ctx, user.User{
-					Username: "change-username-collide-" + uuid.New().String(),
-				}))
+				createUser(ctx, taken)
+				target := createUser(
+					ctx,
+					"change-username-collide-"+uuid.New().String(),
+				)
 				Expect(
 					apiSvc.ChangeUsername(
 						rootCtx(ctx),
@@ -369,7 +348,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				username := uuid.New().String()
 				created := MustSucceed(
-					writer.Create(ctx, user.User{Username: username}),
+					writer.Create(ctx, user.User{Name: username}),
 				)
 				Expect(passwordSvc.NewWriter(nil).Set(
 					ctx,
@@ -394,9 +373,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should deny access when the subject lacks delete permission",
 			func(ctx SpecContext) {
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: "delete-denied-" + uuid.New().String(),
-				}))
+				u := MustSucceed(writer.Create(ctx, user.User{Name: "delete-denied"}))
 				fctx, _ := nonRootCtx(ctx)
 				Expect(
 					apiSvc.Delete(

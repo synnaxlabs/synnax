@@ -104,8 +104,7 @@ describe("role ontology service", () => {
       User.createHaulItem({
         key: "u1",
         username: "u",
-        firstName: "",
-        lastName: "",
+        name: "",
         rootUser,
       });
     expect(canDrop({ source, items: [userItem(false)] })).toBe(true);

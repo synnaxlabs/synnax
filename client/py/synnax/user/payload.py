@@ -17,16 +17,14 @@ from synnax import ontology
 class New(BaseModel):
     username: str
     password: str
-    first_name: str = ""
-    last_name: str = ""
+    name: str = ""
     key: UUID | None = None
 
 
 class User(BaseModel):
     key: UUID
-    username: str
-    first_name: str
-    last_name: str
+    name: str
+    username: str = ""
 
     @property
     def ontology_id(self) -> ontology.ID:

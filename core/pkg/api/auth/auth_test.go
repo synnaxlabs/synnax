@@ -84,7 +84,8 @@ var _ = Describe("Login", func() {
 			res := MustSucceed(
 				apiSvc.Login(requestCtx(ctx), request(creds.Username, creds.Password)),
 			)
-			Expect(res.User).To(Equal(root))
+			Expect(res.User.Key).To(Equal(root.Key))
+			Expect(res.User.Username).To(Equal(creds.Username))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.OntologyID()))
 			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
@@ -262,7 +263,8 @@ var _ = Describe("CreateSession", func() {
 		Expect(session.Key).To(Equal(res.Session.Key))
 		Expect(res.Session.Subject).To(Equal(root.OntologyID()))
 		Expect(res.Session.Credential).To(Equal(session.Credential))
-		Expect(res.User).To(HaveValue(Equal(root)))
+		Expect(res.User.Key).To(Equal(root.Key))
+		Expect(res.User.Username).To(Equal(creds.Username))
 	})
 	DescribeTable("Should leave the hash off the wire", func(
 		ctx SpecContext,

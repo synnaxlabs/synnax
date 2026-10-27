@@ -19,13 +19,16 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -51,6 +54,10 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Password fills the username of each user change that Signals publishes.
+	//
+	// [REQUIRED] - when Signals is set.
+	Password *password.Service
 	// Instrumentation for logging, tracing, and metrics.
 	//
 	// [OPTIONAL]
@@ -66,6 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
+	c.Password = override.Nil(c.Password, other.Password)
 	return c
 }
 
@@ -75,6 +83,9 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
+	if c.Signals != nil {
+		v.NotNil("password", c.Password)
+	}
 	return v.Error()
 }
 
@@ -109,10 +120,20 @@ func OpenService(
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(
-			ctx,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+		pubCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
+		pubCfg.MarshalSet = func(u User) ([]byte, error) {
+			var p password.Password
+			err := cfg.Password.NewRetrieve().
+				Where(password.MatchSubjects(u.OntologyID())).
+				Entry(&p).
+				Exec(context.Background(), nil)
+			if err != nil && !errors.Is(err, query.ErrNotFound) {
+				return nil, err
+			}
+			u.Username = p.Username
+			return signals.MarshalJSON[Key](u)
+		}
+		if sig, err = cfg.Signals.PublishFromGorp(ctx, pubCfg); !ok(err, sig) {
 			return nil, err
 		}
 	}

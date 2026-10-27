@@ -27,17 +27,16 @@ class User(BaseModel):
 
     Attributes:
         key: Is the unique identifier for this user.
-        username: Is the unique login name for the user.
-        first_name: Is the user's first name.
-        last_name: Is the user's last name.
+        name: Is the user's display name.
+        username: Is the login name of the user's password, filled on read. It is empty
+            for a user with no password.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
     """
 
     key: Key
+    name: str
     username: str
-    first_name: str
-    last_name: str
     root_user: bool = False
 
     def __hash__(self) -> int:

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, user } from "@synnaxlabs/client";
+import { group, NotFoundError, ontology, user } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,7 +15,17 @@ import { describe, expect, it } from "vitest";
 import { User } from "@/feature/user";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
-import { assertDefined, clickAndSettle, uniqueName } from "@/testutil";
+import {
+  openTreeRowContextMenu,
+  renderOntologyTree,
+} from "@/platform/tree/treeTestutil";
+import {
+  assertDefined,
+  awaitTextEditingElement,
+  clickAndSettle,
+  commitTextEdit,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -39,10 +49,10 @@ const renderMenu = async (
 };
 
 describe("user ontology service", () => {
-  it("should expose username, role, and delete actions for another user", async () => {
+  it("should expose rename, role, and delete actions for another user", async () => {
     const u = await createUser();
     await renderMenu([userResource(u.key, u.username)]);
-    expect(await screen.findByText("Change username")).toBeTruthy();
+    expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Change role")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
     expect(screen.getByText("Copy properties")).toBeTruthy();
@@ -54,18 +64,18 @@ describe("user ontology service", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
-  it("should not offer username or role changes for the logged-in user", async () => {
-    const u = await createUser();
-    await renderMenu([userResource(u.key, "synnax")]);
+  it("should not offer rename or role changes for the logged-in user", async () => {
+    const current = await client.users.current.retrieve();
+    await renderMenu([userResource(current.key, current.name)]);
     expect(await screen.findByText("Delete")).toBeTruthy();
-    expect(screen.queryByText("Change username")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("Rename")).toBeNull());
     expect(screen.queryByText("Change role")).toBeNull();
   });
 
   it("should not offer a role change for the root user", async () => {
     const u = await createUser();
     await renderMenu([userResource(u.key, u.username, true)]);
-    expect(await screen.findByText("Change username")).toBeTruthy();
+    expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.queryByText("Change role")).toBeNull();
   });
 
@@ -94,14 +104,45 @@ describe("user ontology service", () => {
     const data = {
       key: "u1",
       username: "u",
-      firstName: "",
-      lastName: "",
+      name: "",
       rootUser: false,
     };
     const items = Item.haulItems(createResource(user.ontologyID("u1"), "u", data));
     expect(items).toHaveLength(1);
     expect(items[0].key).toBe("u1");
     expect(Item.haulItems(createResource(user.ontologyID("u2"), "u2"))).toHaveLength(0);
+  });
+});
+
+describe("rename", () => {
+  it("should rename the user on the Core and keep its username", async () => {
+    const u = await client.users.create({
+      username: uniqueName("user"),
+      name: uniqueName("name"),
+      password: "pwd12345",
+    });
+    const grp = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("usergrp"),
+    });
+    await client.ontology.addChildren(
+      group.ontologyID(grp.key),
+      user.ontologyID(u.key),
+    );
+    await renderOntologyTree({
+      client,
+      root: group.ontologyID(grp.key),
+      items: User.TREE_ITEMS,
+    });
+    await openTreeRowContextMenu(u.name);
+    fireEvent.click(await screen.findByText("Rename"));
+    const renamed = uniqueName("renamed");
+    commitTextEdit(await awaitTextEditingElement(), renamed);
+    await waitFor(async () => {
+      const retrieved = await client.users.retrieve(u.key);
+      expect(retrieved.name).toBe(renamed);
+      expect(retrieved.username).toBe(u.username);
+    });
   });
 });
 

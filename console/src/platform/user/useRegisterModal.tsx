@@ -20,18 +20,11 @@ import { Access, Synnax, User } from "@synnaxlabs/pluto";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const FIRST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   variant: "text",
   level: "h2",
   autoFocus: true,
-  placeholder: "Richard",
-  full: "x",
-};
-
-const LAST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
-  variant: "text",
-  level: "h2",
-  placeholder: "Feynman",
+  placeholder: "Richard Feynman",
   full: "x",
 };
 
@@ -59,18 +52,7 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
       <Modal.Body>
         <Form.Form<typeof User.formSchema> {...form}>
           <Flex.Box y>
-            <Flex.Box x grow>
-              <Form.TextField
-                path="firstName"
-                label="First"
-                inputProps={FIRST_NAME_INPUT_PROPS}
-              />
-              <Form.TextField
-                path="lastName"
-                label="Last"
-                inputProps={LAST_NAME_INPUT_PROPS}
-              />
-            </Flex.Box>
+            <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
             <Form.TextField
               path="username"
               label="Username"

@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
@@ -60,6 +61,16 @@ func (s *Service) CreateSession(
 			Entry(&u).
 			Exec(ctx, nil); err != nil {
 			return SessionCreateResponse{}, err
+		}
+		var passwords []password.Password
+		if err := s.password.NewRetrieve().
+			Where(password.MatchSubjects(u.OntologyID())).
+			Entries(&passwords).
+			Exec(ctx, nil); err != nil {
+			return SessionCreateResponse{}, err
+		}
+		if len(passwords) > 0 {
+			u.Username = passwords[0].Username
 		}
 		res.User = &u
 	}

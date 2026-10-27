@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type observe, primitive, record } from "@synnaxlabs/x";
+import { array, type observe, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type connection } from "@/connection";
@@ -56,11 +56,7 @@ const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
 const changeUsernameResZ = z.object({});
-const renameReqZ = z.object({
-  key: keyZ,
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -183,7 +179,6 @@ export class Client extends query.Retriever<
   ): Promise<void> {
     const update = () => [
       query.partialUpdate(this.store, key, { username: newUsername }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), newUsername),
     ];
     await query.optimistic({
       rollbacks: update(),
@@ -199,29 +194,23 @@ export class Client extends query.Retriever<
     update();
   }
 
-  async rename(
-    key: Key,
-    firstName?: string,
-    lastName?: string,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    const update = () => [
+      query.partialUpdate(this.store, key, { name }),
+      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
+    ];
     await query.optimistic({
-      rollbacks: [
-        query.partialUpdate(
-          this.store,
-          key,
-          record.purgeUndefined({ firstName, lastName }),
-        ),
-      ],
+      rollbacks: update(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
           "/user/rename",
-          { key, firstName, lastName },
+          { key, name },
           renameReqZ,
           renameResZ,
         ),
     });
+    update();
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

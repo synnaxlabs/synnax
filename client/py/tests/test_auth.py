@@ -65,8 +65,7 @@ class TestAuthRetry:
             user=sy.User(
                 key=user_key,
                 username="synnax",
-                first_name="Synnax",
-                last_name="Labs",
+                name="Synnax Labs",
             ),
         )
         mock_login_client = MockUnaryClient(

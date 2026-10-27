@@ -91,7 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    svc.RBAC,
 	}))
 	Expect(svc.User.NewRetrieve().
-		Where(user.MatchUsernames(rootUsername)).
+		Where(user.MatchRootUser(true)).
 		Entry(&root).
 		Exec(ctx, nil)).To(Succeed())
 })
