@@ -2,7 +2,8 @@
 title: "Version 0.44 release notes"
 ---
 
-import { Image, Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
+import { Image } from "@/components/media/Media";
 import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -17,7 +18,14 @@ export const components = mdxOverrides;
     title="Embedded Console"
 >
 
-<Image id="releases/0-44-0/thumbnail" themed={false} />
+<Hero.Hero
+  image="releases/0-44-0/thumbnail"
+  extension="webp"
+  themed={false}
+  layout="bleed"
+  tone="deep"
+  palette="teal-blue"
+/>
 
 Synnax v0.44 introduces an embedded Console into the Synnax Core, which can be used in
 place of the desktop Console application.
@@ -50,7 +58,12 @@ We've added dedicated CSV export buttons to both ranges and line plots, making i
 easier to export data from Synnax for analysis.
 
 <Flex.Box x justify="center">
-  <Image id="releases/0-44-0/csv" themed={false} style={{ width: 350 }} />
+  <Image
+    id="releases/0-44-0/csv"
+    extension="webp"
+    themed={false}
+    style={{ width: 350 }}
+  />
 </Flex.Box>
 
 <Divider.Divider x />
@@ -60,7 +73,12 @@ easier to export data from Synnax for analysis.
 The line plot legend now separates lines into groups by their corresponding y-axis.
 
 <Flex.Box x justify="center">
-  <Image id="releases/0-44-0/legend" themed={false} style={{ width: 100 }} />
+  <Image
+    id="releases/0-44-0/legend"
+    extension="webp"
+    themed={false}
+    style={{ width: 100 }}
+  />
 </Flex.Box>
 
 <Divider.Divider x />
