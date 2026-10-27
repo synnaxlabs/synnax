@@ -31,6 +31,12 @@ class TestLog:
         assert not log.channel_names_hidden
         assert not log.receipt_timestamp_hidden
 
+    def test_create_from_name(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should create an empty log from a name."""
+        log = client.logs.create(project.key, name="Named")
+        assert log.name == "Named"
+        assert log.channels == []
+
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple logs."""
         logs = client.logs.create(
@@ -90,16 +96,6 @@ class TestLog:
         with pytest.raises(NotFoundError):
             client.logs.retrieve(key=uuid4())
 
-    def test_retrieve_ignore_not_found(
-        self, client: sy.Synnax, project: sy.Project
-    ) -> None:
-        """Should omit missing logs when ignore_not_found_error is true."""
-        log = client.logs.create(project.key, sy.Log(name="Present"))
-        retrieved = client.logs.retrieve(
-            keys=[log.key, uuid4()], ignore_not_found_error=True
-        )
-        assert [r.key for r in retrieved] == [log.key]
-
     def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should rename a log."""
         log = client.logs.create(project.key, sy.Log(name="Before"))
@@ -119,10 +115,8 @@ class TestLog:
             project.key, [sy.Log(name="Delete 1"), sy.Log(name="Delete 2")]
         )
         client.logs.delete([log.key for log in logs])
-        retrieved = client.logs.retrieve(
-            keys=[log.key for log in logs], ignore_not_found_error=True
-        )
-        assert retrieved == []
+        with pytest.raises(NotFoundError):
+            client.logs.retrieve(keys=[log.key for log in logs])
 
     def test_delete_missing(self, client: sy.Synnax) -> None:
         """Should not raise when deleting a log that does not exist."""
