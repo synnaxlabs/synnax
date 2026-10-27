@@ -108,9 +108,15 @@ def module_dir(repo: Path, file: str) -> Path:
 
 
 def knip(repo: Path, *args: str) -> str:
+    """Runs Knip and returns its output. Knip exits with 1 when it reports issues.
+
+    :raises RuntimeError: If Knip exits with any other status.
+    """
     out = subprocess.run(
         [KNIP, *args], cwd=repo, capture_output=True, text=True, check=False
     )
+    if out.returncode not in (0, 1):
+        raise RuntimeError(f"knip {' '.join(args)} failed:\n{out.stderr}")
     return out.stdout
 
 
@@ -136,7 +142,7 @@ def check(repo: Path) -> list[Finding]:
     for f in found:
         own = module_dir(repo, f.path)
         files = used.get((f.path, f.name), set())
-        if not any(own not in (repo / u).parents for u in files):
+        if all(module_dir(repo, u) == own for u in files):
             result.append(f)
     return sorted(result, key=lambda f: (f.path, f.line))
 

@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
 
 import check_exports_ts
-from check_exports_ts import Finding, check, module_dir, users
+from check_exports_ts import Finding, check, knip, module_dir, users
 
 TRACE = """\
 app/src/kv/kv.ts:MemoryKV
@@ -41,6 +42,29 @@ class TestUsers:
 
     def test_should_skip_files_that_reference_other_members(self) -> None:
         assert users(TRACE)[("app/src/other/kv.ts", "MemoryKV")] == set()
+
+
+class TestKnip:
+    """Tests running Knip."""
+
+    def test_should_raise_with_knip_errors_when_knip_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def run(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess([], 2, "", "config not found")
+
+        monkeypatch.setattr(subprocess, "run", run)
+        with pytest.raises(RuntimeError, match="config not found"):
+            knip(tmp_path, "--trace-export", "MemoryKV")
+
+    def test_should_return_output_when_knip_reports_issues(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def run(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess([], 1, "issues", "")
+
+        monkeypatch.setattr(subprocess, "run", run)
+        assert knip(tmp_path, "--production") == "issues"
 
 
 class TestModuleDir:
@@ -88,6 +112,23 @@ class TestCheck:
             lambda _, *args: outputs.get(args[0], trace),
         )
         assert check(repo) == [Finding("app/src/kv/kv.ts", 1, "MemoryKV")]
+
+    def test_should_keep_an_export_a_child_module_uses(
+        self, repo: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (repo / "app/src/kv/child").mkdir()
+        (repo / "app/src/kv/child/index.ts").touch()
+        trace = (
+            "app/src/kv/kv.ts:MemoryKV\n"
+            "└── app/src/kv/child/child.spec.ts:import[MemoryKV] ✓\n"
+        )
+        outputs = {"--production": report(("app/src/kv/kv.ts", "MemoryKV"))}
+        monkeypatch.setattr(
+            check_exports_ts,
+            "knip",
+            lambda _, *args: outputs.get(args[0], trace),
+        )
+        assert check(repo) == []
 
     def test_should_keep_an_export_another_module_uses(
         self, repo: Path, monkeypatch: pytest.MonkeyPatch
