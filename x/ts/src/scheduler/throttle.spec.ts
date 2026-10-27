@@ -20,39 +20,47 @@ describe("throttle", () => {
     vi.useRealTimers();
   });
 
-  it("should execute immediately on the leading edge", () => {
+  it("should run the first call on the next task", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, TimeSpan.milliseconds(100));
-    expect(fn).toHaveBeenCalledTimes(0);
     throttled(10);
+    expect(fn).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(0);
     expect(fn).toHaveBeenCalledTimes(1);
     expect(fn).toHaveBeenLastCalledWith(10);
+  });
+
+  it("should run the calls of one task once with the latest arguments", () => {
+    const fn = vi.fn();
+    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    throttled(10);
+    throttled(20);
+    throttled(30);
+    vi.advanceTimersByTime(0);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenLastCalledWith(30);
   });
 
   it("should throttle repeated calls during the wait period", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, TimeSpan.milliseconds(100));
-    expect(fn).toHaveBeenCalledTimes(0);
     throttled(10);
-    expect(fn).toHaveBeenCalledTimes(1);
-    expect(fn).toHaveBeenLastCalledWith(10);
+    vi.advanceTimersByTime(0);
     throttled(20);
     throttled(30);
     throttled(40);
+    vi.advanceTimersByTime(99);
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it("should run a trailing call with the latest arguments", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, TimeSpan.milliseconds(100));
-    expect(fn).toHaveBeenCalledTimes(0);
     throttled(10);
-    expect(fn).toHaveBeenCalledTimes(1);
-    expect(fn).toHaveBeenLastCalledWith(10);
+    vi.advanceTimersByTime(0);
     throttled(20);
     throttled(30);
     throttled(40);
-    expect(fn).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(100);
     expect(fn).toHaveBeenCalledTimes(2);
     expect(fn).toHaveBeenLastCalledWith(40);
@@ -62,11 +70,8 @@ describe("throttle", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
-    expect(fn).toHaveBeenCalledTimes(1);
-    expect(fn).toHaveBeenLastCalledWith(10);
     vi.advanceTimersByTime(90);
     throttled(20);
-    expect(fn).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(9);
     expect(fn).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(1);
@@ -78,36 +83,46 @@ describe("throttle", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, TimeSpan.milliseconds(100));
     throttled(10);
+    vi.advanceTimersByTime(0);
     throttled(20);
     throttled(30);
-
     vi.advanceTimersByTime(100);
-
     expect(fn).toHaveBeenCalledTimes(2);
     expect(fn).toHaveBeenNthCalledWith(1, 10);
     expect(fn).toHaveBeenNthCalledWith(2, 30);
-
     vi.advanceTimersByTime(100);
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
-  it("should execute again immediately after the wait period has passed", () => {
+  it("should run on the next task once the wait period has passed", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, TimeSpan.milliseconds(100));
-
     throttled(10);
     vi.advanceTimersByTime(100);
     throttled(20);
-
+    expect(fn).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(0);
     expect(fn).toHaveBeenCalledTimes(2);
-    expect(fn).toHaveBeenNthCalledWith(1, 10);
     expect(fn).toHaveBeenNthCalledWith(2, 20);
+  });
+
+  it("should run on the next task after the clock moves backwards", () => {
+    const fn = vi.fn();
+    const throttled = throttle(fn, TimeSpan.milliseconds(100));
+    throttled(10);
+    vi.advanceTimersByTime(0);
+    vi.setSystemTime(Date.now() - 1000);
+    throttled(20);
+    vi.advanceTimersByTime(0);
+    expect(fn).toHaveBeenCalledTimes(2);
+    expect(fn).toHaveBeenLastCalledWith(20);
   });
 
   it("should preserve null arguments", () => {
     const fn = vi.fn();
     const throttled = throttle(fn, TimeSpan.milliseconds(100));
     throttled(null);
+    vi.advanceTimersByTime(0);
     throttled(20);
     throttled(null);
     vi.advanceTimersByTime(100);
@@ -121,20 +136,14 @@ describe("throttle", () => {
     fn.mockImplementation((value: number) => {
       if (value === 20) throttled(30);
     });
-
     const throttled = throttle(fn, TimeSpan.milliseconds(100));
-
     throttled(10);
+    vi.advanceTimersByTime(0);
     throttled(20);
-
     vi.advanceTimersByTime(100);
-
     expect(fn).toHaveBeenCalledTimes(2);
-    expect(fn).toHaveBeenNthCalledWith(1, 10);
     expect(fn).toHaveBeenNthCalledWith(2, 20);
-
     vi.advanceTimersByTime(100);
-
     expect(fn).toHaveBeenCalledTimes(3);
     expect(fn).toHaveBeenNthCalledWith(3, 30);
   });

@@ -9,16 +9,22 @@
 
 import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@/telem/telem";
 
+/**
+ * @returns a function that calls `func` with its latest arguments at most once per
+ * `waitFor`. The first call after a quiet period runs on the next task, so every call
+ * made in the current task joins it. A zero `waitFor` calls `func` synchronously.
+ */
 export const throttle = <Args extends unknown[]>(
   func: (...args: Args) => void,
   waitFor: CrudeTimeSpan,
 ): ((...args: Args) => void) => {
   const throttlePeriod = new TimeSpan(waitFor);
   if (throttlePeriod.valueOf() <= 0) return func;
-  let timeout: NodeJS.Timeout | undefined;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   let lastInvokeTime: TimeStamp = TimeStamp.MIN;
   let latestArgs: Args | null = null;
   const invoke = (): void => {
+    timeout = undefined;
     if (latestArgs === null) return;
     lastInvokeTime = TimeStamp.now();
     const args = latestArgs;
@@ -26,19 +32,14 @@ export const throttle = <Args extends unknown[]>(
     func(...args);
   };
   return (...args: Args): void => {
-    const timeSinceLastInvoke = TimeStamp.since(lastInvokeTime);
     latestArgs = args;
-    const remaining = throttlePeriod.sub(timeSinceLastInvoke);
-    if (remaining.valueOf() <= 0 || remaining.greaterThan(throttlePeriod)) {
-      clearTimeout(timeout);
-      timeout = undefined;
-      invoke();
-      return;
-    }
-    if (timeout != null) return;
-    timeout = setTimeout(() => {
-      timeout = undefined;
-      invoke();
-    }, remaining.milliseconds);
+    if (timeout !== undefined) return;
+    const remaining = throttlePeriod.sub(TimeStamp.since(lastInvokeTime));
+    // A clock that moved backwards leaves more than a full period remaining.
+    const wait =
+      remaining.valueOf() <= 0 || remaining.greaterThan(throttlePeriod)
+        ? 0
+        : remaining.milliseconds;
+    timeout = setTimeout(invoke, wait);
   };
 };
