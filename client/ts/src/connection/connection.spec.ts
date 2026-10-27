@@ -748,11 +748,7 @@ describe("connection", () => {
           unreachable,
           { type: "auth.failure", error: new AuthError("bad password") },
         ],
-        [
-          "nodeKey",
-          base,
-          { type: "check.success", info: createInfo({ nodeKey: 2 }) },
-        ],
+        ["nodeKey", base, { type: "check.success", info: createInfo({ nodeKey: 2 }) }],
         ["retry", base, { type: "retry.scheduled", attempt: 1, nextAt }],
         ["retry.attempt", scheduled, { type: "retry.scheduled", attempt: 2, nextAt }],
         [
