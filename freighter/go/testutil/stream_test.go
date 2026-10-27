@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mock_test
+package testutil_test
 
 import (
 	"context"
@@ -15,26 +15,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/mock"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	var (
-		server *mock.StreamServer[test.Request, test.Response]
-		client *mock.StreamClient[test.Request, test.Response]
+		server *testutil.StreamServer[testutil.Request, testutil.Response]
+		client *testutil.StreamClient[testutil.Request, testutil.Response]
 	)
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
-		server, client = mock.NewStreamPair[test.Request, test.Response](11, 11)
+		server, client = testutil.NewStreamPair[testutil.Request, testutil.Response](
+			11,
+			11,
+		)
 	})
 
-	test.StreamSuite(func() (
-		freighter.StreamServer[test.Request, test.Response],
-		freighter.StreamClient[test.Request, test.Response],
+	testutil.StreamSuite(func() (
+		freighter.StreamServer[testutil.Request, testutil.Response],
+		freighter.StreamClient[testutil.Request, testutil.Response],
 		address.Address,
 	) {
 		return server, client, "localhost:0"
@@ -44,21 +46,24 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		ctx SpecContext,
 	) {
 		ShouldNotLeakGoroutines()
-		abandoned, dialer := mock.NewStreamPair[test.Request, test.Response](1, 1)
+		abandoned, dialer := testutil.NewStreamPair[testutil.Request, testutil.Response](
+			1,
+			1,
+		)
 		returned := make(chan struct{})
 		abandoned.BindHandler(func(
 			_ context.Context,
-			stream freighter.ServerStream[test.Request, test.Response],
+			stream freighter.ServerStream[testutil.Request, testutil.Response],
 		) error {
 			defer close(returned)
-			if err := stream.Send(test.Response{ID: 1}); err != nil {
+			if err := stream.Send(testutil.Response{ID: 1}); err != nil {
 				return err
 			}
-			return stream.Send(test.Response{ID: 2})
+			return stream.Send(testutil.Response{ID: 2})
 		})
 		streamCtx, cancel := context.WithCancel(ctx)
 		stream := MustSucceed(dialer.Stream(streamCtx, "localhost:0"))
-		Expect(stream.Receive()).To(Equal(test.Response{ID: 1}))
+		Expect(stream.Receive()).To(Equal(testutil.Response{ID: 1}))
 		// The client leaves the second response in the buffer, so the closing error the
 		// handler emits on return has nowhere to go until the client cancels.
 		Eventually(returned).Should(BeClosed())
@@ -77,12 +82,14 @@ var _ = Describe("Context cancellation", func() {
 	openBlocked := func(
 		ctx SpecContext,
 		buffers ...int,
-	) (freighter.ClientStream[test.Request, test.Response], context.CancelFunc) {
+	) (freighter.ClientStream[testutil.Request, testutil.Response], context.CancelFunc) {
 		GinkgoHelper()
-		server, client := mock.NewStreamPair[test.Request, test.Response](buffers...)
+		server, client := testutil.NewStreamPair[testutil.Request, testutil.Response](
+			buffers...,
+		)
 		server.BindHandler(func(
 			handlerCtx context.Context,
-			_ freighter.ServerStream[test.Request, test.Response],
+			_ freighter.ServerStream[testutil.Request, testutil.Response],
 		) error {
 			<-handlerCtx.Done()
 			return nil
@@ -98,14 +105,17 @@ var _ = Describe("Context cancellation", func() {
 		) {
 			receiveAfterCancel := func() {
 				GinkgoHelper()
-				server, client := mock.NewStreamPair[test.Request, test.Response](1, 1)
+				server, client := testutil.NewStreamPair[testutil.Request, testutil.Response](
+					1,
+					1,
+				)
 				buffered := make(chan struct{})
 				server.BindHandler(func(
 					handlerCtx context.Context,
-					stream freighter.ServerStream[test.Request, test.Response],
+					stream freighter.ServerStream[testutil.Request, testutil.Response],
 				) error {
 					defer GinkgoRecover()
-					Expect(stream.Send(test.Response{ID: 1})).To(Succeed())
+					Expect(stream.Send(testutil.Response{ID: 1})).To(Succeed())
 					close(buffered)
 					<-handlerCtx.Done()
 					return nil
@@ -134,7 +144,7 @@ var _ = Describe("Context cancellation", func() {
 				stream, cancel := openBlocked(ctx, 1, 1)
 				cancel()
 				Expect(
-					stream.Send(test.Request{ID: 1}),
+					stream.Send(testutil.Request{ID: 1}),
 				).To(MatchError(context.Canceled))
 			}
 		},
@@ -144,7 +154,7 @@ var _ = Describe("Context cancellation", func() {
 		ctx SpecContext,
 	) {
 		stream, cancel := openBlocked(ctx, 1, 1)
-		Expect(stream.Send(test.Request{ID: 1})).To(Succeed())
+		Expect(stream.Send(testutil.Request{ID: 1})).To(Succeed())
 		cancel()
 		closed := make(chan struct{})
 		go func() {
@@ -158,14 +168,14 @@ var _ = Describe("Context cancellation", func() {
 
 var _ = Describe("Address", func() {
 	It("Should return the address the network assigned to the server", func() {
-		net := mock.NewNetwork[test.Request, test.Response]()
+		net := testutil.NewNetwork[testutil.Request, testutil.Response]()
 		Expect(net.StreamServer("localhost:1234").Address()).
 			To(Equal(address.Address("localhost:1234")))
 		Expect(net.StreamServer("").Address()).ToNot(BeEmpty())
 	})
 
 	It("Should be empty for a server that is not on a network", func() {
-		server, _ := mock.NewStreamPair[test.Request, test.Response]()
+		server, _ := testutil.NewStreamPair[testutil.Request, testutil.Response]()
 		Expect(server.Address()).To(BeEmpty())
 	})
 })
