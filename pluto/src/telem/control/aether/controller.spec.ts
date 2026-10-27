@@ -16,16 +16,7 @@ import { type z } from "zod";
 
 import { type aether } from "@/aether/aether";
 import { type status } from "@/status/aether";
-import { Colors } from "@/telem/control/aether/colors";
-import {
-  type AuthoritySource,
-  authoritySource,
-  Controller,
-  controllerStateZ,
-  type OpenWriter,
-  type SetChannelValue,
-  setChannelValue,
-} from "@/telem/control/aether/controller";
+import { control } from "@/telem/control/aether";
 import { renderAether } from "@/testutil/internal";
 
 const client = createTestClient();
@@ -92,49 +83,56 @@ const hold = async (key: channel.Key, subject: string): Promise<Holder> => {
 
 /** Mounts a controller against the test cluster with a status source bound to the
  * channel, and waits for the client's change stream. */
-const setup = async (key: channel.Key, openWriter?: OpenWriter) => {
-  const h = renderAether(Colors, {
+const setup = async (key: channel.Key, openWriter?: control.OpenWriter) => {
+  const h = renderAether(control.Colors, {
     state: {},
     synnax: { props: TEST_CLIENT_PARAMS },
     registry:
-      openWriter == null ? { [Controller.TYPE]: Controller } : registryWith(openWriter),
+      openWriter == null
+        ? { [control.Controller.TYPE]: control.Controller }
+        : registryWith(openWriter),
     children: {
       [CONTROLLER_KEY]: {
-        type: Controller.TYPE,
-        state: controllerStateZ.parse({ name: CONTROLLER_NAME }),
+        type: control.Controller.TYPE,
+        state: control.controllerStateZ.parse({ name: CONTROLLER_NAME }),
       },
     },
   });
-  const controller = h.child<Controller>(CONTROLLER_KEY);
+  const controller = h.child<control.Controller>(CONTROLLER_KEY);
   const { client: mounted } = controller;
   assert(mounted != null);
   // With the cache enabled, connect() resolves only once the change stream is
   // live, so no transfer published after this point is missed.
   await mounted.connect();
   if (key !== 0) await mounted.control.retrieve([key]);
-  const source = controller.create<AuthoritySource>(authoritySource({ channel: key }));
+  const source = controller.create<control.AuthoritySource>(
+    control.authoritySource({ channel: key }),
+  );
   assert(source != null);
   // Merges, as the DOM Controller does, so the pushed state keeps the status the
   // controller reports back.
-  const setState = (next: Partial<z.input<typeof controllerStateZ>>): void =>
-    h.setChildState(CONTROLLER_KEY, Controller.TYPE, { ...controller.state, ...next });
+  const setState = (next: Partial<z.input<typeof control.controllerStateZ>>): void =>
+    h.setChildState(CONTROLLER_KEY, control.Controller.TYPE, {
+      ...controller.state,
+      ...next,
+    });
   return { colors: h.component, controller, source, setState, handle: h };
 };
 
 /** Mounts a controller with no Core behind it. */
 const setupDisconnected = () => {
-  const h = renderAether(Colors, {
+  const h = renderAether(control.Colors, {
     state: {},
     synnax: { props: null },
-    registry: { [Controller.TYPE]: Controller },
+    registry: { [control.Controller.TYPE]: control.Controller },
     children: {
       [CONTROLLER_KEY]: {
-        type: Controller.TYPE,
-        state: controllerStateZ.parse({ name: CONTROLLER_NAME }),
+        type: control.Controller.TYPE,
+        state: control.controllerStateZ.parse({ name: CONTROLLER_NAME }),
       },
     },
   });
-  return { controller: h.child<Controller>(CONTROLLER_KEY), handle: h };
+  return { controller: h.child<control.Controller>(CONTROLLER_KEY), handle: h };
 };
 
 interface StatusText {
@@ -153,7 +151,7 @@ const statusesOf = (h: {
   })) ?? [];
 
 interface Intercept {
-  openWriter: OpenWriter;
+  openWriter: control.OpenWriter;
   openCount: () => number;
   writeCount: () => number;
 }
@@ -168,7 +166,7 @@ const interceptWrites = (
 ): Intercept => {
   let opens = 0;
   let writes = 0;
-  const openWriter: OpenWriter = async (client, config) => {
+  const openWriter: control.OpenWriter = async (client, config) => {
     opens += 1;
     const w = await client.openWriter(config);
     const write = w.write.bind(w);
@@ -192,7 +190,7 @@ const gateWriter = () => {
   let finishOpen!: () => void;
   const gate = new Promise<void>((resolve) => (finishOpen = resolve));
   let writes = 0;
-  const openWriter: OpenWriter = async (client, config) => {
+  const openWriter: control.OpenWriter = async (client, config) => {
     await gate;
     const w = await client.openWriter(config);
     const write = w.write.bind(w);
@@ -207,8 +205,8 @@ const gateWriter = () => {
 };
 
 /** Binds every Controller the harness mounts to `openWriter`. */
-const registryWith = (openWriter: OpenWriter): aether.ComponentRegistry => ({
-  [Controller.TYPE]: class extends Controller {
+const registryWith = (openWriter: control.OpenWriter): aether.ComponentRegistry => ({
+  [control.Controller.TYPE]: class extends control.Controller {
     constructor(props: aether.ComponentConstructorProps) {
       super(props, openWriter);
     }
@@ -246,7 +244,7 @@ describe("control/aether/Controller", SUITE, () => {
     const ch = await createIndexed();
     const { openWriter, openCount } = interceptWrites();
     const { controller, source } = await setup(ch.key, openWriter);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     controller.acquire();
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
@@ -256,7 +254,7 @@ describe("control/aether/Controller", SUITE, () => {
   it("should return the channel when control is released", async () => {
     const ch = await createIndexed();
     const { controller, source } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     controller.release();
@@ -267,7 +265,7 @@ describe("control/aether/Controller", SUITE, () => {
   it("should release the control it holds when it is deleted", async () => {
     const ch = await createIndexed();
     const { controller, source, handle } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     handle.deleteChild(CONTROLLER_KEY);
@@ -277,7 +275,7 @@ describe("control/aether/Controller", SUITE, () => {
   it("should need control of the channel a sink writes and its index", async () => {
     const ch = await createIndexed();
     const { controller } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     await expect
       .poll(() => [...controller.state.needsControlOf].sort(), POLL)
       .toEqual([ch.key, ch.index].sort());
@@ -286,16 +284,16 @@ describe("control/aether/Controller", SUITE, () => {
   it("should count a channel once when two sinks write it", async () => {
     const ch = await createIndexed();
     const { controller } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     await expect.poll(() => controller.state.needsControlOf.length, POLL).toEqual(2);
   });
 
   it("should stop needing a channel once its sink is cleaned up", async () => {
     const ch = await createIndexed();
     const { controller } = await setup(ch.key);
-    const sink = controller.create<SetChannelValue>(
-      setChannelValue({ channel: ch.key }),
+    const sink = controller.create<control.SetChannelValue>(
+      control.setChannelValue({ channel: ch.key }),
     );
     assert(sink != null);
     await expect.poll(() => controller.state.needsControlOf.length, POLL).toEqual(2);
@@ -308,8 +306,8 @@ describe("control/aether/Controller", SUITE, () => {
     const deleted = await createIndexed();
     await client.channels.delete(deleted.key);
     const { controller, source, handle } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
-    controller.create(setChannelValue({ channel: deleted.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: deleted.key }));
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     expect([...controller.state.needsControlOf].sort()).toEqual(
@@ -336,7 +334,7 @@ describe("control/aether/Controller", SUITE, () => {
       attempt === 1 ? new StreamClosed() : null,
     );
     const { controller, source } = await setup(ch.key, openWriter);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     await controller.set({ [ch.key]: [1] });
@@ -350,7 +348,7 @@ describe("control/aether/Controller", SUITE, () => {
       () => new ValidationError("bad frame"),
     );
     const { controller, source } = await setup(ch.key, openWriter);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     await expect(controller.set({ [ch.key]: [1] })).rejects.toThrow("bad frame");
@@ -361,7 +359,7 @@ describe("control/aether/Controller", SUITE, () => {
   it("should give up the control it holds once it is disabled", async () => {
     const ch = await createIndexed();
     const { controller, source, setState } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     setState({ disabled: true });
@@ -372,7 +370,7 @@ describe("control/aether/Controller", SUITE, () => {
   it("should take control when asked explicitly while disabled", async () => {
     const ch = await createIndexed();
     const { controller, source, setState } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     setState({ disabled: true });
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
@@ -383,7 +381,7 @@ describe("control/aether/Controller", SUITE, () => {
     const ch = await createIndexed();
     const { openWriter, openCount } = interceptWrites();
     const { controller, setState } = await setup(ch.key, openWriter);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     await expect.poll(() => controller.state.needsControlOf, POLL).toContain(ch.key);
     setState({ disabled: true });
     await controller.set({ [ch.key]: [1] });
@@ -395,7 +393,7 @@ describe("control/aether/Controller", SUITE, () => {
     const ch = await createIndexed();
     const { openWriter, finishOpen, writeCount } = gateWriter();
     const { controller, setState } = await setup(ch.key, openWriter);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     await expect.poll(() => controller.state.needsControlOf, POLL).toContain(ch.key);
     const write = controller.set({ [ch.key]: [1] });
     setState({ disabled: true });
@@ -409,7 +407,7 @@ describe("control/aether/Controller", SUITE, () => {
     const ch = await createIndexed();
     const { openWriter, finishOpen } = gateWriter();
     const { controller, setState } = await setup(ch.key, openWriter);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     await expect.poll(() => controller.state.needsControlOf, POLL).toContain(ch.key);
     const write = controller.set({ [ch.key]: [1] });
     setState({ disabled: true });
@@ -422,7 +420,7 @@ describe("control/aether/Controller", SUITE, () => {
   it("should keep control while it is not disabled", async () => {
     const ch = await createIndexed();
     const { controller, source, setState } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     setState({ disabled: false });
@@ -452,7 +450,7 @@ describe("control/aether/AuthoritySource", SUITE, () => {
   it("should succeed when the controller itself holds the channel", async () => {
     const ch = await createIndexed();
     const { source, controller } = await setup(ch.key);
-    controller.create(setChannelValue({ channel: ch.key }));
+    controller.create(control.setChannelValue({ channel: ch.key }));
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
     expect(source.value().data.message).toEqual(`Controlled by ${CONTROLLER_NAME}`);
