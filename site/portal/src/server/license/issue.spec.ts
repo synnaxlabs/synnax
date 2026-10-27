@@ -414,8 +414,10 @@ describe("issue", () => {
   describe("revoke", () => {
     it("should leave the license unrevoked when its event fails", async () => {
       const lic = await createLicense(store, { organization: org.key });
-      await failingEvents("revoke", async () =>
-        revoke(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
+      await failingEvents(
+        "revoke",
+        async () =>
+          await revoke(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
       );
       expect(await stored(lic.key)).toEqual(lic);
     });
@@ -473,8 +475,10 @@ describe("issue", () => {
   describe("restore", () => {
     it("should leave the license revoked when its event fails", async () => {
       const lic = await createLicense(store, { organization: org.key, revokedAt: NOW });
-      await failingEvents("restore", async () =>
-        restore(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
+      await failingEvents(
+        "restore",
+        async () =>
+          await restore(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
       );
       expect(await stored(lic.key)).toEqual(lic);
     });

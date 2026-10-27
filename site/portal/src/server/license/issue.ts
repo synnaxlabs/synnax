@@ -210,8 +210,8 @@ export interface RevokeArgs {
 export const revoke = async (
   store: Store,
   { licenseKey, actor, now }: RevokeArgs,
-): Promise<License> => {
-  return await store.transact(async (tx) => {
+): Promise<License> =>
+  await store.transact(async (tx) => {
     const [row] = await tx
       .update(license)
       .set({ revokedAt: now })
@@ -235,7 +235,6 @@ export const revoke = async (
     });
     return row;
   });
-};
 
 export interface RestoreArgs {
   licenseKey: string;
@@ -252,8 +251,8 @@ export interface RestoreArgs {
 export const restore = async (
   store: Store,
   { licenseKey, actor, now }: RestoreArgs,
-): Promise<License> => {
-  return await store.transact(async (tx) => {
+): Promise<License> =>
+  await store.transact(async (tx) => {
     const [row] = await tx
       .update(license)
       .set({ revokedAt: null })
@@ -284,7 +283,6 @@ export const restore = async (
     });
     return row;
   });
-};
 
 export interface FloatingArgs {
   licenseKey: string;
