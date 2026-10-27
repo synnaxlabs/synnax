@@ -66,7 +66,6 @@ const waitsOf = (joins: Joins, ...keys: channel.Key[]): Wait[] =>
 
 const keysOf = (joins: Joins): channel.Key[] => joins.waiting(INDEX).map((w) => w.key);
 
-// Returns the buffer the stream writes the channel's samples into.
 const leadingOf = (store: Store, ch: channel.Key): Series | null =>
   store.open(ch)?.buffer?.leadingBuffer ?? null;
 

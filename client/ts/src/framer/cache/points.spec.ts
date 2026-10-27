@@ -51,7 +51,6 @@ const BREAKER: breaker.Config = {
 const RAW: PointsLimit = { variant: "points", count: Infinity, aggregation: "min_max" };
 const TILED: PointsLimit = { variant: "points", count: 100, aggregation: "min_max" };
 
-// Returns the buffer the stream writes the channel's samples into.
 const leadingOf = (store: Store, key: channel.Key): Series | null =>
   store.open(key)?.buffer?.leadingBuffer ?? null;
 
