@@ -50,7 +50,7 @@ describe("Core.TokenKeeper", () => {
     expect(calls[0]).toMatchObject({
       cmd: "keychain_set",
       args: {
-        account: "http://localhost:9090",
+        account: "http://synnax@localhost:9090",
         secret: expect.stringMatching(/^sys_/),
       },
     });
@@ -62,7 +62,7 @@ describe("Core.TokenKeeper", () => {
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]).toEqual({
       cmd: "keychain_delete",
-      args: { account: "http://localhost:9090" },
+      args: { account: "http://synnax@localhost:9090" },
     });
   });
 
