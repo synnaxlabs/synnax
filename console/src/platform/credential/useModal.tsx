@@ -97,7 +97,7 @@ const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
   const client = Synnax.use();
   // The Core checks permissions only for another subject's keys.
   const own = client?.auth.subject?.key === subject.key;
-  const canCreate = Access.useCreateGranted(subject) || own;
+  const canCreate = Access.useUpdateGranted(subject) || own;
   const canDelete = Access.useDeleteGranted(subject) || own;
   const query = { subject };
   const invalidateKeys = Credential.useInvalidateKeys();
