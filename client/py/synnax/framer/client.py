@@ -41,6 +41,7 @@ from synnax.telem import (
     TimeSpan,
 )
 from x.control import Authority, CrudeAuthority
+from x.exceptions import Registry
 from x.fs import FilePath
 
 # A str is a Sequence[str], so a list or tuple of names keeps the overloads disjoint.
@@ -66,6 +67,7 @@ class Client:
     _unary_client: UnaryClient
     _channels: Retriever
     _deleter: Deleter
+    _registry: Registry
     _reader: Reader
     instrumentation: Instrumentation
 
@@ -77,6 +79,7 @@ class Client:
         file_transport: FileTransport,
         retriever: Retriever,
         deleter: Deleter,
+        registry: Registry,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._stream_client = stream_client
@@ -84,7 +87,8 @@ class Client:
         self._unary_client = unary_client
         self._channels = retriever
         self._deleter = deleter
-        self._reader = Reader(retriever, file_transport)
+        self._registry = registry
+        self._reader = Reader(retriever, file_transport, registry)
         self.instrumentation = instrumentation
 
     def open_writer(
@@ -150,6 +154,7 @@ class Client:
             start=start,
             adapter=adapter,
             client=self._stream_client,
+            registry=self._registry,
             authorities=authorities,
             name=name,
             group=group,
