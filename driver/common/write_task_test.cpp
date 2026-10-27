@@ -14,10 +14,10 @@
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/write_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
-class MockSink final : public Sink, public pipeline::mock::Sink {
+class MockSink final : public Sink, public pipeline::testutil::Sink {
 public:
     /// @brief number of times start() was called.
     size_t start_count = 0;
@@ -32,7 +32,7 @@ public:
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
     ):
         common::Sink(state_rate, outputs, data_saving_disabled),
-        driver::pipeline::mock::Sink(writes, errors) {}
+        driver::pipeline::testutil::Sink(writes, errors) {}
 
     x::errors::Error start() override {
         this->start_count++;
@@ -45,7 +45,7 @@ public:
     }
 
     x::errors::Error write(x::telem::Frame &frame) override {
-        auto err = pipeline::mock::Sink::write(frame);
+        auto err = pipeline::testutil::Sink::write(frame);
         this->set_state(frame);
         return err;
     }
@@ -83,10 +83,10 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     fr.emplace(1, x::telem::Series(std::vector<uint8_t>{10, 20, 30}));
     ASSERT_NIL(sink->write(fr));
 
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     cmd_reads->push_back(std::move(fr));
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
@@ -152,11 +152,11 @@ TEST(TestCommonWriteTask, OutputWithoutStateChannelReportsNoState) {
 
 /// @brief it should process command frames and write state updates.
 TEST(TestCommonWriteTask, testBasicOperation) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
     cmd_reads->emplace_back(1, s.deep_copy());
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
@@ -267,9 +267,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 /// @brief a start on a running task should ack the command without reopening
 /// the sink.
 TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
@@ -320,9 +320,9 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
 /// Stopping it must still release the sink, and must release it exactly once, so a
 /// sink that claims hardware on start does not hold it while the task is stopped.
 TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
