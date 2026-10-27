@@ -163,11 +163,13 @@ class Client:
         if key is not None:
             keys = [key]
         if parent is not None:
-            keys = [
-                Key(child.key)
-                for child in self._ontology.retrieve_children(parent)
-                if child.type == ONTOLOGY_TYPE.type and child.key is not None
-            ]
+            keys = []
+            for child in self._ontology.retrieve_children(parent):
+                if child.type != ONTOLOGY_TYPE.type:
+                    continue
+                if child.key is None:
+                    raise ValueError(f"panel child of {parent} has no key")
+                keys.append(Key(child.key))
             if len(keys) == 0:
                 return []
         res = self._client.send(
