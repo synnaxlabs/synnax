@@ -14,6 +14,8 @@
 mod install;
 #[cfg(feature = "desktop")]
 mod supervisor;
+#[cfg(target_os = "linux")]
+mod webgl;
 
 #[cfg(target_os = "macos")]
 use device_query::{DeviceEvents, DeviceEventsHandler, DeviceQuery, DeviceState, MouseState};
@@ -48,6 +50,8 @@ fn main() {
         supervisor::commands::supervisor_export_diagnostics,
         install::install_info,
     ]);
+    #[cfg(target_os = "linux")]
+    let builder = builder.plugin(webgl::plugin());
     builder
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
