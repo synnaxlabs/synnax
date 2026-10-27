@@ -105,6 +105,10 @@ class Host:
     def mark(self, pr: int) -> Path:
         return self.sites / f"pr-{pr}.human"
 
+    def human(self, pr: int) -> bool:
+        path = self.mark(pr)
+        return path.exists() and path.read_text().split()[1] == "human"
+
     def site(self, pr: int) -> Path:
         return self.sites / f"pr-{pr}.caddy"
 
@@ -200,7 +204,7 @@ class TestCap:
     ) -> None:
         host.ready()
         host.containers((12, 100), (13, 200))
-        host.mark(12).touch()
+        host.mark(12).write_text("50 human\n")
         result = host.run("up", "14", "image")
         assert result.returncode == 0, result.stderr
         assert self.evicted(result) == ["evicted 13"]
@@ -218,14 +222,14 @@ class TestCap:
 
     def test_should_mark_a_human_review(self, host: Host) -> None:
         host.ready()
-        assert host.run("up", "12", "image", "human").returncode == 0
-        assert host.mark(12).exists()
+        assert host.run("up", "12", "image", "human", "100").returncode == 0
+        assert host.human(12)
 
-    def test_should_clear_the_human_review_mark(self, host: Host) -> None:
+    def test_should_keep_a_newer_mark(self, host: Host) -> None:
         host.ready()
-        host.mark(12).touch()
-        assert host.run("up", "12", "image").returncode == 0
-        assert not host.mark(12).exists()
+        host.mark(12).write_text("200 human\n")
+        assert host.run("up", "12", "image", "none", "100").returncode == 0
+        assert host.human(12)
 
     def test_should_remove_nothing_when_the_pull_fails(self, host: Host) -> None:
         (host.path / "pull_fails").touch()
@@ -261,16 +265,26 @@ class TestMark:
     """Tests for marking a pull request that waits on a human review."""
 
     def test_should_mark_a_human_review(self, host: Host) -> None:
-        assert host.run("mark", "12", "human").returncode == 0
-        assert host.mark(12).exists()
+        assert host.run("mark", "12", "human", "100").returncode == 0
+        assert host.human(12)
 
-    def test_should_clear_the_human_review_mark(self, host: Host) -> None:
-        host.mark(12).touch()
-        assert host.run("mark", "12", "none").returncode == 0
-        assert not host.mark(12).exists()
+    def test_should_clear_the_mark_with_a_newer_one(self, host: Host) -> None:
+        host.mark(12).write_text("100 human\n")
+        assert host.run("mark", "12", "none", "200").returncode == 0
+        assert not host.human(12)
 
-    def test_should_reject_an_unknown_mark(self, host: Host) -> None:
-        result = host.run("mark", "12", "bot")
+    def test_should_ignore_an_older_mark(self, host: Host) -> None:
+        host.mark(12).write_text("200 human\n")
+        assert host.run("mark", "12", "none", "100").returncode == 0
+        assert host.human(12)
+
+    @pytest.mark.parametrize(
+        "args", [("12", "bot", "100"), ("12", "human", ""), ("12", "human", "now")]
+    )
+    def test_should_reject_an_invalid_mark(
+        self, host: Host, args: tuple[str, ...]
+    ) -> None:
+        result = host.run("mark", *args)
         assert result.returncode == 1
         assert "invalid review mark" in result.stderr
 
@@ -280,7 +294,7 @@ class TestDown:
 
     def test_should_remove_the_core_route_and_mark(self, host: Host) -> None:
         host.site(12).write_text("route")
-        host.mark(12).touch()
+        host.mark(12).write_text("100 human\n")
         result = host.run("down", "12")
         assert result.returncode == 0, result.stderr
         assert host.docker() == [
@@ -325,7 +339,7 @@ class TestArguments:
         assert host.docker() == []
 
     def test_should_reject_an_invalid_review_mark(self, host: Host) -> None:
-        result = host.run("up", "12", "image", "bot")
+        result = host.run("up", "12", "image", "bot", "100")
         assert result.returncode == 1
         assert "invalid review mark" in result.stderr
         assert host.docker() == []

@@ -108,6 +108,12 @@ jobs:
             CONSOLE_ENABLED=true
             GIT_COMMIT=${{ github.event.pull_request.head.sha }}
 
+      - name: Read the review mark
+        id: mark
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "mark=$(.github/scripts/review_mark.sh)" >> "$GITHUB_OUTPUT"
+
       - name: Deploy the preview
         id: deploy
         shell: bash
@@ -115,8 +121,7 @@ jobs:
           # A preview waiting on a human review is evicted after the others.
           COMMAND: >-
             /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }} ${{
-            contains(github.event.pull_request.labels.*.name, 'review/human') && 'human'
-            || '' }}
+            steps.mark.outputs.mark }}
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
         # Records the removed previews even when the deploy fails after removing them.
         run: |
@@ -194,6 +199,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v7
 
@@ -202,11 +208,16 @@ jobs:
           role-to-assume: ${{ vars.PREVIEW_ROLE_ARN }}
           aws-region: ${{ vars.PREVIEW_REGION }}
 
+      - name: Read the review mark
+        id: mark
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "mark=$(.github/scripts/review_mark.sh)" >> "$GITHUB_OUTPUT"
+
       - name: Mark the preview
         env:
           COMMAND: >-
-            /usr/local/bin/preview mark ${{ env.PR }} ${{ github.event.action ==
-            'labeled' && 'human' || 'none' }}
+            /usr/local/bin/preview mark ${{ env.PR }} ${{ steps.mark.outputs.mark }}
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
         run: .github/scripts/run_preview_command.sh
 

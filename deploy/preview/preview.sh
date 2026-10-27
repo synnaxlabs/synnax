@@ -11,14 +11,16 @@
 
 # Manages the preview Cores on this host.
 #
-#   preview up <pr> <image> [human]
-#                             Starts or replaces the Core for a pull request. "human"
-#                             marks a pull request that waits on a human review. At
-#                             the cap, it first removes a preview and prints "evicted
-#                             <pr>": unmarked ones before marked ones, and within each,
-#                             the one deployed or viewed longest ago.
-#   preview mark <pr> human|none
-#                             Sets whether a pull request waits on a human review.
+#   preview up <pr> <image> [human|none <time>]
+#                             Starts or replaces the Core for a pull request, and
+#                             marks it as mark does. At the cap, it first removes a
+#                             preview and prints "evicted <pr>": unmarked ones before
+#                             marked ones, and within each, the one deployed or viewed
+#                             longest ago.
+#   preview mark <pr> human|none <time>
+#                             Sets whether a pull request waits on a human review, as
+#                             its labels showed at <time> (Unix seconds). A mark older
+#                             than the saved one changes nothing.
 #   preview down <pr>         Removes the Core for a pull request.
 #   preview sweep             Removes every Core deployed more than the TTL ago.
 
@@ -53,7 +55,9 @@ eviction_order() {
     previews | while read -r pr deployed; do
         if [[ $pr == "$1" ]]; then continue; fi
         human=0
-        if [[ -f $(mark_file "$pr") ]]; then human=1; fi
+        if [[ $(cut -d' ' -f2 "$(mark_file "$pr")" 2> /dev/null) == human ]]; then
+            human=1
+        fi
         active=$deployed
         log="$PREVIEW_LOGS/pr-$pr.log"
         if [[ -f $log ]] && (($(date -r "$log" +%s) > active)); then
@@ -71,21 +75,21 @@ check_pr() {
 }
 
 mark() {
+    local file saved
     check_pr "$1"
-    case "$2" in
-        human) touch "$(mark_file "$1")" ;;
-        none) rm -f "$(mark_file "$1")" ;;
-        *)
-            echo "invalid review mark: $2" >&2
-            exit 1
-            ;;
-    esac
+    if [[ ! $2 =~ ^(human|none)$ || ! $3 =~ ^[0-9]+$ ]]; then
+        echo "invalid review mark: $2 $3" >&2
+        exit 1
+    fi
+    file=$(mark_file "$1")
+    saved=$(cut -d' ' -f1 "$file" 2> /dev/null || echo 0)
+    if (($3 >= saved)); then echo "$3 $2" > "$file"; fi
 }
 
 up() {
     local pr=$1 image=$2 name
     check_pr "$pr"
-    mark "$pr" "${3:-none}"
+    mark "$pr" "${3:-none}" "${4:-0}"
     name=$(container "$pr")
     # An unlicensed Core rejects every request but login. The license and the image come
     # first, so a failure to get either leaves every running Core in place.
@@ -145,13 +149,13 @@ sweep() {
 }
 
 case "${1:-}" in
-    up) up "$2" "$3" "${4:-}" ;;
-    mark) mark "$2" "${3:-}" ;;
+    up) up "$2" "$3" "${4:-}" "${5:-}" ;;
+    mark) mark "$2" "${3:-}" "${4:-}" ;;
     down) down "$2" ;;
     sweep) sweep ;;
     *)
-        echo "usage: preview up <pr> <image> [human] | mark <pr> human|none" \
-            "| down <pr> | sweep" >&2
+        echo "usage: preview up <pr> <image> [human|none <time>]" \
+            "| mark <pr> human|none <time> | down <pr> | sweep" >&2
         exit 2
         ;;
 esac
