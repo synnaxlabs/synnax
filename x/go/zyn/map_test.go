@@ -75,7 +75,7 @@ var _ = Describe("Map", func() {
 		It("Should fail for a non-map", func() {
 			Expect(
 				zyn.Map(zyn.String(), zyn.String()).Validate("not a map"),
-			).To(HaveOccurred())
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		It("Should succeed for optional nil", func() {
 			Expect(

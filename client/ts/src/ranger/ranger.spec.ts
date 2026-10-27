@@ -28,7 +28,13 @@ import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
-import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  spyOnSend,
+  TEST_CORE_ADDRESS,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -1083,7 +1089,7 @@ describe("write-through", () => {
     const cache = new query.Cache({ openStreamer: null, onError: () => {} });
     const ontologyClient = new ontology.Client({ unary, cache });
     const labels = new label.Client({ unary, cache, ontology: ontologyClient });
-    const coreURL = new url.URL({ host: "localhost", port: 9090 });
+    const coreURL = new url.URL(TEST_CORE_ADDRESS);
     const frameClient = new framer.Client({
       stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
       unary,

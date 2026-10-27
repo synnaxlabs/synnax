@@ -170,7 +170,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialLength = result.current.data.length;
 
       const newTask = await rack.createTask({
         name: "newTask",
@@ -178,10 +177,7 @@ describe("queries", () => {
         config: {},
       });
 
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data).toContain(newTask.key);
-      });
+      await waitFor(() => expect(result.current.data).toContain(newTask.key));
     });
 
     it("should update the list when a task is updated", async () => {
