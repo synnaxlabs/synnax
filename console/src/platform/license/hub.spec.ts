@@ -126,7 +126,7 @@ describe("hub", () => {
       expect(vi.mocked(fetch)).toHaveBeenCalledWith(License.HANDOFF_URL, {
         method: "POST",
         headers: { authorization: "Bearer abc" },
-        signal: undefined,
+        signal: expect.any(AbortSignal),
       });
     });
 

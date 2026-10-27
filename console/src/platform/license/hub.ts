@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { errors, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { HANDOFF_URL, RENEW_URL, UNLINK_URL } from "@/platform/license/urls";
@@ -19,6 +19,7 @@ export type RenewResult =
 const UNLINKED_CODE = "unlinked";
 
 const UNLINK_TIMEOUT = TimeSpan.seconds(5);
+const RECEIVE_TIMEOUT = TimeSpan.seconds(10);
 
 const refusalZ = z.object({ error: z.string(), code: z.string().optional() });
 const keyZ = z.object({ key: z.string() });
@@ -80,17 +81,33 @@ export const unlink = async (secret: string): Promise<void> => {
  * out once.
  * @returns the key, or null while the hub holds none for the code.
  * @throws {Error} if the hub refuses.
- * @throws {TypeError} if the hub cannot be reached.
+ * @throws {TypeError} if the hub cannot be reached, or does not answer within ten
+ * seconds.
  */
 export const receive = async (
   code: string,
   signal?: AbortSignal,
 ): Promise<string | null> => {
-  const res = await fetch(HANDOFF_URL, {
-    method: "POST",
-    headers: { authorization: `Bearer ${code}` },
-    signal,
-  });
+  // AbortSignal.any would merge the two signals, but the Console's targets lack it.
+  const request = new AbortController();
+  const abort = (): void => request.abort();
+  signal?.addEventListener("abort", abort);
+  const timer = setTimeout(abort, RECEIVE_TIMEOUT.milliseconds);
+  let res: Response;
+  try {
+    res = await fetch(HANDOFF_URL, {
+      method: "POST",
+      headers: { authorization: `Bearer ${code}` },
+      signal: request.signal,
+    });
+  } catch (e) {
+    if (request.signal.aborted && signal?.aborted !== true)
+      throw new TypeError("The hub did not answer in time", { cause: e });
+    throw errors.fromUnknown(e);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
+  }
   if (res.status === 204) return null;
   if (res.ok) return keyZ.parse(await res.json()).key;
   const { message } = await readRefusal(res);
