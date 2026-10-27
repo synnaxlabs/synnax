@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { type bounds, box, xy } from "@synnaxlabs/x";
+import { type bounds, box, type destructor, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -49,6 +49,7 @@ interface InternalState {
   instrumentation: Instrumentation;
   handleError: status.ErrorHandler;
   renderCtx: render.Context;
+  stopListeningRestore?: destructor.Destructor;
 }
 
 type Children = XAxis | tooltip.Tooltip | measure.Measure;
@@ -78,11 +79,16 @@ export class LinePlot
       if (!this.state.visible) return;
       this.requestRender("low", r);
     });
+    this.internal.stopListeningRestore?.();
+    this.internal.stopListeningRestore = this.internal.renderCtx.onRestore(() => {
+      if (this.state.visible) this.requestRender("high", "layout");
+    });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender("high", "layout");
   }
 
   afterDelete(ctx: aether.Context): void {
+    this.internal.stopListeningRestore?.();
     this.internal.renderCtx = render.Context.use(ctx);
     this.requestRender("high", "layout");
   }

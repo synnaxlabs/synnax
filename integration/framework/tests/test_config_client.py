@@ -121,7 +121,7 @@ class TestConfigClient:
         _, defs = load(cases_dir, sequence)
         timeouts = {str(d): d.timeout for d in defs}
         assert timeouts == {
-            "config_client_spec/plain": config_client.DEFAULT_TIMEOUT,
+            "config_client_spec/plain": config_client._DEFAULT_TIMEOUT,
             "config_client_spec/slow (slow_1)": 12.5,
             "config_client_spec/slow (slow_2)": 12.5,
         }

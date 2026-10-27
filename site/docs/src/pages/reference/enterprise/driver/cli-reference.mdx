@@ -1,0 +1,278 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Driver CLI reference"
+description: "The commands and flags of the synnax-driver program."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The service commands (`install`, `uninstall`, `start` without `--standalone`, `stop`,
+`restart`, `status`, and `logs`) work only on Linux and NI Linux Real-Time. On Linux,
+run them with `sudo`. On NI Linux Real-Time, log in as `admin`, which is root, and leave
+out `sudo` in the commands below. On Windows and macOS, they fail with
+`running the driver as a daemon is not supported`. There, run the Driver with
+`synnax-driver start --standalone`, and stop it with Ctrl+C.
+
+Each command accepts `--debug` for debug logs and `--no-color` for logs with no color.
+
+<Divider.Divider x />
+
+## install
+
+Installs the Driver as a service.
+
+```bash
+sudo synnax-driver install
+```
+
+- **Linux** -> creates the `synnax` system user, the environment file
+  `/etc/synnax/driver.env`, and the systemd service `synnax-driver`. The service runs as
+  the `synnax` user. `install` does not start the service, and does not set it to start
+  with the computer. To do that, run `sudo systemctl enable synnax-driver`. The service
+  can use real-time priority and lock memory, and `install` writes the udev rule
+  `/etc/udev/rules.d/99-synnax-driver-latency.rules`, so that
+  [Arc automations at the High level](/reference/control/arc/timing#performance-levels)
+  can keep CPU cores awake.
+- **NI Linux Real-Time** -> creates the service `/etc/init.d/synnax-driver`, which runs
+  as root and starts with the controller. `install` does not start it, so run
+  `synnax-driver start`. The Driver writes its logs to `/var/log/synnax-driver.log`.
+
+In both cases, `install` copies the binary to `/usr/local/bin`. When the service already
+exists, `install` stops it and removes it first. On Linux, run `systemctl enable` and
+`start` again after you install again.
+
+<Divider.Divider x />
+
+## login
+
+Asks for the address of the Core, the username, and the password, and saves them in the
+[state file](/reference/enterprise/driver/configuration#state-file).
+
+```bash
+sudo synnax-driver login
+```
+
+```
+Host [localhost]: 10.0.0.45
+Port [9090]:
+Secure (Y/N) [N]:
+Username: driver
+Password:
+```
+
+On Linux, run `login` with `sudo`, and on NI Linux Real-Time as `admin`, because it
+reads the
+[environment file](/reference/enterprise/driver/configuration#environment-file). Restart
+a running Driver to use the new login.
+
+| Flag           | Default                                                                 | Description                 |
+| -------------- | ----------------------------------------------------------------------- | --------------------------- |
+| `--state-file` | see [State file](/reference/enterprise/driver/configuration#state-file) | The path of the state file. |
+
+<Divider.Divider x />
+
+## start
+
+Starts the service:
+
+```bash
+sudo synnax-driver start
+```
+
+With `--standalone`, runs the Driver in the terminal instead:
+
+```bash
+synnax-driver start --standalone
+```
+
+The flags below apply only with `--standalone`. `--standalone`, `--disable-sig-stop`,
+and `--disable-stdin-stop` take no value: they turn on when they are present. The other
+flags take a value, as `--port 9091` or `--port=9091`. For a boolean value, use `true`
+or `false`.
+
+<Field.List>
+
+<Field.Item name="--standalone" short="-s" default="false">
+  Run the Driver in the terminal, not as a service.
+</Field.Item>
+
+<Field.Item name="--disable-sig-stop" default="false">
+  Keep the Driver running when it gets SIGINT or SIGTERM.
+</Field.Item>
+
+<Field.Item name="--disable-stdin-stop" default="false">
+  Do not stop the Driver when you type `STOP` in the terminal. Use this flag when the
+  Driver runs with no terminal.
+</Field.Item>
+
+<Field.Item name="--config">
+  The path of a [configuration
+  file](/reference/enterprise/driver/configuration#configuration-file).
+</Field.Item>
+
+<Field.Item name="--state-file">
+  The path of the state file. The default depends on the operating system. See [State
+  file](/reference/enterprise/driver/configuration#state-file).
+</Field.Item>
+
+<Field.Item name="--host" default="localhost">
+  The host of the Core.
+</Field.Item>
+
+<Field.Item name="--port" default="9090">
+  The port of the Core.
+</Field.Item>
+
+<Field.Item name="--username" default="synnax">
+  The username of the Driver user.
+</Field.Item>
+
+<Field.Item name="--password" default="seldon">
+  The password of the Driver user.
+</Field.Item>
+
+<Field.Item name="--secure" default="false">
+  Connect to the Core over TLS. Takes a value: `--secure true`.
+</Field.Item>
+
+<Field.Item name="--correct-skew" default="true">
+  Keep the timestamps of hardware-timed NI and LabJack reads in step with the clock of
+  the computer. Takes a value.
+</Field.Item>
+
+<Field.Item name="--op-timeout" default="60">
+  The number of seconds after which a task operation that has not finished gives the
+  task the error `operation timed out`.
+</Field.Item>
+
+<Field.Item name="--poll-interval" default="1">
+  The number of seconds between two checks for task operations that have not finished.
+</Field.Item>
+
+<Field.Item name="--shutdown-timeout" default="30">
+  The number of seconds that the Driver waits for task operations when it stops.
+</Field.Item>
+
+<Field.Item name="--worker-count" default="4">
+  The number of threads that run task operations, from 1 to 64.
+</Field.Item>
+
+<Field.Item name="--rack-key" default="0">
+  The key that the Core knows this Driver by. With 0, the Driver registers as a new
+  Driver. Set `--cluster-key` too.
+</Field.Item>
+
+<Field.Item name="--cluster-key" default="00000000-0000-0000-0000-000000000000">
+  The key of the Core that issued `--rack-key`. When it is not the key of the Core, the
+  Driver registers as a new Driver.
+</Field.Item>
+
+<Field.Item name="--enable-integrations">
+  Integrations to add, separated by commas: `arc`, `ethercat`, `http`, `labjack`,
+  `modbus`, `ni`, or `opc`.
+</Field.Item>
+
+<Field.Item name="--disable-integrations">
+  Integrations to remove, separated by commas. For example, `--disable-integrations
+  ni,labjack`.
+</Field.Item>
+
+</Field.List>
+
+The service ignores these flags. To configure the service, see
+[Configure a standalone Driver](/reference/enterprise/driver/configuration).
+
+<Divider.Divider x />
+
+## stop
+
+Stops the service.
+
+```bash
+sudo synnax-driver stop
+```
+
+<Divider.Divider x />
+
+## restart
+
+Stops and starts the service. Run it after `login`, or after you edit the environment
+file.
+
+```bash
+sudo synnax-driver restart
+```
+
+<Divider.Divider x />
+
+## status
+
+Shows whether the service runs.
+
+```bash
+synnax-driver status
+```
+
+- **Linux** -> prints the output of `systemctl status synnax-driver`. When the service
+  does not run, the command fails with `Service is not running`.
+- **NI Linux Real-Time** -> prints `Synnax Driver is running (PID: 28191)`, or
+  `Synnax Driver is not running`.
+
+<Divider.Divider x />
+
+## logs
+
+Shows the logs of the service, and the new logs as they come, until you press Ctrl+C.
+
+```bash
+synnax-driver logs
+```
+
+On Linux, the command runs `journalctl -fu synnax-driver`. On NI Linux Real-Time, it
+shows `/var/log/synnax-driver.log`.
+
+<Divider.Divider x />
+
+## clear
+
+Deletes the saved login and the rack key from the state file. On the next start, the
+Driver uses its other sources, or the defaults, and shows in the devices toolbar as a
+new Driver. The old entry stays on the Core.
+
+```bash
+sudo synnax-driver clear
+```
+
+| Flag           | Default                                                                 | Description                 |
+| -------------- | ----------------------------------------------------------------------- | --------------------------- |
+| `--state-file` | see [State file](/reference/enterprise/driver/configuration#state-file) | The path of the state file. |
+
+<Divider.Divider x />
+
+## uninstall
+
+Removes the service.
+
+```bash
+sudo synnax-driver uninstall
+```
+
+On Linux, `uninstall` stops the service first and removes the udev rule. On NI Linux
+Real-Time, it does not stop the service, so run `synnax-driver stop` before `uninstall`.
+The binary, the `synnax` user, the environment file, and the state file stay on the
+computer.
+
+On Windows and macOS, there is no service. Delete the binary instead.
+
+<Divider.Divider x />
+
+## version
+
+Prints the version of the Driver.
+
+```bash
+synnax-driver version
+```

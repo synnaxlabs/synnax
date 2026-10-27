@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -91,7 +92,9 @@ var _ = Describe("Object", func() {
 		})
 		It("Should return nil if the value is not a valid object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
-			Expect(schema.Validate("not an object")).To(HaveOccurred())
+			Expect(
+				schema.Validate("not an object"),
+			).To(MatchError(validate.ErrInvalidType))
 		})
 		It("Should error when a required field is missing", func() {
 			schema := zyn.Object(map[string]zyn.Schema{

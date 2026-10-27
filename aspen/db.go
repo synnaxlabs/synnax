@@ -63,9 +63,6 @@ type (
 	Node          = node.Node
 	NodeKey       = node.Key
 	NodeChange    = node.Change
-	Address       = address.Address
-	NodeState     = node.State
-	ClusterState  = cluster.State
 	ClusterChange = cluster.Change
 )
 
@@ -79,9 +76,6 @@ const (
 )
 
 var ErrNodeNotFound = cluster.ErrNodeNotFound
-
-// ObservableOption configures an observable returned by DB.NewObservable.
-type ObservableOption = kv.ObservableOption
 
 // IgnoreHostLeaseholder, when passed to DB.NewObservable, returns an
 // observable that filters out TxRequests whose Leaseholder is the host node —

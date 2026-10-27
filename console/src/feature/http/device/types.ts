@@ -187,7 +187,7 @@ const fillValidateResponse = (v: unknown): unknown =>
     ? { ...v, validateResponse: "response" in v && v.response != null }
     : v;
 
-export const ZERO_HEALTH_CHECK = {
+const ZERO_HEALTH_CHECK = {
   method: "GET",
   path: "",
   validateResponse: false,

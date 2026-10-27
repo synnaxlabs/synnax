@@ -1,0 +1,124 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Start a sequence from a schematic"
+description:
+  "Add a schematic button that starts an Arc sequence, and show the active stage."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An operator starts a sequence with a button on a schematic. The button writes `1` to a
+channel, and the sequence starts when the channel gets the value. A state indicator on
+the same schematic shows which stage runs.
+
+Before you start, you need:
+
+- An Arc automation with a sequence, such as the one in
+  [write a test sequence](/reference/control/arc/test-sequences).
+- A schematic with the valves that the sequence controls. See
+  [control hardware from a schematic](/reference/control/manual).
+
+<Divider.Divider x />
+
+## Create the channels
+
+[Create](/reference/channels/create) two channels:
+
+- **`start_cmd`** -> A virtual `uint8` channel. The button writes to it. Only the live
+  value matters, so Synnax does not need to store it.
+- **`press_stage`** -> A `uint8` channel with an index. The sequence writes a number for
+  each stage to it. Because Synnax stores it, the schematic shows the last stage when
+  you open it.
+
+<Divider.Divider x />
+
+## Add a start button
+
+1. Turn on editing for the schematic, and add a **Button** symbol.
+2. In the **Style** tab of the symbol, set **Label** to `Start`.
+3. In the **Control** tab, under **Command**, set **Channel** to `start_cmd`. Leave
+   **Mode** at **Fire**, which writes `1` each time you click.
+
+<Divider.Divider x />
+
+## Start the sequence and write the stage
+
+1. Open the Arc automation, and change the code so that each stage writes its number to
+   `press_stage`, and `start_cmd` starts the sequence:
+
+   ```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd, press_stage" bodies="press, pressurize, vent"
+   import time
+
+   sequence press {
+       stage pressurize {
+           1 -> press_stage
+           1 -> press_vlv_cmd
+           tank_pt > 300 => next
+       }
+       2 -> press_stage
+       0 -> press_vlv_cmd
+       time.wait{duration=10s}
+       stage vent {
+           3 -> press_stage
+           1 -> vent_vlv_cmd
+           tank_pt < 5 => next
+       }
+       0 -> vent_vlv_cmd
+       0 -> press_stage
+   }
+
+   start_cmd == 1 => press
+   ```
+
+2. Click **Start** in the controls bar. If the automation already runs, click
+   **Redeploy**.
+
+`start_cmd == 1 => press` starts the sequence on each new `1`. A click while the
+sequence runs does nothing. After the last step, the sequence stops, and the next click
+starts it again. See the [execution model](/reference/control/arc/execution-model).
+
+If your sequence has an abort stage, write a number for it too, such as
+`4 -> press_stage`.
+
+<Divider.Divider x />
+
+## Show the stage on the schematic
+
+1. Add a **State indicator** symbol to the schematic.
+2. In the **Telemetry** tab, under **State**, set **Channel** to `press_stage`. Under
+   **Staleness**, set **Timeout** to a value longer than your longest stage, such as
+   `60` seconds. The indicator changes the color of its label when no new value arrives
+   for that time.
+3. In the **Options** tab, add an option for each stage, with a name and a value:
+
+   | Name         | Value |
+   | ------------ | ----- |
+   | Idle         | 0     |
+   | Pressurizing | 1     |
+   | Holding      | 2     |
+   | Venting      | 3     |
+
+The indicator shows the name of the option whose value equals the channel value. It
+shows **Unknown** for a value with no option.
+
+<Divider.Divider x />
+
+## Start the test
+
+Turn off editing, then click **Start** on the schematic. The schematic takes control,
+then writes to `start_cmd`. The indicator shows **Pressurizing**, and the press valve
+opens.
+
+<Video id="control/arc/start-from-schematic/start-button" />
+
+The schematic writes at authority 1 by default, and the automation at 255, so the
+automation keeps control of the valves. If you give the automation a lower authority
+than the schematic, a click on the button also takes control of the valves. The
+indicator then shows **Pressurizing**, but Synnax drops the commands from the sequence,
+and the valves do not move. See [control authority](/reference/control/authority).
+
+To add an abort button, repeat these steps with an `abort_cmd` channel. See
+[write a test sequence](/reference/control/arc/test-sequences).

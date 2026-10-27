@@ -1,69 +1,180 @@
 ---
 title: "Get started"
+heading: "Synnax documentation"
 description:
-  "Synnax acquires, stores, visualizes, and acts on hardware sensor data in real time.
-  Start here to install it and learn its parts."
+  "Connect hardware, operate and automate physical systems, and process live and
+  recorded data."
 layout: "@/layouts/Reference.astro"
 showBreadcrumb: false
+showOnThisPage: false
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import Bento from "@/components/bento/Bento.astro";
-import BentoItem from "@/components/bento/BentoItem.astro";
+import Card from "@/components/card/Card.astro";
+import Grid from "@/components/card/Grid.astro";
+import Choice from "@/components/landing/Choice.astro";
+import Hero from "@/components/landing/Hero.astro";
+import Use from "@/components/landing/Use.astro";
+import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Synnax is a sensor data platform that handles everything from collecting measurements
-off your hardware to storing, visualizing, and acting on them in real time. Connect your
-devices, build dashboards, and write control sequences, all from a single tool.
+<Hero>
+<Fragment slot="media">
+  <Image
+    id="console/ui-overview/tour/00a1e81cb06a/mosaic"
+    extension="webp"
+    loading="eager"
+    alt="The Synnax Console with a schematic, a line plot, a table, a log, and an Arc sequence open"
+  />
+</Fragment>
 
-Whether you're running a test stand, commissioning a new system, or automating a
-production line, [get started by installing Synnax](/reference/installation).
+Synnax is a unified industrial control and operations platform. It combines data
+acquisition, a time-series database, live visualization, manual and automated control,
+and data processing in one system.
+
+<Fragment slot="uses">
+  <Use
+    title="Propulsion testing"
+    description="Run rocket engine and component test stands."
+  />
+  <Use
+    title="Fusion and energy"
+    description="Operate experiments and the systems that support them."
+  />
+  <Use
+    title="Vehicle testing"
+    description="Test automotive and aerospace components."
+  />
+  <Use
+    title="Production control"
+    description="Monitor and control production equipment."
+  />
+</Fragment>
+
+<Fragment slot="start">
+  <Choice
+    title="Synnax Desktop"
+    description="Free. Runs on your own macOS or Windows computer, with nothing to set up."
+    action="Download Synnax Desktop"
+    href="/reference/get-started/install-desktop"
+    primary
+  >
+    <Icon.Computer slot="icon" />
+    <Icon.Download slot="action-icon" />
+  </Choice>
+  <Choice
+    title="Synnax Enterprise"
+    description="For teams. Deploy a Core on your own servers, then connect users, Drivers, and scripts to it."
+    action="Set up Synnax Enterprise"
+    href="/reference/enterprise"
+  >
+    <Icon.Core slot="icon" />
+    <Icon.Core slot="action-icon" />
+  </Choice>
+</Fragment>
+</Hero>
 
 <Divider.Divider x />
 
-<Bento>
-  <BentoItem
-    href="/reference/installation"
-    title="Installation"
-    description="Install the Synnax Core and Console on your machine."
+## Common workflows
+
+<Grid columns={3}>
+  <Card
+    href="/reference/hardware"
+    title="Record data from a test stand"
+    description="Read sensors from NI, LabJack, Modbus, OPC UA, EtherCAT, and HTTP devices."
   >
-    <Icon.Bolt slot="graphic" />
-  </BentoItem>
-  <BentoItem
-    href="/reference/concepts/overview"
-    title="Concepts"
-    description="Learn how Synnax organizes data using channels, ranges, and projects."
+    <Icon.Hardware slot="icon" />
+  </Card>
+  <Card
+    href="/reference/control/manual"
+    title="Operate a system by hand"
+    description="Open valves and start pumps from a live schematic."
   >
-    <Icon.Reference slot="graphic" />
-  </BentoItem>
-  <BentoItem
-    href="/reference/driver/get-started"
-    title="Acquire data"
-    description="Connect EtherCAT, HTTP, LabJack, Modbus, NI, and OPC UA devices."
+    <Icon.Schematic slot="icon" />
+  </Card>
+  <Card
+    href="/reference/control/arc/test-sequences"
+    title="Automate a test sequence"
+    description="Write the stages, timing, and aborts of a test in Arc."
   >
-    <Icon.Device slot="graphic" />
-  </BentoItem>
-  <BentoItem
-    href="/reference/console/get-started"
-    title="Visualize and operate"
-    description="Build dashboards for real-time monitoring and manual hardware control."
+    <Icon.Arc slot="icon" />
+  </Card>
+  <Card
+    href="/reference/alarms"
+    title="Catch bad values"
+    description="Color values that pass a limit, and raise alarms with Arc."
   >
-    <Icon.Visualize slot="graphic" />
-  </BentoItem>
-  <BentoItem
-    href="/reference/control/get-started"
-    title="Automate control"
-    description="Write control sequences to automate hardware operations."
+    <Icon.Status slot="icon" />
+  </Card>
+  <Card
+    href="/reference/ranges"
+    title="Review and compare tests"
+    description="Mark each test run in time, then find, plot, and export its data."
   >
-    <Icon.Control slot="graphic" />
-  </BentoItem>
-  <BentoItem
-    href="/reference/client/quick-start"
-    title="Client libraries"
-    description="Read, write, and stream data with the Python or TypeScript client."
+    <Icon.Range slot="icon" />
+  </Card>
+  <Card
+    href="/reference/channels/calculated"
+    title="Process data as it arrives"
+    description="Compute new values from live and recorded channels."
   >
-    <Icon.Terminal slot="graphic" />
-  </BentoItem>
-</Bento>
+    <Icon.Calculation slot="icon" />
+  </Card>
+</Grid>
+
+<Divider.Divider x />
+
+## Start here
+
+<Grid columns={2}>
+  <Card
+    href="/reference/get-started/sample-project"
+    title="Explore the sample project"
+    description="Run a simulated tank pressurization, take control of a valve, and abort the test."
+  >
+    <Icon.Play slot="icon" />
+  </Card>
+  <Card
+    href="/reference/get-started/first-run"
+    title="Your first run"
+    description="Create channels, write data with Arc, plot it, and record a range."
+  >
+    <Icon.LinePlot slot="icon" />
+  </Card>
+  <Card
+    href="/reference/get-started/concepts"
+    title="Synnax concepts"
+    description="Learn the parts of Synnax and the words the docs use for them."
+  >
+    <Icon.Concepts slot="icon" />
+  </Card>
+  <Card
+    href="/reference/get-started/ui-overview"
+    title="Console UI overview"
+    description="Find your way around the toolbars, panels, and command palette."
+  >
+    <Icon.Panel slot="icon" />
+  </Card>
+</Grid>
+
+<Divider.Divider x />
+
+## How Synnax compares
+
+Teams often build a test or control system from separate tools: one to acquire data, one
+to store it, one for operator screens, and one for automation. Synnax does each job in
+one system. Plots, schematics, sequences, and alarms all use the same channels, so
+nothing needs to be wired between tools.
+
+| Job                        | Often done with                         | In Synnax                                     |
+| -------------------------- | --------------------------------------- | --------------------------------------------- |
+| Acquire data from hardware | LabVIEW, NI FlexLogger, vendor software | [Hardware tasks](/reference/hardware/tasks)   |
+| Store time-series data     | InfluxDB, TimescaleDB, a historian      | [Channels](/reference/channels)               |
+| Plot live and past data    | Grafana, LabVIEW, Excel                 | [Line plots](/reference/visualize/line-plots) |
+| Build operator screens     | Ignition, LabVIEW front panels          | [Schematics](/reference/visualize/schematics) |
+| Automate sequences         | LabVIEW, PLC logic, Python scripts      | [Arc](/reference/control/arc)                 |
+| Raise alarms               | SCADA alarm systems                     | [Alarms](/reference/alarms)                   |
+| Organize test runs         | Folders, file names, spreadsheets       | [Ranges](/reference/ranges)                   |

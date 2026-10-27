@@ -20,6 +20,7 @@ import {
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { getIconButton, uniqueName } from "@/testutil";
 
 const roles = new RoleClients(client);
@@ -39,12 +40,12 @@ describe("lineplot/toolbar/Toolbar", () => {
     fireEvent.click(await screen.findByText("Axes"));
     expect(await screen.findByText("Lower bound")).toBeDefined();
     expect(
-      Session.LinePlot.selectActiveToolbarTab({ state: store.getState(), key }),
+      documentIn(store.getState()[Session.LinePlot.SLICE_NAME], key)?.toolbar.activeTab,
     ).toBe("axes");
     fireEvent.click(screen.getByText("Data"));
     expect(await screen.findByText("Y2")).toBeDefined();
     expect(
-      Session.LinePlot.selectActiveToolbarTab({ state: store.getState(), key }),
+      documentIn(store.getState()[Session.LinePlot.SLICE_NAME], key)?.toolbar.activeTab,
     ).toBe("data");
   });
 

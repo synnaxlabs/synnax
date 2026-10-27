@@ -9,16 +9,14 @@
 
 from collections.abc import Callable
 
-from synnax.cli.console import Console, SugaredConsole
+from synnax.cli.console import Console, Sugared
 
 
 class Context:
-    console: SugaredConsole
+    console: Sugared
 
     def __init__(self, console: Console, prompt_enabled: bool = True):
-        self.console = SugaredConsole(
-            prompt=console, print=console, enabled=prompt_enabled
-        )
+        self.console = Sugared(prompt=console, print=console, enabled=prompt_enabled)
 
 
 class Flow[T]:

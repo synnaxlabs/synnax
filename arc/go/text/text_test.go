@@ -5175,16 +5175,20 @@ time.wait{duration=500ms} -> output`
 
 		Context("Single Node Flow Validation", func() {
 			DescribeTable("Should reject single-node flows at parse time",
-				func(source string) {
+				func(source, expectedError string) {
 					_, diagnostics := text.Parse(text.Text{Raw: source})
-					Expect(diagnostics).To(HaveOccurred())
+					Expect(diagnostics).To(MatchError(ContainSubstring(expectedError)))
 					Expect(diagnostics.Ok()).To(BeFalse())
 				},
 				Entry("single function node", `
 					func print{} () {}
 
-					print{}`),
-				Entry("single channel identifier", `sensor`),
+					print{}`, "mismatched input '<EOF>'"),
+				Entry(
+					"single channel identifier",
+					`sensor`,
+					"no viable alternative at input 'sensor'",
+				),
 			)
 		})
 
@@ -7612,9 +7616,8 @@ time.wait{duration=500ms} -> output`
 						root.Parent.AddChild(&s)
 					}
 					_, diag := text.Analyze(ctx, parsedText, root)
-					Expect(diag).To(HaveOccurred())
+					Expect(diag).To(MatchError(ContainSubstring(expectedError)))
 					Expect(diag.Ok()).To(BeFalse())
-					Expect(diag.String()).To(ContainSubstring(expectedError))
 				},
 				Entry("next in last stage",
 					`

@@ -120,10 +120,10 @@ If you have trouble, see the [uv docs](https://docs.astral.sh/uv/).
 ### 4.1 Install Python
 
 uv installs and manages the interpreter, so you do not need a separate Python installer.
-The workspace needs Python 3.12.
+The workspace uses the Python version in `.python-version`.
 
 ```powershell
-uv python install 3.12
+uv python install
 ```
 
 ### 4.2 Install dependencies

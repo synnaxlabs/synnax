@@ -11,7 +11,6 @@ import { type lineplot as client, panel, query } from "@synnaxlabs/client";
 import { LinePlot, Panel as PPanel, Synnax, type Viewport } from "@synnaxlabs/pluto";
 import { type lineplot } from "@synnaxlabs/pluto/ether";
 import { type record } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
 
 import {
   type ControlState,
@@ -28,7 +27,7 @@ import { Panel } from "@/session/panel";
 import { Select } from "@/session/select";
 import { Window } from "@/session/window";
 
-export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export interface KeyedSelectorParams extends record.Keyed<client.Key> {
   state: StoreState;
@@ -40,37 +39,20 @@ const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
   return LinePlot.Scope.bindHook(useSelector);
 };
 
-const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
-  const useGetter = (): ((args?: { key?: client.Key }) => R) => {
-    const store = useStore<StoreState>();
-    const scopeKey = LinePlot.Scope.useOptional();
-    return (args) =>
-      selector({
-        state: store.getState(),
-        key: LinePlot.Scope.require(args?.key ?? scopeKey),
-      });
-  };
-  return useGetter;
-};
-
 const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
 export const useSelect = createSelector(selectState);
-export const useGet = createGetter(selectState);
 
 const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
   selectState(params).toolbar;
 
-export const useSelectToolbar = createSelector(selectToolbar);
-
-export const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
+const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
   selectToolbar(params).activeTab;
 
 export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
-export const useGetActiveToolbarTab = createGetter(selectActiveToolbarTab);
 
-export const selectControlState = (params: KeyedSelectorParams): ControlState =>
+const selectControlState = (params: KeyedSelectorParams): ControlState =>
   selectState(params).control;
 
 export const useSelectControlState = createSelector(selectControlState);
@@ -79,7 +61,6 @@ const selectViewportMode = (params: KeyedSelectorParams): Viewport.Mode =>
   selectState(params).mode;
 
 export const useSelectViewportMode = createSelector(selectViewportMode);
-export const useGetViewportMode = createGetter(selectViewportMode);
 
 const selectHiddenLines = (params: KeyedSelectorParams): string[] =>
   selectState(params).hiddenLines;
@@ -96,7 +77,7 @@ const selectSelection = (params: KeyedSelectorParams): SelectionState =>
 
 export const useSelectSelection = createSelector(selectSelection);
 
-export const selectSelectedRules = (params: KeyedSelectorParams): string[] =>
+const selectSelectedRules = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedRules;
 
 export const useSelectSelectedRules = createSelector(selectSelectedRules);

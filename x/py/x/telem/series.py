@@ -33,7 +33,7 @@ from x.telem.telem import (
     TimeStamp,
 )
 
-VARIABLE_LENGTH_PREFIX_SIZE = 4
+_VARIABLE_LENGTH_PREFIX_SIZE = 4
 
 
 def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
@@ -51,7 +51,7 @@ def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
 
 def _encode_variable(parts: list[bytes]) -> bytes:
     return b"".join(
-        len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p for p in parts
+        len(p).to_bytes(_VARIABLE_LENGTH_PREFIX_SIZE, "little") + p for p in parts
     )
 
 
@@ -95,11 +95,11 @@ class Series(ArrayOperators, BaseModel):
             count = 0
             offset = 0
             d = self.data
-            while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+            while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
                 length = int.from_bytes(
-                    d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                    d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
                 )
-                offset += VARIABLE_LENGTH_PREFIX_SIZE + length
+                offset += _VARIABLE_LENGTH_PREFIX_SIZE + length
                 count += 1
             self._len_cache = count
         return self._len_cache
@@ -223,11 +223,11 @@ class Series(ArrayOperators, BaseModel):
         offset = 0
         d = self.data
         current = 0
-        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+        while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
             length = int.from_bytes(
-                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
             )
-            offset += VARIABLE_LENGTH_PREFIX_SIZE
+            offset += _VARIABLE_LENGTH_PREFIX_SIZE
             if current == index:
                 return d[offset : offset + length]
             offset += length
@@ -249,11 +249,11 @@ class Series(ArrayOperators, BaseModel):
     def _iter_variable(self) -> Iterator[bytes]:
         offset = 0
         d = self.data
-        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+        while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
             length = int.from_bytes(
-                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
             )
-            offset += VARIABLE_LENGTH_PREFIX_SIZE
+            offset += _VARIABLE_LENGTH_PREFIX_SIZE
             yield d[offset : offset + length]
             offset += length
 

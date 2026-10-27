@@ -170,8 +170,17 @@ import { Text } from "@synnaxlabs/lyra/text";
         width: min(120rem, 60vw);
     }
 
-    .docs-lightbox:not(.docs-lightbox--video) .docs-lightbox__controls {
-        display: none;
+    /* An image has no controls, so its caption takes the whole bar. */
+    .docs-lightbox:not(.docs-lightbox--video) {
+        & .docs-lightbox__controls {
+            display: none;
+        }
+
+        & .docs-lightbox__caption {
+            display: block;
+            grid-column: 1 / -1;
+            text-align: center;
+        }
     }
 
     .docs-lightbox__close {

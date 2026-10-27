@@ -11,6 +11,8 @@ syntax = "proto3";
 
 package grpc.auth;
 
+import "google/protobuf/empty.proto";
+
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth";
 
 service AuthLoginService {
@@ -38,4 +40,63 @@ message LoginResponse {
 message User {
   string key = 1;
   string username = 2;
+}
+
+service AuthSessionCreateService {
+  rpc Exec(SessionCreateRequest) returns (SessionCreateResponse);
+}
+
+service AuthSessionRenewService {
+  rpc Exec(google.protobuf.Empty) returns (google.protobuf.Empty);
+}
+
+service AuthSessionRetrieveService {
+  rpc Exec(SessionRetrieveRequest) returns (SessionRetrieveResponse);
+}
+
+service AuthSessionDeleteService {
+  rpc Exec(SessionDeleteRequest) returns (google.protobuf.Empty);
+}
+
+// Proof is what a subject presents to log in. The method selects which fields apply.
+message Proof {
+  string method = 1;
+  string username = 2;
+  string password = 3;
+}
+
+// Subject names the user or rack a session belongs to.
+message Subject {
+  string type = 1;
+  string key = 2;
+}
+
+message Session {
+  string key = 1;
+  Subject subject = 2;
+  string credential = 3;
+  int64 last_active = 4;
+}
+
+message SessionCreateRequest {
+  Proof proof = 1;
+}
+
+message SessionCreateResponse {
+  string token = 1;
+  Session session = 2;
+  optional User user = 3;
+  reserved 4;
+}
+
+message SessionRetrieveRequest {
+  repeated Subject subjects = 1;
+}
+
+message SessionRetrieveResponse {
+  repeated Session sessions = 1;
+}
+
+message SessionDeleteRequest {
+  repeated string keys = 1;
 }

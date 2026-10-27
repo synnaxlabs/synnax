@@ -13,20 +13,20 @@ from synnax.cli.console.protocol import Print, Prompt, R
 from synnax.exceptions import ValidationError
 
 
-class AskKwargs(TypedDict, Generic[R]):
+class _AskKwargs(TypedDict, Generic[R]):
     arg: NotRequired[R | None]
     arg_name: NotRequired[str]
 
 
-class NoneDefaultAskKwargs(AskKwargs[R]):
+class _NoneDefaultAskKwargs(_AskKwargs[R]):
     default: NotRequired[R | None]
 
 
-class DefaultAskKwargs(AskKwargs[R]):
+class _DefaultAskKwargs(_AskKwargs[R]):
     default: R
 
 
-class SugaredConsole:
+class Sugared:
     enabled: bool
     prompt: Prompt
     print: Print

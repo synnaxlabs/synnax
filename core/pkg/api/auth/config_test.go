@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -24,6 +25,7 @@ var _ = Describe("ServiceConfig", func() {
 			Auth:     &auth.Service{},
 			Password: &password.Service{},
 			User:     &user.Service{},
+			RBAC:     &rbac.Service{},
 			Cluster:  node.Cluster,
 		}
 	}
@@ -54,6 +56,11 @@ var _ = Describe("ServiceConfig", func() {
 				"user",
 				func(c *apiauth.ServiceConfig) { c.User = nil },
 				"user: must be non-nil",
+			),
+			Entry(
+				"rbac",
+				func(c *apiauth.ServiceConfig) { c.RBAC = nil },
+				"rbac: must be non-nil",
 			),
 			Entry(
 				"cluster",

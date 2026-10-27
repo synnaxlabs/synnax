@@ -16,14 +16,21 @@ from playwright.sync_api import Locator
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
+from console.notifications import NotificationsClient
 
 
 def fill_configure(
-    modal: Locator, *, name: str, identifier: str, action: str = "Save"
+    modal: Locator,
+    notifications: NotificationsClient,
+    *,
+    name: str,
+    identifier: str,
+    action: str = "Save",
 ) -> None:
     """Fill the open configure form of a device and submit it.
 
     :param modal: The modal that shows the form.
+    :param notifications: The notifications of the page that shows the modal.
     :param name: Name of the device.
     :param identifier: Prefix for the channels of the device.
     :param action: The submit button, "Save" or "Save and create read task".
@@ -31,6 +38,8 @@ def fill_configure(
     # A required field's label ends in an asterisk.
     modal.get_by_label(re.compile(r"^Name\b")).fill(name)
     modal.get_by_label(re.compile(r"^Identifier\b")).fill(identifier)
+    # Toasts stack over the modal footer and swallow the click.
+    notifications.close_all()
     modal.get_by_role("button", name=action, exact=True).click()
 
 
@@ -376,7 +385,12 @@ class DevicesClient(ResourceClient):
         self.show_toolbar()
         self.ctx_menu.action(self.get(name), "Configure")
         self.modal.wait_for(state="visible", timeout=5000)
-        fill_configure(self.modal, name=device_name, identifier=identifier)
+        fill_configure(
+            self.modal,
+            self.layout.notifications,
+            name=device_name,
+            identifier=identifier,
+        )
         self.modal.wait_for(state="hidden", timeout=5000)
 
     @property
@@ -431,7 +445,11 @@ class DevicesClient(ResourceClient):
             timeout=5000
         )
         fill_configure(
-            self.modal, name=device_name, identifier=identifier, action=action
+            self.modal,
+            self.layout.notifications,
+            name=device_name,
+            identifier=identifier,
+            action=action,
         )
 
     def copy_properties(self, name: str) -> dict[str, object]:

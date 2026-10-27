@@ -14,103 +14,159 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import { ADMIN_ROLE, type Member, MEMBER_ROLE } from "@/server/directory";
+import { type Invitation, type Organization } from "@/server/db/schema";
+import {
+  ADMIN_ROLE,
+  type Member,
+  MEMBER_ROLE,
+  roleName,
+  ROLES,
+} from "@/server/directory";
+import { invitationPath } from "@/shell";
 import { post, reload } from "@/ui/api";
-import { type Organization, useClerk } from "@/ui/clerk";
+import { date } from "@/ui/format";
 import { Modal } from "@/ui/modal";
-import { Page } from "@/ui/Page";
+import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";
 
 const MEMBER_COLUMNS = "minmax(0, 2fr) minmax(0, 2fr) 16rem 4rem";
-
-const ROLES: { key: string; name: string }[] = [
-  { key: ADMIN_ROLE, name: "Admin" },
-  { key: MEMBER_ROLE, name: "Member" },
-];
-
-const roleName = (role: string): string =>
-  ROLES.find((r) => r.key === role)?.name ?? role;
-
-/** Team reads the team's Clerk organization, the handle every change goes through. */
-type Team = () => Promise<Organization>;
-
-const useTeam = (clerkOrgID: string): Team => {
-  const clerk = useClerk();
-  return async () => {
-    if (clerk == null) throw new Error("The page is still loading. Try again.");
-    return await clerk.getOrganization(clerkOrgID);
-  };
-};
+const INVITATION_COLUMNS = "minmax(0, 4fr) 16rem 14rem 8rem";
 
 export interface MembersProps {
-  name: string;
-  clerkOrgID: string;
+  organization: Organization;
   roster: Member[];
+  /** invitations are the team's invitations, shown to an admin only. */
+  invitations: Invitation[];
   /** userID is the signed-in user. */
   userID: string;
+  now: Date;
 }
 
-/** Members lists a team's members. Admins can invite, remove, and change roles. */
+/** Members is a team's members page. Admins invite, remove, and change roles. */
 export const Members = ({
-  name,
-  clerkOrgID,
+  organization,
   roster,
+  invitations,
   userID,
+  now,
 }: MembersProps): ReactElement => {
-  const team = useTeam(clerkOrgID);
   const role = roster.find((m) => m.userID === userID)?.role;
   const admin = role === ADMIN_ROLE;
   return (
     <Page
       title="Members"
       subtitle={
-        role == null ? name : `${name}. You are ${roleName(role).toLowerCase()}.`
+        role == null
+          ? organization.name
+          : `${organization.name}. You are ${roleName(role).toLowerCase()}.`
       }
-      actions={admin && <InviteDialog name={name} clerkOrgID={clerkOrgID} />}
+      actions={admin && <InviteDialog organization={organization} />}
     >
-      <Table columns={MEMBER_COLUMNS} head={["Name", "Email", "Role", ""]}>
-        {roster.map((m) => (
-          <Entry
-            key={m.userID}
-            member={m}
-            team={team}
-            editable={admin && m.userID !== userID}
-            self={m.userID === userID}
-          />
-        ))}
-      </Table>
+      <Roster
+        organization={organization}
+        roster={roster}
+        invitations={invitations}
+        userID={userID}
+        manageable={admin}
+        now={now}
+      />
     </Page>
   );
 };
 
+export interface RosterProps extends Omit<MembersProps, "userID"> {
+  /** userID is the signed-in user, when they are on the team. */
+  userID?: string;
+  /** manageable lets the viewer change members and cancel invitations. */
+  manageable: boolean;
+}
+
+/** Roster lists a team's members and, for someone who manages it, its invitations. */
+export const Roster = ({
+  organization,
+  roster,
+  invitations,
+  userID,
+  manageable,
+  now,
+}: RosterProps): ReactElement => (
+  <Flex.Box y gap="huge" full="x">
+    {roster.length === 0 ? (
+      <Empty
+        icon={<Icon.User />}
+        message="No members yet"
+        description={
+          invitations.length > 0
+            ? "Members join when they accept an invitation."
+            : "Invite the team's first admin."
+        }
+      />
+    ) : (
+      <Table columns={MEMBER_COLUMNS} head={["Name", "Email", "Role", ""]}>
+        {roster.map((m) => (
+          <Entry
+            key={m.userID}
+            organization={organization}
+            member={m}
+            editable={manageable && m.userID !== userID}
+            self={m.userID === userID}
+          />
+        ))}
+      </Table>
+    )}
+    {manageable && invitations.length > 0 && (
+      <Section title="Invitations">
+        <Table columns={INVITATION_COLUMNS} head={["Email", "Role", "Expires", ""]}>
+          {invitations.map((i) => (
+            <Sent key={i.key} organization={organization} invitation={i} now={now} />
+          ))}
+        </Table>
+      </Section>
+    )}
+  </Flex.Box>
+);
+
 interface EntryProps {
+  organization: Organization;
   member: Member;
-  team: Team;
   /** editable lets the viewer change the member's role or remove them. */
   editable: boolean;
   self: boolean;
 }
 
-const Entry = ({ member: m, team, editable, self }: EntryProps): ReactElement => {
+const Entry = ({
+  organization,
+  member: m,
+  editable,
+  self,
+}: EntryProps): ReactElement => {
+  const path = `/api/organizations/${organization.key}/members/${m.userID}`;
   const changeRole = useAction(async (role: string) => {
-    await (await team()).updateMember({ userId: m.userID, role });
+    await post(`${path}/role`, { role });
     reload();
   });
   const remove = useAction(async () => {
-    await (await team()).removeMember(m.userID);
+    await post(`${path}/remove`);
     reload();
   });
+  const error = changeRole.error ?? remove.error;
   return (
     <Row columns={MEMBER_COLUMNS}>
-      <Text.Text level="p" overflow="ellipsis">
-        {m.name}
-        {self ? " (you)" : ""}
-      </Text.Text>
+      <Flex.Box y gap="tiny" className="portal-list__stack">
+        <Text.Text level="p" overflow="ellipsis">
+          {m.name}
+          {self ? " (you)" : ""}
+        </Text.Text>
+        {error != null && (
+          <Status.Summary variant="error" level="small" message={error} />
+        )}
+      </Flex.Box>
       <Text.Text level="p" color={10} overflow="ellipsis">
         {m.email}
       </Text.Text>
@@ -151,32 +207,100 @@ const Entry = ({ member: m, team, editable, self }: EntryProps): ReactElement =>
   );
 };
 
+interface SentProps {
+  organization: Organization;
+  invitation: Invitation;
+  now: Date;
+}
+
+const Sent = ({ organization, invitation: inv, now }: SentProps): ReactElement => {
+  const path = `/api/organizations/${organization.key}`;
+  const resend = useAction(async () => {
+    await post(`${path}/invite`, { email: inv.email, role: inv.role });
+    reload();
+  });
+  const revoke = useAction(async () => {
+    await post(`${path}/invitations/${inv.key}/revoke`);
+    reload();
+  });
+  const error = resend.error ?? revoke.error;
+  const expired = inv.expiresAt <= now;
+  return (
+    <Row columns={INVITATION_COLUMNS}>
+      <Flex.Box y gap="tiny" className="portal-list__stack">
+        <Text.Text level="p" overflow="ellipsis">
+          {inv.email}
+        </Text.Text>
+        {error != null && (
+          <Status.Summary variant="error" level="small" message={error} />
+        )}
+      </Flex.Box>
+      <Text.Text level="p" color={10}>
+        {roleName(inv.role)}
+      </Text.Text>
+      <Text.Text level="p" color={10} status={expired ? "error" : undefined}>
+        {expired ? "Expired" : date(inv.expiresAt)}
+      </Text.Text>
+      <Flex.Box x justify="end" gap="tiny">
+        <Button.Copy
+          variant="text"
+          size="small"
+          text={() => new URL(invitationPath(inv.key), window.location.origin).href}
+          tooltip="Copy the invitation link. Only its address can accept it."
+          aria-label="Copy invitation link"
+        />
+        <Button.Button
+          variant="text"
+          size="small"
+          status={resend.loading ? "loading" : undefined}
+          onClick={resend.run}
+          tooltip="Email it again with a new expiry"
+          aria-label="Resend invitation"
+        >
+          <Icon.Refresh />
+        </Button.Button>
+        <Button.Button
+          variant="text"
+          size="small"
+          status={revoke.loading ? "loading" : "error"}
+          onClick={revoke.run}
+          onClickDelay={1000}
+          tooltip="Hold to revoke the invitation"
+          aria-label="Revoke invitation"
+        >
+          <Icon.Close />
+        </Button.Button>
+      </Flex.Box>
+    </Row>
+  );
+};
+
 const inviteSchema = z.object({
   email: z.email("Enter an email address"),
   role: z.string(),
 });
 
-interface InviteDialogProps {
-  name: string;
-  clerkOrgID: string;
+export interface InviteDialogProps {
+  organization: Organization;
 }
 
-const InviteDialog = ({ name, clerkOrgID }: InviteDialogProps): ReactElement => (
+/** InviteDialog emails someone an invitation to join the team. */
+export const InviteDialog = ({ organization }: InviteDialogProps): ReactElement => (
   <Modal.Frame
-    name={`${name}.Invite a member`}
+    name={`${organization.name}.Invite a member`}
     icon={<Icon.User />}
     trigger={
-      <Dialog.Trigger variant="outlined" hideCaret>
+      <Dialog.Trigger variant="filled" hideCaret>
         <Icon.Add />
         Invite
       </Dialog.Trigger>
     }
   >
-    <InviteContent clerkOrgID={clerkOrgID} />
+    <InviteContent organization={organization} />
   </Modal.Frame>
 );
 
-const InviteContent = ({ clerkOrgID }: { clerkOrgID: string }): ReactElement => {
+const InviteContent = ({ organization }: InviteDialogProps): ReactElement => {
   const methods = Form.use({
     values: { email: "", role: MEMBER_ROLE },
     schema: inviteSchema,
@@ -185,8 +309,8 @@ const InviteContent = ({ clerkOrgID }: { clerkOrgID: string }): ReactElement => 
     <Modal.Form
       methods={methods}
       submit="Send invite"
-      onSubmit={async ({ email, role }) => {
-        await post("/api/members/invite", { organization: clerkOrgID, email, role });
+      onSubmit={async (value) => {
+        await post(`/api/organizations/${organization.key}/invite`, value);
         reload();
       }}
     >

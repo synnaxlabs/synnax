@@ -14,7 +14,7 @@ import { Explorer } from "@/feature/range/explorer";
 import { Command } from "@/platform/command";
 import { Range } from "@/platform/range";
 
-export const CreateCommand = Command.create({
+const CreateCommand = Command.create({
   key: "define_range",
   name: "Create range",
   icon: <Ranger.CreateIcon />,
@@ -22,7 +22,7 @@ export const CreateCommand = Command.create({
   useVisible: () => Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID),
 });
 
-export const OpenExplorerCommand = Command.create({
+const OpenExplorerCommand = Command.create({
   key: "open_explorer",
   name: "Open range explorer",
   icon: <Ranger.ExplorerIcon />,

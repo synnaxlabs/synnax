@@ -15,7 +15,7 @@ const hit = (overrides: Partial<Hit> = {}): Hit => ({
   objectID: "ni/analog-read-task.mdx",
   title: "NI analog read task",
   description: "Learn how to acquire analog data from NI devices with Synnax.",
-  href: "/reference/driver/ni/analog-read-task",
+  href: "/reference/hardware/ni/analog-read-task",
   ...overrides,
 });
 
@@ -37,15 +37,15 @@ const result = (key: string, section: string): Result => ({
 describe("fromHit", () => {
   it("should place a page under its section and the nav groups below it", () => {
     expect(fromHit(hit())).toMatchObject({
-      section: "Device drivers",
+      section: "Hardware",
       path: ["National Instruments"],
-      ancestors: ["driver", "ni"],
+      ancestors: ["hardware", "ni"],
     });
   });
 
   it("should leave the path empty for a page directly under its section", () => {
-    const r = fromHit(hit({ href: "/reference/driver/get-started" }));
-    expect(r.section).toBe("Device drivers");
+    const r = fromHit(hit({ href: "/reference/hardware/devices" }));
+    expect(r.section).toBe("Hardware");
     expect(r.path).toEqual([]);
   });
 
@@ -62,7 +62,7 @@ describe("fromHit", () => {
 
   it("should place a page the nav does not list under Reference", () => {
     expect(
-      fromHit(hit({ href: "/reference/hardware/ni/analog-read-task" })),
+      fromHit(hit({ href: "/reference/driver/ni/analog-read-task" })),
     ).toMatchObject({ section: "Reference", path: [], ancestors: [] });
   });
 

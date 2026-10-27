@@ -18,6 +18,7 @@ on:
       - core/go.mod
       - pnpm-lock.yaml
       - .github/actions/setup-pnpm/**
+      - .github/actions/setup-zstd/**
       - .github/scripts/go_toolchain_cache.sh
       - .github/workflows/warm.windows.yaml
   workflow_dispatch:

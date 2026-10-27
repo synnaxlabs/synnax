@@ -10,9 +10,9 @@
 import { createAction, type Middleware, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type CrudeTimeSpan,
-  debounce,
   deep,
   type record,
+  scheduler,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -729,7 +729,7 @@ const createMiddleware = <S extends object>(
     // Redux forbids dispatching while middleware is constructed, so an engine that
     // could not open its storage announces it on the first action instead.
     let announced = !engine.unreadable;
-    const debouncedPersist = debounce.debounce(() => {
+    const debouncedPersist = scheduler.debounce(() => {
       // Captured when the write is queued: a swap may retarget `current` before the
       // queue reaches this write, and it must land under the session it belongs to.
       const state = store.getState() as S;

@@ -19,7 +19,7 @@ import pytest
 import synnax as sy
 from synnax import label
 from synnax.ontology import ID
-from synnax.state import LatestState, State
+from synnax.state import Latest, State
 from tests.channel import RetrieveCounter
 from x.params import RequiresNamedParams
 from x.strings import random_name
@@ -767,11 +767,11 @@ class TestRangeData:
 class TestOnCreate:
     """Tests for the handler that on_create registers on the range set channel."""
 
-    def latest_state(self, client: sy.Synnax, sample: sy.Series) -> LatestState:
+    def latest_state(self, client: sy.Synnax, sample: sy.Series) -> Latest:
         ch = client.channels.retrieve("sy_range_set")
         state = State([ch])
         state.update(sy.Frame([ch.key], [sample]))
-        return LatestState(state)
+        return Latest(state)
 
     def test_valid_sample(self, client: sy.Synnax) -> None:
         """Should pass the range in a JSON object sample to the callback"""
@@ -782,13 +782,18 @@ class TestOnCreate:
         sample = {
             "key": str(key),
             "name": "on_create",
-            "time_range": {"start": int(start), "end": int(start + 1)},
+            "time_range": {
+                "start": int(start),
+                "end": int(start + sy.TimeSpan.NANOSECOND),
+            },
         }
         handler(self.latest_state(client, sy.Series([sample], data_type="json")))
         assert len(received) == 1
         assert received[0].key == key
         assert received[0].name == "on_create"
-        assert received[0].time_range == sy.TimeRange(start, start + 1)
+        assert received[0].time_range == sy.TimeRange(
+            start, start + sy.TimeSpan.NANOSECOND
+        )
 
     def test_non_object_sample(self, client: sy.Synnax) -> None:
         """Should raise a TypeError when the sample is not a JSON object"""

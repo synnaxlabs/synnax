@@ -1,0 +1,302 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# One EC2 host that runs a Core container per pull request behind Caddy. CI pushes
+# images to ECR and deploys through SSM, with a role it assumes through GitHub OIDC.
+
+terraform {
+  required_version = ">= 1.6"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.region
+  default_tags {
+    tags = { project = "synnax-agents", owner = "preview" }
+  }
+}
+
+variable "region" {
+  type    = string
+  default = "us-east-1"
+}
+
+variable "domain" {
+  description = <<-EOT
+    Parent domain of the previews, with a wildcard record to the host. A preview is at
+    pr-<number>.<domain>. Empty uses <host IP>.sslip.io, which needs no DNS record.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "repository" {
+  description = "GitHub repository that may deploy previews."
+  type        = string
+  default     = "synnaxlabs/synnax"
+}
+
+variable "oidc_provider_arn" {
+  description = "ARN of an existing GitHub Actions OIDC provider. Empty creates one."
+  type        = string
+  default     = ""
+}
+
+variable "license_parameter" {
+  description = "SSM SecureString parameter that holds the Core license key."
+  type        = string
+  default     = "/synnax-preview/license-key"
+}
+
+variable "instance_type" {
+  type    = string
+  default = "t3.large"
+}
+
+variable "ttl_days" {
+  description = "Days after its last deploy that the host removes a preview."
+  type        = number
+  default     = 7
+}
+
+data "aws_ssm_parameter" "ami" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+}
+
+resource "aws_ecr_repository" "preview" {
+  name                 = "synnax-preview"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+}
+
+resource "aws_ecr_lifecycle_policy" "preview" {
+  repository = aws_ecr_repository.preview.name
+  policy = jsonencode({
+    rules = [{
+      rulePriority = 1
+      description  = "Expire images older than the preview TTL"
+      selection = {
+        tagStatus   = "any"
+        countType   = "sinceImagePushed"
+        countUnit   = "days"
+        countNumber = var.ttl_days
+      }
+      action = { type = "expire" }
+    }]
+  })
+}
+
+resource "aws_security_group" "preview" {
+  name        = "synnax-preview"
+  description = "HTTP and HTTPS to Caddy"
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+data "aws_iam_policy_document" "host_trust" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "host" {
+  name               = "synnax-preview-host"
+  assume_role_policy = data.aws_iam_policy_document.host_trust.json
+}
+
+resource "aws_iam_role_policy_attachment" "host_ssm" {
+  role       = aws_iam_role.host.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "host_ecr" {
+  role       = aws_iam_role.host.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_role_policy" "host_license" {
+  role = aws_iam_role.host.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = "ssm:GetParameter"
+      Resource = join("", [
+        "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
+        ":parameter/${trimprefix(var.license_parameter, "/")}",
+      ])
+    }]
+  })
+}
+
+resource "aws_iam_instance_profile" "host" {
+  name = "synnax-preview-host"
+  role = aws_iam_role.host.name
+}
+
+resource "aws_instance" "host" {
+  ami                         = data.aws_ssm_parameter.ami.value
+  instance_type               = var.instance_type
+  iam_instance_profile        = aws_iam_instance_profile.host.name
+  vpc_security_group_ids      = [aws_security_group.preview.id]
+  user_data_replace_on_change = true
+  user_data = templatefile("${path.module}/bootstrap.sh", {
+    domain    = local.domain
+    ttl_days  = var.ttl_days
+    license   = var.license_parameter
+    region    = var.region
+    caddyfile = file("${path.module}/Caddyfile")
+    preview   = file("${path.module}/preview.sh")
+  })
+  root_block_device {
+    volume_size = 60
+    volume_type = "gp3"
+  }
+  metadata_options {
+    http_tokens = "required"
+  }
+  tags = { Name = "synnax-preview" }
+  lifecycle {
+    ignore_changes = [ami]
+  }
+}
+
+resource "aws_eip" "host" {}
+
+resource "aws_eip_association" "host" {
+  allocation_id = aws_eip.host.id
+  instance_id   = aws_instance.host.id
+}
+
+locals {
+  domain = coalesce(var.domain, "${replace(aws_eip.host.public_ip, ".", "-")}.sslip.io")
+}
+
+resource "aws_iam_openid_connect_provider" "github" {
+  count          = var.oidc_provider_arn == "" ? 1 : 0
+  url            = "https://token.actions.githubusercontent.com"
+  client_id_list = ["sts.amazonaws.com"]
+}
+
+locals {
+  oidc_provider_arn = coalesce(
+    var.oidc_provider_arn,
+    one(aws_iam_openid_connect_provider.github[*].arn),
+  )
+}
+
+# GitHub gives an OIDC token to a pull request workflow only for a branch in this
+# repository, never for a fork, and the subject names the pull_request event.
+data "aws_iam_policy_document" "ci_trust" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [local.oidc_provider_arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.repository}:pull_request"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "ci" {
+  statement {
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+  statement {
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:CompleteLayerUpload",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = [aws_ecr_repository.preview.arn]
+  }
+  statement {
+    actions = ["ssm:SendCommand"]
+    resources = [
+      aws_instance.host.arn,
+      "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
+    ]
+  }
+  statement {
+    actions   = ["ssm:GetCommandInvocation"]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role" "ci" {
+  name                 = "synnax-preview-ci"
+  assume_role_policy   = data.aws_iam_policy_document.ci_trust.json
+  max_session_duration = 3600
+}
+
+resource "aws_iam_role_policy" "ci" {
+  role   = aws_iam_role.ci.id
+  policy = data.aws_iam_policy_document.ci.json
+}
+
+output "ci_role_arn" {
+  value = aws_iam_role.ci.arn
+}
+
+output "instance_id" {
+  value = aws_instance.host.id
+}
+
+output "public_ip" {
+  description = "Target of the wildcard DNS record *.<domain>."
+  value       = aws_eip.host.public_ip
+}
+
+output "domain" {
+  value = local.domain
+}
+
+output "ecr_repository_url" {
+  value = aws_ecr_repository.preview.repository_url
+}

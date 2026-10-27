@@ -15,13 +15,14 @@ import {
   END_S,
   PACE_MAX_S,
   STAGE_REST,
-  STAGE_TILT,
   TARGET_FILL,
   WINDOW_FILL,
 } from "@/director/constants";
 import { easeOutQuint, type Plane, stage, type StagePlan } from "@/director/stage";
 import { edit, FPS, SIZES } from "@/film";
 import { type Event, type Timeline } from "@/timeline";
+
+const TILT = { x: 22, z: -10 };
 
 const timeline = (events: Event[], dsf = 3): Timeline => ({
   meta: {
@@ -264,14 +265,14 @@ describe("stage", () => {
             from: "start",
             to: "end",
             beats: [{ at: "start", wide: true, push: 0 }],
-            tilt: STAGE_TILT,
+            tilt: TILT,
           },
         ]),
         timeline(MARKS),
         "portrait",
       ),
     );
-    expect(frames[0].tilt).toEqual(STAGE_TILT);
+    expect(frames[0].tilt).toEqual(TILT);
     expect(frames.at(-1)?.tilt.x).toBeCloseTo(STAGE_REST.x);
     expect(frames.at(-1)?.tilt.z).toBeCloseTo(STAGE_REST.z);
   });

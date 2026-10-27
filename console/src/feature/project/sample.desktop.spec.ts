@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { type TestStore } from "@/testutil";
 
 const client = createTestClient();
@@ -80,12 +81,29 @@ describe("Sample project", () => {
 
   const openFromPalette = async (store?: TestStore) => {
     const palette = await renderPalette({ commands: Project.COMMANDS, client, store });
+    // An open reports nothing when it finishes, but its last step takes the schematic
+    // out of edit mode. Marking the schematic editable first makes that step a signal.
     const open = async () => {
+      if (created != null)
+        palette.store.dispatch(
+          Session.Schematic.setEditable({ key: created.schematic, editable: true }),
+        );
       await palette.openCommandPalette();
       await palette.selectCommand("Open sample project");
     };
+    // A spec that opens again waits for the open to finish, so no open outlives it.
+    const waitForOpened = async (sample: Sample) =>
+      await waitFor(() =>
+        expect(
+          documentIn(
+            palette.store.getState()[Session.Schematic.SLICE_NAME],
+            sample.schematic,
+          )?.editable,
+        ).toBe(false),
+      );
     await open();
-    return { store: palette.store, sample: await waitForSample(palette.store), open };
+    const sample = await waitForSample(palette.store);
+    return { store: palette.store, sample, open, waitForOpened };
   };
 
   afterEach(async () => {
@@ -109,8 +127,8 @@ describe("Sample project", () => {
       expect(Session.Persist.selectSwapping(store.getState())).toBe(false),
     );
     expect(
-      Session.Schematic.selectState({ state: store.getState(), key: sample.schematic })
-        .editable,
+      documentIn(store.getState()[Session.Schematic.SLICE_NAME], sample.schematic)
+        ?.editable,
     ).toBe(false);
   });
 
@@ -199,7 +217,7 @@ describe("Sample project", () => {
   });
 
   it("should reset the sample after the user confirms", async () => {
-    const { sample, open } = await openFromPalette();
+    const { sample, open, waitForOpened } = await openFromPalette();
     await client.projects.rename(sample.project, "My tank");
     const sequence = await retrieveSequence(sample);
     await client.arcs.create({
@@ -217,6 +235,7 @@ describe("Sample project", () => {
     await waitFor(async () =>
       expect((await retrieveSequence(sample)).text.raw).toContain("duration=10s"),
     );
+    await waitForOpened(sample);
     expect((await retrieveSample(sample.project)).arcs).toEqual(sample.arcs);
   });
 
@@ -232,10 +251,12 @@ describe("Sample project", () => {
     expect((await client.projects.retrieve({ key: sample.project })).name).toBe(
       "My tank",
     );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText(CONFIRM)).toBeNull());
   });
 
   it("should restart a running test on a reset", async () => {
-    const { open } = await openFromPalette();
+    const { sample, open, waitForOpened } = await openFromPalette();
     const writer = await client.openWriter({
       start: TimeStamp.now(),
       channels: ["sample_start_cmd"],
@@ -252,6 +273,7 @@ describe("Sample project", () => {
       fireEvent.click(await screen.findByRole("button", { name: "Reset" }));
       // The simulator starts with an empty tank.
       while (pressure !== 0) pressure = await readPressure();
+      await waitForOpened(sample);
     } finally {
       streamer.close();
       await writer.close();
@@ -259,7 +281,7 @@ describe("Sample project", () => {
   });
 
   it("should relink the schematic and plot after a project delete", async () => {
-    const { sample, open } = await openFromPalette();
+    const { sample, open, waitForOpened } = await openFromPalette();
     await client.projects.delete(sample.project);
     await open();
     await waitFor(async () => {
@@ -270,5 +292,6 @@ describe("Sample project", () => {
       expect(ids).toContainEqual(schematic.ontologyID(sample.schematic));
       expect(ids).toContainEqual(lineplot.ontologyID(sample.linePlot));
     });
+    await waitForOpened(sample);
   });
 });

@@ -79,7 +79,9 @@ describe("createStore", () => {
     expect(Session.Core.selectSelectedKey(store.getState())).toBe(
       Session.Core.DEMO_KEY,
     );
-    expect(Session.Nav.selectWindowState(store.getState()).bottom.visible).toBe(true);
+    expect(
+      store.getState()[Session.Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom.visible,
+    ).toBe(true);
   });
 
   it("honors an explicit preloadedState", async () => {

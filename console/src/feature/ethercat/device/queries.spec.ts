@@ -19,7 +19,7 @@ import {
   createSlaveDevice as createSlave,
   STATUS_ENTRY,
 } from "@/feature/ethercat/testutil";
-import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -36,7 +36,7 @@ beforeEach(async () => {
   rack = await client.racks.create({ name: `test-ethercat-rack-${id.create()}` });
 });
 
-describe("useSlave", () => {
+describe("useResultSlave", () => {
   it("should retrieve a slave device by key", async () => {
     const dev = await createSlaveDevice(rack.key, {
       name: "Test Slave",
@@ -44,8 +44,8 @@ describe("useSlave", () => {
       position: 1,
     });
 
-    const { result } = await renderHookSuspended(
-      () => EtherCAT.Device.useSlave({ key: dev.key }),
+    const { result } = renderHook(
+      () => EtherCAT.Device.useResultSlave({ key: dev.key }).data,
       { wrapper },
     );
 
@@ -59,8 +59,8 @@ describe("useSlave", () => {
       network: "eth0",
     });
 
-    const { result } = await renderHookSuspended(
-      () => EtherCAT.Device.useSlave({ key: dev.key }),
+    const { result } = renderHook(
+      () => EtherCAT.Device.useResultSlave({ key: dev.key }).data,
       { wrapper },
     );
 
@@ -108,8 +108,8 @@ describe("useSlave", () => {
       enabled: true,
     });
 
-    const { result } = await renderHookSuspended(
-      () => EtherCAT.Device.useSlave({ key: dev.key }),
+    const { result } = renderHook(
+      () => EtherCAT.Device.useResultSlave({ key: dev.key }).data,
       { wrapper },
     );
 
@@ -120,9 +120,7 @@ describe("useSlave", () => {
     expect(result.current?.properties?.pdos?.inputs[0].name).toEqual("Status");
     expect(result.current?.properties?.enabled).toBe(true);
   });
-});
 
-describe("useResultSlave", () => {
   it("should serve the slave from the cache", async () => {
     const dev = await createSlaveDevice(rack.key, { name: "Cached Test" });
 

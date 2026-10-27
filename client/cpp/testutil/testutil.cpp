@@ -17,7 +17,9 @@
 
 synnax::Synnax new_test_client() {
     auto cfg = test_client_config;
-    cfg.port = x::env::Parser("synnax_test").field("port", cfg.port);
+    x::env::Parser env("synnax");
+    cfg.host = env.field("host", cfg.host);
+    cfg.port = env.field("port", cfg.port);
     return synnax::Synnax(cfg);
 }
 

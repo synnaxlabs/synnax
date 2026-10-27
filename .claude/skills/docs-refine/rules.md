@@ -17,7 +17,7 @@ line.
 
 ## Prose
 
-- ASD-STE100 Simplified Technical English, as the root `CLAUDE.md` Prose section says.
+- ASD-STE100 Simplified Technical English, as the root `AGENTS.md` Prose section says.
   Short sentences, one idea each, active voice, second person.
 - Sentence case for titles, headings, nav labels, and UI names in prose.
 - Never use em dashes. Use "and", not "&".

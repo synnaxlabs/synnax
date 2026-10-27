@@ -96,6 +96,8 @@ The research behind these rules is in `docs/tech/video-automation/decisions.md`.
   pause.
 - Live data moves in wall time while the video runs in virtual time, so a point pinned
   early scrolls off before a later beat. Pause the plot, or place the interaction late.
+- An Arc automation runs on wall time, so its test runs ahead of the video. Wait on
+  streamed values with a `waitFor` condition, not on a fixed hold.
 - `session.hold` advances the virtual clock only. `session.settleWall` waits real time,
   which is what live telemetry buffers need.
 - The `console/workspaces/*` ids embed on the Projects page: workspaces are projects on

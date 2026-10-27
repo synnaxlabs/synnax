@@ -26,7 +26,7 @@ changes before you upgrade.
 
 ### Redline bands
 
-<Image id="releases/0-59-0/redline-bands" />
+<Image id="releases/0-59-0/redline-bands" extension="webp" />
 
 Redlines on the schematic value symbol and the table value cell are now threshold bands
 in the units of the value. Each band has a threshold, a color, and an optional flash, so
@@ -104,9 +104,12 @@ Driver select sets [how closely an Arc holds its timers](/reference/control/arc/
 
 ### Licensing
 
-A Core now needs a [license key](/reference/core/production#license-keys). A Core
-without one starts, and the Console shows a screen where you enter the key. A running
-Core does not stop when its license expires.
+A Core now needs a [license key](/reference/enterprise/license). A Core without one
+starts, and the Console shows a screen where you enter the key. A running Core does not
+stop when its license expires.
+
+Core 0.59.2 let a Core without a license key use up to 50 channels again. Core 0.60
+removes that allowance.
 
 <Divider.Divider x />
 
@@ -158,7 +161,8 @@ Core does not stop when its license expires.
 A Core without a license refuses every request except login, the connectivity check, and
 the license requests. The 50-channel allowance without a key is removed, so get a key
 from [Synnax Labs](https://www.synnaxlabs.com/#contact) before you upgrade a Core that
-has none.
+has none. Core 0.59.2 brought the 50-channel allowance back, and Core 0.60 removes it
+again. See [Activate a license](/reference/enterprise/license).
 
 #### `secure` is the only TLS switch for the Driver
 

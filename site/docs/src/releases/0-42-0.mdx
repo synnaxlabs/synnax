@@ -2,7 +2,7 @@
 title: "Version 0.42 release notes"
 ---
 
-import { Image, Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -16,7 +16,14 @@ export const components = mdxOverrides;
     breakingChanges
 >
 
-<Image id="releases/0-42-0/thumbnail" themed={false} extension="svg" />
+<Hero.Hero
+  image="releases/0-42-0/thumbnail"
+  themed={false}
+  extension="svg"
+  layout="framed"
+  tone="deep"
+  palette="violet-pink"
+/>
 
 Synnax v0.42.0 has been dedicated to improving the performance of the Synnax Core,
 Driver, and Console UI, as well as refactoring the interfaces for writers in the Python,

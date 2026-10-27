@@ -14,24 +14,24 @@ from synnax.ontology.payload import ID, CrudeID
 from x.lists import normalize
 
 
-class RetrieveReq(BaseModel):
+class _RetrieveReq(BaseModel):
     ids: list[ID]
     children: bool = False
     parents: bool = False
     exclude_field_data: bool = True
 
 
-class AddChildrenReq(BaseModel):
+class _AddChildrenReq(BaseModel):
     id: ID
     children: list[ID]
 
 
-class RemoveChildrenReq(BaseModel):
+class _RemoveChildrenReq(BaseModel):
     id: ID
     children: list[ID]
 
 
-class MoveChildrenReq(BaseModel):
+class _MoveChildrenReq(BaseModel):
     from_: ID = Field(alias="from")
     to: ID
     children: list[ID]
@@ -41,7 +41,7 @@ class _Resource(BaseModel):
     id: ID
 
 
-class RetrieveRes(BaseModel):
+class _RetrieveRes(BaseModel):
     resources: list[_Resource]
 
 
@@ -57,11 +57,11 @@ class Client:
     ) -> list[ID]:
         normalized: list[CrudeID] = normalize(id)
         return self._exec_retrieve(
-            RetrieveReq(ids=[ID(i) for i in normalized], children=True)
+            _RetrieveReq(ids=[ID(i) for i in normalized], children=True)
         )
 
-    def _exec_retrieve(self, req: RetrieveReq) -> list[ID]:
-        res = self._client.send("/ontology/retrieve", req, RetrieveRes)
+    def _exec_retrieve(self, req: _RetrieveReq) -> list[ID]:
+        res = self._client.send("/ontology/retrieve", req, _RetrieveRes)
         return [r.id for r in res.resources]
 
     def retrieve_parents(
@@ -70,13 +70,13 @@ class Client:
     ) -> list[ID]:
         normalized: list[CrudeID] = normalize(id)
         return self._exec_retrieve(
-            RetrieveReq(ids=[ID(i) for i in normalized], parents=True)
+            _RetrieveReq(ids=[ID(i) for i in normalized], parents=True)
         )
 
     def move_children(self, from_: CrudeID, to: CrudeID, *children: CrudeID) -> None:
         self._client.send(
             "/ontology/move-children",
-            MoveChildrenReq.model_validate(
+            _MoveChildrenReq.model_validate(
                 {"from": ID(from_), "to": ID(to), "children": [ID(i) for i in children]}
             ),
             Empty,
@@ -85,13 +85,13 @@ class Client:
     def remove_children(self, id: CrudeID, *children: CrudeID) -> None:
         self._client.send(
             "/ontology/remove-children",
-            RemoveChildrenReq(id=ID(id), children=[ID(i) for i in children]),
+            _RemoveChildrenReq(id=ID(id), children=[ID(i) for i in children]),
             Empty,
         )
 
     def add_children(self, id: CrudeID, *children: CrudeID) -> None:
         self._client.send(
             "/ontology/add-children",
-            AddChildrenReq(id=ID(id), children=[ID(i) for i in children]),
+            _AddChildrenReq(id=ID(id), children=[ID(i) for i in children]),
             Empty,
         )

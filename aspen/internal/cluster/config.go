@@ -26,8 +26,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const FlushOnEvery = -1 * time.Second
-
 type Config struct {
 	alamos.Instrumentation
 	// Storage is a key-value storage backend for the Cluster. Cluster will flush
@@ -49,9 +47,8 @@ type Config struct {
 	// Pledge is the configuration for pledging to the Cluster upon a Open call.
 	// See the pledge package for more details on how to configure this.
 	Pledge pledge.Config
-	// StorageFlushInterval	is the interval at which the Cluster state is flushed
-	// to the backend. If this is set to FlushOnEvery, the Cluster state is flushed on
-	// every change.
+	// StorageFlushInterval is the interval at which the Cluster state is flushed to
+	// the backend. A negative interval flushes the Cluster state on every change.
 	StorageFlushInterval time.Duration
 }
 
@@ -96,22 +93,12 @@ func (cfg Config) Report() alamos.Report {
 	return report
 }
 
-var (
-	DefaultConfig = Config{
-		Pledge:               pledge.DefaultConfig,
-		StorageKey:           []byte("aspen.cluster"),
-		Gossip:               gossip.DefaultConfig,
-		StorageFlushInterval: 1 * time.Second,
-		// Encodes as JSON, decodes with fallback: JSON -> MsgPack -> Gob.
-		// MsgPack was the primary codec from v0.39 to v0.53, Gob before that.
-		Codec: encoding.NewDecodeFallbackCodec(json.Codec, msgpack.Codec, gob.Codec),
-	}
-	FastConfig = DefaultConfig.Override(Config{
-		Pledge: pledge.FastConfig,
-		Gossip: gossip.FastConfig,
-	})
-	BlazingFastConfig = DefaultConfig.Override(Config{
-		Pledge: pledge.BlazingFastConfig,
-		Gossip: gossip.FastConfig,
-	})
-)
+var DefaultConfig = Config{
+	Pledge:               pledge.DefaultConfig,
+	StorageKey:           []byte("aspen.cluster"),
+	Gossip:               gossip.DefaultConfig,
+	StorageFlushInterval: 1 * time.Second,
+	// Encodes as JSON, decodes with fallback: JSON -> MsgPack -> Gob.
+	// MsgPack was the primary codec from v0.39 to v0.53, Gob before that.
+	Codec: encoding.NewDecodeFallbackCodec(json.Codec, msgpack.Codec, gob.Codec),
+}

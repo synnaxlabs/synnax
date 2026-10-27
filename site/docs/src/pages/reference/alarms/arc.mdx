@@ -1,0 +1,154 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Write alarms in Arc"
+description:
+  "Set a status when a value passes a limit, clear it, latch it, and stop a test safely."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An [Arc automation](/reference/control/arc/introduction) can watch channels and set a
+[status](/reference/alarms/statuses) when a condition is true. The Synnax Console shows
+each status change as a notification, and a [PagerDuty](/reference/alarms/pagerduty)
+alert task can send it on. This page shows the common alarm patterns. For every
+parameter of `status.set`, see the
+[standard library](/reference/control/arc/standard-library/status).
+
+Three rules apply to every pattern:
+
+- Use `=>` to act when a condition is true. `->` passes every value, true or false, so
+  `tank_pressure > 600.0 -> status.set{...}` sets the status on every sample.
+- Import the modules that you use: `import status`, `import stable`, `import time`.
+- Digital channels in Synnax are `u8`. Compare them with `== 1`, and write `1` or `0`.
+
+<Divider.Divider x />
+
+## Set a status at a limit
+
+```arc channels="tank_pressure"
+import status
+
+tank_pressure > 600.0 => status.set{
+    key_or_name="tank-pressure",
+    variant="error",
+    message="Above 600 psi",
+}
+```
+
+This sets the status each time a batch of samples is above the limit, which can send
+many notifications. To send one notification for each change, use the next pattern.
+
+<Divider.Divider x />
+
+## Set and clear a status once
+
+`stable.for` passes a value only after it stays the same for a duration, and only once
+for each change. Use two limits so that a value near one limit does not set and clear
+the status again and again:
+
+```arc channels="tank_pressure"
+import stable
+import status
+
+tank_pressure > 600.0 -> stable.for{duration=1s} => status.set{
+    key_or_name="tank-pressure",
+    variant="error",
+    message="Above 600 psi",
+}
+
+tank_pressure < 580.0 -> stable.for{duration=1s} => status.set{
+    key_or_name="tank-pressure",
+    variant="success",
+    message="Below 580 psi",
+}
+```
+
+Both lines use the same key, so the operator sees one status that changes from **Error**
+to **Success**.
+
+<Note.Note variant="info">
+  Always set a `variant`. When `key_or_name` names no status, Arc creates one with a new
+  key. If a PagerDuty alert task watches the status, create the status first and use its
+  key.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Latch an alarm until an operator clears it
+
+Some alarms must stay on until an operator acknowledges them, even after the value comes
+back:
+
+```arc channels="tank_pressure, alarm_ack, latched_alarm"
+func latching_alarm{
+    limit f64,
+    ack chan u8,
+} (value f64) u8 {
+    latched $= u8(0)
+    ack_signal := ack
+    if ack_signal == 1 {
+        latched = 0
+    }
+    if value > limit {
+        latched = 1
+    }
+    return latched
+}
+
+tank_pressure -> latching_alarm{limit=600.0, ack=alarm_ack} -> latched_alarm
+```
+
+Connect `alarm_ack` to a button on a [schematic](/reference/visualize/schematics), and
+`latched_alarm` to a light. The light stays on until the operator clicks the button.
+
+<Divider.Divider x />
+
+## Stop a test when an alarm occurs
+
+Put the alarm checks in each stage of the sequence, and make the abort its own stage of
+the same sequence. The abort stage closes the valve, opens the vent, and sets a status
+that tells the operator why the test stopped.
+
+```arc channels="tank_pressure, outlet_pressure, abort_btn, valve_cmd, vent_valve, start_cmd" bodies="main, pressurize, hold, complete, abort"
+import stable
+import status
+import time
+
+sequence main {
+    stage pressurize {
+        tank_pressure > 700.0 => abort
+        outlet_pressure > 500.0 => abort
+        abort_btn == 1 => abort
+        1 -> valve_cmd
+        tank_pressure > 500.0 => next
+    }
+    stage hold {
+        0 -> valve_cmd
+        tank_pressure > 600.0 -> stable.for{duration=1s} => abort
+        abort_btn == 1 => abort
+        time.wait{duration=30s} => complete
+    }
+    stage complete {
+        0 -> valve_cmd
+    }
+    stage abort {
+        0 -> valve_cmd
+        1 -> vent_valve
+        status.set{
+            key_or_name="tank_abort",
+            variant="error",
+            message="Test aborted",
+        }
+    }
+}
+
+start_cmd == 1 => main
+```
+
+A transition from inside the test to a top-level abort stops the whole test, including
+any nested sequences. Its alarm checks stop too. To keep watching after an abort, put
+the monitoring flow at the top level. A top-level `=> abort` starts the abort and stops
+nothing else.

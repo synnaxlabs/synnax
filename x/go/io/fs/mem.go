@@ -21,7 +21,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cockroachdb/errors/oserror"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/internal/invariants"
 )
@@ -78,7 +77,7 @@ func (y *MemFS) Open(fullName string, flag int) (File, error) {
 		}
 		// file does not exist
 		if flag&os.O_CREATE == 0 {
-			return &os.PathError{Op: "open", Path: fullName, Err: oserror.ErrNotExist}
+			return &os.PathError{Op: "open", Path: fullName, Err: os.ErrNotExist}
 		}
 
 		node := &memNode{name: frag}
@@ -158,7 +157,7 @@ func (y *MemFS) Remove(fullName string) error {
 	}); err != nil &&
 		// Match os.RemoveAll which returns a nil error even if the parent directories
 		// don't exist.
-		!oserror.IsNotExist(err) {
+		!errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	return nil
@@ -181,7 +180,7 @@ func (y *MemFS) Rename(oldName, newName string) error {
 		return err
 	}
 	if n == nil {
-		return &os.PathError{Op: "open", Path: oldName, Err: oserror.ErrNotExist}
+		return &os.PathError{Op: "open", Path: oldName, Err: os.ErrNotExist}
 	}
 	return y.walk(newName, func(dir *memNode, frag string, final bool) error {
 		if !final {
@@ -347,7 +346,7 @@ func (y *MemFS) walk(fullname string, f func(*memNode, string, bool) error) erro
 		}
 		child := dir.children[frag]
 		if child == nil {
-			return &os.PathError{Op: "open", Path: fullname, Err: oserror.ErrNotExist}
+			return &os.PathError{Op: "open", Path: fullname, Err: os.ErrNotExist}
 		}
 		if !child.isDir {
 			return &os.PathError{

@@ -78,7 +78,7 @@ def prompt_group_names(ctx: Context, options: list[str]) -> dict[str, list[str]]
 
     :param ctx: The current flow Context.
     :param options: The list of channel names to match against.
-    :param options: The grouped dict. See "group_names() for reference."
+    :param options: The grouped dict. See "_group_names() for reference."
     """
     ctx.console.info(
         """You can enter 'all' for all channels or a comma-separated list of:
@@ -90,10 +90,10 @@ def prompt_group_names(ctx: Context, options: list[str]) -> dict[str, list[str]]
     response = ctx.console.ask("channels")
     if response is None:
         return None
-    return group_names(ctx, options, response.split(","))
+    return _group_names(ctx, options, response.split(","))
 
 
-def group_names(
+def _group_names(
     ctx: Context,
     options: list[str],
     matchers: list[str],

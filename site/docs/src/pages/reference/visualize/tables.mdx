@@ -1,0 +1,207 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Tables"
+description: "Show the latest values of many channels in a grid of cells with labels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="console/tables/hero"
+  layout="centered"
+  tone="soft"
+  palette="pink-orange"
+/>
+
+A table shows the latest values of channels in a grid of cells. A text cell holds a
+fixed label, and a value cell shows the latest value of one channel. Use a table to
+watch many values at once, such as every temperature on a test stand.
+
+<Divider.Divider x />
+
+## Create a table
+
+1. Click <Icon.Add /> in the tab bar, or press **Ctrl+T** (**Cmd+T** on macOS).
+2. Select **Table**.
+
+The table opens with editing on and a grid of two rows and two columns of empty text
+cells. You can also run the "Create table" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+<Video id="console/tables/create" />
+
+<Divider.Divider x />
+
+## Add rows and columns
+
+Use the control below the table to add rows, and the control to its right to add
+columns. Enter how many to add, from 1 to 100, then click <Icon.Add />.
+
+Right-click a cell to select **Add row above**, **Add row below**, **Add column left**,
+**Add column right**, or to delete its row or column. To resize a row or a column, drag
+the edge of its indicator.
+
+<Divider.Divider x />
+
+## Move rows and columns
+
+While editing is on, drag the indicator of a row or column to a new position. The other
+rows or columns move aside to show where it lands.
+
+To move several at once, select their rows or columns, then drag one of the selected
+indicators. The selection moves as one block. One undo reverses the move.
+
+<Divider.Divider x />
+
+## Show a live value in a cell
+
+1. Select a cell, then press **V** to open the component toolbar.
+2. Click **Change** in the toolbar header and select **Value**.
+3. On the **Telemetry** tab, select the **Channel**.
+
+The cell shows the latest value of the channel. To set the number format and when the
+value shows as stale, see [value cells](#value-cells).
+
+<Divider.Divider x />
+
+## Add a label
+
+Double-click a text cell and type the label. To change its size, weight, alignment, or
+colors, select the cell and use the component toolbar. See [text cells](#text-cells).
+
+<Divider.Divider x />
+
+## Color a value with a redline
+
+A redline changes the background color of a value cell when the value passes a
+threshold. Select the cell and open its **Redline** tab. See
+[redlines](/reference/alarms/redlines).
+
+<Divider.Divider x />
+
+## Edit several cells
+
+- Hold **Shift** and click to select a block of cells.
+- Hold **Ctrl** (**Cmd** on macOS) and click to add a cell to the selection or remove
+  it.
+- Click a row or column indicator to select the whole row or column. Click the corner
+  indicator to select every cell.
+
+With several cells selected, a change applies to all of them. The **Colors** group sets
+**Text** and **Fill** colors. The **Selection** swatches list each color in use; change
+a swatch to recolor every cell that uses it. **Staleness** and **Number format** apply
+only to value cells.
+
+To copy cells, press **Ctrl+C**, then select a cell and press **Ctrl+V**. A copy holds
+the settings of the cells, not their values. The table grows to fit the paste.
+
+<Divider.Divider x />
+
+## Show the table without editing controls
+
+Move the pointer over the table and click <Icon.EditOff /> (**Disable editing**) in the
+top right. The table hides its selection, and you cannot change it by accident.
+
+The setting applies only to this Console window. Other users and other windows can still
+edit the table. With editing off, you can also hide the row and column indicators. To
+center the table in its tab, click **Center table**.
+
+<Divider.Divider x />
+
+## Reference
+
+Press **V** or double-click the table to open the component toolbar. The header shows
+the type of the selected cell, with **Change** to switch it.
+
+### Text cells
+
+| Group      | Fields                                        |
+| ---------- | --------------------------------------------- |
+| Text       | **Text**, **Size**, **Weight**, **Alignment** |
+| Appearance | **Text** color and **Fill** color             |
+
+### Value cells
+
+A value cell has three tabs.
+
+| Tab       | Group     | Field            | Description                                                                       |
+| --------- | --------- | ---------------- | --------------------------------------------------------------------------------- |
+| Telemetry | Source    | Channel          | The channel to show.                                                              |
+| Telemetry | Source    | Averaging window | Shows the mean of the last N samples, from 1 to 100.                              |
+| Telemetry | Format    | Notation         | Standard, scientific, or engineering.                                             |
+| Telemetry | Format    | Precision        | The number of decimal places, from 0 to 10. Default 2.                            |
+| Telemetry | Staleness | Color, Timeout   | The color of the cell when no new sample arrives within the timeout. Default 5 s. |
+| Style     |           | Text, Fill, Size | The colors and the size of the value.                                             |
+| Redline   |           |                  | Color bands. See [redlines](/reference/alarms/redlines).                          |
+
+When the table opens, each value cell shows the latest stored sample of its channel. If
+that sample is older than the timeout, the cell shows the stale color at once.
+
+### Keyboard shortcuts
+
+These work while editing is on. On macOS, use **Cmd** for **Ctrl**.
+
+| Shortcut             | Action                    |
+| -------------------- | ------------------------- |
+| Tab, arrow keys      | Move the selection.       |
+| Ctrl+C, Ctrl+V       | Copy and paste cells.     |
+| Ctrl+Z, Ctrl+Shift+Z | Undo and redo.            |
+| Delete, Backspace    | Erase the selected cells. |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### A value cell is empty
+
+<Problem.Body>
+<Problem.Cause>
+
+The channel has no stored samples, or it is a virtual channel that nothing has written
+to since the table opened.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that a task or a script writes to the channel.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A value cell shows the stale color
+
+<Problem.Body>
+<Problem.Cause>
+
+No new sample arrived within the **Timeout**. A cell is stale at once when its latest
+stored sample is older than the timeout.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that a task or a script writes to the channel.
+
+</Problem.Fix>
+</Problem.Body>
+
+### I cannot select cells
+
+<Problem.Body>
+<Problem.Cause>
+
+You cannot edit the table in this window.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **Editing is off in this window** -> click <Icon.Edit /> (**Enable editing**).
+- **You do not have permission to edit the table** -> ask an administrator for access.
+
+</Problem.Fix>
+</Problem.Body>

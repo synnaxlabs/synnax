@@ -61,7 +61,7 @@ const PRODUCTS: ProductItem[] = [
   {
     icon: Icon.Terminal,
     title: "Extend with SDKs",
-    description: "Python, TypeScript, and C++ clients for custom workflows",
+    description: "Python and TypeScript clients for custom workflows",
     href: "/#sdks",
     section: 7,
   },

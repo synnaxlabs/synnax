@@ -24,7 +24,7 @@ const UPDATE_CORE_ACTIONS = [
     key="update"
     variant="outlined"
     size="small"
-    href="https://docs.synnaxlabs.com/reference/core/quick-start"
+    href="https://docs.synnaxlabs.com/reference/enterprise/upgrade"
     target="_blank"
   >
     Update Core

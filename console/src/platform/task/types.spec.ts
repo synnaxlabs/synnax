@@ -15,12 +15,15 @@ import { Task } from "@/platform/task";
 describe("Hardware Task Types", () => {
   describe("Channel Validation", () => {
     const channelZ = z.object({ disabled: z.boolean(), key: z.string() });
-    const readChannelZ = channelZ.extend({ channel: z.number(), name: Task.nameZ });
+    const readChannelZ = channelZ.extend({
+      channel: z.number(),
+      name: z.string().default(""),
+    });
     const writeChannelZ = channelZ.extend({
       cmdChannel: z.number(),
       stateChannel: z.number(),
-      cmdChannelName: Task.nameZ,
-      stateChannelName: Task.nameZ,
+      cmdChannelName: z.string().default(""),
+      stateChannelName: z.string().default(""),
     });
     const ZERO_CHANNEL = { disabled: false, key: "" };
     const ZERO_READ_CHANNEL = { ...ZERO_CHANNEL, ...Task.READ_CHANNEL_OVERRIDE };

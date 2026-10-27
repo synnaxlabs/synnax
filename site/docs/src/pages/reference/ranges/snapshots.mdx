@@ -1,0 +1,68 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Snapshot tasks and schematics"
+description:
+  "Attach a read-only copy of a task or a schematic to a range to keep its
+  configuration."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A [snapshot](/reference/ranges#snapshots) is a read-only copy of a task or a schematic
+that Synnax attaches to a range. A task snapshot keeps the calibrations, scales, ports,
+and lines that the task used. A schematic snapshot keeps how the schematic looked.
+
+A snapshot copies the configuration at the moment that you take it. Take it during the
+test, before anyone changes the task or the schematic. A snapshot copies no data.
+
+<Divider.Divider x />
+
+## Snapshot a task
+
+1. In the ranges toolbar, right-click a range that is saved to the Core and select **Set
+   as active range**.
+2. In the tasks toolbar, right-click the task and select **Snapshot to** followed by the
+   range name. You can select several tasks first.
+
+The snapshot is named after the task, followed by **(Snapshot)**.
+
+<Divider.Divider x />
+
+## Snapshot a schematic
+
+1. Make the range the active range.
+2. In the projects toolbar, right-click the schematic and select **Snapshot to**
+   followed by the range name.
+
+<Video id="console/schematics/snapshot" />
+
+<Divider.Divider x />
+
+## Open or delete a snapshot
+
+Snapshots do not show in the tasks toolbar or the projects toolbar. To find them, open
+the [range overview](/reference/ranges/find#range-overview) and go to **Snapshots**.
+
+- Click a snapshot to open it. You cannot change a task snapshot, start it, or stop it.
+  You cannot edit or control a schematic snapshot.
+- Click the delete icon of a snapshot, then confirm, to delete it.
+
+Deleting a range does not delete its snapshots, and you can no longer open them in the
+Console. Delete the snapshots of a range before you delete the range.
+
+<Divider.Divider x />
+
+## Snapshots in code
+
+The Python client lists the task snapshots of a range:
+
+```python
+rng = client.ranges.retrieve(name="Oct 10 Burst Test")
+for task in rng.snapshots():
+    print(task.name)
+```
+
+The client libraries cannot take a snapshot.

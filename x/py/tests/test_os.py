@@ -9,7 +9,7 @@
 
 from pathlib import Path
 
-from x.os import get_linux_distribution
+from x.os import _get_linux_distribution
 
 
 class TestGetLinuxDistribution:
@@ -17,7 +17,7 @@ class TestGetLinuxDistribution:
         """Should read /etc/os-release when lsb_release is not installed."""
         os_release = tmp_path / "os-release"
         os_release.write_text('NAME="Ubuntu"\nPRETTY_NAME="Ubuntu 24.04 LTS"\n')
-        name = get_linux_distribution(
+        name = _get_linux_distribution(
             lsb_release="synnax-missing-lsb-release", os_release=os_release
         )
         assert name == "Ubuntu 24.04 LTS"

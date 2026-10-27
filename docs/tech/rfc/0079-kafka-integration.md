@@ -356,7 +356,7 @@ Each phase is one pull request into `main`, branched from `main`.
 - **Phase 9: Python wrappers and docs.** `synnax.kafka.ReadTask`, `WriteTask`, and the
   docs pages.
 - **Phase 10: Promotion.** After at least one stable Desktop release with Kafka in use,
-  a `review/thorough` PR deletes `FLAGS.kafka` and the dark branches, and nothing else.
+  a `review/human` PR deletes `FLAGS.kafka` and the dark branches, and nothing else.
   This is the only phase that turns Kafka on in the Console.
 
 Compatibility: every phase is additive, and no stored shape changes. A Core before Phase

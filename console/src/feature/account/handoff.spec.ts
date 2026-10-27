@@ -22,7 +22,7 @@ const FIELDS = {
 };
 
 const linkOf = (params: Record<string, string>): string =>
-  `${Account.SCHEME}://activate?${new URLSearchParams(params).toString()}`;
+  `synnax-desktop://activate?${new URLSearchParams(params).toString()}`;
 
 describe("account handoff", () => {
   describe("mintState", () => {

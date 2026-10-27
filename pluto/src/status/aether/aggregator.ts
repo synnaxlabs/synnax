@@ -45,9 +45,10 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   }
 
   private add(spec: status.Crude): void {
+    const stat = status.create(spec);
     this.setState((p) => ({
       ...p,
-      statuses: [...p.statuses, status.create(spec)],
+      statuses: [...p.statuses.filter((s) => s.key !== stat.key), stat],
     }));
   }
 }

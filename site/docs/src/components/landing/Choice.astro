@@ -1,0 +1,79 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Text } from "@synnaxlabs/lyra/text";
+
+interface Props {
+    title: string;
+    description: string;
+    action: string;
+    href: string;
+    primary?: boolean;
+}
+
+const { title, description, action, href, primary = false } = Astro.props;
+---
+
+<div class="docs-choice" data-primary={primary}>
+    <span class="docs-choice__icon">
+        <slot name="icon" />
+    </span>
+    <Text.Text level="h5" weight={500} color={11} className="docs-choice__title">
+        {title}
+    </Text.Text>
+    <Text.Text level="p" color={8} className="docs-choice__description">
+        {description}
+    </Text.Text>
+    <Button.Button
+        href={href}
+        variant={primary ? "filled" : "outlined"}
+        size="large"
+        level="p"
+        weight={500}
+    >
+        <slot name="action-icon" />
+        {action}
+    </Button.Button>
+</div>
+
+<style is:global>
+    .docs-choice {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 3.5rem;
+        border: var(--pluto-border);
+        border-radius: 1rem;
+        background: var(--pluto-gray-l1);
+        &[data-primary="true"] {
+            border-color: var(--pluto-primary-z);
+        }
+        .docs-choice__title {
+            margin: 0;
+        }
+        .docs-choice__icon {
+            display: flex;
+            margin-bottom: 1rem;
+            color: var(--pluto-gray-l9);
+            & .pluto-icon {
+                width: 4rem;
+                height: 4rem;
+            }
+        }
+        .docs-choice__description {
+            padding-bottom: 4rem;
+        }
+        .pluto-btn {
+            margin-top: auto;
+        }
+    }
+</style>

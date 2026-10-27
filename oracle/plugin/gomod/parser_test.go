@@ -53,8 +53,10 @@ var _ = Describe("ParseModuleName", func() {
 	})
 
 	It("should return an error for a nonexistent file", func() {
-		_, err := gomod.ParseModuleName(filepath.Join(tmpDir, "nonexistent"))
-		Expect(err).To(HaveOccurred())
+		Expect(
+			gomod.ParseModuleName(filepath.Join(tmpDir, "nonexistent")),
+		).Error().
+			To(MatchError(os.ErrNotExist))
 	})
 
 	It("should return an error for a go.mod without module directive", func() {

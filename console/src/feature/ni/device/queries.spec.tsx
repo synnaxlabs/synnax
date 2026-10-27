@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { NI } from "@/feature/ni";
 import { createNIDevice } from "@/feature/ni/task/testutil";
 import { renderWithDeviceForm } from "@/platform/device/testutil";
-import { createAsyncSynnaxWrapper, renderHookSuspended, uniqueName } from "@/testutil";
+import { createAsyncSynnaxWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -31,32 +31,6 @@ const MappedPortCount = () => {
     </span>
   );
 };
-
-describe("use", () => {
-  it("should retrieve the device with its typed properties", async () => {
-    const dev = await createNIDevice(client);
-    const wrapper = await createAsyncSynnaxWrapper({ client });
-    const { result } = await renderHookSuspended(
-      () => NI.Device.use({ key: dev.key }),
-      { wrapper },
-    );
-    await waitFor(() =>
-      expect(result.current?.properties.identifier).toBe(dev.properties.identifier),
-    );
-  });
-});
-
-describe("useResult", () => {
-  it("should resolve the device without suspending", async () => {
-    const dev = await createNIDevice(client);
-    const wrapper = await createAsyncSynnaxWrapper({ client });
-    const { result } = renderHook(() => NI.Device.useResult({ key: dev.key }), {
-      wrapper,
-    });
-    await waitFor(() => expect(result.current.data?.key).toBe(dev.key));
-    expect(result.current.variant).toBe("success");
-  });
-});
 
 describe("useFromConfig", () => {
   it("should return the device the form's config names", async () => {

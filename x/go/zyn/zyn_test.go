@@ -92,7 +92,9 @@ var _ = Describe("Zyn", func() {
 		var dest zyn.DataType
 		Expect(literal.Parse(dataType, &dest)).To(Succeed())
 		Expect(dest).To(Equal(dataType))
-		Expect(literal.Parse("cat", &dest)).To(HaveOccurred())
+		Expect(
+			literal.Parse("cat", &dest),
+		).To(MatchError(ContainSubstring("invalid enum value cat")))
 	},
 		Entry("string", zyn.StringTypeSchema, zyn.StringT),
 		Entry("bool", zyn.BoolTypeSchema, zyn.BoolT),

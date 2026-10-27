@@ -9,7 +9,7 @@
 
 import { capture, fixtures } from "@/index";
 
-import { DRIVER } from "./task";
+import { DRIVER, fieldItem } from "./task";
 
 /**
  * configureDeviceScript returns a script that right-clicks `device`, an unconfigured
@@ -51,10 +51,9 @@ export const configureDeviceScript =
       await session.press("ControlOrMeta+a");
       await session.type(name);
       await session.hold(500);
-      await capture.clickButton(session, "Next");
-
-      await session.waitFor(modal.getByText("pick a short identifier"));
-      await session.hold(600);
+      await session.click(fieldItem(modal, "Identifier").locator("input").first(), {
+        text: true,
+      });
       await session.type(identifier);
       await session.hold(600);
       await capture.clickButton(session, "Save");

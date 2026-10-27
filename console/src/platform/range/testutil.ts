@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger, type Synnax } from "@synnaxlabs/client";
-import { id, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+
+import { createKeyEndingIn } from "@/testutil";
 
 /** Generates a Core-safe unique range name: letters, digits, and underscores. */
 export const uniqueRangeName = (prefix = "range"): string =>
@@ -29,10 +31,6 @@ export const createTestRange = async (client: Synnax): Promise<ranger.Range> => 
 /** Matches the default page size of List.usePager, which every range list uses. */
 const PAGE_SIZE = 10;
 
-/** Replaces the last six bytes of a fresh UUID with the given nibble, twice over. */
-const keyEndingIn = (nibble: string): string =>
-  `${uuid.create().slice(0, 24)}${nibble.repeat(12)}`;
-
 /**
  * Creates a range that no list shows on its first page, plus enough ranges ahead of it
  * to fill one. Gorp orders ranges by the trailing bytes of the key, so a key of all
@@ -45,13 +43,13 @@ export const createOffPageTestRange = async (client: Synnax): Promise<ranger.Ran
   const timeRange = new TimeRange(start, start.add(TimeSpan.seconds(10)));
   await client.ranges.create(
     Array.from({ length: PAGE_SIZE }, () => ({
-      key: keyEndingIn("0"),
+      key: createKeyEndingIn("0"),
       name: uniqueRangeName("ahead"),
       timeRange,
     })),
   );
   return await client.ranges.create({
-    key: keyEndingIn("f"),
+    key: createKeyEndingIn("f"),
     name: uniqueRangeName(),
     timeRange,
   });

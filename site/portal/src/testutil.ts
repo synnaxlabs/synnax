@@ -16,6 +16,8 @@ import { type Portal } from "@/portal";
 import {
   type Activation,
   activation,
+  type Invitation,
+  invitation,
   type License,
   license,
   type Organization,
@@ -172,6 +174,23 @@ export const createLicense = async (
       label: "Test rig",
       issuedBy: "user_staff",
       issuedAt: new Date("2026-09-01T00:00:00Z"),
+      ...values,
+    })
+    .returning();
+  return row;
+};
+
+/** createInvitation saves an invitation sent at {@link NOW} that is open for a day. */
+export const createInvitation = async (
+  store: Memory,
+  values: Partial<Invitation> & Pick<Invitation, "organization" | "email">,
+): Promise<Invitation> => {
+  const [row] = await store.query
+    .insert(invitation)
+    .values({
+      role: "org:member",
+      sentAt: NOW,
+      expiresAt: new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
       ...values,
     })
     .returning();

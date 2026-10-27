@@ -17,23 +17,17 @@ const baseStateZ = z.object({
   hover: z.boolean().default(false),
   size: z.number().optional(),
 });
-export const leftStateZ = baseStateZ
-  .extend({ selected: z.string().optional() })
-  .prefault({});
+const leftStateZ = baseStateZ.extend({ selected: z.string().optional() }).prefault({});
 export interface LeftState extends z.infer<typeof leftStateZ> {}
 
-export const bottomStateZ = baseStateZ
+const bottomStateZ = baseStateZ
   .extend({ visible: z.boolean().default(false) })
   .prefault({});
 export interface BottomState extends z.infer<typeof bottomStateZ> {}
 
-export const windowStateZ = z
-  .object({ left: leftStateZ, bottom: bottomStateZ })
-  .prefault({});
+const windowStateZ = z.object({ left: leftStateZ, bottom: bottomStateZ }).prefault({});
 
 export const ZERO_WINDOW_STATE = windowStateZ.parse({});
-
-export interface WindowState extends z.output<typeof windowStateZ> {}
 
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),

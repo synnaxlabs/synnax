@@ -151,25 +151,10 @@ func (cfg Config) Report() alamos.Report {
 	return report
 }
 
-var (
-	// DefaultConfig is the default configuration for pledging and arbitrating.
-	DefaultConfig = Config{
-		RequestTimeout: 5 * time.Second,
-		RetryInterval:  1 * time.Second,
-		RetryScale:     1.25,
-		MaxProposals:   10,
-	}
-	// FastConfig is DefaultConfig with shortened timeouts and retry intervals for rapid
-	// pledges on low-latency networks.
-	FastConfig = DefaultConfig.Override(Config{
-		RequestTimeout: 50 * time.Millisecond,
-		RetryInterval:  10 * time.Millisecond,
-		RetryScale:     1.125,
-	})
-	// BlazingFastConfig is DefaultConfig with near-instant timeouts and retry intervals
-	// for in-memory transports in tests.
-	BlazingFastConfig = DefaultConfig.Override(Config{
-		RequestTimeout: 5 * time.Millisecond,
-		RetryInterval:  1 * time.Microsecond,
-	})
-)
+// DefaultConfig is the default configuration for pledging and arbitrating.
+var DefaultConfig = Config{
+	RequestTimeout: 5 * time.Second,
+	RetryInterval:  1 * time.Second,
+	RetryScale:     1.25,
+	MaxProposals:   10,
+}

@@ -15,7 +15,7 @@ from console.layout import LayoutClient
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "Modbus server"
-CHANNEL_FIELDS_SELECTOR = ".console-channel-item"
+_CHANNEL_FIELDS_SELECTOR = ".console-channel-item"
 
 # Config channel type to the name shown in the channel type dropdown.
 READ_TYPE_NAMES = {
@@ -35,7 +35,7 @@ class ModbusTask(TaskPage):
         return self._channel_list().get_by_role("option")
 
     def _fields(self, index: int) -> Locator:
-        return self._rows().nth(index).locator(CHANNEL_FIELDS_SELECTOR)
+        return self._rows().nth(index).locator(_CHANNEL_FIELDS_SELECTOR)
 
     def select_server(self, name: str) -> None:
         """Pick the Modbus server the task talks to. Selecting a server that is not

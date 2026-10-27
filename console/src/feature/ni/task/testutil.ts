@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type device, type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
@@ -24,7 +24,9 @@ import {
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-export interface CreateNIDeviceOptions extends Partial<Omit<Device.New, "properties">> {
+type New = device.New<typeof Device.SCHEMAS.properties, typeof Device.SCHEMAS.make>;
+
+export interface CreateNIDeviceOptions extends Partial<Omit<New, "properties">> {
   properties?: Partial<Device.Properties>;
 }
 

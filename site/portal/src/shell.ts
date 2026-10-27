@@ -35,6 +35,9 @@ export interface Link {
   href: string;
 }
 
+/** invitationPath is the page an invitation's email links to. */
+export const invitationPath = (key: string): string => `/invitations/${key}`;
+
 /** scoped adds the scope to a portal path, so a link keeps the scope it came from. */
 export const scoped = (path: string, scope: Organization): string =>
   `${path}?org=${scope.key}`;
@@ -58,3 +61,18 @@ export const tabs = (scope: Organization, staff: boolean): Link[] => {
   if (staff) sections.push({ tab: "admin", label: "Admin", href: "/admin" });
   return sections;
 };
+
+export type AdminSection = "organizations" | "licenses" | "activity";
+
+export interface AdminLink {
+  section: AdminSection;
+  label: string;
+  href: string;
+}
+
+/** ADMIN_LINKS are the sections of the staff console, in the order they show. */
+export const ADMIN_LINKS: AdminLink[] = [
+  { section: "organizations", label: "Organizations", href: "/admin" },
+  { section: "licenses", label: "Licenses", href: "/admin/licenses" },
+  { section: "activity", label: "Activity", href: "/admin/activity" },
+];

@@ -270,16 +270,18 @@ jobs:
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
-        run: >-
-          bazel ${{ steps.bazel.outputs.command }} $BAZEL_REMOTE_CACHE_FLAGS --jobs=4
-          ${{ steps.bazel.outputs.flags }} --test_output=all ${{ inputs.targets }} ${{
-          steps.tags.outputs.flag }} ${{ inputs.test_flags }}
+        run: |
+          # shellcheck disable=SC2086 # Splits the flag list into arguments.
+          bazel ${{ steps.bazel.outputs.command }} $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 \
+            ${{ steps.bazel.outputs.flags }} --test_output=all ${{ inputs.targets }} \
+            ${{ steps.tags.outputs.flag }} ${{ inputs.test_flags }}
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           export MSYS_NO_PATHCONV=1
+          # shellcheck disable=SC2086 # Splits the flag list into arguments.
           scripts/run_bazel.sh ${{ steps.bazel.outputs.command }} \
             $BAZEL_REMOTE_CACHE_FLAGS ${{ steps.bazel.outputs.flags }} \
             --test_output=all ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
@@ -338,9 +340,10 @@ jobs:
 
       # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
       - name: Lint
-        run: >-
-          bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy
-          --keep_going ${{ inputs.targets }}
+        run: |
+          # shellcheck disable=SC2086 # Splits the flag list into arguments.
+          bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy \
+            --keep_going ${{ inputs.targets }}
 
       - name: Clean build caches
         if: always()

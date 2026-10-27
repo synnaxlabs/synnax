@@ -1,0 +1,76 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Create and open projects"
+description: "Create, open, rename, and delete projects in the Console."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="console/projects/hero"
+  layout="bleed"
+  tone="soft"
+  palette="teal-violet"
+/>
+
+A project holds your panels and the line plots, schematics, tables, and logs in them.
+The Console always has one project open. Make one project for each test stand, campaign,
+or operator station. To arrange the visualizations in a project, see
+[panels and tabs](/reference/visualize/panels).
+
+<Divider.Divider x />
+
+## Create a project
+
+1. At the top of the left bar, click the project selector. It shows the initials of the
+   open project.
+2. Click **New project**.
+3. Enter a name, then click **Create**.
+
+The Console opens the new project. It has one panel, **New panel**, with a **Create
+component** tab.
+
+You can also run the "Create project" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+<Video id="console/workspaces/create" />
+
+<Divider.Divider x />
+
+## Open a project
+
+1. At the top of the left bar, click the project selector.
+2. Select the project.
+
+The Console shows the panels of the selected project.
+
+You can also press **W** to open the projects toolbar, then double-click a project.
+
+When no project is open, the Console shows the **Projects** list. Select a project, or
+click **New project**.
+
+<Video id="console/workspaces/load" />
+
+<Divider.Divider x />
+
+## Rename a project
+
+1. Right-click the project in the projects toolbar or in the project selector.
+2. Select **Rename**.
+3. Type the new name, then press **Enter**.
+
+<Divider.Divider x />
+
+## Delete a project
+
+1. Right-click the project in the projects toolbar or in the project selector.
+2. Select **Delete**.
+3. Click **Delete** to confirm.
+
+You cannot undo a delete. When you delete the open project, the Console shows the
+**Projects** list.

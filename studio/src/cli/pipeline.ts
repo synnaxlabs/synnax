@@ -34,6 +34,11 @@ export interface CaptureRunOptions {
   outDir: string;
   /** Console dev server URL. */
   url: string;
+  /**
+   * URL of a Console dev server started with VITE_DESKTOP=true, for scripts that show
+   * Synnax Desktop. Defaults to DESKTOP_URL.
+   */
+  desktopUrl?: string;
   theme: "light" | "dark";
   headed?: boolean;
   /** Accepts self-signed certificates from the capture Core. */
@@ -57,6 +62,9 @@ export interface CaptureRunOptions {
 /** Default port for studio-owned ephemeral cores; 9090 stays free for dev. */
 export const STUDIO_PORT = 9095;
 
+/** Default URL of the Desktop build of the Console dev server. */
+const DESKTOP_URL = "http://localhost:5175";
+
 /**
  * runCapture provisions the core, drives the script through a capture session,
  * and returns the recorded timeline (also written to <outDir>/timeline.json).
@@ -72,7 +80,13 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     viewport?: { width: number; height: number };
     /** Runs the Driver inside the capture's Core. */
     driver?: boolean;
+    /** The integrations the Driver enables. Every one when left out. */
+    integrations?: string[];
+    /** Shows the Console as Synnax Desktop. */
+    desktop?: boolean;
   };
+  const desktop = mod.desktop ?? false;
+  const { desktopUrl = DESKTOP_URL } = opts;
   let core: Core | undefined;
   if (opts.core !== "external") {
     const { startCore } = await import("@/fixtures/core");
@@ -81,6 +95,7 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
       binary: opts.coreBin,
       port,
       driver: mod.driver ?? false,
+      integrations: mod.integrations,
     });
   }
   try {
@@ -88,10 +103,11 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     const width = opts.width ?? mod.viewport?.width;
     const height = opts.height ?? mod.viewport?.height;
     const session = await CaptureSession.launch({
-      url: opts.url,
+      url: desktop ? desktopUrl : opts.url,
       outDir: opts.outDir,
       theme: opts.theme,
       corePort: port,
+      desktop,
       headed: opts.headed ?? false,
       insecure: opts.insecure ?? false,
       hideCaret: opts.hideCaret ?? false,

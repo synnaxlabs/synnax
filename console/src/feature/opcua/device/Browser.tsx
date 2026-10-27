@@ -45,7 +45,7 @@ export const HAUL_TYPE = "opc";
 
 export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, ScannedNode>;
 
-export const createHaulItem = (node: ScannedNode): HaulItem => ({
+const createHaulItem = (node: ScannedNode): HaulItem => ({
   type: HAUL_TYPE,
   key: node.nodeId,
   data: node,
@@ -53,9 +53,6 @@ export const createHaulItem = (node: ScannedNode): HaulItem => ({
 
 export const isHaulItem = (item: Haul.Item): item is HaulItem =>
   item.type === HAUL_TYPE;
-
-export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
-  items.filter(isHaulItem);
 
 export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 

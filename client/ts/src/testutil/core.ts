@@ -31,6 +31,9 @@ import { type Streamer, type StreamerConfig, streamerConfigZ } from "@/framer/st
 const CHUNK = 1e5;
 // Every sample shares one alignment domain, which holds at most 2^32 samples.
 const DOMAIN = 1n << 32n;
+// Streamed samples carry the Core's provisional leading alignments, which never pair
+// with the alignments of the same samples read back.
+const LEADING_DOMAIN = (1n << 31n) << 32n;
 const INDEX_KEY = 1;
 
 export interface SyntheticCoreProps {
@@ -123,7 +126,7 @@ export class SyntheticCore {
     const keys = [this.index.key, ...this.data.map((c) => c.key)];
     const frame = new Frame(
       keys,
-      keys.map((key) => this.raw(key, from, to)),
+      keys.map((key) => this.raw(key, from, to, LEADING_DOMAIN)),
     );
     this.streamers.forEach((s) => s.push(frame));
   }
@@ -201,7 +204,7 @@ export class SyntheticCore {
     return new TimeRange(this.time(from), this.time(to - 1) + 1n);
   }
 
-  private raw(key: channel.Key, from: number, to: number): Series {
+  private raw(key: channel.Key, from: number, to: number, domain = DOMAIN): Series {
     const n = to - from;
     let data: BigInt64Array<ArrayBuffer> | Float32Array<ArrayBuffer>;
     if (key === this.index.key) {
@@ -217,7 +220,7 @@ export class SyntheticCore {
       data,
       dataType: key === this.index.key ? DataType.TIMESTAMP : DataType.FLOAT32,
       timeRange: this.range(from, to),
-      alignment: DOMAIN + BigInt(from),
+      alignment: domain + BigInt(from),
     });
   }
 

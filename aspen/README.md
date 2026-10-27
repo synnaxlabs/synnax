@@ -65,6 +65,7 @@ import (
     "time"
     "log"
     "github.com/synnaxlabs/aspen"
+    "github.com/synnaxlabs/x/address"
 )
 
 func main() {
@@ -76,7 +77,7 @@ func main() {
         ctx,
         "aspen/db1",
         "localhost:22646",
-        []aspen.Address{},
+        []address.Address{},
         aspen.Bootstrap(),
         aspen.MemBacked(),
     )
@@ -95,7 +96,7 @@ func main() {
         // the database for the first time.  After that, the database will remember
         // the cluster topology and will be able to join the cluster without a peer
         // address.
-        []aspen.Address{"localhost:22646"},
+        []address.Address{"localhost:22646"},
         aspen.MemBacked(),
     )
     if err != nil {

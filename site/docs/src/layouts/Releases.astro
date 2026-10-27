@@ -109,8 +109,8 @@ const { headings, frontmatter } = Astro.props;
                 }
             }
         }
-        & video,
-        img:not(.diagram img) {
+        & video:not(.docs-hero video),
+        img:not(.diagram img, .docs-hero img) {
             width: 100%;
             border-radius: 1.5rem !important;
             border: var(--pluto-border);

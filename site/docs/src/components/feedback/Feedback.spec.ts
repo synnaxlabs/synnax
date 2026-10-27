@@ -52,8 +52,10 @@ describe("feedback", () => {
 
   afterEach(() => {
     act(() => unmount?.());
+    unmount = null;
     document.body.replaceChildren();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   const disabled = (send: HTMLButtonElement): boolean =>
@@ -87,5 +89,37 @@ describe("feedback", () => {
     expect(body.get("name")).toBe("Gaal");
     expect(body.get("email")).toBe("gaal@streeling.edu");
     expect(body.get("description")).toBe("Rename undone on deploy");
+  });
+
+  describe("after a successful send", () => {
+    beforeEach(() => {
+      // jsdom queues its own tasks with setImmediate, so fake only the form's timer.
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    });
+
+    const send = async (): Promise<void> => {
+      const button = open();
+      fill("Gaal", "gaal@streeling.edu", "Rename undone on deploy");
+      await act(async () => fireEvent.click(button));
+    };
+
+    it("closes after 300 ms", async () => {
+      await send();
+      act(() => {
+        vi.advanceTimersByTime(299);
+      });
+      expect(screen.queryByPlaceholderText("Gaal Dornik")).not.toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(screen.queryByPlaceholderText("Gaal Dornik")).toBeNull();
+    });
+
+    it("cancels the close when it unmounts", async () => {
+      await send();
+      act(() => unmount?.());
+      unmount = null;
+      expect(vi.getTimerCount()).toBe(0);
+    });
   });
 });

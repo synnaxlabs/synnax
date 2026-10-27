@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  pagerduty,
-  type status,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/client";
+import { type status, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -306,41 +300,6 @@ export const createStatuses = async (
     await client.statuses.set(
       specs.map((s): status.New => ({ variant: "success", message: "Nominal", ...s })),
     );
-  } finally {
-    await client.close();
-  }
-};
-
-/** A placeholder PagerDuty routing key: 32 characters, never sent anywhere. */
-const ROUTING_KEY = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
-
-export interface AlertTaskSpec {
-  name: string;
-  /** Keys of the statuses the task alerts on. */
-  statuses: string[];
-}
-
-/**
- * createAlertTask creates a PagerDuty alert task on the Core's own rack, so task
- * shots need no hardware. The task is never started, so it sends no events.
- */
-export const createAlertTask = async (
-  { name, statuses }: AlertTaskSpec,
-  opts: ConnectionOptions = {},
-): Promise<void> => {
-  const client = connect(opts);
-  try {
-    const [rack] = await client.racks.retrieve({ integration: "pagerduty" });
-    if (rack == null) throw new Error("the Core has no rack that runs PagerDuty");
-    await client.tasks.create({
-      name,
-      type: "pagerduty_alert",
-      rack: rack.key,
-      config: pagerduty.taskConfigZ.parse({
-        routingKey: ROUTING_KEY,
-        alerts: statuses.map((s) => ({ status: s })),
-      }),
-    });
   } finally {
     await client.close();
   }

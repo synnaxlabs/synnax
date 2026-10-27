@@ -18,8 +18,10 @@ import {
   type Organization,
   organization,
 } from "@/server/db/schema";
+import { ADMIN_ROLE } from "@/server/directory";
 import { forbidden, notFound } from "@/server/errors";
-import { isMember } from "@/server/organization";
+import { type Team } from "@/server/member";
+import { isMember, retrieve } from "@/server/organization";
 import { type Session } from "@/server/session";
 
 export interface LicenseView {
@@ -80,4 +82,26 @@ export const activationFor = async (
 
 export const requireStaff = (session: Session): void => {
   if (!session.staff) throw forbidden("Staff only");
+};
+
+/**
+ * teamFor loads a team for a request that changes its members, which a team admin or
+ * staff may make. Throws the same 404 for an unknown key and an outsider.
+ * @throws {HTTPError} 403 for a member who is not an admin.
+ */
+export const teamFor = async (
+  { store }: Portal,
+  session: Session,
+  key: string,
+): Promise<Team> => {
+  const org = await retrieve(store, key);
+  if (org?.kind !== "team") throw notFound("Organization");
+  if (org.clerkOrgID == null)
+    throw new Error(`team ${org.key} has no Clerk organization`);
+  const team = { ...org, clerkOrgID: org.clerkOrgID };
+  if (session.staff) return team;
+  const role = session.teams.find((t) => t.clerkOrgID === org.clerkOrgID)?.role;
+  if (role == null) throw notFound("Organization");
+  if (role !== ADMIN_ROLE) throw forbidden("Only a team admin can change members");
+  return team;
 };

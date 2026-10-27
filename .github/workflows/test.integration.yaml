@@ -53,11 +53,6 @@ on:
         required: false
         default: ""
         type: string
-      RUN_MIGRATION:
-        description: "Run migration tests"
-        required: false
-        default: false
-        type: boolean
       ubuntu:
         description: Whether to build and test on Ubuntu
         required: false
@@ -99,10 +94,10 @@ jobs:
         env:
           FLAGS: ${{ github.event.inputs.FLAGS || '' }}
         run: |
-          echo "FLAGS=${FLAGS}" >> $GITHUB_OUTPUT
+          echo "FLAGS=${FLAGS}" >> "$GITHUB_OUTPUT"
           if [ -n "${FLAGS}" ]; then
-            SAFE_NAME=$(echo "${FLAGS}" | sed 's/[^a-zA-Z0-9_-]/_/g')
-            echo "CUSTOM_MATRIX={\"include\":[{\"name\":\"${SAFE_NAME}\",\"target\":\"\"}]}" >> $GITHUB_OUTPUT
+            SAFE_NAME=${FLAGS//[^a-zA-Z0-9_-]/_}
+            echo "CUSTOM_MATRIX={\"include\":[{\"name\":\"${SAFE_NAME}\",\"target\":\"\"}]}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check for cached artifacts
@@ -136,7 +131,7 @@ jobs:
             if $windows then {os: "windows-2025", "os-name": "windows",
               display: "windows", executable: ".exe"} else empty end
           ]')
-          echo "MATRIX=${MATRIX}" >> $GITHUB_OUTPUT
+          echo "MATRIX=${MATRIX}" >> "$GITHUB_OUTPUT"
 
   build:
     needs: setup
@@ -159,17 +154,50 @@ jobs:
       core_ref_run_id: ${{ needs.setup.outputs.CORE_REF_RUN_ID }}
     secrets: inherit
 
-  test-windows:
-    name: Test (windows)
+  # A free test bot takes the oldest queued job, so in a merge group the Windows test
+  # bot jobs wait here until the groups ahead queued theirs.
+  turn:
+    name: Wait for turn
     needs: [setup, build]
     if:
+      ${{ github.event_name == 'merge_group' && inputs.windows && !cancelled() &&
+      needs.setup.result == 'success' && (needs.build.result == 'success' ||
+      needs.build.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Wait for the groups ahead
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TEST_BOTS: ${{ vars.WINDOWS_TEST_BOTS }}
+          TEST_MATRIX: ${{ needs.setup.outputs.TEST_MATRIX }}
+        run: |
+          JOBS=$(jq '[.include[] | select(.hosted != true)] | length' \
+            <<< "$TEST_MATRIX")
+          python3 .github/scripts/wait_for_turn.py "$GITHUB_SHA" \
+            "$((TEST_BOTS / JOBS))"
+
+  test-windows:
+    name: Test (windows)
+    needs: [setup, build, turn]
+    if:
       ${{ inputs.windows && !cancelled() && needs.setup.result == 'success' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.turn.result == 'success' || needs.turn.result == 'skipped') }}
     uses: ./.github/workflows/test.integration.worker.yaml
     with:
       test_matrix: ${{ needs.setup.outputs.TEST_MATRIX }}
       ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
       os: windows-test-bot
+      hosted_os: windows-2025
       flags: ${{ needs.setup.outputs.FLAGS }}
     secrets: inherit
 
@@ -325,17 +353,3 @@ jobs:
           path: ~/synnax-*-check/**/*.log
           retention-days: 7
           if-no-files-found: ignore
-
-  migration:
-    name: Migration
-    needs: [setup, build]
-    if:
-      ${{ !cancelled() && needs.setup.result == 'success' && (needs.build.result ==
-      'success' || needs.build.result == 'skipped') && (github.event_name ==
-      'merge_group' || github.event.inputs.RUN_MIGRATION == 'true') }}
-    uses: ./.github/workflows/test.migration.yaml
-    with:
-      ref_run_id: ${{ needs.setup.outputs.REF_RUN_ID }}
-      ubuntu: ${{ inputs.ubuntu }}
-      windows: ${{ inputs.windows }}
-    secrets: inherit

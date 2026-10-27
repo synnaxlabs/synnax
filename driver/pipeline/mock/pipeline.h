@@ -10,6 +10,7 @@
 #pragma once
 
 #include <atomic>
+#include <future>
 #include <vector>
 
 #include "client/cpp/synnax.h"
@@ -87,6 +88,9 @@ public:
     // Stores the most recent streamer configuration passed to open_streamer
     synnax::framer::StreamerConfig config;
 
+    // When valid, open_streamer blocks until it is ready.
+    std::shared_future<void> open_gate;
+
     // Counts how many times open_streamer has been called.
     // Atomic with release semantics so that readers who observe the incremented
     // value are guaranteed to see the config assignment that precedes it.
@@ -100,6 +104,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(const synnax::framer::StreamerConfig config) override {
+        if (this->open_gate.valid()) this->open_gate.wait();
         this->config = config;
         this->streamer_opens.fetch_add(1, std::memory_order_release);
         const auto opens = this->streamer_opens.load(std::memory_order_relaxed);
@@ -305,6 +310,9 @@ public:
     // Stores the error passed to stopped_with_err
     x::errors::Error stop_err;
 
+    // Counts how many times the pipeline reported an open streamer.
+    std::atomic<int> opens{0};
+
     Sink():
         writes(std::make_shared<x::sync::List<x::telem::Frame>>()),
         write_errors(std::make_shared<std::vector<x::errors::Error>>()) {}
@@ -328,6 +336,8 @@ public:
     void stopped_with_err(const x::errors::Error &err) override {
         this->stop_err = err;
     }
+
+    void opened() override { this->opens.fetch_add(1); }
 };
 
 // Mock implementation of pipeline::Source for testing.

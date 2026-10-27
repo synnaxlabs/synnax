@@ -1,0 +1,108 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+name: Audit - Migration
+
+on:
+  workflow_call:
+    inputs: &inputs
+      core:
+        description: "Stable Core tag (default: the newest the candidate contains)"
+        type: string
+        default: ""
+      console:
+        description: "Stable Console tag (default: the newest the candidate contains)"
+        type: string
+        default: ""
+      driver:
+        description: "Stable Driver tag (default: the newest the candidate contains)"
+        type: string
+        default: ""
+      agent:
+        description: "Agent to run, claude or codex (default: AGENT_DEFAULT)"
+        type: string
+        default: ""
+
+  workflow_dispatch:
+    inputs: *inputs
+
+jobs:
+  prompt:
+    name: Write the audit prompt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Write the prompt
+        id: prompt
+        env:
+          CORE: ${{ inputs.core }}
+          CONSOLE: ${{ inputs.console }}
+          DRIVER: ${{ inputs.driver }}
+          CANDIDATE: ${{ github.sha }}
+        run: |
+          # The release notes use the same baseline: the newest stable tag of the
+          # product that the candidate contains.
+          stable() {
+            git tag --list "$1/v*" --merged HEAD |
+              grep -E "^$1/v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V | tail -1
+          }
+          CORE=${CORE:-$(stable core)}
+          CONSOLE=${CONSOLE:-$(stable console)}
+          DRIVER=${DRIVER:-$(stable driver)}
+          if [ -z "$CORE" ] || [ -z "$CONSOLE" ] || [ -z "$DRIVER" ]; then
+            echo "a product has no stable tag in $CANDIDATE" >&2
+            exit 1
+          fi
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/migration-audit.md
+            printf '\nThe stable tags are %s, %s, and %s. The candidate is %s.\n' \
+              "$CORE" "$CONSOLE" "$DRIVER" "$CANDIDATE"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  audit:
+    name: Audit
+    needs: prompt
+    permissions:
+      actions: read
+      contents: read
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.prompt.outputs.prompt }}
+      agent: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
+      output: report
+      timeout-minutes: 120
+    secrets: inherit
+
+  verdict:
+    name: Verdict
+    needs: audit
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check the verdict
+        env:
+          REPORT: ${{ needs.audit.outputs.report }}
+        run: |
+          printf '%s\n' "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          LAST=$(printf '%s\n' "$REPORT" | sed '/^[[:space:]]*$/d' | tail -1)
+          if [ "$LAST" != "Verdict: pass" ]; then
+            echo "the migration audit did not pass" >&2
+            exit 1
+          fi

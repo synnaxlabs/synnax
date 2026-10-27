@@ -2,11 +2,11 @@
 title: "Version 0.50 release notes"
 ---
 
+import { Hero } from "@/components/hero";
 import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import Release from "@/components/releases/Release.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -20,7 +20,14 @@ export const components = mdxOverrides;
 Synnax v0.50 is the first release of the text-based version of our new programming
 language, Arc.
 
-<Image id="releases/0-50-0/thumbnail" themed={false} />
+<Hero.Hero
+  image="releases/0-50-0/thumbnail"
+  extension="webp"
+  themed={false}
+  layout="bleed"
+  tone="deep"
+  palette="violet-blue"
+/>
 
 <Divider.Divider x />
 
@@ -50,9 +57,14 @@ most demanding tasks.
 
 ### Views
 
-<Diagram preview style="padding: 0rem 9rem">
-  <Image id="releases/0-50-0/views" themed={false} />
-</Diagram>
+<Hero.Hero
+  image="releases/0-50-0/views-trimmed"
+  extension="webp"
+  themed={false}
+  layout="framed"
+  inset
+  palette="blue-violet"
+/>
 
 Views allow you to save frequently used searches of ranges and statuses. You can create
 views by opening the status explorer or range explorer, editing the filters for given
@@ -78,7 +90,7 @@ to start automatically when the PC boots, run as a background process, and be ma
 the Windows Service Manager.
 
 To see how to deploy Synnax as a Windows service, see the
-[Core CLI Reference](/reference/core/cli-reference#service-windows-only).
+[Core CLI Reference](/reference/enterprise/cli-reference#service-windows-only).
 
 <Divider.Divider x />
 

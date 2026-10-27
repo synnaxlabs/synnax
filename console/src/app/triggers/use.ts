@@ -43,8 +43,7 @@ const BROWSER_RESERVED: Triggers.Trigger[] = [
   ["Control", "Shift", "Tab"],
 ];
 
-/** @returns the trigger provider's props for the given runtime. */
-export const createProviderProps = (
+const createProviderProps = (
   engine: Session.Runtime.Engine,
 ): Triggers.ProviderProps => ({
   preventDefaultOn: PREVENT_DEFAULT_ON,

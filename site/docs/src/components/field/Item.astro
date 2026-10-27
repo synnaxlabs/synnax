@@ -1,0 +1,282 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { tokens } from "@synnaxlabs/arc";
+import { color } from "@synnaxlabs/site-common/shiki";
+
+import { toAnchor } from "@/util/anchor";
+
+export interface Props {
+    /** The flag, key, or field, set in mono. Give one of this, `label`, or a `name`
+        slot. A `name` slot, such as a `Client.Var`, needs an `id`. */
+    name?: string;
+    /** The title, set as text, for an entry with no code name. */
+    label?: string;
+    /** The client field or fields that the entry sets. Give `py` and `ts` when the
+        Python and TypeScript names differ. */
+    field?: string | string[] | { py: string; ts: string };
+    /** The Console label, when it differs from the title. */
+    console?: string;
+    /** Whether the value can change after creation. Leave it out when the whole list
+        has one answer. */
+    changeable?: boolean;
+    required?: boolean;
+    /** A short form of the flag, for example `-l`. */
+    short?: string;
+    /** The kind of value the flag takes. Leave it out for a flag that takes none. */
+    type?: string;
+    /** The page that describes the type. */
+    typeHref?: string;
+    default?: string;
+    /** The environment variable that sets the same value. */
+    env?: string;
+    /** The anchor of the entry. Defaults to the name without leading dashes, or to the
+        label in kebab case. */
+    id?: string;
+}
+
+const {
+    name,
+    label,
+    field,
+    console: consoleLabel,
+    changeable,
+    required = false,
+    short,
+    type,
+    typeHref,
+    default: defaultValue,
+    env,
+} = Astro.props;
+const slotted = Astro.slots.has("name");
+if ([name != null, label != null, slotted].filter(Boolean).length !== 1)
+    throw new Error("Field.Item needs exactly one of name, label, or a name slot");
+if (slotted && Astro.props.id == null)
+    throw new Error("Field.Item with a name slot needs an id");
+const id =
+    Astro.props.id ?? (name != null ? name.replace(/^-+/, "") : toAnchor(label ?? ""));
+// A flag shows the value it takes in angle brackets.
+const typeText = type != null && name?.startsWith("-") ? `<${type}>` : type;
+const clientNames = typeof field === "object" && !Array.isArray(field) ? field : null;
+const fields = field == null || clientNames != null ? [] : [field].flat();
+const hasMeta =
+    consoleLabel != null ||
+    clientNames != null ||
+    fields.length > 0 ||
+    env != null ||
+    changeable != null;
+// The colors that Arc code gives a type and a literal.
+const colors = {
+    "type-color": color(tokens.type),
+    "default-color": color(tokens.string),
+};
+---
+
+<div class="field" id={id}>
+    <dt class="field__header">
+        <a class="field__name" href={`#${id}`}>
+            {slotted ? (
+                <slot name="name" />
+            ) : name != null ? (
+                <code>{name}</code>
+            ) : (
+                <span class="field__label">{label}</span>
+            )}
+            {short != null && (
+                <span>
+                    , <code>{short}</code>
+                </span>
+            )}
+        </a>
+        {(typeText != null || defaultValue != null) && (
+            <code class="field__signature">
+                {typeText != null &&
+                    (typeHref != null ? (
+                        <a class="field__type-link" href={typeHref}>
+                            <span class="field__type">{typeText}</span>
+                        </a>
+                    ) : (
+                        <span class="field__type">{typeText}</span>
+                    ))}
+                {defaultValue != null && (
+                    <>
+                        {typeText != null && " "}
+                        <span class="field__equals">=</span>{" "}
+                        <span class="field__default">{defaultValue}</span>
+                    </>
+                )}
+            </code>
+        )}
+        {required && (
+            <span class="field__required">
+                <span class="field__required-mark" aria-hidden="true">
+                    *
+                </span>{" "}
+                Required
+            </span>
+        )}
+    </dt>
+    <dd class="field__description">
+        <slot />
+        {hasMeta && (
+            <p class="field__meta">
+                {consoleLabel != null && (
+                    <span>
+                        Console <strong>{consoleLabel}</strong>
+                    </span>
+                )}
+                {clientNames != null && (
+                    <>
+                        <span>
+                            Python <code>{clientNames.py}</code>
+                        </span>
+                        <span>
+                            TypeScript <code>{clientNames.ts}</code>
+                        </span>
+                    </>
+                )}
+                {fields.length > 0 && (
+                    <span>
+                        Field{" "}
+                        {fields.map((f, i) => (
+                            <>
+                                {i > 0 && ", "}
+                                <code>{f}</code>
+                            </>
+                        ))}
+                    </span>
+                )}
+                {env != null && (
+                    <span>
+                        Env <code>{env}</code>
+                    </span>
+                )}
+                {changeable != null && (
+                    <span>{changeable ? "Can change" : "Cannot change"}</span>
+                )}
+            </p>
+        )}
+    </dd>
+</div>
+
+<style define:vars={colors}>
+    .field__header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.5rem 2rem;
+    }
+
+    .field__header :global(code) {
+        padding: 0;
+        border: none;
+        background: none;
+    }
+
+    .field__name {
+        color: var(--pluto-gray-l8);
+        text-decoration: none;
+
+        & :global(code) {
+            font-size: var(--pluto-p-size);
+            font-weight: 600;
+            color: var(--pluto-gray-l11);
+        }
+
+        & span code {
+            font-weight: 400;
+            color: var(--pluto-gray-l9);
+        }
+
+        &:hover code {
+            text-decoration: underline;
+        }
+    }
+
+    .field__label {
+        font-size: var(--pluto-p-size);
+        font-weight: 550;
+        color: var(--pluto-gray-l11);
+    }
+
+    .field__name:hover .field__label {
+        text-decoration: underline;
+        text-decoration-color: var(--pluto-gray-l6);
+    }
+
+    .field__signature {
+        font-size: var(--pluto-small-size);
+        overflow-wrap: anywhere;
+    }
+
+    .field__type {
+        color: var(--type-color);
+    }
+
+    .field__type-link:hover .field__type {
+        text-decoration: underline;
+    }
+
+    .field__equals {
+        color: var(--pluto-gray-l7);
+    }
+
+    .field__default {
+        color: var(--default-color);
+    }
+
+    .field__required {
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+        color: var(--pluto-gray-l9);
+    }
+
+    .field__required-mark {
+        color: var(--pluto-error-z);
+    }
+
+    .field__description {
+        margin: 1rem 0 0;
+
+        & :global(p) {
+            margin: 0;
+        }
+
+        & :global(p + p) {
+            margin-top: 1.5rem;
+        }
+
+        & .field__meta {
+            margin-top: 1.5rem;
+            font-size: var(--pluto-small-size);
+            color: var(--pluto-gray-l8);
+
+            /* Each item wraps as a whole, with the dot that comes before it. */
+            & > span {
+                display: inline-block;
+                overflow-wrap: anywhere;
+            }
+
+            & > span + span::before {
+                content: "·" / "";
+                margin: 0 1rem;
+                color: var(--pluto-gray-l5);
+            }
+
+            & :is(code, strong) {
+                padding: 0;
+                border: none;
+                background: none;
+                font-weight: 500;
+                color: var(--pluto-gray-l10);
+            }
+        }
+    }
+</style>

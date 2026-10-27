@@ -133,7 +133,7 @@ describe("lineplot/ontology", () => {
         );
       });
       expect(
-        documentIn(Session.LinePlot.selectSliceState(store.getState()), plot.key),
+        documentIn(store.getState()[Session.LinePlot.SLICE_NAME], plot.key),
       ).toBeUndefined();
     });
 

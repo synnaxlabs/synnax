@@ -36,7 +36,7 @@ class URL:
         self.protocol = protocol
         self.host = host
         self.port = port
-        self.path = format_path(path)
+        self.path = _format_path(path)
 
     @staticmethod
     def parse(url: str) -> URL:
@@ -80,12 +80,12 @@ class URL:
         return f"{self.protocol}://{self.host}:{self.port}/{self.path}"
 
     def _child_prefix(self, path: str) -> str:
-        return reduce(urljoin, [self.path, format_path(path)])
+        return reduce(urljoin, [self.path, _format_path(path)])
 
     def __str__(self) -> str:
         return self.stringify()
 
 
-def format_path(path: str) -> str:
+def _format_path(path: str) -> str:
     path = path if path.endswith("/") else f"{path}/"
     return path[1:] if path.startswith("/") else path

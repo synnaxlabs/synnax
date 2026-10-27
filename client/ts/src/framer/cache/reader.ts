@@ -9,9 +9,9 @@
 
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
-  debounce,
   MultiSeries,
   type Reduction,
+  scheduler,
   type Series,
   sync,
   TimeRange,
@@ -43,7 +43,7 @@ interface ReadRequest {
 // Tracks one read's outstanding fetches, so the read settles when its last fetch lands.
 // The first failure among them wins.
 interface Tracker {
-  entry: debounce.Entry<ReadRequest>;
+  entry: scheduler.BatcherEntry<ReadRequest>;
   remaining: number;
   failure?: unknown;
 }
@@ -89,7 +89,7 @@ export interface ReaderProps {
  */
 export class Reader {
   private readonly props: Required<Omit<ReaderProps, "batchDebounce">>;
-  private readonly batcher: debounce.Batcher<ReadRequest>;
+  private readonly batcher: scheduler.Batcher<ReadRequest>;
   private closed = false;
 
   constructor(props: ReaderProps) {
@@ -102,7 +102,7 @@ export class Reader {
       now = () => TimeStamp.now(),
     } = props;
     this.props = { readRemote, cache, overlapThreshold, fetchTimeout, now };
-    this.batcher = new debounce.Batcher({
+    this.batcher = new scheduler.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
     });
@@ -123,10 +123,12 @@ export class Reader {
     return unary.read(tr).series;
   }
 
-  private async batchRead(entries: Array<debounce.Entry<ReadRequest>>): Promise<void> {
+  private async batchRead(
+    entries: Array<scheduler.BatcherEntry<ReadRequest>>,
+  ): Promise<void> {
     const { cache, overlapThreshold } = this.props;
     const batched: BatchFetch[] = [];
-    const trackers = new Map<debounce.Entry<ReadRequest>, Tracker>();
+    const trackers = new Map<scheduler.BatcherEntry<ReadRequest>, Tracker>();
     entries.forEach((entry) => {
       const unary = cache.get(entry.req.channel);
       entry.req.gaps.forEach((rawGap) => {

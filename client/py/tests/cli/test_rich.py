@@ -12,7 +12,7 @@ from collections.abc import Callable
 
 import pytest
 
-from synnax.cli.console import RichConsole
+from synnax.cli import console
 
 type Answer = Callable[..., None]
 
@@ -29,43 +29,43 @@ def answer(monkeypatch: pytest.MonkeyPatch) -> Answer:
 
 
 @pytest.mark.cli
-class TestRichConsoleAsk:
+class TestRichAsk:
     def test_ask_str_by_default(self, answer: Answer) -> None:
         """Should return the raw string when no type, default, or choices are set."""
         answer("hello")
-        assert RichConsole().ask("Name?") == "hello"
+        assert console.Rich().ask("Name?") == "hello"
 
     def test_ask_explicit_bool(self, answer: Answer) -> None:
         """Should confirm a yes or no question when the type is bool."""
         answer("y")
-        assert RichConsole().ask("Continue?", type_=bool) is True
+        assert console.Rich().ask("Continue?", type_=bool) is True
 
     def test_ask_bool_inferred_from_default(self, answer: Answer) -> None:
         """Should infer a bool question from the default and return it on empty."""
         answer("")
-        assert RichConsole().ask("Continue?", default=False) is False
+        assert console.Rich().ask("Continue?", default=False) is False
 
     def test_ask_explicit_int(self, answer: Answer) -> None:
         """Should parse the answer as an int when the type is int."""
         answer("42")
-        assert RichConsole().ask("Count?", type_=int) == 42
+        assert console.Rich().ask("Count?", type_=int) == 42
 
     def test_ask_int_inferred_from_choices(self, answer: Answer) -> None:
         """Should infer an int question from the choices and reject other values."""
         answer("4", "2")
-        assert RichConsole().ask("Pick", choices=[1, 2, 3]) == 2
+        assert console.Rich().ask("Pick", choices=[1, 2, 3]) == 2
 
     def test_ask_float_inferred_from_default(self, answer: Answer) -> None:
         """Should infer a float question from the default."""
         answer("1.5")
-        assert RichConsole().ask("Rate?", default=0.5) == 1.5
+        assert console.Rich().ask("Rate?", default=0.5) == 1.5
 
     def test_ask_str_with_choices(self, answer: Answer) -> None:
         """Should accept only one of the given string choices."""
         answer("d", "b")
-        assert RichConsole().ask("Pick", choices=["a", "b", "c"]) == "b"
+        assert console.Rich().ask("Pick", choices=["a", "b", "c"]) == "b"
 
     def test_ask_str_returns_default_on_empty(self, answer: Answer) -> None:
         """Should return the default when the answer is empty."""
         answer("")
-        assert RichConsole().ask("Name?", default="synnax") == "synnax"
+        assert console.Rich().ask("Name?", default="synnax") == "synnax"

@@ -18,6 +18,9 @@ production. Previews sign with the production key, so a license key issued there
 on any Core but is recorded only in the `preview` branch. Previews are visible only to
 members of the Vercel team, so the Desktop app cannot renew against one.
 
+Previews and development send no mail, so an invitation reaches no one. Copy its link
+from the team's Members tab instead.
+
 ## Development
 
 ```sh
@@ -82,7 +85,8 @@ In each instance:
 1. Organizations: enable them with membership optional. The portal creates a user's
    personal organization after sign-in, so a required membership loops sign-in. Create
    the team organization "Synnax Labs" and give every staff member the admin role. Its
-   id is that environment's `STAFF_ORG_ID`.
+   id is that environment's `STAFF_ORG_ID`. Register every other team from the portal's
+   Admin tab.
 2. Sign-in options: Google and Microsoft. Production needs its own OAuth credentials for
    both, with the redirect URLs the dashboard shows.
 
@@ -99,8 +103,8 @@ Previews receive no webhooks. The portal creates organizations on first use inst
 ### Resend
 
 Verify the `synnaxlabs.com` sending domain and create an API key with send permission
-for it. Set it as `RESEND_API_KEY` on production only. Expiry and revocation notices go
-out from `MAIL_FROM`.
+for it. Set it as `RESEND_API_KEY` on production only. Issue, expiry, revocation, and
+restoration notices go out from `MAIL_FROM`.
 
 ### Vercel
 
@@ -125,8 +129,7 @@ shows. Vercel Cron calls the daily expiry sweep on production with `CRON_SECRET`
 
 ### CI license
 
-Log in to the portal as staff, open the Synnax Labs organization's licenses, issue a
-subscription of a few months with one node and no channel cap labelled "CI", and use
-"Floating license key" on it. Store it with
-`gh secret set SYNNAX_LICENSE_TOKEN < <file>`. Rotate it by issuing a new one before the
-old one expires.
+Log in to the portal as staff, open Synnax Labs under Admin, issue a subscription of a
+few months with one node and no channel cap labelled "CI", and use "Floating license
+key" on it. Store it with `gh secret set SYNNAX_LICENSE_TOKEN < <file>`. Rotate it by
+issuing a new one before the old one expires.

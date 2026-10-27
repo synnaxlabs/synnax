@@ -1,0 +1,199 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Run the Core as a service"
+description:
+  "Start a Synnax Core when the computer boots, and restart it after a failure."
+platforms: ["Linux", "Windows", "Docker"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Platform } from "@/components/platform";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A Synnax Core started from a terminal stops when the terminal closes. As a service, the
+Core starts when the computer boots and starts again after a crash.
+
+<Divider.Divider x />
+
+## Run the Core as a service
+
+<Platform.Tabs exclude={["macOS"]}>
+
+<Fragment slot="Linux">
+
+1. Install the Core at `/usr/local/bin/synnax`. See
+   [Set up Synnax Enterprise](/reference/enterprise#install-the-core).
+2. Create a system user for the Core. The Core needs a home folder that exists:
+
+   ```bash
+   sudo useradd --system --home-dir /var/lib/synnax --shell /usr/sbin/nologin synnax
+   ```
+
+3. [Get the license key](/reference/enterprise/license#activate-at-start) for the
+   computer from the portal. Put the `.lic` file at `/etc/synnax/license.lic`, readable
+   by the `synnax` user:
+
+   ```bash
+   sudo mkdir -p /etc/synnax
+   sudo cp synnax.lic /etc/synnax/license.lic
+   sudo chown root:synnax /etc/synnax/license.lic
+   sudo chmod 640 /etc/synnax/license.lic
+   ```
+
+4. Create `/etc/systemd/system/synnax.service`:
+
+   ```ini
+   [Unit]
+   Description=Synnax Core
+   Wants=network-online.target
+   After=network-online.target
+
+   [Service]
+   Type=simple
+   User=synnax
+   Group=synnax
+   StateDirectory=synnax synnax-driver
+   WorkingDirectory=/var/lib/synnax
+   ExecStart=/usr/local/bin/synnax start \
+     --listen=synnax.example.com:9090 \
+     --data=/var/lib/synnax/data \
+     --certs-dir=/var/lib/synnax/certs \
+     --log-file-path=/var/lib/synnax/logs/synnax.log \
+     --license-file=/etc/synnax/license.lic \
+     --auto-cert
+   KillSignal=SIGINT
+   Restart=always
+   RestartSec=5s
+   LimitNOFILE=65536
+   LimitRTPRIO=99
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Change `--listen` to the name that clients use to reach the Core. For a different
+   certificate, see [Set up TLS](/reference/enterprise/tls).
+
+5. Start the service and turn it on at boot:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now synnax
+   ```
+
+6. Check that the Core started:
+
+   ```bash
+   journalctl -u synnax -f -a
+   ```
+
+   Wait for `Synnax is running and available at`.
+
+The unit sets `KillSignal=SIGINT` because Core 0.58 and earlier shut down cleanly only
+on `SIGINT`. `StateDirectory` creates `/var/lib/synnax` and `/var/lib/synnax-driver` for
+the `synnax` user. Core 0.58 and earlier keep the state of the embedded Driver in
+`/var/lib/synnax-driver`, and do not start without it. `LimitNOFILE` allows the Core to
+keep many channel files open. `LimitRTPRIO` lets Arc automations on the embedded Driver
+run on a [real-time thread](/reference/control/arc/timing). To change a flag, edit the
+unit, then run `sudo systemctl daemon-reload` and `sudo systemctl restart synnax`.
+
+For EtherCAT devices, also add `AmbientCapabilities=CAP_NET_RAW` to the `[Service]`
+section.
+
+</Fragment>
+
+<Fragment slot="Windows">
+
+The Windows installer installs the Core as a service by default, so you can skip this
+step if you used it.
+
+1. In PowerShell as an administrator, install the service with the flags for the Core:
+
+   ```powershell
+   synnax service install --listen=synnax.example.com:9090 --auto-cert `
+     --license-file=C:\ProgramData\Synnax\license.lic
+   ```
+
+2. Start the service:
+
+   ```powershell
+   synnax service start
+   ```
+
+3. Check that it runs:
+
+   ```powershell
+   synnax service status
+   ```
+
+The service is named `SynnaxCore`, with the display name "Synnax Core". It keeps its
+settings in `C:\ProgramData\Synnax\config.yaml`, its data in
+`C:\ProgramData\Synnax\data`, and its log in `C:\ProgramData\Synnax\logs\synnax.log`.
+When the Core crashes, Windows restarts it after 5 seconds, then 30 seconds, then 60
+seconds. A Core that stops with an error does not restart.
+
+To change a setting, edit `config.yaml`, then run `synnax service stop` and
+`synnax service start`. Running `synnax service install` again does not change
+`config.yaml` when it exists. For each `service` command, see the
+[CLI reference](/reference/enterprise/cli-reference#service-windows-only).
+
+</Fragment>
+
+<Fragment slot="Docker">
+
+Start the container with a restart policy:
+
+```bash
+docker run -d --name synnax --restart unless-stopped \
+  --stop-signal SIGINT --stop-timeout 30 --mac-address 02:5a:00:00:00:01 \
+  --ulimit rtprio=99 -p 9090:9090 -v synnax-data:/synnax/synnax-data \
+  -v synnax-certs:/usr/local/synnax/certs \
+  synnaxlabs/synnax --listen=synnax.example.com:9090 --auto-cert
+```
+
+Docker starts the container when the Docker daemon starts and after a crash.
+`--stop-signal SIGINT` lets the Core shut down cleanly on `docker stop`, and
+`--stop-timeout 30` gives it time to finish. The license is bound to the
+`--mac-address`, so keep the same address when you recreate or upgrade the container.
+The Core stores a key that you activate from the Console in the `synnax-data` volume. To
+give the key at start instead, add `-e SYNNAX_LICENSE_KEY="$(cat synnax.lic)"`.
+`--ulimit rtprio=99` lets Arc automations on the embedded Driver run on a real-time
+thread. The Core runs as a non-root user in the container, so `--cap-add SYS_NICE` does
+not do this.
+
+</Fragment>
+
+</Platform.Tabs>
+
+On macOS, use [Synnax Desktop](/reference/get-started/install-desktop), which starts the
+Core with the app.
+
+<Divider.Divider x />
+
+## Monitor the Core
+
+- **Health check** -> send `POST /api/v1/connectivity/check` with an empty JSON body. It
+  needs no login or license, and returns 200 while the Core runs:
+
+  ```bash
+  curl -s -X POST https://synnax.example.com:9090/api/v1/connectivity/check \
+    -H "Content-Type: application/json" -d '{}'
+  ```
+
+  The response has the Core version, its clock time, and its license state. It does not
+  check storage.
+
+- **Disk space** -> the Core does not check free space. When the data disk is full, the
+  Core can stop, and the service restarts it again and again. Alert well before the disk
+  fills.
+- **Logs** -> the Core writes logs to its output and to the file set by
+  `--log-file-path`. The file rotates at 50 MB and keeps 5 old files for 30 days. To
+  change these values, see the
+  [CLI reference](/reference/enterprise/cli-reference#start).
+
+<Note.Note variant="warning">
+  Do not start a Core in production with `--debug`. It serves profiling routes to every
+  network with no login.
+</Note.Note>

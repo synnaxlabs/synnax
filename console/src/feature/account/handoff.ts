@@ -13,7 +13,7 @@ import { z } from "zod";
 import { License } from "@/platform/license";
 
 /** The URL scheme the hub hands a login back through. */
-export const SCHEME = "synnax-desktop";
+const SCHEME = "synnax-desktop";
 
 const LINK_HOST = "activate";
 

@@ -11,7 +11,12 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
-import { listActivatable, listAll, listForOrganization } from "@/server/license/list";
+import {
+  listActivatable,
+  listAll,
+  listAllHeld,
+  listForOrganization,
+} from "@/server/license/list";
 import { HASH_A, HASH_B, HASH_C, NOW } from "@/server/license/testutil";
 import { createActivation, createLicense, createOrganization } from "@/testutil";
 
@@ -86,8 +91,37 @@ describe("list", () => {
         revokedAt: NOW,
       });
       expect(await listAll(store.query)).toEqual([
-        { license: b, organization: globex },
-        { license: a, organization: acme },
+        { license: b, organization: globex, seats: 0 },
+        { license: a, organization: acme, seats: 0 },
+      ]);
+    });
+
+    it("should count only the seats machines still hold", async () => {
+      const lic = await createLicense(store, { organization: acme.key });
+      await createActivation(store, { license: lic.key, fingerprint: [HASH_A] });
+      await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_B],
+        releasedAt: NOW,
+      });
+      expect((await listAll(store.query))[0].seats).toBe(1);
+    });
+  });
+
+  describe("listAllHeld", () => {
+    it("should list the licenses of every organization with their seats", async () => {
+      const a = await createLicense(store, {
+        organization: acme.key,
+        issuedAt: issuedOn(1),
+      });
+      const b = await createLicense(store, {
+        organization: globex.key,
+        issuedAt: issuedOn(2),
+      });
+      await createActivation(store, { license: a.key, fingerprint: [HASH_C] });
+      expect(await listAllHeld(store.query)).toEqual([
+        { license: b, seats: 0 },
+        { license: a, seats: 1 },
       ]);
     });
   });

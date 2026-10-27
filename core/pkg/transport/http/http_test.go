@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -32,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -125,6 +127,35 @@ var _ = Describe("HTTP", func() {
 			Expect(json.Unmarshal(body, &res)).To(Succeed())
 			return res.Token
 		}
+
+		It("Should log in with a MessagePack session request", func() {
+			body := MustSucceed(
+				msgpack.Codec.Encode(context.Background(), map[string]any{
+					"proof": map[string]string{
+						"method":   "password",
+						"username": creds.Username,
+						"password": creds.Password,
+					},
+				}),
+			)
+			req := httptest.NewRequest(
+				http.MethodPost,
+				"/api/v1/auth/session/create",
+				bytes.NewReader(body),
+			)
+			req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
+			req.Header.Set(fiber.HeaderAccept, msgpack.Codec.ContentType())
+			res := MustSucceed(app.Test(req, fiber.TestConfig{
+				Timeout:       10 * time.Second,
+				FailOnTimeout: true,
+			}))
+			raw := MustSucceed(io.ReadAll(res.Body))
+			Expect(res.StatusCode).To(Equal(http.StatusOK), string(raw))
+			var created apiauth.SessionCreateResponse
+			Expect(msgpack.Codec.Decode(context.Background(), raw, &created)).
+				To(Succeed())
+			Expect(created.Token).To(HavePrefix("sys_"))
+		})
 
 		DescribeTable(
 			"Should reach an ungated endpoint while no license is active",

@@ -45,7 +45,7 @@ const renderMenuWithNames = async (
         itemKey="ch1"
       />
       <Menu.Menu>
-        <Task.WriteChannelContextMenuItems keys={["ch1"]} channels={[channel]} />
+        {Task.writeChannelContextMenuItems({ keys: ["ch1"], channels: [channel] })}
       </Menu.Menu>
     </>,
     {
@@ -80,7 +80,7 @@ describe("WriteChannelContextMenuItems", () => {
   it("should render nothing when no matching channel is selected", async () => {
     await renderInTaskFormWithClient(
       <Menu.Menu>
-        <Task.WriteChannelContextMenuItems keys={["missing"]} channels={[channel]} />
+        {Task.writeChannelContextMenuItems({ keys: ["missing"], channels: [channel] })}
       </Menu.Menu>,
       { client },
     );

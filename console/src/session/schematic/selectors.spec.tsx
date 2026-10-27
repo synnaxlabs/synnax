@@ -32,11 +32,12 @@ import { createConsoleWrapper } from "@/testutil";
 
 const KEY = "schematic-1";
 
-const customState = Schematic.stateZ.parse({
+const customState: Schematic.State = {
   control: { authority: 250, status: "acquired" },
   selected: ["a", "b"],
-  legend: { visible: false, colors: { a: color.ZERO } },
+  legend: { ...Schematic.ZERO_STATE.legend, visible: false, colors: { a: color.ZERO } },
   toolbar: {
+    ...Schematic.ZERO_STATE.toolbar,
     selectedTab: "properties",
     selectedSymbolGroup: "valves",
     propertiesTab: "style",
@@ -45,7 +46,7 @@ const customState = Schematic.stateZ.parse({
   fitViewOnResize: true,
   tooltipsDisabled: true,
   viewport: { position: { x: 7, y: 8 }, zoom: 2, mode: "pan" },
-});
+};
 
 const storeWith = (slice: Schematic.SliceState) =>
   createSliceStore({
@@ -95,41 +96,6 @@ describe("schematic getters", () => {
     expect(result.current({ key: KEY })).toEqual(customState);
   });
 
-  it("should read the selected elements", () => {
-    const { result } = renderHook(() => Schematic.useGetSelected(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toEqual(["a", "b"]);
-  });
-
-  it("should read the toolbar state", () => {
-    const { result } = renderHook(() => Schematic.useGetToolbar(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toEqual(customState.toolbar);
-  });
-
-  it("should read the active toolbar tab", () => {
-    const { result } = renderHook(() => Schematic.useGetActiveToolbarTab(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe("properties");
-  });
-
-  it("should read the editable flag", () => {
-    const { result } = renderHook(() => Schematic.useGetEditable(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe(true);
-  });
-
-  it("should read the fit view on resize flag", () => {
-    const { result } = renderHook(() => Schematic.useGetFitViewOnResize(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe(true);
-  });
-
   it("should read the viewport", () => {
     const { result } = renderHook(() => Schematic.useGetViewport(), {
       wrapper: wrapperFor(createCustomStore(), KEY),
@@ -143,17 +109,20 @@ describe("schematic selector hooks", () => {
     storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
   it("should resolve the key from the surrounding scope", () => {
-    const { result } = renderHook(() => Schematic.useSelect(), {
+    const { result } = renderHook(() => Schematic.useSelectSelected(), {
       wrapper: wrapperFor(store(), KEY),
     });
-    expect(result.current).toEqual(customState);
+    expect(result.current).toEqual(customState.selected);
   });
 
   it("should let an explicit key override the scope", () => {
-    const { result } = renderHook(() => Schematic.useSelect({ key: "absent" }), {
-      wrapper: wrapperFor(store(), KEY),
-    });
-    expect(result.current).toEqual(Schematic.ZERO_STATE);
+    const { result } = renderHook(
+      () => Schematic.useSelectSelected({ key: "absent" }),
+      {
+        wrapper: wrapperFor(store(), KEY),
+      },
+    );
+    expect(result.current).toEqual(Schematic.ZERO_STATE.selected);
   });
 
   it("should return the selected elements", () => {
@@ -182,13 +151,6 @@ describe("schematic selector hooks", () => {
       wrapper: wrapperFor(store(), KEY),
     });
     expect(result.current).toBe(250);
-  });
-
-  it("should return the toolbar state", () => {
-    const { result } = renderHook(() => Schematic.useSelectToolbar(), {
-      wrapper: wrapperFor(store(), KEY),
-    });
-    expect(result.current).toEqual(customState.toolbar);
   });
 
   it("should return the active toolbar tab", () => {
@@ -254,7 +216,7 @@ describe("schematic selector stability under dispatch", () => {
 
   it("should keep a stable reference when an unrelated field changes", () => {
     const s = store();
-    const { result } = renderHook(() => Schematic.useSelectToolbar(), {
+    const { result } = renderHook(() => Schematic.useSelectLegend(), {
       wrapper: wrapperFor(s, KEY),
     });
     const first = result.current;
@@ -266,26 +228,26 @@ describe("schematic selector stability under dispatch", () => {
 
   it("should return a new reference when the tracked field changes", () => {
     const s = store();
-    const { result } = renderHook(() => Schematic.useSelectToolbar(), {
+    const { result } = renderHook(() => Schematic.useSelectLegend(), {
       wrapper: wrapperFor(s, KEY),
     });
     const first = result.current;
     act(() => {
-      s.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "symbols" }));
+      s.dispatch(Schematic.setLegendVisible({ key: KEY, visible: true }));
     });
     expect(result.current).not.toBe(first);
-    expect(result.current.selectedTab).toBe("symbols");
+    expect(result.current.visible).toBe(true);
   });
 
   it("should ignore changes to other schematics", () => {
     const s = store();
-    const { result } = renderHook(() => Schematic.useSelectToolbar(), {
+    const { result } = renderHook(() => Schematic.useSelectLegend(), {
       wrapper: wrapperFor(s, KEY),
     });
     const first = result.current;
     act(() => {
       s.dispatch(Schematic.create({ key: "schematic-2" }));
-      s.dispatch(Schematic.selectToolbarTab({ key: "schematic-2", tab: "symbols" }));
+      s.dispatch(Schematic.setLegendVisible({ key: "schematic-2", visible: true }));
     });
     expect(result.current).toBe(first);
   });
@@ -295,9 +257,10 @@ describe("schematic selector stability under dispatch", () => {
       version: 0,
       windows: inWindow({
         [KEY]: customState,
-        "schematic-2": Schematic.stateZ.parse({
-          toolbar: { selectedSymbolGroup: "pumps" },
-        }),
+        "schematic-2": {
+          ...Schematic.ZERO_STATE,
+          toolbar: { ...Schematic.ZERO_STATE.toolbar, selectedSymbolGroup: "pumps" },
+        },
       }),
     });
     const { result, rerender } = renderHook(
@@ -363,7 +326,7 @@ const setup = async ({
     preloadedState: {
       [Schematic.SLICE_NAME]: {
         version: 0,
-        windows: inWindow({ [created.key]: Schematic.stateZ.parse({ editable }) }),
+        windows: inWindow({ [created.key]: { ...Schematic.ZERO_STATE, editable } }),
       },
     },
   });

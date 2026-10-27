@@ -194,7 +194,7 @@ export const configureStore: <
   options: ConfigureStoreOptions<S, A, M, E>,
 ) => Promise<EnhancedStore<S, A | Action>> = configureStoreInternal;
 
-export const resetInitialState = <S extends StoreState>(
+const resetInitialState = <S extends StoreState>(
   defaultWindowProps?: Omit<WindowProps, "key">,
   debug?: boolean,
   state?: S,

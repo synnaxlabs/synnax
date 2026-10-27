@@ -126,7 +126,7 @@ var _ = Describe("Switch", func() {
 			input.Inlet() <- []int{1, 2}
 			input.Inlet() <- []int{3, 4}
 			input.Inlet() <- []int{5, 6}
-			Expect(ctx.Wait()).ToNot(Succeed())
+			Expect(ctx.Wait()).To(MatchError("error"))
 			Expect(<-first.Outlet()).To(Equal(1))
 			Expect(<-second.Outlet()).To(Equal(2))
 			Expect(<-first.Outlet()).To(Equal(3))

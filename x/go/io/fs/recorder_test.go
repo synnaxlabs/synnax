@@ -39,7 +39,7 @@ var _ = Describe("Recorder", func() {
 					Expect(
 						rec.Open("missing.bin", os.O_RDONLY),
 					).Error().
-						To(HaveOccurred())
+						To(MatchError(os.ErrNotExist))
 					Expect(rec.Events()).To(BeEmpty())
 				})
 			})

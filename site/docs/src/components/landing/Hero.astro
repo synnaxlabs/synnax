@@ -1,0 +1,204 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+---
+
+<div class="docs-landing">
+    <div class="docs-landing__stage">
+        <div class="docs-landing__grid"></div>
+        <div class="docs-landing__lines"></div>
+        <div class="docs-landing__media">
+            <slot name="media" />
+        </div>
+        {["tl", "tr", "bl", "br"].map((corner) => (
+            <span class="docs-landing__tick" data-corner={corner} />
+        ))}
+    </div>
+    <div class="docs-landing__lead">
+        <slot />
+    </div>
+    <div class="docs-landing__uses">
+        <slot name="uses" />
+    </div>
+    <div class="docs-landing__start">
+        <slot name="start" />
+    </div>
+    <p class="docs-landing__note">
+        Not sure which one you need?{" "}
+        <a href="/reference/get-started/editions">Compare the editions</a>.
+    </p>
+</div>
+
+<style is:global>
+    /* The art runs past the text column, so it clips at the window edge instead. */
+    main > section:has(.docs-landing__stage),
+    article:has(.docs-landing__stage) {
+        overflow-x: visible;
+    }
+    main:has(.docs-landing__stage) {
+        overflow-x: clip;
+    }
+
+    .docs-landing {
+        .docs-landing__lead p {
+            font-size: var(--pluto-h5-size);
+            line-height: 1.6;
+            color: var(--pluto-gray-l10);
+            max-width: 120rem;
+        }
+        .docs-landing__uses {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 3rem 4rem;
+            margin-top: 5rem;
+            @media (max-width: 600px) {
+                grid-template-columns: 1fr;
+            }
+        }
+        .docs-landing__start {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 2rem;
+            margin-top: 6rem;
+            @media (max-width: 600px) {
+                grid-template-columns: 1fr;
+            }
+        }
+        .docs-landing__note {
+            margin-top: 2.5rem;
+            text-align: center;
+            color: var(--pluto-gray-l8);
+            font-size: var(--pluto-small-size);
+        }
+    }
+
+    /* A drafting sheet wider than the text column, centered on it, with a window at
+       least as wide as the column. Sizes are in units of a 1200 px wide sheet. */
+    .docs-landing__stage {
+        --w: clamp(100% * 4 / 3, 100vw - var(--docs-page-nav-width) - 10rem, 1200px);
+        --u: calc(100cqw / 1200);
+        --x0: calc(150 * var(--u));
+        --x1: calc(var(--x0) + 900 * var(--u));
+        --y0: calc(16 * var(--u));
+        --y1: calc(var(--y0) + 562.5 * var(--u));
+        --ink: var(--pluto-gray-l4);
+
+        position: relative;
+        container-type: inline-size;
+        width: var(--w);
+        aspect-ratio: 1200 / 600;
+        /* Pulls the window up into the bottom margin of the page description. */
+        margin: -6rem 0 2rem calc((100% - var(--w)) / 2);
+    }
+
+    /* Both layers reach above the stage, so they paint below the description. */
+    .docs-landing__grid,
+    .docs-landing__lines {
+        position: absolute;
+        z-index: -1;
+        inset: calc(-60 * var(--u)) calc(-80 * var(--u));
+        opacity: 0.7;
+    }
+
+    .docs-landing__grid {
+        background:
+            linear-gradient(var(--pluto-gray-l3) 1px, transparent 1px) 0 0 /
+                calc(40 * var(--u)) calc(40 * var(--u)),
+            linear-gradient(90deg, var(--pluto-gray-l3) 1px, transparent 1px) 0 0 /
+                calc(40 * var(--u)) calc(40 * var(--u));
+        mask-image:
+            radial-gradient(60% 60% at 50% 45%, #000 35%, transparent 100%),
+            linear-gradient(rgb(0 0 0 / 20%), #000 25%);
+        mask-composite: intersect;
+    }
+
+    /* Construction lines run past each edge of the window and fade out. */
+    .docs-landing__lines {
+        --dx: calc(80 * var(--u));
+        --dy: calc(60 * var(--u));
+
+        background:
+            linear-gradient(var(--ink), var(--ink)) calc(var(--x0) + var(--dx) - 1px)
+                0 / 1px 100% no-repeat,
+            linear-gradient(var(--ink), var(--ink)) calc(var(--x1) + var(--dx)) 0 / 1px
+                100% no-repeat,
+            linear-gradient(var(--ink), var(--ink)) 0
+                calc(var(--y0) + var(--dy) - 1px) / 100% 1px no-repeat,
+            linear-gradient(var(--ink), var(--ink)) 0 calc(var(--y1) + var(--dy)) / 100%
+                1px no-repeat;
+        mask-image:
+            linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent),
+            linear-gradient(transparent, #000 12%, #000 88%, transparent);
+        mask-composite: intersect;
+    }
+
+    .docs-landing__media {
+        position: absolute;
+        top: var(--y0);
+        left: var(--x0);
+        width: calc(900 * var(--u));
+        overflow: hidden;
+        border-radius: calc(10 * var(--u));
+        box-shadow:
+            0 0 0 1px var(--pluto-gray-l3),
+            0 30px 60px -30px rgb(0 0 0 / 45%);
+
+        img {
+            display: block;
+            width: 100%;
+            height: auto;
+            margin: 0;
+        }
+    }
+
+    .docs-landing__tick {
+        position: absolute;
+        width: 11px;
+        height: 11px;
+        translate: -50% -50%;
+        opacity: 0.7;
+        background:
+            linear-gradient(var(--pluto-gray-l8), var(--pluto-gray-l8)) center / 100%
+                1px no-repeat,
+            linear-gradient(var(--pluto-gray-l8), var(--pluto-gray-l8)) center / 1px
+                100% no-repeat;
+
+        &[data-corner^="t"] {
+            top: var(--y0);
+        }
+        &[data-corner^="b"] {
+            top: var(--y1);
+        }
+        &[data-corner$="l"] {
+            left: var(--x0);
+        }
+        &[data-corner$="r"] {
+            left: var(--x1);
+        }
+    }
+
+    /* Without room beside the text column, the window fills the column alone. */
+    @media (width <= 1100px) {
+        .docs-landing__stage {
+            width: auto;
+            aspect-ratio: auto;
+            margin: 2rem 0 6rem;
+        }
+        .docs-landing__grid,
+        .docs-landing__lines,
+        .docs-landing__tick {
+            display: none;
+        }
+        .docs-landing__media {
+            position: static;
+            width: 100%;
+            border-radius: 1rem;
+        }
+    }
+</style>

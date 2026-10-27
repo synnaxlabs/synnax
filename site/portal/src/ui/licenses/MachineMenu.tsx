@@ -84,8 +84,9 @@ export const MachineMenu = ({ activation, label }: MachineMenuProps): ReactEleme
             reload();
           }}
         >
-          The Core on that machine loses its license at its next check. Activate it
-          again to give it a new license key.
+          Another machine can take the seat. A Core checks its license offline, so the
+          Core on that machine keeps running as its license key allows. Activate it
+          again to give it a seat.
         </Modal.Confirm>
       </Modal.Frame>
       <RenameDialog

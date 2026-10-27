@@ -1,0 +1,118 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Visualizations"
+description: "Learn what each visualization shows and which one to use."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
+import { Hero } from "@/components/hero";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+export const hierarchy = {
+  key: "project",
+  label: "Engine test",
+  caption: "project, 2 panels",
+  icon: Icon.Project,
+  columns: 2,
+  narrowColumns: 1,
+  children: [
+    {
+      key: "hotfire",
+      label: "Hotfire",
+      caption: "panel, 4 tabs",
+      icon: Icon.Panel,
+      columns: 2,
+      children: [
+        { key: "plot", label: "Line plot", icon: Icon.LinePlot },
+        { key: "schematic", label: "Schematic", icon: Icon.Schematic },
+        { key: "table", label: "Table", icon: Icon.Table },
+        { key: "log", label: "Log", icon: Icon.Log },
+      ],
+    },
+    {
+      key: "cold",
+      label: "Cold flow",
+      caption: "panel, 2 tabs",
+      icon: Icon.Panel,
+      narrowColumns: 2,
+      children: [
+        { key: "cold-schematic", label: "Schematic", icon: Icon.Schematic },
+        { key: "cold-plot", label: "Line plot", icon: Icon.LinePlot },
+      ],
+    },
+  ],
+};
+
+<Hero.Hero
+  still="console/visualize/hero"
+  layout="bleed"
+  tone="deep"
+  palette="blue-pink"
+/>
+
+The Synnax Console shows your channel data in four kinds of visualizations: line plots,
+schematics, tables, and logs. Each visualization opens in a tab. You arrange tabs in
+[panels](/reference/visualize/panels), and you keep panels in a
+[project](/reference/visualize/projects).
+
+Synnax stores each project, its panels, and its visualizations in the Synnax Core. The
+Console saves each change that you make, so everyone on the same Core can
+[share](/reference/visualize/share) them.
+
+<Diagram.Nest
+  title="A project holds panels. A panel holds tabs, and each tab shows one visualization: a line plot, a schematic, a table, or a log."
+  root={hierarchy}
+/>
+
+<Divider.Divider x />
+
+## What visualizations are for
+
+### Watch a test live
+
+A [line plot](/reference/visualize/line-plots) with a rolling time span, such as the
+last 30 seconds, shows each new sample when it arrives. Put the pressures of one tank on
+one plot to see how they change together.
+
+### Review and compare past tests
+
+Add a [range](/reference/ranges) to a line plot to show the data of a past test. Add two
+ranges to compare two runs on the same plot. Select a region of the plot to mark it as a
+new range or to download its data as CSV.
+
+### Operate your system
+
+A [schematic](/reference/visualize/schematics) draws your system with symbols for tanks,
+valves, pumps, and sensors. Each symbol shows the latest value of a channel. Click a
+valve to open or close it, as [manual control](/reference/control/manual) shows.
+
+### Watch many values at once
+
+A [table](/reference/visualize/tables) shows the latest values of many channels in a
+grid of cells. Add a [redline](/reference/alarms/redlines) to a cell to color it when
+its value passes a limit.
+
+### Follow messages and states
+
+A [log](/reference/visualize/logs) shows each new value of its channels as a line of
+text. Use it for operator notes, sequence states, and other text channels.
+
+<Divider.Divider x />
+
+## Choose a visualization
+
+| Visualization                                | Shows                                       | Past data | Sends commands | Use it to                                                                                         |
+| -------------------------------------------- | ------------------------------------------- | --------- | -------------- | ------------------------------------------------------------------------------------------------- |
+| [Line plot](/reference/visualize/line-plots) | Values over time, one line for each channel | Yes       | No             | [Watch a test live](#watch-a-test-live) and [compare past tests](#review-and-compare-past-tests). |
+| [Schematic](/reference/visualize/schematics) | Latest values on a drawing of your system   | No        | Yes            | [Operate your system](#operate-your-system).                                                      |
+| [Table](/reference/visualize/tables)         | Latest values in a grid of cells            | No        | No             | [Watch many values at once](#watch-many-values-at-once).                                          |
+| [Log](/reference/visualize/logs)             | Each new value as a line of text            | No        | No             | [Follow messages and states](#follow-messages-and-states).                                        |
+
+A schematic and a table both show the latest values of many channels. Use a schematic
+when the position of a value on your system matters, or when you must command hardware.
+Use a table for a dense grid of values with no drawing.
+
+A log shows the values that arrive while it is open. It does not read stored data. To
+see stored data, use a line plot.

@@ -23,10 +23,14 @@ let error: string | undefined;
 let view: Awaited<ReturnType<typeof licenseFor>> | undefined;
 let events: Awaited<ReturnType<typeof listForLicense>> = [];
 let actors: Record<string, string> = {};
+// Staff viewing a team they are not on stay in their own scope.
+let member = false;
 try {
-    view = await licenseFor(portal, session, Astro.params.key ?? "");
-    events = await listForLicense(portal.store, view.license.key);
-    const machines = new Set(view.activations.map((a) => a.key));
+    const found = await licenseFor(portal, session, Astro.params.key ?? "");
+    view = found;
+    member = organizations.some((o) => o.key === found.organization.key);
+    events = await listForLicense(portal.store, found.license.key);
+    const machines = new Set(found.activations.map((a) => a.key));
     actors = await portal.directory.names(
         [...new Set(events.map((e) => e.actor))].filter((a) => !machines.has(a)),
     );
@@ -41,8 +45,8 @@ try {
     title={view?.license.label ?? "License"}
     session={session}
     organizations={organizations}
-    scope={view?.organization ?? scope}
-    tab={view == null ? null : "licenses"}
+    scope={view != null && member ? view.organization : scope}
+    tab={view == null ? null : member ? "licenses" : "admin"}
 >
     {view == null ? (
         <Page title="License" error={error} />

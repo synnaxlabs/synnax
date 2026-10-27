@@ -9,7 +9,7 @@
 
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
@@ -100,28 +100,44 @@ describe("Ranger.Timeline", () => {
     });
   });
 
-  it("should move to in progress when the planned start passes", async () => {
-    const now = TimeStamp.now().nanoseconds;
-    render(
-      <Ranger.Timeline
-        value={{ start: now + 50 * MILLISECOND, end: now + HOUR }}
-        onChange={() => {}}
-      />,
-    );
-    expect(screen.getByText("To do")).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("In progress")).toBeTruthy());
+  it("should move to in progress when the planned start passes", () => {
+    vi.useFakeTimers({ now: EXACT });
+    try {
+      const now = TimeStamp.now().nanoseconds;
+      render(
+        <Ranger.Timeline
+          value={{ start: now + 50 * MILLISECOND, end: now + HOUR }}
+          onChange={() => {}}
+        />,
+      );
+      expect(screen.getByText("To do")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(screen.getByText("In progress")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it("should move to completed when the planned end passes", async () => {
-    const now = TimeStamp.now().nanoseconds;
-    render(
-      <Ranger.Timeline
-        value={{ start: now - HOUR, end: now + 50 * MILLISECOND }}
-        onChange={() => {}}
-      />,
-    );
-    expect(screen.getByText("In progress")).toBeTruthy();
-    await waitFor(() => expect(screen.getByText("Completed")).toBeTruthy());
+  it("should move to completed when the planned end passes", () => {
+    vi.useFakeTimers({ now: EXACT });
+    try {
+      const now = TimeStamp.now().nanoseconds;
+      render(
+        <Ranger.Timeline
+          value={{ start: now - HOUR, end: now + 50 * MILLISECOND }}
+          onChange={() => {}}
+        />,
+      );
+      expect(screen.getByText("In progress")).toBeTruthy();
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(screen.getByText("Completed")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("should read in progress at the planned start", () => {

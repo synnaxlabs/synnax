@@ -26,6 +26,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var blazingFastConfig = pledge.Config{
+	RequestTimeout: 5 * time.Millisecond,
+	RetryInterval:  time.Microsecond,
+}
+
 func baseConfig(n *mock.Network[pledge.Request, pledge.Response]) pledge.Config {
 	cfg, _ := baseConfigWithAddr(n)
 	return cfg
@@ -188,7 +193,7 @@ var _ = Describe("Pledge", func() {
 						Instrumentation: ins.Child("no-nodes-responding"),
 						Peers:           peers,
 						Candidates:      func() node.Group { return node.Group{} },
-					}, pledge.BlazingFastConfig)).Error().
+					}, blazingFastConfig)).Error().
 						To(MatchError(context.Canceled))
 					entries := net.Entries()
 					Expect(len(entries)).To(BeNumerically(">=", 2*numTransports))
@@ -215,7 +220,7 @@ var _ = Describe("Pledge", func() {
 					Instrumentation: ins.Child("cluster-state-synchronized"),
 					Peers:           nodes.Addresses(),
 					Candidates:      candidates,
-				}, pledge.BlazingFastConfig))
+				}, blazingFastConfig))
 				// The pledge algorithm may assign a marginally higher key than the
 				// minimum when a quorum consultation hits a transient timeout and the
 				// responsible retries with an incremented proposal (see pledge.go).
@@ -249,7 +254,7 @@ var _ = Describe("Pledge", func() {
 						Candidates: func() node.Group { return nodes },
 						Peers:      []address.Address{nodes[0].Address},
 					},
-					pledge.BlazingFastConfig,
+					blazingFastConfig,
 				))
 				Expect(res.Key).To(BeNumerically(">=", node.Key(10)))
 			})
@@ -283,7 +288,7 @@ var _ = Describe("Pledge", func() {
 						Peers:           []address.Address{allCandidates()[0].Address},
 						Candidates:      extraCandidates,
 					},
-					pledge.BlazingFastConfig,
+					blazingFastConfig,
 				))
 				Expect(res.Key).To(BeNumerically(">=", node.Key(11)))
 			})
@@ -312,7 +317,7 @@ var _ = Describe("Pledge", func() {
 						Peers:      []address.Address{nodes[1].Address},
 						Candidates: allCandidates(nodes),
 					},
-					pledge.BlazingFastConfig,
+					blazingFastConfig,
 				)).Error().To(MatchError(context.DeadlineExceeded))
 			})
 		})
@@ -342,7 +347,7 @@ var _ = Describe("Pledge", func() {
 							Instrumentation: ins.Child("rejections-uncounted"),
 							Peers:           nodes.Addresses(),
 							Candidates:      allCandidates(nodes),
-						}, pledge.BlazingFastConfig, pledge.Config{
+						}, blazingFastConfig, pledge.Config{
 							RequestTimeout: time.Second,
 						}),
 					)
@@ -492,7 +497,7 @@ var _ = Describe("Pledge", func() {
 								Candidates:      candidates(0),
 								Peers:           addrs,
 							},
-							pledge.BlazingFastConfig,
+							blazingFastConfig,
 						))
 						ids[i] = res.Key
 						mu.Lock()

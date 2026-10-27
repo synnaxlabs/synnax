@@ -45,18 +45,6 @@ const openAddModal = async (): Promise<void> => {
 };
 
 describe("Label.Select", () => {
-  it("should pass the clicked label's key to onChange in SelectSingle", async () => {
-    const label = await client.labels.create({
-      name: uniqueName("label"),
-      color: "#FF0000",
-    });
-    const onChange = vi.fn();
-    await renderSelect(<Label.SelectSingle value={undefined} onChange={onChange} />);
-    await searchAndClickLabel(label.name);
-    await waitFor(() => expect(onChange).toHaveBeenCalled());
-    expect(onChange.mock.calls[0][0]).toBe(label.key);
-  });
-
   it("should pass the clicked label's key to onChange in SelectMultiple", async () => {
     const label = await client.labels.create({
       name: uniqueName("label"),
@@ -67,14 +55,6 @@ describe("Label.Select", () => {
     await searchAndClickLabel(label.name);
     await waitFor(() => expect(onChange).toHaveBeenCalled());
     expect(onChange.mock.calls[0][0]).toEqual([label.key]);
-  });
-
-  it("should open the label editor from the SelectSingle add action", async () => {
-    await renderSelect(<Label.SelectSingle value={undefined} onChange={vi.fn()} />);
-    await openAddModal();
-    await waitFor(() =>
-      expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
-    );
   });
 
   it("should open the label editor from the SelectMultiple add action", async () => {

@@ -16,6 +16,7 @@ import (
 	"io"
 	"slices"
 	"sort"
+	"sync"
 	"sync/atomic"
 
 	"github.com/samber/lo"
@@ -160,16 +161,18 @@ type Codec struct {
 		// the previous state. seqNum and the states backlog are used to keep the two in
 		// sync.
 		states map[uint32]state
-		// updates is a channel that the routine in Update pushes a new state down for
-		// processing within Encode/Decode.
-		updates chan state
+		// oldest is the lowest sequence number that states can hold.
+		oldest uint32
+		// pending holds the states added by Update that Encode and Decode have not
+		// applied yet, oldest first. pendingMu guards it.
+		pending   []state
+		pendingMu sync.Mutex
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
 		seqNum uint32
-		// updateAvailable is an atomic flag indicating that a new state update is
-		// available for processing on the encoding/decoding routine. Checking this
-		// boolean is more performant than using a non-blocking select on every
-		// encode/decode operation.
+		// updateAvailable is an atomic flag indicating that pending holds a state for
+		// the encoding/decoding routine to apply. Checking it lets each encode and
+		// decode skip pendingMu when no update is pending.
 		updateAvailable atomic.Bool
 	}
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
@@ -256,7 +259,6 @@ func newCodec(opts ...Option) *Codec {
 		reader: binary.NewReader(nil, byteOrder),
 		opts:   o,
 	}
-	c.mu.updates = make(chan state, 50)
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)
 	return c
@@ -306,22 +308,24 @@ func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.Dat
 		}
 	}
 	slices.Sort(s.keys)
+	c.mu.pendingMu.Lock()
+	c.mu.pending = append(c.mu.pending, s)
+	c.mu.pendingMu.Unlock()
+	// Set after the append, so the routine that clears the flag also finds s.
 	c.mu.updateAvailable.Store(true)
-	c.mu.updates <- s
 }
 
 func (c *Codec) processUpdates() {
 	if !c.mu.updateAvailable.CompareAndSwap(true, false) {
 		return
 	}
-	for {
-		select {
-		case s := <-c.mu.updates:
-			c.mu.seqNum++
-			c.mu.states[c.mu.seqNum] = s
-		default:
-			return
-		}
+	c.mu.pendingMu.Lock()
+	pending := c.mu.pending
+	c.mu.pending = nil
+	c.mu.pendingMu.Unlock()
+	for _, s := range pending {
+		c.mu.seqNum++
+		c.mu.states[c.mu.seqNum] = s
 	}
 }
 
@@ -408,6 +412,14 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 	result := make([]byte, len(c.buf.Bytes()))
 	copy(result, c.buf.Bytes())
 	return result, nil
+}
+
+// prune drops the states older than seqNum. A remote encoder never goes back to an
+// older state, and an encoder only uses its newest one.
+func (c *Codec) prune(seqNum uint32) {
+	for ; c.mu.oldest < seqNum; c.mu.oldest++ {
+		delete(c.mu.states, c.mu.oldest)
+	}
 }
 
 func (c *Codec) panicIfNotUpdated(opName string) {
@@ -590,6 +602,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
+	c.prune(c.mu.seqNum)
 	currState := c.mu.states[c.mu.seqNum]
 	src = src.KeepKeys(currState.keySet)
 
@@ -823,6 +836,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		)
 		return framer.Frame{}, err
 	}
+	c.prune(seqNum)
 	fgs := decodeFlags(flagB)
 	if fgs.extended {
 		return framer.Frame{}, errors.Wrap(

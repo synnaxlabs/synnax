@@ -22,10 +22,7 @@ import { DataType, type math, type Series } from "@synnaxlabs/x";
  * float32 ULP at that magnitude.
  * @returns The converted series.
  */
-export const convertSeriesToSupportedGL = (
-  series: Series,
-  offset?: math.Numeric,
-): Series => {
+const convertSeriesToSupportedGL = (series: Series, offset?: math.Numeric): Series => {
   if (series.dataType.isVariable || series.dataType.equals(DataType.UINT8))
     return series;
   if (offset == null && series.dataType.usesBigInt && series.length > 0)
@@ -39,7 +36,7 @@ export const convertSeriesToSupportedGL = (
  * If the data type is any other type, float32 is returned.
  * @returns The resolved data type.
  */
-export const resolveGLDataType = (dt: DataType): DataType => {
+const resolveGLDataType = (dt: DataType): DataType => {
   if (dt.isVariable || dt.equals(DataType.UINT8)) return dt;
   return DataType.FLOAT32;
 };

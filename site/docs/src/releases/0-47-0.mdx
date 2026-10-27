@@ -2,10 +2,9 @@
 title: "Version 0.47 release notes"
 ---
 
-import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
 
 <Release
     version="0.47.0"
@@ -14,9 +13,14 @@ import Diagram from "@/components/diagram/Diagram.astro";
     title="Arc-based calculated channels"
 >
 
-<Diagram preview style="height: 425px; padding: 0rem 9rem">
-  <Image id="releases/0-47-0/thumbnail" themed={false} />
-</Diagram>
+<Hero.Hero
+  image="releases/0-47-0/thumbnail"
+  extension="webp"
+  themed={false}
+  layout="bleed"
+  tone="soft"
+  palette="orange-yellow"
+/>
 
 Our Lua-based calculated channels were a powerful first step towards deriving values in
 real-time from a set of input channels. They also came with several limitations, notably
@@ -51,7 +55,7 @@ new Lua-based calculations will not be allowed.
 
 #### Auto-commit is now enabled by default with all writers
 
-[Auto-Commit](/reference/concepts/writes#auto-commit) is used to immediately persist
+[Auto-Commit](/reference/client/write-data#auto-commit) is used to immediately persist
 written data to Synnax, as opposed to calling `commit` manually.
 
 Over the course of several release, we've observed that it's far more common to write

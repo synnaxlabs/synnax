@@ -34,7 +34,7 @@ var _ = Describe("State", func() {
 			})
 			It("Should return an error when key is empty", func() {
 				s := control.Subject{Name: "myname"}
-				Expect(s.Validate()).To(HaveOccurred())
+				Expect(s.Validate()).To(MatchError(ContainSubstring("key: required")))
 			})
 		})
 		Describe("Override", func() {

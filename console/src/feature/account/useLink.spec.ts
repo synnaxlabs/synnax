@@ -19,7 +19,7 @@ import { Account } from "@/feature/account";
 import { Session } from "@/session";
 import { renderHookWithConsole, type TestStore } from "@/testutil";
 
-const LINK = `${Account.SCHEME}://activate?${new URLSearchParams({
+const LINK = `synnax-desktop://activate?${new URLSearchParams({
   state: "minted",
   key: "a.b.c",
   secret: "shh",

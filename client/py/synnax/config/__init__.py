@@ -10,12 +10,12 @@
 import os
 from pathlib import Path
 
-from synnax.config.clusters import ClusterConfig, ClustersConfig
-from synnax.config.file import ConfigFile
+from synnax.config.clusters import Cluster, Clusters
+from synnax.config.file import File
 from synnax.exceptions import ValidationError
 from synnax.options import Options
 
-__all__ = ["ClusterConfig", "ClustersConfig", "ConfigFile"]
+__all__ = ["Cluster", "Clusters", "File"]
 
 CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
 
@@ -24,7 +24,7 @@ def load_options() -> Options | None:
     """Loads the connection parameters from a configuration file.
     :return: The options to connect to a Synnax server.
     """
-    cluster = ClustersConfig(ConfigFile(CONFIG_FILE_PATH)).get()
+    cluster = Clusters(File(CONFIG_FILE_PATH)).get()
     return None if cluster is None else cluster.options
 
 

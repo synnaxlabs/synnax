@@ -20,6 +20,7 @@ describe("ClockSkewCalculator", () => {
     // Remote midpoint is 3s, local midpoint is 5s, so skew is 2s
     calc.end(TimeStamp.seconds(3));
     expect(calc.skew).toEqual(TimeSpan.seconds(2));
+    expect(calc.roundTrip).toEqual(TimeSpan.seconds(10));
     expect(calc.exceeds(TimeSpan.seconds(1))).toBe(true);
     expect(calc.exceeds(TimeSpan.seconds(3))).toBe(false);
   });

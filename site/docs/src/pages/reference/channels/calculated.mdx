@@ -1,0 +1,326 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Calculated channels"
+description: "Compute values from other channels with an Arc expression."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Diagram } from "@/components/diagram";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A calculated channel computes its values from other [channels](/reference/channels) with
+an [Arc](/reference/control/arc) expression. Use a calculated channel to:
+
+- Scale or convert a sensor value, such as volts to pressure.
+- Combine sensors, such as the pressure drop across a filter.
+- Compare redundant sensors.
+- Set a flag when a condition is true, for alarms and warnings.
+
+<Divider.Divider x />
+
+## How calculated channels work
+
+Synnax does not store the values of a calculated channel. It computes them when you
+stream or read the channel, and it stops when nothing uses the channel.
+
+- **Past data** -> you can read a calculated channel over a past time range. Synnax
+  computes the values from the stored data of the inputs, so each input must have data
+  in that range.
+- **Edits** -> because Synnax stores no values, an edit also changes all past data. If
+  you change `pressure * 3` to `pressure * 10`, all of the data shows `pressure * 10`.
+- **Samples** -> the expression runs once for each new sample of any input, after every
+  input has at least one sample. Each channel name gives one value, and an input with no
+  new sample gives its last value.
+- **Data type** -> Synnax gets the data type from the value that the expression returns.
+  `return 1` gives an `int64` channel, and `return 1.0` gives a `float64` channel.
+- **Index** -> Synnax creates a virtual index channel named `<name>_time` for each
+  calculated channel.
+- **Chains** -> a calculated channel can use other calculated channels as inputs. A
+  chain cannot loop back to itself.
+
+<Divider.Divider x />
+
+## Create a calculated channel
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+1. Click the create calculated channel button in the
+   [channels toolbar](/reference/get-started/ui-overview#channels), or run the "Create
+   calculated channel" command in the
+   [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+2. Enter a name.
+3. Write the [expression](#write-an-expression).
+4. Optional: select an [operation](#operations). For **Min**, **Max**, and **Average**,
+   you can also set a **Window** and a **Reset channel**.
+5. Click **Create**.
+
+<Video id="client/calculated-channels/create" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+pressure_drop = client.channels.create(
+    name="filter_pressure_drop",
+    expression="return inlet_pressure - outlet_pressure",
+)
+
+avg_pressure = client.channels.create(
+    name="avg_tank_pressure",
+    expression="return tank_pressure",
+    operations=[
+        sy.channel.Operation(type="avg", duration=10 * sy.TimeSpan.SECOND),
+    ],
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { DataType, TimeSpan } from "@synnaxlabs/client";
+
+const pressureDrop = await client.channels.create({
+  name: "filter_pressure_drop",
+  dataType: DataType.FLOAT64,
+  expression: "return inlet_pressure - outlet_pressure",
+});
+
+const avgPressure = await client.channels.create({
+  name: "avg_tank_pressure",
+  dataType: DataType.FLOAT64,
+  expression: "return tank_pressure",
+  operations: [{ type: "avg", duration: TimeSpan.seconds(10) }],
+});
+```
+
+The TypeScript client requires `dataType`, but Synnax replaces it with the data type of
+the expression.
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Edit a calculated channel
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Right-click the channel in the channels toolbar and select **Edit calculation**. Change
+the name, the expression, or the operation, then click **Save**.
+
+<Video id="client/calculated-channels/edit" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Change the channel, then pass it to `create` again. Because the channel has a key,
+`create` updates the channel and does not make a new one.
+
+```python
+pressure_drop.expression = "return (inlet_pressure - outlet_pressure) * 0.0689"
+client.channels.create(pressure_drop)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Pass the channel with its key to `create` again. Because the channel has a key, `create`
+updates the channel and does not make a new one.
+
+```typescript
+await client.channels.create({
+  ...pressureDrop.payload,
+  expression: "return (inlet_pressure - outlet_pressure) * 0.0689",
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Write an expression
+
+An expression is the body of an Arc function. Refer to channels by name, and return the
+value of the calculated channel. An expression can have many statements.
+
+```arc
+drop := inlet_pressure - outlet_pressure
+return drop * 0.0689
+```
+
+Use an `if` statement to set a flag:
+
+```arc
+if tank_pressure > 500.0 {
+    return 1
+}
+return 0
+```
+
+| Use case                  | Expression                                |
+| ------------------------- | ----------------------------------------- |
+| Scale a sensor            | `return pressure_volts * 250.0`           |
+| Convert Celsius to Kelvin | `return temperature + 273.15`             |
+| Power                     | `return voltage * current`                |
+| Average of three sensors  | `return (temp_1 + temp_2 + temp_3) / 3.0` |
+| Pressure drop             | `return inlet_pressure - outlet_pressure` |
+
+The Arc reference describes [operators](/reference/control/arc/reference/operators),
+[variables](/reference/control/arc/reference/variables), and
+[if statements](/reference/control/arc/reference/statements#if-statements).
+
+### Use inputs that share an index
+
+Synnax pairs the samples of the input channels in the order that they arrive. It does
+not match them by time. When the inputs share an index, each pair of samples has the
+same timestamp. When the inputs have different indexes, a pair can have samples from
+different times. For correct results, use inputs that share an index.
+
+<Divider.Divider x />
+
+## Operations
+
+An operation keeps a value across many samples, such as the maximum since a reset. It
+applies to the result of the expression.
+
+<Diagram.Block
+  title="Input channels go into the expression. The result goes into the operation, which a reset channel can reset. The operation gives the output channel."
+  nodes={[
+    { key: "inputs", label: "Input channels", icon: Icon.Channel, column: 0 },
+    { key: "expression", label: "Expression", icon: Icon.Arc, column: 1 },
+    { key: "reset", label: "Reset channel", icon: Icon.Reset, column: 1 },
+    { key: "operation", label: "Operation", icon: Icon.Calculation, column: 2 },
+    { key: "output", label: "Output channel", icon: Icon.Channel, column: 3 },
+  ]}
+  edges={[
+    { from: "inputs", to: "expression" },
+    { from: "expression", to: "operation" },
+    { from: "reset", to: "operation" },
+    { from: "operation", to: "output" },
+  ]}
+/>
+
+| Operation    | Output                                                            |
+| ------------ | ----------------------------------------------------------------- |
+| `min`        | The smallest value since the last reset.                          |
+| `max`        | The largest value since the last reset.                           |
+| `avg`        | The mean of all values since the last reset.                      |
+| `derivative` | The rate of change per second. The data type is always `float64`. |
+
+`min`, `max`, and `avg` give one output sample for each group of input samples that
+Synnax receives, not one for each input sample. They reset in two ways:
+
+- **Window** -> the operation resets at the end of each window. A 10-second window gives
+  the average of each 10-second period, not a moving average, and a window of `0` never
+  resets.
+- **Reset channel** -> the operation resets when a `boolean` reset channel receives
+  `true`. A schematic button or an Arc automation can write to the reset channel.
+
+`derivative` has no window and no reset channel.
+
+### Reset example
+
+A `max` operation on `tank_pressure`, with a reset channel. Each line is one group of
+input samples:
+
+| Time                  | `tank_pressure` | `max` output |
+| --------------------- | --------------- | ------------ |
+| 0 s                   | 50              | 50           |
+| 5 s                   | 100             | 100          |
+| 10 s                  | 75              | 100          |
+| 10.1 s (reset = true) | 75              | 75           |
+| 15 s                  | 90              | 90           |
+| 20 s                  | 110             | 110          |
+
+At 10.1 s, the reset channel receives `true`, and the maximum resets. The operation
+starts again from the current value, 75.
+
+### Operation examples
+
+| Use case                         | `type`       | `duration` | Reset channel    |
+| -------------------------------- | ------------ | ---------- | ---------------- |
+| Average of each 10-second period | `avg`        | `10s`      | None             |
+| Maximum until a button press     | `max`        | `0s`       | `reset_max_cmd`  |
+| Minimum of each cycle            | `min`        | `0s`       | `cycle_complete` |
+| Rate of change                   | `derivative` | None       | None             |
+
+When you read past data, Synnax receives the samples in different groups than it did
+live. The output of `min`, `max`, and `avg` can then be different from the live output.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item symptom={"The channel shows an error icon in the toolbar."}>
+  <Problem.Cause>
+    The expression is not correct, or it uses a channel that does not exist.
+  </Problem.Cause>
+  <Problem.Fix>
+    Hover over the icon to see the error, then correct the expression. The error clears
+    when a channel with the missing name exists.
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"A line plot shows no values."}>
+  <Problem.Cause>
+    One input has never had a sample. The expression runs only after every input has at
+    least one sample.
+  </Problem.Cause>
+  <Problem.Fix>Write at least one sample to each input.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"A past time range shows no values."}>
+  <Problem.Cause>One input has no data in that time range.</Problem.Cause>
+  <Problem.Fix>Select a time range in which every input has data.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"The values look wrong or shifted in time."}>
+  <Problem.Cause>The inputs have different indexes.</Problem.Cause>
+  <Problem.Fix>
+    Use inputs that share an index. See [use inputs that share an
+    index](#use-inputs-that-share-an-index).
+  </Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"The data type is `int64`, not `float64`."}>
+  <Problem.Cause>The expression returns an integer.</Problem.Cause>
+  <Problem.Fix>Write numbers with a decimal point, such as `2.0`.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["channel \"<name>_time\" already exists and cannot serve as the index for a calculated channel", "channel \"<name>_time\" in the same request cannot serve as the index for calculated channel \"<name>\""]}>
+  <Problem.Cause>A channel named `<name>_time` exists and is not a virtual index.</Problem.Cause>
+  <Problem.Fix>Rename or delete that channel.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"calculated channels cannot specify an index manually"}>
+  <Problem.Cause>You set an index.</Problem.Cause>
+  <Problem.Fix>Remove the index setting. Synnax creates the index.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+[Calculated channel properties](/reference/channels/reference#calculated-channel-properties)
+lists each property that you can set.

@@ -19,7 +19,7 @@ import pytest
 import freighter
 import synnax as sy
 from synnax.control import ScheduledCommand
-from synnax.control.controller import Controller, RemainsTrueFor
+from synnax.control.controller import Controller, _RemainsTrueFor
 from tests.channel import RetrieveCounter
 from x.strings import random_name
 
@@ -690,16 +690,16 @@ class TestControllerChannelResolution:
 
 @pytest.mark.control
 class TestRemainsTrueForProcessor:
-    """Unit tests for the RemainsTrueFor percentage logic, independent of streaming
+    """Unit tests for the _RemainsTrueFor percentage logic, independent of streaming
     timing."""
 
     # The callbacks under test never touch the controller, so a bare sentinel stands in
     # for it.
     _state = cast(Controller, object())
 
-    def _run(self, results: list[bool], percentage: float) -> RemainsTrueFor:
+    def _run(self, results: list[bool], percentage: float) -> _RemainsTrueFor:
         it = iter(results)
-        processor = RemainsTrueFor(lambda _: next(it), percentage)
+        processor = _RemainsTrueFor(lambda _: next(it), percentage)
         for _ in results:
             processor.process(self._state)
         return processor
@@ -734,7 +734,7 @@ class TestRemainsTrueForProcessor:
 
     def test_exits_immediately_on_numpy_false(self) -> None:
         """Should treat a NumPy false result as a failed condition."""
-        processor = RemainsTrueFor(lambda _: np.int64(3) > 5, percentage=1)
+        processor = _RemainsTrueFor(lambda _: np.int64(3) > 5, percentage=1)
         processor.process(self._state)
         assert processor.event.is_set()
         assert processor.count == 0
@@ -743,7 +743,7 @@ class TestRemainsTrueForProcessor:
         """Should count a truthy numeric result as one true result, not as its
         value."""
         it = iter([2, 0, 2, 0])
-        processor = RemainsTrueFor(lambda _: cast(bool, next(it)), percentage=0.75)
+        processor = _RemainsTrueFor(lambda _: cast(bool, next(it)), percentage=0.75)
         for _ in range(4):
             processor.process(self._state)
         assert processor.count == 4
@@ -755,7 +755,7 @@ class TestRemainsTrueForProcessor:
         def boom(_: Controller) -> bool:
             raise ValueError("boom")
 
-        processor = RemainsTrueFor(boom, percentage=1)
+        processor = _RemainsTrueFor(boom, percentage=1)
         processor.process(self._state)
         assert isinstance(processor.exc, ValueError)
         assert processor.event.is_set()

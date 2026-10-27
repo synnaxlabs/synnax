@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { act, cleanup, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, Suspense } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -57,7 +57,6 @@ describe("Code", () => {
   beforeEach(() => {
     vi.resetModules();
     initialize.mockClear();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
@@ -68,6 +67,10 @@ describe("Code", () => {
   });
 
   describe("usePreload", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
     it("should start Monaco after the delay when the browser has no idle callbacks", async () => {
       const { Provider, usePreload } = await loadProvider();
       renderHook(() => usePreload(), { wrapper: Provider });
@@ -132,21 +135,17 @@ describe("Code", () => {
         </SynnaxWrapper>
       );
       const { rerender } = render(<Wrapper />);
-      await act(async () => {
-        goIdle();
-        await vi.runAllTimersAsync();
-      });
-      expect(initialize).toHaveBeenCalledOnce();
+      act(() => goIdle());
+      await waitFor(() => expect(initialize).toHaveBeenCalledOnce());
       expect(languageServer).not.toHaveBeenCalled();
-      await act(async () => {
+      await act(async () =>
         rerender(
           <Wrapper>
             <Editor />
           </Wrapper>,
-        );
-        await vi.runAllTimersAsync();
-      });
-      expect(languageServer).toHaveBeenCalledOnce();
+        ),
+      );
+      await waitFor(() => expect(languageServer).toHaveBeenCalledOnce());
     });
   });
 });

@@ -40,7 +40,7 @@ func (n Group) Addresses() (addresses []address.Address) {
 func (n Group) Digests() Digests {
 	dig := make(Digests, len(n))
 	for id, node := range n {
-		dig[id] = node.Digest()
+		dig[id] = node.digest()
 	}
 	return dig
 }

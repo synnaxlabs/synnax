@@ -8,26 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { renderPalette } from "@/feature/command/testutil";
 import { Range } from "@/feature/range";
-import { renderHookWithConsole } from "@/testutil";
 
 const client = createTestClient();
 
 describe("Range Commands", () => {
   it("shows both commands to a user with range permissions", async () => {
-    const { result } = await renderHookWithConsole(
-      () => ({
-        create: Range.CreateCommand.useVisible?.() ?? false,
-        explorer: Range.OpenExplorerCommand.useVisible?.() ?? false,
-      }),
-      { client },
-    );
-    await waitFor(() => {
-      expect(result.current.create).toBe(true);
-      expect(result.current.explorer).toBe(true);
+    const { openCommandPalette } = await renderPalette({
+      commands: Range.COMMANDS,
+      client,
     });
+    await openCommandPalette("range");
+    expect(await screen.findByText("Create range")).toBeTruthy();
+    expect(await screen.findByText("Open range explorer")).toBeTruthy();
   });
 });

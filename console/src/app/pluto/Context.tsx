@@ -21,7 +21,9 @@ export interface ContextProps extends Pick<
 
 const ALAMOS_PROPS: Alamos.ProviderProps = { level: "info" };
 
-const useConnParams = DESKTOP ? Embedded.useConnParams : Session.Core.useSelectSelected;
+const useConnParams = DESKTOP
+  ? Embedded.useConnParams
+  : Session.Core.useSelectConnParams;
 
 export const Context = memo((props: ContextProps) => {
   const connParams = useConnParams();

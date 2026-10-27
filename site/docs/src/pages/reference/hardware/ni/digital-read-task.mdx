@@ -1,0 +1,165 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "NI digital read task"
+description: "Read the digital input lines of an NI device into channels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An NI digital read task reads the digital input lines of one NI device into channels.
+Each line gives 0 or 1. For example, it can record limit switches on `port0/line0` and
+`port0/line1` of a USB-6343.
+
+Before you start, you need a
+[configured device](/reference/hardware/ni/configure-device).
+
+<Divider.Divider x />
+
+## Ports and lines
+
+NI devices group digital lines into ports. Each channel reads one line, set by its port
+and line numbers. The device manual lists the ports and lines.
+
+The Driver reads the lines on the computer clock, at the **Sample rate**. See
+[timing](/reference/hardware/tasks#timing).
+
+<Divider.Divider x />
+
+## Create an NI digital read task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the device and select **Create digital read
+   task**.
+2. Set **Sample rate** and **Stream rate**.
+3. Click **Add channel**, then enter the port and the line in **Port/Line**.
+4. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels. For a device with the identifier `dev1`, port 0, line
+1 gives `dev1_di_0_1`, with the index channel `dev1_di_time`.
+
+<Video id="hardware/ni/digital-read-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import ni
+
+dev = client.devices.retrieve(key="<device key>")
+time = client.channels.create(
+    name="dev1_di_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+limit = client.channels.create(
+    name="limit_switch", index=time.key, data_type=sy.DataType.UINT8
+)
+
+task = ni.DigitalReadTask(
+    name="Limit switches",
+    device=dev.key,
+    sample_rate=100,
+    stream_rate=10,
+    channels=[ni.DIChannel(port=0, line=1, channel=limit.key)],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+Python creates the task on the embedded Driver of the Core. For a device on another
+Driver, use the Console or TypeScript.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first.
+
+```typescript
+import { ni } from "@synnaxlabs/client";
+
+const dev = await client.devices.retrieve({ key: "<device key>" });
+const time = await client.channels.create({
+  name: "dev1_di_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const limit = await client.channels.create({
+  name: "limit_switch",
+  index: time.key,
+  dataType: "uint8",
+});
+
+const task = await client.tasks.create({
+  name: "Limit switches",
+  rack: dev.rack,
+  type: "ni_digital_read",
+  config: ni.digitalReadConfigZ.parse({
+    device: dev.key,
+    sampleRate: 100,
+    streamRate: 10,
+    channels: [{ port: 0, line: 1, channel: limit.key }],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label | Python field           | Default | Notes                                                                    |
+| ------------- | ---------------------- | ------- | ------------------------------------------------------------------------ |
+| Device        | `device`               |         | The key of the device.                                                   |
+| Sample rate   | `sample_rate`          | 10 Hz   | Up to 1,000,000 Hz in the Console.                                       |
+| Stream rate   | `stream_rate`          | 5 Hz    | Up to 20,000 Hz. See [read tasks](/reference/hardware/tasks#read-tasks). |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving).                |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.                             |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Each channel has a `channel`, the Synnax channel that records the value as `uint8`. The
+table shows the Console label of each setting, with its Python field under it.
+
+| Setting                                 | Default | Notes                         |
+| --------------------------------------- | ------- | ----------------------------- |
+| Port/Line <small>`port`, `line`</small> | `0`/`0` | The port, and the line in it. |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Port ..., line ... has already been used on another channel"}>
+<Problem.Cause>
+
+Two channels use the same line.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the port or the line of one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see
+[Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and
+[Troubleshoot hardware](/reference/hardware/troubleshooting).

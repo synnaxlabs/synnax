@@ -1,0 +1,48 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Admin from "@/layouts/Admin.astro";
+import { requireStaff, teamFor } from "@/access";
+import { Page } from "@/ui/Page";
+import { Admin as Console } from "@/ui/admin";
+import { type Team } from "@/server/member";
+import { type Activity, failure, loadScoped, readActivity } from "@/page";
+
+const loaded = await loadScoped(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session, organizations, scope } = loaded;
+
+let error: string | undefined;
+let team: Team | undefined;
+let activity: Activity | undefined;
+try {
+    requireStaff(session);
+    team = await teamFor(portal, session, Astro.params.key ?? "");
+    activity = await readActivity(portal, Astro.url, { organization: team.key });
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+    team = undefined;
+}
+---
+
+<Admin
+    title={team?.name ?? "Organization"}
+    session={session}
+    organizations={organizations}
+    scope={scope}
+>
+    {team == null || activity == null ? (
+        <Page title="Organization" error={error} />
+    ) : (
+        <Console.Organization client:load team={team} tab="activity" {...activity} />
+    )}
+</Admin>

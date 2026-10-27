@@ -10,30 +10,30 @@
 import keyring
 from pydantic import BaseModel
 
-from synnax.config.file import ConfigFile
+from synnax.config.file import File
 from synnax.options import Options
 
 
-class ClusterConfig(BaseModel):
+class Cluster(BaseModel):
     options: Options
 
 
-class ClustersConfig:
-    internal: ConfigFile
+class Clusters:
+    internal: File
 
-    def __init__(self, config: ConfigFile):
+    def __init__(self, config: File):
         self.internal = config
 
-    def get(self, key: str = "default") -> ClusterConfig | None:
+    def get(self, key: str = "default") -> Cluster | None:
         c = self.internal.get(f"clusters.{key}")
         if c is None:
             return None
         opts = c["options"]
         pwd = keyring.get_password("synnax", key)
         pwd = pwd or ""
-        return ClusterConfig(options=Options(**opts, password=pwd))
+        return Cluster(options=Options(**opts, password=pwd))
 
-    def set(self, c: ClusterConfig, key: str = "default") -> None:
+    def set(self, c: Cluster, key: str = "default") -> None:
         p = c.model_dump()
         keyring.set_password("synnax", key, p["options"].pop("password"))
         self.internal.set(f"clusters.{key}", p)

@@ -12,8 +12,6 @@ import { crdt } from "@synnaxlabs/x";
 
 import { type Diff, diff } from "@/code/text";
 
-export { type Diff, diff };
-
 // SEED_REPLICA is the replica the server uses to seed a document from persisted text.
 // Clients bootstrap from the server snapshot and must never author with this id, so a
 // client's edits never collide with the seed.

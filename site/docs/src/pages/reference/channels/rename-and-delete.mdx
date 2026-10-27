@@ -1,0 +1,152 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Rename and delete channels"
+description: "Rename channels, or delete them and their data."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Rename a [channel](/reference/channels) to give it a clearer name. Delete a channel to
+remove it and all of its data.
+
+<Divider.Divider x />
+
+## Rename channels
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Right-click the channel in the channels toolbar and select **Rename**.
+
+<Video id="client/channels/rename" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+# One channel
+client.channels.rename(tank_pressure.key, "ox_tank_pressure")
+
+# Many channels
+client.channels.rename(
+    [tank_pressure.key, tank_temperature.key],
+    ["ox_tank_pressure", "ox_tank_temperature"],
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// One channel
+await client.channels.rename(tankPressure.key, "ox_tank_pressure");
+
+// Many channels
+await client.channels.rename(
+  [tankPressure.key, tankTemperature.key],
+  ["ox_tank_pressure", "ox_tank_temperature"],
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+The new name must follow the [name rules](/reference/channels#names). A rename does not
+change the data of the channel.
+
+### What a rename changes
+
+Plots, schematics, and tasks refer to channels by key. They continue to work after a
+rename.
+
+Calculated channels and Arc automations refer to channels by name. After a rename, a
+calculated channel that uses the old name shows an error. Edit its expression to use the
+new name. A calculated channel keeps its `<name>_time` index when you rename it, and the
+index keeps its old name.
+
+<Note.Note variant="info">
+  In an Arc editor, **Rename symbol** on a channel name renames the channel in Synnax.
+  It does not change other Arc automations or calculated channels.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Delete channels
+
+<Note.Note variant="warning">
+  Deleting a channel also deletes all of its data. You cannot undo a delete.
+</Note.Note>
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Select one or more channels in the channels toolbar. Right-click the selection, select
+**Delete**, and confirm.
+
+<Video id="client/channels/delete" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+# By key
+client.channels.delete(tank_pressure.key)
+client.channels.delete([tank_pressure.key, tank_temperature.key])
+
+# By name
+client.channels.delete("tank_pressure")
+client.channels.delete(["tank_pressure", "tank_temperature"])
+```
+
+A [pattern](/reference/channels/find#by-pattern) deletes every channel that it matches.
+`delete("tank_.*")` deletes all channels whose names start with `tank_`. `delete` raises
+no error when a channel does not exist, so you can call it again.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// By key
+await client.channels.delete(tankPressure.key);
+await client.channels.delete([tankPressure.key, tankTemperature.key]);
+
+// By name
+await client.channels.delete("tank_pressure");
+await client.channels.delete(["tank_pressure", "tank_temperature"]);
+```
+
+A [pattern](/reference/channels/find#by-pattern) deletes every channel that it matches.
+`delete("tank_.*")` deletes all channels whose names start with `tank_`. `delete` throws
+no error when a channel does not exist, so you can call it again.
+
+  </Fragment>
+
+</Client.Tabs>
+
+### Before you delete
+
+- **Index channels** -> Synnax does not delete an index channel while data channels use
+  it. To delete both, delete the data channels first, or delete all of them in one call.
+- **Open channels** -> Synnax does not delete a channel while a writer or a reader has
+  it open. Stop the tasks and scripts that use the channel first.
+- **References** -> Synnax does not check tasks, Arc automations, or calculated channels
+  before a delete. After the delete, they fail or show an error, so update them first.
+- **Calculated channels** -> when you delete a calculated channel, its `<name>_time`
+  index stays. Delete the index too.
+
+To delete the data in a time range and keep the channel, see
+[delete data](/reference/client/delete-data).

@@ -14,6 +14,7 @@ import { NotFoundError } from "@/errors";
 import { SyntheticCore } from "@/testutil/core";
 
 const DOMAIN = 1n << 32n;
+const LEADING_DOMAIN = (1n << 31n) << 32n;
 const MS = TimeSpan.MILLISECOND.valueOf();
 
 // One sample per millisecond from the epoch, so sample i is stamped i milliseconds.
@@ -160,14 +161,14 @@ describe("SyntheticCore", () => {
           res.get(core.index.key)?.series.forEach((s) => received.push(s.alignment)),
         [core.index.key],
       );
-      // The feed opens its stream after a debounce, and drops samples written before.
+      // The feed opens its stream asynchronously, and drops samples written before.
       await expect
         .poll(() => {
           core.advance(TimeSpan.milliseconds(10));
           return received.length;
         })
         .toBeGreaterThan(0);
-      expect(received[0] >= DOMAIN + 1000n).toBe(true);
+      expect(received[0] >= LEADING_DOMAIN + 1000n).toBe(true);
       sub.close();
       await feed.close();
     });

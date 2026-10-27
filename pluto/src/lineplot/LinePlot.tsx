@@ -128,6 +128,7 @@ const createTelemetry = (
       ? { timeSpan: resolved.span }
       : { timeRange: resolved.timeRange }),
     xChannel,
+    yChannel,
     aggregation,
     groupsPerColumn,
   };

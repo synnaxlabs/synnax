@@ -1,0 +1,263 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Channel reference"
+description: "Channel properties, data types, name rules, and error messages."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This page lists the properties of a [channel](/reference/channels), the data types that
+it can have, and the errors that channel operations can return.
+
+<Divider.Divider x />
+
+## Properties
+
+<Field.List>
+
+<Field.Item label="Key" field="key" type="number" changeable={false}>
+  A number that identifies the channel. Synnax sets the key when you create the channel,
+  and the key never changes. Plots, schematics, and tasks refer to channels by key.
+</Field.Item>
+
+<Field.Item label="Name" field="name" type="string" required changeable>
+  The name of the channel. It must follow the [name rules](#name-rules). To change it,
+  [rename the channel](/reference/channels/rename-and-delete#rename-channels).
+</Field.Item>
+
+<Field.Item
+  label="Data type"
+  field={{ py: "data_type", ts: "dataType" }}
+  type="string"
+  required
+  changeable={false}
+>
+  The type of each sample in the channel. See [data types](#data-types). An index
+  channel always has the `timestamp` data type. In Python, `is_index=True` sets
+  `timestamp` for you.
+</Field.Item>
+
+<Field.Item
+  label="Is index"
+  field={{ py: "is_index", ts: "isIndex" }}
+  type="boolean"
+  default="false"
+  changeable={false}
+>
+  `true` for an [index channel](/reference/channels#index-channels). An index channel
+  cannot be virtual.
+</Field.Item>
+
+<Field.Item label="Index" field="index" type="number" changeable={false}>
+  The key of the index channel that holds the timestamps of this channel. Each data
+  channel needs an index, and the index must exist before you create the data channel.
+  Leave it unset for index, virtual, and calculated channels.
+</Field.Item>
+
+<Field.Item
+  label="Virtual"
+  field="virtual"
+  type="boolean"
+  default="false"
+  changeable={false}
+>
+  `true` for a [virtual channel](/reference/channels#virtual-channels). Synnax streams
+  the values of a virtual channel and does not store them. A calculated channel also has
+  `virtual` set to `true`, because Synnax does not store its values.
+</Field.Item>
+
+</Field.List>
+
+<Divider.Divider x />
+
+## Calculated channel properties
+
+A [calculated channel](/reference/channels/calculated) has a name and the properties
+below. Synnax sets its data type, its index, and its `virtual` property. You can change
+all of these properties after you create the channel.
+
+<Field.List>
+
+<Field.Item label="Expression" field="expression" type="string" required>
+  The [Arc](/reference/control/arc) expression that computes each value. See [write an
+  expression](/reference/channels/calculated#write-an-expression).
+</Field.Item>
+
+<Field.Item
+  label="Operations"
+  console="Operation"
+  field="operations"
+  type="list of operations"
+>
+  The [operations](#operation-properties) that Synnax applies to the result of the
+  expression. The Console sets one operation. The client libraries accept a list, and
+  Synnax applies the operations in order.
+</Field.Item>
+
+</Field.List>
+
+### Operation properties
+
+<Field.List>
+
+<Field.Item label="Type" console="Operation" field="type" type="string" required>
+  `min`, `max`, `avg`, `derivative`, or `none`.
+</Field.Item>
+
+<Field.Item label="Window" field="duration" type="TimeSpan" default="0">
+  The time after which `min`, `max`, or `avg` resets, in seconds in the Console. `0`
+  never resets.
+</Field.Item>
+
+<Field.Item
+  label="Reset channel"
+  field={{ py: "reset_channel", ts: "resetChannel" }}
+  type="number"
+  default="0"
+>
+  The key of a `boolean` channel. `min`, `max`, or `avg` resets when this channel
+  receives `true`, and `0` means no reset channel.
+</Field.Item>
+
+</Field.List>
+
+<Divider.Divider x />
+
+## Data types
+
+| Data type   | Size     | Arc type | Description                                                         |
+| ----------- | -------- | -------- | ------------------------------------------------------------------- |
+| `boolean`   | 1 byte   | `bool`   | `true` or `false`.                                                  |
+| `int8`      | 1 byte   | `i8`     | Signed 8-bit integer.                                               |
+| `int16`     | 2 bytes  | `i16`    | Signed 16-bit integer.                                              |
+| `int32`     | 4 bytes  | `i32`    | Signed 32-bit integer.                                              |
+| `int64`     | 8 bytes  | `i64`    | Signed 64-bit integer.                                              |
+| `uint8`     | 1 byte   | `u8`     | Unsigned 8-bit integer.                                             |
+| `uint16`    | 2 bytes  | `u16`    | Unsigned 16-bit integer.                                            |
+| `uint32`    | 4 bytes  | `u32`    | Unsigned 32-bit integer.                                            |
+| `uint64`    | 8 bytes  | `u64`    | Unsigned 64-bit integer.                                            |
+| `float32`   | 4 bytes  | `f32`    | 32-bit floating-point number.                                       |
+| `float64`   | 8 bytes  | `f64`    | 64-bit floating-point number.                                       |
+| `timestamp` | 8 bytes  | `i64`    | Nanoseconds since the Unix epoch, in UTC.                           |
+| `uuid`      | 16 bytes | `str`    | A [UUID](https://www.rfc-editor.org/rfc/rfc9562.html).              |
+| `string`    | Variable | `str`    | UTF-8 text.                                                         |
+| `json`      | Variable | `str`    | A JSON value.                                                       |
+| `bytes`     | Variable | None     | Raw bytes. Arc automations and calculated channels cannot use them. |
+
+All data types can be stored, and all can be virtual. Only `timestamp` can be the data
+type of an index channel.
+
+<Divider.Divider x />
+
+## Name rules
+
+- A name contains only letters, digits, and underscores.
+- A name cannot start with a digit.
+- Each name is unique. Names are case-sensitive, so `tank_pressure` and `Tank_pressure`
+  are two different names.
+
+An administrator can turn off these rules on a Core with the
+[`--disable-channel-name-validation`](/reference/enterprise/cli-reference#flags) flag.
+Then names can have any characters, and two channels can have the same name.
+
+<Divider.Divider x />
+
+## Errors
+
+### Names
+
+<Problem.List>
+
+<Problem.Item message={"channel with name '<name>' already exists"}>
+  <Problem.Cause>Another channel has this name.</Problem.Cause>
+  <Problem.Fix>Select a different name.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channel name '<name>' contains invalid characters"}>
+  <Problem.Cause>The name does not follow the [name rules](#name-rules).</Problem.Cause>
+  <Problem.Fix>Change the name to follow the name rules.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Indexes
+
+<Problem.List>
+
+<Problem.Item message={"non-indexed channel must have an index"}>
+  <Problem.Cause>A data channel has no index.</Problem.Cause>
+  <Problem.Fix>Set its index, or make it virtual.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"virtual channel cannot be indexed"}>
+  <Problem.Cause>A virtual channel has an index, or is an index.</Problem.Cause>
+  <Problem.Fix>Remove the index setting.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"index channel with key <key> does not exist"}>
+  <Problem.Cause>The index does not exist.</Problem.Cause>
+  <Problem.Fix>Create the index channel first.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"channel <key> is not an index"}>
+  <Problem.Cause>
+    The index setting points to a channel that is not an index channel.
+  </Problem.Cause>
+  <Problem.Fix>Set the index to an index channel.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Calculated channels
+
+<Problem.List>
+
+<Problem.Item message={"calculated channels cannot specify an index manually"}>
+  <Problem.Cause>A calculated channel has an index setting.</Problem.Cause>
+  <Problem.Fix>Remove the index setting. Synnax creates the index.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"undefined symbol: <name>"}>
+  <Problem.Cause>An expression uses a channel name that does not exist.</Problem.Cause>
+  <Problem.Fix>Correct the name, or create the channel.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Delete
+
+<Problem.List>
+
+<Problem.Item
+  message={"cannot delete channel <index> because it indexes data in channel <data>"}
+>
+  <Problem.Cause>Data channels use this index.</Problem.Cause>
+  <Problem.Fix>Delete them first, or in the same call.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"there are <n> unclosed writers/iterators accessing it"}>
+  <Problem.Cause>A task or a script has the channel open.</Problem.Cause>
+  <Problem.Fix>Stop the task or the script, then delete the channel.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Find
+
+<Problem.List>
+
+<Problem.Item message={"NotFoundError"}>
+  <Problem.Cause>No channel matches the name or key.</Problem.Cause>
+  <Problem.Fix>Check the name or key. Names are case-sensitive.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"MultipleFoundError"}>
+  <Problem.Cause>A pattern matches more than one channel.</Problem.Cause>
+  <Problem.Fix>Put the pattern in a list.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>

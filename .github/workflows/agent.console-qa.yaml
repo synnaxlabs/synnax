@@ -1,0 +1,103 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls an agent that explores the web Console against a live Core and files its
+# findings as one `console-qa` issue, then posts the issue to Slack.
+
+name: Agent - Console QA
+
+on:
+  schedule:
+    - cron: "0 7 * * 2,5" # Tuesdays and Fridays, 7am UTC
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Write the report in the run log and file no issue"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: agent-console-qa
+  cancel-in-progress: false
+
+jobs:
+  prompt:
+    name: Write the prompt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/agents
+
+      - name: Write the prompt
+        id: prompt
+        env:
+          DRY_RUN: ${{ inputs.dry-run }}
+        run: |
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/console-qa.md
+            printf '\nTime budget: explore for 60 minutes, then write the report.\n'
+            if [ "$DRY_RUN" = true ]; then
+              printf 'This is a dry run. Print the report in your last message.\n'
+            fi
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent
+    needs: prompt
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.prompt.outputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: report
+      setup: integration/qa/up.sh
+      timeout-minutes: 120
+    secrets: inherit
+
+  slack:
+    name: Post to Slack
+    needs: agent
+    if: ${{ !cancelled() && !inputs.dry-run }}
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_CONSOLE_QA_WEBHOOK_URL }}
+    steps:
+      - name: Post the issue link
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --label console-qa \
+            --state all --limit 10 --json title,url,body \
+            --jq "(map(select(.body | contains(\"$RUN_URL\")))[0] // empty)
+              | \"<\(.url)|\(.title)>\"")
+          text="Console QA: ${issue:-the run filed no issue. <$RUN_URL|Run>}"
+          jq -n --arg text "$text" '{text: $text}' | curl --fail --silent \
+            --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"

@@ -10,11 +10,14 @@
 package ethercat_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
@@ -200,6 +203,76 @@ var _ = Describe("Service", func() {
 			channels := writeData["channels"].([]any)
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
+		})
+
+		It("Should address the channels on a slave a released Python client made", func(
+			ctx SpecContext,
+		) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			var applied []gorp.Migration
+			for _, key := range []string{
+				"normalize_keys",
+				"v0.status_backfill",
+				"msgpack_to_orc",
+				"v54_drop_status_parent",
+				"v59_http_health_check_lists",
+			} {
+				applied = append(applied, migrate.New(
+					key,
+					func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+						return nil
+					},
+				))
+			}
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "Device",
+				Migrations: applied,
+			})).To(Succeed())
+			// The device a 0.59.2 Python ethercat.Device stored.
+			slave := device.Device{
+				Key:      "python",
+				Location: "eth0:4",
+				Name:     "EL3104",
+				Make:     "EtherCAT",
+				Model:    "Slave",
+				Properties: msgpack.EncodedJSON{
+					"network":  "eth0",
+					"position": 4,
+					"name":     "EL3104",
+					"enabled":  true,
+					"pdos": map[string]any{
+						"inputs": []any{map[string]any{
+							"name":       "Value",
+							"pdo_index":  0x1A00,
+							"index":      0x6000,
+							"sub_index":  1,
+							"bit_length": 16,
+							"data_type":  "int16",
+						}},
+						"outputs": []any{},
+					},
+				},
+			}
+			Expect(gorp.NewCreate[device.Key, device.Device]().
+				Entry(&slave).Exec(ctx, db)).To(Succeed())
+			devices := openDevices(ctx, db)
+			var read v1.ReadConfig
+			read.Key = uuid.New()
+			read.Channels = []v1.ReadChannel{{Variant: v1.AutomaticReadChannel{
+				BaseReadChannel: v1.BaseReadChannel{Key: "a", Device: "python"},
+				Pdo:             "Value",
+			}}}
+			Expect(gorp.WrapWriter[uuid.UUID, v1.ReadConfig](db).Set(ctx, read)).
+				To(Succeed())
+			svc := MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
+				DB:     db,
+				Device: devices,
+			}))
+			readData := MustSucceed(svc.Read.Read(ctx, nil, read.Key))
+			channels := readData["channels"].([]any)
+			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
+			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x6000)))
 		})
 	})
 

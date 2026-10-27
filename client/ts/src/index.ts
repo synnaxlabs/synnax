@@ -13,6 +13,7 @@ export type { Role } from "@/access/role/types.gen";
 export { actions } from "@/actions";
 export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
+export { auth } from "@/auth";
 export { bus } from "@/bus";
 export { can } from "@/can";
 export { channel } from "@/channel";

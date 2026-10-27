@@ -1,0 +1,99 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`control`"
+description:
+  "Look up the authority declaration and control.set_authority, which set the control
+  authority of an Arc automation."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `authority` declaration sets the control authority that an automation starts with.
+`control.set_authority` changes it while the automation runs. For how Synnax decides
+which writer controls a channel, see [control authority](/reference/control/authority).
+
+<Divider.Divider x />
+
+## `authority`
+
+Sets the starting authority of the channels that the automation writes. `authority` is a
+keyword, so it needs no `import`.
+
+| Form                       | Effect                                                       |
+| -------------------------- | ------------------------------------------------------------ |
+| `authority 200`            | All write channels start at 200.                             |
+| `authority (200 ch_a 100)` | `ch_a` starts at 100. All other write channels start at 200. |
+| `authority (ch_a 100)`     | `ch_a` starts at 100. All other write channels start at 255. |
+
+- Values are integers from 0 to 255. A higher value has priority.
+- An automation without an `authority` declaration writes all channels at 255.
+- Declarations come after the imports and before all other top-level code, variables
+  included.
+- A program can have more than one declaration, but only one default value and one value
+  for each channel.
+
+Inside the parentheses, a new line or a space separates the entries:
+
+```arc channels="press_vlv_cmd, vent_vlv_cmd"
+authority (
+    200
+    press_vlv_cmd 100
+    vent_vlv_cmd 150
+)
+
+1 -> press_vlv_cmd
+0 -> vent_vlv_cmd
+```
+
+<Divider.Divider x />
+
+## `set_authority`
+
+Changes the authority of one write channel, or of all write channels, while the
+automation runs. Import it with `import control`.
+
+| Parameter | Type    | Required | Default            | Meaning                      |
+| --------- | ------- | -------- | ------------------ | ---------------------------- |
+| `value`   | `u8`    | Yes      |                    | The new authority, 0 to 255. |
+| `channel` | channel | No       | All write channels | The write channel to change. |
+
+- Input -> optional. An upstream value must be `u8`, such as a `u8` channel or
+  `time.interval`. A `bool` value, such as a comparison, is an error.
+- Output -> none.
+- Runs -> once each time its stage starts. Later input values have no effect until the
+  stage starts again. At the top level, it needs an input, such as
+  `start_cmd -> control.set_authority{value=200}`, and runs once, on the first input
+  value. Without an input, a top-level call is a syntax error.
+
+The change goes out before the writes of the same cycle. A value of 0 does not release
+the channel. The automation keeps control at authority 0 until a writer with a higher
+authority, or a writer with an equal authority that opened earlier, takes it.
+
+As a step of its own in a sequence, it moves on to the next step after it runs.
+
+```arc channels="start_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="fill, pressurize, hold"
+import control
+
+authority 100
+
+sequence fill {
+    stage pressurize {
+        control.set_authority{value=220, channel=press_vlv_cmd}
+        1 -> press_vlv_cmd
+        tank_pt > 300 => next
+    }
+    stage hold {
+        control.set_authority{value=100}
+        0 -> press_vlv_cmd
+    }
+}
+
+start_cmd == 1 => fill
+```
+
+On a Driver, a known bug affects two or more `set_authority` calls that run in the same
+cycle when one of them has no `channel`. The Driver sends a bad authority change, and
+the automation stops writing. On a Driver, give every call a `channel`, or run only one
+call in each cycle. The Core is not affected.

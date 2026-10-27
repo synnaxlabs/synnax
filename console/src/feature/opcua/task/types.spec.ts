@@ -187,7 +187,7 @@ describe("Scanned Nodes", () => {
           nodeId: "ns=2;s=A",
         },
       ],
-      connection: OPCUA.Device.ZERO_CONNECTION_CONFIG,
+      connection: OPCUA.Device.ZERO_PROPERTIES.connection,
     });
     expect(result?.channels[0].key).toBe("ns=2;s=A");
   });

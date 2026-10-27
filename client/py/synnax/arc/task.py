@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from synnax import task
 
-TASK_TYPE = "arc"
+_TASK_TYPE = "arc"
 
 Performance = Literal["auto", "low", "medium", "high"]
 
@@ -33,7 +33,7 @@ class TaskConfig(BaseModel):
 class Task(task.StarterStopperMixin, task.JSONConfigMixin[TaskConfig], task.Protocol):
     """A task for executing Arc programs on a Synnax cluster."""
 
-    TYPE = TASK_TYPE
+    TYPE = _TASK_TYPE
     _internal: task.Task
 
     def __init__(

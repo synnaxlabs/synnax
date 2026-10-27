@@ -1,0 +1,157 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "UI overview"
+heading: "Console UI overview"
+description:
+  "Find your way around the toolbars, panels, and command palette of the Console."
+showOnThisPage: false
+---
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+import ConsoleTour from "@/components/console/tour/Tour.astro";
+import Step from "@/components/console/tour/Step.astro";
+import { Edition } from "@/components/edition";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax Console is where you set up hardware, see your data, and control your system.
+It has a bar on the left, a bar at the top, and the mosaic in the middle. Start the tour
+below to walk through each part in order, or select any part to jump to it.
+
+<ConsoleTour>
+
+<Step step="mosaic">
+
+The mosaic shows your line plots, schematics, tables, logs, and Arc editors in tabs. To
+split the mosaic, drag a tab to an edge of another tab.
+
+</Step>
+
+<Step step="schematic">
+
+A [schematic](/reference/visualize/schematics) shows your system and its live values.
+Its valves and buttons send commands.
+
+</Step>
+
+<Step step="lineplot">
+
+A [line plot](/reference/visualize/line-plots) plots channels over time, live as the
+data arrives.
+
+</Step>
+
+<Step step="editor">
+
+The [Arc editor](/reference/control/arc) shows the code of an Arc automation. The
+controls at its bottom start and stop it.
+
+</Step>
+
+<Step step="project">
+
+The project selector at the top of the left bar shows the open
+[project](/reference/visualize/projects). Select it to open another project.
+
+</Step>
+
+<Step step="search">
+
+{/* prettier-ignore-start */}
+
+The search and command palette finds resources, such as channels and ranges, and runs
+commands.
+
+Press **Ctrl+P** (**Cmd+P** on macOS) to search for resources, or **Ctrl+Shift+P**
+(**Cmd+Shift+P** on macOS) to search for commands.
+
+{/* prettier-ignore-end */}
+
+</Step>
+
+<Step step="toolbars">
+
+Select a toolbar icon in the left bar, or press its key, to open the toolbar.
+
+<Edition.Enterprise>
+
+The [users toolbar](/reference/enterprise/users) (**U**) lets you view the users in your
+Synnax deployment and change their roles. Synnax Desktop does not show it.
+
+</Edition.Enterprise>
+
+</Step>
+
+<Step step="channel">
+
+The [channels toolbar](/reference/channels#channels-in-the-console) lets you create,
+view, and open the channels you want to visualize.
+
+</Step>
+
+<Step step="range">
+
+The [ranges toolbar](/reference/ranges/find) shows the ranges that you added to your
+favorites. You can also create ranges and open the range explorer from it.
+
+</Step>
+
+<Step step="workspace">
+
+The [projects toolbar](/reference/visualize/projects) lets you create, open, and export
+projects.
+
+</Step>
+
+<Step step="device">
+
+The [devices toolbar](/reference/hardware) shows the devices that Synnax is connected
+to. You can also connect devices from it.
+
+</Step>
+
+<Step step="task">
+
+The [tasks toolbar](/reference/hardware/tasks) lets you create, configure, start, and
+stop tasks.
+
+</Step>
+
+<Step step="arc">
+
+The [Arcs toolbar](/reference/control/arc) lets you create, start, and stop Arc
+automations.
+
+</Step>
+
+<Step step="status">
+
+The [statuses toolbar](/reference/alarms) shows the statuses that you added to your
+favorites. You can also create statuses and open the status explorer from it.
+
+</Step>
+
+<Step step="component">
+
+The component toolbar edits the properties of the selected
+[line plot](/reference/visualize/line-plots), [log](/reference/visualize/logs),
+[schematic](/reference/visualize/schematics), or [table](/reference/visualize/tables).
+
+</Step>
+
+<Step step="panels">
+
+The panel selector on the left of the top bar shows the panels of the project. A panel
+is one arrangement of tabs. To add and arrange panels, see
+[Arrange panels and tabs](/reference/visualize/panels).
+
+</Step>
+
+<Step step="help">
+
+The <Icon.QuestionMark /> icon on the right of the top bar opens the Synnax
+documentation. When a new version is ready, the top bar shows **Update available**.
+
+</Step>
+
+</ConsoleTour>

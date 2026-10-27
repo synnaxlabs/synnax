@@ -77,18 +77,12 @@ class NoDevice(HardwareCase, ConsoleCase):
         ni_ai.deploy(expect=None)
 
         msg_expected = "Failed to start task"
-        assert self.console.notifications.wait_for(msg_expected), (
-            f"No <{msg_expected}> notification appeared"
-        )
-        notifications = self.console.notifications.check()
-        matches = [n for n in notifications if n.get("message") == msg_expected]
-        messages = [n.get("message") for n in notifications]
-        assert matches, f"Notifications {messages} should include <{msg_expected}>"
-        desc = matches[0].get("description")
         desc_expected = "No devices selected"
-        assert desc_expected == desc, (
-            f"Notification description is <{desc}>, should be <{desc_expected}>"
-        )
+        # Other tests' devices raise toasts that can push this one out of view, so one
+        # wait checks the message and the description together.
+        assert self.console.notifications.wait_for(
+            msg_expected, description=desc_expected
+        ), f"No <{msg_expected}> notification with <{desc_expected}> appeared"
 
         # Deploy rejects the config before it writes or starts anything, so the task
         # keeps the status it had.

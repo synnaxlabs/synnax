@@ -20,6 +20,7 @@ import {
 import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import {
   assertDefined,
   captureBrowserDownloads,
@@ -79,7 +80,7 @@ describe("Toolbar", () => {
       fireEvent.click(await screen.findByText("Enable editing"));
       await waitFor(() =>
         expect(
-          Session.Schematic.selectState({ state: store.getState(), key }).editable,
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.editable,
         ).toBe(true),
       );
       expect(await screen.findByPlaceholderText("Search symbols...")).toBeDefined();
@@ -97,7 +98,7 @@ describe("Toolbar", () => {
       fireEvent.click(await screen.findByText("Release control and enable editing"));
       await waitFor(() =>
         expect(
-          Session.Schematic.selectState({ state: store.getState(), key }).editable,
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.editable,
         ).toBe(true),
       );
     });
@@ -111,7 +112,8 @@ describe("Toolbar", () => {
       fireEvent.click(await screen.findByText("Properties"));
       await waitFor(() =>
         expect(
-          Session.Schematic.selectToolbar({ state: store.getState(), key }).selectedTab,
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+            .selectedTab,
         ).toBe("properties"),
       );
       expect(
@@ -129,12 +131,13 @@ describe("Toolbar", () => {
       await screen.findByText("Control authority");
       const switchInput = getSwitch("Show control state legend");
       expect(
-        Session.Schematic.selectLegend({ state: store.getState(), key }).visible,
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.legend.visible,
       ).toBe(true);
       fireEvent.click(switchInput);
       await waitFor(() =>
         expect(
-          Session.Schematic.selectLegend({ state: store.getState(), key }).visible,
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.legend
+            .visible,
         ).toBe(false),
       );
     });
@@ -188,7 +191,7 @@ describe("Toolbar", () => {
       fireEvent.click(await screen.findByLabelText("Change symbol"));
       await waitFor(() =>
         expect(
-          Session.Schematic.selectToolbar({ state: store.getState(), key }),
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar,
         ).toMatchObject({ selectedTab: "symbols", changing: true }),
       );
       expect(await screen.findByText("Changing Valve")).toBeDefined();
@@ -231,7 +234,7 @@ describe("Toolbar", () => {
       fireEvent.click(await screen.findByLabelText("Cancel symbol change"));
       await waitFor(() =>
         expect(
-          Session.Schematic.selectToolbar({ state: store.getState(), key }),
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar,
         ).toMatchObject({ selectedTab: "properties", changing: false }),
       );
       expect((await retrieveConfigs(key)).n1.variant).toBe("valve");

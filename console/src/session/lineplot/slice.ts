@@ -53,7 +53,7 @@ const measureZ = z.object({
 
 const annotationsZ = z.object({ visible: z.boolean().default(true) });
 
-export const stateZ = z.object({
+const stateZ = z.object({
   viewport: viewportZ.prefault({}),
   selection: selectionZ.prefault({}),
   mode: Viewport.modeZ.default("zoom"),
@@ -68,7 +68,6 @@ export interface State extends z.infer<typeof stateZ> {}
 export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
-export const ZERO_ANNOTATIONS_STATE = annotationsZ.parse({});
 
 const windowStateZ = z.record(z.string(), stateZ).default({});
 
@@ -253,7 +252,7 @@ export const {
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-export const purgeState = (state: State): State => {
+const purgeState = (state: State): State => {
   state.selectedRules = [];
   return state;
 };

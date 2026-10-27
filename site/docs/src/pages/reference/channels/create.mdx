@@ -1,0 +1,222 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Create channels"
+description: "Create index, data, and virtual channels."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Create a [channel](/reference/channels) when no task creates it for you: to store data
+from a script, to send a live signal, or to compute a value from other channels.
+
+<Divider.Divider x />
+
+## When to create a channel
+
+### Channels that tasks create
+
+When you click **Start** in the tab of a task that you configured in the Console, the
+Console creates the channels of the task. A read task gets a data channel for each
+input, and a write task gets a command channel for each output. You do not create these
+channels yourself. For their names, see
+[channels that tasks create](/reference/channels#channels-that-tasks-create).
+
+### Channels that you create
+
+| To                                                                 | Create                             | Where                                        |
+| ------------------------------------------------------------------ | ---------------------------------- | -------------------------------------------- |
+| Store data from a script                                           | An index channel and data channels | In the script, before it writes the data     |
+| Configure a [hardware task](/reference/hardware/tasks) in a script | The channels of the task           | In the script, before you configure the task |
+| Send a live signal                                                 | A virtual channel                  | In the Console or in a script                |
+| Compute a value from other channels                                | A calculated channel               | In the Console or in a script                |
+
+A virtual channel suits a value that only live views and automations use, such as a
+setpoint, or a `start_cmd` button that starts an Arc sequence. Synnax does not store its
+values, so you cannot plot them later or find them in a range. To keep a record of each
+value, such as each time an operator starts a test, create a data channel with its own
+index.
+
+### In the Console or in a script
+
+- Use the Console for a few channels that you set up once, such as the virtual channel
+  of a schematic button.
+- Use Python or TypeScript when a script writes the data, such as data from a
+  [device that the Driver does not support](/reference/hardware/custom) or from an
+  analysis. Create the channels at the start of the script, so the script also works on
+  a new Core. One call can also create many channels.
+
+<Divider.Divider x />
+
+## Choose an index
+
+Each data channel needs an index channel for its timestamps. Create the index channel
+first, then set it when you create the data channel. You cannot change the index later.
+
+- Data channels that you write at the same times can share one index. For example,
+  sensors that one script reads in the same loop.
+- Data channels that you write at different times need different indexes. Give each
+  [command channel](/reference/hardware/tasks#command-channels) its own index.
+- Virtual channels have no index.
+
+<Divider.Divider x />
+
+## Create index and data channels
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+1. Click <Icon.Add /> in the
+   [channels toolbar](/reference/get-started/ui-overview#channels), or run the "Create
+   channel" command in the
+   [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+2. Enter a name.
+3. For an index channel, turn on **Is index**. The data type changes to `timestamp`.
+4. For a data channel, select the data type and the index channel.
+5. Click **Create**. To keep the dialog open for the next channel, turn on **Create
+   more** first.
+
+<Video id="client/channels/create" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+tank_time = client.channels.create(
+    name="tank_time",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True,
+    retrieve_if_name_exists=True,
+)
+
+tank_pressure, tank_temperature = client.channels.create(
+    [
+        sy.Channel(
+            name="tank_pressure",
+            data_type=sy.DataType.FLOAT32,
+            index=tank_time.key,
+        ),
+        sy.Channel(
+            name="tank_temperature",
+            data_type=sy.DataType.FLOAT32,
+            index=tank_time.key,
+        ),
+    ],
+    retrieve_if_name_exists=True,
+)
+```
+
+`create` takes one channel or a list of channels. One call with a list is faster than
+many calls with one channel each.
+
+With `retrieve_if_name_exists=True`, `create` returns the existing channel when a
+channel with the same name exists. It does not compare the data type or the index. Use
+this option to run the same script many times.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { DataType } from "@synnaxlabs/client";
+
+const tankTime = await client.channels.create(
+  {
+    name: "tank_time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+  },
+  { retrieveIfNameExists: true },
+);
+
+const [tankPressure, tankTemperature] = await client.channels.create(
+  [
+    { name: "tank_pressure", dataType: DataType.FLOAT32, index: tankTime.key },
+    { name: "tank_temperature", dataType: DataType.FLOAT32, index: tankTime.key },
+  ],
+  { retrieveIfNameExists: true },
+);
+```
+
+`create` takes one channel or an array of channels. One call with an array is faster
+than many calls with one channel each.
+
+With `retrieveIfNameExists: true`, `create` returns the existing channel when a channel
+with the same name exists. It does not compare the data type or the index. Use this
+option to run the same script many times.
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Create a virtual channel
+
+A [virtual channel](/reference/channels#virtual-channels) has no index, so you can
+create it at any time.
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Open the **Create channel** dialog, enter a name, and select the data type. Turn on
+**Virtual**, then click **Create**.
+
+<Video id="client/channels/create-virtual" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+start_cmd = client.channels.create(
+    name="start_cmd",
+    data_type=sy.DataType.BOOLEAN,
+    virtual=True,
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const startCmd = await client.channels.create({
+  name: "start_cmd",
+  dataType: DataType.BOOLEAN,
+  virtual: true,
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Create a calculated channel
+
+A [calculated channel](/reference/channels/calculated) computes its values from other
+channels with an Arc expression, such as `return inlet_pressure - outlet_pressure`. To
+create one in the Console or in a script, see
+[create a calculated channel](/reference/channels/calculated#create-a-calculated-channel).
+
+<Divider.Divider x />
+
+## Next steps
+
+- [Channel properties](/reference/channels/reference#properties) -> each property that
+  you can set.
+- [Write data](/reference/client/write-data) -> write samples to the new channels with
+  the Python or TypeScript client.

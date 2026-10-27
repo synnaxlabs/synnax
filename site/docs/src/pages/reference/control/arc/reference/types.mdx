@@ -2,299 +2,246 @@
 layout: "@/layouts/Reference.astro"
 title: "Types"
 description:
-  "Arc type system reference for primitives, channels, series, units, and type casting"
-prev: "Syntax"
-prevURL: "/reference/control/arc/reference/syntax"
-next: "Variables"
-nextURL: "/reference/control/arc/reference/variables"
+  "Look up the Arc types: numbers, bool, str, channels, series, casts, and units."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@/components/note";
-import { Arc } from "@/components/arc";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
+
+Every value in Arc has a type that the compiler knows before the automation runs. Arc
+never converts a value to a different type for you, except for literals.
+
+<Divider.Divider x />
 
 ## Primitive types
 
-### Integer types
+| Type   | Values                                     |
+| ------ | ------------------------------------------ |
+| `i8`   | Signed 8-bit integer, -128 to 127          |
+| `i16`  | Signed 16-bit integer, -32,768 to 32,767   |
+| `i32`  | Signed 32-bit integer                      |
+| `i64`  | Signed 64-bit integer                      |
+| `u8`   | Unsigned 8-bit integer, 0 to 255           |
+| `u16`  | Unsigned 16-bit integer, 0 to 65,535       |
+| `u32`  | Unsigned 32-bit integer                    |
+| `u64`  | Unsigned 64-bit integer                    |
+| `f32`  | 32-bit float, about 7 digits of precision  |
+| `f64`  | 64-bit float, about 15 digits of precision |
+| `bool` | `true` or `false`                          |
+| `str`  | Text                                       |
 
-| Type  | Size            | Range                                       |
-| ----- | --------------- | ------------------------------------------- |
-| `i8`  | 8-bit signed    | -128 to 127                                 |
-| `i16` | 16-bit signed   | -32,768 to 32,767                           |
-| `i32` | 32-bit signed   | -2,147,483,648 to 2,147,483,647             |
-| `i64` | 64-bit signed   | -9.2×10<sup>18</sup> to 9.2×10<sup>18</sup> |
-| `u8`  | 8-bit unsigned  | 0 to 255                                    |
-| `u16` | 16-bit unsigned | 0 to 65,535                                 |
-| `u32` | 32-bit unsigned | 0 to 4,294,967,295                          |
-| `u64` | 64-bit unsigned | 0 to 1.8×10<sup>19</sup>                    |
+To give a variable a type, write the type after the name:
 
-### Floating point types
-
-| Type  | Size   | Precision          |
-| ----- | ------ | ------------------ |
-| `f32` | 32-bit | ~7 decimal digits  |
-| `f64` | 64-bit | ~15 decimal digits |
-
-### String type
-
-| Type  | Description            |
-| ----- | ---------------------- |
-| `str` | Immutable UTF-8 string |
-
-### Boolean type
-
-| Type   | Description                           |
-| ------ | ------------------------------------- |
-| `bool` | `true` or `false`, stored as one byte |
-
-<Divider.Divider x />
-
-## Type defaults
-
-When you write a literal without an explicit type, Arc infers a default:
-
-| Literal      | Default type |
-| ------------ | ------------ |
-| `42`         | `i64`        |
-| `3.14`       | `f64`        |
-| `"text"`     | `str`        |
-| `true`       | `bool`       |
-| `[1, 2, 3]`  | `series i64` |
-| `[1.0, 2.0]` | `series f64` |
-
-<Divider.Divider x />
-
-## Channel types
-
-Channels connect Arc to Synnax telemetry data. Declare channel types with `chan`:
-
-```arc
-chan f64  // channel of float64
-chan i32  // channel of int32
-chan bool // channel of boolean
-```
-
-Channel names reference channels that exist in your Synnax cluster. Binding one to a
-name declares a channel read/write
-[variable](/reference/control/arc/reference/variables) that reads and writes the
-channel:
-
-<Arc.Tabs>
-
-<Fragment slot="flow">
-```arc channels="source_ch, sink_ch"
-sequence {
-    value := source_ch  // binds to source_ch
-    value -> sink_ch    // writes to sink_ch
+```arc bodies="types"
+func types() {
+    count i32 := 0
+    ratio f32 := 0.5
+    name str := "tank"
 }
 ```
-</Fragment>
 
-<Fragment slot="function">
-```arc channels="source_ch, sink_ch"
-func example() {
-    value := source_ch  // read from source_ch
-    sink_ch = value     // write to sink_ch
+<Divider.Divider x />
+
+## Numeric literals
+
+A numeric literal takes the type that its place in the code needs. With no such type, an
+integer literal is an `i64` and a float literal is an `f64`.
+
+| Literal | Where it can go                    |
+| ------- | ---------------------------------- |
+| `42`    | Any integer or float type          |
+| `2.0`   | Any float type, or an integer type |
+| `2.5`   | Float types only                   |
+
+A value too large for its type is a compile error, for example
+`value 300 out of range for u8 (must be in [0, 255])`. A fraction where Arc needs an
+integer fails with a message that ends in `float is not compatible with i32`.
+
+```arc bodies="scale"
+func scale(x i32) i32 {
+    return x * 2   // 2 is an i32 here
 }
 ```
-</Fragment>
-
-</Arc.Tabs>
-
-Reading from a channel that has no data returns the zero value for that type.
 
 <Divider.Divider x />
 
-## Series types
+## Casts
 
-Series are homogeneous arrays. Declare series types with `series`:
+Write the type name and the value in parentheses: `f64(x)`.
 
-```arc
-series f64  // array of float64
-series i32  // array of int32
-series bool // array of booleans
+| From    | To      | Result                                                              |
+| ------- | ------- | ------------------------------------------------------------------- |
+| Integer | Float   | The same number                                                     |
+| Float   | Integer | Truncated toward zero. Out of range or NaN fails at runtime.        |
+| `bool`  | `u8`    | `1` or `0`                                                          |
+| Number  | `str`   | Shortest form: `str(1.0)` is `"1"`, and `"NaN"`, `"+Inf"`, `"-Inf"` |
+| `bool`  | `str`   | `"true"` or `"false"`                                               |
+
+```arc channels="tank_pt, tank_high" bodies="high"
+func high(p f64) u8 {
+    return u8(p > 300.0)
+}
+
+tank_pt -> high{} -> tank_high
 ```
 
-### Series literals
-
-```arc
-data := [1.0, 2.0, 3.0] // series f64
-empty series f64 := [] // empty series (type required)
-```
-
-### Series operations
-
-```arc
-length := len(data) // i64: number of elements
-first := data[0] // indexing (0-based)
-subset := data[1:3] // slicing [start:end)
-```
-
-### Element-wise operations
-
-Arithmetic and comparison operators work element-wise on series:
-
-```arc
-data := [1.0, 2.0, 3.0]
-
-// Scalar operations
-scaled := data * 2.0 // [2.0, 4.0, 6.0]
-offset := data + 10.0 // [11.0, 12.0, 13.0]
-
-// Series-to-series (must be equal length)
-sum := data + [4.0, 5.0, 6.0] // [5.0, 7.0, 9.0]
-
-// Comparisons return series bool
-mask := data > 2.0 // [false, false, true]
-
-// Logical operators apply element-wise to series bool
-inverted := not mask // [true, true, false]
-```
-
-<Note.Note variant="warning">
-  Out-of-bounds access causes a runtime error. Series-to-series operations require
-  equal-length arrays.
-</Note.Note>
+| Cast                                         | Compiler message                                                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| To `bool`, `bool(x)`                         | `boolean conversions are not supported; define the comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01` |
+| From `str`, `i64(s)`                         | `cannot cast str to i64`                                                                                    |
+| `bool` to a number other than `u8`, `i32(b)` | Warning: `bool to i32 is experimental; a future release may only allow bool to u8`                          |
 
 <Divider.Divider x />
 
-## Unit annotations
+## Channels
 
-Types can carry a single unit suffix for dimensional tracking. The suffix is one
-identifier drawn from the built-in registry (length, time, mass, pressure, frequency,
-voltage, current, temperature, angle, data, count):
+A channel name in code refers to a Synnax channel. You do not declare channels. The type
+of a channel is `chan T`, where `T` is its data type, such as `chan f64`.
 
-```arc
-distance f64 m := 50.0
-duration i64 ns := 1000000000
-pressure f64 psi := 14.7
+| Where                             | What the channel name gives                                 |
+| --------------------------------- | ----------------------------------------------------------- |
+| Start of a flow                   | Each new value. The flow runs when a value arrives.         |
+| End of a flow                     | A write of the value that reaches it.                       |
+| Expression at the start of a flow | Each new value of every channel in the expression.          |
+| Function body                     | The latest value, or the zero value before the first value. |
+
+The zero value is `0` for numbers and `false` for `bool`. For when each part runs, see
+the [execution model](/reference/control/arc/execution-model).
+
+In a function body, write to a channel with `=`. A function can also take a channel as a
+config parameter of type `chan T`:
+
+```arc channels="tank_pt, press_vlv_cmd" bodies="regulate"
+func regulate{valve chan u8, limit f64} (p f64) {
+    if p > limit {
+        valve = 0
+    }
+}
+
+tank_pt -> regulate{valve=press_vlv_cmd, limit=500.0}
 ```
 
-Only single-identifier units are accepted in source syntax. Compound units like `m/s` or
-`m^2` are not spelled directly in declarations. They arise implicitly from arithmetic
-(see below).
-
-### Dimensional compatibility
-
-The compiler enforces dimensional compatibility:
-
-- **Addition/Subtraction**: Operands must have compatible dimensions
-- **Multiplication/Division**: Always valid; the result's dimensions combine
-- **Exponentiation**: A dimensioned base requires a literal integer exponent
-
-```arc
-distance f64 m := 10.0
-elapsed f64 s := 2.0
-
-// Division produces a length/time quantity (a velocity)
-speed := distance / elapsed
-
-// Exponentiation produces a squared-length quantity (an area)
-area := distance ^ 2
-```
-
-The dimensions of `speed` and `area` are tracked by the compiler and checked against any
-further use, but they are not spelled in source code.
+The data types must match. Passing an `f64` channel to a `chan i32` parameter named
+`sensor` of a function `count` fails with `ARC3002`:
+`type mismatch in argument 'sensor' of 'count' (element types): expected i32, got f64`.
 
 <Divider.Divider x />
 
-## Type casting
+## Series
 
-Explicit casting converts between types.
+A series is a list of values of one primitive type, such as `series f64`.
 
-```arc
-x i32 := 42
-y f64 := f64(x) // int to float
+| Operation      | Example              | Result                           |
+| -------------- | -------------------- | -------------------------------- |
+| Literal        | `[1.0, 2.0, 3.0]`    | `series f64`                     |
+| Empty          | `e series f64 := []` | An empty `series f64`            |
+| Length         | `len(data)`          | `i64`                            |
+| Index          | `data[0]`            | The first element                |
+| Slice          | `data[1:3]`          | Elements 1 and 2                 |
+| Set an element | `data[0] = 5.0`      | Changes element 0                |
+| Arithmetic     | `data * 2.0`         | A new series, element by element |
+| Comparison     | `data > 2.0`         | A `series bool`                  |
+| Logical        | `not mask`           | A `series bool`                  |
+| Loop           | `for x := data { }`  | Each element in turn             |
 
-a f64 := 3.7
-b i64 := i64(a) // truncates to 3
-
-n i64 := 42
-s str := str(n) // numeric to string: "42"
-
-active := n > 0
-level u8 := u8(active) // bool to int: 1
-state str := str(active) // bool to string: "true"
+```arc bodies="peak"
+func peak() f64 {
+    data := [1.0, 4.0, 2.0]
+    gain := [2.0, 2.0, 2.0]
+    scaled := data * gain
+    top := 0.0
+    for x := scaled {
+        if x > top {
+            top = x
+        }
+    }
+    return top
+}
 ```
 
-<Note.Note variant="info">
-  Boolean conversions (`bool(x)`) are not supported. Use a comparison (`x != 0`) to
-  derive a `bool`. Casting a string to a numeric or boolean is not supported either.
-</Note.Note>
-
-### Casting rules
-
-| Conversion                          | Behavior                                     |
-| ----------------------------------- | -------------------------------------------- |
-| Widening (e.g., `i16` to `i64`)     | Safe, sign/zero extend                       |
-| Narrowing (e.g., `i64` to `i8`)     | Truncates                                    |
-| Signed to unsigned                  | Saturates at bounds                          |
-| Float to integer                    | Truncates toward zero, saturates on overflow |
-| Integer overflow                    | Two's-complement wrapping                    |
-| Numeric to string (e.g., `str(42)`) | Decimal text (e.g., `"42"`, `"3.14"`)        |
-| `bool` to numeric (e.g., `u8(b)`)   | `1` or `0`                                   |
-| `bool` to string (`str(b)`)         | `"true"` or `"false"`                        |
-
-Float values render without trailing zeros (`str(1.0)` returns `"1"`), and special
-values render as `"NaN"`, `"+Inf"`, `"-Inf"`. Casting from `str` back to a numeric or
-`bool` type is not supported.
-
-<Note.Note variant="info">
-  Arc requires explicit casts for mixed-type arithmetic. No implicit type promotion.
-</Note.Note>
-
-```arc
-// Wrong: type error
-x i32 := 42
-y f64 := x + 1.0
-
-// Right: explicit cast
-x i32 := 42
-y f64 := f64(x) + 1.0
-```
+- An operation on two series needs series of the same length. Different lengths cause a
+  runtime error.
+- Put a series literal in a variable before you use it in an operation.
+  `data + [1.0, 2.0]` fails with `series literal requires series type hint`.
+- Give a slice its type: `sub series f64 := data[1:3]`. Without the type, Arc reads the
+  slice as one element.
+- An index outside the series gives `0` on the Core and an error on a Driver. See
+  [errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
+- A top-level series is not a constant. A flow or function that reads one fails with
+  `cannot read 'data': its initializer is not a compile-time constant`.
 
 <Divider.Divider x />
 
-## Zero values
+## Strings
 
-All types have default zero values:
+| Operation | Example          | Result                     |
+| --------- | ---------------- | -------------------------- |
+| Join      | `"tank " + name` | `str`                      |
+| Append    | `msg += "!"`     | `str`                      |
+| Compare   | `name == "ok"`   | `bool`. Also `!=`.         |
+| Length    | `len(name)`      | `i64`, the length in bytes |
 
-| Type     | Zero value                                 |
-| -------- | ------------------------------------------ |
-| integers | `0`                                        |
-| floats   | `0.0`                                      |
-| `bool`   | `false`                                    |
-| `str`    | `""` (empty string)                        |
-| series   | `[]` (empty series)                        |
-| channels | zero value of element type (on first read) |
+Strings have no index, no slice, and no `<` or `>`. To put values in text, use
+[format strings](/reference/control/arc/reference/syntax#format-strings).
 
 <Divider.Divider x />
 
-## String operations
+## Units
 
-Strings support the following operations:
+A type can carry one unit after the type name: `f64 psi`, `i64 ns`. A literal gets a
+unit from its suffix: `14.7psi`, `50ms`. Arc checks units at compile time.
 
-```arc
-msg := "Hello"
-greet := msg + " World"  // concatenation
-first := msg[0]          // indexing (returns u8)
-sub := msg[1:4]          // slicing
-length := len(msg)       // length in bytes
-equal := msg == "Hello"  // equality (returns bool)
+A unit literal becomes its value in the base unit of its dimension: `14.7psi` is
+`101352.97` (Pa), and `50ms` is `50000000` (ns). A unit on a type does not change the
+stored value, so an `f64 psi` variable set to `14.7psi` holds `101352.97`. Durations
+work because timers take nanoseconds.
+
+Do not compare a raw sensor value with a pressure or temperature unit literal. With
+`x := 400.0`, `x > 300psi` is false, because `300psi` is `2068428.0`. Write the plain
+number: `x > 300.0`.
+
+| Dimension   | Units                                                                          |
+| ----------- | ------------------------------------------------------------------------------ |
+| Time        | `ns` `us` `ms` `s` `min` `h` `d`                                               |
+| Frequency   | `Hz` `hz` `kHz` `khz` `MHz` `mhz` `GHz`                                        |
+| Length      | `fm` `pm` `nm` `um` `mm` `cm` `dm` `m` `meter` `km` `in` `ft` `yd` `mi` `nmi`  |
+| Mass        | `fg` `pg` `ng` `ug` `mg` `g` `kg` `lb` `oz` `ton`                              |
+| Pressure    | `pPa` `nPa` `uPa` `mPa` `Pa` `kPa` `MPa` `GPa` `bar` `mbar` `psi` `atm` `torr` |
+| Voltage     | `fV` `pV` `nV` `uV` `mV` `V` `kV` `MV`                                         |
+| Current     | `fA` `pA` `nA` `uA` `mA` `A` `kA` `MA`                                         |
+| Temperature | `fK` `pK` `nK` `uK` `mK` `K` `kK`                                              |
+| Angle       | `rad` `deg` `rev`                                                              |
+| Data        | `bit` `byte` `KB` `MB` `GB` `KiB` `MiB` `GiB`                                  |
+| Count       | `count` `samples` `pct` `percent`                                              |
+
+`mhz` is megahertz. `KB` is 1,024 bytes, the same as `KiB`. Temperature is Kelvin only.
+
+| Operation              | Rule                                                   | Error                                                                                   |
+| ---------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `+`, `-`, `%`, compare | Units must have the same dimension, or one has no unit | `incompatible dimensions: length^1 vs time^1`                                           |
+| `*`, `/`               | Always allowed. The dimensions combine.                |                                                                                         |
+| `^`                    | A value with a unit needs a literal integer exponent   | `power operation with dimensioned base requires a literal integer exponent: dimensions` |
+| `^`                    | The exponent has no unit                               | `exponent in power operation must be dimensionless, got time^1: dimensions`             |
+
+You cannot write a compound unit such as `f64 m/s`. It comes only from `*` and `/`.
+
+A duration literal in a variable has the unit of its suffix: `d := 5s` is an `i64 s`.
+Timer parameters need an `i64 ns`, so declare the variable with that type:
+
+```arc channels="vent_vlv_cmd, start_cmd" bodies="vent"
+import time
+
+hold i64 ns := 5s
+
+sequence vent {
+    1 -> vent_vlv_cmd
+    time.wait{duration=hold}
+    0 -> vent_vlv_cmd
+}
+
+start_cmd == 1 => vent
 ```
 
-| Operation             | Supported |
-| --------------------- | --------- |
-| `+` (concatenation)   | Yes       |
-| `==`, `!=` (equality) | Yes       |
-| `[]` (indexing)       | Yes       |
-| `[:]` (slicing)       | Yes       |
-| `len()`               | Yes       |
-| `<`, `>`, `<=`, `>=`  | No        |
-
-To build strings from runtime values, use
-[format strings](/reference/control/arc/reference/syntax#format-strings) with `{expr}`
-placeholders instead of repeated concatenation.
+Without the type, the call fails with
+`type mismatch in argument 'duration' of 'time.wait': expected i64 ns, got i64 s`.

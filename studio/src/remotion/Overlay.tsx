@@ -402,10 +402,13 @@ export const CaptionView = ({
   height,
 }: CaptionViewProps): ReactElement => {
   const { age, text } = callout;
-  const [measure] = useState(() => document.createElement("canvas").getContext("2d"));
-  if (measure == null) throw new Error("canvas 2D context unavailable");
-  measure.font = `520 ${CAPTION_FONT}px ${SANS}`;
-  measure.letterSpacing = `${-0.014 * CAPTION_FONT}px`;
+  const [measure] = useState(() => {
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (ctx == null) throw new Error("canvas 2D context unavailable");
+    ctx.font = `520 ${CAPTION_FONT}px ${SANS}`;
+    ctx.letterSpacing = `${-0.014 * CAPTION_FONT}px`;
+    return ctx;
+  });
   const captionWidth = measure.measureText(text).width + 2 * CAPTION_PAD_X + 2;
   const floor = height - SCOPE_CLEARANCE[format];
   const below = box.bottom + CAPTION_GAP + CAPTION_HEIGHT <= floor;

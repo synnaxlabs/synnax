@@ -201,7 +201,7 @@ Synnax. For example, 100 Hz sampling with 25 Hz streaming sends 4 samples per pa
 ## Additional resources
 
 - [LabJack T-Series Datasheet](https://labjack.com/pages/support?doc=/datasheets/t-series-datasheet/)
-- [Synnax LabJack Driver Documentation](https://docs.synnaxlabs.com/reference/driver/labjack/)
+- [Synnax LabJack Driver Documentation](https://docs.synnaxlabs.com/reference/hardware/labjack/)
 - [LabJack Support Forum](https://labjack.com/forums)
 
 ## Next steps

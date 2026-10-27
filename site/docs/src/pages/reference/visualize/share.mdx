@@ -1,0 +1,84 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Share projects and visualizations"
+description:
+  "Work in the same project as a colleague, send a link, or copy a project or a
+  visualization to a file."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@/components/note";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Synnax Core stores every [project](/reference/visualize/projects), panel, and
+visualization. Everyone who connects to the same Core can open them. To share inside one
+Core, tell your colleague the name of the project. Use a file to keep a copy or to start
+a new project from an old one.
+
+<Divider.Divider x />
+
+## Share on the same Core
+
+Your colleague opens the project from the project selector. The Console saves each
+change to the Core, and every Console that has the project open shows the change
+immediately.
+
+The panels are shared too. When one person closes, moves, or splits a tab, the tab
+changes for everyone who has the project open. To arrange tabs your own way, make a
+panel for yourself. See [panels and tabs](/reference/visualize/panels).
+
+<Divider.Divider x />
+
+## Send a link
+
+1. Open the component toolbar of the visualization, or right-click a project or a
+   visualization in the projects toolbar.
+2. Click <Icon.Link /> (**Copy link**), or select **Copy link**.
+3. Send the link to your colleague.
+
+A link opens only in the Console app, when your colleague has the same Core added. A
+link to a visualization opens it as a tab in the project that your colleague has open.
+Synnax Desktop does not show **Copy link**, and a web browser cannot open a link.
+
+<Divider.Divider x />
+
+## Copy a visualization to a file
+
+To export, open the component toolbar and click <Icon.Export /> (**Export layout**). You
+can also right-click the visualization in the projects toolbar and select **Export**.
+The Console saves a `.json` file named after the visualization.
+
+To import, drop one or more `.json` files on the panels area. You can also run the
+"Import components" command, or right-click a project in the projects toolbar and select
+**Import components**. The Console adds each visualization to the open project and opens
+it in a tab.
+
+<Divider.Divider x />
+
+## Copy a project to a file
+
+To export, run the "Export current project" command, or right-click a project in the
+projects toolbar and select **Export**. The Console saves a `.zip` file. It holds each
+panel and visualization of the project, and each task and Arc automation that a panel
+has open in a tab.
+
+To import, run the "Import project" command, then drop a `.zip` file or its unzipped
+folder on the dialog. You can also drop the file or the folder on the panels area. The
+Console creates a new project and opens it.
+
+<Divider.Divider x />
+
+## What an import does
+
+An import always makes a new copy. It does not change the original, so importing the
+same file two times makes two copies. Files from older versions of the Console also
+import.
+
+<Note.Note variant="warning">
+  A file refers to channels by their keys, not their names. On a different Core, a key
+  can belong to a different channel, so an imported visualization can show the wrong
+  data. After you import a file on a different Core, check each channel of each
+  visualization.
+</Note.Note>

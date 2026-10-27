@@ -1,0 +1,176 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Control hardware from a schematic"
+description:
+  "Take control, command valves and buttons, and release control from a schematic."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
+import { Edition } from "@/components/edition";
+import ControlChip from "@/components/console/ControlChip.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An operator commands hardware by clicking symbols on a
+[schematic](/reference/visualize/schematics). The schematic writes to the command
+channel of each symbol, and a write task sends the command to the device. Schematics are
+the only place in the Console where you control hardware by hand.
+
+Before you start:
+
+- Add actuator symbols, such as valves and buttons, to a schematic. In the
+  [control tab](/reference/visualize/schematics#control-tab) of each symbol, set its
+  command channel and its state channel.
+- Make sure that a [write task](/reference/hardware/tasks#write-tasks) listens on each
+  command channel.
+
+You cannot control a snapshot of a schematic.
+
+<Edition.Enterprise>
+
+Your role decides what you can do:
+
+- **Owner** and **Engineer** can take control and
+  [set the schematic authority](#set-the-schematic-authority).
+- **Operator** can take control, but cannot edit schematics. For an Operator, editing is
+  always off, so the first click on a symbol takes control. The schematic always writes
+  at authority 1, and the **Control** tab does not show.
+- **Viewer** cannot control hardware, and the control button does not show.
+
+See [users and roles](/reference/enterprise/users#roles).
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Take control and command a valve
+
+1. Move the pointer over the schematic, then click the control button (<Icon.Circle />)
+   in the top-right corner. Its tooltip is **Acquire control**.
+
+   Editing turns off, and the schematic takes control of the command channel of each
+   symbol. The [control chip](#control-chips) next to each symbol turns blue.
+
+2. Click a valve. The schematic writes to the command channel of the valve. When the
+   state channel reports the new value, the valve shows as open.
+3. When you are done, click the control button again. Its tooltip is **Release
+   control**. The writer with the next highest authority gets control of each channel.
+
+<Video id="console/schematics/valve" />
+
+When editing is off and the schematic does not have control, a click on a symbol takes
+control first, then sends the command. You can also right-click the schematic and select
+**Take control** or **Release control**. Closing the schematic also releases control. To
+release control and edit at the same time, click **Release control and enable editing**
+in the component toolbar.
+
+If the chip next to a symbol is a red square, a different writer controls the channel,
+and Synnax drops your commands. See [control authority](/reference/control/authority).
+
+<Divider.Divider x />
+
+## Take absolute control of one channel
+
+1. Click the control chip next to the symbol. The schematic writes to that channel at
+   authority 255, and the chip turns green.
+2. To give the channel back, click the green chip. The schematic goes back to its own
+   authority on that channel.
+
+A chip click takes control at 255 even when the chip is blue. A different writer that
+opened on the channel first at 255 keeps control.
+
+<Video id="control/manual/absolute-control" />
+
+<Divider.Divider x />
+
+## Set the schematic authority
+
+Each schematic writes at one authority, from 0 to 255. The default is 1, so almost every
+other writer can take control from it.
+
+1. Turn on editing for the schematic.
+2. In the component toolbar, select the **Control** tab.
+3. Set **Control authority**.
+4. Take control again.
+
+Each Console keeps its own authority for each schematic. The value is not saved with the
+schematic, so another Console that opens the same schematic writes at 1.
+
+<Divider.Divider x />
+
+## Set a value and read back the device state
+
+A **Setpoint**, **Text input**, or **Select** symbol writes a value when you click
+**Set**.
+
+1. Type a number or text, or select an option. The **Set** button turns blue to show an
+   edit that you did not send.
+2. Click **Set**. The schematic writes the value to the command channel. The button
+   stays blue until the command channel reports the new value.
+
+If the symbol has a color, the button uses that color, not blue. The field shows the
+last value on the command channel, from you or from a different writer. If a write
+fails, the field keeps your value and **Set** stays blue.
+
+To see the value that the device reports, set a
+[state channel](/reference/visualize/schematics#show-the-device-state-on-a-setpoint) on
+the symbol. The reported value shows under the field. A select shows the name of the
+option that matches the value. When no new sample arrives within the staleness
+**Timeout** of the symbol, the reported value shows in the staleness **Color**.
+
+<Divider.Divider x />
+
+## What each symbol writes
+
+| Symbol                         | Writes                                                       | When                   |
+| ------------------------------ | ------------------------------------------------------------ | ---------------------- |
+| Valve, pump, and other toggles | `1` when the symbol shows inactive, `0` when it shows active | On click               |
+| Button, Fire mode              | `1`                                                          | On release             |
+| Button, Momentary mode         | `1` on press, then `0` on release                            | On press and release   |
+| Button, Pulse mode             | `1`, then `0` at once                                        | On press               |
+| Setpoint                       | The number you type                                          | When you click **Set** |
+| Select                         | The number mapped to the option you choose, not its label    | When you click **Set** |
+| Text input                     | The text you type                                            | When you click **Set** |
+
+A toggle shows as active when its state channel has a value from 0.9 to 1.1. A toggle
+with no state channel always shows inactive, so each click writes `1`.
+
+If the **Delay** field of a symbol is set, you must press and hold the symbol for that
+number of milliseconds before it writes. **Momentary** buttons have no delay. Set the
+fields in the [control tab](/reference/visualize/schematics#control-tab).
+
+<Divider.Divider x />
+
+## Control chips
+
+The chip next to an actuator symbol shows which writer controls its channel. Move the
+pointer over the chip to see its tooltip.
+
+| Chip                                     | Tooltip                                                      | Click does                            |
+| ---------------------------------------- | ------------------------------------------------------------ | ------------------------------------- |
+| Gray circle                              | Uncontrolled. Click to take control.                         | Takes absolute control (255).         |
+| Faded circle                             | No channel connected                                         | Nothing.                              |
+| <ControlChip variant="control" /> Blue   | You're in control. Release the schematic to give up control. | Takes absolute control (255).         |
+| <ControlChip variant="absolute" /> Green | You have absolute control. Click to release.                 | Goes back to the schematic authority. |
+| <ControlChip variant="other" /> Red      | Not controlled by you. Click to take absolute control.       | Takes absolute control (255).         |
+
+To hide the chip and the colored bar of a symbol, turn off the **Control chip** switch
+in the control tab of the symbol.
+
+<Divider.Divider x />
+
+## Control legend
+
+A colored bar next to each actuator symbol shows the color of the writer that controls
+its channel. The control legend lists each writer that controls a channel on the
+schematic, with its color:
+
+- **A schematic** shows as the username, with a user icon, and the schematic name.
+- **An Arc automation** shows as its Arc name when it runs on the Core, and as its task
+  name when it runs on a Driver.
+
+To change the color of a writer, click its swatch. To move the legend, drag it. To show
+or hide the legend, use the **Show control state legend** switch in the **Control** tab
+of the component toolbar.

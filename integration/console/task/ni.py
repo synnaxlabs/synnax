@@ -21,7 +21,7 @@ from console.task_page import TaskPage
 
 # Union type for all NI channel types
 NIChannel = Analog | Counter
-NIChannelT = TypeVar("NIChannelT", bound=NIChannel)
+_NIChannelT = TypeVar("_NIChannelT", bound=NIChannel)
 
 
 class NITask(TaskPage):
@@ -95,9 +95,9 @@ class NITask(TaskPage):
         name: str,
         device: str,
         dev_name: str | None,
-        channel_class: type[NIChannelT],
+        channel_class: type[_NIChannelT],
         **kwargs: Any,
-    ) -> NIChannelT:
+    ) -> _NIChannelT:
         """
         Helper method for adding a channel with common UI automation logic.
 
@@ -123,7 +123,9 @@ class NITask(TaskPage):
         configured = layout.is_modal_open()
         if configured:
             modal = layout.page.locator(layout.MODAL_SELECTOR)
-            fill_configure(modal, name=dev_name, identifier=dev_name)
+            fill_configure(
+                modal, layout.notifications, name=dev_name, identifier=dev_name
+            )
             modal.wait_for(state="hidden", timeout=5000)
             # Configuring renames the device, and the field shows the new name late.
             layout.wait_for_dropdown_value("Device", dev_name)

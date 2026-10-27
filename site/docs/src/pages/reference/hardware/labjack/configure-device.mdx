@@ -1,0 +1,150 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Configure a LabJack device"
+description: "Connect a LabJack T4 or T7 to the Driver and configure it for tasks."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Driver connects to [LabJack](https://labjack.com/) T4 and T7 devices over USB,
+Ethernet, or Wi-Fi. It finds them with the LabJack LJM library. Before a task can use a
+device, you configure it. The T8 is not supported yet.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+<Platforms integration="labjack" />
+
+- Install the
+  [LJM library](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit)
+  on the computer that runs the Driver, then
+  [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+- Connect the device to that computer by USB, or to the same network.
+
+<Divider.Divider x />
+
+## How the Driver finds devices
+
+The Driver looks for LabJack devices every few seconds. A USB device shows in the
+[devices toolbar](/reference/hardware/devices#devices-toolbar) within a few seconds. A
+device on the network can take about a minute.
+
+- **Name** -> the model and the last four digits of the serial number, such as
+  `LJM_dtT7-8422`.
+- **Location** -> the connection, such as `LJM_ctUSB` or `LJM_ctETHERNET`.
+
+The Console also shows the notification "New LJM_dtT7 connected", with a **Configure**
+button.
+
+<Divider.Divider x />
+
+## Configure a device
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the device and select **Configure**. You can also
+   click **Configure** in the "New ... connected" notification. To list each device that
+   the Driver found, click <Icon.Add /> and select **LabJack hardware**.
+2. Enter a **Name** and an [**Identifier**](/reference/hardware/devices#identifiers), or
+   click one of the identifiers that the Console suggests.
+3. Click **Save**. To also open a read task for the device, click **Save and create read
+   task**.
+
+<Video id="device-drivers/labjack/configure-device/lj-configure" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Find the LabJack devices that the Driver found:
+
+```python
+for dev in client.devices.retrieve(makes=["LabJack"]):
+    print(dev.key, dev.name, dev.model, dev.location)
+```
+
+The key of a LabJack device is its serial number. Configure devices in the Console.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+Find the LabJack devices that the Driver found:
+
+```typescript
+for (const dev of await client.devices.retrieve({ makes: ["LabJack"] }))
+  console.log(dev.key, dev.name, dev.model, dev.location);
+```
+
+The key of a LabJack device is its serial number. Configure devices in the Console.
+
+  </Fragment>
+</Client.Tabs>
+
+Do not create LabJack devices in code. The Driver opens a device by its serial number,
+so only a device that the Driver found works in a task.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item symptom={"The device does not show in the devices toolbar."}>
+<Problem.Cause>
+
+The Driver cannot load the LJM library, or it runs on Linux.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **LJM is not installed** -> install the LJM library and
+  [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+- **The Driver runs on Linux** -> LabJack devices do not work on Linux. Run the Driver
+  on Windows or macOS.
+
+For more causes, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"A device matching the requested device parameters could not be found"}>
+<Problem.Cause>
+
+Another program holds the device. A USB device works with one program at a time.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Close [Kipling](https://support.labjack.com/docs/kipling) and other LabJack software.
+2. Start the task again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"The device is temporarily unreachable. The Driver will keep trying to reach it."}>
+<Problem.Cause>
+
+The Driver lost the connection to the device. The task shows "Failed to read data" or
+"Failed to write commands", with this text in the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the USB cable or the network. The task continues when the device comes back.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

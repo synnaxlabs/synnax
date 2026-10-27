@@ -13,7 +13,7 @@ import synnax as sy
 from console.layout import LayoutClient
 from console.page import ConsolePage
 
-CHANNEL_LIST_SELECTOR = ".console-channel-list"
+_CHANNEL_LIST_SELECTOR = ".console-channel-list"
 
 
 class TaskPage(ConsolePage):
@@ -52,7 +52,7 @@ class TaskPage(ConsolePage):
         return controls
 
     def _channel_list(self) -> Locator:
-        return self._pane().locator(CHANNEL_LIST_SELECTOR).first
+        return self._pane().locator(_CHANNEL_LIST_SELECTOR).first
 
     def select_device(self, label: str, name: str) -> None:
         """Pick ``name`` in the device dropdown of the form field ``label``."""

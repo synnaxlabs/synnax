@@ -89,7 +89,7 @@ export const edit = (shots: unknown): Edit => editZ.parse(shots);
  * takes from mark `from` to mark `to`, and carries across cuts. With `zero`, it shows a
  * T+ clock counted from that mark.
  */
-export const scopeZ = z.object({
+const scopeZ = z.object({
   track: z.string().min(1),
   label: z.string().min(1),
   unit: z.string().min(1).optional(),
@@ -98,7 +98,6 @@ export const scopeZ = z.object({
   to: z.string().min(1),
   zero: z.string().min(1).optional(),
 });
-export type Scope = z.infer<typeof scopeZ>;
 
 /**
  * A highlight around the rect of mark `target`, drawn on the window, with a caption

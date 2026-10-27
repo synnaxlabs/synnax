@@ -79,7 +79,9 @@ var _ = Describe("Bool", func() {
 			Expect(zyn.Bool().Validate(true)).To(Succeed())
 		})
 		It("Should return nil if the value is not a valid boolean", func() {
-			Expect(zyn.Bool().Validate(struct{}{})).To(HaveOccurred())
+			Expect(
+				zyn.Bool().Validate(struct{}{}),
+			).To(MatchError(validate.ErrInvalidType))
 		})
 		It("Should succeed when an optional boolean receives nil", func() {
 			Expect(zyn.Bool().Optional().Validate(nil)).To(Succeed())

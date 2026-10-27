@@ -10,7 +10,7 @@
 import { crdt } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { changesToDiffs, CollabText, diff } from "@/arc/text/collab";
+import { changesToDiffs, CollabText } from "@/arc/text/collab";
 
 const snapshotOf = (
   text: string,
@@ -21,27 +21,6 @@ const snapshotOf = (
 };
 
 describe("collab", () => {
-  describe("diff", () => {
-    it("should find a pure insertion", () => {
-      expect(diff("ac", "abc")).toEqual({ index: 1, deleteCount: 0, insert: "b" });
-    });
-    it("should find a pure deletion", () => {
-      expect(diff("abc", "ac")).toEqual({ index: 1, deleteCount: 1, insert: "" });
-    });
-    it("should find a replacement", () => {
-      expect(diff("abc", "axc")).toEqual({ index: 1, deleteCount: 1, insert: "x" });
-    });
-    it("should find an append", () => {
-      expect(diff("ab", "abcd")).toEqual({ index: 2, deleteCount: 0, insert: "cd" });
-    });
-    it("should be empty for equal strings", () => {
-      expect(diff("abc", "abc")).toEqual({ index: 3, deleteCount: 0, insert: "" });
-    });
-    it("should diff in code points", () => {
-      expect(diff("a世c", "a界c")).toEqual({ index: 1, deleteCount: 1, insert: "界" });
-    });
-  });
-
   describe("CollabText", () => {
     it("should bootstrap from a snapshot", () => {
       const t = CollabText.bootstrap(snapshotOf("héllo→世界"));

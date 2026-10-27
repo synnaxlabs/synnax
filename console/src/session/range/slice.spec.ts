@@ -46,9 +46,11 @@ describe("range slice", () => {
     // Callers fall back to the recent range when nothing is selected, so it has to be
     // there whatever the session has stored.
     it("should offer the rolling ranges whatever it holds", () => {
-      const keys = Range.selectKeys({ [Range.SLICE_NAME]: emptyState() });
-      expect(keys).toContain(Range.RECENT_KEY);
-      expect(Range.BUILT_IN.every(({ key }) => keys.includes(key))).toBe(true);
+      const state = { [Range.SLICE_NAME]: emptyState() };
+      expect(Range.selectState(state, Range.RECENT_KEY)).toBeDefined();
+      expect(
+        Range.BUILT_IN.every(({ key }) => Range.selectState(state, key) != null),
+      ).toBe(true);
     });
 
     it("should keep a built-in through a remove", () => {
@@ -56,9 +58,9 @@ describe("range slice", () => {
         emptyState(),
         Range.remove({ keys: [Range.RECENT_KEY] }),
       );
-      expect(Range.selectKeys({ [Range.SLICE_NAME]: next })).toContain(
-        Range.RECENT_KEY,
-      );
+      expect(
+        Range.selectState({ [Range.SLICE_NAME]: next }, Range.RECENT_KEY),
+      ).toBeDefined();
     });
   });
 

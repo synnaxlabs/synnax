@@ -91,6 +91,7 @@ jobs:
       pluto: ${{ steps.filter.outputs.pluto }}
       portal: ${{ steps.filter.outputs.portal }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
+      py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -367,7 +368,8 @@ jobs:
       windows: *full
     secrets: inherit
 
-  # The EtherCAT bus runs on its own thread, so its suites also run under TSan.
+  # The EtherCAT bus runs on its own thread, and a streamer can set its channels
+  # while it reads, so their suites also run under TSan.
   driver-tsan:
     needs: [changes, core-image]
     if: inputs.full || needs.changes.outputs.driver == 'true'
@@ -376,7 +378,7 @@ jobs:
       apt_packages: libsystemd-dev
       core_image: ${{ needs.core-image.outputs.image }}
       sanitizer: thread
-      targets: //driver/ethercat/...
+      targets: //client/cpp/framer:framer_test //driver/ethercat/...
       test_tags: -hardware
     secrets: inherit
 
@@ -518,6 +520,11 @@ jobs:
       - name: Check unused code
         run: pnpm knip
 
+      - name: Check exports that only tests use
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: pnpm knip --production --include exports,types
+
   lint-integration:
     needs: changes
     if: inputs.full || needs.changes.outputs.lint_integration == 'true'
@@ -599,6 +606,11 @@ jobs:
     if: inputs.full || needs.changes.outputs.protobuf == 'true'
     uses: ./.github/workflows/test.protobuf.yaml
     secrets: inherit
+
+  py-packages:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.py_packages == 'true'
+    uses: ./.github/workflows/test.py.packages.yaml
 
   scripts:
     needs: changes
@@ -788,6 +800,7 @@ jobs:
       - pluto
       - portal
       - protobuf
+      - py-packages
       - scripts
       - site-common
       - soem

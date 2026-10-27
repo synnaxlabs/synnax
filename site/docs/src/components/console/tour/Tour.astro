@@ -1,0 +1,164 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/components/console/tour/tour.css";
+
+import { Button } from "@synnaxlabs/lyra/button";
+
+import { GROUPS, STEPS } from "@/components/console/tour/steps";
+import {
+    BASE,
+    box,
+    type Box,
+    hotspots,
+    ID,
+    SIZE,
+    STILLS,
+} from "@/components/console/tour/stills";
+import { Image } from "@/components/media/Media";
+
+/** What each still shows, for readers who cannot see it. */
+const ALT: Record<string, string> = {
+    mosaic: "The Console during a coldflow, with a schematic, a plot, and an Arc open",
+    search: "The Console with the command palette open on a search for ox",
+    channel: "The Console with the channels toolbar open",
+    range: "The Console with the ranges toolbar open on three favorite ranges",
+    workspace: "The Console with the projects toolbar open on the TPC project",
+    device: "The Console with the devices toolbar open on a DAQ card",
+    task: "The Console with the tasks toolbar open on a running task",
+    arc: "The Console with the Arcs toolbar open on a running Arc",
+    status: "The Console with the statuses toolbar open on four favorite statuses",
+    component: "The Console with the component toolbar open on a line plot",
+};
+
+for (const still of STILLS)
+    if (ALT[still] == null) throw new Error(`still "${still}" has no alt text`);
+// Fails the build when a step names a still or region that the stills lack.
+for (const step of STEPS) box(step.still, step.regions);
+
+const place = ({ left, top, width, height }: Box): string =>
+    `left: ${left}%; top: ${top}%; width: ${width}%; height: ${height}%`;
+---
+
+<figure class="docs-tour docs-wide" data-tour-root>
+    <div class="docs-tour__frame">
+        <div
+            class="docs-tour__stage docs-ui"
+            style={`aspect-ratio: ${SIZE.width} / ${SIZE.height}`}
+            tabindex="0"
+            aria-label="Stills of the Console. Select a part to learn about it."
+        >
+            {STILLS.map((still) => (
+                <div
+                    class:list={[
+                        "docs-tour__still",
+                        still === BASE && "docs-tour__still--base docs-tour--active",
+                    ]}
+                    data-still={still}
+                    aria-hidden={still !== BASE ? "true" : undefined}
+                >
+                    <Image
+                        id={`${ID}/${still}`}
+                        extension="webp"
+                        alt={ALT[still]}
+                        width={SIZE.width}
+                        height={SIZE.height}
+                        loading={still === BASE ? "eager" : "lazy"}
+                        className="docs-tour__image"
+                    />
+                </div>
+            ))}
+            <div class="docs-tour__spotlight" data-spotlight></div>
+            {STILLS.map((still) => (
+                <div
+                    class="docs-tour__hotspots"
+                    data-hotspots={still}
+                    hidden={still !== BASE}
+                >
+                    {hotspots(still).map(({ box, step }) =>
+                        step == null ? (
+                            <div class="docs-tour__blocker" style={place(box)} />
+                        ) : (
+                            <button
+                                type="button"
+                                class="docs-tour__hotspot"
+                                style={place(box)}
+                                data-step-target={step.key}
+                                aria-label={step.title}
+                                title={step.title}
+                            />
+                        ),
+                    )}
+                </div>
+            ))}
+        </div>
+        <div class="docs-tour__card" data-card aria-live="polite" hidden>
+            <div class="docs-tour__card-arrow" data-card-arrow></div>
+            <div class="docs-tour__card-meta docs-ui" data-card-meta></div>
+            <slot />
+            <div class="docs-tour__card-actions docs-ui">
+                <Button.Button variant="text" size="small" data-tour="back">
+                    Back
+                </Button.Button>
+                <Button.Button variant="filled" size="small" data-tour="next">
+                    Next
+                </Button.Button>
+            </div>
+        </div>
+    </div>
+    <div class="docs-tour__progress docs-ui" role="group" aria-label="Tour steps">
+        <Button.Button
+            variant="filled"
+            size="small"
+            className="docs-tour__toggle"
+            data-tour="start"
+        >
+            Start the tour
+        </Button.Button>
+        <Button.Button
+            variant="outlined"
+            size="small"
+            className="docs-tour__toggle"
+            data-tour="end"
+            hidden
+        >
+            End the tour
+        </Button.Button>
+        {GROUPS.map((group) => {
+            const steps = STEPS.filter((s) => s.group === group.key);
+            return (
+                <div
+                    class="docs-tour__progress-group"
+                    style={`flex-grow: ${steps.length}`}
+                    data-progress-group={group.key}
+                >
+                    <span class="docs-tour__progress-label">{group.name}</span>
+                    <div class="docs-tour__progress-steps">
+                        {steps.map((step) => (
+                            <button
+                                type="button"
+                                class="docs-tour__progress-step"
+                                data-step-target={step.key}
+                                aria-label={step.title}
+                                title={step.title}
+                            />
+                        ))}
+                    </div>
+                </div>
+            );
+        })}
+    </div>
+</figure>
+
+<script>
+    import { start } from "@/components/console/tour/controller";
+
+    start();
+</script>

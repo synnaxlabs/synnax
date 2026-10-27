@@ -37,6 +37,7 @@ import {
   awaitTextEditing,
   commitTextEdit,
   createConsoleWrapper,
+  createKeyEndingIn,
   getIconButton,
   openContextMenu,
   queryIconButton,
@@ -89,7 +90,10 @@ const createTask = async ({
 }: CreateTaskOptions = {}) => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   createdRacks.push(rack.key);
+  // The toolbar renders only the first rows of every task on the Core, so the key
+  // sorts this task first.
   const t = await rack.createTask({
+    key: createKeyEndingIn("0"),
     name: uniqueName("task"),
     type,
     config,

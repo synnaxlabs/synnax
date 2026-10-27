@@ -59,6 +59,7 @@ jobs:
           go_version=$(awk '$1 == "go" { print $2 }' "$MODULE/go.mod")
           sources=$(awk '$1 == "COPY" && $2 !~ /^--/ { $1 = $NF = ""; print }' \
             "$dockerfile")
+          # shellcheck disable=SC2046,SC2086 # Splits the source list into paths.
           objects=$(git rev-parse $(printf 'HEAD:%s ' $sources "$dockerfile" \
             .dockerignore .github/workflows/build.docker.yaml))
           stages=$(awk '$1 == "FROM" && $3 == "AS" { print $4 }' "$dockerfile")

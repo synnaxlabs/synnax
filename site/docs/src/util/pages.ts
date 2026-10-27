@@ -65,4 +65,5 @@ export const ROUTES: string[] = [
   ...PAGES.map(({ route }) => route),
   "/blog",
   "/privacy-policy",
+  "/terms-of-service",
 ].sort();

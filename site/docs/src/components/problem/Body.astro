@@ -1,0 +1,49 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Description } from "@synnaxlabs/lyra/description";
+---
+
+<Description.List className="problem__body">
+    <slot />
+</Description.List>
+
+<style is:global>
+    .problem__body {
+        margin: 2rem 0 4rem;
+    }
+
+    /* A value holds MDX blocks, so it lays them out in block flow, not as a line of
+       text. */
+    .problem__value {
+        display: block;
+        color: var(--docs-body-color);
+
+        & > :first-child {
+            margin-top: 0;
+        }
+
+        & > :last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    /* A phone puts each label above its value, so the value keeps the full width. */
+    @media (max-width: 600px) {
+        .problem__body {
+            grid-template-columns: minmax(0, 1fr);
+            row-gap: 2rem;
+
+            & > .pluto-description__item {
+                row-gap: 0.5rem;
+            }
+        }
+    }
+</style>

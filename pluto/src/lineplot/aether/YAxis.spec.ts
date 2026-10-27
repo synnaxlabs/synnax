@@ -7,8 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, DataType, MultiSeries, Series, TimeRange } from "@synnaxlabs/x";
-import { afterEach, describe, expect, it } from "vitest";
+import {
+  bounds,
+  color,
+  DataType,
+  MultiSeries,
+  Series,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { XAxis } from "@/lineplot/aether/XAxis";
@@ -68,6 +77,7 @@ interface Mount {
 describe("YAxis", () => {
   const teardowns: (() => void)[] = [];
   afterEach(() => {
+    vi.useRealTimers();
     for (const teardown of teardowns) teardown();
     teardowns.length = 0;
   });
@@ -179,6 +189,53 @@ describe("YAxis", () => {
       m.setVisible("nominal", false);
       m.setVisible("railed", false);
       expect(m.axis.bounds(false, bounds.INFINITE)).toEqual(bounds.DECIMAL);
+    });
+
+    it("should pad the data bounds by the auto bound padding", () => {
+      const m = mount({
+        lines: { line: { x: sourceSpec([0, 1]), y: sourceSpec([0, 10]) } },
+        axis: { autoBoundPadding: 0.1 },
+      });
+      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: -1, upper: 11 });
+    });
+
+    it("should expand equal data bounds by one", () => {
+      const m = mount({
+        lines: { line: { x: sourceSpec([0, 1]), y: sourceSpec([5, 5]) } },
+      });
+      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 4, upper: 6 });
+    });
+
+    it("should ignore a line without data", () => {
+      const m = mount({
+        lines: {
+          empty: { x: sourceSpec([]), y: sourceSpec([]) },
+          line: { x: sourceSpec([0, 1]), y: sourceSpec([0, 10]) },
+        },
+      });
+      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({ lower: 0, upper: 10 });
+    });
+
+    it("should fall back to an hour from now on an empty time axis", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2030-01-02T03:04:05Z"));
+      const m = mount({ axis: { type: "time" }, hidden: ["nominal", "railed"] });
+      const now = TimeStamp.now();
+      expect(m.axis.bounds(false, bounds.INFINITE)).toEqual({
+        lower: Number(now.valueOf()),
+        upper: Number(now.add(TimeSpan.HOUR).valueOf()),
+      });
+    });
+
+    it("should move the empty time axis with the clock", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2030-01-02T03:04:05Z"));
+      const m = mount({ axis: { type: "time" }, hidden: ["nominal", "railed"] });
+      const first = m.axis.bounds(false, bounds.INFINITE);
+      vi.setSystemTime(new Date("2030-01-02T04:04:05Z"));
+      const second = m.axis.bounds(false, bounds.INFINITE);
+      expect(second.lower).toBeGreaterThan(first.lower);
+      expect(second.lower).toBe(Number(TimeStamp.now().valueOf()));
     });
 
     it("should exclude a line that is hidden when it mounts", () => {

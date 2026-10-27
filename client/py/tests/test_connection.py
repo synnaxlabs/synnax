@@ -16,7 +16,7 @@ import weakref
 import synnax as sy
 from freighter.exceptions import Unreachable
 from freighter.mock import MockUnaryClient
-from synnax.connection import Checker, CheckResponse, State, _versions_compatible
+from synnax.connection import Checker, State, _CheckResponse, _versions_compatible
 from synnax.license import State as LicenseState
 from x.telem import TimeSpan, TimeStamp
 
@@ -25,8 +25,8 @@ def _make_response(
     node_time: TimeStamp | None = None,
     node_version: str = "0.54.0",
     license: LicenseState = "ok",
-) -> CheckResponse:
-    return CheckResponse(
+) -> _CheckResponse:
+    return _CheckResponse(
         cluster_key="test-cluster",
         node_version=node_version,
         node_time=node_time or TimeStamp.now(),
@@ -68,7 +68,7 @@ class TestChecker:
     def test_failed_on_error(self) -> None:
         """Should report failed status when the server is unreachable."""
         mock = MockUnaryClient(
-            responses=[CheckResponse()],
+            responses=[_CheckResponse()],
             response_errors=[Unreachable("localhost:9090")],
         )
         checker = Checker(

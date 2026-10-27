@@ -520,3 +520,26 @@ section.portal-auth-page {
         display: none;
     }
 }
+
+/* A section's own tab row, below the shell's. */
+.portal-subtabs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+/* Tabs with an action beside them keep one height, so a tab without one does not
+   shift the page. */
+.portal-tab-row {
+    min-height: var(--pluto-height-medium);
+}
+
+.portal-crumb {
+    width: fit-content;
+    margin-bottom: 1rem;
+
+    &:hover {
+        color: var(--pluto-gray-l11);
+    }
+}

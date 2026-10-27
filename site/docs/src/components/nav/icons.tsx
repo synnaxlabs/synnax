@@ -12,10 +12,14 @@ import { type ReactElement } from "react";
 
 /** The icon of each section of the reference, by the key of the section's nav group. */
 export const SECTION_ICONS: Record<string, ReactElement> = {
-  concepts: <Icon.Reference />,
-  core: <Icon.Core />,
-  client: <Icon.Terminal />,
+  "get-started": <Icon.Bolt />,
+  channels: <Icon.Channel />,
+  hardware: <Icon.Device />,
+  visualize: <Icon.Visualize />,
+  ranges: <Icon.Range />,
   control: <Icon.Control />,
-  console: <Icon.Dashboard />,
-  driver: <Icon.Device />,
+  alarms: <Icon.Status />,
+  client: <Icon.Terminal />,
+  desktop: <Icon.Computer />,
+  enterprise: <Icon.Core />,
 };

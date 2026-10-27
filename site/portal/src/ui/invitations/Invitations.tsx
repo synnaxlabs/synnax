@@ -13,37 +13,18 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type Invited } from "@/server/organization";
+import { type Invited } from "@/server/invitation";
 import { scoped } from "@/shell";
-import { navigate } from "@/ui/api";
-import { useClerk, type User } from "@/ui/clerk";
+import { navigate, post } from "@/ui/api";
 import { Section as PageSection } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";
 
 const COLUMNS = "minmax(0, 1fr) auto";
 
-const PAGE = 100;
-
-// Clerk accepts an invitation only through the object it returns for it.
-const find = async (user: User, invitationID: string) => {
-  for (let page = 1; ; page++) {
-    const { data } = await user.getOrganizationInvitations({
-      status: "pending",
-      initialPage: page,
-      pageSize: PAGE,
-    });
-    const found = data.find((i) => i.id === invitationID);
-    if (found != null) return found;
-    if (data.length < PAGE) throw new Error("This invitation is no longer open");
-  }
-};
-
-const Item = ({ invitationID, team }: Invited): ReactElement => {
-  const clerk = useClerk();
+const Item = ({ invitation, team }: Invited): ReactElement => {
   const join = useAction(async () => {
-    if (clerk?.user == null) return;
-    await (await find(clerk.user, invitationID)).accept();
+    await post(`/api/invitations/${invitation.key}/accept`);
     navigate(scoped("/", team));
   });
   return (
@@ -59,7 +40,6 @@ const Item = ({ invitationID, team }: Invited): ReactElement => {
       <Button.Button
         variant="filled"
         onClick={join.run}
-        disabled={clerk == null}
         status={join.loading ? "loading" : undefined}
       >
         Join
@@ -69,7 +49,7 @@ const Item = ({ invitationID, team }: Invited): ReactElement => {
 };
 
 export interface ListProps {
-  /** invitations are the team invitations the user has not accepted. */
+  /** invitations are the open invitations to the user's verified addresses. */
   invitations: Invited[];
 }
 
@@ -77,7 +57,7 @@ export interface ListProps {
 export const List = ({ invitations }: ListProps): ReactElement => (
   <Table columns={COLUMNS} head={["Team", ""]}>
     {invitations.map((i) => (
-      <Item key={i.invitationID} {...i} />
+      <Item key={i.invitation.key} {...i} />
     ))}
   </Table>
 );

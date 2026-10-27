@@ -17,7 +17,9 @@ import {
   splitTokens,
 } from "shiki";
 
-const color = ({ light, dark }: Token): string => `light-dark(${light}, ${dark})`;
+/** The CSS color of an Arc token in the light and dark themes. */
+export const color = ({ light, dark }: Token): string =>
+  `light-dark(${light}, ${dark})`;
 
 const arcRules = Object.values(tokens).flatMap((token) =>
   token.scopes.map((scope) => ({ scope, settings: { foreground: color(token) } })),

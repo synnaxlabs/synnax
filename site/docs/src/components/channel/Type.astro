@@ -1,0 +1,130 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// One channel type in a channel reference: its name, the names that code uses for it,
+// then the description and settings in the default slot. The anchor is the type.
+
+import { Icon } from "@synnaxlabs/lyra/icon";
+
+export interface Props {
+    name: string;
+    /** The `type` of the channel in TypeScript and in the task configuration. */
+    type: string;
+    /** The Python class of the channel. */
+    python?: string;
+    /** The vendor documentation for the type. */
+    reference?: { label: string; href: string };
+    /** The group of the type in a Channel.Types picker. */
+    group?: string;
+}
+
+const { name, type, python, reference, group } = Astro.props;
+---
+
+<section class="channel-type" id={type} data-name={name} data-group={group}>
+    <h4 class="channel-type__name">
+        <a href={`#${type}`}>
+            <slot name="icon" />
+            {name}
+        </a>
+    </h4>
+    <div class="channel-type__meta">
+        {python != null && (
+            <span>
+                Python <code>{python}</code>
+            </span>
+        )}
+        <span>
+            TypeScript <code>{type}</code>
+        </span>
+        {reference != null && (
+            <a href={reference.href} target="_blank" rel="noreferrer">
+                {reference.label}
+                <Icon.OpenExternal />
+            </a>
+        )}
+    </div>
+    <slot />
+</section>
+
+<style is:global>
+    article .channel-type {
+        & > .channel-type__name {
+            margin: 0;
+
+            & a {
+                display: inline-flex;
+                align-items: center;
+                gap: 1.5rem;
+                color: inherit;
+                text-decoration: none;
+
+                &:hover {
+                    text-decoration: underline;
+                    text-decoration-color: var(--pluto-gray-l6);
+                }
+            }
+
+            & .pluto-icon {
+                color: var(--pluto-gray-l8);
+            }
+        }
+
+        & > .channel-type__meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 0.5rem 3rem;
+            margin: 1rem 0 2.5rem;
+            font-size: var(--pluto-small-size);
+            color: var(--pluto-gray-l8);
+
+            & code {
+                padding: 0;
+                border: none;
+                background: none;
+                color: var(--pluto-gray-l9);
+            }
+
+            & a {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.75rem;
+                color: var(--pluto-gray-l8);
+
+                &:hover {
+                    color: var(--pluto-primary-z);
+                }
+            }
+        }
+
+        & > p {
+            margin-top: 0;
+        }
+
+        & > .table-wrapper:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Every type has the same columns, so the columns line up from one type to the
+           next. */
+        & table {
+            table-layout: fixed;
+
+            & th:nth-child(1) {
+                width: 38%;
+            }
+
+            & th:nth-child(2) {
+                width: 22%;
+            }
+        }
+    }
+</style>

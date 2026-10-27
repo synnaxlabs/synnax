@@ -23,20 +23,20 @@ The simulator for this example is located in `examples/simulators/press.py`.
 To run the example, make sure you have:
 
 1. A Synnax Core running locally. See the
-   [Quick Start](https://docs.synnaxlabs.com/reference/core/quick-start) guide for more
-   information.
+   [Set up Synnax Enterprise](https://docs.synnaxlabs.com/reference/enterprise) guide
+   for more information.
 2. The Synnax Python client installed. See the
    [Quick Start](https://docs.synnaxlabs.com/reference/client/quick-start) guide for
    more information.
 3. Optionally, the Synnax Console installed and set up to visualize the data generated
    by the control sequence. See the
-   [Getting Started](https://docs.synnaxlabs.com/reference/console/get-started) guide
+   [Connect the Console](https://docs.synnaxlabs.com/reference/enterprise/console) guide
    for more information.
 
 If you are using the Console, you can use a combination of
-[Schematics](https://docs.synnaxlabs.com/reference/console/schematics) and
-[Line Plots](https://docs.synnaxlabs.com/reference/console/line-plots) to visualize the
-state of the system over time.
+[Schematics](https://docs.synnaxlabs.com/reference/visualize/schematics) and
+[Line Plots](https://docs.synnaxlabs.com/reference/visualize/line-plots) to visualize
+the state of the system over time.
 
 Once you have a Synnax cluster running, start the simulator in one terminal:
 

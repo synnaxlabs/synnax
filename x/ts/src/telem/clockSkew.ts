@@ -17,6 +17,7 @@ export class ClockSkewCalculator {
   private readonly now: () => TimeStamp;
   private localStartT: TimeStamp = new TimeStamp(0);
   private lastSkew: TimeSpan = TimeSpan.ZERO;
+  private lastRoundTrip: TimeSpan = TimeSpan.ZERO;
 
   constructor(now: () => TimeStamp = () => TimeStamp.now()) {
     this.now = now;
@@ -28,13 +29,19 @@ export class ClockSkewCalculator {
 
   end(remoteMidpointT: TimeStamp): void {
     const localEndT = this.now();
-    const halfSpan = localEndT.span(this.localStartT).valueOf() / 2n;
+    this.lastRoundTrip = localEndT.span(this.localStartT);
+    const halfSpan = this.lastRoundTrip.valueOf() / 2n;
     const thisMidpointT = this.localStartT.add(halfSpan);
     this.lastSkew = new TimeSpan(thisMidpointT.valueOf() - remoteMidpointT.valueOf());
   }
 
   get skew(): TimeSpan {
     return this.lastSkew;
+  }
+
+  /** The round trip of the most recent measurement. The skew is off by at most half. */
+  get roundTrip(): TimeSpan {
+    return this.lastRoundTrip;
   }
 
   exceeds(threshold: CrudeTimeSpan): boolean {

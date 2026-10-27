@@ -8,6 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export { default as List } from "@/components/releases/List.astro";
-export { default as PolkaDot } from "@/components/releases/PolkaDot.astro";
 export { default as Release } from "@/components/releases/Release.astro";
-export { default as Tile } from "@/components/releases/Tile.astro";

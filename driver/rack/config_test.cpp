@@ -88,15 +88,15 @@ TEST_F(RackConfigTest, saveConnParamsToPersistedState) {
 TEST_F(RackConfigTest, parseRackFromConfigArg) {
     const auto client = new_test_client();
     const auto rack = ASSERT_NIL_P(client.racks.create("abc rack"));
-    RemoteInfo remote_info{
-        .rack_key = rack.key,
-        .cluster_key = client.auth->cluster_info.cluster_key,
-    };
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    RemoteInfo remote_info{.rack_key = rack.key, .cluster_key = cluster_key};
     ASSERT_NIL(Config::save_remote_info(args, remote_info));
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.rack.name, "abc rack");
-    ASSERT_EQ(cfg.remote_info.cluster_key, client.auth->cluster_info.cluster_key);
+    ASSERT_EQ(cfg.remote_info.cluster_key, cluster_key);
 }
 
 /// @brief it should recreate rack when cluster key does not match.

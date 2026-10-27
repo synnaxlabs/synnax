@@ -8,8 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  color,
+  type CrudeTimeSpan,
+  type state,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
@@ -39,19 +46,18 @@ class Leaf extends aether.Leaf<
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.registration = staleness.useRegistration(
+    i.registration = staleness.useStateRegistration(
       ctx,
       i.registration,
-      {
-        timeout: () => this.state.stalenessTimeout,
-        stale: () => this.state.stale,
-        onChange: (stale) => {
-          this.transitions.push(stale);
-          this.setState((p) => ({ ...p, stale }));
-        },
-      },
+      this,
       this.source,
     );
+  }
+
+  setState(next: state.SetArg<z.infer<typeof staleness.stateZ>>): void {
+    const prev = this.state.stale;
+    super.setState(next);
+    if (this.state.stale !== prev) this.transitions.push(this.state.stale);
   }
 
   received(): void {
@@ -66,7 +72,7 @@ class Leaf extends aether.Leaf<
 // Registers but never releases, so specs can reach the Provider's cleanup backstop.
 class LeakyLeaf extends aether.Leaf<
   typeof staleness.stateZ,
-  { registration: staleness.Registration }
+  { registration: staleness.Registration; stale: boolean }
 > {
   static readonly TYPE = "stalenessLeakyTestLeaf";
   static readonly z = staleness.stateZ;
@@ -76,15 +82,12 @@ class LeakyLeaf extends aether.Leaf<
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    i.registration = staleness.useRegistration(
+    i.registration = staleness.useInternalRegistration(
       ctx,
       i.registration,
-      {
-        timeout: () => this.state.stalenessTimeout,
-        stale: () => this.state.stale,
-        onChange: () => {},
-      },
+      this,
       this.source,
+      () => {},
     );
   }
 }

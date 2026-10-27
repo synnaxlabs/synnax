@@ -44,7 +44,7 @@ var _ = Describe("DB", func() {
 				Expect(
 					db.WithTx(ctx, func(_ gorp.Tx) error { return query.ErrNotFound }),
 				).
-					ToNot(Succeed())
+					To(MatchError(query.ErrNotFound))
 				Expect(
 					gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](2)).
 						Exec(ctx, db),

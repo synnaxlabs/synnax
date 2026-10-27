@@ -9,10 +9,7 @@
 
 import { type Locator, type Page } from "playwright";
 
-import { type CaptureSession } from "@/capture/rig";
-
-/** Credentials of the user every capture logs in as. */
-const CREDENTIALS = { username: "synnax", password: "seldon" };
+import { type CaptureSession, CREDENTIALS } from "@/capture/rig";
 
 /**
  * PROJECT names the project every capture works in. It is on screen in the

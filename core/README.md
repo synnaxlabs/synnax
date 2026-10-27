@@ -12,8 +12,8 @@ server, see the [architecture](../docs/tech/architecture.md) document.
 ## Getting started
 
 To start a Synnax Core, visit the
-[deployment](https://docs.synnaxlabs.com/reference/core/quick-start) section of the
-Synnax documentation.
+[deployment](https://docs.synnaxlabs.com/reference/enterprise) section of the Synnax
+documentation.
 
 ## Contributing
 

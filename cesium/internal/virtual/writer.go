@@ -108,8 +108,12 @@ func (db *DB) OpenWriter(
 			Authority:             cfg.Authority,
 			Subject:               cfg.Subject,
 			OpenResource: func() (*controlResource, error) {
+				a, err := db.leadingAlignment.Next()
+				if err != nil {
+					return nil, err
+				}
 				cr := &controlResource{ck: db.cfg.Channel.Key}
-				cr.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
+				cr.storeAlignment(a)
 				return cr, nil
 			},
 		},

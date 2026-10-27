@@ -29,12 +29,12 @@ import synnax as sy
 from x.telem import to_float
 
 # Fixtures directory for test data (SVGs, JSONs, etc.)
-FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
+_FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures")
 
 # The Core's service directory, holding the canonical import golden files
 # (e.g. lineplot/versions/testdata/import_v5.json). Referenced directly so the
 # integration suite and the Core's own tests share one corpus.
-CORE_SERVICE_DIR = os.path.join(
+_CORE_SERVICE_DIR = os.path.join(
     os.path.dirname(__file__), "..", "..", "core", "pkg", "service"
 )
 
@@ -47,7 +47,7 @@ def get_core_fixture_path(relative: str) -> str:
     :returns: Full path to the golden file.
     :raises FileNotFoundError: If the golden file doesn't exist.
     """
-    path = os.path.join(CORE_SERVICE_DIR, relative)
+    path = os.path.join(_CORE_SERVICE_DIR, relative)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Core golden file not found: {path}")
     return path
@@ -83,8 +83,8 @@ def named_envelope_copy(path: str, name: str) -> Iterator[str]:
 # it ('"{{channel:x}}"' -> 1048581); one embedded in a string keeps its quotes
 # ('"y1---{{channel:x}}"' -> '"y1---1048581"'). Quoted first so the inline form
 # never strands a numeric key inside quotes.
-QUOTED_CHANNEL_PLACEHOLDER = re.compile(r'"\{\{channel:([^}"]+)\}\}"')
-INLINE_CHANNEL_PLACEHOLDER = re.compile(r"\{\{channel:([^}\"]+)\}\}")
+_QUOTED_CHANNEL_PLACEHOLDER = re.compile(r'"\{\{channel:([^}"]+)\}\}"')
+_INLINE_CHANNEL_PLACEHOLDER = re.compile(r"\{\{channel:([^}\"]+)\}\}")
 
 
 def resolve_channel_placeholders(client: sy.Synnax, text: str) -> str:
@@ -102,8 +102,8 @@ def resolve_channel_placeholders(client: sy.Synnax, text: str) -> str:
     def key(m: re.Match[str]) -> str:
         return str(client.channels.retrieve(m.group(1)).key)
 
-    return INLINE_CHANNEL_PLACEHOLDER.sub(
-        key, QUOTED_CHANNEL_PLACEHOLDER.sub(key, text)
+    return _INLINE_CHANNEL_PLACEHOLDER.sub(
+        key, _QUOTED_CHANNEL_PLACEHOLDER.sub(key, text)
     )
 
 
@@ -119,7 +119,7 @@ def get_fixture_path(filename: str) -> str:
     Raises:
         FileNotFoundError: If the fixture file doesn't exist.
     """
-    path = os.path.join(FIXTURES_DIR, filename)
+    path = os.path.join(_FIXTURES_DIR, filename)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Test fixture not found: {path}")
     return path
@@ -236,7 +236,7 @@ def create_indexed_pair(
     return create_indexed_channel(client, name, data_type, idx.key)
 
 
-LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
+_LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
 
 
 def assert_link_format(
@@ -248,7 +248,7 @@ def assert_link_format(
     :param resource_type: The resource type (e.g., "lineplot", "log", "channel").
     :param resource_id: Optional specific resource ID to match. If None, validates as UUID.
     """
-    match = LINK_PATTERN.match(link)
+    match = _LINK_PATTERN.match(link)
     assert match, f"Link should match synnax://cluster/<uuid>/<type>/<id>, got: {link}"
 
     cluster_id, actual_type, actual_id = match.groups()

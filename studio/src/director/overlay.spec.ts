@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { CALLOUT_S, CARD_S, SCOPE_FADE_S, SCOPE_PAD } from "@/director/constants";
 import { overlay, type OverlayPlan, project } from "@/director/overlay";
 import { stage } from "@/director/stage";
-import { edit, FPS, overlays, type Scope } from "@/film";
+import { edit, FPS, overlays } from "@/film";
 import { type Event, type Timeline } from "@/timeline";
 
 const RECT = { x: 100, y: 300, width: 400, height: 200 };
@@ -48,7 +48,7 @@ const SHOTS = edit([
   { type: "take", from: "middle", to: "end", beats: [{ at: "middle", wide: true }] },
 ]);
 
-const SCOPE: Scope = {
+const SCOPE = {
   track: "ox",
   label: "OX PT 1",
   unit: "psi",

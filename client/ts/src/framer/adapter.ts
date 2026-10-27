@@ -63,10 +63,13 @@ export class ReadAdapter {
     const newKeySet = new Set(newKeys);
     if (newKeySet.size === this.keys.size && newKeySet.isSubsetOf(this.keys))
       return false;
-    this.codec.update(
-      newKeys,
-      fetched.map((c) => c.dataType),
-    );
+    // The Core skips an update that carries no keys, and both sides must agree on the
+    // sequence number of each codec state.
+    if (newKeys.length > 0)
+      this.codec.update(
+        newKeys,
+        fetched.map((c) => c.dataType),
+      );
     if (variant === "keys") {
       this.adapter = null;
       this.keys = new Set(normalized);

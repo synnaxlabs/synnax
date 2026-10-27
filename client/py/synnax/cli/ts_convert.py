@@ -27,16 +27,16 @@ from synnax.io import BaseReader
 from synnax.io.factory import FACTORY
 from synnax.telem import TimeSpanUnits, convert_time_units
 
-OUTPUT_PATH_ARG = "--output-path"
-OUTPUT_PATH_ARG_SHORT = "-o"
-INPUT_CHANNEL_ARG = "--input-channel"
-INPUT_CHANNEL_ARG_SHORT = "-ic"
-OUTPUT_CHANNEL_ARG = "--output-channel"
-OUTPUT_CHANNEL_ARG_SHORT = "-oc"
-INPUT_PRECISION_ARG = "--input-precision"
-INPUT_PRECISION_ARG_SHORT = "-ip"
-OUTPUT_PRECISION_ARG = "--output-precision"
-OUTPUT_PRECISION_ARG_SHORT = "-op"
+_OUTPUT_PATH_ARG = "--output-path"
+_OUTPUT_PATH_ARG_SHORT = "-o"
+_INPUT_CHANNEL_ARG = "--input-channel"
+_INPUT_CHANNEL_ARG_SHORT = "-ic"
+_OUTPUT_CHANNEL_ARG = "--output-channel"
+_OUTPUT_CHANNEL_ARG_SHORT = "-oc"
+_INPUT_PRECISION_ARG = "--input-precision"
+_INPUT_PRECISION_ARG_SHORT = "-ip"
+_OUTPUT_PRECISION_ARG = "--output-precision"
+_OUTPUT_PRECISION_ARG_SHORT = "-op"
 
 
 @click.command()
@@ -45,36 +45,36 @@ OUTPUT_PRECISION_ARG_SHORT = "-op"
     required=False,
 )
 @click.option(
-    OUTPUT_PATH_ARG,
-    OUTPUT_PATH_ARG_SHORT,
+    _OUTPUT_PATH_ARG,
+    _OUTPUT_PATH_ARG_SHORT,
     "output_path",
     required=False,
     help="The path to save the converted file",
 )
 @click.option(
-    INPUT_PRECISION_ARG,
-    INPUT_PRECISION_ARG_SHORT,
+    _INPUT_PRECISION_ARG,
+    _INPUT_PRECISION_ARG_SHORT,
     "input_precision",
     required=False,
     help="The current precision of the time units",
 )
 @click.option(
-    OUTPUT_PRECISION_ARG,
-    OUTPUT_PRECISION_ARG_SHORT,
+    _OUTPUT_PRECISION_ARG,
+    _OUTPUT_PRECISION_ARG_SHORT,
     "output_precision",
     required=False,
     help="The desired precision of the time units",
 )
 @click.option(
-    INPUT_CHANNEL_ARG,
-    INPUT_CHANNEL_ARG_SHORT,
+    _INPUT_CHANNEL_ARG,
+    _INPUT_CHANNEL_ARG_SHORT,
     "input_channel",
     required=False,
     help="The channel to convert",
 )
 @click.option(
-    OUTPUT_CHANNEL_ARG,
-    OUTPUT_CHANNEL_ARG_SHORT,
+    _OUTPUT_CHANNEL_ARG,
+    _OUTPUT_CHANNEL_ARG_SHORT,
     "output_channel",
     required=False,
     help="The name of the output channel. Defaults to the name of the input channel.",
@@ -100,7 +100,7 @@ def tsconvert(
     All arguments are optional. If not provided, the user will be prompted for
     the missing information.
     """
-    pure_tsconvert(
+    _pure_tsconvert(
         input_path,
         output_path,
         input_channel,
@@ -111,7 +111,7 @@ def tsconvert(
     )
 
 
-def pure_tsconvert(
+def _pure_tsconvert(
     input_path: Path | str | None,
     output_path: Path | str | None,
     input_channel: str | None,
@@ -125,25 +125,25 @@ def pure_tsconvert(
         return
     input_path = reader.path()
 
-    input_channel = ask_channel_and_check_exists(
+    input_channel = _ask_channel_and_check_exists(
         ctx,
         reader,
         question="Which channel would you like to convert?",
-        arg_name=INPUT_CHANNEL_ARG,
+        arg_name=_INPUT_CHANNEL_ARG,
         arg=input_channel,
     )
 
     input_precision = ask_time_units_select(
         ctx,
         question="What is the current precision?",
-        arg_name=INPUT_PRECISION_ARG,
+        arg_name=_INPUT_PRECISION_ARG,
         arg=input_precision,
     )
 
     output_precision = ask_time_units_select(
         ctx,
         question="What is the desired precision?",
-        arg_name=OUTPUT_PRECISION_ARG,
+        arg_name=_OUTPUT_PRECISION_ARG,
         arg=output_precision,
     )
 
@@ -151,7 +151,7 @@ def pure_tsconvert(
         "What would you like to name the output channel?",
         default=input_channel,
         arg=output_channel,
-        arg_name=OUTPUT_CHANNEL_ARG,
+        arg_name=_OUTPUT_CHANNEL_ARG,
     )
 
     output_path_str = ctx.console.ask(
@@ -160,7 +160,7 @@ def pure_tsconvert(
             input_path.parent / f"{input_path.stem}_converted{input_path.suffix}"
         ),
         arg=str(output_path) if output_path is not None else None,
-        arg_name=OUTPUT_PATH_ARG,
+        arg_name=_OUTPUT_PATH_ARG,
     )
     if output_path_str is None:
         raise ValueError("Output path is required")
@@ -192,7 +192,7 @@ def pure_tsconvert(
         writer.close()
 
 
-def ask_channel_and_check_exists(
+def _ask_channel_and_check_exists(
     ctx: Context,
     reader: BaseReader,
     question: str = "Enter a channel name",
@@ -207,6 +207,6 @@ def ask_channel_and_check_exists(
     except StopIteration:
         ctx.console.error(f"Channel not found: {_ch}")
         if arg is None:
-            return ask_channel_and_check_exists(ctx, reader, question, arg_name, arg)
+            return _ask_channel_and_check_exists(ctx, reader, question, arg_name, arg)
         ctx.console.error(f"Channel not found: {_ch}")
     return _ch

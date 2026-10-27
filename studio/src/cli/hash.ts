@@ -38,7 +38,7 @@ const resolve = (from: string, specifier: string): string => {
  * through another such module. `file` comes first, and the rest sort by path. Throws
  * when a relative import names no file.
  */
-export const modules = async (file: string, root: string): Promise<string[]> => {
+const modules = async (file: string, root: string): Promise<string[]> => {
   const found = new Set<string>();
   const visit = async (current: string): Promise<void> => {
     const source = await readFile(current, "utf8");

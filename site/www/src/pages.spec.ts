@@ -16,6 +16,7 @@ import Index from "@/pages/index.astro";
 import Privacy from "@/pages/privacy.astro";
 import { GET } from "@/pages/sitemap.xml";
 import Sponsorships from "@/pages/sponsorships.astro";
+import Terms from "@/pages/terms.astro";
 import { renderAstro, stubImageSize } from "@/testutil";
 
 import config from "../astro.config";
@@ -231,6 +232,13 @@ describe("pages", () => {
     });
   });
 
+  describe("terms", () => {
+    it("should render under its own title", async () => {
+      const doc = await render(Terms, "/terms");
+      expect(doc.title).toBe("Terms of service | Synnax");
+    });
+  });
+
   describe("sitemap", () => {
     it("should list every page on the site", async () => {
       const response = GET({ site: new URL(config.site!) });
@@ -241,6 +249,7 @@ describe("pages", () => {
         "https://www.synnaxlabs.com/company",
         "https://www.synnaxlabs.com/privacy",
         "https://www.synnaxlabs.com/sponsorships",
+        "https://www.synnaxlabs.com/terms",
       ]);
     });
   });

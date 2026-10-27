@@ -536,6 +536,24 @@ describe("Cache", () => {
       await cache.close();
     });
 
+    it("narrows a rejected batch in halves instead of probing every key", async () => {
+      const keys = Array.from({ length: 64 }, (_, i) => `k${i}`);
+      const fetch = vi.fn(async (batch: string[]) => {
+        if (batch.includes("k17"))
+          throw new NotFoundError("Docs with keys [k17] not found");
+        return batch.map((k) => ({ key: k, name: `${k}-fresh` }));
+      });
+      const cache = makeReopeningEngine();
+      const table = cache.createTable<string, Doc>({ name: "docs", fetch });
+      table.set(keys.map((k) => ({ key: k, name: "stale" })));
+      await cache.ensureStreaming();
+      await expect.poll(() => table.status("k17")).toBe("tombstoned");
+      expect(table.get("k63")).toEqual({ key: "k63", name: "k63-fresh" });
+      // One batch, then two halves at each of six levels.
+      expect(fetch).toHaveBeenCalledTimes(13);
+      await cache.close();
+    });
+
     it("tombstones every key when the whole batch has vanished", async () => {
       const onError = vi.fn();
       let opens = 0;

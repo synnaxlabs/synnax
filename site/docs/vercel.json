@@ -13,13 +13,63 @@
       "permanent": true
     },
     {
+      "source": "/reference/cluster/:slug(installation|quick-start)?",
+      "destination": "/reference/enterprise",
+      "permanent": true
+    },
+    {
+      "source": "/reference/cluster/installing-certificates",
+      "destination": "/reference/enterprise/certificates",
+      "permanent": true
+    },
+    {
+      "source": "/reference/cluster/production",
+      "destination": "/reference/enterprise/production-checklist",
+      "permanent": true
+    },
+    {
+      "source": "/reference/cluster/systemd-service",
+      "destination": "/reference/enterprise/service",
+      "permanent": true
+    },
+    {
       "source": "/reference/cluster/:slug*",
-      "destination": "/reference/core/:slug*",
+      "destination": "/reference/enterprise/:slug*",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:slug(get-started)?",
+      "destination": "/reference/hardware",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:slug(installation|standalone)",
+      "destination": "/reference/enterprise/driver/install",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:slug(task-basics|timing)",
+      "destination": "/reference/hardware/tasks",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:vendor(ethercat|labjack|ni)/get-started",
+      "destination": "/reference/hardware/:vendor/configure-device",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:vendor(http|modbus|opc-ua)/get-started",
+      "destination": "/reference/hardware/:vendor/connect-server",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/pagerduty/:slug*",
+      "destination": "/reference/alarms/pagerduty",
       "permanent": true
     },
     {
       "source": "/reference/device-drivers/:slug*",
-      "destination": "/reference/driver/:slug*",
+      "destination": "/reference/hardware/:slug*",
       "permanent": true
     }
   ]

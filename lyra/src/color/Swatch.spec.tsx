@@ -302,5 +302,50 @@ describe("Swatch", () => {
       const [, target] = renderPair(<Color.Swatch value={`#${BLUE}`} />);
       expect(target.className).not.toContain(CSS.B("haul-drop-region"));
     });
+
+    it("should call onChange with the dropped color", () => {
+      const onChange = vi.fn();
+      const [, target] = renderPair(
+        <Color.Swatch value={`#${BLUE}`} onChange={onChange} />,
+      );
+      fireEvent.drop(target);
+      expect(onChange).toHaveBeenCalledWith(color.construct(RED));
+    });
+
+    describe("from another source", () => {
+      const OTHER: Haul.Item = { type: "other", key: "other" };
+      const COLOR: Haul.Item = { type: "color", key: RED };
+
+      const Source = ({ items }: { items: Haul.Item[] }): ReactElement => {
+        const { startDrag } = Haul.useDrag({ type: "source" });
+        return <div data-testid="source" onDragStart={() => startDrag(items)} />;
+      };
+
+      const renderSource = (items: Haul.Item[], onChange = vi.fn()): RenderResult => {
+        const c = render(
+          <Haul.Provider>
+            <Source items={items} />
+            <Color.Swatch value={`#${BLUE}`} onChange={onChange} />
+          </Haul.Provider>,
+          { wrapper: Wrapper },
+        );
+        fireEvent.dragStart(c.getByTestId("source"));
+        return c;
+      };
+
+      it("should take the color from a drag that mixes in other items", () => {
+        const onChange = vi.fn();
+        const c = renderSource([OTHER, COLOR], onChange);
+        fireEvent.drop(swatchOf(c));
+        expect(onChange).toHaveBeenCalledWith(color.construct(RED));
+      });
+
+      it("should reject a drag without a color", () => {
+        const onChange = vi.fn();
+        const c = renderSource([OTHER], onChange);
+        fireEvent.drop(swatchOf(c));
+        expect(onChange).not.toHaveBeenCalled();
+      });
+    });
   });
 });

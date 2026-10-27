@@ -901,19 +901,21 @@ export class Space<
     if (this.applyRechecks(query, keys)) this.touch(query);
   }
 
-  /** Never rejects: a failed backfill is reported and the recheck is skipped. */
+  /** Missing records are expected during backfill; other failures are reported. */
   private async recheckMany(query: Query<P, K, D, V>, keys: K[]): Promise<void> {
     const { table } = this.config;
     this.recheckKeys(query, keys);
     const missing = keys.filter((key) => table.status(key) === "unknown");
     if (missing.length === 0) return;
-    // Backfill through the table's fetch so membership can be rechecked;
-    // fetch-less tables serve cached entries only and the recheck is a no-op.
-    try {
-      await table.retrieve(missing);
-      this.recheckKeys(query, missing);
-    } catch (exc) {
-      this.report(exc, `failed to hydrate ${this.config.name} answers`);
-    }
+    // Retrieve per key so one deleted record cannot block the survivors. The table
+    // batches these requests and retries them separately if a key is missing.
+    const results = await Promise.allSettled(
+      missing.map(async (key) => await table.retrieve([key])),
+    );
+    results.forEach((result) => {
+      if (result.status === "rejected" && !NotFoundError.matches(result.reason))
+        this.report(result.reason, `failed to hydrate ${this.config.name} answers`);
+    });
+    this.recheckKeys(query, missing);
   }
 }

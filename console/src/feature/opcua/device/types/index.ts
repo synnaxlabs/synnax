@@ -37,7 +37,6 @@ export type SecurityPolicy = v0.SecurityPolicy;
 
 export const connectionConfigZ = v0.connectionConfigZ;
 export type ConnectionConfig = v0.ConnectionConfig;
-export const ZERO_CONNECTION_CONFIG = v0.ZERO_CONNECTION_CONFIG;
 
 export const propertiesZ: z.ZodType<v1.Properties> = v1.propertiesZ.or(
   v0.propertiesZ.transform(v1.propertiesMigration),

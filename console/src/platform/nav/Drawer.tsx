@@ -75,7 +75,7 @@ export const Drawer = ({
       borderColor={6}
       {...rest}
     >
-      <Errors.Boundary>{collapsed ? null : children}</Errors.Boundary>
+      <Errors.SuspenseBoundary>{collapsed ? null : children}</Errors.SuspenseBoundary>
     </Nav.Drawer>
   );
 };

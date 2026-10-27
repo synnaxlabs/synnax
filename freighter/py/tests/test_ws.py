@@ -300,6 +300,7 @@ class TestAsyncWebsocket:
             assert msg.message == "the key to the universe"
 
 
+@pytest.mark.ws
 class TestSyncWebsocket:
     def test_basic_exchange(self, sync_client: WebsocketClient) -> None:
         stream = sync_client.stream("/echo", Message, Message)

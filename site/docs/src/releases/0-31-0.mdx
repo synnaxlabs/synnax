@@ -2,9 +2,9 @@
 title: "Version 0.31 release notes"
 ---
 
+import { Hero } from "@/components/hero";
 import { Image } from "@/components/media/Media";
 import Release from "@/components/releases/Release.astro";
-import Diagram from "@/components/diagram/Diagram.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -15,9 +15,13 @@ export const components = mdxOverrides;
     title="User registration and access control"
 >
 
-<Diagram preview>
-  <Image id="releases/0-31-0/thumbnail" />
-</Diagram>
+<Hero.Hero
+  image="releases/0-31-0/thumbnail"
+  extension="webp"
+  layout="framed"
+  tone="soft"
+  palette="blue-pink"
+/>
 
 <Divider.Divider x />
 
@@ -27,7 +31,7 @@ export const components = mdxOverrides;
 
 Synnax version 0.31 introduces long awaited user registration and access control
 features. You can now register users via the
-[command palette](/reference/console/ui-overview#search-and-command-palette). Once
+[command palette](/reference/get-started/ui-overview#search-and-command-palette). Once
 registered, one of two permissions can be granted to a user: admin and schematic edit.
 
 - **Admin** users have the permission to perform any task, including registering,
@@ -40,7 +44,7 @@ These two permission sets are the first of many to come.
 
 This release also introduces six new schematic symbols.
 
-<Image id="releases/0-31-0/new-symbols" />
+<Image id="releases/0-31-0/new-symbols" extension="webp" />
 
 The label positions and wrap widths of all symbols can now be customized.
 

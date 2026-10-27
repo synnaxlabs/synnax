@@ -54,7 +54,7 @@ export const crop = (s: CameraSample, width: number, height: number): Crop => ({
  * point at the middle of the crop. A focus too near an edge to center pins the crop
  * flush to that edge.
  */
-export const focusToCenter = (
+const focusToCenter = (
   focus: Point,
   amount: number,
   width: number,
@@ -107,7 +107,7 @@ export const motionBlur = (
  * rect (plus margin) inside the crop at the given amount, preferring the rect's
  * center when it fits with room to spare.
  */
-export const frameRect = (
+const frameRect = (
   rect: Rect,
   amount: number,
   width: number,
@@ -149,7 +149,7 @@ const frame = (focus: Focus, amount: number, width: number, height: number): Poi
  * focus with margin: its rect when the rect fits, else its point. A focus already in
  * frame leaves the center unchanged, so the camera pans only as far as it must.
  */
-export const contain = (
+const contain = (
   center: Point,
   focus: Focus,
   amount: number,

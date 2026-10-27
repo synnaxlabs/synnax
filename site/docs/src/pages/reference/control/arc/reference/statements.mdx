@@ -2,67 +2,39 @@
 layout: "@/layouts/Reference.astro"
 title: "Statements"
 description:
-  "Arc statement reference for if/else, return, and for-loop forms inside function
-  bodies"
-prev: "Functions"
-prevURL: "/reference/control/arc/reference/functions"
-next: "Loops"
-nextURL: "/reference/control/arc/reference/loops"
+  "Syntax of Arc statements in function bodies: if, for, break, continue, return, and
+  assignment."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
 
-## If statements
-
-```arc
-if condition {
-// body
-}
-
-if condition {
-// body
-} else {
-// alternative
-}
-
-if condition1 {
-// body
-} else if condition2 {
-// alternative
-} else {
-// fallback
-}
-```
-
-Conditions are evaluated for truthiness (`true` for booleans, non-zero for numerics,
-non-empty for strings).
+The statements on this page are valid in a
+[function](/reference/control/arc/reference/functions) body. Of these statements, a
+sequence or a stage accepts only `=` assignment.
 
 <Divider.Divider x />
 
-## Return statements
+## If statements
 
-Functions with return types require explicit `return` statements.
-
-```arc
-func compute(x f64) f64 {
-    if x < 0 {
-        return 0.0 // early return
-    }
-    return x * 2.0 // required
-}
+```text
+if condition { ... } else if condition { ... } else { ... }
 ```
 
-Functions without return types can use `return` for early exit:
+The braces are necessary. The `else if` and `else` clauses are optional. The condition
+is a `bool`. A numeric condition compiles with the warning
+`numeric conditions are deprecated; use an explicit comparison like x != 0`.
 
-```arc
-func process() {
-    if skip {
-        return // early exit
+```arc bodies="band"
+func band(v f64) i64 {
+    if v < 280.0 {
+        return 0
+    } else if v < 300.0 {
+        return 1
+    } else {
+        return 2
     }
-    // more work
 }
 ```
 
@@ -70,19 +42,111 @@ func process() {
 
 ## For loops
 
-Arc supports [`for` loops](/reference/control/arc/reference/loops) for iterating over
-series, counting through ranges, and repeating until a condition is met.
+Arc has no `while`. Use `for` with a condition.
 
-```arc
-for x := data {
-// iterate over a series
+| Form              | Syntax                                 | Runs                                        |
+| ----------------- | -------------------------------------- | ------------------------------------------- |
+| Series            | `for x := data { }`                    | Once for each sample.                       |
+| Series with index | `for i, x := data { }`                 | Once for each sample. `i` is `i32`, from 0. |
+| Range             | `for i := range(start, end, step) { }` | Once for each value of `i`.                 |
+| Condition         | `for condition { }`                    | While the condition is true.                |
+| No condition      | `for { }`                              | Until `break` or `return`.                  |
+
+```arc bodies="total"
+func total(data series f64) f64 {
+    sum := 0.0
+    for x := data {
+        if x < 0.0 {
+            continue
+        }
+        sum += x
+    }
+    return sum
 }
+```
 
-for i := range(10) {
-// count from 0 to 9
-}
+### Range
 
-for condition {
-// repeat while condition is truthy
+`range` takes 1 to 3 integer arguments: `range(end)`, `range(start, end)`, or
+`range(start, end, step)`. `start` is 0 and `step` is 1 when you leave them out. `i`
+does not reach `end`. With a negative step, `i` counts down. When `start` is already at
+or past `end`, the body does not run.
+
+| Call               | Values of `i` |
+| ------------------ | ------------- |
+| `range(5)`         | 0, 1, 2, 3, 4 |
+| `range(5, 10)`     | 5, 6, 7, 8, 9 |
+| `range(10, 0, -3)` | 10, 7, 4, 1   |
+| `range(10, 5)`     | None          |
+
+The type of `i` is the widest integer type of the arguments, or `i64` for literals. Arc
+reads `end` and `step` once, before the first pass. A float argument fails with
+`range() argument 1 must be an integer type, got exact integer float`. Do not use a step
+of 0: the compiler accepts it, and the loop can run forever.
+
+### Loop variables
+
+A loop variable exists only in the loop body. Assigning to it fails with
+`cannot assign to loop variable 'i'`. A loop over a channel fails with
+`cannot iterate over chan f64; did you mean range(tank_pt)?`.
+
+### Break and continue
+
+`break` leaves the innermost loop. `continue` starts the next pass of the innermost
+loop. Outside a loop, they fail with `break can only be used inside a for loop` and
+`continue can only be used inside a for loop`.
+
+### Limits
+
+The Core and the Driver do not limit the number of passes or the run time of a loop. A
+loop that does not end stops the automation: no new cycle starts.
+
+<Divider.Divider x />
+
+## Return
+
+`return value` leaves the function with an output. `return` with no value leaves a
+function that has no unnamed output. For the rule on all paths, see
+[outputs](/reference/control/arc/reference/functions#outputs).
+
+| Error                                                       | Cause                                         |
+| ----------------------------------------------------------- | --------------------------------------------- |
+| `return statement in 'f' missing value of type f64`         | A bare `return` in a function with an output. |
+| `cannot return str from 'f': expected f64`                  | The value has the wrong type.                 |
+| `cannot return a value from a function with no return type` | A value in a function with no unnamed output. |
+
+<Divider.Divider x />
+
+## Assignment
+
+`name = value` sets a variable or a parameter, or writes a channel. `name[i] = value`
+sets one sample of a series. The value must have the type of the target. A name that
+does not exist fails with `undefined symbol: name`.
+
+### Compound assignment
+
+| Operator | Same as     |
+| -------- | ----------- |
+| `+=`     | `x = x + v` |
+| `-=`     | `x = x - v` |
+| `*=`     | `x = x * v` |
+| `/=`     | `x = x / v` |
+| `%=`     | `x = x % v` |
+
+Compound assignment works on numbers, and `+=` also joins strings. On a `bool` it fails
+with `compound assignment requires numeric type, got bool`. On a float, `%=` fails with
+`float modulo not yet implemented`. In a sequence or a stage, it fails with
+`compound and indexed assignment to a variable are not yet supported`.
+
+```arc bodies="next_power_of_two"
+func next_power_of_two(n i64) i64 {
+    v := 1
+    for {
+        if v >= n {
+            break
+        }
+        v *= 2
+    }
+    return v
 }
 ```

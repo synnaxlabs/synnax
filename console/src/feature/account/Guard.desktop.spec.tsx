@@ -129,7 +129,7 @@ describe("Account.Guard", () => {
     expect(url.origin + url.pathname).toBe(License.LOGIN_URL);
     const { fingerprint } = await client.license.retrieve();
     expect(url.searchParams.get("fp")).toBe(License.joinFingerprint(fingerprint));
-    expect(url.searchParams.get("name")).toBe(Account.DEFAULT_MACHINE_NAME);
+    expect(url.searchParams.get("name")).toBe("Synnax Desktop");
     expect(url.searchParams.get("state")).toBe(
       Session.Account.selectPending(store.getState()),
     );

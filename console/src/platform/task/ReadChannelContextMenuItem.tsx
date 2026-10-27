@@ -20,7 +20,7 @@ import { type Channel } from "@/platform/task/types";
 
 export interface ReadChannelContextMenuItemProps extends ContextMenuItemProps<Channel> {}
 
-export const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProps> = ({
+const ReadChannelContextMenuItem: React.FC<ReadChannelContextMenuItemProps> = ({
   keys,
 }) => {
   const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);

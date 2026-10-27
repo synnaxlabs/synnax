@@ -206,6 +206,7 @@ jobs:
       # restores into the moved paths.
       - name: Move the Go caches off the OS disk
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\gotmp" | Out-Null
           Add-Content $env:GITHUB_ENV "GOCACHE=$env:RUNNER_TEMP\gocache"
@@ -239,10 +240,12 @@ jobs:
             ${{ hashFiles(format('{0}/go.sum', inputs.directory),
             '.github/workflows/test.go.yaml') }}
         run: |
-          echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
-          echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
-          echo "module=go-test-${{ runner.os }}-$DIRECTORY-" >> "$GITHUB_OUTPUT"
-          echo "sum=go-test-${{ runner.os }}-$DIRECTORY-$SUM-" >> "$GITHUB_OUTPUT"
+          {
+            echo "build=$(go env GOCACHE)"
+            echo "modules=$(go env GOMODCACHE)"
+            echo "module=go-test-${{ runner.os }}-$DIRECTORY-"
+            echo "sum=go-test-${{ runner.os }}-$DIRECTORY-$SUM-"
+          } >> "$GITHUB_OUTPUT"
 
       # A run reads the caches of its own branch and of main, never those of another
       # pull request, so only main saves them. A changed go.sum falls back to an older
@@ -307,6 +310,7 @@ jobs:
         run: |
           suites=$(go list -f "$SUITE" ./... |
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
+          # shellcheck disable=SC2086 # Splits the flags and suites into arguments.
           go run github.com/onsi/ginkgo/v2/ginkgo $FLAGS --randomize-suites \
             --fail-on-empty --keep-going --trace --timeout=2h --github-output $suites
         working-directory: ${{ inputs.directory }}
