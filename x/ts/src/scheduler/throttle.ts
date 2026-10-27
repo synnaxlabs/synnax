@@ -25,12 +25,11 @@ export const throttle = <Args extends unknown[]>(
   waitFor: CrudeTimeSpan,
 ): ThrottledFn<Args> => {
   const throttlePeriod = new TimeSpan(waitFor);
-  if (throttlePeriod.valueOf() <= 0) {
-    const passthrough = ((...args: Args) => func(...args)) as ThrottledFn<Args>;
-    passthrough.cancel = noop;
-    passthrough.flush = noop;
-    return passthrough;
-  }
+  if (throttlePeriod.valueOf() <= 0)
+    return Object.assign((...args: Args) => func(...args), {
+      cancel: noop,
+      flush: noop,
+    });
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let lastInvokeTime: TimeStamp = TimeStamp.MIN;
   let latestArgs: Args | null = null;
@@ -42,7 +41,7 @@ export const throttle = <Args extends unknown[]>(
     latestArgs = null;
     func(...args);
   };
-  const throttled = ((...args: Args): void => {
+  const throttled = (...args: Args): void => {
     latestArgs = args;
     if (timeout !== undefined) return;
     const remaining = throttlePeriod.sub(TimeStamp.since(lastInvokeTime));
@@ -52,16 +51,16 @@ export const throttle = <Args extends unknown[]>(
         ? 0
         : remaining.milliseconds;
     timeout = setTimeout(invoke, wait);
-  }) as ThrottledFn<Args>;
-  throttled.cancel = (): void => {
+  };
+  const cancel = (): void => {
     clearTimeout(timeout);
     timeout = undefined;
     latestArgs = null;
   };
-  throttled.flush = (): void => {
+  const flush = (): void => {
     if (timeout === undefined) return;
     clearTimeout(timeout);
     invoke();
   };
-  return throttled;
+  return Object.assign(throttled, { cancel, flush });
 };
