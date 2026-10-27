@@ -796,9 +796,9 @@ class TestOnCreate:
         )
 
     def test_non_object_sample(self, client: sy.Synnax) -> None:
-        """Should raise a TypeError when the sample is not a JSON object"""
+        """Should raise a ValidationError when the sample is not a range"""
         handler = client.ranges.on_create(lambda _: None)
-        with pytest.raises(TypeError, match="JSON object"):
+        with pytest.raises(pydantic.ValidationError):
             handler(
                 self.latest_state(
                     client, sy.Series(["not an object"], data_type="json")
