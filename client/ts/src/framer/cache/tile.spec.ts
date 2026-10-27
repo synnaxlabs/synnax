@@ -16,21 +16,22 @@ import {
   sleep,
   type TimeRange,
   TimeSpan,
-  TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { rawKey } from "@/framer/cache/block";
+import { tileRange } from "@/framer/cache/grid";
+import { Store, type StoreProps } from "@/framer/cache/store";
 import {
-  tileRange,
+  tileKey,
   TileReader,
   type TileReaderProps,
-  tileSpan,
   type TileSpec,
 } from "@/framer/cache/tile";
-import { type Transform } from "@/framer/cache/transform";
 import { Frame } from "@/framer/frame";
+import { ManualClock } from "@/testutil";
 
 interface Call {
   tr: TimeRange;
@@ -43,11 +44,14 @@ const SAMPLES = 4;
 // Returns a reader whose remote fetch records each call and answers every key with
 // samples float64 samples equal to the key.
 const createReader = (
-  props: Partial<TileReaderProps> = {},
+  { budget, staleThreshold, now, ...props }: Partial<TileReaderProps> & StoreProps = {},
   samples: number = SAMPLES,
-): { reader: TileReader; calls: Call[] } => {
+): { reader: TileReader; calls: Call[]; store: Store } => {
   const calls: Call[] = [];
+  const store = new Store({ budget, staleThreshold, now });
   const reader = new TileReader({
+    store,
+    now,
     batchDebounce: TimeSpan.milliseconds(5),
     readRemote: async (tr, keys, reduction) => {
       calls.push({ tr, keys, reduction });
@@ -64,7 +68,7 @@ const createReader = (
     },
     ...props,
   });
-  return { reader, calls };
+  return { reader, calls, store };
 };
 
 // Budget specs read large tiles, so the fixed overhead of each tile does not change how
@@ -82,49 +86,6 @@ const createSpec = (overrides: Partial<TileSpec> = {}): TileSpec => ({
 });
 
 describe("tile", () => {
-  describe("tileSpan", () => {
-    it("should span one millisecond at level zero", () => {
-      expect(tileSpan(0).equals(TimeSpan.milliseconds(1))).toBe(true);
-    });
-
-    it("should double the span with each level", () => {
-      expect(tileSpan(10).equals(TimeSpan.milliseconds(1024))).toBe(true);
-    });
-  });
-
-  describe("tileRange", () => {
-    it("should start the tile index spans after the epoch", () => {
-      const tr = tileRange(createSpec({ level: 2, index: 3 }));
-      expect(tr.start.equals(TimeStamp.milliseconds(12))).toBe(true);
-      expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
-    });
-
-    it("should cut the range short at the end of the spec", () => {
-      const end = TimeStamp.milliseconds(14);
-      const tr = tileRange(createSpec({ level: 2, index: 3, end }));
-      expect(tr.end.equals(end)).toBe(true);
-    });
-
-    it("should cut the range short at the start of the spec", () => {
-      const start = TimeStamp.milliseconds(13);
-      const tr = tileRange(createSpec({ level: 2, index: 3, start }));
-      expect(tr.start.equals(start)).toBe(true);
-      expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
-    });
-
-    it("should ignore a start before the tile", () => {
-      const start = TimeStamp.milliseconds(4);
-      const tr = tileRange(createSpec({ level: 2, index: 3, start }));
-      expect(tr.start.equals(TimeStamp.milliseconds(12))).toBe(true);
-    });
-
-    it("should ignore an end after the tile", () => {
-      const end = TimeStamp.milliseconds(20);
-      const tr = tileRange(createSpec({ level: 2, index: 3, end }));
-      expect(tr.end.equals(TimeStamp.milliseconds(16))).toBe(true);
-    });
-  });
-
   describe("TileReader", () => {
     it("should read the tile range with the spec's options", async () => {
       const { reader, calls } = createReader();
@@ -139,6 +100,15 @@ describe("tile", () => {
         pointLimit: 100,
       });
       expect(Array.from(series)).toEqual([1, 1, 1, 1]);
+      reader.close();
+    });
+
+    it("should reject a read when the block under the tile's key is not a tile", async () => {
+      const { reader, store } = createReader();
+      store.set("1/10/3/100/min_max", store.raw(1, 0));
+      const read = reader.read(createSpec());
+      await expect(read).rejects.toThrow(UnexpectedError);
+      await expect(read).rejects.toThrow("block 1/10/3/100/min_max is not a tile");
       reader.close();
     });
 
@@ -182,6 +152,7 @@ describe("tile", () => {
         // The groups the Core picks follow the samples written into the tile.
         let multiple = 2n;
         const reader = new TileReader({
+          store: new Store(),
           batchDebounce: TimeSpan.milliseconds(5),
           readRemote: async (tr, keys) => {
             calls.push([...keys].sort());
@@ -294,16 +265,6 @@ describe("tile", () => {
       reader.close();
     });
 
-    it("should apply the transform to every fetched series", async () => {
-      const convert = vi.fn((s: Series) => s.convert(DataType.FLOAT32));
-      const transform: Transform = { resolveDataType: () => DataType.FLOAT32, convert };
-      const { reader } = createReader({ transform });
-      const series = await reader.read(createSpec());
-      expect(convert).toHaveBeenCalledTimes(1);
-      expect(series.dataType.equals(DataType.FLOAT32)).toBe(true);
-      reader.close();
-    });
-
     it("should evict the least recently used tile past the budget", async () => {
       const { reader, calls } = createReader(
         { budget: Size.bytes(2.5 * LARGE_BYTES) },
@@ -321,17 +282,19 @@ describe("tile", () => {
       reader.close();
     });
 
-    it("should keep a tile a caller holds past the budget", async () => {
-      const { reader, calls } = createReader(
+    it("should keep a tile a subscription pins past the budget", async () => {
+      const { reader, calls, store } = createReader(
         { budget: Size.bytes(1.5 * LARGE_BYTES) },
         LARGE_SAMPLES,
       );
-      const heldTile = await reader.read(createSpec({ index: 1 }));
-      heldTile.acquire();
+      const spec = createSpec({ index: 1 });
+      await reader.read(spec);
+      const tile = store.get(tileKey(spec))!;
+      tile.pins++;
       await reader.read(createSpec({ index: 2 }));
       await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(2);
-      heldTile.release();
+      tile.pins--;
       await reader.read(createSpec({ index: 3 }));
       await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(4);
@@ -373,13 +336,15 @@ describe("tile", () => {
     });
 
     it("should fetch a tile again once it is stale", async () => {
+      const clock = new ManualClock();
       const { reader, calls } = createReader({
         staleThreshold: TimeSpan.milliseconds(20),
+        now: clock.now,
       });
       await reader.read(createSpec());
       await reader.read(createSpec());
       expect(calls).toHaveLength(1);
-      await sleep.sleep(TimeSpan.milliseconds(30));
+      clock.advance(TimeSpan.milliseconds(20));
       await reader.read(createSpec());
       expect(calls).toHaveLength(2);
       reader.close();
@@ -427,6 +392,33 @@ describe("tile", () => {
         const other = await reader.read(createSpec({ index: 1, key: 2 }));
         expect(other.dataType.equals(DataType.FLOAT64)).toBe(true);
         expect(calls).toHaveLength(5);
+        reader.close();
+      });
+
+      it("should drop a channel's raw blocks when a tile fetch returns a new data type", async () => {
+        const { reader, store } = createReader({
+          readRemote: async (tr, keys) =>
+            new Frame(
+              keys,
+              keys.map(
+                (key) =>
+                  new Series({
+                    data: new Array(SAMPLES).fill(key),
+                    dataType: DataType.UINT8,
+                    timeRange: tr,
+                  }),
+              ),
+            ),
+        });
+        store.retainDataType(1, DataType.FLOAT64);
+        const block = store.raw(1, 0);
+        block.fill(
+          [new Series({ data: new Float64Array([1]), timeRange: block.range })],
+          block.range.end,
+          1,
+        );
+        await reader.read(createSpec());
+        expect(store.get(rawKey(1, 0))).toBeUndefined();
         reader.close();
       });
     });

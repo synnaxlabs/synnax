@@ -16,7 +16,7 @@ from concurrent.futures import Future
 from pathlib import Path
 
 import synnax as sy
-from framework import run_dir, server_log
+from framework import server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.models import STATUS, SynnaxConnection, Test
 from framework.test_case import TestCase
@@ -50,6 +50,7 @@ class ExecutionClient:
         self,
         config_client: ConfigClient,
         synnax_connection: SynnaxConnection,
+        run_dir: Path,
         client: sy.Synnax,
         conductor_range: sy.Range | None,
         tests: list[Test],
@@ -64,6 +65,7 @@ class ExecutionClient:
     ) -> None:
         self._config_client = config_client
         self._synnax_connection = synnax_connection
+        self._run_dir = run_dir
         self._client = client
         self._conductor_range = conductor_range
         self._tests = tests
@@ -331,10 +333,7 @@ class ExecutionClient:
         else:
             test.range = None
 
-        # Set up this test's bundle directory and bind it to the current thread
-        # so that helpers like `resolve_results_path` route artifacts (trace,
-        # screenshots, exports) into it transparently.
-        bundle_dir = self._setup_bundle_dir(test)
+        bundle_dir = self._create_bundle_dir(test)
         log_start_offset = server_log.current_offset()
         test.started_at = time.time()
 
@@ -344,6 +343,7 @@ class ExecutionClient:
             test_instance = test_class(
                 synnax_connection=self._synnax_connection,
                 name=test_def.display_name,
+                results_dir=bundle_dir,
                 **test_def.parameters,
             )
 
@@ -362,6 +362,7 @@ class ExecutionClient:
                 test.error_message = test_instance._error_message
             if test_instance._error_traceback is not None:
                 test.error_traceback = test_instance._error_traceback
+            test.skip_reason = test_instance.skip_reason
 
         except Timeout:
             test.status = STATUS.TIMEOUT
@@ -378,7 +379,6 @@ class ExecutionClient:
             self._watchdog.disarm(threading.current_thread())
             test.ended_at = time.time()
             self._slice_server_log_if_failed(test, bundle_dir, log_start_offset)
-            run_dir.set_test_dir(None)
 
             if test.range is not None:
                 try:
@@ -414,21 +414,17 @@ class ExecutionClient:
 
         return test
 
-    def _setup_bundle_dir(self, test: Test) -> Path | None:
-        """Create this test's bundle subdir and bind it to the current thread."""
-        run = run_dir.get_run_dir()
-        if run is None:
-            return None
+    def _create_bundle_dir(self, test: Test) -> Path:
         slug = test.name or test.test_name.replace("/", "_")
-        bundle = run / "tests" / slug
-        run_dir.set_test_dir(bundle)
+        bundle = self._run_dir / "tests" / slug
+        bundle.mkdir(parents=True, exist_ok=True)
         test.bundle_dir = str(bundle)
         return bundle
 
     def _slice_server_log_if_failed(
         self,
         test: Test,
-        bundle: Path | None,
+        bundle: Path,
         start_offset: int | None,
     ) -> None:
         """Capture the server-log window for this test when it fails.
@@ -437,7 +433,7 @@ class ExecutionClient:
         Slicing failures are silent. The trace and full server.log are still
         sufficient to debug.
         """
-        if bundle is None or start_offset is None:
+        if start_offset is None:
             return
         if test.status not in (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED):
             return

@@ -90,7 +90,7 @@ dirs with `trace.zip` (on failure), a sliced `server.log`, and screenshots/expor
 uploads the directory as a `test-results-<os>-<name>` artifact.
 
 For triage workflow (including pulling CI bundles via `gh run download`), use the
-`synnax-integration-debug` skill (`.claude/skills/synnax-integration-debug/SKILL.md`).
+`synnax-integration-debug` skill (`.agents/skills/synnax-integration-debug/SKILL.md`).
 
 For writing integration tests — especially Arc reactive-runtime gotchas — see
 `docs/claude/integration-test.md`.

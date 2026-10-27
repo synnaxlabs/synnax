@@ -10,6 +10,7 @@
 [project]
 name = "synnax"
 version = "0.60.0"
+readme = "README.md"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
