@@ -914,6 +914,10 @@ class TestSeriesModel:
         )
         assert m.series.data_type == telem.DataType.FLOAT32
 
+    def test_iter(self) -> None:
+        """Should iterate over samples, not model fields"""
+        assert list(_series()) == [1, 2, 3]
+
 
 @pytest.mark.telem
 @pytest.mark.series
