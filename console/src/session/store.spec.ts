@@ -80,7 +80,9 @@ describe("createStore", () => {
     store.dispatch(Session.Core.select(DEMO_KEY));
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
     expect(Session.Core.selectSelectedKey(store.getState())).toBe(DEMO_KEY);
-    expect(Session.Nav.selectWindowState(store.getState()).bottom.visible).toBe(true);
+    expect(
+      store.getState()[Session.Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom.visible,
+    ).toBe(true);
   });
 
   it("honors an explicit preloadedState", async () => {
