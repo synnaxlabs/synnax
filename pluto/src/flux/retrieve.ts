@@ -220,8 +220,8 @@ export interface UseEnsure<Query extends query.Params> {
 
 /**
  * Returns a callback discarding a query's settled answer and any fetch still running,
- * so the next suspending read fetches again. A settled failure re-throws on every render, so resetting
- * an error boundary alone lands straight back on it.
+ * so the next suspending read fetches again. A settled failure re-throws on every
+ * render, so resetting an error boundary alone lands straight back on it.
  */
 export interface UseInvalidate<Query extends query.Params> {
   (): (query: Query) => void;
