@@ -730,6 +730,35 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should draw samples stamped after the feed's clock", async () => {
+      const core = createCore();
+      const edge = tileRange({
+        level: RAW_LEVEL,
+        index: rawIndex(core.now()) + 1,
+      }).start;
+      core.advance(
+        new TimeSpan(
+          edge.valueOf() - core.now().valueOf() + TimeSpan.seconds(1).valueOf(),
+        ),
+      );
+      // The writer's clock runs ahead of the Core's, so the newest samples sit in a raw
+      // block after the one of now.
+      const feed = core.openFeed({
+        ...OPTIONS,
+        now: () => core.now().sub(TimeSpan.seconds(2)),
+      });
+      const key = core.index.key;
+      const sub = feed.subscribe(raw([key], TimeSpan.seconds(30)));
+      try {
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should release raw blocks behind the window", async () => {
       const core = createCore();
       const feed = core.openFeed({ ...OPTIONS, budget: Size.kilobytes(1) });

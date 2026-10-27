@@ -608,12 +608,13 @@ export class Points {
   }
 
   // Returns the last raw block of the raw range tr: the block of now, or of the newest
-  // stored sample in a static window that ends later.
+  // stored sample when a writer's clock runs ahead of the Core's. A static window stops
+  // at its end.
   private lastBlock(tr: TimeRange): number {
     const now = rawIndex(this.props.now());
-    if (this.dynamic) return now;
-    const end = rawIndex(tr.end.sub(TimeSpan.nanoseconds(1)));
-    return Math.min(end, Math.max(now, this.props.store.newestBlock(this.key)));
+    const last = Math.max(now, this.props.store.newestBlock(this.key));
+    if (this.dynamic) return last;
+    return Math.min(rawIndex(tr.end.sub(TimeSpan.nanoseconds(1))), last);
   }
 
   // Returns the samples of the raw range, the tail of samples a waiting join holds in
@@ -640,9 +641,13 @@ export class Points {
     const joinFrom = this.streaming
       ? this.props.joins.catchUpFrom(this.key, now.sub(COMMIT_MARGIN))
       : Infinity;
+    const current = rawIndex(now);
     const blocks: RawBlock[] = [];
-    for (let i = rawIndex(tr.start); i <= last; i++)
-      blocks.push(store.raw(this.key, i));
+    // A block after the one of now only draws once it holds samples.
+    for (let i = rawIndex(tr.start); i <= last; i++) {
+      const b = i <= current ? store.raw(this.key, i) : store.findRaw(this.key, i);
+      if (b != null) blocks.push(b);
+    }
     const joined = this.props.joins.joined(this.key);
     const filling = new Set(
       blocks
