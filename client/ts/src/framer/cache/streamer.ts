@@ -14,6 +14,7 @@ import {
   type destructor,
   errors,
   Rate,
+  scheduler,
   type Series,
   sync,
   TimeSpan,
@@ -100,9 +101,8 @@ export interface MultiplexedStreamerProps {
   breaker?: breaker.Config;
 }
 
-// Coalesces rapid demand changes into one stream update. The timer is not reset by
-// later calls, so sustained demand changes cannot starve the update.
-const RECONCILE_DELAY = TimeSpan.milliseconds(100);
+// Limits stream updates to one per interval while demand keeps changing.
+const RECONCILE_INTERVAL = TimeSpan.milliseconds(100);
 
 const THROTTLE_RATE = Rate.hz(60).valueOf();
 
@@ -131,7 +131,9 @@ export class MultiplexedStreamer {
   private readonly breaker: breaker.Breaker;
   private readonly entries = new Set<Entry>();
   private readonly statuses = new Map<channel.Key, status.Status>();
-  private reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly scheduleReconcile = scheduler.throttle(() => {
+    void this.reconcile();
+  }, RECONCILE_INTERVAL);
   private readonly removalTimers = new Set<ReturnType<typeof setTimeout>>();
   private runLoop: Promise<void> | null = null;
   private streamer: Streamer | null = null;
@@ -273,8 +275,7 @@ export class MultiplexedStreamer {
     const closed = new UnexpectedError("telemetry streamer is closed");
     this.ackWaiters.forEach((w) => w.reject(closed));
     this.ackWaiters.clear();
-    if (this.reconcileTimer != null) clearTimeout(this.reconcileTimer);
-    this.reconcileTimer = null;
+    this.scheduleReconcile.cancel();
     this.removalTimers.forEach(clearTimeout);
     this.removalTimers.clear();
     this.connMu.closed = true;
@@ -309,12 +310,11 @@ export class MultiplexedStreamer {
     this.removalTimers.add(timer);
   }
 
-  private scheduleReconcile(delay: TimeSpan = RECONCILE_DELAY): void {
-    if (this.connMu.closed || this.reconcileTimer != null) return;
-    this.reconcileTimer = setTimeout(() => {
-      this.reconcileTimer = null;
-      void this.reconcile();
-    }, delay.milliseconds);
+  // Retries skip the update interval, so narrowing a rejected key runs at the pace of
+  // the Core.
+  private reconcileNow(): void {
+    this.scheduleReconcile();
+    this.scheduleReconcile.flush();
   }
 
   /** @returns the union of keys across all entries, including those pending
@@ -470,7 +470,7 @@ export class MultiplexedStreamer {
             this.releaseDeferred();
           } else {
             this.deferred.push(...fresh.slice(1));
-            this.scheduleReconcile(TimeSpan.ZERO);
+            this.reconcileNow();
           }
           return;
         }
@@ -481,7 +481,7 @@ export class MultiplexedStreamer {
       }
     });
     if (!retry || this.connMu.closed) return;
-    if (await this.breaker.wait()) this.scheduleReconcile(TimeSpan.ZERO);
+    if (await this.breaker.wait()) this.reconcileNow();
   }
 
   // Returns one held-back key to the stream. Every reconcile that does not defer keys
@@ -489,7 +489,7 @@ export class MultiplexedStreamer {
   private releaseDeferred(): void {
     if (this.deferred.length === 0) return;
     this.deferred.shift();
-    this.scheduleReconcile(TimeSpan.ZERO);
+    this.reconcileNow();
   }
 
   // Keeps statuses for demanded keys, so a rejected key keeps its error.
@@ -536,7 +536,7 @@ export class MultiplexedStreamer {
         this.flushBuffers(this.sentKeys);
         this.drop();
         this.sentKeys = new Set();
-        this.scheduleReconcile(TimeSpan.ZERO);
+        this.reconcileNow();
       }
     }
   }

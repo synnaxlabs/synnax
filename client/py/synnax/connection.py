@@ -76,9 +76,7 @@ def _client_is_newer(client_version: str, node_version: str) -> bool:
     )
 
 
-_TROUBLESHOOTING_URL = (
-    "https://docs.synnaxlabs.com/reference/client/resources/troubleshooting"
-)
+_TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/client/troubleshooting"
 
 
 def _create_version_warning(

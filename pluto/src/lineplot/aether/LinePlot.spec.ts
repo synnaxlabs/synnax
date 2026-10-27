@@ -64,6 +64,8 @@ interface Mount {
   setLineLoading: (loading: boolean) => void;
   setLineFetching: (fetching: boolean) => void;
   pump: () => void;
+  hide: () => void;
+  remove: () => void;
 }
 
 describe("LinePlot", () => {
@@ -115,6 +117,14 @@ describe("LinePlot", () => {
           fetching,
         }),
       pump,
+      hide: () =>
+        stack.driver.update(base, LinePlot.TYPE, {
+          container: box.DECIMAL,
+          viewport: box.DECIMAL,
+          grid: {},
+          visible: false,
+        }),
+      remove: () => stack.driver.delete(base),
     };
   };
 
@@ -158,6 +168,33 @@ describe("LinePlot", () => {
       m.setLineFetching(false);
       m.pump();
       expect(m.plot.state.fetching).toBe(false);
+    });
+  });
+
+  describe("after the WebGL context is restored", () => {
+    it("should request a render of every canvas until deleted", () => {
+      const m = mount(false);
+      m.recorder.clear();
+      m.recorder.restore();
+      expect(m.recorder.loopCalls.map((c) => c.args[0])).toEqual([
+        expect.objectContaining({
+          key: `${LinePlot.TYPE}-plot`,
+          priority: "high",
+          canvases: ["upper2d", "lower2d", "gl"],
+        }),
+      ]);
+      m.remove();
+      m.recorder.clear();
+      m.recorder.restore();
+      expect(m.recorder.loopCalls).toEqual([]);
+    });
+
+    it("should not request a render while hidden", () => {
+      const m = mount(false);
+      m.hide();
+      m.recorder.clear();
+      m.recorder.restore();
+      expect(m.recorder.loopCalls).toEqual([]);
     });
   });
 });

@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
-  debounce,
   type MultiSeries,
+  scheduler,
   type Size,
   type TimeRange,
   TimeStamp,
@@ -52,7 +52,7 @@ interface LatestQuery {
   tr: TimeRange;
 }
 
-type LatestEntry = debounce.Entry<LatestQuery, MultiSeries>;
+type LatestEntry = scheduler.BatcherEntry<LatestQuery, MultiSeries>;
 
 /** Props for {@link Feed}, including the transport it reads and streams through. */
 export interface FeedProps
@@ -96,7 +96,7 @@ export class Feed {
   private readonly store: Store;
   private readonly joins: Joins;
   private readonly joiner: Joiner;
-  private readonly latest: debounce.Batcher<LatestQuery, MultiSeries>;
+  private readonly latest: scheduler.Batcher<LatestQuery, MultiSeries>;
   private readonly props: FeedProps;
   private readonly handles = new Set<Handle>();
   // listening is true once a subscription asked for the history changes, and signals
@@ -169,7 +169,7 @@ export class Feed {
       now: this.now,
       breaker,
     });
-    this.latest = new debounce.Batcher({
+    this.latest = new scheduler.Batcher({
       interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
         // Requests of one count and range share one read.

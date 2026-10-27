@@ -258,28 +258,37 @@ export class GLProgram extends render.GLProgram {
   }
 }
 
-export class Context {
-  private static readonly CONTEXT_KEY = "pluto-line-gl-program";
+interface Programs {
   // Uint8 hybrid program is used for high performance rendering of uint8 data along
   // with float32 timestamp data. It's used as a hot path optimization for common
   // channel such as actuator states.
-  private readonly uint8HybridProgram: GLProgram;
+  uint8Hybrid: GLProgram;
   // Float32 program is used for rendering float32 data. It's used for all other
   // channel types.
-  private readonly float32Program: GLProgram;
+  float32: GLProgram;
+}
 
-  private constructor(ctx: render.Context) {
-    this.uint8HybridProgram = new GLProgram(ctx, HYBRID_VERT_SHADER, FRAG_SHADER);
-    this.float32Program = new GLProgram(ctx, F32_VERT_SHADER, FRAG_SHADER);
-  }
+const compile = (ctx: render.Context): Programs => ({
+  uint8Hybrid: new GLProgram(ctx, HYBRID_VERT_SHADER, FRAG_SHADER),
+  float32: new GLProgram(ctx, F32_VERT_SHADER, FRAG_SHADER),
+});
 
-  get gl(): WebGL2RenderingContext {
-    return this.uint8HybridProgram.renderCtx.gl;
+export class Context {
+  private static readonly CONTEXT_KEY = "pluto-line-gl-program";
+  readonly renderCtx: render.Context;
+  private programs: Programs;
+
+  private constructor(renderCtx: render.Context) {
+    this.renderCtx = renderCtx;
+    this.programs = compile(renderCtx);
+    renderCtx.onRestore(() => {
+      this.programs = compile(renderCtx);
+    });
   }
 
   getProgram(dataType: DataType): GLProgram {
-    if (dataType.equals(DataType.UINT8)) return this.uint8HybridProgram;
-    return this.float32Program;
+    if (dataType.equals(DataType.UINT8)) return this.programs.uint8Hybrid;
+    return this.programs.float32;
   }
 
   static create(ctx: aether.Context, renderCtx: render.Context): Context {
@@ -476,8 +485,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const ops = reducer.reduce(full, i.aggregation, size);
     if (ops.length === 0) return;
     ops.forEach(({ x, y }) => {
-      x.updateGLBuffer(ctx.gl);
-      y.updateGLBuffer(ctx.gl);
+      x.updateGLBuffer(ctx.renderCtx);
+      y.updateGLBuffer(ctx.renderCtx);
     });
     const prog = ctx.getProgram(ops[0].y.glDataType);
     this.internal.instrumentation.L.debug("render", () => ({

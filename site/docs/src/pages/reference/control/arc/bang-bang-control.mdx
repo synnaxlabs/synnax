@@ -1,0 +1,110 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Regulate a value with bang-bang control"
+description:
+  "Hold a temperature or a pressure between two limits with an Arc automation."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A bang-bang controller turns an output on below a low limit and off above a high limit.
+The gap between the limits stops the output from switching on and off too fast. Use it
+for heaters, coolers, and pressure valves.
+
+Before you start, you need:
+
+- A sensor channel, such as `tank_temp` (`float64`).
+- A command channel with a [write task](/reference/hardware/tasks#write-tasks), such as
+  `heater_cmd` (`uint8`).
+
+<Divider.Divider x />
+
+## Write the controller
+
+1. [Create an Arc automation](/reference/control/arc/automations#create-an-arc-automation)
+   in text mode.
+2. Copy this code into the editor:
+
+   ```arc channels="tank_temp, heater_cmd" bodies="bang_bang"
+   func bang_bang{
+       low f64,
+       high f64,
+   } (value f64) u8 {
+       on $= false
+       if value < low {
+           on = true
+       } else if value > high {
+           on = false
+       }
+       return u8(on)
+   }
+
+   tank_temp -> bang_bang{low=48.0, high=52.0} -> heater_cmd
+   ```
+
+3. [Choose where it runs](/reference/control/arc/automations#choose-where-it-runs), and
+   click **Start**.
+
+The heater turns on below 48 and off above 52. Between the limits, it stays as it was:
+`on $= false` declares a variable that keeps its value from one call to the next. The
+function runs for each new `tank_temp` value, and writes `1` or `0` to `heater_cmd` each
+time.
+
+The function returns `u8` because `heater_cmd` is a `uint8` channel. A `bool` result
+does not fit a `uint8` channel, and the code does not compile. For a cooler, swap the
+two conditions: on above the high limit, off below the low limit.
+
+Plot `tank_temp` and `heater_cmd` on a [line plot](/reference/visualize/line-plots) to
+see the controller switch.
+
+<Divider.Divider x />
+
+## Run the controller during a stage
+
+To run the controller only for part of a test, put it in a stage. This sequence holds
+the temperature for 10 minutes after a start button, then turns the heater off:
+
+```arc channels="tank_temp, heater_cmd, start_cmd" bodies="bang_bang, soak, heat"
+import time
+
+func bang_bang{
+    low f64,
+    high f64,
+} (value f64) u8 {
+    on $= false
+    if value < low {
+        on = true
+    } else if value > high {
+        on = false
+    }
+    return u8(on)
+}
+
+sequence soak {
+    stage heat {
+        tank_temp -> bang_bang{low=48.0, high=52.0} -> heater_cmd
+        tank_temp > 80 => next
+        time.wait{duration=10min} => next
+    }
+    0 -> heater_cmd
+}
+
+start_cmd == 1 => soak
+```
+
+The controller runs only while `heat` is active. Each time `heat` starts, the function
+starts again with `on` set to `false`. `tank_temp > 80 => next` turns the heater off
+early if the tank gets too hot.
+
+<Divider.Divider x />
+
+## Choose the limits
+
+- **A wider gap** switches the output less often, but lets the value move further from
+  the target.
+- **A narrower gap** holds the value closer, but switches more often. Some heaters and
+  relays wear out from fast switching.
+
+The controller writes for each new sensor value, even when the output does not change.

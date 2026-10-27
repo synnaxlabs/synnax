@@ -17,7 +17,10 @@ const bytes = (data: AllowSharedBufferSource): Uint8Array =>
     ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
     : new Uint8Array(data);
 
+/** A controller that is also the GL context it hands to a series. */
 export class MockGLBufferController implements GLBufferController {
+  readonly gl: GLBufferController["gl"] = this;
+  generation: number = 0;
   ARRAY_BUFFER: number = 1;
   STATIC_DRAW: number = 2;
   DYNAMIC_DRAW: number = 3;

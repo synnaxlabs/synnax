@@ -590,6 +590,7 @@ describe("line", () => {
       const hide = () => update({ visible: false });
       return {
         line,
+        recorder,
         calls,
         draws,
         strips,
@@ -840,6 +841,28 @@ describe("line", () => {
             [0, 3],
           ]);
         });
+      });
+
+      it("should upload its series and stroke buffer again after a restore", () => {
+        const RANGE = { start: 0, end: 100 };
+        const m = mount([series([0, 1, 2], 0n, RANGE)], [series([1, 2, 3], 0n, RANGE)]);
+        const uploads = (from: number): string[] =>
+          m.calls
+            .slice(from)
+            .map((c) => c.op)
+            .filter((op) => op === "createBuffer" || op === "bufferData");
+        m.line.render(PROPS);
+        const restored = m.calls.length;
+        m.recorder.restore();
+        m.line.render(PROPS);
+        expect(uploads(restored)).toEqual([
+          "createBuffer",
+          "bufferData",
+          "createBuffer",
+          "bufferData",
+          "createBuffer",
+          "bufferData",
+        ]);
       });
 
       it("should not bridge two domains across an infinite sample", () => {
