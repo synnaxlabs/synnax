@@ -11,8 +11,10 @@ import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testuti
 import {
   box,
   DataType,
+  dynamicWindow,
   id,
   sleep,
+  staticWindow,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -233,7 +235,7 @@ describe("LinePlot against a Core", () => {
     return { data, home: new TimeRange(start, start.add(DURATION)) };
   };
 
-  const mount = (props: telem.TiledChannelDataProps) => {
+  const mount = (props: telem.ChannelDataProps) => {
     const stack = buildStack({
       registry: {
         [telem.PROVIDER_TYPE]: telem.Provider,
@@ -259,8 +261,8 @@ describe("LinePlot against a Core", () => {
     stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
     stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
     stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
-      x: telem.tiledChannelData({ ...props, useIndexOfChannel: true }),
-      y: telem.tiledChannelData(props),
+      x: telem.channelData({ ...props, useIndexOfChannel: true }),
+      y: telem.channelData(props),
       color: "#ff0000",
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
@@ -277,7 +279,10 @@ describe("LinePlot against a Core", () => {
 
   it("should draw full detail tiles after a zoom", async () => {
     const { data, home } = await writeData();
-    const { plot, setViewport } = mount({ channel: data.key, timeRange: home });
+    const { plot, setViewport } = mount({
+      channel: data.key,
+      window: staticWindow(home),
+    });
     const homeSpan = Number(home.span.valueOf());
     const lower = Number(home.start.valueOf()) + homeSpan / 2;
     const targets = [0.1, 0.3, 0.5, 0.7, 0.9].map(
@@ -308,7 +313,10 @@ describe("LinePlot against a Core", () => {
       dataType: DataType.FLOAT32,
       index: time.key,
     });
-    const { plot } = mount({ channel: data.key, timeSpan: TimeSpan.seconds(10) });
+    const { plot } = mount({
+      channel: data.key,
+      window: dynamicWindow(TimeSpan.seconds(10)),
+    });
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],
