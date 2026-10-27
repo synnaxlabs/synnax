@@ -42,8 +42,8 @@ jobs:
         id: token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.AGENT_APP_ID }}
-          private-key: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
+          private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
 
       # The labels and base can change while the run waits, so it reads them live.
       - name: Turn auto-merge on or off
