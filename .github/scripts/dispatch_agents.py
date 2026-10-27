@@ -62,7 +62,7 @@ query($after: String, $team: String!, $label: String!, $numbers: [Float!]!) {
 
 PROMPT = """Implement Linear issue {key}: {title}
 
-This is phase {phase} of the RFC at `{rfc}`. Read the RFC and the CLAUDE.md files
+This is phase {phase} of the RFC at `{rfc}`. Read the RFC and the AGENTS.md files
 before you write code. Do only this phase, as one pull request into `main` that merges
 on its own. Title it `{key}: {title}` and fill `.github/pull_request_template.md`. If
 the phase cannot land as the RFC plans it, stop and explain why. Do not change the

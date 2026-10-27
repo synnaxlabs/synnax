@@ -1,0 +1,27 @@
+{
+  "format": ["go", "typescript", "tsx", "python", "cpp", "c-header"],
+  "minLines": 10,
+  "minTokens": 70,
+  "gitignore": true,
+  "absolute": false,
+  "noSymlinks": true,
+  "silent": true,
+  "reporters": ["json"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "vendor/**",
+    "driver/ni/daqmx/**",
+    "**/*.gen.*",
+    "**/*_gen.*",
+    "**/*_gen_test.*",
+    "**/*_generated.*",
+    "**/*.pb.*",
+    "**/*_pb2*.py",
+    "arc/go/parser/**",
+    "oracle/parser/**",
+    "**/versions/v*/**",
+    "**/testdata/**"
+  ]
+}

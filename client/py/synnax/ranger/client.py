@@ -36,7 +36,7 @@ from synnax.ranger.types_gen import (
 )
 from synnax.ranger.writer import Writer
 from synnax.signals.signals import Registry
-from synnax.state import LatestState
+from synnax.state import Latest
 from synnax.task import Client as TaskClient
 from synnax.task import Task
 from synnax.telem import (
@@ -52,7 +52,7 @@ from x.lists import all_none, normalize, override
 from x.params import require_named_params
 from x.uuid import NIL
 
-RANGE_SET_CHANNEL = "sy_range_set"
+_RANGE_SET_CHANNEL = "sy_range_set"
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
 _model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
@@ -783,12 +783,12 @@ class Client:
             result.append(rng)
         return result
 
-    def on_create(self, f: Callable[[Range], None]) -> Callable[[LatestState], None]:
+    def on_create(self, f: Callable[[Range], None]) -> Callable[[Latest], None]:
         @functools.wraps(f)
-        def wrapper(state: LatestState) -> None:
-            d = state[RANGE_SET_CHANNEL]
+        def wrapper(state: Latest) -> None:
+            d = state[_RANGE_SET_CHANNEL]
             if not isinstance(d, dict):
-                raise TypeError(f"expected a JSON object on {RANGE_SET_CHANNEL}")
+                raise TypeError(f"expected a JSON object on {_RANGE_SET_CHANNEL}")
             f(
                 Range(
                     name=d["name"],
@@ -804,4 +804,4 @@ class Client:
                 )
             )
 
-        return self._signals.on([RANGE_SET_CHANNEL], lambda s: True)(wrapper)
+        return self._signals.on([_RANGE_SET_CHANNEL], lambda s: True)(wrapper)
