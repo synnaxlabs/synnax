@@ -946,6 +946,26 @@ describe("toError", () => {
   });
 });
 
+describe("worst", () => {
+  const of = (variant: status.Variant): { variant: status.Variant } => ({ variant });
+
+  it("should return the most severe status", () => {
+    const error = of("error");
+    expect(status.worst(of("warning"), error, of("success"))).toBe(error);
+  });
+
+  it("should return the first of equally severe statuses", () => {
+    const first = of("error");
+    expect(status.worst(first, of("error"))).toBe(first);
+  });
+
+  it("should skip null and undefined statuses", () => {
+    const loading = of("loading");
+    expect(status.worst(null, loading, undefined)).toBe(loading);
+    expect(status.worst(null, undefined)).toBeUndefined();
+  });
+});
+
 describe("keepVariants", () => {
   it("should return undefined when variant is null", () => {
     expect(status.keepVariants(undefined, "success")).toBeUndefined();
