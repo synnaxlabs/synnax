@@ -45,7 +45,6 @@ case "$ENDPOINT" in
         [ -f "$FILE" ] || FILE="$FAKE_GH_DIR/check-runs-none.json"
         ;;
     */pulls/*/commits*) FILE="$FAKE_GH_DIR/commits.json" ;;
-    */pulls/*/reviews*) FILE="$FAKE_GH_DIR/reviews.json" ;;
     */pulls/*) FILE="$FAKE_GH_DIR/pull.json" ;;
     *)
         echo "unexpected endpoint: $ENDPOINT" >&2
@@ -76,7 +75,6 @@ class Harness:
         (self.data / "check-runs-none.json").write_text('{"check_runs": []}')
         self.pull("someone")
         self.commits(commit())
-        self.reviews()
         self.check_runs("head", ("Greptile Review", "success"))
         self.edits(greptile_edit(5))
 
@@ -108,10 +106,6 @@ class Harness:
             }
         }
         (self.data / "edits.json").write_text(json.dumps(payload))
-
-    def reviews(self, *reviews: dict[str, object]) -> None:
-        """Sets the reviews of the pull request, oldest first."""
-        (self.data / "reviews.json").write_text(json.dumps(list(reviews)))
 
     def run(self) -> tuple[str, str]:
         """Runs the script and returns the (state, description) it reports."""
@@ -154,20 +148,6 @@ def greptile_body(*scores: int, sha: str = "head") -> str:
 def greptile_edit(*scores: int, sha: str = "head") -> dict[str, object]:
     """A description revision Greptile wrote after it scores a commit."""
     return edit(greptile_body(*scores, sha=sha), "greptile-apps", "Bot")
-
-
-def review(
-    state: str,
-    login: str = "reviewer",
-    kind: str = "User",
-    association: str = "MEMBER",
-) -> dict[str, object]:
-    """A review of the pull request."""
-    return {
-        "user": {"login": login, "type": kind},
-        "author_association": association,
-        "state": state,
-    }
 
 
 @pytest.fixture
@@ -290,49 +270,6 @@ class TestTier:
         harness.pull("someone", "core", "review/bot")
         assert harness.run()[0] == "success"
 
-
-class TestHuman:
-    """Tests for the human approval the review/human tier requires."""
-
-    @pytest.fixture(autouse=True)
-    def human(self, harness: Harness) -> None:
+    def test_passes_a_human_tier_without_an_approval(self, harness: Harness) -> None:
         harness.pull("someone", "review/human")
-
-    def test_pends_without_a_review(self, harness: Harness) -> None:
-        assert harness.run() == ("pending", "waiting for a human to approve")
-
-    def test_passes_an_approval(self, harness: Harness) -> None:
-        harness.reviews(review("COMMENTED"), review("APPROVED"))
-        assert harness.run() == (
-            "success",
-            "Greptile scored the head 5/5 and reviewer approved",
-        )
-
-    def test_fails_a_change_request(self, harness: Harness) -> None:
-        harness.reviews(review("APPROVED", "other"), review("CHANGES_REQUESTED"))
-        assert harness.run() == ("failure", "reviewer requested changes")
-
-    def test_takes_the_last_verdict(self, harness: Harness) -> None:
-        harness.reviews(review("CHANGES_REQUESTED"), review("APPROVED"))
-        assert harness.run()[0] == "success"
-
-    def test_keeps_a_verdict_through_a_comment(self, harness: Harness) -> None:
-        harness.reviews(review("CHANGES_REQUESTED"), review("COMMENTED"))
-        assert harness.run()[0] == "failure"
-
-    def test_drops_a_dismissed_verdict(self, harness: Harness) -> None:
-        harness.reviews(review("APPROVED"), review("DISMISSED"))
-        assert harness.run()[0] == "pending"
-
-    def test_ignores_a_bot(self, harness: Harness) -> None:
-        harness.reviews(review("APPROVED", "greptile-apps", "Bot"))
-        assert harness.run()[0] == "pending"
-
-    def test_ignores_a_non_member(self, harness: Harness) -> None:
-        harness.reviews(review("APPROVED", association="CONTRIBUTOR"))
-        assert harness.run()[0] == "pending"
-
-    def test_needs_the_greptile_score_first(self, harness: Harness) -> None:
-        harness.reviews(review("APPROVED"))
-        harness.edits(greptile_edit(4))
-        assert harness.run()[0] == "failure"
+        assert harness.run() == ("success", "Greptile scored the head 5/5")

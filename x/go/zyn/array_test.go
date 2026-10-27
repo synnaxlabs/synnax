@@ -86,7 +86,9 @@ var _ = Describe("Array", func() {
 			Expect(zyn.Array(zyn.String()).Validate([]string{"a", "b"})).To(Succeed())
 		})
 		It("Should fail for a non-array", func() {
-			Expect(zyn.Array(zyn.String()).Validate("not an array")).To(HaveOccurred())
+			Expect(
+				zyn.Array(zyn.String()).Validate("not an array"),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		It("Should succeed for optional nil", func() {
 			Expect(zyn.Array(zyn.String()).Optional().Validate(nil)).To(Succeed())
@@ -97,7 +99,7 @@ var _ = Describe("Array", func() {
 		})
 		It("Should fail when element validation fails", func() {
 			Expect(zyn.Array(zyn.Uint32()).Validate([]any{uint32(1), "bad"})).
-				To(HaveOccurred())
+				To(MatchError(ContainSubstring("1: expected uint32")))
 		})
 		It("Should fail when length constraint is violated", func() {
 			Expect(zyn.Array(zyn.String()).Min(2).Validate([]any{"a"})).
