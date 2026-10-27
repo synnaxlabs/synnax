@@ -276,6 +276,21 @@ class TestCheck:
         )
         assert names(tmp_path) == ["Valve"]
 
+    def test_should_keep_a_type_a_special_method_returns(self, tmp_path: Path) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "from widget.parts import Rack\n",
+                "lib/widget/parts.py": (
+                    "from collections.abc import Iterator\n\n"
+                    "class Item: ...\n\n"
+                    "class Rack:\n"
+                    "    def __iter__(self) -> Iterator[Item]: ...\n"
+                ),
+            },
+        )
+        assert names(tmp_path) == []
+
     def test_should_keep_an_entry_point(self, tmp_path: Path) -> None:
         write(
             tmp_path,

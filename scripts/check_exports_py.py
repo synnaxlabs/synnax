@@ -250,7 +250,8 @@ def annotation_names(node: ast.stmt) -> set[str]:
             if isinstance(item, ast.AnnAssign):
                 exprs.append(item.annotation)
             elif isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef) and (
-                not item.name.startswith("_") or item.name == "__init__"
+                not item.name.startswith("_")
+                or (item.name.startswith("__") and item.name.endswith("__"))
             ):
                 exprs += signature(item)
     elif isinstance(node, ast.AnnAssign):
