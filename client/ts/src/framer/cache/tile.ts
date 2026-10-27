@@ -11,8 +11,8 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
   type DataType,
-  debounce,
   type MultiSeries,
+  scheduler,
   sync,
   TimeSpan,
   TimeStamp,
@@ -88,7 +88,7 @@ export const tileRequestKey = (spec: TileSpec): string => {
 /** Reads reduced tiles of channel data, caching each finished tile in the store. */
 export class TileReader {
   private readonly props: Required<Omit<TileReaderProps, "batchDebounce">>;
-  private readonly batcher: debounce.Batcher<TileSpec, MultiSeries>;
+  private readonly batcher: scheduler.Batcher<TileSpec, MultiSeries>;
   // pending holds each tile's fetching reads by channel, keyed by tile request key.
   private readonly pending = new Map<string, Map<channel.Key, Promise<MultiSeries>>>();
   private closed = false;
@@ -102,7 +102,7 @@ export class TileReader {
       now = () => TimeStamp.now(),
     } = props;
     this.props = { readRemote, store, fetchTimeout, now };
-    this.batcher = new debounce.Batcher({
+    this.batcher = new scheduler.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
     });
@@ -160,9 +160,12 @@ export class TileReader {
   }
 
   private async batchRead(
-    entries: Array<debounce.Entry<TileSpec, MultiSeries>>,
+    entries: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
   ): Promise<void> {
-    const groups = new Map<string, Array<debounce.Entry<TileSpec, MultiSeries>>>();
+    const groups = new Map<
+      string,
+      Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>
+    >();
     entries.forEach((entry) => {
       const key = tileRequestKey(entry.req);
       const group = groups.get(key);
@@ -174,7 +177,7 @@ export class TileReader {
 
   // Never throws: every outcome settles the group's entries.
   private async fetch(
-    group: Array<debounce.Entry<TileSpec, MultiSeries>>,
+    group: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
   ): Promise<void> {
     const { readRemote, fetchTimeout } = this.props;
     const spec = group[0].req;

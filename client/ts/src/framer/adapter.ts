@@ -92,6 +92,8 @@ export class ReadAdapter {
    * empty.
    */
   advance(): void {
+    // The Core skips an update that carries no keys, and both sides must agree on the
+    // sequence number of each codec state.
     if (this.fetched.length === 0) return;
     this.codec.update(
       this.fetched.map((c) => c.key),

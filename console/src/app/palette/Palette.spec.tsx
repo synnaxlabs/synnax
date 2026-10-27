@@ -13,7 +13,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Palette } from "@/app/palette";
 import { Command as FeatureCommand } from "@/feature/command";
-import { Docs } from "@/feature/docs";
 import { Modals } from "@/platform/modals";
 import { createConsoleWrapper, selectTestProject } from "@/testutil";
 
@@ -65,6 +64,8 @@ const pressChord = async (...codes: string[]): Promise<HTMLInputElement> => {
 };
 
 describe("Palette", () => {
+  const DOCS_URL = "https://docs.synnaxlabs.com/reference/";
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -123,7 +124,7 @@ describe("Palette", () => {
       fireEvent.click(item);
     });
     await waitFor(() => {
-      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+      expect(open).toHaveBeenCalledWith(DOCS_URL, "_blank", "noopener,noreferrer");
     });
   });
 
@@ -142,7 +143,7 @@ describe("Palette", () => {
       fireEvent.keyUp(window, { code: "Enter" });
     });
     await waitFor(() => {
-      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+      expect(open).toHaveBeenCalledWith(DOCS_URL, "_blank", "noopener,noreferrer");
     });
     expect(open).toHaveBeenCalledTimes(1);
     await waitFor(() => {
