@@ -30,7 +30,7 @@ var _ = Describe("ReadVectors", func() {
 	})
 
 	It("Should return an error for a record with an unknown member", func() {
-		_, err := ReadVectors[struct{}, ranger.Where]("ranges")
-		Expect(err).To(MatchError(ContainSubstring("unknown object member name")))
+		Expect(ReadVectors[struct{}, ranger.Where]("ranges")).Error().
+			To(MatchError(ContainSubstring("unknown object member name")))
 	})
 })
