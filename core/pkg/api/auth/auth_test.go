@@ -20,6 +20,7 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding"
@@ -110,7 +111,16 @@ var _ = Describe("Login", func() {
 var _ = Describe("Methods", func() {
 	It("Should list the methods the Core accepts", func(ctx SpecContext) {
 		Expect(apiSvc.Methods(ctx, struct{}{})).To(Equal(apiauth.MethodsResponse{
-			Methods: []auth.Method{auth.MethodAPIKey, auth.MethodPassword},
+			Methods: []auth.Method{
+				auth.MethodAPIKey,
+				auth.MethodOidc,
+				auth.MethodPassword,
+			},
+			Providers: []apiauth.OIDCLogin{{
+				Provider:              "idp",
+				AuthorizationEndpoint: provider.Issuer() + "/authorize",
+				ClientID:              testutil.ClientID,
+			}},
 		}))
 	})
 })
@@ -122,6 +132,7 @@ var _ = Describe("Disabled methods", func() {
 		authenticators := map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
 			auth.MethodAPIKey:   apiKeySvc,
+			auth.MethodOidc:     oidcSvc,
 		}
 		delete(authenticators, method)
 		svc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
@@ -132,6 +143,7 @@ var _ = Describe("Disabled methods", func() {
 			Auth:     svc,
 			Password: passwordSvc,
 			APIKey:   apiKeySvc,
+			OIDC:     oidcSvc,
 			Ontology: otg,
 			User:     userSvc,
 			RBAC:     rbacSvc,
@@ -147,9 +159,18 @@ var _ = Describe("Disabled methods", func() {
 	})
 	It("Should leave a disabled method out of the list", func(ctx SpecContext) {
 		Expect(disabled(ctx, auth.MethodPassword).Methods(ctx, struct{}{})).
-			To(Equal(apiauth.MethodsResponse{
-				Methods: []auth.Method{auth.MethodAPIKey},
-			}))
+			To(HaveField("Methods", []auth.Method{auth.MethodAPIKey, auth.MethodOidc}))
+	})
+	It("Should list no providers while oidc is off", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodOidc).Methods(ctx, struct{}{})).
+			To(HaveField("Providers", BeEmpty()))
+	})
+	It("Should refuse to link a provider account", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodOidc).LinkOIDC(
+			requestCtx(ctx),
+			nil,
+			apiauth.OIDCLinkRequest{},
+		)).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should refuse a password login and keep the password", func(ctx SpecContext) {
 		proof := passwordProof(own.Username, own.Password)

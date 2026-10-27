@@ -70,6 +70,12 @@ type Transport struct {
 	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
 	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
 	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	// AuthOIDCLink links a provider account to the caller.
+	AuthOIDCLink freighter.UnaryServer[auth.OIDCLinkRequest, auth.OIDCLinkResponse]
+	// AuthOIDCRetrieve lists provider links.
+	AuthOIDCRetrieve freighter.UnaryServer[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse]
+	// AuthOIDCUnlink removes provider links and ends their sessions.
+	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, struct{}]
 	// USER
@@ -306,6 +312,9 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthKeyCreate,
 		t.AuthKeyRetrieve,
 		t.AuthKeyDelete,
+		t.AuthOIDCLink,
+		t.AuthOIDCRetrieve,
+		t.AuthOIDCUnlink,
 		t.AuthPasswordSet,
 
 		// USER
@@ -489,6 +498,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
 	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
 	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
+	t.AuthOIDCLink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.LinkOIDC))
+	t.AuthOIDCRetrieve.BindHandler(l.Auth.RetrieveOIDCLinks)
+	t.AuthOIDCUnlink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.UnlinkOIDC))
 	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
 
 	// LICENSE
@@ -711,6 +723,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
 		APIKey:   cfg.Service.APIKey,
+		OIDC:     cfg.Service.OIDC,
 		Ontology: cfg.Service.Ontology,
 		User:     cfg.Service.User,
 		RBAC:     cfg.Service.RBAC,

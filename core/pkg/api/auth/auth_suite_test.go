@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -38,6 +40,8 @@ var (
 	authSvc     *auth.Service
 	passwordSvc *password.Service
 	apiKeySvc   *apikey.Service
+	oidcSvc     *oidc.Service
+	provider    *testutil.Provider
 	rbacSvc     *rbac.Service
 	otg         *ontology.Ontology
 	userSvc     *user.Service
@@ -66,17 +70,32 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		User:     userSvc,
 	}))
+	provider = MustSucceed(testutil.NewProvider())
+	DeferCleanup(provider.Close)
+	oidcSvc = MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
+		DB:          db,
+		User:        userSvc,
+		Role:        rbacSvc.Role,
+		NewUserRole: rbacSvc.Builtin.ViewerKey,
+		Providers: []oidc.Provider{{
+			Name:     "idp",
+			Issuer:   provider.Issuer(),
+			ClientID: testutil.ClientID,
+		}},
+	}))
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
 			auth.MethodAPIKey:   apiKeySvc,
+			auth.MethodOidc:     oidcSvc,
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
 		Auth:     authSvc,
 		Password: passwordSvc,
 		APIKey:   apiKeySvc,
+		OIDC:     oidcSvc,
 		Ontology: otg,
 		User:     userSvc,
 		RBAC:     rbacSvc,

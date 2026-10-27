@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -57,6 +58,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	APIKey *apikey.Service
+	// OIDC stores provider links and checks proofs of provider accounts.
+	//
+	// [REQUIRED]
+	OIDC *oidc.Service
 	// Ontology resolves the resources that API keys belong to.
 	//
 	// [REQUIRED]
@@ -86,6 +91,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.Password = override.Nil(c.Password, other.Password)
 	c.APIKey = override.Nil(c.APIKey, other.APIKey)
+	c.OIDC = override.Nil(c.OIDC, other.OIDC)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.User = override.Nil(c.User, other.User)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
@@ -99,6 +105,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("auth", c.Auth)
 	v.NotNil("password", c.Password)
 	v.NotNil("api_key", c.APIKey)
+	v.NotNil("oidc", c.OIDC)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("user", c.User)
 	v.NotNil("rbac", c.RBAC)
@@ -111,6 +118,7 @@ type Service struct {
 	auth     *auth.Service
 	password *password.Service
 	apiKey   *apikey.Service
+	oidc     *oidc.Service
 	ontology *ontology.Ontology
 	user     *user.Service
 	access   *rbac.Service
@@ -126,6 +134,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		auth:     cfg.Auth,
 		password: cfg.Password,
 		apiKey:   cfg.APIKey,
+		oidc:     cfg.OIDC,
 		ontology: cfg.Ontology,
 		user:     cfg.User,
 		access:   cfg.RBAC,
@@ -215,9 +224,23 @@ func proofOf(creds Credentials) auth.Proof {
 type MethodsResponse struct {
 	// Methods are the accepted login methods, sorted.
 	Methods []auth.Method `json:"methods" msgpack:"methods"`
+	// Providers are where to log in through each OpenID Connect provider. It is empty
+	// when the Core does not accept the oidc method.
+	Providers []OIDCLogin `json:"providers" msgpack:"providers"`
 }
 
 // Methods returns the login methods the Core accepts. It needs no session.
-func (s *Service) Methods(context.Context, struct{}) (MethodsResponse, error) {
-	return MethodsResponse{Methods: s.auth.Methods()}, nil
+func (s *Service) Methods(ctx context.Context, _ struct{}) (MethodsResponse, error) {
+	res := MethodsResponse{Methods: s.auth.Methods(), Providers: []OIDCLogin{}}
+	if s.auth.Accepts(auth.MethodOidc) != nil {
+		return res, nil
+	}
+	for _, l := range s.oidc.Logins(ctx) {
+		res.Providers = append(res.Providers, OIDCLogin{
+			Provider:              l.Provider,
+			AuthorizationEndpoint: l.AuthorizationEndpoint,
+			ClientID:              l.ClientID,
+		})
+	}
+	return res, nil
 }

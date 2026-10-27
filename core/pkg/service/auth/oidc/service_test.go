@@ -10,6 +10,10 @@
 package oidc_test
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
@@ -46,9 +51,14 @@ func login(
 	providerName, sub string,
 ) (auth.Identity, error) {
 	code := uuid.New().String()
-	provider.grant(
+	provider.Grant(
 		code,
-		grant{sub: sub, name: "Ada Lovelace", verifier: "v", redirect: redirect},
+		testutil.Grant{
+			Subject:     sub,
+			Name:        "Ada Lovelace",
+			Verifier:    "v",
+			RedirectURI: redirect,
+		},
 	)
 	return svc.Authenticate(ctx, proof(credentials(providerName, code, "v")))
 }
@@ -80,12 +90,17 @@ var _ = Describe("Service", func() {
 		}))
 	}
 	BeforeEach(func(ctx SpecContext) {
-		svc = open(ctx,
-			oidc.Provider{Name: "idp", Issuer: provider.issuer(), ClientID: clientID},
+		svc = open(
+			ctx,
+			oidc.Provider{
+				Name:     "idp",
+				Issuer:   provider.Issuer(),
+				ClientID: testutil.ClientID,
+			},
 			oidc.Provider{
 				Name:                 "closed",
-				Issuer:               provider.issuer(),
-				ClientID:             clientID,
+				Issuer:               provider.Issuer(),
+				ClientID:             testutil.ClientID,
 				UserCreationDisabled: true,
 			},
 		)
@@ -143,13 +158,23 @@ var _ = Describe("Service", func() {
 				p := oidc.Provider{Name: "a", Issuer: "https://idp", ClientID: "c"}
 				c.Providers = []oidc.Provider{p, p}
 			}, `duplicate name "a"`),
+			Entry("a negative discovery timeout", func(c *oidc.ServiceConfig) {
+				c.DiscoveryTimeout = -time.Second
+			}, "discovery_timeout: must be positive"),
 		)
+		It("Should default an unset discovery timeout", func(ctx SpecContext) {
+			Expect(valid().DiscoveryTimeout).To(BeZero())
+			MustOpen(oidc.OpenService(ctx, valid()))
+		})
 	})
 
 	Describe("Verify", func() {
 		It("Should return the account the ID token names", func(ctx SpecContext) {
-			provider.grant("verify", grant{
-				sub: "ada", name: "Ada Lovelace", verifier: "v", redirect: redirect,
+			provider.Grant("verify", testutil.Grant{
+				Subject:     "ada",
+				Name:        "Ada Lovelace",
+				Verifier:    "v",
+				RedirectURI: redirect,
 			})
 			Expect(
 				svc.Verify(ctx, credentials("idp", "verify", "v")),
@@ -172,20 +197,26 @@ var _ = Describe("Service", func() {
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should reject a verifier that does not match", func(ctx SpecContext) {
-			provider.grant("pkce", grant{sub: "ada", verifier: "v", redirect: redirect})
+			provider.Grant(
+				"pkce",
+				testutil.Grant{Subject: "ada", Verifier: "v", RedirectURI: redirect},
+			)
 			Expect(svc.Verify(ctx, credentials("idp", "pkce", "other"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should reject an ID token for another client", func(ctx SpecContext) {
-			provider.grant("aud", grant{
-				sub: "ada", verifier: "v", redirect: redirect, audience: "other",
+			provider.Grant("aud", testutil.Grant{
+				Subject: "ada", Verifier: "v", RedirectURI: redirect, Audience: "other",
 			})
 			Expect(svc.Verify(ctx, credentials("idp", "aud", "v"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should reject a token response without an ID token", func(ctx SpecContext) {
-			provider.grant("bare", grant{
-				sub: "ada", verifier: "v", redirect: redirect, noIDToken: true,
+			provider.Grant("bare", testutil.Grant{
+				Subject:        "ada",
+				Verifier:       "v",
+				RedirectURI:    redirect,
+				IDTokenOmitted: true,
 			})
 			Expect(svc.Verify(ctx, credentials("idp", "bare", "v"))).Error().
 				To(MatchError(auth.ErrInvalidCredentials))
@@ -194,10 +225,119 @@ var _ = Describe("Service", func() {
 			down := open(ctx, oidc.Provider{
 				Name:     "down",
 				Issuer:   "http://127.0.0.1:1",
-				ClientID: clientID,
+				ClientID: testutil.ClientID,
 			})
 			Expect(down.Verify(ctx, credentials("down", "c", "v"))).Error().
 				To(MatchError(ContainSubstring(`discover provider "down"`)))
+		})
+	})
+
+	Describe("Logins", func() {
+		It(
+			"Should list each reachable provider's login address",
+			func(ctx SpecContext) {
+				withDown := open(
+					ctx,
+					oidc.Provider{
+						Name:     "b",
+						Issuer:   provider.Issuer(),
+						ClientID: "b-client",
+					},
+					oidc.Provider{
+						Name:     "a",
+						Issuer:   "http://127.0.0.1:1",
+						ClientID: "a",
+					},
+					oidc.Provider{
+						Name:     "c",
+						Issuer:   provider.Issuer(),
+						ClientID: "c-client",
+					},
+				)
+				Expect(withDown.Logins(ctx)).To(Equal([]oidc.Login{
+					{
+						Provider:              "b",
+						AuthorizationEndpoint: provider.Issuer() + "/authorize",
+						ClientID:              "b-client",
+					},
+					{
+						Provider:              "c",
+						AuthorizationEndpoint: provider.Issuer() + "/authorize",
+						ClientID:              "c-client",
+					},
+				}))
+			},
+		)
+		It("Should list the other providers without waiting for it", func(
+			ctx SpecContext,
+		) {
+			release := make(chan struct{})
+			stalled := httptest.NewServer(http.HandlerFunc(
+				func(http.ResponseWriter, *http.Request) {
+					select {
+					case <-release:
+					case <-time.After(10 * time.Second):
+					}
+				},
+			))
+			DeferCleanup(stalled.Close)
+			DeferCleanup(func() { close(release) })
+			svc := MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
+				DB:               db,
+				User:             userSvc,
+				Role:             rbacSvc.Role,
+				NewUserRole:      rbacSvc.Builtin.ViewerKey,
+				DiscoveryTimeout: 100 * time.Millisecond,
+				Providers: []oidc.Provider{
+					{Name: "stalled", Issuer: stalled.URL, ClientID: "s"},
+					{Name: "up", Issuer: provider.Issuer(), ClientID: "u"},
+				},
+			}))
+			start := time.Now()
+			Expect(svc.Logins(ctx)).To(ConsistOf(HaveField("Provider", "up")))
+			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+		})
+		It("Should not wait on a login stalled in discovery", func(ctx SpecContext) {
+			reached := make(chan struct{}, 1)
+			release := make(chan struct{})
+			stalled := httptest.NewServer(http.HandlerFunc(
+				func(http.ResponseWriter, *http.Request) {
+					select {
+					case reached <- struct{}{}:
+					default:
+					}
+					select {
+					case <-release:
+					case <-time.After(10 * time.Second):
+					}
+				},
+			))
+			DeferCleanup(stalled.Close)
+			DeferCleanup(func() { close(release) })
+			svc := MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
+				DB:               db,
+				User:             userSvc,
+				Role:             rbacSvc.Role,
+				NewUserRole:      rbacSvc.Builtin.ViewerKey,
+				DiscoveryTimeout: 200 * time.Millisecond,
+				Providers: []oidc.Provider{
+					{Name: "stalled", Issuer: stalled.URL, ClientID: "s"},
+					{Name: "up", Issuer: provider.Issuer(), ClientID: "u"},
+				},
+			}))
+			loginErr := make(chan error, 1)
+			go func() {
+				_, err := svc.Authenticate(
+					ctx,
+					proof(credentials("stalled", "code", "v")),
+				)
+				loginErr <- err
+			}()
+			Eventually(reached).Should(Receive())
+			start := time.Now()
+			Expect(svc.Logins(ctx)).To(ConsistOf(HaveField("Provider", "up")))
+			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+			Eventually(loginErr).Should(Receive(MatchError(context.DeadlineExceeded)))
 		})
 	})
 
@@ -266,7 +406,9 @@ var _ = Describe("Service", func() {
 			}))
 			sub := uuid.New().String()
 			code := uuid.New().String()
-			provider.grant(code, grant{sub: sub, verifier: "v", redirect: redirect})
+			provider.Grant(code, testutil.Grant{
+				Subject: sub, Verifier: "v", RedirectURI: redirect,
+			})
 			session, token := MustSucceed2(
 				authSvc.Login(ctx, proof(credentials("idp", code, "v"))),
 			)

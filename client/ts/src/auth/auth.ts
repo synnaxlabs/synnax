@@ -20,6 +20,8 @@ import {
   type Credentials,
   type Method,
   METHODS,
+  type OIDCCredentials,
+  oidcCredentialsZ,
   type Proof,
   proofZ,
   type Session,
@@ -79,6 +81,38 @@ const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
 
+const oidcLinkKeyZ = z.uuid();
+export type OIDCLinkKey = z.infer<typeof oidcLinkKeyZ>;
+
+const oidcLinkZ = z.object({
+  /** key is the unique identifier for this link. */
+  key: oidcLinkKeyZ,
+  /** subject is the user the provider account logs in as. */
+  subject: ontology.idZ,
+  /** provider is the name of the provider in the Core's settings. */
+  provider: z.string(),
+  /** account is the provider's permanent ID for the account, its `sub` claim. */
+  account: z.string(),
+});
+/** OIDCLink links an OpenID Connect provider account to a user. */
+export interface OIDCLink extends z.infer<typeof oidcLinkZ> {}
+
+const oidcLoginZ = z.object({
+  /** provider is the name of the provider. */
+  provider: z.string(),
+  /** authorizationEndpoint is the provider's login address. */
+  authorizationEndpoint: z.string(),
+  /** clientId is the Core's client ID at the provider. */
+  clientId: z.string(),
+});
+/** OIDCLogin is where to send a person to log in through a provider. */
+export interface OIDCLogin extends z.infer<typeof oidcLoginZ> {}
+
+const oidcLinkReqZ = z.object({ credentials: oidcCredentialsZ });
+const oidcLinkResZ = z.object({ link: oidcLinkZ });
+const oidcRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const oidcRetrieveResZ = z.object({ links: oidcLinkZ.array() });
+const oidcUnlinkReqZ = z.object({ keys: oidcLinkKeyZ.array() });
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
   subject?: ontology.ID;
@@ -113,6 +147,9 @@ export const SESSION_ENDPOINTS = [
 const KEY_CREATE_ENDPOINT = "/auth/key/create";
 const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
 const KEY_DELETE_ENDPOINT = "/auth/key/delete";
+const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
+const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
+const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
@@ -124,12 +161,14 @@ const TOKENLESS_ENDPOINTS = [
 
 const isMethod = (m: string): m is Method => METHODS.includes(m as Method);
 
-// a newer Core may accept methods this client does not know, so they are dropped
+// a newer Core may accept methods this client does not know, so they are dropped, and
+// a Core older than OpenID Connect sends no providers
 const methodsResZ = z.object({
   methods: z
     .string()
     .array()
     .transform((ms) => ms.filter(isMethod)),
+  providers: oidcLoginZ.array().default([]),
 });
 
 /** The address of a Core, for a request that needs no session. */
@@ -139,29 +178,39 @@ export interface MethodsParams {
   secure?: boolean;
 }
 
-/**
- * Retrieves the login methods a Core accepts, without logging in.
- * @throws {Unreachable} if the Core cannot be reached.
- */
-export const retrieveMethods = async ({
+const sendMethods = async ({
   host,
   port,
   secure = false,
-}: MethodsParams): Promise<Method[]> => {
+}: MethodsParams): Promise<z.infer<typeof methodsResZ>> => {
   const transport = new Transport(
     new url.URL({ host, port: Number(port) }),
     {},
     secure,
   );
   transport.use(errorsMiddleware);
-  const res = await transport.unaryNoRetry.send(
+  return await transport.unaryNoRetry.send(
     METHODS_ENDPOINT,
     {},
     z.object({}),
     methodsResZ,
   );
-  return res.methods;
 };
+
+/**
+ * Retrieves the login methods a Core accepts, without logging in.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const retrieveMethods = async (params: MethodsParams): Promise<Method[]> =>
+  (await sendMethods(params)).methods;
+
+/**
+ * Retrieves where to log in through each OpenID Connect provider of a Core, without
+ * logging in. It is empty when the Core does not accept the oidc method.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const retrieveProviders = async (params: MethodsParams): Promise<OIDCLogin[]> =>
+  (await sendMethods(params)).providers;
 
 const MAX_RETRIES = 3;
 
@@ -374,6 +423,47 @@ export class Client {
    */
   async deleteKeys(...keys: APIKeyKey[]): Promise<void> {
     await this.client.send(KEY_DELETE_ENDPOINT, { keys }, keyDeleteReqZ, emptyResZ);
+  }
+
+  /**
+   * Links the OpenID Connect provider account that the credentials prove to the
+   * caller, so the account can log in as the caller.
+   * @throws {InvalidCredentialsError} when the provider rejects the credentials.
+   * @throws {ValidationError} when the account or the caller already has a link for
+   * the provider.
+   */
+  async linkOIDC(credentials: OIDCCredentials): Promise<OIDCLink> {
+    const res = await this.client.send(
+      OIDC_LINK_ENDPOINT,
+      { credentials },
+      oidcLinkReqZ,
+      oidcLinkResZ,
+    );
+    return res.link;
+  }
+
+  /**
+   * Lists OpenID Connect provider links: the caller's own by default, or those of the
+   * given users when the caller may retrieve them.
+   * @throws {AccessDeniedError} when the caller may not retrieve another user's links.
+   */
+  async retrieveOIDCLinks(subjects?: ontology.ID[]): Promise<OIDCLink[]> {
+    const res = await this.client.send(
+      OIDC_RETRIEVE_ENDPOINT,
+      { subjects },
+      oidcRetrieveReqZ,
+      oidcRetrieveResZ,
+    );
+    return res.links;
+  }
+
+  /**
+   * Removes OpenID Connect provider links and ends their sessions. Unknown keys are
+   * ignored.
+   * @throws {AccessDeniedError} when the caller may not remove another user's links.
+   */
+  async unlinkOIDC(...keys: OIDCLinkKey[]): Promise<void> {
+    await this.client.send(OIDC_UNLINK_ENDPOINT, { keys }, oidcUnlinkReqZ, emptyResZ);
   }
 
   /**
