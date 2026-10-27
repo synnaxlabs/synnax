@@ -565,6 +565,7 @@ export class Client {
   private forget(): void {
     this.credentials = undefined;
     this.apiKey = undefined;
+    this.oidc = undefined;
     this.resumeToken = undefined;
   }
 
@@ -633,7 +634,8 @@ export class Client {
         );
         state = { authenticated: true, token, session: res.session };
         u = res.user;
-        owned = false;
+        // the token a spent code left names the session this client opened
+        owned = this.ownsSession;
       } else
         throw new AuthError("no credentials, API key, token, or cookie to log in with");
       if (generation !== this.generation) return null;

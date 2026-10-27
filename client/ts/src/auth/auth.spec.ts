@@ -691,6 +691,34 @@ describe("auth", () => {
       expect(sent.filter((r) => r.target.endsWith("/auth/session/renew"))).toEqual([]);
     });
 
+    it("should forget the code when logging out before a login", async () => {
+      const { unary, sent } = createRecordingUnary();
+      const client = new auth.Client(unary, { oidc: CODE });
+      await client.logout();
+      await expect(client.middleware()(DUMMY_CTX, async (ctx) => ctx)).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
+      expect(sent).toEqual([]);
+    });
+
+    it("should end the session it opened after resuming it", async () => {
+      const { unary, sent } = createRecordingUnary();
+      const client = new auth.Client(unary, { oidc: CODE });
+      const mw = client.middleware();
+      let failed = false;
+      await mw(DUMMY_CTX, async (ctx) => {
+        if (failed) return ctx;
+        failed = true;
+        throw new InvalidTokenError("expired");
+      });
+      await client.release();
+      expect(sent.map((r) => r.target)).toEqual([
+        "/auth/session/create",
+        "/auth/session/renew",
+        "/auth/session/delete",
+      ]);
+    });
+
     it("should reject an OpenID Connect code given with an API key", () => {
       expect(
         () =>
