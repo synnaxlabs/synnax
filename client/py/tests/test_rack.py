@@ -253,6 +253,7 @@ class TestRackClient:
 
 class TestBuilder:
     def test_join(self) -> None:
+        """Should join rack conditions into one Where tree."""
         where = filter.join(
             rack.Where,
             [rack.integrations.has("ni"), rack.host_is_node.eq(True)],
