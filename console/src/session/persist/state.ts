@@ -181,6 +181,7 @@ export interface Config<S extends object> {
 
 export const revertState = createAction("persist/revertState");
 export const clearState = createAction("persist/clearState");
+const flushState = createAction("persist/flush");
 /**
  * Replaces the swapped slices wholesale when the session context changes.
  * Dispatched by the persistence middleware, applied by a root reducer wrapper.
@@ -216,6 +217,7 @@ export const storeUnavailable = createAction("persist/storeUnavailable");
 export type Action = ReturnType<
   | typeof revertState
   | typeof clearState
+  | typeof flushState
   | typeof hydrate
   | typeof beginSwap
   | typeof endSwap
@@ -707,6 +709,16 @@ class Engine<S extends object> {
 const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
+ * Saves every change dispatched so far without waiting out the debounce, and resolves
+ * once storage holds them. Only the main window persists: elsewhere, and in a store
+ * without persistence, it resolves at once.
+ */
+export const flush = async (dispatch: (action: Action) => unknown): Promise<void> => {
+  // The persisting middleware answers this action with its write queue.
+  await dispatch(flushState());
+};
+
+/**
  * Creates a middleware that persists the redux store state to the given engine after an
  * action is dispatched, and swaps the Core and project partitions when the (Core,
  * project) context changes: the outgoing context flushes under its own keys, the
@@ -767,7 +779,10 @@ const createMiddleware = <S extends object>(
           .catch((err: unknown) => {
             engine.onError(new Error("failed to clear state", { cause: err }));
           });
-      else if (type === purge.type) {
+      else if (type === flushState.type) {
+        debouncedPersist.flush();
+        return queue;
+      } else if (type === purge.type) {
         const { payload } = action as PayloadAction<string>;
         queue = queue
           .then(async () => await engine.purge(payload))

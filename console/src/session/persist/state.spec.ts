@@ -1171,6 +1171,15 @@ describe("Persist.middleware", () => {
     expect(maxInFlight).toBe(1);
   });
 
+  it("should write a change still waiting on the debounce when flushed", async () => {
+    const store = new Persist.MemoryKV();
+    const driver = await createDriver(store, { debounceInterval: TimeSpan.hours(1) });
+    driver.dispatch({ type: "a" }, ZERO_MOCK_STATE);
+    await expect(store.length()).resolves.toBe(0);
+    await Persist.flush((action) => driver.dispatch(action));
+    expect(await store.length()).toBe(GLOBAL_KEYS);
+  });
+
   it("should coalesce rapid dispatches into a single persist when debounced", async () => {
     const store = new Persist.MemoryKV();
     const driver = await createDriver(store, {
