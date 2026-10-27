@@ -67,8 +67,6 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 export type GeneratorType = http.GeneratorType;
@@ -181,8 +179,6 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

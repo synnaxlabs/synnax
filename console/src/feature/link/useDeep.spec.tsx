@@ -25,7 +25,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { Link } from "@/feature/link";
-import { Link as PlatformLink } from "@/platform/link";
+import { type Link as PlatformLink } from "@/platform/link";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -36,10 +36,10 @@ import {
   withSelectedProject,
 } from "@/testutil";
 
-const client = (): Client => createTestClient();
+const client = createTestClient();
 
 const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
-  await client().panels.create({
+  await client.panels.create({
     key: uuid.create(),
     name: uniqueName("panel"),
     root: {
@@ -63,7 +63,7 @@ interface Harness {
 }
 
 const setup = async (overrides: Partial<PlatformLink.Deps> = {}): Promise<Harness> => {
-  const resolved = client();
+  const resolved = client;
   const connect = vi.fn(async () => resolved);
   const handlers = {
     schematic: vi.fn(async () => {}),
@@ -178,7 +178,7 @@ const setupSettled = async (
     projectSelected = true,
     panelSelected = true,
   } = options;
-  const resolved = client();
+  const resolved = client;
   const connect: Mock<PlatformLink.Connect> = vi.fn(async () => resolved);
   const handlers: Record<string, Mock<PlatformLink.Handler>> = {
     schematic: vi.fn(async () => {}),
@@ -197,7 +197,7 @@ const setupSettled = async (
     onOpenURL,
     ...depOverrides,
   };
-  const proj = await client().projects.create({
+  const proj = await client.projects.create({
     name: uniqueName("proj"),
   });
   const doc = panelSelected ? await createPanel(proj.key) : null;
@@ -243,7 +243,7 @@ const setupSettled = async (
 };
 
 describe("useDeep", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => sessionStorage.clear());
   afterEach(() => vi.useRealTimers());
 
   it("should open a resource link the app was launched from", async () => {
@@ -295,20 +295,6 @@ describe("useDeep", () => {
     await waitFor(() => expect(connect).toHaveBeenCalledWith("c1"));
     expect(handlers.schematic).not.toHaveBeenCalled();
     expect(handlers.range).not.toHaveBeenCalled();
-  });
-
-  it("should ignore the next launch link once when the ignore flag is set", async () => {
-    PlatformLink.markNextIgnored();
-    const first = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
-    });
-    await act(async () => {});
-    expect(first.connect).not.toHaveBeenCalled();
-    // The flag is single-use: the hook clears it, so a later launch is handled normally.
-    const second = await setup({
-      getCurrentURLs: async () => ["synnax://cluster/c1/schematic/s1"],
-    });
-    await waitFor(() => expect(second.connect).toHaveBeenCalledWith("c1"));
   });
 
   it("should be a no-op when the engine is not tauri", async () => {
@@ -408,7 +394,7 @@ describe("useDeep", () => {
     // Models a Core switch: the client swap unsettles before connect resolves.
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Persist.beginSwap());
-      return client();
+      return client;
     });
     h.openURL(["synnax://cluster/c2/schematic/s2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -435,7 +421,7 @@ describe("useDeep", () => {
     // The second link switches Cores, so the provider swaps to a fresh client.
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
-      return client();
+      return client;
     });
     h.openURL(["synnax://cluster/c2/schematic/s2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -462,7 +448,7 @@ describe("useDeep", () => {
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
-      return client();
+      return client;
     });
     h.openURL(["synnax://cluster/c2/range/r2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -487,7 +473,7 @@ describe("useDeep", () => {
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
-      return client();
+      return client;
     });
     h.openURL(["synnax://cluster/c2/schematic/s2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -509,7 +495,7 @@ describe("useDeep", () => {
     await waitFor(() => expect(h.settled()).toBe(true));
     const switchTo = (key: string) => async () => {
       h.store.dispatch(Session.Core.select(key));
-      return client();
+      return client;
     };
     act(() => {
       h.store.dispatch(Session.Persist.beginSwap());
@@ -667,6 +653,22 @@ describe("useDeep", () => {
     });
     await waitFor(() => expect(h.handlers.range).toHaveBeenCalled());
     expect(h.awaitingProject()).toBe(false);
+  });
+
+  it("should open a launch link that a reload cut short once a project is selected", async () => {
+    const deps = { getCurrentURLs: async () => ["synnax://cluster/c1/range/r1"] };
+    const first = await setupSettled({ projectSelected: false, deps });
+    await waitFor(() => expect(first.awaitingProject()).toBe(true));
+    const next = await setupSettled({ projectSelected: false, deps });
+    await waitFor(() => expect(next.awaitingProject()).toBe(true));
+    act(() => {
+      next.store.dispatch(Session.Project.select(next.projectKey));
+    });
+    await waitFor(() =>
+      expect(next.handlers.range).toHaveBeenCalledWith(
+        expect.objectContaining({ key: "r1" }),
+      ),
+    );
   });
 
   it("should hold a link until a panel is selected", async () => {

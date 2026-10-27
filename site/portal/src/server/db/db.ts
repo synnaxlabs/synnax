@@ -17,7 +17,7 @@ import {
   type PgTransaction,
 } from "drizzle-orm/pg-core";
 
-import * as schema from "@/server/db/schema";
+import { schema } from "@/server/db";
 
 type Schema = typeof schema;
 
