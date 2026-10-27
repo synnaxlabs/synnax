@@ -204,6 +204,8 @@ for label in my_range.labels or []:
   <Fragment slot="typescript">
 
 ```typescript
+import { ranger } from "@synnaxlabs/client";
+
 const myRange = await client.ranges.retrieve("My Range");
 
 // Create a label
@@ -219,7 +221,7 @@ const labels = await myRange.retrieveLabels();
 await myRange.removeLabel(label.key);
 
 // Retrieve every range with the label
-const hotfires = await client.ranges.retrieve({ where: { labels: [label.key] } });
+const hotfires = await client.ranges.retrieve(ranger.labels.has(label.key));
 ```
 
   </Fragment>

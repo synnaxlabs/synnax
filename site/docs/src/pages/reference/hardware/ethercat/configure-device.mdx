@@ -188,8 +188,9 @@ Configure modules in the Console.
 Find modules and list their PDOs:
 
 ```typescript
-const modules = await client.devices.retrieve({ where: { make: { eq: "ethercat" } } });
-for (const module of modules) {
+import { device } from "@synnaxlabs/client";
+
+for (const module of await client.devices.retrieve(device.make.eq("ethercat"))) {
   const { network, position, pdos } = module.properties;
   console.log(module.name, network, position, JSON.stringify(pdos));
 }

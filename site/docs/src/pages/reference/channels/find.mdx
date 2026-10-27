@@ -152,30 +152,26 @@ The filters are `search_term`, `data_types`, `not_data_types`, `is_index`, `virt
   <Fragment slot="typescript">
 
 ```typescript
-import { DataType } from "@synnaxlabs/client";
+import { channel, DataType } from "@synnaxlabs/client";
 
 // The ten best matches for "pressure"
-const matches = await client.channels.retrieve({
-  searchTerm: "pressure",
-  limit: 10,
-});
+const matches = await client.channels.retrieve(
+  channel.search("pressure"),
+  channel.limit(10),
+);
 
 // All float32 data channels
-const floats = await client.channels.retrieve({
-  where: { dataType: { eq: DataType.FLOAT32 }, isIndex: { eq: false } },
-});
+const floats = await client.channels.retrieve(
+  channel.dataType.eq(DataType.FLOAT32),
+  channel.isIndex.eq(false),
+);
 ```
 
-| Filter       | Returns channels that                    |
-| ------------ | ---------------------------------------- |
-| `searchTerm` | Have a name that is similar to the term. |
-| `where`      | Match the filter.                        |
-| `limit`      | Are in the first `limit` results.        |
-| `offset`     | Come after the first `offset` results.   |
-
-A `where` filter matches the properties of a channel: `key`, `name`, `dataType`,
-`isIndex`, `virtual`, `internal`, and `leaseholder`. Use `and`, `or`, and `not` to
-combine filters. Synnax returns only the channels that match all of the filters.
+`channel.search` keeps the channels whose names are similar to a term, closest match
+first. To filter by other properties, such as `channel.dataType`, `channel.isIndex`,
+`channel.virtual`, and `channel.internal`, pass
+[conditions](/reference/client/queries#conditions). Synnax returns only the channels
+that match all of the conditions.
 
   </Fragment>
 
