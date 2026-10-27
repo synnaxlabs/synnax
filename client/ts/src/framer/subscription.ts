@@ -22,7 +22,7 @@ import { type status } from "@/status";
 /** Draws a channel across a window with about count points. */
 export interface PointsLimit {
   variant: "points";
-  /** About how many points to draw across the view. Infinity reads raw samples only. */
+  /** About how many points to draw across the view. */
   count: number;
   aggregation: Aggregation;
   /** Reduces with min_max, so the bounds of the samples keep their extremes. */

@@ -42,6 +42,9 @@ import { tileKey, TileReader } from "@/framer/cache/tile";
 import { type PointsLimit } from "@/framer/subscription";
 import { SyntheticCore } from "@/testutil";
 
+// More points than any window here holds samples, so every sample draws.
+const EXACT = 2 ** 20;
+
 const START = TimeStamp.seconds(1_000_000);
 const POLL = { timeout: 5000, interval: 5 };
 const DEBOUNCE = TimeSpan.milliseconds(5);
@@ -49,7 +52,7 @@ const BREAKER: breaker.Config = {
   baseInterval: TimeSpan.milliseconds(10),
   maxInterval: TimeSpan.milliseconds(50),
 };
-const RAW: PointsLimit = { variant: "points", count: Infinity, aggregation: "min_max" };
+const RAW: PointsLimit = { variant: "points", count: EXACT, aggregation: "min_max" };
 const TILED: PointsLimit = { variant: "points", count: 100, aggregation: "min_max" };
 
 // Returns true when the range is one whole tile of the grid.
@@ -378,12 +381,12 @@ describe("Points", () => {
       if (failures-- > 0) throw new Error("stream closed unexpectedly");
       return core.read(tr, keys, reduction);
     });
-    const range = new TimeRange(START, START.add(TimeSpan.minutes(4)));
-    const points = subscribe(core.data[0].key, staticWindow(range), RAW);
+    const window = dynamicWindow(TimeSpan.minutes(2));
+    const points = subscribe(core.data[0].key, window, RAW);
     try {
       await expect.poll(() => points.value().status.variant, POLL).toBe("success");
       expect(failures).toBeLessThan(0);
-      expect(points.value().series.length).toBeGreaterThanOrEqual(24_000);
+      expect(points.value().series.length).toBeGreaterThanOrEqual(12_000);
     } finally {
       await close();
     }
@@ -454,8 +457,7 @@ describe("Points", () => {
       reads++;
       throw new AccessDeniedError("no read access");
     });
-    const window = staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(4))));
-    const points = subscribe(core.data[0].key, window, RAW);
+    const points = subscribe(core.data[0].key, dynamicWindow(TimeSpan.minutes(2)), RAW);
     try {
       await expect
         .poll(() => points.value().status, POLL)
@@ -465,7 +467,9 @@ describe("Points", () => {
           description: "You do not have permission to do that. no read access",
         });
       await sleep.sleep(TimeSpan.milliseconds(100));
-      expect(reads).toBe(1);
+      const settled = reads;
+      await sleep.sleep(TimeSpan.milliseconds(100));
+      expect(reads).toBe(settled);
     } finally {
       await close();
     }
@@ -601,6 +605,28 @@ describe("Points", () => {
       expect(store.get(tile)?.pins).toBe(1);
       unsubscribe(points);
       expect(store.get(tile)).toBeUndefined();
+    } finally {
+      await close();
+    }
+  });
+
+  it("should release the raw blocks the window moves past", async () => {
+    const core = createCore();
+    const { store, subscribe, close } = createPoints(core, undefined, {
+      budget: Size.bytes(1),
+    });
+    const key = core.index.key;
+    const span = TimeSpan.seconds(10);
+    const first = rawIndex(core.now().sub(span));
+    const points = subscribe(key, dynamicWindow(span), RAW);
+    try {
+      await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+      expect(store.findRaw(key, first)).toBeDefined();
+      for (let i = 0; i < 6; i++) {
+        core.advance(TimeSpan.seconds(30));
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+      }
+      await expect.poll(() => store.findRaw(key, first), POLL).toBeUndefined();
     } finally {
       await close();
     }

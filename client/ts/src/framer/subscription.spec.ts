@@ -13,7 +13,6 @@ import {
   dynamicWindow,
   Rate,
   Series,
-  Size,
   sleep,
   staticWindow,
   TimeRange,
@@ -25,7 +24,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 import { type channel } from "@/channel";
 import { UnexpectedError, UnsupportedError } from "@/errors";
 import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
-import { tileRange } from "@/framer/cache/grid";
+import { index as tileIndex, tileRange } from "@/framer/cache/grid";
 import { type Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import {
@@ -35,6 +34,9 @@ import {
   type Subscription,
 } from "@/framer/subscription";
 import { SyntheticCore, type SyntheticCoreProps } from "@/testutil";
+
+// More points than any window here holds samples, so every sample draws.
+const EXACT = 2 ** 20;
 
 const RATE = Rate.hz(100);
 const PERIOD = RATE.period.valueOf();
@@ -61,13 +63,7 @@ const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
 const raw = (keys: channel.Key[], span: TimeSpan): SubscribeRequest => ({
   keys,
   window: dynamicWindow(span),
-  limit: { variant: "points", count: Infinity, aggregation: "min_max" },
-});
-
-const rawOver = (keys: channel.Key[], tr: TimeRange): SubscribeRequest => ({
-  keys,
-  window: staticWindow(tr),
-  limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+  limit: { variant: "points", count: EXACT, aggregation: "min_max" },
 });
 
 // Returns the series of the channel once the subscription loads them.
@@ -538,7 +534,7 @@ describe("Feed.subscribe", () => {
     it("should split streamed series at block edges with block offsets", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);
-      const span = TimeSpan.minutes(3);
+      const span = TimeSpan.minutes(2);
       const sub = feed.subscribe(raw([core.index.key], span));
       const stop = tick(core, TimeSpan.seconds(1));
       try {
@@ -566,7 +562,7 @@ describe("Feed.subscribe", () => {
     it("should give a streamed block the offsets a fetch of it gives", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);
-      const span = TimeSpan.minutes(3);
+      const span = TimeSpan.minutes(2);
       const sub = feed.subscribe(raw([core.index.key], span));
       const stop = tick(core, TimeSpan.seconds(1));
       let streamed: Series[];
@@ -578,16 +574,9 @@ describe("Feed.subscribe", () => {
         sub.close();
         await feed.close();
       }
-      const block = Number(domainOf(streamed.at(-2)!.alignment));
       const sample = streamed.at(-2)!.at(-1, true) as bigint;
-      // A static window loads only once the Core commits all of it.
-      core.advance(TimeSpan.seconds(5));
       const fresh = core.openFeed(OPTIONS);
-      const tr = new TimeRange(
-        tileRange({ level: 16, index: block }).start,
-        new TimeStamp(sample + 1n),
-      );
-      const read = fresh.subscribe(rawOver([core.index.key], tr));
+      const read = fresh.subscribe(raw([core.index.key], span));
       try {
         const fetched = await loaded(read, core.index.key);
         const offsetOf = (series: Series[], t: bigint): bigint | undefined => {
@@ -793,36 +782,6 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
     });
-
-    it("should release raw blocks behind the window", async () => {
-      const core = createCore();
-      const feed = core.openFeed({ ...OPTIONS, budget: Size.kilobytes(1) });
-      const span = TimeSpan.seconds(10);
-      const sub = feed.subscribe(raw([core.index.key], span));
-      const first = core.now();
-      const stop = tick(core, TimeSpan.seconds(2));
-      try {
-        await settled(core, sub, core.index.key, span);
-        await expect
-          .poll(() => core.now().sub(first).valueOf() > TimeSpan.minutes(3).valueOf())
-          .toBe(true);
-        await settled(core, sub, core.index.key, span);
-        const reads = core.reads;
-        const past = feed.subscribe(
-          rawOver([core.index.key], new TimeRange(first.sub(span), first)),
-        );
-        try {
-          await loaded(past, core.index.key);
-        } finally {
-          past.close();
-        }
-        expect(core.reads).toBe(reads + 1);
-      } finally {
-        stop();
-        sub.close();
-        await feed.close();
-      }
-    });
   });
 
   describe("static window that ends after now", () => {
@@ -835,7 +794,7 @@ describe("Feed.subscribe", () => {
       const sub = feed.subscribe({
         keys: [key],
         window: staticWindow(new TimeRange(start, end)),
-        limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+        limit: { variant: "points", count: EXACT, aggregation: "min_max" },
       });
       const newest = (): bigint | undefined => timesOf(sub.value(key)).at(-1);
       try {
@@ -874,7 +833,7 @@ describe("Feed.subscribe", () => {
       const sub = feed.subscribe({
         keys: [key],
         window: staticWindow(window),
-        limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+        limit: { variant: "points", count: EXACT, aggregation: "min_max" },
       });
       const newest = Array.from(core.readLatest([key], 1).get(key)).at(-1);
       try {
@@ -1844,6 +1803,9 @@ describe("Feed.subscribe", () => {
   });
 
   describe("validity", () => {
+    // Two whole tiles, which the feed keeps after a load.
+    const tiles = tileRange({ level: 15, index: tileIndex(START, 15) + 1 });
+
     it("should drop the samples a history change names, and keep the rest", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);
@@ -1852,7 +1814,7 @@ describe("Feed.subscribe", () => {
       const sub = feed.subscribe({
         keys: [key],
         window,
-        limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+        limit: { variant: "points", count: EXACT, aggregation: "min_max" },
       });
       try {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
@@ -1883,13 +1845,13 @@ describe("Feed.subscribe", () => {
       core.node = node;
       const feed = core.openFeed(OPTIONS);
       const key = core.data[0].key;
-      const window = staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(1))));
+      const window = staticWindow(tiles);
       const load = async (): Promise<number> => {
         const reads = core.reads;
         const sub = feed.subscribe({
           keys: [key],
           window,
-          limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+          limit: { variant: "points", count: EXACT, aggregation: "min_max" },
         });
         try {
           await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
@@ -1900,9 +1862,11 @@ describe("Feed.subscribe", () => {
       };
       try {
         await listen(core, feed);
-        expect(await load()).toBe(1);
+        const reads = await load();
+        expect(reads).toBeGreaterThan(0);
+        expect(await load()).toBe(0);
         core.advance(TimeSpan.minutes(20));
-        expect(await load()).toBe(1);
+        expect(await load()).toBe(reads);
       } finally {
         await feed.close();
       }
@@ -1911,15 +1875,14 @@ describe("Feed.subscribe", () => {
     it("should keep signaled blocks past the expiry, and expire calculated ones", async () => {
       const core = createCore({ derived: true });
       const feed = core.openFeed(OPTIONS);
-      const tr = new TimeRange(START, START.add(TimeSpan.minutes(1)));
-      const window = staticWindow(tr);
+      const window = staticWindow(tiles);
       // Returns the Core reads that a subscription to the key's window makes.
       const load = async (key: channel.Key): Promise<number> => {
         const reads = core.reads;
         const sub = feed.subscribe({
           keys: [key],
           window,
-          limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+          limit: { variant: "points", count: EXACT, aggregation: "min_max" },
         });
         try {
           await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
@@ -1932,23 +1895,24 @@ describe("Feed.subscribe", () => {
       const { key: calculated } = core.calculated!;
       try {
         // Blocks fetched while history changes stream stay valid until one names them.
-        await load(data);
+        const reads = await load(data);
+        expect(reads).toBeGreaterThan(0);
         await historyStreamed(core);
-        core.rewrite(data, tr, 0);
-        core.rewrite(calculated, tr, 0);
+        core.rewrite(data, tiles, 0);
+        core.rewrite(calculated, tiles, 0);
         await sleep.sleep(TimeSpan.milliseconds(50));
-        expect(await load(data)).toBe(1);
-        expect(await load(calculated)).toBe(1);
+        expect(await load(data)).toBe(reads);
+        expect(await load(calculated)).toBe(reads);
         core.advance(TimeSpan.minutes(20));
         expect(await load(data)).toBe(0);
-        expect(await load(calculated)).toBe(1);
+        expect(await load(calculated)).toBe(reads);
       } finally {
         await feed.close();
       }
     });
 
     it.each([
-      ["raw samples", Infinity],
+      ["raw samples", EXACT],
       ["tiles", 100],
     ])(
       "should read %s again once the blocks that appends land in expire",
@@ -1996,9 +1960,12 @@ describe("Feed.subscribe", () => {
   });
 
   describe("history change during a fetch", () => {
-    // Opens a feed whose first read of the key waits for release, after it computed its
-    // samples.
-    const createHeld = (core: SyntheticCore, key: channel.Key) => {
+    // Opens a feed whose first read that held accepts waits for release, after it
+    // computed its samples. Reads counts the reads that held accepts.
+    const createHeld = (
+      core: SyntheticCore,
+      held: (tr: TimeRange, keys: channel.Key[]) => boolean,
+    ) => {
       let release: () => void = () => {};
       const released = new Promise<void>((resolve) => (release = resolve));
       let reads = 0;
@@ -2006,7 +1973,7 @@ describe("Feed.subscribe", () => {
         ...OPTIONS,
         readRemote: async (tr, keys, reduction) => {
           const frame = core.read(tr, keys, reduction);
-          if (keys.includes(key) && reads++ === 0) await released;
+          if (held(tr, keys) && reads++ === 0) await released;
           return frame;
         },
       });
@@ -2018,12 +1985,16 @@ describe("Feed.subscribe", () => {
     it("should read raw samples again when a change lands during their fetch", async () => {
       const core = createCore();
       const key = core.data[0].key;
-      const { feed, release, reads } = createHeld(core, key);
-      const sub = feed.subscribe({
-        keys: [key],
-        window,
-        limit: { variant: "points", count: Infinity, aggregation: "min_max" },
-      });
+      const span = TimeSpan.minutes(2);
+      const changed = new TimeRange(
+        tileRange({ level: RAW_LEVEL, index: rawIndex(core.now().sub(span)) }).start,
+        core.now(),
+      );
+      const { feed, release, reads } = createHeld(
+        core,
+        (tr, keys) => keys.includes(key) && tr.start.equals(changed.start),
+      );
+      const sub = feed.subscribe(raw([key], span));
       try {
         await expect
           .poll(() => {
@@ -2046,7 +2017,7 @@ describe("Feed.subscribe", () => {
     });
 
     it.each([
-      ["raw samples", Infinity],
+      ["raw samples", EXACT],
       ["tiles", 100],
     ])("should land %s while changes elsewhere in history land", async (_, count) => {
       const core = createCore({ now: START.add(TimeSpan.hours(10)) });
@@ -2078,7 +2049,9 @@ describe("Feed.subscribe", () => {
     it("should read a tile again when a change lands during its fetch", async () => {
       const core = createCore();
       const key = core.data[0].key;
-      const { feed, release, reads } = createHeld(core, key);
+      const { feed, release, reads } = createHeld(core, (_, keys) =>
+        keys.includes(key),
+      );
       const request: SubscribeRequest = {
         keys: [key],
         window,

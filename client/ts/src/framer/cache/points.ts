@@ -174,10 +174,6 @@ export class Points {
     return this.home().end.after(this.props.now().sub(COMMIT_MARGIN));
   }
 
-  private get rawOnly(): boolean {
-    return this.limit.count === Infinity;
-  }
-
   /**
    * Replaces the window and limit. Held tiles stand in until the new ones land. Tiles a
    * definitive failure stopped read again only under a new aggregation or point count.
@@ -203,7 +199,7 @@ export class Points {
     }
     if (this.index == null) return;
     this.stream(this.index);
-    if (moved || this.rawOnly) this.boundary = this.rawFrom(this.home());
+    if (moved) this.boundary = this.rawFrom(this.home());
   }
 
   /**
@@ -289,12 +285,11 @@ export class Points {
       return home.end.after(committed) && end < until ? end : until;
     }
     const span = home.span.valueOf();
-    const level = this.rawOnly ? RAW_LEVEL : tileLevel(home);
-    const start = nextEdge(home.start, level) + span;
+    const start = nextEdge(home.start, tileLevel(home)) + span;
     if (start < until) until = start;
-    // A raw window drops its first series once the window starts after it.
+    // A window drops its first raw series once the window starts after it.
     const first = this.raw[0]?.timeRange.end.valueOf();
-    if (this.rawOnly && first != null && first + span < until) until = first + span;
+    if (first != null && first + span < until) until = first + span;
     return until;
   }
 
@@ -402,10 +397,14 @@ export class Points {
     this.live = { demand, leave, keys };
   }
 
-  // rawFrom is where raw samples start: the raw block edge before the commit point, or
-  // the end of a static window once the end commits.
+  // rawFrom is where raw samples start. A dynamic window no wider than two raw blocks
+  // draws only raw samples, from the edge of its level's tile before its start. Other
+  // windows draw them from the raw block edge before the commit point, or from the end
+  // of a static window once the end commits.
   private rawFrom(home: TimeRange): TimeStamp {
-    if (this.rawOnly) return home.start;
+    const level = tileLevel(home);
+    if (this.dynamic && level <= RAW_LEVEL)
+      return tileRange({ level, index: tileIndex(home.start, level) }).start;
     const committed = this.props.now().sub(COMMIT_MARGIN);
     if (!this.dynamic && !home.end.after(committed)) return home.end;
     const edge = tileRange({ level: RAW_LEVEL, index: rawIndex(committed) }).start;
@@ -415,9 +414,7 @@ export class Points {
   // Moves the boundary to at most one raw block behind rawFrom, so a window that never
   // draws stops growing.
   private cutoff(home: TimeRange): void {
-    const floor = this.rawOnly
-      ? home.start
-      : this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
+    const floor = this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
     this.boundary = TimeStamp.max(this.boundary, floor);
   }
 
@@ -440,7 +437,6 @@ export class Points {
     extremesKept: boolean,
     boundary: TimeStamp = this.boundary,
   ): TileSpec[] {
-    if (this.rawOnly) return [];
     const aggregation: Aggregation = extremesKept ? "min_max" : this.limit.aggregation;
     // Tiles are cut to [start, end): from the start of a static window to the start of
     // raw samples. A view may reach past a static window, as on a zoom out, so it cuts
