@@ -55,6 +55,8 @@ struct Offset {
     size_t byte = 0;
     /// @brief bit offset within the byte for sub-byte entries (0-7).
     uint8_t bit = 0;
+    /// @brief the size in bits the slave maps the entry with.
+    uint8_t bit_length = 0;
 };
 
 using Offsets = std::unordered_map<Key, Offset, KeyHash>;
@@ -135,12 +137,28 @@ struct Properties {
 };
 
 /// @brief looks up the offset for a PDO entry in a precomputed offset map. Returns
-/// errors::PDO_MAPPING_ERROR when the map does not hold the entry.
+/// errors::PDO_MAPPING_ERROR when the map does not hold the entry or maps it with
+/// another bit length.
 inline std::pair<Offset, x::errors::Error>
 find_offset(const Offsets &offsets, const Entry &entry) {
     const Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
-    if (const auto it = offsets.find(key); it != offsets.end())
-        return {it->second, x::errors::NIL};
+    if (const auto it = offsets.find(key); it != offsets.end()) {
+        if (it->second.bit_length == entry.bit_length)
+            return {it->second, x::errors::NIL};
+        return {
+            {},
+            x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                std::format(
+                    "PDO {} on slave {} is {} bits, not {}. Scan the network again",
+                    telem::format_index_sub_index(entry.index, entry.sub_index),
+                    entry.slave_position,
+                    it->second.bit_length,
+                    entry.bit_length
+                )
+            )
+        };
+    }
     return {
         {},
         x::errors::Error(
@@ -169,7 +187,8 @@ inline void compute_offsets(
         if (!pdo.is_padding())
             offsets[Key{slave_position, pdo.index, pdo.sub_index, is_input}] = {
                 base_byte_offset + bit_offset / 8,
-                static_cast<uint8_t>(bit_offset % 8)
+                static_cast<uint8_t>(bit_offset % 8),
+                pdo.bit_length
             };
         bit_offset += pdo.bit_length;
     }
@@ -197,10 +216,10 @@ inline void compute_offsets(
     for (const auto &entry: entries) {
         Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
         if (entry.is_input) {
-            offsets[key] = {input_byte_offset, 0};
+            offsets[key] = {input_byte_offset, 0, entry.bit_length};
             input_byte_offset += entry.byte_length();
         } else {
-            offsets[key] = {output_byte_offset, 0};
+            offsets[key] = {output_byte_offset, 0, entry.bit_length};
             output_byte_offset += entry.byte_length();
         }
     }
