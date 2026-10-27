@@ -567,6 +567,92 @@ Node union on variant {
 		})
 
 		It(
+			"Should reject a reference to a type with no output in the language",
+			func(ctx SpecContext) {
+				loader.Add("schemas/x/notation", `
+				@ts output "ts/notation"
+				Notation enum {
+					standard = "standard"
+				}
+			`)
+				source := `
+				import "schemas/x/notation"
+				@py output "py/out"
+				Entry struct {
+					notation notation.Notation
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Entry generates for py but field notation references " +
+						"notation.Notation, which has no py output",
+				))
+			},
+		)
+
+		It(
+			"Should reject an alias of a type with no output in the language",
+			func(ctx SpecContext) {
+				loader.Add("schemas/x/notation", `
+				@ts output "ts/notation"
+				Notation enum {
+					standard = "standard"
+				}
+			`)
+				source := `
+				import "schemas/x/notation"
+				@py output "py/out"
+				Mode = notation.Notation
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Mode generates for py but its alias target references " +
+						"notation.Notation, which has no py output",
+				))
+			},
+		)
+
+		It(
+			"Should allow an enum placed beside a same-file struct's output",
+			func(ctx SpecContext) {
+				source := `
+				Mode enum {
+					fast = "fast"
+				}
+				Entry struct {
+					mode Mode
+					@py output "py/out"
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
+			"Should allow a reference to a version-file type",
+			func(ctx SpecContext) {
+				loader.Add("schemas/x/versions/color/v0", "Color = string\n")
+				source := `
+				import "schemas/x/versions/color/v0"
+				@go output "out"
+				Label struct {
+					color color.Color
+				}
+			`
+				diag := analyzer.AnalyzeSeeded(
+					ctx,
+					source,
+					"schemas/synnax/versions/label/v0.oracle",
+					"label",
+					loader,
+					resolution.NewTable(),
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
 			"Should error when every type omits a declared output",
 			func(ctx SpecContext) {
 				source := `
