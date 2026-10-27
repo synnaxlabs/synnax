@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
+import { type Condition } from "@/group/builder.gen";
 import { type Group, groupZ, type Key, keyZ, ontologyID } from "@/group/types.gen";
 import { ontology } from "@/ontology";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
@@ -60,6 +61,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveChildrenParamsZ,
   Key,
   Group

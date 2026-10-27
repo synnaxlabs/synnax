@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   color,
-  type CrudeTimeRange,
   deep,
   type destructor,
   type Series,
@@ -27,6 +26,7 @@ import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
+import { type Condition } from "@/ranger/builder.gen";
 import { kv } from "@/ranger/kv";
 import { Client as KVClient } from "@/ranger/kv/client";
 import { type Name, type Params } from "@/ranger/payload";
@@ -398,6 +398,7 @@ export interface ClientConfig {
  * return sugared {@link Range}s, served from a cache a change stream keeps current.
  */
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Range,
@@ -585,18 +586,6 @@ export class Client extends query.Retriever<
       commit: async () => await this.writer.delete(keys),
     });
     drop();
-  }
-
-  async retrieve(params: Key | Name): Promise<Range>;
-  async retrieve(
-    params: Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
-  ): Promise<Range[]>;
-  async retrieve(
-    params: Key | Name | Key[] | Name[] | CrudeTimeRange | RetrieveMultipleParams,
-  ): Promise<Range | Range[]> {
-    // The branches narrow params onto different base overloads.
-    if (typeof params === "string") return await super.retrieve(params);
-    return await super.retrieve(params);
   }
 
   private async execRetrieve(req: RetrieveMultipleParams): Promise<Range[]> {

@@ -23,6 +23,7 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/schematic/actions.gen";
+import { type Condition } from "@/schematic/builder.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -73,6 +74,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Schematic

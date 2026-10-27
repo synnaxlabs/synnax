@@ -20,6 +20,7 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/panel/actions.gen";
+import { type Condition } from "@/panel/builder.gen";
 import {
   type Key,
   keyZ,
@@ -65,7 +66,12 @@ export interface ClientConfig {
   cache: query.Cache;
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Panel> {
+export class Client extends query.Retriever<
+  Condition,
+  typeof retrieveMultiParamsZ,
+  Key,
+  Panel
+> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Panel>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;

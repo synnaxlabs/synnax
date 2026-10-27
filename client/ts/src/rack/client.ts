@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { type Condition } from "@/rack/builder.gen";
 import {
   type Key,
   keyZ,
@@ -107,6 +108,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Omit<Payload, "status">,
