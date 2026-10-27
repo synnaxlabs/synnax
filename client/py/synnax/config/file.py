@@ -11,7 +11,7 @@ import json
 import pathlib
 from typing import Any
 
-CONFIG_DIR_NAME = "./synnax"
+_CONFIG_DIR_NAME = "./synnax"
 
 
 class File:
@@ -49,11 +49,11 @@ class File:
 
     def get(self, key: str) -> Any:
         """Gets a value from the config file."""
-        return get_nested(self.config, key)
+        return _get_nested(self.config, key)
 
     def set(self, key: str, value: Any) -> None:
         """Sets a value in the config file."""
-        set_nested(self.config, key, value)
+        _set_nested(self.config, key, value)
         self.save()
 
     def delete(self, key: str) -> None:
@@ -62,14 +62,14 @@ class File:
         self.save()
 
 
-def set_nested(d: dict[str, Any], key: str, value: Any) -> None:
+def _set_nested(d: dict[str, Any], key: str, value: Any) -> None:
     keys = key.split(".")
     for key in keys[:-1]:
         d = d.setdefault(key, {})
     d[keys[-1]] = value
 
 
-def get_nested(d: dict[str, Any], key: str) -> Any:
+def _get_nested(d: dict[str, Any], key: str) -> Any:
     keys = key.split(".")
     for key in keys[:-1]:
         d = d.get(key, {})

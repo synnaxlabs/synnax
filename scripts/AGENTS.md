@@ -6,6 +6,10 @@ easy to get wrong by hand.
 
 ## Formatting
 
+- `fix.sh` — adds copyright headers to files and formats them with Prettier, Ruff,
+  `golangci-lint fmt`, and clang-format. With no arguments it fixes files changed
+  against the merge base with `origin/main`; `--staged` fixes staged files and stages
+  the fixes; file arguments fix only those files. It skips a formatter it cannot find.
 - Go has no repo script: format with `golangci-lint fmt` in the module (dry run:
   `--diff`), driven by the formatters in the root `.golangci.yaml`.
 - `clang_format.sh <path>` / `clang_format.sh --files <f1> <f2> ...` — formats
@@ -25,6 +29,11 @@ easy to get wrong by hand.
   directly.
 
 Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo script.
+
+- `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
+  module or test code use. It runs Knip in production mode, then traces each finding. An
+  export that only other modules' tests use is allowed only in a test utility directory
+  (`testutil`, `test`, or `mock`).
 
 ## Copyright headers
 
@@ -71,6 +80,12 @@ Neither script touches `.oracle` schema files.
   archives a dependency bump made stale. Only the Windows CI steps use it, because those
   runners hold one output base for weeks.
 
+## Coding agents
+
+- `agent/run` — runs Claude Code or Codex headless, then opens a PR, comments on a PR,
+  or writes a report under a GitHub App bot identity. `--dry-run` pushes nothing. The
+  module docstring in `agent/agent.py` lists the flags and the environment.
+
 ## Toolchain bootstrap
 
 - `install_antlr4.sh` — installs a pinned, checksum-verified antlr4 4.13.2 onto PATH,
@@ -82,3 +97,12 @@ Neither script touches `.oracle` schema files.
 `asan_suppressions.txt`, `lsan_suppressions.txt`, `ubsan_suppressions.txt` — suppression
 lists for ASan/LSan/UBSan runs against the C++ driver. Add an entry here instead of
 disabling a sanitizer wholesale.
+
+## Runner fleet (`runners/`)
+
+The controller for the self-hosted CI runners, deployed to the `Sandbox-Windows` EC2
+instance. `controller.py` polls GitHub and EC2, writes fleet state to the Synnax Core on
+that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC2 starts
+and stops. Its own uv project and CI job. A pool in `scaler.py` must use the label the
+workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
+instance.

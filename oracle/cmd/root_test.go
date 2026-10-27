@@ -104,8 +104,10 @@ var _ = Describe("newRootCmd", func() {
 
 	It("should return an error for unknown subcommands", func() {
 		cmd := newRootCmd()
-		_, err := executeCommand(cmd, "nonexistent")
-		Expect(err).To(HaveOccurred())
+		Expect(
+			executeCommand(cmd, "nonexistent"),
+		).Error().
+			To(MatchError(ContainSubstring(`unknown command "nonexistent"`)))
 	})
 
 	It("should produce independent command trees on each call", func() {
@@ -146,8 +148,10 @@ var _ = Describe("check command with no schemas", Ordered, func() {
 
 	It("should error when no schema files exist", func() {
 		cmd := newRootCmd()
-		_, err := executeCommand(cmd, "check")
-		Expect(err).To(HaveOccurred())
+		Expect(
+			executeCommand(cmd, "check"),
+		).Error().
+			To(MatchError(ContainSubstring("no schema files found")))
 	})
 })
 
@@ -282,8 +286,10 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 
 	It("should fail check mode when schemas need formatting", func() {
 		cmd := newRootCmd()
-		_, err := executeCommand(cmd, "fmt", "--check")
-		Expect(err).To(HaveOccurred())
+		Expect(
+			executeCommand(cmd, "fmt", "--check"),
+		).Error().
+			To(MatchError(ContainSubstring("files need formatting")))
 	})
 })
 
@@ -380,8 +386,10 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 
 	It("should fail validation on invalid schemas", func() {
 		cmd := newRootCmd()
-		_, err := executeCommand(cmd, "check")
-		Expect(err).To(HaveOccurred())
+		Expect(
+			executeCommand(cmd, "check"),
+		).Error().
+			To(MatchError(ContainSubstring("1 gate(s) failed")))
 	})
 })
 

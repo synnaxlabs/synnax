@@ -1,0 +1,183 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Runs Claude Code or Codex on an agent runner through scripts/agent/run. Each agent
+# writes to GitHub as its own GitHub App, never as a person. Callers must grant
+# `id-token: write`, which starts a stopped runner through AWS.
+name: Agent
+
+on:
+  workflow_call:
+    inputs:
+      prompt:
+        description: "Task for the agent, or a skill such as /flake-hunt"
+        type: string
+        required: true
+      agent:
+        description: "claude or codex. Empty uses the AGENT_DEFAULT variable."
+        type: string
+        default: ""
+      output:
+        description: "pr, comment, or report"
+        type: string
+        default: pr
+      pr:
+        description: "PR to check out, push to, and comment on"
+        type: number
+        required: false
+      title:
+        description: "PR title. Empty lets the agent pick one."
+        type: string
+        default: ""
+      labels:
+        description: "Comma-separated labels for a new PR"
+        type: string
+        default: ""
+      timeout-minutes:
+        description: "Job time budget. pr and comment cap the agent at 50 minutes."
+        type: number
+        default: 60
+      setup:
+        description: "Repository script to run after checkout, before the agent"
+        type: string
+        default: ""
+    outputs:
+      pr-url:
+        description: "URL of the PR the agent opened, pushed to, or commented on"
+        value: ${{ jobs.run.outputs.pr-url }}
+      report:
+        description: "The agent's final message, for output report"
+        value: ${{ jobs.run.outputs.report }}
+
+permissions:
+  contents: read
+
+jobs:
+  start:
+    name: Start a runner
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Assume the runner start role
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Idle runners stop themselves, so a job starts one stopped runner. Only one of
+      # two concurrent starts sees an instance's previous state as stopped, so the other
+      # tries again. The job waits for any runner when none is stopped.
+      - name: Start a stopped runner
+        run: |
+          for _ in 1 2 3; do
+            ids=$(aws ec2 describe-instances --output text \
+              --filters Name=tag:project,Values=synnax-agents \
+              Name=tag:pool,Values=agent Name=instance-state-name,Values=stopped \
+              --query 'Reservations[].Instances[].InstanceId')
+            if [ -z "$ids" ]; then exit 0; fi
+            read -ra stopped <<< "$ids"
+            id=$(shuf -n 1 -e "${stopped[@]}")
+            previous=$(aws ec2 start-instances --instance-ids "$id" --output text \
+              --query 'StartingInstances[0].PreviousState.Name')
+            if [ "$previous" = stopped ]; then exit 0; fi
+          done
+
+  run:
+    needs: start
+    name: Run (${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }})
+    runs-on: [self-hosted, ubuntu-agent-bot]
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    outputs:
+      pr-url: ${{ steps.agent.outputs.pr-url }}
+      report: ${{ steps.agent.outputs.report }}
+    env:
+      AGENT: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
+    steps:
+      - name: Mint the GitHub App token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id:
+            ${{ env.AGENT == 'codex' && secrets.CODEX_APP_ID ||
+            secrets.CLAUDE_CODE_APP_ID }}
+          private-key:
+            ${{ env.AGENT == 'codex' && secrets.CODEX_APP_PRIVATE_KEY ||
+            secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+          permission-actions: read
+          permission-checks: read
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
+      - name: Resolve the bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          SLUG: ${{ steps.app.outputs.app-slug }}
+        run: |
+          id=$(gh api "/users/${SLUG}[bot]" --jq .id)
+          echo "name=${SLUG}[bot]" >> "$GITHUB_OUTPUT"
+          echo "email=${id}+${SLUG}[bot]@users.noreply.github.com" >> "$GITHUB_OUTPUT"
+
+      # The wrapper pushes with the App token itself.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      # A PR branch can predate the wrapper, so the job runs this revision's copy.
+      - name: Keep the wrapper
+        run: cp -R scripts/agent "$RUNNER_TEMP/agent"
+
+      # The setup script must come from the PR the agent works on.
+      - name: Check out the pull request
+        if: inputs.pr
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR: ${{ inputs.pr }}
+        run: gh pr checkout "$PR"
+
+      # A runner can stay stopped for weeks, so every job takes the latest agent CLIs.
+      - name: Update the agent CLIs
+        run: sudo npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
+
+      - name: Set up the task
+        if: inputs.setup != ''
+        env:
+          SETUP: ${{ inputs.setup }}
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+        run: '"./$SETUP"'
+
+      - name: Run the agent
+        id: agent
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
+          AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
+          CLAUDE_CODE_OAUTH_TOKEN:
+            ${{ env.AGENT == 'claude' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          PROMPT: ${{ inputs.prompt }}
+          OUTPUT: ${{ inputs.output }}
+          PR: ${{ inputs.pr }}
+          TITLE: ${{ inputs.title }}
+          LABELS: ${{ inputs.labels }}
+          BUDGET: ${{ inputs.timeout-minutes }}
+        run: |
+          args=(--agent "$AGENT" --output "$OUTPUT" --prompt "$PROMPT")
+          # Leave ten minutes for setup and delivery. Deliver to GitHub before the App
+          # token expires, an hour after it was minted.
+          minutes=$((BUDGET > 20 ? BUDGET - 10 : BUDGET / 2))
+          if [ "$OUTPUT" != report ] && [ "$minutes" -gt 50 ]; then minutes=50; fi
+          args+=(--timeout-minutes "$minutes")
+          if [ -n "$PR" ] && [ "$PR" != "0" ]; then args+=(--pr "$PR"); fi
+          if [ -n "$TITLE" ]; then args+=(--title "$TITLE"); fi
+          if [ -n "$LABELS" ]; then args+=(--labels "$LABELS"); fi
+          "$RUNNER_TEMP/agent/run" "${args[@]}"

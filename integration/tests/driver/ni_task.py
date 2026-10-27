@@ -59,9 +59,8 @@ def _ensure_ni_max_config(log: Callable[[str], None]) -> None:
 class _NITaskMixin(TaskCase[TaskT]):
     """Shared setup for all NI task tests.
 
-    Auto-passes on non-Windows platforms. The NI driver scanner
-    automatically discovers devices and registers them with
-    location = NI MAX alias (e.g. "E101Mod1").
+    Skips on non-Windows platforms. The NI driver scanner discovers devices and
+    registers them with location = NI MAX alias (e.g. "E101Mod1").
 
     Subclasses must set:
         device_locations: list[str]  — NI MAX identifiers (e.g. ["E101Mod1"])
@@ -80,8 +79,7 @@ class _NITaskMixin(TaskCase[TaskT]):
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
-            self.auto_pass(msg="Windows DAQmx drivers required")
-            return
+            self.skip("Windows DAQmx drivers required")
         _ensure_ni_max_config(self.log)
         # The NI scanner registers devices with location = NI MAX alias.
         # Resolve all locations upfront so concrete tests can use
