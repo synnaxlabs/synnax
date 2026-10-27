@@ -48,6 +48,16 @@ class TestCheck:
             Finding("lib/widget/parts.py", 3, "twice", tests_only=False),
         ]
 
+    def test_should_report_names_an_unpacking_assigns(self, tmp_path: Path) -> None:
+        write(
+            tmp_path,
+            {
+                "lib/widget/__init__.py": "",
+                "lib/widget/parts.py": "LEFT, (RIGHT, _MID) = 1, (2, 3)\n",
+            },
+        )
+        assert names(tmp_path) == ["LEFT", "RIGHT"]
+
     def test_should_skip_private_names(self, tmp_path: Path) -> None:
         write(
             tmp_path,

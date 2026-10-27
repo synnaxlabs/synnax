@@ -150,7 +150,12 @@ def top_level_names(node: ast.stmt) -> list[str]:
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
         return [node.name]
     if isinstance(node, ast.Assign):
-        return [t.id for t in node.targets if isinstance(t, ast.Name)]
+        return [
+            n.id
+            for t in node.targets
+            for n in ast.walk(t)
+            if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)
+        ]
     if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
         return [node.target.id]
     if isinstance(node, ast.TypeAlias):
