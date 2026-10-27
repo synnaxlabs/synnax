@@ -24,10 +24,14 @@ const client = createTestClient();
 
 const schema = z.object({ where: status.whereZ.optional() });
 
-const Fixture = ({ variants }: { variants?: status.Variant[] }): ReactElement => {
+interface FixtureProps {
+  variant?: status.Where["variant"];
+}
+
+const Fixture = ({ variant }: FixtureProps): ReactElement => {
   const methods = Form.use({
     schema,
-    values: { where: variants == null ? undefined : { variant: { in: variants } } },
+    values: { where: variant == null ? undefined : { variant } },
   });
   return (
     <View.Frame resourceType="status" icon="Status">
@@ -45,7 +49,7 @@ Fixture.displayName = "Fixture";
 describe("Status.Filter.Chips", () => {
   it("should remove the variant from the where when its chip is closed", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture variants={["error", "success"]} />, { wrapper });
+    render(<Fixture variant={{ in: ["error", "success"] }} />, { wrapper });
     await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
     await enableEditing();
     const close = await waitFor(() => findTagCloseButton("Error"));
@@ -57,11 +61,20 @@ describe("Status.Filter.Chips", () => {
 
   it("should drop the variant line when the last chip is closed", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture variants={["error"]} />, { wrapper });
+    render(<Fixture variant={{ in: ["error"] }} />, { wrapper });
     await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
     await enableEditing();
     fireEvent.click(await waitFor(() => findTagCloseButton("Error")));
     await waitFor(() => expect(screen.getByText("value:none")).toBeTruthy());
+  });
+
+  it("should show and remove a variant that the where selects with eq", async () => {
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Fixture variant={{ eq: "error" }} />, { wrapper });
+    await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
+    await enableEditing();
+    fireEvent.click(await waitFor(() => findTagCloseButton("Error")));
+    await waitFor(() => expect(screen.queryByText("Variants")).toBeNull());
   });
 
   it("should render nothing when no variants are selected", async () => {
