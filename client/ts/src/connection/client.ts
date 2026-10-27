@@ -46,6 +46,7 @@ const CHECK_ENDPOINT = "/connectivity/check";
 const checkResZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string(),
+  nodeKey: z.number(),
   nodeTime: TimeStamp.z,
   license: license.stateZ.default("ok"),
 });
@@ -65,6 +66,7 @@ export const sendCheck = async (unary: UnaryClient): Promise<Info> => {
   return {
     clusterKey: res.clusterKey,
     nodeVersion: res.nodeVersion,
+    nodeKey: res.nodeKey,
     clockSkew: skew.skew,
     roundTrip: skew.roundTrip,
     license: res.license,
