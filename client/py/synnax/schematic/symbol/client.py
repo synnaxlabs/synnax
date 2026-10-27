@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
 from synnax import group
-from synnax.ontology.payload import ID, CrudeID
+from synnax.ontology import ID, CrudeID
 from synnax.schematic.symbol.types_gen import Key, Symbol
 from x.lists import normalize
 

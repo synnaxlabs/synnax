@@ -12,7 +12,9 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from synnax import schematic
 from synnax.exceptions import NotFoundError
+from x import spatial
 
 
 @pytest.fixture
@@ -32,6 +34,35 @@ class TestSchematic:
         """Should create a schematic from a Schematic object."""
         s = client.schematics.create(project.key, sy.Schematic(name="From Object"))
         assert s.name == "From Object"
+
+    def test_diagram_round_trip(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep nodes, edges, and configs through create, retrieve, and copy."""
+        diagram = sy.Schematic(
+            name="Diagram",
+            nodes=[
+                schematic.Node(key="a", position=spatial.XY(x=10, y=20)),
+                schematic.Node(key="b", position=spatial.XY(x=30, y=40), z_index=2),
+            ],
+            edges=[
+                schematic.Edge(
+                    key="e",
+                    source=schematic.Handle(node="a", param="outlet"),
+                    target=schematic.Handle(node="b", param="inlet"),
+                )
+            ],
+            configs={
+                "a": schematic.TextBoxElementConfig(value="Inlet"),
+                "b": schematic.TankElementConfig(),
+                "e": schematic.PipeElementConfig(),
+            },
+        )
+        created = client.schematics.create(project.key, diagram)
+        retrieved = client.schematics.retrieve(key=created.key)
+        copied = client.schematics.copy(created.key, name="Diagram Copy")
+        for s in (created, retrieved, copied):
+            assert s.nodes == diagram.nodes
+            assert s.edges == diagram.edges
+            assert s.configs == diagram.configs
 
     def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
         """Should create multiple schematics."""

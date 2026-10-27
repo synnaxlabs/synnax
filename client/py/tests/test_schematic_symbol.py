@@ -14,7 +14,7 @@ import pytest
 import synnax as sy
 from synnax import group
 from synnax.exceptions import NotFoundError
-from synnax.ontology.payload import ID
+from synnax.ontology import ID
 from synnax.schematic import symbol
 from x.testutil import assert_eventually
 
