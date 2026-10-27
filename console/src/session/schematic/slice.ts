@@ -58,7 +58,7 @@ const controlStateZ = z.object({
   status: control.statusZ.default("released"),
 });
 
-export const stateZ = z.object({
+const stateZ = z.object({
   control: controlStateZ.prefault({}),
   selected: z.array(z.string()).default([]),
   legend: legendStateZ.prefault({}),
@@ -290,13 +290,13 @@ export const {
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-export const purgeState = (state: State): State => {
+const purgeState = (state: State): State => {
   state.control.status = "released";
   clearSelection(state);
   return state;
 };
 
-export const purgeSliceState = <S extends StoreState>(state: S): S => {
+const purgeSliceState = <S extends StoreState>(state: S): S => {
   Window.purgeDocuments(state[SLICE_NAME], purgeState);
   return state;
 };

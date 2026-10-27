@@ -59,6 +59,11 @@ type Config struct {
 	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
+	// OnHistoryChange receives the time range of each delete and of each write before
+	// the channel's newest data. It runs inline under the DB's locks, so it must not
+	// block or call back into the DB.
+	// [OPTIONAL]
+	OnHistoryChange func(context.Context, telem.TimeRange)
 }
 
 var (
@@ -85,6 +90,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.FileSize = override.Numeric(cfg.FileSize, other.FileSize)
 	cfg.GCThreshold = override.Numeric(cfg.GCThreshold, other.GCThreshold)
 	cfg.MetaCodec = override.Nil(cfg.MetaCodec, other.MetaCodec)
+	cfg.OnHistoryChange = override.Nil(cfg.OnHistoryChange, other.OnHistoryChange)
 	return cfg
 }
 
@@ -106,6 +112,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		Instrumentation: cfg.Instrumentation,
 		FileSize:        cfg.FileSize,
 		GCThreshold:     cfg.GCThreshold,
+		OnHistoryChange: cfg.OnHistoryChange,
 	})
 	if err != nil {
 		return nil, err
@@ -123,10 +130,9 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
-		leadingAlignment: &atomic.Uint32{},
+		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
-	db.leadingAlignment.Store(alignment.ZeroLeading)
 	if cfg.Channel.IsIndex {
 		db.idx = &index.Domain{
 			DB:              domainDB,

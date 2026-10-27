@@ -27,8 +27,8 @@ var _ = Describe("Bounds", func() {
 
 			It("Should reject values outside bounds", func() {
 				checker := validate.NewInclusiveBoundsChecker(1, 10)
-				Expect(checker(0)).To(HaveOccurred())
-				Expect(checker(11)).To(HaveOccurred())
+				Expect(checker(0)).To(MatchError(validate.ErrValidation))
+				Expect(checker(11)).To(MatchError(validate.ErrValidation))
 			})
 		})
 
@@ -42,8 +42,8 @@ var _ = Describe("Bounds", func() {
 
 			It("Should reject values outside bounds", func() {
 				checker := validate.NewInclusiveBoundsChecker(1.0, 10.0)
-				Expect(checker(0.9)).To(HaveOccurred())
-				Expect(checker(10.1)).To(HaveOccurred())
+				Expect(checker(0.9)).To(MatchError(validate.ErrValidation))
+				Expect(checker(10.1)).To(MatchError(validate.ErrValidation))
 			})
 		})
 

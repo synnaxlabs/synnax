@@ -114,10 +114,10 @@ uv 0.12.0
 ### 6.1 Install Python
 
 uv installs and manages the interpreter, so you do not need Homebrew Python or a shell
-alias. The workspace needs Python 3.12.
+alias. The workspace uses the Python version in `.python-version`.
 
 ```zsh
-uv python install 3.12
+uv python install
 ```
 
 ### 6.2 Install dependencies
