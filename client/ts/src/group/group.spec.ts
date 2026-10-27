@@ -80,6 +80,27 @@ describe("Group", () => {
       });
       expect(groups.map((g) => g.key)).toEqual([a.key]);
     });
+    it("should retrieve the children of a parent", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `parent-${id.create()}`,
+      });
+      const parentID = group.ontologyID(parent.key);
+      const a = await client.groups.create({ parent: parentID, name: "a" });
+      const b = await client.groups.create({ parent: parentID, name: "b" });
+      await client.groups.create({ parent: ontology.ROOT_ID, name: "outside" });
+      const groups = await client.groups.retrieve({ parent: parentID });
+      expect(groups.map((g) => g.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    it("should return no children of a parent for a zero limit", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `parent-${id.create()}`,
+      });
+      const parentID = group.ontologyID(parent.key);
+      await client.groups.create({ parent: parentID, name: "a" });
+      expect(await client.groups.retrieve({ parent: parentID, limit: 0 })).toEqual([]);
+    });
   });
   describe("rename", () => {
     it("should correctly rename a group", async () => {

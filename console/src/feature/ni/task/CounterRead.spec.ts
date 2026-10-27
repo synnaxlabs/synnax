@@ -234,4 +234,21 @@ describe("CounterRead", () => {
       /Cannot create task with channels from multiple racks/,
     );
   });
+
+  it("should surface an error when a device no longer exists", async () => {
+    const dev = await createNIDevice(client);
+    const deleted = await createNIDevice(client);
+    await client.devices.delete(deleted.key);
+    const { statuses, container } = await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { device: dev.key }),
+        createChannel("ci_frequency", 1, { device: deleted.key }),
+      ]),
+    );
+    await clickDeploy(container);
+    await awaitStatusDescription(
+      statuses,
+      new RegExp(`^Found no device with key ${deleted.key}$`),
+    );
+  });
 });
