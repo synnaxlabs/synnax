@@ -1023,6 +1023,18 @@ describe("MultiplexedStreamer", () => {
       expect(vi.getTimerCount()).toEqual(baseline);
     });
 
+    it("should cancel a pending stream update on close", async () => {
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([pendingStreamer([1])]),
+      });
+      const baseline = vi.getTimerCount();
+      streamer.stream(() => {}, [1]);
+      expect(vi.getTimerCount()).toBeGreaterThan(baseline);
+      await streamer.close();
+      expect(vi.getTimerCount()).toEqual(baseline);
+    });
+
     it("should log an error when streamer.close throws and still mark the streamer closed", async () => {
       const ms1 = pendingStreamer([1]);
       const closeErr = new Error("close boom");
