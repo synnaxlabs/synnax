@@ -10,24 +10,19 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
-import {
-  type Device,
-  type Properties,
-  SCHEMAS,
-  ZERO_PROPERTIES,
-} from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import { uniqueName } from "@/testutil";
 
 export interface CreateModbusDeviceOptions {
   configured?: boolean;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
 }
 
 /** Creates a rack and a configured Modbus server device on the live Core. */
 export const createModbusDevice = async (
   client: Synnax,
   { configured = true, properties }: CreateModbusDeviceOptions = {},
-): Promise<Device> => {
+): Promise<Device.Device> => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   return await client.devices.create(
     {
@@ -38,8 +33,8 @@ export const createModbusDevice = async (
       make: "Modbus",
       model: "Modbus",
       configured,
-      properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+      properties: { ...deep.copy(Device.ZERO_PROPERTIES), ...properties },
     },
-    SCHEMAS,
+    Device.SCHEMAS,
   );
 };

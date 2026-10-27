@@ -34,7 +34,7 @@ const renderItems = async () => {
     configured: true,
   });
   const handle = await renderMenuItem(
-    <OPCUA.Device.ContextMenuItems
+    <OPCUA.ContextMenuItems
       {...createBaseProps({ client, store: propsStore })}
       selection={createSelection({ ids: [resource.id] })}
       state={createState([resource])}
@@ -49,7 +49,7 @@ const renderItems = async () => {
   return { ...handle, dev };
 };
 
-describe("OPCUA.Device.ContextMenuItems", () => {
+describe("OPCUA.ContextMenuItems", () => {
   it("should create a read task draft bound to the device", async () => {
     const { store, dev } = await renderItems();
     fireEvent.click(await screen.findByText("Create read task"));

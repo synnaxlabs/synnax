@@ -25,9 +25,7 @@ import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/http/device/queries";
-import { Select as SelectDevice } from "@/feature/http/device/Select";
-import * as Device from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -55,7 +53,7 @@ const NAN_FILL_INPUT_PROPS = {
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow>
       <PForm.NumericField
         path="config.rate"
@@ -81,7 +79,7 @@ const defaultChannelName = (devName: string, epPath: string, pointer: string): s
 
 const useDefaultChannelName = (epKey: string, pointer: string): string => {
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   return dev == null ? "" : defaultChannelName(dev.name, epPath, pointer);
 };
 
@@ -127,7 +125,7 @@ const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) =>
  * the form for every endpoint, as the details pane renders only the selected one.
  */
 const FieldBinder = ({ epKey }: { epKey: string }) => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
   const indexKey = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
   const resolve = (field: ReadField) => {

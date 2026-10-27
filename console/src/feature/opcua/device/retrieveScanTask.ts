@@ -9,7 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 
-import { type SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/opcua/task/types";
+import { type SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/opcua/device/scan";
 
 export const retrieveScanTask = async (
   client: Synnax,

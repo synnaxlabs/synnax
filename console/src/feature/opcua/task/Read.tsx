@@ -17,9 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
-import { Select } from "@/feature/opcua/device/Select";
-import * as Device from "@/feature/opcua/device/types";
+import { Device } from "@/feature/opcua/device";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployReadConfigZ,
@@ -64,7 +62,7 @@ const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
   return (
     <>
-      <Select />
+      <Device.Select />
       <Flex.Box x>
         <Task.Fields.SampleRate />
         <PForm.SwitchField
@@ -93,7 +91,7 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
+const convertHaulItemToChannel = ({ data }: Device.HaulItem): ReadChannel => ({
   key: data.nodeId,
   nodeName: data.name,
   nodeId: data.nodeId,

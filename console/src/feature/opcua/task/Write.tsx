@@ -16,9 +16,7 @@ import { Access } from "@synnaxlabs/pluto";
 import { caseconv, errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
-import { Select } from "@/feature/opcua/device/Select";
-import * as Device from "@/feature/opcua/device/types";
+import { Device } from "@/feature/opcua/device";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
@@ -33,12 +31,12 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Task.Fields.AutoStart />
   </>
 );
 
-const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel => ({
+const convertHaulItemToChannel = ({ data }: Device.HaulItem): WriteChannel => ({
   key: data.nodeId,
   nodeName: data.name,
   nodeId: data.nodeId,

@@ -23,9 +23,7 @@ import { Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
-import { useFromConfig } from "@/feature/http/device/queries";
-import { Select as SelectDevice } from "@/feature/http/device/Select";
-import * as Device from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -49,7 +47,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow>
       <Task.Fields.AutoStart />
     </Flex.Box>
@@ -442,7 +440,7 @@ const Form: FC = () => {
   const { data, push, remove } = PForm.useFieldList<string, WriteEndpoint>(
     "config.endpoints",
   );
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (ep: WriteEndpoint) =>
     dev == null
       ? null

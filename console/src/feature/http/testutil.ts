@@ -10,13 +10,13 @@
 import { type device, type rack, type Synnax } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 
-import { MAKE, type Properties, ZERO_PROPERTIES } from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import { createTestDevice } from "@/platform/device/testutil";
 import { uniqueName } from "@/testutil";
 
 export interface CreateHTTPDeviceOptions {
   configured?: boolean;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
   rack?: rack.Key;
 }
 
@@ -28,8 +28,8 @@ export const createHTTPDevice = async (
   await createTestDevice(client, {
     rack,
     name: uniqueName("http_server"),
-    make: MAKE,
+    make: Device.MAKE,
     model: "HTTP server",
     configured,
-    properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+    properties: { ...deep.copy(Device.ZERO_PROPERTIES), ...properties },
   });

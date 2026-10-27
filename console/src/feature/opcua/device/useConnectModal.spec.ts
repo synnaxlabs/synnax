@@ -65,7 +65,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await rack.createTask({
       name: uniqueName("opcua_scan"),
-      type: OPCUA.Task.SCAN_TYPE,
+      type: OPCUA.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -91,7 +91,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await rack.createTask({
       name: uniqueName("opcua_scan"),
-      type: OPCUA.Task.SCAN_TYPE,
+      type: OPCUA.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -121,7 +121,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await rack.createTask({
       name: uniqueName("opcua_scan"),
-      type: OPCUA.Task.SCAN_TYPE,
+      type: OPCUA.Device.SCAN_TYPE,
       config: {},
     });
     const { result } = await renderModalOpener(
@@ -144,7 +144,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await rack.createTask({
       name: uniqueName("opcua_scan"),
-      type: OPCUA.Task.SCAN_TYPE,
+      type: OPCUA.Device.SCAN_TYPE,
       config: {},
     });
     const analytics = createTestSink();
@@ -181,7 +181,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await rack.createTask({
       name: uniqueName("opcua_scan"),
-      type: OPCUA.Task.SCAN_TYPE,
+      type: OPCUA.Device.SCAN_TYPE,
       config: {},
     });
     await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {

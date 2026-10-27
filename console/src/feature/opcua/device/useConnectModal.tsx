@@ -17,6 +17,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/opcua/device/scan";
 import {
   SelectSecurityMode,
   type SelectSecurityModeProps,
@@ -33,7 +34,6 @@ import {
   type SecurityPolicy,
   ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types";
-import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";

@@ -21,9 +21,7 @@ import { Access, Telem } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/modbus/device/queries";
-import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import * as Device from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
@@ -42,7 +40,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow>
       <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
@@ -147,7 +145,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (c: WriteChannel) =>
     dev == null
       ? null

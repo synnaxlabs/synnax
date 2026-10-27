@@ -8,14 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { http, type task } from "@synnaxlabs/client";
-import { json, record } from "@synnaxlabs/x";
+import { json } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import {
-  checkDuplicateKeys,
-  headersZ,
-  queryParamsZ,
-} from "@/feature/http/device/types";
+import { Device } from "@/feature/http/device";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "http";
@@ -37,14 +33,14 @@ const deployReadFieldZ = http.readFieldZ.extend({
   pointer: json.pointerZ,
   enumValues: http.enumEntryZ
     .array()
-    .check(checkDuplicateKeys("label", "enum label"))
+    .check(Device.checkDuplicateKeys("label", "enum label"))
     .default(() => []),
 });
 
 const deployReadEndpointZ = http.readEndpointZ.extend({
   method: readMethodZ,
-  headers: headersZ.default(() => []),
-  queryParams: queryParamsZ.default(() => []),
+  headers: Device.headersZ.default(() => []),
+  queryParams: Device.queryParamsZ.default(() => []),
   fields: deployReadFieldZ.array().check(Task.validateReadChannels),
 });
 
@@ -158,8 +154,8 @@ const deployWriteFieldZ = z.discriminatedUnion("type", [
 const deployWriteEndpointZ = writeEndpointZ
   .extend({
     method: writeMethodZ,
-    headers: headersZ.default(() => []),
-    queryParams: queryParamsZ.default(() => []),
+    headers: Device.headersZ.default(() => []),
+    queryParams: Device.queryParamsZ.default(() => []),
     channel: http.channelFieldZ
       .extend({ pointer: json.pointerZ })
       .check(validateEnumValues),
@@ -179,13 +175,3 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
-
-export const SCAN_SCHEMAS = {
-  type: z.literal(SCAN_TYPE),
-  config: record.nullishToEmpty(),
-  statusData: z.null().optional(),
-} as const satisfies task.Schemas;

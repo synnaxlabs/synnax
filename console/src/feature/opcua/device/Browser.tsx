@@ -27,8 +27,8 @@ import { array, type optional } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/feature/opcua/device/scan";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
-import { BROWSE_COMMAND_TYPE, type ScannedNode } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 
 const ICONS: Record<string, ReactElement> = {
