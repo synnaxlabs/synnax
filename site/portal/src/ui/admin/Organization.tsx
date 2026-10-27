@@ -16,7 +16,7 @@ import { type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
 import { type Activity } from "@/page";
-import { type Invitation } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { type Member } from "@/server/directory";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { type Held } from "@/server/license/list";
@@ -48,7 +48,7 @@ interface LicensesTab {
 interface MembersTab {
   tab: "members";
   roster: Member[];
-  invitations: Invitation[];
+  invitations: schema.Invitation[];
   now: Date;
 }
 

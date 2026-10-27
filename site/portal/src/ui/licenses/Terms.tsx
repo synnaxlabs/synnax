@@ -14,7 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import { type License, type Term } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { VERSION_PATTERN } from "@/server/license/limits";
 
 /** termsSchema is the unrefined shape; apply checkTerms to get the term rules. */
@@ -65,7 +65,7 @@ export const ZERO_TERMS: TermsValues = {
 };
 
 /** termsOf reads a license into the values the form edits. */
-export const termsOf = (lic: License): TermsValues => ({
+export const termsOf = (lic: schema.License): TermsValues => ({
   label: lic.label,
   term: lic.term,
   nodes: lic.nodes,
@@ -76,7 +76,7 @@ export const termsOf = (lic: License): TermsValues => ({
 
 /** TermsFields are the license terms staff set, shared by issuing and editing. */
 export const TermsFields = (): ReactElement => {
-  const term = Form.useFieldValue<Term>("term");
+  const term = Form.useFieldValue<schema.Term>("term");
   return (
     <>
       <Form.TextField
@@ -84,9 +84,9 @@ export const TermsFields = (): ReactElement => {
         label="Label"
         inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
       />
-      <Form.Field<Term> path="term" label="Term">
+      <Form.Field<schema.Term> path="term" label="Term">
         {(p) => (
-          <Select.Simple<Term> {...p} resourceName="Term">
+          <Select.Simple<schema.Term> {...p} resourceName="Term">
             <Select.Item itemKey="subscription">Subscription</Select.Item>
             <Select.Item itemKey="perpetual">Perpetual</Select.Item>
           </Select.Simple>

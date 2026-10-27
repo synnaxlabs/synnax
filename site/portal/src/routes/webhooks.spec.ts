@@ -12,7 +12,7 @@ import { createHmac } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/pages/api/webhooks/clerk";
-import { organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
   createAPIContext,
@@ -80,7 +80,8 @@ describe("POST /api/webhooks/clerk", () => {
     );
   };
 
-  const organizations = async () => await store.query.select().from(organization);
+  const organizations = async () =>
+    await store.query.select().from(schema.organization);
 
   describe("verification", () => {
     beforeEach(() => {

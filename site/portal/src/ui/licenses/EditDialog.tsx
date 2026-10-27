@@ -13,15 +13,15 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type License } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { post, reload } from "@/ui/api";
 import { checkTerms, TermsFields, termsOf, termsSchema } from "@/ui/licenses/Terms";
 import { Modal } from "@/ui/modal";
 
-const schema = termsSchema.check(checkTerms);
+const formSchema = termsSchema.check(checkTerms);
 
 export interface EditDialogProps {
-  license: License;
+  license: schema.License;
 }
 
 /** EditDialog changes the terms of a license already issued. Staff only. */
@@ -41,7 +41,7 @@ export const EditDialog = ({ license }: EditDialogProps): ReactElement => (
 );
 
 const Content = ({ license }: EditDialogProps): ReactElement => {
-  const methods = Form.use({ values: termsOf(license), schema });
+  const methods = Form.use({ values: termsOf(license), schema: formSchema });
   return (
     <Modal.Form
       methods={methods}

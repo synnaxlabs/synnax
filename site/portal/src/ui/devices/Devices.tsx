@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type License } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { type Machine } from "@/server/license/desktop";
 import { LogOutDialog } from "@/ui/devices/LogOutDialog";
 import { date, machineName, statusOf } from "@/ui/format";
@@ -32,7 +32,7 @@ export interface DevicesProps {
 const COLUMNS = "minmax(0, 2fr) 14rem 16rem 16rem 18rem";
 
 /** validity says how much longer a machine keeps working. */
-const validity = (lic: License, now: Date): string =>
+const validity = (lic: schema.License, now: Date): string =>
   statusOf(lic, now) === "expired"
     ? `Expired ${date(lic.expiresAt)}. Open the app on that machine to renew.`
     : `Valid until ${date(lic.expiresAt)}`;

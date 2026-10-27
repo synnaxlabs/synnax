@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
-import { activateURL, read, SCHEME, STATE } from "@/ui/desktop/url";
+import { Desktop } from "@/ui/desktop";
 
 const STATE_VALUE = "s".repeat(16);
 const HASH = "a".repeat(64);
@@ -22,9 +22,9 @@ const query = (fields: Record<string, string>): URLSearchParams =>
 describe("desktop link", () => {
   describe("STATE", () => {
     it("should accept a URL-safe value of at least sixteen characters", () => {
-      expect(STATE.test("a".repeat(16))).toBe(true);
-      expect(STATE.test("a".repeat(15))).toBe(false);
-      expect(STATE.test("a b".padEnd(16, "a"))).toBe(false);
+      expect(Desktop.STATE.test("a".repeat(16))).toBe(true);
+      expect(Desktop.STATE.test("a".repeat(15))).toBe(false);
+      expect(Desktop.STATE.test("a b".padEnd(16, "a"))).toBe(false);
     });
   });
   describe("activateURL", () => {
@@ -37,8 +37,8 @@ describe("desktop link", () => {
     };
 
     it("should carry every field on the app's scheme", () => {
-      const url = new URL(activateURL("s".repeat(16), LINKED, true));
-      expect(url.protocol).toBe(`${SCHEME}:`);
+      const url = new URL(Desktop.activateURL("s".repeat(16), LINKED, true));
+      expect(url.protocol).toBe(`${Desktop.SCHEME}:`);
       expect(url.host).toBe("activate");
       expect(url.searchParams.get("state")).toBe("s".repeat(16));
       expect(url.searchParams.get("key")).toBe("t.o.k");
@@ -50,13 +50,15 @@ describe("desktop link", () => {
     });
 
     it("should turn analytics off when the user did not allow it", () => {
-      const url = new URL(activateURL("s".repeat(16), LINKED, false));
+      const url = new URL(Desktop.activateURL("s".repeat(16), LINKED, false));
       expect(url.searchParams.get("analytics")).toBe("off");
     });
   });
   describe("read", () => {
     it("should read a query the app sent", () => {
-      expect(read(query({ name: "  bench  ", fp: `${HASH}, ${HASH}` }))).toEqual({
+      expect(
+        Desktop.read(query({ name: "  bench  ", fp: `${HASH}, ${HASH}` })),
+      ).toEqual({
         state: STATE_VALUE,
         name: "bench",
         fingerprint: [HASH],
@@ -64,22 +66,22 @@ describe("desktop link", () => {
       });
     });
     it("should trim the name to its bound", () => {
-      const { name } = read(query({ name: "n".repeat(MAX_NAME_LENGTH + 10) }));
+      const { name } = Desktop.read(query({ name: "n".repeat(MAX_NAME_LENGTH + 10) }));
       expect(name).toHaveLength(MAX_NAME_LENGTH);
     });
     it("should refuse a malformed state", () => {
-      expect(read(query({ state: "short" })).problem).toBe(NOT_FROM_APP);
+      expect(Desktop.read(query({ state: "short" })).problem).toBe(NOT_FROM_APP);
     });
     it("should refuse a blank name", () => {
-      expect(read(query({ name: "  " })).problem).toBe(NOT_FROM_APP);
+      expect(Desktop.read(query({ name: "  " })).problem).toBe(NOT_FROM_APP);
     });
     it("should refuse a fingerprint that is not host hashes", () => {
-      const { fingerprint, problem } = read(query({ fp: "nope" }));
+      const { fingerprint, problem } = Desktop.read(query({ fp: "nope" }));
       expect(fingerprint).toEqual([]);
       expect(problem).toBe(NOT_FROM_APP);
     });
     it("should refuse an empty query", () => {
-      expect(read(new URLSearchParams()).problem).toBe(NOT_FROM_APP);
+      expect(Desktop.read(new URLSearchParams()).problem).toBe(NOT_FROM_APP);
     });
   });
 });

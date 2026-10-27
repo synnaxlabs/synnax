@@ -19,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import { type Invitation, type Organization } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import {
   ADMIN_ROLE,
   type Member,
@@ -39,10 +39,10 @@ const MEMBER_COLUMNS = "minmax(0, 2fr) minmax(0, 2fr) 16rem 4rem";
 const INVITATION_COLUMNS = "minmax(0, 4fr) 16rem 14rem 8rem";
 
 export interface MembersProps {
-  organization: Organization;
+  organization: schema.Organization;
   roster: Member[];
   /** invitations are the team's invitations, shown to an admin only. */
-  invitations: Invitation[];
+  invitations: schema.Invitation[];
   /** userID is the signed-in user. */
   userID: string;
   now: Date;
@@ -133,7 +133,7 @@ export const Roster = ({
 );
 
 interface EntryProps {
-  organization: Organization;
+  organization: schema.Organization;
   member: Member;
   /** editable lets the viewer change the member's role or remove them. */
   editable: boolean;
@@ -208,8 +208,8 @@ const Entry = ({
 };
 
 interface SentProps {
-  organization: Organization;
-  invitation: Invitation;
+  organization: schema.Organization;
+  invitation: schema.Invitation;
   now: Date;
 }
 
@@ -281,7 +281,7 @@ const inviteSchema = z.object({
 });
 
 export interface InviteDialogProps {
-  organization: Organization;
+  organization: schema.Organization;
 }
 
 /** InviteDialog emails someone an invitation to join the team. */

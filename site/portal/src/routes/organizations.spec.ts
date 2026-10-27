@@ -16,7 +16,7 @@ import { POST as removeRoute } from "@/pages/api/organizations/[key]/members/[us
 import { POST as roleRoute } from "@/pages/api/organizations/[key]/members/[user]/role";
 import { POST as renameRoute } from "@/pages/api/organizations/[key]/name";
 import { POST as registerRoute } from "@/pages/api/organizations/index";
-import { event, invitation, type Organization, organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
 import { NOW } from "@/server/license/testutil";
@@ -49,7 +49,7 @@ const STAFF_TEAM: Team = {
 describe("organization routes", () => {
   let store: Memory;
   let h: Harness;
-  let acme: Organization;
+  let acme: schema.Organization;
 
   beforeAll(async () => {
     store = await openMemory();
@@ -83,9 +83,9 @@ describe("organization routes", () => {
     expect(await body(res)).toEqual({ error });
   };
 
-  const events = async () => await store.query.select().from(event);
+  const events = async () => await store.query.select().from(schema.event);
 
-  const invitations = async () => await store.query.select().from(invitation);
+  const invitations = async () => await store.query.select().from(schema.invitation);
 
   const failMail = (): void => {
     h.mail.send = async () => {
@@ -468,7 +468,9 @@ describe("organization routes", () => {
       });
 
     const globex = async () =>
-      (await store.query.select().from(organization)).find((o) => o.name === "Globex");
+      (await store.query.select().from(schema.organization)).find(
+        (o) => o.name === "Globex",
+      );
 
     it("should register the team in Clerk and the portal", async () => {
       h.signIn(STAFF);
@@ -561,7 +563,7 @@ describe("organization routes", () => {
         return team;
       };
       expect((await register()).status).toBe(200);
-      const teams = await store.query.select().from(organization);
+      const teams = await store.query.select().from(schema.organization);
       expect(teams.filter((o) => o.name === "Globex")).toHaveLength(1);
     });
 
@@ -626,7 +628,7 @@ describe("organization routes", () => {
         clerkOrgID: ACME,
         name: "Acme Rockets",
       });
-      const [row] = await store.query.select().from(organization);
+      const [row] = await store.query.select().from(schema.organization);
       expect(row).toMatchObject({ key: acme.key, name: "Acme Rockets" });
     });
 
@@ -652,7 +654,7 @@ describe("organization routes", () => {
       );
       expect(res.status).toBe(500);
       expect(await h.directory.team(ACME)).toEqual({ clerkOrgID: ACME, name: "Acme" });
-      const [row] = await store.query.select().from(organization);
+      const [row] = await store.query.select().from(schema.organization);
       expect(row.name).toBe("Acme");
     });
 

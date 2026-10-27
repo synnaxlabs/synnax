@@ -12,12 +12,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import {
-  type Activation,
-  type Event,
-  type License as LicenseRecord,
-  type Organization,
-} from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 import { channels, term } from "@/server/license/limits";
 import { Fact, Facts } from "@/ui/Facts";
@@ -37,10 +32,10 @@ import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
 export interface LicenseProps {
-  license: LicenseRecord;
-  organization: Organization;
-  activations: Activation[];
-  events: Event[];
+  license: schema.License;
+  organization: schema.Organization;
+  activations: schema.Activation[];
+  events: schema.Event[];
   /** actors is the name each Clerk user id in `events` reads as. */
   actors: Record<string, string>;
   staff: boolean;
@@ -173,7 +168,7 @@ const LicenseFacts = ({
   license: lic,
   held,
 }: {
-  license: LicenseRecord;
+  license: schema.License;
   held: number;
 }): ReactElement => (
   <Facts>

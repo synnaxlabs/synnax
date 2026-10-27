@@ -9,11 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Event, type License } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { LICENSE, NOW } from "@/server/license/testutil";
 import { describeEvent, standing, statusOf } from "@/ui/format";
 
-const licenseOf = (overrides: Partial<License>): License => ({
+const licenseOf = (overrides: Partial<schema.License>): schema.License => ({
   ...LICENSE,
   ...overrides,
 });
@@ -92,7 +92,7 @@ describe("format.standing", () => {
 const MACHINE = "9b0b5f3c-0d3f-4a4e-9f21-6a0b2f1c7a10";
 const USER = "user_2abc";
 
-const eventOf = (overrides: Partial<Event>): Event => ({
+const eventOf = (overrides: Partial<schema.Event>): schema.Event => ({
   key: 1,
   at: NOW,
   kind: "release",

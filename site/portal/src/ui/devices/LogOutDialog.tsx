@@ -11,7 +11,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
-import { type Activation } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { post, reload } from "@/ui/api";
 import { machineName } from "@/ui/format";
 import { Modal } from "@/ui/modal";
@@ -20,7 +20,7 @@ import { Modal } from "@/ui/modal";
 export const LogOutDialog = ({
   activation,
 }: {
-  activation: Activation;
+  activation: schema.Activation;
 }): ReactElement => (
   <Modal.Frame
     name="Log out this machine"

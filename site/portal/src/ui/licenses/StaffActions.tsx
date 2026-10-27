@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type ReactElement } from "react";
 
-import { type License } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 import { filename } from "@/server/license/limits";
 import { post, postFile, reload, save } from "@/ui/api";
@@ -22,7 +22,7 @@ import { Modal } from "@/ui/modal";
 import { useAction } from "@/ui/useAction";
 
 export interface StaffActionsProps {
-  license: License;
+  license: schema.License;
   now: Date;
 }
 
