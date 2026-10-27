@@ -1,13 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
 flag: "mqtt"
-title: "MQTT | Sparkplug B"
-heading: "Sparkplug B"
+title: "Sparkplug B"
 description: "Learn how to read and command Sparkplug B tags with Synnax."
-prev: "Write task"
-prevURL: "/reference/driver/mqtt/write-task"
-next: "National Instruments"
-nextURL: "/reference/driver/ni/configure-device"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -63,7 +58,7 @@ online. Each host ID must be in use by one application only.
 ## Read tags
 
 Add an entry of type `"sparkplug"` to the `entries` of a
-[read task](/reference/driver/mqtt/read-task).
+[read task](/reference/hardware/mqtt/read-task).
 
 | Parameter   | Type    | Required | Default     | Description                           |
 | ----------- | ------- | -------- | ----------- | ------------------------------------- |
@@ -109,7 +104,7 @@ condition ends:
 ## Command tags
 
 Add a target of type `"sparkplug"` to the `targets` of a
-[write task](/reference/driver/mqtt/write-task). Each value written to the command
+[write task](/reference/hardware/mqtt/write-task). Each value written to the command
 channel becomes one `NCMD` message, or one `DCMD` message for a tag of a device.
 
 | Parameter   | Type    | Required | Default    | Description                                       |

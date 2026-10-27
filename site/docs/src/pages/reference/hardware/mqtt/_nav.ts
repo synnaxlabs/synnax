@@ -14,19 +14,19 @@ export const MQTT_NAV: PageNavNode = {
   name: "MQTT",
   children: [
     {
-      href: "/reference/driver/mqtt/connect-broker",
+      href: "/reference/hardware/mqtt/connect-broker",
       name: "Connect to a broker",
     },
     {
-      href: "/reference/driver/mqtt/read-task",
+      href: "/reference/hardware/mqtt/read-task",
       name: "Read task",
     },
     {
-      href: "/reference/driver/mqtt/write-task",
+      href: "/reference/hardware/mqtt/write-task",
       name: "Write task",
     },
     {
-      href: "/reference/driver/mqtt/sparkplug",
+      href: "/reference/hardware/mqtt/sparkplug",
       name: "Sparkplug B",
     },
   ],

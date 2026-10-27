@@ -1,13 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
 flag: "mqtt"
-title: "MQTT | Connect broker"
-heading: "Connect an MQTT broker"
+title: "Connect an MQTT broker"
 description: "Connect to an MQTT broker using Synnax."
-prev: "Modbus write task"
-prevURL: "/reference/driver/modbus/write-task"
-next: "Read task"
-nextURL: "/reference/driver/mqtt/read-task"
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -28,13 +23,8 @@ client certificates, and username and password authentication are supported.
 
 ## Prerequisites
 
-Before you can connect to an MQTT broker, you will need to ensure that you have the
-following:
-
-1. A [Synnax Core](/reference/core/quick-start) running on your network. The Core must
-   be able to reach the broker.
-2. The [Synnax Console](/reference/console/get-started) installed on your local machine.
-3. An MQTT broker that accepts MQTT 3.1.1 connections.
+- A Core that can reach the broker on the network. Synnax Desktop runs one for you.
+- An MQTT broker that accepts MQTT 3.1.1 connections.
 
 <Note.Note variant="info" className="compact">
   MQTT tasks run inside the Core. You do not need a separate Synnax Driver. When you
@@ -60,8 +50,8 @@ following:
 | `password`             | string  | No       | `""`    | Password for the broker                                                |
 | `client_id`            | string  | No       | `""`    | MQTT client ID. When empty, Synnax derives a stable ID from the device |
 | `keep_alive`           | integer | No       | `30`    | Keep-alive interval in seconds, from 1 to 65535                        |
-| `host_id`              | string  | No       | `""`    | [Sparkplug B](/reference/driver/mqtt/sparkplug) host application ID    |
-| `groups`               | array   | No       | `[]`    | [Sparkplug B](/reference/driver/mqtt/sparkplug) groups to browse       |
+| `host_id`              | string  | No       | `""`    | [Sparkplug B](/reference/hardware/mqtt/sparkplug) host application ID  |
+| `groups`               | array   | No       | `[]`    | [Sparkplug B](/reference/hardware/mqtt/sparkplug) groups to browse     |
 
 <Note.Note variant="warning" className="compact">
   A broker allows one connection for each client ID. If you set `client_id`, make sure
