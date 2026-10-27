@@ -29,7 +29,7 @@ describe("ReadChannelContextMenuItem", () => {
           id={Task.getChannelNameID("ch1")}
         />
         <Menu.Menu>
-          <Task.ReadChannelContextMenuItem keys={["ch1"]} channels={[]} />
+          {Task.readChannelContextMenuItem({ keys: ["ch1"], channels: [] })}
         </Menu.Menu>
       </>,
       { client, values: { config: { name: "name_before" } } },
@@ -45,7 +45,7 @@ describe("ReadChannelContextMenuItem", () => {
   it("should render nothing when multiple channels are selected", async () => {
     await renderInTaskFormWithClient(
       <Menu.Menu>
-        <Task.ReadChannelContextMenuItem keys={["ch1", "ch2"]} channels={[]} />
+        {Task.readChannelContextMenuItem({ keys: ["ch1", "ch2"], channels: [] })}
       </Menu.Menu>,
       { client },
     );
@@ -55,7 +55,7 @@ describe("ReadChannelContextMenuItem", () => {
   it("should render nothing for a viewer, who cannot rename a channel", async () => {
     await renderInTaskFormWithClient(
       <Menu.Menu>
-        <Task.ReadChannelContextMenuItem keys={["ch1"]} channels={[]} />
+        {Task.readChannelContextMenuItem({ keys: ["ch1"], channels: [] })}
       </Menu.Menu>,
       { client: await roles.get("Viewer") },
     );

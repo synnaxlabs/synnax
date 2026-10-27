@@ -263,7 +263,6 @@ jobs:
       directory: console
       package: console
       shards: 3
-      test_args: --no-file-parallelism
     secrets: inherit
 
   copyright:
@@ -366,9 +365,10 @@ jobs:
       windows: *full
     secrets: inherit
 
-  # The EtherCAT bus runs on its own thread, so its suites also run under TSan. The GCC
-  # TSan runtime on the build bots aborts on the kernel's address randomization, so the
-  # tests run with it off.
+  # The EtherCAT bus runs on its own thread, and a streamer can set its channels
+  # while it reads, so their suites also run under TSan. The GCC TSan runtime on the
+  # build bots aborts on the kernel's address randomization, so the tests run with it
+  # off.
   driver-tsan:
     needs: [changes, core-image]
     if: inputs.full || needs.changes.outputs.driver == 'true'
@@ -377,7 +377,7 @@ jobs:
       apt_packages: libsystemd-dev
       core_image: ${{ needs.core-image.outputs.image }}
       sanitizers: false
-      targets: //driver/ethercat/...
+      targets: //client/cpp/framer:framer_test //driver/ethercat/...
       test_flags: --config=tsan --run_under="setarch -R"
       test_tags: -hardware
     secrets: inherit
@@ -519,6 +519,11 @@ jobs:
 
       - name: Check unused code
         run: pnpm knip
+
+      - name: Check exports that only tests use
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: pnpm knip --production --include exports,types
 
   lint-integration:
     needs: changes

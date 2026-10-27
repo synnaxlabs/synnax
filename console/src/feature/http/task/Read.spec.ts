@@ -11,6 +11,7 @@ import { http, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
@@ -57,7 +58,7 @@ const createReadField = (
 const createReadConfig = (
   device: string,
   endpoints: HTTP.Task.ReadEndpoint[],
-): HTTP.Task.ReadPayload["config"] => ({
+): z.infer<HTTP.Task.ReadSchemas["config"]> => ({
   ...HTTP.Task.READ_SCHEMAS.config.parse({}),
   device,
   endpoints,
@@ -70,8 +71,10 @@ const ZERO_DRAFT: task.New<HTTP.Task.ReadSchemas> = {
   config: HTTP.Task.READ_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (client: Synnax, config: HTTP.Task.ReadPayload["config"]) =>
-  await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.READ_SCHEMAS);
+const createDraft = async (
+  client: Synnax,
+  config: z.infer<HTTP.Task.ReadSchemas["config"]>,
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.READ_SCHEMAS);
 
 describe("Read", () => {
   it("should show the empty state and add + select an endpoint", async () => {

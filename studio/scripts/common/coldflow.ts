@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeSpan } from "@synnaxlabs/client";
+import { type ontology, panel, TimeRange, TimeSpan } from "@synnaxlabs/client";
 import { type Locator } from "playwright";
 
 import { capture, type fixtures } from "@/index";
+
+const PANEL = "Operations";
 
 /**
  * startColdflow opens the Operations panel of the TPC stand, sets it up for a still,
@@ -29,7 +31,7 @@ export const startColdflow = async (
   const leaf = (text: string): Locator =>
     page.locator(".pluto-mosaic__leaf:visible").filter({ hasText: text }).first();
   // The hidden Automations panel stays mounted, so match visible nodes only.
-  await session.click(page.getByText("Operations", { exact: true }).first());
+  await session.click(page.getByText(PANEL, { exact: true }).first());
   const diagram = page.locator(".pluto-diagram:visible").first();
   await session.waitFor(diagram);
   await session.settle(1500);
@@ -84,4 +86,110 @@ export const startColdflow = async (
       timeRange: new TimeRange(flowing, flowing.add(TimeSpan.seconds(30))),
     },
   ]);
+};
+
+/** Layout rearranges the tabs of the TPC stand's Operations panel through the Core. */
+export interface Layout {
+  /** move puts tab `name` on the `location` edge of the leaf that holds `beside`. */
+  move: (
+    name: string,
+    beside: string,
+    location: panel.MoveTabPayload["location"],
+  ) => Promise<void>;
+  /** path returns the path of the leaf that holds tab `name`. */
+  path: (name: string) => Promise<number>;
+  /** resize sets the size of the split at path `split`, from 0 to 1. */
+  resize: (split: number, size: number) => Promise<void>;
+}
+
+/** operationsLayout returns a {@link Layout} of the TPC stand's Operations panel. */
+export const operationsLayout = async (
+  client: ReturnType<typeof fixtures.connect>,
+): Promise<Layout> => {
+  const resources = await client.ontology.retrieve({
+    types: ["panel", "lineplot", "schematic", "table", "log"],
+  });
+  const id = (name: string): ontology.ID => {
+    const resource = resources.find((r) => r.name === name);
+    if (resource == null) throw new Error(`the TPC world has no "${name}"`);
+    return resource.id;
+  };
+  const key = id(PANEL).key;
+  const leaf = async (name: string): Promise<{ tab: string; path: number }> => {
+    const { root } = await client.panels.retrieve(key);
+    const tab = panel.findTabByResource(root, id(name));
+    const path = tab == null ? undefined : panel.tabLeafPath(root, tab.key);
+    if (tab == null || path == null) throw new Error(`${PANEL} has no "${name}" tab`);
+    return { tab: tab.key, path };
+  };
+  const dispatch = async (action: panel.Action): Promise<void> => {
+    if (!(await client.panels.dispatch(key, action)))
+      throw new Error(`the ${PANEL} panel is not cached`);
+  };
+  return {
+    move: async (name, beside, location) => {
+      const { tab } = await leaf(name);
+      const { path } = await leaf(beside);
+      await dispatch(panel.moveTab({ key: tab, targetLeaf: path, location }));
+    },
+    path: async (name) => (await leaf(name)).path,
+    resize: async (split, size) => await dispatch(panel.resizeSplit({ split, size })),
+  };
+};
+
+/**
+ * openOperator opens the Operator schematic of the Operations panel, with its control
+ * legend and the bottom toolbar hidden.
+ */
+export const openOperator = async (session: capture.CaptureSession): Promise<void> => {
+  const { page } = session;
+  const drawer = page
+    .locator(".console-nav__drawer.pluto--visible.pluto--location-bottom")
+    .first();
+  // The legend switch shows only while editing, and taking control ends editing.
+  await session.click(page.getByText(PANEL, { exact: true }).first());
+  await session.waitFor(page.locator(".pluto-diagram:visible").first());
+  await session.click(page.getByText("Operator", { exact: true }).first());
+  await capture.selectToolbarTab(session, "Control");
+  const legend = drawer.locator(".console-schematic__control input[type=checkbox]");
+  await session.waitFor(legend.locator(".."));
+  if (await legend.isChecked()) await legend.click({ force: true });
+  await capture.hideBottomToolbar(session);
+};
+
+/** fitOperator fits the Operator schematic to its leaf once. */
+export const fitOperator = async (session: capture.CaptureSession): Promise<void> => {
+  const diagram = session.page.locator(".pluto-diagram:visible").first();
+  const expand = capture.control(diagram, "expand");
+  // Each click also toggles fit on resize, so a second click turns it back off.
+  await expand.click();
+  await expand.click();
+  await session.settle(300);
+};
+
+/**
+ * zoomPressures pauses the OX Pressures plot and zooms its time axis to the span from
+ * `from`, a fraction of the axis, to now.
+ */
+export const zoomPressures = async (
+  session: capture.CaptureSession,
+  from: number,
+): Promise<void> => {
+  const plot = session.page
+    .locator(".pluto-mosaic__leaf:visible")
+    .filter({ hasText: "OX Pressures" })
+    .first();
+  await session.click(capture.control(plot, "pause"), { zoom: false });
+  // A drag flatter than the zoom threshold zooms only the time axis. The axis runs from
+  // the y axis to the plot's right padding.
+  const box = await plot.boundingBox();
+  if (box == null) throw new Error("the OX Pressures plot is not on screen");
+  const start = box.x + 57;
+  const end = box.x + box.width - 14;
+  const y = box.y + box.height / 2;
+  await session.drag(
+    { x: start + (end - start) * from, y },
+    { x: end, y },
+    { zoom: false },
+  );
 };

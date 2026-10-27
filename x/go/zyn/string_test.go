@@ -46,7 +46,9 @@ var _ = Describe("String", func() {
 			Expect(zyn.String().Validate("hello")).To(Succeed())
 		})
 		It("Should return nil if the value is not a valid string", func() {
-			Expect(zyn.String().Validate(struct{}{})).To(HaveOccurred())
+			Expect(
+				zyn.String().Validate(struct{}{}),
+			).To(MatchError(validate.ErrInvalidType))
 		})
 		It("Should succeed when an optional string receives nil", func() {
 			Expect(zyn.String().Optional().Validate(nil)).To(Succeed())

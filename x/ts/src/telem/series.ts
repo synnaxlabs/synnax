@@ -40,6 +40,8 @@ import { uuid } from "@/uuid";
 interface GL {
   control: GLBufferController | null;
   buffer: WebGLBuffer | null;
+  /** The generation of the controller's context that made the buffer. */
+  generation: number;
   prevBuffer: number;
   bufferUsage: GLBufferUsage;
 }
@@ -373,6 +375,7 @@ export class Series<T extends TelemValue = TelemValue>
     this.gl = {
       control: null,
       buffer: null,
+      generation: 0,
       prevBuffer: 0,
       bufferUsage: glBufferUsage,
     };
@@ -950,20 +953,31 @@ export class Series<T extends TelemValue = TelemValue>
   /**
    * Updates the WebGL buffer for the series if it is not up to date. This method
    * should be called whenever a series has been previously buffered to the GPU and
-   * then modified via calls to write().
-   * @param gl the buffer controller to update the buffer for. This controller should
-   * be the same buffer previously passed to {@method acquire} or {@method updateGLBuffer}.
+   * then modified via calls to write(). The whole series uploads again when the
+   * controller's context was restored after the last upload.
+   * @param control the buffer controller to update the buffer for. This controller
+   * should be the same controller previously passed to {@method acquire} or
+   * {@method updateGLBuffer}.
    */
-  updateGLBuffer(gl: GLBufferController): void {
-    this.gl.control = gl;
+  updateGLBuffer(control: GLBufferController): void {
+    this.gl.control = control;
     if (
       !this.dataType.equals(DataType.FLOAT32) &&
       !this.dataType.equals(DataType.UINT8)
     )
       throw new Error("Only FLOAT32 and UINT8 arrays can be used in WebGL");
+    // The restore of the context destroyed the buffer.
+    if (this.gl.generation !== control.generation) {
+      this.gl.buffer = null;
+      this.gl.prevBuffer = 0;
+    }
+    const { gl } = control;
     const { buffer, bufferUsage, prevBuffer } = this.gl;
 
-    if (buffer == null) this.gl.buffer = gl.createBuffer();
+    if (buffer == null) {
+      this.gl.buffer = gl.createBuffer();
+      this.gl.generation = control.generation;
+    }
     // If the current write position is the same as the previous buffer, we're already
     // up date.
     if (this.writePos === prevBuffer) return;
@@ -1048,9 +1062,11 @@ export class Series<T extends TelemValue = TelemValue>
     );
   }
 
-  private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
+  private maybeGarbageCollectGLBuffer(control: GLBufferController): void {
     if (this.gl.buffer == null) return;
-    gl.deleteBuffer(this.gl.buffer);
+    // The restore of the context already destroyed a buffer from an earlier generation.
+    if (this.gl.generation === control.generation)
+      control.gl.deleteBuffer(this.gl.buffer);
     this.gl.buffer = null;
     this.gl.prevBuffer = 0;
     this.gl.control = null;
