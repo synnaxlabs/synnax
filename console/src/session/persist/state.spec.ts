@@ -1180,6 +1180,20 @@ describe("Persist.middleware", () => {
     expect(await store.length()).toBe(GLOBAL_KEYS);
   });
 
+  it("should reject a flush whose write fails", async () => {
+    const store = new FailingKV();
+    const onError = vi.fn<(error: Error) => void>();
+    const driver = await createDriver(store, {
+      onError,
+      debounceInterval: TimeSpan.hours(1),
+    });
+    store.failOn = /./;
+    driver.dispatch({ type: "a" }, ZERO_MOCK_STATE);
+    const flush = Persist.flush((action) => driver.dispatch(action));
+    await expect(flush).rejects.toThrow("failed to write the session state");
+    expect(onError).toHaveBeenCalledWith(new Error("failed to persist state"));
+  });
+
   it("should coalesce rapid dispatches into a single persist when debounced", async () => {
     const store = new Persist.MemoryKV();
     const driver = await createDriver(store, {
