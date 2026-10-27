@@ -7,10 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <condition_variable>
-#include <deque>
 #include <future>
-#include <mutex>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -22,79 +19,6 @@
 #include "driver/pipeline/mock/pipeline.h"
 
 namespace driver::pipeline {
-namespace {
-/// @brief a streamer factory that, like a Core, delivers a frame only to a streamer
-/// that subscribed before the frame was written. Subscribing takes 50 ms.
-class LiveStreamerFactory final : public StreamerFactory {
-    std::mutex mu;
-    std::condition_variable cv;
-    bool subscribed = false;
-    bool closed = false;
-    std::deque<x::telem::Frame> frames;
-
-    class Streamer final : public pipeline::Streamer {
-        LiveStreamerFactory &factory;
-
-    public:
-        explicit Streamer(LiveStreamerFactory &factory): factory(factory) {}
-
-        std::pair<x::telem::Frame, x::errors::Error> read() override {
-            std::unique_lock lock(this->factory.mu);
-            this->factory.cv.wait(lock, [this] {
-                return !this->factory.frames.empty() || this->factory.closed;
-            });
-            if (this->factory.frames.empty())
-                return {x::telem::Frame{}, freighter::STREAM_CLOSED};
-            auto fr = std::move(this->factory.frames.front());
-            this->factory.frames.pop_front();
-            return {std::move(fr), x::errors::NIL};
-        }
-
-        x::errors::Error close() override { return x::errors::NIL; }
-
-        void close_send() override {
-            std::lock_guard lock(this->factory.mu);
-            this->factory.closed = true;
-            this->factory.cv.notify_all();
-        }
-    };
-
-public:
-    void write(x::telem::Frame fr) {
-        std::lock_guard lock(this->mu);
-        if (!this->subscribed) return;
-        this->frames.push_back(std::move(fr));
-        this->cv.notify_all();
-    }
-
-    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
-    open_streamer(synnax::framer::StreamerConfig /* config */) override {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        std::lock_guard lock(this->mu);
-        this->subscribed = true;
-        return {std::make_unique<Streamer>(*this), x::errors::NIL};
-    }
-};
-}
-
-/// @brief it should deliver a frame written right after start returns.
-TEST(ControlPipeline, StartWaitsForStreamerToOpen) {
-    const auto factory = std::make_shared<LiveStreamerFactory>();
-    const auto sink = std::make_shared<mock::Sink>();
-    auto control = Control(
-        factory,
-        synnax::framer::StreamerConfig{.channels = {1}},
-        sink,
-        x::breaker::Config{}
-    );
-    ASSERT_NIL(control.start());
-    auto fr = x::telem::Frame(1);
-    fr.emplace(1, x::telem::Series(1.0));
-    factory->write(std::move(fr));
-    ASSERT_EVENTUALLY_EQ(sink->writes->size(), 1);
-    control.stop();
-}
-
 /// @brief it should read frames from streamer and write to sink.
 TEST(ControlPipeline, testHappyPath) {
     auto fr_1 = x::telem::Frame(1);
@@ -124,13 +48,12 @@ TEST(ControlPipeline, testHappyPath) {
         sink,
         x::breaker::Config{}
     );
-    ASSERT_NIL(control.start());
+    control.start();
     ASSERT_EVENTUALLY_EQ(sink->writes->size(), 2);
     control.stop();
 }
 
-/// @brief it should return the error from start and stop when the streamer fails to
-/// open.
+/// @brief it should stop and report error when streamer open fails with unknown error.
 TEST(ControlPipeline, testUnknownErrOnOpen) {
     const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
         std::vector{x::errors::UNKNOWN},
@@ -143,9 +66,10 @@ TEST(ControlPipeline, testUnknownErrOnOpen) {
         sink,
         x::breaker::Config{}
     );
-    ASSERT_OCCURRED_AS(control.start(), x::errors::UNKNOWN);
-    ASSERT_FALSE(control.running());
-    ASSERT_NIL(sink->stop_err);
+    control.start();
+    ASSERT_EVENTUALLY_EQ(sink->writes->size(), 0);
+    control.stop();
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
 }
 
 namespace {
@@ -193,7 +117,7 @@ void assert_open_retries(const x::errors::Error &open_err) {
         }
     );
 
-    ASSERT_NIL(control.start());
+    control.start();
     ASSERT_EVENTUALLY_EQ(
         streamer_factory->streamer_opens.load(std::memory_order_acquire),
         3
@@ -227,14 +151,11 @@ TEST(ControlPipeline, OpenedFollowsStreamerOpen) {
         sink,
         x::breaker::Config{}
     );
-    auto started = std::async(std::launch::async, [&control] {
-        return control.start();
-    });
+    ASSERT_TRUE(control.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
     EXPECT_EQ(sink->opens.load(), 0);
     release.set_value();
-    ASSERT_NIL(started.get());
-    ASSERT_EQ(sink->opens.load(), 1);
+    ASSERT_EVENTUALLY_EQ(sink->opens.load(), 1);
     control.stop();
 }
 
@@ -251,8 +172,10 @@ TEST(ControlPipeline, OpenedSkippedOnOpenFailure) {
         sink,
         x::breaker::Config{}
     );
-    ASSERT_OCCURRED_AS(control.start(), x::errors::UNKNOWN);
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_EQ(factory->streamer_opens.load(), 1);
     control.stop();
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
     ASSERT_EQ(sink->opens.load(), 0);
 }
 }

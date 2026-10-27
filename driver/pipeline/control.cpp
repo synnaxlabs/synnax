@@ -42,23 +42,6 @@ Control::Control(
     config(std::move(streamer_config)),
     sink(std::move(sink)) {}
 
-x::errors::Error Control::start() {
-    if (this->running()) return x::errors::NIL;
-    this->open_result.emplace();
-    auto opened = this->open_result->get_future();
-    Base::start();
-    const auto err = opened.get();
-    if (err) Base::stop();
-    return err;
-}
-
-bool Control::resolve_open(const x::errors::Error &err) {
-    if (!this->open_result.has_value()) return false;
-    this->open_result->set_value(err);
-    this->open_result.reset();
-    return true;
-}
-
 bool Control::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
     const bool was_running = Base::stop();
@@ -69,18 +52,15 @@ void Control::run() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
     if (open_err) {
-        if (synnax::errors::is_temporarily_unavailable(open_err)) {
-            this->resolve_open(x::errors::NIL);
-            if (breaker.wait(open_err.message())) {
-                this->run();
-                return;
-            }
+        if (synnax::errors::is_temporarily_unavailable(open_err) &&
+            breaker.wait(open_err.message())) {
+            this->run();
+            return;
         }
-        if (!this->resolve_open(open_err)) this->sink->stopped_with_err(open_err);
+        this->sink->stopped_with_err(open_err);
         return;
     }
     this->sink->opened();
-    this->resolve_open(x::errors::NIL);
 
     x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {

@@ -9,9 +9,7 @@
 
 #pragma once
 
-#include <future>
 #include <memory>
-#include <optional>
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -39,8 +37,7 @@ public:
     virtual void stopped_with_err(const x::errors::Error &_) {}
 
     /// @brief called on the pipeline thread each time the streamer opens. Frames
-    /// written to the Core after it is called reach write(). A start() that waits for
-    /// the open returns after this call.
+    /// written to the Core after it is called reach write().
     virtual void opened() {}
 
     virtual ~Sink() = default;
@@ -140,12 +137,6 @@ class Control final : public Base {
     std::shared_ptr<Sink> sink;
     /// @brief the current open streamer reading data from the network.
     std::unique_ptr<Streamer> streamer = nullptr;
-    /// @brief resolves with the result of the first attempt to open the streamer
-    /// after start. Empty once resolved.
-    std::optional<std::promise<x::errors::Error>> open_result;
-
-    /// @brief resolves open_result with err. Returns false if it was already resolved.
-    bool resolve_open(const x::errors::Error &err);
 
 public:
     /// @brief constructs a new control pipeline that opens streamers on a Synnax Core.
@@ -182,15 +173,6 @@ public:
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
-
-    /// @brief starts the pipeline and blocks until the first attempt to open the
-    /// streamer finishes, so the streamer receives every frame written after this
-    /// returns. A streamer that is temporarily unavailable does not block: the
-    /// pipeline retries it in the background. If the pipeline is already running, the
-    /// call does nothing.
-    /// @returns an error if the streamer failed to open. The pipeline is then stopped,
-    /// and the sink does not receive the error.
-    x::errors::Error start();
 
     /// @brief stops the control pipeline, blocking until the control thread has exited.
     /// If the pipeline has already stopped, this method will return immediately.

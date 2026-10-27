@@ -320,10 +320,6 @@ public:
                 this->state.ack(cmd_key, true);
             return false;
         }
-        {
-            std::lock_guard lock(this->state_mu);
-            this->state.reset();
-        }
         auto acq_started = true;
         if (this->acquisition) acq_started = this->acquisition->start(start);
         if (!this->control) {
@@ -336,15 +332,7 @@ public:
             this->opening = true;
             this->pending_starts = {cmd_key};
         }
-        const auto err = this->control->start();
-        if (!err) return acq_started;
-        {
-            std::lock_guard lock(this->state_mu);
-            this->state.error(err, "Failed to start task");
-            this->answer_pending_starts();
-        }
-        this->stop("", false);
-        return false;
+        return this->control->start() && acq_started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
