@@ -633,6 +633,21 @@ describe("actions.Controller", () => {
       expect(controller.hasUndo("k")).toBe(false);
     });
 
+    it("moves the rebuilt entry to redo for a queued undo after a failed send", async () => {
+      const send = createFailingSend(1);
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0, b: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("b", 2)]);
+      const undone = controller.undo("k");
+      await expect(one).rejects.toThrow("rejected");
+      expect(await Promise.all([two, undone])).toEqual([true, true]);
+      expect(send.mock.calls[1][1]).toEqual([set("b", 2), set("b", 0)]);
+      expect(docs.get("k")).toEqual({ values: { a: 0, b: 0 } });
+      expect(controller.hasUndo("k")).toBe(false);
+      expect(controller.prepareRedo("k")?.actions).toEqual([set("b", 2)]);
+    });
+
     it("keeps a batched rename when only the in-flight dispatch fails", async () => {
       const { docs, controller } = setupStore({ send: createFailingSend(1) });
       prime(docs, "k", { a: 0 });

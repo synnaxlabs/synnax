@@ -197,11 +197,18 @@ export interface Edit {
   reapply: () => destructor.Destructor;
 }
 
+/** A queued edit and the actions it sends. */
+interface Pending<Action> {
+  actions: Action[];
+  rollback: destructor.Destructor;
+  /** Makes the edit again on the current document. Null when nothing is left to do. */
+  remake: () => Pending<Action> | null;
+}
+
 /** Dispatches sent together as one. */
 interface Batch<Action> {
   dispatchKey: string;
-  actions: Action[];
-  edits: Edit[];
+  edits: Array<Pending<Action>>;
   result: PromiseWithResolvers<void>;
 }
 
@@ -213,13 +220,21 @@ const revert = (batch: Batch<unknown>): void =>
   batch.edits.toReversed().forEach((edit) => edit.rollback());
 
 // Rolls back a failed batch's edits. Rollbacks restore the state from before their
-// edit, so they run newest first, and the queued batch's edits then go back on top.
+// edit, so they run newest first. The queued batch has not been sent, so its edits are
+// then made again on the restored state, along with their actions.
 const rollBack = (failed: Batch<unknown>, queue: Queue<unknown>): void => {
   const queued = queue.next;
   if (queued != null) revert(queued);
   revert(failed);
-  queued?.edits.forEach((edit) => (edit.rollback = edit.reapply()));
+  if (queued != null)
+    queued.edits = queued.edits.flatMap((edit) => edit.remake() ?? []);
 };
+
+/** A replay's actions and the undo stack mutation that records them. */
+interface Prepared<Action> {
+  actions: Action[];
+  commitStack: (r: ReplayResult<Action>) => destructor.Destructor;
+}
 
 /**
  * Owns the action-dispatch loop for one document table: local replay with
@@ -297,6 +312,15 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * in-flight send settles. Rejects, with the edit rolled back, when the send fails.
    */
   async send(key: Key, actions: Action[], edit: Edit): Promise<void> {
+    const pending = (rollback: destructor.Destructor): Pending<Action> => ({
+      actions,
+      rollback,
+      remake: () => pending(edit.reapply()),
+    });
+    await this.enqueue(key, pending(edit.rollback));
+  }
+
+  private async enqueue(key: Key, edit: Pending<Action>): Promise<void> {
     let queue = this.queues.get(key);
     const inFlight = queue != null;
     if (queue == null) {
@@ -306,14 +330,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (queue.next == null) {
       queue.next = {
         dispatchKey: id.create(),
-        actions: [],
         edits: [],
         result: Promise.withResolvers<void>(),
       };
       this.registerOutstandingDispatch(key, queue.next.dispatchKey);
     }
     const batch = queue.next;
-    batch.actions.push(...actions);
     batch.edits.push(edit);
     if (!inFlight) void this.drain(key, queue);
     await batch.result.promise;
@@ -323,8 +345,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     while (queue.next != null) {
       const batch = queue.next;
       queue.next = null;
+      const actions = batch.edits.flatMap((edit) => edit.actions);
       try {
-        await this.params.send(key, batch.actions, batch.dispatchKey);
+        // A rebuild after a failed send can leave a batch with nothing to send.
+        if (actions.length > 0) await this.params.send(key, actions, batch.dispatchKey);
+        else this.outstandingDispatches.get(key)?.delete(batch.dispatchKey);
         batch.result.resolve();
       } catch (e) {
         this.outstandingDispatches.get(key)?.delete(batch.dispatchKey);
@@ -432,60 +457,58 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return {
       actions: side === "undo" ? entry.inverse : entry.forward,
       commit: () =>
-        this.updateUndo(key, (s) => {
-          // The entry is gone when a failed send rolled back the dispatch that
-          // pushed it.
-          const i = s[side].indexOf(entry);
-          if (i === -1) return s;
-          return { ...s, [side]: s[side].slice(0, i), [other]: [...s[other], entry] };
-        }),
+        this.updateUndo(key, (s) => ({
+          ...s,
+          [side]: s[side].slice(0, idx),
+          [other]: [...s[other], entry],
+        })),
     };
   }
 
   // Reduce + send with rollback: replay locally, run the per-op stack mutation, and
-  // roll back stack and state when the send fails. Returns false when the doc isn't
-  // cached.
+  // roll back stack and state when the send fails. Returns false when there is nothing
+  // to prepare or the doc isn't cached.
   private async applySend(
     key: Key,
-    actions: Action[],
-    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
-    preprocess?: Preprocess<State, Action>,
+    prepare: () => Prepared<Action> | null,
   ): Promise<boolean> {
-    const current = this.docs.get(key);
-    if (current == null) return false;
-    const processed = preprocess == null ? actions : preprocess(current, actions);
-    const r = this.replay(key, processed, { skipPreprocess: true });
-    if (r == null) return false;
-    const rollback = this.commit(r, commitStack);
+    const made = this.make(key, prepare);
+    if (made == null) return false;
     // A replay that left the state untouched has nothing for the server: no
     // document change, no broadcast worth echoing. The stack mutation still
-    // runs above so undo/redo consume their entry instead of pinning it.
-    if (!r.changed) return true;
-    await this.send(key, processed, {
-      rollback,
-      reapply: () => this.reapply(key, processed, commitStack),
-    });
+    // runs so undo/redo consume their entry instead of pinning it.
+    if (!made.changed) return true;
+    await this.enqueue(key, made.edit);
     return true;
   }
 
-  private commit(
-    r: ReplayResult<Action>,
-    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
-  ): destructor.Destructor {
-    const stackRollback = commitStack(r);
-    return () => {
-      stackRollback();
-      r.rollback();
+  private make(
+    key: Key,
+    prepare: () => Prepared<Action> | null,
+  ): { edit: Pending<Action>; changed: boolean } | null {
+    const prepared = prepare();
+    if (prepared == null) return null;
+    const r = this.replay(key, prepared.actions, { skipPreprocess: true });
+    if (r == null) return null;
+    const stackRollback = prepared.commitStack(r);
+    const edit: Pending<Action> = {
+      actions: r.processed,
+      rollback: () => {
+        stackRollback();
+        r.rollback();
+      },
+      remake: () => this.make(key, prepare)?.edit ?? null,
     };
+    return { edit, changed: r.changed };
   }
 
-  private reapply(
+  private prepareReversalSend(
     key: Key,
-    actions: Action[],
-    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
-  ): destructor.Destructor {
-    const r = this.replay(key, actions, { skipPreprocess: true });
-    return r == null ? destructor.NOOP : this.commit(r, commitStack);
+    side: "undo" | "redo",
+  ): Prepared<Action> | null {
+    const prepared = this.prepareReversal(key, side);
+    if (prepared == null) return null;
+    return { actions: prepared.actions, commitStack: () => prepared.commit() };
   }
 
   /**
@@ -499,13 +522,15 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     opts: Options<State, Action> = {},
   ): Promise<boolean> {
     if (actions.length === 0) return true;
-    return await this.applySend(
-      key,
-      actions,
-      ({ processed, inverse, targets }) =>
-        this.recordEntry(key, processed, inverse, targets),
-      opts.preprocess,
-    );
+    return await this.applySend(key, () => {
+      const current = this.docs.get(key);
+      if (current == null) return null;
+      return {
+        actions: opts.preprocess?.(current, actions) ?? actions,
+        commitStack: ({ processed, inverse, targets }) =>
+          this.recordEntry(key, processed, inverse, targets),
+      };
+    });
   }
 
   /**
@@ -513,16 +538,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * when nothing is undoable. Rolls back and rethrows on send failure.
    */
   async undo(key: Key): Promise<boolean> {
-    const prepared = this.prepareUndo(key);
-    if (prepared == null) return false;
-    return await this.applySend(key, prepared.actions, () => prepared.commit());
+    return await this.applySend(key, () => this.prepareReversalSend(key, "undo"));
   }
 
   /** Mirror of {@link undo} for the redo stack. */
   async redo(key: Key): Promise<boolean> {
-    const prepared = this.prepareRedo(key);
-    if (prepared == null) return false;
-    return await this.applySend(key, prepared.actions, () => prepared.commit());
+    return await this.applySend(key, () => this.prepareReversalSend(key, "redo"));
   }
 
   prepareUndo(key: Key): Reversal<Action> | null {
@@ -560,15 +581,18 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           targets,
           kind,
         );
-        await this.send(key, accumulated, {
+        await this.enqueue(key, {
+          actions: accumulated,
           rollback: () => {
             stackRollback();
             this.docs.set(key, initial);
           },
-          reapply: () =>
-            this.reapply(key, accumulated, (r) =>
-              this.recordEntry(key, accumulated, r.inverse, r.targets, kind),
-            ),
+          remake: () =>
+            this.make(key, () => ({
+              actions: accumulated,
+              commitStack: (r) =>
+                this.recordEntry(key, accumulated, r.inverse, r.targets, kind),
+            }))?.edit ?? null,
         });
         return true;
       },
