@@ -110,7 +110,7 @@ const requireUnique = async (directory: Directory, name: string): Promise<void> 
 
 /**
  * register creates a team with no members and invites its first admin. Staff never
- * join it.
+ * join it. Nothing is registered when Clerk or the event write fails.
  * @throws {HTTPError} 400 for an empty or taken name or an invalid email, or when
  * Clerk refuses the invitation. The team stays registered after a refused invitation.
  */
@@ -124,15 +124,25 @@ export const register = async (
   if (!z.email().safeParse(address).success)
     throw badRequest("Enter the admin's email address");
   await requireUnique(directory, trimmed);
-  const listed = await directory.create(trimmed);
-  const [row] = await mirrorTeams(store, [listed]);
-  const team = { ...row, clerkOrgID: listed.clerkOrgID };
-  await store.query.insert(event).values({
-    at: now,
-    kind: "register",
-    actor,
-    organization: team.key,
-    detail: { name: trimmed },
+  // Clerk goes last, so a failed write leaves no Clerk team to block a retry.
+  const team = await store.transact(async (tx) => {
+    const [row] = await tx
+      .insert(organization)
+      .values({ kind: "team", name: trimmed })
+      .returning();
+    await tx.insert(event).values({
+      at: now,
+      kind: "register",
+      actor,
+      organization: row.key,
+      detail: { name: trimmed },
+    });
+    const { clerkOrgID } = await directory.create(trimmed);
+    await tx
+      .update(organization)
+      .set({ clerkOrgID })
+      .where(eq(organization.key, row.key));
+    return { ...row, clerkOrgID };
   });
   try {
     await invite(store, directory, {

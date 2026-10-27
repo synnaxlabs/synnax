@@ -458,6 +458,15 @@ describe("organization routes", () => {
       expect((await events()).map((e) => e.kind)).toEqual(["register"]);
     });
 
+    it("should register nothing when the event write fails", async () => {
+      h.signIn(STAFF);
+      const res = await failingEvents(store, "register", register);
+      await expectError(res, 500, "Internal error");
+      expect(await globex()).toBeUndefined();
+      expect(h.directory.organizations).toHaveLength(1);
+      expect((await register()).status).toBe(200);
+    });
+
     it("should refuse a name another team has, in any case", async () => {
       h.signIn(STAFF);
       await expectError(
