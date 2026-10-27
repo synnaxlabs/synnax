@@ -82,10 +82,21 @@ ctrl.set(channel, value) -> None
 ctrl.set({channel: value, ...}) -> None
 ```
 
-| Parameter | Type                       | Description                                                |
-| --------- | -------------------------- | ---------------------------------------------------------- |
-| `channel` | `str`, `int`, or a `dict`  | One channel, or a dictionary of channels to values.        |
-| `value`   | A number, `bool`, or `str` | The value for one channel. Leave it out with a dictionary. |
+<Field.List>
+
+<Field.Item name="channel" type="str, int, or dict" required id="set-channel">
+
+One channel, or a dictionary of channels to values.
+
+</Field.Item>
+
+<Field.Item name="value" type="number, bool, or str" default="None" id="set-value">
+
+The value for one channel. Leave it out with a dictionary.
+
+</Field.Item>
+
+</Field.List>
 
 For each channel that has an index channel, `set` also writes the current time to the
 index. A dictionary sends every value in one write. Values are converted to the data

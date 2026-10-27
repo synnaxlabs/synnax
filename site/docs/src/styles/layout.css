@@ -92,7 +92,11 @@ main {
     min-width: var(--docs-page-nav-width);
     height: calc(100vh - var(--nav-height));
     overflow: hidden;
-    background: var(--pluto-gray-l2-20);
+    /* Opaque, so art that runs past the text column, such as the landing hero's grid,
+       stays behind it. */
+    background:
+        linear-gradient(var(--pluto-gray-l2-20), var(--pluto-gray-l2-20)),
+        var(--pluto-gray-l0);
     border-right: var(--pluto-border);
     transition:
         width 0.2s ease,
