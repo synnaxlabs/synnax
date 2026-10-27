@@ -21,6 +21,7 @@ from synnax import (
     device,
     framer,
     group,
+    panel,
     project,
     rack,
     ranger,
@@ -83,6 +84,7 @@ class Synnax(framer.Client):
     views: view.Client
     imex: ImexClient
     projects: project.Client
+    panels: panel.Client
 
     _transport: Transport
 
@@ -174,6 +176,7 @@ class Synnax(framer.Client):
         self.views = view.Client(client=self._transport.unary)
         self.imex = ImexClient(file_transport=self._transport.file_transport)
         self.projects = project.Client(client=self._transport.unary)
+        self.panels = panel.Client(client=self._transport.unary, ontology=self.ontology)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
