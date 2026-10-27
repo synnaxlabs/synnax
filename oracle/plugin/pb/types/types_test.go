@@ -182,6 +182,37 @@ var _ = Describe("Plugin", func() {
 			)
 		})
 
+		It("Should fail when two generic uses share a message name", func(
+			ctx SpecContext,
+		) {
+			for _, ns := range []string{"first", "second"} {
+				loader.Add("schemas/"+ns, `
+					@go output "core/pkg/service/`+ns+`"
+					@pb
+
+					Box struct<T> {
+						value T
+					}
+				`)
+			}
+			req := MustGenerateRequest(ctx, `
+				import "schemas/first"
+				import "schemas/second"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					a first.Box<string>
+					b second.Box<string>
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"generic uses first.Box<string> and second.Box<string> share the " +
+					"protobuf message name StringBox",
+			)))
+		})
+
 		Context("field-level omit", func() {
 			It("Should reserve the number of a field omitted in pb", func(
 				ctx SpecContext,
