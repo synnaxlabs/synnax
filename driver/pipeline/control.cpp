@@ -60,6 +60,7 @@ void Control::run() {
         this->sink->stopped_with_err(open_err);
         return;
     }
+    this->sink->opened();
 
     x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {
