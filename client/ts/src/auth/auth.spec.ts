@@ -195,6 +195,27 @@ describe("auth", () => {
       await client.logout();
     });
 
+    it("should forget the credentials when logging out before a login", async () => {
+      const client = makeClient();
+      await client.logout();
+      await expect(client.retrieveSessions()).rejects.toThrow(
+        "no credentials, token, or cookie",
+      );
+    });
+
+    it("should forget a saved token when logging out before a resume", async () => {
+      const owner = makeClient();
+      await login(owner);
+      const token = owner.token;
+      if (token == null) throw new Error("expected a token");
+      const resumed = makeResumed(token);
+      await resumed.logout();
+      await expect(resumed.retrieveSessions()).rejects.toThrow(
+        "no credentials, token, or cookie",
+      );
+      await owner.logout();
+    });
+
     it("should not open a new session when logging out of an ended session", async () => {
       const admin = createTestClient();
       const credentials = { username: id.create(), password: "seldon" };
