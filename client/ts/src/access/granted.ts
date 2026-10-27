@@ -9,7 +9,7 @@
 
 import { type destructor } from "@synnaxlabs/x";
 
-import { type Action } from "@/access/action/types.gen";
+import { type access } from "@/access/action";
 import { allowRequest } from "@/access/enforce";
 import { type policy } from "@/access/policy";
 import { ontology } from "@/ontology";
@@ -18,7 +18,7 @@ import { query } from "@/query";
 /** A permission question: may the subject apply the action to the objects? */
 export interface GrantedQuery {
   objects: ontology.ID | ontology.ID[];
-  action: Action;
+  action: access.Action;
 }
 
 interface Verdict {

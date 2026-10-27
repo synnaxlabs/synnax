@@ -29,11 +29,7 @@ import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import {
-  type Key as RackKey,
-  keyZ as rackKeyZ,
-  ontologyID as rackOntologyID,
-} from "@/rack/types.gen";
+import { rack } from "@/rack";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
@@ -147,7 +143,7 @@ export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends 
  */
 export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
-  readonly rack: RackKey;
+  readonly rack: rack.Key;
   name: string;
   internal: boolean;
   type: z.infer<S["type"]>;
@@ -285,7 +281,7 @@ export class Task<S extends Schemas = Schemas> {
 }
 
 const retrieveReqZ = z.object({
-  rack: rackKeyZ.optional(),
+  rack: rack.keyZ.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   types: z.string().array().optional(),
@@ -305,7 +301,7 @@ const singleRetrieveParamsZ = z.union([
     .object({ name: z.string(), includeStatus: z.boolean().optional() })
     .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
   z
-    .object({ type: z.string(), rack: rackKeyZ.optional() })
+    .object({ type: z.string(), rack: rack.keyZ.optional() })
     .transform(({ type, rack }) => ({ types: [type], rack })),
 ]);
 /** Names one task: by key, by name, or by type and rack. */
@@ -336,7 +332,7 @@ const singleQueryZ = z
   .union([
     z.strictObject({ key: keyZ, includeStatus: z.boolean().optional() }),
     z.strictObject({ name: z.string(), includeStatus: z.boolean().optional() }),
-    z.strictObject({ type: z.string(), rack: rackKeyZ.optional() }),
+    z.strictObject({ type: z.string(), rack: rack.keyZ.optional() }),
     keyZ.transform((key) => ({ key })),
   ])
   .transform(normalizeSingle);
@@ -691,9 +687,9 @@ export class Client extends query.Retriever<
 
   // Every domain's statuses share one store, so a rack's status sits beside its
   // tasks' under the rack's ontology ID.
-  private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
-    if (rack == null || primitive.isZero(rack)) return undefined;
-    const stat = this.cfg.statusStore.get(ontology.idToString(rackOntologyID(rack)));
+  private downRackStatus(key: rack.Key | undefined): status.Status | undefined {
+    if (key == null || primitive.isZero(key)) return undefined;
+    const stat = this.cfg.statusStore.get(ontology.idToString(rack.ontologyID(key)));
     if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
     return stat;
   }

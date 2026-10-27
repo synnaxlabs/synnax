@@ -31,7 +31,7 @@ import {
   rename as renameAction,
   scopedActionZ,
 } from "@/arc/actions.gen";
-import { type Performance, performanceZ } from "@/arc/task/types.gen";
+import { task as arcTask } from "@/arc/task";
 import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
@@ -93,7 +93,7 @@ const singleQueryZ = z.union([
 const updateTaskReqZ = z.object({
   key: keyZ,
   rack: rack.keyZ.optional(),
-  performance: performanceZ.optional(),
+  performance: arcTask.performanceZ.optional(),
 });
 const updateTaskResZ = z.object({ task: task.payloadZ().nullish() });
 
@@ -105,7 +105,7 @@ export interface UpdateTaskParams {
    */
   rack?: rack.Key;
   /** Sets how closely the task's runtime holds timer deadlines. */
-  performance?: Performance;
+  performance?: arcTask.Performance;
 }
 
 /**

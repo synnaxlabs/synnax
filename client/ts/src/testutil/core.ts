@@ -24,15 +24,7 @@ import {
 
 import { channel } from "@/channel";
 import { AccessDeniedError, NotFoundError, ValidationError } from "@/errors";
-import { type ChannelRetriever } from "@/framer/adapter";
-import { Feed, type FeedProps } from "@/framer/feed";
-import { Frame } from "@/framer/frame";
-import {
-  type Streamer,
-  type StreamerConfig,
-  streamerConfigZ,
-  type StreamerUpdateOptions,
-} from "@/framer/streamer";
+import { framer } from "@/framer";
 
 // Samples per series in an unreduced read, matching an iterator response.
 const CHUNK = 1e5;
@@ -212,7 +204,7 @@ export class SyntheticCore {
   now = (): TimeStamp => this.clock;
 
   /** Retrieves the payloads of the Core's channels with the given keys or names. */
-  retrieveChannels: ChannelRetriever = async (params) => {
+  retrieveChannels: framer.ChannelRetriever = async (params) => {
     const keys = array.toArray(params) as unknown[];
     return this.all()
       .filter((c) => keys.includes(c.key) || keys.includes(c.name))
@@ -239,11 +231,11 @@ export class SyntheticCore {
       data: [[{ key, timeRange: tr }]],
       dataType: DataType.JSON,
     });
-    this.stream(new Frame(this.historyChange.key, signal));
+    this.stream(new framer.Frame(this.historyChange.key, signal));
   }
 
   /** Streams the frame to every open streamer. Reads never return its samples. */
-  stream(frame: Frame): void {
+  stream(frame: framer.Frame): void {
     this.streamers.forEach((s) => s.push(frame));
   }
 
@@ -268,8 +260,8 @@ export class SyntheticCore {
   }
 
   /** Opens a feed that reads and streams from the Core, unless props replace them. */
-  openFeed(props: Partial<FeedProps> = {}): Feed {
-    return new Feed({
+  openFeed(props: Partial<framer.FeedProps> = {}): framer.Feed {
+    return new framer.Feed({
       now: this.now,
       readRemote: async (tr, keys, reduction) => this.read(tr, keys, reduction),
       retrieveChannels: this.retrieveChannels,
@@ -292,14 +284,14 @@ export class SyntheticCore {
     this.checkDomain();
     const to = this.written();
     if (to === from || !streamed) return;
-    const index = new Frame();
+    const index = new framer.Frame();
     this.raw(this.index.key, from, to).forEach((s) =>
       index.push(
         this.index.key,
         new Series({ ...seriesProps(s), alignment: s.alignment + LEADING }),
       ),
     );
-    const data = this.dataFramedApart ? new Frame() : index;
+    const data = this.dataFramedApart ? new framer.Frame() : index;
     this.data.forEach(({ key }) =>
       this.raw(key, from, to).forEach((s) =>
         data.push(
@@ -335,21 +327,21 @@ export class SyntheticCore {
   }
 
   /** Reads the channels over the time range, as the Core's read with a reduction. */
-  read(tr: TimeRange, keys: channel.Key[], reduction?: Reduction): Frame {
+  read(tr: TimeRange, keys: channel.Key[], reduction?: Reduction): framer.Frame {
     this.reads++;
     this.checkConnected();
     if (this.virtual != null && keys.includes(this.virtual.key))
       throw new ValidationError("cannot read from a virtual channel");
     const first = this.samplesBefore(tr.start);
     const last = this.samplesBefore(tr.end);
-    if (last <= first) return new Frame();
+    if (last <= first) return new framer.Frame();
     if (reduction?.variant === "stride")
       throw new Error("synthetic core does not serve stride reductions");
     const size =
       reduction == null
         ? 1
         : groupSize(last - first, reduction.pointLimit, reduction.aggregation);
-    const frame = new Frame();
+    const frame = new framer.Frame();
     for (const key of keys) {
       if (size < 2) {
         for (let c = first; c < last; c += CHUNK) {
@@ -372,12 +364,16 @@ export class SyntheticCore {
   }
 
   /** Reads the newest count samples of each channel in the time range. */
-  readLatest(keys: channel.Key[], count: number, tr: TimeRange = TimeRange.MAX): Frame {
+  readLatest(
+    keys: channel.Key[],
+    count: number,
+    tr: TimeRange = TimeRange.MAX,
+  ): framer.Frame {
     this.reads++;
     this.checkConnected();
     const last = this.samplesBefore(tr.end);
     const first = Math.max(this.samplesBefore(tr.start), last - count);
-    const frame = new Frame();
+    const frame = new framer.Frame();
     if (last > first)
       keys.forEach((key) =>
         this.raw(key, first, last).forEach((s) => frame.push(key, s)),
@@ -391,7 +387,7 @@ export class SyntheticCore {
   }
 
   /** Opens a stream of the channels in the config, as the Core's streamer. */
-  openStreamer(config: StreamerConfig): Streamer {
+  openStreamer(config: framer.StreamerConfig): framer.Streamer {
     this.checkConnected();
     const streamer = new SyntheticStreamer(
       config,
@@ -586,24 +582,24 @@ const groupSize = (count: number, limit: number, aggregation: Aggregation): numb
   return aggregation === "min_max" ? decimated * 2 : decimated;
 };
 
-class SyntheticStreamer implements Streamer {
+class SyntheticStreamer implements framer.Streamer {
   keys: channel.Key[];
-  private readonly queue: Frame[] = [];
+  private readonly queue: framer.Frame[] = [];
   // waiting resolves the pending pull with the next frame, or with null on close.
-  private waiting: ((frame: Frame | null) => void) | null = null;
+  private waiting: ((frame: framer.Frame | null) => void) | null = null;
   private closed = false;
 
   constructor(
-    config: StreamerConfig,
+    config: framer.StreamerConfig,
     private readonly ackDelay: TimeSpan,
     private readonly checkAccess: (keys: channel.Key[]) => void,
     private readonly onClose: (s: SyntheticStreamer) => void,
   ) {
-    this.keys = toKeys(streamerConfigZ.parse(config).channels);
+    this.keys = toKeys(framer.streamerConfigZ.parse(config).channels);
     checkAccess(this.keys);
   }
 
-  push(frame: Frame): void {
+  push(frame: framer.Frame): void {
     if (this.closed) return;
     const filtered = frame.get(this.keys);
     if (filtered.series.length === 0) return;
@@ -613,20 +609,23 @@ class SyntheticStreamer implements Streamer {
   }
 
   // The keys apply at once, so frames of new keys can arrive before the ack.
-  async update(channels: channel.Params, _?: StreamerUpdateOptions): Promise<void> {
+  async update(
+    channels: channel.Params,
+    _?: framer.StreamerUpdateOptions,
+  ): Promise<void> {
     const keys = toKeys(channels);
     this.checkAccess(keys);
     this.keys = keys;
     if (!this.ackDelay.isZero) await sleep.sleep(this.ackDelay);
   }
 
-  async read(): Promise<Frame> {
+  async read(): Promise<framer.Frame> {
     const frame = await this.pull();
     if (frame == null) throw new EOF();
     return frame;
   }
 
-  async next(): Promise<IteratorResult<Frame>> {
+  async next(): Promise<IteratorResult<framer.Frame>> {
     const frame = await this.pull();
     if (frame == null) return { done: true, value: undefined };
     return { done: false, value: frame };
@@ -639,11 +638,11 @@ class SyntheticStreamer implements Streamer {
     this.onClose(this);
   }
 
-  [Symbol.asyncIterator](): AsyncIterator<Frame> {
+  [Symbol.asyncIterator](): AsyncIterator<framer.Frame> {
     return this;
   }
 
-  private async pull(): Promise<Frame | null> {
+  private async pull(): Promise<framer.Frame | null> {
     if (this.closed) return null;
     const next = this.queue.shift();
     if (next != null) return next;

@@ -9,8 +9,8 @@
 
 import { array } from "@synnaxlabs/x";
 
-import { type Action } from "@/access/action/types.gen";
-import { type Policy } from "@/access/policy/types.gen";
+import { type access } from "@/access/action";
+import { type policy } from "@/access/policy";
 import { type ontology } from "@/ontology";
 
 /**
@@ -21,7 +21,7 @@ export interface Request {
   /** The subject making the request (typically a user) */
   subject: ontology.ID;
   /** The action being requested */
-  action: Action;
+  action: access.Action;
   /** The objects being accessed */
   objects: ontology.ID | ontology.ID[];
 }
@@ -44,7 +44,7 @@ export interface Request {
  *      - Instance-level match: policy object has matching type and key
  * - ALL requested objects must be allowed for the request to succeed
  */
-export const allowRequest = (req: Request, policies: Policy[]): boolean => {
+export const allowRequest = (req: Request, policies: policy.Policy[]): boolean => {
   const objs = array.toArray(req.objects);
   const { action } = req;
   for (const requestedObj of objs) {
