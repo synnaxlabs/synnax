@@ -28,6 +28,7 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 		[]gorp.Migration{
 			v1.Migration,
 			v1.HTTPHealthCheckMigration,
+			v1.EtherCATMakeMigration,
 			v1.EtherCATChannelMapMigration,
 		},
 	)

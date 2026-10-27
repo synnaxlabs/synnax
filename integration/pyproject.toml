@@ -31,8 +31,6 @@ classifiers = ["Private :: Do Not Upload"]
 [project.scripts]
 test-conductor = "framework.test_conductor:main"
 tc = "framework.test_conductor:main"
-migration-conductor = "migration_conductor:main"
-mc = "migration_conductor:main"
 
 [dependency-groups]
 dev = [
@@ -90,25 +88,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "nisyscfg.*"
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "setup"
-ignore_missing_imports = true
-
-# The migration conductor runs these against the pinned PyPI client of each
-# SETUP_VERSION, so they target old client APIs, not the workspace client.
-[[tool.mypy.overrides]]
-module = [
-    "tests.migration.channels_calc_setup",
-    "tests.migration.channels_setup",
-    "tests.migration.ranges_setup",
-    "tests.migration.rbac_setup",
-    "tests.migration.setup",
-    "tests.migration.task_modbus_setup",
-    "tests.migration.task_ni_setup",
-    "tests.migration.task_opc_setup",
-]
-ignore_errors = true
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

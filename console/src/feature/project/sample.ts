@@ -15,6 +15,7 @@ import {
   NotFoundError,
   project,
   schematic,
+  status,
   type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
@@ -59,7 +60,7 @@ func step() {
     ${VENT_VLV_STATE} = ${VENT_VLV_CMD}
 }
 
-time.interval{period=100ms} -> step{}
+time.interval(period=100ms) -> step()
 `;
 
 const SEQUENCE = `import control
@@ -76,7 +77,7 @@ sequence press {
         ${START_CMD} == 1 => pressurize
     }
     stage pressurize {
-        control.set_authority{value=100}
+        control.set_authority(value=100)
         1 -> ${PRESS_VLV_CMD}
         0 -> ${VENT_VLV_CMD}
         ${TANK_PT} > 450 => abort
@@ -86,7 +87,7 @@ sequence press {
     stage hold {
         0 -> ${PRESS_VLV_CMD}
         ${ABORT_CMD} == 1 => abort
-        time.wait{duration=10s} => vent
+        time.wait(duration=10s) => vent
     }
     stage vent {
         1 -> ${VENT_VLV_CMD}
@@ -95,7 +96,7 @@ sequence press {
     // Abort raises the sequence to the authority of a control chip, so its commands
     // reach a valve an operator holds.
     stage abort {
-        control.set_authority{value=255}
+        control.set_authority(value=255)
         0 -> ${PRESS_VLV_CMD}
         1 -> ${VENT_VLV_CMD}
         ${START_CMD} == 1 => pressurize
@@ -244,9 +245,12 @@ const deploy = async (client: Synnax, key: arc.Key): Promise<void> => {
   if (racks.length === 0) throw new NotFoundError("No rack can run Arc programs");
   const task = await client.arcs.updateTask(key, { rack: racks[0].key });
   if (task == null) throw new UnexpectedError(`Arc ${key} has no task`);
-  // A start leaves a running Arc alone, so the stop resets its stage and state.
+  // A start leaves a running Arc alone, so the stop resets its stage and state. The
+  // Driver does not answer a stop for a new task, but it runs commands in order, so the
+  // start's status also means the stop ran.
   await task.stop();
-  await task.start();
+  const state = await task.executeCommandSync({ type: "start" });
+  if (state.variant === "error") throw status.toError(state);
 };
 
 export const exists = async (client: Synnax): Promise<boolean> => {

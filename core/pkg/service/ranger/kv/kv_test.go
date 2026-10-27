@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -101,8 +102,10 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
 		Expect(kvSvc.NewWriter(tx).Delete(ctx, r.Key, "key")).To(Succeed())
-		_, err := kvSvc.NewReader(tx).Get(ctx, r.Key, "key")
-		Expect(err).To(HaveOccurred())
+		Expect(
+			kvSvc.NewReader(tx).Get(ctx, r.Key, "key"),
+		).Error().
+			To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should set many key-value pairs on the range", func(ctx SpecContext) {

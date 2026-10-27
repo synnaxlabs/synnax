@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -14,9 +15,10 @@ import { type ReactElement } from "react";
 
 import { type Organization } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
+import { channels, term } from "@/server/license/limits";
 import { type Held } from "@/server/license/list";
-import { channels, date, edition, statusOf, term } from "@/ui/format";
-import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
+import { activatePath } from "@/shell";
+import { date, edition, statusOf } from "@/ui/format";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
@@ -27,7 +29,7 @@ export interface LicensesProps {
   now: Date;
 }
 
-const COLUMNS = "minmax(0, 2fr) 14rem 10rem minmax(0, 1.4fr) 10rem 3rem";
+const COLUMNS = "minmax(0, 2fr) 14rem 10rem minmax(0, 1.4fr) 14rem 3rem";
 
 /** Licenses lists an organization's licenses, one row per license. */
 export const Licenses = ({
@@ -41,11 +43,16 @@ export const Licenses = ({
       title="Licenses"
       subtitle={organization.name}
       actions={
-        activatable.length === 1 && (
-          <ActivateDialog
-            licenseKey={activatable[0].license.key}
-            label={activatable[0].license.label}
-          />
+        activatable.length > 0 && (
+          <Button.Button
+            variant="filled"
+            href={activatePath(
+              activatable.length === 1 ? activatable[0].license.key : undefined,
+            )}
+          >
+            <Icon.Add />
+            Activate a machine
+          </Button.Button>
         )
       }
     >
