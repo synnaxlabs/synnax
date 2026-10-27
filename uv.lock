@@ -2862,6 +2862,7 @@ dependencies = [
 dev = [
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "ruff" },
     { name = "types-psutil" },
 ]
@@ -2873,6 +2874,7 @@ requires-dist = [{ name = "psutil", specifier = ">=7.2.2,<8" }]
 dev = [
     { name = "mypy", specifier = ">=2.4.0,<3" },
     { name = "pytest", specifier = ">=9.1.1,<10" },
+    { name = "pytest-cov", specifier = ">=7.1.0,<8" },
     { name = "ruff", specifier = ">=0.17.1,<1" },
     { name = "types-psutil", specifier = ">=7.2.2.20260906,<8" },
 ]
