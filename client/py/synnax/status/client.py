@@ -208,51 +208,24 @@ class Client:
         has_labels: list[UUID] | None = None,
         variants: list[Variant] | None = None,
     ) -> Status[JsonValue] | list[Status[JsonValue]]:
-        """Retrieve the statuses that match every condition and filter.
+        """Retrieves the statuses that match every condition and filter.
 
-        Args:
-            args: Conditions from the status builder, such as
-                ``status.variant.eq("error")``, or one key or list of keys.
-            key: Retrieve a single status by key.
-            one: Return the one status that matches, instead of a list.
-            keys: Retrieve multiple statuses by keys.
-            search_term: Search for statuses by name or message.
-            offset: Pagination offset.
-            limit: Pagination limit.
-            include_labels: Whether to include labels in the response.
-            has_labels: Filter statuses that have any of these labels.
-            variants: Filter statuses by variant (e.g. "success", "error").
-
-        Returns:
-            A single status for a key or one, or a list of statuses.
-
-        Raises:
-            NotFoundError: If no status matches a key or one.
-            MultipleFoundError: If one is True and more than one status matches.
-            TypeError: If args are neither status conditions nor a shortcut.
-
-        Examples:
-            Retrieve by key:
-                >>> status = client.statuses.retrieve(key="my-status")
-
-            Retrieve multiple:
-                >>> statuses = client.statuses.retrieve(
-                ...     keys=["status-1", "status-2"]
-                ... )
-
-            Search with pagination:
-                >>> statuses = client.statuses.retrieve(
-                ...     search_term="error",
-                ...     limit=10,
-                ...     offset=0
-                ... )
-
-            Filter by labels:
-                >>> from uuid import UUID
-                >>> statuses = client.statuses.retrieve(
-                ...     has_labels=[UUID("label-uuid")],
-                ...     include_labels=True
-                ... )
+        :param args: Conditions from the status builder, such as
+            ``status.variant.eq("error")``, or one key or list of keys.
+        :param key: The key of one status to retrieve.
+        :param one: Returns the one status that matches, instead of a list.
+        :param keys: Keeps statuses with one of these keys.
+        :param search_term: A fuzzy search term matched against status names and
+            messages.
+        :param offset: The number of statuses to skip.
+        :param limit: The maximum number of statuses to return.
+        :param include_labels: Whether to populate each status's labels.
+        :param has_labels: Keeps statuses that have any of these labels.
+        :param variants: Keeps statuses with one of these variants.
+        :returns: One status for a key or one, and a list otherwise.
+        :raises NotFoundError: If no status matches a key or one.
+        :raises MultipleFoundError: If one is True and more than one status matches.
+        :raises TypeError: If args are neither status conditions nor a shortcut.
         """
         conditions, query = util.shortcut(
             "Status", args, Condition, str, builder_gen.key

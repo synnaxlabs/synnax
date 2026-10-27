@@ -953,6 +953,7 @@ class TestOnCreate:
 
 class TestBuilder:
     def test_join(self) -> None:
+        """Should join nested range conditions into one Where tree."""
         key = uuid4()
         label_key = uuid4()
         window = sy.TimeRange(sy.TimeStamp(1), sy.TimeStamp(2))
@@ -981,5 +982,6 @@ class TestBuilder:
         )
 
     def test_another_entity(self) -> None:
+        """Should fail the type check for a condition of another entity."""
         condition: label.Condition = ranger.name.eq("Hotfire")  # type: ignore[assignment]
         assert condition.tree == {"name": {"eq": "Hotfire"}}

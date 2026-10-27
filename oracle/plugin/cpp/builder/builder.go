@@ -97,8 +97,8 @@ type templateData struct {
 	Namespace string
 	// Where is the C++ name of the filter.
 	Where string
-	// Request is the C++ name of the derived retrieve request, or empty when the
-	// filter has none.
+	// Request is the C++ name of the derived retrieve request, or empty when the filter
+	// has none.
 	Request  string
 	Lines    []lineData
 	Options  []string
