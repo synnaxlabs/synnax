@@ -197,19 +197,12 @@ resource "aws_iam_instance_profile" "host" {
 }
 
 resource "aws_instance" "host" {
-  ami                         = data.aws_ssm_parameter.ami.value
-  instance_type               = var.instance_type
-  iam_instance_profile        = aws_iam_instance_profile.host.name
-  vpc_security_group_ids      = [aws_security_group.preview.id]
-  user_data_replace_on_change = true
+  ami                    = data.aws_ssm_parameter.ami.value
+  instance_type          = var.instance_type
+  iam_instance_profile   = aws_iam_instance_profile.host.name
+  vpc_security_group_ids = [aws_security_group.preview.id]
   user_data = templatefile("${path.module}/bootstrap.sh", {
-    domain    = local.domain
-    ttl_days  = var.ttl_days
-    max       = var.max_previews
-    cpus      = var.preview_cpus
-    memory    = var.preview_memory
-    license   = var.license_parameter
-    region    = var.region
+    env       = local.host_env
     caddyfile = file("${path.module}/Caddyfile")
     preview   = file("${path.module}/preview.sh")
   })
@@ -221,9 +214,25 @@ resource "aws_instance" "host" {
     http_tokens = "required"
   }
   tags = { Name = "synnax-preview" }
+  # User data only bootstraps a new host. install.sh brings a running host up to date,
+  # so a script or setting change never replaces the host under live previews.
   lifecycle {
-    ignore_changes = [ami]
+    ignore_changes = [ami, user_data]
   }
+}
+
+locals {
+  host_env = <<-EOT
+    PREVIEW_DOMAIN=${local.domain}
+    PREVIEW_SITES=/etc/caddy/sites
+    PREVIEW_TTL_DAYS=${var.ttl_days}
+    PREVIEW_LICENSE_PARAMETER=${var.license_parameter}
+    PREVIEW_REGION=${var.region}
+    PREVIEW_MAX=${var.max_previews}
+    PREVIEW_CPUS=${var.preview_cpus}
+    PREVIEW_MEMORY=${var.preview_memory}
+    PREVIEW_LOGS=/var/log/caddy
+  EOT
 }
 
 resource "aws_eip" "host" {}
@@ -331,4 +340,9 @@ output "domain" {
 
 output "ecr_repository_url" {
   value = aws_ecr_repository.preview.repository_url
+}
+
+output "host_env" {
+  description = "The settings install.sh writes to the host."
+  value       = local.host_env
 }

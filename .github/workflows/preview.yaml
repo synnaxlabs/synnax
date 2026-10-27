@@ -112,7 +112,9 @@ jobs:
         id: mark
         env:
           GH_TOKEN: ${{ github.token }}
-        run: echo "mark=$(.github/scripts/review_mark.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          mark=$(.github/scripts/review_mark.sh)
+          echo "mark=$mark" >> "$GITHUB_OUTPUT"
 
       - name: Deploy the preview
         id: deploy
@@ -212,7 +214,9 @@ jobs:
         id: mark
         env:
           GH_TOKEN: ${{ github.token }}
-        run: echo "mark=$(.github/scripts/review_mark.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          mark=$(.github/scripts/review_mark.sh)
+          echo "mark=$mark" >> "$GITHUB_OUTPUT"
 
       - name: Mark the preview
         env:

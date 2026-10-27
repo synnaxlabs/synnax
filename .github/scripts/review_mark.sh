@@ -12,15 +12,14 @@
 # Prints "<mark> <time>" for pull request PR: "human" while it has the review/human
 # label, "none" otherwise, and the Unix time just before the labels were read. The
 # preview host keeps the newest mark, so runs that finish out of order cannot undo one.
+# It fails when the labels cannot be read, rather than guess.
 
 set -euo pipefail
 
 : "${PR:?}" "${GITHUB_REPOSITORY:?}"
 
 at=$(date +%s)
+labels=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" --jq '.[].name')
 mark=none
-if gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" --jq '.[].name' \
-    | grep -qx "review/human"; then
-    mark=human
-fi
+if grep -qx "review/human" <<< "$labels"; then mark=human; fi
 echo "$mark $at"

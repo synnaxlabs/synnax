@@ -20,15 +20,7 @@ mkdir -p /root/.docker /etc/caddy/sites /var/log/caddy
 echo '{"credsStore": "ecr-login"}' > /root/.docker/config.json
 
 cat > /etc/synnax-preview.env << 'EOF'
-PREVIEW_DOMAIN=${domain}
-PREVIEW_SITES=/etc/caddy/sites
-PREVIEW_TTL_DAYS=${ttl_days}
-PREVIEW_LICENSE_PARAMETER=${license}
-PREVIEW_REGION=${region}
-PREVIEW_MAX=${max}
-PREVIEW_CPUS=${cpus}
-PREVIEW_MEMORY=${memory}
-PREVIEW_LOGS=/var/log/caddy
+${env}
 EOF
 
 cat > /etc/caddy/Caddyfile << 'EOF'

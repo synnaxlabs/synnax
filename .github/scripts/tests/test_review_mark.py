@@ -17,11 +17,14 @@ import pytest
 SCRIPT = Path(__file__).resolve().parents[1] / "review_mark.sh"
 
 
-def run(tmp_path: Path, labels: list[str]) -> subprocess.CompletedProcess[str]:
+def run(
+    tmp_path: Path, labels: list[str], fails: bool = False
+) -> subprocess.CompletedProcess[str]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     gh = bin_dir / "gh"
-    gh.write_text("#!/bin/sh\nprintf '%s' \"$LABELS\"\n")
+    body = "exit 1" if fails else "printf '%s' \"$LABELS\""
+    gh.write_text(f"#!/bin/sh\n{body}\n")
     gh.chmod(0o755)
     env = {
         **os.environ,
@@ -54,3 +57,8 @@ class TestReviewMark:
         printed, at = result.stdout.split()
         assert printed == mark
         assert before <= int(at) <= int(time.time())
+
+    def test_should_fail_when_the_labels_cannot_be_read(self, tmp_path: Path) -> None:
+        result = run(tmp_path, ["review/human"], fails=True)
+        assert result.returncode != 0
+        assert result.stdout == ""
