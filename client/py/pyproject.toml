@@ -137,6 +137,7 @@ markers = [
     "series: mark test as a series test",
     "signals: mark test as a signals test",
     "status: mark test as a status test",
+    "table: mark test as a table test",
     "task: mark test as a task test",
     "telem: mark test as a telem test",
     "timing: mark test as a timing test",
