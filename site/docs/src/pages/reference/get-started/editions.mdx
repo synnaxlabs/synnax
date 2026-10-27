@@ -1,0 +1,56 @@
+---
+title: "Editions"
+heading: "Synnax editions"
+description:
+  "Compare Synnax Desktop and Synnax Enterprise, and find out how to get each."
+layout: "@/layouts/Reference.astro"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Edition } from "@/components/edition";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax comes in two editions. Synnax Desktop is one free app that runs on your computer,
+with nothing to set up. Synnax Enterprise is a Synnax Core that your team runs on its
+own servers, and many people, scripts, and Drivers connect to it.
+
+<Divider.Divider x />
+
+## Choose an edition
+
+Use **Synnax Desktop** when one person works on one computer. For example, an engineer
+at a bench connects a LabJack or an NI device, records data, and plots it. Synnax
+Desktop is also the fastest way to try Synnax.
+
+Use **Synnax Enterprise** when a team shares one system. Choose Enterprise when you:
+
+- Have more than one person who needs the same data.
+- Connect hardware on other computers, such as a second PC or an NI CompactRIO.
+- Write Python or TypeScript code that reads, writes, or controls data.
+- Run Synnax on Linux or on a server.
+- Need users, roles, and permissions.
+
+<Divider.Divider x />
+
+## Compare the editions
+
+The two editions share most capabilities. They differ in where they run and in who can
+connect.
+
+<Edition.Compare />
+
+<Divider.Divider x />
+
+## Get an edition
+
+### Synnax Desktop
+
+Synnax Desktop is free, and needs a Synnax account. To download it, see
+[Install Synnax Desktop](/reference/get-started/install-desktop).
+
+### Synnax Enterprise
+
+To get Synnax Enterprise, contact [Synnax Labs](https://www.synnaxlabs.com). Each Core
+needs a license from the Synnax portal. To install a Core and connect to it, see
+[Set up Synnax Enterprise](/reference/enterprise).
