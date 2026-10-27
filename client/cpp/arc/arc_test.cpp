@@ -178,11 +178,11 @@ TEST(TestArc, testRetrieveWithCompile) {
 
     auto arc = Arc{.name = random_arc_name("compile_test"), .mode = MODE_TEXT};
     std::string calc_arc_text = R"(
-func calc(val f32) f32 {
+func calc() {val f32} f32 {
     return val * 2
 }
 
-)" + ox_pt_1.name + " -> calc{} -> " +
+)" + ox_pt_1.name + " -> calc() -> " +
                                 ox_pt_doubled.name + R"(
 )";
     arc.text.raw = calc_arc_text;
@@ -234,7 +234,7 @@ TEST(TestArc, testIntervalNodeCompiles) {
     arc.text.raw = R"(
 sequence main {
     stage initial {
-        interval{period=5s} => next
+        interval(period=5s) => next
     }
     stage end {
     }
