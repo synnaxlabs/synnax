@@ -9,17 +9,22 @@
 
 import { type AstroIntegration, type HookParameters } from "astro";
 
-const ROUTES = ["favicon.ico", "favicon.svg", "robots.txt"];
+const FAVICONS = ["favicon.ico", "favicon.svg"];
+
+export interface Config {
+  /** Leaves out the robots.txt, for a site that search engines do not list. */
+  unlisted?: boolean;
+}
 
 /** Serves the favicons and the robots.txt that every Synnax site shares. */
-export const integration = () =>
+export const integration = ({ unlisted = false }: Config = {}) =>
   ({
     name: "@synnaxlabs/site-common",
     hooks: {
       "astro:config:setup": ({
         injectRoute,
       }: Pick<HookParameters<"astro:config:setup">, "injectRoute">) => {
-        for (const route of ROUTES)
+        for (const route of unlisted ? FAVICONS : [...FAVICONS, "robots.txt"])
           injectRoute({
             pattern: `/${route}`,
             entrypoint: new URL(`./routes/${route}.ts`, import.meta.url),

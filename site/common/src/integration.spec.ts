@@ -41,4 +41,15 @@ describe("integration", () => {
       expect(existsSync(fileURLToPath(entrypoint))).toBe(true),
     );
   });
+
+  it("should leave out the robots.txt of an unlisted site", () => {
+    const unlisted: InjectedRoute[] = [];
+    integration({ unlisted: true }).hooks["astro:config:setup"]({
+      injectRoute: (route) => unlisted.push(route),
+    });
+    expect(unlisted.map(({ pattern }) => pattern)).toEqual([
+      "/favicon.ico",
+      "/favicon.svg",
+    ]);
+  });
 });

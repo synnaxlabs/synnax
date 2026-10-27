@@ -70,12 +70,14 @@ export interface Config {
 
 /**
  * pipeline builds the middleware every request passes through: the origin check, the
- * session, the portal, and the security headers.
+ * session, the portal, and the security headers. A prerendered route, built once with
+ * no visitor, skips it.
  */
 export const pipeline = ({ auth, open }: Config): MiddlewareHandler => {
   const portal: MiddlewareHandler = async (context, next) => {
     context.locals.portal = open(context);
     return await next();
   };
-  return sequence(origin, auth, portal, headers);
+  const live = sequence(origin, auth, portal, headers);
+  return (context, next) => (context.isPrerendered ? next() : live(context, next));
 };

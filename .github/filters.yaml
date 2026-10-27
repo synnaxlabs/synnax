@@ -193,13 +193,6 @@ pluto: &pluto
   - *x_ts
   - pluto/**
 
-portal:
-  - *client_ts
-  - *lyra
-  - *ts
-  - *x_ts
-  - site/portal/**
-
 console: &console
   - *client_ts
   - *drift
@@ -230,6 +223,14 @@ foundation:
   - *site_common
   - *ts
   - site/foundation/**
+
+portal:
+  - *client_ts
+  - *lyra
+  - *site_common
+  - *ts
+  - *x_ts
+  - site/portal/**
 
 www:
   - *arc_ts

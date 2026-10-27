@@ -178,6 +178,22 @@ describe("pipeline", () => {
     });
   });
 
+  describe("prerendered routes", () => {
+    it("should skip the session and the portal for a prerendered route", async () => {
+      const auth = vi.fn<MiddlewareHandler>(async (_, next) => await next());
+      const open = vi.fn(() => harness.portal);
+      handler = pipeline({ auth, open });
+      const res = await send(async () => new Response("icon"), {
+        method: "GET",
+        path: "/favicon.svg",
+        prerendered: true,
+      });
+      expect(await res.text()).toBe("icon");
+      expect(auth).not.toHaveBeenCalled();
+      expect(open).not.toHaveBeenCalled();
+    });
+  });
+
   describe("security headers", () => {
     afterEach(() => {
       vi.unstubAllEnvs();
