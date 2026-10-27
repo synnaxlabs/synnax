@@ -15,6 +15,9 @@ import { type Directory } from "@/server/directory";
 import { badRequest } from "@/server/errors";
 import { type Session } from "@/server/session";
 
+/** Team is a team organization with the Clerk organization that backs it. */
+export type Team = Organization & { clerkOrgID: string };
+
 export interface EnsurePersonalArgs {
   userID: string;
   name: string;

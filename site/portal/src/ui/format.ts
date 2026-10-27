@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Event, type License } from "@/server/db/schema";
+import { ADMIN_ROLE, MEMBER_ROLE } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
 
 export const date = (d: Date | null): string =>
@@ -103,6 +104,12 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   link: "Machine linked",
   renew: "License renewed",
   unlink: "Machine logged out",
+  register: "Organization registered",
+  rename_organization: "Organization renamed",
+  invite: "Invitation sent",
+  revoke_invitation: "Invitation revoked",
+  change_role: "Role changed",
+  remove_member: "Member removed",
 };
 
 const REASON_LABELS: Partial<Record<string, string>> = {
@@ -119,17 +126,30 @@ interface Narrator {
   actors: Record<string, string>;
 }
 
+export const ROLES: { key: string; name: string }[] = [
+  { key: ADMIN_ROLE, name: "Admin" },
+  { key: MEMBER_ROLE, name: "Member" },
+];
+
+export const roleName = (role: string): string =>
+  ROLES.find((r) => r.key === role)?.name ?? role;
+
+const text = (value: unknown): string | undefined =>
+  typeof value === "string" ? value : undefined;
+
 /** describeEvent writes one event as a line: what happened, to what, by whom. */
 export const describeEvent = (e: Event, { machines, actors }: Narrator): string => {
-  const on = e.activation == null ? undefined : machines[e.activation];
+  const detail = e.detail as Record<string, unknown>;
+  const on =
+    e.activation == null
+      ? (text(detail.email) ?? text(detail.name))
+      : machines[e.activation];
   // A machine renewing itself is its own actor, so it is only named once.
   const by = actors[e.actor] ?? machines[e.actor];
-  const detail = e.detail as Record<string, unknown>;
-  const reason =
-    typeof detail.reason === "string"
-      ? ` (${REASON_LABELS[detail.reason] ?? detail.reason})`
-      : "";
-  const subject = on == null ? "" : `: ${on}`;
+  const reason = text(detail.reason);
+  const why = reason == null ? "" : ` (${REASON_LABELS[reason] ?? reason})`;
+  const to = e.kind === "change_role" ? text(detail.to) : undefined;
+  const subject = on == null ? "" : `: ${on}${to == null ? "" : ` to ${roleName(to)}`}`;
   const actor = by == null || by === on ? "" : ` by ${by}`;
-  return `${EVENT_LABELS[e.kind]}${subject}${actor}${reason}`;
+  return `${EVENT_LABELS[e.kind]}${subject}${actor}${why}`;
 };

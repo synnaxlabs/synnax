@@ -56,6 +56,14 @@ export interface Pending extends Listed {
   invitationID: string;
 }
 
+/** Sent is an invitation to a team that its recipient has not accepted yet. */
+export interface Sent {
+  invitationID: string;
+  email: string;
+  role: string;
+  sentAt: Date;
+}
+
 /** ADMIN_ROLE is Clerk's role for members who manage a team. */
 export const ADMIN_ROLE = "org:admin";
 export const MEMBER_ROLE = "org:member";
@@ -80,6 +88,30 @@ export interface Directory {
   invite: (invitation: Invitation) => Promise<void>;
   /** pending returns the team invitations the user has not accepted. */
   pending: (userID: string) => Promise<Pending[]>;
+  /** outstanding returns a team's invitations that no one has accepted, newest first. */
+  outstanding: (clerkOrgID: string) => Promise<Sent[]>;
+  /**
+   * revokeInvitation cancels an invitation, so its link no longer joins the team.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  revokeInvitation: (clerkOrgID: string, invitationID: string) => Promise<void>;
+  /**
+   * setRole changes a member's role on a team.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  setRole: (clerkOrgID: string, userID: string, role: string) => Promise<void>;
+  /**
+   * remove takes a member off a team.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  remove: (clerkOrgID: string, userID: string) => Promise<void>;
+  /** create makes a team with no members. */
+  create: (name: string) => Promise<Listed>;
+  /**
+   * rename changes a team's name.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  rename: (clerkOrgID: string, name: string) => Promise<void>;
 }
 
 type Client = ReturnType<typeof clerkClient>;
@@ -222,6 +254,61 @@ export const clerk = (client: Client): Directory => ({
         return { invitationID: id, clerkOrgID: organizationId, name: org.name };
       },
     ),
+  outstanding: async (clerkOrgID) =>
+    await paged(
+      async (offset) =>
+        await client.organizations.getOrganizationInvitationList({
+          organizationId: clerkOrgID,
+          status: ["pending"],
+          limit: PAGE,
+          offset,
+        }),
+      (i) => ({
+        invitationID: i.id,
+        email: i.emailAddress,
+        role: i.role,
+        sentAt: new Date(i.createdAt),
+      }),
+    ),
+  revokeInvitation: async (clerkOrgID, invitationID) => {
+    await client.organizations
+      .revokeOrganizationInvitation({
+        organizationId: clerkOrgID,
+        invitationId: invitationID,
+      })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  setRole: async (clerkOrgID, userID, role) => {
+    await client.organizations
+      .updateOrganizationMembership({
+        organizationId: clerkOrgID,
+        userId: userID,
+        role,
+      })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  remove: async (clerkOrgID, userID) => {
+    await client.organizations
+      .deleteOrganizationMembership({ organizationId: clerkOrgID, userId: userID })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  create: async (name) => {
+    const org = await client.organizations.createOrganization({ name });
+    return { clerkOrgID: org.id, name: org.name };
+  },
+  rename: async (clerkOrgID, name) => {
+    await client.organizations
+      .updateOrganization(clerkOrgID, { name })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
 });
 
 /** Records are what a {@link memory} directory serves. */
@@ -235,6 +322,8 @@ export interface Records {
   invitations: Invitation[];
   /** invited maps a Clerk user id to the invitations the user has not accepted. */
   invited: Record<string, Pending[]>;
+  /** revoked are the ids of the invitations revoked. An invitation's id is `inv_<index>`. */
+  revoked: string[];
 }
 
 /** memory serves a directory from records instead of Clerk. For tests. */
@@ -244,12 +333,14 @@ export const memory = ({
   organizations = [],
   invitations = [],
   invited = {},
+  revoked = [],
 }: Partial<Records> = {}): Directory & Records => ({
   people,
   members,
   organizations,
   invitations,
   invited,
+  revoked,
   person: async (userID) => {
     const person = people[userID];
     if (person == null) throw new Error(`no Clerk user ${userID}`);
@@ -274,4 +365,42 @@ export const memory = ({
     invitations.push(invitation);
   },
   pending: async (userID) => invited[userID] ?? [],
+  outstanding: async (clerkOrgID) =>
+    invitations
+      .map((inv, i) => ({ ...inv, invitationID: `inv_${i}` }))
+      .filter(
+        (inv) => inv.clerkOrgID === clerkOrgID && !revoked.includes(inv.invitationID),
+      )
+      .map(({ invitationID, email, role }) => ({
+        invitationID,
+        email,
+        role,
+        sentAt: new Date(0),
+      }))
+      .reverse(),
+  revokeInvitation: async (_, invitationID) => {
+    revoked.push(invitationID);
+  },
+  setRole: async (clerkOrgID, userID, role) => {
+    members[userID] = (members[userID] ?? []).map((t) =>
+      t.clerkOrgID === clerkOrgID ? { ...t, role } : t,
+    );
+  },
+  remove: async (clerkOrgID, userID) => {
+    members[userID] = (members[userID] ?? []).filter(
+      (t) => t.clerkOrgID !== clerkOrgID,
+    );
+  },
+  create: async (name) => {
+    const team = { clerkOrgID: `org_${organizations.length}`, name };
+    organizations.unshift(team);
+    return team;
+  },
+  rename: async (clerkOrgID, name) => {
+    const team = organizations.find((o) => o.clerkOrgID === clerkOrgID);
+    if (team == null) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    team.name = name;
+    for (const teams of Object.values(members))
+      for (const t of teams) if (t.clerkOrgID === clerkOrgID) t.name = name;
+  },
 });

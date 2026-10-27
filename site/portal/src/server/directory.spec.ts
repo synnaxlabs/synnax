@@ -72,6 +72,8 @@ interface FakeArgs {
     organizationId: string;
     publicOrganizationData: { name: string } | null;
   }[];
+  /** outstanding are a team's invitations no one has accepted. */
+  outstanding?: { id: string; emailAddress: string; role: string; createdAt: number }[];
 }
 
 const createClient = ({
@@ -83,10 +85,15 @@ const createClient = ({
   unavailable = [],
   refusal,
   pending = [],
+  outstanding = [],
 }: FakeArgs = {}) => {
   const calls: Record<string, unknown[]> = {};
   const record = (name: string, args: unknown): void => {
     (calls[name] ??= []).push(args);
+  };
+  const write = async (name: string, args: unknown): Promise<void> => {
+    if (refusal != null) throw refusal;
+    record(name, args);
   };
   const client = {
     users: {
@@ -131,10 +138,26 @@ const createClient = ({
         return found;
       },
       createOrganizationInvitation: async (args: unknown) => {
-        if (refusal != null) throw refusal;
-        record("invitations", args);
+        await write("invitations", args);
         return {};
       },
+      getOrganizationInvitationList: async (
+        args: Paged & { organizationId: string; status: string[] },
+      ) => {
+        record("outstanding", args);
+        return page(outstanding, args);
+      },
+      revokeOrganizationInvitation: async (args: unknown) =>
+        await write("revoked", args),
+      updateOrganizationMembership: async (args: unknown) => await write("roles", args),
+      deleteOrganizationMembership: async (args: unknown) =>
+        await write("removed", args),
+      createOrganization: async (args: { name: string }) => {
+        await write("created", args);
+        return { id: "org_new", name: args.name };
+      },
+      updateOrganization: async (id: string, args: unknown) =>
+        await write("renamed", [id, args]),
     },
   };
   return { directory: clerk(client as unknown as Parameters<typeof clerk>[0]), calls };
@@ -208,6 +231,50 @@ describe("directory", () => {
         { invitationID: "orginv_1", clerkOrgID: "org_globex", name: "Globex" },
       ]);
       expect(await directory.pending("user_a")).toEqual([]);
+    });
+
+    it("should list a team's invitations until they are revoked", async () => {
+      const dir = memory();
+      await dir.invite({
+        clerkOrgID: "org_acme",
+        email: "cy@acme.com",
+        role: "org:member",
+        inviterUserID: "user_a",
+        redirectURL: "https://portal.synnaxlabs.com/sign-up",
+      });
+      expect(await dir.outstanding("org_acme")).toEqual([
+        {
+          invitationID: "inv_0",
+          email: "cy@acme.com",
+          role: "org:member",
+          sentAt: new Date(0),
+        },
+      ]);
+      await dir.revokeInvitation("org_acme", "inv_0");
+      expect(await dir.outstanding("org_acme")).toEqual([]);
+    });
+
+    it("should change roles, remove members, and create and rename teams", async () => {
+      const dir = memory({
+        members: {
+          user_a: [{ clerkOrgID: "org_acme", name: "Acme", role: "org:member" }],
+        },
+        organizations: [{ clerkOrgID: "org_acme", name: "Acme" }],
+      });
+      await dir.setRole("org_acme", "user_a", ADMIN_ROLE);
+      expect(await dir.memberships("user_a")).toEqual([
+        { clerkOrgID: "org_acme", name: "Acme", role: ADMIN_ROLE },
+      ]);
+      await dir.rename("org_acme", "Acme Rockets");
+      expect(await dir.team("org_acme")).toEqual({
+        clerkOrgID: "org_acme",
+        name: "Acme Rockets",
+      });
+      expect((await dir.memberships("user_a"))[0].name).toBe("Acme Rockets");
+      await dir.remove("org_acme", "user_a");
+      expect(await dir.memberships("user_a")).toEqual([]);
+      const created = await dir.create("Globex");
+      expect((await dir.teams())[0]).toEqual(created);
     });
 
     it("should serve records added after it was created", async () => {
@@ -492,6 +559,90 @@ describe("directory", () => {
           refusal: Object.assign(new Error("Down"), { status: 500 }),
         });
         await expect(directory.invite(INVITATION)).rejects.toThrow("Down");
+      });
+    });
+
+    describe("outstanding", () => {
+      it("should read every page of a team's pending invitations", async () => {
+        const { directory, calls } = createClient({
+          outstanding: range(150, (i) => ({
+            id: `orginv_${i}`,
+            emailAddress: `${i}@acme.com`,
+            role: "org:member",
+            createdAt: Date.UTC(2026, 9, 1),
+          })),
+        });
+        const sent = await directory.outstanding("org_acme");
+        expect(sent).toHaveLength(150);
+        expect(sent[149]).toEqual({
+          invitationID: "orginv_149",
+          email: "149@acme.com",
+          role: "org:member",
+          sentAt: new Date("2026-10-01T00:00:00Z"),
+        });
+        expect(calls.outstanding).toEqual([
+          { organizationId: "org_acme", status: ["pending"], limit: 100, offset: 0 },
+          { organizationId: "org_acme", status: ["pending"], limit: 100, offset: 100 },
+        ]);
+      });
+    });
+
+    describe("member and team changes", () => {
+      it("should revoke an invitation", async () => {
+        const { directory, calls } = createClient();
+        await directory.revokeInvitation("org_acme", "orginv_1");
+        expect(calls.revoked).toEqual([
+          { organizationId: "org_acme", invitationId: "orginv_1" },
+        ]);
+      });
+
+      it("should change a member's role", async () => {
+        const { directory, calls } = createClient();
+        await directory.setRole("org_acme", "user_b", ADMIN_ROLE);
+        expect(calls.roles).toEqual([
+          { organizationId: "org_acme", userId: "user_b", role: ADMIN_ROLE },
+        ]);
+      });
+
+      it("should remove a member", async () => {
+        const { directory, calls } = createClient();
+        await directory.remove("org_acme", "user_b");
+        expect(calls.removed).toEqual([
+          { organizationId: "org_acme", userId: "user_b" },
+        ]);
+      });
+
+      it("should create a team with no members", async () => {
+        const { directory, calls } = createClient();
+        expect(await directory.create("Acme")).toEqual({
+          clerkOrgID: "org_new",
+          name: "Acme",
+        });
+        expect(calls.created).toEqual([{ name: "Acme" }]);
+      });
+
+      it("should rename a team", async () => {
+        const { directory, calls } = createClient();
+        await directory.rename("org_acme", "Acme Rockets");
+        expect(calls.renamed).toEqual([["org_acme", { name: "Acme Rockets" }]]);
+      });
+
+      it("should answer Clerk's refusal of a change as a 400 with its reason", async () => {
+        const refusal = Object.assign(new Error("Unprocessable"), {
+          status: 422,
+          errors: [{ message: "last admin", longMessage: "Keep one admin." }],
+        });
+        const { directory } = createClient({ refusal });
+        for (const change of [
+          directory.revokeInvitation("org_acme", "orginv_1"),
+          directory.setRole("org_acme", "user_b", ADMIN_ROLE),
+          directory.remove("org_acme", "user_b"),
+          directory.rename("org_acme", "Acme Rockets"),
+        ])
+          await expect(change).rejects.toMatchObject({
+            status: 400,
+            message: "Keep one admin.",
+          });
       });
     });
 
