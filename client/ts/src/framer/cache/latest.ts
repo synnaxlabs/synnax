@@ -62,7 +62,8 @@ interface Load {
   repeated?: boolean;
   // after starts the read after the samples held, since they already counted.
   after?: TimeStamp;
-  // dropped is true when the stream dropped while the load ran.
+  // dropped is true when frames may have dropped before the load lands, so a read of
+  // the samples after its read follows.
   dropped?: boolean;
 }
 
@@ -121,7 +122,7 @@ export class Latest {
     this.demand.onStatusChange(() => this.notify());
     this.demand.onDrop(() => this.reload());
     this.stopInvalidations = props.store.onInvalidate((ch, tr) => {
-      if (ch === key) this.changed(tr);
+      if (ch == null || ch === key) this.changed(tr);
     });
     this.running = { abort: new AbortController(), mark: 0 };
     void this.load(this.running);
@@ -232,10 +233,12 @@ export class Latest {
       return;
     const end = this.time() ?? this.running?.end;
     const repeated = this.taken && end != null;
+    // The read of the samples after a drop still runs, once this read lands.
+    const dropped = this.running?.dropped === true || this.running?.after != null;
     // Samples no consumer took count again when the read returns them.
     if (!repeated) this.appended -= this.total;
     this.clear();
-    this.restart(0, { end, repeated });
+    this.restart(0, { end, repeated, dropped });
     this.notify();
   }
 
@@ -243,7 +246,7 @@ export class Latest {
   // mark is null.
   private restart(
     mark: number | null,
-    read: Pick<Load, "end" | "repeated" | "after"> = {},
+    read: Pick<Load, "end" | "repeated" | "after" | "dropped"> = {},
   ): void {
     this.running?.abort.abort();
     this.notifier.notify();
@@ -346,10 +349,15 @@ export class Latest {
     const { appended } = this;
     this.push(read);
     if (repeated) this.appended = appended;
+    // Frames may have dropped between the read and the streamed series, so the next
+    // read starts after the newest sample of this read, not after a streamed one.
+    if (dropped) {
+      this.closeLeading();
+      this.restart(this.series.length, { after: this.time() });
+    }
     this.push(streamed);
     this.unserved = this.total;
     this.snapshot = null;
-    if (dropped) this.reload();
   }
 
   private push(series: Series[]): void {

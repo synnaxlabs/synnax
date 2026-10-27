@@ -1222,7 +1222,6 @@ describe("Feed.subscribe", () => {
       });
       try {
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
-        const [first] = sub.value(key).series.series;
         core.disconnect();
         await expect.poll(() => sub.value(key).status.variant, POLL).toBe("warning");
         core.advance(TimeSpan.seconds(1));
@@ -1232,9 +1231,85 @@ describe("Feed.subscribe", () => {
           .toBe(newestOf(core));
         const snap = sub.value(key);
         expect(snap.status.variant).toBe("success");
-        expect(snap.series.series[0]).toBe(first);
         expectComplete(timesOf(snap));
       } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should read the newest samples again when an outage rewrites them", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const { key } = core.data[0];
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 10 },
+      });
+      const valuesOf = (): number[] => Array.from(sub.value(key).series) as number[];
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await historyStreamed(core);
+        const { appended } = sub.value(key);
+        core.disconnect();
+        // The stream misses the history change, so only the reconnect can find it.
+        core.rewrite(key, new TimeRange(START, core.now()), 10);
+        core.reconnect();
+        const stored = Array.from(core.readLatest([key], 10).get(key)) as number[];
+        await expect.poll(valuesOf, POLL).toEqual(stored);
+        expect(sub.value(key).appended).toBe(appended);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should keep the samples an outage skips when it reads the newest again", async () => {
+      const core = createCore();
+      let held = false;
+      let opens = 0;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          if (held) await released;
+          return core.readLatest(keys, count, tr);
+        },
+        openStreamer: async (config) => {
+          opens++;
+          return core.openStreamer(config);
+        },
+      });
+      const { key } = core.data[0];
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 10 },
+      });
+      const valuesOf = (): number[] =>
+        (Array.from(sub.value(key).series) as number[]).slice(-10);
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        await historyStreamed(core);
+        const { appended } = sub.value(key);
+        assert(appended != null);
+        const before = opens;
+        held = true;
+        core.disconnect();
+        core.rewrite(key, new TimeRange(START, core.now()), 10);
+        core.advance(TimeSpan.milliseconds(30), false);
+        core.reconnect();
+        await expect.poll(() => opens, POLL).toBe(before + 1);
+        // Samples stream after the reconnect while the read of the newest waits.
+        core.advance(TimeSpan.milliseconds(30));
+        await sleep.sleep(TimeSpan.milliseconds(50));
+        held = false;
+        release();
+        const stored = Array.from(core.readLatest([key], 10).get(key)) as number[];
+        await expect.poll(valuesOf, POLL).toEqual(stored);
+        // 30 ms at 100 Hz during the outage, and again after it.
+        expect(sub.value(key).appended).toBe(appended + 6);
+      } finally {
+        release();
         sub.close();
         await feed.close();
       }
