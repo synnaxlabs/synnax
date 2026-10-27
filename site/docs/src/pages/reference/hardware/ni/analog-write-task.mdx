@@ -1,0 +1,257 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "NI analog write task"
+description: "Write command channel values to the analog outputs of an NI device."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Channel } from "@/components/channel";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An NI analog write task writes the values of command channels to the analog outputs of
+one NI device. For example, a setpoint on a schematic can drive a proportional valve
+from `ao0` of a USB-6343.
+
+Each output has a command channel and a
+[state channel](/reference/hardware/tasks#write-tasks). Each command writes the last
+value of every output of the task in one call.
+
+Before you start, you need a
+[configured device](/reference/hardware/ni/configure-device).
+
+<Divider.Divider x />
+
+## Create an NI analog write task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the device and select **Create analog write
+   task**.
+2. Set **State update rate**.
+3. Click **Add channel**. In **Source**, select the **Port**.
+4. In **Signal**, select the **Channel type**, then set its fields. See the
+   [channel reference](#channel-reference).
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels. For a device with the identifier `dev1`, port 0 gives
+the command channel `dev1_ao_0_cmd` with the index `dev1_ao_0_cmd_time`, and the state
+channel `dev1_ao_0_state` with the index `dev1_ao_state_time`.
+
+<Video id="hardware/ni/analog-write-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import ni
+
+dev = client.devices.retrieve(key="<device key>")
+state_time = client.channels.create(
+    name="dev1_ao_state_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+state = client.channels.create(
+    name="valve_setpoint_state",
+    index=state_time.key,
+    data_type=sy.DataType.FLOAT32,
+)
+cmd_time = client.channels.create(
+    name="valve_setpoint_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="valve_setpoint_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT32
+)
+
+task = ni.AnalogWriteTask(
+    name="Valve setpoint",
+    device=dev.key,
+    channels=[
+        ni.AOVoltageChannel(
+            port=0,
+            min_val=0,
+            max_val=10,
+            cmd_channel=cmd.key,
+            state_channel=state.key,
+        )
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+Python creates the task on the embedded Driver of the Core. For a device on another
+Driver, use the Console or TypeScript.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first, as in the Python example.
+
+```typescript
+import { ni } from "@synnaxlabs/client";
+
+const dev = await client.devices.retrieve({ key: "<device key>" });
+const task = await client.tasks.create({
+  name: "Valve setpoint",
+  rack: dev.rack,
+  type: "ni_analog_write",
+  config: ni.analogWriteConfigZ.parse({
+    device: dev.key,
+    channels: [
+      {
+        type: "ao_voltage",
+        port: 0,
+        minVal: 0,
+        maxVal: 10,
+        cmdChannel: cmd.key,
+        stateChannel: state.key,
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label     | Python field           | Default | Notes                                                     |
+| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Device            | `device`               |         | The key of the device.                                    |
+| State update rate | `state_rate`           | 10 Hz   | Up to 50,000 Hz in the Console.                           |
+| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Every channel has a `port` (**Port**), a `cmd_channel`, and a `state_channel`.
+
+Each table shows the Console label of a setting, with its Python field under it. Voltage
+and current channels also have **Custom scaling**.
+
+<Channel.Types>
+
+<Channel.Type
+  name="Voltage"
+  type="ao_voltage"
+  python="AOVoltageChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1gad278075876eeff4223fdb90ce58f0a15.html" }}
+>
+  <Icon.Units.Voltage slot="icon" />
+
+Outputs a voltage.
+
+| Setting                                   | Default    | Notes     |
+| ----------------------------------------- | ---------- | --------- |
+| Range <small>`min_val`, `max_val`</small> | `0` to `1` | In volts. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Current"
+  type="ao_current"
+  python="AOCurrentChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga1ae6afadb89de214c4823ca7144ab28d.html" }}
+>
+  <Icon.Units.Current slot="icon" />
+
+Outputs a current.
+
+| Setting                                   | Default    | Notes    |
+| ----------------------------------------- | ---------- | -------- |
+| Range <small>`min_val`, `max_val`</small> | `0` to `1` | In amps. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Function generator"
+  type="ao_func_gen"
+  python="AOFuncGenChannel"
+  reference={{ label: "NI-DAQmx", href: "https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/group__ni-daqmx__c__functions__channel__configuration__creation__create__analog__output__channel_1ga7146d8ebdf2336e5200c4d2549f67494.html" }}
+>
+  <Icon.Function slot="icon" />
+
+Generates a waveform on the output.
+
+| Setting                              | Default | Notes                                     |
+| ------------------------------------ | ------- | ----------------------------------------- |
+| Wave <small>`wave_type`</small>      | `Sine`  | `Sine`, `Triangle`, `Square`, `Sawtooth`. |
+| Frequency <small>`frequency`</small> | `0`     | In hertz.                                 |
+| Amplitude <small>`amplitude`</small> | `0`     | From zero to peak, in volts.              |
+| Offset <small>`offset`</small>       | `0`     | In volts.                                 |
+
+</Channel.Type>
+
+</Channel.Types>
+
+### Custom scaling
+
+Channels with **Custom scaling** convert the raw value before the Driver writes it. In
+the Console, the options are in the **Scale** section of the channel. In code, set
+`custom_scale` to one of these scales:
+
+| Console option | Python class      | Fields                                                                                                                         |
+| -------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| None           | `NoneScale`       | No scaling. This is the default.                                                                                               |
+| Linear         | `LinearScale`     | **Slope** (`slope`, 1) and **Y-intercept** (`y_intercept`, 0).                                                                 |
+| Map            | `MapScale`        | **Pre-scaled min** and **max** to **Scaled min** and **max** (`pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max`). |
+| Polynomial     | `PolynomialScale` | **Forward coefficients** (`forward_coeffs`) and **Reverse coefficients** (`reverse_coeffs`), from c0 up.                       |
+| Table          | `TableScale`      | **Pre-scaled** and **Scaled** pairs (`pre_scaled_vals`, `scaled_vals`). A CSV file can fill them.                              |
+
+Every scale except **None** also has **Prescaled units** (`pre_scaled_units`, `Volts`)
+and **Scaled units** (`scaled_units`).
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item symptom={"The outputs stop changing after a command."}>
+<Problem.Cause>
+
+A command was outside the **Range** of its channel. NI-DAQmx rejects it with no message,
+and because each command writes every output, all later commands fail too. The state
+channels still show the commands that were not written.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Send a value inside the range to that channel. The task then writes again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Port ... has already been used on another channel"}>
+<Problem.Cause>
+
+Two channels use the same port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the port of one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see
+[Configure an NI device](/reference/hardware/ni/configure-device#troubleshooting) and
+[Troubleshoot hardware](/reference/hardware/troubleshooting).

@@ -50,7 +50,11 @@ const mailer = (): Mailer => {
   if (VERCEL_ENV !== "production") return log();
   if (RESEND_API_KEY == null)
     throw new Error("RESEND_API_KEY is required in production");
-  return resend(RESEND_API_KEY, MAIL_FROM);
+  return resend({
+    apiKey: RESEND_API_KEY,
+    from: MAIL_FROM,
+    origin: import.meta.env.SITE,
+  });
 };
 
 /**

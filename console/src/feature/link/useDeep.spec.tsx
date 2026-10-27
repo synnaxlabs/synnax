@@ -36,10 +36,10 @@ import {
   withSelectedProject,
 } from "@/testutil";
 
-const client = (): Client => createTestClient();
+const client = createTestClient();
 
 const createPanel = async (projectKey: project.Key): Promise<panel.Panel> =>
-  await client().panels.create({
+  await client.panels.create({
     key: uuid.create(),
     name: uniqueName("panel"),
     root: {
@@ -63,7 +63,7 @@ interface Harness {
 }
 
 const setup = async (overrides: Partial<PlatformLink.Deps> = {}): Promise<Harness> => {
-  const resolved = client();
+  const resolved = client;
   const connect = vi.fn(async () => resolved);
   const handlers = {
     schematic: vi.fn(async () => {}),
@@ -178,7 +178,7 @@ const setupSettled = async (
     projectSelected = true,
     panelSelected = true,
   } = options;
-  const resolved = client();
+  const resolved = client;
   const connect: Mock<PlatformLink.Connect> = vi.fn(async () => resolved);
   const handlers: Record<string, Mock<PlatformLink.Handler>> = {
     schematic: vi.fn(async () => {}),
@@ -197,7 +197,7 @@ const setupSettled = async (
     onOpenURL,
     ...depOverrides,
   };
-  const proj = await client().projects.create({
+  const proj = await client.projects.create({
     name: uniqueName("proj"),
   });
   const doc = panelSelected ? await createPanel(proj.key) : null;
@@ -394,7 +394,7 @@ describe("useDeep", () => {
     // Models a Core switch: the client swap unsettles before connect resolves.
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Persist.beginSwap());
-      return client();
+      return client;
     });
     h.openURL(["synnax://cluster/c2/schematic/s2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -421,7 +421,7 @@ describe("useDeep", () => {
     // The second link switches Cores, so the provider swaps to a fresh client.
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
-      return client();
+      return client;
     });
     h.openURL(["synnax://cluster/c2/schematic/s2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -448,7 +448,7 @@ describe("useDeep", () => {
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
-      return client();
+      return client;
     });
     h.openURL(["synnax://cluster/c2/range/r2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -473,7 +473,7 @@ describe("useDeep", () => {
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c1"));
     h.connect.mockImplementation(async () => {
       h.store.dispatch(Session.Core.select(OTHER_CORE_KEY));
-      return client();
+      return client;
     });
     h.openURL(["synnax://cluster/c2/schematic/s2"]);
     await waitFor(() => expect(h.connect).toHaveBeenCalledWith("c2"));
@@ -495,7 +495,7 @@ describe("useDeep", () => {
     await waitFor(() => expect(h.settled()).toBe(true));
     const switchTo = (key: string) => async () => {
       h.store.dispatch(Session.Core.select(key));
-      return client();
+      return client;
     };
     act(() => {
       h.store.dispatch(Session.Persist.beginSwap());
