@@ -1437,7 +1437,7 @@ describe("list", () => {
 
   describe("subscriptions against a live client", () => {
     const useRangeList = Flux.createList<
-      { keys?: ranger.Key[]; names?: string[] },
+      ranger.RetrieveMultipleParams,
       ranger.Key,
       ranger.Range
     >({
@@ -1465,7 +1465,7 @@ describe("list", () => {
       await act(
         async () =>
           await result.current.retrieveAsync(
-            { keys: [rng.key] },
+            { where: { key: { in: [rng.key] } } },
             { signal: controller.signal },
           ),
       );
@@ -1627,11 +1627,11 @@ describe("list", () => {
 
     it("should update a read item that the list painted from the cache", async () => {
       const rng = await createRange("Test Range");
-      await client.ranges.retrieve({ keys: [rng.key] });
+      await client.ranges.retrieve({ where: { key: { in: [rng.key] } } });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { keys: [rng.key] },
+            initialQuery: { where: { key: { in: [rng.key] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1649,11 +1649,11 @@ describe("list", () => {
     it("should keep a read item that a rename moves out of the cached query", async () => {
       const name = `Test Range ${uuid.create()}`;
       const rng = await createRange(name);
-      await client.ranges.retrieve({ names: [name] });
+      await client.ranges.retrieve({ where: { name: { in: [name] } } });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { names: [name] },
+            initialQuery: { where: { name: { in: [name] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1670,11 +1670,11 @@ describe("list", () => {
 
     it("should clear a read item painted from the cache when it is deleted", async () => {
       const rng = await createRange("Test Range");
-      await client.ranges.retrieve({ keys: [rng.key] });
+      await client.ranges.retrieve({ where: { key: { in: [rng.key] } } });
       const { result } = renderHook(
         () => {
           const { getItem, subscribe } = useRangeList({
-            initialQuery: { keys: [rng.key] },
+            initialQuery: { where: { key: { in: [rng.key] } } },
           });
           return Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1694,11 +1694,11 @@ describe("list", () => {
       async (mode) => {
         const rng = await createRange("Test Range");
         const other = await createRange("Other Range");
-        await client.ranges.retrieve({ keys: [rng.key, other.key] });
+        await client.ranges.retrieve({ where: { key: { in: [rng.key, other.key] } } });
         const { result, rerender } = renderHook(
           ({ key }: { key: ranger.Key }) => {
             const { getItem, subscribe, retrieveAsync } = useRangeList({
-              initialQuery: { keys: [rng.key, other.key] },
+              initialQuery: { where: { key: { in: [rng.key, other.key] } } },
             });
             const value = Flux.useListItem<ranger.Key, ranger.Range>({
               subscribe,
@@ -1711,7 +1711,7 @@ describe("list", () => {
         );
         await act(async () => {
           await result.current.retrieveAsync(
-            { keys: [other.key] },
+            { where: { key: { in: [other.key] } } },
             { mode, signal: controller.signal },
           );
         });
@@ -1724,12 +1724,12 @@ describe("list", () => {
     it("should keep a read item live without a fetch after an append retrieve replaces the cached page", async () => {
       const rng = await createRange("Test Range");
       const other = await createRange("Other Range");
-      await client.ranges.retrieve({ keys: [rng.key, other.key] });
+      await client.ranges.retrieve({ where: { key: { in: [rng.key, other.key] } } });
       const retrieve = vi.spyOn(client.ranges, "retrieve");
       const { result } = renderHook(
         () => {
           const { getItem, subscribe, retrieveAsync } = useRangeList({
-            initialQuery: { keys: [rng.key, other.key] },
+            initialQuery: { where: { key: { in: [rng.key, other.key] } } },
           });
           const value = Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
@@ -1742,7 +1742,7 @@ describe("list", () => {
       );
       await act(async () => {
         await result.current.retrieveAsync(
-          { keys: [other.key] },
+          { where: { key: { in: [other.key] } } },
           { mode: "append", signal: controller.signal },
         );
       });
