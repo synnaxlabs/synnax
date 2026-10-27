@@ -29,7 +29,7 @@ const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
 
 std::pair<Device, x::errors::Error>
-Scanner::parse_device(NISysCfgResourceHandle resource) const {
+Scanner::parse_device(NISysCfgResourceHandle resource) {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
@@ -145,8 +145,12 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
     auto err = x::errors::NIL;
     if (this->cfg.should_ignore(dev.model)) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "device ignored by filter: " << dev.key
-                     << " (model: " << dev.model << ")";
+        const auto msg = "skipping " + dev.model + " (" + dev.key +
+                         "): model matches an ignored_models pattern";
+        if (this->ignored_keys.insert(dev.key).second)
+            LOG(INFO) << SCAN_LOG_PREFIX << msg;
+        else
+            VLOG(1) << SCAN_LOG_PREFIX << msg;
         err = SKIP_DEVICE_ERR;
     } else {
         VLOG(1) << SCAN_LOG_PREFIX << "device validated successfully: " << dev.key
