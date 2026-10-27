@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { type DrawOperation } from "@/vis/line/aether/draw";
+import { type line } from "@/vis/line/aether";
 import { groupSize, Reducer } from "@/vis/line/aether/reduce";
 
 const alignment = (domain: number, sample: number): bigint =>
@@ -32,7 +32,7 @@ const ramp = (length: number, a: bigint = 0n): Series =>
     alignment: a,
   });
 
-const op = (x: Series, y: Series): DrawOperation => {
+const op = (x: Series, y: Series): line.DrawOperation => {
   const xOffset = Number(y.alignment > x.alignment ? y.alignment - x.alignment : 0n);
   const yOffset = Number(x.alignment > y.alignment ? x.alignment - y.alignment : 0n);
   return {
@@ -44,7 +44,7 @@ const op = (x: Series, y: Series): DrawOperation => {
   };
 };
 
-const reduceOne = (o: DrawOperation, aggregation: Aggregation, size: number) =>
+const reduceOne = (o: line.DrawOperation, aggregation: Aggregation, size: number) =>
   new Reducer().reduce([o], aggregation, size)[0];
 
 describe("groupSize", () => {
@@ -324,7 +324,7 @@ describe("Reducer", () => {
 
     // Returns the ops of XS and YS cut into series at the given sample indices. Each
     // series past the first holds its values off the given sample offsets.
-    const cut = (at: number[], xOffset = 0, yOffset = 0): DrawOperation[] => {
+    const cut = (at: number[], xOffset = 0, yOffset = 0): line.DrawOperation[] => {
       const ends = [...at, XS.length];
       return ends.map((end, i) => {
         const start = i === 0 ? 0 : ends[i - 1];
@@ -341,9 +341,9 @@ describe("Reducer", () => {
         return op(series(XS, xOffset), series(YS, yOffset));
       });
     };
-    const whole = (aggregation: Aggregation): DrawOperation =>
+    const whole = (aggregation: Aggregation): line.DrawOperation =>
       reduceOne(cut([])[0], aggregation, 8);
-    const values = (ops: DrawOperation[], key: "x" | "y"): number[] =>
+    const values = (ops: line.DrawOperation[], key: "x" | "y"): number[] =>
       ops.flatMap((o) => Array.from(o[key], Number));
 
     it.each<Aggregation>(["min_max", "average", "decimate"])(
@@ -457,7 +457,7 @@ describe("Reducer", () => {
   });
 
   describe("release", () => {
-    const refCounts = (o: DrawOperation): number[] => [o.x.refCount, o.y.refCount];
+    const refCounts = (o: line.DrawOperation): number[] => [o.x.refCount, o.y.refCount];
 
     it("should release the pairs of ops that leave the list", () => {
       const a = op(ramp(8), ramp(8));

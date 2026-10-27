@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { Provider, type ProviderProps } from "@/lineplot/range/aether/provider";
+import { range } from "@/lineplot/range/aether";
 import { renderAether } from "@/testutil/internal";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
@@ -35,7 +35,7 @@ class Requestor extends aether.Composite<typeof Requestor.stateZ> {
   }
 }
 
-const renderProps = (timeRange: TimeRange): ProviderProps => ({
+const renderProps = (timeRange: TimeRange): range.ProviderProps => ({
   dataToDecimalScale: scale.Scale.scale(
     Number(timeRange.start.valueOf()),
     Number(timeRange.end.valueOf()),
@@ -45,20 +45,20 @@ const renderProps = (timeRange: TimeRange): ProviderProps => ({
   timeRange,
 });
 
-const mount = (): Provider => {
+const mount = (): range.Provider => {
   const h = renderAether(Requestor, {
     state: {},
     synnax: { props: TEST_CLIENT_PARAMS },
     render: canvasTest.record(),
-    registry: { [Provider.TYPE]: Provider },
+    registry: { [range.Provider.TYPE]: range.Provider },
     children: {
       [PROVIDER_KEY]: {
-        type: Provider.TYPE,
+        type: range.Provider.TYPE,
         state: { cursor: null, hovered: null, count: 0 },
       },
     },
   });
-  return h.child<Provider>(PROVIDER_KEY);
+  return h.child<range.Provider>(PROVIDER_KEY);
 };
 
 describe("Provider", () => {

@@ -20,9 +20,7 @@ import {
 import { type Bench, test } from "vitest";
 
 import { aetherTest } from "@/aether/testutil";
-import { LinePlot } from "@/lineplot/aether/LinePlot";
-import { XAxis } from "@/lineplot/aether/XAxis";
-import { YAxis } from "@/lineplot/aether/YAxis";
+import { lineplot } from "@/lineplot/aether";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/internal";
@@ -81,9 +79,9 @@ const mount = async (
   const stack = buildStack({
     registry: {
       [lineTest.Host.TYPE]: lineTest.Host,
-      [LinePlot.TYPE]: LinePlot,
-      [XAxis.TYPE]: XAxis,
-      [YAxis.TYPE]: YAxis,
+      [lineplot.LinePlot.TYPE]: lineplot.LinePlot,
+      [lineplot.XAxis.TYPE]: lineplot.XAxis,
+      [lineplot.YAxis.TYPE]: lineplot.YAxis,
       [line.Line.TYPE]: line.Line,
     },
     render: recorder,
@@ -93,15 +91,15 @@ const mount = async (
   stack.driver.update(host, lineTest.Host.TYPE, {});
   const base = [...host, "plot"];
   const setViewport = (viewport: box.Box): void =>
-    stack.driver.update(base, LinePlot.TYPE, {
+    stack.driver.update(base, lineplot.LinePlot.TYPE, {
       container: CONTAINER,
       viewport,
       grid: {},
     });
   setViewport(viewport);
   const yAxis = [...base, "x1", "y1"];
-  stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
-  stack.driver.update(yAxis, YAxis.TYPE, { location: "left" });
+  stack.driver.update([...base, "x1"], lineplot.XAxis.TYPE, { location: "bottom" });
+  stack.driver.update(yAxis, lineplot.YAxis.TYPE, { location: "left" });
   const linePaths = core.data.map((ch) => {
     const path = [...yAxis, `l${ch.key}`];
     stack.driver.update(path, line.Line.TYPE, {
@@ -113,7 +111,7 @@ const mount = async (
   });
   const entry = recorder.loopCalls
     .map((call) => call.args[0] as LoopEntry)
-    .findLast((e) => e.key?.startsWith(LinePlot.TYPE) ?? false);
+    .findLast((e) => e.key?.startsWith(lineplot.LinePlot.TYPE) ?? false);
   if (entry?.render == null) throw new Error("plot did not request a render");
   const { render } = entry;
   const frame = (): void => {

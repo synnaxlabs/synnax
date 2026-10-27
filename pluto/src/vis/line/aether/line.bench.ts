@@ -23,9 +23,8 @@ import { type BenchRunOptions, test } from "vitest";
 import { type telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/internal";
+import { line } from "@/vis/line/aether";
 import { windowBounds } from "@/vis/line/aether/bounds";
-import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
-import { Line, type LineProps } from "@/vis/line/aether/line";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -138,8 +137,8 @@ const buildChunks = ({ rate, span, channels }: Spec): Chunks => {
 
 // One data-path frame per line, omitting GL upload, so slowdowns are a lower bound.
 const frame = (x: MultiSeries, y: MultiSeries): void => {
-  windowBounds(x, y, x.bounds, DEFAULT_OVERLAP_THRESHOLD, y.bounds);
-  buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
+  windowBounds(x, y, x.bounds, line.DEFAULT_OVERLAP_THRESHOLD, y.bounds);
+  line.buildDrawOperations(x, y, line.DEFAULT_OVERLAP_THRESHOLD);
 };
 
 // Drain frames walk only the short live window that is on screen during back-fill.
@@ -241,7 +240,7 @@ for (const spec of [...MATRIX, ...CHANNEL_SPECS]) {
 }
 
 const RENDER_SAMPLES = 1e6;
-const RENDER_PROPS: LineProps = {
+const RENDER_PROPS: line.LineProps = {
   region: box.construct(0, 0, 800, 600),
   dataToDecimalScale: scale.XY.IDENTITY,
 };
@@ -280,10 +279,10 @@ const mountLine = (y: (i: number) => number): (() => void) => {
   const h = renderAether(lineTest.Host, {
     state: {},
     render: recorder,
-    registry: { [Line.TYPE]: Line },
+    registry: { [line.Line.TYPE]: line.Line },
     children: {
       line: {
-        type: Line.TYPE,
+        type: line.Line.TYPE,
         state: {
           x: renderSource(xs),
           y: renderSource(ys),
@@ -292,11 +291,11 @@ const mountLine = (y: (i: number) => number): (() => void) => {
       },
     },
   });
-  const line = h.child<Line>("line");
+  const child = h.child<line.Line>("line");
   // Clearing the call log keeps it from growing across frames.
   const frame = (): void => {
     calls.length = 0;
-    line.render(RENDER_PROPS);
+    child.render(RENDER_PROPS);
   };
   frame();
   return frame;

@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { Program } from "@/vis/render/clear/program";
-import { type Context } from "@/vis/render/context";
+import { type render } from "@/vis/render";
+import { clear } from "@/vis/render/clear";
 import { canvasTest } from "@/vis/render/testutil";
 
 const { GL_ENUMS } = canvasTest;
@@ -27,7 +27,7 @@ const create = (returns: Record<string, () => unknown> = {}) => {
     getAttribLocation: () => POSITION_LOC,
     ...returns,
   });
-  const prog = new Program({ gl } as unknown as Context);
+  const prog = new clear.Program({ gl } as unknown as render.Context);
   return { prog, calls };
 };
 
