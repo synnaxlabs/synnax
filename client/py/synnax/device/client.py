@@ -282,7 +282,27 @@ class Client:
         offset: int = 0,
         include_status: bool = False,
         include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
     ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[True],
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[True],
+    ) -> Device | None: ...
 
     @overload
     def retrieve(

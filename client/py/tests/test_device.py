@@ -158,6 +158,15 @@ class TestDevice:
         with pytest.raises(sy.MultipleFoundError):
             client.devices.retrieve(device.rack.eq(rack.key), one=True)
 
+    def test_retrieve_one_ignore_not_found(self, client: sy.Synnax) -> None:
+        """Should return None for one device when none matches and not-found errors
+        are ignored."""
+        res = client.devices.retrieve(
+            device.make.eq(str(uuid4())), one=True, ignore_not_found=True
+        )
+        assert_type(res, sy.Device | None)
+        assert res is None
+
     def test_create_converts_properties_to_json(self, client: sy.Synnax) -> None:
         """Should store a UUID in the properties as a string."""
         r = client.racks.create(name="Test Rack")
