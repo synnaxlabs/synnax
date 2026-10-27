@@ -122,6 +122,7 @@ markers = [
     "iterator: mark test as a reader test",
     "internal: mark test as an internal test",
     "labjack: mark test as a labjack test",
+    "lineplot: mark test as a line plot test",
     "io: mark test as an io test",
     "multi_node: mark test as a multi_node test",
     "modbus: mark test as a modbus test",
