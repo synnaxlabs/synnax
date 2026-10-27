@@ -15,7 +15,7 @@ import { Docs } from "@/feature/docs";
 
 const client = createTestClient();
 
-const DOCS_URL = "https://docs.synnaxlabs.com/reference/console/get-started";
+const DOCS_URL = "https://docs.synnaxlabs.com/reference/";
 
 describe("Docs Commands", () => {
   it("should open the docs in the browser when the read command is selected", async () => {
