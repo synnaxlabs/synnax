@@ -23,6 +23,7 @@ const newLocal = (): LocalCache<number> => ({
   inFlight: new Map(),
   settled: new Map(),
   generations: new Map(),
+  fetches: new Map(),
   listeners: new Map(),
 });
 
@@ -116,5 +117,25 @@ describe("invalidate", () => {
     setSettled(local, "q", { data: 1 });
     invalidate(local, "q");
     expect(local.settled.has("q")).toBe(false);
+  });
+
+  it("keeps no marker for a query with no running fetch", () => {
+    const local = newLocal();
+    setSettled(local, "q", { data: 1 });
+    invalidate(local, "q");
+    expect(local.generations.size).toBe(0);
+  });
+
+  it("drops its marker once the discarded fetch ends", async () => {
+    const local = newLocal();
+    const { answers, fetch } = fetcher(local);
+    const first = fetch();
+    invalidate(local, query.hash(params.query));
+    const second = fetch();
+    answers[1](2);
+    answers[0](1);
+    await Promise.all([first, second]);
+    expect(local.generations.size).toBe(0);
+    expect(local.fetches.size).toBe(0);
   });
 });

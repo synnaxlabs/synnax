@@ -47,8 +47,13 @@ export interface LocalCache<Data> {
   epoch: number;
   inFlight: Map<string, Promise<Data>>;
   settled: Map<string, Settled<Data>>;
-  /** Bumped by {@link invalidate}, so a fetch started before it settles nothing. */
+  /**
+   * Bumped by {@link invalidate} while a fetch runs, so a fetch started before it
+   * settles nothing. Dropped when the query's last fetch ends.
+   */
   generations: Map<string, number>;
+  /** Running fetches by query hash, including ones {@link invalidate} discarded. */
+  fetches: Map<string, number>;
   /** Readers by query hash. Write through {@link subscribeReader}. */
   listeners: Map<string, Set<() => void>>;
 }
@@ -102,7 +107,21 @@ export const subscribeReader = <Data>(
 export const invalidate = <Data>(local: LocalCache<Data>, hash: string): void => {
   local.settled.delete(hash);
   local.inFlight.delete(hash);
-  local.generations.set(hash, generationOf(local, hash) + 1);
+  if (local.fetches.has(hash))
+    local.generations.set(hash, generationOf(local, hash) + 1);
+};
+
+const holdGeneration = <Data>(local: LocalCache<Data>, hash: string): (() => void) => {
+  local.fetches.set(hash, (local.fetches.get(hash) ?? 0) + 1);
+  return () => {
+    const remaining = (local.fetches.get(hash) ?? 1) - 1;
+    if (remaining > 0) {
+      local.fetches.set(hash, remaining);
+      return;
+    }
+    local.fetches.delete(hash);
+    local.generations.delete(hash);
+  };
 };
 
 /** Returns the query's generation, which {@link invalidate} advances. */
@@ -125,6 +144,7 @@ export const localFor = <Data>(
       inFlight: new Map(),
       settled: new Map(),
       generations: new Map(),
+      fetches: new Map(),
       listeners: new Map(),
     };
     locals.set(client, local);
@@ -192,6 +212,7 @@ export const ensureFetch = <Query extends query.Params, Data>(
   if (promise == null) {
     const epoch = local.epoch;
     const generation = generationOf(local, hash);
+    const release = holdGeneration(local, hash);
     promise = retrieve(params).then(
       async (data) => {
         if (generationOf(local, hash) !== generation)
@@ -226,6 +247,7 @@ export const ensureFetch = <Query extends query.Params, Data>(
         throw error;
       },
     );
+    promise = promise.finally(release);
     local.inFlight.set(hash, promise);
   }
   return promise;
