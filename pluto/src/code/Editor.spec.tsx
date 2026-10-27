@@ -13,8 +13,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import { Editor, type EditorHandle } from "@/code/Editor";
-import { BASE_THEMES, type EditorExtension, type Language } from "@/code/language";
+import { Code } from "@/code";
 
 const ESCAPE: Triggers.Trigger = ["Escape"];
 
@@ -266,8 +265,8 @@ const setRenameProviders = (providers: unknown[]): void => {
 
 let monaco: FakeMonaco;
 
-const renderEditor = (props: Partial<Parameters<typeof Editor>[0]> = {}) =>
-  render(<Editor language="arc" {...props} />);
+const renderEditor = (props: Partial<Parameters<typeof Code.Editor>[0]> = {}) =>
+  render(<Code.Editor language="arc" {...props} />);
 
 describe("Editor", () => {
   beforeEach(() => {
@@ -371,7 +370,7 @@ describe("Editor", () => {
 
   describe("imperative setValue", () => {
     it("should reconcile the model as a single minimal edit", () => {
-      const ref = createRef<EditorHandle>();
+      const ref = createRef<Code.EditorHandle>();
       renderEditor({ initialValue: "abc\ndef", ref });
       act(() => ref.current?.setValue("abc\nXef"));
       const model = monaco.editorInstance.getModel();
@@ -388,7 +387,7 @@ describe("Editor", () => {
     });
 
     it("should be a no-op when the model already holds the value", () => {
-      const ref = createRef<EditorHandle>();
+      const ref = createRef<Code.EditorHandle>();
       renderEditor({ initialValue: "same", ref });
       act(() => ref.current?.setValue("same"));
       expect(monaco.editorInstance.getModel().applyEdits).not.toHaveBeenCalled();
@@ -397,7 +396,7 @@ describe("Editor", () => {
     it("should not fire onValueChange or onEdit for a programmatic edit", () => {
       const onValueChange = vi.fn();
       const onEdit = vi.fn();
-      const ref = createRef<EditorHandle>();
+      const ref = createRef<Code.EditorHandle>();
       renderEditor({ initialValue: "a", onValueChange, onEdit, ref });
       act(() => ref.current?.setValue("abc"));
       expect(monaco.editorInstance.getModel().getValue()).toEqual("abc");
@@ -419,10 +418,12 @@ describe("Editor", () => {
         configuration: "{}",
         grammar: { scopeName: "source.arc", raw: "{}" },
         theme: { semanticTokenColors: { dark: {}, light: {} } },
-      } satisfies Language);
+      } satisfies Code.Language);
       renderEditor();
-      expect(monaco.editor.create.mock.calls[0][1].theme).toEqual(BASE_THEMES.light);
-      expect(monaco.editor.setTheme).toHaveBeenCalledWith(BASE_THEMES.light);
+      expect(monaco.editor.create.mock.calls[0][1].theme).toEqual(
+        Code.BASE_THEMES.light,
+      );
+      expect(monaco.editor.setTheme).toHaveBeenCalledWith(Code.BASE_THEMES.light);
     });
   });
 
@@ -555,32 +556,32 @@ describe("Editor", () => {
   describe("extensions", () => {
     it("should apply the editor extensions passed as a prop", () => {
       const dispose = vi.fn();
-      const ext: EditorExtension = vi.fn(() => ({ dispose }));
+      const ext: Code.EditorExtension = vi.fn(() => ({ dispose }));
       renderEditor({ extensions: [ext] });
       expect(ext).toHaveBeenCalledWith(monaco.editorInstance);
     });
 
     it("should fall back to the language's editorExtensions when no prop is given", () => {
-      const langExt: EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
+      const langExt: Code.EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
       useLanguageMock.mockReturnValue({
         name: "arc",
         configuration: "{}",
         grammar: { scopeName: "source.arc", raw: "{}" },
         editorExtensions: [langExt],
-      } satisfies Language);
+      } satisfies Code.Language);
       renderEditor();
       expect(langExt).toHaveBeenCalledWith(monaco.editorInstance);
     });
 
     it("should prefer the prop extensions over the language's", () => {
-      const propExt: EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
-      const langExt: EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
+      const propExt: Code.EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
+      const langExt: Code.EditorExtension = vi.fn(() => ({ dispose: vi.fn() }));
       useLanguageMock.mockReturnValue({
         name: "arc",
         configuration: "{}",
         grammar: { scopeName: "source.arc", raw: "{}" },
         editorExtensions: [langExt],
-      } satisfies Language);
+      } satisfies Code.Language);
       renderEditor({ extensions: [propExt] });
       expect(propExt).toHaveBeenCalledWith(monaco.editorInstance);
       expect(langExt).not.toHaveBeenCalled();
@@ -588,7 +589,7 @@ describe("Editor", () => {
 
     it("should dispose the extensions on unmount", () => {
       const dispose = vi.fn();
-      const ext: EditorExtension = vi.fn(() => ({ dispose }));
+      const ext: Code.EditorExtension = vi.fn(() => ({ dispose }));
       const { unmount } = renderEditor({ extensions: [ext] });
       unmount();
       expect(dispose).toHaveBeenCalledTimes(1);
@@ -712,7 +713,7 @@ describe("Editor", () => {
         // double mirrors the app-level Escape handlers: a quick second press arrives as
         // a double trigger, and they still need to see it.
         Triggers.use({ triggers: ESCAPE, callback, double: true });
-        return <Editor language="arc" />;
+        return <Code.Editor language="arc" />;
       };
       return render(
         <Triggers.Provider>

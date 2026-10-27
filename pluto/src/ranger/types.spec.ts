@@ -12,13 +12,7 @@ import { type Haul } from "@synnaxlabs/lyra/haul";
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  canDropHaulItem,
-  createHaulItem,
-  filterHaulItems,
-  HAUL_TYPE,
-  isHaulItem,
-} from "@/ranger/types";
+import { Ranger } from "@/ranger";
 
 const PAYLOAD: ranger.Payload = {
   key: "550e8400-e29b-41d4-a716-446655440000",
@@ -32,15 +26,15 @@ const OTHER: Haul.Item = { type: "other_type", key: "other" };
 describe("range haul utilities", () => {
   describe("createHaulItem", () => {
     it("creates an item with the range HAUL_TYPE", () => {
-      expect(createHaulItem(PAYLOAD).type).toEqual(HAUL_TYPE);
+      expect(Ranger.createHaulItem(PAYLOAD).type).toEqual(Ranger.HAUL_TYPE);
     });
 
     it("creates an item with the payload key", () => {
-      expect(createHaulItem(PAYLOAD).key).toEqual(PAYLOAD.key);
+      expect(Ranger.createHaulItem(PAYLOAD).key).toEqual(PAYLOAD.key);
     });
 
     it("creates an item carrying serializable payload fields in data", () => {
-      expect(createHaulItem(PAYLOAD).data).toEqual({
+      expect(Ranger.createHaulItem(PAYLOAD).data).toEqual({
         key: PAYLOAD.key,
         name: PAYLOAD.name,
         timeRange: PAYLOAD.timeRange.numeric,
@@ -50,30 +44,33 @@ describe("range haul utilities", () => {
 
   describe("isHaulItem", () => {
     it("returns true for an item of the range kind", () => {
-      expect(isHaulItem(createHaulItem(PAYLOAD))).toBe(true);
+      expect(Ranger.isHaulItem(Ranger.createHaulItem(PAYLOAD))).toBe(true);
     });
 
     it("returns false for an item of another kind", () => {
-      expect(isHaulItem(OTHER)).toBe(false);
+      expect(Ranger.isHaulItem(OTHER)).toBe(false);
     });
   });
 
   describe("filterHaulItems", () => {
     it("keeps range items and drops items of other kinds", () => {
-      const item = createHaulItem(PAYLOAD);
-      expect(filterHaulItems([item, OTHER])).toEqual([item]);
+      const item = Ranger.createHaulItem(PAYLOAD);
+      expect(Ranger.filterHaulItems([item, OTHER])).toEqual([item]);
     });
   });
 
   describe("canDropHaulItem", () => {
     it("returns true when at least one item is a range item", () => {
       expect(
-        canDropHaulItem({ source: OTHER, items: [createHaulItem(PAYLOAD), OTHER] }),
+        Ranger.canDropHaulItem({
+          source: OTHER,
+          items: [Ranger.createHaulItem(PAYLOAD), OTHER],
+        }),
       ).toBe(true);
     });
 
     it("returns false when no item is a range item", () => {
-      expect(canDropHaulItem({ source: OTHER, items: [OTHER] })).toBe(false);
+      expect(Ranger.canDropHaulItem({ source: OTHER, items: [OTHER] })).toBe(false);
     });
   });
 });

@@ -11,12 +11,7 @@ import { type status, type Synnax } from "@synnaxlabs/client";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  type LSPMessage,
-  type LSPStream,
-  useLanguageServer,
-  type UseLanguageServerParams,
-} from "@/code/lsp";
+import { Code } from "@/code";
 
 const { startMock, stopMock } = vi.hoisted(() => ({
   startMock: vi.fn(),
@@ -42,10 +37,10 @@ const MONACO = {} as unknown;
 
 // makeStream returns an LSPStream whose receive never settles, so a "connected" client
 // stays connected until the hook aborts it.
-const makeStream = (): LSPStream & {
+const makeStream = (): Code.LSPStream & {
   closeSend: ReturnType<typeof vi.fn<() => void>>;
 } => ({
-  receive: () => new Promise<LSPMessage>(() => {}),
+  receive: () => new Promise<Code.LSPMessage>(() => {}),
   send: vi.fn(),
   closeSend: vi.fn<() => void>(),
 });
@@ -59,9 +54,9 @@ describe("useLanguageServer", () => {
   const variants = (): string[] => statuses().map((s) => s.variant);
   const last = (): status.Status => statuses().at(-1) as status.Status;
 
-  const renderLSP = (overrides: Partial<UseLanguageServerParams> = {}) =>
+  const renderLSP = (overrides: Partial<Code.UseLanguageServerParams> = {}) =>
     renderHook(() =>
-      useLanguageServer({
+      Code.useLanguageServer({
         monaco: MONACO,
         client: CLIENT,
         languageID: "arc",
@@ -79,7 +74,7 @@ describe("useLanguageServer", () => {
     startMock.mockResolvedValue(undefined);
     const warmStatus = vi.fn<StatusFn>();
     renderHook(() =>
-      useLanguageServer({
+      Code.useLanguageServer({
         monaco: MONACO,
         client: CLIENT,
         languageID: "arc",
@@ -143,10 +138,10 @@ describe("useLanguageServer", () => {
 
     it("should not start a client when aborted while the stream is opening", async () => {
       const stream = makeStream();
-      let resolveOpen: (s: LSPStream) => void = () => {};
+      let resolveOpen: (s: Code.LSPStream) => void = () => {};
       const open = vi.fn(
         () =>
-          new Promise<LSPStream>((resolve) => {
+          new Promise<Code.LSPStream>((resolve) => {
             resolveOpen = resolve;
           }),
       );
