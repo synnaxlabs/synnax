@@ -31,8 +31,9 @@ jobs:
         run: |
           sudo apt-get update
           if [ "${{ matrix.os }}" = ubuntu-24.04 ]; then FUSE=libfuse2t64; else FUSE=libfuse2; fi
-          # A desktop Ubuntu always has libegl1; a bare runner does not.
-          sudo apt-get install -y xvfb imagemagick x11-utils libegl1 "$FUSE"
+          # A desktop Ubuntu always has the Mesa GL stack; a bare runner does not.
+          sudo apt-get install -y xvfb imagemagick x11-utils libegl1 libgles2 \
+            libgl1-mesa-dri "$FUSE"
 
       - name: Launch AppImage and screenshot
         env:
@@ -60,7 +61,7 @@ jobs:
         run: |
           sudo apt-get install -y ./bundles/*.deb
           dpkg-deb -I bundles/*.deb
-          BIN=$(dpkg-deb -c bundles/*.deb | grep -o '\./usr/bin/[^ ]*' | head -1 | cut -c2-)
+          BIN=$(dpkg -L synnax | grep '^/usr/bin/' | head -1)
           echo "Binary: $BIN"
           pkill -f AppImage || true
           sleep 2
