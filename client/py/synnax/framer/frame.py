@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
-from synnax.exceptions import ValidationError
+from synnax.exceptions import MultipleFoundError, ValidationError
 from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
@@ -170,7 +170,12 @@ class Frame:
         return zip(self.channels, self.series, strict=True)
 
     @overload
-    def __getitem__(self, key: channel.Key | str) -> MultiSeries: ...
+    def __getitem__(self, key: channel.Key | str) -> MultiSeries:
+        """Gets the series of a channel by its key or name. A name also finds a
+        channel keyed by key when the frame knows its name.
+
+        :raises MultipleFoundError: If two channels in the frame share the name.
+        """
 
     @overload
     def __getitem__(self, key: npt.NDArray[np.bool_]) -> DataFrame:
@@ -181,8 +186,24 @@ class Frame:
     ) -> MultiSeries | DataFrame:
         if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
-        indexes = [i for i, k in enumerate(self.channels) if k == key]
-        return MultiSeries([self.series[i] for i in indexes])
+        cols = self._columns(key)
+        return MultiSeries(
+            [self.series[i] for i, k in enumerate(self.channels) if k in cols]
+        )
+
+    def _columns(self, key: channel.Key | str) -> set[channel.Key | str]:
+        if isinstance(key, channel.Key):
+            return {key} if key not in self.names else {key, self.names[key]}
+        keys = [
+            k
+            for k in dict.fromkeys(self.channels)
+            if isinstance(k, channel.Key) and self.names.get(k) == key
+        ]
+        if len(keys) > 1:
+            raise MultipleFoundError(
+                f"Channels {keys} in the frame share the name {key}. Use a key."
+            )
+        return {key, *keys}
 
     def get(
         self, key: channel.Key | str, default: MultiSeries | None = None
@@ -233,7 +254,7 @@ class Frame:
         return DataFrame(base)
 
     def __contains__(self, key: channel.Key | str) -> bool:
-        return key in self.channels
+        return not self._columns(key).isdisjoint(self.channels)
 
 
 # Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.
