@@ -109,6 +109,13 @@ var _ = Describe("API keys", func() {
 			Expect(create(ctx, engToken, bob.OntologyID())).Error().
 				To(MatchError(access.ErrDenied))
 		})
+		It("Should let a Driver create a key for a rack it cannot create", func(
+			ctx SpecContext,
+		) {
+			assignBuiltin(ctx, bob.OntologyID(), "Driver")
+			res := MustSucceed(create(ctx, bobToken, rack))
+			Expect(res.Key.Subject).To(Equal(rack))
+		})
 		It("Should deny a user without a role a key for a rack", func(ctx SpecContext) {
 			Expect(create(ctx, bobToken, rack)).Error().
 				To(MatchError(access.ErrDenied))
