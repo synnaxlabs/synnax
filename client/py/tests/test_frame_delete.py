@@ -37,7 +37,7 @@ class TestDeleter:
         assert series.to_numpy().size == 26
         assert series.time_range == sy.TimeRange(
             sy.TimeStamp(25 * sy.TimeSpan.SECOND),
-            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
+            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + sy.TimeSpan.NANOSECOND,
         )
 
     def test_delete_by_name(
@@ -58,7 +58,7 @@ class TestDeleter:
         assert series.to_numpy().size == 26
         assert series.time_range == sy.TimeRange(
             sy.TimeStamp(25 * sy.TimeSpan.SECOND),
-            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
+            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + sy.TimeSpan.NANOSECOND,
         )
 
     def test_delete_channel_not_found_key(

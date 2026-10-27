@@ -1,0 +1,118 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Serve multiple listeners"
+description:
+  "Serve one Synnax Core on several addresses, each with its own TLS certificate."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A Synnax Core can serve several addresses, called listeners. Each listener has its own
+address and its own certificate, and each serves the full API. For example, Drivers can
+reach the Core at a company address with a certificate from your organization, while
+operators reach it at a Tailscale address with a certificate from Tailscale.
+
+Listeners work only in a
+[configuration file](/reference/enterprise/cli-reference#configuration-files). For one
+address, use `--listen` and [Set up TLS](/reference/enterprise/tls).
+
+<Divider.Divider x />
+
+## Configure listeners
+
+1. Copy the certificate and key from your organization into the certificates folder as
+   `node.crt` and `node.key`. The certificate must cover `core01.example.com`. The Core
+   loads `node.crt` and `node.key` at start, whatever certificates the listeners use:
+
+   ```bash
+   sudo mkdir -p /usr/local/synnax/certs
+   sudo cp core01.crt /usr/local/synnax/certs/node.crt
+   sudo cp core01.key /usr/local/synnax/certs/node.key
+   ```
+
+2. In the configuration file, set `listen` to a list of listeners. A `file` listener
+   with no paths serves `node.crt`:
+
+   ```yaml
+   listen:
+     - address: core01.example.com:9090
+       cert:
+         source: file
+       advertise: true
+     - address: core01.example-tailnet.ts.net:9091
+       cert:
+         source: tailscale
+       name: console
+   ```
+
+3. Start the Core with the file:
+
+   ```bash
+   synnax start --config=/usr/local/synnax/config.yaml
+   ```
+
+Drivers connect to port 9090 with the certificate from your organization. Operators
+connect to port 9091 over Tailscale. For each field of a listener, see
+[Multiple listeners](/reference/enterprise/cli-reference#multiple-listeners).
+
+<Divider.Divider x />
+
+## Certificate sources
+
+Set `cert.source` on each listener. Listeners can use different sources.
+
+<Field.List>
+
+<Field.Item name="file" id="source-file">
+  A PEM certificate and key from the `cert` and `key` paths. Without both paths, the
+  listener serves the node certificate. When the files change, the listener uses the new
+  files with no restart.
+</Field.Item>
+
+<Field.Item name="auto" id="source-auto">
+  A certificate signed by the Core CA for the listener address. Do not set `cert` or
+  `key`.
+</Field.Item>
+
+<Field.Item name="tailscale" id="source-tailscale">
+  A `ts.net` certificate from the local `tailscaled`, renewed by Tailscale. Turn on
+  HTTPS for the tailnet. If the Core does not run as root, run `tailscale set
+  --operator=<user>` for its user. Do not set `cert` or `key`.
+</Field.Item>
+
+</Field.List>
+
+<Divider.Divider x />
+
+## The advertised listener
+
+The embedded Driver connects to one address: the address of the advertised listener. Set
+`advertise: true` on one listener. If no listener sets it, the first listener is
+advertised.
+
+The certificate of the advertised listener must cover its host, and must be signed by
+the Core CA or be the `node.crt` of the Core.
+
+<Note.Note variant="warning">
+  The advertised listener cannot use `tailscale`, because a Tailscale certificate is not
+  signed by the Core CA. The exception is a Core that starts with `--no-driver`.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Start errors
+
+The Core does not start when:
+
+- Two listeners have the same address.
+- More than one listener sets `advertise: true`.
+- A `file` listener sets only one of `cert` and `key`, or an `auto` or `tailscale`
+  listener sets either.
+- A `listen` list is used with `--auto-cert`, `--node-cert`, or `--node-key`.
+- The certificate of the advertised listener does not meet the rules above.
+
+`--insecure` turns off TLS on every listener and ignores all certificate sources.

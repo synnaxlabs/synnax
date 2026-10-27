@@ -11,6 +11,7 @@ import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { LabJack } from "@/feature/labjack";
 import {
@@ -41,7 +42,7 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
 const createConfig = (
   device: string,
   channels: LabJack.Task.ReadChannel[],
-): LabJack.Task.ReadPayload["config"] => ({
+): z.infer<LabJack.Task.ReadSchemas["config"]> => ({
   ...LabJack.Task.READ_SCHEMAS.config.parse({}),
   device,
   channels,
@@ -56,7 +57,7 @@ const ZERO_DRAFT: task.New<LabJack.Task.ReadSchemas> = {
 
 const createDraft = async (
   client: Synnax,
-  config: LabJack.Task.ReadPayload["config"],
+  config: z.infer<LabJack.Task.ReadSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.READ_SCHEMAS);
 
 describe("Read", () => {

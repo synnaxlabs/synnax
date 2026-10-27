@@ -146,6 +146,39 @@ class TestIterator:
         latest = client.read_latest(data_ch.key, 3)
         assert np.array_equal(latest, np.array([8, 9, 10]))
 
+    def test_read_latest_single_name(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return a MultiSeries for a single name"""
+        idx_ch, data_ch = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, 10))
+        data_ch.write(sy.TimeSpan.SECOND * 1, np.arange(1, 11))
+        latest = client.read_latest(data_ch.name, 3)
+        assert isinstance(latest, sy.MultiSeries)
+        assert np.array_equal(latest, np.array([8, 9, 10]))
+
+    def test_read_latest_one_key_list(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return a Frame for a list with one key"""
+        idx_ch, data_ch = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, 10))
+        data_ch.write(sy.TimeSpan.SECOND * 1, np.arange(1, 11))
+        frame = client.read_latest([data_ch.key], 3)
+        assert isinstance(frame, sy.Frame)
+        assert np.array_equal(frame[data_ch.key], np.array([8, 9, 10]))
+
+    def test_read_latest_one_name_list(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return a Frame for a list with one name"""
+        idx_ch, data_ch = indexed_pair
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, 10))
+        data_ch.write(sy.TimeSpan.SECOND * 1, np.arange(1, 11))
+        frame = client.read_latest([data_ch.name], 3)
+        assert isinstance(frame, sy.Frame)
+        assert np.array_equal(frame[data_ch.name], np.array([8, 9, 10]))
+
     def test_read_latest_frame(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
@@ -489,6 +522,7 @@ class TestIterator:
             (lambda: sy.LimitReduction(point_limit=-1), "point_limit"),
             (lambda: sy.LimitReduction(point_limit=2**32), "point_limit"),
         ],
+        ids=["negative_factor", "zero_limit", "negative_limit", "limit_overflow"],
     )
     def test_reduction_out_of_range(
         self, make: Callable[[], sy.Reduction], field: str
