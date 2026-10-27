@@ -95,6 +95,37 @@ var _ = Describe("C++ PB Plugin", func() {
 		)
 
 		It(
+			"Should declare every generic use translator before any definition",
+			func(ctx SpecContext) {
+				source := `
+				@cpp output "client/cpp/thing"
+				@pb
+
+				First struct<T> {
+					value  T
+					second Second<T>?
+				}
+				Second struct<T> {
+					value T
+					first First<T>?
+				}
+				Thing struct {
+					first First<string>
+				}
+			`
+				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").ToContain(
+					"inline std::pair<pb::StringFirst, x::errors::Error> " +
+						"string_first_to_proto(const First<std::string>& self);\n" +
+						"inline std::pair<First<std::string>, x::errors::Error> " +
+						"string_first_from_proto(const pb::StringFirst& pb);\n\n" +
+						"inline std::pair<pb::StringSecond, x::errors::Error> " +
+						"string_second_to_proto(const Second<std::string>& self) {",
+				)
+			},
+		)
+
+		It(
 			"Should translate each element of an array of a generic use",
 			func(ctx SpecContext) {
 				AddFilterSchema(loader)
