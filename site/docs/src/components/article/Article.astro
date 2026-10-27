@@ -228,6 +228,12 @@ const publishedLabel =
             vertical-align: -0.125em;
         }
 
+        /* The plus glyph fills its box, so at full size it outgrows the capitals. */
+        :is(p, li) .pluto-icon--add {
+            font-size: 0.8em;
+            vertical-align: -0.02em;
+        }
+
         table {
             width: 100%;
             display: table;
