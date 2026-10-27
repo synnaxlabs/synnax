@@ -740,25 +740,28 @@ var _ = Describe("Codec", func() {
 					},
 				)
 				var (
-					// Encode is not safe for concurrent use, so encodeMu orders the
-					// two routines that encode, and checking keeps the loop from
-					// starving the check. Update takes no lock and races both.
-					encodeMu sync.Mutex
-					checking atomic.Bool
-					stop     = make(chan struct{})
-					stopped  = make(chan struct{})
+					// Encode is not safe for concurrent use, so encodeMu orders the two
+					// routines that encode, and checking keeps the loop from starving
+					// the check. Update takes no lock and races both.
+					encodeMu  sync.Mutex
+					checking  atomic.Bool
+					stop      = make(chan struct{})
+					stopped   = make(chan struct{})
+					encodeErr error
 				)
 				DeferCleanup(func() {
 					close(stop)
 					Eventually(stopped).Should(BeClosed())
+					Expect(encodeErr).To(Succeed())
 				})
 				// Encodes in a loop beside Update, as a stream's sending routine does,
-				// so an update can land in the middle of an encode.
+				// so an update can land in the middle of an encode. An assertion per
+				// pass slows the loop until it rarely hits the race, so the cleanup
+				// asserts the first error instead.
 				go func() {
-					defer GinkgoRecover()
 					defer close(stopped)
 					var buf bytes.Buffer
-					for {
+					for encodeErr == nil {
 						select {
 						case <-stop:
 							return
@@ -769,9 +772,8 @@ var _ = Describe("Codec", func() {
 						}
 						encodeMu.Lock()
 						buf.Reset()
-						err := enc.EncodeStream(ctx, &buf, framer.Frame{})
+						encodeErr = enc.EncodeStream(ctx, &buf, framer.Frame{})
 						encodeMu.Unlock()
-						Expect(err).To(Succeed())
 					}
 				}()
 				mismatches := 0
@@ -783,11 +785,12 @@ var _ = Describe("Codec", func() {
 					Expect(enc.Update(ctx, keys)).To(Succeed())
 					Expect(dec.Update(ctx, keys)).To(Succeed())
 					checking.Store(true)
-					encodeMu.Lock()
-					encoded, err := enc.Encode(ctx, fr)
-					encodeMu.Unlock()
+					encoded := func() []byte {
+						encodeMu.Lock()
+						defer encodeMu.Unlock()
+						return MustSucceed(enc.Encode(ctx, fr))
+					}()
 					checking.Store(false)
-					Expect(err).To(Succeed())
 					decoded := MustSucceed(dec.Decode(encoded))
 					if (decoded.Get(idxCh).Len() > 0) != (len(keys) == 2) {
 						mismatches++
