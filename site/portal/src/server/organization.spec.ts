@@ -86,7 +86,7 @@ describe("organization", () => {
 
   describe("mirrorTeams", () => {
     it("should record each Clerk organization as a team", async () => {
-      const [org] = await mirrorTeams(store, [
+      const [org] = await mirrorTeams(store.query, [
         { clerkOrgID: "org_acme", name: "Acme" },
       ]);
       expect(org).toMatchObject({
@@ -98,10 +98,10 @@ describe("organization", () => {
     });
 
     it("should rename the team when Clerk renames it, keeping its key", async () => {
-      const [first] = await mirrorTeams(store, [
+      const [first] = await mirrorTeams(store.query, [
         { clerkOrgID: "org_acme", name: "Acme" },
       ]);
-      const [second] = await mirrorTeams(store, [
+      const [second] = await mirrorTeams(store.query, [
         { clerkOrgID: "org_acme", name: "Acme Corp" },
       ]);
       expect(second.key).toBe(first.key);
@@ -110,8 +110,8 @@ describe("organization", () => {
     });
 
     it("should return the rows in the order given", async () => {
-      await mirrorTeams(store, [{ clerkOrgID: "org_b", name: "Globex" }]);
-      const rows = await mirrorTeams(store, [
+      await mirrorTeams(store.query, [{ clerkOrgID: "org_b", name: "Globex" }]);
+      const rows = await mirrorTeams(store.query, [
         { clerkOrgID: "org_a", name: "Acme" },
         { clerkOrgID: "org_b", name: "Globex" },
         { clerkOrgID: "org_c", name: "Initech" },
@@ -120,7 +120,7 @@ describe("organization", () => {
     });
 
     it("should record nothing for no teams", async () => {
-      expect(await mirrorTeams(store, [])).toEqual([]);
+      expect(await mirrorTeams(store.query, [])).toEqual([]);
     });
   });
 
@@ -292,7 +292,7 @@ describe("organization", () => {
           user_b: [{ clerkOrgID: "org_acme", name: "Acme", role: "org:member" }],
         },
       });
-      const [acme] = await mirrorTeams(store, [
+      const [acme] = await mirrorTeams(store.query, [
         { clerkOrgID: "org_acme", name: "Acme" },
       ]);
       const lic = await createLicense(store, { organization: acme.key });

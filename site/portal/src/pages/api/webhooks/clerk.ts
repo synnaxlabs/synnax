@@ -38,7 +38,9 @@ export const POST: APIRoute = async (context) => {
     }
     case "organization.created":
     case "organization.updated":
-      await mirrorTeams(store, [{ clerkOrgID: evt.data.id, name: evt.data.name }]);
+      await mirrorTeams(store.query, [
+        { clerkOrgID: evt.data.id, name: evt.data.name },
+      ]);
       break;
     default:
       break;

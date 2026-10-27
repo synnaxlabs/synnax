@@ -11,7 +11,7 @@ import { errors } from "@synnaxlabs/x";
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { type Store } from "@/server/db/db";
+import { type Query, type Store, type Tx } from "@/server/db/db";
 import { event, type Organization, organization } from "@/server/db/schema";
 import { ADMIN_ROLE, type Directory, type Listed } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
@@ -57,11 +57,11 @@ export const ensurePersonal = async (
  * renaming any whose name changed. It returns the rows in the order given.
  */
 export const mirrorTeams = async (
-  store: Store,
+  db: Query | Tx,
   teams: Listed[],
 ): Promise<Organization[]> => {
   if (teams.length === 0) return [];
-  const rows = await store.query
+  const rows = await db
     .insert(organization)
     .values(
       teams.map(({ clerkOrgID, name }) => ({
@@ -124,26 +124,24 @@ export const register = async (
   if (!z.email().safeParse(address).success)
     throw badRequest("Enter the admin's email address");
   await requireUnique(directory, trimmed);
-  // Clerk goes last, so a failed write leaves no Clerk team to block a retry.
-  const team = await store.transact(async (tx) => {
-    const [row] = await tx
-      .insert(organization)
-      .values({ kind: "team", name: trimmed })
-      .returning();
-    await tx.insert(event).values({
-      at: now,
-      kind: "register",
-      actor,
-      organization: row.key,
-      detail: { name: trimmed },
+  const listed = await directory.create(trimmed);
+  const team = await store
+    .transact(async (tx) => {
+      const [row] = await mirrorTeams(tx, [listed]);
+      await tx.insert(event).values({
+        at: now,
+        kind: "register",
+        actor,
+        organization: row.key,
+        detail: { name: trimmed },
+      });
+      return { ...row, clerkOrgID: listed.clerkOrgID };
+    })
+    .catch(async (err: unknown) => {
+      // Deleting the Clerk team frees its name, so a retry registers it again.
+      await directory.delete(listed.clerkOrgID);
+      throw errors.fromUnknown(err);
     });
-    const { clerkOrgID } = await directory.create(trimmed);
-    await tx
-      .update(organization)
-      .set({ clerkOrgID })
-      .where(eq(organization.key, row.key));
-    return { ...row, clerkOrgID };
-  });
   try {
     await invite(store, directory, {
       team,
@@ -216,7 +214,7 @@ export const adoptTeam = async (
 ): Promise<Organization> => {
   const team = await directory.team(clerkOrgID);
   if (team == null) throw badRequest(`Clerk has no organization ${clerkOrgID}`);
-  const [row] = await mirrorTeams(store, [team]);
+  const [row] = await mirrorTeams(store.query, [team]);
   return row;
 };
 
@@ -257,7 +255,7 @@ export const organizationsFor = async (
   session: Session,
 ): Promise<Organization[]> => {
   await ensurePersonal(store, { userID: session.userID, name: session.name });
-  await mirrorTeams(store, session.teams);
+  await mirrorTeams(store.query, session.teams);
   return await listForMember(store, session);
 };
 
@@ -278,7 +276,7 @@ export const invitationsFor = async (
   userID: string,
 ): Promise<Invited[]> => {
   const pending = await directory.pending(userID);
-  const teams = await mirrorTeams(store, pending);
+  const teams = await mirrorTeams(store.query, pending);
   return pending.map(({ invitationID }, i) => ({ invitationID, team: teams[i] }));
 };
 
@@ -318,7 +316,7 @@ export const listTeams = async (
   directory: Directory,
 ): Promise<Summary[]> => {
   const teams = await directory.teams();
-  const rows = await mirrorTeams(store, teams);
+  const rows = await mirrorTeams(store.query, teams);
   const held = await listAllHeld(store.query);
   return rows.map((org, i) => ({
     organization: org,

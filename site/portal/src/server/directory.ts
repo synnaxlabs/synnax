@@ -115,6 +115,8 @@ export interface Directory {
   remove: (clerkOrgID: string, userID: string) => Promise<void>;
   /** create makes a team with no members. */
   create: (name: string) => Promise<Listed>;
+  /** delete removes a team and its memberships. */
+  delete: (clerkOrgID: string) => Promise<void>;
   /**
    * rename changes a team's name.
    * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
@@ -322,6 +324,9 @@ export const clerk = (client: Client): Directory => ({
       });
     return { clerkOrgID: org.id, name: org.name };
   },
+  delete: async (clerkOrgID) => {
+    await client.organizations.deleteOrganization(clerkOrgID);
+  },
   rename: async (clerkOrgID, name) => {
     await client.organizations
       .updateOrganization(clerkOrgID, { name })
@@ -426,6 +431,13 @@ export const memory = ({
     const team = { clerkOrgID: `org_${organizations.length}`, name };
     organizations.unshift(team);
     return team;
+  },
+  delete: async (clerkOrgID) => {
+    const i = organizations.findIndex((o) => o.clerkOrgID === clerkOrgID);
+    if (i === -1) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    organizations.splice(i, 1);
+    for (const [userID, teams] of Object.entries(members))
+      members[userID] = teams.filter((t) => t.clerkOrgID !== clerkOrgID);
   },
   rename: async (clerkOrgID, name) => {
     const team = organizations.find((o) => o.clerkOrgID === clerkOrgID);

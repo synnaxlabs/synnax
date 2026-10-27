@@ -158,6 +158,7 @@ const createClient = ({
       },
       updateOrganization: async (id: string, args: unknown) =>
         await write("renamed", [id, args]),
+      deleteOrganization: async (id: string) => await write("deleted", id),
     },
   };
   return { directory: clerk(client as unknown as Parameters<typeof clerk>[0]), calls };
@@ -294,6 +295,8 @@ describe("directory", () => {
       expect(await dir.memberships("user_a")).toEqual([]);
       const created = await dir.create("Globex");
       expect((await dir.teams())[0]).toEqual({ ...created, members: 0 });
+      await dir.delete(created.clerkOrgID);
+      expect((await dir.teams()).map((t) => t.clerkOrgID)).toEqual(["org_acme"]);
     });
 
     it("should serve records added after it was created", async () => {
@@ -662,6 +665,12 @@ describe("directory", () => {
           name: "Acme",
         });
         expect(calls.created).toEqual([{ name: "Acme" }]);
+      });
+
+      it("should delete a team", async () => {
+        const { directory, calls } = createClient();
+        await directory.delete("org_acme");
+        expect(calls.deleted).toEqual(["org_acme"]);
       });
 
       it("should rename a team", async () => {
