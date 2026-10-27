@@ -7,6 +7,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -16,11 +17,27 @@ cannot call them.
 
 `avg`, `min`, and `max` share these parameters:
 
-| Parameter  | Type     | Required | Default | Meaning                                                                   |
-| ---------- | -------- | -------- | ------- | ------------------------------------------------------------------------- |
-| `duration` | `i64 ns` | No       | `0`     | Start again when this much time has passed, measured on input timestamps. |
-| `count`    | `i64`    | No       | `0`     | Start again on the next input after this many values.                     |
-| `reset`    | `bool`   | No       | `false` | Has no effect in text mode, which cannot wire an input to it.             |
+<Field.List>
+
+<Field.Item name="duration" type="i64 ns" default="0">
+
+Start again when this much time has passed, measured on input timestamps.
+
+</Field.Item>
+
+<Field.Item name="count" type="i64" default="0">
+
+Start again on the next input after this many values.
+
+</Field.Item>
+
+<Field.Item name="reset" type="bool" default="false">
+
+Has no effect in text mode, which cannot wire an input to it.
+
+</Field.Item>
+
+</Field.List>
 
 With `duration` and `count` at 0, the value covers every input since the stage started.
 A window starts again with the input that ends the old window. Synnax reads `duration`
