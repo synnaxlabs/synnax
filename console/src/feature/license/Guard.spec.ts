@@ -96,11 +96,9 @@ describe("License.Guard", () => {
   it("should clear the selected Core on log out", async () => {
     const { store } = await renderGuard(null, UNLICENSED_STATUS);
     act(() => {
-      store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      store.dispatch(Session.Core.select("LOCAL"));
     });
-    expect(Session.Core.selectSelectedKey(store.getState())).toBe(
-      Session.Core.LOCAL_KEY,
-    );
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe("LOCAL");
     fireEvent.click(findButton("Log out"));
     expect(Session.Core.selectSelectedKey(store.getState())).toBeUndefined();
   });
