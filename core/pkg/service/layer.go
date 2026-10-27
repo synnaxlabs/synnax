@@ -105,8 +105,7 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 7 days.
 	SessionIdleTimeout time.Duration
-	// AuthMethods are the methods the Core accepts at login and at credential
-	// creation. Credentials of other methods stay stored.
+	// AuthMethods are the login methods the Core accepts.
 	//
 	// [OPTIONAL] - Defaults to every method.
 	AuthMethods []auth.Method
