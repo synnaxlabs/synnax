@@ -306,10 +306,11 @@ func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.Dat
 		}
 	}
 	slices.Sort(s.keys)
-	c.mu.updateAvailable.Store(true)
 	c.mu.pendingMu.Lock()
 	c.mu.pending = append(c.mu.pending, s)
 	c.mu.pendingMu.Unlock()
+	// Set after the append, so the routine that clears the flag also finds s.
+	c.mu.updateAvailable.Store(true)
 }
 
 func (c *Codec) processUpdates() {

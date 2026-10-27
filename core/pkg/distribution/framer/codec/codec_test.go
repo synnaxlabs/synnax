@@ -721,6 +721,66 @@ var _ = Describe("Codec", func() {
 			},
 		)
 
+		It(
+			"Should encode the first frame after an update with the updated keys",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				only := channel.Keys{dataCh}
+				both := channel.Keys{dataCh, idxCh}
+				Expect(enc.Update(ctx, only)).To(Succeed())
+				Expect(dec.Update(ctx, only)).To(Succeed())
+				fr := frame.NewMulti(
+					both,
+					[]telem.Series{
+						telem.NewSeriesV[float32](1),
+						telem.NewSeriesSecondsTSV(1),
+					},
+				)
+				var (
+					updated = make(chan channel.Keys)
+					matched = make(chan bool)
+				)
+				// Encodes without pause beside Update, as a stream's sending routine
+				// does, so an update can land in the middle of an encode.
+				go func() {
+					defer GinkgoRecover()
+					var buf bytes.Buffer
+					for {
+						select {
+						case keys, ok := <-updated:
+							if !ok {
+								return
+							}
+							Expect(dec.Update(ctx, keys)).To(Succeed())
+							encoded := MustSucceed(enc.Encode(ctx, fr))
+							decoded := MustSucceed(dec.Decode(encoded))
+							matched <- (decoded.Get(idxCh).Len() > 0) == (len(keys) == 2)
+						default:
+							buf.Reset()
+							if err := enc.EncodeStream(ctx, &buf, fr); err != nil {
+								Fail(err.Error())
+							}
+						}
+					}
+				}()
+				mismatches := 0
+				for i := range 200_000 {
+					keys := only
+					if i%2 == 0 {
+						keys = both
+					}
+					Expect(enc.Update(ctx, keys)).To(Succeed())
+					updated <- keys
+					if !<-matched {
+						mismatches++
+					}
+				}
+				close(updated)
+				Expect(mismatches).To(BeZero())
+			},
+		)
+
 		// This test is a regression that ensures the codec is designed to handle
 		// race conditions between the encoding side and an upstream go-routines
 		// producing frames. Even if an upstream routine passes a frame to the encoder
