@@ -202,6 +202,66 @@ describe("cached reads", () => {
       off();
     }
   });
+
+  describe("a label attached before the client connected", () => {
+    const attach = async (): Promise<{ item: label.Label; lbl: label.Label }> => {
+      const item = await remote.labels.create({
+        name: `qry-item-${id.create()}`,
+        color: "#E774D0",
+      });
+      const lbl = await remote.labels.create({
+        name: `qry-attached-${id.create()}`,
+        color: "#E774D0",
+      });
+      await remote.labels.label(label.ontologyID(item.key), [lbl.key]);
+      return { item, lbl };
+    };
+
+    it("should stay in a for query when it changes", async () => {
+      const { item, lbl } = await attach();
+      const fresh = createTestClient();
+      await fresh.connect();
+      const params = { where: { for: label.ontologyID(item.key) } };
+      const off = fresh.labels.onChange(params, vi.fn());
+      try {
+        await fresh.labels.retrieve(params);
+        const name = `qry-renamed-${id.create()}`;
+        await remote.labels.create({ ...lbl, name });
+        await expect
+          .poll(() => {
+            const cached = fresh.labels.getCached(params);
+            if (!query.isLive(cached)) return undefined;
+            return cached.find((l) => l.key === lbl.key)?.name;
+          })
+          .toEqual(name);
+      } finally {
+        off();
+      }
+    });
+
+    it("should stay out of a not for query when it changes", async () => {
+      const { item, lbl } = await attach();
+      const fresh = createTestClient();
+      await fresh.connect();
+      const params = { where: { not: { for: label.ontologyID(item.key) } } };
+      const off = fresh.labels.onChange(params, vi.fn());
+      try {
+        await fresh.labels.retrieve(params);
+        const name = `qry-renamed-${id.create()}`;
+        await remote.labels.create({ ...lbl, name });
+        await expect
+          .poll(() => {
+            const cached = fresh.labels.getCached(lbl.key);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toEqual(name);
+        const cached = expectLive(fresh.labels.getCached(params));
+        expect(cached.map((l) => l.key)).not.toContain(lbl.key);
+      } finally {
+        off();
+      }
+    });
+  });
 });
 
 describe("store", () => {
