@@ -45,7 +45,7 @@ import {
   type ValueProps,
 } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
-import { line } from "@/vis/line/aether";
+import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
 
 const RATE = Rate.hz(100);
 const START = TimeStamp.seconds(1_000_000);
@@ -866,12 +866,11 @@ describe("remote", () => {
 
     // Returns the index of every sample a line of x and y draws, in order.
     const drawn = (x: ChannelData, y: ChannelData, shown?: ValueProps): number[] =>
-      line
-        .buildDrawOperations(
-          x.value(shown).data[1],
-          y.value(shown).data[1],
-          line.DEFAULT_OVERLAP_THRESHOLD,
-        )
+      buildDrawOperations(
+        x.value(shown).data[1],
+        y.value(shown).data[1],
+        DEFAULT_OVERLAP_THRESHOLD,
+      )
         .flatMap((op) =>
           Array.from({ length: op.count }, (_, i) => {
             const t = op.x.at(op.xOffset + i, true);
