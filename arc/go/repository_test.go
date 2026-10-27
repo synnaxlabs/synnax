@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -71,7 +72,10 @@ func findRepositoryPrograms() ([]string, error) {
 			return nil
 		},
 	)
-	return paths, err
+	if err != nil {
+		return nil, err
+	}
+	return paths, nil
 }
 
 func newRepositoryRoot() *symbol.Symbol {
@@ -90,15 +94,16 @@ func newRepositoryRoot() *symbol.Symbol {
 }
 
 var _ = Describe("Repository programs", func() {
-	paths, err := findRepositoryPrograms()
+	paths := MustSucceed(findRepositoryPrograms())
 	It("should find the .arc files in the repository", func() {
-		Expect(err).ToNot(HaveOccurred())
 		Expect(paths).ToNot(BeEmpty())
 	})
-	for _, path := range paths {
-		It("should compile "+path, func(ctx SpecContext) {
+	DescribeTable(
+		"should compile",
+		func(ctx SpecContext, path string) {
 			raw := string(MustSucceed(os.ReadFile(path)))
 			MustSucceed(arc.CompileText(ctx, arc.Text{Raw: raw}, newRepositoryRoot()))
-		})
-	}
+		},
+		lo.Map(paths, func(path string, _ int) TableEntry { return Entry(path, path) }),
+	)
 })
