@@ -221,11 +221,24 @@ def entry_points(
             yield source, name.split(".")[0]
 
 
+def type_param_bounds(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef | ast.TypeAlias,
+) -> list[ast.expr | None]:
+    """Returns the bounds and defaults of the generic type parameters of node."""
+    exprs: list[ast.expr | None] = []
+    for tp in node.type_params:
+        if isinstance(tp, ast.TypeVar):
+            exprs.append(tp.bound)
+        # Python 3.13 added type parameter defaults.
+        exprs.append(getattr(tp, "default_value", None))
+    return exprs
+
+
 def signature(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> list[ast.expr | None]:
     args = fn.args
     params = [*args.posonlyargs, *args.args, *args.kwonlyargs]
     params += [a for a in (args.vararg, args.kwarg) if a is not None]
-    return [a.annotation for a in params] + [fn.returns]
+    return [a.annotation for a in params] + [fn.returns, *type_param_bounds(fn)]
 
 
 def annotations(tree: ast.Module) -> Iterator[ast.expr]:
@@ -250,7 +263,7 @@ def annotation_names(node: ast.stmt) -> set[str]:
     if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
         exprs += signature(node)
     elif isinstance(node, ast.ClassDef):
-        exprs += node.bases
+        exprs += node.bases + type_param_bounds(node)
         for item in node.body:
             if isinstance(item, ast.AnnAssign):
                 exprs.append(item.annotation)
@@ -263,7 +276,9 @@ def annotation_names(node: ast.stmt) -> set[str]:
         exprs.append(node.annotation)
         if node.value is not None and "TypeAlias" in ast.unparse(node.annotation):
             exprs.append(node.value)
-    elif isinstance(node, ast.TypeAlias | ast.Assign):
+    elif isinstance(node, ast.TypeAlias):
+        exprs += [node.value, *type_param_bounds(node)]
+    elif isinstance(node, ast.Assign):
         exprs.append(node.value)
     names: set[str] = set()
     for e in exprs:
