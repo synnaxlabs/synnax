@@ -36,9 +36,10 @@ def random_name() -> str:
 def format_float(v: float | np.floating) -> str:
     """Format a float as the shortest text that parses back to it at its own width.
 
-    The text is in exponent notation when the decimal exponent of its shortest digits is
-    below -6 or from 21, with an unpadded exponent (1e-7, 1e+21). NaN is NaN, and infinities are Infinity and -Infinity. It matches the
-    float text of every Synnax runtime.
+    The text is in exponent notation when the decimal exponent of its shortest digits
+    is below -6 or from 21, with an unpadded exponent (1e-7, 1e+21). NaN is NaN, and
+    infinities are Infinity and -Infinity. It matches the float text of every Synnax
+    runtime.
 
     :param v: the float to format. A np.float32 is formatted at 32-bit precision.
     :returns: the text of v.

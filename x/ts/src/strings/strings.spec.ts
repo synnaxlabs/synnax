@@ -155,6 +155,10 @@ describe("formatFloat", () => {
     expect(strings.formatFloat(Math.fround(value), 32)).toEqual(expected);
   });
 
+  it("should keep the sign of a value that rounds to float32 zero", () => {
+    expect(strings.formatFloat(-1e-50, 32)).toEqual("-0");
+  });
+
   it("should format text that parses back to the same bits", () => {
     const f64 = new Float64Array(1);
     const f64Bits = new Uint32Array(f64.buffer);

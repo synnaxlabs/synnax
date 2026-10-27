@@ -132,9 +132,9 @@ export const escapeHTML = (s: string): string =>
  * @returns The text of value.
  */
 export const formatFloat = (value: number, bits: 32 | 64 = 64): string => {
-  if (Object.is(value, -0)) return "-0";
-  if (bits === 64 || !Number.isFinite(value)) return String(value);
   const f32 = Math.fround(value);
+  if (Object.is(value, -0) || (bits === 32 && Object.is(f32, -0))) return "-0";
+  if (bits === 64 || !Number.isFinite(value)) return String(value);
   for (let p = 1; p <= 9; p++) {
     const parsed = parseFloat(f32.toPrecision(p));
     if (Math.fround(parsed) === f32) return String(parsed);
