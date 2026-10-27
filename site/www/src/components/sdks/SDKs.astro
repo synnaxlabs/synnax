@@ -13,7 +13,7 @@ import { EcosystemDiagram } from "@/components/sdks/EcosystemDiagram";
 import { type Samples, SDKShowcase } from "@/components/sdks/SDKShowcase";
 import SectionHero from "@/components/common/SectionHero.astro";
 
-const highlight = await highlighter(["python", "typescript", "cpp"]);
+const highlight = await highlighter(["python", "typescript"]);
 
 // -- Stream --
 
@@ -36,17 +36,6 @@ const streamer = await client.openStreamer(
 );
 for await (const frame of streamer) {
     console.log(frame);
-}`;
-
-const cppStream = `#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax(cfg);
-
-auto [s, err] = client.telem.open_streamer({
-    .channels = {"temperature", "pressure"},
-});
-for (auto frame : s) {
-    process(frame);
 }`;
 
 // -- Write --
@@ -80,20 +69,6 @@ await writer.write({
 await writer.commit();
 await writer.close();`;
 
-const cppWrite = `#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax(cfg);
-
-auto [w, err] = client.telem.open_writer({
-    .channels = {"time", "sensor"},
-    .start = synnax::TimeStamp::now(),
-});
-w.write({
-    {time, synnax::Series(ts)},
-    {data, synnax::Series(vals)},
-});
-w.commit();`;
-
 // -- Read --
 
 const pyRead = `import synnax as sy
@@ -116,18 +91,6 @@ const data = await client.read(
 );
 console.log(data.at(-1));`;
 
-const cppRead = `#include "client/cpp/synnax.h"
-
-auto client = synnax::Synnax(cfg);
-
-auto [frame, err] = client.telem.read(
-    synnax::TimeRange{start, end},
-    {"temperature", "pressure"},
-);
-for (auto& s : frame.series) {
-    process(s);
-}`;
-
 const samples: Samples = {
     python: {
         stream: highlight(pyStream, "python"),
@@ -139,11 +102,6 @@ const samples: Samples = {
         write: highlight(tsWrite, "typescript"),
         read: highlight(tsRead, "typescript"),
     },
-    cpp: {
-        stream: highlight(cppStream, "cpp"),
-        write: highlight(cppWrite, "cpp"),
-        read: highlight(cppRead, "cpp"),
-    },
 };
 ---
 
@@ -152,7 +110,7 @@ const samples: Samples = {
     <Fragment slot="description">
         Use Synnax as a framework to build advanced industrial systems. Connect AI
         models, embed real-time processing, and interface with external controllers
-        through native client libraries in Python, TypeScript, and C++.
+        through native client libraries in Python and TypeScript.
     </Fragment>
 </SectionHero>
 

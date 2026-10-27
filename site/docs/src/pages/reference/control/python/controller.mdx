@@ -1,0 +1,340 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Python controller reference"
+description:
+  "Every parameter, return value, and error of the Python controller that runs control
+  sequences."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+`client.control.acquire` returns a `Controller`. For a guided example, see
+[write a control sequence in Python](/reference/control/python/write-sequences). For how
+writers share a channel, see [control authority](/reference/control/authority).
+
+A channel argument is a channel name or key. All exception classes are in the `synnax`
+module. A method that writes raises a `ValidationError` when `write` is empty. A method
+that reads raises a `ValidationError` when `read` is empty.
+
+<Divider.Divider x />
+
+## Acquire a controller
+
+### `acquire`
+
+```python
+client.control.acquire(name, read, write, write_authorities=255) -> Controller
+```
+
+<Field.List>
+
+<Field.Item name="name" type="str" required id="acquire-name">
+
+Identifies the controller to other writers, such as in a schematic control legend.
+
+</Field.Item>
+
+<Field.Item name="read" type="channels or None" required id="acquire-read">
+
+One channel or a list of channels to stream, or `None`. The controller drops channels
+that do not exist, with no error.
+
+</Field.Item>
+
+<Field.Item name="write" type="channels or None" required id="acquire-write">
+
+One channel or a list of channels to command, or `None`. The controller also writes
+their index channels.
+
+</Field.Item>
+
+<Field.Item name="write_authorities" type="int or list[int]" default="255" id="acquire-write_authorities">
+
+The authority on every `write` channel. Pass one value. For a different authority on
+each channel, call [`set_authority`](#set_authority) after `acquire`.
+
+</Field.Item>
+
+</Field.List>
+
+`acquire` opens a writer on the `write` channels at once, so it can take control of
+them. It returns after the stream on the `read` channels is open.
+
+| Raises            | When                                                                     |
+| ----------------- | ------------------------------------------------------------------------ |
+| `NotFoundError`   | A channel in `write` does not exist.                                     |
+| `TypeError`       | A list mixes channel names and keys.                                     |
+| `ValidationError` | The Core rejects the writer, such as for too many authorities in a list. |
+
+Use the controller in a `with` block. Leaving the block calls [`release`](#release).
+
+<Divider.Divider x />
+
+## Write values
+
+### `set`
+
+```python
+ctrl.set(channel, value) -> None
+ctrl.set({channel: value, ...}) -> None
+```
+
+| Parameter | Type                       | Description                                                |
+| --------- | -------------------------- | ---------------------------------------------------------- |
+| `channel` | `str`, `int`, or a `dict`  | One channel, or a dictionary of channels to values.        |
+| `value`   | A number, `bool`, or `str` | The value for one channel. Leave it out with a dictionary. |
+
+For each channel that has an index channel, `set` also writes the current time to the
+index. A dictionary sends every value in one write. Values are converted to the data
+type of the channel. If a different writer controls a channel, Synnax drops the value
+and `set` raises no error.
+
+| Raises           | When                                                    |
+| ---------------- | ------------------------------------------------------- |
+| `NotFoundError`  | A channel does not exist.                               |
+| `PathError`      | A channel is not in `write`. It is a `ValidationError`. |
+| `AssertionError` | `channel` is one channel and `value` is `None`.         |
+
+The Core reports a write error after `set` returns. The next `set` raises the error, and
+the controller cannot write again.
+
+### `__setitem__`
+
+```python
+ctrl[channel] = value
+```
+
+The same as `ctrl.set(channel, value)`.
+
+Attribute assignment also writes: `ctrl.press_vlv_cmd = 1` is the same as
+`ctrl["press_vlv_cmd"] = 1`. Use brackets for channel names that start with `_`, are not
+valid Python names, or match a controller member such as `state` or `set`.
+
+### `set_authority`
+
+```python
+ctrl.set_authority(authority) -> None
+ctrl.set_authority(channel, authority) -> None
+ctrl.set_authority({channel: authority, ...}) -> None
+```
+
+| Form                 | Sets the authority of                                 |
+| -------------------- | ----------------------------------------------------- |
+| `authority` only     | Every `write` channel and its index channel.          |
+| `channel, authority` | One channel and its index channel.                    |
+| A dictionary         | Each channel in the dictionary and its index channel. |
+
+An `int` with no `authority` is always an authority, not a channel key. Channels that
+share an index channel share its authority, and the index channel decides for its data
+channels. See [how authority works](/reference/control/authority#how-authority-works).
+
+| Raises          | When                                              |
+| --------------- | ------------------------------------------------- |
+| `TypeError`     | `channel` is a name and `authority` is not given. |
+| `NotFoundError` | A channel does not exist.                         |
+
+<Divider.Divider x />
+
+## Read values
+
+The controller keeps the latest numeric value of each `read` channel: the last sample of
+the most recent frame. Values of `string` and `json` channels are not kept.
+
+### `__getitem__`
+
+```python
+ctrl[channel] -> int | float | numpy.number
+```
+
+Returns the latest value of the channel. Attribute access also works: `ctrl.tank_pt` is
+the same as `ctrl["tank_pt"]`. Attribute access fails for a channel whose name is not a
+valid Python name, or matches a controller member such as `state`, `set`, `get`,
+`sleep`, or `release`.
+
+| Raises          | When                                                                                                    |
+| --------------- | ------------------------------------------------------------------------------------------------------- |
+| `KeyError`      | The channel is not in `read`, or no value arrived yet. See [`wait_until_defined`](#wait_until_defined). |
+| `NotFoundError` | The channel does not exist.                                                                             |
+
+### `get`
+
+```python
+ctrl.get(channel, default=None) -> int | float | numpy.number | None
+```
+
+Returns the latest value of the channel. Returns `default` if no value arrived yet or
+the channel is not in `read`. Raises `NotFoundError` if the channel does not exist.
+
+### `state`
+
+```python
+ctrl.state -> dict[int, int | float | numpy.number]
+```
+
+The latest value of each `read` channel that has a value, by channel key. Channels with
+no value yet are not in the dictionary.
+
+<Divider.Divider x />
+
+## Wait for conditions
+
+A condition is a function that takes the controller and returns a `bool`, such as
+`lambda c: c["tank_pt"] > 300`. The controller calls it each time a frame arrives on a
+`read` channel, not at once. An exception that the condition raises, such as a
+`KeyError` from a channel with no value, stops the wait and is raised again. Do not call
+a wait method inside a condition: the controller deadlocks.
+
+Each wait method raises a `ValueError` if `cond` is not callable. If the stream fails,
+the wait raises that error instead of waiting for the timeout. An unexpected stream
+closure raises `UnexpectedError`.
+
+### `wait_until`
+
+```python
+ctrl.wait_until(cond, timeout=None) -> bool
+```
+
+<Field.List>
+
+<Field.Item name="cond" type="Callable[[Controller], bool]" required id="wait_until-cond">
+
+The condition.
+
+</Field.Item>
+
+<Field.Item name="timeout" type="CrudeTimeSpan or None" default="None" id="wait_until-timeout">
+
+A number of seconds, a `datetime.timedelta`, or a `TimeSpan`. `None` or `0` waits
+forever.
+
+</Field.Item>
+
+</Field.List>
+
+Returns `True` when `cond` returns true, or `False` when the timeout ends first.
+
+### `wait_while`
+
+```python
+ctrl.wait_while(cond, timeout=None) -> bool
+```
+
+Takes the same parameters as `wait_until`. Returns `True` when `cond` returns false, or
+`False` when the timeout ends first.
+
+### `wait_until_defined`
+
+```python
+ctrl.wait_until_defined(channels, timeout=None) -> bool
+```
+
+Blocks until each channel in `channels` has a value. `channels` is one channel or a
+list. Returns `False` when the timeout ends first. A channel that is not in `read` never
+gets a value, so the call blocks until the timeout, or forever. Raises `NotFoundError`
+if a channel does not exist.
+
+### `remains_true_for`
+
+```python
+ctrl.remains_true_for(cond, duration, percentage=1) -> bool
+```
+
+<Field.List>
+
+<Field.Item
+  name="cond"
+  type="Callable[[Controller], bool]"
+  required
+  id="remains_true_for-cond"
+>
+
+The condition.
+
+</Field.Item>
+
+<Field.Item name="duration" type="CrudeTimeSpan" required id="remains_true_for-duration">
+
+How long to check: a number of seconds, a `TimeSpan`, or a `datetime.timedelta`. For
+example, `10` and `10 * sy.TimeSpan.SECOND` both mean ten seconds.
+
+</Field.Item>
+
+<Field.Item name="percentage" type="float" default="1" id="remains_true_for-percentage">
+
+The fraction of frames, from 0 to 1, for which `cond` must return true.
+
+</Field.Item>
+
+</Field.List>
+
+Blocks for up to `duration`. Returns `True` if `cond` returned true for at least
+`percentage` of the frames that arrived. Returns `False` if no frame arrived.
+
+### `sleep`
+
+```python
+ctrl.sleep(dur, precise=False) -> None
+```
+
+Blocks for `dur`, a number of seconds or a `TimeSpan`. Set `precise=True` for
+millisecond accuracy. A precise sleep uses more CPU.
+
+<Divider.Divider x />
+
+## Release control
+
+### `release`
+
+```python
+ctrl.release() -> None
+```
+
+Closes the writer and stops the stream. Control of each `write` channel passes to the
+writer with the next highest authority. Channel values do not change. Do not use the
+controller after `release`. Leaving a `with` block calls `release`, also after an
+exception. Raises the error that closed the writer, if the Core closed it with one.
+
+<Divider.Divider x />
+
+## Schedule commands
+
+### `schedule`
+
+```python
+ctrl.schedule(*commands: ScheduledCommand) -> tuple[Callable[[], None], bool]
+```
+
+Returns a function and `True`. Call the function to run the commands in order: for each
+command, it sleeps for `delay` with a precise sleep, then sets the value. `schedule`
+itself sends nothing.
+
+`ScheduledCommand(channel, value, delay)` is in `synnax.control`. Each `delay` counts
+from the previous command. A number for `delay` is in seconds. A `TimeSpan` also works.
+
+<Divider.Divider x />
+
+## Retrieve control state
+
+### `retrieve`
+
+```python
+client.control.retrieve(*, name=None, key=None, names=None, keys=None)
+    -> State | list[State] | None
+```
+
+Returns which writer controls channels. Pass parameters by name. It does not need a
+controller.
+
+| Call              | Returns                                                          |
+| ----------------- | ---------------------------------------------------------------- |
+| `name=` or `key=` | One `State`, or `None` when no writer controls the channel.      |
+| `names=`          | A list with one `State` for each controlled channel.             |
+| `keys=`           | A list with one `State` for each controlled channel.             |
+| No parameters     | A list with one `State` for each controlled channel in the Core. |
+
+A `State` has `subject.name` and `subject.key` (the writer), `resource` (the channel
+key), and `authority`. Raises `NotFoundError` if the channel given by `name` or `key`
+does not exist. `names=` drops names that do not exist, with no error.
