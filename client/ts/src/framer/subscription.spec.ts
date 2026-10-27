@@ -20,7 +20,7 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { assert, describe, expect, it } from "vitest";
+import { assert, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError, UnsupportedError } from "@/errors";
@@ -908,6 +908,42 @@ describe("Feed.subscribe", () => {
   });
 
   describe("restart and reconnect", () => {
+    it("should keep its tiles while the Core is down, and read them again after", async () => {
+      const core = createCore();
+      // The stream warns on each failed attempt to open again.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        window: staticWindow(new TimeRange(START, START.add(TimeSpan.minutes(5)))),
+        limit: { variant: "points", count: 100, aggregation: "min_max" },
+      });
+      // A consumer reads a value on every change, as Pluto does.
+      sub.onChange(() => sub.value(key));
+      try {
+        await historyStreamed(core);
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        const { series } = sub.value(key);
+        const reads = core.reads;
+        core.disconnect();
+        await expect
+          .poll(() => warn.mock.calls.at(-1)?.[0], POLL)
+          .toMatchObject({ message: "failed to open streamer" });
+        expect(core.reads).toBe(reads);
+        expect(sub.value(key)).toMatchObject({
+          series,
+          status: { variant: "success" },
+        });
+        core.reconnect();
+        await expect.poll(() => core.reads, POLL).toBeGreaterThan(reads);
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should keep time order across a Core restart", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);

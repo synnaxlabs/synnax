@@ -149,6 +149,8 @@ export class MultiplexedStreamer {
   // The key set last accepted by the stream. Kept separately from the streamer so a
   // mid-reconnect streamer cannot be consulted for it.
   private sentKeys = new Set<channel.Key>();
+  // outdated is true from a stream drop until a stream opens again.
+  private outdated = false;
   // Keys the Core rejected on their own, with the rejection. They stay off the stream
   // so the rest of it keeps flowing.
   private readonly rejected = new Map<channel.Key, Error>();
@@ -394,9 +396,9 @@ export class MultiplexedStreamer {
     for (const key of keys) onWait(joins.flush(key));
   }
 
-  // Frames may drop until the stream reopens, so no cached block can be trusted.
-  private invalidate(): void {
-    this.props.onWait(this.props.joins.invalidate());
+  // Frames may drop until a stream opens again.
+  private drop(): void {
+    this.outdated = true;
     this.entries.forEach((e) => {
       if (e.removed) return;
       e.dropHandlers.forEach((handler) => {
@@ -411,6 +413,14 @@ export class MultiplexedStreamer {
         }
       });
     });
+  }
+
+  // Drops every cached block once a stream opens after a drop, since the drop can miss
+  // history changes that outdate them.
+  private refresh(): void {
+    if (!this.outdated) return;
+    this.outdated = false;
+    this.props.onWait(this.props.joins.invalidate());
   }
 
   private async reconcile(): Promise<void> {
@@ -449,18 +459,20 @@ export class MultiplexedStreamer {
               signal: this.streamAbort.signal,
               // The reopened stream acked its keys when it opened.
               onReopen: () => {
+                this.refresh();
                 this.setAcked(new Set(this.sentKeys));
                 this.sentKeys.forEach((key) => this.setStatus(key, STREAMING));
               },
               onDrop: () => {
                 this.setAcked(new Set());
                 this.flushBuffers(this.sentKeys);
-                this.invalidate();
+                this.drop();
                 this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
               },
             },
           );
           this.streamer = streamer;
+          this.refresh();
           this.runLoop = this.run(streamer);
         } else {
           ins.L.debug("updating streamer", () => ({
@@ -562,7 +574,7 @@ export class MultiplexedStreamer {
         this.streamAbort = null;
         this.setAcked(new Set());
         this.flushBuffers(this.sentKeys);
-        this.invalidate();
+        this.drop();
         this.sentKeys = new Set();
         this.scheduleReconcile(TimeSpan.ZERO);
       }
