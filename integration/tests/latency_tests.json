@@ -11,6 +11,15 @@
       "tests": [{ "case": "latency/driver_ni_digital_write" }]
     },
     {
+      "sequence_name": "Arc_Wait_Accuracy",
+      "tests": [
+        {
+          "case": "arc/wait_accuracy_samples",
+          "parameters": { "rack_key": [65537, 65538] }
+        }
+      ]
+    },
+    {
       "sequence_name": "Bench_Latency",
       "sequence_order": "asynchronous",
       "tests": [
