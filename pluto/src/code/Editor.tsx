@@ -18,7 +18,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { debounce, TimeSpan, url } from "@synnaxlabs/x";
+import { scheduler, TimeSpan, url } from "@synnaxlabs/x";
 import {
   type ReactNode,
   type Ref,
@@ -335,7 +335,7 @@ const useRenameAvailable = (
         }
       })();
     };
-    const debounced = debounce.debounce(run, RENAME_CHECK_DEBOUNCE);
+    const debounced = scheduler.debounce(run, RENAME_CHECK_DEBOUNCE);
     const cursorDispose = editor.onDidChangeCursorPosition(debounced);
     run();
     return () => {

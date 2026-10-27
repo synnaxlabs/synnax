@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax as Client } from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/pluto";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { useSelector } from "react-redux";
@@ -63,7 +65,7 @@ const createCoreState = (): Session.Core.SliceState => ({
 /**
  * Renders useSettled against a live Core under the real synchronizers and
  * waits for the workspace to settle. The settled result is the positive control that
- * unsettling assertions measure against.
+ * unsettling assertions measure against. clients holds every client the hook saw.
  */
 const renderSettled = async () => {
   const { wrapper: Console, store } = await createSessionConsoleWrapper({
@@ -76,11 +78,19 @@ const renderSettled = async () => {
     </Console>
   );
   Wrapper.displayName = "SettledWrapper";
-  const { result } = renderHook(() => Session.useSettled(), { wrapper: Wrapper });
+  const clients = new Set<Client>();
+  const { result } = renderHook(
+    () => {
+      const client = Synnax.use();
+      if (client != null) clients.add(client);
+      return Session.useSettled();
+    },
+    { wrapper: Wrapper },
+  );
   await waitFor(() => {
     if (!result.current) throw new Error("workspace never settled");
   });
-  return { result, store };
+  return { result, store, clients };
 };
 
 describe("Session.useSettled", () => {
@@ -91,6 +101,12 @@ describe("Session.useSettled", () => {
   it("should report settled when there is no client to verify against", async () => {
     const { result } = await renderHookWithConsole(() => Session.useSettled());
     expect(result.current).toBe(true);
+  });
+
+  it("should keep its client when it caches the cluster key", async () => {
+    const { store, clients } = await renderSettled();
+    expect(Session.Core.selectClusterKey(store.getState())).toBeDefined();
+    expect(clients.size).toBe(1);
   });
 
   it("should unsettle while a partition swap is in flight", async () => {
