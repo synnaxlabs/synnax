@@ -56,7 +56,7 @@ type KeyCreateResponse struct {
 }
 
 // CreateKey creates an API key for the caller, or for another user or rack when the
-// caller may create that subject. It returns a validation error when the subject is not
+// caller may change that subject. It returns a validation error when the subject is not
 // a user or rack, and an error wrapping query.ErrNotFound when it does not exist.
 func (s *Service) CreateKey(
 	ctx context.Context,
@@ -76,7 +76,7 @@ func (s *Service) CreateKey(
 	if err := s.enforceOthers(
 		ctx,
 		caller,
-		access.ActionCreate,
+		access.ActionUpdate,
 		[]ontology.ID{subject},
 	); err != nil {
 		return KeyCreateResponse{}, err

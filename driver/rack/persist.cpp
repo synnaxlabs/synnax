@@ -72,9 +72,7 @@ bool write_all(const int fd, const char *data, size_t size) {
 }
 
 /// @brief replaces a state file that another user owns with a copy this process owns,
-/// so its mode can be made owner-only. Older Drivers left the default directory open
-/// to everyone and the file owned by whoever ran `synnax-driver login`, so an upgraded
-/// service can take the file over without root.
+/// so its mode can be made owner-only.
 x::errors::Error take_state_file(const int dir_fd, const std::string &name) {
     FD src{openat(dir_fd, name.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC)};
     if (src.fd < 0) {
