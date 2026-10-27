@@ -115,6 +115,7 @@ const createConfig = (
 const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info => ({
   clusterKey: "test-cluster",
   nodeVersion: __VERSION__,
+  nodeKey: 1,
   clockSkew: TimeSpan.ZERO,
   roundTrip: TimeSpan.ZERO,
   license: "ok",
@@ -156,6 +157,7 @@ describe("connection", () => {
       const info = await sendCheck(liveUnary());
       expect(z.validate(z.uuid(), info.clusterKey)).toBe(true);
       expect(info.nodeVersion).not.toEqual("");
+      expect(info.nodeKey).toBe(1);
     });
 
     it("should fold a check into a connected status", async () => {
@@ -751,6 +753,7 @@ describe("connection", () => {
         ["clusterKey", withDetails({ clusterKey: "other-cluster" })],
         ["clientVersion", withDetails({ clientVersion: "9.9.9" })],
         ["nodeVersion", withDetails({ nodeVersion: "9.9.9" })],
+        ["nodeKey", withDetails({ nodeKey: 2 })],
         ["clientServerCompatible", withDetails({ clientServerCompatible: false })],
         ["clockSkewExceeded", withDetails({ clockSkewExceeded: true })],
         ["retry", withDetails({ retry: { attempt: 1, nextAt } })],
@@ -781,6 +784,7 @@ describe("connection", () => {
         "clusterKey",
         "clientVersion",
         "nodeVersion",
+        "nodeKey",
         "clientServerCompatible",
         "clockSkew",
         "clockSkewExceeded",
