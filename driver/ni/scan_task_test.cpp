@@ -266,7 +266,7 @@ public:
     [[nodiscard]] std::size_t count(const std::string &substr) {
         std::lock_guard lock(this->mu);
         return std::ranges::count_if(this->lines, [&](const std::string &line) {
-            return line.find(substr) != std::string::npos;
+            return line.contains(substr);
         });
     }
 };
