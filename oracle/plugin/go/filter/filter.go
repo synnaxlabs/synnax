@@ -395,11 +395,9 @@ func addImports(data templateData, repoRoot string) {
 		return len(l.Comparisons()) > 0
 	})
 	if hasText {
-		data.AddExternal("regexp")
 		internal("filter", "x/go/filter")
 	}
-	needsEnum := lo.SomeBy(data.Lines, func(l lineData) bool { return l.Enum })
-	if hasText || needsEnum {
+	if lo.SomeBy(data.Lines, func(l lineData) bool { return l.Enum }) {
 		internal("errors", "x/go/errors")
 	}
 	if needsMatch {
@@ -458,51 +456,31 @@ func MatchWhere{{.TypeParams}}(w Where) (Filter{{.TypeArgs}}, error) {
 {{- if .Typed}}
 		fs = append(fs, {{.Func}}{{$.TypeArgs}}({{if .Pointer}}*{{end}}l{{if .Variadic}}...{{end}}))
 {{- else if .Text}}
+		text := *l
 		if !l.CaseInsensitive {
 			if l.Eq != nil {
 				fs = append(fs, {{.Func}}{{$.TypeArgs}}(*l.Eq))
 			}
+{{- if not .Scalar}}
 			if l.In != nil {
-{{- if .Scalar}}
-				in := make([]Filter{{$.TypeArgs}}, len(l.In))
-				for i, v := range l.In {
-					in[i] = {{.Func}}{{$.TypeArgs}}(v)
-				}
-				fs = append(fs, Or{{$.TypeArgs}}(in...))
-{{- else}}
 				fs = append(fs, {{.Func}}{{$.TypeArgs}}(l.In...))
+			}
+			text.In = nil
 {{- end}}
-			}
+			text.Eq = nil
 		}
-		if l.CaseInsensitive || l.Contains != nil || l.StartsWith != nil {
-			op := *l
-			fs = append(fs, Match{{$.TypeArgs}}(func(
-				_ gorp.Context,
-				_ Retrieve{{$.TypeArgs}},
-				e *{{$.Target}},
-			) (bool, error) {
-				return filter.MatchesString(op, e.{{.Field}}), nil
-			}))
-		}
-		if l.Regex != nil {
-			pattern := *l.Regex
-			if l.CaseInsensitive {
-				pattern = "(?i)" + pattern
-			}
-			re, err := regexp.Compile(pattern)
+		if text.CaseInsensitive || text.In != nil || text.Contains != nil ||
+			text.StartsWith != nil || text.Regex != nil {
+			match, err := filter.CompileString(text)
 			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"{{.Path}}",
-					"regex",
-				)
+				return nil, validate.PathedError(err, "{{.Path}}")
 			}
 			fs = append(fs, Match{{$.TypeArgs}}(func(
 				_ gorp.Context,
 				_ Retrieve{{$.TypeArgs}},
 				e *{{$.Target}},
 			) (bool, error) {
-				return re.MatchString(e.{{.Field}}), nil
+				return match(e.{{.Field}}), nil
 			}))
 		}
 {{- else}}
