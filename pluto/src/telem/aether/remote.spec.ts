@@ -1937,7 +1937,7 @@ describe("remote", () => {
       const stream = async (
         key: channel.Key,
         count: number,
-      ): Promise<framer.Subscription> => {
+      ): Promise<framer.Demand> => {
         let streaming = false;
         const sub = client.feed.stream(
           (res) => {
@@ -2035,7 +2035,7 @@ describe("remote", () => {
       it.each(STREAMING)(
         "should draw every sample of a line added while its $streaming streams",
         async ({ channels, indexAsX }) => {
-          const subs: framer.Subscription[] = [];
+          const subs: framer.Demand[] = [];
           for (const key of channels()) subs.push(await stream(key, 20));
           const [x, y] = createLine(TimeSpan.seconds(30), indexAsX);
           await expect.poll(() => drawn(x, y)).toEqual(samples(0, sample(core.now())));
@@ -2049,7 +2049,7 @@ describe("remote", () => {
       it.each(STREAMING)(
         "should keep every sample of a paused line added while its $streaming streams",
         async ({ channels, indexAsX }) => {
-          const subs: framer.Subscription[] = [];
+          const subs: framer.Demand[] = [];
           for (const key of channels()) subs.push(await stream(key, 200));
           const span = TimeSpan.seconds(2);
           const [x, y] = createLine(span, indexAsX);
