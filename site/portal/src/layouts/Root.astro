@@ -8,6 +8,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import faviconICO from "@synnaxlabs/lyra/static/logo/icon-white-favicon.ico?no-inline";
+import faviconSVG from "@synnaxlabs/lyra/static/logo/icon-white-favicon.svg?no-inline";
 import "@/styles/main.css";
 
 interface Props {
@@ -23,7 +25,8 @@ const { title } = Astro.props;
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="robots" content="noindex" />
-        <link rel="icon" href="/favicon.svg" />
+        <link rel="icon" href={faviconICO} sizes="48x48" />
+        <link rel="icon" type="image/svg+xml" href={faviconSVG} />
         <title>{title} | Synnax</title>
     </head>
     <body>

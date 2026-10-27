@@ -10,9 +10,10 @@
 import { type device, type status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
-import { TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type ReactElement } from "react";
+import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { Device } from "@/feature/device";
 import { NI } from "@/feature/ni";
@@ -20,29 +21,50 @@ import { OPCUA } from "@/feature/opcua";
 import { createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { Notifications } from "@/platform/notifications";
-import { createConsoleWrapper, renderWithConsole, uniqueName } from "@/testutil";
+import { createConsoleWrapper, installPortalRoot, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-type DeviceNotification = Status.NotificationSpec<ReturnType<typeof device.deviceZ>>;
+type DeviceCrude = status.Crude<ReturnType<typeof device.deviceZ>>;
 
-const createNotification = (dev: device.Device): DeviceNotification => ({
+const createCrude = (dev: device.Device): DeviceCrude => ({
   key: uniqueName("status"),
-  name: "",
   variant: "info",
   message: `New ${dev.model} connected`,
-  description: "",
-  time: TimeStamp.now(),
   details: dev,
-  count: 1,
 });
 
-const silence = (): void => {};
+const Harness = ({ onAdd }: { onAdd: (add: Status.Adder) => void }): ReactElement => {
+  const add = Status.useAdder();
+  return (
+    <>
+      <button onClick={() => onAdd(add)}>add</button>
+      <Notifications.Feed notifications={Device.NOTIFICATIONS} />
+      <Modals.Stack />
+    </>
+  );
+};
+Harness.displayName = "Harness";
+
+const addStatus = async <Details extends z.ZodType = z.ZodNever>(
+  crude: status.Crude<Details>,
+): Promise<void> => {
+  const { wrapper } = await createConsoleWrapper({ client });
+  render(<Harness onAdd={(add) => add(crude)} />, { wrapper });
+  fireEvent.click(screen.getByText("add"));
+};
 
 describe("device/notifications", () => {
-  it("does not match statuses for devices that are already configured", async () => {
-    const dev = await createTestDevice(client, { configured: true });
-    expect(Device.Notification.match(createNotification(dev))).toBe(false);
+  installPortalRoot();
+
+  it("does not offer a configure action for a configured device", async () => {
+    const dev = await createTestDevice(client, {
+      configured: true,
+      make: NI.Device.MAKE,
+    });
+    await addStatus(createCrude(dev));
+    expect(await screen.findByText(`New ${dev.model} connected`)).toBeTruthy();
+    expect(screen.queryByText("Configure")).toBeNull();
   });
 
   it("renders the device message without a configure action for OPC UA", async () => {
@@ -50,10 +72,7 @@ describe("device/notifications", () => {
       configured: false,
       make: OPCUA.Device.MAKE,
     });
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Device.Notification status={createNotification(dev)} silence={silence} />, {
-      wrapper,
-    });
+    await addStatus(createCrude(dev));
     expect(await screen.findByText(`New ${dev.model} connected`)).toBeTruthy();
     expect(screen.queryByText("Configure")).toBeNull();
   });
@@ -63,14 +82,7 @@ describe("device/notifications", () => {
       configured: false,
       make: NI.Device.MAKE,
     });
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(
-      <>
-        <Device.Notification status={createNotification(dev)} silence={silence} />
-        <Modals.Stack />
-      </>,
-      { wrapper },
-    );
+    await addStatus(createCrude(dev));
     fireEvent.click(await screen.findByText("Configure"));
     expect(await screen.findByText(dev.name)).toBeTruthy();
   });
@@ -78,45 +90,18 @@ describe("device/notifications", () => {
   describe("getKeyFromStatus", () => {
     it("returns the device key for unconfigured devices", async () => {
       const dev = await createTestDevice(client, { configured: false });
-      expect(Device.getKeyFromStatus(createNotification(dev))).toBe(dev.key);
+      expect(Device.getKeyFromStatus(createCrude(dev))).toBe(dev.key);
     });
 
     it("returns null for configured devices", async () => {
       const dev = await createTestDevice(client, { configured: true });
-      expect(Device.getKeyFromStatus(createNotification(dev))).toBeNull();
+      expect(Device.getKeyFromStatus(createCrude(dev))).toBeNull();
     });
   });
 
   describe("NOTIFICATIONS", () => {
-    interface HarnessProps {
-      crude: status.Crude;
-    }
-
-    const RoutineHarness = ({ crude }: HarnessProps) => {
-      const add = Status.useAdder();
-      return (
-        <>
-          <button onClick={() => add(crude)}>add</button>
-          <Notifications.Feed notifications={Device.NOTIFICATIONS} />
-        </>
-      );
-    };
-    RoutineHarness.displayName = "RoutineHarness";
-
-    const addRoutineStatus = async (crude: status.Crude): Promise<void> => {
-      await renderWithConsole(<RoutineHarness crude={crude} />);
-      fireEvent.click(screen.getByText("add"));
-    };
-
-    beforeEach(() => {
-      const root = document.createElement("div");
-      root.id = "root";
-      document.body.appendChild(root);
-    });
-    afterEach(() => document.getElementById("root")?.remove());
-
     it("suppresses a routine loading status for a device", async () => {
-      await addRoutineStatus({
+      await addStatus({
         key: "device:1",
         variant: "loading",
         message: "Device connecting",
@@ -125,7 +110,7 @@ describe("device/notifications", () => {
     });
 
     it("suppresses a routine success status for a device", async () => {
-      await addRoutineStatus({
+      await addStatus({
         key: "device:1",
         variant: "success",
         message: "Device connected",
@@ -134,7 +119,7 @@ describe("device/notifications", () => {
     });
 
     it("does not suppress a device error status", async () => {
-      await addRoutineStatus({
+      await addStatus({
         key: "device:1",
         variant: "error",
         message: "Device disconnected",
@@ -143,7 +128,7 @@ describe("device/notifications", () => {
     });
 
     it("does not suppress a routine status for a non-device key", async () => {
-      await addRoutineStatus({ key: "rack:1", variant: "success", message: "Rack ok" });
+      await addStatus({ key: "rack:1", variant: "success", message: "Rack ok" });
       expect(screen.getByText("Rack ok")).toBeTruthy();
     });
   });
