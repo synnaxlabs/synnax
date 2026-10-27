@@ -18,7 +18,8 @@ from typing import Any, TypeAlias, cast
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, GetCoreSchemaHandler
+from pydantic_core import core_schema
 
 from x.interop import ArrayOperators
 from x.telem.telem import (
@@ -33,7 +34,7 @@ from x.telem.telem import (
     TimeStamp,
 )
 
-VARIABLE_LENGTH_PREFIX_SIZE = 4
+_VARIABLE_LENGTH_PREFIX_SIZE = 4
 
 
 def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
@@ -51,11 +52,33 @@ def _encode_samples(samples: list[Any], data_type: DataType) -> bytes:
 
 def _encode_variable(parts: list[bytes]) -> bytes:
     return b"".join(
-        len(p).to_bytes(VARIABLE_LENGTH_PREFIX_SIZE, "little") + p for p in parts
+        len(p).to_bytes(_VARIABLE_LENGTH_PREFIX_SIZE, "little") + p for p in parts
     )
 
 
-class Series(ArrayOperators, BaseModel):
+class _Payload(BaseModel):
+    time_range: TimeRange | None = None
+    data_type: DataType
+    data: bytes
+    alignment: Alignment = Alignment(0, 0)
+    alignment_multiple: int = 1
+
+
+def _from_payload(p: _Payload) -> Series:
+    return Series(p.data, p.data_type, p.time_range, p.alignment, p.alignment_multiple)
+
+
+def _to_payload(s: Series) -> _Payload:
+    return _Payload(
+        time_range=s.time_range,
+        data_type=s.data_type,
+        data=s.data,
+        alignment=s.alignment,
+        alignment_multiple=s.alignment_multiple,
+    )
+
+
+class Series(ArrayOperators):
     """Series is a strongly typed array of telemetry samples backed by an underlying
     binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
@@ -67,7 +90,7 @@ class Series(ArrayOperators, BaseModel):
     especially relevant in the context of a Frame (framer.Frame).
     """
 
-    time_range: TimeRange | None = None
+    time_range: TimeRange | None
     """An optional property defines the time range occupied by the
     Series' data. This property is guaranteed to be defined when reading data from
     a Synnax cluster, and is particularly useful for understanding the alignment of
@@ -81,12 +104,12 @@ class Series(ArrayOperators, BaseModel):
     """The data type of the Series"""
     data: bytes
     """The underlying buffer"""
-    alignment: Alignment = Alignment(0, 0)
+    alignment: Alignment
     """The alignment of the Series, representing the position within an array of arrays"""
-    alignment_multiple: int = 1
+    alignment_multiple: int
     """The number of alignment steps between consecutive samples. Above one when the
     Core reduced the Series from a longer one."""
-    _len_cache: int | None = PrivateAttr(None)
+    _len_cache: int | None
 
     def __len__(self) -> int:
         if not self.data_type.is_variable:
@@ -95,11 +118,11 @@ class Series(ArrayOperators, BaseModel):
             count = 0
             offset = 0
             d = self.data
-            while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+            while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
                 length = int.from_bytes(
-                    d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                    d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
                 )
-                offset += VARIABLE_LENGTH_PREFIX_SIZE + length
+                offset += _VARIABLE_LENGTH_PREFIX_SIZE + length
                 count += 1
             self._len_cache = count
         return self._len_cache
@@ -162,14 +185,30 @@ class Series(ArrayOperators, BaseModel):
                 )
             data_type = DataType(data_type)
             data_ = data
-        super().__init__(
-            data_type=data_type,
-            data=data_,
-            time_range=time_range,
-            alignment=Alignment(0) if align is None else align,
-            alignment_multiple=1 if alignment_multiple is None else alignment_multiple,
+        self.data_type = data_type
+        self.data = data_
+        self.time_range = time_range
+        self.alignment = Alignment(0) if align is None else align
+        self.alignment_multiple = (
+            1 if alignment_multiple is None else alignment_multiple
         )
         self._len_cache = None
+
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls, source_type: object, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
+        """Implemented for pydantic validation. Should not be used externally."""
+        payload = handler.generate_schema(_Payload)
+        return core_schema.union_schema(
+            [
+                core_schema.is_instance_schema(cls),
+                core_schema.no_info_after_validator_function(_from_payload, payload),
+            ],
+            serialization=core_schema.plain_serializer_function_ser_schema(
+                _to_payload, return_schema=payload
+            ),
+        )
 
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
@@ -223,18 +262,18 @@ class Series(ArrayOperators, BaseModel):
         offset = 0
         d = self.data
         current = 0
-        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+        while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
             length = int.from_bytes(
-                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
             )
-            offset += VARIABLE_LENGTH_PREFIX_SIZE
+            offset += _VARIABLE_LENGTH_PREFIX_SIZE
             if current == index:
                 return d[offset : offset + length]
             offset += length
             current += 1
         raise IndexError(f"[Series] - Index {index} out of bounds")
 
-    def __iter__(self) -> Iterator[SampleValue]:  # type: ignore[override]
+    def __iter__(self) -> Iterator[SampleValue]:
         if self.data_type == DataType.UUID:
             yield from [self[i] for i in range(len(self))]
         elif self.data_type == DataType.JSON:
@@ -249,16 +288,22 @@ class Series(ArrayOperators, BaseModel):
     def _iter_variable(self) -> Iterator[bytes]:
         offset = 0
         d = self.data
-        while offset + VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
+        while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(d):
             length = int.from_bytes(
-                d[offset : offset + VARIABLE_LENGTH_PREFIX_SIZE], "little"
+                d[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
             )
-            offset += VARIABLE_LENGTH_PREFIX_SIZE
+            offset += _VARIABLE_LENGTH_PREFIX_SIZE
             yield d[offset : offset + length]
             offset += length
 
     def __str__(self) -> str:
         return str(list(self))
+
+    def __repr__(self) -> str:
+        return (
+            f"Series(data_type={self.data_type!r}, len={len(self)}, "
+            f"time_range={self.time_range!r}, alignment={self.alignment!r})"
+        )
 
     @property
     def size(self) -> Size:

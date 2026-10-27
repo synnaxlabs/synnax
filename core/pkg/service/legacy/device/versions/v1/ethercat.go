@@ -22,6 +22,18 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// EtherCATMakeMigration changes the make "EtherCAT" that released Python clients stored
+// on slaves to "ethercat", the make the Driver and Console match.
+var EtherCATMakeMigration = migrate.NewEntry(
+	"v60_ethercat_make",
+	func(_ context.Context, d Device) (Device, error) {
+		if d.Make == "EtherCAT" {
+			d.Make = "ethercat"
+		}
+		return d, nil
+	},
+)
+
 // EtherCATChannelMapMigration re-keys the channel maps that released Consoles stored on
 // EtherCAT slaves from PDO entry names to entry addresses. A name the slave repeats
 // maps to its first entry, the one the Driver read. When two keys name one entry, the

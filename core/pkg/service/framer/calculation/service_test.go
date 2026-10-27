@@ -760,6 +760,53 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 	})
 
+	Describe("Requests", func() {
+		It(
+			"Should calculate a source write issued right after the request",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", base.Name),
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  channel.Keys{base.Key()},
+				}))
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				s := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{calc.Key()},
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				_, outlet := confluence.Attach(s, 1, 1)
+				s.Flow(sCtx)
+				Eventually(outlet.Outlet()).Should(Receive())
+				rm := c.OpenRequestManager()
+				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				defer func() { Expect(rm.Close(ctx)).To(Succeed()) }()
+				Expect(
+					w.Write(frame.NewUnary(base.Key(), telem.NewSeriesV[int64](1, 2))),
+				).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(
+					res.Frame.Get(calc.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[int64](2, 4))
+			},
+		)
+	})
+
 	Describe("Calculation Status", func() {
 		Specify(
 			"Should persist error status on invalid expression request",

@@ -43,7 +43,7 @@ cc_test(
     deps = [
         "//client/cpp/errors",
         "//driver/pipeline",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/sync",
         "//x/cpp/test",
         "@abseil-cpp//absl/log",

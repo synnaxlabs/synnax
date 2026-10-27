@@ -84,13 +84,15 @@ JOBS: dict[str, tuple[str, str, list[str]]] = {
     "oracle": ("toolchain", "go", ["oracle"]),
     "docs": ("toolchain", "ts", ["site/docs"]),
     "vite-plugin": ("toolchain", "ts", ["configs/vite"]),
+    "eslint-config": ("toolchain", "ts", ["configs/eslint"]),
     "scripts": ("toolchain", "py", ["scripts"]),
     "ci-scripts": ("toolchain", "py", [".github/scripts"]),
 }
 
 # CI test jobs left off the page: lint and schema checks, websites outside the release,
-# and grammar snapshots that declare no named tests.
+# grammar snapshots that declare no named tests, and sanitizer reruns of listed tests.
 UNLISTED = {
+    "driver-tsan",
     "foundation",
     "lint-integration",
     "oracle-language",
@@ -126,6 +128,7 @@ PLATFORMS = {"ubuntu": "linux", "windows": "windows", "macos": "darwin"}
 TC_STATES = {
     "PASSED": "passed",
     "FLAKY": "flaky",
+    "SKIPPED": "skipped",
     "FAILED": "failed",
     "TIMEOUT": "failed",
     "KILLED": "failed",
@@ -272,7 +275,7 @@ class Case:
 
     source: str
     tags: list[str]
-    # Runner OS -> why the case auto-passes there instead of running.
+    # Runner OS -> why the case skips itself there instead of running.
     skipped: dict[str, str]
 
 
@@ -346,7 +349,7 @@ class Cases:
             for node in ast.walk(c):
                 if isinstance(node, ast.If):
                     for os_name, system in PLATFORMS.items():
-                        reason = auto_pass(node, system)
+                        reason = platform_skip(node, system)
                         if reason is not None:
                             skipped.setdefault(os_name, reason)
         tags = [
@@ -365,10 +368,11 @@ class Cases:
         return Case(f"integration/{path}#L{cls.lineno}", tags, skipped)
 
 
-def auto_pass(node: ast.If, system: str) -> str | None:
-    """Returns the auto_pass message when node gates an auto_pass on the platform
-    and the gate holds for system, as in
-    `if platform.system().lower() != "windows": self.auto_pass(msg=...)`."""
+def platform_skip(node: ast.If, system: str) -> str | None:
+    """Returns the skip reason when node gates a skip on the platform and the gate
+    holds for system, as in
+    `if platform.system().lower() != "windows": self.skip(...)`, or the same with
+    the older `auto_pass`."""
     test = node.test
     if not (
         isinstance(test, ast.Compare)
@@ -385,12 +389,13 @@ def auto_pass(node: ast.If, system: str) -> str | None:
             if (
                 isinstance(call, ast.Call)
                 and isinstance(call.func, ast.Attribute)
-                and call.func.attr == "auto_pass"
+                # Sources before skip() gate the case with auto_pass().
+                and call.func.attr in ("skip", "auto_pass")
             ):
                 msg = call.keywords[0].value if call.keywords else call.args[0]
                 if isinstance(msg, ast.Constant) and isinstance(msg.value, str):
                     return msg.value
-                return "Auto-passed"
+                return "Skipped"
     return None
 
 
@@ -444,12 +449,13 @@ def main() -> None:
     run = json.loads(gh("api", f"repos/{REPO}/actions/runs/{rid}"))
     sha = run["head_sha"]
     subprocess.run(["git", "fetch", "-q", "origin", sha], cwd=ROOT, check=True)
+    # GitHub returns HTTP 502 for pages of 50 or more jobs on a full release run.
     run_jobs = [
         json.loads(line)
         for line in gh(
             "api",
             "--paginate",
-            f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=100",
+            f"repos/{REPO}/actions/runs/{rid}/jobs?per_page=30",
             "-q",
             ".jobs[]|{name,conclusion,html_url,labels,started_at,completed_at}|tojson",
         ).splitlines()
@@ -544,9 +550,11 @@ def main() -> None:
             for t in summary["tests"]:
                 case = cases.resolve(t["case"], t["name"])
                 state = TC_STATES[t["status"]]
-                message = t.get("error_message")
-                # tc reports an auto-passed case as PASSED.
-                if runner_os in case.skipped:
+                message = t.get(
+                    "skip_reason" if state == "skipped" else "error_message"
+                )
+                # Runs before SKIPPED existed report an auto-passed case as PASSED.
+                if state == "passed" and runner_os in case.skipped:
                     state, message = "skipped", case.skipped[runner_os]
                 tests.append(
                     [

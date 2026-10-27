@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Event, type License } from "@/server/db/schema";
+import { roleName } from "@/server/directory";
 import { type Denial, deny } from "@/server/license/deny";
 
 export const date = (d: Date | null): string =>
@@ -78,16 +79,8 @@ export const standing = (
   };
 };
 
-export const term = (lic: License): string => {
-  if (lic.term === "perpetual") return `Perpetual, up to v${lic.maxVersion}`;
-  const until = `Until ${date(lic.expiresAt)}`;
-  return lic.maxVersion == null ? until : `${until}, then up to v${lic.maxVersion}`;
-};
-
 export const edition = (e: License["edition"]): string =>
   e === "desktop" ? "Desktop" : "Enterprise";
-
-export const channels = (n: number): string => (n === 0 ? "Unlimited" : String(n));
 
 const EVENT_LABELS: Record<Event["kind"], string> = {
   issue: "License issued",
@@ -98,10 +91,18 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   release: "Seat released",
   rename: "Machine renamed",
   revoke: "License revoked",
+  restore: "License restored",
   expiry_notice: "Expiry notice sent",
   link: "Machine linked",
   renew: "License renewed",
   unlink: "Machine logged out",
+  register: "Organization registered",
+  rename_organization: "Organization renamed",
+  invite: "Invitation sent",
+  revoke_invitation: "Invitation revoked",
+  accept_invitation: "Invitation accepted",
+  change_role: "Role changed",
+  remove_member: "Member removed",
 };
 
 const REASON_LABELS: Partial<Record<string, string>> = {
@@ -118,17 +119,22 @@ interface Narrator {
   actors: Record<string, string>;
 }
 
+const text = (value: unknown): string | undefined =>
+  typeof value === "string" ? value : undefined;
+
 /** describeEvent writes one event as a line: what happened, to what, by whom. */
 export const describeEvent = (e: Event, { machines, actors }: Narrator): string => {
-  const on = e.activation == null ? undefined : machines[e.activation];
+  const detail = e.detail as Record<string, unknown>;
+  const on =
+    e.activation == null
+      ? (text(detail.email) ?? text(detail.name))
+      : machines[e.activation];
   // A machine renewing itself is its own actor, so it is only named once.
   const by = actors[e.actor] ?? machines[e.actor];
-  const detail = e.detail as Record<string, unknown>;
-  const reason =
-    typeof detail.reason === "string"
-      ? ` (${REASON_LABELS[detail.reason] ?? detail.reason})`
-      : "";
-  const subject = on == null ? "" : `: ${on}`;
+  const reason = text(detail.reason);
+  const why = reason == null ? "" : ` (${REASON_LABELS[reason] ?? reason})`;
+  const to = e.kind === "change_role" ? text(detail.to) : undefined;
+  const subject = on == null ? "" : `: ${on}${to == null ? "" : ` to ${roleName(to)}`}`;
   const actor = by == null || by === on ? "" : ` by ${by}`;
-  return `${EVENT_LABELS[e.kind]}${subject}${actor}${reason}`;
+  return `${EVENT_LABELS[e.kind]}${subject}${actor}${why}`;
 };

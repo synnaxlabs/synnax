@@ -891,7 +891,7 @@ var _ = Describe("Graph", func() {
 				Expression: "return 1 + 1",
 			}
 			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-			Expect(g.Update(ctx, calc)).To(HaveOccurred())
+			Expect(g.Update(ctx, calc)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should detect circular dependency during update", func(ctx SpecContext) {
@@ -1049,7 +1049,11 @@ var _ = Describe("Graph", func() {
 				calc1.DataType = telem.Float32T
 				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				err := g.Update(ctx, calc1)
-				Expect(err).To(HaveOccurred())
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 			},
 		)
 		It(
@@ -1096,7 +1100,11 @@ var _ = Describe("Graph", func() {
 				left.DataType = telem.Float32T
 				Expect(channelWriter.Create(ctx, &left)).To(Succeed())
 				err := g.Update(ctx, left)
-				Expect(err).To(HaveOccurred())
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 
 				// right should still be in the graph unchanged
 				Expect(g.CalculatedKeys().Contains(right.Key())).To(BeTrue())
@@ -1196,7 +1204,11 @@ var _ = Describe("Graph", func() {
 				calc1.DataType = telem.Int64T
 				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				err := g.Update(ctx, calc1)
-				Expect(err).To(HaveOccurred())
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 
 				// calc2's module should be rolled back to its original state
 				// since the cascade failed partway through.

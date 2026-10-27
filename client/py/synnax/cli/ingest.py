@@ -15,47 +15,46 @@ import numpy as np
 
 from synnax import Synnax
 from synnax.channel import Channel
-from synnax.cli import channel, default
-from synnax.cli.connect import connect_client
-from synnax.cli.flow import Context, Flow
+from synnax.cli import channel, connect, default, flow
+from synnax.cli.flow import Context
 from synnax.cli.io import prompt_file
 from synnax.cli.telem import select_data_type
-from synnax.ingest.row import RowIngestionEngine
+from synnax.ingest import row
 from synnax.io import FACTORY, ChannelMeta, Factory, ReaderType, RowFileReader
 from synnax.telem import DataType, Rate, TimeRange, TimeStamp
 
 # A shorthand grouping to represent all values in a set.
-GROUP_ALL = "__all__"
+_GROUP_ALL = "__all__"
 
 
 @click.command()
 @click.argument("path_", type=click.Path(exists=True), required=False, default=None)
 def ingest(path_: str | None) -> None:
-    return pure_ingest(path_, ctx=default.context())
+    return _pure_ingest(path_, ctx=default.context())
 
 
-def pure_ingest(
+def _pure_ingest(
     path_: Path | str | None,
     ctx: Context,
     client: Synnax | None = None,
 ) -> None:
-    flow: Flow[Any] = Flow(ctx)
-    flow.add("initialize_reader", initialize_reader)
-    flow.add("connect_client", _connect_client)
-    flow.add("ingest_all", ingest_all)
-    flow.add("channels_to_ingest", channels_to_ingest)
-    flow.add("skip_invalid_channels", skip_invalid_channels)
-    flow.add("validate_channels_exist", validate_channels_exist)
-    flow.add("validate_data_types", validate_data_types)
-    flow.add("validate_start_time", validate_start_time)
-    flow.add("create_channels", create_channels)
-    flow.add("prompt_name", prompt_name)
-    flow.add("ingest", run_ingestion)
+    runner: flow.Flow[Any] = flow.Flow(ctx)
+    runner.add("initialize_reader", _initialize_reader)
+    runner.add("connect_client", _connect_client)
+    runner.add("ingest_all", _ingest_all)
+    runner.add("channels_to_ingest", _channels_to_ingest)
+    runner.add("skip_invalid_channels", _skip_invalid_channels)
+    runner.add("validate_channels_exist", _validate_channels_exist)
+    runner.add("validate_data_types", _validate_data_types)
+    runner.add("validate_start_time", _validate_start_time)
+    runner.add("create_channels", _create_channels)
+    runner.add("prompt_name", _prompt_name)
+    runner.add("ingest", _run_ingestion)
     path = None if path_ is None else Path(path_)
-    flow.run(IngestionCLI(FACTORY, path, client), "initialize_reader")
+    runner.run(_Flow(FACTORY, path, client), "initialize_reader")
 
 
-class IngestionCLI:
+class _Flow:
     name: str | None = None
     path: Path | None = None
     factory: Factory
@@ -76,15 +75,14 @@ class IngestionCLI:
         self.db_channels = None
 
 
-def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
-    """Runs the ingestion process."""
+def _run_ingestion(ctx: Context, cli: _Flow) -> None:
     assert cli.reader is not None
     assert cli.db_channels is not None
     assert cli.client is not None
     assert cli.start is not None
-    initialize_reader(ctx, cli)
+    _initialize_reader(ctx, cli)
     if cli.reader.type() == ReaderType.Row:
-        engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels, cli.start)
+        engine = row.Engine(cli.client, cli.reader, cli.db_channels, cli.start)
     else:
         raise NotImplementedError("Only row ingestion is supported at this time.")
     ctx.console.info("Starting ingestion process...")
@@ -93,9 +91,9 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     cli.client.ranges.create(name=cli.name, time_range=TimeRange(cli.start, engine.end))
 
 
-def initialize_reader(
+def _initialize_reader(
     ctx: Context,
-    cli: IngestionCLI,
+    cli: _Flow,
 ) -> str | None:
     ctx.console.info("Welcome to the Synnax ingestion CLI! Let's get started.")
     if cli.path is None:
@@ -107,15 +105,13 @@ def initialize_reader(
     return "connect_client"
 
 
-def _connect_client(ctx: Context, cli: IngestionCLI) -> str | None:
-    """Prompts the user to connect to a Synnax py."""
+def _connect_client(ctx: Context, cli: _Flow) -> str | None:
     if cli.client is None:
-        cli.client = connect_client(ctx)
+        cli.client = connect.from_context(ctx)
     return "ingest_all" if cli.client else None
 
 
-def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
-    """Prompts the user to ingest all channels."""
+def _ingest_all(ctx: Context, cli: _Flow) -> str | None:
     assert cli.reader is not None
     if ctx.console.ask("Would you like to ingest all channels?", default=True):
         cli.filtered_channels = cli.reader.channels()
@@ -123,8 +119,7 @@ def ingest_all(ctx: Context, cli: IngestionCLI) -> str | None:
     return "channels_to_ingest"
 
 
-def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
-    """Prompts the user to select channels to ingest."""
+def _channels_to_ingest(ctx: Context, cli: _Flow) -> str | None:
     assert cli.reader is not None
     ctx.console.info("Which channels would you like to ingest?")
     channels = cli.reader.channels()
@@ -136,11 +131,11 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
     return "skip_invalid_channels"
 
 
-def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
+def _skip_invalid_channels(ctx: Context, cli: _Flow) -> str | None:
     assert cli.reader is not None
     data_types = {
         key: dt
-        for key, dt in read_data_types(ctx, cli).items()
+        for key, dt in _read_data_types(ctx, cli).items()
         if dt == DataType.UNKNOWN
     }
     if len(data_types) > 0:
@@ -155,23 +150,23 @@ def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     return "validate_channels_exist"
 
 
-def cannot_cast_error(ctx: Context, actual: Any, ch: Channel) -> None:
+def _cannot_cast_error(ctx: Context, actual: Any, ch: Channel) -> None:
     ctx.console.error(f"""Unable to cast column data type {actual}
 for {ch.name} to channel data type {ch.data_type.np}""")
 
 
-def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
+def _validate_data_types(ctx: Context, cli: _Flow) -> str | None:
     """Does an optimistic check on the first sample of each channel.  This isn't error
     prone, but checking every sample in a large file would be too slow.
     """
     assert cli.db_channels is not None
-    d_types = read_data_types(ctx, cli)
+    d_types = _read_data_types(ctx, cli)
 
     for ch in cli.db_channels:
         samples_type = d_types[ch.name].np
         ch_type = ch.data_type.np
         if not np.can_cast(samples_type, ch_type):
-            cannot_cast_error(ctx, samples_type, ch)
+            _cannot_cast_error(ctx, samples_type, ch)
             return None
         if samples_type != ch_type:
             ctx.console.warn(
@@ -183,7 +178,7 @@ def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
     return "validate_start_time"
 
 
-def read_data_types(ctx: Context, cli: IngestionCLI) -> dict[str, DataType]:
+def _read_data_types(ctx: Context, cli: _Flow) -> dict[str, DataType]:
     assert cli.reader is not None
     assert cli.filtered_channels is not None
 
@@ -205,7 +200,7 @@ def read_data_types(ctx: Context, cli: IngestionCLI) -> dict[str, DataType]:
     return data_types
 
 
-def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
+def _validate_channels_exist(ctx: Context, cli: _Flow) -> str | None:
     """Validates that all channels in the file exist in the database. If not, prompts
     the user to create them.
     """
@@ -236,7 +231,7 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     return "validate_data_types"
 
 
-def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
+def _validate_start_time(ctx: Context, cli: _Flow) -> str | None:
     """Reads the starting timestamp of the file and prompts the user to confirm that it
     is correct. This is mainly a sanity check to make sure the timestamps are properly
     formatted."""
@@ -269,12 +264,11 @@ def validate_start_time(ctx: Context, cli: IngestionCLI) -> str | None:
     return "prompt_name"
 
 
-def create_indexes(
+def _create_indexes(
     ctx: Context,
-    cli: IngestionCLI,
+    cli: _Flow,
     options: list[ChannelMeta],
 ) -> list[ChannelMeta]:
-    """Prompts the user to create index channels."""
     assert cli.client is not None
     assert cli.db_channels is not None
     grouped = channel.prompt_group_names(ctx, [ch.name for ch in options])
@@ -289,28 +283,28 @@ def create_indexes(
     return [ch for ch in options if ch.name not in names]
 
 
-DATA_TYPE_OPTIONS = [
+_DATA_TYPE_OPTIONS = [
     "Guess data types from file",
     "Assign the same data type to all channels (excluding indexes)",
     "Group channels by data type",
 ]
 
 
-def assign_data_type(
+def _assign_data_type(
     ctx: Context,
-    cli: IngestionCLI,
+    cli: _Flow,
 ) -> dict[DataType, list[ChannelMeta]] | None:
     assert cli.not_found is not None
 
-    grouped: dict[str, list[ChannelMeta]] = {GROUP_ALL: cli.not_found}
+    grouped: dict[str, list[ChannelMeta]] = {_GROUP_ALL: cli.not_found}
     assigned: dict[DataType, list[ChannelMeta]] = {}
     ctx.console.info("Please select an option for assigning data types:")
     opt, _ = ctx.console.select(
-        rows=DATA_TYPE_OPTIONS,
-        default=DATA_TYPE_OPTIONS[0],
+        rows=_DATA_TYPE_OPTIONS,
+        default=_DATA_TYPE_OPTIONS[0],
     )
-    if opt == DATA_TYPE_OPTIONS[0]:
-        data_types = read_data_types(ctx, cli)
+    if opt == _DATA_TYPE_OPTIONS[0]:
+        data_types = _read_data_types(ctx, cli)
         for ch in cli.not_found:
             dt = data_types[ch.name]
             if dt not in assigned:
@@ -318,7 +312,7 @@ def assign_data_type(
             else:
                 assigned[dt].append(ch)
         return assigned
-    if opt == DATA_TYPE_OPTIONS[2]:
+    if opt == _DATA_TYPE_OPTIONS[2]:
         groups = channel.prompt_group_names(ctx, [ch.name for ch in cli.not_found])
         if groups is None or len(groups) == 0:
             return None
@@ -326,7 +320,7 @@ def assign_data_type(
             k: [ch for ch in cli.not_found if ch.name in v] for k, v in groups.items()
         }
     for key, group in grouped.items():
-        if key != GROUP_ALL:
+        if key != _GROUP_ALL:
             ctx.console.info(f"Assigning data type to {key}")
         selected_dt = select_data_type(ctx)
         if selected_dt is None:
@@ -335,17 +329,15 @@ def assign_data_type(
     return assigned
 
 
-def assign_index_or_rate(
+def _assign_index_or_rate(
     ctx: Context,
-    cli: IngestionCLI,
+    cli: _Flow,
 ) -> dict[Rate | int, list[ChannelMeta]] | None:
-    """Prompts the user to assign an index/rate to the channels in the given
-    group"""
     assert cli.client is not None
     assert cli.not_found is not None
     client = cli.client
 
-    grouped: dict[str, list[ChannelMeta]] = {GROUP_ALL: cli.not_found}
+    grouped: dict[str, list[ChannelMeta]] = {_GROUP_ALL: cli.not_found}
     if not ctx.console.ask(
         "Do all non-indexed channels have the same data rate or index?",
         bool,
@@ -363,7 +355,7 @@ def assign_index_or_rate(
         }
 
     def assign_to_group(key: str, group: list[ChannelMeta]) -> Rate | int | None:
-        if key != GROUP_ALL:
+        if key != _GROUP_ALL:
             ctx.console.info(f"Assigning data rate or index to {key}")
         _choice = ctx.console.ask("Enter the name of an index or a data rate")
         assert _choice is not None
@@ -390,15 +382,18 @@ def assign_index_or_rate(
     return assigned
 
 
-def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
+def _create_channels(ctx: Context, cli: _Flow) -> str | None:
     assert cli.not_found is not None
     assert cli.client is not None
     assert cli.db_channels is not None
 
     if ctx.console.ask("Are any channels indexed (e.g. timestamps)?", default=True):
-        cli.not_found = create_indexes(ctx, cli, cli.not_found)
+        cli.not_found = _create_indexes(ctx, cli, cli.not_found)
 
-    idx_grouped, dt_grouped = assign_index_or_rate(ctx, cli), assign_data_type(ctx, cli)
+    idx_grouped, dt_grouped = (
+        _assign_index_or_rate(ctx, cli),
+        _assign_data_type(ctx, cli),
+    )
     if idx_grouped is None or dt_grouped is None:
         return None
 
@@ -420,7 +415,7 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     return "validate_data_types"
 
 
-def prompt_name(ctx: Context, cli: IngestionCLI) -> str | None:
+def _prompt_name(ctx: Context, cli: _Flow) -> str | None:
     assert cli.db_channels is not None
     assert cli.not_found is not None
     assert cli.client is not None

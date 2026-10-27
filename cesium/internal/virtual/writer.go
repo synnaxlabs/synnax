@@ -35,7 +35,7 @@ type WriterConfig struct {
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
-	DefaultWriterConfig                             = WriterConfig{
+	defaultWriterConfig                             = WriterConfig{
 		ErrOnUnauthorizedOpen: new(false),
 	}
 )
@@ -92,7 +92,7 @@ func (db *DB) OpenWriter(
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
 	}
-	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	cfg, err := config.New(defaultWriterConfig, cfgs...)
 	if err != nil {
 		return nil, transfer, db.wrapError(err)
 	}
@@ -108,8 +108,12 @@ func (db *DB) OpenWriter(
 			Authority:             cfg.Authority,
 			Subject:               cfg.Subject,
 			OpenResource: func() (*controlResource, error) {
+				a, err := db.leadingAlignment.Next()
+				if err != nil {
+					return nil, err
+				}
 				cr := &controlResource{ck: db.cfg.Channel.Key}
-				cr.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
+				cr.storeAlignment(a)
 				return cr, nil
 			},
 		},

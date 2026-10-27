@@ -13,7 +13,7 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/x/address"
 )
@@ -22,15 +22,15 @@ import (
 // the per-operation freighter networks so that a single Transport can be provisioned
 // per node, mirroring the gRPC control.Transport that bundles the same operations.
 type Network struct {
-	retrieve  *mock.Network[control.RetrieveRequest, control.RetrieveResponse]
-	subscribe *mock.Network[control.SubscribeRequest, control.SubscribeResponse]
+	retrieve  *freightertestutil.Network[control.RetrieveRequest, control.RetrieveResponse]
+	subscribe *freightertestutil.Network[control.SubscribeRequest, control.SubscribeResponse]
 	live      atomic.Int64
 }
 
 func NewNetwork() *Network {
 	return &Network{
-		retrieve: mock.NewNetwork[control.RetrieveRequest, control.RetrieveResponse](),
-		subscribe: mock.NewNetwork[
+		retrieve: freightertestutil.NewNetwork[control.RetrieveRequest, control.RetrieveResponse](),
+		subscribe: freightertestutil.NewNetwork[
 			control.SubscribeRequest,
 			control.SubscribeResponse,
 		](),

@@ -37,6 +37,13 @@ on:
         required: false
         type: string
         default: ""
+      lowest:
+        description:
+          Whether to resolve the lowest allowed direct dependencies on the oldest
+          supported Python, which tests the lower bounds in pyproject.toml
+        required: false
+        type: boolean
+        default: false
       macos:
         description: Whether to test on macOS
         required: false
@@ -116,13 +123,35 @@ jobs:
         with:
           version: latest-known
 
+      # A locked run fails on a stale uv.lock instead of rewriting it. A lowest-direct
+      # resolution does not match uv.lock, so it relocks instead.
+      - name: Configure uv
+        shell: bash
+        env:
+          LOWEST: ${{ inputs.lowest }}
+        run: |
+          if [ "$LOWEST" != true ]; then
+            echo "UV_LOCKED=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          python=$(sed -n 's/^requires-python = ">=\([0-9.]*\).*/\1/p' pyproject.toml)
+          if [ -z "$python" ]; then
+            echo "::error::pyproject.toml has no requires-python lower bound."
+            exit 1
+          fi
+          echo "UV_PYTHON=$python" >> "$GITHUB_ENV"
+          echo "UV_RESOLUTION=lowest-direct" >> "$GITHUB_ENV"
+
+      # Ruff output depends on the Ruff version, so only the locked one checks it.
       - name: Lint
-        if: matrix.format
+        if: matrix.format && !inputs.lowest
         run: uv run ruff check .
 
       - name: Check formatting
-        if: matrix.format
-        run: uv run ruff format --check --diff .
+        if: matrix.format && !inputs.lowest
+        run: |
+          uv run ruff format --check --diff . ||
+            { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
       - name: Check types
         run: uv run mypy ${{ inputs.type_check_dir }}
