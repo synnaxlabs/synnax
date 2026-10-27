@@ -28,6 +28,7 @@ config-variables:
   - S3_CACHE_BUCKET
   - S3_CACHE_REGION
   - TURBO_TEAM
+  - WINDOWS_TEST_BOTS
 
 paths:
   .github/workflows/cancel.merge-group.yaml:
