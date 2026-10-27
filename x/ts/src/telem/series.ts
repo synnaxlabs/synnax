@@ -27,6 +27,7 @@ import {
   type CrudeTimeStamp,
   DataType,
   isTelemValue,
+  type NumberArray,
   Size,
   type TelemValue,
   TimeRange,
@@ -43,6 +44,11 @@ interface GL {
   generation: number;
   prevBuffer: number;
   bufferUsage: GLBufferUsage;
+  /** The float32 copy of a bigint series, relative to offset. */
+  copy: Float32Array<ArrayBuffer> | null;
+  /** The number of samples converted into copy. */
+  copied: number;
+  offset: math.Numeric | null;
 }
 
 interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
@@ -213,6 +219,10 @@ export class Series<T extends TelemValue = TelemValue>
   private cachedDataView?: TypedArray;
   /** The write position cachedDataView was built at. */
   private cachedDataViewWritePos: number = FULL_BUFFER;
+  /** Caches alignmentBounds, which only change with the write position. */
+  private cachedAlignmentBounds?: bounds.Bounds<bigint>;
+  /** The write position cachedAlignmentBounds was built at. */
+  private cachedAlignmentBoundsWritePos: number = FULL_BUFFER;
 
   /**
    * A zod schema that can be used to validate that a particular value
@@ -388,6 +398,9 @@ export class Series<T extends TelemValue = TelemValue>
       generation: 0,
       prevBuffer: 0,
       bufferUsage: glBufferUsage,
+      copy: null,
+      copied: 0,
+      offset: null,
     };
   }
 
@@ -426,15 +439,16 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Releases a reference to this series. If the reference count to the series reaches
-   * 0 and the series has been buffered to the GPU, the series will be deleted from
-   * the GPU.
+   * Releases a reference to this series. When the reference count reaches 0, the series
+   * drops its GPU buffer and the float32 copy behind glData.
    */
   release(): void {
     this._refCount--;
-    if (this.refCount === 0 && this.gl.control != null)
-      this.maybeGarbageCollectGLBuffer(this.gl.control);
-    else if (this.refCount < 0)
+    if (this.refCount === 0) {
+      if (this.gl.control != null) this.maybeGarbageCollectGLBuffer(this.gl.control);
+      this.gl.copy = null;
+      this.gl.copied = 0;
+    } else if (this.refCount < 0)
       console.warn("cannot release a series with a negative reference count");
   }
 
@@ -970,11 +984,8 @@ export class Series<T extends TelemValue = TelemValue>
    */
   updateGLBuffer(control: GLBufferController): void {
     this.gl.control = control;
-    if (
-      !this.dataType.equals(DataType.FLOAT32) &&
-      !this.dataType.equals(DataType.UINT8)
-    )
-      throw new Error("Only FLOAT32 and UINT8 arrays can be used in WebGL");
+    if (this.dataType.isVariable)
+      throw new Error("variable length series cannot be used in WebGL");
     // The restore of the context destroyed the buffer.
     if (this.gl.generation !== control.generation) {
       this.gl.buffer = null;
@@ -993,21 +1004,70 @@ export class Series<T extends TelemValue = TelemValue>
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);
 
+    const { density } = this.glDataType;
     if (this.writePos !== FULL_BUFFER) {
       if (prevBuffer === 0)
-        gl.bufferData(gl.ARRAY_BUFFER, this.byteCapacity.valueOf(), gl.STATIC_DRAW);
-      const byteOffset = this.dataType.density.size(prevBuffer).valueOf();
-      const slice = this.underlyingData.slice(this.gl.prevBuffer, this.writePos);
-      gl.bufferSubData(gl.ARRAY_BUFFER, byteOffset, slice.buffer);
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          density.size(this.capacity).valueOf(),
+          gl.STATIC_DRAW,
+        );
+      const byteOffset = density.size(prevBuffer).valueOf();
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        byteOffset,
+        this.glSlice(prevBuffer, this.writePos),
+      );
       this.gl.prevBuffer = this.writePos;
     } else {
       gl.bufferData(
         gl.ARRAY_BUFFER,
-        this.buffer,
+        this.glSlice(0, this.length),
         bufferUsage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW,
       );
       this.gl.prevBuffer = FULL_BUFFER;
     }
+  }
+
+  /**
+   * @returns the data type of the series on the GPU: UINT8 for a UINT8 series, and
+   * FLOAT32 for every other numeric type.
+   */
+  get glDataType(): DataType {
+    return this.dataType.equals(DataType.UINT8) ? DataType.UINT8 : DataType.FLOAT32;
+  }
+
+  /**
+   * @returns the value that glData and the GPU buffer hold each sample relative to. A
+   * bigint series counts from its first sample, so its samples fit a float32.
+   */
+  get glOffset(): math.Numeric {
+    if (!this.dataType.usesBigInt || this.length === 0) return this.sampleOffset;
+    return (this.gl.offset ??= this.at(0, true) as math.Numeric);
+  }
+
+  /**
+   * @returns the samples relative to glOffset, as JS numbers. A bigint series keeps a
+   * float32 copy, which grows as the series is written and drops when the last
+   * reference is released. Every other series returns its own data.
+   */
+  get glData(): NumberArray {
+    if (!this.dataType.usesBigInt) return this.data as NumberArray;
+    const { length } = this;
+    const data = this.data as BigInt64Array | BigUint64Array;
+    const copy = (this.gl.copy ??= new Float32Array(this.capacity));
+    for (let i = this.gl.copied; i < length; i++) copy[i] = Number(data[i] - data[0]);
+    this.gl.copied = length;
+    return copy.subarray(0, length);
+  }
+
+  // Returns samples [start, end) as glDataType. Only a series of another data type
+  // allocates.
+  private glSlice(start: number, end: number): AllowSharedBufferSource {
+    const data = this.glData;
+    if (this.dataType.usesBigInt || this.dataType.equals(this.glDataType))
+      return data.subarray(start, end);
+    return new Float32Array(data.subarray(start, end));
   }
 
   /**
@@ -1062,13 +1122,23 @@ export class Series<T extends TelemValue = TelemValue>
    * occupied by the series in a group of series. This is typically used to order the
    * series within a channel's data. The lower bound is the alignment of the first
    * sample, and the upper bound is the alignment of the last sample + 1. The lower
-   * bound is inclusive, while the upper bound is exclusive.
+   * bound is inclusive, while the upper bound is exclusive. The bounds are frozen, and
+   * the same object returns until the series grows.
    */
   get alignmentBounds(): bounds.Bounds<bigint> {
-    return bounds.construct(
-      this.alignment,
-      this.alignment + BigInt(this.length) * this.alignmentMultiple,
-    );
+    if (
+      this.cachedAlignmentBounds == null ||
+      this.cachedAlignmentBoundsWritePos !== this.writePos
+    ) {
+      this.cachedAlignmentBounds = Object.freeze(
+        bounds.construct(
+          this.alignment,
+          this.alignment + BigInt(this.length) * this.alignmentMultiple,
+        ),
+      );
+      this.cachedAlignmentBoundsWritePos = this.writePos;
+    }
+    return this.cachedAlignmentBounds;
   }
 
   private maybeGarbageCollectGLBuffer(control: GLBufferController): void {
