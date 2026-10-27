@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export { open, type Query, type Reader, type Store, type Tx } from "@/server/db/db";
-export * as schema from "@/server/db/schema";
+export { schema } from "@/server/db/tables";

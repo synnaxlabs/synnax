@@ -17,7 +17,8 @@ import {
   type PgTransaction,
 } from "drizzle-orm/pg-core";
 
-import { schema } from "@/server/db";
+// The barrel re-exports this file, so the schema comes from a sibling.
+import { schema } from "@/server/db/tables";
 
 type Schema = typeof schema;
 
