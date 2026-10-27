@@ -102,6 +102,14 @@ class Jobs:
         # can afford.
         self.cursor = 0
         self.synced: sy.TimeStamp | None = None
+        # Deliveries applied while a resync reads, replayed over its older snapshot.
+        self.pending: list[dict] = []
+
+    def queue(self, job: dict, action: object) -> None:
+        if action == "queued":
+            self.queued[job["id"]] = set(job.get("labels", []))
+        else:
+            self.queued.pop(job["id"], None)
 
     def apply(self, deliveries: list[dict]) -> dict[str, list[str]]:
         """Folds in a batch of workflow_job deliveries, returning the event lines they
@@ -112,10 +120,11 @@ class Jobs:
             if not isinstance(job, dict):
                 continue
             action = payload.get("action")
+            self.queue(job, action)
+            if self.syncing is not None:
+                self.pending.append(payload)
             if action == "queued":
-                self.queued[job["id"]] = set(job.get("labels", []))
                 continue
-            self.queued.pop(job["id"], None)
             runner = job.get("runner_name")
             if runner is None:
                 continue
@@ -194,12 +203,15 @@ class Jobs:
         if not self.syncing.done():
             return
         syncing, self.syncing = self.syncing, None
+        pending, self.pending = self.pending, []
         try:
             queued, running = syncing.result()
         except Exception as e:
             self.log.error("queued resync", e)
             return
         self.queued = queued
+        for payload in pending:
+            self.queue(payload["workflow_job"], payload.get("action"))
         # Restores the jobs that started before a restart.
         for job in running:
             self.active.setdefault(job["runner_name"], view(job))

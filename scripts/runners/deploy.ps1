@@ -15,6 +15,12 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+# Held until this process exits, so a retried deploy fails here instead of sharing
+# the staging folder with one still running.
+$Lock = [IO.File]::Open(
+    (Join-Path $env:TEMP 'runners-deploy.lock'), 'OpenOrCreate', 'ReadWrite', 'None'
+)
+
 $Dir = 'C:\Users\Administrator\Desktop\runner_telemetry'
 $Uv = 'C:\Program Files\Python313\Scripts\uv.exe'
 $UvCache = 'C:\Windows\system32\config\systemprofile\AppData\Local\uv'

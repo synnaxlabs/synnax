@@ -137,6 +137,31 @@ class TestJobs:
         j.resync(sy.TimeStamp.now())
         assert j.queued == {2: set(LABELS)}
 
+    def test_should_keep_deliveries_that_arrive_during_a_resync(
+        self, client: Client
+    ) -> None:
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {
+                    "jobs": [job(2, "queued")]
+                },
+            }
+        )
+        pool = Held(immediate=False)
+        j = jobs(github, client, pool)
+        j.resync(sy.TimeStamp.now())
+        j.apply(
+            [
+                {"action": "queued", "workflow_job": {"id": 3, "labels": LABELS}},
+                delivery("in_progress", 2),
+            ]
+        )
+        pool.release()
+        j.resync(sy.TimeStamp.now())
+        assert j.queued == {3: set(LABELS)}
+
     def test_should_read_every_page_of_jobs(self, client: Client) -> None:
         first = [job(i, "completed") for i in range(100)]
         github = Responses(
