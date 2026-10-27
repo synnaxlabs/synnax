@@ -349,7 +349,7 @@ var _ = Describe("Writer", func() {
 					Where(ranger.MatchKeys(r.Key)).
 					Entry(&retrieveR).
 					Exec(ctx, tx),
-			).ToNot(Succeed())
+			).To(MatchError(query.ErrNotFound))
 		})
 		It(
 			"Should delete all child ranges when a range is deleted",
@@ -378,7 +378,7 @@ var _ = Describe("Writer", func() {
 						Where(ranger.MatchKeys(r.Key)).
 						Entry(&retrieveR).
 						Exec(ctx, tx),
-				).ToNot(Succeed())
+				).To(MatchError(query.ErrNotFound))
 			},
 		)
 		It(
