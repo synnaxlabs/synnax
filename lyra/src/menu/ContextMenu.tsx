@@ -13,7 +13,7 @@ import { box, location, unique, xy } from "@synnaxlabs/x";
 import { type ReactNode, type RefCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { type RenderProp } from "@/component/renderProp";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
@@ -197,7 +197,7 @@ export interface ContextMenuMenuProps extends ContextMenuState {
 
 export interface ContextMenuProps
   extends Omit<UseContextMenuReturn, "className">, Omit<Flex.BoxProps, "ref"> {
-  menu?: RenderProp<ContextMenuMenuProps>;
+  menu?: Component.RenderProp<ContextMenuMenuProps>;
 }
 
 const Internal = ({

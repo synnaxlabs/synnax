@@ -10,7 +10,12 @@
 import { type errors } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type Crude, fromException, type Heading, toString } from "@/status/status";
+import {
+  type Crude,
+  fromException,
+  type Heading,
+  toString,
+} from "@/status/core/status";
 
 /** Adds a status to the enclosing aggregator. */
 export interface Adder {

@@ -20,14 +20,14 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { type RenderProp } from "@/component/renderProp";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
 import { type Control, type Variant } from "@/input/types";
 import { Text } from "@/text";
-import { reactElementToArray } from "@/util/children";
+import { reactElementToArray } from "@/util";
 
 /** The value one {@link Table} cell holds. */
 export type TableCell = string | number;
@@ -54,12 +54,12 @@ export type TableColumnProps =
   | (BaseTableColumnProps & {
       type?: "number";
       /** Renders the cell. Defaults to a numeric input. */
-      children?: RenderProp<TableCellProps<number>>;
+      children?: Component.RenderProp<TableCellProps<number>>;
     })
   | (BaseTableColumnProps & {
       type: "string";
       /** Renders the cell. Defaults to a text input. */
-      children?: RenderProp<TableCellProps<string>>;
+      children?: Component.RenderProp<TableCellProps<string>>;
     });
 
 /**

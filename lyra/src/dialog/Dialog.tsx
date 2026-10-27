@@ -16,7 +16,7 @@ import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
 import { PORTAL_OWNER_ATTR } from "@/dialog/useClickOutside";
 import { Flex } from "@/flex";
-import { getRootElement } from "@/util/rootElement";
+import { getRootElement } from "@/util";
 
 /** Props for {@link Dialog}. */
 export interface DialogProps extends Flex.BoxProps<"div"> {

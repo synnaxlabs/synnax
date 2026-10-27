@@ -21,7 +21,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Generic } from "@/generic";
 import { type Status } from "@/status";
-import { isValidElement } from "@/util/children";
+import { isValidElement } from "@/util";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
 

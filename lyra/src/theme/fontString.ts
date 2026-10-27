@@ -9,9 +9,7 @@
 
 import { type text } from "@synnaxlabs/x";
 
-import { type Component } from "@/component";
-import { isSize } from "@/component/size";
-import { SIZE_TEXT_LEVELS } from "@/component/text";
+import { Component } from "@/component";
 import { type ThemeSpec } from "@/theme/theme";
 
 interface FontStringOptions {
@@ -61,7 +59,9 @@ export const fontString = (
     if (threshold != null) fmly = threshold.value;
     else fmly = "Inter Light, sans-serif";
   }
-  const size = typography[isSize(level) ? SIZE_TEXT_LEVELS[level] : level].size;
+  const size =
+    typography[Component.isSize(level) ? Component.SIZE_TEXT_LEVELS[level] : level]
+      .size;
   const sizePx = (base * size).toFixed(1);
   const [family, serif] = fmly.split(", ");
   if (weight != null) return ` ${weight} ${sizePx}px ${family}, ${serif}`;

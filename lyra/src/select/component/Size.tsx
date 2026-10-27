@@ -9,16 +9,16 @@
 
 import { type ReactElement } from "react";
 
-import { type Size } from "@/component/size";
+import { type Component } from "@/component";
 import { type Select } from "@/select";
 import { Buttons } from "@/select/Buttons";
 import { Item } from "@/select/Item";
 
-/** Props for {@link SelectSize}. */
-export interface SelectComponentSizeProps extends Select.ButtonsProps<Size> {}
+/** Props for {@link Size}. */
+export interface SizeProps extends Select.ButtonsProps<Component.Size> {}
 
-/** A button group for picking a {@link Size}, labeled XS through XL. */
-export const SelectSize = (props: SelectComponentSizeProps): ReactElement => (
+/** A button group for picking a component size, labeled XS through XL. */
+export const Size = (props: SizeProps): ReactElement => (
   <Buttons {...props}>
     <Item itemKey="tiny">XS</Item>
     <Item itemKey="small">S</Item>

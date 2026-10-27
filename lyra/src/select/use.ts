@@ -18,7 +18,7 @@ import {
 import { useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { useRegistryContext } from "@/select/registry";
 import { useHover, type UseHoverProps, type UseHoverReturn } from "@/select/useHover";

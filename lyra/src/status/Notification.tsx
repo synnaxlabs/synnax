@@ -16,9 +16,8 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type NotificationSpec } from "@/status/Aggregator";
+import { type NotificationSpec, toString } from "@/status/core";
 import { Indicator } from "@/status/Indicator";
-import { toString } from "@/status/status";
 import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 
