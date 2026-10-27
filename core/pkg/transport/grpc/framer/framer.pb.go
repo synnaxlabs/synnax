@@ -476,6 +476,7 @@ type StreamerRequest struct {
 	DownsampleFactor uint32                 `protobuf:"varint,2,opt,name=downsample_factor,json=downsampleFactor,proto3" json:"downsample_factor,omitempty"`
 	ThrottleRateHz   float64                `protobuf:"fixed64,4,opt,name=throttle_rate_hz,json=throttleRateHz,proto3" json:"throttle_rate_hz,omitempty"`
 	ExcludeGroups    []uint32               `protobuf:"varint,5,rep,packed,name=exclude_groups,json=excludeGroups,proto3" json:"exclude_groups,omitempty"`
+	AckRequested     bool                   `protobuf:"varint,6,opt,name=ack_requested,json=ackRequested,proto3" json:"ack_requested,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -538,10 +539,18 @@ func (x *StreamerRequest) GetExcludeGroups() []uint32 {
 	return nil
 }
 
+func (x *StreamerRequest) GetAckRequested() bool {
+	if x != nil {
+		return x.AckRequested
+	}
+	return false
+}
+
 type StreamerResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Frame         *pb.Frame              `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
 	Buffer        []byte                 `protobuf:"bytes,2,opt,name=buffer,proto3" json:"buffer,omitempty"`
+	Ack           bool                   `protobuf:"varint,3,opt,name=ack,proto3" json:"ack,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -588,6 +597,13 @@ func (x *StreamerResponse) GetBuffer() []byte {
 		return x.Buffer
 	}
 	return nil
+}
+
+func (x *StreamerResponse) GetAck() bool {
+	if x != nil {
+		return x.Ack
+	}
+	return false
 }
 
 type DeleteRequest struct {
@@ -693,15 +709,17 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\bnode_key\x18\x02 \x01(\x05R\anodeKey\x12\x18\n" +
 	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
 	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
-	"\x03end\x18\x05 \x01(\x03R\x03end\"\xa3\x01\n" +
+	"\x03end\x18\x05 \x01(\x03R\x03end\"\xc8\x01\n" +
 	"\x0fStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
 	"\x11downsample_factor\x18\x02 \x01(\rR\x10downsampleFactor\x12(\n" +
 	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\x12%\n" +
-	"\x0eexclude_groups\x18\x05 \x03(\rR\rexcludeGroups\"S\n" +
+	"\x0eexclude_groups\x18\x05 \x03(\rR\rexcludeGroups\x12#\n" +
+	"\rack_requested\x18\x06 \x01(\bR\fackRequested\"e\n" +
 	"\x10StreamerResponse\x12'\n" +
 	"\x05frame\x18\x01 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x16\n" +
-	"\x06buffer\x18\x02 \x01(\fR\x06buffer\"h\n" +
+	"\x06buffer\x18\x02 \x01(\fR\x06buffer\x12\x10\n" +
+	"\x03ack\x18\x03 \x01(\bR\x03ack\"h\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12-\n" +
