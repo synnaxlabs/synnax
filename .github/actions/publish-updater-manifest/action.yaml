@@ -22,6 +22,9 @@ inputs:
   app:
     description: The app product name, such as Synnax or Synnax Desktop
     required: true
+  linux:
+    description: Whether the release carries a signed Linux AppImage
+    default: "false"
 
 runs:
   using: composite
@@ -31,7 +34,8 @@ runs:
     # name with dashes. The updater looks up {os}-{arch}-{installer} before {os}-{arch},
     # so each Windows install updates with the installer it came from, and an install
     # that cannot name its installer gets NSIS, the one the download page offers. The
-    # macOS bundle is arm64 only, so an Intel Mac gets no entry.
+    # macOS bundle is arm64 only, so an Intel Mac gets no entry. An app without a Linux
+    # build gets a placeholder Linux entry that no install can apply.
     - name: Write updater manifest
       shell: bash
       working-directory: ${{ runner.temp }}
@@ -41,6 +45,7 @@ runs:
         TAG: ${{ inputs.tag }}
         VERSION: ${{ inputs.version }}
         APP: ${{ inputs.app }}
+        LINUX: ${{ inputs.linux }}
       run: |
         APP_VERSION="${VERSION/-rc./-}"
         NAME="${APP// /-}"
@@ -48,24 +53,31 @@ runs:
         MAC="${NAME}.app.tar.gz"
         NSIS="${NAME}_${APP_VERSION}_x64-setup.exe"
         MSI="${NAME}_${APP_VERSION}_x64_en-US.msi"
+        APPIMAGE="${NAME}_${APP_VERSION}_amd64.AppImage"
         gh release download "$TAG" \
           --pattern "$MAC.sig" --pattern "$NSIS.sig" --pattern "$MSI.sig"
+        if [ "$LINUX" = true ]; then
+          gh release download "$TAG" --pattern "$APPIMAGE.sig"
+          LINUX_ENTRY=$(jq -n --rawfile signature "$APPIMAGE.sig" \
+            --arg url "$BASE/$APPIMAGE" '{signature: $signature, url: $url}')
+        else
+          LINUX_ENTRY=$(jq -n --arg url "$BASE/$MAC" \
+            '{signature: "not_supported_and_tauri_requires_an_entry", url: $url}')
+        fi
         jq -n --arg version "v${APP_VERSION}" --arg notes "${APP} Update" \
           --arg mac "$BASE/$MAC" --arg nsis "$BASE/$NSIS" --arg msi "$BASE/$MSI" \
           --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
           --rawfile darwin "$MAC.sig" \
           --rawfile nsis_sig "$NSIS.sig" \
           --rawfile msi_sig "$MSI.sig" \
+          --argjson linux "$LINUX_ENTRY" \
           '{
             version: $version,
             notes: $notes,
             pub_date: $date,
             platforms: {
               "darwin-aarch64": {signature: $darwin, url: $mac},
-              "linux-x86_64": {
-                signature: "not_supported_and_tauri_requires_an_entry",
-                url: $mac
-              },
+              "linux-x86_64": $linux,
               "windows-x86_64": {signature: $nsis_sig, url: $nsis},
               "windows-x86_64-nsis": {signature: $nsis_sig, url: $nsis},
               "windows-x86_64-msi": {signature: $msi_sig, url: $msi}

@@ -298,6 +298,11 @@ jobs:
             WINDOWS="\"windows-latest\""
           fi
           OS_LIST="${MACOS}${MACOS:+${WINDOWS:+,}}${WINDOWS}"
+          # Only the Console builds on Linux. The oldest hosted Ubuntu gives the AppImage
+          # and the .deb the widest glibc range.
+          if [ "${{ inputs.ubuntu }}" = "true" ]; then
+            OS_LIST="${OS_LIST}${OS_LIST:+,}\"ubuntu-22.04\""
+          fi
           {
             echo "matrix=[${OS_LIST}]"
             echo "macos=[${MACOS}]"
