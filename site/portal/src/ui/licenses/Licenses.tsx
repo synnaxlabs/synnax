@@ -27,7 +27,7 @@ export interface LicensesProps {
   now: Date;
 }
 
-const COLUMNS = "minmax(0, 2fr) 14rem 10rem minmax(0, 1.4fr) 10rem 3rem";
+const COLUMNS = "minmax(0, 2fr) 14rem 10rem minmax(0, 1.4fr) 14rem 3rem";
 
 /** Licenses lists an organization's licenses, one row per license. */
 export const Licenses = ({

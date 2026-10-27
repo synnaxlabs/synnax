@@ -10,7 +10,7 @@
 import { verifyWebhook } from "@clerk/astro/webhooks";
 import { type APIRoute } from "astro";
 
-import { ensurePersonal, mirrorTeam } from "@/server/organization";
+import { ensurePersonal, mirrorTeams } from "@/server/organization";
 
 /**
  * POST mirrors Clerk's user and organization creation into the portal: a personal
@@ -38,7 +38,7 @@ export const POST: APIRoute = async (context) => {
     }
     case "organization.created":
     case "organization.updated":
-      await mirrorTeam(store, { clerkOrgID: evt.data.id, name: evt.data.name });
+      await mirrorTeams(store, [{ clerkOrgID: evt.data.id, name: evt.data.name }]);
       break;
     default:
       break;

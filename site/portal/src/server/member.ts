@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@/server/db/db";
-import { event, type EventKind } from "@/server/db/schema";
+import { event, type EventKind, type Organization } from "@/server/db/schema";
 import {
   ADMIN_ROLE,
   type Directory,
@@ -16,7 +16,9 @@ import {
   MEMBER_ROLE,
 } from "@/server/directory";
 import { badRequest, notFound } from "@/server/errors";
-import { type Team } from "@/server/organization";
+
+/** Team is a team organization with the Clerk organization that backs it. */
+export type Team = Organization & { clerkOrgID: string };
 
 /** Change is who changes a team's members, and when. */
 export interface Change {

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
@@ -16,8 +17,15 @@ import { Panel } from "@/ui/Panel";
 import { Root } from "@/ui/Root";
 import { Tile } from "@/ui/Tile";
 
+export interface Parent {
+  label: string;
+  href: string;
+}
+
 export interface PageProps extends PropsWithChildren {
   title: string;
+  /** parent links the page that lists this one, above the title. */
+  parent?: Parent;
   /** subtitle reads under the title: an organization name, a status line. */
   subtitle?: ReactNode;
   actions?: ReactNode;
@@ -28,6 +36,7 @@ export interface PageProps extends PropsWithChildren {
 /** Page is the frame every portal page renders: a header with actions, then content. */
 export const Page = ({
   title,
+  parent,
   subtitle,
   actions,
   error,
@@ -37,6 +46,17 @@ export const Page = ({
     <Flex.Box y gap="huge" full="x">
       <Flex.Box x justify="between" align="end" gap="large" wrap>
         <Flex.Box y gap="tiny">
+          {parent != null && (
+            <Text.Text
+              level="small"
+              color={9}
+              href={parent.href}
+              className="portal-crumb"
+            >
+              <Icon.Caret.Left />
+              {parent.label}
+            </Text.Text>
+          )}
           <Text.Text level="h2" color={11}>
             {title}
           </Text.Text>

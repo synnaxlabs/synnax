@@ -58,3 +58,18 @@ export const tabs = (scope: Organization, staff: boolean): Link[] => {
   if (staff) sections.push({ tab: "admin", label: "Admin", href: "/admin" });
   return sections;
 };
+
+export type AdminSection = "organizations" | "licenses" | "activity";
+
+export interface AdminLink {
+  section: AdminSection;
+  label: string;
+  href: string;
+}
+
+/** ADMIN_LINKS are the sections of the staff console, in the order they show. */
+export const ADMIN_LINKS: AdminLink[] = [
+  { section: "organizations", label: "Organizations", href: "/admin" },
+  { section: "licenses", label: "Licenses", href: "/admin/licenses" },
+  { section: "activity", label: "Activity", href: "/admin/activity" },
+];

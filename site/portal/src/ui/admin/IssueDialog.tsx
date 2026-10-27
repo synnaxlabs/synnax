@@ -24,14 +24,14 @@ const schema = Licenses.termsSchema
   .check(Licenses.checkTerms);
 
 export interface IssueDialogProps {
-  /** teams are the organizations in Clerk. Create one there first. */
+  /** teams are the organizations to choose from. With one, the dialog issues to it. */
   teams: Listed[];
 }
 
 /** IssueDialog issues a new enterprise license to an organization. Staff only. */
 export const IssueDialog = ({ teams }: IssueDialogProps): ReactElement => (
   <Modal.Frame
-    name="Issue a license"
+    name={teams.length === 1 ? `${teams[0].name}.Issue a license` : "Issue a license"}
     icon={<Icon.Policy />}
     trigger={
       <Dialog.Trigger variant="filled" hideCaret>
@@ -46,7 +46,10 @@ export const IssueDialog = ({ teams }: IssueDialogProps): ReactElement => (
 
 const Content = ({ teams }: IssueDialogProps): ReactElement => {
   const methods = Form.use({
-    values: { ...Licenses.ZERO_TERMS, organization: "" },
+    values: {
+      ...Licenses.ZERO_TERMS,
+      organization: teams.length === 1 ? teams[0].clerkOrgID : "",
+    },
     schema,
   });
   return (
@@ -58,21 +61,23 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
         navigate(`/licenses/${key}`);
       }}
     >
-      <Form.Field<string>
-        path="organization"
-        label="Organization"
-        helpText="Organizations and their admins are created in the Clerk dashboard."
-      >
-        {(p) => (
-          <Select.Simple<string> {...p} resourceName="Organization">
-            {teams.map(({ clerkOrgID, name }) => (
-              <Select.Item key={clerkOrgID} itemKey={clerkOrgID}>
-                {name}
-              </Select.Item>
-            ))}
-          </Select.Simple>
-        )}
-      </Form.Field>
+      {teams.length !== 1 && (
+        <Form.Field<string>
+          path="organization"
+          label="Organization"
+          helpText="Register an organization under Organizations first."
+        >
+          {(p) => (
+            <Select.Simple<string> {...p} resourceName="Organization">
+              {teams.map(({ clerkOrgID, name }) => (
+                <Select.Item key={clerkOrgID} itemKey={clerkOrgID}>
+                  {name}
+                </Select.Item>
+              ))}
+            </Select.Simple>
+          )}
+        </Form.Field>
+      )}
       <Licenses.TermsFields />
     </Modal.Form>
   );

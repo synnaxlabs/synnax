@@ -14,9 +14,12 @@ import { POST as revokeInvitationRoute } from "@/pages/api/organizations/[key]/i
 import { POST as inviteRoute } from "@/pages/api/organizations/[key]/invite";
 import { POST as removeRoute } from "@/pages/api/organizations/[key]/members/[user]/remove";
 import { POST as roleRoute } from "@/pages/api/organizations/[key]/members/[user]/role";
-import { event, type Organization } from "@/server/db/schema";
+import { POST as renameRoute } from "@/pages/api/organizations/[key]/name";
+import { POST as registerRoute } from "@/pages/api/organizations/index";
+import { event, type Organization, organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
+import { badRequest } from "@/server/errors";
 import { NOW } from "@/server/license/testutil";
 import {
   body,
@@ -138,7 +141,7 @@ describe("organization routes", () => {
       expect(h.directory.invitations).toHaveLength(0);
     });
 
-    it("should answer an admin of another team as if the team did not exist", async () => {
+    it("should answer an admin of another team as if it did not exist", async () => {
       h.signIn(OUTSIDER);
       await expectError(await invite(), 404, "Organization not found");
       expect(h.directory.invitations).toHaveLength(0);
@@ -334,6 +337,191 @@ describe("organization routes", () => {
         403,
         "Only a team admin can change members",
       );
+    });
+  });
+
+  describe("POST /api/organizations", () => {
+    const register = async (fields: Record<string, string> = {}) =>
+      await call(registerRoute, {
+        path: "/api/organizations",
+        body: { name: "Globex", email: "hank@globex.com", ...fields },
+      });
+
+    const globex = async () =>
+      (await store.query.select().from(organization)).find((o) => o.name === "Globex");
+
+    it("should register the team in Clerk and the portal", async () => {
+      h.signIn(STAFF);
+      const res = await register({ name: " Globex " });
+      expect(res.status).toBe(200);
+      const row = await globex();
+      expect(await body(res)).toEqual({ key: row?.key });
+      expect(row).toMatchObject({ kind: "team", clerkOrgID: "org_1" });
+      expect(h.directory.organizations[0]).toEqual({
+        clerkOrgID: "org_1",
+        name: "Globex",
+      });
+    });
+
+    it("should leave staff off the team", async () => {
+      h.signIn(STAFF);
+      await register();
+      expect(await h.directory.roster("org_1")).toEqual([]);
+    });
+
+    it("should invite the first admin to the sign-up page", async () => {
+      h.signIn(STAFF);
+      await register({ email: " hank@globex.com " });
+      expect(h.directory.invitations).toEqual([
+        {
+          clerkOrgID: "org_1",
+          email: "hank@globex.com",
+          role: ADMIN_ROLE,
+          inviterUserID: STAFF,
+          redirectURL: "https://portal.synnaxlabs.com/sign-up",
+        },
+      ]);
+    });
+
+    it("should record the registration and the invitation", async () => {
+      h.signIn(STAFF);
+      await register();
+      const org = (await globex())?.key;
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: "register",
+          actor: STAFF,
+          organization: org,
+          detail: { name: "Globex" },
+        }),
+        expect.objectContaining({
+          kind: "invite",
+          actor: STAFF,
+          organization: org,
+          detail: { email: "hank@globex.com", role: ADMIN_ROLE },
+        }),
+      ]);
+    });
+
+    it("should keep the team when Clerk refuses the invitation", async () => {
+      h.signIn(STAFF);
+      h.directory.invite = async () => {
+        throw badRequest("The email address is blocked.");
+      };
+      await expectError(
+        await register(),
+        400,
+        "Globex is registered, but Clerk refused the invitation: The email address " +
+          "is blocked. Invite the admin from its Members tab.",
+      );
+      expect(await globex()).toBeDefined();
+      expect((await events()).map((e) => e.kind)).toEqual(["register"]);
+    });
+
+    it("should refuse a name another team has, in any case", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await register({ name: "ACME" }),
+        400,
+        "An organization named ACME exists",
+      );
+      expect(h.directory.organizations).toHaveLength(1);
+    });
+
+    it("should refuse an empty name", async () => {
+      h.signIn(STAFF);
+      await expectError(await register({ name: " " }), 400, "Name the organization");
+    });
+
+    it("should refuse a name that is too long", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await register({ name: "a".repeat(65) }),
+        400,
+        "The name must be at most 64 characters",
+      );
+    });
+
+    it("should refuse an invalid email before creating the team", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await register({ email: "hank" }),
+        400,
+        "Enter the admin's email address",
+      );
+      expect(h.directory.organizations).toHaveLength(1);
+      expect(await events()).toHaveLength(0);
+    });
+
+    it("should refuse a team admin who is not staff", async () => {
+      h.signIn(ADMIN);
+      expect((await register()).status).toBe(403);
+      expect(h.directory.organizations).toHaveLength(1);
+    });
+
+    it("should refuse a visitor who is not logged in", async () => {
+      await expectError(await register(), 401, "Log in first");
+    });
+  });
+
+  describe("POST /api/organizations/[key]/name", () => {
+    const rename = async (name: string, key = acme.key) =>
+      await call(renameRoute, {
+        params: { key },
+        path: `/api/organizations/${key}/name`,
+        body: { name },
+      });
+
+    it("should rename the team in Clerk and the portal", async () => {
+      h.signIn(STAFF);
+      expect((await rename("Acme Rockets")).status).toBe(204);
+      expect(await h.directory.team(ACME)).toEqual({
+        clerkOrgID: ACME,
+        name: "Acme Rockets",
+      });
+      const [row] = await store.query.select().from(organization);
+      expect(row).toMatchObject({ key: acme.key, name: "Acme Rockets" });
+    });
+
+    it("should record the old and new names", async () => {
+      h.signIn(STAFF);
+      await rename("Acme Rockets");
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: "rename_organization",
+          actor: STAFF,
+          organization: acme.key,
+          detail: { name: "Acme Rockets", from: "Acme" },
+        }),
+      ]);
+    });
+
+    it("should change nothing for the same name", async () => {
+      h.signIn(STAFF);
+      expect((await rename(" Acme ")).status).toBe(204);
+      expect(await events()).toHaveLength(0);
+    });
+
+    it("should let only the case of the name change", async () => {
+      h.signIn(STAFF);
+      expect((await rename("ACME")).status).toBe(204);
+      expect((await h.directory.team(ACME))?.name).toBe("ACME");
+    });
+
+    it("should refuse a name another team has", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_globex", name: "Globex" });
+      h.signIn(STAFF);
+      await expectError(
+        await rename("globex"),
+        400,
+        "An organization named globex exists",
+      );
+    });
+
+    it("should refuse a team admin who is not staff", async () => {
+      h.signIn(ADMIN);
+      expect((await rename("Acme Rockets")).status).toBe(403);
+      expect((await h.directory.team(ACME))?.name).toBe("Acme");
     });
   });
 });

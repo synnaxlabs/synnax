@@ -29,7 +29,7 @@ import { Row, Table } from "@/ui/Table";
 import { useAction } from "@/ui/useAction";
 
 const MEMBER_COLUMNS = "minmax(0, 2fr) minmax(0, 2fr) 16rem 4rem";
-const INVITATION_COLUMNS = "minmax(0, 4fr) 16rem 10rem 4rem";
+const INVITATION_COLUMNS = "minmax(0, 4fr) 16rem 14rem 4rem";
 
 export interface MembersProps {
   organization: Organization;
@@ -70,8 +70,10 @@ export const Members = ({
   );
 };
 
-export interface RosterProps extends MembersProps {
-  /** manageable lets the viewer change roles, remove members, and revoke invitations. */
+export interface RosterProps extends Omit<MembersProps, "userID"> {
+  /** userID is the signed-in user, when they are on the team. */
+  userID?: string;
+  /** manageable lets the viewer change members and cancel invitations. */
   manageable: boolean;
 }
 
@@ -88,8 +90,11 @@ export const Roster = ({
       <Empty
         icon={<Icon.User />}
         message="No members yet"
-        description="Invite someone to manage the team."
-        action={manageable ? <InviteDialog organization={organization} /> : undefined}
+        description={
+          invitations.length > 0
+            ? "Members join when they accept an invitation."
+            : "Invite the team's first admin."
+        }
       />
     ) : (
       <Table columns={MEMBER_COLUMNS} head={["Name", "Email", "Role", ""]}>
@@ -251,7 +256,7 @@ export const InviteDialog = ({ organization }: InviteDialogProps): ReactElement 
     name={`${organization.name}.Invite a member`}
     icon={<Icon.User />}
     trigger={
-      <Dialog.Trigger variant="outlined" hideCaret>
+      <Dialog.Trigger variant="filled" hideCaret>
         <Icon.Add />
         Invite
       </Dialog.Trigger>

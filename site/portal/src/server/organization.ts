@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { eq, inArray, or } from "drizzle-orm";
+import { errors } from "@synnaxlabs/x";
+import { eq, inArray, or, sql } from "drizzle-orm";
+import { z } from "zod";
 
 import { type Store } from "@/server/db/db";
-import { type Organization, organization } from "@/server/db/schema";
-import { type Directory } from "@/server/directory";
-import { badRequest } from "@/server/errors";
+import { event, type Organization, organization } from "@/server/db/schema";
+import { ADMIN_ROLE, type Directory, type Listed } from "@/server/directory";
+import { badRequest, HTTPError } from "@/server/errors";
+import { MAX_NAME_LENGTH } from "@/server/license/limits";
+import { type Held, listAllHeld } from "@/server/license/list";
+import { invite, type Team } from "@/server/member";
 import { type Session } from "@/server/session";
-
-/** Team is a team organization with the Clerk organization that backs it. */
-export type Team = Organization & { clerkOrgID: string };
 
 export interface EnsurePersonalArgs {
   userID: string;
@@ -50,22 +52,140 @@ export const ensurePersonal = async (
   return raced;
 };
 
-export interface MirrorTeamArgs {
-  clerkOrgID: string;
+/**
+ * mirrorTeams records each Clerk organization in `teams` as a team organization, once,
+ * renaming any whose name changed. It returns the rows in the order given.
+ */
+export const mirrorTeams = async (
+  store: Store,
+  teams: Listed[],
+): Promise<Organization[]> => {
+  if (teams.length === 0) return [];
+  const rows = await store.query
+    .insert(organization)
+    .values(
+      teams.map(({ clerkOrgID, name }) => ({
+        kind: "team" as const,
+        name,
+        clerkOrgID,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: organization.clerkOrgID,
+      set: { name: sql`excluded.name` },
+    })
+    .returning();
+  const byClerk = new Map(rows.map((r) => [r.clerkOrgID, r]));
+  return teams.map(({ clerkOrgID }) => {
+    const row = byClerk.get(clerkOrgID);
+    if (row == null) throw new Error(`no row returned for ${clerkOrgID}`);
+    return row;
+  });
+};
+
+export interface RegisterArgs {
   name: string;
+  /** email is the address of the first admin, who is invited. */
+  email: string;
+  actor: string;
+  now: Date;
+  /** redirectURL is the absolute URL the link in the invitation lands on. */
+  redirectURL: string;
 }
 
-/** mirrorTeam records a Clerk organization as a team organization, once. */
-export const mirrorTeam = async (
+const readName = (name: string): string => {
+  const trimmed = name.trim();
+  if (trimmed === "") throw badRequest("Name the organization");
+  if (trimmed.length > MAX_NAME_LENGTH)
+    throw badRequest(`The name must be at most ${MAX_NAME_LENGTH} characters`);
+  return trimmed;
+};
+
+const requireUnique = async (directory: Directory, name: string): Promise<void> => {
+  const lower = name.toLowerCase();
+  const teams = await directory.teams();
+  if (teams.some((t) => t.name.toLowerCase() === lower))
+    throw badRequest(`An organization named ${name} exists`);
+};
+
+/**
+ * register creates a team with no members and invites its first admin. Staff never
+ * join it.
+ * @throws {HTTPError} 400 for an empty or taken name or an invalid email, or when
+ * Clerk refuses the invitation. The team stays registered after a refused invitation.
+ */
+export const register = async (
   store: Store,
-  { clerkOrgID, name }: MirrorTeamArgs,
+  directory: Directory,
+  { name, email, actor, now, redirectURL }: RegisterArgs,
+): Promise<Team> => {
+  const trimmed = readName(name);
+  const address = email.trim();
+  if (!z.email().safeParse(address).success)
+    throw badRequest("Enter the admin's email address");
+  await requireUnique(directory, trimmed);
+  const listed = await directory.create(trimmed);
+  const [row] = await mirrorTeams(store, [listed]);
+  const team = { ...row, clerkOrgID: listed.clerkOrgID };
+  await store.query.insert(event).values({
+    at: now,
+    kind: "register",
+    actor,
+    organization: team.key,
+    detail: { name: trimmed },
+  });
+  try {
+    await invite(store, directory, {
+      team,
+      actor,
+      now,
+      email: address,
+      role: ADMIN_ROLE,
+      redirectURL,
+    });
+  } catch (err) {
+    if (!(err instanceof HTTPError)) throw errors.fromUnknown(err);
+    throw badRequest(
+      `${trimmed} is registered, but Clerk refused the invitation: ${err.message} ` +
+        "Invite the admin from its Members tab.",
+      { cause: err },
+    );
+  }
+  return team;
+};
+
+export interface RenameArgs {
+  team: Team;
+  name: string;
+  actor: string;
+  now: Date;
+}
+
+/**
+ * rename changes a team's name in Clerk and in the portal.
+ * @throws {HTTPError} 400 for an empty or taken name.
+ */
+export const rename = async (
+  store: Store,
+  directory: Directory,
+  { team, name, actor, now }: RenameArgs,
 ): Promise<Organization> => {
-  const [created] = await store.query
-    .insert(organization)
-    .values({ kind: "team", name, clerkOrgID })
-    .onConflictDoUpdate({ target: organization.clerkOrgID, set: { name } })
-    .returning();
-  return created;
+  const trimmed = readName(name);
+  if (trimmed === team.name) return team;
+  if (trimmed.toLowerCase() !== team.name.toLowerCase())
+    await requireUnique(directory, trimmed);
+  await directory.rename(team.clerkOrgID, trimmed);
+  const [row] = await mirrorTeams(store, [
+    { clerkOrgID: team.clerkOrgID, name: trimmed },
+  ]);
+  await store.query.insert(event).values({
+    at: now,
+    kind: "rename_organization",
+    actor,
+    organization: team.key,
+    detail: { name: trimmed, from: team.name },
+  });
+  return row;
 };
 
 /**
@@ -81,7 +201,8 @@ export const adoptTeam = async (
 ): Promise<Organization> => {
   const team = await directory.team(clerkOrgID);
   if (team == null) throw badRequest(`Clerk has no organization ${clerkOrgID}`);
-  return await mirrorTeam(store, team);
+  const [row] = await mirrorTeams(store, [team]);
+  return row;
 };
 
 export interface Membership {
@@ -121,7 +242,7 @@ export const organizationsFor = async (
   session: Session,
 ): Promise<Organization[]> => {
   await ensurePersonal(store, { userID: session.userID, name: session.name });
-  for (const team of session.teams) await mirrorTeam(store, team);
+  await mirrorTeams(store, session.teams);
   return await listForMember(store, session);
 };
 
@@ -141,10 +262,9 @@ export const invitationsFor = async (
   directory: Directory,
   userID: string,
 ): Promise<Invited[]> => {
-  const invited: Invited[] = [];
-  for (const { invitationID, ...team } of await directory.pending(userID))
-    invited.push({ invitationID, team: await mirrorTeam(store, team) });
-  return invited;
+  const pending = await directory.pending(userID);
+  const teams = await mirrorTeams(store, pending);
+  return pending.map(({ invitationID }, i) => ({ invitationID, team: teams[i] }));
 };
 
 /**
@@ -167,9 +287,30 @@ export const pick = (
   );
 };
 
-/** listAll returns every organization, for staff. */
-export const listAll = async (store: Store): Promise<Organization[]> =>
-  await store.query.select().from(organization).orderBy(organization.name);
+/** Summary is one team as the staff console lists it. */
+export interface Summary {
+  organization: Organization;
+  members: number;
+  licenses: Held[];
+}
+
+/**
+ * listTeams returns every team in Clerk with its member count and licenses, recording
+ * any team the portal has not seen. Staff only.
+ */
+export const listTeams = async (
+  store: Store,
+  directory: Directory,
+): Promise<Summary[]> => {
+  const teams = await directory.teams();
+  const rows = await mirrorTeams(store, teams);
+  const held = await listAllHeld(store.query);
+  return rows.map((org, i) => ({
+    organization: org,
+    members: teams[i].members,
+    licenses: held.filter((h) => h.license.organization === org.key),
+  }));
+};
 
 export const retrieve = async (
   store: Store,

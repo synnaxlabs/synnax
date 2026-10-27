@@ -82,7 +82,8 @@ In each instance:
 1. Organizations: enable them with membership optional. The portal creates a user's
    personal organization after sign-in, so a required membership loops sign-in. Create
    the team organization "Synnax Labs" and give every staff member the admin role. Its
-   id is that environment's `STAFF_ORG_ID`.
+   id is that environment's `STAFF_ORG_ID`. Register every other team from the portal's
+   Admin tab.
 2. Sign-in options: Google and Microsoft. Production needs its own OAuth credentials for
    both, with the redirect URLs the dashboard shows.
 
@@ -125,8 +126,7 @@ shows. Vercel Cron calls the daily expiry sweep on production with `CRON_SECRET`
 
 ### CI license
 
-Log in to the portal as staff, open the Synnax Labs organization's licenses, issue a
-subscription of a few months with one node and no channel cap labelled "CI", and use
-"Floating license key" on it. Store it with
-`gh secret set SYNNAX_LICENSE_TOKEN < <file>`. Rotate it by issuing a new one before the
-old one expires.
+Log in to the portal as staff, open Synnax Labs under Admin, issue a subscription of a
+few months with one node and no channel cap labelled "CI", and use "Floating license
+key" on it. Store it with `gh secret set SYNNAX_LICENSE_TOKEN < <file>`. Rotate it by
+issuing a new one before the old one expires.

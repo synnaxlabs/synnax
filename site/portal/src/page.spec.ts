@@ -9,10 +9,20 @@
 
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { failure, invitee, load, loadScoped, type Scoped } from "@/page";
+import { failure, invitee, load, loadScoped, readActivity, type Scoped } from "@/page";
+import { event, type EventKind, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HTTPError } from "@/server/errors";
-import { createAPIContext, createHarness, type Harness } from "@/testutil";
+import { HASH_A, NOW } from "@/server/license/testutil";
+import {
+  createActivation,
+  createAPIContext,
+  createHarness,
+  createLicense,
+  createOrganization,
+  type Harness,
+  STAFF_ORG_ID,
+} from "@/testutil";
 
 const ACME = { clerkOrgID: "org_acme", name: "Acme", role: "org:member" };
 
@@ -193,6 +203,82 @@ describe("page", () => {
         message: "Something went wrong. Try again.",
       });
       expect(log).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("readActivity", () => {
+    let org: Organization;
+    beforeEach(async () => {
+      org = await createOrganization(store, { kind: "team", clerkOrgID: "org_a" });
+    });
+
+    const record = async (kind: EventKind, actor: string, extra = {}) => {
+      const [row] = await store.query
+        .insert(event)
+        .values({ kind, actor, organization: org.key, at: NOW, ...extra })
+        .returning();
+      return row;
+    };
+
+    const read = async (search = "") =>
+      await readActivity(
+        harness.portal,
+        new URL(`https://p.test/admin/activity${search}`),
+      );
+
+    it("should name the people in the page and not the machines", async () => {
+      const lic = await createLicense(store, { organization: org.key });
+      const machine = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await record("issue", "user_a");
+      await record("renew", machine.key, { activation: machine.key });
+      const activity = await read();
+      expect(activity.actors).toEqual({ user_a: "Ada" });
+      expect(activity.page.entries).toHaveLength(2);
+      expect(activity.olderHref).toBeNull();
+    });
+
+    it("should keep only the category the URL asks for", async () => {
+      await record("issue", "user_a");
+      const invited = await record("invite", "user_a");
+      const { page } = await read("?category=members");
+      expect(page.entries.map((e) => e.event)).toEqual([invited]);
+    });
+
+    it("should keep only what staff did when the URL asks", async () => {
+      harness.directory.people.user_staff = { email: "s@synnaxlabs.com", name: "Sam" };
+      harness.directory.members.user_staff = [
+        { clerkOrgID: STAFF_ORG_ID, name: "Synnax Labs", role: "org:admin" },
+      ];
+      const staff = await record("issue", "user_staff");
+      await record("activate", "user_a");
+      const { page } = await read("?staff=1");
+      expect(page.entries.map((e) => e.event)).toEqual([staff]);
+    });
+
+    it("should link the older events, keeping the filter", async () => {
+      for (let i = 0; i < 51; i++) await record("download", "user_a");
+      const first = await read("?category=licenses");
+      expect(first.page.entries).toHaveLength(50);
+      const next = first.page.entries[49].event.key;
+      expect(first.olderHref).toBe(`/admin/activity?category=licenses&before=${next}`);
+      const older = await read(`?category=licenses&before=${next}`);
+      expect(older.page.entries).toHaveLength(1);
+      expect(older.olderHref).toBeNull();
+    });
+
+    it("should refuse a category it does not know", async () => {
+      await expect(read("?category=nope")).rejects.toThrow(
+        new HTTPError(400, "Invalid category"),
+      );
+    });
+
+    it("should refuse a page that is not a number", async () => {
+      await expect(read("?before=abc")).rejects.toThrow(
+        new HTTPError(400, "Invalid page"),
+      );
     });
   });
 });

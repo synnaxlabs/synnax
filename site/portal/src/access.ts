@@ -20,7 +20,8 @@ import {
 } from "@/server/db/schema";
 import { ADMIN_ROLE } from "@/server/directory";
 import { forbidden, notFound } from "@/server/errors";
-import { isMember, retrieve, type Team } from "@/server/organization";
+import { type Team } from "@/server/member";
+import { isMember, retrieve } from "@/server/organization";
 import { type Session } from "@/server/session";
 
 export interface LicenseView {

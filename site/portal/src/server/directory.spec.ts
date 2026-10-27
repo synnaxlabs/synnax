@@ -61,7 +61,7 @@ interface FakeArgs {
       lastName: string | null;
     } | null;
   }[];
-  organizations?: { id: string; name: string }[];
+  organizations?: { id: string; name: string; membersCount?: number }[];
   listed?: { id: string; fullName: string | null; primaryEmailAddress: unknown }[];
   /** unavailable are organization ids Clerk fails to read with a 500. */
   unavailable?: string[];
@@ -213,7 +213,7 @@ describe("directory", () => {
 
     it("should list and find organizations", async () => {
       expect(await directory.teams()).toEqual([
-        { clerkOrgID: "org_acme", name: "Acme" },
+        { clerkOrgID: "org_acme", name: "Acme", members: 3 },
       ]);
       expect(await directory.team("org_acme")).toEqual({
         clerkOrgID: "org_acme",
@@ -274,7 +274,7 @@ describe("directory", () => {
       await dir.remove("org_acme", "user_a");
       expect(await dir.memberships("user_a")).toEqual([]);
       const created = await dir.create("Globex");
-      expect((await dir.teams())[0]).toEqual(created);
+      expect((await dir.teams())[0]).toEqual({ ...created, members: 0 });
     });
 
     it("should serve records added after it was created", async () => {
@@ -447,12 +447,28 @@ describe("directory", () => {
     describe("teams", () => {
       it("should list every organization across every page", async () => {
         const { directory, calls } = createClient({
-          organizations: range(101, (i) => ({ id: `org_${i}`, name: `Org ${i}` })),
+          organizations: range(101, (i) => ({
+            id: `org_${i}`,
+            name: `Org ${i}`,
+            membersCount: i,
+          })),
         });
         const teams = await directory.teams();
         expect(teams).toHaveLength(101);
-        expect(teams[0]).toEqual({ clerkOrgID: "org_0", name: "Org 0" });
-        expect(calls.organizations).toHaveLength(2);
+        expect(teams[3]).toEqual({ clerkOrgID: "org_3", name: "Org 3", members: 3 });
+        expect(calls.organizations).toEqual([
+          { limit: 100, offset: 0, includeMembersCount: true },
+          { limit: 100, offset: 100, includeMembersCount: true },
+        ]);
+      });
+
+      it("should throw when Clerk leaves out a member count", async () => {
+        const { directory } = createClient({
+          organizations: [{ id: "org_acme", name: "Acme" }],
+        });
+        await expect(directory.teams()).rejects.toThrow(
+          "Clerk listed organization org_acme without its member count",
+        );
       });
     });
 
@@ -627,7 +643,7 @@ describe("directory", () => {
         expect(calls.renamed).toEqual([["org_acme", { name: "Acme Rockets" }]]);
       });
 
-      it("should answer Clerk's refusal of a change as a 400 with its reason", async () => {
+      it("should answer a refused change as a 400 with its reason", async () => {
         const refusal = Object.assign(new Error("Unprocessable"), {
           status: 422,
           errors: [{ message: "last admin", longMessage: "Keep one admin." }],
