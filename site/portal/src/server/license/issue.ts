@@ -211,28 +211,30 @@ export const revoke = async (
   store: Store,
   { licenseKey, actor, now }: RevokeArgs,
 ): Promise<License> => {
-  const [row] = await store.query
-    .update(license)
-    .set({ revokedAt: now })
-    .where(and(eq(license.key, licenseKey), isNull(license.revokedAt)))
-    .returning();
-  if (row == null) {
-    const [existing] = await store.query
-      .select({ key: license.key })
-      .from(license)
-      .where(eq(license.key, licenseKey));
-    if (existing == null) throw notFound("License");
-    throw badRequest("This license is already revoked");
-  }
-  await store.query.insert(event).values({
-    at: now,
-    kind: "revoke",
-    actor,
-    organization: row.organization,
-    license: row.key,
-    detail: {},
+  return await store.transact(async (tx) => {
+    const [row] = await tx
+      .update(license)
+      .set({ revokedAt: now })
+      .where(and(eq(license.key, licenseKey), isNull(license.revokedAt)))
+      .returning();
+    if (row == null) {
+      const [existing] = await tx
+        .select({ key: license.key })
+        .from(license)
+        .where(eq(license.key, licenseKey));
+      if (existing == null) throw notFound("License");
+      throw badRequest("This license is already revoked");
+    }
+    await tx.insert(event).values({
+      at: now,
+      kind: "revoke",
+      actor,
+      organization: row.organization,
+      license: row.key,
+      detail: {},
+    });
+    return row;
   });
-  return row;
 };
 
 export interface RestoreArgs {
@@ -251,35 +253,37 @@ export const restore = async (
   store: Store,
   { licenseKey, actor, now }: RestoreArgs,
 ): Promise<License> => {
-  const [row] = await store.query
-    .update(license)
-    .set({ revokedAt: null })
-    .where(
-      and(
-        eq(license.key, licenseKey),
-        eq(license.edition, "enterprise"),
-        isNotNull(license.revokedAt),
-      ),
-    )
-    .returning();
-  if (row == null) {
-    const [existing] = await store.query
-      .select()
-      .from(license)
-      .where(eq(license.key, licenseKey));
-    if (existing == null) throw notFound("License");
-    requireEnterprise(existing);
-    throw badRequest("This license is not revoked");
-  }
-  await store.query.insert(event).values({
-    at: now,
-    kind: "restore",
-    actor,
-    organization: row.organization,
-    license: row.key,
-    detail: {},
+  return await store.transact(async (tx) => {
+    const [row] = await tx
+      .update(license)
+      .set({ revokedAt: null })
+      .where(
+        and(
+          eq(license.key, licenseKey),
+          eq(license.edition, "enterprise"),
+          isNotNull(license.revokedAt),
+        ),
+      )
+      .returning();
+    if (row == null) {
+      const [existing] = await tx
+        .select()
+        .from(license)
+        .where(eq(license.key, licenseKey));
+      if (existing == null) throw notFound("License");
+      requireEnterprise(existing);
+      throw badRequest("This license is not revoked");
+    }
+    await tx.insert(event).values({
+      at: now,
+      kind: "restore",
+      actor,
+      organization: row.organization,
+      license: row.key,
+      detail: {},
+    });
+    return row;
   });
-  return row;
 };
 
 export interface FloatingArgs {

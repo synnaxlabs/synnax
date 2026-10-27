@@ -882,8 +882,8 @@ describe("license routes", () => {
           text: [
             'The Synnax license "Test rig" for Acme has been restored.',
             "",
-            "It can activate Cores again. Machines that held a seat before the " +
-              "revocation still hold it.",
+            "It can activate Cores again while its terms allow. Machines that held a " +
+              "seat before the revocation still hold it.",
           ].join("\n"),
         },
       ]);

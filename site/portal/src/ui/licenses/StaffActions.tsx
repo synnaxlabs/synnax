@@ -51,7 +51,7 @@ export const StaffActions = ({
           variant="outlined"
           onClick={restore.run}
           status={restore.loading ? "loading" : undefined}
-          tooltip="Let the license activate machines again. Its admins are emailed."
+          tooltip="Let it activate machines again while its terms allow. Its admins are emailed."
         >
           <Icon.Undo />
           Restore

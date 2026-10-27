@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { activation, event, license, type Organization } from "@/server/db/schema";
@@ -399,7 +399,27 @@ describe("issue", () => {
     });
   });
 
+  /** failingEvents makes recording an event of `kind` fail while `body` runs. */
+  const failingEvents = async (kind: string, body: () => Promise<unknown>) => {
+    await store.query.execute(
+      sql.raw(`alter table event add constraint failing check (kind <> '${kind}')`),
+    );
+    try {
+      await expect(body()).rejects.toThrow();
+    } finally {
+      await store.query.execute(sql`alter table event drop constraint failing`);
+    }
+  };
+
   describe("revoke", () => {
+    it("should leave the license unrevoked when its event fails", async () => {
+      const lic = await createLicense(store, { organization: org.key });
+      await failingEvents("revoke", async () =>
+        revoke(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
+      );
+      expect(await stored(lic.key)).toEqual(lic);
+    });
+
     it("should stamp the revocation and record it", async () => {
       const lic = await createLicense(store, { organization: org.key });
       const row = await revoke(store, {
@@ -451,6 +471,14 @@ describe("issue", () => {
   });
 
   describe("restore", () => {
+    it("should leave the license revoked when its event fails", async () => {
+      const lic = await createLicense(store, { organization: org.key, revokedAt: NOW });
+      await failingEvents("restore", async () =>
+        restore(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
+      );
+      expect(await stored(lic.key)).toEqual(lic);
+    });
+
     it("should clear the revocation and record it", async () => {
       const lic = await createLicense(store, { organization: org.key, revokedAt: NOW });
       const row = await restore(store, {
