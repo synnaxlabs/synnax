@@ -19,7 +19,7 @@ class SimDAQ(Simulator):
     """Base class for thread-based hardware simulators that write to Synnax."""
 
     description: str = "Run simulator standalone"
-    end_cmd_channel: str = ""
+    end_cmd_channel: str | None = None
 
     def __init__(self, client: sy.Synnax, verbose: bool = False):
         super().__init__(verbose=verbose)
@@ -32,7 +32,7 @@ class SimDAQ(Simulator):
         self._create_channels()
         self._running = True
 
-        if self.end_cmd_channel:
+        if self.end_cmd_channel is not None:
             self._end_cmd_thread = threading.Thread(
                 target=self._watch_end_cmd, args=(self.end_cmd_channel,), daemon=True
             )
