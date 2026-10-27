@@ -690,6 +690,8 @@ jobs:
     if: inputs.full || needs.changes.outputs.scripts == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: scripts
+      coverage_module: .
       directory: scripts
     secrets: inherit
 
