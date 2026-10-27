@@ -108,8 +108,8 @@ var _ = Describe("CompileString", func() {
 	})
 
 	It("Should reject an invalid regex at its path", func() {
-		_, err := filter.CompileString(filter.String{Regex: new("(")})
-		Expect(err).To(SatisfyAll(
+		s := filter.String{Regex: new("(")}
+		Expect(filter.CompileString(s)).Error().To(SatisfyAll(
 			BeAssignableToTypeOf(validate.PathError{}),
 			MatchError(
 				"regex: error parsing regexp: missing closing ): `(`: validation error",
