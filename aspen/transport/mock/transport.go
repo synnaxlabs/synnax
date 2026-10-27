@@ -16,27 +16,27 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 )
 
 type Network struct {
-	pledge     *mock.Network[pledge.Request, pledge.Response]
-	cluster    *mock.Network[gossip.Message, gossip.Message]
-	operations *mock.Network[kv.TxRequest, kv.TxRequest]
-	lease      *mock.Network[kv.TxRequest, struct{}]
-	feedback   *mock.Network[kv.FeedbackMessage, struct{}]
-	recovery   *mock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
+	pledge     *freightertestutil.Network[pledge.Request, pledge.Response]
+	cluster    *freightertestutil.Network[gossip.Message, gossip.Message]
+	operations *freightertestutil.Network[kv.TxRequest, kv.TxRequest]
+	lease      *freightertestutil.Network[kv.TxRequest, struct{}]
+	feedback   *freightertestutil.Network[kv.FeedbackMessage, struct{}]
+	recovery   *freightertestutil.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 }
 
 func NewNetwork() *Network {
 	return &Network{
-		pledge:     mock.NewNetwork[pledge.Request, pledge.Response](),
-		cluster:    mock.NewNetwork[gossip.Message, gossip.Message](),
-		operations: mock.NewNetwork[kv.TxRequest, kv.TxRequest](),
-		lease:      mock.NewNetwork[kv.TxRequest, struct{}](),
-		feedback:   mock.NewNetwork[kv.FeedbackMessage, struct{}](),
-		recovery:   mock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
+		pledge:     freightertestutil.NewNetwork[pledge.Request, pledge.Response](),
+		cluster:    freightertestutil.NewNetwork[gossip.Message, gossip.Message](),
+		operations: freightertestutil.NewNetwork[kv.TxRequest, kv.TxRequest](),
+		lease:      freightertestutil.NewNetwork[kv.TxRequest, struct{}](),
+		feedback:   freightertestutil.NewNetwork[kv.FeedbackMessage, struct{}](),
+		recovery:   freightertestutil.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 	}
 }
 
@@ -61,18 +61,18 @@ func (n *Network) NewTransport(addr address.Address) aspen.Transport {
 
 // transport is an in-memory, synchronous implementation of aspen.transport.
 type transport struct {
-	pledgeServer   *mock.UnaryServer[pledge.Request, pledge.Response]
-	pledgeClient   *mock.UnaryClient[pledge.Request, pledge.Response]
-	gossipServer   *mock.UnaryServer[gossip.Message, gossip.Message]
-	gossipClient   *mock.UnaryClient[gossip.Message, gossip.Message]
-	txServer       *mock.UnaryServer[kv.TxRequest, kv.TxRequest]
-	txClient       *mock.UnaryClient[kv.TxRequest, kv.TxRequest]
-	leaseServer    *mock.UnaryServer[kv.TxRequest, struct{}]
-	leaseClient    *mock.UnaryClient[kv.TxRequest, struct{}]
-	feedbackServer *mock.UnaryServer[kv.FeedbackMessage, struct{}]
-	feedbackClient *mock.UnaryClient[kv.FeedbackMessage, struct{}]
-	recoveryServer *mock.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
-	recoveryClient *mock.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
+	pledgeServer   *freightertestutil.UnaryServer[pledge.Request, pledge.Response]
+	pledgeClient   *freightertestutil.UnaryClient[pledge.Request, pledge.Response]
+	gossipServer   *freightertestutil.UnaryServer[gossip.Message, gossip.Message]
+	gossipClient   *freightertestutil.UnaryClient[gossip.Message, gossip.Message]
+	txServer       *freightertestutil.UnaryServer[kv.TxRequest, kv.TxRequest]
+	txClient       *freightertestutil.UnaryClient[kv.TxRequest, kv.TxRequest]
+	leaseServer    *freightertestutil.UnaryServer[kv.TxRequest, struct{}]
+	leaseClient    *freightertestutil.UnaryClient[kv.TxRequest, struct{}]
+	feedbackServer *freightertestutil.UnaryServer[kv.FeedbackMessage, struct{}]
+	feedbackClient *freightertestutil.UnaryClient[kv.FeedbackMessage, struct{}]
+	recoveryServer *freightertestutil.StreamServer[kv.RecoveryRequest, kv.RecoveryResponse]
+	recoveryClient *freightertestutil.StreamClient[kv.RecoveryRequest, kv.RecoveryResponse]
 }
 
 func (t *transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
