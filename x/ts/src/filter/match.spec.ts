@@ -88,10 +88,11 @@ describe("filter", () => {
     );
 
     it("should treat regex characters in an operand as plain text", () => {
-      expect(filter.matchesString({ eq: "a.b" }, "axb")).toBe(false);
-      expect(filter.matchesString({ contains: "(x)" }, "a(x)b")).toBe(true);
-      expect(filter.matchesString({ startsWith: "[a-z]" }, "[a-z]1")).toBe(true);
-      expect(filter.matchesString({ in: ["a\\b"] }, "a\\b")).toBe(true);
+      const ci = { caseInsensitive: true };
+      expect(filter.matchesString({ eq: "a.b", ...ci }, "axb")).toBe(false);
+      expect(filter.matchesString({ contains: "(x)", ...ci }, "a(x)b")).toBe(true);
+      expect(filter.matchesString({ startsWith: "[a-z]", ...ci }, "[a-z]1")).toBe(true);
+      expect(filter.matchesString({ in: ["a\\b"], ...ci }, "a\\b")).toBe(true);
     });
 
     it("should throw on a regex", () => {
