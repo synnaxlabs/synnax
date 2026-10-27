@@ -9,7 +9,7 @@
 
 import { type APIRoute } from "astro";
 
-import { preflight, secret, withCORS } from "@/bearer";
+import { preflight, readSecret, withCORS } from "@/bearer";
 import { handle } from "@/respond";
 import { renew, resolve } from "@/server/license/desktop";
 import { check } from "@/server/ratelimit";
@@ -25,7 +25,7 @@ export const POST: APIRoute = async (context) =>
     await handle(async () => {
       const { portal } = context.locals;
       const now = portal.now();
-      const machine = await resolve(portal.store, secret(context.request));
+      const machine = await resolve(portal.store, readSecret(context.request));
       await check(portal.store, {
         actor: machine.activation.key,
         organization: machine.license.organization,

@@ -9,7 +9,7 @@
 
 import { type APIRoute } from "astro";
 
-import { preflight, secret, withCORS } from "@/bearer";
+import { preflight, readSecret, withCORS } from "@/bearer";
 import { handle } from "@/respond";
 import { resolve, unlink } from "@/server/license/desktop";
 
@@ -23,7 +23,7 @@ export const POST: APIRoute = async (context) =>
   withCORS(
     await handle(async () => {
       const { portal } = context.locals;
-      const machine = await resolve(portal.store, secret(context.request));
+      const machine = await resolve(portal.store, readSecret(context.request));
       await unlink(portal.store, {
         activationKey: machine.activation.key,
         actor: machine.activation.key,

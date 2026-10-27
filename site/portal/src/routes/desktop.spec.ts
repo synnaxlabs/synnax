@@ -13,7 +13,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
 import { OPTIONS, POST as renewRoute } from "@/pages/api/desktop/renew";
-import { POST as logoutRoute } from "@/pages/api/desktop/unlink";
+import { POST as desktopUnlinkRoute } from "@/pages/api/desktop/unlink";
 import { activation, event, license } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { hashSecret } from "@/server/license/desktop";
@@ -74,8 +74,8 @@ describe("desktop routes", () => {
   const postUnlink = async (key: string) =>
     await unlinkRoute(createAPIContext(harness.portal, { params: { key } }));
 
-  const postLogout = async (authorization?: string) =>
-    await logoutRoute(
+  const postDesktopUnlink = async (authorization?: string) =>
+    await desktopUnlinkRoute(
       createAPIContext(harness.portal, {
         headers: authorization == null ? {} : { authorization },
       }),
@@ -201,7 +201,7 @@ describe("desktop routes", () => {
     it("should log out the machine the bearer secret belongs to", async () => {
       const linked = await linkAs("user_a");
       harness.signIn(null);
-      const res = await postLogout(`Bearer ${linked.secret}`);
+      const res = await postDesktopUnlink(`Bearer ${linked.secret}`);
       expect(res.status).toBe(204);
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
       const [act] = await store.query
@@ -217,7 +217,7 @@ describe("desktop routes", () => {
     });
 
     it("should refuse a request without a bearer secret", async () => {
-      const res = await postLogout();
+      const res = await postDesktopUnlink();
       expect(res.status).toBe(401);
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
       expect(await body(res)).toEqual({ error: "Log in first" });
@@ -225,8 +225,8 @@ describe("desktop routes", () => {
 
     it("should refuse a machine that was logged out", async () => {
       const linked = await linkAs("user_a");
-      expect((await postLogout(`Bearer ${linked.secret}`)).status).toBe(204);
-      const res = await postLogout(`Bearer ${linked.secret}`);
+      expect((await postDesktopUnlink(`Bearer ${linked.secret}`)).status).toBe(204);
+      const res = await postDesktopUnlink(`Bearer ${linked.secret}`);
       expect(res.status).toBe(403);
       expect(await body(res)).toEqual({
         error: "This machine is not logged in",

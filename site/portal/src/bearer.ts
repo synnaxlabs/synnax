@@ -33,10 +33,10 @@ export const preflight: APIRoute = () =>
   new Response(null, { status: 204, headers: CORS_HEADERS });
 
 /**
- * secret reads the renewal secret that a request carries as its bearer token. Throws a
- * 401 when the request carries none.
+ * readSecret reads the renewal secret that a request carries as its bearer token. Throws
+ * a 401 when the request carries none.
  */
-export const secret = (request: Request): string => {
+export const readSecret = (request: Request): string => {
   const token = BEARER.exec(request.headers.get("authorization") ?? "")?.[1];
   if (token == null) throw unauthorized();
   return token;
