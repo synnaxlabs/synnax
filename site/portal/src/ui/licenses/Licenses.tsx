@@ -14,8 +14,9 @@ import { type ReactElement } from "react";
 
 import { type Organization } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
+import { channels, term } from "@/server/license/limits";
 import { type Held } from "@/server/license/list";
-import { channels, date, edition, statusOf, term } from "@/ui/format";
+import { date, edition, statusOf } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";

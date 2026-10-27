@@ -12,7 +12,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type License, type Organization } from "@/server/db/schema";
-import { date, statusOf, term } from "@/ui/format";
+import { term } from "@/server/license/limits";
+import { date, statusOf } from "@/ui/format";
 import { Licenses } from "@/ui/licenses";
 import { Row, Table } from "@/ui/Table";
 

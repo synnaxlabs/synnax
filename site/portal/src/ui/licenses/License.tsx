@@ -19,16 +19,15 @@ import {
   type Organization,
 } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
+import { channels, term } from "@/server/license/limits";
 import { Fact, Facts } from "@/ui/Facts";
 import {
-  channels,
   date,
   dateTime,
   describeEvent,
   edition,
   machineName,
   statusOf,
-  term,
 } from "@/ui/format";
 import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { MachineMenu } from "@/ui/licenses/MachineMenu";
@@ -50,7 +49,7 @@ export interface LicenseProps {
 
 const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 14rem 6rem";
 
-/** License shows one license: its terms, the machines holding seats, and its history. */
+/** License shows a license: its terms, the machines holding seats, and its history. */
 export const License = ({
   license: lic,
   organization,

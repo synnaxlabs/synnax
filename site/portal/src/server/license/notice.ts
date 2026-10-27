@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type License, type Organization } from "@/server/db/schema";
+import { channels, term } from "@/server/license/limits";
 import { type Fact, type Notice } from "@/server/mail";
-import { channels, term } from "@/ui/format";
 
 const inDays = (days: number): string => `${days} ${days === 1 ? "day" : "days"}`;
 

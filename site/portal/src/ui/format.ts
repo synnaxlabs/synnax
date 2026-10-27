@@ -79,16 +79,8 @@ export const standing = (
   };
 };
 
-export const term = (lic: License): string => {
-  if (lic.term === "perpetual") return `Perpetual, up to v${lic.maxVersion}`;
-  const until = `Until ${date(lic.expiresAt)}`;
-  return lic.maxVersion == null ? until : `${until}, then up to v${lic.maxVersion}`;
-};
-
 export const edition = (e: License["edition"]): string =>
   e === "desktop" ? "Desktop" : "Enterprise";
-
-export const channels = (n: number): string => (n === 0 ? "Unlimited" : String(n));
 
 const EVENT_LABELS: Record<Event["kind"], string> = {
   issue: "License issued",
