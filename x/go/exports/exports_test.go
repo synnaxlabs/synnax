@@ -43,6 +43,13 @@ func summarize(findings []exports.Finding) []finding {
 
 var modules = []string{"testdata/a", "testdata/b"}
 
+// setTempDir points os.TempDir at dir: TMPDIR on Unix, TMP and TEMP on Windows.
+func setTempDir(dir string) {
+	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
+		GinkgoT().Setenv(key, dir)
+	}
+}
+
 var _ = Describe("Check", func() {
 	It(
 		"Should report exported identifiers no other package uses",
@@ -85,7 +92,7 @@ var _ = Describe("Check", func() {
 		func(ctx SpecContext) {
 			notDir := filepath.Join(GinkgoT().TempDir(), "file")
 			Expect(os.WriteFile(notDir, nil, 0o644)).To(Succeed())
-			GinkgoT().Setenv("TMPDIR", notDir)
+			setTempDir(notDir)
 			Expect(exports.Check(ctx, exports.Config{
 				Modules: modules,
 				GOOS:    []string{"linux"},
@@ -97,7 +104,7 @@ var _ = Describe("Check", func() {
 		"Should remove its workspace when a package fails to load",
 		func(ctx SpecContext) {
 			tmp := GinkgoT().TempDir()
-			GinkgoT().Setenv("TMPDIR", tmp)
+			setTempDir(tmp)
 			Expect(exports.Check(ctx, exports.Config{
 				Modules: []string{"testdata/missing"},
 				GOOS:    []string{"linux"},
