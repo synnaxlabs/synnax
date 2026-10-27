@@ -49,7 +49,7 @@ cc_test(
     deps = [
         ":http",
         "//client/cpp/testutil",
-        "//driver/http/mock",
+        "//driver/http/testutil",
         "//x/cpp/test",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
@@ -65,7 +65,7 @@ cc_test(
     deps = [
         ":http",
         "//client/cpp/testutil",
-        "//driver/http/mock",
+        "//driver/http/testutil",
         "//x/cpp/defer",
         "//x/cpp/test",
         "//x/cpp/uuid",
@@ -78,15 +78,15 @@ cc_test(
     name = "read_task_test",
     srcs = ["read_task_test.cpp"],
     data = [
-        "//driver/http/mock:test_cert.pem",
-        "//driver/http/mock:test_key.pem",
+        "//driver/http/testutil:test_cert.pem",
+        "//driver/http/testutil:test_key.pem",
     ],
     tags = ["requires-core"],
     deps = [
         ":http",
         "//client/cpp/testutil",
         "//driver/http/errors",
-        "//driver/http/mock",
+        "//driver/http/testutil",
         "//x/cpp/defer",
         "//x/cpp/test",
         "@googletest//:gtest_main",

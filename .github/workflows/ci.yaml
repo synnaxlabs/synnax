@@ -74,6 +74,7 @@ jobs:
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
       eslint_config: ${{ steps.filter.outputs.eslint_config }}
+      exports_go: ${{ steps.filter.outputs.exports_go }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
@@ -94,6 +95,7 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
@@ -397,6 +399,37 @@ jobs:
       package: eslint-config
     secrets: inherit
 
+  exports-go:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.exports_go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Type checking every module for three GOOS values fills the default disk.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: x/go/go.mod
+          cache-dependency-path: "**/go.sum"
+
+      - name: Build the check
+        working-directory: x/go
+        run: go build -o "$RUNNER_TEMP/exports" ./cmd/exports
+
+      - name: Check exported identifiers no other package uses
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/exports" alamos/go arc/go aspen cesium core freighter/go \
+            freighter/integration gorp oracle x/go
+
   format:
     uses: ./.github/workflows/test.format.yaml
 
@@ -626,6 +659,14 @@ jobs:
       directory: scripts
     secrets: inherit
 
+  runners:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.runners == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: scripts/runners
+    secrets: inherit
+
   site-common:
     needs: changes
     if: inputs.full || needs.changes.outputs.site_common == 'true'
@@ -788,6 +829,7 @@ jobs:
       - driver
       - driver-tsan
       - eslint-config
+      - exports-go
       - format
       - foundation
       - freighter-cpp
@@ -809,6 +851,7 @@ jobs:
       - protobuf
       - py-packages
       - scripts
+      - runners
       - site-common
       - soem
       - versions
