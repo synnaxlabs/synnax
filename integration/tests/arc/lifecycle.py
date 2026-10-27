@@ -25,21 +25,21 @@ SOME_CONST_1 f32 := 42.0
 SOME_CONST_2 f32 := -49.5
 start_lifecycle_cmd => main
 
-func check_high_pressure(p f32) bool {
+func check_high_pressure() {p f32} bool {
     return p > PRESS_HIGH_LIMIT
 }
 
-press_pt -> check_high_pressure{} -> stable.for{500ms} -> select{} -> {
-    true: true -> status.set{
+press_pt -> check_high_pressure() -> stable.for(500ms) -> select() -> {
+    true: true -> status.set(
         key_or_name="lifecycle_press_alarm",
         variant="warning",
         message="Pressure stable above 25 PSI"
-    },
-    false: true -> status.set{
+    ),
+    false: true -> status.set(
         key_or_name="lifecycle_press_normal",
         variant="warning",
         message="Pressure below 25 PSI"
-    }
+    )
 }
 // Functions are deliberately scrambled (1, 3, 2) to test that channel
 // accumulation works with both forward and backward references.
@@ -47,15 +47,15 @@ func nested_write_1() {
     nested_write_2(press_pt)
 }
 
-func nested_write_3(val f32) {
+func nested_write_3() {val f32} {
     arc_lifecycle_virt = val
 }
 
-func nested_write_2(val f32) {
+func nested_write_2() {val f32} {
     nested_write_3(val)
 }
 
-time.interval{100ms} -> nested_write_1{}
+time.interval(100ms) -> nested_write_1()
 
 sequence main {
     stage press {
@@ -67,7 +67,7 @@ sequence main {
 
     stage maintain {
         0 -> press_vlv_cmd
-        time.wait{1s} => vent
+        time.wait(1s) => vent
     }
 
     stage vent {
@@ -93,7 +93,7 @@ sequence signal_ctrl {
     }
     stage stop {
         "stop" -> signal_stage_log
-        time.wait{250ms} => yield
+        time.wait(250ms) => yield
     }
     stage yield {
         "yield" -> signal_stage_log
