@@ -10,7 +10,7 @@
 import postcss from "postcss";
 import { describe, expect, it } from "vitest";
 
-import { type Layer, layers } from "./layers.js";
+import { type Layer, layers } from "./index.js";
 
 const ORDER: Layer[] = [
   { name: "lyra", files: /^\/repo\/lyra\// },
