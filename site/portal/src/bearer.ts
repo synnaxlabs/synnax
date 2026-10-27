@@ -13,8 +13,9 @@ import { unauthorized } from "@/server/errors";
 
 const BEARER = /^Bearer\s+(\S+)$/i;
 
-// The Desktop app calls from its own origin, so its routes answer preflights and
-// mark every response, refusals included, for any origin. The secret is the guard.
+// The Desktop app and the Console call from their own origins, so their routes answer
+// preflights and mark every response, refusals included, for any origin. The secret is
+// the guard.
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
   "access-control-allow-methods": "POST, OPTIONS",
@@ -28,13 +29,13 @@ export const withCORS = (res: Response): Response => {
   return res;
 };
 
-/** preflight answers the CORS preflight of a route the Desktop app calls. */
+/** preflight answers the CORS preflight of a route the Desktop app or the Console calls. */
 export const preflight: APIRoute = () =>
   new Response(null, { status: 204, headers: CORS_HEADERS });
 
 /**
- * readSecret reads the renewal secret that a request carries as its bearer token. Throws
- * a 401 when the request carries none.
+ * readSecret reads the secret that a request carries as its bearer token. Throws a 401
+ * when the request carries none.
  */
 export const readSecret = (request: Request): string => {
   const token = BEARER.exec(request.headers.get("authorization") ?? "")?.[1];
