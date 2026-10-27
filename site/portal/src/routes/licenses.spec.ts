@@ -649,7 +649,7 @@ describe("license routes", () => {
         400,
         "The link from the Console is damaged. Open it again.",
       );
-      expect(await store.query.select().from(activation)).toEqual([]);
+      expect(await store.query.select().from(schema.activation)).toEqual([]);
     });
 
     it("should let staff activate a license of any organization", async () => {
