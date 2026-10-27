@@ -212,10 +212,8 @@ TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
         delete_legacy_task_by_type(rack, SYNTHETIC_TASK_TYPE, "test_integration")
     );
     ASSERT_OCCURRED_AS_P(
-        rack.tasks.retrieve(
-            synnax::task::type.eq(SYNTHETIC_TASK_TYPE),
-            synnax::task::one()
-        ),
+        rack.tasks
+            .retrieve(synnax::task::type.eq(SYNTHETIC_TASK_TYPE), synnax::task::one()),
         x::errors::NOT_FOUND
     );
 }
