@@ -35,6 +35,19 @@ jobs:
       - name: Build
         run: pnpm build:docs
 
+      # The Console and Desktop updaters poll these feeds, so each must redirect per
+      # request. A prerendered feed builds without error as an HTML page.
+      - name: Check updater feeds
+        working-directory: site/docs/.vercel/output
+        run: |
+          rendered='.routes | any(.src == $src and .dest == "_render")'
+          for feed in console/latest console/next desktop/latest desktop/next; do
+            src="^/releases/$feed\\.json\$"
+            jq -e --arg src "$src" "$rendered" config.json >/dev/null && continue
+            echo "::error::/releases/$feed.json is not rendered per request"
+            exit 1
+          done
+
       - name: Check site
         timeout-minutes: 15
         working-directory: site/docs
