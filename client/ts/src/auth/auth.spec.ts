@@ -177,7 +177,7 @@ describe("auth", () => {
       const client = makeClient();
       await client.logout();
       await expect(client.retrieveSessions()).rejects.toThrow(
-        "no credentials, token, or cookie",
+        "no credentials, API key, token, or cookie",
       );
     });
 
@@ -189,7 +189,7 @@ describe("auth", () => {
       const resumed = makeResumed(token);
       await resumed.logout();
       await expect(resumed.retrieveSessions()).rejects.toThrow(
-        "no credentials, token, or cookie",
+        "no credentials, API key, token, or cookie",
       );
       await owner.logout();
     });
@@ -524,6 +524,14 @@ describe("auth", () => {
       transport.use(client.middleware());
       return client;
     };
+
+    it("should forget an API key when logging out before a login", async () => {
+      const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
+      await keyed.logout();
+      await expect(keyed.retrieveSessions()).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
+    });
 
     it("should create a key, log in with it, list it, and delete it", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
