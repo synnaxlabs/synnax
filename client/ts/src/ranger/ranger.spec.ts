@@ -265,9 +265,15 @@ describe("range", () => {
 
       it("should throw a MultipleFoundError when one matches more ranges", async () => {
         const { prefix } = await createRanges();
-        await expect(
-          client.ranges.retrieve(ranger.name.startsWith(prefix), ranger.one()),
-        ).rejects.toThrow(MultipleFoundError);
+        const res = client.ranges.retrieve(
+          ranger.name.startsWith(prefix),
+          ranger.one(),
+        );
+        await expect(res).rejects.toThrow(MultipleFoundError);
+        const where = JSON.stringify({ where: { name: { startsWith: prefix } } });
+        await expect(res).rejects.toThrow(
+          `Expected one range matching ${where}, but found 2`,
+        );
       });
     });
   });

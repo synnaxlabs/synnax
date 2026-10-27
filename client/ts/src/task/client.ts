@@ -584,8 +584,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves the tasks that match every condition in parts, or one task when parts
-   * end with `one()`.
+   * Retrieves the tasks that match every condition in parts, or one task when parts end
+   * with `one()`.
    */
   async retrieve(...parts: OneParts): Promise<Task>;
   async retrieve(...parts: ListParts): Promise<Task[]>;

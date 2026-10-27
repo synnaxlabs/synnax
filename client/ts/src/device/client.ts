@@ -204,8 +204,8 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves the devices that match every condition in parts, or one device when
-   * parts end with `one()`.
+   * Retrieves the devices that match every condition in parts, or one device when parts
+   * end with `one()`.
    */
   async retrieve(...parts: OneParts): Promise<Device>;
   async retrieve(...parts: ListParts): Promise<Device[]>;
