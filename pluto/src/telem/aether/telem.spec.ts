@@ -90,14 +90,22 @@ describe("telem", () => {
       expect(m.value()).toEqual({ data: 4, status: ERROR_STATUS, time: SAMPLE_TIME });
     });
 
-    it("should sum the appended counts of the sources that report one", () => {
+    it("should sum the appended counts of its sources", () => {
       const m = new telem.Mean({});
       m.setSources({
         a: resultSource({ ...telem.success(2), appended: 3 }),
         b: resultSource({ ...telem.success(4), appended: 4 }),
-        c: resultSource(telem.success(6)),
       });
       expect(m.value().appended).toBe(7);
+    });
+
+    it("should report no appended count when a source has none", () => {
+      const m = new telem.Mean({});
+      m.setSources({
+        a: resultSource({ ...telem.success(2), appended: 3 }),
+        b: resultSource(telem.success(6)),
+      });
+      expect(m.value().appended).toBeUndefined();
     });
 
     it("should report success and no time when no source has one", () => {

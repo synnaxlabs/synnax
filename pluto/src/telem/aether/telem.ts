@@ -254,20 +254,23 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
 
   /**
    * Reports the worst status and the newest time of the sources, and the sum of their
-   * appended counts.
+   * appended counts, or no count when any source has none.
    */
   value(): Result<O> {
     const data: Record<string, I> = {};
     let worst = SUCCESS_STATUS;
     let time: TimeStamp | undefined;
-    let appended: number | undefined;
+    let appended: number | undefined = 0;
     for (const [id, source] of Object.entries(this.sources)) {
       const result = source.value();
       data[id] = result.data;
       worst = status.worst(worst, result.status)!;
       if (result.time != null && (time == null || result.time.after(time)))
         time = result.time;
-      if (result.appended != null) appended = (appended ?? 0) + result.appended;
+      appended =
+        appended == null || result.appended == null
+          ? undefined
+          : appended + result.appended;
     }
     return { data: this.transform(data), status: worst, time, appended };
   }
