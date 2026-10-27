@@ -7,11 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include "absl/log/log_sink.h"
+#include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/json.h"
 
 #include "driver/ni/scan_task.h"
+#include "driver/ni/syscfg/api.h"
 
 namespace driver::ni {
 /// @brief it should parse scan task configuration with defaults and custom values.
@@ -126,5 +136,163 @@ TEST(NiDeviceTests, testToSynnaxPreservesStatus) {
     ASSERT_TRUE(synnax_dev.status.has_value());
     EXPECT_EQ(synnax_dev.status.value().variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(synnax_dev.status.value().message, "Device present");
+}
+
+/// @brief an in-memory NI System Configuration API that enumerates physical devices.
+class FakeAPI final : public syscfg::API {
+public:
+    struct Resource {
+        std::string serial;
+        std::string product;
+    };
+
+private:
+    std::vector<Resource> resources;
+    std::size_t next = 0;
+
+    [[nodiscard]] const Resource &at(NISysCfgResourceHandle handle) const {
+        return this->resources[reinterpret_cast<std::uintptr_t>(handle) - 1];
+    }
+
+public:
+    explicit FakeAPI(std::vector<Resource> resources):
+        resources(std::move(resources)) {}
+
+    NISYSCFGCFUNC InitializeSession(
+        const char *,
+        const char *,
+        const char *,
+        NISysCfgLocale,
+        NISysCfgBool,
+        unsigned int,
+        NISysCfgEnumExpertHandle *,
+        NISysCfgSessionHandle *
+    ) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC CreateFilter(NISysCfgSessionHandle, NISysCfgFilterHandle *) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCDECL
+    SetFilterProperty(NISysCfgFilterHandle, NISysCfgFilterProperty, ...) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC CloseHandle(void *) override { return NISysCfg_OK; }
+
+    NISYSCFGCFUNC FindHardware(
+        NISysCfgSessionHandle,
+        NISysCfgFilterMode,
+        NISysCfgFilterHandle,
+        const char *,
+        NISysCfgEnumResourceHandle *
+    ) override {
+        this->next = 0;
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC NextResource(
+        NISysCfgSessionHandle,
+        NISysCfgEnumResourceHandle,
+        NISysCfgResourceHandle *handle
+    ) override {
+        if (this->next == this->resources.size()) return NISysCfg_EndOfEnum;
+        *handle = reinterpret_cast<NISysCfgResourceHandle>(++this->next);
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC GetResourceProperty(
+        NISysCfgResourceHandle handle,
+        NISysCfgResourceProperty property,
+        void *value
+    ) override {
+        const auto &res = this->at(handle);
+        switch (property) {
+            case NISysCfgResourcePropertyIsSimulated:
+            case NISysCfgResourcePropertyIsChassis:
+                *static_cast<NISysCfgBool *>(value) = NISysCfgBoolFalse;
+                return NISysCfg_OK;
+            case NISysCfgResourcePropertySerialNumber:
+                std::strcpy(static_cast<char *>(value), res.serial.c_str());
+                return NISysCfg_OK;
+            case NISysCfgResourcePropertyProductName:
+                std::strcpy(static_cast<char *>(value), res.product.c_str());
+                return NISysCfg_OK;
+            default:
+                return NISysCfg_PropDoesNotExist;
+        }
+    }
+
+    NISYSCFGCFUNC GetResourceIndexedProperty(
+        NISysCfgResourceHandle,
+        NISysCfgIndexedProperty,
+        unsigned int,
+        void *value
+    ) override {
+        std::strcpy(static_cast<char *>(value), "\"Dev1\"");
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC
+    GetStatusDescriptionW(NISysCfgSessionHandle, NISysCfgStatus, wchar_t **) override {
+        return NISysCfg_NotImplemented;
+    }
+
+    NISYSCFGCFUNC
+    SetFilterPropertyV(NISysCfgFilterHandle, NISysCfgFilterProperty, va_list) override {
+        return NISysCfg_OK;
+    }
+
+    NISYSCFGCFUNC FreeDetailedStringW(wchar_t[]) override { return NISysCfg_OK; }
+};
+
+/// @brief captures the text of every log line at INFO or above while in scope.
+class CaptureSink final : public absl::LogSink {
+    std::mutex mu;
+    std::vector<std::string> lines;
+
+public:
+    CaptureSink() { absl::AddLogSink(this); }
+    ~CaptureSink() override { absl::RemoveLogSink(this); }
+
+    void Send(const absl::LogEntry &entry) override {
+        if (entry.verbosity() != absl::LogEntry::kNoVerbosityLevel) return;
+        std::lock_guard lock(this->mu);
+        this->lines.emplace_back(entry.text_message());
+    }
+
+    [[nodiscard]] std::size_t count(const std::string &substr) {
+        std::lock_guard lock(this->mu);
+        return std::ranges::count_if(this->lines, [&](const std::string &line) {
+            return line.find(substr) != std::string::npos;
+        });
+    }
+};
+
+/// @brief the scanner should log each device skipped by the model filter once.
+TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
+    auto api = std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{
+        {"022B5288", "NI cRIO-9040"},
+        {"022B5299", "NI cRIO-9045"},
+        {"01A2B3C4", "NI 9485"},
+    });
+    x::json::json j = {{"disabled", false}};
+    auto p = x::json::Parser(j);
+    Scanner scanner(
+        std::make_shared<syscfg::SugaredAPI>(api),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
+    CaptureSink sink;
+    for (std::size_t i = 0; i < 3; i++) {
+        auto [devices, err] = scanner.scan(common::ScannerContext{.count = i});
+        ASSERT_FALSE(err) << err;
+        ASSERT_EQ(devices.size(), 1);
+        EXPECT_EQ(devices[0].key, "01A2B3C4");
+    }
+    EXPECT_EQ(sink.count("skipping cRIO-9040 (022B5288)"), 1);
+    EXPECT_EQ(sink.count("skipping cRIO-9045 (022B5299)"), 1);
 }
 }
