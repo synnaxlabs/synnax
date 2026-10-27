@@ -809,14 +809,14 @@ TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
                "sequence main {\n"
                "    hold := i64 ns(0s)\n"
                "    stage parked {\n"
-               "        time.wait{duration=hold} -> " +
+               "        time.wait(duration=hold) -> " +
                output_ch.name +
                "\n"
-               "        time.wait{2s} => reenter\n"
+               "        time.wait(2s) => reenter\n"
                "    }\n"
                "    stage reenter {\n"
-               "        time.wait{10ms} -> sequence { hold = i64 ns(100ms) }\n"
-               "        time.wait{50ms} => parked\n"
+               "        time.wait(10ms) -> sequence { hold = i64 ns(100ms) }\n"
+               "        time.wait(50ms) => parked\n"
                "    }\n"
                "}\n" +
                input_ch.name + " => main\n"
