@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -109,7 +110,7 @@ type unionVariantData struct {
 	NeedsValidate      bool
 }
 
-func processUnion(entry resolution.Type, data *templateData) unionData {
+func processUnion(entry resolution.Type, data *templateData) (unionData, error) {
 	form := entry.Form.(resolution.UnionForm)
 	// Use the raw schema name (with @go name override) so the wrapper matches
 	// resolver.GetTypeName, which union-typed fields resolve through.
@@ -175,6 +176,30 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	}
 	if method, ok := naming.UnionTagMethod(form); ok {
 		ud.TagMethod = method
+	}
+	// The getters share a method set with the methods that every union declares.
+	methods := set.New(
+		"MarshalJSONTo",
+		"UnmarshalJSONFrom",
+		"ApplyDefaults",
+		"Validate",
+	)
+	for _, b := range ud.Bases {
+		if methods.Contains(b.Method) {
+			return unionData{}, errors.Newf(
+				"%s: the getter for the base %s has the name of another union method; "+
+					"rename the base",
+				entry.QualifiedName, b.Method,
+			)
+		}
+		methods.Add(b.Method)
+	}
+	if methods.Contains(ud.TagMethod) {
+		return unionData{}, errors.Newf(
+			"%s: the getter for the discriminator %s has the name of another union "+
+				"method; rename the discriminator",
+			entry.QualifiedName, form.Discriminator,
+		)
 	}
 
 	for _, v := range form.Variants {
@@ -265,7 +290,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	if ud.NeedsValidate {
 		data.AddExternal(validateImportPath)
 	}
-	return ud
+	return ud, nil
 }
 
 // embeddedType pairs an embedded type reference with its rendered Go type, so the
