@@ -13,8 +13,8 @@
 
 #include "freighter/cpp/freighter.h"
 #include "freighter/cpp/grpc/grpc.h"
-#include "freighter/cpp/grpc/mock/freighter/cpp/grpc/mock/service.grpc.pb.h"
-#include "freighter/cpp/grpc/mock/server.h"
+#include "freighter/cpp/grpc/testutil/freighter/cpp/grpc/testutil/service.grpc.pb.h"
+#include "freighter/cpp/grpc/testutil/server.h"
 #include "x/cpp/test/test.h"
 
 namespace freighter::grpc {
@@ -35,15 +35,15 @@ TEST(testGRPC, basicProto) {
 
 /// @brief it should send a unary request and receive a response.
 TEST(testGRPC, testBasicUnary) {
-    std::thread s(mock::server, base_target);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, base_target);
+    testutil::wait_for_servers();
     const auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
     const auto res = ASSERT_NIL_P(client.send("", mes));
     ASSERT_EQ(res.payload(), "Read request: Sending to Server");
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
@@ -63,8 +63,8 @@ public:
 
 /// @brief it should propagate metadata headers through middleware.
 TEST(testGRPC, testMiddlewareInjection) {
-    std::thread s(mock::server, base_target);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, base_target);
+    testutil::wait_for_servers();
     const auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     const auto mw = std::make_shared<myMiddleware>();
@@ -73,7 +73,7 @@ TEST(testGRPC, testMiddlewareInjection) {
     mes.set_payload("Sending to Server");
     auto res = ASSERT_NIL_P(client.send("", mes));
     ASSERT_EQ(res.payload(), "Read request: Sending to Server");
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
@@ -93,9 +93,9 @@ TEST(testGRPC, testFailedUnary) {
 TEST(testGRPC, testMultipleTargets) {
     std::string target_one("localhost:8080");
     std::string target_two("localhost:8081");
-    std::thread s1(mock::server, target_one);
-    std::thread s2(mock::server, target_two);
-    mock::wait_for_servers(2);
+    std::thread s1(testutil::server, target_one);
+    std::thread s2(testutil::server, target_two);
+    testutil::wait_for_servers(2);
     auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool);
     auto mes_one = test::Message();
@@ -108,7 +108,7 @@ TEST(testGRPC, testMultipleTargets) {
     auto res_two = ASSERT_NIL_P(client.send(target_two, mes_two));
     ASSERT_EQ(res_two.payload(), "Read request: Sending to Server Two");
 
-    mock::stop_servers();
+    testutil::stop_servers();
     s1.join();
     s2.join();
 }
@@ -116,8 +116,8 @@ TEST(testGRPC, testMultipleTargets) {
 /// @brief it should send and receive a message over a stream.
 TEST(testGRPC, testBasicStream) {
     std::string target("localhost:8080");
-    std::thread s(mock::server, target);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, target);
+    testutil::wait_for_servers();
 
     auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
@@ -130,7 +130,7 @@ TEST(testGRPC, testBasicStream) {
     auto res = ASSERT_NIL_P(streamer->receive());
     ASSERT_EQ(res.payload(), "Read request: Sending to Streaming Server");
     ASSERT_OCCURRED_AS_P(streamer->receive(), ERR_EOF);
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
@@ -138,9 +138,9 @@ TEST(testGRPC, testBasicStream) {
 TEST(testGRPC, testMultipleStreamObjects) {
     std::string target_one("localhost:8080");
     std::string target_two("localhost:8081");
-    std::thread s1(mock::server, target_one);
-    std::thread s2(mock::server, target_two);
-    mock::wait_for_servers(2);
+    std::thread s1(testutil::server, target_one);
+    std::thread s2(testutil::server, target_two);
+    testutil::wait_for_servers(2);
 
     auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool);
@@ -168,7 +168,7 @@ TEST(testGRPC, testMultipleStreamObjects) {
     ASSERT_OCCURRED_AS_P(streamer_one->receive(), ERR_EOF);
     ASSERT_OCCURRED_AS_P(streamer_two->receive(), ERR_EOF);
 
-    mock::stop_servers();
+    testutil::stop_servers();
     s1.join();
     s2.join();
 }
@@ -176,8 +176,8 @@ TEST(testGRPC, testMultipleStreamObjects) {
 /// @brief it should send and receive multiple messages over a single stream.
 TEST(testGRPC, testSendMultipleMessages) {
     std::string target("localhost:8080");
-    std::thread s(mock::server, target);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, target);
+    testutil::wait_for_servers();
 
     auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
@@ -198,7 +198,7 @@ TEST(testGRPC, testSendMultipleMessages) {
 
     ASSERT_OCCURRED_AS_P(streamer->receive(), ERR_EOF);
 
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
@@ -229,8 +229,8 @@ constexpr int N_THREADS = 3;
 
 /// @brief it should handle concurrent unary requests from multiple threads.
 TEST(testGRPC, stressTestUnaryWithManyThreads) {
-    std::thread s(mock::server, base_target);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, base_target);
+    testutil::wait_for_servers();
     auto pool = std::make_shared<Pool>();
     auto global_unary_client = std::make_shared<UnaryClient<RQ, RS, UNARY_RPC>>(
         pool,
@@ -247,7 +247,7 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
     for (size_t i = 0; i < N_THREADS; i++) {
         threads[i].join();
     }
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
@@ -265,8 +265,8 @@ void stream_send(
 
 /// @brief it should handle concurrent stream requests from multiple threads.
 TEST(testGRPC, stressTestStreamWithManyThreads) {
-    std::thread s(mock::server, base_target);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, base_target);
+    testutil::wait_for_servers();
 
     auto pool = std::make_shared<Pool>();
     auto global_stream_client = std::make_shared<StreamClient<RQ, RS, STREAM_RPC>>(
@@ -283,15 +283,15 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
         threads.emplace_back(stream_send, i, global_stream_client);
     for (size_t i = 0; i < N_THREADS; i++)
         threads[i].join();
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
 /// @brief it should reuse the same channel for requests to the same host.
 TEST(testGRPC, testPoolChannelReuse) {
     std::string target("localhost:8080");
-    std::thread s(mock::server, target);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, target);
+    testutil::wait_for_servers();
 
     auto pool = std::make_shared<Pool>();
     auto client = UnaryClient<RQ, RS, UNARY_RPC>(pool);
@@ -313,7 +313,7 @@ TEST(testGRPC, testPoolChannelReuse) {
     EXPECT_EQ(channel_count, 1)
         << "Pool should maintain only one channel for the same host:port";
 
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 
@@ -332,14 +332,14 @@ TEST(testGRPC, testCloseSendOnDeadConnection) {
 /// @brief it should safely call close_send multiple times.
 TEST(testGRPC, testCloseSendIdempotent) {
     std::string target("localhost:8080");
-    std::thread s(mock::server, target);
-    mock::wait_for_servers();
+    std::thread s(testutil::server, target);
+    testutil::wait_for_servers();
     auto pool = std::make_shared<Pool>();
     auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto streamer = ASSERT_NIL_P(client.stream(""));
     streamer->close_send();
     streamer->close_send();
-    mock::stop_servers();
+    testutil::stop_servers();
     s.join();
 }
 }

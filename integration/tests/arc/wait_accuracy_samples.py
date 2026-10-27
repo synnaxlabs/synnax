@@ -28,7 +28,7 @@ def create_source(waits_ms: list[int]) -> str:
     """
     steps = ["    1 -> ws_cmd"]
     for i, wait_ms in enumerate(waits_ms):
-        steps.append(f"    time.wait{{{wait_ms}ms}}")
+        steps.append(f"    time.wait({wait_ms}ms)")
         steps.append(f"    {i + 2} -> ws_cmd")
     body = ",\n".join(steps)
     return f"""

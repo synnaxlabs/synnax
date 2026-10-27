@@ -38,7 +38,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			`func f() {
 			    log = `+source+`
 			}
-			trig -> f{}`, resolver,
+			trig -> f()`, resolver,
 			channels.Digest{Key: 100, DataType: telem.Uint8T},
 			channels.Digest{Key: 101, DataType: telem.StringT},
 		)
@@ -65,10 +65,10 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			"log": {types.String(), 101},
 		})
 		h := newRuntimeHarness(ctx,
-			`func f(val `+arcType+`) {
+			`func f() {val `+arcType+`} {
 			    log = `+source+`
 			}
-			v -> f{}`, resolver,
+			v -> f()`, resolver,
 			channels.Digest{Key: 100, DataType: valueDT},
 			channels.Digest{Key: 101, DataType: telem.StringT},
 		)
@@ -222,7 +222,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 				    name := "probe"
 				    log = `+`f"hello, {name}"`+`
 				}
-				trig -> f{}`, resolver,
+				trig -> f()`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
 					channels.Digest{Key: 101, DataType: telem.StringT},
 				)
@@ -285,12 +285,12 @@ trig -> f"v={flag}" -> log`, "v=false"),
     b := true
     log = f"v={b}"
 }
-trig -> f{}`, "v=true"),
+trig -> f()`, "v=true"),
 			Entry("func context false", `func f() {
     b := false
     log = f"v={b}"
 }
-trig -> f{}`, "v=false"),
+trig -> f()`, "v=false"),
 		)
 	})
 
@@ -515,7 +515,7 @@ trig -> f{}`, "v=false"),
 			    ` + declarations + `
 			    log = ` + body + `
 			}
-			trig -> f{}`
+			trig -> f()`
 			h := newRuntimeHarness(ctx, src, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
 				channels.Digest{Key: 101, DataType: telem.StringT},
