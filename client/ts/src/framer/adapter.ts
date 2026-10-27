@@ -161,7 +161,7 @@ export class WriteAdapter {
       typeof ch === "number"
         ? { key: { eq: ch } }
         : typeof ch === "string"
-          ? { name: { eq: ch } }
+          ? { namePatterns: [ch] }
           : { key: { eq: ch.key } };
     checkForMultipleOrNoResults("channel", where, res, true);
     return res[0];

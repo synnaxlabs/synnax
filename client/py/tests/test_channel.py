@@ -282,7 +282,7 @@ class TestChannel:
         with pytest.raises(
             sy.MultipleFoundError,
             match=re.escape(
-                f'Expected one channel where name = "{prefix}.*", but found 2'
+                f'Expected one channel where name_patterns = ["{prefix}.*"], but found 2'
             ),
         ):
             client.channels.retrieve(f"{prefix}.*")
@@ -933,7 +933,7 @@ class TestChannelRetriever:
         with pytest.raises(
             sy.MultipleFoundError,
             match=re.escape(
-                f'Expected one channel where name = "{prefix}_.*", but found 2'
+                f'Expected one channel where name_patterns = ["{prefix}_.*"], but found 2'
             ),
         ):
             client.channels._retriever.retrieve_one(f"{prefix}_.*")

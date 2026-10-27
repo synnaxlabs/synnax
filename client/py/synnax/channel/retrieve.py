@@ -45,9 +45,11 @@ def params_where(channels: Params) -> Where:
 
 
 def single_where(param: Key | str) -> Where:
-    """Returns a filter that selects the channel that param names by key or name."""
+    """Returns a filter that selects the channel that param names by key, or by a name
+    that the Core reads as a pattern.
+    """
     if isinstance(param, str):
-        return Where(name=filter.String(eq=param))
+        return Where(name_patterns=[param])
     return Where(key=filter.Set[Key](eq=param))
 
 

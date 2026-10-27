@@ -549,7 +549,9 @@ export class Client extends query.Retriever<
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
     const single =
-      variant === "keys" ? { key: { eq: rawNormalized[0] } } : { name: { eq: params } };
+      variant === "keys"
+        ? { key: { eq: rawNormalized[0] } }
+        : { namePatterns: rawNormalized };
     const normalized =
       variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {

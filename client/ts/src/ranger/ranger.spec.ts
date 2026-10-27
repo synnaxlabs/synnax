@@ -413,7 +413,9 @@ describe("range", () => {
         const name = id.create();
         const set = rng.setAlias(name, "myalias");
         await expect(set).rejects.toThrow(NotFoundError);
-        await expect(set).rejects.toThrow(`Found no channel where name = "${name}"`);
+        await expect(set).rejects.toThrow(
+          `Found no channel where namePatterns = ["${name}"]`,
+        );
       });
 
       it("should reject a name pattern that matches two channels", async () => {

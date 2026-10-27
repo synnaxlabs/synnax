@@ -93,11 +93,9 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.channels), x::errors::NIL};
 }
 
-std::pair<Channel, x::errors::Error> Client::retrieve_one(
-    const RetrieveRequest &req,
-    const std::optional<Where> &described
-) const {
-    return errors::exactly_one("channel", described, this->retrieve(req));
+std::pair<Channel, x::errors::Error>
+Client::retrieve_one(const RetrieveRequest &req) const {
+    return errors::exactly_one("channel", req.where, this->retrieve(req));
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>

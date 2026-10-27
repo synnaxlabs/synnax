@@ -206,7 +206,7 @@ export class Range {
     const where =
       typeof channel === "number"
         ? { key: { eq: channel } }
-        : { name: { eq: channel } };
+        : { namePatterns: [channel] };
     checkForMultipleOrNoResults("channel", where, ch, true);
     await this.rangeClient.setAlias(this.key, ch[0].key, alias);
   }

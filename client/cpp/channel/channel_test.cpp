@@ -156,7 +156,10 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
     const auto client = new_test_client();
     const auto [ch, err] = client.channels.retrieve("my_definitely_not_found");
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, R"(Found no channel where name = "my_definitely_not_found")");
+    ASSERT_EQ(
+        err.data,
+        R"(Found no channel where name_patterns = ["my_definitely_not_found"])"
+    );
 }
 
 /// @brief it should reject a name pattern that matches more than one channel.

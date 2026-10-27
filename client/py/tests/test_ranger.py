@@ -409,7 +409,8 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             with pytest.raises(
-                sy.NotFoundError, match=r'^Found no channel where name = "not_found"$'
+                sy.NotFoundError,
+                match=r'^Found no channel where name_patterns = \["not_found"\]$',
             ):
                 rng.set_alias("not_found", "test")
 
@@ -442,7 +443,7 @@ class TestRangeClient:
             with pytest.raises(
                 sy.MultipleFoundError,
                 match=re.escape(
-                    f'Expected one channel where name = "{prefix}_.*", but found 2'
+                    f'Expected one channel where name_patterns = ["{prefix}_.*"], but found 2'
                 ),
             ):
                 rng.set_alias(f"{prefix}_.*", "test")
