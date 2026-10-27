@@ -9,38 +9,21 @@
 
 import "@/feature/license/Activate.css";
 
-import { ExpiredLicenseError, status } from "@synnaxlabs/client";
+import { ExpiredLicenseError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { License as PLicense, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
+import { Handoff } from "@/feature/license/Handoff";
+import { KeyInput } from "@/feature/license/KeyInput";
 import { Shell } from "@/feature/shell";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
-import { License } from "@/platform/license";
-import { Runtime } from "@/platform/runtime";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
-
-const KEY_FILE_EXTENSION = "lic";
-
-const ACTIVATE_TRIGGER: Triggers.Trigger = ["Enter"];
-
-const decoder = new TextDecoder();
-
-const portalURL = (fingerprint: string[]): string => {
-  if (fingerprint.length === 0) return License.ACTIVATE_URL;
-  const params = new URLSearchParams({
-    fingerprint: License.joinFingerprint(fingerprint),
-  });
-  return `${License.ACTIVATE_URL}?${params.toString()}`;
-};
 
 export interface ActivateProps {
   /** Offers a way back to the screen that led here. */
@@ -53,46 +36,23 @@ export interface ActivateProps {
  * license applies from anywhere.
  */
 export const Activate = ({ onBack }: ActivateProps): ReactElement => {
-  const client = Synnax.use();
   const { details } = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
   const logout = Core.useLogout();
-  const handleError = Status.useErrorHandler();
   const result = PLicense.useResult({});
-  const [key, setKey] = useState("");
-  const [activating, setActivating] = useState(false);
-  const [error, setError] = useState<status.Status | null>(null);
   const fingerprint = result.data?.fingerprint ?? [];
   const expired = ExpiredLicenseError.matches(details.error);
   const noHardware = result.data != null && fingerprint.length === 0;
 
-  const pickFile = (): void =>
-    handleError(async () => {
-      const file = await Runtime.pickFiles({
-        title: "Select a license file",
-        extension: KEY_FILE_EXTENSION,
-      });
-      if (file == null) return;
-      const bytes = await Runtime.toBytes(await file.read());
-      setKey(decoder.decode(bytes).trim());
-    }, "Failed to read license file");
-
-  const activate = async (): Promise<void> => {
-    if (client == null || key.trim() === "") return;
-    setActivating(true);
-    setError(null);
-    try {
-      await client.license.activate(key.trim());
-    } catch (e) {
-      setError(status.fromException(e, "Failed to activate license"));
-    }
-    setActivating(false);
-  };
-
-  let description = "Get a key from your Synnax account, then paste it here.";
+  let description =
+    "Activate it on the Synnax portal. The license key comes back here on its own.";
   if (noHardware)
-    description = "This Core reports no network hardware. Ask for a floating license.";
-  else if (expired) description = "Get a new key from your Synnax account.";
+    description =
+      "This Core reports no network hardware to bind a license to. Ask Synnax Labs " +
+      "for a floating license, then paste it below.";
+  else if (expired)
+    description =
+      "Get a new license key on the Synnax portal. It comes back here on its own.";
 
   return (
     <Shell.Frame
@@ -116,68 +76,24 @@ export const Activate = ({ onBack }: ActivateProps): ReactElement => {
               {description}
             </Text.Text>
           </Flex.Box>
-          <Flex.Box y gap="small" full="x">
-            <Input.Text
-              size="large"
-              value={key}
-              onChange={setKey}
-              placeholder="Paste a license key"
-              aria-label="License key"
-              full="x"
-              disabled={activating}
-            >
-              <Button.Button
-                size="large"
-                variant="outlined"
-                onClick={pickFile}
-                disabled={activating}
-                tooltip="Load a license file"
-                aria-label="Load a license file"
-              >
-                <Icon.Attachment />
-              </Button.Button>
-            </Input.Text>
-            <Button.Button
-              variant="filled"
-              size="large"
-              full="x"
-              justify="center"
-              trigger={ACTIVATE_TRIGGER}
-              onClick={() => void activate()}
-              status={activating ? "loading" : undefined}
-              disabled={key.trim() === ""}
-            >
-              Activate
-              <Icon.Arrow.Right />
-            </Button.Button>
-            <Flex.Box className={CSS.BE("license-activate", "status")}>
-              {error != null && <Status.Summary status={error} level="small" />}
-              {error == null && result.variant === "error" && (
+          <Flex.Box y gap="huge" full="x">
+            {result.data != null && !noHardware && (
+              <Handoff fingerprint={fingerprint}>
+                {expired ? "Get a new key on the portal" : "Activate on the portal"}
+              </Handoff>
+            )}
+            <Flex.Box y gap="small" full="x">
+              <Text.Text level="small" color={9}>
+                Have a license key? Paste it here.
+              </Text.Text>
+              <KeyInput />
+              {result.variant === "error" && (
                 <Status.Summary level="small" status={result.status} />
               )}
             </Flex.Box>
           </Flex.Box>
         </Flex.Box>
         <Flex.Box x align="center" justify="center" gap="small">
-          <Button.Button
-            variant="text"
-            size="small"
-            textColor={9}
-            href={portalURL(fingerprint)}
-            target="_blank"
-          >
-            Get a key
-            <Icon.OpenExternal />
-          </Button.Button>
-          <Button.Copy
-            variant="text"
-            size="small"
-            textColor={9}
-            disabled={fingerprint.length === 0}
-            text={() => License.joinFingerprint(fingerprint)}
-          >
-            Copy fingerprint
-          </Button.Copy>
           {!Session.Runtime.CORE_EMBEDDED && (
             <Button.Button variant="text" size="small" textColor={9} onClick={logout}>
               Log out

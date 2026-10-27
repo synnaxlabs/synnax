@@ -73,9 +73,9 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 	return w.Set(ctx, entries...)
 }
 
-type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)
+type changeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)
 
-type changes[K Key, E Entry[K]] []ChangeFunc[K, E]
+type changes[K Key, E Entry[K]] []changeFunc[K, E]
 
 func (c changes[K, E]) exec(ctx Context, entry E) (o E, err error) {
 	for _, change := range c {
