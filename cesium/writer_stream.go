@@ -778,7 +778,7 @@ func sameLengthForAllSeriesError(
 		validate.ErrValidation,
 		`
 frame must have the same length for all series. Rest of the series in the frame have
-length %d, while series for channel %v has length %d. See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
+length %d, while series for channel %v has length %d. See https://docs.synnaxlabs.com/reference/client/write-data#rule-1
 `,
 		lengthOfFrame,
 		expectedCh,
@@ -815,7 +815,7 @@ func incorrectNumberOfSeriesError(
 		validate.ErrValidation,
 		`frame must have exactly one series for each data channel associated with an index. Expected
 			%d series, got %d.
-			See https://docs.synnaxlabs.com/reference/concepts/writes#the-rules-of-writes
+			See https://docs.synnaxlabs.com/reference/client/write-data#the-rules-of-writes
 			`,
 		expected,
 		received,
