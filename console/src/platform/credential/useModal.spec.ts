@@ -83,7 +83,7 @@ describe("useModal", () => {
     const id = rack.ontologyID(r.key);
     const driver = await createTestClientWithRole(owner, "Driver");
     await openModal(useModal, { client: driver, params: { subject: id } });
-    await screen.findByText("No API keys");
+    await screen.findByPlaceholderText("Key name");
     expect(findButton("Create key")).toBeTruthy();
   });
 
