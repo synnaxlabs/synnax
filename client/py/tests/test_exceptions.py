@@ -14,6 +14,7 @@ import pytest
 import freighter
 import synnax as sy
 from synnax.exceptions import create_registry
+from synnax.framer.writer import WriterClosed
 from x.exceptions import ExceptionPayload
 
 
@@ -99,6 +100,7 @@ class TestError:
             freighter.EOF,
             freighter.StreamClosed,
             freighter.Unreachable,
+            WriterClosed,
         ],
     )
     def test_local(self, exc: type[Exception]) -> None:
