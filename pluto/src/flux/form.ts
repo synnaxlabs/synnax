@@ -447,8 +447,11 @@ export const createForm = <
     const save = (opts?: query.FetchOptions) => void saveAsync(opts);
 
     const saveRef = useSyncedRef(save);
+    // An explicit save that ran before the timer fired already sent every edit.
     const debouncedSave = useDebouncedCallback(
-      () => saveRef.current(),
+      () => {
+        if (unsaved.current.size > 0) saveRef.current();
+      },
       autoSaveDebounce,
       [],
     );
