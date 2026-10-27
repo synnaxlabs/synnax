@@ -11,8 +11,9 @@ from pathlib import Path
 
 import pytest
 
+from synnax.cli import console
 from synnax.cli.connect import connect_from_options, prompt_client_options
-from synnax.cli.console.mock import MockConsole, Output
+from synnax.cli.console.mock import Output
 from synnax.cli.flow import Context
 from synnax.options import Options
 
@@ -21,8 +22,8 @@ from synnax.options import Options
 class TestPromptClientOptions:
     def test_responses(self) -> None:
         """Should build options from the prompt responses."""
-        console = MockConsole(responses=["127.0.0.1", 9091, "admin", "secret", True])
-        assert prompt_client_options(Context(console=console)) == Options(
+        c = console.Mock(responses=["127.0.0.1", 9091, "admin", "secret", True])
+        assert prompt_client_options(Context(console=c)) == Options(
             host="127.0.0.1",
             port=9091,
             username="admin",
@@ -32,16 +33,16 @@ class TestPromptClientOptions:
 
     def test_ca_cert(self) -> None:
         """Should store the absolute CA certificate path for a secure connection."""
-        console = MockConsole(
+        c = console.Mock(
             responses=["127.0.0.1", 9091, "admin", "secret", True, "certs/ca.crt"]
         )
-        opts = prompt_client_options(Context(console=console))
+        opts = prompt_client_options(Context(console=c))
         assert opts.ca_cert == str(Path("certs/ca.crt").resolve())
 
     def test_insecure_skips_ca_cert(self) -> None:
         """Should not ask for a CA certificate for an insecure connection."""
-        console = MockConsole(responses=["127.0.0.1", 9091, "admin", "secret", False])
-        assert prompt_client_options(Context(console=console)).ca_cert is None
+        c = console.Mock(responses=["127.0.0.1", 9091, "admin", "secret", False])
+        assert prompt_client_options(Context(console=c)).ca_cert is None
 
 
 @pytest.mark.cli
@@ -61,5 +62,5 @@ class TestConnectFromOptions:
             secure=True,
             ca_cert=str(ca_cert),
         )
-        assert connect_from_options(Context(console=MockConsole(output)), opts) is None
+        assert connect_from_options(Context(console=console.Mock(output)), opts) is None
         assert str(ca_cert) in (output.entries[-1].message or "")

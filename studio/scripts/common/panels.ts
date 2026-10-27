@@ -160,3 +160,19 @@ export const splitRight = async (
   );
   await session.waitFor(leaves.nth(1));
 };
+
+/** isolateTab closes every tab of the visible panel except `name`. */
+export const isolateTab = async (
+  session: capture.CaptureSession,
+  name: string,
+): Promise<void> => {
+  const others = session.page
+    .locator(".console-mosaic .pluto-tabs__tab:visible")
+    .filter({ hasNotText: name });
+  while ((await others.count()) > 0) {
+    const tab = others.first();
+    await tab.hover();
+    await session.click(tab.locator(".pluto-tabs__close").first(), { zoom: false });
+    await session.settle(300);
+  }
+};
