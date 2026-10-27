@@ -493,8 +493,14 @@ class Cost:
             if (iid := instance_for(r, found)) is None:
                 continue
             info = found[iid]
-            price = self.prices.instance(info["type"], info["region"], info["windows"])
-            ebs = volumes.get(iid, 0) * self.prices.volume(info["region"])
+            try:
+                price = self.prices.instance(
+                    info["type"], info["region"], info["windows"]
+                )
+                ebs = volumes.get(iid, 0) * self.prices.volume(info["region"])
+            except Exception as e:
+                self.log.error(f"price {info['type']} {info['region']}", e)
+                continue
             priced[r] = (iid, price, ebs)
         return priced
 

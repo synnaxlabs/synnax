@@ -133,9 +133,11 @@ class TestJobs:
         j.apply([{"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}}])
         j.resync(sy.TimeStamp.now())
         assert j.queued == {1: set(LABELS)}
+        assert not j.ready
         pool.release()
         j.resync(sy.TimeStamp.now())
         assert j.queued == {2: set(LABELS)}
+        assert j.ready
 
     def test_should_keep_deliveries_that_arrive_during_a_resync(
         self, client: Client

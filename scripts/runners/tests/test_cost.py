@@ -17,10 +17,11 @@ import synnax as sy
 from aws import AWS
 from common import Channels, channel_name
 from conftest import Client, core
-from cost import FETCHED, LIVE_INTERVAL, Cost
+from cost import FETCHED, LIVE_INTERVAL, Cost, Prices
 from log import Log
 
 RUNNER = "windows-build-bot-i-0aaa"
+OTHER = "windows-build-bot-i-0bbb"
 RATE = channel_name("cost_per_hour", RUNNER)
 EBS = channel_name("ebs_cost_per_hour", RUNNER)
 
@@ -29,6 +30,27 @@ class NoAWS:
     """Stands in for AWS where a test makes no AWS call."""
 
     pricing = None
+
+
+class Volumes:
+    """Stands in for AWS with no attached volumes."""
+
+    pricing = None
+
+    def volumes(self) -> dict[str, int]:
+        return {}
+
+
+class SomePrices:
+    """Prices one instance type and fails on any other."""
+
+    def instance(self, instance_type: str, region: str, windows: bool) -> float:
+        if instance_type != "t3.large":
+            raise LookupError(instance_type)
+        return 0.5
+
+    def volume(self, region: str) -> float:
+        return 0.0
 
 
 def found(running: bool) -> dict[str, dict]:
@@ -81,3 +103,19 @@ class TestLiveFrame:
         assert cost.step(now, {RUNNER}, found(True))
         assert cost.step(now + LIVE_INTERVAL / 2, {RUNNER}, found(True)) == {}
         assert cost.step(now + LIVE_INTERVAL, {RUNNER}, found(True))
+
+
+class TestPriceTable:
+    """Tests for the prices a restart looks up before the next fetch."""
+
+    def test_should_keep_the_prices_that_resolve(self, client: Client) -> None:
+        log = Log(core(client), Channels(core(client), False), "log")
+        c = Cost(log, cast(AWS, Volumes()))
+        c.prices = cast(Prices, SomePrices())
+        c.known = [RUNNER, OTHER]
+        instances = {
+            "i-0aaa": {"type": "t3.large", "region": "us-east-1", "windows": True},
+            "i-0bbb": {"type": "c7i.4xlarge", "region": "us-east-1", "windows": True},
+        }
+        assert c.price_table(instances) == {RUNNER: ("i-0aaa", 0.5, 0.0)}
+        c.close()

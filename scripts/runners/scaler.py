@@ -98,7 +98,10 @@ class Scaler:
         queued: dict[Pool, int],
         found: dict[str, dict],
         running: set[str],
+        stops: bool = True,
     ) -> None:
+        """Starts instances for queued jobs and, when stops is set, stops idle
+        runners past their cooldown."""
         now = sy.TimeStamp.now()
         self.refresh_writer(known)
 
@@ -159,7 +162,7 @@ class Scaler:
         for pool in [p for p in self.announced if p not in queued]:
             del self.announced[pool]
         for pool, runners in stoppable.items():
-            if queued.get(pool, 0):
+            if not stops or queued.get(pool, 0):
                 continue
             cooldown = self.pool_cooldowns.get(pool, self.cooldown)
             for r in runners:

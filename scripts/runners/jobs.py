@@ -102,6 +102,8 @@ class Jobs:
         # can afford.
         self.cursor = 0
         self.synced: sy.TimeStamp | None = None
+        # Set once a queue read has landed, so the queue holds every waiting job.
+        self.ready = False
         # Deliveries applied while a resync reads, replayed over its older snapshot.
         self.pending: list[dict] = []
 
@@ -210,6 +212,7 @@ class Jobs:
             self.log.error("queued resync", e)
             return
         self.queued = queued
+        self.ready = True
         for payload in pending:
             self.queue(payload["workflow_job"], payload.get("action"))
         done = {

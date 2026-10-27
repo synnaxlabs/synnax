@@ -239,6 +239,8 @@ class Controller:
             queued if self.gate.enabled else {},
             found,
             set(self.jobs.active),
+            # An unread queue looks empty, which would stop runners jobs wait for.
+            stops=self.jobs.ready,
         )
         self.log(
             f"busy={counts.get(BUSY, 0)} "
