@@ -466,6 +466,14 @@ jobs:
       windows: *full
     secrets: inherit
 
+  foundation-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.foundation == 'true'
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: foundation
+    secrets: inherit
+
   freighter-cpp:
     needs: changes
     if: inputs.full || needs.changes.outputs.freighter_cpp == 'true'
@@ -674,6 +682,14 @@ jobs:
       windows: *full
     secrets: inherit
 
+  portal-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.portal == 'true'
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: portal
+    secrets: inherit
+
   protobuf:
     needs: changes
     if: inputs.full || needs.changes.outputs.protobuf == 'true'
@@ -748,6 +764,14 @@ jobs:
       macos: *full
       package: www
       windows: *full
+    secrets: inherit
+
+  www-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.www == 'true'
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: www
     secrets: inherit
 
   x-cpp:
@@ -877,6 +901,7 @@ jobs:
       - exports-go
       - format
       - foundation
+      - foundation-site
       - freighter-cpp
       - freighter-go
       - freighter-image
@@ -894,6 +919,7 @@ jobs:
       - oracle-language
       - pluto
       - portal
+      - portal-site
       - protobuf
       - py-packages
       - scripts
@@ -903,6 +929,7 @@ jobs:
       - versions
       - vite-plugin
       - www
+      - www-site
       - x-cpp
       - x-go
       - x-py
