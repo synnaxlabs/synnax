@@ -46,8 +46,8 @@ TEST(TransferTest, ParseAcquire) {
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_FALSE(transfer.from.has_value());
     ASSERT_TRUE(transfer.to.has_value());
-    ASSERT_EQ(transfer.to->resource, 10);
-    ASSERT_EQ(transfer.to->authority, 255);
+    ASSERT_EQ(transfer.to.value().resource, 10);
+    ASSERT_EQ(transfer.to.value().authority, 255);
 }
 
 TEST(TransferTest, ParseRelease) {
@@ -63,7 +63,7 @@ TEST(TransferTest, ParseRelease) {
     auto transfer = Transfer<int>::parse(parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_TRUE(transfer.from.has_value());
-    ASSERT_EQ(transfer.from->resource, 10);
+    ASSERT_EQ(transfer.from.value().resource, 10);
     ASSERT_FALSE(transfer.to.has_value());
 }
 
@@ -85,8 +85,8 @@ TEST(TransferTest, ParseHandoff) {
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_TRUE(transfer.from.has_value());
     ASSERT_TRUE(transfer.to.has_value());
-    ASSERT_EQ(transfer.from->subject.key, "s1");
-    ASSERT_EQ(transfer.to->subject.key, "s2");
+    ASSERT_EQ(transfer.from.value().subject.key, "s1");
+    ASSERT_EQ(transfer.to.value().subject.key, "s2");
 }
 
 TEST(UpdateTest, ParseMultipleTransfers) {
@@ -116,7 +116,7 @@ TEST(UpdateTest, ParseMultipleTransfers) {
     ASSERT_EQ(update.transfers.size(), 2);
     ASSERT_FALSE(update.transfers[0].from.has_value());
     ASSERT_TRUE(update.transfers[0].to.has_value());
-    ASSERT_EQ(update.transfers[0].to->resource, 1);
+    ASSERT_EQ(update.transfers[0].to.value().resource, 1);
     ASSERT_TRUE(update.transfers[1].from.has_value());
     ASSERT_FALSE(update.transfers[1].to.has_value());
 }

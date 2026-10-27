@@ -80,6 +80,7 @@ jobs:
       freighter_integration: ${{ steps.filter.outputs.freighter_integration }}
       freighter_py: ${{ steps.filter.outputs.freighter_py }}
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
+      gorp: ${{ steps.filter.outputs.gorp }}
       integration: ${{ steps.filter.outputs.integration }}
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
@@ -90,6 +91,7 @@ jobs:
       pluto: ${{ steps.filter.outputs.pluto }}
       portal: ${{ steps.filter.outputs.portal }}
       protobuf: ${{ steps.filter.outputs.protobuf }}
+      py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
@@ -148,6 +150,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
@@ -212,6 +215,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
@@ -259,7 +263,6 @@ jobs:
       directory: console
       package: console
       shards: 3
-      test_args: --no-file-parallelism
     secrets: inherit
 
   copyright:
@@ -270,9 +273,11 @@ jobs:
     if: inputs.full || needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.go.yaml
     with:
+      cached: ${{ github.event_name == 'pull_request' }}
       coverage_flag: core
       directory: core
       macos: *full
+      shards: 3
       windows: *full
     secrets: inherit
 
@@ -349,6 +354,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
+      clang_tidy: true
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
@@ -357,6 +363,23 @@ jobs:
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
       windows: *full
+    secrets: inherit
+
+  # The EtherCAT bus runs on its own thread, and a streamer can set its channels
+  # while it reads, so their suites also run under TSan. The GCC TSan runtime on the
+  # build bots aborts on the kernel's address randomization, so the tests run with it
+  # off.
+  driver-tsan:
+    needs: [changes, core-image]
+    if: inputs.full || needs.changes.outputs.driver == 'true'
+    uses: ./.github/workflows/test.cpp.yaml
+    with:
+      apt_packages: libsystemd-dev
+      core_image: ${{ needs.core-image.outputs.image }}
+      sanitizers: false
+      targets: //client/cpp/framer:framer_test //driver/ethercat/...
+      test_flags: --config=tsan --run_under="setarch -R"
+      test_tags: -hardware
     secrets: inherit
 
   eslint-config:
@@ -387,6 +410,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.freighter_cpp == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       directories: freighter/cpp
       macos: *full
       targets: //freighter/cpp/...
@@ -453,6 +477,17 @@ jobs:
       package: freighter
     secrets: inherit
 
+  gorp:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.gorp == 'true'
+    uses: ./.github/workflows/test.go.yaml
+    with:
+      coverage_flag: gorp
+      directory: gorp
+      macos: *full
+      windows: *full
+    secrets: inherit
+
   integration:
     needs: changes
     if:
@@ -484,6 +519,11 @@ jobs:
 
       - name: Check unused code
         run: pnpm knip
+
+      - name: Check exports that only tests use
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: pnpm knip --production --include exports,types
 
   lint-integration:
     needs: changes
@@ -567,6 +607,11 @@ jobs:
     uses: ./.github/workflows/test.protobuf.yaml
     secrets: inherit
 
+  py-packages:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.py_packages == 'true'
+    uses: ./.github/workflows/test.py.packages.yaml
+
   scripts:
     needs: changes
     if: inputs.full || needs.changes.outputs.scripts == 'true'
@@ -629,6 +674,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.x_cpp == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
+      clang_tidy: true
       directories: x/cpp
       macos: *full
       targets: //x/cpp/...
@@ -733,6 +779,7 @@ jobs:
       - docs-site
       - drift
       - driver
+      - driver-tsan
       - eslint-config
       - format
       - foundation
@@ -742,6 +789,7 @@ jobs:
       - freighter-integration
       - freighter-py
       - freighter-ts
+      - gorp
       - integration
       - knip
       - lint-integration
@@ -752,6 +800,7 @@ jobs:
       - pluto
       - portal
       - protobuf
+      - py-packages
       - scripts
       - site-common
       - soem

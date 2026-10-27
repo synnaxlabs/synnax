@@ -24,6 +24,10 @@ bool lookup_device_pdos(
     slave::Properties &slave
 );
 
+/// @brief sets the name and data type of each of the slave's PDO entries that the
+/// registry lists at the same address and bit length. Leaves other entries unchanged.
+void fill_known_entries(slave::Properties &slave);
+
 /// @brief returns the vendor name for a given vendor ID.
 std::optional<std::string_view> vendor_name(uint32_t vendor_id);
 

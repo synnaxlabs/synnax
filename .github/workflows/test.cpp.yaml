@@ -17,6 +17,11 @@ on:
         required: false
         type: string
         default: ""
+      clang_tidy:
+        description: Whether to lint the targets with clang-tidy
+        required: false
+        type: boolean
+        default: false
       core_image:
         description: Core image to test against on Ubuntu, or empty for none
         required: false
@@ -117,6 +122,9 @@ jobs:
       - name: Install Rust
         if: inputs.rust
         uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
+          cache-bin: false
 
       - name: Update submodules
         run: git submodule update --init --recursive
@@ -127,6 +135,12 @@ jobs:
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
+
+      - name: Set up uv
+        if: runner.os == 'Linux' && inputs.directories != ''
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
 
       - name: Install clang-format
         if: runner.os == 'Linux' && inputs.directories != ''
@@ -169,18 +183,21 @@ jobs:
       - name: Test (Ubuntu)
         if: runner.os == 'Linux'
         shell: bash
-        run: >-
-          bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 ${{ inputs.sanitizers &&
-          '--config=asan-leak' || '' }} --test_output=all
-          --test_env=LSAN_OPTIONS=suppressions=${{ github.workspace
-          }}/scripts/sanitizers/lsan_suppressions.txt ${{ inputs.targets }} ${{
-          steps.tags.outputs.flag }} ${{ inputs.test_flags }}
+        run: |
+          lsan="$GITHUB_WORKSPACE/scripts/sanitizers/lsan_suppressions.txt"
+          # shellcheck disable=SC2086 # Splits the flag list into arguments.
+          bazel test $BAZEL_REMOTE_CACHE_FLAGS --jobs=4 \
+            ${{ inputs.sanitizers && '--config=asan-leak' || '' }} --test_output=all \
+            --test_env=LSAN_OPTIONS=suppressions="$lsan" \
+            ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
+            ${{ inputs.test_flags }}
 
       - name: Test (Windows)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           export MSYS_NO_PATHCONV=1
+          # shellcheck disable=SC2086 # Splits the flag list into arguments.
           scripts/run_bazel.sh test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all \
             ${{ inputs.targets }} ${{ steps.tags.outputs.flag }} \
             ${{ inputs.test_flags }}
@@ -193,3 +210,46 @@ jobs:
         if: always() && runner.os == 'Windows'
         shell: powershell
         run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 30
+
+  lint:
+    name: Lint
+    if: inputs.clang_tidy
+    runs-on: ubuntu-build-bot
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install packages
+        if: inputs.apt_packages != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ inputs.apt_packages }}
+
+      - name: Install Rust
+        if: inputs.rust
+        uses: actions-rust-lang/setup-rust-toolchain@v2
+        with:
+          # A cache save deletes rustup from ~/.cargo/bin, which the build bots keep.
+          cache-bin: false
+
+      - name: Update submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.19.1
+        with:
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
+
+      # Each clang-tidy action peaks near 1 GB, and the build bots have 16 GB.
+      - name: Lint
+        run: |
+          # shellcheck disable=SC2086 # Splits the flag list into arguments.
+          bazel build $BAZEL_REMOTE_CACHE_FLAGS --jobs=8 --config=clang-tidy \
+            --keep_going ${{ inputs.targets }}
+
+      - name: Clean build caches
+        if: always()
+        run: integration/scripts/clean_build_caches.sh 25

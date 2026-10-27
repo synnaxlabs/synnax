@@ -10,14 +10,13 @@
 package role_test
 
 import (
-	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -442,20 +441,16 @@ var _ = Describe("Retrieve", func() {
 })
 
 var _ = Describe("Search", func() {
-	// Writes commit directly so the search index observes them; indexing is
-	// asynchronous, hence the Eventually.
 	It("Should retrieve roles matching the search term", func(ctx SpecContext) {
 		w := svc.NewWriter(nil, true)
 		r := role.Role{Name: "quasar-operator", Description: "Quasar operator"}
 		Expect(w.Create(ctx, &r)).To(Succeed())
-		Eventually(func(g Gomega) {
-			var rs []role.Role
-			g.Expect(svc.NewRetrieve().
-				Search("quasar").
-				Entries(&rs).
-				Exec(ctx, nil)).To(Succeed())
-			g.Expect(rs).To(ContainElement(HaveField("Key", r.Key)))
-		}).Should(Succeed())
+		var rs []role.Role
+		Expect(svc.NewRetrieve().
+			Search("quasar").
+			Entries(&rs).
+			Exec(ctx, nil)).To(Succeed())
+		Expect(rs).To(HaveExactElements(HaveField("Key", r.Key)))
 	})
 
 	It("Should return no roles when nothing matches", func(ctx SpecContext) {
@@ -494,34 +489,33 @@ var _ = Describe("Ontology Integration", func() {
 		})
 
 		It("Should return error for invalid UUID", func(ctx SpecContext) {
-			_, err := svc.RetrieveResource(ctx, "invalid-uuid", tx)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				svc.RetrieveResource(ctx, "invalid-uuid", tx),
+			).Error().
+				To(MatchError("invalid uuid"))
 		})
 
 		It("Should return error for non-existent role", func(ctx SpecContext) {
-			_, err := svc.RetrieveResource(ctx, uuid.New().String(), tx)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				svc.RetrieveResource(ctx, uuid.New().String(), tx),
+			).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 
-	Describe("OpenNexter", func() {
-		It("Should iterate over all roles", func(ctx SpecContext) {
-			w := svc.NewWriter(tx, true)
-			for range 3 {
+	Describe("Search", func() {
+		It(
+			"Should return the roles whose name matches the term",
+			func(ctx SpecContext) {
 				r := &role.Role{
-					Name:        "nexter-test",
-					Description: "Nexter test role",
+					Name:        "turbopump operators",
+					Description: "Search test role",
 				}
-				Expect(w.Create(ctx, r)).To(Succeed())
-			}
-			Expect(tx.Commit(ctx)).To(Succeed())
-
-			nexter, closer := MustSucceed2(svc.OpenNexter(ctx))
-			defer func() { Expect(closer.Close()).To(Succeed()) }()
-
-			count := len(slices.Collect(nexter))
-			Expect(count).To(BeNumerically(">=", 3))
-		})
+				Expect(svc.NewWriter(tx, true).Create(ctx, r)).To(Succeed())
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 10)).Keys).
+					To(Equal([]ontology.ID{r.OntologyID()}))
+			},
+		)
 	})
 
 	Describe("OntologyIDsFromRoles", func() {

@@ -17,16 +17,11 @@ import { Errors, OS, Synnax } from "@synnaxlabs/pluto";
 import { type record, type runtime } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Shell } from "@/platform/shell";
+import { Window } from "@/platform/window";
 import { Session } from "@/session";
 
 export interface OverlayProps extends PropsWithChildren {}
@@ -56,12 +51,12 @@ const FallbackRenderWithStore = ({ error }: Errors.FallbackProps): ReactElement 
   const dispatch = Session.useDispatch();
   const extraInfo = useExtraErrorInfo();
 
-  const handleTryAgain = useCallback((): void => {
+  const handleTryAgain = (): void => {
     dispatch(Session.Persist.revertState());
-  }, [dispatch]);
-  const handleClear = useCallback((): void => {
+  };
+  const handleClear = (): void => {
     dispatch(Session.Persist.clearState());
-  }, [dispatch]);
+  };
 
   return (
     <FallBackRenderContent<ExtraErrorInfo>
@@ -111,13 +106,11 @@ interface WindowControlsProps {
 }
 
 const WindowControls = ({ os }: WindowControlsProps): ReactElement | null => {
-  if (Session.Runtime.ENGINE !== "tauri") return null;
-  if (os !== "macOS" && os !== "Windows") return null;
+  if (Session.Runtime.ENGINE !== "tauri" || os !== "Windows") return null;
   return (
-    <Shell.Islands justify={os === "macOS" ? "start" : "end"}>
+    <Shell.Islands justify="end">
       <Shell.Island>
-        <OS.Controls
-          forceOS={os}
+        <Window.Buttons
           onClose={handleClose}
           onMinimize={handleMinimize}
           onMaximize={handleMaximize}
@@ -136,6 +129,15 @@ interface FallbackRenderContentProps<
   extraInfo?: ExtraInfo;
 }
 
+const applySystemTheme = (): void => {
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  const theme = mediaQuery.matches ? Theming.SYNNAX_DARK : Theming.SYNNAX_LIGHT;
+  PCSS.applyVars(
+    document.documentElement,
+    Theming.toCSSVars(Theming.themeZ.parse(theme)),
+  );
+};
+
 const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown>({
   onTryAgain,
   onClear,
@@ -145,21 +147,16 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
   const os = OS.use();
   useEffect(() => {
     try {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const theme = mediaQuery.matches ? Theming.SYNNAX_DARK : Theming.SYNNAX_LIGHT;
-      PCSS.applyVars(
-        document.documentElement,
-        Theming.toCSSVars(Theming.themeZ.parse(theme)),
-      );
+      applySystemTheme();
     } catch (e) {
       console.error(e);
     }
     if (Session.Runtime.ENGINE === "tauri")
       getCurrentWindow().show().catch(console.error);
   }, []);
-  const resetErrorBoundary = useCallback((): void => {
+  const resetErrorBoundary = (): void => {
     onTryAgain?.();
-  }, [onTryAgain]);
+  };
 
   return (
     <Flex.Box

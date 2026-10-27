@@ -161,8 +161,25 @@ func (s *streamServer[RQ, RS]) handleSocket(
 	codec encoding.Codec,
 	c *fiberws.Conn,
 ) {
+	var (
+		forced     = make(chan struct{})
+		exited     = make(chan struct{})
+		handlerCtx context.Context
+	)
+	defer close(exited)
 	stream := &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](
-		streamCoreConfig{writeDeadline: s.writeDeadline, conn: c.Conn, codec: codec},
+		streamCoreConfig{
+			writeDeadline: s.writeDeadline,
+			conn:          c.Conn,
+			codec:         codec,
+			forced:        forced,
+			cause: func() error {
+				if handlerCtx == nil {
+					return nil
+				}
+				return context.Cause(handlerCtx)
+			},
+		},
 		ctx.Done(),
 	)}
 	// Register the stream with the server so it gets gracefully shut down.
@@ -173,6 +190,8 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := ctx
 			oCtx.Params = make(freighter.Params)
+			handlerCtx = ctx.Context
+			go watchForcedEnd(ctx.Context, forced, exited)
 			// Send a confirmation message to the client that the stream is open.
 			if err := stream.send(WSMessage[RS]{Type: WSMessageTypeOpen}); err != nil {
 				return oCtx, err
@@ -189,6 +208,24 @@ func (s *streamServer[RQ, RS]) handleSocket(
 		syscall.ECONNRESET,
 	); err != nil {
 		s.L.Error("error closing connection", zap.Error(err))
+	}
+}
+
+// watchForcedEnd ignores a plain cancellation.
+func watchForcedEnd(
+	ctx context.Context,
+	forced chan<- struct{},
+	exited <-chan struct{},
+) {
+	select {
+	case <-ctx.Done():
+		if cause := context.Cause(
+			ctx,
+		); cause != nil &&
+			!errors.Is(cause, context.Canceled) {
+			close(forced)
+		}
+	case <-exited:
 	}
 }
 

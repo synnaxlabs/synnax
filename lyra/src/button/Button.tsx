@@ -15,8 +15,6 @@ import {
   type KeyboardEventHandler,
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
-  useCallback,
-  useMemo,
   useRef,
 } from "react";
 
@@ -78,6 +76,9 @@ export type ButtonProps<E extends ElementType = "button"> = Omit<
   };
 
 const MODULE_CLASS = "btn";
+const COLOR_VARIABLE = CSS.variable("btn-color");
+const TEXT_COLOR_VARIABLE = CSS.variable("btn-text-color");
+const DELAY_VARIABLE = CSS.variable("btn-delay");
 
 const resolveTriggerIndicator = (
   triggerIndicator: boolean | Triggers.Trigger | undefined,
@@ -196,13 +197,10 @@ export const Button = <E extends ElementType = "button">(
 
   Triggers.use({
     triggers: trigger,
-    callback: useCallback<(e: Triggers.UseEvent) => void>(
-      ({ stage }) => {
-        if (stage !== "end" || isDisabled || preview === true) return;
-        elRef.current?.click();
-      },
-      [isDisabled, preview],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "end" || isDisabled || preview === true) return;
+      elRef.current?.click();
+    },
   });
 
   const res = color.colorZ.safeParse(colorVal);
@@ -210,30 +208,24 @@ export const Button = <E extends ElementType = "button">(
     res.success && (variant === "filled" || variant === "outlined");
   const theme = Theming.use();
 
-  const pStyle = useMemo(() => {
-    let s = style;
-    if (hasCustomColor)
-      s = {
-        ...s,
-        [CSS.variable("btn-color")]: color.rgbString(res.data),
-        [CSS.variable("btn-text-color")]: color.rgbCSS(
-          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
-        ),
-      };
-    if (!hold.delay.isZero)
-      s = {
-        ...s,
-        [CSS.variable("btn-delay")]: `${hold.delay.seconds.toString()}s`,
-      };
-    return s;
-  }, [style, hasCustomColor, colorVal, theme, hold.delay]);
+  let pStyle = style;
+  if (hasCustomColor)
+    pStyle = {
+      ...pStyle,
+      [COLOR_VARIABLE]: color.rgbString(res.data),
+      [TEXT_COLOR_VARIABLE]: color.rgbCSS(
+        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+      ),
+    };
+  if (!hold.delay.isZero)
+    pStyle = { ...pStyle, [DELAY_VARIABLE]: `${hold.delay.seconds.toString()}s` };
 
   let size = sizeProp;
   let level = levelProp;
   if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
   else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];
-  else if (defaultEl !== "div") size ??= "medium";
-  level ??= "p";
+  else if (defaultEl !== "div" && size == null) size = "medium";
+  if (level == null) level = "p";
 
   const isLoading = status === "loading";
   const square = Text.isSquare(children);

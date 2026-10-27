@@ -49,6 +49,7 @@ CRASH_TEST_NOINLINE void crash_test_thrower() {
 /// plain throw in the death-test statement is caught by gtest's own harness before
 /// terminate runs. The named, external-linkage frame also gives the trace a symbol to
 /// resolve.
+// NOLINTNEXTLINE(bugprone-exception-escape): the test throws through noexcept.
 CRASH_TEST_NOINLINE void crash_test_unhandled_throw() noexcept {
     crash_test_thrower();
 }
@@ -160,6 +161,7 @@ TEST(CrashDeathTest, ConcurrentFatalSignalsTerminateCleanly) {
         {
             x::crash::install("test-driver");
             std::vector<std::thread> threads;
+            threads.reserve(8);
             for (int i = 0; i < 8; i++)
                 threads.emplace_back([] { std::raise(SIGABRT); });
             for (auto &t: threads)

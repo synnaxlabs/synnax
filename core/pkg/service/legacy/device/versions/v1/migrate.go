@@ -18,16 +18,16 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 )
 
 // Migration lifts stored devices from v0 to v1, dropping the persisted status and
 // parent fields.
-var Migration = gorp.NewEntryMigration("v54_drop_status_parent", autoMigrateDevice)
+var Migration = migrate.NewEntry("v54_drop_status_parent", autoMigrateDevice)
 
 // HTTPHealthCheckMigration turns the health check headers and query parameters that a
 // v0.53.0 Console stored as maps into the lists every later reader expects.
-var HTTPHealthCheckMigration = gorp.NewEntryMigration(
+var HTTPHealthCheckMigration = migrate.NewEntry(
 	"v59_http_health_check_lists",
 	func(_ context.Context, d Device) (Device, error) {
 		if d.Make != "http" {

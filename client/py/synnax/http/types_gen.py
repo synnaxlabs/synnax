@@ -173,7 +173,7 @@ class ChannelField(BaseModel):
         name: Is the human-readable name of the command channel.
         data_type: Is the data type of the command channel.
         time_format: Is the output encoding when the command channel holds timestamps.
-            Required for timestamp channels.
+            An unset format is ISO 8601.
         enum_values: Maps numeric channel values to string labels. Only valid when
             json_type is 'string'.
     """

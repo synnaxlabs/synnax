@@ -63,9 +63,10 @@ protected:
     std::atomic<bool> running = false;
 
     Base(TaskHandle task_handle, std::shared_ptr<ni::daqmx::SugaredAPI> dmx);
-    ~Base() override;
 
 public:
+    ~Base() override;
+
     /// @brief implements HardwareInterface to start the DAQmx task.
     x::errors::Error start() override;
 

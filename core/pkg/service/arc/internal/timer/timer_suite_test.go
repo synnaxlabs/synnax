@@ -19,7 +19,7 @@ import (
 
 func TestTimer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Timer Suite")
+	RunSpecs(t, "Timer Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -31,7 +31,7 @@ class Spread {
 public:
     explicit Spread(std::vector<std::int64_t> errors_ns):
         sorted_ns(std::move(errors_ns)) {
-        std::sort(this->sorted_ns.begin(), this->sorted_ns.end());
+        std::ranges::sort(this->sorted_ns);
     }
 
     /// @brief returns the error at percent of the sorted set, in nanoseconds.

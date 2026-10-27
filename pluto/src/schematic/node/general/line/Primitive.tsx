@@ -13,6 +13,8 @@ import { CSS } from "@synnaxlabs/lyra/css";
 import { color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Primitive } from "@/schematic/node/common/primitive";
+
 export interface LineProps {
   className?: string;
   strokeColor?: color.Crude;
@@ -37,7 +39,7 @@ export const Line = ({
       className={CSS.cls(className, CSS.B("line"), CSS.B("symbol-colored"))}
       width={width}
       height={height}
-      style={{ [CSS.variable("symbol-color")]: color.rgbaString(strokeColor) }}
+      style={{ [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor) }}
     >
       <line className={CSS.BE("line", "hit")} {...ends} />
       <line strokeWidth={strokeWidth} {...ends} />

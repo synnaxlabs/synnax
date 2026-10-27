@@ -12,6 +12,9 @@ import { json, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 export const MAKE = "http";
+
+/** The name a rack lists in its integrations when its Driver runs this one. */
+export const INTEGRATION = "http";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("HTTP server");
 
@@ -184,7 +187,7 @@ const fillValidateResponse = (v: unknown): unknown =>
     ? { ...v, validateResponse: "response" in v && v.response != null }
     : v;
 
-export const ZERO_HEALTH_CHECK = {
+const ZERO_HEALTH_CHECK = {
   method: "GET",
   path: "",
   validateResponse: false,

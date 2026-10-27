@@ -67,8 +67,10 @@ var _ = Describe("ConvertLiteralValue", func() {
 
 	DescribeTable("unsupported types return an error instead of panicking",
 		func(v any) {
-			_, err := wasm.ConvertLiteralValue(v)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				wasm.ConvertLiteralValue(v),
+			).Error().
+				To(MatchError(ContainSubstring("unsupported literal value type")))
 		},
 		Entry("string", "x"),
 	)

@@ -1,0 +1,248 @@
+---
+title: "Synnax concepts"
+description: "Learn the parts of Synnax, how they connect, and the words the docs use."
+layout: "@/layouts/Reference.astro"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import Grid from "@/components/card/Grid.astro";
+import { Diagram } from "@/components/diagram";
+import Term from "@/components/term/Term.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This page explains the parts of Synnax and how they connect. It also defines the words
+that the rest of the docs use. The examples come from the
+[sample project](/reference/get-started/sample-project), a simulated tank in Synnax
+Desktop that a sequence fills with nitrogen and then vents.
+
+<Divider.Divider x />
+
+## How Synnax fits together
+
+<Diagram.Block
+  title="Devices connect to the Driver. The Driver connects to the Core. The Console and the client libraries connect to the Core."
+  nodes={[
+    {
+      key: "device",
+      label: "Devices",
+      caption: "sensors, valves",
+      icon: Icon.Device,
+      column: 0,
+    },
+    {
+      key: "driver",
+      label: "Driver",
+      caption: "tasks, Arc",
+      icon: Icon.Rack,
+      column: 1,
+    },
+    {
+      key: "core",
+      label: "Core",
+      caption: "channels, ranges",
+      icon: Icon.Core,
+      column: 2,
+    },
+    {
+      key: "console",
+      label: "Console",
+      caption: "plots, schematics",
+      icon: Icon.Visualize,
+      column: 3,
+    },
+    {
+      key: "client",
+      label: "Client libraries",
+      caption: "Python, TypeScript",
+      icon: Icon.Python,
+      column: 3,
+    },
+  ]}
+  edges={[
+    { from: "device", to: "driver" },
+    { from: "driver", to: "core" },
+    { from: "core", to: "console" },
+    { from: "core", to: "client" },
+  ]}
+/>
+
+Data moves from left to right, and commands move from right to left. The Driver reads
+your devices and sends the values to the Core. The Core stores the values and streams
+them to the Console and to scripts. When you click a valve on a schematic, the command
+goes back through the Core and the Driver to the device.
+
+- **Synnax Desktop** runs the Console, the Core, and the Driver together in one app on
+  your computer. The client libraries cannot connect to Desktop.
+- **Synnax Enterprise** runs the Core on your team's servers. Many Consoles, Drivers,
+  and scripts connect to the same Core, and each person logs in as a user.
+
+To compare the two, see [Synnax editions](/reference/get-started/editions).
+
+<Divider.Divider x />
+
+## Parts of Synnax
+
+<Grid columns={2}>
+<Term>
+
+### Core
+
+The Synnax Core stores your data and streams it live to everything that connects to it.
+It also stores your channels, ranges, projects, and Arc automations.
+
+In Synnax Desktop, the Core starts when you open the app.
+
+</Term>
+<Term>
+
+### Console
+
+The Synnax Console is the app where you do your work. You use it to set up hardware,
+build plots and schematics, operate your system, and review past tests.
+
+In the sample project, the Console shows the Tank schematic and the Tank pressure line
+plot.
+
+</Term>
+<Term>
+
+### Driver
+
+The [Synnax Driver](/reference/hardware) connects Synnax to your hardware. It runs your
+tasks and your Arc automations close to the hardware.
+
+Synnax Desktop includes a Driver. Synnax Enterprise can run a Driver on each computer
+that has hardware connected.
+
+</Term>
+<Term>
+
+### Arc
+
+[Arc](/reference/control/arc) is the Synnax language for automation. An Arc automation
+reacts when channel values change, and moves through stages such as pressurize, hold,
+and vent.
+
+In the sample project, the Press sequence fills the tank to 300 psi, waits 10 seconds,
+then vents the tank.
+
+</Term>
+<Term>
+
+### Client libraries
+
+The [Python and TypeScript client libraries](/reference/client) read, write, and stream
+data from your own scripts and apps.
+
+For example, a Python script reads the data of a test run into a pandas DataFrame.
+
+</Term>
+</Grid>
+
+<Divider.Divider x />
+
+## Words the docs use
+
+<Grid columns={2}>
+<Term>
+
+### Channel
+
+A [channel](/reference/channels) is a named stream of values from one source, such as a
+sensor or a valve command. Synnax stores each value and streams it live.
+
+In the sample project, `sample_tank_pt` holds the tank pressure, and
+`sample_press_vlv_cmd` holds the commands to the press valve.
+
+</Term>
+<Term>
+
+### Device
+
+A device is a piece of hardware that the Driver connects to, such as an NI chassis, a
+LabJack, or a Modbus server. See the [supported hardware](/reference/hardware).
+
+The sample project has no devices. The Tank simulator Arc automation writes the tank
+pressure instead.
+
+</Term>
+<Term>
+
+### Task
+
+A [task](/reference/hardware/tasks) reads data from a device into channels, or writes
+commands from channels to a device. The Driver runs each task in the background.
+
+For example, an NI analog read task reads a pressure transducer into a channel.
+
+</Term>
+<Term>
+
+### Range
+
+A [range](/reference/ranges) is a named time interval that marks an event, such as one
+test run. A range covers the data of every channel in its interval.
+
+For example, mark each tank pressurization as a range, then plot two ranges together to
+compare them.
+
+</Term>
+<Term>
+
+### Project
+
+A [project](/reference/visualize/projects) holds your plots, schematics, tables, and
+logs. The Console always works inside a project.
+
+The sample project is a project that holds the Tank schematic and the Tank pressure line
+plot.
+
+</Term>
+<Term>
+
+### Line plot
+
+A [line plot](/reference/visualize/line-plots) graphs one or more channels over time. It
+shows live data as it arrives, or data from the past.
+
+In the sample project, the Tank pressure line plot shows `sample_tank_pt`.
+
+</Term>
+<Term>
+
+### Schematic
+
+A [schematic](/reference/visualize/schematics) is a diagram of your system. It shows
+live values, and its valves and buttons send commands.
+
+In the sample project, the Tank schematic shows the tank pressure and has Start and
+Abort buttons.
+
+</Term>
+<Term>
+
+### Control authority
+
+When more than one writer sends commands to a channel,
+[control authority](/reference/control/authority) decides which writer has control. An
+authority goes from 0 to 255, and the highest authority wins.
+
+In the sample project, the Press sequence runs at authority 100 and the Tank schematic
+at 1. To take a valve from the sequence, an operator clicks its control chip, which
+writes at 255.
+
+</Term>
+<Term>
+
+### Status
+
+A [status](/reference/alarms/statuses) is a named record of a condition, such as "Tank
+pressure". The Console shows a notification each time a status changes.
+
+For example, an Arc automation sets a warning status when the tank pressure passes a
+limit.
+
+</Term>
+</Grid>

@@ -107,8 +107,15 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 	}
 {{- else if .NeedsPtrConversion}}
 	if r.{{.GoName}} != nil {
+{{- if .HasError}}
+		v, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+{{- else}}
 		v := {{.ForwardExpr}}
-		pb.{{.PBName}} = &v
+{{- end}}
+		pb.{{.PBName}} = {{if .PBIndirect}}&{{end}}v
 	}
 {{- else if .IsOptionalEnum}}
 	if r.{{.GoName}} != nil {
@@ -198,8 +205,19 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	}
 {{- else if .NeedsPtrConversion}}
 	if pb.{{.PBName}} != nil {
+{{- if .HasBackwardError}}
+		v, err := {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
+{{- else}}
 		v := {{.BackwardExpr}}
+{{- end}}
+{{- if .BackwardCast}}
+		r.{{.GoName}} = new({{.BackwardCast}}(v))
+{{- else}}
 		r.{{.GoName}} = &v
+{{- end}}
 	}
 {{- else if .IsOptionalArrayWrapper}}
 	if pb.{{.PBName}} != nil {
@@ -453,8 +471,15 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 	}
 {{- else if .NeedsPtrConversion}}
 	if r.{{.GoName}} != nil {
+{{- if .HasError}}
+		v, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+{{- else}}
 		v := {{.ForwardExpr}}
-		pb.{{.PBName}} = &v
+{{- end}}
+		pb.{{.PBName}} = {{if .PBIndirect}}&{{end}}v
 	}
 {{- else if .IsOptionalEnum}}
 	if r.{{.GoName}} != nil {
@@ -557,8 +582,19 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	}
 {{- else if .NeedsPtrConversion}}
 	if pb.{{.PBName}} != nil {
+{{- if .HasBackwardError}}
+		v, err := {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
+{{- else}}
 		v := {{.BackwardExpr}}
+{{- end}}
+{{- if .BackwardCast}}
+		r.{{.GoName}} = new({{.BackwardCast}}(v))
+{{- else}}
 		r.{{.GoName}} = &v
+{{- end}}
 	}
 {{- else if .IsOptionalArrayWrapper}}
 	if pb.{{.PBName}} != nil {
@@ -635,7 +671,7 @@ func {{pluralize .Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}
 // translators. It wraps the value in structpb.Struct (JSON) for cross-language
 // compatibility.
 func {{.TypeName}}ToPBAny(v {{.GoType}}) (*anypb.Any, error) {
-	pb, err := {{.TypeName}}ToPB(v)
+	pb, err := {{.PBType}}ToPB(v)
 	if err != nil {
 		return nil, err
 	}
@@ -662,7 +698,7 @@ func {{.TypeName}}FromPBAny(a *anypb.Any) ({{.GoType}}, error) {
 	// First try typed proto
 	var pb {{.PBType}}
 	if err := a.UnmarshalTo(&pb); err == nil {
-		return {{.TypeName}}FromPB(&pb)
+		return {{.PBType}}FromPB(&pb)
 	}
 	// Fall back to JSON for cross-language compatibility
 	var (

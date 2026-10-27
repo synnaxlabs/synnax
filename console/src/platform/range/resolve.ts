@@ -9,15 +9,14 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { Ranger } from "@synnaxlabs/pluto";
-import { type NumericTimeRange } from "@synnaxlabs/x";
-import { useMemo } from "react";
+import { type TimeRange } from "@synnaxlabs/x";
 
 import { Session } from "@/session";
 
-/** A Core range with the name and time range the Core answers with folded in. */
+/** A Core range with the name and exact time range the Core answers with folded in. */
 export interface ResolvedPersisted extends Session.Range.PersistedState {
   name: string;
-  timeRange: NumericTimeRange;
+  timeRange: TimeRange;
 }
 
 /**
@@ -36,7 +35,7 @@ const fold = (
   // A range the Core no longer has resolves to nothing until the synchronizer drops it,
   // which keeps a half-rendered row out of the list.
   if (range == null) return undefined;
-  return { ...state, name: range.name, timeRange: range.timeRange.numeric };
+  return { ...state, name: range.name, timeRange: range.timeRange };
 };
 
 /**
@@ -45,18 +44,14 @@ const fold = (
  */
 export const useResolveMultiple = (keys?: string[]): Resolved[] => {
   const entries = Session.Range.useSelectMultiple(keys);
-  const persisted = useMemo(
-    () =>
-      entries.filter(({ variant }) => variant === "persisted").map(({ key }) => key),
-    [entries],
-  );
+  const persisted = entries
+    .filter(({ variant }) => variant === "persisted")
+    .map(({ key }) => key);
   const { data } = Ranger.useResultMultiple(
     persisted.length === 0 ? null : { keys: persisted },
   );
-  return useMemo(() => {
-    const found = new Map((data ?? []).map((range) => [range.key, range]));
-    return entries.map((entry) => fold(entry, found)).filter((entry) => entry != null);
-  }, [entries, data]);
+  const found = new Map((data ?? []).map((range) => [range.key, range]));
+  return entries.map((entry) => fold(entry, found)).filter((entry) => entry != null);
 };
 
 /**
@@ -68,9 +63,7 @@ export const useResolve = (key?: string): Resolved | undefined => {
   const { data } = Ranger.useResult(
     entry?.variant === "persisted" ? { key: entry.key } : null,
   );
-  return useMemo(() => {
-    if (entry == null) return undefined;
-    const found = new Map(data == null ? [] : [[data.key, data] as const]);
-    return fold(entry, found);
-  }, [entry, data]);
+  if (entry == null) return undefined;
+  const found = new Map(data == null ? [] : [[data.key, data] as const]);
+  return fold(entry, found);
 };

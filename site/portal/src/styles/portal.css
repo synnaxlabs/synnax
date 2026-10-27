@@ -422,6 +422,11 @@ section.portal-auth-page {
     min-width: 0;
 }
 
+/* Extra space sets the usage data choice apart from the summary and buttons. */
+.portal-usage {
+    padding-block: 1.5rem;
+}
+
 .portal-auth__islands {
     position: absolute;
     top: 2rem;
@@ -513,5 +518,28 @@ section.portal-auth-page {
 
     .portal-list__head {
         display: none;
+    }
+}
+
+/* A section's own tab row, below the shell's. */
+.portal-subtabs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+/* Tabs with an action beside them keep one height, so a tab without one does not
+   shift the page. */
+.portal-tab-row {
+    min-height: var(--pluto-height-medium);
+}
+
+.portal-crumb {
+    width: fit-content;
+    margin-bottom: 1rem;
+
+    &:hover {
+        color: var(--pluto-gray-l11);
     }
 }

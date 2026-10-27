@@ -7,21 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type destructor, id, observe } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import {
+  type Aggregation,
+  type color,
+  type destructor,
+  id,
+  observe,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 
 import {
   type BooleanSourceSpec,
   type ColorSourceSpec,
   type NumberSourceSpec,
+  type Result,
   type Source,
   type StringSourceSpec,
+  SUCCESS_STATUS,
   type Telem,
+  type ValueProps,
 } from "@/telem/aether/telem";
 import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory";
 
 export class TestSource<V> extends observe.Observer<void> implements Source<V>, Telem {
   static readonly TYPE = TEST_SOURCE_TYPE;
   readonly id: string;
+  status: status.Status = SUCCESS_STATUS;
+  aggregation?: Aggregation;
+  time?: TimeStamp;
+  appended?: number;
   private _value: V;
   private _destructor: destructor.Destructor;
 
@@ -32,8 +47,9 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
     this._destructor = registerInstance(this.id, this);
   }
 
-  value(): V {
-    return this._value;
+  value(_props?: ValueProps): Result<V> {
+    const { status, aggregation, time, appended } = this;
+    return { data: this._value, status, aggregation, time, appended };
   }
 
   setValue(v: V): void {

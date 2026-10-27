@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, ValidationError } from "@synnaxlabs/client";
+import { status, ValidationError } from "@synnaxlabs/client";
 import {
+  type Aggregation,
   type bounds,
   type color,
   type destructor,
   type MultiSeries,
   observe,
-  type TimeStamp,
+  TimeStamp,
   zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -59,18 +60,64 @@ export type SinkSpec<V extends string> = z.infer<typeof sinkSpecZ> & {
 };
 
 export interface ValueProps {
-  onLoad: () => void;
+  /**
+   * The span of x the caller shows. A source that reads by span returns data for it,
+   * and returns its home data when bounds are absent.
+   */
+  bounds?: bounds.Bounds;
+  /**
+   * About how many points the caller draws across bounds. A source reads nothing new
+   * for bounds given without points.
+   */
+  points?: number;
+  /** True when every sample must fall inside the bounds of the returned series. */
+  extremesKept?: boolean;
 }
 
 export interface Telem {
   cleanup?: () => void;
 }
 
+/** The data of a source and the facts about it. */
+export interface Result<V> {
+  data: V;
+  /**
+   * loading while data the props need is in flight, error after a failure, and success
+   * otherwise.
+   */
+  status: status.Status;
+  /** The aggregation that reduced data, when the source reduces it. */
+  aggregation?: Aggregation;
+  /** The time of the newest sample. */
+  time?: TimeStamp;
+  /**
+   * The count of samples that arrived at the source. A history change leaves it
+   * unchanged, so a count that grows marks an arrival.
+   */
+  appended?: number;
+}
+
+const statusOf = (variant: status.Variant): status.Status => ({
+  key: variant,
+  name: "",
+  variant,
+  message: "",
+  description: "",
+  time: TimeStamp.ZERO,
+});
+
+export const SUCCESS_STATUS: status.Status = statusOf("success");
+export const LOADING_STATUS: status.Status = statusOf("loading");
+
+/** @returns a result that holds data with a success status. */
+export const success = <V>(data: V, time?: TimeStamp): Result<V> => ({
+  data,
+  status: SUCCESS_STATUS,
+  time,
+});
+
 export interface Source<V> extends Telem, observe.Observable<void> {
-  value: (props?: ValueProps) => V;
-  /** @returns true while the source's initial read is in flight. */
-  loading?: () => boolean;
-  sampleTime?: () => TimeStamp | null;
+  value: (props?: ValueProps) => Result<V>;
 }
 
 export interface Sink<V> extends Telem {
@@ -159,20 +206,7 @@ export abstract class Base<P extends z.ZodType> extends observe.BaseObserver<voi
   cleanup(): void {}
 }
 
-export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {
-  protected loading_ = false;
-
-  loading(): boolean {
-    return this.loading_;
-  }
-
-  // Idempotent and notifies so a failure still wakes observers of the loading state.
-  protected declareLoaded(): void {
-    if (!this.loading_) return;
-    this.loading_ = false;
-    this.notify();
-  }
-}
+export abstract class AbstractSource<P extends z.ZodType> extends Base<P> {}
 
 export abstract class AbstractSink<P extends z.ZodType> extends Base<P> {}
 
@@ -190,8 +224,9 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     return this.source_;
   }
 
-  value(): O {
-    return this.transform(this.source.value());
+  value(): Result<O> {
+    const result = this.source.value();
+    return { ...result, data: this.transform(result.data) };
   }
 
   onChange(handler: () => void): destructor.Destructor {
@@ -200,15 +235,11 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     });
   }
 
-  sampleTime(): TimeStamp | null {
-    return this.source.sampleTime?.() ?? null;
-  }
-
   setSources(sources: Record<string, Source<I>>): void {
     this.source_ = Object.values(sources)[0];
   }
 
-  protected shouldNotify(_: I): boolean {
+  protected shouldNotify(_: Result<I>): boolean {
     return true;
   }
 
@@ -221,11 +252,27 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
 {
   sources: Record<string, Source<I>> = {};
 
-  value(): O {
-    const values = Object.fromEntries(
-      Object.entries(this.sources).map(([id, source]) => [id, source.value()]),
-    );
-    return this.transform(values);
+  /**
+   * Reports the worst status and the newest time of the sources, and the sum of their
+   * appended counts, or no count when any source has none.
+   */
+  value(): Result<O> {
+    const data: Record<string, I> = {};
+    let worst = SUCCESS_STATUS;
+    let time: TimeStamp | undefined;
+    let appended: number | undefined = 0;
+    for (const [id, source] of Object.entries(this.sources)) {
+      const result = source.value();
+      data[id] = result.data;
+      worst = status.worst(worst, result.status)!;
+      if (result.time != null && (time == null || result.time.after(time)))
+        time = result.time;
+      appended =
+        appended == null || result.appended == null
+          ? undefined
+          : appended + result.appended;
+    }
+    return { data: this.transform(data), status: worst, time, appended };
   }
 
   onChange(handler: () => void): destructor.Destructor {

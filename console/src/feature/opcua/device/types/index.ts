@@ -15,6 +15,9 @@ import * as v0 from "@/feature/opcua/device/types/v0";
 import * as v1 from "@/feature/opcua/device/types/v1";
 
 export const MAKE = v0.MAKE;
+
+/** The name a rack lists in its integrations when its Driver runs this one. */
+export const INTEGRATION = "opc";
 export const makeZ = v0.makeZ;
 
 export const NO_SECURITY_MODE = v0.NO_SECURITY_MODE;
@@ -34,7 +37,6 @@ export type SecurityPolicy = v0.SecurityPolicy;
 
 export const connectionConfigZ = v0.connectionConfigZ;
 export type ConnectionConfig = v0.ConnectionConfig;
-export const ZERO_CONNECTION_CONFIG = v0.ZERO_CONNECTION_CONFIG;
 
 export const propertiesZ: z.ZodType<v1.Properties> = v1.propertiesZ.or(
   v0.propertiesZ.transform(v1.propertiesMigration),

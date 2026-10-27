@@ -14,6 +14,7 @@ import {
   type channel,
   ni,
   project,
+  type rack,
   type Synnax,
   task,
   TimeSpan,
@@ -21,7 +22,9 @@ import {
 } from "@synnaxlabs/client";
 import { zip } from "@synnaxlabs/x";
 
+import { startArc } from "@/fixtures/arc";
 import { connect, type ConnectionOptions } from "@/fixtures/client";
+import { deviceStatus, rackStatus, taskStatus } from "@/fixtures/hardware";
 
 /** Project bundle of the test stand world, with channels referenced by name. */
 const TPC_DIR = path.join(import.meta.dirname, "../../worlds/tpc");
@@ -44,6 +47,8 @@ const SENSORS = [
   "fuel_tc_2",
   "press_tc_1",
   "press_tc_2",
+  "ox_level",
+  "fuel_level",
 ] as const;
 
 type Sensor = (typeof SENSORS)[number];
@@ -90,10 +95,15 @@ const SAMPLE = TimeSpan.milliseconds(40);
 const HISTORY = TimeSpan.seconds(60);
 /** Wall-clock interval at which the stand catches up to its clock. */
 const POLL_MS = 10;
-/** How long the Arc task has to report that it started. */
-const START_TIMEOUT = TimeSpan.seconds(10);
+/** Wall-clock interval between the DAQ rack's "Driver is running" heartbeats. */
+const HEARTBEAT_MS = 1000;
 /** Fuel tank pressure while the fuel side stands by, in psi. */
 const FUEL_HOLD = 42;
+/** Propellant in each tank before a run, in percent of capacity. */
+const OX_FULL = 88;
+const FUEL_FULL = 82;
+/** Percent of OX capacity drained per unit of flow per second. */
+const OX_DRAIN = 0.15;
 /** Idle seconds recorded before and after each past run. */
 const PAST_LEAD_S = 4;
 const PAST_TAIL_S = 8;
@@ -179,12 +189,14 @@ interface Stand {
   state: Record<Valve, number>;
   p: { ox: number; fuel: number; press: number };
   t: { ox: number; fuel: number; press: number };
+  level: { ox: number; fuel: number };
 }
 
 const newStand = (press: number): Stand => ({
   state: Object.fromEntries(VALVE_NAMES.map((v) => [v, 0])) as Record<Valve, number>,
   p: { ox: 0, fuel: FUEL_HOLD, press },
   t: { ox: -183, fuel: 19, press: 21 },
+  level: { ox: OX_FULL, fuel: FUEL_FULL },
 });
 
 const flowing = (s: Stand, v: Valve): boolean =>
@@ -192,7 +204,7 @@ const flowing = (s: Stand, v: Valve): boolean =>
 
 /** step advances the stand by dt seconds and returns its sensor readings. */
 const step = (s: Stand, dt: number): Record<Sensor, number> => {
-  const { p, t } = s;
+  const { p, t, level } = s;
   const feeds = Number(flowing(s, "ox_press")) + Number(flowing(s, "ox_press_2"));
   const inflow = flowing(s, "press_iso")
     ? 0.25 * feeds * Math.max(0, p.press - p.ox)
@@ -205,6 +217,7 @@ const step = (s: Stand, dt: number): Record<Sensor, number> => {
   p.fuel = flowing(s, "fuel_vent") ? approach(p.fuel, 0, 1, dt) : p.fuel;
   t.ox = approach(t.ox, flow > 0 ? -190 : -183, 2, dt);
   t.press = approach(t.press, 21 - 0.1 * inflow, 1.5, dt);
+  level.ox = Math.max(0, level.ox - OX_DRAIN * flow * dt);
   return {
     ox_pt_1: p.ox + noise(0.15),
     ox_pt_2: p.ox * 0.97 + noise(0.15),
@@ -220,6 +233,8 @@ const step = (s: Stand, dt: number): Record<Sensor, number> => {
     fuel_tc_2: t.fuel + 0.3 + noise(0.1),
     press_tc_1: t.press + noise(0.1),
     press_tc_2: t.press - 0.4 + noise(0.1),
+    ox_level: level.ox + noise(0.05),
+    fuel_level: level.fuel + noise(0.05),
   };
 };
 
@@ -278,16 +293,17 @@ const pastRun = (press: number): Array<Record<string, number>> => {
 const DAQ_DEVICE = "01F3A8C2";
 
 /**
- * hardware registers the stand's DAQ card with an analog read task that acquires every
- * sensor, and adds a Hardware panel holding the task's form to the project. The task is
- * never deployed, since the stand has no real card.
+ * hardware registers the stand's DAQ card on its own rack with an analog read task that
+ * acquires every sensor, and adds a Hardware panel holding the task's form to the
+ * project. The task is never deployed, since the stand has no real card. Returns the
+ * rack and the task.
  */
 const hardware = async (
   client: Synnax,
   proj: project.Key,
   daq: channel.Key,
   key: (name: string) => channel.Key,
-): Promise<void> => {
+): Promise<{ rack: rack.Rack; task: task.Task }> => {
   const rack = await client.racks.create({
     name: "Test stand DAQ",
     integrations: ["ni"],
@@ -329,6 +345,22 @@ const hardware = async (
       port,
       device: DAQ_DEVICE,
     };
+    if (name.endsWith("_level"))
+      return {
+        ...base,
+        type: "ai_voltage" as const,
+        terminalConfig: "RSE" as const,
+        minVal: 0,
+        maxVal: 100,
+        // A 0 to 10 V level probe over the tank's capacity.
+        customScale: {
+          type: "linear" as const,
+          slope: 10,
+          yIntercept: 0,
+          preScaledUnits: "Volts" as const,
+          scaledUnits: "%",
+        },
+      };
     if (!name.includes("_tc_"))
       return {
         ...base,
@@ -370,16 +402,32 @@ const hardware = async (
       tabs: [{ variant: "resource", resource: task.ontologyID(acquire.key) }],
     },
   });
+  return { rack, task: acquire };
+};
+
+/**
+ * report writes the statuses a Driver writes while it runs the stand's DAQ task, since
+ * the simulation stands in for the card.
+ */
+const report = async (
+  client: Synnax,
+  { rack, task: acquire }: { rack: rack.Rack; task: task.Task },
+): Promise<void> => {
+  await client.statuses.set(rackStatus(rack));
+  await client.statuses.set(
+    deviceStatus(rack.key, { key: DAQ_DEVICE, name: "NI PXIe-6363" }),
+  );
+  await client.statuses.set(taskStatus(rack.key, acquire, true));
 };
 
 /**
  * testStand builds an LOX coldflow stand on the capture's Core: its sensor, valve, and
  * log channels, three earlier coldflow runs saved as ranges, a DAQ card with its read
  * task, and the TPC project (panels for operations, each subsystem, automation,
- * hardware, and review). It deploys the Ox Coldflow
- * Arc program to the Core, where the Start Sequence button runs it, and simulates the
- * stand until stopped: valves follow their commands, and tank, pressurant, and feed
- * readings follow the valves.
+ * hardware, and review). It deploys the Ox Coldflow Arc program to the Core, where the
+ * Start Sequence button runs it, and simulates the stand until stopped: valves follow
+ * their commands, and tank, pressurant, and feed readings follow the valves. The DAQ
+ * card's rack and task report that they run.
  */
 export const testStand = async ({
   now = () => TimeStamp.now(),
@@ -460,20 +508,12 @@ export const testStand = async ({
   );
   const bundle = new Uint8Array(await new Response(zip.create(files)).arrayBuffer());
   const imported = await client.projects.import(bundle, { fileName: "TPC.zip" });
-  await hardware(client, imported.key, daq, key);
+  const daqHardware = await hardware(client, imported.key, daq, key);
 
-  const arc = await client.arcs.retrieve({ name: SEQUENCE });
-  const [rack] = await client.racks.retrieve({ integration: "arc" });
-  if (rack == null) throw new Error("the Core has no rack that runs Arc");
-  const task = await client.arcs.updateTask(arc.key, { rack: rack.key });
-  if (task == null)
-    throw new Error(`binding ${SEQUENCE} to rack ${rack.name} made no task`);
-  const started = await task.executeCommandSync({
-    type: "start",
-    timeout: START_TIMEOUT,
-  });
-  if (started.variant === "error")
-    throw new Error(`${SEQUENCE} failed to start: ${started.message}`);
+  const task = await startArc(
+    client,
+    (await client.arcs.retrieve({ name: SEQUENCE })).key,
+  );
 
   let time = now().sub(HISTORY);
   const writer = await client.openWriter({ start: time, channels: stateChannels });
@@ -500,6 +540,12 @@ export const testStand = async ({
   const logged: string[] = [];
   const latest = new Map<string, number>(SENSORS.map((s) => [s, 0]));
   let running = true;
+  const heartbeat = (async () => {
+    while (running) {
+      await report(client, daqHardware);
+      await new Promise((resolve) => setTimeout(resolve, HEARTBEAT_MS));
+    }
+  })();
   const sim = (async () => {
     while (running) {
       await new Promise((resolve) => setTimeout(resolve, POLL_MS));
@@ -554,7 +600,7 @@ export const testStand = async ({
       await task.stop();
       running = false;
       streamer.close();
-      await Promise.all([commands, sim]);
+      await Promise.all([commands, sim, heartbeat]);
       await client.close();
     },
   };

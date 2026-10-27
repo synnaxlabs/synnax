@@ -7,562 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel, status } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   bounds,
   box,
   color,
   type CrudeTimeRange,
   DataType,
+  id,
   MultiSeries,
   scale,
   Series,
+  staticWindow,
   TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
-import { z } from "zod";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { aether } from "@/aether/aether";
-import { type telem } from "@/telem/aether";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
-import {
-  bridgeVertices,
-  buildDrawOperations,
-  Context,
-  type DrawOperation,
-  Line,
-  type LineProps,
-  nearestVertex,
-} from "@/vis/line/aether/line";
-import { render } from "@/vis/render";
+import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
+import { Line, type LineProps, type State } from "@/vis/line/aether/line";
+import { lineTest } from "@/vis/line/aether/test";
 import { canvasTest } from "@/vis/render/test";
 
 describe("line", () => {
-  describe("buildDrawOperations", () => {
-    interface SpecEntry {
-      timeRange: CrudeTimeRange;
-      alignmentBounds: bounds.Bounds<bigint>;
-      alignmentMultiple: bigint;
-    }
-
-    interface SpecExpected {
-      xSeries: number;
-      ySeries: number;
-      xOffset: number;
-      yOffset: number;
-      count: number;
-    }
-
-    interface Spec {
-      name: string;
-      x: SpecEntry[];
-      y: SpecEntry[];
-      expected: SpecExpected[];
-    }
-
-    const buildSeriesFromEntries = (entries: SpecEntry[]): MultiSeries =>
-      new MultiSeries(
-        entries.map(
-          ({ alignmentBounds, timeRange, alignmentMultiple }) =>
-            new Series({
-              data: new Float32Array(Number(bounds.span(alignmentBounds))),
-              dataType: DataType.FLOAT32,
-              timeRange: new TimeRange(timeRange.start, timeRange.end),
-              alignment: alignmentBounds.lower,
-              alignmentMultiple,
-            }),
-        ),
-      );
-
-    const CLEARLY_DISTINCT: Spec = {
-      name: "clearly distinct",
-      x: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-        {
-          timeRange: { start: 100, end: 200 },
-          alignmentBounds: { lower: 100n, upper: 200n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-        {
-          timeRange: { start: 100, end: 200 },
-          alignmentBounds: { lower: 100n, upper: 200n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      expected: [
-        { xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 0, count: 100 },
-        { xSeries: 1, ySeries: 1, xOffset: 0, yOffset: 0, count: 100 },
-      ],
-    };
-
-    const COMPLETE_OVERLAP_ON_X: Spec = {
-      name: "complete overlap on x",
-      x: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 0, end: 50 },
-          alignmentBounds: { lower: 0n, upper: 50n },
-          alignmentMultiple: 1n,
-        },
-        {
-          timeRange: { start: 50, end: 100 },
-          alignmentBounds: { lower: 50n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      expected: [
-        { ySeries: 0, xSeries: 0, xOffset: 0, yOffset: 0, count: 50 },
-        { ySeries: 1, xSeries: 0, xOffset: 50, yOffset: 0, count: 50 },
-      ],
-    };
-
-    const PARTIAL_OVERLAP_ON_Y_AFTER: Spec = {
-      name: "partial overlap on x",
-      x: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 50, end: 150 },
-          alignmentBounds: { lower: 50n, upper: 150n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      expected: [{ xSeries: 0, ySeries: 0, xOffset: 50, yOffset: 0, count: 50 }],
-    };
-
-    const Y_COMPLETELY_CONTAINS_X: Spec = {
-      name: "y completely contains x",
-      x: [
-        {
-          timeRange: { start: 50, end: 100 },
-          alignmentBounds: { lower: 50n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 0, end: 200 },
-          alignmentBounds: { lower: 0n, upper: 200n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 50, count: 50 }],
-    };
-
-    const X_COMPLETELY_CONTAINS_Y: Spec = {
-      name: "x completely contains y",
-      x: [
-        {
-          timeRange: { start: 0, end: 200 },
-          alignmentBounds: { lower: 0n, upper: 200n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 50, end: 100 },
-          alignmentBounds: { lower: 50n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      expected: [{ xSeries: 0, ySeries: 0, xOffset: 50, yOffset: 0, count: 50 }],
-    };
-
-    const MULTIPLE_PARTIAL_OVERLAPS: Spec = {
-      name: "multiple partial overlaps",
-      x: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-        {
-          timeRange: { start: 100, end: 150 },
-          alignmentBounds: { lower: 100n, upper: 150n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 25, end: 75 },
-          alignmentBounds: { lower: 25n, upper: 75n },
-          alignmentMultiple: 1n,
-        },
-        {
-          timeRange: { start: 75, end: 125 },
-          alignmentBounds: { lower: 75n, upper: 125n },
-          alignmentMultiple: 1n,
-        },
-        {
-          timeRange: { start: 125, end: 175 },
-          alignmentBounds: { lower: 125n, upper: 175n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      expected: [
-        { xSeries: 0, ySeries: 0, xOffset: 25, yOffset: 0, count: 50 },
-        { xSeries: 0, ySeries: 1, xOffset: 75, yOffset: 0, count: 25 },
-        { xSeries: 1, ySeries: 1, xOffset: 0, yOffset: 25, count: 25 },
-        { xSeries: 1, ySeries: 2, xOffset: 25, yOffset: 0, count: 25 },
-      ],
-    };
-
-    const ALIGN_OVERLAP_TIME_RANGE_NO_OVERLAP: Spec = {
-      name: "align overlap time range no overlap",
-      x: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 100n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 100, end: 150 },
-          alignmentBounds: { lower: 50n, upper: 150n },
-          alignmentMultiple: 1n,
-        },
-      ],
-      expected: [],
-    };
-
-    const ALIGN_MULTIPLE_GREATER__THAN_1_PERFECT_ALIGNMENT: Spec = {
-      name: "positive align multiple",
-      x: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 60n },
-          alignmentMultiple: 3n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 60n },
-          alignmentMultiple: 3n,
-        },
-      ],
-      expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 0, count: 60 }],
-    };
-
-    const ALIGNMENT_MULTIPLE_4_MISALIGNMENT: Spec = {
-      name: "align multiple 4 misalignment",
-      x: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 20n, upper: 80n },
-          alignmentMultiple: 4n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 80n },
-          alignmentMultiple: 4n,
-        },
-      ],
-      expected: [{ xSeries: 0, ySeries: 0, xOffset: 0, yOffset: 5, count: 60 }],
-    };
-
-    const ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT_BAD_INTERVAL: Spec = {
-      name: "align multiple less than 1 misalignment bad interval",
-      x: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 13n, upper: 80n },
-          alignmentMultiple: 7n,
-        },
-      ],
-      y: [
-        {
-          timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0n, upper: 80n },
-          alignmentMultiple: 7n,
-        },
-      ],
-      expected: [
-        {
-          xSeries: 0,
-          ySeries: 0,
-          xOffset: 0,
-          yOffset: 1,
-          count: 67,
-        },
-      ],
-    };
-
-    const REGRESSION_1: Spec = {
-      name: "no alignment no overlap",
-      x: [
-        {
-          timeRange: {
-            start: 1756835746434000000n,
-            end: 1756835776214375534n,
-          },
-          alignmentBounds: {
-            lower: 81604381164n,
-            upper: 81604381314n,
-          },
-          alignmentMultiple: 3n,
-        },
-      ],
-      y: [
-        {
-          timeRange: {
-            start: 1756835767973000000n,
-            end: 1756835797172750864n,
-          },
-          alignmentBounds: {
-            lower: 81604381272n,
-            upper: 81604381419n,
-          },
-          alignmentMultiple: 3n,
-        },
-      ],
-      expected: [{ count: 114, xSeries: 0, ySeries: 0, xOffset: 36, yOffset: 0 }],
-    };
-
-    const SPECS: Spec[] = [
-      CLEARLY_DISTINCT,
-      COMPLETE_OVERLAP_ON_X,
-      PARTIAL_OVERLAP_ON_Y_AFTER,
-      Y_COMPLETELY_CONTAINS_X,
-      X_COMPLETELY_CONTAINS_Y,
-      MULTIPLE_PARTIAL_OVERLAPS,
-      ALIGN_OVERLAP_TIME_RANGE_NO_OVERLAP,
-      ALIGN_MULTIPLE_GREATER__THAN_1_PERFECT_ALIGNMENT,
-      ALIGNMENT_MULTIPLE_4_MISALIGNMENT,
-      ALIGN_MULTIPLE_LESS_THAN_1_MISALIGNMENT_BAD_INTERVAL,
-      REGRESSION_1,
-    ];
-
-    SPECS.forEach(({ name, x, y, expected }) => {
-      it(`spec ${name}`, () => {
-        const xSeries = buildSeriesFromEntries(x);
-        const ySeries = buildSeriesFromEntries(y);
-        const drawOperations = buildDrawOperations(
-          xSeries,
-          ySeries,
-          1,
-          0,
-          "decimate",
-          TimeSpan.ZERO,
-        );
-        expect(drawOperations.length).toBe(expected.length);
-        drawOperations.forEach((drawOperation: DrawOperation, i: number) => {
-          expect(drawOperation.x).toBe(xSeries.series[expected[i].xSeries]);
-          expect(drawOperation.y).toBe(ySeries.series[expected[i].ySeries]);
-          expect(drawOperation.xOffset).toBe(expected[i].xOffset);
-          expect(drawOperation.yOffset).toBe(expected[i].yOffset);
-          expect(drawOperation.count).toBe(expected[i].count);
-        });
-      });
-    });
-  });
-
-  describe("bridgeVertices", () => {
-    const op = (
-      x: Series,
-      y: Series,
-      count: number,
-      offset = 0,
-      downsample = 1,
-    ): DrawOperation => ({ x, y, xOffset: offset, yOffset: offset, count, downsample });
-    const f32 = (...data: number[]): Series => new Series(new Float32Array(data));
-    const shifted = (sampleOffset: bigint, ...data: number[]): Series =>
-      new Series({ data: new Float32Array(data), sampleOffset });
-    const vertices = (ops: DrawOperation[]): number[] =>
-      Array.from(bridgeVertices(ops, scale.XY.IDENTITY));
-
-    it("should return no vertices for a single op", () => {
-      expect(vertices([op(f32(0, 1), f32(2, 3), 2)])).toEqual([]);
-    });
-
-    it("should join the last vertex of an op to the first vertex of the next", () => {
-      const a = op(f32(0, 1), f32(2, 3), 2);
-      const b = op(f32(5, 6), f32(7, 4), 2);
-      expect(vertices([a, b])).toEqual([1, 3, 5, 7]);
-    });
-
-    it("should apply the x sample offset of each op", () => {
-      const a = op(shifted(100n, 0, 1, 2), f32(7, 8, 9), 3);
-      const b = op(shifted(110n, 5, 6), f32(3, 4), 2);
-      expect(vertices([a, b])).toEqual([102, 9, 115, 3]);
-    });
-
-    it("should apply the y sample offset of each op", () => {
-      const a = op(f32(0, 1), shifted(50n, 0, 4), 2);
-      const b = op(f32(2, 3), shifted(60n, 0, 1), 2);
-      expect(vertices([a, b])).toEqual([1, 54, 2, 60]);
-    });
-
-    it("should bridge through an op with one sample", () => {
-      const a = op(f32(0, 1), f32(2, 3), 2);
-      const lone = op(f32(5), f32(7), 1);
-      const c = op(f32(8, 9), f32(4, 6), 2);
-      expect(vertices([a, lone, c])).toEqual([1, 3, 5, 7, 5, 7, 8, 4]);
-    });
-
-    it("should chain bridges through many consecutive ops with one sample each", () => {
-      const ys = [2, 9, 4, 7, 1, 8];
-      const ops = ys.map((y, x) => op(f32(x), f32(y), 1));
-      const expected = ys.slice(1).flatMap((y, i) => [i, ys[i], i + 1, y]);
-      expect(vertices(ops)).toEqual(expected);
-    });
-
-    describe("decimated ops", () => {
-      const ax = f32(0, 1, 2, 3, 4, 5, 6);
-      const ay = f32(10, 11, 12, 13, 14, 15, 16);
-      const b = op(f32(9), f32(1), 1);
-
-      it("should start at the last vertex the strip draws", () => {
-        expect(vertices([op(ax, ay, 7, 0, 3), b])).toEqual([3, 13, 9, 1]);
-      });
-
-      it("should start at the first sample of an op too short to draw", () => {
-        expect(vertices([op(ax, ay, 5, 0, 3), b])).toEqual([0, 10, 9, 1]);
-      });
-    });
-
-    it("should respect the op offsets and a uint8 y", () => {
-      const a = op(f32(0, 1, 2, 3), new Series(new Uint8Array([0, 1, 1, 0])), 2, 1);
-      const b = op(f32(4, 5, 6), new Series(new Uint8Array([1, 0, 0])), 2, 1);
-      expect(vertices([a, b])).toEqual([2, 1, 5, 0]);
-    });
-
-    it("should leave out a bridge with a non-finite end", () => {
-      const a = op(f32(0, 1), f32(2, NaN), 2);
-      const b = op(f32(5, 6), f32(7, 4), 2);
-      const c = op(f32(8), f32(Infinity), 1);
-      const d = op(f32(9, 10), f32(3, 2), 2);
-      expect(vertices([a, b, c, d])).toEqual([]);
-      expect(vertices([b, d])).toEqual([6, 4, 9, 3]);
-    });
-
-    describe("time order", () => {
-      const timed = (start: number, end: number, ...data: number[]): Series =>
-        new Series({
-          data: new Float32Array(data),
-          timeRange: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
-        });
-
-      it("should join ops in time order whatever their array order", () => {
-        const a = op(timed(0, 10, 0, 1), timed(0, 10, 2, 3), 2);
-        const b = op(timed(20, 30, 5, 6), timed(20, 30, 7, 4), 2);
-        expect(vertices([b, a])).toEqual([1, 3, 5, 7]);
-      });
-
-      it("should not join two ops that hold overlapping spans", () => {
-        const whole = op(timed(0, 100, 0, 50, 99), timed(0, 100, 1, 2, 3), 3);
-        const copy = op(timed(48, 100, 48, 99), timed(48, 100, 5, 6), 2);
-        expect(vertices([whole, copy])).toEqual([]);
-      });
-
-      it("should join an x series split across two y series", () => {
-        const x = timed(0, 20, 0, 1, 2, 3);
-        const first = op(x, timed(0, 10, 4, 5), 2);
-        const second: DrawOperation = { ...op(x, timed(10, 20, 6, 7), 2), xOffset: 2 };
-        expect(vertices([second, first])).toEqual([1, 5, 2, 6]);
-      });
-    });
-
-    it("should map each vertex through the scale", () => {
-      const s = new scale.XY(
-        scale.Scale.scale<number>(100, 200).scale(1),
-        scale.Scale.scale<number>(0, 10).scale(1),
-      );
-      const a = op(f32(100, 150), f32(0, 5), 2);
-      const b = op(f32(175), f32(10), 1);
-      const v = bridgeVertices([a, b], s);
-      [0.5, 0.5, 0.75, 1].forEach((e, i) => expect(v[i]).toBeCloseTo(e));
-    });
-
-    it("should keep a vertex in view precise when the next op is a day away", () => {
-      const start = 1_760_000_000_000_000_000n;
-      const day = 86_400_000_000_000n;
-      const a = op(shifted(start, 0, 1e6, 2e6), f32(1, 2, 3), 3);
-      const b = op(shifted(start + day, 0), f32(7), 1);
-      const view = 100e6;
-      const lower = Number(start) + 2e6 - view / 2;
-      const s = new scale.XY(scale.Scale.scale<number>(lower, lower + view).scale(1));
-      const [x] = bridgeVertices([a, b], s);
-      expect(x).toBeCloseTo(0.5, 5);
-    });
-  });
-
-  describe("nearestVertex", () => {
-    const EMPTY = new Series(new Float32Array());
-    const op = (count: number, downsample: number, xOffset = 0): DrawOperation => ({
-      x: EMPTY,
-      y: EMPTY,
-      xOffset,
-      yOffset: 0,
-      count,
-      downsample,
-    });
-
-    it("should return the index itself when nothing is decimated", () => {
-      expect(nearestVertex(op(30, 1), 17)).toBe(17);
-    });
-
-    it("should round to the nearest drawn vertex", () => {
-      expect(nearestVertex(op(30, 4), 1)).toBe(0);
-      expect(nearestVertex(op(30, 4), 3)).toBe(4);
-      expect(nearestVertex(op(30, 4), 14)).toBe(16);
-    });
-
-    it("should not pass the last vertex the strip draws", () => {
-      expect(nearestVertex(op(30, 4), 29)).toBe(24);
-    });
-
-    it("should measure from the op's x offset", () => {
-      expect(nearestVertex(op(30, 4, 2), 5)).toBe(6);
-      expect(nearestVertex(op(30, 4, 2), 3)).toBe(2);
-    });
-
-    it("should return the first sample of an op too short to draw", () => {
-      expect(nearestVertex(op(6, 4), 5)).toBe(0);
-    });
-  });
-
   describe("Line", () => {
-    /** Supplies the line GL context and the render requestor, as the canvas and the
-     * plot do in production. */
-    class Host extends aether.Composite<typeof Host.stateZ> {
-      static readonly TYPE = "line-test-host";
-      static readonly stateZ = z.object({});
-      schema = Host.stateZ;
-
-      afterUpdate(ctx: aether.Context): void {
-        Context.create(ctx, render.Context.use(ctx));
-        render.control(ctx, () => {});
-      }
-    }
-
     const series = (
       data: number[],
       alignment: bigint,
@@ -575,14 +48,17 @@ describe("line", () => {
         timeRange: new TimeRange(timeRange.start, timeRange.end),
       });
 
-    const sourceSpec = (data: Series[]): telem.SeriesSourceSpec => ({
+    const createSource = (data: Series[]) =>
+      telemTest.source<[bounds.Bounds, MultiSeries]>([
+        bounds.max(data.map((s) => s.bounds)),
+        new MultiSeries(data),
+      ]);
+
+    const sourceSpec = (
+      source: telemTest.TestSource<[bounds.Bounds, MultiSeries]>,
+    ): telem.SeriesSourceSpec => ({
       type: telemTest.TestSource.TYPE,
-      props: {
-        testId: telemTest.source([
-          bounds.max(data.map((s) => s.bounds)),
-          new MultiSeries(data),
-        ]).id,
-      },
+      props: { testId: source.id },
       variant: "source",
       valueType: "series",
     });
@@ -590,20 +66,16 @@ describe("line", () => {
     const PROPS: LineProps = {
       region: box.construct(0, 0, 800, 600),
       dataToDecimalScale: scale.XY.IDENTITY,
-      exposure: 0,
     };
 
-    const mount = (
-      x: Series[],
-      y: Series[],
-      downsample = 1,
-      downsampleMode: telem.DownsampleMode = "decimate",
-    ) => {
+    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
       const { gl, calls } = canvasTest.createGL();
+      const xSource = createSource(x);
+      const ySource = createSource(y);
       const recorder = canvasTest.record();
       (recorder as { gl: unknown }).gl = gl;
       recorder.resize(PROPS.region, 1);
-      const h = renderAether(Host, {
+      const h = renderAether(lineTest.Host, {
         state: {},
         render: recorder,
         registry: { [Line.TYPE]: Line },
@@ -611,11 +83,10 @@ describe("line", () => {
           line: {
             type: Line.TYPE,
             state: {
-              x: sourceSpec(x),
-              y: sourceSpec(y),
+              x: sourceSpec(xSource),
+              y: sourceSpec(ySource),
               color: color.construct("#ff0000"),
-              downsample,
-              downsampleMode,
+              ...state,
             },
           },
         },
@@ -632,13 +103,206 @@ describe("line", () => {
               c.args[0] === canvasTest.GL_ENUMS.LINE_STRIP,
           )
           .map((c) => [Number(c.args[1]), Number(c.args[2])]);
-      return { line: h.child<Line>("line"), calls, draws, strips };
+      const remove = () => h.deleteChild("line");
+      const line = h.child<Line>("line");
+      const update = (next: Partial<State>) =>
+        h.setChildState("line", Line.TYPE, { ...line.state, ...next });
+      const hide = () => update({ visible: false });
+      return {
+        line,
+        recorder,
+        calls,
+        draws,
+        strips,
+        remove,
+        update,
+        hide,
+        xSource,
+        ySource,
+      };
     };
 
     const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
     const Y1 = series([10, 20, 30], 0n, { start: 0, end: 100 });
     const X2 = series([5, 6], 10n, { start: 200, end: 300 });
     const Y2 = series([40, 50], 10n, { start: 200, end: 300 });
+
+    it("should pass the x range the region shows to its sources", () => {
+      const m = mount([X1], [Y1]);
+      const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
+      const x = scale.Scale.scale<number>(100, 300).scale(0, 1);
+      const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
+      m.line.render(props);
+      m.line.findByXValue(props, 1);
+      const read = { bounds: { lower: 100, upper: 300 } };
+      values.forEach((value) => expect(value.mock.calls).toEqual([[read], [read]]));
+    });
+
+    describe("zoom settle", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+
+      const mountSpied = (state: Partial<State> = {}) => {
+        const m = mount([X1], [Y1], state);
+        const value = vi.spyOn(m.ySource, "value");
+        const lastPoints = (): number | undefined =>
+          value.mock.calls.at(-1)?.[0]?.points;
+        return { ...m, lastPoints };
+      };
+
+      const settled = (state: Partial<State> = {}) => {
+        const m = mountSpied(state);
+        m.line.render(showing(100, 300));
+        vi.advanceTimersByTime(150);
+        m.line.render(showing(100, 300));
+        return m;
+      };
+
+      it("should give its sources points once a zoom holds", () => {
+        const m = mountSpied();
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(149);
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(1);
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should give its sources points for a pan at once", () => {
+        const m = settled();
+        m.line.render(showing(200, 400));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should wait again for a zoom to hold", () => {
+        const m = settled();
+        m.line.render(showing(100, 150));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(150);
+        m.line.render(showing(100, 150));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should size points by the y aggregation and groups per column", () => {
+        const m = mountSpied({ groupsPerColumn: 1 });
+        m.ySource.aggregation = "average";
+        m.line.render(showing(100, 300));
+        vi.advanceTimersByTime(150);
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBe(800);
+        const coarse = settled({ groupsPerColumn: 1 / 4 });
+        expect(coarse.lastPoints()).toBe(400);
+      });
+
+      it("should stop its settle timer when deleted", () => {
+        const m = mountSpied();
+        m.line.render(showing(100, 300));
+        expect(vi.getTimerCount()).toBe(1);
+        m.remove();
+        expect(vi.getTimerCount()).toBe(0);
+      });
+    });
+
+    it("should read its bounds with the extremes of every sample kept", () => {
+      const m = mount([X1], [Y1]);
+      const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
+      expect(m.line.yBounds({ lower: 0, upper: 2 })).toEqual({
+        bounds: { lower: 10, upper: 30 },
+        loading: false,
+      });
+      values.forEach((value) =>
+        expect(value.mock.calls).toEqual([[{ extremesKept: true }]]),
+      );
+    });
+
+    it("should report its bounds as loading while a source they read loads", () => {
+      const m = mount([X1], [Y1]);
+      m.xSource.status = telem.LOADING_STATUS;
+      expect(m.line.xBounds().loading).toBe(true);
+      expect(m.line.yBounds({ lower: 0, upper: 2 }).loading).toBe(true);
+      expect(m.line.yBounds(bounds.INFINITE).loading).toBe(false);
+    });
+
+    describe("loading", () => {
+      it("should report loading while a source loads with no data", () => {
+        const m = mount([X1], []);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
+      it("should report fetching while a source loads and data draws", () => {
+        const m = mount([X1], [Y1]);
+        m.xSource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
+      });
+
+      it("should report neither while it has no data and hides loading", () => {
+        const m = mount([X1], [], { loadingHidden: true });
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+
+      it("should report fetching for a load after the first, with no data", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
+      });
+
+      it("should report loading for the first load of a new source", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        const y = createSource([]);
+        y.status = telem.LOADING_STATUS;
+        m.update({ y: sourceSpec(y) });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
+      it("should report neither once its sources leave loading", () => {
+        const m = mount([X1], []);
+        m.ySource.status = status.create({ variant: "error", message: "failed" });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+
+      it("should report neither while hidden", () => {
+        const m = mount([X1], []);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        m.hide();
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+
+      it("should report the state of its last render without a read", () => {
+        const m = mount([X1], []);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
+        m.ySource.status = telem.SUCCESS_STATUS;
+        expect(m.line.loading).toBe(true);
+        values.forEach((value) => expect(value).not.toHaveBeenCalled());
+      });
+    });
 
     describe("render", () => {
       it("should draw one strip per domain and no bridge for a single domain", () => {
@@ -661,12 +325,8 @@ describe("line", () => {
 
       describe("non-finite samples", () => {
         const RANGE = { start: 0, end: 100 };
-        const strips = (x: number[], y: number[], downsample = 1, yAlignment = 0n) => {
-          const m = mount(
-            [series(x, 0n, RANGE)],
-            [series(y, yAlignment, RANGE)],
-            downsample,
-          );
+        const strips = (x: number[], y: number[], yAlignment = 0n) => {
+          const m = mount([series(x, 0n, RANGE)], [series(y, yAlignment, RANGE)]);
           m.line.render(PROPS);
           return m.strips();
         };
@@ -695,16 +355,34 @@ describe("line", () => {
           expect(strips([0, 1, 2], [NaN, NaN, NaN])).toEqual([]);
         });
 
-        it("should ignore a non-finite sample that the decimation skips", () => {
-          expect(strips([0, 1, 2, 3, 4], [0, NaN, 2, 3, 4], 2)).toEqual([[0, 2]]);
-        });
-
         it("should find a non-finite x sample through the x offset", () => {
           // x starts one sample before y, so the strip begins at x[1].
-          expect(
-            strips([0, 1, 2, 3, Infinity, 5], [10, 11, 12, 13, 14], 1, 1n),
-          ).toEqual([[0, 3]]);
+          expect(strips([0, 1, 2, 3, Infinity, 5], [10, 11, 12, 13, 14], 1n)).toEqual([
+            [0, 3],
+          ]);
         });
+      });
+
+      it("should upload its series and stroke buffer again after a restore", () => {
+        const RANGE = { start: 0, end: 100 };
+        const m = mount([series([0, 1, 2], 0n, RANGE)], [series([1, 2, 3], 0n, RANGE)]);
+        const uploads = (from: number): string[] =>
+          m.calls
+            .slice(from)
+            .map((c) => c.op)
+            .filter((op) => op === "createBuffer" || op === "bufferData");
+        m.line.render(PROPS);
+        const restored = m.calls.length;
+        m.recorder.restore();
+        m.line.render(PROPS);
+        expect(uploads(restored)).toEqual([
+          "createBuffer",
+          "bufferData",
+          "createBuffer",
+          "bufferData",
+          "createBuffer",
+          "bufferData",
+        ]);
       });
 
       it("should not bridge two domains across an infinite sample", () => {
@@ -715,6 +393,152 @@ describe("line", () => {
           [canvasTest.GL_ENUMS.LINE_STRIP, 2],
           [canvasTest.GL_ENUMS.LINE_STRIP, 2],
         ]);
+      });
+    });
+
+    describe("reduction", () => {
+      const N = 8000;
+      const RANGE = { start: 0, end: 100 };
+      const wave = (i: number): number => Math.sin(i / 10);
+      const ramp = (length: number, alignment = 0n): Series =>
+        series(
+          Array.from({ length }, (_, i) => i),
+          alignment,
+          RANGE,
+        );
+      const waves = (length: number, alignment = 0n): Series =>
+        series(
+          Array.from({ length }, (_, i) => wave(i)),
+          alignment,
+          RANGE,
+        );
+      // The region shows x from lower to upper across 800 pixels.
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+      // Series upload as static draws, and the stroke and bridge buffers as dynamic.
+      const uploads = (m: ReturnType<typeof mount>): number[][] =>
+        m.calls
+          .filter(
+            (c) =>
+              c.op === "bufferData" && c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW,
+          )
+          .map((c) => Array.from(c.args[1] as Float32Array));
+      const deletes = (m: ReturnType<typeof mount>): number =>
+        m.calls.filter((c) => c.op === "deleteBuffer").length;
+
+      it("should draw a dense window at the group size of its pixel density", () => {
+        const m = mount([ramp(N)], [waves(N)]);
+        m.line.render(showing(0, N - 1));
+        // 10 samples per pixel at 2 pixels per group rounds up to groups of 32.
+        expect(m.strips()).toEqual([[0, 2 * (N / 32)]]);
+        expect(uploads(m).every((u) => u.length < N)).toBe(true);
+      });
+
+      it("should draw full resolution when a group holds under two samples", () => {
+        const m = mount([ramp(N)], [waves(N)]);
+        m.line.render(showing(0, N - 1));
+        m.line.render(showing(0, 100));
+        expect(m.strips().at(-1)).toEqual([0, N]);
+        expect(deletes(m)).toBe(2);
+      });
+
+      it("should draw ops of reduced series unchanged", () => {
+        const reduced = (data: number[]) =>
+          new Series({
+            data: new Float32Array(data),
+            dataType: DataType.FLOAT32,
+            alignment: 0n,
+            alignmentMultiple: 2n,
+            timeRange: new TimeRange(0, 50),
+          });
+        const tiles = Array.from({ length: N / 2 }, (_, i) => -2 * i);
+        const raw = (s: Series) =>
+          new Series({
+            data: s.data,
+            dataType: DataType.FLOAT32,
+            alignment: 1n << 32n,
+            timeRange: new TimeRange(50, 100),
+          });
+        const m = mount(
+          [reduced(tiles), raw(ramp(N))],
+          [reduced(tiles), raw(waves(N))],
+        );
+        m.line.render(showing(-N, N - 1));
+        expect(m.strips()).toEqual([
+          [0, N / 2],
+          [0, 2 * (N / 64)],
+        ]);
+      });
+
+      it("should follow a growing buffer and not reduce complete groups again", () => {
+        const createGrowing = () =>
+          Series.alloc({
+            capacity: N,
+            dataType: DataType.FLOAT32,
+            timeRange: new TimeRange(0, 100),
+          });
+        const write = (s: Series, values: number[]) =>
+          s.write(new Series(new Float32Array(values)));
+        const x = createGrowing();
+        const y = createGrowing();
+        const indexes = (from: number, to: number) =>
+          Array.from({ length: to - from }, (_, i) => from + i);
+        write(x, indexes(0, N / 2));
+        write(y, indexes(0, N / 2).map(wave));
+        const m = mount([x], [y]);
+        m.line.render(showing(0, N - 1));
+        expect(m.strips()).toEqual([[0, N / 32]]);
+        // A complete group reduced again would draw the change.
+        (y.data as Float32Array)[0] = 1000;
+        write(x, indexes(N / 2, N / 2 + 10));
+        const tail = indexes(N / 2, N / 2 + 9).map(wave);
+        write(y, [...tail, -5]);
+        m.line.render(showing(0, N - 1));
+        expect(m.strips().at(-1)).toEqual([0, N / 32 + 2]);
+        const drawn = uploads(m).at(-1);
+        expect(drawn?.slice(0, 2)).toEqual([0, Math.fround(wave(16))]);
+        expect(drawn?.slice(-2)).toEqual([Math.fround(Math.max(...tail)), -5]);
+      });
+
+      it("should release its reduced series when deleted", () => {
+        const m = mount([ramp(N)], [waves(N)]);
+        m.line.render(showing(0, N - 1));
+        expect(deletes(m)).toBe(0);
+        m.remove();
+        expect(deletes(m)).toBe(2);
+      });
+
+      it("should reduce by its y source's aggregation and groups per column", () => {
+        const decimated = mount([ramp(N)], [waves(N)]);
+        decimated.ySource.aggregation = "decimate";
+        decimated.line.render(showing(0, N - 1));
+        expect(decimated.strips()).toEqual([[0, N / 32]]);
+        const fine = mount([ramp(N)], [waves(N)], { groupsPerColumn: 1 });
+        fine.line.render(showing(0, N - 1));
+        expect(fine.strips()).toEqual([[0, 2 * (N / 16)]]);
+      });
+
+      it("should round down the averages of integer series", () => {
+        const timeRange = new TimeRange(RANGE.start, RANGE.end);
+        const x = new Series({
+          data: new BigInt64Array(Array.from({ length: N }, (_, i) => BigInt(i))),
+          dataType: DataType.TIMESTAMP,
+          timeRange,
+        });
+        const bits = new Series({
+          data: new Int16Array(Array.from({ length: N }, (_, i) => i % 2)),
+          timeRange,
+        });
+        const m = mount([x], [bits]);
+        m.ySource.aggregation = "average";
+        m.line.render(showing(0, N - 1));
+        const [xs, ys] = uploads(m).slice(-2);
+        expect(xs.slice(0, 2)).toEqual([15, 47]);
+        expect(new Set(ys)).toEqual(new Set([0]));
       });
     });
 
@@ -730,9 +554,18 @@ describe("line", () => {
         { start: 0, end: 100 },
       );
 
-      it("should return the sample under the target when nothing is decimated", () => {
+      it("should return the sample under the target", () => {
         const m = mount([X], [Y]);
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
+      });
+
+      it("should return the exact value of a float64 sample", () => {
+        const y = new Series({
+          data: new Float64Array([0.1, 0.2, 0.3]),
+          timeRange: new TimeRange(0, 100),
+        });
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value).toEqual({ x: 1, y: 0.2 });
       });
 
       it("should return a NaN sample under the target", () => {
@@ -749,20 +582,147 @@ describe("line", () => {
         expect(m.line.findByXValue(PROPS, 1).value.x).toBeNaN();
       });
 
-      it("should snap to the nearest vertex a decimated line draws", () => {
-        const m = mount([X], [Y], 4);
-        expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 4, y: 40 });
-        expect(m.line.findByXValue(PROPS, 29).value).toEqual({ x: 24, y: 240 });
+      it("should return a NaN y for a y series of another alignment multiple", () => {
+        const y = new Series({
+          data: new Float32Array([10, 20]),
+          alignment: 0n,
+          alignmentMultiple: 2n,
+          timeRange: new TimeRange(0, 100),
+        });
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value.y).toBeNaN();
       });
+    });
+  });
 
-      it("should pair x and y by alignment when averaging", () => {
-        const x = series([0, 1, 2, 3, 4, 5, 6, 7], 0n, { start: 0, end: 100 });
-        const y1 = series([0, 10, 20, 30], 0n, { start: 0, end: 100 });
-        const y2 = series([40, 50, 60, 70], 4n, { start: 0, end: 100 });
-        const m = mount([x], [y1, y2], 2, "average");
-        m.line.render(PROPS);
-        expect(m.line.findByXValue(PROPS, 6.5).value).toEqual({ x: 6.5, y: 65 });
+  describe("ChannelData against a Core", () => {
+    const synnax = createTestClient();
+    const feed = synnax.openFeed();
+    const client: telem.Client = {
+      feed,
+      channels: synnax.channels,
+      now: () => TimeStamp.now(),
+    };
+    afterAll(async () => await feed.close());
+
+    const COUNT = 10_000;
+    const SPIKE = 10;
+
+    // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100), or
+    // SPIKE at spikeAt.
+    const writeChannels = async (spikeAt?: number) => {
+      const time = await synnax.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
       });
+      const data = await synnax.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        index: time.key,
+      });
+      const start = TimeStamp.seconds(1_000_000);
+      await synnax.write(start, {
+        [time.key]: Array.from({ length: COUNT }, (_, i) =>
+          start.add(TimeSpan.milliseconds(i)),
+        ),
+        [data.key]: Array.from({ length: COUNT }, (_, i) =>
+          i === spikeAt ? SPIKE : Math.sin(i / 100),
+        ),
+      });
+      const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
+      return { data, home };
+    };
+
+    const create = (props: Partial<telem.ChannelDataProps>) =>
+      new telem.ChannelData(client, props);
+
+    const createPair = (dataKey: channel.Key, home: TimeRange) => ({
+      x: create({
+        channel: dataKey,
+        useIndexOfChannel: true,
+        window: staticWindow(home),
+      }),
+      y: create({ channel: dataKey, window: staticWindow(home) }),
+    });
+
+    const settle = async (...sources: telem.ChannelData[]): Promise<void> =>
+      await expect
+        .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
+        .toBe(true);
+
+    const drawn = (x: MultiSeries, y: MultiSeries) =>
+      buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
+
+    it("should pair every reduced x sample with a y sample", async () => {
+      const { data, home } = await writeChannels();
+      const { x, y } = createPair(data.key, home);
+      await settle(x, y);
+      const [xBounds, xs] = x.value().data;
+      const [, ys] = y.value().data;
+      expect(xBounds).toEqual(home.numericBounds);
+      expect(xs.length).toBe(ys.length);
+      expect(xs.length).toBeLessThan(COUNT);
+      expect(xs.series.map((s) => s.alignment)).toEqual(
+        ys.series.map((s) => s.alignment),
+      );
+      expect(ys.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
+      const ops = drawn(xs, ys);
+      expect(ops.reduce((n, op) => n + op.count, 0)).toBe(ys.length);
+      expect(y.value().data[0].upper).toBeCloseTo(1, 3);
+      expect(y.value().data[0].lower).toBeCloseTo(-1, 3);
+      x.cleanup();
+      y.cleanup();
+    });
+
+    it("should keep a spike that an average drops inside the line's bounds", async () => {
+      const { data, home } = await writeChannels(COUNT / 2);
+      const y = create({
+        channel: data.key,
+        window: staticWindow(home),
+        aggregation: "average",
+      });
+      await settle(y);
+      expect(y.value().data[0].upper).toBeLessThan(SPIKE / 2);
+      await expect
+        .poll(() => y.value({ extremesKept: true }).data[0].upper)
+        .toBe(SPIKE);
+      y.cleanup();
+    });
+
+    it("should draw finer tiles for a zoomed view", async () => {
+      const { data, home } = await writeChannels();
+      const { x, y } = createPair(data.key, home);
+      await settle(x, y);
+      const homePoints = y.value().data[1].length;
+      const start = Number(home.start.valueOf());
+      const v: telem.ValueProps = {
+        bounds: {
+          lower: start,
+          upper: start + Number(TimeSpan.milliseconds(500).valueOf()),
+        },
+        points: 1000,
+      };
+      x.value(v);
+      y.value(v);
+      await expect
+        .poll(() => {
+          const [xr, yr] = [x.value(v), y.value(v)];
+          return (
+            xr.status.variant !== "loading" &&
+            yr.status.variant !== "loading" &&
+            yr.data[1].length > 0
+          );
+        })
+        .toBe(true);
+      const xs = x.value(v).data[1];
+      const ys = y.value(v).data[1];
+      expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
+      expect(ys.length).toBeGreaterThanOrEqual(500);
+      expect(ys.length).toBeLessThan(homePoints + 1024);
+      expect(drawn(xs, ys).reduce((n, op) => n + op.count, 0)).toBe(ys.length);
+      x.cleanup();
+      y.cleanup();
     });
   });
 });

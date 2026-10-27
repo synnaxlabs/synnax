@@ -8,841 +8,541 @@
 // included in the file licenses/APL.txt.
 
 import {
-  channel,
+  type channel,
   DataType,
-  type framer,
+  framer,
   type status as cstatus,
 } from "@synnaxlabs/client";
-import { id, MultiSeries, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
+import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
 } from "@/log/aether/telem/sources";
-import { type Client } from "@/telem/aether/remote";
-import { type Source } from "@/telem/aether/telem";
+import { type LogEntry } from "@/log/aether/telem/types";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
 
-const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
-  source.value();
-  const handleChange = vi.fn();
-  source.onChange(handleChange);
-  await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
-  return source.value();
+const RATE = Rate.hz(10);
+const START = TimeStamp.seconds(1_000_000);
+const NOW = START.add(TimeSpan.minutes(10));
+const SPAN = TimeSpan.seconds(30);
+// The samples a log shows from the span before NOW.
+const HISTORY = 300;
+// The newest stored samples of each channel a log shows when it opens.
+const PAGE = 10_000;
+const POLL = { timeout: 5000, interval: 5 };
+const OPTIONS: Partial<framer.FeedProps> = {
+  batchDebounce: TimeSpan.milliseconds(5),
+  removalDelay: TimeSpan.ZERO,
+  breaker: { baseInterval: TimeSpan.milliseconds(10) },
 };
 
+const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
+  new SyntheticCore({ rate: RATE, start: START, now: NOW, channels: 2, ...props });
+
+// The text of the newest count samples of a channel, as the Core reads them.
+const textOf = (core: SyntheticCore, key: channel.Key, count: number): string[] =>
+  core
+    .readLatest([key], count)
+    .get(key)
+    .series.flatMap((s) =>
+      Array.from({ length: s.length }, (_, i) => s.asString(i, true)),
+    );
+
+const valuesOf = (entries: LogEntry[], key: channel.Key): string[] =>
+  entries.filter((e) => e.channelKey === key).map((e) => e.value);
+
 describe("StreamMultiChannelLog", () => {
-  class MockClient implements Client {
-    now = (): TimeStamp => TimeStamp.now();
-    key: string = id.create();
-
-    streamHandler: framer.StreamHandler | null = null;
-    streamKeys: channel.Key[] = [];
-    streamF = vi.fn();
-    streamDestructorF = vi.fn();
-
-    channelA: channel.Channel = new channel.Channel({
-      key: 1,
-      name: "channel_a",
-      dataType: DataType.FLOAT32,
-      isIndex: false,
-    });
-
-    channelB: channel.Channel = new channel.Channel({
-      key: 2,
-      name: "channel_b",
-      dataType: DataType.FLOAT32,
-      isIndex: false,
-    });
-
-    channelInt: channel.Channel = new channel.Channel({
-      key: 3,
-      name: "channel_int",
-      dataType: DataType.INT64,
-      isIndex: false,
-    });
-
-    channelJSON: channel.Channel = new channel.Channel({
-      key: 4,
-      name: "channel_json",
-      dataType: DataType.JSON,
-      isIndex: false,
-    });
-
-    channels = {
-      retrieve: async (key: channel.Key | channel.Name): Promise<channel.Channel> => {
-        if (key === this.channelA.key) return this.channelA;
-        if (key === this.channelB.key) return this.channelB;
-        if (key === this.channelInt.key) return this.channelInt;
-        if (key === this.channelJSON.key) return this.channelJSON;
-        throw new Error(`Channel ${key} not found`);
-      },
-    };
-
-    feed = {
-      readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
-      read: async (): Promise<MultiSeries> => new MultiSeries([]),
-      stream: (
-        handler: framer.StreamHandler,
-        keys: channel.Key[],
-      ): framer.Subscription => {
-        this.streamHandler = handler;
-        this.streamKeys = keys;
-        this.streamF(handler, keys);
-        return telemTest.mockSubscription(this.streamDestructorF);
-      },
-    };
-  }
-
-  let c: MockClient;
-
-  beforeEach(() => {
-    c = new MockClient();
-    vi.resetAllMocks();
+  const closers: Array<() => Promise<void> | void> = [];
+  afterEach(async () => {
+    for (const close of closers.splice(0).reverse()) await close();
   });
 
-  it("should not subscribe when cleaned up while retrieving channels", async () => {
-    let release = (): void => {};
-    const gate = new Promise<void>((resolve) => (release = resolve));
-    c.channels.retrieve = async (): Promise<channel.Channel> => {
-      await gate;
-      return c.channelA;
+  const connect = (
+    core: SyntheticCore,
+    props: Partial<framer.FeedProps> = {},
+  ): telem.Client => {
+    const client = telemTest.createClient(core, { ...OPTIONS, ...props });
+    closers.push(async () => await client.feed.close());
+    return client;
+  };
+
+  // Opens a log that stamps entries on the Core's clock.
+  const open = (
+    core: SyntheticCore,
+    client: telem.Client | null,
+    props: Partial<StreamMultiChannelLogProps> = {},
+    options?: telem.CreateOptions,
+    maxEntries?: number,
+  ): StreamMultiChannelLog => {
+    const log = new StreamMultiChannelLog(
+      client,
+      { channels: [], timeSpan: SPAN, ...props },
+      options,
+      core.now,
+      maxEntries,
+    );
+    closers.push(() => log.cleanup());
+    return log;
+  };
+
+  const entriesOf = (log: StreamMultiChannelLog): LogEntry[] => log.value().data;
+
+  const settle = async (log: StreamMultiChannelLog, count: number): Promise<void> =>
+    await expect.poll(() => entriesOf(log).length, POLL).toBe(count);
+
+  it("should show no entries when no channels are set", () => {
+    const core = createCore();
+    expect(entriesOf(open(core, connect(core)))).toEqual([]);
+  });
+
+  it("should show the stored samples of its span, then each live sample", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY));
+    // History lands in one pull, so it takes the time it loaded.
+    expect(entriesOf(log).every((e) => e.timestamp.equals(NOW))).toBe(true);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    const live = entriesOf(log).slice(HISTORY);
+    expect(live.map((e) => e.value)).toEqual(textOf(core, a, 10));
+    expect(live.every((e) => e.timestamp.equals(core.now()))).toBe(true);
+  });
+
+  it("should notify once per pull that adds entries", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    const handler = vi.fn();
+    log.onChange(handler);
+    await settle(log, HISTORY);
+    const loaded = handler.mock.calls.length;
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    expect(handler).toHaveBeenCalledTimes(loaded + 1);
+  });
+
+  describe("history", () => {
+    // Returns a client whose history reads wait for release, and whose first fails when
+    // failed is true.
+    const gate = (core: SyntheticCore, failed: boolean) => {
+      let release: () => void = () => {};
+      const released = new Promise<void>((resolve) => (release = resolve));
+      let reads = 0;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (reads++ === 0 && failed) throw new Error("history unavailable");
+          await released;
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      return { client, release, reads: () => reads };
     };
-    const log = new StreamMultiChannelLog(c, {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
+
+    it("should show history before the samples streamed while it loads", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const { client, release, reads } = gate(core, false);
+      const log = open(core, client, { channels: [a] });
+      log.value();
+      await expect.poll(reads, POLL).toBe(1);
+      const witness = client.feed.subscribe({
+        keys: [a],
+        limit: { variant: "latest", count: 10 },
+      });
+      closers.push(() => witness.close());
+      core.advance(TimeSpan.seconds(1));
+      await expect.poll(() => witness.value(a).series.length, POLL).toBe(10);
+      expect(entriesOf(log)).toEqual([]);
+      release();
+      await settle(log, HISTORY + 10);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 10));
     });
-    log.value();
-    log.cleanup();
+
+    it("should show live samples while its history read fails, each once", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const { client, release } = gate(core, true);
+      const log = open(core, client, { channels: [a] });
+      await expect
+        .poll(() => log.value().status, POLL)
+        .toMatchObject({
+          variant: "error",
+          message: "Failed to read channel data",
+          description: "history unavailable",
+        });
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 10);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 10));
+      release();
+      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 20);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 20));
+    });
+
+    it("should show each live sample once when history changes after a failed read", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const { client, release, reads } = gate(core, true);
+      const log = open(core, client, { channels: [a] });
+      await expect.poll(() => log.value().status.variant, POLL).toBe("error");
+      await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 10);
+      const shown = textOf(core, a, 10);
+      await expect.poll(reads, POLL).toBe(2);
+      core.rewrite(a, new TimeRange(START, core.now()), 10);
+      await expect.poll(reads, POLL).toBe(3);
+      release();
+      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 20);
+      expect(valuesOf(entriesOf(log), a)).toEqual([...shown, ...textOf(core, a, 10)]);
+    });
+  });
+
+  it("should show the samples written while its stream was down", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    let held = false;
+    let waiting = false;
+    const { promise: released, resolve: release } = Promise.withResolvers<void>();
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        if (held) {
+          waiting = true;
+          await released;
+        }
+        return core.readLatest(keys, count, tr);
+      },
+    });
+    const log = open(core, client, { channels: [a] });
+    await settle(log, HISTORY);
+    held = true;
+    core.disconnect();
+    await expect.poll(() => log.value().status.variant, POLL).toBe("warning");
+    // The stream never delivers the samples written while it is down.
+    core.advance(TimeSpan.seconds(1));
+    core.reconnect();
+    await expect.poll(() => waiting, POLL).toBe(true);
+    const witness = client.feed.subscribe({
+      keys: [a],
+      limit: { variant: "latest", count: 10 },
+    });
+    closers.push(() => witness.close());
+    core.advance(TimeSpan.seconds(1));
+    await expect.poll(() => witness.value(a).series.length, POLL).toBe(10);
     release();
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    expect(c.streamF).not.toHaveBeenCalled();
+    await settle(log, HISTORY + 20);
+    expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 20));
   });
 
-  it("should return an empty array when no channels are configured", () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    expect(log.value()).toHaveLength(0);
-    expect(c.streamF).not.toHaveBeenCalled();
-  });
-
-  it("should open a stream with the correct channel keys", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key, c.channelB.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    expect(c.streamF).toHaveBeenCalledOnce();
-    expect(c.streamKeys).toEqual([c.channelA.key, c.channelB.key]);
-  });
-
-  it("should append entries when stream data arrives", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({ data: new Float32Array([1, 2, 3]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(3);
-  });
-
-  it("should populate channelKey and value in each entry", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({ data: new Float32Array([42]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    const entries = log.value();
-    expect(entries).toHaveLength(1);
-    expect(entries[0].channelKey).toBe(c.channelA.key);
-    expect(entries[0].value).toBe("42");
-  });
-
-  it("should clean f64-widened FLOAT32 values to shortest decimal", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({ data: new Float32Array([1.234]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    const entries = log.value();
-    expect(entries).toHaveLength(1);
-    expect(entries[0].value).toBe("1.234");
-  });
-
-  it("should stringify INT64 bigint values", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelInt.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({ data: new BigInt64Array([42n, -7n]) });
-    c.streamHandler?.(new Map([[c.channelInt.key, new MultiSeries([series])]]));
-    const entries = log.value();
-    expect(entries).toHaveLength(2);
-    expect(entries[0].value).toBe("42");
-    expect(entries[1].value).toBe("-7");
-  });
-
-  it("should stringify JSON values as their serialized form", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelJSON.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({
-      data: [{ name: "Alice", value: 30 }],
-      dataType: DataType.JSON,
+  it("should show each sample once across a history change", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    let reads = 0;
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        reads++;
+        return core.readLatest(keys, count, tr);
+      },
     });
-    c.streamHandler?.(new Map([[c.channelJSON.key, new MultiSeries([series])]]));
-    const entries = log.value();
-    expect(entries).toHaveLength(1);
-    expect(entries[0].value).toBe('{"name":"Alice","value":30}');
+    const log = open(core, client, { channels: [a] });
+    await settle(log, HISTORY);
+    await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
+    const shown = textOf(core, a, HISTORY);
+    core.rewrite(a, new TimeRange(START, core.now()), 10);
+    await expect.poll(() => reads, POLL).toBe(2);
+    await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    expect(valuesOf(entriesOf(log), a)).toEqual([...shown, ...textOf(core, a, 10)]);
   });
 
-  it("should maintain arrival order and not sort across multiple channels", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key, c.channelB.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-
-    const seriesA = new Series({ data: new Float32Array([1]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    const seriesB = new Series({ data: new Float32Array([2]) });
-    c.streamHandler?.(new Map([[c.channelB.key, new MultiSeries([seriesB])]]));
-
-    const entries = log.value();
-    expect(entries).toHaveLength(2);
-    expect(entries[0].channelKey).toBe(c.channelA.key);
-    expect(entries[1].channelKey).toBe(c.channelB.key);
-  });
-
-  it("should notify observers when new data arrives", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const handleChange = vi.fn();
-    log.onChange(handleChange);
-    const series = new Series({ data: new Float32Array([1]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
-  });
-
-  it("should stop the stream on cleanup", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    log.cleanup();
-    expect(c.streamDestructorF).toHaveBeenCalled();
-  });
-
-  it("should clear all entries on cleanup", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({ data: new Float32Array([1, 2, 3]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(3);
-    log.cleanup();
-    expect(log.value()).toHaveLength(0);
-  });
-
-  it("should cap entries at 100,000", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.days(1),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const bigData = new Float32Array(100_001).fill(1);
-    const series = new Series({ data: bigData });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(100_000);
-  }, 30_000);
-
-  it("should read entries from subsequent buffer allocations", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series1 = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series1])]]));
-    expect(log.value()).toHaveLength(2);
-    const series2 = new Series({ data: new Float32Array([3, 4]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series2])]]));
-    expect(log.value()).toHaveLength(4);
-    expect(log.value()[2].value).toBe("3");
-    expect(log.value()[3].value).toBe("4");
-  });
-
-  it("should read all entries when multiple buffers arrive in a single callback", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    // Simulate a burst that crosses two buffer boundaries in one callback.
-    const series1 = new Series({ data: new Float32Array([1, 2, 3]) });
-    const series2 = new Series({ data: new Float32Array([4, 5]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series1, series2])]]));
-    const entries = log.value();
-    expect(entries).toHaveLength(5);
-    expect(entries.map((e) => e.value)).toEqual(["1", "2", "3", "4", "5"]);
-  });
-
-  it("should not re-read entries when allocated is empty", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(2);
-    // Empty allocated — simulates the common case where the dynamic cache writes
-    // new samples into the existing buffer in-place and returns no newly allocated
-    // buffers. The cursor should not advance and no entries should be duplicated.
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([])]]));
-    expect(log.value()).toHaveLength(2);
-  });
-
-  it("should garbage collect entries older than keepFor", async () => {
-    let now = TimeStamp.milliseconds(1_000);
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-      keepFor: TimeSpan.milliseconds(500),
-    };
-    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
-    await waitForResolve(log);
-
-    const seriesA = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    expect(log.value()).toHaveLength(2);
-
-    // Advance time past keepFor — threshold becomes 2000 - 500 = 1500ms
-    now = TimeStamp.milliseconds(2_000);
-
-    const seriesB = new Series({ data: new Float32Array([3]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
-    const entries = log.value();
-    expect(entries).toHaveLength(1);
-    expect(entries[0].value).toBe("3");
-  });
-
-  it("should notify when GC evicts as many entries as were pushed in the same callback", async () => {
-    let now = TimeStamp.milliseconds(1_000);
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-      keepFor: TimeSpan.milliseconds(500),
-    };
-    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
-    await waitForResolve(log);
-
-    const seriesA = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    expect(log.value()).toHaveLength(2);
-
-    // Advance time so both existing entries are stale (threshold = 2000 - 500 = 1500ms)
-    now = TimeStamp.milliseconds(2_000);
-
-    // Push exactly 2 new entries — GC evicts the 2 old ones, net count unchanged.
-    // The notify guard must fire because new entries arrived, not because count changed.
-    const handleChange = vi.fn();
-    log.onChange(handleChange);
-    const seriesB = new Series({ data: new Float32Array([3, 4]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
-    await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
-    const entries = log.value();
-    expect(entries).toHaveLength(2);
-    expect(entries.map((e) => e.value)).toEqual(["3", "4"]);
-  });
-
-  it("should set evictedCount to 0 before any GC has run", async () => {
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-    };
-    const log = new StreamMultiChannelLog(c, props);
-    await waitForResolve(log);
-    const series = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.evictedCount).toBe(0);
-  });
-
-  it("should set evictedCount to the number of entries removed by GC", async () => {
-    let now = TimeStamp.milliseconds(1_000);
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-      keepFor: TimeSpan.milliseconds(500),
-    };
-    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
-    await waitForResolve(log);
-
-    const seriesA = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    expect(log.evictedCount).toBe(0);
-
-    now = TimeStamp.milliseconds(2_000);
-    const seriesB = new Series({ data: new Float32Array([3]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
-    expect(log.evictedCount).toBe(2);
-  });
-
-  it("should reset evictedCount to 0 on a subsequent callback where no GC occurs", async () => {
-    let now = TimeStamp.milliseconds(1_000);
-    const props: StreamMultiChannelLogProps = {
-      channels: [c.channelA.key],
-      timeSpan: TimeSpan.seconds(30),
-      keepFor: TimeSpan.milliseconds(500),
-    };
-    const log = new StreamMultiChannelLog(c, props, undefined, () => now);
-    await waitForResolve(log);
-
-    const seriesA = new Series({ data: new Float32Array([1, 2]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    now = TimeStamp.milliseconds(2_000);
-    const seriesB = new Series({ data: new Float32Array([3]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
-    expect(log.evictedCount).toBe(2);
-
-    const seriesC = new Series({ data: new Float32Array([4]) });
-    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesC])]]));
-    expect(log.evictedCount).toBe(0);
-  });
-
-  describe("newline handling", () => {
-    it("should split a string sample on \\n into multiple entries", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.STRING,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({ data: ["line1\nline2\n"] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
-      expect(entries).toHaveLength(3);
-      expect(entries.map((e) => e.value)).toEqual(["line1", "line2", ""]);
-      expect(entries.map((e) => e.continuation === true)).toEqual([false, true, true]);
-      expect(entries.every((e) => e.channelKey === c.channelA.key)).toBe(true);
-      const ts = entries[0].timestamp;
-      expect(entries.every((e) => e.timestamp === ts)).toBe(true);
-    });
-
-    it("should split on Windows-style \\r\\n without leaving a stray \\r", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.STRING,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({ data: ["line1\r\nline2"] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value().map((e) => e.value)).toEqual(["line1", "line2"]);
-    });
-
-    it("should preserve consecutive newlines as blank entries", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.STRING,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({ data: ["a\n\nb"] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value().map((e) => e.value)).toEqual(["a", "", "b"]);
-    });
-
-    it("should produce a single non-continuation entry for a string with no \\n", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.STRING,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({ data: ["hello world", ""] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
-      expect(entries).toHaveLength(2);
-      expect(entries[0].value).toBe("hello world");
-      expect(entries[0].continuation === true).toBe(false);
-      // An explicit empty write is NOT a continuation — the prefix should still
-      // render. Only entries produced by a \n split are continuations.
-      expect(entries[1].value).toBe("");
-      expect(entries[1].continuation === true).toBe(false);
-    });
-
-    it("should not split numeric channel values", async () => {
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({ data: new Float32Array([1, 2, 3]) });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
-      expect(entries).toHaveLength(3);
-      expect(entries.map((e) => e.value)).toEqual(["1", "2", "3"]);
-    });
-
-    it("should not split JSON channel values that contain \\n", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.JSON,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({ data: [{ msg: "hi\nthere" }] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
-      expect(entries).toHaveLength(1);
-      expect(entries[0].value).toBe(JSON.stringify({ msg: "hi\nthere" }));
-    });
-
-    it("should preserve raw snake_case keys in JSON channel values", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.JSON,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({
-        data: [{ user_id: 1, first_name: "alice" }],
-      });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
-      expect(entries).toHaveLength(1);
-      expect(entries[0].value).toBe('{"user_id":1,"first_name":"alice"}');
-    });
-
-    it("should produce a single non-continuation entry for an empty string sample", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.STRING,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({ data: [""] });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
-      expect(entries).toHaveLength(1);
-      expect(entries[0].value).toBe("");
-      expect(entries[0].continuation === true).toBe(false);
-    });
-
-    it("should not split BYTES channel values that contain \\n", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.BYTES,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const payload = new TextEncoder().encode("line1\nline2");
-      const buf = new ArrayBuffer(4 + payload.byteLength);
-      new DataView(buf).setUint32(0, payload.byteLength, true);
-      new Uint8Array(buf).set(payload, 4);
-      const series = new Series({ data: buf, dataType: DataType.BYTES });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
-      expect(entries).toHaveLength(1);
-      expect(entries[0].value).toBe("line1\nline2");
-      expect(entries[0].continuation === true).toBe(false);
-    });
-
-    it("should not leave orphan continuation entries at the head when maxEntries eviction cuts mid-group", async () => {
-      c.channelA = new channel.Channel({
-        ...c.channelA,
-        dataType: DataType.STRING,
-      });
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props, undefined, undefined, 100);
-      await waitForResolve(log);
-      // 35 three-line samples = 105 entries; excess of 5 cuts mid-group.
-      const data = new Array(35).fill("a\nb\nc");
-      const series = new Series({ data });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
-      expect(entries.length).toBeGreaterThan(0);
-      expect(entries[0].continuation === true).toBe(false);
-    });
+  it("should show every sample of a frame larger than its page", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    const [last] = core.readLatest([a], 1).get(a).series;
+    const start = core.now();
+    const series = [0, 1].map(
+      (i) =>
+        new Series({
+          data: new Float32Array(PAGE).fill(i),
+          timeRange: new TimeRange(
+            start.add(TimeSpan.milliseconds(i)),
+            start.add(TimeSpan.milliseconds(i + 1)),
+          ),
+          alignment: last.alignment + 1n + BigInt(i * PAGE),
+        }),
+    );
+    core.stream(new framer.Frame([a, a], series));
+    await settle(log, HISTORY + 2 * PAGE);
+    const live = valuesOf(entriesOf(log), a).slice(HISTORY);
+    expect(live.filter((v) => v === "0")).toHaveLength(PAGE);
+    expect(live.filter((v) => v === "1")).toHaveLength(PAGE);
   });
 
   describe("setChannels", () => {
-    it("should be a no-op when channels have not changed", async () => {
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-      const series = new Series({ data: new Float32Array([1, 2]) });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value()).toHaveLength(2);
-
-      log.setChannels([c.channelA.key]);
-      expect(c.streamDestructorF).not.toHaveBeenCalled();
-      expect(log.value()).toHaveLength(2);
+    it("should keep the entries and samples of kept channels", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setChannels([a, b]);
+      await settle(log, 2 * HISTORY);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY));
+      expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, HISTORY));
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 2 * HISTORY + 20);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 10));
     });
 
-    it("should preserve entries for remaining channels when a channel is removed", async () => {
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key, c.channelB.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-
-      const seriesA = new Series({ data: new Float32Array([1, 2]) });
-      const seriesB = new Series({ data: new Float32Array([3]) });
-      c.streamHandler?.(
-        new Map([
-          [c.channelA.key, new MultiSeries([seriesA])],
-          [c.channelB.key, new MultiSeries([seriesB])],
-        ]),
-      );
-      expect(log.value()).toHaveLength(3);
-
-      log.setChannels([c.channelA.key]);
-      const entries = await waitForResolve(log);
-      expect(entries).toHaveLength(2);
-      expect(entries.every((e) => e.channelKey === c.channelA.key)).toBe(true);
+    it("should do nothing for equal channels", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      const handler = vi.fn();
+      log.onChange(handler);
+      log.setChannels([a]);
+      expect(handler).not.toHaveBeenCalled();
     });
 
-    it("should scrub entries for a removed channel", async () => {
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key, c.channelB.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-
-      const seriesA = new Series({ data: new Float32Array([10]) });
-      const seriesB = new Series({ data: new Float32Array([20, 30]) });
-      c.streamHandler?.(
-        new Map([
-          [c.channelA.key, new MultiSeries([seriesA])],
-          [c.channelB.key, new MultiSeries([seriesB])],
-        ]),
-      );
-      expect(log.value()).toHaveLength(3);
-
-      log.setChannels([c.channelB.key]);
-      const entries = await waitForResolve(log);
-      expect(entries).toHaveLength(2);
-      expect(entries[0].value).toBe("20");
-      expect(entries[1].value).toBe("30");
+    it("should drop the entries of a removed channel", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * HISTORY);
+      log.setChannels([b]);
+      expect(valuesOf(entriesOf(log), a)).toEqual([]);
+      expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, HISTORY));
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, HISTORY + 10);
+      expect(valuesOf(entriesOf(log), a)).toEqual([]);
     });
 
-    it("should stop streaming when all channels are removed", async () => {
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-
-      const series = new Series({ data: new Float32Array([1]) });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-
+    it("should show no entries once every channel is removed", async () => {
+      const core = createCore();
+      const client = connect(core);
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, client, { channels: [a] });
+      const witness = open(core, client, { channels: [a] });
+      await settle(log, HISTORY);
+      await settle(witness, HISTORY);
       log.setChannels([]);
-      expect(c.streamDestructorF).toHaveBeenCalled();
-    });
-
-    it("should not duplicate entries when the stream is restarted", async () => {
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-
-      const series = new Series({ data: new Float32Array([1, 2, 3]) });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value()).toHaveLength(3);
-
-      // Add channel B — this restarts the stream. The mock's stream() will
-      // call c.streamHandler again with an initial batch. Simulate the batch containing
-      // the existing cache data for channel A.
-      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
-        const initialA = new Series({ data: new Float32Array([1, 2, 3]) });
-        handler(new Map([[c.channelA.key, new MultiSeries([initialA])]]));
-      });
-      log.setChannels([c.channelA.key, c.channelB.key]);
-      await waitForResolve(log);
-
-      const entries = log.value();
-      const channelAEntries = entries.filter((e) => e.channelKey === c.channelA.key);
-      expect(channelAEntries).toHaveLength(3);
-    });
-
-    it("should skip the initial batch for newly-added channels on restart", async () => {
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-
-      const series = new Series({ data: new Float32Array([1]) });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value()).toHaveLength(1);
-
-      // Add channel B. Simulate the initial batch delivering cached data for channel B
-      // that was accumulated by another component — we should NOT dump it.
-      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
-        const initialB = new Series({ data: new Float32Array([10, 20, 30]) });
-        handler(new Map([[c.channelB.key, new MultiSeries([initialB])]]));
-      });
-      log.setChannels([c.channelA.key, c.channelB.key]);
-      await waitForResolve(log);
-
-      const entries = log.value();
-      expect(entries).toHaveLength(1);
-      expect(entries[0].channelKey).toBe(c.channelA.key);
-    });
-
-    it("should accept new data after skipping the initial batch", async () => {
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-
-      const series = new Series({ data: new Float32Array([1]) });
-      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-
-      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
-        const initialA = new Series({ data: new Float32Array([1]) });
-        const initialB = new Series({ data: new Float32Array([10]) });
-        handler(
-          new Map([
-            [c.channelA.key, new MultiSeries([initialA])],
-            [c.channelB.key, new MultiSeries([initialB])],
-          ]),
-        );
-      });
-      log.setChannels([c.channelA.key, c.channelB.key]);
-      await waitForResolve(log);
-      expect(log.value()).toHaveLength(1); // only the original entry
-
-      const newA = new Series({ data: new Float32Array([2]) });
-      const newB = new Series({ data: new Float32Array([20]) });
-      c.streamHandler?.(
-        new Map([
-          [c.channelA.key, new MultiSeries([newA])],
-          [c.channelB.key, new MultiSeries([newB])],
-        ]),
-      );
-      const entries = log.value();
-      expect(entries).toHaveLength(3);
-      expect(entries[1].channelKey).toBe(c.channelA.key);
-      expect(entries[1].value).toBe("2");
-      expect(entries[2].channelKey).toBe(c.channelB.key);
-      expect(entries[2].value).toBe("20");
-    });
-
-    it("should allow initial-batch data on first start (not a restart)", async () => {
-      c.streamF = vi.fn((handler: framer.StreamHandler, _keys: channel.Key[]) => {
-        const initial = new Series({ data: new Float32Array([10, 20]) });
-        handler(new Map([[c.channelA.key, new MultiSeries([initial])]]));
-      });
-
-      const props: StreamMultiChannelLogProps = {
-        channels: [c.channelA.key],
-        timeSpan: TimeSpan.seconds(30),
-      };
-      const log = new StreamMultiChannelLog(c, props);
-      await waitForResolve(log);
-
-      const entries = log.value();
-      expect(entries).toHaveLength(2);
-      expect(entries[0].value).toBe("10");
-      expect(entries[1].value).toBe("20");
+      expect(entriesOf(log)).toEqual([]);
+      core.advance(TimeSpan.seconds(1));
+      // The witness shares the stream, so the samples reached every subscription.
+      await settle(witness, HISTORY + 10);
+      expect(entriesOf(log)).toEqual([]);
     });
   });
 
-  describe("disconnected", () => {
-    it("should report a disconnected status once instead of throwing", () => {
-      const statuses: cstatus.Crude[] = [];
-      const log = new StreamMultiChannelLog(
-        null,
-        { channels: [1], timeSpan: TimeSpan.seconds(30) },
-        { onStatusChange: (s) => statuses.push(s) },
+  describe("newline handling", () => {
+    const cases: Array<[string, string, string[]]> = [
+      ["\\n", "a\nb", ["a", "b"]],
+      ["\\r\\n without a stray \\r", "a\r\nb", ["a", "b"]],
+      ["consecutive newlines as blank entries", "a\n\nb", ["a", "", "b"]],
+      ["no newline into one entry", "a b", ["a b"]],
+      ["an empty sample into one entry", "", [""]],
+    ];
+
+    it.each(cases)("should split %s", async (_, text, lines) => {
+      const core = createCore({ text: () => text });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY * lines.length);
+      const first = entriesOf(log).slice(0, lines.length);
+      expect(first.map((e) => e.value)).toEqual(lines);
+      expect(first.map((e) => e.continuation ?? false)).toEqual(
+        lines.map((_, i) => i > 0),
       );
-      expect(log.value()).toHaveLength(0);
-      expect(statuses).toHaveLength(1);
-      expect(statuses[0].variant).toEqual("warning");
-      expect(log.value()).toHaveLength(0);
-      expect(statuses).toHaveLength(1);
     });
+
+    // History reads hand the log series of any data type.
+    const historyOf = (core: SyntheticCore, key: channel.Key, series: Series) =>
+      connect(core, {
+        readLatest: async () => new framer.Frame({ [key]: series }),
+      });
+
+    const typed: Array<[string, Series, string[]]> = [
+      ["float64 samples exactly", new Series([0.1 + 0.2]), ["0.30000000000000004"]],
+      ["int64 samples", new Series(new BigInt64Array([42n, -7n])), ["42", "-7"]],
+      [
+        "json samples without splitting them",
+        new Series({ data: [{ note: "a\nb" }], dataType: DataType.JSON }),
+        ['{"note":"a\\nb"}'],
+      ],
+    ];
+
+    it.each(typed)("should show %s", async (_, series, values) => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, historyOf(core, a, series), { channels: [a] });
+      await settle(log, values.length);
+      expect(entriesOf(log).map((e) => e.value)).toEqual(values);
+      expect(entriesOf(log).every((e) => e.continuation !== true)).toBe(true);
+    });
+  });
+
+  describe("eviction", () => {
+    // Records the evicted count at each notify, where the log component reads it.
+    const recordEvictions = (log: StreamMultiChannelLog): number[] => {
+      const evicted: number[] = [];
+      log.onChange(() => evicted.push(log.evictedCount));
+      return evicted;
+    };
+
+    it("should evict entries older than keepFor and count them", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), {
+        channels: [a],
+        keepFor: TimeSpan.seconds(2),
+      });
+      const evicted = recordEvictions(log);
+      await settle(log, HISTORY);
+      core.advance(TimeSpan.seconds(3));
+      await settle(log, 30);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 40);
+      expect(evicted).toEqual([0, HISTORY, 0]);
+    });
+
+    it("should report the entries a pull evicts while it adds none", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), {
+        channels: [a],
+        keepFor: TimeSpan.seconds(2),
+      });
+      const evicted = recordEvictions(log);
+      await settle(log, HISTORY);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, HISTORY + 10);
+      core.advance(TimeSpan.seconds(2), false);
+      // A stream drop changes only the status, so the pull it causes adds no entries.
+      core.disconnect();
+      await settle(log, 10);
+      expect(evicted.reduce((sum, n) => sum + n, 0)).toBe(HISTORY);
+    });
+
+    it("should report the entries a channel change evicts once", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), {
+        channels: [a],
+        keepFor: TimeSpan.seconds(2),
+      });
+      await settle(log, HISTORY);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, HISTORY + 10);
+      const evicted = recordEvictions(log);
+      core.advance(TimeSpan.seconds(2), false);
+      log.setChannels([a, b]);
+      expect(evicted).toEqual([HISTORY]);
+    });
+
+    it("should evict past maxEntries, never leaving a continuation first", async () => {
+      const core = createCore({ text: () => "a\nb\nc" });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 5);
+      const evicted = recordEvictions(log);
+      await settle(log, 3);
+      expect(entriesOf(log).map((e) => e.value)).toEqual(["a", "b", "c"]);
+      expect(evicted).toEqual([3 * HISTORY - 3]);
+    });
+
+    it("should evict a tenth of maxEntries beyond the excess", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 100);
+      const evicted = recordEvictions(log);
+      await settle(log, 90);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 100);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 90);
+      expect(evicted).toEqual([HISTORY - 90, 0, 20]);
+    });
+  });
+
+  it("should clear its entries and stop on cleanup", async () => {
+    const core = createCore();
+    const client = connect(core);
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, client, { channels: [a] });
+    const witness = open(core, client, { channels: [a] });
+    await settle(log, HISTORY);
+    await settle(witness, HISTORY);
+    const handler = vi.fn();
+    log.onChange(handler);
+    log.cleanup();
+    expect(log.evictedCount).toBe(0);
+    core.advance(TimeSpan.seconds(1));
+    // The witness shares the stream, so the samples reached every subscription.
+    await settle(witness, HISTORY + 10);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("should post the error of a channel it cannot read", async () => {
+    const core = createCore();
+    const statuses: cstatus.Crude[] = [];
+    const log = open(
+      core,
+      connect(core),
+      { channels: [999] },
+      {
+        onStatusChange: (s) => statuses.push(s),
+      },
+    );
+    log.value();
+    await expect.poll(() => statuses.length, POLL).toBe(1);
+    expect(statuses[0]).toMatchObject({
+      variant: "error",
+      message: "Failed to read channel data",
+      description: "channel 999 not found",
+    });
+  });
+
+  it("should report the worst status of its channels' snapshots", async () => {
+    const core = createCore();
+    const [a, b] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a, 999, b] });
+    expect(log.value().status.variant).toBe("loading");
+    await expect
+      .poll(() => log.value().status, POLL)
+      .toMatchObject({
+        variant: "error",
+        message: "Failed to read channel data",
+        description: "channel 999 not found",
+      });
+    log.setChannels([a, b]);
+    await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+  });
+
+  it("should report a disconnected status once instead of throwing", () => {
+    const statuses: cstatus.Crude[] = [];
+    const log = open(
+      createCore(),
+      null,
+      { channels: [1] },
+      {
+        onStatusChange: (s) => statuses.push(s),
+      },
+    );
+    expect(entriesOf(log)).toEqual([]);
+    expect(entriesOf(log)).toEqual([]);
+    expect(statuses).toEqual([telem.DISCONNECTED_STATUS]);
   });
 });

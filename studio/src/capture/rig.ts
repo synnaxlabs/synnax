@@ -69,10 +69,48 @@ export interface CaptureOptions {
    * via its dev-connection port override before the app boots.
    */
   corePort?: number;
+  /**
+   * Shows the Console as Synnax Desktop: the page stands in for the Desktop shell and
+   * reports the capture core as the embedded one. Needs a Console dev server started
+   * with VITE_DESKTOP=true.
+   */
+  desktop?: boolean;
 }
+
+/** Credentials of the user every capture connects as: the capture core's defaults. */
+export const CREDENTIALS = { username: "synnax", password: "seldon" };
 
 /** Mirrors DEV_PORT_KEY in console/src/platform/core/detectConnection.ts. */
 const DEV_PORT_KEY = "synnax-dev-connection-port";
+
+/**
+ * Stands in for the Synnax Desktop shell, which tells a Desktop build of the Console
+ * how to reach its embedded Core. It answers that the core at `connection` runs, and
+ * records every other command so that the capture fails on it.
+ */
+const desktopShell = (connection: Record<string, string | number>): string => `(() => {
+  const unanswered = [];
+  window.__studioDesktop = { asked: false, unanswered };
+  window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener: () => {} };
+  let callbacks = 0;
+  window.__TAURI_INTERNALS__ = {
+    transformCallback: () => ++callbacks,
+    unregisterCallback: () => {},
+    invoke: async (cmd, args) => {
+      if (cmd === "supervisor_status") {
+        window.__studioDesktop.asked = true;
+        return { state: "running", connection: ${JSON.stringify(connection)} };
+      }
+      if (cmd === "plugin:event|listen") return args.handler;
+      if (cmd === "plugin:event|unlisten") return null;
+      unanswered.push(cmd);
+      throw new Error("Studio's Desktop shell cannot answer " + cmd);
+    },
+  };
+})()`;
+
+/** WebP quality of a still, from 0 to 100. */
+const STILL_QUALITY = 92;
 
 /**
  * Pauses any newly discovered Web Animations (CSS transitions/animations, WAAPI)
@@ -138,6 +176,45 @@ const workerClock = (origin: number): string => `(() => {
 })()`;
 
 /**
+ * Counts a worker's animation frames, so a still can wait for the Aether worker to
+ * draw. The worker draws on its own frames, which the virtual clock does not reach.
+ */
+const WORKER_FRAMES = `(() => {
+  const raf = globalThis.requestAnimationFrame?.bind(globalThis);
+  if (raf == null) return;
+  let frames = 0;
+  let last;
+  const waiters = [];
+  globalThis.requestAnimationFrame = (cb) =>
+    raf((t) => {
+      cb(t);
+      if (t === last) return;
+      last = t;
+      frames++;
+      while (waiters.length > 0 && waiters[0].at <= frames) waiters.shift().resolve();
+    });
+  globalThis.__studioFrames = (n) =>
+    frames === 0
+      ? Promise.resolve()
+      : new Promise((resolve) => waiters.push({ at: frames + n, resolve }));
+})()`;
+
+/** Edges of the box around a set of rects. */
+interface Bounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+const bounds = (rects: Rect[]): Bounds => ({
+  left: Math.min(...rects.map((r) => r.x)),
+  top: Math.min(...rects.map((r) => r.y)),
+  right: Math.max(...rects.map((r) => r.x + r.width)),
+  bottom: Math.max(...rects.map((r) => r.y + r.height)),
+});
+
+/**
  * CaptureSession drives the Console under a stepped virtual clock, saving one
  * lossless PNG per tick while recording and logging every synthetic input event
  * to the timeline. Actions dispatch real Playwright input; the on-screen cursor
@@ -151,6 +228,7 @@ export class CaptureSession {
   private readonly events: Event[] = [];
   private readonly samplers = new Map<string, () => number>();
   private readonly tracks: Record<string, number[]> = {};
+  private readonly stills: Record<string, Record<string, Rect>> = {};
   private frame = 0;
   private appMs = 0;
   /** Wall time in epoch milliseconds at which the virtual clock started. */
@@ -189,8 +267,8 @@ export class CaptureSession {
 
   static async launch(options: CaptureOptions): Promise<CaptureSession> {
     const opts: Required<CaptureOptions> = {
-      width: 1080,
-      height: 608,
+      width: 1600,
+      height: 900,
       dsf: 2,
       fps: 60,
       theme: "light",
@@ -199,6 +277,7 @@ export class CaptureSession {
       hideCaret: false,
       hideNotifications: true,
       corePort: 9090,
+      desktop: false,
       ...options,
     };
     const browser = await chromium.launch({
@@ -221,7 +300,10 @@ export class CaptureSession {
     await page.clock.install({ time: origin });
     const workers = new Set<Promise<Worker>>();
     page.on("worker", (worker) => {
-      const installed = worker.evaluate(workerClock(origin)).then(() => worker);
+      const installed = worker
+        .evaluate(workerClock(origin))
+        .then(async () => await worker.evaluate(WORKER_FRAMES))
+        .then(() => worker);
       workers.add(installed);
       worker.on("close", () => workers.delete(installed));
     });
@@ -230,6 +312,10 @@ export class CaptureSession {
     await page.addInitScript(
       `localStorage.setItem(${JSON.stringify(DEV_PORT_KEY)}, ${JSON.stringify(String(opts.corePort))});`,
     );
+    if (opts.desktop)
+      await page.addInitScript(
+        desktopShell({ host: "localhost", port: opts.corePort, ...CREDENTIALS }),
+      );
     const hideRules = [
       // The renderer blinks the caret on wall time, ~6x fast against the
       // stepped virtual clock; a solid caret reads normally at any rate.
@@ -248,7 +334,25 @@ export class CaptureSession {
     await page.goto(opts.url, { timeout: 30_000 });
     const cdp = await context.newCDPSession(page);
     await mkdir(path.join(opts.outDir, "frames"), { recursive: true });
-    return new CaptureSession(browser, page, cdp, opts, origin, workers);
+    const session = new CaptureSession(browser, page, cdp, opts, origin, workers);
+    if (opts.desktop) await session.awaitDesktop();
+    return session;
+  }
+
+  /**
+   * awaitDesktop waits for the Console to ask the Desktop shell for its Core, which
+   * only a Desktop build does. Closes the browser and throws when it never asks.
+   */
+  private async awaitDesktop(): Promise<void> {
+    for (let i = 0; i < 600; i++) {
+      if (await this.page.evaluate(() => (window as any).__studioDesktop.asked)) return;
+      await this.settle(this.tickMs);
+    }
+    await this.browser.close();
+    throw new Error(
+      `the Console at ${this.opts.url} is not a Desktop build: serve it with ` +
+        "VITE_DESKTOP=true",
+    );
   }
 
   /** now returns the virtual clock's time, which the page and its workers read. */
@@ -300,13 +404,27 @@ export class CaptureSession {
       this.stepMs,
     );
     if (!this.recording) return;
+    const data = await this.grab("png", true);
+    for (const [track, sample] of this.samplers) this.tracks[track].push(sample());
+    const name = String(this.frame).padStart(6, "0");
+    await writeFile(path.join(this.opts.outDir, "frames", `${name}.png`), data);
+    this.frame++;
+  }
+
+  /** grab captures the viewport at full device resolution. */
+  private async grab(
+    format: "png" | "webp",
+    optimizeForSpeed: boolean,
+    quality?: number,
+  ): Promise<Buffer> {
     // A plain surface capture returns CSS-pixel resolution even when the context
     // emulates a higher device scale factor; the clip's scale forces rendering at
     // full device resolution (width*dsf x height*dsf).
     const { data } = await this.cdp.send("Page.captureScreenshot", {
-      format: "png",
+      format,
+      quality,
       fromSurface: true,
-      optimizeForSpeed: true,
+      optimizeForSpeed,
       captureBeyondViewport: false,
       clip: {
         x: 0,
@@ -316,13 +434,63 @@ export class CaptureSession {
         scale: this.opts.dsf,
       },
     });
-    for (const [track, sample] of this.samplers) this.tracks[track].push(sample());
-    const name = String(this.frame).padStart(6, "0");
+    return Buffer.from(data, "base64");
+  }
+
+  /**
+   * still saves the current frame as `<outDir>/stills/<name>.webp`, and the box around
+   * each region's elements, in CSS pixels, to `<outDir>/stills/regions.json`. Recording
+   * does not need to be on. Throws when a region matches no visible element or runs off
+   * the screen, or when the name is already taken.
+   */
+  async still(
+    name: string,
+    regions: Record<string, Locator | Locator[]> = {},
+  ): Promise<void> {
+    if (name in this.stills) throw new Error(`still "${name}" is already taken`);
+    const boxes: Record<string, Rect> = {};
+    for (const [region, targets] of Object.entries(regions)) {
+      const rects = [];
+      for (const target of Array.isArray(targets) ? targets : [targets])
+        for (const el of await target.all()) {
+          const box = await el.boundingBox();
+          if (box != null && box.width > 0 && box.height > 0) rects.push(box);
+        }
+      if (rects.length === 0)
+        throw new Error(`region "${region}" of still "${name}" shows nothing`);
+      const { left, top, right, bottom } = bounds(rects);
+      if (left < 0 || top < 0 || right > this.opts.width || bottom > this.opts.height)
+        throw new Error(`region "${region}" of still "${name}" runs off the screen`);
+      const round = (v: number): number => Math.round(v * 100) / 100;
+      boxes[region] = {
+        x: round(left),
+        y: round(top),
+        width: round(right - left),
+        height: round(bottom - top),
+      };
+    }
+    this.stills[name] = boxes;
+    await this.drawn();
+    const dir = path.join(this.opts.outDir, "stills");
+    await mkdir(dir, { recursive: true });
     await writeFile(
-      path.join(this.opts.outDir, "frames", `${name}.png`),
-      Buffer.from(data, "base64"),
+      path.join(dir, `${name}.webp`),
+      await this.grab("webp", false, STILL_QUALITY),
     );
-    this.frame++;
+    const { width, height } = this.opts;
+    await writeFile(
+      path.join(dir, "regions.json"),
+      JSON.stringify({ width, height, stills: this.stills }, null, 2),
+    );
+  }
+
+  /** drawn waits for every worker that animates to draw two more frames. */
+  private async drawn(): Promise<void> {
+    await Promise.all(
+      [...this.workers].map(
+        async (w) => await (await w).evaluate("globalThis.__studioFrames?.(2)"),
+      ),
+    );
   }
 
   /** settle advances virtual time without capturing; use during setup. */
@@ -521,15 +689,16 @@ export class CaptureSession {
   }
 
   /**
-   * drag presses at `from`, travels to `to` with the button held, and releases.
-   * Unlike moveTo, the real mouse tracks the travel tick by tick (along the same
-   * minimum-jerk profile the director renders), so drag interactions follow the
-   * cursor on screen.
+   * drag presses at `from`, travels to `to` with the button held, and releases. Unlike
+   * moveTo, the real mouse tracks the travel tick by tick (along the same minimum-jerk
+   * profile the director renders), so drag interactions follow the cursor on screen.
+   * With a list of stops, the drag rests `pauseMs` on each stop before the last, and
+   * resolves each stop only when it travels there.
    */
   async drag(
     from: Locator | Point,
-    to: Locator | Point,
-    opts?: { zoom?: boolean },
+    to: Locator | Point | Array<Locator | Point>,
+    opts?: { zoom?: boolean; pauseMs?: number },
   ): Promise<void> {
     const start = await this.moveTo(from);
     await this.dwell(opts?.zoom);
@@ -545,42 +714,74 @@ export class CaptureSession {
     await this.page.mouse.down();
     await this.hold(120);
 
-    const { point: dest, rect, cursor } = await this.resolve(to);
-    const duration = this.travelTicks(dest);
-    for (let i = 1; i <= duration; i++) {
-      const s = minimumJerk(i / duration);
-      await this.page.mouse.move(
-        start.x + (dest.x - start.x) * s,
-        start.y + (dest.y - start.y) * s,
-      );
-      await this.tick();
+    const stops = Array.isArray(to) ? to : [to];
+    for (const [i, stop] of stops.entries()) {
+      if (i > 0) await this.hold(opts?.pauseMs ?? 120);
+      const origin = this.cursor;
+      const { point: dest, rect, cursor } = await this.resolve(stop);
+      const duration = this.travelTicks(dest);
+      for (let t = 1; t <= duration; t++) {
+        const s = minimumJerk(t / duration);
+        await this.page.mouse.move(
+          origin.x + (dest.x - origin.x) * s,
+          origin.y + (dest.y - origin.y) * s,
+        );
+        await this.tick();
+      }
+      this.events.push({
+        type: "move",
+        tick: this.frame,
+        ...dest,
+        duration,
+        rect,
+        cursor,
+      });
+      this.cursor = dest;
+      this.cursorRect = rect;
     }
-    this.events.push({
-      type: "move",
-      tick: this.frame,
-      ...dest,
-      duration,
-      rect,
-      cursor,
-    });
-    this.cursor = dest;
-    this.cursorRect = rect;
     await this.hold(120);
 
-    this.events.push({ type: "pointerup", tick: this.frame, ...dest, button: "left" });
+    this.events.push({
+      type: "pointerup",
+      tick: this.frame,
+      ...this.cursor,
+      button: "left",
+    });
     await this.page.mouse.up();
     await this.tick();
   }
 
   /**
-   * zoom opens an authored camera override framing the target, superseding
-   * auto-zoom until endZoom (or finish) closes it. When amount is omitted the
-   * director derives it from the target's rect: as tight as the framing margin
-   * allows, capped at RECT_ZOOM_MAX.
+   * zoom opens a camera zoom framing the target until endZoom (or finish) closes it.
+   * When amount is omitted the director derives it from the target's rect: as tight as
+   * the framing margin allows. A list of locators frames the box around them, no deeper
+   * than amount. The director caps every amount at the deepest zoom the render keeps
+   * crisp. Throws when a target is hidden.
    */
-  async zoom(target: Locator | Point, amount?: number): Promise<void> {
+  async zoom(target: Locator | Locator[] | Point, amount?: number): Promise<void> {
     if (this.openZoom != null) this.endZoom();
     this.clampZoomEnds();
+    if (Array.isArray(target)) {
+      const rects = [];
+      for (const locator of target) {
+        const box = await locator.boundingBox();
+        if (box == null) throw new Error("a zoom target is hidden");
+        rects.push(box);
+      }
+      const { left, top, right, bottom } = bounds(rects);
+      const { width, height } = this.opts;
+      const fit = fitAmount(
+        { x: left, y: top, width: right - left, height: bottom - top },
+        width,
+        height,
+      );
+      this.openZoom = {
+        tick: this.frame,
+        point: { x: (left + right) / 2, y: (top + bottom) / 2 },
+        amount: amount == null ? fit : Math.min(amount, fit),
+      };
+      return;
+    }
     const { point, rect } = await this.resolve(target);
     if (amount == null && rect == null)
       throw new Error("zoom on a bare point requires an explicit amount");
@@ -588,9 +789,9 @@ export class CaptureSession {
   }
 
   /**
-   * endZoom closes the open authored zoom, returning the camera to auto. A zoom
-   * that saw a click holds until CLICK_HOLD_S past it, unless a later zoom opens
-   * or the recording ends first.
+   * endZoom closes the open zoom, returning the camera to the full frame. A zoom that
+   * saw a click holds until CLICK_HOLD_S past it, unless a later zoom opens or the
+   * recording ends first.
    */
   endZoom(): void {
     if (this.openZoom == null) return;
@@ -654,6 +855,25 @@ export class CaptureSession {
   }
 
   /**
+   * paste gives text to the focused element as a paste from the clipboard, so an editor
+   * takes it whole instead of indenting or closing brackets as it would for typed keys.
+   */
+  async paste(text: string): Promise<void> {
+    this.events.push({ type: "key", tick: this.frame, key: "ControlOrMeta+v" });
+    await this.page.evaluate((t) => {
+      const clipboardData = new DataTransfer();
+      clipboardData.setData("text/plain", t);
+      const event = new ClipboardEvent("paste", {
+        clipboardData,
+        bubbles: true,
+        cancelable: true,
+      });
+      document.activeElement?.dispatchEvent(event);
+    }, text);
+    await this.tick();
+  }
+
+  /**
    * waitFor advances virtual time until the locator is visible or the condition holds,
    * so app timers keep firing while the rig waits.
    */
@@ -707,7 +927,15 @@ export class CaptureSession {
       path.join(this.opts.outDir, "timeline.json"),
       JSON.stringify(timeline, null, 2),
     );
+    const unanswered: string[] = this.opts.desktop
+      ? await this.page.evaluate(() => (window as any).__studioDesktop.unanswered)
+      : [];
     await this.browser.close();
+    if (unanswered.length > 0)
+      throw new Error(
+        `the Console asked the Desktop shell for ${unanswered.join(", ")}, which ` +
+          "Studio does not answer",
+      );
     return timeline;
   }
 }

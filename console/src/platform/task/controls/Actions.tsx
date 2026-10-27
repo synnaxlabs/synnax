@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { type MouseEvent, type ReactElement, useCallback } from "react";
+import { type MouseEvent, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -19,13 +19,10 @@ export const Actions = ({
   onClick,
   ...props
 }: ActionsProps): ReactElement => {
-  const handleClick = useCallback(
-    (e: MouseEvent<HTMLDivElement>) => {
-      e.stopPropagation();
-      onClick?.(e);
-    },
-    [onClick],
-  );
+  const handleClick = (e: MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    onClick?.(e);
+  };
 
   return (
     <Flex.Box

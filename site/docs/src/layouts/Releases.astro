@@ -8,6 +8,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { MarkdownHeading } from "astro";
+
+import OutlineBar from "@/components/nav/OutlineBar.astro";
 import Root from "@/layouts/Root.astro";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -17,6 +20,11 @@ const { headings, frontmatter } = Astro.props;
 ---
 
 <Root frontmatter={{ title: "Releases", description: frontmatter.description }}>
+    <OutlineBar
+        slot="subheader"
+        headings={headings.filter(({ depth }: MarkdownHeading) => depth === 6)}
+        select="article h6"
+    />
     <section>
         <Flex.Box direction="y" className="releases" el="article" grow>
             <Flex.Box direction="x" className="header" justify="between" align="center">
@@ -101,8 +109,8 @@ const { headings, frontmatter } = Astro.props;
                 }
             }
         }
-        & video,
-        img:not(.diagram img) {
+        & video:not(.docs-hero video),
+        img:not(.diagram img, .docs-hero img) {
             width: 100%;
             border-radius: 1.5rem !important;
             border: var(--pluto-border);

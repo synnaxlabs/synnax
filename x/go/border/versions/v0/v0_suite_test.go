@@ -19,7 +19,7 @@ import (
 
 func TestBorderV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Border v0 Suite")
+	RunSpecs(t, "Border v0 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

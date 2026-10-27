@@ -12,14 +12,18 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createAutoWriteChannel,
+  CONTROL_ENTRY,
+  createEntryWriteChannel,
   createIdentifier,
-  createManualWriteChannel,
   createPDOs,
+  createRepeatedNamePDOs,
+  createRepeatedNameSlave,
   createSlaveDevice,
+  createUnresolvedWriteChannel,
 } from "@/feature/ethercat/testutil";
 import {
   awaitEditableForm,
@@ -46,12 +50,12 @@ const ZERO_DRAFT: task.New<EtherCAT.Task.WriteSchemas> = {
 
 const createDraft = async (
   client: Synnax,
-  config: EtherCAT.Task.WritePayload["config"],
+  config: z.infer<EtherCAT.Task.WriteSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.WRITE_SCHEMAS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
-const renderWrite = async (config: EtherCAT.Task.WritePayload["config"]) => {
+const renderWrite = async (config: z.infer<EtherCAT.Task.WriteSchemas["config"]>) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
   const rendered = await renderTaskFormTab(EtherCAT.Task.Write, {
@@ -88,29 +92,106 @@ describe("Write", () => {
     await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createAutoWriteChannel(slave.key, "Control"),
-        createManualWriteChannel(slave.key, 0x7000, 3),
+        createEntryWriteChannel(slave.key, CONTROL_ENTRY),
+        createUnresolvedWriteChannel(slave.key, "Output"),
       ],
     });
-    await waitFor(() =>
-      expect(screen.getAllByText("Control").length).toBeGreaterThan(0),
-    );
-    expect(screen.getByText("0x7000:3")).toBeTruthy();
+    expect(await screen.findByRole("option", { name: /0x7000:01/ })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /^Output/ })).toBeTruthy();
   });
 
-  it("should show the manual address fields when a manual output channel is selected", async () => {
+  it("should label a selected output channel by its PDO and entry names", async () => {
+    const slave = await createRepeatedNameSlave(client, testRack.key);
+    const { outputs } = createRepeatedNamePDOs();
+    await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createEntryWriteChannel(slave.key, outputs[3])],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x7030:01/ }));
+    expect(await screen.findByText("Channel 4 › Output · 0x7030:01")).toBeTruthy();
+    expect(screen.getByText("Channel 4 › Output")).toBeTruthy();
+  });
+
+  it("should create command and state channels for each of eight entries that share a name", async () => {
+    const slave = await createRepeatedNameSlave(client, testRack.key);
+    const { identifier } = slave.properties;
+    const { outputs } = createRepeatedNamePDOs();
+    const { container, draft } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: outputs.map((e) => createEntryWriteChannel(slave.key, e)),
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    const cmdKeys = created.config.channels.map(({ cmdChannel }) => cmdChannel);
+    const stateKeys = created.config.channels.map(({ stateChannel }) => stateChannel);
+    expect(new Set([...cmdKeys, ...stateKeys]).size).toBe(16);
+    const cmds = await client.channels.retrieve(cmdKeys);
+    expect(cmds.map(({ name }) => name).sort()).toEqual(
+      outputs.map((_, i) => `${identifier}_Channel_${i + 1}_Output_cmd`).sort(),
+    );
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    const { channels } = updated.properties.write;
+    outputs.forEach((e, i) => {
+      expect(channels[`${e.index}_1`]).toBe(cmdKeys[i]);
+      expect(channels[`state_${e.index}_1`]).toBe(stateKeys[i]);
+    });
+  });
+
+  it("should block configuration of an unresolved output channel", async () => {
+    const slave = await createRepeatedNameSlave(client, testRack.key);
+    const { container, statuses } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createUnresolvedWriteChannel(slave.key, "Output")],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      /'Output' matches more than one output entry on slave .+\. Pick an entry\.$/,
+    );
+  });
+
+  it("should block configuration when two channels use the same entry", async () => {
+    const slave = await createRepeatedNameSlave(client, testRack.key);
+    const { outputs } = createRepeatedNamePDOs();
+    const { container, statuses } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryWriteChannel(slave.key, outputs[3]),
+        createEntryWriteChannel(slave.key, outputs[3]),
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `More than one channel uses entry 0x7030:01 on slave ${slave.name}\\. ` +
+          "Pick a different entry for one of them\\.$",
+      ),
+    );
+  });
+
+  it("should block configuration of a channel with no entry", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
+      pdos: createPDOs(),
     });
-    await renderWrite({
+    const { container, statuses } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createManualWriteChannel(slave.key, 0x7000, 4)],
+      channels: [{ ...EtherCAT.Task.createWriteChannel([]), device: slave.key }],
     });
-    fireEvent.click(await screen.findByRole("option", { name: /0x7000:4/ }));
-    await waitFor(() => expect(screen.getByText("Index (hex)")).toBeTruthy());
-    expect(screen.getByText("Subindex")).toBeTruthy();
-    expect(screen.getByDisplayValue("4")).toBeTruthy();
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(`A channel on slave ${slave.name} has no entry\\. Pick an entry\\.$`),
+    );
   });
 
   it("should create command and state channels, update the slave, and save the task", async () => {
@@ -122,7 +203,7 @@ describe("Write", () => {
     });
     const { container, draft } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createAutoWriteChannel(slave.key, "Control")],
+      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
     const created = await deployAndAwaitTask(
       client,
@@ -151,12 +232,8 @@ describe("Write", () => {
     });
     expect(updated.properties.writeStateIndex).not.toBe(0);
     const { channels } = updated.properties.write;
-    expect(EtherCAT.Task.getChannelByMapKey(channels, "auto_Control")).toBe(
-      ch.cmdChannel,
-    );
-    expect(EtherCAT.Task.getChannelByMapKey(channels, "auto_Control_state")).toBe(
-      ch.stateChannel,
-    );
+    expect(channels[`${0x7000}_1`]).toBe(ch.cmdChannel);
+    expect(channels[`state_${0x7000}_1`]).toBe(ch.stateChannel);
     const stateIndex = await client.channels.retrieve(
       updated.properties.writeStateIndex,
     );
@@ -174,7 +251,7 @@ describe("Write", () => {
     const { container, draft } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createAutoWriteChannel(slave.key, "Control", {
+        createEntryWriteChannel(slave.key, CONTROL_ENTRY, {
           cmdChannelName: cmdName,
           stateChannelName: stateName,
         }),
@@ -201,7 +278,7 @@ describe("Write", () => {
     });
     const config = {
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createAutoWriteChannel(slave.key, "Control")],
+      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     };
     const first = await renderWrite(config);
     const firstTask = await deployAndAwaitTask(
@@ -233,7 +310,7 @@ describe("Write", () => {
     });
     const config = {
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createAutoWriteChannel(slave.key, "Control")],
+      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     };
     const first = await renderWrite(config);
     const firstTask = await deployAndAwaitTask(
@@ -273,8 +350,8 @@ describe("Write", () => {
     const { container, statuses } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
       channels: [
-        createAutoWriteChannel(slaveA.key, "Control"),
-        createAutoWriteChannel(slaveB.key, "Control"),
+        createEntryWriteChannel(slaveA.key, CONTROL_ENTRY),
+        createEntryWriteChannel(slaveB.key, CONTROL_ENTRY),
       ],
     });
     await clickDeploy(container);
@@ -290,7 +367,7 @@ describe("Write", () => {
     });
     const { container, statuses } = await renderWrite({
       ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
-      channels: [createAutoWriteChannel(slave.key, "Control")],
+      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
     });
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);

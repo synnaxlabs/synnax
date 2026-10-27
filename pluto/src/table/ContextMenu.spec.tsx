@@ -55,11 +55,20 @@ describe("table DefaultContextMenu", () => {
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     const project = await client.projects.create({ name: "menu_project" });
+    // Migrated rows and columns carry keys with dashes, which indicator ids embed.
     const created = await client.tables.create(project.key, {
       name: "menu_table",
-      rows: [{ size: 36, cells: ["a"] }],
-      columns: [{ size: 72 }],
-      cells: { a: { variant: "text", value: "A" } },
+      rows: [
+        { key: "row-0", size: 36, cells: ["a", "b"] },
+        { key: "row-1", size: 36, cells: ["c", "d"] },
+      ],
+      columns: [
+        { key: "col-0", size: 72 },
+        { key: "col-1", size: 72 },
+      ],
+      cells: Object.fromEntries(
+        ["a", "b", "c", "d"].map((k) => [k, { variant: "text", value: k }]),
+      ),
     });
     key = created.key;
     await loadTable(wrapper, key);
@@ -142,5 +151,41 @@ describe("table DefaultContextMenu", () => {
     });
     expect(await screen.findByText("Center table")).toBeDefined();
     expect(screen.queryByText("Hide indicators")).toBeNull();
+  });
+
+  describe("delete", () => {
+    it("deletes the row of a right-clicked indicator by its key", async () => {
+      const onRemoveRow = vi.fn();
+      renderMenu({
+        targetID: "resizer-y-row-1",
+        editable: true,
+        onRemoveRow,
+      });
+      fireEvent.click(await screen.findByText("Delete row 2"));
+      expect(onRemoveRow).toHaveBeenCalledWith(["row-1"]);
+    });
+
+    it("deletes the column of a right-clicked indicator by its key", async () => {
+      const onRemoveCol = vi.fn();
+      renderMenu({
+        targetID: "resizer-x-col-1",
+        editable: true,
+        onRemoveCol,
+      });
+      fireEvent.click(await screen.findByText("Delete column B"));
+      expect(onRemoveCol).toHaveBeenCalledWith(["col-1"]);
+    });
+
+    it("deletes every fully selected row by its key", async () => {
+      const onRemoveRow = vi.fn();
+      renderMenu({
+        targetID: "a",
+        editable: true,
+        selected: ["a", "b", "c", "d"],
+        onRemoveRow,
+      });
+      fireEvent.click(await screen.findByText("Delete 2 rows"));
+      expect(onRemoveRow).toHaveBeenCalledWith(["row-0", "row-1"]);
+    });
   });
 });

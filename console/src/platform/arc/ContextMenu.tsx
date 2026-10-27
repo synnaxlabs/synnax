@@ -9,17 +9,17 @@
 
 import "@/platform/arc/ContextMenu.css";
 
-import { arc, query, task } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Arc, type Flux, Synnax, Task } from "@synnaxlabs/pluto";
+import { Access, Arc, type Flux, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { useCaptureDeploy } from "@/platform/arc/useCaptureDeploy";
+import { useDriftedTaskKeys } from "@/platform/arc/useDriftedTaskKeys";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -45,20 +45,11 @@ export const ContextMenu = ({
   const someSelected = keys.length > 0;
   const isSingle = keys.length === 1;
 
-  const client = Synnax.use();
   const canControl = Framer.useCanCommand();
   const captureDeploy = useCaptureDeploy();
   const { update: runCommand } = Task.useCommand({ afterSuccess: captureDeploy });
-  const redeployTaskKeys =
-    client == null || !canControl
-      ? []
-      : keys
-          .map((key) => client.arcs.task.getCached(key))
-          .filter(
-            (tsk): tsk is task.Task =>
-              query.isLive(tsk) && tsk != null && task.drifted(tsk),
-          )
-          .map(({ key }) => key);
+  const driftedTaskKeys = useDriftedTaskKeys(keys);
+  const redeployTaskKeys = canControl ? driftedTaskKeys : [];
 
   const dispatch = Session.useDispatch();
   const openTab = Panel.useOpenTab();
@@ -66,17 +57,14 @@ export const ContextMenu = ({
   const handleLink = Core.useCopyLinkToClipboard();
   const confirm = Modals.useConfirmDelete({ type: "Arc" });
   const { update: del } = Arc.useDelete({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
-        const arcKeys = array.toArray(data);
-        if (arcKeys.length === 0) return false;
-        const arcs = getItem(arcKeys);
-        if (!(await confirm(arcs))) return false;
-        dispatch(Session.Arc.remove({ keys: arcKeys }));
-        return data;
-      },
-      [getItem, dispatch],
-    ),
+    beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<arc.Key | arc.Key[]>) => {
+      const arcKeys = array.toArray(data);
+      if (arcKeys.length === 0) return false;
+      const arcs = getItem(arcKeys);
+      if (!(await confirm(arcs))) return false;
+      dispatch(Session.Arc.remove({ keys: arcKeys }));
+      return data;
+    },
   });
 
   const handleEdit = () => {

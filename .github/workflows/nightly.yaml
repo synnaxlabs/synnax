@@ -51,3 +51,54 @@ jobs:
             --header "Content-Type: application/json" \
             --data "{\"text\": \"Nightly CI failed: $RUN_URL\"}" \
             "$SLACK_WEBHOOK_URL"
+
+  triage-prompt:
+    name: Write the triage prompt
+    needs: ci
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/agents
+
+      - name: Write the prompt
+        id: prompt
+        env:
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/nightly-triage.md
+            printf '\nThe failed nightly run is %s.\n' "$RUN_URL"
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  triage:
+    name: Triage
+    needs: triage-prompt
+    # The plain success() check would see the failed ci job and skip this one.
+    if: always() && needs.triage-prompt.result == 'success'
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.triage-prompt.outputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: pr
+      title: "[nightly] Fix the failure in run ${{ github.run_id }}"
+      labels: review/bot
+      timeout-minutes: 90
+    secrets: inherit

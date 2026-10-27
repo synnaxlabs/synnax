@@ -19,7 +19,7 @@ import (
 
 func TestTime(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "STL Time Suite")
+	RunSpecs(t, "STL Time Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -13,7 +13,7 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-const { next, prev, nextURL, prevURL } = Astro.props;
+const { next, prev, nextURL, prevURL, nextGroup, prevGroup } = Astro.props;
 ---
 
 <Flex.Box className="next-prev" empty>
@@ -23,25 +23,27 @@ const { next, prev, nextURL, prevURL } = Astro.props;
             {prev != null && (
                 <>
                     <Icon.Caret.Left />
-                    <Flex.Box direction="y" gap="small">
-                        <Text.Text level="small" color={7} weight={400}>
-                            Previous
+                    <Flex.Box direction="y">
+                        <Text.Text level="small" className="next-prev__label">
+                            {prevGroup == null
+                                ? "Previous"
+                                : `Previous in ${prevGroup}`}
                         </Text.Text>
-                        <Text.Text>
+                        <Text.Text className="next-prev__title">
                             <InlineCode text={prev} />
                         </Text.Text>
                     </Flex.Box>
                 </>
             )}
         </Flex.Box>
-        <Flex.Box direction="x" el="a" className="link" href={nextURL}>
+        <Flex.Box direction="x" el="a" className="link link--next" href={nextURL}>
             {next != null && (
                 <>
-                    <Flex.Box direction="y" gap="small">
-                        <Text.Text level="small" color={8} weight={400}>
-                            Next
+                    <Flex.Box direction="y">
+                        <Text.Text level="small" className="next-prev__label">
+                            {nextGroup == null ? "Next" : `Next in ${nextGroup}`}
                         </Text.Text>
-                        <Text.Text>
+                        <Text.Text className="next-prev__title">
                             <InlineCode text={next} />
                         </Text.Text>
                     </Flex.Box>
@@ -57,22 +59,50 @@ const { next, prev, nextURL, prevURL } = Astro.props;
         margin-top: 8rem;
 
         .link {
+            align-items: center;
+            gap: 1.5rem;
             cursor: pointer;
+
+            & > .pluto-flex {
+                gap: 0.5rem;
+            }
+
             &:hover {
                 text-decoration: none !important;
-                .pluto-text {
-                    color: var(--pluto-gray-l10);
+
+                .next-prev__title {
+                    text-decoration: underline;
+                    text-decoration-color: var(--pluto-gray-l6);
                 }
+
                 .pluto-icon {
-                    color: var(--pluto-gray-l10);
-                    transform: scale(1.2) !important;
+                    color: var(--pluto-gray-l11);
+                    transform: translateX(-0.5rem);
                 }
             }
         }
 
-        .pluto-text {
-            color: var(--pluto-gray-l9);
-            font-weight: 400;
+        .link--next {
+            text-align: end;
+
+            & > .pluto-flex {
+                align-items: flex-end;
+            }
+
+            &:hover .pluto-icon {
+                transform: translateX(0.5rem);
+            }
+        }
+
+        .next-prev__label {
+            font-weight: 500;
+            color: var(--pluto-gray-l8);
+        }
+
+        .next-prev__title {
+            margin: 0;
+            font-weight: 500;
+            color: var(--pluto-gray-l11);
         }
 
         code {
@@ -83,9 +113,10 @@ const { next, prev, nextURL, prevURL } = Astro.props;
             font-size: inherit;
             line-height: inherit;
         }
+
         .pluto-icon {
-            transition: all 0.2s ease;
-            color: var(--pluto-gray-l9);
+            transition: transform 0.2s ease;
+            color: var(--pluto-gray-l8);
             width: 3rem;
             height: 3rem;
         }

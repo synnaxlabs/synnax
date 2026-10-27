@@ -19,6 +19,8 @@
 #include "x/cpp/telem/series.h"
 
 namespace driver::opcua::types {
+// NOLINTBEGIN(misc-explicit-constructor): each wrapper converts to the open62541 type
+// it holds.
 struct Node {
     x::telem::DataType data_type;
     std::string node_class;
@@ -27,16 +29,16 @@ struct Node {
     bool is_array;
 
     Node(
-        const x::telem::DataType &data_type,
-        const std::string &name,
-        const std::string &node_id,
-        const std::string &node_class,
+        x::telem::DataType data_type,
+        std::string name,
+        std::string node_id,
+        std::string node_class,
         const bool is_array
     ):
-        data_type(data_type),
-        node_class(node_class),
-        name(name),
-        node_id(node_id),
+        data_type(std::move(data_type)),
+        node_class(std::move(node_class)),
+        name(std::move(name)),
+        node_id(std::move(node_id)),
         is_array(is_array) {}
 
     explicit Node(x::json::Parser &p):
@@ -45,7 +47,7 @@ struct Node {
         node_id(p.field<std::string>("node_id")),
         is_array(p.field<bool>("is_array", false)) {}
 
-    x::json::json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"data_type", data_type.name()},
             {"name", name},
@@ -57,7 +59,7 @@ struct Node {
 };
 
 class NodeId {
-    UA_NodeId id_;
+    UA_NodeId id_{};
 
 public:
     NodeId() { UA_NodeId_init(&id_); }
@@ -96,7 +98,7 @@ public:
 std::string node_class_to_string(const UA_NodeClass &node_class);
 
 class Variant {
-    UA_Variant var_;
+    UA_Variant var_{};
 
 public:
     Variant() { UA_Variant_init(&var_); }
@@ -127,11 +129,11 @@ public:
 };
 
 class ReadResponse {
-    UA_ReadResponse res_;
+    UA_ReadResponse res_{};
 
 public:
     ReadResponse() { UA_ReadResponse_init(&res_); }
-    explicit ReadResponse(const UA_ReadResponse &res) { res_ = res; }
+    explicit ReadResponse(const UA_ReadResponse &res): res_(res) {}
     ~ReadResponse() { UA_ReadResponse_clear(&res_); }
 
     ReadResponse(const ReadResponse &) = delete;
@@ -154,11 +156,11 @@ public:
 };
 
 class WriteResponse {
-    UA_WriteResponse res_;
+    UA_WriteResponse res_{};
 
 public:
     WriteResponse() { UA_WriteResponse_init(&res_); }
-    explicit WriteResponse(const UA_WriteResponse &res) { res_ = res; }
+    explicit WriteResponse(const UA_WriteResponse &res): res_(res) {}
     ~WriteResponse() { UA_WriteResponse_clear(&res_); }
 
     WriteResponse(const WriteResponse &) = delete;
@@ -222,7 +224,7 @@ public:
     x::errors::Error
     add_value(const UA_NodeId &node_id, const x::telem::Series &series);
 
-    UA_WriteRequest build() const {
+    [[nodiscard]] UA_WriteRequest build() const {
         UA_WriteRequest req;
         UA_WriteRequest_init(&req);
         req.nodesToWrite = const_cast<UA_WriteValue *>(values_.data());
@@ -256,7 +258,7 @@ public:
         return *this;
     }
 
-    UA_ReadRequest build() const {
+    [[nodiscard]] UA_ReadRequest build() const {
         UA_ReadRequest req;
         UA_ReadRequest_init(&req);
         req.nodesToRead = const_cast<UA_ReadValueId *>(ids_.data());
@@ -269,7 +271,7 @@ public:
 };
 
 class LocalizedText {
-    UA_LocalizedText text_;
+    UA_LocalizedText text_{};
 
 public:
     LocalizedText() { UA_LocalizedText_init(&text_); }
@@ -298,7 +300,7 @@ public:
 };
 
 class QualifiedName {
-    UA_QualifiedName name_;
+    UA_QualifiedName name_{};
 
 public:
     QualifiedName() { UA_QualifiedName_init(&name_); }
@@ -329,7 +331,7 @@ public:
 /// @brief RAII wrapper for UA_String that automatically manages memory.
 /// This class is move-only to prevent expensive copies.
 class String {
-    UA_String str_;
+    UA_String str_{};
 
 public:
     String() { UA_String_init(&str_); }
@@ -358,7 +360,7 @@ public:
 /// @brief RAII wrapper for UA_ByteString that automatically manages memory.
 /// This class is move-only to prevent expensive copies.
 class ByteString {
-    UA_ByteString str_;
+    UA_ByteString str_{};
 
 public:
     ByteString() { UA_ByteString_init(&str_); }
@@ -384,4 +386,5 @@ public:
     /// @brief Get mutable pointer for output parameters
     UA_ByteString *ptr() { return &str_; }
 };
+// NOLINTEND(misc-explicit-constructor)
 }

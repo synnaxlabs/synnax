@@ -14,12 +14,11 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -30,7 +29,6 @@ type ServiceConfig struct {
 	alamos.Instrumentation
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Search   *search.Index
 	Signals  *signals.Provider
 }
 
@@ -42,7 +40,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -51,14 +48,14 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("policy")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Policy]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Policy]
+	indexes indexes
 }
 
 func OpenService(
@@ -69,11 +66,12 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Policy]{
 		DB:              cfg.DB,
+		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 		Migrations:      versions.Migrations,
 	}); err != nil {
@@ -89,7 +87,6 @@ func OpenService(
 		}
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -110,5 +107,6 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX:   s.cfg.DB,
 		gorp:     s.table.NewRetrieve(),
 		ontology: s.cfg.Ontology,
+		indexes:  s.indexes,
 	}
 }

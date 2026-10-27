@@ -20,24 +20,8 @@ import (
 
 func TestPaths(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin TS Paths Suite")
+	RunSpecs(t, "Plugin TS Paths Suite", SuiteConfig())
 }
-
-var _ = Describe("FindPackage", func() {
-	It("Should return nil for paths outside any known workspace", func() {
-		Expect(paths.FindPackage("vendor/foo")).To(BeNil())
-	})
-	It("Should return the matching mapping for a client/ts path", func() {
-		pkg := paths.FindPackage("client/ts/src/schematic")
-		Expect(pkg).ToNot(BeNil())
-		Expect(pkg.PackageName).To(Equal("@synnaxlabs/client"))
-	})
-	It("Should match the longest applicable prefix", func() {
-		pkg := paths.FindPackage("pluto/src/vis/diagram")
-		Expect(pkg).ToNot(BeNil())
-		Expect(pkg.PackageName).To(Equal("@synnaxlabs/pluto"))
-	})
-})
 
 var _ = Describe("CalculateImport", func() {
 	It("Should produce an internal alias when both paths share a workspace", func() {
@@ -57,6 +41,10 @@ var _ = Describe("CalculateImport", func() {
 			Expect(got).To(Equal("@synnaxlabs/x"))
 		},
 	)
+	It("Should produce the Pluto package name for a Pluto target", func() {
+		got := paths.CalculateImport("client/ts/src/schematic", "pluto/src/vis/diagram")
+		Expect(got).To(Equal("@synnaxlabs/pluto"))
+	})
 	It("Should fall back to a relative import when the source is unknown", func() {
 		got := paths.CalculateImport("vendor/foo", "vendor/bar")
 		Expect(got).To(Equal("../bar"))

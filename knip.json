@@ -1,44 +1,46 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "rules": { "cycles": "error" },
+  "rules": {
+    "cycles": "error"
+  },
   "workspaces": {
     "alamos/ts": {
-      "entry": ["src/index.ts", "src/dev/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["src/index.ts!", "src/dev/index.ts!"],
+      "project": ["src/**/*.ts!"]
     },
     "arc/ts": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["src/index.ts!"],
+      "project": ["src/**/*.ts!"]
     },
     "client/ts": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["src/index.ts!"],
+      "project": ["src/**/*.ts!"]
     },
     "drift": {
-      "entry": ["src/index.ts", "src/react/index.ts", "src/tauri/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"]
+      "entry": ["src/index.ts!", "src/react/index.ts!", "src/tauri/index.ts!"],
+      "project": ["src/**/*.{ts,tsx}!"]
     },
     "freighter/ts": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["src/index.ts!"],
+      "project": ["src/**/*.ts!"]
     },
     "lyra": {
-      "entry": ["src/*/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"],
+      "entry": ["src/*/index.ts!"],
+      "project": ["src/**/*.{ts,tsx}!"],
       "ignoreDependencies": ["@fontsource/geist-mono", "@fontsource-variable/inter"]
     },
     "pluto": {
-      "entry": ["src/index.ts", "src/ether.ts", "src/testutil/index.ts"],
-      "project": ["src/**/*.{ts,tsx}"],
+      "entry": ["src/index.ts!", "src/ether.ts!", "src/testutil/index.ts"],
+      "project": ["src/**/*.{ts,tsx}!"],
       "ignoreDependencies": ["vscode"]
     },
     "x/ts": {
-      "entry": ["src/index.ts", "src/bench/index.ts"],
-      "project": ["src/**/*.ts"]
+      "entry": ["src/index.ts!", "src/bench/index.ts"],
+      "project": ["src/**/*.ts!"]
     },
     "console": {
-      "entry": ["src/flags.ts"],
-      "project": ["src/**/*.{ts,tsx}"],
+      "entry": ["src/flags.ts!"],
+      "project": ["src/**/*.{ts,tsx}!"],
       "ignoreIssues": {
         "src/app/nav/drawer/Bottom.tsx": ["exports"],
         "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
@@ -47,41 +49,49 @@
       }
     },
     "oracle/lsp/extensions/vscode": {
-      "project": ["src/**/*.ts"]
+      "project": ["src/**/*.ts!"]
     },
     "studio": {
-      "entry": ["videos.ts", "scripts/*.ts", "films/*.ts", "src/remotion/entry.ts"],
-      "project": ["{src,scripts,films}/**/*.{ts,tsx}"]
+      "entry": [
+        "videos.ts!",
+        "scripts/*.ts!",
+        "films/*.ts!",
+        "src/cli/{batch,clean,film,gallery,produce,upload}.ts!",
+        "src/remotion/entry.ts!"
+      ],
+      "project": ["{src,scripts,films}/**/*.{ts,tsx}!"],
+      "ignoreBinaries": ["uv"]
     },
     "site/common": {
-      "entry": ["src/**/*.{astro,ts}"],
-      "project": ["src/**/*.{ts,astro}"]
+      "entry": ["src/**/*.{astro,ts}!"],
+      "project": ["src/**/*.{ts,astro}!"]
     },
     "site/docs": {
-      "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts"],
-      "project": ["src/**/*.{ts,tsx,astro,mdx}"]
+      "entry": ["src/**/*.astro!", "src/**/*.tsx!", "src/**/*.ts!"],
+      "project": ["src/**/*.{ts,tsx,astro,mdx}!"]
     },
     "site/foundation": {
-      "entry": ["src/pages/**/*.astro"],
-      "project": ["src/**/*.{ts,tsx,astro}"]
+      "entry": ["src/pages/**/*.astro!"],
+      "project": ["src/**/*.{ts,tsx,astro}!"]
     },
     "site/portal": {
-      "entry": ["src/**/*.astro", "src/**/*.tsx", "src/**/*.ts", "scripts/*.ts"],
-      "project": ["src/**/*.{ts,tsx,astro}", "scripts/*.ts"]
+      "entry": ["src/**/*.astro!", "src/**/*.tsx!", "src/**/*.ts!", "scripts/*.ts!"],
+      "project": ["src/**/*.{ts,tsx,astro}!", "scripts/*.ts!"]
     },
     "site/www": {
-      "entry": ["src/pages/**/*.astro"],
-      "project": ["src/**/*.{ts,tsx,astro}"]
+      "entry": ["src/pages/**/*.astro!"],
+      "project": ["src/**/*.{ts,tsx,astro}!"]
     },
     "configs/eslint": {
-      "project": ["*.ts", "rules/**/*.ts"]
+      "project": ["*.ts!", "rules/**/*.ts!"]
     },
     "configs/ts": {},
     "configs/vite": {
-      "project": ["src/**/*.ts"]
+      "entry": ["src/index.ts!", "src/parallel.ts!"],
+      "project": ["src/**/*.ts!"]
     },
     "configs/stylelint": {
-      "project": ["*.ts"],
+      "project": ["*.ts!"],
       "ignoreDependencies": ["stylelint-config-standard"]
     }
   },

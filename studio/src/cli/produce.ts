@@ -18,6 +18,8 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --script <path>   video script module (default export: async (session) => {})
   --out <dir>       output directory for frames, timeline, and video
   --url <url>       Console URL (default http://localhost:5173)
+  --desktop-url <url>  Console URL of a Desktop build (VITE_DESKTOP=true), for
+                    scripts that export desktop (default http://localhost:5175)
   --core <mode>     ephemeral | external (default ephemeral): ephemeral starts a
                     fresh in-memory core for the capture; external uses whatever
                     is already listening on --port
@@ -26,8 +28,8 @@ const usage = `usage: pnpm produce --script <path> --out <dir> [options]
   --port <n>        core port (default 9095 ephemeral, 9090 external); the dev
                     Console is pointed at it via its dev-connection override
   --theme <t>       light | dark (default light)
-  --width <px>      capture viewport width in CSS px (default 1512)
-  --height <px>     capture viewport height in CSS px (default 945)
+  --width <px>      capture viewport width in CSS px (default 1600)
+  --height <px>     capture viewport height in CSS px (default 900)
   --dsf <n>         capture device scale factor (default 2)
   --target <t>      output width: 1080p | 1440p | 4k | <pixels> (default 1080p)
   --draft           fast review render: higher crf + fast encoder preset
@@ -49,6 +51,7 @@ const main = async (): Promise<void> => {
       script: { type: "string" },
       out: { type: "string" },
       url: { type: "string", default: "http://localhost:5173" },
+      "desktop-url": { type: "string" },
       core: { type: "string", default: "ephemeral" },
       "core-bin": { type: "string" },
       port: { type: "string" },
@@ -82,6 +85,7 @@ const main = async (): Promise<void> => {
       scriptPath: values.script,
       outDir,
       url: values.url,
+      desktopUrl: values["desktop-url"],
       theme,
       headed: values.headed,
       insecure: values.insecure,

@@ -29,6 +29,14 @@ export interface Call {
 const PASSTHROUGH: Record<string, unknown> = {
   measureText: { width: 8 },
   getImageData: { data: new Uint8ClampedArray() },
+  // WebGL handles and statuses, so programs compile and link against the recording.
+  createProgram: {},
+  createShader: {},
+  createBuffer: {},
+  getShaderParameter: true,
+  getProgramParameter: true,
+  getUniformLocation: {},
+  getAttribLocation: 0,
 };
 
 /** Style/state properties seeded so reads before a write return canvas-shaped defaults
@@ -152,6 +160,9 @@ export class Recorder {
 
   region: box.Box = box.ZERO;
   dpr: number = 1;
+  /** Incremented by {@link restore}. */
+  generation: number = 0;
+  private readonly restoreHandlers = new Set<() => void>();
 
   readonly loop = {
     set: (...args: unknown[]): void => {
@@ -163,6 +174,20 @@ export class Recorder {
     this.upper2d = buildCanvas();
     this.lower2d = buildCanvas();
     this.gl = buildCanvas();
+  }
+
+  onRestore(f: () => void): destructor.Destructor {
+    this.restoreHandlers.add(f);
+    return () => {
+      this.restoreHandlers.delete(f);
+    };
+  }
+
+  /** Stands in for a restore of the WebGL context: increments the generation and calls
+   * every function passed to {@link onRestore}. */
+  restore(): void {
+    this.generation++;
+    this.restoreHandlers.forEach((f) => f());
   }
 
   /** Resets every recording — the per-canvas calls and the scissor/erase/loop lists.

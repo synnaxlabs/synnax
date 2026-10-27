@@ -7,14 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from collections.abc import Mapping
-from typing import cast, overload
+from collections.abc import Mapping, Sequence
+from typing import TypeAlias, cast, overload
 
 import pandas as pd
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
-from freighter import AsyncWebsocketClient, UnaryClient, WebsocketClient
+from freighter import (
+    AsyncWebsocketClient,
+    FileTransport,
+    UnaryClient,
+    WebsocketClient,
+)
 from synnax import ontology
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError, ValidationError
@@ -22,6 +27,7 @@ from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
 from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
 from synnax.framer.iterator import AUTO_SPAN, Iterator
+from synnax.framer.reader import Reader
 from synnax.framer.streamer import DEFAULT_KEEP_ALIVE, AsyncStreamer, Streamer
 from synnax.framer.writer import CrudeWriterMode, Writer, WriterMode
 from synnax.telem import (
@@ -29,10 +35,22 @@ from synnax.telem import (
     CrudeTimeSpan,
     CrudeTimeStamp,
     MultiSeries,
+    Reduction,
+    StrideReduction,
     TimeRange,
     TimeSpan,
 )
 from x.control import Authority, CrudeAuthority
+from x.fs import FilePath
+
+# A str is a Sequence[str], so a list or tuple of names keeps the overloads disjoint.
+_FrameParams: TypeAlias = (
+    channel.Payload
+    | Sequence[channel.Key]
+    | Sequence[channel.Payload]
+    | list[str]
+    | tuple[str, ...]
+)
 
 ontology_type = ontology.ID(type="framer")
 
@@ -48,6 +66,7 @@ class Client:
     _unary_client: UnaryClient
     _channels: Retriever
     _deleter: Deleter
+    _reader: Reader
     instrumentation: Instrumentation
 
     def __init__(
@@ -55,6 +74,7 @@ class Client:
         stream_client: WebsocketClient,
         async_client: AsyncWebsocketClient,
         unary_client: UnaryClient,
+        file_transport: FileTransport,
         retriever: Retriever,
         deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
@@ -64,6 +84,7 @@ class Client:
         self._unary_client = unary_client
         self._channels = retriever
         self._deleter = deleter
+        self._reader = Reader(retriever, file_transport)
         self.instrumentation = instrumentation
 
     def open_writer(
@@ -144,7 +165,7 @@ class Client:
         tr: TimeRange,
         channels: channel.Params,
         chunk_size: int = 100000,
-        downsample_factor: int = 1,
+        reduction: Reduction | None = None,
     ) -> Iterator:
         """Opens a new iterator over the given channels within the provided time range.
 
@@ -152,9 +173,9 @@ class Client:
         :param tr: A time range to iterate over.
         :param chunk_size: The number of samples to read in a chunk with AutoSpan.
             Defaults to 100000.
-        :param downsample_factor: The factor to downsample the data by, keeping every
-            n-th sample. Must be between 0 and 2**32 - 1; 0 and 1 keep every sample.
-            Defaults to 1.
+        :param reduction: How the Core reduces the samples of each channel. A
+            StrideReduction keeps every factor-th sample. A LimitReduction reduces each
+            channel to about point_limit points. Defaults to keeping every sample.
         :returns: An Iterator over the given channels within the provided time
         range. See the Iterator documentation for more.
         """
@@ -165,7 +186,7 @@ class Client:
             adapter=adapter,
             client=self._stream_client,
             chunk_size=chunk_size,
-            downsample_factor=downsample_factor,
+            reduction=reduction,
             instrumentation=self.instrumentation,
         )
 
@@ -227,33 +248,39 @@ class Client:
     def read(
         self,
         tr: TimeRange,
-        channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
-    ) -> Frame: ...
+        channels: channel.Key | str,
+        reduction: Reduction | None = None,
+    ) -> MultiSeries: ...
 
     @overload
     def read(
         self,
         tr: TimeRange,
-        channels: channel.Key | str,
-    ) -> MultiSeries: ...
+        channels: _FrameParams,
+        reduction: Reduction | None = None,
+    ) -> Frame: ...
 
     def read(
         self,
         tr: TimeRange,
         channels: channel.Params,
+        reduction: Reduction | None = None,
     ) -> MultiSeries | Frame:
-        """
-        Reads telemetry from the channel between the two timestamps.
+        """Reads telemetry from the channels between the two timestamps.
 
         :param tr: The time range to read from.
-        :param channels: The key or name of the channel to read from.
-
-        :returns: A tuple where the first item is a numpy array containing the telemetry
-        and the second item is the time range occupied by that array.
+        :param channels: A single channel key or name, or a sequence of channel keys or
+        names.
+        :param reduction: How the Core reduces the samples of each channel. A
+        StrideReduction keeps every factor-th sample. A LimitReduction reduces each
+        channel to about point_limit points. Defaults to keeping every sample.
+        :returns: A MultiSeries for a single key or name. A Frame for a sequence, even
+        a sequence with one item.
+        :raises QueryError: If a single channel has no data in the time range.
         """
         normal = channel.normalize_params(channels)
-        frame = self._read_frame(tr, channels)
-        if len(normal.channels) > 1:
+        frame = self._reader.read(tr, channels, reduction)
+        if not normal.single:
             return frame
         series = frame.get(normal.channels[0], None)
         if series is None:
@@ -262,6 +289,45 @@ class Client:
             )
         return series
 
+    def read_csv(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        dest: FilePath,
+        reduction: StrideReduction | None = None,
+    ) -> None:
+        """
+        Reads telemetry from the channels between the two timestamps into a CSV file.
+        The Core writes the CSV, so the client never holds the whole export in memory.
+
+        :param tr: The time range to read from.
+        :param channels: The keys or names of the channels to read from.
+        :param dest: The path of the CSV file to write. It must end in .csv.
+        :param reduction: Keeps every factor-th sample of each channel. Defaults to
+        keeping every sample.
+        """
+        self._reader.read_csv(tr, channels, dest, reduction)
+
+    def read_tdms(
+        self,
+        tr: TimeRange,
+        channels: channel.Params,
+        dest: FilePath,
+        reduction: StrideReduction | None = None,
+    ) -> None:
+        """
+        Reads telemetry from the channels between the two timestamps into an NI TDMS
+        file. The Core writes the file, so the client never holds the whole export in
+        memory.
+
+        :param tr: The time range to read from.
+        :param channels: The keys or names of the channels to read from.
+        :param dest: The path of the TDMS file to write. It must end in .tdms.
+        :param reduction: Keeps every factor-th sample of each channel. Defaults to
+        keeping every sample.
+        """
+        self._reader.read_tdms(tr, channels, dest, reduction)
+
     @overload
     def read_latest(
         self,
@@ -272,7 +338,7 @@ class Client:
     @overload
     def read_latest(
         self,
-        channels: list[channel.Key] | tuple[channel.Key] | list[str] | tuple[str],
+        channels: _FrameParams,
         n: int = 1,
     ) -> Frame: ...
 
@@ -281,18 +347,14 @@ class Client:
         channels: channel.Params,
         n: int = 1,
     ) -> Frame | MultiSeries:
-        """Reads the latest n samples from the given channel(s).
+        """Reads the latest n samples from the given channels. If fewer than n samples
+        are available, returns only the samples that exist.
 
-        If fewer than n samples are available, returns only the samples that
-        exist.
-
-        Args:
-            channels: A single channel key/name or a list of channel keys/names.
-            n: The maximum number of samples to read. Defaults to 1.
-
-        Returns:
-            A MultiSeries when a single channel is provided, or a Frame when
-            multiple channels are provided.
+        :param channels: A single channel key or name, or a sequence of channel keys or
+        names.
+        :param n: The maximum number of samples to read from each channel.
+        :returns: A MultiSeries for a single key or name. A Frame for a sequence, even
+        a sequence with one item.
         """
         normal = channel.normalize_params(channels)
         aggregate = Frame()
@@ -305,7 +367,7 @@ class Client:
                 i.seek_last()
                 i.prev(AUTO_SPAN)
                 aggregate.append(i.value)
-        if len(normal.channels) > 1:
+        if not normal.single:
             return aggregate
         result = aggregate.get(normal.channels[0], MultiSeries([]))
         if result is None:
@@ -376,14 +438,3 @@ class Client:
         :param tr: time range to delete data from.
         """
         self._deleter.delete(channels, tr)
-
-    def _read_frame(
-        self,
-        tr: TimeRange,
-        channels: channel.Params,
-    ) -> Frame:
-        aggregate = Frame()
-        with self.open_iterator(tr, channels) as it:
-            for fr in it:
-                aggregate.append(fr)
-        return aggregate

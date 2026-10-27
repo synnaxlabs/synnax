@@ -15,6 +15,8 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";
 
+export const SCAN_TYPE = `${PREFIX}_scan`;
+
 export type Scale = labjack.Scale;
 export type ScaleType = labjack.ScaleType;
 export const SCALE_SCHEMAS = labjack.SCALE_SCHEMAS;
@@ -130,8 +132,6 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = labjack.writeConfigZ;
@@ -157,5 +157,3 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export interface WritePayload extends task.Payload<WriteSchemas> {}

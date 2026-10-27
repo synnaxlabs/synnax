@@ -26,19 +26,18 @@ import {
   type PropsWithChildren,
   type ReactElement,
   startTransition,
-  useCallback,
-  useMemo,
+  useRef,
   useState,
 } from "react";
 import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { aetherTest } from "@/aether/test";
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
+import { createAetherProvider } from "@/testutil/Aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -55,12 +54,14 @@ const quiet = (): void => {};
 
 /** Mounts the real provider against a live cluster reached through `port`. */
 const createLiveWrapper = (port: number): FC<PropsWithChildren> => {
-  const AetherProvider = aetherTest.createProvider({
+  const AetherProvider = createAetherProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
   });
   const connParams = {
     ...TEST_CLIENT_PARAMS,
+    // The proxy listens on this machine, even when the Core runs on another.
+    host: "localhost",
     port,
     // Unbounded retries: a capped breaker stops the streamer from ever reopening.
     retry: {
@@ -384,8 +385,8 @@ describe("use", () => {
     ): Promise<Error[]> => {
       const Display = (): ReactElement => {
         const value = use({ key });
-        const format = useCallback(() => `n=${value}`, [value]);
-        return <div data-testid="value">{format()}</div>;
+        useRef(null);
+        return <div data-testid="value">{`n=${value}`}</div>;
       };
       const Harness = (): ReactElement => {
         const [mounted, setMounted] = useState(false);
@@ -1301,7 +1302,7 @@ describe("use connection changes", () => {
 
     const Display = (): ReactElement => {
       const value = use({ key: "disconnect-test" });
-      const label = useMemo(() => `value-${value}`, [value]);
+      const label = `value-${value}`;
       return <div data-testid="value">{label}</div>;
     };
 
@@ -1630,6 +1631,23 @@ describe("createResultSelector", () => {
     };
   };
 
+  it("selects an answer its fetch put in the cache with no change event", async () => {
+    let cached: Data | undefined;
+    const { createResultSelector } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => {
+        cached = { name: "fetched", value: 2 };
+        return cached;
+      },
+      onChange: () => () => {},
+      getCached: () => cached,
+    });
+    const useName = createResultSelector((data) => data.name);
+    const { result } = renderHook(() => useName({ key: "a" }), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.variant).toEqual("success"));
+    expect(result.current.data).toEqual("fetched");
+  });
+
   // Regression: mirrors the useResult contract — a settled failure must not
   // answer later mounts.
   it("retries a settled failure when a new mount reads the query", async () => {
@@ -1784,6 +1802,48 @@ describe("useResult", () => {
       },
     };
   };
+
+  it("reads an answer its fetch put in the cache with no change event", async () => {
+    let cached: Data | undefined;
+    const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => {
+        cached = { name: "fetched", value: 2 };
+        return cached;
+      },
+      onChange: () => () => {},
+      getCached: () => cached,
+    });
+    const { result } = renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.variant).toEqual("success"));
+    expect(result.current.data).toEqual({ name: "fetched", value: 2 });
+  });
+
+  it("does not re-read other queries when a fetch answers", async () => {
+    const answers = new Map<string, Data>([["a", { name: "a", value: 1 }]]);
+    const fetched = Promise.withResolvers<Data>();
+    const getCached = vi.fn(({ query }: { query: { key: string } }) =>
+      answers.get(query.key),
+    );
+    const { useResult } = Flux.createRetrieve<{ key: string }, Data>({
+      name: "Resource",
+      retrieve: async () => await fetched.promise,
+      onChange: () => () => {},
+      getCached,
+    });
+    renderHook(() => useResult({ key: "a" }), { wrapper: Wrapper });
+    const b = renderHook(() => useResult({ key: "b" }), { wrapper: Wrapper });
+    const readsOfA = (): number =>
+      getCached.mock.calls.filter(([{ query }]) => query.key === "a").length;
+    const before = readsOfA();
+    await act(async () => {
+      answers.set("b", { name: "b", value: 2 });
+      fetched.resolve({ name: "b", value: 2 });
+      await fetched.promise;
+    });
+    await waitFor(() => expect(b.result.current.variant).toEqual("success"));
+    expect(readsOfA()).toEqual(before);
+  });
 
   it("serves the cached answer without fetching", () => {
     const harness = createHarness({ name: "cached", value: 1 });

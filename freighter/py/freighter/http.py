@@ -11,7 +11,8 @@ import json
 import os
 import pathlib
 import ssl
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable, Iterator
+from contextlib import contextmanager
 from typing import IO, Any
 from urllib.parse import urlencode
 
@@ -27,7 +28,11 @@ from x.codec import Codec
 from x.exceptions import ExceptionPayload, decode_exception
 from x.fs import FilePath, stream_to_file
 
-_FILE_CONTENT_TYPES: dict[str, str] = {"json": "application/json"}
+_FILE_CONTENT_TYPES: dict[str, str] = {
+    "json": "application/json",
+    "csv": "text/csv",
+    "tdms": "application/x-tdms",
+}
 
 
 def _file_content_type(path: FilePath) -> str:
@@ -62,6 +67,8 @@ class HTTPClient(MiddlewareCollector):
     - download: a typed request encoded via the codec, with the response streamed
       directly into a destination file path whose extension drives the Accept header
       (FileTransport).
+    - stream: the same request, with the response body handed back in chunks instead of
+      written to disk, and the Accept header given by the caller (FileTransport).
     """
 
     _pool: PoolManager
@@ -149,25 +156,48 @@ class HTTPClient(MiddlewareCollector):
         An empty response body is rejected as an error rather than written as a
         zero-byte file, so dest is left untouched in that case too.
         """
+        with self.stream(target, req, _file_content_type(dest)) as body:
+            stream_to_file(body, dest, allow_empty=False)
+
+    @contextmanager
+    def stream(
+        self, target: str, req: RQ, accept: str
+    ) -> Generator[Iterator[bytes], None, None]:
+        """
+        Sends req to target and returns a context manager over the response body, in
+        chunks as they arrive. accept drives the encoding the server picks for the body.
+
+        The request is issued on entering the context, so a transport failure or a
+        server error raises from the with statement rather than from the iterator.
+        Leaving the context releases the connection, whether or not the body was read.
+        """
         url = self._build_url(target)
+        res_container: list[BaseHTTPResponse | None] = [None]
 
         def finalizer(ctx: Context) -> Context:
             http_res, out_ctx = self._request(
                 ctx,
                 url=url,
                 content_type=self._codec.content_type(),
-                accept=_file_content_type(dest),
+                accept=accept,
                 body=self._codec.encode(req),
                 preload_content=False,
             )
-            try:
-                stream_to_file(http_res.stream(), dest, allow_empty=False)
-                return out_ctx
-            finally:
-                http_res.release_conn()
+            res_container[0] = http_res
+            return out_ctx
 
         in_ctx = Context(self._endpoint.protocol, url, "client")
-        self.exec(in_ctx, finalizer)
+        try:
+            self.exec(in_ctx, finalizer)
+            http_res = res_container[0]
+            assert http_res is not None
+            yield http_res.stream()
+        finally:
+            if (res := res_container[0]) is not None:
+                # Closing drops a connection that still holds unread body bytes. A read
+                # to the end has already returned the connection to the pool.
+                res.close()
+                res.release_conn()
 
     def _build_url(self, target: str, params: dict[str, str] | None = None) -> str:
         url = self._endpoint.child(target).stringify()

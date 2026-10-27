@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FLAG_PORTAL, VERCEL_ENV } from "astro:env/client";
+import { VERCEL_ENV } from "astro:env/client";
 
 // Preview deploys show every flagged surface, so reviewers see dark work.
 const PREVIEW = VERCEL_ENV === "preview";
 
-/** Turns a `FLAG_<NAME>` value from `astro:env/client` into a registry entry. */
-export const flag = (value: boolean): boolean => value || PREVIEW;
+/**
+ * Turns a `FLAG_<NAME>` value from `astro:env/client` into a registry entry. Dev servers
+ * and preview deploys turn every flag on.
+ */
+export const flag = (value: boolean): boolean =>
+  value || PREVIEW || import.meta.env.DEV;
 
 /**
  * Static build-time flags that hide unfinished docs in production. Each entry names its
  * owner and what removes it. `FLAG_<NAME>=true` at build time turns one on; set it in
  * Vercel for the site and as a repository variable for the search index job.
  */
-export const FLAGS = {
-  // Portal team. Hides the header's Log in button until the portal launches, which
-  // removes the flag.
-  portal: flag(FLAG_PORTAL),
-} satisfies Record<string, boolean>;
+export const FLAGS = {} satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
 

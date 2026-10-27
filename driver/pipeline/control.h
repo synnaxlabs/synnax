@@ -36,6 +36,10 @@ public:
     /// This method may be called even if stop() was called on the pipeline.
     virtual void stopped_with_err(const x::errors::Error &_) {}
 
+    /// @brief called on the pipeline thread each time the streamer opens. Frames
+    /// written to the Core after it is called reach write().
+    virtual void opened() {}
+
     virtual ~Sink() = default;
 };
 
@@ -145,7 +149,7 @@ public:
     /// hardware errors.
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
-        std::shared_ptr<synnax::Synnax> client,
+        const std::shared_ptr<synnax::Synnax> &client,
         const synnax::framer::StreamerConfig &streamer_config,
         const std::shared_ptr<Sink> &sink,
         const x::breaker::Config &breaker_config,

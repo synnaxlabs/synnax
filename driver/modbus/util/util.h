@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
@@ -65,7 +67,7 @@ inline std::pair<x::telem::SampleValue, x::errors::Error> parse_register_value(
                 raw = static_cast<uint32_t>(word1) << 16 | word2;
             else
                 raw = static_cast<uint32_t>(word2) << 16 | word1;
-            float result;
+            float result = NAN;
             std::memcpy(&result, &raw, sizeof(float));
             return {result, x::errors::NIL};
         }
@@ -112,7 +114,7 @@ inline std::pair<x::telem::SampleValue, x::errors::Error> parse_register_value(
                 raw = static_cast<uint64_t>(words[3]) << 48 |
                       static_cast<uint64_t>(words[2]) << 32 |
                       static_cast<uint64_t>(words[1]) << 16 | words[0];
-            double result;
+            double result = NAN;
             std::memcpy(&result, &raw, sizeof(double));
             return {result, x::errors::NIL};
         }
@@ -194,7 +196,7 @@ inline x::errors::Error format_register(
         }
         if (dt == x::telem::FLOAT32_T) {
             const auto val = x::telem::cast<float>(value);
-            uint32_t raw;
+            uint32_t raw = 0;
             std::memcpy(&raw, &val, sizeof(float));
             if (swap_words) {
                 dest[0] = swap_bytes_if_needed(raw >> 16);
@@ -237,7 +239,7 @@ inline x::errors::Error format_register(
         }
         if (dt == x::telem::FLOAT64_T) {
             const auto val = x::telem::cast<double>(value);
-            uint64_t raw;
+            uint64_t raw = 0;
             std::memcpy(&raw, &val, sizeof(double));
             if (swap_words) {
                 dest[0] = swap_bytes_if_needed(raw >> 48);

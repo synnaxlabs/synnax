@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/client",
-  "version": "0.59.0",
+  "version": "0.60.0",
   "description": "The Synnax Client Library",
   "keywords": [
     "synnax",
@@ -27,7 +27,7 @@
     "check-types": "tsc --noEmit",
     "watch": "vite build --watch",
     "test": "vitest",
-    "bench": "vitest bench",
+    "bench": "vitest bench --config vitest.bench.config.ts",
     "cov": "vitest --coverage",
     "lint": "eslint",
     "fix": "eslint --fix"

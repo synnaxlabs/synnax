@@ -1,0 +1,56 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/ontology"
+import "schemas/x/versions/color/v1"
+
+TabKey = v0.TabKey
+
+TabBase = v0.TabBase
+
+View = v1.View
+
+Tab = v1.Tab
+
+Node = v1.Node
+
+Key = v0.Key
+
+Panel struct {
+    key    Key = create {
+        @doc value "is the unique identifier for this panel."
+        @key
+    }
+    name   string       {
+        @doc value "is a human-readable name for the panel."
+    }
+    root   Node = { variant = "leaf", tabs = [] } {
+        @doc value "is the root of the panel tree."
+    }
+    parent ontology.ID? {
+        @doc value  """
+            is the parent resource for the panel in the ontology. Required on create and
+            absent on retrieve.
+        """
+        @go marshal omit
+    }
+    icon   string?      {
+        @doc value """
+            is the key of the icon that marks the panel in lists. When null, the Console
+            draws its default panel icon.
+        """
+    }
+    color  color.Color? {
+        @doc value "is the color of the panel's icon. When null, the theme picks it."
+    }
+
+    @doc value  "is a project-owned tree of visualization tabs."
+    @go marshal
+    @go migrate
+}

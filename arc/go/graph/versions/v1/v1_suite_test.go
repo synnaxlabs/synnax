@@ -19,7 +19,7 @@ import (
 
 func TestGraphV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Graph v1 Suite")
+	RunSpecs(t, "Graph v1 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

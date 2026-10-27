@@ -16,7 +16,22 @@ import synnax as sy
 
 # A notification expires on its own after a few seconds, so a button that is still
 # attached resolves at once.
-SILENCE_TIMEOUT = 1000
+_SILENCE_TIMEOUT = 1000
+
+_READ_JS = """(elements) => elements.map((el) => {
+  const text = (selector) => el.querySelector(selector)?.innerText.trim();
+  const fields = {
+    count: text(".pluto-text--small"),
+    timestamp: text(".pluto-notification__time"),
+    message: text(".pluto-notification__message"),
+    description: text(".pluto-notification__description"),
+  };
+  const read = Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value != null),
+  );
+  read.type = el.querySelector("svg[color*='error']") == null ? "info" : "error";
+  return read;
+})"""
 
 
 class NotificationsClient:
@@ -44,51 +59,11 @@ class NotificationsClient:
         poll_interval = 50 * sy.TimeSpan.MILLISECOND
 
         while timer.elapsed() < timeout_span:
-            notifications = []
-            notification_elements = self._all().all()
-
-            if len(notification_elements) > 0:
-                for notification in notification_elements:
-                    try:
-                        notification_data = {}
-
-                        count_element = notification.locator(".pluto-text--small").first
-                        if count_element.count() > 0:
-                            count_text = count_element.inner_text().strip()
-                            notification_data["count"] = count_text
-
-                        time_element = notification.locator(".pluto-notification__time")
-                        if time_element.count() > 0:
-                            timestamp = time_element.inner_text().strip()
-                            notification_data["timestamp"] = timestamp
-
-                        message_element = notification.locator(
-                            ".pluto-notification__message"
-                        )
-                        if message_element.count() > 0:
-                            message = message_element.inner_text().strip()
-                            notification_data["message"] = message
-
-                        description_element = notification.locator(
-                            ".pluto-notification__description"
-                        )
-                        if description_element.count() > 0:
-                            description = description_element.inner_text().strip()
-                            notification_data["description"] = description
-
-                        error_icon = notification.locator("svg[color*='error']")
-                        if error_icon.count() > 0:
-                            notification_data["type"] = "error"
-                        else:
-                            notification_data["type"] = "info"
-
-                        notifications.append(notification_data)
-
-                    except Exception as e:
-                        raise RuntimeError("Error parsing notification") from e
-
+            # One call reads every notification, so a toast that arrives mid-read cannot
+            # shift the others.
+            notifications: list[dict[str, Any]] = self._all().evaluate_all(_READ_JS)
+            if len(notifications) > 0:
                 return notifications
-
             sy.sleep(poll_interval)
 
         return []
@@ -132,14 +107,14 @@ class NotificationsClient:
         )
         if clear_all.count() > 0:
             try:
-                clear_all.dispatch_event("click", timeout=SILENCE_TIMEOUT)
+                clear_all.dispatch_event("click", timeout=_SILENCE_TIMEOUT)
             except PlaywrightTimeoutError:
                 # An expired toast can drop the count to four, which hides the control.
                 pass
         # Last to first: a silenced toast unmounts and shifts the indexes after it.
         for i in reversed(range(buttons.count())):
             try:
-                buttons.nth(i).dispatch_event("click", timeout=SILENCE_TIMEOUT)
+                buttons.nth(i).dispatch_event("click", timeout=_SILENCE_TIMEOUT)
             except PlaywrightTimeoutError:
                 pass
         try:
@@ -166,13 +141,28 @@ class NotificationsClient:
         except PlaywrightTimeoutError:
             return False
 
-    def wait_for(self, text: str) -> bool:
+    def wait_for(
+        self, text: str, name: str | None = None, description: str | None = None
+    ) -> bool:
         """Wait for a notification containing specific text to appear.
 
         :param text: Text to search for in the notification.
+        :param name: Text the notification's name must contain, if given.
+        :param description: Text the notification's description must contain, if
+            given.
         :returns: True if the notification was found, False if timeout.
         """
         notification = self._all().filter(has_text=text)
+        if name is not None:
+            notification = notification.filter(
+                has=self.page.locator(".pluto-notification__name", has_text=name)
+            )
+        if description is not None:
+            notification = notification.filter(
+                has=self.page.locator(
+                    ".pluto-notification__description", has_text=description
+                )
+            )
         try:
             notification.first.wait_for(state="visible", timeout=5000)
             return True

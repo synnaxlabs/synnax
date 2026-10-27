@@ -12,12 +12,13 @@ module(name = "synnax")
 bazel_dep(name = "abseil-cpp", version = "20260817.0")
 bazel_dep(name = "apple_support", version = "2.10.1")
 bazel_dep(name = "boost.uuid", version = "1.90.0.bcr.1")
-bazel_dep(name = "cpp-httplib", version = "0.46.0")
-bazel_dep(name = "curl", version = "8.22.0")
+bazel_dep(name = "cpp-httplib", version = "0.63.0")
+bazel_dep(name = "curl", version = "8.23.0")
 bazel_dep(name = "google_benchmark", version = "1.9.5")
 bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
 bazel_dep(name = "gperftools", version = "2.18.1")
 bazel_dep(name = "grpc", version = "1.84.0")
+bazel_dep(name = "mbedtls", version = "3.6.7")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
 
 # Declared here only so the root can set //:use-no-asm-fallback. The version still comes
@@ -27,6 +28,66 @@ bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "protobuf", version = "36.2")
 bazel_dep(name = "rules_cc", version = "0.2.26")
 bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
+bazel_dep(name = "rules_python", version = "2.0.2")
+
+# Runs clang-tidy as an aspect under --config=clang-tidy. The registry does not have it.
+bazel_dep(name = "bazel_clang_tidy", dev_dependency = True)
+bazel_dep(name = "rules_shell", version = "0.6.1", dev_dependency = True)
+
+archive_override(
+    module_name = "bazel_clang_tidy",
+    integrity = "sha256-ltpuk1zMkQRc+SjbxX8iUIonKcUff7P1YXgBew3rmzw=",
+    strip_prefix = "bazel_clang_tidy-c4d35e0d0b838309358e57a2efed831780f85cd0",
+    urls = ["https://github.com/erenon/bazel_clang_tidy/archive/c4d35e0d0b838309358e57a2efed831780f85cd0.tar.gz"],
+)
+
+# The clang-tidy that --config=clang-tidy runs, from its PyPI wheels. Bazel fetches only
+# the host's wheel. Keep the version equal to the clang-format version in
+# scripts/install_clang_format.sh.
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
+)
+
+CLANG_TIDY_BUILD = """
+package(default_visibility = ["//visibility:public"])
+
+filegroup(name = "clang_tidy", srcs = ["clang_tidy/data/bin/clang-tidy"])
+
+filegroup(
+    name = "clang_apply_replacements",
+    srcs = ["clang_tidy/data/bin/clang-apply-replacements"],
+)
+
+filegroup(
+    name = "resource_dir",
+    srcs = glob(["clang_tidy/data/lib/clang/*/include/**"]),
+)
+"""
+
+http_archive(
+    name = "clang_tidy_linux_aarch64",
+    build_file_content = CLANG_TIDY_BUILD,
+    sha256 = "5639a8e65df6701ac144ee6b9e73aef4bdd3706cdc5849de1a5147c5aeaddf24",
+    type = "zip",
+    urls = ["https://files.pythonhosted.org/packages/3d/6f/1c50dacbc9ae537e0e40be27fa7b0a56e60dcc0a1fffd0d9b280b1ed6749/clang_tidy-23.1.3-py2.py3-none-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl"],
+)
+
+http_archive(
+    name = "clang_tidy_linux_x86_64",
+    build_file_content = CLANG_TIDY_BUILD,
+    sha256 = "6b2558bc396a6e792190700134609e041f657d7f8d15385e8b0aa66f5ffe21b5",
+    type = "zip",
+    urls = ["https://files.pythonhosted.org/packages/7a/f0/5d684465b0727e3d5364de38cead2775f73ff35f63694176a0694c2ab943/clang_tidy-23.1.3-py2.py3-none-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl"],
+)
+
+http_archive(
+    name = "clang_tidy_macos_arm64",
+    build_file_content = CLANG_TIDY_BUILD,
+    sha256 = "cbd31dea271cee7ed5b5048847e73b8208c8dde90e321e09c20d9146011f8ff2",
+    type = "zip",
+    urls = ["https://files.pythonhosted.org/packages/26/42/65a2c5ee9be88b81d3890df15fd1af7f5bbab72a16ccf4d302454385e067/clang_tidy-23.1.3-py2.py3-none-macosx_11_0_arm64.whl"],
+)
 
 single_version_override(
     module_name = "grpc",
@@ -44,7 +105,7 @@ single_version_override(
         "//patches:grpc-declare-upb-gen-headers.patch",
         "//patches:grpc-add-upb-gen-headers-dep.patch",
         # OpenSSL 4.0 returns const from the X509 accessors and makes ASN1_OCTET_STRING
-        # opaque. curl 8.22 requires that major, so grpc has to build against it.
+        # opaque. curl requires that major, so grpc has to build against it.
         # Upstream support is not released yet.
         "//patches:grpc-openssl-4-compat.patch",
     ],

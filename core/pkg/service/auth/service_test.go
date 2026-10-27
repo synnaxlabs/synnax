@@ -10,15 +10,16 @@
 package auth_test
 
 import (
+	"sync"
 	"time"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -46,10 +47,11 @@ var _ = Describe("ServiceConfig", func() {
 		pw := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		auths = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
 		cfg = auth.ServiceConfig{
-			DB:             db,
-			Authenticators: auths,
-			IdleTimeout:    time.Hour,
-			Clock:          xtime.Real,
+			DB:                db,
+			Authenticators:    auths,
+			IdleTimeout:       time.Hour,
+			Clock:             xtime.Real,
+			HoldCheckInterval: time.Second,
 		}
 	})
 	Describe("Override", func() {
@@ -59,6 +61,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(result.Authenticators).To(Equal(auths))
 			Expect(result.IdleTimeout).To(Equal(time.Hour))
 			Expect(result.Clock).To(Equal(xtime.Real))
+			Expect(result.HoldCheckInterval).To(Equal(time.Second))
 		})
 		It("Should keep each field from the base when the override is zero", func() {
 			result := cfg.Override(auth.ServiceConfig{})
@@ -66,6 +69,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(result.Authenticators).To(Equal(auths))
 			Expect(result.IdleTimeout).To(Equal(time.Hour))
 			Expect(result.Clock).To(Equal(xtime.Real))
+			Expect(result.HoldCheckInterval).To(Equal(time.Second))
 		})
 	})
 	Describe("Validate", func() {
@@ -94,6 +98,11 @@ var _ = Describe("ServiceConfig", func() {
 				"idle_timeout",
 			),
 			Entry("clock", func(c *auth.ServiceConfig) { c.Clock = nil }, "clock"),
+			Entry(
+				"hold check interval",
+				func(c *auth.ServiceConfig) { c.HoldCheckInterval = 0 },
+				"hold_check_interval",
+			),
 		)
 	})
 })
@@ -155,10 +164,16 @@ var _ = Describe("Service", func() {
 				Expect(session.Credential).To(Equal(p.Key))
 			},
 		)
-		It("Should never store the token", func(ctx SpecContext) {
+		It("Should store the token's hash, never the token", func(ctx SpecContext) {
 			session, token := login(ctx)
-			Expect(string(session.Hash)).ToNot(ContainSubstring(token))
-			Expect(session.Hash).To(HaveLen(32))
+			var stored auth.Session
+			Expect(
+				svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).Entry(&stored).
+					Exec(ctx, nil),
+			).To(Succeed())
+			Expect(stored.Hash).To(HaveLen(32))
+			Expect(stored.Hash).To(Equal(session.Hash))
+			Expect(string(stored.Hash)).ToNot(ContainSubstring(token))
 		})
 		It("Should return the authenticator's error", func(ctx SpecContext) {
 			Expect(svc.Login(ctx, proof(username, "wrong"))).Error().
@@ -287,6 +302,119 @@ var _ = Describe("Service", func() {
 			Expect(svc.Logout(ctx, uuid.New())).To(Succeed())
 		})
 	})
+	Describe("Hold", func() {
+		It("Should reject a session that does not exist", func(ctx SpecContext) {
+			Expect(
+				svc.Hold(ctx, uuid.New()),
+			).Error().
+				To(MatchError(auth.ErrInvalidToken))
+		})
+		It(
+			"Should end a hold whose session storage lost behind the feed",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Expect(gorp.WrapWriter[auth.SessionKey, auth.Session](db).
+					Delete(ctx, session.Key)).To(Succeed())
+				Expect(svc.CheckHolds(ctx)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It("Should check holds when nothing is held", func(ctx SpecContext) {
+			Expect(svc.CheckHolds(ctx)).To(Succeed())
+		})
+		It(
+			"Should finish a sweep when a held session is gone",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				stale, _ := login(ctx)
+				Expect(gorp.WrapWriter[auth.SessionKey, auth.Session](db).
+					Delete(ctx, session.Key)).To(Succeed())
+				clock.Advance(idle*5/4 + time.Second)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+				Expect(
+					svc.NewRetrieve().Where(auth.MatchKeys(stale.Key)).Exists(ctx, nil),
+				).
+					To(BeFalse())
+			},
+		)
+		It(
+			"Should close the channel when the session is logged out",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Consistently(ended).ShouldNot(BeClosed())
+				Expect(svc.Logout(ctx, session.Key)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It(
+			"Should close the channel when the subject is deleted",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Expect(svc.NewWriter(nil).DeleteFor(ctx, alice)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It(
+			"Should close the channel when the credential is revoked",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Expect(svc.NewWriter(nil).RevokeCredential(
+					ctx,
+					nil,
+					session.Credential,
+				)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It(
+			"Should share one channel between holders of a session",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				first, releaseFirst := MustSucceed2(svc.Hold(ctx, session.Key))
+				second, releaseSecond := MustSucceed2(svc.Hold(ctx, session.Key))
+				releaseFirst()
+				releaseFirst()
+				Expect(svc.Logout(ctx, session.Key)).To(Succeed())
+				Eventually(first).Should(BeClosed())
+				Eventually(second).Should(BeClosed())
+				releaseSecond()
+			},
+		)
+		It(
+			"Should keep a held session alive past the idle timeout",
+			func(ctx SpecContext) {
+				session, token := login(ctx)
+				_, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				clock.Advance(idle / 2)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				var refreshed auth.Session
+				Expect(svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).
+					Entry(&refreshed).Exec(ctx, nil)).To(Succeed())
+				Expect(refreshed.LastActive).To(Equal(telem.NewTimeStamp(clock.Now())))
+				clock.Advance(idle + time.Second)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Expect(
+					MustSucceed(svc.Authenticate(ctx, token)).Key,
+				).To(Equal(session.Key))
+				release()
+				clock.Advance(idle*5/4 + time.Second)
+				Expect(svc.Sweep(ctx)).To(Succeed())
+				Expect(svc.Authenticate(ctx, token)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+			},
+		)
+	})
 	Describe("Sweep", func() {
 		It("Should store the activity this node saw instead of ending the session",
 			func(ctx SpecContext) {
@@ -322,6 +450,31 @@ var _ = Describe("Service", func() {
 						Where(auth.MatchKeys(session.Key)).
 						Exists(ctx, nil),
 				).To(BeFalse())
+			},
+		)
+		It(
+			"Should mark the other held sessions when one ends during the sweep",
+			func(ctx SpecContext) {
+				kept, _ := login(ctx)
+				_, release := MustSucceed2(svc.Hold(ctx, kept.Key))
+				defer release()
+				for range 50 {
+					ended, _ := login(ctx)
+					_, releaseEnded := MustSucceed2(svc.Hold(ctx, ended.Key))
+					clock.Advance(time.Second)
+					var wg sync.WaitGroup
+					wg.Go(func() {
+						defer GinkgoRecover()
+						Expect(svc.Logout(ctx, ended.Key)).To(Succeed())
+					})
+					Expect(svc.Sweep(ctx)).To(Succeed())
+					wg.Wait()
+					releaseEnded()
+					var stored auth.Session
+					Expect(svc.NewRetrieve().Where(auth.MatchKeys(kept.Key)).
+						Entry(&stored).Exec(ctx, nil)).To(Succeed())
+					Expect(stored.LastActive).To(Equal(telem.NewTimeStamp(clock.Now())))
+				}
 			},
 		)
 		It("Should end idle sessions and keep active ones", func(ctx SpecContext) {

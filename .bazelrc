@@ -1,13 +1,19 @@
 # The version stamped into the Driver; release builds override it.
 build --define=SYNNAX_DRIVER_VERSION=0.0.0
 
-# Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH to
-# /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake
-# (installed via Homebrew at /opt/homebrew/bin) are available in genrules.
-build --action_env=PATH
-
 # Enable platform-specific configs
-build --enable_platform_specific_config
+common --enable_platform_specific_config
+
+# vendor/registry holds module versions the Bazel Central Registry does not have yet,
+# such as security releases. Bazel takes each module version from the first registry
+# that has it. A Windows workspace path starts with a drive letter, so its file URL
+# needs a third slash.
+common:linux --registry=file://%workspace%/vendor/registry
+common:linux --registry=https://bcr.bazel.build
+common:macos --registry=file://%workspace%/vendor/registry
+common:macos --registry=https://bcr.bazel.build
+common:windows --registry=file:///%workspace%/vendor/registry
+common:windows --registry=https://bcr.bazel.build
 
 # Each external repo is a symlink into the shared repo contents cache, and Bazel deletes
 # a cache entry that goes 14 days without a fetch. A repo that every build reuses is
@@ -54,6 +60,9 @@ build:linux --copt=-Wno-error=deprecated-declarations
 build:linux --copt=-Wno-sign-compare
 
 # Windows (MSVC)
+# The Windows build bots run jobs as SYSTEM but install Rust for Administrator. The
+# wasmtime genrule finds cargo there only through the host PATH.
+build:windows --action_env=PATH
 # Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
 build:windows --enable_runfiles
 build:windows --cxxopt=/std:c++latest
@@ -194,6 +203,10 @@ build:asan --test_timeout=120,600,1800,3600  # ASan adds ~2-3x overhead
 # macOS-specific: Suppress _FORTIFY_SOURCE redefinition warning (ASan defines it to 0)
 build:asan --copt=-Wno-macro-redefined
 
+# ASan gives each temporary in open62541's generated namespace zero its own padded stack
+# slot. One node function then needs more than the 512 KB stack of a macOS thread.
+build:asan --per_file_copt=.*/open62541/namespace0_generated\.c@-fno-sanitize=address
+
 # ASan with LeakSanitizer (Linux only - LSan not supported on macOS/Windows)
 build:asan-leak --config=asan
 build:asan-leak --copt=-fsanitize=leak
@@ -223,6 +236,17 @@ build:ubsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
 build:ubsan --linkopt=-fsanitize=undefined
 build:ubsan --test_env=UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
 
+# ThreadSanitizer (TSan) - Detects data races and lock-order inversions. Cannot be
+# combined with ASan.
+build:tsan --copt=-fsanitize=thread
+build:tsan --copt=-fno-omit-frame-pointer
+build:tsan --copt=-O1
+build:tsan --copt=-g
+build:tsan --copt=-fdebug-prefix-map=/proc/self/cwd=.
+build:tsan --linkopt=-fsanitize=thread
+build:tsan --test_env=TSAN_OPTIONS=halt_on_error=1:second_deadlock_stack=1
+build:tsan --test_timeout=120,600,1800,3600  # TSan adds ~5-15x overhead
+
 # Combined sanitizers (recommended for local development)
 build:sanitize --config=asan
 build:sanitize --config=ubsan
@@ -231,3 +255,18 @@ build:sanitize --config=ubsan
 build:sanitize-ci --config=sanitize
 build:sanitize-ci --test_output=errors
 build:sanitize-ci --test_summary=detailed
+
+# ===== clang-tidy =====
+#
+# bazel build --config=clang-tidy <targets> lints every C++ source and header in the
+# targets without compiling them. Each file is its own cached action, and any finding
+# fails it. Bazel fetches the clang-tidy that MODULE.bazel pins, and each action takes
+# the binary and its headers as inputs, so a new version lints every file again.
+build:clang-tidy --aspects=@bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
+build:clang-tidy --output_groups=report
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_config
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_executable=//:clang_tidy
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_additional_deps=//:clang_tidy_binary
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_resource_dir=//:clang_resource_dir
+build:clang-tidy-fix --config=clang-tidy
+build:clang-tidy-fix --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_fix_config

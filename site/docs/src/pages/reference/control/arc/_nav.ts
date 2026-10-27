@@ -7,37 +7,60 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
-import { CONCEPTS_NAV } from "@/pages/reference/control/arc/concepts/_nav";
-import { HOW_TO_NAV } from "@/pages/reference/control/arc/how-to/_nav";
+import { type PageNavNode } from "@/components/nav/tree";
 import { REFERENCE_NAV } from "@/pages/reference/control/arc/reference/_nav";
+import { STANDARD_LIBRARY_NAV } from "@/pages/reference/control/arc/standard-library/_nav";
 
 export const ARC_NAV: PageNavNode = {
   key: "arc",
   name: "Arc",
   children: [
     {
-      key: "/reference/control/arc/introduction",
-      href: "/reference/control/arc/introduction",
-      name: "Introduction",
+      href: "/reference/control/arc",
+      name: "Overview",
     },
     {
-      key: "/reference/control/arc/get-started",
       href: "/reference/control/arc/get-started",
       name: "Get started",
+      edition: "desktop",
     },
-    CONCEPTS_NAV,
-    HOW_TO_NAV,
     {
-      key: "/reference/control/arc/effective-arc",
+      href: "/reference/control/arc/execution-model",
+      name: "Execution model",
+    },
+    {
+      href: "/reference/control/arc/timing",
+      name: "Timing",
+    },
+    {
+      href: "/reference/control/arc/automations",
+      name: "Automations",
+    },
+    {
+      href: "/reference/control/arc/graph-editor",
+      name: "Graph editor",
+    },
+    {
+      href: "/reference/control/arc/start-from-schematic",
+      name: "Start from a schematic",
+    },
+    {
+      href: "/reference/control/arc/test-sequences",
+      name: "Test sequences",
+    },
+    {
+      href: "/reference/control/arc/bang-bang-control",
+      name: "Bang-bang control",
+    },
+    {
+      href: "/reference/control/arc/compute-values",
+      name: "Compute values",
+    },
+    {
       href: "/reference/control/arc/effective-arc",
       name: "Effective Arc",
     },
-    {
-      key: "/reference/control/arc/timing",
-      href: "/reference/control/arc/timing",
-      name: "Timing and performance",
-    },
     REFERENCE_NAV,
+    STANDARD_LIBRARY_NAV,
   ],
 };

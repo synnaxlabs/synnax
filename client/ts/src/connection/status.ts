@@ -19,7 +19,12 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AuthError, DisconnectedError, ExpiredLicenseError } from "@/errors";
+import {
+  AuthError,
+  DisconnectedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+} from "@/errors";
 import { license } from "@/license";
 import { status } from "@/status";
 
@@ -40,6 +45,8 @@ export const statusDetailsZ = z.object({
   clusterKey: z.string(),
   clientVersion: z.string(),
   nodeVersion: z.string().optional(),
+  // The key of the node the client connects to. Absent until the first check.
+  nodeKey: z.number().optional(),
   clientServerCompatible: z.boolean(),
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
@@ -170,8 +177,12 @@ export const awaitConnected = async (
 export interface Info {
   clusterKey: string;
   nodeVersion: string;
+  /** The key of the node that answered the check. */
+  nodeKey: number;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
+  /** The check's round trip. The skew is off by at most half of it. */
+  roundTrip: TimeSpan;
   license: license.State;
 }
 
@@ -196,14 +207,18 @@ export type Event =
   | { type: "credentials.replaced" }
   | { type: "closed" };
 
+const CONNECTED = "Connected";
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach Core";
+const AUTH_FAILED = "Failed to authenticate";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
 
-const connectedMessage = ({ name }: Config): string =>
-  `Connected to ${name ?? "cluster"}`;
+const licenseError = (state: Exclude<license.State, "ok">): Error =>
+  state === "missing"
+    ? new MissingLicenseError(license.STATE_MESSAGES.missing)
+    : new ExpiredLicenseError(license.STATE_MESSAGES.expired);
 
 /** The status a freshly constructed client starts in. */
 export const createInitialStatus = (config: Config): Status => ({
@@ -212,7 +227,7 @@ export const createInitialStatus = (config: Config): Status => ({
   name: config.name ?? DEFAULT_STATUS.name,
   time: TimeStamp.now(),
   variant: "loading",
-  message: `Connecting to ${config.name ?? "cluster"}`,
+  message: CONNECTING,
   details: { ...DEFAULT_STATUS_DETAILS, clientVersion: config.clientVersion },
 });
 
@@ -244,11 +259,12 @@ const enterError = (
   prev: Status,
   message: string,
   details: Partial<StatusDetails> & ErrorCause,
+  description: string = "",
 ): ErrorStatus => ({
   ...prev,
   variant: "error",
   message,
-  description: "",
+  description,
   details: { ...prev.details, ...details },
 });
 
@@ -270,10 +286,14 @@ const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
 const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clusterKey: info.clusterKey,
   nodeVersion: info.nodeVersion,
+  nodeKey: info.nodeKey,
   // the check traverses the auth middleware, so a response is proof of auth
   authenticated: true,
   clockSkew: info.clockSkew,
-  clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
+  // A slow round trip is not skew, so only skew beyond its error bound counts.
+  clockSkewExceeded: info.clockSkew
+    .abs()
+    .greaterThan(config.clockSkewThreshold.add(info.roundTrip.div(2))),
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
   license: info.license,
 });
@@ -282,13 +302,12 @@ const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
 // change lifts it, so the machine rests here instead of chasing the stream.
 const enterStreamDenied = (
   prev: Status,
-  config: Config,
   details: Partial<StatusDetails> = {},
 ): Status =>
   enter(
     prev,
     "warning",
-    connectedMessage(config),
+    CONNECTED,
     {
       ...details,
       streamDenied: true,
@@ -304,11 +323,11 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
   const facts = checkFacts(info, config);
-  if (info.license === "expired")
-    return enterError(prev, license.STATE_MESSAGES.expired, {
+  if (info.license !== "ok")
+    return enterError(prev, license.STATE_MESSAGES[info.license], {
       ...facts,
       reason: "unlicensed",
-      error: new ExpiredLicenseError(license.STATE_MESSAGES.expired),
+      error: licenseError(info.license),
       retry: null,
     });
   // reachable but the stream is still dark: the client re-demands it and we
@@ -316,7 +335,7 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   // error must lift out of error: the short circuit it drives would starve
   // the very stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
-    if (prev.details.streamDenied) return enterStreamDenied(prev, config, facts);
+    if (prev.details.streamDenied) return enterStreamDenied(prev, facts);
     if (prev.variant === "error" && isSelfHealing(prev.details.reason))
       return enter(prev, "loading", RECONNECTING, {
         ...facts,
@@ -326,7 +345,7 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
     return update(prev, facts);
   }
   if (prev.variant === "success") return update(prev, { ...facts, retry: null });
-  return enter(prev, "success", connectedMessage(config), {
+  return enter(prev, "success", CONNECTED, {
     ...facts,
     error: undefined,
     retry: null,
@@ -337,7 +356,7 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
 // Everything learned from the old cluster is void, so the machine returns to
 // first contact: loading at epoch 0 with a dark stream.
 const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status =>
-  enter(prev, "loading", `Connecting to ${config.name ?? "cluster"}`, {
+  enter(prev, "loading", CONNECTING, {
     ...checkFacts(info, config),
     streamLive: false,
     streamDenied: false,
@@ -347,12 +366,12 @@ const reduceClusterReplaced = (prev: Status, info: Info, config: Config): Status
   });
 
 const reduceAuthFailure = (prev: Status, error: Error): Status =>
-  enterError(prev, error.message, {
-    reason: "auth",
-    error,
-    authenticated: false,
-    retry: null,
-  });
+  enterError(
+    prev,
+    AUTH_FAILED,
+    { reason: "auth", error, authenticated: false, retry: null },
+    error.message,
+  );
 
 const reduceCheckFailure = (
   prev: Status,
@@ -363,10 +382,12 @@ const reduceCheckFailure = (
   if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
   const escalating = prev.variant === "loading";
   if (escalating && attempt >= config.escalateAfter)
-    return enterError(prev, error.message ?? UNREACHABLE, {
-      reason: "unreachable",
-      error,
-    });
+    return enterError(
+      prev,
+      UNREACHABLE,
+      { reason: "unreachable", error },
+      error.message,
+    );
   // an unlicensed Core that stops answering is unreachable, not still unlicensed
   if (
     prev.variant === "success" ||
@@ -376,10 +397,12 @@ const reduceCheckFailure = (
   return update(prev, { error });
 };
 
-const reduceStreamLive = (prev: Status, config: Config): Status => {
+const reduceStreamLive = (prev: Status): Status => {
   const parked = prev.variant === "error" && prev.details.reason !== "unreachable";
-  if (parked) return update(prev, { streamLive: true, streamDenied: false });
-  return enter(prev, "success", connectedMessage(config), {
+  // A stream opened under replaced credentials says nothing about the new ones.
+  if (parked || !prev.details.authenticated)
+    return update(prev, { streamLive: true, streamDenied: false });
+  return enter(prev, "success", CONNECTED, {
     streamLive: true,
     streamDenied: false,
     error: undefined,
@@ -394,10 +417,12 @@ const reduceStreamDrop = (prev: Status, error?: Error): Status => {
 
 const reduceRetryExhausted = (prev: Status): Status => {
   if (prev.variant !== "loading") return update(prev, { retry: null });
-  return enterError(prev, prev.details.error?.message ?? UNREACHABLE, {
-    reason: "unreachable",
-    retry: null,
-  });
+  return enterError(
+    prev,
+    UNREACHABLE,
+    { reason: "unreachable", retry: null },
+    prev.details.error?.message,
+  );
 };
 
 /**
@@ -416,11 +441,11 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
         checking: false,
       });
     case "stream.live":
-      return reduceStreamLive(prev, config);
+      return reduceStreamLive(prev);
     case "stream.drop":
       return reduceStreamDrop(prev, event.error);
     case "stream.denied":
-      return enterStreamDenied(prev, config);
+      return enterStreamDenied(prev);
     case "auth.success":
       return update(prev, { authenticated: true });
     case "auth.failure":
@@ -441,6 +466,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
       return enter(prev, "loading", CONNECTING, {
         error: undefined,
         streamDenied: false,
+        authenticated: false,
       });
     case "closed":
       return enter(prev, "disabled", "Closed", {

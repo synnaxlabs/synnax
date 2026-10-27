@@ -453,6 +453,83 @@ Doc struct {
 	)
 })
 
+var _ = Describe("Live to_any on a frozen definer", func() {
+	const livePath = "schemas/synnax/box.oracle"
+	generate := func(ctx SpecContext, v1 string) map[string]string {
+		GinkgoHelper()
+		resp := chainGenerate(
+			ctx,
+			gotypes.New(gotypes.DefaultOptions()),
+			map[string]string{
+				livePath: `
+@go output "core/box"
+
+Box struct<T> {
+	key uuid @key
+	value T
+	name string
+
+	@go to_any
+}
+`,
+				"schemas/synnax/versions/box/v0.oracle": `
+Box struct<T> {
+	key uuid @key
+	value T
+	name string
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/box/v1.oracle": v1,
+			},
+			livePath,
+			"box",
+		)
+		byPath := make(map[string]string, len(resp.Files))
+		for _, f := range resp.Files {
+			byPath[f.Path] = string(f.Content)
+		}
+		return byPath
+	}
+
+	It(
+		"Should convert a type the current version aliases from a frozen definer",
+		func(ctx SpecContext) {
+			files := generate(ctx, `
+Box = v0.Box
+`)
+			Expect(files["core/box/versions/v0/types.gen.go"]).To(ContainSubstring(
+				"func (b Box[T]) ToAny() Box[any] {",
+			))
+			current := files["core/box/versions/v1/types.gen.go"]
+			Expect(current).To(ContainSubstring("type Box[T any] = v0.Box[T]"))
+			Expect(current).ToNot(ContainSubstring("ToAny"))
+		},
+	)
+
+	It(
+		"Should leave a frozen definer unconverted once a later version redeclares it",
+		func(ctx SpecContext) {
+			files := generate(ctx, `
+Box struct<T> {
+	key uuid @key
+	value T
+	name string
+
+	@go marshal
+}
+`)
+			Expect(files["core/box/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				"ToAny",
+			))
+			Expect(files["core/box/versions/v1/types.gen.go"]).To(ContainSubstring(
+				"func (b Box[T]) ToAny() Box[any] {",
+			))
+		},
+	)
+})
+
 var _ = Describe("Live validation on a frozen union", func() {
 	const v0Source = `
 Payload struct {

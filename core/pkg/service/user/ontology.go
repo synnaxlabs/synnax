@@ -11,17 +11,16 @@ package user
 
 import (
 	"context"
-	"io"
 	"iter"
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -51,18 +50,9 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"root_user":  zyn.Bool(),
 })
 
-var (
-	_ ontology.Service      = (*Service)(nil)
-	_ search.Service        = (*Service)(nil)
-	_ search.FieldsProvider = (*Service)(nil)
-)
+var _ ontology.Service = (*Service)(nil)
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeUser }
-
-// SearchableFields implements ontology.SearchableFieldsProvider.
-func (s *Service) SearchableFields() []string {
-	return []string{"username", "first_name", "last_name"}
-}
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(
@@ -104,17 +94,16 @@ func (s *Service) OnChange(
 	return s.table.Observe().OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(
-	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xiter.Map(n, newResource), closer, nil
-}
-
 func newResource(u User) ontology.Resource {
 	return ontology.NewResource(schema, u.OntologyID(), u.Username, u)
+}
+
+// Search implements ontology.Service.
+func (s *Service) Search(
+	ctx context.Context,
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, term, limit, OntologyID)
 }

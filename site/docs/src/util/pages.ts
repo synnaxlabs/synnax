@@ -26,10 +26,11 @@ export interface Page {
   published?: string;
 }
 
-const FRONTMATTER = import.meta.glob<Frontmatter>("/src/pages/**/*.mdx", {
-  import: "frontmatter",
-  eager: true,
-});
+// Astro does not route files that start with an underscore.
+const FRONTMATTER = import.meta.glob<Frontmatter>(
+  ["/src/pages/**/*.mdx", "!/src/pages/**/_*.mdx"],
+  { import: "frontmatter", eager: true },
+);
 
 const toRoute = (file: string): string =>
   normalizeRoute(
@@ -64,4 +65,5 @@ export const ROUTES: string[] = [
   ...PAGES.map(({ route }) => route),
   "/blog",
   "/privacy-policy",
+  "/terms-of-service",
 ].sort();

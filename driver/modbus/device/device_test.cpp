@@ -43,7 +43,7 @@ TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
     for (int i = 0; i < 4; i++) {
         mock::SlaveConfig config;
         config.host = "127.0.0.1";
-        config.port = static_cast<int>(1510 + i);
+        config.port = (1510 + i);
         auto slave = std::make_unique<mock::Slave>(config);
         ASSERT_NIL(slave->start());
         slaves.push_back(std::move(slave));
@@ -56,6 +56,7 @@ TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
     std::atomic<int> error_count{0};
 
     std::vector<std::thread> threads;
+    threads.reserve(20);
     for (int i = 0; i < 20; i++) {
         threads.emplace_back([&manager, &success_count, &error_count, i]() {
             ConnectionConfig config{"127.0.0.1", static_cast<uint16_t>(1510 + (i % 4))};

@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import { type destructor, type TimeStamp } from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSink,
   AbstractSource,
+  type Result,
   type Sink,
   type SinkSpec,
   sinkSpecZ,
@@ -25,6 +26,7 @@ import {
   type SourceTransformer,
   type Spec,
   type Telem,
+  type ValueProps,
 } from "@/telem/aether/telem";
 
 export const connectionZ = z.object({
@@ -98,16 +100,12 @@ export class SourcePipeline<V>
     });
   }
 
-  value(): V {
-    return this.outlet.value();
+  value(props?: ValueProps): Result<V> {
+    return this.outlet.value(props);
   }
 
   onChange(handler: () => void): destructor.Destructor {
     return this.outlet.onChange(handler);
-  }
-
-  sampleTime(): TimeStamp | null {
-    return this.outlet.sampleTime?.() ?? null;
   }
 
   cleanup(): void {

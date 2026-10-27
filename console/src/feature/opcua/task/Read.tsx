@@ -43,21 +43,20 @@ interface IsIndexItemProps {
   snapshot?: boolean;
 }
 
-const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => (
-  <PForm.SwitchField
-    path={`${path}.isIndex`}
-    label="Use as index"
-    x
-    align="center"
-    showHelpText={false}
-    required={false}
-    visible={(_, ctx) =>
-      DataType.TIMESTAMP.equals(
-        ctx.get<string>(`${path}.dataType`, { optional: true })?.value ?? "",
-      )
-    }
-  />
-);
+const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
+  const dataType = PForm.useFieldValue<string>(`${path}.dataType`, { optional: true });
+  return (
+    <PForm.SwitchField
+      path={`${path}.isIndex`}
+      label="Use as index"
+      x
+      align="center"
+      showHelpText={false}
+      required={false}
+      visible={DataType.TIMESTAMP.equals(dataType ?? "")}
+    />
+  );
+};
 
 const isIndexItem = Component.renderProp(IsIndexItem);
 

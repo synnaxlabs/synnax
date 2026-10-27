@@ -85,8 +85,8 @@ struct BaseWriteChannel {
 /// @brief ScanConfig configures a LabJack scan task.
 struct ScanConfig : public ::synnax::task::ScanConfig {
     /// @brief tcp_scan_multiplier is the number of scan cycles between TCP device
-    /// scans.
-    /// USB devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
+    /// scans. USB devices scan every cycle; TCP scans are slower, so they run every Nth
+    /// cycle.
     std::int32_t tcp_scan_multiplier = 10;
 
     static ScanConfig parse(x::json::Parser parser);
@@ -168,8 +168,7 @@ struct AnalogReadChannel : public BaseReadChannel {
     /// @brief range is the upper bound of the voltage input range, in Volts.
     double range = 10;
     /// @brief neg_chan is the negative channel for differential readings on T7 devices.
-    /// 199
-    /// selects single-ended.
+    /// 199 selects single-ended.
     std::int32_t neg_chan = 199;
     /// @brief scale is the scale applied to raw samples after acquisition.
     Scale scale = NoneScale{};
@@ -196,13 +195,11 @@ struct ThermocoupleReadChannel : public BaseReadChannel {
     /// @brief thermocouple_type selects the thermocouple alloy type.
     std::string thermocouple_type = THERMOCOUPLE_TYPE_K;
     /// @brief neg_chan is the AIN port of the thermocouple's negative lead on T7
-    /// devices.
-    /// 199 selects single-ended.
+    /// devices. 199 selects single-ended.
     std::int32_t neg_chan = 199;
     /// @brief cjc_source selects the cold-junction-compensation source: the device
-    /// sensor
-    /// ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN port
-    /// (e.g. 'AIN2').
+    /// sensor ('TEMPERATURE_DEVICE_K'), ambient air ('TEMPERATURE_AIR_K'), or an AIN
+    /// port (e.g. 'AIN2').
     std::string cjc_source = "TEMPERATURE_DEVICE_K";
     /// @brief cjc_slope is the CJC voltage-to-temperature slope, in Kelvin per Volt.
     double cjc_slope = 1;
@@ -246,12 +243,11 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     /// @brief channels are the channels the task acquires.
     std::vector<ReadChannel> channels;
     /// @brief device_scan_backlog_warn_on_count is the device-side scan backlog above
-    /// which
-    /// the task reports a skew warning. Zero lets the Driver pick two seconds of scans.
+    /// which the task reports a skew warning. Zero lets the Driver pick two seconds of
+    /// scans.
     std::uint32_t device_scan_backlog_warn_on_count = 0;
     /// @brief ljm_scan_backlog_warn_on_count is the LJM-side scan backlog above which
-    /// the
-    /// task reports a skew warning. Zero lets the Driver pick one second of scans.
+    /// the task reports a skew warning. Zero lets the Driver pick one second of scans.
     std::uint32_t ljm_scan_backlog_warn_on_count = 0;
 
     static ReadConfig parse(x::json::Parser parser);

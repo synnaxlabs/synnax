@@ -20,7 +20,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-const tauriWindow = { theme: vi.fn(), onThemeChanged: vi.fn() };
+const tauriWindow = { theme: vi.fn(), onThemeChanged: vi.fn(), setTheme: vi.fn() };
 
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => tauriWindow }));
 
@@ -80,6 +80,7 @@ describe("session theme selectors", () => {
     mocks.engine = "web";
     tauriWindow.theme.mockReset();
     tauriWindow.onThemeChanged.mockReset();
+    tauriWindow.setTheme.mockReset();
   });
 
   afterEach(() => vi.unstubAllGlobals());
@@ -160,6 +161,44 @@ describe("session theme selectors", () => {
 
       act(() => onChange?.({ payload: "dark" }));
       await waitFor(() => expect(themeKeyOf(result)).toBe("synnaxDark"));
+    });
+
+    it("sets the window theme to a fixed mode in the tauri engine", async () => {
+      mocks.engine = "tauri";
+      renderHook(() => Theme.useProviderProps(), {
+        wrapper: wrapperFor(storeWith("dark")),
+      });
+      await waitFor(() => expect(tauriWindow.setTheme).toHaveBeenCalledWith("dark"));
+      expect(tauriWindow.theme).not.toHaveBeenCalled();
+    });
+
+    it("clears the window theme before reading the OS theme", async () => {
+      mocks.engine = "tauri";
+      tauriWindow.theme.mockResolvedValue("dark");
+      tauriWindow.onThemeChanged.mockResolvedValue(() => {});
+      renderHook(() => Theme.useProviderProps(), {
+        wrapper: wrapperFor(storeWith("system")),
+      });
+      await waitFor(() => expect(tauriWindow.theme).toHaveBeenCalled());
+      expect(tauriWindow.setTheme).toHaveBeenCalledWith(null);
+      expect(tauriWindow.setTheme.mock.invocationCallOrder[0]).toBeLessThan(
+        tauriWindow.theme.mock.invocationCallOrder[0],
+      );
+    });
+
+    it("sets the window theme again when the mode changes", async () => {
+      mocks.engine = "tauri";
+      tauriWindow.theme.mockResolvedValue("light");
+      tauriWindow.onThemeChanged.mockResolvedValue(() => {});
+      const store = storeWith("system");
+      renderHook(() => Theme.useProviderProps(), { wrapper: wrapperFor(store) });
+      await waitFor(() => expect(tauriWindow.setTheme).toHaveBeenCalledWith(null));
+      act(() => {
+        store.dispatch(Theme.set("light"));
+      });
+      await waitFor(() =>
+        expect(tauriWindow.setTheme).toHaveBeenLastCalledWith("light"),
+      );
     });
 
     it("does not listen to the OS scheme outside system mode", async () => {

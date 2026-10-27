@@ -17,7 +17,7 @@ interface Props {
 const { open = false } = Astro.props;
 ---
 
-<details open={open}>
+<details class="docs-details" open={open}>
     <summary>
         <slot name="summary" />
         <Icon.Caret.Right className="indicator" />
@@ -28,85 +28,94 @@ const { open = false } = Astro.props;
 </details>
 
 <style is:global>
-    details {
-        margin: 3rem 0;
+    /* A disclosure is a pane like a tab set: a header bar, then a panel with the same
+       padding, frame, and code bands. */
+    .docs-details {
+        interpolate-size: allow-keywords;
+        margin: 4rem 0 var(--docs-block-gap);
         border: var(--pluto-border);
-        border-radius: 1rem;
+        border-radius: 1.5rem;
         overflow: hidden;
-        background: var(--pluto-gray-l1);
-        max-height: 10rem;
-        transition: max-height 0.3s ease;
+        background: var(--pluto-gray-l0);
 
-        .content {
-            padding: 0 2rem;
+        /* The margins collapse, so this cancels the gap above and leaves 2rem. */
+        & + .docs-details {
+            margin-top: calc(var(--docs-block-gap) * -1 + 2rem);
         }
 
-        &[open] {
-            max-height: 4000px;
-            summary {
-                border-bottom: var(--pluto-border);
-                & .indicator {
-                    transform: rotate(90deg);
-                }
-            }
+        &::details-content {
+            height: 0;
+            overflow: clip;
+            transition:
+                height 0.25s ease,
+                content-visibility 0.25s allow-discrete;
         }
-        & .astro-code-wrapper {
-            margin: 0 !important;
-            .astro-code {
-                border: none !important;
-            }
-        }
-        .table-wrapper {
-            margin: 0.5rem 0 !important;
-            border: none !important;
-        }
-        &:not([open]):active {
-            border-color: var(--pluto-gray-l5);
-        }
-        summary {
-            &::marker {
-                content: none;
-            }
-            position: relative;
-            cursor: pointer;
 
-            p,
-            small,
-            h1,
-            h2,
-            h3,
-            h4,
-            h5,
-            h6 {
-                margin: 0 !important;
-                color: var(--pluto-gray-l10-90);
-                display: inline-block;
-                & svg {
-                    margin-right: 1rem;
-                }
-            }
+        &[open]::details-content {
+            height: auto;
+        }
 
+        & > summary {
             display: flex;
             align-items: center;
+            gap: 1.5rem;
+            width: 100%;
+            min-height: 7rem;
+            padding: 0 var(--docs-block-padding);
+            background: var(--pluto-gray-l1);
+            cursor: pointer;
+            transition: background-color 0.2s;
+
+            &::marker,
+            &::-webkit-details-marker {
+                display: none;
+                content: none;
+            }
+
+            &:hover {
+                background: var(--pluto-gray-l2);
+            }
+
+            /* The title flows as text, so a link or code in it sits with no gap. */
+            & > :not(.indicator) {
+                display: block;
+                flex: 1;
+                min-width: 0;
+                margin: 0;
+                color: var(--pluto-gray-l10);
+
+                & svg {
+                    margin-right: 1rem;
+                    vertical-align: -0.125em;
+                    color: var(--pluto-gray-l8);
+                }
+            }
+
+            & code {
+                padding: 0;
+                border: none;
+                background: none;
+            }
 
             & .indicator {
-                position: absolute;
-                right: 2rem;
-                fill: var(--pluto-gray-l10);
-                margin-right: 1rem;
-                transition: transform 0.2s;
-                height: 2.5rem;
+                flex-shrink: 0;
                 width: 2.5rem;
-                transform: rotate(180deg);
+                height: 2.5rem;
+                color: var(--pluto-gray-l8);
+                transition: transform 0.2s;
             }
+        }
 
-            width: 100%;
-            background: var(--pluto-gray-l2-70);
-            padding: 1.666rem 2rem;
-            &:hover {
-                transition: background-color 0.2s;
-                background-color: var(--pluto-gray-l3);
+        &[open] > summary {
+            border-bottom: var(--pluto-border);
+
+            & .indicator {
+                transform: rotate(90deg);
             }
+        }
+
+        & > .content {
+            padding: var(--docs-block-padding);
         }
     }
 </style>

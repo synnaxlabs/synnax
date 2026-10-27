@@ -9,7 +9,6 @@
 
 import { type lineplot } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { useCallback } from "react";
 
 import { HOLD_TRIGGER } from "@/feature/lineplot/Controls";
 import { Session } from "@/session";
@@ -25,12 +24,9 @@ export const useTriggerHold = ({ key, enabled }: UseTriggerHoldProps): void => {
     triggers: HOLD_TRIGGER,
     loose: true,
     enabled,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        dispatch(Session.LinePlot.setControlHold({ key }));
-      },
-      [dispatch, key],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "start") return;
+      dispatch(Session.LinePlot.setControlHold({ key }));
+    },
   });
 };

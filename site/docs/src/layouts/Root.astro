@@ -9,16 +9,18 @@
 // included in the file licenses/APL.txt.
 
 import Header from "@/components/layout/Header.astro";
+import Lightbox from "@/components/media/Lightbox.astro";
 import "@/styles/main.css";
 import PostHog from "@/components/analytics/PostHog.astro";
 import { ClientRouter } from "astro:transitions";
 import Footer from "@synnaxlabs/site-common/Footer.astro";
 import Head from "@synnaxlabs/site-common/Head.astro";
 import { enabled } from "@/flags";
-import { sectionOf } from "@/pages/_nav";
+import { sectionOf } from "@/components/nav/tree";
+import { REFERENCE_PAGES } from "@/pages/_nav";
 import { normalizeRoute } from "@/util/route";
 const {
-    frontmatter: { title, description, url, image, flag },
+    frontmatter: { title, heading, description, url, image, flag },
     article,
 } = Astro.props;
 // A page behind a flag that is off does not exist.
@@ -28,19 +30,30 @@ if (hidden) Astro.response.status = 404;
 // into duplicates.
 const route = normalizeRoute(Astro.url.pathname);
 const canonicalUrl = new URL(route, Astro.site).href;
-const section = sectionOf(route);
+const section = sectionOf(REFERENCE_PAGES, route);
 const cleanTitle = title?.replace(/`/g, "");
-const pageTitle = cleanTitle && section ? `${cleanTitle} | ${section}` : cleanTitle;
-const fullTitle = pageTitle ? `${pageTitle} | Synnax` : "Synnax";
+// An overview page has the name of its section, so the section shows once.
+const pageTitle =
+    cleanTitle && section && section !== cleanTitle
+        ? `${cleanTitle} | ${section}`
+        : cleanTitle;
+// The home page names the whole site, so its heading is the full title.
+const fullTitle = hidden
+    ? "Page not found | Synnax"
+    : route === "/reference" && heading != null
+      ? heading
+      : pageTitle
+        ? `${pageTitle} | Synnax`
+        : "Synnax";
 
 const FOOTER_COLUMNS = [
     {
         title: "Documentation",
         links: [
             { label: "Reference", href: "/reference/" },
-            { label: "Concepts", href: "/reference/concepts/overview" },
+            { label: "Channels", href: "/reference/channels" },
             { label: "Client libraries", href: "/reference/client/quick-start" },
-            { label: "Control", href: "/reference/control/get-started" },
+            { label: "Control", href: "/reference/control" },
         ],
     },
     {
@@ -58,6 +71,7 @@ const FOOTER_COLUMNS = [
             { label: "About", href: "https://www.synnaxlabs.com/company" },
             { label: "Contact", href: "https://synnaxlabs.com/#contact" },
             { label: "Privacy policy", href: "/privacy-policy" },
+            { label: "Terms of service", href: "/terms-of-service" },
         ],
     },
 ];
@@ -81,10 +95,11 @@ const FOOTER_COLUMNS = [
             href="/blog/rss.xml"
         />
         <ClientRouter />
-        <slot name="head" />
+        {!hidden && <slot name="head" />}
     </head>
     <body>
         <Header url={url} transition:persist />
+        {!hidden && <slot name="subheader" />}
         <main>
             {hidden ? (
                 <section class="not-found">
@@ -95,11 +110,14 @@ const FOOTER_COLUMNS = [
             )}
         </main>
         <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
+        <Lightbox />
     </body>
     <script>
         import { QUERY as CLIENT_QUERY } from "@/components/client/choice";
         import { addCodeButtonListeners } from "@/components/code/codeUtil";
+        import { start as startLightbox } from "@/components/media/lightbox";
         import { start as startVideos } from "@/components/media/video";
+        import { start as startCollapse } from "@/components/nav/collapse";
         import { start as startOnThisPage } from "@/components/nav/onThisPage";
         import { start as startSidebar } from "@/components/nav/sidebar";
         import { QUERY as PLATFORM_QUERY } from "@/components/platform/choice";
@@ -109,7 +127,9 @@ const FOOTER_COLUMNS = [
         import { onDemand } from "@/util/island";
 
         startSidebar();
+        startCollapse();
         startVideos();
+        startLightbox();
         // Before the tabs, so the outline hears the first tab change.
         startOnThisPage();
         startTabs({ client: CLIENT_QUERY, platform: PLATFORM_QUERY, context: {} });
