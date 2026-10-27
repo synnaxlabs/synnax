@@ -1430,6 +1430,24 @@ describe("StreamMultiChannelLog", () => {
       });
     });
 
+    it("should keep held samples when a channel is added", async () => {
+      const { log } = create();
+      await waitForResolve(log);
+      c.streamHandler?.(
+        new Map([
+          [IDX, new MultiSeries([times([90], 0n)])],
+          [DATA, new MultiSeries([strings(["a", "b"], 0n)])],
+        ]),
+      );
+      const latest = strings(["c"], 2n);
+      c.streamHandler?.(new Map([[DATA, new MultiSeries([latest])]]));
+      log.setChannels([DATA, DATA_2]);
+      await waitForResolve(log);
+      c.streamHandler?.(new Map([[DATA, new MultiSeries([latest])]]));
+      c.streamHandler?.(new Map([[IDX, new MultiSeries([times([91, 92], 1n)])]]));
+      expect(log.value().map((e) => e.value)).toEqual(["a", "b", "c"]);
+    });
+
     it("should sort the entries of several channels by sample time", async () => {
       const { log } = create({ channels: [DATA, DATA_2] });
       await waitForResolve(log);

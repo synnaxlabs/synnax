@@ -18,19 +18,19 @@ from x.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
 
 T = TypeVar("T")
 
-RESOLUTION = (TimeSpan.MICROSECOND * 100).seconds
+_RESOLUTION = (TimeSpan.MICROSECOND * 100).seconds
 
 
 def _precise_sleep(dur: float | int) -> None:
-    estimate = RESOLUTION * 10  # Initial overestimate
-    mean = RESOLUTION * 10
+    estimate = _RESOLUTION * 10  # Initial overestimate
+    mean = _RESOLUTION * 10
     m2: float = 0
     count = 1
     end_time = time.perf_counter() + dur
     nanoseconds = dur * 1e9
     while nanoseconds > estimate * 1e9:
         start_time = time.perf_counter()
-        time.sleep(RESOLUTION)
+        time.sleep(_RESOLUTION)
         # Elapsed time in nanoseconds
         elapsed = (time.perf_counter() - start_time) * 1e9
         delta = elapsed - mean
@@ -78,7 +78,7 @@ class Timer:
 
     def elapsed(self) -> TimeSpan:
         """Returns the time elapsed since the timer was started."""
-        return TimeSpan(time.perf_counter_ns() - self._start)
+        return TimeStamp(time.perf_counter_ns()) - self._start
 
     def start(self) -> None:
         """Starts the timer."""

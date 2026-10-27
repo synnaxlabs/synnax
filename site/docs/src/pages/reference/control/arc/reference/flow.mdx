@@ -2,344 +2,182 @@
 layout: "@/layouts/Reference.astro"
 title: "Flow"
 description:
-  "Arc flow reference: continuous and conditional flow operators, transitions,
-  expressions in flows, routing tables, and inline case bodies"
-prev: "Operators"
-prevURL: "/reference/control/arc/reference/operators"
-next: "Sequences"
-nextURL: "/reference/control/arc/reference/sequences"
+  "Syntax of Arc flow statements: the -> and => operators, sources, sinks, config
+  values, and routing tables."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
 
-Flow statements connect nodes in the reactive context. They are how data moves through
-an Arc program: from channels into functions, between functions, and out to
-destinations. Flow runs entirely in the reactive context and is distinct from
-[statement-level control flow](/reference/control/arc/reference/statements) inside
-function bodies.
+A flow statement connects two or more nodes with `->` or `=>`. Values move from left to
+right. To learn when a flow runs, see the
+[execution model](/reference/control/arc/execution-model#cycles).
 
-| Operator | Name             | Behavior                                                                                  |
-| -------- | ---------------- | ----------------------------------------------------------------------------------------- |
-| `->`     | Continuous flow  | Fires whenever the source produces a value                                                |
-| `=>`     | Conditional flow | Fires while the source is [truthy](/reference/control/arc/reference/operators#truthiness) |
+```text
+flow     = node (operator node)+
+operator = "->" | "=>"
+```
+
+```arc channels="tank_pt, tank_pt_kpa" bodies="scale"
+func scale{k f64} (v f64) f64 {
+    return v * k
+}
+
+tank_pt -> scale{k=6.895} -> tank_pt_kpa
+```
 
 <Divider.Divider x />
 
-## Continuous flow (`->`)
+## Operators
 
-Runs whenever the source produces data:
+| Operator | Passes                      | Example                     |
+| -------- | --------------------------- | --------------------------- |
+| `->`     | Each new value              | `tank_pt -> scale{k=6.895}` |
+| `=>`     | Each new value that is true | `tank_pt > 500 => vent`     |
 
-```arc channels="sensor, output"
-sensor -> filter{} -> output
-```
-
-Continuous flows chain: each `->` connects the previous node's output to the next node's
-input. The chain executes whenever the leftmost source fires.
-
-```arc channels="valve_cmd, sensor, output"
-stage active {
-    true -> valve_cmd               // writes true once on stage entry
-    sensor -> filter{} -> output    // processes every sample
-}
-```
-
-If multiple `->` flows write to the same channel in the same cycle, the last write by
-line order wins.
+A `=>` after a numeric value compiles with the warning
+`numeric conditions are deprecated; use an explicit comparison like x != 0`. For when a
+transition fires, see
+[conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
 
 <Divider.Divider x />
 
-## Conditional flow (`=>`)
+## Sources
 
-Fires on ticks where the source expression is
-[truthy](/reference/control/arc/reference/operators#truthiness):
+The first node of a flow is its source.
 
-```arc channels="pressure, abort_btn" bodies="abort"
-pressure > 500 => next
-abort_btn => abort
-```
+| Source                              | Example                                                                     |
+| ----------------------------------- | --------------------------------------------------------------------------- |
+| Channel                             | `tank_pt -> tank_pt_copy`                                                   |
+| Expression, function calls included | `(ox_pt + fuel_pt) / 2.0 -> avg_pt`, `median3(pt_1, pt_2, pt_3) -> tank_pt` |
+| Literal                             | `1 -> press_vlv_cmd`                                                        |
+| Variable                            | `target -> setpoint_cmd`                                                    |
+| Function instance                   | `time.interval{period=1s} -> tick`                                          |
 
-A conditional edge has no hidden state. On ticks where the source is truthy, it
-propagates to its target. On ticks where it is falsy, it does not.
-
-<Divider.Divider x />
-
-## Transition targets
-
-A flow whose target is a stage or sequence name is a **transition**. Transitions
-deactivate the current item and activate the target. They use `=>` because they fire
-while the channel value is truthy. A transition to a running target does not restart it,
-except a transition to the item that holds it, which re-enters that item.
-
-| Target          | Description                                             |
-| --------------- | ------------------------------------------------------- |
-| `next`          | Advance to the next item in the enclosing sequence      |
-| `stage_name`    | Jump to a named stage in the same sequence              |
-| `sequence_name` | Jump to a different sequence (starts at its first item) |
-
-### Using `next`
-
-```arc
-sequence test {
-    stage step1 {
-        condition => next // goes to step2
-    }
-    stage step2 {
-        condition => next // goes to step3
-    }
-    stage step3 {
-        // terminal stage
-    }
-}
-```
-
-<Note.Note variant="warning">
-  Using `next` when there is no next item in the enclosing sequence is a compile-time
-  error.
-</Note.Note>
-
-### Named stage transitions
-
-```arc channels="start_btn, pressure, abort_btn" bodies="pressurize, hold, idle, complete"
-sequence test {
-    stage idle {
-        start_btn => pressurize
-    }
-    stage pressurize {
-        pressure > 500 => hold
-        abort_btn => idle // can go backwards
-    }
-    stage hold {
-        time.wait{duration=10s} => complete
-    }
-    stage complete {
-        // terminal
-    }
-}
-```
-
-### Cross-sequence transitions
-
-```arc channels="emergency, all_valves_cmd" bodies="abort"
-sequence main {
-    stage pressurize {
-        emergency => abort // jumps to abort sequence
-    }
-}
-
-sequence abort {
-    stage safed {
-        false -> all_valves_cmd
-    }
-}
-```
-
-Cross-sequence transitions:
-
-1. Deactivate current item in source sequence
-2. Activate first item of target sequence
-3. No built-in "return" mechanism
+An expression source reads each channel in it. A literal source runs once when the
+automation starts, or each time its stage starts. See
+[entering a stage](/reference/control/arc/execution-model#entering-a-stage).
 
 <Divider.Divider x />
 
-## Expressions in flows
+## Sinks
 
-Inline expressions act as implicit functions:
+The last node of a flow is its sink. A function instance can also be in the middle of a
+flow.
 
-```arc channels="temperature, sensor_1, sensor_2, display, pressure, emergency"
-temperature > 100 -> alarm{}
-(sensor_1 + sensor_2) / 2.0 -> display
-pressure > 100 or emergency -> shutdown{}
+| Sink                     | Example               | Effect                                                                |
+| ------------------------ | --------------------- | --------------------------------------------------------------------- |
+| Channel                  | `-> press_vlv_cmd`    | Writes the value to the channel.                                      |
+| Variable                 | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
+| Function instance        | `-> scale{k=6.895}`   | Passes the value to the first input of the function.                  |
+| Stage or sequence        | `=> vent`             | Starts the stage or the sequence.                                     |
+| `next`                   | `=> next`             | Moves to the next step of the enclosing sequence.                     |
+| Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
+| Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
+
+- A top-level variable is not a sink: `cannot write to top-level variable 'peak'`.
+- A function name without braces is not a sink: `f is not a channel`. Write `f{}`.
+- `=> name` finds a stage or sequence with that name in the enclosing sequences, from
+  the innermost out, then at the top level. A stage of a different sequence is not
+  found: `undefined symbol: name`.
+- Several flows can start the same top-level sequence or stage. A running target does
+  not restart, except when a transition inside it targets itself. See
+  [conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
+- `-> name` starts a stage or sequence on each new value, also a false one. `=> name`
+  starts it only on a true value.
+- `next` outside a sequence fails with `'next' used outside of a sequence`. In the last
+  step, it fails with `'next' in last stage 'hold' has no next stage`.
+
+<Divider.Divider x />
+
+## Config values
+
+Braces after a function name set its config parameters, by name or by position. Do not
+mix the two forms in one pair of braces. Values by position fill the parameters in
+order, and skip the input that the flow feeds.
+
+| Parameter type | Value                                                                      |
+| -------------- | -------------------------------------------------------------------------- |
+| `chan T`       | A channel name, or a variable that holds a channel.                        |
+| Any other type | A literal, or a variable declared with a literal, such as `gain := 6.895`. |
+
+Other values, expressions too, fail with `input value for 'k' must be a literal`. When a
+stage or a sequence sets the variable to a new value, the function uses the new value.
+
+```arc channels="tank_pt, tank_pt_kpa, tick" bodies="scale"
+import time
+
+gain := 6.895
+
+func scale{k f64} (v f64) f64 {
+    return v * k
+}
+
+tank_pt -> scale{k=gain} -> tank_pt_kpa
+time.interval{1s} -> tick
 ```
 
-Expressions in flow position can reference channels and literals, but not local
-variables from function bodies.
+For required parameters and defaults, see
+[config parameters](/reference/control/arc/reference/functions#config-parameters).
 
 <Divider.Divider x />
 
 ## Routing tables
 
-A **routing table** is a brace-delimited map written on either end of a flow operator.
-An input table gathers several sources into one function's inputs. An output table
-branches the flow: the output that fires decides which entry runs, instead of an
-`if`/`else`.
+### Output routing
 
-```arc channels="sensor_1, sensor_2, sensor, log"
-// Input routing: many sources -> one function
-{ sensor_1: a, sensor_2: b } -> average{}
+A routing table after a function with named outputs runs the entry of each output that
+fires. Each entry is `output: flow`. Commas between entries are necessary: a newline
+alone is a parse error. Use `->` in front of the table. A `=>` fails with
+`'=>' cannot feed a routing table, use '->'`.
 
-// Output routing: the fired output picks the entry that runs
-sensor -> demux{} -> { high: "high" -> log, low: "low" -> log }
+```arc channels="tank_pt, vent_vlv_cmd"
+tank_pt > 500.0 -> select{} -> {
+    true: 1 -> vent_vlv_cmd,
+    false: 0 -> vent_vlv_cmd
+}
+```
+
+### Case bodies
+
+Each entry is a full flow, such as `true: 1 -> vent_vlv_cmd`, or an inline stage or
+sequence. The output starts the entry, but its value does not pass into the entry. An
+entry with only a target fails with
+`routing entry must be a full statement, e.g. 'true: true => next' to transition or 'true: false -> some_chan' to send false`.
+
+An inline stage or sequence has no name. It cannot use `next`:
+`'next' is not valid inside an inline routing case body`.
+
+```arc channels="tank_pt, vent_vlv_cmd"
+import time
+
+tank_pt > 500.0 -> select{} -> {
+    true: sequence {
+        1 -> vent_vlv_cmd
+        time.wait{duration=2s}
+        0 -> vent_vlv_cmd
+    }
+}
 ```
 
 ### Custom routing
 
-[`select`](/reference/control/arc/reference/standard-library/select) is just a function
-with two named outputs. Any function with multiple named outputs can drive a routing
-table: declare the branches your logic needs as outputs, set the matching one in the
-function body, and route each output by name.
+Any function with named outputs can drive a routing table. Set one output in the
+function body, then route each output by name. See
+[outputs](/reference/control/arc/reference/functions#outputs).
 
-```arc channels="tank_pressure, open_vent" bodies="pressurize, safe_state"
-func decide_stage{low f64, high f64} (value f64) (vent bool, press bool, abort bool) {
-    if value < low {
-        vent = true
-    } else if value <= high {
-        press = true
+```arc channels="tank_pt, alarm_cmd" bodies="band"
+func band{limit f64} (v f64) (low u8, high u8) {
+    if v > limit {
+        high = 1
     } else {
-        abort = true
+        low = 1
     }
 }
 
-tank_pressure -> decide_stage{low=10.0, high=80.0} -> {
-    vent:  true -> open_vent,  // write a channel
-    press: true => pressurize, // activate sequence: `pressurize`
-    abort: true => safe_state  // activate sequence: `safe_state`
+tank_pt -> band{limit=500.0} -> {
+    low: 0 -> alarm_cmd,
+    high: 1 -> alarm_cmd
 }
 ```
-
-Output names are arbitrary identifiers declared with the function's
-[named outputs](/reference/control/arc/reference/functions#multiple-named-outputs), and
-the routing table keys must match them exactly.
-
-### Case bodies
-
-The right side of an output routing entry, the **case body**, is a full flow statement
-or an inline body. A bare target (`true: next`, `false: shut_cmd`) is an error.
-
-```arc channels="flag, log_str, sensor, log_num"
-flag -> select{} -> {
-    true:  "on"  -> log_str,
-    false: "off" -> log_str
-}
-
-sensor -> demux{} -> {
-    high: "above" -> log_str,
-    low:  1 -> log_num
-}
-```
-
-#### Inline stage body
-
-An anonymous `stage { ... }` written directly as a case body. Its flows run in parallel
-while the branch is active:
-
-```arc channels="flag, vent_cmd, log, pressure" bodies="shutdown"
-flag -> select{} -> {
-    true:  stage {
-        "venting" -> log,
-        true -> vent_cmd,
-        pressure < 15 => shutdown
-    },
-    false: false -> vent_cmd
-}
-```
-
-#### Inline sequence body
-
-An anonymous `sequence { ... }` written directly as a case body. Its items run in order:
-
-```arc channels="sensor, cooler_cmd"
-sensor -> decide_stage{low=30.0, high=80.0} -> {
-    abort: sequence {
-        true -> cooler_cmd
-        time.wait{2s}
-        false -> cooler_cmd
-    }
-}
-```
-
-#### Mixed entries
-
-A single routing table may freely mix all of the above:
-
-```arc channels="sensor, log, cooler_cmd, open_vent"
-sensor -> decide_stage{low=30.0, high=80.0} -> {
-    vent:  true -> open_vent,                    // flow statement
-    press: "nominal" -> log,                     // flow statement
-    abort: stage { true -> cooler_cmd }          // inline body
-}
-```
-
-Items inside an inline body are separated by newlines or commas; both are accepted.
-
-### Input routing
-
-An input routing table precedes a function invocation and maps each source to a named
-input parameter:
-
-```arc channels="sensor_1, sensor_2, avg_out"
-func average(a f64, b f64) f64 {
-    return (a + b) / 2.0
-}
-
-{
-    sensor_1: a,
-    sensor_2: b
-} -> average{} -> avg_out
-```
-
-Each entry is `source: parameter`. The key on the left is a channel or expression; the
-identifier on the right is the parameter it binds to. The function runs when any mapped
-source produces data.
-
-A function with more than one input **requires** an input routing table. Wiring a single
-source directly into a
-[multi-input function](/reference/control/arc/reference/functions#multi-input-functions)
-is an error.
-
-### Output routing
-
-An output routing table follows a function invocation and maps each named output to a
-destination:
-
-```arc channels="sensor" bodies="high_out, low_out"
-func demux{threshold f64} (value f64) (high f64, low f64) {
-    if value > threshold {
-        high = value
-    } else {
-        low = value
-    }
-}
-
-sensor -> demux{threshold=50.0} -> {
-    high: true => high_out,
-    low: true => low_out
-}
-```
-
-Each entry is `output: flow statement`. The key is one of the function's named outputs;
-the body runs when the function sets that output. A reading of `75.0` runs the `high`
-entry and leaves `low` untouched.
-
-<Divider.Divider x />
-
-## Inline bodies
-
-Inline sequence and stage bodies are a shorthand for a branch that needs more than a
-chain. They behave like one-shot bodies activated by the routed output, and a few rules
-apply.
-
-**Anonymous only.** An inline body cannot be named. `true: stage foo { ... }` is a
-compile error; inline bodies cannot be referenced by other flows. Use a named top-level
-stage or sequence if you need to reference the branch elsewhere.
-
-**No auto-advance.** Firing and completing an inline body does **not** advance the
-enclosing sequence to its next item.
-
-**`=> next` is not valid inside an inline routing case body.** Use a named top-level
-stage or sequence if a branch needs to advance the enclosing sequence.
-
-**Cross-stage navigation works.** An inline body can transition to a named stage, just
-like a normal transition:
-
-```arc channels="flag" bodies="named_body"
-flag -> select{} -> {
-    true: stage { time.wait{1s} => named_body }
-}
-```
-
-**Arbitrary nesting.** Inline routing tables may appear inside other inline bodies, to
-any depth.

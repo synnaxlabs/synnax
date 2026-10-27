@@ -104,7 +104,9 @@ var _ = Describe("DiscriminatedUnion", func() {
 				To(MatchError(ContainSubstring("unknown discriminator value")))
 		})
 		It("Should fail for non-map data", func() {
-			Expect(schema.Validate("not a map")).To(HaveOccurred())
+			Expect(
+				schema.Validate("not a map"),
+			).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 		It("Should succeed for optional nil", func() {
 			Expect(schema.Optional().Validate(nil)).To(Succeed())
@@ -156,7 +158,7 @@ var _ = Describe("DiscriminatedUnion", func() {
 					&dest,
 				),
 			).
-				To(HaveOccurred())
+				To(MatchError(ContainSubstring("sample_rate: expected number")))
 		})
 	})
 	Describe("Optional Fields", func() {

@@ -1,0 +1,133 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Logs"
+description: "Follow the values of channels as lines of text while they arrive."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
+import { Hero } from "@/components/hero";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+<Hero.Hero
+  still="console/logs/hero"
+  layout="centered"
+  tone="soft"
+  palette="teal-blue"
+/>
+
+A log shows each new value of its channels as one line of text. Use a log to follow
+operator notes, the states of an automation, and slow sensors. A log can show channels
+of any data type, including text and JSON.
+
+When you open a log, it shows the latest stored samples of its channels, then shows new
+samples as they arrive. Scroll up to load older samples, back to the first stored
+sample.
+
+<Divider.Divider x />
+
+## Create a log
+
+1. Click <Icon.Add /> in the tab bar, or press **Ctrl+T** (**Cmd+T** on macOS).
+2. Select **Log**.
+3. Click **Configure channels**, then click **Add channel** and select a channel.
+
+You can also run the "Create log" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette). In the
+channels toolbar, double-click a virtual channel to open it in a log.
+
+<Video id="console/logs/create" />
+
+<Divider.Divider x />
+
+## Add channels
+
+1. Press **V** to open the component toolbar, then select the **Channels** tab.
+2. Click **Add channel** and select a channel.
+3. Optional: set an **Alias** to show in place of the channel name, and a color.
+
+A number channel also has **Notation** and **Precision** settings. A `timestamp` channel
+has a timestamp format and a **Time zone**. To remove a channel and its lines, click
+**Remove channel**.
+
+<Video id="console/logs/example" />
+
+<Divider.Divider x />
+
+## Pause and copy lines
+
+Click <Icon.Pause /> (**Pause scrolling**) or press **H** to stop the log from
+scrolling. New lines still arrive. Scroll up to pause too. To resume, click <Icon.Play
+/> or scroll back to the newest line.
+
+To copy lines, drag across them, or press **Ctrl+A** (**Cmd+A** on macOS) to select all.
+Then press **Ctrl+C**, or right-click and select **Copy**.
+
+<Divider.Divider x />
+
+## Set what each line shows
+
+On the **Properties** tab of the component toolbar:
+
+| Field                       | Default | Description                                               |
+| --------------------------- | ------- | --------------------------------------------------------- |
+| Show receipt timestamp      | On      | Shows the time of the sample.                             |
+| Receipt timestamp precision | 0       | The number of decimal places of the seconds, from 0 to 3. |
+| Show channel names          | On      | Shows the channel name, or its alias, before the value.   |
+
+The timestamp is the time of the sample from the channel's index. The log sorts the
+lines of all channels by that time. A
+[virtual channel](/reference/channels#virtual-channels) has no index and stores no
+samples, so the log shows only its new samples, with the time that the Console received
+them.
+
+<Divider.Divider x />
+
+## Limits
+
+- A log holds up to 100,000 lines at a time. It reads older or newer lines again as you
+  scroll.
+- The lines of a virtual channel live only in the Console. Closing the tab or reloading
+  the Console clears them.
+- A value with more than one line of text shows as several lines.
+- When a log opens, it can show the last minute of values of a channel that a different
+  plot, schematic, or table already streams.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### The log says "No data received yet"
+
+<Problem.Body>
+<Problem.Cause>
+
+The channels have no stored samples, and nothing has written to them since the log
+opened.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that a task, a script, or an Arc automation writes to the channels.
+
+</Problem.Fix>
+</Problem.Body>
+
+### A line shows the wrong time
+
+<Problem.Body>
+<Problem.Cause>
+
+The channel is a virtual channel. It has no index, so the log shows the time that the
+Console received the value, not the time of the sample.
+
+</Problem.Cause>
+<Problem.Fix>
+
+To keep the time of each sample, write the values to a channel that has an index.
+
+</Problem.Fix>
+</Problem.Body>

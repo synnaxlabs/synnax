@@ -38,5 +38,5 @@ uv run python -m examples.control.abort.nominal_sequence
 ```
 
 We recommend using the
-[Synnax Console](https://docs.synnaxlabs.com/reference/console/get-started) to visualize
+[Synnax Console](https://docs.synnaxlabs.com/reference/enterprise/console) to visualize
 the data in these examples.

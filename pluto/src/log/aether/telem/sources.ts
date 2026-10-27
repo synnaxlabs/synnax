@@ -404,15 +404,18 @@ export class StreamMultiChannelLog
     for (const ch of channels) {
       const existing = prev.get(ch.key);
       const index = channelIndex(ch);
+      // The restarted stream replays only the latest buffer, so samples still waiting
+      // for their index samples stay pending.
+      const kept = existing?.index === index ? existing : undefined;
       const meta: ChannelMeta = {
         key: ch.key,
         dataType: new DataType(ch.dataType),
         index,
-        pending: [],
-        readCursor: 0,
+        pending: kept?.pending ?? [],
+        readCursor: kept?.readCursor ?? 0,
         skipInitialBatch: isRestart && index === 0,
         historyRead: existing?.historyRead ?? false,
-        indexBuffers: [],
+        indexBuffers: kept?.indexBuffers ?? [],
         highWater: existing?.highWater ?? null,
         untimedDropReported: existing?.untimedDropReported ?? false,
       };
