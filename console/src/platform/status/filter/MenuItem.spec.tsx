@@ -19,8 +19,15 @@ import { findDialogTrigger, renderWithConsole } from "@/testutil";
 
 const schema = z.object({ where: status.whereZ.optional() });
 
-const Fixture = (): ReactElement => {
-  const methods = Form.use({ schema, values: {} });
+interface FixtureProps {
+  variant?: status.Where["variant"];
+}
+
+const Fixture = ({ variant }: FixtureProps): ReactElement => {
+  const methods = Form.use({
+    schema,
+    values: { where: variant == null ? undefined : { variant } },
+  });
   return (
     <Form.Form<typeof schema> {...methods}>
       <Status.Filter.MenuItem />
@@ -48,5 +55,12 @@ describe("Status.Filter.MenuItem", () => {
     await waitFor(() => expect(screen.getByText("value:error")).toBeTruthy());
     fireEvent.click(screen.getByText("Error"));
     await waitFor(() => expect(screen.getByText("value:none")).toBeTruthy());
+  });
+
+  it("should keep a variant that the where selects with eq", async () => {
+    await renderWithConsole(<Fixture variant={{ eq: "error" }} />);
+    fireEvent.click(await findDialogTrigger());
+    fireEvent.click(await waitFor(() => screen.getByText("Success")));
+    await waitFor(() => expect(screen.getByText("value:error,success")).toBeTruthy());
   });
 });
