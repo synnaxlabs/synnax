@@ -246,6 +246,7 @@ export class MultiplexedStreamer {
   }
 
   private remove(entry: Entry): void {
+    if (entry.removed) return;
     entry.removed = true;
     const timer = setTimeout(() => {
       this.removalTimers.delete(timer);
