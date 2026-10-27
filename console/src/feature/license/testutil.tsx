@@ -9,13 +9,16 @@
 
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { Synnax } from "@synnaxlabs/pluto";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 
 import { Guard } from "@/feature/license/Guard";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 export const GUARDED_CONTENT = "licensed content";
+
+/** Matches the handoff code that the Console puts in a portal link. */
+export const HANDOFF_CODE = /^[0-9a-f-]{36}$/;
 
 export interface GuardHarness {
   store: TestStore;
@@ -42,4 +45,11 @@ export const renderGuard = async (
   );
   const { rerender } = render(ui(status), { wrapper });
   return { store, setStatus: (next) => rerender(ui(next)) };
+};
+
+/** Finds the button labeled `label` that opens the portal, and returns its link. */
+export const findPortalLink = async (label: string): Promise<string> => {
+  const link = (await screen.findByText(label)).closest("a");
+  if (link == null) throw new Error(`${label} is not a link`);
+  return link.href;
 };

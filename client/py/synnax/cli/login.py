@@ -10,12 +10,7 @@
 import click
 
 from synnax import config
-from synnax.cli import console
-from synnax.cli.connect import (
-    connect_from_options,
-    prompt_client_options,
-    save_api_key,
-)
+from synnax.cli import connect, console
 from synnax.cli.flow import Context
 
 
@@ -31,11 +26,11 @@ def run(ctx: Context, clusters: config.Clusters) -> None:
     """Prompts for connection parameters, connects, and saves an API key for the
     logged-in user to clusters.
     """
-    options = prompt_client_options(ctx)
-    synnax = connect_from_options(ctx, options)
+    options = connect.prompt_client_options(ctx)
+    synnax = connect.from_context(ctx, options)
     if synnax is None:
         return
-    save_api_key(synnax, options, clusters)
+    connect.save_api_key(synnax, options, clusters)
     ctx.console.info(_SUCCESSFUL_LOGIN)
 
 
