@@ -2,7 +2,7 @@
 build --define=SYNNAX_DRIVER_VERSION=0.0.0
 
 # Enable platform-specific configs
-build --enable_platform_specific_config
+common --enable_platform_specific_config
 
 # vendor/registry holds module versions the Bazel Central Registry does not have yet,
 # such as security releases. Bazel takes each module version from the first registry
