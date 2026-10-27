@@ -7,40 +7,69 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
+import { type UnknownAction } from "@reduxjs/toolkit";
 import { describe, expect, it } from "vitest";
 
-import { ZERO_SLICE_STATE } from "@/state";
-import { sync } from "@/sync";
-import { MockRuntime } from "@/testutil";
-import { type WindowProps, type WindowState } from "@/window";
+import {
+  focusWindow,
+  setWindowAlwaysOnTop,
+  setWindowDecorations,
+  setWindowFullscreen,
+  setWindowMaximized,
+  setWindowMaxSize,
+  setWindowMinimized,
+  setWindowMinSize,
+  setWindowPosition,
+  setWindowResizable,
+  setWindowSize,
+  setWindowSkipTaskbar,
+  setWindowTitle,
+  setWindowVisible,
+  type StoreState,
+  type WindowProps,
+} from "@/index";
+import { configureMockStore, MockRuntime } from "@/testutil";
+
+const SIZE = { width: 100, height: 100 };
+
+const TESTS: Array<[string, UnknownAction, keyof WindowProps, unknown]> = [
+  ["title", setWindowTitle({ title: "Title To Set" }), "title", "Title To Set"],
+  ["visible", setWindowVisible({ value: false }), "visible", false],
+  ["skipTaskbar", setWindowSkipTaskbar({ value: true }), "skipTaskbar", true],
+  ["maximized", setWindowMaximized({ value: true }), "maximized", true],
+  ["fullscreen", setWindowFullscreen({ value: true }), "fullscreen", true],
+  ["minimized", setWindowMinimized({ value: true }), "visible", false],
+  ["minSize", setWindowMinSize({ size: SIZE }), "minSize", SIZE],
+  ["maxSize", setWindowMaxSize({ size: SIZE }), "maxSize", SIZE],
+  ["size", setWindowSize({ size: SIZE }), "size", SIZE],
+  [
+    "position",
+    setWindowPosition({ position: { x: 100, y: 100 } }),
+    "position",
+    {
+      x: 100,
+      y: 100,
+    },
+  ],
+  ["focus", focusWindow({}), "focus", true],
+  ["resizable", setWindowResizable({ value: true }), "resizable", true],
+  [
+    "decorations",
+    setWindowDecorations({ key: "main", value: true }),
+    "decorations",
+    true,
+  ],
+  ["alwaysOnTop", setWindowAlwaysOnTop({ value: true }), "alwaysOnTop", true],
+  ["center", { type: "drift/centerWindow", payload: {} }, "center", true],
+];
 
 describe("sync", () => {
-  const TESTS: Array<[keyof WindowState, keyof WindowProps, any, any]> = [
-    ["title", "title", "Title To Set", "Title To Set"],
-    ["visible", "visible", false, false],
-    ["skipTaskbar", "skipTaskbar", true, true],
-    ["maximized", "maximized", true, true],
-    ["fullscreen", "fullscreen", true, true],
-    ["centerCount", "center", 5, true],
-    ["minimized", "visible", true, false],
-    ["minSize", "minSize", { width: 100, height: 100 }, { width: 100, height: 100 }],
-    ["maxSize", "maxSize", { width: 100, height: 100 }, { width: 100, height: 100 }],
-    ["size", "size", { width: 100, height: 100 }, { width: 100, height: 100 }],
-    ["position", "position", { x: 100, y: 100 }, { x: 100, y: 100 }],
-    ["focusCount", "focus", 5, true],
-    ["resizable", "resizable", true, true],
-    ["decorations", "decorations", true, true],
-    ["alwaysOnTop", "alwaysOnTop", true, true],
-  ];
-  TESTS.forEach(([keyToSet, keyToCheck, valueToSet, expectedValue]) => {
-    it(`should set ${keyToSet} to ${JSON.stringify(valueToSet)}`, async () => {
-      const runtime = new MockRuntime(true, { key: "main" });
-      const nextState = deep.copy(ZERO_SLICE_STATE);
-      const win = nextState.windows[runtime.label()];
-      nextState.windows[runtime.label()] = { ...win, [keyToSet]: valueToSet };
-      await sync(ZERO_SLICE_STATE, nextState, runtime, false);
-      expect(runtime.props[keyToCheck]).toStrictEqual(expectedValue);
+  TESTS.forEach(([name, action, prop, expected]) => {
+    it(`should apply ${name} to the window`, async () => {
+      const runtime = new MockRuntime<StoreState>(true, { key: "main" });
+      const store = await configureMockStore(runtime);
+      store.dispatch(action);
+      await expect.poll(() => runtime.props[prop]).toStrictEqual(expected);
     });
   });
 });

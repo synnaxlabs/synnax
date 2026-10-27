@@ -12,9 +12,10 @@ import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { LogicalPosition } from "@tauri-apps/api/window";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Event } from "@/runtime";
-import { runtimeSetWindowProps, type StoreState } from "@/state";
+import { type Runtime, type StoreState } from "@/index";
 import { TauriRuntime } from "@/tauri";
+
+type Event = Parameters<Parameters<Runtime<StoreState>["subscribe"]>[0]>[0];
 
 const WINDOW_PROPS: Record<string, unknown> = {
   "plugin:window|scale_factor": 1,
@@ -65,13 +66,13 @@ describe("TauriRuntime", () => {
   describe("subscribe", () => {
     it("should report fullscreen when the window resizes", async () => {
       const runtime = new TauriRuntime();
-      const listener = vi.fn<(event: Event<StoreState>) => void>();
+      const listener = vi.fn<(event: Event) => void>();
       await runtime.subscribe(listener);
       await emit(TauriEvent.WINDOW_RESIZED);
       await vi.waitFor(() => expect(listener).toHaveBeenCalled());
       runtime.release();
       const { action } = listener.mock.calls[0][0];
-      expect(runtimeSetWindowProps.match(action)).toBe(true);
+      expect(action?.type).toEqual("drift/runtimeSetWindowProps");
       expect(action?.payload).toMatchObject({ label: "main", fullscreen: true });
     });
   });

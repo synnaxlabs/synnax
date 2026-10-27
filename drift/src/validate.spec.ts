@@ -9,18 +9,25 @@
 
 import { describe, expect, it } from "vitest";
 
-import { validateAction } from "@/validate";
+import { type StoreState } from "@/index";
+import { configureMockStore, MockRuntime } from "@/testutil";
 
 describe("validate", () => {
-  it("should throw an error if an action is undefined", () => {
-    expect(() => validateAction()).toThrow();
+  it("should reject a dispatched action with an empty type", async () => {
+    const store = await configureMockStore();
+    expect(() => store.dispatch({ type: "" })).toThrow();
   });
-  it("should throw an error if an action type is undefined or an empty string", () => {
-    expect(() => validateAction({ type: "" })).toThrow();
-    // @ts-expect-error - expect this to fail
-    expect(() => validateAction({ type: undefined })).toThrow();
+
+  it("should reject an emitted action with an empty type", async () => {
+    const runtime = new MockRuntime<StoreState>(true, { key: "main" });
+    await configureMockStore(runtime);
+    expect(() =>
+      runtime.subscribeCallback({ action: { type: "" }, emitter: "b" }),
+    ).toThrow();
   });
-  it("should not throw an error for a valid action", () => {
-    expect(() => validateAction({ type: "type" })).not.toThrow();
+
+  it("should accept an action with a type", async () => {
+    const store = await configureMockStore();
+    expect(() => store.dispatch({ type: "type" })).not.toThrow();
   });
 });
