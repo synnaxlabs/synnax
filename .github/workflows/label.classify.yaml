@@ -53,7 +53,7 @@ jobs:
         with:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ github.token }}
-          path: results
+          path: ${{ runner.temp }}/results
 
       - name: Create an App token
         id: token
@@ -71,4 +71,4 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           REVIEW_AGENT: claude -p --tools "" --strict-mcp-config
-        run: python3 .github/scripts/classify.py results
+        run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"
