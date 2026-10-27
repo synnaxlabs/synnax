@@ -102,6 +102,28 @@ var _ = Describe("Plugin", func() {
 				ToNotContain(".x.filter.pb.Set")
 		})
 
+		It("Should name the list message of each generic use", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					key   uuid
+					ids   filter.Set<uuid>[]?
+					names filter.Set<string>[]?
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "thing.proto").
+				ToContain(
+					"message UuidSetList {\n  repeated UuidSet values = 1;\n}",
+					"message StringSetList {\n  repeated StringSet values = 1;\n}",
+				).
+				ToNotContain("FilterSetList")
+		})
+
 		It("Should emit no shared message for a generic struct omitted in pb", func(
 			ctx SpecContext,
 		) {

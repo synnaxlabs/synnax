@@ -130,7 +130,7 @@ class Client:
         key, a name, or one, and a list otherwise.
 
         :param args: Conditions from the view builder, such as
-            ``view.type.eq("lineplot")``, or one key, name, or list of either.
+            ``view.type.eq("range")``, or one key, name, or list of either.
         :param key: The key of one view to retrieve.
         :param one: Returns the one view that matches, instead of a list.
         :param keys: Keeps views with one of these keys.
