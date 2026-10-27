@@ -195,6 +195,25 @@ func FormatProto(name, doc string, indent ...int) string {
 	return FormatGo(name, doc, indent...)
 }
 
+// FormatPy formats documentation as the docstring of a top-level Python name.
+//
+// Single-line: `"""Doc text."""`
+//
+// Multi-line: "\"\"\"Line1\nline2\n\"\"\""
+//
+// Text is wrapped to 88 characters including the quotes.
+func FormatPy(doc string) string {
+	if doc == "" {
+		return ""
+	}
+	const quotes = `"""`
+	lines := wrapText(capitalize(doc), maxLineWidth-len(quotes), maxLineWidth)
+	if len(lines) == 1 && len(lines[0])+2*len(quotes) <= maxLineWidth {
+		return quotes + lines[0] + quotes
+	}
+	return quotes + strings.Join(lines, "\n") + "\n" + quotes
+}
+
 func capitalize(s string) string {
 	if s == "" {
 		return s

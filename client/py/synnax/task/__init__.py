@@ -7,6 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.task.builder_gen import (
+    Condition,
+    and_,
+    internal,
+    key,
+    name,
+    not_,
+    or_,
+    rack,
+    snapshot,
+    type,
+    where,
+)
 from synnax.task.client import (
     Client,
     JSONConfigMixin,
@@ -34,6 +47,7 @@ from synnax.task.types_gen import (
 __all__ = [
     "ONTOLOGY_TYPE",
     "Client",
+    "Condition",
     "JSONConfigMixin",
     "Key",
     "KeyedConfig",
@@ -49,6 +63,16 @@ __all__ = [
     "Task",
     "Where",
     "WriteConfig",
+    "and_",
     "assign_keys",
+    "internal",
+    "key",
+    "name",
+    "not_",
     "ontology_id",
+    "or_",
+    "rack",
+    "snapshot",
+    "type",
+    "where",
 ]
