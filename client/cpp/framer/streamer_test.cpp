@@ -117,7 +117,7 @@ TEST(StreamerTests, testStreamSetChannels) {
 }
 
 /// @brief it should read frames after setting the channels the streamer already has.
-TEST(StreamerTests, testStreamSetSameChannels) {
+TEST(StreamerTests, StreamSetSameChannels) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
     auto streamer = ASSERT_NIL_P(
@@ -141,7 +141,7 @@ TEST(StreamerTests, testStreamSetSameChannels) {
 }
 
 /// @brief it should read frames of the channels set after an empty set of channels.
-TEST(StreamerTests, testStreamSetChannelsAfterNone) {
+TEST(StreamerTests, StreamSetChannelsAfterNone) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
     auto streamer = ASSERT_NIL_P(
