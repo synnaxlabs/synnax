@@ -42,6 +42,7 @@ x::errors::Error Config::enroll() {
     const auto [cluster_key, key_err] = retrieve_cluster_key(client);
     if (key_err) return key_err;
     std::pair<synnax::rack::Rack, x::errors::Error> res;
+    bool created = false;
     if (this->remote_info.rack_key != 0 &&
         this->remote_info.cluster_key == cluster_key) {
         res = client.racks.retrieve(this->remote_info.rack_key);
@@ -49,15 +50,25 @@ x::errors::Error Config::enroll() {
             LOG(INFO) << "rack " << this->remote_info.rack_key
                       << " not found. Creating a new rack";
             res = create_rack(client);
+            created = true;
         }
-    } else
+    } else {
         res = create_rack(client);
+        created = true;
+    }
     if (res.second) return res.second;
     auto [key, create_err] = client.api_keys.create(
         API_KEY_NAME,
         {RACK_SUBJECT_TYPE, std::to_string(res.first.key)}
     );
-    if (create_err) return create_err;
+    if (create_err) {
+        // A retry creates another rack, so remove the one no key logs in as.
+        if (!created) return create_err;
+        if (const auto del_err = client.racks.del(res.first.key))
+            LOG(WARNING) << "failed to remove rack " << res.first.key << ": "
+                         << del_err;
+        return create_err;
+    }
     this->rack = res.first;
     this->remote_info = {.rack_key = 0, .cluster_key = cluster_key};
     this->connection.api_key = key.token;
