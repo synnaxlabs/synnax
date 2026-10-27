@@ -163,3 +163,11 @@ export const revocationText = (lic: License, organizationName: string): string =
     "",
     "Contact Synnax Labs if you believe this is a mistake.",
   ].join("\n");
+
+export const restorationText = (lic: License, organizationName: string): string =>
+  [
+    `The Synnax license "${lic.label}" for ${organizationName} has been restored.`,
+    "",
+    "It can activate Cores again. Machines that held a seat before the revocation " +
+      "still hold it.",
+  ].join("\n");

@@ -10,7 +10,7 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { event, license, type Organization } from "@/server/db/schema";
+import { activation, event, license, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
   amend,
@@ -18,6 +18,7 @@ import {
   floating,
   issue,
   type IssueArgs,
+  restore,
   revoke,
   validate,
 } from "@/server/license/issue";
@@ -445,6 +446,75 @@ describe("issue", () => {
         message: "This license is already revoked",
       });
       expect((await stored(lic.key)).revokedAt).toEqual(earlier);
+      expect(await events()).toHaveLength(0);
+    });
+  });
+
+  describe("restore", () => {
+    it("should clear the revocation and record it", async () => {
+      const lic = await createLicense(store, { organization: org.key, revokedAt: NOW });
+      const row = await restore(store, {
+        licenseKey: lic.key,
+        actor: "user_staff",
+        now: NOW,
+      });
+      expect(row).toEqual({ ...lic, revokedAt: null });
+      expect(await stored(lic.key)).toEqual(row);
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: "restore",
+          at: NOW,
+          actor: "user_staff",
+          organization: org.key,
+          license: lic.key,
+          activation: null,
+          detail: {},
+        }),
+      ]);
+    });
+
+    it("should keep the seats machines held", async () => {
+      const lic = await createLicense(store, { organization: org.key, revokedAt: NOW });
+      const held = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await restore(store, { licenseKey: lic.key, actor: "user_staff", now: NOW });
+      const [after] = await store.query
+        .select()
+        .from(activation)
+        .where(eq(activation.key, held.key));
+      expect(after).toEqual(held);
+    });
+
+    it("should throw a 404 for an unknown license", async () => {
+      await expect(
+        restore(store, {
+          licenseKey: crypto.randomUUID(),
+          actor: "user_staff",
+          now: NOW,
+        }),
+      ).rejects.toMatchObject({ status: 404, message: "License not found" });
+    });
+
+    it("should refuse a license that is not revoked", async () => {
+      const lic = await createLicense(store, { organization: org.key });
+      await expect(
+        restore(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
+      ).rejects.toMatchObject({ status: 400, message: "This license is not revoked" });
+      expect(await events()).toHaveLength(0);
+    });
+
+    it("should leave a Synnax Desktop license revoked", async () => {
+      const lic = await createLicense(store, {
+        organization: org.key,
+        edition: "desktop",
+        revokedAt: NOW,
+      });
+      await expect(
+        restore(store, { licenseKey: lic.key, actor: "user_staff", now: NOW }),
+      ).rejects.toMatchObject(DESKTOP_REFUSED);
+      expect((await stored(lic.key)).revokedAt).toEqual(NOW);
       expect(await events()).toHaveLength(0);
     });
   });

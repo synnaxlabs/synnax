@@ -98,6 +98,7 @@ const EVENT_LABELS: Record<Event["kind"], string> = {
   release: "Seat released",
   rename: "Machine renamed",
   revoke: "License revoked",
+  restore: "License restored",
   expiry_notice: "Expiry notice sent",
   link: "Machine linked",
   renew: "License renewed",

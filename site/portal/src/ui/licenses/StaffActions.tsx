@@ -35,10 +35,27 @@ export const StaffActions = ({
     const blob = await postFile(`/api/licenses/${lic.key}/floating`);
     save(blob, filename(lic.label));
   });
+  const restore = useAction(async () => {
+    await post(`/api/licenses/${lic.key}/restore`);
+    reload();
+  });
+  const enterprise = lic.edition === "enterprise";
+  const error = floating.error ?? restore.error;
   return (
     <>
-      {floating.error != null && (
-        <Status.Summary variant="error" level="small" message={floating.error} />
+      {error != null && (
+        <Status.Summary variant="error" level="small" message={error} />
+      )}
+      {lic.revokedAt != null && enterprise && (
+        <Button.Button
+          variant="outlined"
+          onClick={restore.run}
+          status={restore.loading ? "loading" : undefined}
+          tooltip="Let the license activate machines again. Its admins are emailed."
+        >
+          <Icon.Undo />
+          Restore
+        </Button.Button>
       )}
       {lic.revokedAt == null && <EditDialog license={lic} />}
       {deny(lic, now) == null && (
@@ -72,8 +89,12 @@ export const StaffActions = ({
               reload();
             }}
           >
-            Every Core running under it loses its license at its next check. The
-            organization's admins are emailed. There is no undo.
+            No machine can activate it or download its license key. A Core checks its
+            license offline, so a Core that already holds it keeps running as its terms
+            allow. The organization's admins are emailed.
+            {enterprise
+              ? " Restore undoes this."
+              : " A Desktop license cannot be restored."}
           </Modal.Confirm>
         </Modal.Frame>
       )}

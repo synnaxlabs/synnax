@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { type Store } from "@/server/db/db";
 import {
@@ -227,6 +227,53 @@ export const revoke = async (
   await store.query.insert(event).values({
     at: now,
     kind: "revoke",
+    actor,
+    organization: row.organization,
+    license: row.key,
+    detail: {},
+  });
+  return row;
+};
+
+export interface RestoreArgs {
+  licenseKey: string;
+  actor: string;
+  now: Date;
+}
+
+/**
+ * restore undoes a revocation. The license keeps its key, terms, and seats, so the
+ * machines that held one need not activate again.
+ * @throws {HTTPError} 400 when the license is a Synnax Desktop license or is not
+ * revoked.
+ */
+export const restore = async (
+  store: Store,
+  { licenseKey, actor, now }: RestoreArgs,
+): Promise<License> => {
+  const [row] = await store.query
+    .update(license)
+    .set({ revokedAt: null })
+    .where(
+      and(
+        eq(license.key, licenseKey),
+        eq(license.edition, "enterprise"),
+        isNotNull(license.revokedAt),
+      ),
+    )
+    .returning();
+  if (row == null) {
+    const [existing] = await store.query
+      .select()
+      .from(license)
+      .where(eq(license.key, licenseKey));
+    if (existing == null) throw notFound("License");
+    requireEnterprise(existing);
+    throw badRequest("This license is not revoked");
+  }
+  await store.query.insert(event).values({
+    at: now,
+    kind: "restore",
     actor,
     organization: row.organization,
     license: row.key,

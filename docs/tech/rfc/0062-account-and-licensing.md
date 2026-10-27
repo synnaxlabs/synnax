@@ -316,7 +316,7 @@ Neon Postgres holds the portal's tables through Drizzle:
 - **`activation`**: `license`, `fingerprint`, `first_seen`, `last_seen`, `released_at`,
   the machine's name, and the hash of its Desktop renewal secret.
 - **`event`**: An append-only audit log of issue, activate, renew, release, rename,
-  transfer, and revoke.
+  transfer, revoke, and restore.
 
 Resend sends the mail Clerk does not: expiry warnings at 30, 7, and 1 days, and
 revocation notices. A daily Vercel Cron job runs the expiry sweep.
@@ -420,10 +420,10 @@ A license reads Active, Expiring (within 30 days of expiry, never for Desktop), 
 or Revoked. Its page shows the facts, the machines with Download license key, Rename,
 and Release, the released machines, and the activity from the event log. Staff also get
 Edit, which changes the terms in place so seats and history survive a renewal, Floating
-license key, and Revoke. Activate a machine is a dialog that takes a name and the
-fingerprint the Console copied, and downloads the license key as a `.lic` file, the
-extension most license managers use. `/licenses/activate?license=` is the page the
-Console links.
+license key, Revoke, and Restore, which undoes a revocation and keeps the key and seats.
+Activate a machine is a dialog that takes a name and the fingerprint the Console copied,
+and downloads the license key as a `.lic` file, the extension most license managers use.
+`/licenses/activate?license=` is the page the Console links.
 
 Routes sit at the root of the host: `/`, `/devices`, `/licenses`, `/licenses/<key>`,
 `/licenses/activate`, `/members`, `/settings`, `/admin`, and `/api/...`. The scope is

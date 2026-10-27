@@ -36,6 +36,7 @@ export const EVENT_KINDS = [
   "release",
   "rename",
   "revoke",
+  "restore",
   "expiry_notice",
   "link",
   "renew",
