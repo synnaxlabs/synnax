@@ -192,6 +192,16 @@ describe("StreamMultiChannelLog", () => {
     expect(stampsOf(live)).toEqual([time, time + 1n]);
   });
 
+  it("should time samples at alignments that none of their index samples have", async () => {
+    const core = createCore({ dataMisaligned: true });
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    expect(stampsOf(entriesOf(log).slice(HISTORY))).toEqual(timesOf(core, 10));
+  });
+
   it("should show samples streamed apart from their index samples", async () => {
     const core = createCore({ dataFramedApart: true });
     const [a] = core.data.map((c) => c.key);
@@ -260,7 +270,7 @@ describe("StreamMultiChannelLog", () => {
   });
 
   it("should drop the oldest samples that wait past maxEntries", async () => {
-    const core = createCore({ dataMisaligned: true });
+    const core = createCore({ dataMisaligned: true, dataUntimed: true });
     const [a] = core.data.map((c) => c.key);
     const statuses: cstatus.Crude[] = [];
     const log = open(
@@ -354,6 +364,31 @@ describe("StreamMultiChannelLog", () => {
       await settle(log, 20);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 20));
     });
+  });
+
+  it("should time samples streamed while its index history loads", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const { promise: released, resolve: release } = Promise.withResolvers<void>();
+    let calls = 0;
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        // A failed read of both channels reads each alone, so the data lands first.
+        if (calls++ === 0) throw new Error("read each channel alone");
+        if (keys.includes(core.index.key)) await released;
+        return core.readLatest(keys, count, tr);
+      },
+    });
+    const log = open(core, client, { channels: [a] });
+    log.value();
+    await expect.poll(() => calls, POLL).toBe(3);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const streamed = 1_000;
+    core.advance(TimeSpan.seconds(streamed / 10));
+    release();
+    await settle(log, HISTORY + streamed);
+    expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + streamed));
+    expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, HISTORY + streamed));
   });
 
   it("should show the samples written while its stream was down", async () => {

@@ -48,6 +48,10 @@ export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPro
 // A sample with no entries yet. time is set once known.
 interface Sample {
   alignment: bigint;
+  // The start of the sample's series, or null when the series has no time range, and
+  // the sample's position in it.
+  start: bigint | null;
+  offset: number;
   value: string;
   text: boolean;
   time?: TimeStamp;
@@ -208,7 +212,8 @@ export class StreamMultiChannelLog
 
   // Adds the samples each channel received since the last pull, and returns whether
   // the entries changed. A channel's entries wait while it or its index loads, so its
-  // history lands in one pull before its live samples.
+  // history lands in one pull before its live samples. Reading a snapshot lets the feed
+  // drop the samples it held unread, so a channel is not read while its index loads.
   private pull(subscription: framer.Subscription): boolean {
     let worst: cstatus.Status = telem.SUCCESS_STATUS;
     const snapshots = new Map<channel.Key, framer.Snapshot>();
@@ -223,10 +228,10 @@ export class StreamMultiChannelLog
     const groups: LogEntry[][] = [];
     const receivedAt = this.now();
     this.metas.forEach((meta, key) => {
-      const snapshot = snapshotOf(key);
       const index = meta.index == null ? null : snapshotOf(meta.index);
-      if (snapshot.status.variant === "loading" || index?.status.variant === "loading")
-        return;
+      if (index?.status.variant === "loading") return;
+      const snapshot = snapshotOf(key);
+      if (snapshot.status.variant === "loading") return;
       this.append(key, meta, snapshot, receivedAt);
       this.drain(key, meta, index?.series ?? null, groups);
     });
@@ -259,6 +264,8 @@ export class StreamMultiChannelLog
         else if (meta.index === key) time = new TimeStamp(s.at(i, true) as bigint);
         meta.pending.push({
           alignment: alignmentOf(s, i),
+          start: s.timeRange.isZero ? null : s.timeRange.start.valueOf(),
+          offset: i,
           value: s.asString(i, true),
           text: s.dataType.equals(DataType.STRING),
           time,
@@ -270,8 +277,9 @@ export class StreamMultiChannelLog
   }
 
   // Turns the queued samples into entries, oldest first, up to the first sample whose
-  // index sample has not arrived. A sample older than every index sample held never
-  // gets a time, so it is dropped, as are the oldest waiting samples past maxEntries.
+  // index sample has not arrived. A sample whose index sample the index no longer holds
+  // never gets a time, so it is dropped, as are the oldest waiting samples past
+  // maxEntries.
   private drain(
     key: channel.Key,
     meta: Meta,
@@ -280,14 +288,21 @@ export class StreamMultiChannelLog
   ): void {
     const newest = index?.series.at(-1);
     const reach = newest == null ? null : alignmentOf(newest, newest.length - 1);
+    const first = index?.series[0];
+    const from =
+      first == null || first.length === 0 ? null : (first.at(0, true) as bigint);
     let dropped = 0;
     let i = 0;
     for (; i < meta.pending.length; i++) {
       const sample = meta.pending[i];
-      const found = index?.atAlignment(sample.alignment) as bigint | undefined;
+      const found = index == null ? undefined : indexTime(index, sample);
       const time = sample.time ?? (found == null ? null : new TimeStamp(found));
       if (time != null) groups.push(toEntries(key, sample, time));
-      else if (reach != null && reach > sample.alignment) dropped++;
+      else if (
+        (reach != null && reach > sample.alignment) ||
+        (from != null && sample.start != null && sample.start < from)
+      )
+        dropped++;
       else break;
     }
     const excess = Math.max(0, meta.pending.length - i - this.maxEntries);
@@ -366,6 +381,39 @@ const toMeta = (ch: channel.Channel): Meta => {
 
 const alignmentOf = (s: Series, i: number): bigint =>
   s.alignment + BigInt(i) * s.alignmentMultiple;
+
+// Returns the time of the sample's index sample, or undefined if the index does not
+// hold it. The stream and a read place one sample at different alignments, so a
+// sample the index holds at another alignment is the offset-th index sample from the
+// start of the sample's series.
+const indexTime = (index: MultiSeries, p: Sample): bigint | undefined => {
+  const time = index.atAlignment(p.alignment) as bigint | undefined;
+  if (time != null || p.start == null) return time;
+  let remaining = -1;
+  for (const s of index.series) {
+    if (s.length === 0) continue;
+    if (remaining < 0) {
+      if ((s.at(-1, true) as bigint) < p.start) continue;
+      const j = lowerBound(s, p.start);
+      if ((s.at(j, true) as bigint) !== p.start) return undefined;
+      remaining = j + p.offset;
+    }
+    if (remaining < s.length) return s.at(remaining, true) as bigint;
+    remaining -= s.length;
+  }
+  return undefined;
+};
+
+// Returns the position of the first time in s at or after time.
+const lowerBound = (s: Series, time: bigint): number => {
+  let [lo, hi] = [0, s.length];
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if ((s.at(mid, true) as bigint) < time) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+};
 
 // Returns the entries of a sample. A text sample splits into one entry per line.
 const toEntries = (
