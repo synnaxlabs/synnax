@@ -253,9 +253,9 @@ TEST(CreateRangeTest, NextParsesColor) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    const auto r = ASSERT_NIL_P(client->ranges.retrieve(
-        ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
-    ));
+    const auto r = ASSERT_NIL_P(
+        client->ranges.retrieve(ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s))))
+    );
     ASSERT_TRUE(r.color.has_value());
     EXPECT_EQ(r.color.value().r, 0xdf);
     EXPECT_EQ(r.color.value().g, 0x6d);
