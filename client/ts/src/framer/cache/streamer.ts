@@ -127,6 +127,8 @@ export class MultiplexedStreamer {
   private streamAbort: AbortController | null = null;
   private readonly breaker: breaker.Breaker;
   private readonly entries = new Set<Entry>();
+  // Indexes entries by key, so a status change visits only the entries of its key.
+  private readonly entriesByKey = new Map<channel.Key, Set<Entry>>();
   private readonly statuses = new Map<channel.Key, status.Status>();
   private reconcileTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly removalTimers = new Set<ReturnType<typeof setTimeout>>();
@@ -200,6 +202,9 @@ export class MultiplexedStreamer {
     this.entries.add(entry);
     keys.forEach((key) => {
       if (!this.statuses.has(key)) this.statuses.set(key, status.create(LOADING));
+      const entries = this.entriesByKey.get(key);
+      if (entries == null) this.entriesByKey.set(key, new Set([entry]));
+      else entries.add(entry);
     });
     this.scheduleReconcile();
     return {
@@ -240,10 +245,16 @@ export class MultiplexedStreamer {
   }
 
   private remove(entry: Entry): void {
+    if (entry.removed) return;
     entry.removed = true;
     const timer = setTimeout(() => {
       this.removalTimers.delete(timer);
       this.entries.delete(entry);
+      entry.keys.forEach((key) => {
+        const entries = this.entriesByKey.get(key)!;
+        entries.delete(entry);
+        if (entries.size === 0) this.entriesByKey.delete(key);
+      });
       this.scheduleReconcile();
     }, this.props.removalDelay.milliseconds);
     this.removalTimers.add(timer);
@@ -260,9 +271,7 @@ export class MultiplexedStreamer {
   /** @returns the union of keys across all entries, including those pending
    * removal, so the stream lags demand only by the removal delay. */
   private demandedKeys(): Set<channel.Key> {
-    const keys = new Set<channel.Key>();
-    this.entries.forEach((e) => e.keys.forEach((k) => keys.add(k)));
-    return keys;
+    return new Set(this.entriesByKey.keys());
   }
 
   /** @returns the demanded keys the stream should carry now. */
@@ -280,8 +289,8 @@ export class MultiplexedStreamer {
     if (prev?.variant === crude.variant && prev?.message === crude.message) return;
     const next = status.create(crude);
     this.statuses.set(key, next);
-    this.entries.forEach((e) => {
-      if (e.removed || !e.keys.has(key)) return;
+    this.entriesByKey.get(key)?.forEach((e) => {
+      if (e.removed) return;
       e.statusHandlers.forEach((handler) => {
         try {
           handler(key, next);
