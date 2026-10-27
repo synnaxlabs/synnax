@@ -134,7 +134,7 @@ describe("organization routes", () => {
     it("should let staff invite to a team they are not on", async () => {
       h.signIn(STAFF);
       expect((await invite()).status).toBe(204);
-      expect(h.directory.invitations[0]).toMatchObject({ inviterUserID: STAFF });
+      expect(h.directory.invitations[0]).toMatchObject({ inviterUserID: null });
     });
 
     it("should refuse a visitor who is not logged in", async () => {
@@ -417,7 +417,7 @@ describe("organization routes", () => {
           clerkOrgID: "org_1",
           email: "hank@globex.com",
           role: ADMIN_ROLE,
-          inviterUserID: STAFF,
+          inviterUserID: null,
           redirectURL: "https://portal.synnaxlabs.com/sign-up",
         },
       ]);

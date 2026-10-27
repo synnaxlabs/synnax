@@ -50,8 +50,11 @@ export interface Invitation {
   clerkOrgID: string;
   email: string;
   role: string;
-  /** inviterUserID is the admin who sends the invitation. */
-  inviterUserID: string;
+  /**
+   * inviterUserID is the team admin who sends the invitation, or null for none. Clerk
+   * refuses an inviter who is not an admin of the team.
+   */
+  inviterUserID: string | null;
   /** redirectURL is the absolute URL the link in the email lands on. */
   redirectURL: string;
 }
@@ -245,7 +248,7 @@ export const clerk = (client: Client): Directory => ({
         organizationId: clerkOrgID,
         emailAddress: email,
         role,
-        inviterUserId: inviterUserID,
+        inviterUserId: inviterUserID ?? undefined,
         redirectUrl: redirectURL,
       })
       .catch((e: unknown) => {
@@ -385,6 +388,11 @@ export const memory = ({
       userIDs.flatMap((id) => (people[id] == null ? [] : [[id, people[id].name]])),
     ),
   invite: async (invitation) => {
+    const { clerkOrgID, inviterUserID } = invitation;
+    const admin = (members[inviterUserID ?? ""] ?? []).some(
+      (t) => t.clerkOrgID === clerkOrgID && t.role === ADMIN_ROLE,
+    );
+    if (inviterUserID != null && !admin) throw badRequest("not a member");
     invitations.push(invitation);
   },
   pending: async (userID) => invited[userID] ?? [],

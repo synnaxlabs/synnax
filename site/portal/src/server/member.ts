@@ -59,7 +59,8 @@ export interface InviteArgs extends Change {
 }
 
 /**
- * invite emails an invitation to join the team.
+ * invite emails an invitation to join the team. It names the actor as the inviter only
+ * when they are an admin of the team, since Clerk refuses any other inviter.
  * @throws {HTTPError} 400 for an empty email, an unknown role, or an invitation Clerk
  * refuses.
  */
@@ -71,6 +72,8 @@ export const invite = async (
   const address = email.trim();
   if (address === "") throw badRequest("Enter an email address");
   requireRole(role);
+  const roster = await directory.roster(change.team.clerkOrgID);
+  const admin = roster.some((m) => m.userID === change.actor && m.role === ADMIN_ROLE);
   await record(
     store,
     change,
@@ -81,7 +84,7 @@ export const invite = async (
         clerkOrgID: change.team.clerkOrgID,
         email: address,
         role,
-        inviterUserID: change.actor,
+        inviterUserID: admin ? change.actor : null,
         redirectURL,
       }),
   );

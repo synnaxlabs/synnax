@@ -239,7 +239,7 @@ describe("directory", () => {
         clerkOrgID: "org_acme",
         email: "cy@acme.com",
         role: "org:member",
-        inviterUserID: "user_a",
+        inviterUserID: null,
         redirectURL: "https://portal.synnaxlabs.com/sign-up",
       });
       expect(await dir.outstanding("org_acme")).toEqual([
@@ -252,6 +252,25 @@ describe("directory", () => {
       ]);
       await dir.revokeInvitation("org_acme", "inv_0");
       expect(await dir.outstanding("org_acme")).toEqual([]);
+    });
+
+    it("should refuse an inviter who is not a team admin, as Clerk does", async () => {
+      const dir = memory({
+        members: {
+          user_m: [{ clerkOrgID: "org_acme", name: "Acme", role: "org:member" }],
+        },
+      });
+      for (const inviterUserID of ["user_m", "user_x"])
+        await expect(
+          dir.invite({
+            clerkOrgID: "org_acme",
+            email: "cy@acme.com",
+            role: "org:member",
+            inviterUserID,
+            redirectURL: "https://portal.synnaxlabs.com/sign-up",
+          }),
+        ).rejects.toMatchObject({ status: 400, message: "not a member" });
+      expect(dir.invitations).toEqual([]);
     });
 
     it("should change roles, remove members, and create and rename teams", async () => {
@@ -554,6 +573,14 @@ describe("directory", () => {
             inviterUserId: "user_a",
             redirectUrl: "https://portal.synnaxlabs.com/sign-up",
           },
+        ]);
+      });
+
+      it("should send an invitation with no inviter", async () => {
+        const { directory, calls } = createClient();
+        await directory.invite({ ...INVITATION, inviterUserID: null });
+        expect(calls.invitations).toEqual([
+          expect.objectContaining({ inviterUserId: undefined }),
         ]);
       });
 
