@@ -121,7 +121,7 @@ describe("desktop ledger", () => {
         edition: "desktop",
         term: "subscription",
         nodes: 1,
-        channels: 0,
+        channels: 50,
         label: "stand-1",
         expiresAt: expiryFrom(NOW),
         maxVersion: null,
