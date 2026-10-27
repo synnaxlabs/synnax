@@ -51,6 +51,7 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          # shellcheck disable=SC2016 # The jq program uses jq variables.
           read -r want enabled < <(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" \
             --jq '[.labels[].name] as $l
               | (.draft == false and any($l[]; . == "review/bot")
