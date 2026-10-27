@@ -10,7 +10,6 @@
 
 import Guest from "@/layouts/Guest.astro";
 import { retrieve } from "@/server/invitation";
-import { JOIN_PARAM } from "@/shell";
 import { Invitations } from "@/ui/invitations";
 
 const { portal } = Astro.locals;
@@ -32,6 +31,5 @@ const viewer =
         invited={invited}
         viewer={viewer}
         now={portal.now()}
-        confirmed={Astro.url.searchParams.has(JOIN_PARAM)}
     />
 </Guest>

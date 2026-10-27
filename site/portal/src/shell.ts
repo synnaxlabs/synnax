@@ -38,12 +38,6 @@ export interface Link {
 /** invitationPath is the page an invitation's email links to. */
 export const invitationPath = (key: string): string => `/invitations/${key}`;
 
-/**
- * JOIN_PARAM marks an invitation page that the visitor comes back to after logging in
- * to accept it, so the page joins without a click.
- */
-export const JOIN_PARAM = "join";
-
 /** scoped adds the scope to a portal path, so a link keeps the scope it came from. */
 export const scoped = (path: string, scope: Organization): string =>
   `${path}?org=${scope.key}`;
