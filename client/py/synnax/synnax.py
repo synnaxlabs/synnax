@@ -19,6 +19,7 @@ from synnax import (
     channel,
     connection,
     device,
+    exceptions,
     framer,
     group,
     project,
@@ -41,6 +42,7 @@ from synnax.ranger.retrieve import Retriever as RangeRetriever
 from synnax.signals import Registry as SignalsRegistry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
+from x.exceptions import Registry
 
 
 class Synnax(framer.Client):
@@ -137,6 +139,7 @@ class Synnax(framer.Client):
         opts = try_load_options_if_none_provided(
             host, port, username, password, secure, ca_cert, api_key
         )
+        registry = exceptions.create_registry()
         self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
@@ -144,6 +147,7 @@ class Synnax(framer.Client):
             keep_alive=keep_alive,
             max_retries=max_retries,
             instrumentation=instrumentation,
+            registry=registry,
         )
         self.auth = auth.Client(
             transport=self._transport.unary,
@@ -176,6 +180,7 @@ class Synnax(framer.Client):
             file_transport=self._transport.file_transport,
             retriever=ch_retriever,
             deleter=deleter,
+            registry=registry,
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
@@ -188,7 +193,10 @@ class Synnax(framer.Client):
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
         self.imex = ImexClient(file_transport=self._transport.file_transport)
-        self.projects = project.Client(client=self._transport.unary)
+        self.projects = project.Client(
+            client=self._transport.unary,
+            file_transport=self._transport.file_transport,
+        )
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
@@ -232,10 +240,12 @@ def _configure_transport(
     read_timeout: TimeSpan,
     keep_alive: TimeSpan,
     max_retries: int,
+    registry: Registry,
     instrumentation: Instrumentation = NOOP,
 ) -> Transport:
     return Transport(
         instrumentation=instrumentation,
+        registry=registry,
         url=URL(host=opts.host, port=opts.port),
         secure=opts.secure,
         ca_cert=opts.ca_cert,
