@@ -243,6 +243,7 @@ knip:
   - *console
   - *ts
   - oracle/lsp/extensions/vscode/**
+  - scripts/check_exports_ts.py
   - site/common/**
   - site/docs/**
   - site/foundation/**
