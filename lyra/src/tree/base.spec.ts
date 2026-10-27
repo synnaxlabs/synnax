@@ -9,30 +9,10 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  compareDepth,
-  deepCopy,
-  filterShape,
-  findNode,
-  findNodeParent,
-  findNodes,
-  flatten,
-  getAllNodesOfMinDepth,
-  getDepth,
-  getDescendants,
-  getNodeShape,
-  moveNode,
-  type Node,
-  removeNode,
-  setNode,
-  type Shape,
-  shouldExpand,
-  updateNode,
-  updateNodeChildren,
-} from "@/tree/base";
+import { Tree } from "@/tree";
 
 describe("tree/base", () => {
-  const simpleTree: Node[] = [
+  const simpleTree: Tree.Node[] = [
     {
       key: "root1",
       children: [
@@ -49,18 +29,18 @@ describe("tree/base", () => {
   describe("shouldExpand", () => {
     it("should return true when node key is in expanded list", () => {
       const node = { key: "test" };
-      expect(shouldExpand(node, ["test", "other"])).toBe(true);
+      expect(Tree.shouldExpand(node, ["test", "other"])).toBe(true);
     });
 
     it("should return false when node key is not in expanded list", () => {
       const node = { key: "test" };
-      expect(shouldExpand(node, ["other"])).toBe(false);
+      expect(Tree.shouldExpand(node, ["other"])).toBe(false);
     });
   });
 
   describe("flatten", () => {
     it("should flatten nodes without expansion", () => {
-      const result = flatten({ nodes: simpleTree, expanded: [] });
+      const result = Tree.flatten({ nodes: simpleTree, expanded: [] });
       expect(result.keys).toEqual(["root1", "root2"]);
       expect(result.nodes).toEqual([
         { depth: 0, expanded: false, hasChildren: true },
@@ -69,7 +49,7 @@ describe("tree/base", () => {
     });
 
     it("should flatten with expanded nodes", () => {
-      const result = flatten({ nodes: simpleTree, expanded: ["root1", "child2"] });
+      const result = Tree.flatten({ nodes: simpleTree, expanded: ["root1", "child2"] });
       expect(result.keys).toEqual([
         "root1",
         "child1",
@@ -89,11 +69,11 @@ describe("tree/base", () => {
     });
 
     it("should sort nodes when comparator provided", () => {
-      const nodes: Node[] = [
+      const nodes: Tree.Node[] = [
         { key: "b", children: [{ key: "d" }, { key: "c" }] },
         { key: "a" },
       ];
-      const result = flatten({
+      const result = Tree.flatten({
         nodes,
         expanded: ["b"],
         sort: (a, b) => a.key.localeCompare(b.key),
@@ -102,7 +82,7 @@ describe("tree/base", () => {
     });
 
     it("should handle custom initial depth", () => {
-      const result = flatten({ nodes: simpleTree, expanded: [], depth: 2 });
+      const result = Tree.flatten({ nodes: simpleTree, expanded: [], depth: 2 });
       expect(result.nodes[0].depth).toBe(2);
       expect(result.nodes[1].depth).toBe(2);
     });
@@ -110,58 +90,58 @@ describe("tree/base", () => {
 
   describe("moveNode", () => {
     it("should move node to root when destination is null", () => {
-      const tree = deepCopy(simpleTree);
-      const result = moveNode({ tree, destination: null, keys: "child1" });
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.moveNode({ tree, destination: null, keys: "child1" });
       expect(result[0].key).toBe("child1");
       expect(result[1].key).toBe("root1");
       expect(result.filter((n) => n.key === "child1").length).toBe(1);
     });
 
     it("should move multiple nodes to destination", () => {
-      const tree = deepCopy(simpleTree);
-      moveNode({ tree, destination: "root2", keys: ["child1", "child2"] });
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.moveNode({ tree, destination: "root2", keys: ["child1", "child2"] });
       expect(tree[1].children?.map((c) => c.key)).toContain("child1");
       expect(tree[1].children?.map((c) => c.key)).toContain("child2");
       expect(tree[0].children?.length).toBe(0);
     });
 
     it("should handle non-existent node gracefully", () => {
-      const tree = deepCopy(simpleTree);
-      const result = moveNode({ tree, destination: "root2", keys: "nonexistent" });
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.moveNode({ tree, destination: "root2", keys: "nonexistent" });
       expect(result).toEqual(tree);
     });
   });
 
   describe("removeNode", () => {
     it("should remove node from root", () => {
-      const tree = deepCopy(simpleTree);
-      const result = removeNode({ tree, keys: "root1" });
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.removeNode({ tree, keys: "root1" });
       expect(result.length).toBe(1);
       expect(result[0].key).toBe("root2");
     });
 
     it("should remove nested node", () => {
-      const tree = deepCopy(simpleTree);
-      removeNode({ tree, keys: "child1" });
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.removeNode({ tree, keys: "child1" });
       expect(tree[0].children?.find((c) => c.key === "child1")).toBeUndefined();
       expect(tree[0].children?.length).toBe(1);
     });
 
     it("should remove multiple nodes", () => {
-      const tree = deepCopy(simpleTree);
-      removeNode({ tree, keys: ["child1", "child2"] });
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.removeNode({ tree, keys: ["child1", "child2"] });
       expect(tree[0].children?.length).toBe(0);
     });
 
     it("should remove from specific parent when provided", () => {
-      const tree = deepCopy(simpleTree);
-      removeNode({ tree, keys: "child1", parent: "root1" });
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.removeNode({ tree, keys: "child1", parent: "root1" });
       expect(tree[0].children?.find((c) => c.key === "child1")).toBeUndefined();
     });
 
     it("should remove from root when parent is null", () => {
-      const tree = deepCopy(simpleTree);
-      const result = removeNode({ tree, keys: "root1", parent: null });
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.removeNode({ tree, keys: "root1", parent: null });
       expect(result.length).toBe(1);
       expect(result[0].key).toBe("root2");
     });
@@ -169,8 +149,8 @@ describe("tree/base", () => {
 
   describe("setNode", () => {
     it("should add node to root when destination is null", () => {
-      const tree = deepCopy(simpleTree);
-      const result = setNode({
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.setNode({
         tree,
         destination: null,
         additions: { key: "newRoot" },
@@ -180,14 +160,14 @@ describe("tree/base", () => {
     });
 
     it("should add node to existing parent", () => {
-      const tree = deepCopy(simpleTree);
-      setNode({ tree, destination: "root2", additions: { key: "newChild" } });
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.setNode({ tree, destination: "root2", additions: { key: "newChild" } });
       expect(tree[1].children?.find((c) => c.key === "newChild")).toBeDefined();
     });
 
     it("should replace duplicate keys", () => {
-      const tree = deepCopy(simpleTree);
-      setNode({
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.setNode({
         tree,
         destination: "root1",
         additions: { key: "child1", children: [{ key: "new" }] },
@@ -197,15 +177,15 @@ describe("tree/base", () => {
     });
 
     it("should throw when destination not found and throwOnMissing is true", () => {
-      const tree = deepCopy(simpleTree);
+      const tree = Tree.deepCopy(simpleTree);
       expect(() =>
-        setNode({ tree, destination: "nonexistent", additions: { key: "new" } }),
+        Tree.setNode({ tree, destination: "nonexistent", additions: { key: "new" } }),
       ).toThrow("Could not find node with key nonexistent");
     });
 
     it("should not throw when destination not found and throwOnMissing is false", () => {
-      const tree = deepCopy(simpleTree);
-      const result = setNode({
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.setNode({
         tree,
         destination: "nonexistent",
         additions: { key: "new" },
@@ -215,8 +195,8 @@ describe("tree/base", () => {
     });
 
     it("should handle multiple additions with deduplication", () => {
-      const tree = deepCopy(simpleTree);
-      const result = setNode({
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.setNode({
         tree,
         destination: null,
         additions: [{ key: "new1" }, { key: "new1" }, { key: "new2" }],
@@ -228,8 +208,8 @@ describe("tree/base", () => {
 
   describe("updateNode", () => {
     it("should update root node", () => {
-      const tree = deepCopy(simpleTree);
-      updateNode({
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.updateNode({
         tree,
         key: "root1",
         updater: (node) => ({ ...node, key: "updatedRoot1" }),
@@ -238,8 +218,8 @@ describe("tree/base", () => {
     });
 
     it("should update nested node", () => {
-      const tree = deepCopy(simpleTree);
-      updateNode({
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.updateNode({
         tree,
         key: "child1",
         updater: (node) => ({ ...node, key: "updatedChild1" }),
@@ -248,9 +228,9 @@ describe("tree/base", () => {
     });
 
     it("should throw when node not found and throwOnMissing is true", () => {
-      const tree = deepCopy(simpleTree);
+      const tree = Tree.deepCopy(simpleTree);
       expect(() =>
-        updateNode({
+        Tree.updateNode({
           tree,
           key: "nonexistent",
           updater: (node) => node,
@@ -259,8 +239,8 @@ describe("tree/base", () => {
     });
 
     it("should not throw when node not found and throwOnMissing is false", () => {
-      const tree = deepCopy(simpleTree);
-      const result = updateNode({
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.updateNode({
         tree,
         key: "nonexistent",
         updater: (node) => node,
@@ -272,8 +252,8 @@ describe("tree/base", () => {
 
   describe("updateNodeChildren", () => {
     it("should update children of a node", () => {
-      const tree = deepCopy(simpleTree);
-      updateNodeChildren({
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.updateNodeChildren({
         tree,
         parent: "root1",
         updater: (children) => [...children, { key: "newChild" }],
@@ -282,20 +262,20 @@ describe("tree/base", () => {
     });
 
     it("should handle node with no children", () => {
-      const tree = deepCopy(simpleTree);
-      updateNodeChildren({
+      const tree = Tree.deepCopy(simpleTree);
+      Tree.updateNodeChildren({
         tree,
         parent: "child1",
         updater: () => [{ key: "newGrandchild" }],
       });
-      const child1 = findNode({ tree, key: "child1" });
+      const child1 = Tree.findNode({ tree, key: "child1" });
       expect(child1?.children?.[0].key).toBe("newGrandchild");
     });
 
     it("should throw when parent not found and throwOnMissing is true", () => {
-      const tree = deepCopy(simpleTree);
+      const tree = Tree.deepCopy(simpleTree);
       expect(() =>
-        updateNodeChildren({
+        Tree.updateNodeChildren({
           tree,
           parent: "nonexistent",
           updater: (children) => children,
@@ -304,8 +284,8 @@ describe("tree/base", () => {
     });
 
     it("should not throw when parent not found and throwOnMissing is false", () => {
-      const tree = deepCopy(simpleTree);
-      const result = updateNodeChildren({
+      const tree = Tree.deepCopy(simpleTree);
+      const result = Tree.updateNodeChildren({
         tree,
         parent: "nonexistent",
         updater: (children) => children,
@@ -317,24 +297,24 @@ describe("tree/base", () => {
 
   describe("findNode", () => {
     it("should find root node", () => {
-      const result = findNode({ tree: simpleTree, key: "root1" });
+      const result = Tree.findNode({ tree: simpleTree, key: "root1" });
       expect(result?.key).toBe("root1");
     });
 
     it("should find nested node", () => {
-      const result = findNode({ tree: simpleTree, key: "grandchild1" });
+      const result = Tree.findNode({ tree: simpleTree, key: "grandchild1" });
       expect(result?.key).toBe("grandchild1");
     });
 
     it("should return null for non-existent node", () => {
-      const result = findNode({ tree: simpleTree, key: "nonexistent" });
+      const result = Tree.findNode({ tree: simpleTree, key: "nonexistent" });
       expect(result).toBeNull();
     });
   });
 
   describe("findNodes", () => {
     it("should find multiple nodes", () => {
-      const result = findNodes({
+      const result = Tree.findNodes({
         tree: simpleTree,
         keys: ["root1", "child1", "grandchild1"],
       });
@@ -342,7 +322,7 @@ describe("tree/base", () => {
     });
 
     it("should skip non-existent nodes", () => {
-      const result = findNodes({
+      const result = Tree.findNodes({
         tree: simpleTree,
         keys: ["root1", "nonexistent", "child1"],
       });
@@ -350,36 +330,36 @@ describe("tree/base", () => {
     });
 
     it("should return empty array for all non-existent keys", () => {
-      const result = findNodes({ tree: simpleTree, keys: ["nonexistent"] });
+      const result = Tree.findNodes({ tree: simpleTree, keys: ["nonexistent"] });
       expect(result).toEqual([]);
     });
   });
 
   describe("findNodeParent", () => {
     it("should find parent of direct child", () => {
-      const result = findNodeParent({ tree: simpleTree, key: "child1" });
+      const result = Tree.findNodeParent({ tree: simpleTree, key: "child1" });
       expect(result?.key).toBe("root1");
     });
 
     it("should find parent of nested child", () => {
-      const result = findNodeParent({ tree: simpleTree, key: "grandchild1" });
+      const result = Tree.findNodeParent({ tree: simpleTree, key: "grandchild1" });
       expect(result?.key).toBe("child2");
     });
 
     it("should return null for root node", () => {
-      const result = findNodeParent({ tree: simpleTree, key: "root1" });
+      const result = Tree.findNodeParent({ tree: simpleTree, key: "root1" });
       expect(result).toBeNull();
     });
 
     it("should return null for non-existent node", () => {
-      const result = findNodeParent({ tree: simpleTree, key: "nonexistent" });
+      const result = Tree.findNodeParent({ tree: simpleTree, key: "nonexistent" });
       expect(result).toBeNull();
     });
   });
 
   describe("deepCopy", () => {
     it("should create independent copy", () => {
-      const copy = deepCopy(simpleTree);
+      const copy = Tree.deepCopy(simpleTree);
       copy[0].key = "modified";
       copy[0].children![0].key = "modifiedChild";
       expect(simpleTree[0].key).toBe("root1");
@@ -388,14 +368,14 @@ describe("tree/base", () => {
 
     it("should handle nodes without children", () => {
       const nodes = [{ key: "solo" }];
-      const copy = deepCopy(nodes);
+      const copy = Tree.deepCopy(nodes);
       expect(copy[0].children).toBeUndefined();
     });
   });
 
   describe("getDescendants", () => {
     it("should get all descendants including self", () => {
-      const result = getDescendants(...simpleTree);
+      const result = Tree.getDescendants(...simpleTree);
       const keys = result.map((n) => n.key);
       expect(keys).toEqual([
         "root1",
@@ -409,19 +389,19 @@ describe("tree/base", () => {
     });
 
     it("should handle single node", () => {
-      const result = getDescendants({ key: "solo" });
+      const result = Tree.getDescendants({ key: "solo" });
       expect(result.map((n) => n.key)).toEqual(["solo"]);
     });
 
     it("should handle multiple root nodes", () => {
-      const result = getDescendants(simpleTree[0], simpleTree[1]);
+      const result = Tree.getDescendants(simpleTree[0], simpleTree[1]);
       expect(result.length).toBe(7);
     });
   });
 
   describe("filterShape", () => {
     it("should filter by key match", () => {
-      const shape: Shape = {
+      const shape: Tree.Shape = {
         keys: ["a", "b", "c"],
         nodes: [
           { depth: 0, expanded: false, hasChildren: false },
@@ -429,13 +409,13 @@ describe("tree/base", () => {
           { depth: 0, expanded: false, hasChildren: false },
         ],
       };
-      const result = filterShape(shape, (key) => key === "a" || key === "c");
+      const result = Tree.filterShape(shape, (key) => key === "a" || key === "c");
       expect(result.keys).toEqual(["a", "c"]);
       expect(result.nodes).toHaveLength(2);
     });
 
     it("should filter by depth", () => {
-      const shape: Shape = {
+      const shape: Tree.Shape = {
         keys: ["a", "b", "c"],
         nodes: [
           { depth: 0, expanded: false, hasChildren: false },
@@ -443,7 +423,7 @@ describe("tree/base", () => {
           { depth: 2, expanded: false, hasChildren: false },
         ],
       };
-      const result = filterShape(shape, (_, depth) => depth > 0);
+      const result = Tree.filterShape(shape, (_, depth) => depth > 0);
       expect(result.keys).toEqual(["b", "c"]);
       expect(result.nodes.map((n) => n.depth)).toEqual([1, 2]);
     });
@@ -451,7 +431,7 @@ describe("tree/base", () => {
 
   describe("getAllNodesOfMinDepth", () => {
     it("should return nodes at minimum depth", () => {
-      const shape: Shape = {
+      const shape: Tree.Shape = {
         keys: ["a", "b", "c", "d"],
         nodes: [
           { depth: 1, expanded: false, hasChildren: false },
@@ -460,26 +440,26 @@ describe("tree/base", () => {
           { depth: 2, expanded: false, hasChildren: false },
         ],
       };
-      const result = getAllNodesOfMinDepth(shape);
+      const result = Tree.getAllNodesOfMinDepth(shape);
       expect(result).toEqual(["b", "c"]);
     });
 
     it("should handle single depth level", () => {
-      const shape: Shape = {
+      const shape: Tree.Shape = {
         keys: ["a", "b"],
         nodes: [
           { depth: 5, expanded: false, hasChildren: false },
           { depth: 5, expanded: false, hasChildren: false },
         ],
       };
-      const result = getAllNodesOfMinDepth(shape);
+      const result = Tree.getAllNodesOfMinDepth(shape);
       expect(result).toEqual(["a", "b"]);
     });
   });
 
   describe("getDepth", () => {
     it("should return depth of existing key", () => {
-      const shape: Shape<string> = {
+      const shape: Tree.Shape<string> = {
         keys: ["a", "b", "c"],
         nodes: [
           { depth: 0, expanded: false, hasChildren: false },
@@ -487,20 +467,20 @@ describe("tree/base", () => {
           { depth: 2, expanded: false, hasChildren: false },
         ],
       };
-      expect(getDepth("b", shape)).toBe(1);
+      expect(Tree.getDepth("b", shape)).toBe(1);
     });
 
     it("should return null for a key the shape does not contain", () => {
-      const shape: Shape<string> = {
+      const shape: Tree.Shape<string> = {
         keys: ["a"],
         nodes: [{ depth: 0, expanded: false, hasChildren: false }],
       };
-      expect(getDepth("gone", shape)).toBeNull();
+      expect(Tree.getDepth("gone", shape)).toBeNull();
     });
   });
 
   describe("compareDepth", () => {
-    const shape: Shape<string> = {
+    const shape: Tree.Shape<string> = {
       keys: ["a", "b", "c"],
       nodes: [
         { depth: 2, expanded: false, hasChildren: false },
@@ -510,52 +490,56 @@ describe("tree/base", () => {
     };
 
     it("should order keys shallowest first", () => {
-      expect(["a", "b", "c"].sort(compareDepth(shape))).toEqual(["b", "c", "a"]);
+      expect(["a", "b", "c"].sort(Tree.compareDepth(shape))).toEqual(["b", "c", "a"]);
     });
 
     it("should hold the order of two keys the shape does not contain", () => {
-      expect(["gone", "alsoGone"].sort(compareDepth(shape))).toEqual([
+      expect(["gone", "alsoGone"].sort(Tree.compareDepth(shape))).toEqual([
         "gone",
         "alsoGone",
       ]);
     });
 
     it("should sort keys absent from the shape last", () => {
-      expect(["gone", "a", "b"].sort(compareDepth(shape))).toEqual(["b", "a", "gone"]);
+      expect(["gone", "a", "b"].sort(Tree.compareDepth(shape))).toEqual([
+        "b",
+        "a",
+        "gone",
+      ]);
     });
   });
 
   describe("getNodeShape", () => {
     it("should return shape for existing key", () => {
-      const shape: Shape = {
+      const shape: Tree.Shape = {
         keys: ["a", "b"],
         nodes: [
           { depth: 0, expanded: true, hasChildren: true },
           { depth: 1, expanded: false, hasChildren: false },
         ],
       };
-      const result = getNodeShape(shape, "a");
+      const result = Tree.getNodeShape(shape, "a");
       expect(result).toEqual({ depth: 0, expanded: true, hasChildren: true });
     });
 
     it("should return shape for last key", () => {
-      const shape: Shape = {
+      const shape: Tree.Shape = {
         keys: ["a", "b"],
         nodes: [
           { depth: 0, expanded: false, hasChildren: false },
           { depth: 1, expanded: true, hasChildren: true },
         ],
       };
-      const result = getNodeShape(shape, "b");
+      const result = Tree.getNodeShape(shape, "b");
       expect(result).toEqual({ depth: 1, expanded: true, hasChildren: true });
     });
 
     it("should return null for a key the shape does not contain", () => {
-      const shape: Shape = {
+      const shape: Tree.Shape = {
         keys: ["a"],
         nodes: [{ depth: 0, expanded: false, hasChildren: false }],
       };
-      expect(getNodeShape(shape, "gone")).toBeNull();
+      expect(Tree.getNodeShape(shape, "gone")).toBeNull();
     });
   });
 });

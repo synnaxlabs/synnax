@@ -11,7 +11,7 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useNow } from "@/hooks/useNow";
+import { useNow } from "@/hooks";
 
 describe("useNow", () => {
   beforeEach(() => {

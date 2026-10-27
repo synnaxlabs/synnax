@@ -11,7 +11,7 @@ import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockBoundingClientRect } from "@/testutil";
 import { Triggers } from "@/triggers";
 
 const TriggersWrapper = ({ children }: PropsWithChildren): ReactElement => (

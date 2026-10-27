@@ -16,8 +16,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Icon } from "@/icon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { disableActEnvironment } from "@/testutil/act";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { disableActEnvironment, mockBoundingClientRect } from "@/testutil";
 
 const Fixed = ({ initialVisible }: { initialVisible?: boolean }) => (
   <Select.Simple<string>

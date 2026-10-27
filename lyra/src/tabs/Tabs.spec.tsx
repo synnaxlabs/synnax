@@ -30,7 +30,7 @@ import {
 import { Haul } from "@/haul";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
-import { fireDragEvent } from "@/testutil/dom";
+import { fireDragEvent } from "@/testutil";
 
 interface BasicTabsProps {
   initialValue?: string;

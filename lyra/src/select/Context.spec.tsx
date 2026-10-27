@@ -11,18 +11,11 @@ import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  Context,
-  type ContextProps,
-  useClear,
-  useItemState,
-  useSelected,
-  useSelectedAmong,
-} from "@/select/Context";
+import { Select } from "@/select";
 
-const staticWrapper = (props: Omit<ContextProps, "children">) => {
+const staticWrapper = (props: Omit<Select.ContextProps, "children">) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Context {...props}>{children}</Context>
+    <Select.Context {...props}>{children}</Select.Context>
   );
   Wrapper.displayName = "Wrapper";
   return Wrapper;
@@ -31,10 +24,10 @@ const staticWrapper = (props: Omit<ContextProps, "children">) => {
 describe("Selection", () => {
   describe("useItemState", () => {
     it("should mark the item matching a single selected value", () => {
-      const selected = renderHook(() => useItemState("a"), {
+      const selected = renderHook(() => Select.useItemState("a"), {
         wrapper: staticWrapper({ value: "a" }),
       });
-      const unselected = renderHook(() => useItemState("b"), {
+      const unselected = renderHook(() => Select.useItemState("b"), {
         wrapper: staticWrapper({ value: "a" }),
       });
       expect(selected.result.current.selected).toBe(true);
@@ -42,14 +35,14 @@ describe("Selection", () => {
     });
 
     it("should mark every item included in an array value", () => {
-      const { result } = renderHook(() => useItemState("c"), {
+      const { result } = renderHook(() => Select.useItemState("c"), {
         wrapper: staticWrapper({ value: ["a", "c"] }),
       });
       expect(result.current.selected).toBe(true);
     });
 
     it("should mark the hovered item", () => {
-      const { result } = renderHook(() => useItemState("b"), {
+      const { result } = renderHook(() => Select.useItemState("b"), {
         wrapper: staticWrapper({ value: "a", hover: "b" }),
       });
       expect(result.current.hovered).toBe(true);
@@ -57,10 +50,10 @@ describe("Selection", () => {
     });
 
     it("should focus only the head of an ordered multi-selection", () => {
-      const head = renderHook(() => useItemState("a"), {
+      const head = renderHook(() => Select.useItemState("a"), {
         wrapper: staticWrapper({ value: ["a", "b"] }),
       });
-      const tail = renderHook(() => useItemState("b"), {
+      const tail = renderHook(() => Select.useItemState("b"), {
         wrapper: staticWrapper({ value: ["a", "b"] }),
       });
       expect(head.result.current.focused).toBe(true);
@@ -68,7 +61,7 @@ describe("Selection", () => {
     });
 
     it("should not focus any item in a scalar selection", () => {
-      const { result } = renderHook(() => useItemState("a"), {
+      const { result } = renderHook(() => Select.useItemState("a"), {
         wrapper: staticWrapper({ value: "a" }),
       });
       expect(result.current.selected).toBe(true);
@@ -76,10 +69,10 @@ describe("Selection", () => {
     });
 
     it("should mark only the head of an ordered multi-selection", () => {
-      const head = renderHook(() => useItemState("a"), {
+      const head = renderHook(() => Select.useItemState("a"), {
         wrapper: staticWrapper({ value: ["a", "b"] }),
       });
-      const tail = renderHook(() => useItemState("b"), {
+      const tail = renderHook(() => Select.useItemState("b"), {
         wrapper: staticWrapper({ value: ["a", "b"] }),
       });
       expect(head.result.current.head).toBe(true);
@@ -87,7 +80,7 @@ describe("Selection", () => {
     });
 
     it("should mark a scalar selection's value as the head", () => {
-      const { result } = renderHook(() => useItemState("a"), {
+      const { result } = renderHook(() => Select.useItemState("a"), {
         wrapper: staticWrapper({ value: "a" }),
       });
       expect(result.current.head).toBe(true);
@@ -99,10 +92,10 @@ describe("Selection", () => {
       const wrapper = ({ children }: PropsWithChildren): ReactElement => {
         const [value, setState] = useState<string[]>(["a", "b"]);
         setValue = setState;
-        return <Context value={value}>{children}</Context>;
+        return <Select.Context value={value}>{children}</Select.Context>;
       };
       const { result } = renderHook(
-        () => ({ a: useItemState("a"), b: useItemState("b") }),
+        () => ({ a: Select.useItemState("a"), b: Select.useItemState("b") }),
         { wrapper },
       );
       expect(result.current.a.focused).toBe(true);
@@ -114,7 +107,7 @@ describe("Selection", () => {
 
     it("should call the provider's onSelect with the item's key", () => {
       const onSelect = vi.fn();
-      const { result } = renderHook(() => useItemState("b"), {
+      const { result } = renderHook(() => Select.useItemState("b"), {
         wrapper: staticWrapper({ value: "a", onSelect }),
       });
       act(() => result.current.onSelect());
@@ -123,7 +116,7 @@ describe("Selection", () => {
     });
 
     it("should report no selection when used outside a provider", () => {
-      const { result } = renderHook(() => useItemState("a"));
+      const { result } = renderHook(() => Select.useItemState("a"));
       expect(result.current.selected).toBe(false);
       expect(result.current.focused).toBe(false);
       expect(result.current.head).toBe(false);
@@ -136,12 +129,12 @@ describe("Selection", () => {
       const wrapper = ({ children }: PropsWithChildren): ReactElement => {
         const [value, setState] = useState("a");
         setValue = setState;
-        return <Context value={value}>{children}</Context>;
+        return <Select.Context value={value}>{children}</Select.Context>;
       };
       renderHook(
         () => {
           renders++;
-          return useItemState("c");
+          return Select.useItemState("c");
         },
         { wrapper },
       );
@@ -159,15 +152,15 @@ describe("Selection", () => {
         const [hover, setState] = useState("a");
         setHover = setState;
         return (
-          <Context value={undefined} hover={hover}>
+          <Select.Context value={undefined} hover={hover}>
             {children}
-          </Context>
+          </Select.Context>
         );
       };
       const { result } = renderHook(
         () => {
           renders++;
-          return useItemState("b");
+          return Select.useItemState("b");
         },
         { wrapper },
       );
@@ -183,21 +176,21 @@ describe("Selection", () => {
 
   describe("useSelectedAmong", () => {
     it("should return the selected key among the given keys", () => {
-      const { result } = renderHook(() => useSelectedAmong(["b", "c"]), {
+      const { result } = renderHook(() => Select.useSelectedAmong(["b", "c"]), {
         wrapper: staticWrapper({ value: ["a", "c"] }),
       });
       expect(result.current).toEqual("c");
     });
 
     it("should return undefined when none of the keys is selected", () => {
-      const { result } = renderHook(() => useSelectedAmong(["b"]), {
+      const { result } = renderHook(() => Select.useSelectedAmong(["b"]), {
         wrapper: staticWrapper({ value: ["a"] }),
       });
       expect(result.current).toBeUndefined();
     });
 
     it("should prefer the earliest key in the selection's order", () => {
-      const { result } = renderHook(() => useSelectedAmong(["a", "b"]), {
+      const { result } = renderHook(() => Select.useSelectedAmong(["a", "b"]), {
         wrapper: staticWrapper({ value: ["b", "a"] }),
       });
       expect(result.current).toEqual("b");
@@ -208,9 +201,9 @@ describe("Selection", () => {
       const wrapper = ({ children }: PropsWithChildren): ReactElement => {
         const [value, setState] = useState(["a"]);
         setValue = setState;
-        return <Context value={value}>{children}</Context>;
+        return <Select.Context value={value}>{children}</Select.Context>;
       };
-      const { result } = renderHook(() => useSelectedAmong(["a", "b"]), {
+      const { result } = renderHook(() => Select.useSelectedAmong(["a", "b"]), {
         wrapper,
       });
       expect(result.current).toEqual("a");
@@ -223,7 +216,7 @@ describe("Selection", () => {
 
   describe("useSelected", () => {
     it("should return a single value as a one-element array", () => {
-      const { result } = renderHook(() => useSelected(), {
+      const { result } = renderHook(() => Select.useSelected(), {
         wrapper: staticWrapper({ value: "a" }),
       });
       expect(result.current).toEqual(["a"]);
@@ -234,16 +227,16 @@ describe("Selection", () => {
       const wrapper = ({ children }: PropsWithChildren): ReactElement => {
         const [value, setState] = useState<string[]>(["a"]);
         setValue = setState;
-        return <Context value={value}>{children}</Context>;
+        return <Select.Context value={value}>{children}</Select.Context>;
       };
-      const { result } = renderHook(() => useSelected(), { wrapper });
+      const { result } = renderHook(() => Select.useSelected(), { wrapper });
       expect(result.current).toEqual(["a"]);
       act(() => setValue(["a", "b"]));
       expect(result.current).toEqual(["a", "b"]);
     });
 
     it("should return an empty array when nothing is selected", () => {
-      const { result } = renderHook(() => useSelected(), {
+      const { result } = renderHook(() => Select.useSelected(), {
         wrapper: staticWrapper({ value: undefined }),
       });
       expect(result.current).toEqual([]);
@@ -253,7 +246,7 @@ describe("Selection", () => {
   describe("useClear", () => {
     it("should invoke the provider's clear callback", () => {
       const clear = vi.fn();
-      const { result } = renderHook(() => useClear(), {
+      const { result } = renderHook(() => Select.useClear(), {
         wrapper: staticWrapper({ value: "a", clear }),
       });
       result.current();

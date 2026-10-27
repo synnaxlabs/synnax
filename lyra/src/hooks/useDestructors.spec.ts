@@ -10,7 +10,7 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useDestructors } from "@/hooks/useDestructors";
+import { useDestructors } from "@/hooks";
 
 describe("useDestructors", () => {
   it("should call cleanup on unmount", () => {

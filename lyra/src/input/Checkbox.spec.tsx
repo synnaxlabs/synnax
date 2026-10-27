@@ -10,7 +10,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Checkbox } from "@/input/Checkbox";
+import { Input } from "@/input";
 
 const dashed = (): boolean =>
   screen
@@ -22,10 +22,10 @@ describe("Input.Checkbox", () => {
   it("should draw a dash for a partly made choice", () => {
     const onChange = vi.fn();
     const { rerender } = render(
-      <Checkbox value={false} indeterminate onChange={onChange} />,
+      <Input.Checkbox value={false} indeterminate onChange={onChange} />,
     );
     expect(dashed()).toBe(true);
-    rerender(<Checkbox value onChange={onChange} />);
+    rerender(<Input.Checkbox value onChange={onChange} />);
     expect(dashed()).toBe(false);
   });
 });

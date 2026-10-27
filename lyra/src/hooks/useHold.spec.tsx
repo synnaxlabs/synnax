@@ -18,7 +18,7 @@ import {
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useHold, type UseHoldProps } from "@/hooks/useHold";
+import { useHold, type UseHoldProps } from "@/hooks";
 
 const Host = (props: UseHoldProps<HTMLButtonElement>): ReactElement => {
   const hold = useHold(props);
