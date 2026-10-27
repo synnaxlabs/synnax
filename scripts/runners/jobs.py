@@ -13,6 +13,7 @@ runs that are running are polled for them."""
 
 import re
 from collections import Counter
+from concurrent.futures import Executor, Future
 from datetime import datetime
 
 import synnax as sy
@@ -90,9 +91,11 @@ class Jobs:
     are driven by deliveries; the step poll doubles as the reconciler, finishing a job
     whose completed delivery never arrived."""
 
-    def __init__(self, github: GitHub, log: Log) -> None:
+    def __init__(self, github: GitHub, log: Log, pool: Executor) -> None:
         self.github = github
         self.log = log
+        self.pool = pool
+        self.syncing: Future[tuple[dict[int, set[str]], list[dict]]] | None = None
         self.active: dict[str, dict] = {}
         self.queued: dict[int, set[str]] = {}
         # Rotates the step poll over the active runs when there are more than a cycle
@@ -178,21 +181,36 @@ class Jobs:
 
     def resync(self, now: sy.TimeStamp) -> None:
         """Rebuilds the queued jobs from the API and adds the running jobs that no
-        delivery reported, at most once per RESYNC_INTERVAL."""
-        if self.synced is not None and now.span(self.synced) < RESYNC_INTERVAL:
+        delivery reported, at most once per RESYNC_INTERVAL. The API reads run on pool,
+        since hundreds of runs take minutes, and land on the first call after they
+        finish."""
+        if self.syncing is None:
+            if self.synced is not None and now.span(self.synced) < RESYNC_INTERVAL:
+                return
+            # Stamped before the calls, so a failure waits out the interval instead of
+            # retrying every cycle.
+            self.synced = now
+            self.syncing = self.pool.submit(self.fetch)
+        if not self.syncing.done():
             return
-        # Stamped before the calls, so a failure waits out the interval instead of
-        # retrying every cycle.
-        self.synced = now
+        syncing, self.syncing = self.syncing, None
         try:
-            queued: dict[int, set[str]] = {}
-            for run in self.github.unfinished_runs():
-                for job in self.github.run_jobs(run):
-                    if job["status"] == "queued":
-                        queued[job["id"]] = set(job.get("labels", []))
-                    # Restores the jobs that started before a restart.
-                    elif job["status"] == "in_progress" and job.get("runner_name"):
-                        self.active.setdefault(job["runner_name"], view(job))
-            self.queued = queued
+            queued, running = syncing.result()
         except Exception as e:
             self.log.error("queued resync", e)
+            return
+        self.queued = queued
+        # Restores the jobs that started before a restart.
+        for job in running:
+            self.active.setdefault(job["runner_name"], view(job))
+
+    def fetch(self) -> tuple[dict[int, set[str]], list[dict]]:
+        queued: dict[int, set[str]] = {}
+        running: list[dict] = []
+        for run in self.github.unfinished_runs():
+            for job in self.github.run_jobs(run):
+                if job["status"] == "queued":
+                    queued[job["id"]] = set(job.get("labels", []))
+                elif job["status"] == "in_progress" and job.get("runner_name"):
+                    running.append(job)
+        return queued, running

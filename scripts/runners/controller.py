@@ -427,13 +427,14 @@ def main() -> None:
     runners.add(set(github.runner_status()[0]))
     cost = Cost(log, aws)
     cost.create_state(client, runners.snapshot())
+    resync_pool = ThreadPoolExecutor(1)
     controller = Controller(
         client,
         channels,
         github,
         aws,
         runners,
-        Jobs(github, log),
+        Jobs(github, log, resync_pool),
         cost,
         scaler,
         gate,
@@ -453,6 +454,7 @@ def main() -> None:
             wait_for_cmds(controller.commands, args.interval - timer.elapsed(), toggles)
     finally:
         shield()
+        resync_pool.shutdown(wait=False)
         controller.close()
         for _, enabled, _ in toggles.values():
             enabled.stop()

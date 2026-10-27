@@ -7,6 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Callable
+from concurrent.futures import Executor, Future
+from typing import Any
+
 import synnax as sy
 
 from common import Channels
@@ -54,8 +58,32 @@ def delivery(action: str, id: int) -> dict:
     }
 
 
-def jobs(github: GitHub, client: Client) -> Jobs:
-    return Jobs(github, Log(core(client), Channels(core(client), False), "log"))
+class Held(Executor):
+    """Holds each submitted call until release runs it, or runs it at once when
+    immediate is set."""
+
+    def __init__(self, immediate: bool = True) -> None:
+        self.immediate = immediate
+        self.pending: list[tuple[Future[Any], Callable[[], Any]]] = []
+
+    def submit(  # type: ignore[override]
+        self, fn: Callable[[], Any], /, *args: Any, **kwargs: Any
+    ) -> Future[Any]:
+        future: Future[Any] = Future()
+        self.pending.append((future, fn))
+        if self.immediate:
+            self.release()
+        return future
+
+    def release(self) -> None:
+        for future, fn in self.pending:
+            future.set_result(fn())
+        self.pending.clear()
+
+
+def jobs(github: GitHub, client: Client, pool: Executor | None = None) -> Jobs:
+    log = Log(core(client), Channels(core(client), False), "log")
+    return Jobs(github, log, pool or Held())
 
 
 class TestJobs:
@@ -87,6 +115,27 @@ class TestJobs:
         j.resync(sy.TimeStamp.now())
         assert j.queued == {2: set(LABELS)}
         assert j.counts() == {"ubuntu-test-bot": 1}
+
+    def test_should_keep_the_queue_until_the_resync_finishes(
+        self, client: Client
+    ) -> None:
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {
+                    "jobs": [job(2, "queued")]
+                },
+            }
+        )
+        pool = Held(immediate=False)
+        j = jobs(github, client, pool)
+        j.apply([{"action": "queued", "workflow_job": {"id": 1, "labels": LABELS}}])
+        j.resync(sy.TimeStamp.now())
+        assert j.queued == {1: set(LABELS)}
+        pool.release()
+        j.resync(sy.TimeStamp.now())
+        assert j.queued == {2: set(LABELS)}
 
     def test_should_read_every_page_of_jobs(self, client: Client) -> None:
         first = [job(i, "completed") for i in range(100)]
