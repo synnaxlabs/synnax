@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
+	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
@@ -599,11 +600,7 @@ func (p *Plugin) processFieldForTranslation(
 ) fieldTranslatorData {
 	pbFieldName := casing.FieldSnake(field.Name)
 
-	cppFieldName := domain.GetFieldName(field, "cpp")
-	if cppFieldName == field.Name {
-		cppFieldName = casing.FieldSnake(field.Name)
-	}
-	cppFieldName = keywords.Escape(cppFieldName)
+	cppFieldName := cpptypes.FieldName(field)
 
 	isGenericField := false
 	typeParamName := ""

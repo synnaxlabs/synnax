@@ -162,8 +162,8 @@ class Client:
         offset: int = 0,
         include_status: bool = False,
     ) -> Rack | list[Rack]:
-        """Retrieves racks that match every condition and filter. Returns one rack
-        for a key, a name, or one, and a list otherwise. A filter left as None does not
+        """Retrieves racks that match every condition and filter. Returns one rack for a
+        key, a name, or one, and a list otherwise. A filter left as None does not
         filter.
 
         :param args: Conditions from the rack builder, such as
@@ -182,8 +182,7 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         :raises NotFoundError: If a single rack is requested and none matches.
-        :raises MultipleFoundError: If more than one rack matches a single name or
-            one.
+        :raises MultipleFoundError: If more than one rack matches a single name or one.
         :raises TypeError: If args are neither rack conditions nor a shortcut.
         """
         conditions, query = util.shortcut(

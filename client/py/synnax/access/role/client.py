@@ -125,8 +125,8 @@ class Client:
         offset: int = 0,
         internal: bool | None = None,
     ) -> Role | list[Role]:
-        """Retrieves roles that match every condition and filter. Returns one role for
-        a key, a name, or one, and a list otherwise.
+        """Retrieves roles that match every condition and filter. Returns one role for a
+        key, a name, or one, and a list otherwise.
 
         :param args: Conditions from the role builder, such as
             ``role.internal.eq(False)``, or one key, name, or list of either.

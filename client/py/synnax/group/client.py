@@ -94,11 +94,11 @@ class Client:
         limit: int | None = None,
         offset: int = 0,
     ) -> Group | list[Group]:
-        """Retrieves groups that match every condition and filter. Returns one group
-        for a key or one, and a list otherwise.
+        """Retrieves groups that match every condition and filter. Returns one group for
+        a key or one, and a list otherwise.
 
-        :param args: Conditions from the group builder, such as
-            ``group.key.in_(keys)``, or one key or list of keys.
+        :param args: Conditions from the group builder, such as ``group.key.in_(keys)``,
+            or one key or list of keys.
         :param one: Returns the one group that matches, instead of a list.
         :raises NotFoundError: If no group matches a key or one.
         :raises MultipleFoundError: If one is True and more than one group matches.
