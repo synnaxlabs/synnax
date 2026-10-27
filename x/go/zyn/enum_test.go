@@ -39,7 +39,9 @@ var _ = Describe("Enum", func() {
 			Expect(zyn.Enum("a", "b", "c").Validate("a")).To(Succeed())
 		})
 		It("Should return nil if the value is not a valid enum", func() {
-			Expect(zyn.Enum("a", "b", "c").Validate("d")).To(HaveOccurred())
+			Expect(
+				zyn.Enum("a", "b", "c").Validate("d"),
+			).To(MatchError(ContainSubstring("invalid enum value d")))
 		})
 		It("Should succeed when an optional enum receives nil", func() {
 			Expect(zyn.Enum("a", "b", "c").Optional().Validate(nil)).To(Succeed())

@@ -76,11 +76,11 @@ describe("GET /api/cron/expiry", () => {
       sent: [{ license: lic.key, days: 7, to: ["admin@acme.com"] }],
     });
     expect(h.mail.sent).toEqual([
-      {
+      expect.objectContaining({
         to: ["admin@acme.com"],
         subject: "Your Synnax license expires in 7 days",
-        text: expect.stringContaining('The Synnax license "Test rig" for Acme'),
-      },
+        facts: expect.arrayContaining([{ label: "License", value: "Test rig" }]),
+      }),
     ]);
     expect(await store.query.select().from(event)).toEqual([
       expect.objectContaining({

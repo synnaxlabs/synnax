@@ -29,10 +29,10 @@ def login() -> None:
         return
     cfg = config.Clusters(config.File(Path(os.path.expanduser("~/.synnax"))))
     cfg.set(config.Cluster(options=options))
-    flow_ctx.console.info(SUCCESSFUL_LOGIN)
+    flow_ctx.console.info(_SUCCESSFUL_LOGIN)
 
 
-SUCCESSFUL_LOGIN = """Saved credentials. You can now use the Synnax Client
+_SUCCESSFUL_LOGIN = """Saved credentials. You can now use the Synnax Client
 without having to log in. To connect the cluster in a Python shell, use the following:
 
 from synnax import Synnax
