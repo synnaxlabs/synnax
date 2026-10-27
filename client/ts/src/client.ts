@@ -221,6 +221,8 @@ export default class Synnax extends framer.Client {
       file: transport.file,
       retrieveChannels,
       onRetry: parsedParams.onRetry,
+      // The arrow reads this.conn only when called, after construction completes.
+      node: () => this.conn.status.details.nodeKey,
     });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache

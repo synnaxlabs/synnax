@@ -70,7 +70,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.DefineResources(ctx, id)).To(Succeed())
 				Expect(w.DeleteResources(ctx, id)).To(Succeed())
 				err := otg.NewRetrieve().WhereIDs(id).Exec(ctx, tx)
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(query.ErrNotFound))
 				Expect(errors.Is(err, query.ErrNotFound)).To(BeTrue())
 			})
 		})

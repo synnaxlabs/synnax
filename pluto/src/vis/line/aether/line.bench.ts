@@ -21,16 +21,11 @@ import {
 import { type BenchRunOptions, test } from "vitest";
 
 import { type telem } from "@/telem/aether";
-import { GL_TRANSFORM } from "@/telem/aether/convertSeries";
 import { telemTest } from "@/telem/aether/test";
 import { renderAether } from "@/testutil/renderAether";
 import { windowBounds } from "@/vis/line/aether/bounds";
-import {
-  buildDrawOperations,
-  DEFAULT_OVERLAP_THRESHOLD,
-  Line,
-  type LineProps,
-} from "@/vis/line/aether/line";
+import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
+import { Line, type LineProps } from "@/vis/line/aether/line";
 import { lineTest } from "@/vis/line/aether/test";
 import { canvasTest } from "@/vis/render/test";
 
@@ -164,9 +159,7 @@ const buildLive = (): { x: MultiSeries; y: MultiSeries } => {
     );
     const alignment = BigInt(i * len);
     x.push(
-      GL_TRANSFORM.convert(
-        new Series({ data: xData, dataType: DataType.TIMESTAMP, timeRange, alignment }),
-      ),
+      new Series({ data: xData, dataType: DataType.TIMESTAMP, timeRange, alignment }),
     );
     y.push(
       new Series({ data: yData, dataType: DataType.FLOAT32, timeRange, alignment }),
@@ -189,10 +182,10 @@ const drain = (chunks: Chunks, spec: Spec, rendering: boolean): Landed => {
   const stagedY: Series[][] = Array.from({ length: channels }, () => []);
   let last = performance.now();
   for (let i = 0; i < chunks.x.length; i++) {
-    const shared = sharedIndex ? GL_TRANSFORM.convert(chunks.x[i]) : null;
+    const shared = sharedIndex ? chunks.x[i] : null;
     for (let ch = 0; ch < channels; ch++) {
-      stagedX[ch].push(shared ?? GL_TRANSFORM.convert(chunks.x[i]));
-      stagedY[ch].push(GL_TRANSFORM.convert(chunks.ys[ch][i]));
+      stagedX[ch].push(shared ?? new Series(chunks.x[i]));
+      stagedY[ch].push(chunks.ys[ch][i]);
     }
     if (rendering && performance.now() - last >= FRAME_INTERVAL_MS) {
       frame(LIVE.x, LIVE.y);
@@ -205,7 +198,7 @@ const drain = (chunks: Chunks, spec: Spec, rendering: boolean): Landed => {
   };
 };
 
-// Weight approximates timestamp conversions, the dominant per-chunk fetch cost.
+// Weight counts the index series a drain stages.
 const opts = (spec: Spec): BenchRunOptions | undefined => {
   const weight = chunkCount(spec) * (spec.sharedIndex ? 1 : spec.channels);
   if (weight > 300)
