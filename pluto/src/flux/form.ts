@@ -19,6 +19,7 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
+  type record,
   state,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -172,6 +173,22 @@ const DEFAULT_AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
 const covers = (pending: Set<string>, path: string): boolean =>
   [...pending].some((p) => deep.pathsMatch(path, p));
 
+const ABSENT = Symbol("absent");
+
+/**
+ * @returns the live value at the path, null and undefined included, or ABSENT when the
+ * value that holds it is gone.
+ */
+const readLive = (live: unknown, path: string): unknown => {
+  if (deep.has(live, path)) return deep.get(live, path);
+  const split = path.lastIndexOf(deep.SEPARATOR);
+  const parentPath = split === -1 ? "" : path.slice(0, split);
+  const parent = deep.get<record.Unknown, unknown>(live, parentPath, {
+    optional: true,
+  });
+  return parent == null ? ABSENT : deep.defaultGetter(parent, path.slice(split + 1));
+};
+
 /** @returns the value to write at the path, with live values kept at pending paths. */
 const keepPending = <V>(
   live: unknown,
@@ -181,9 +198,11 @@ const keepPending = <V>(
 ): V => {
   let kept = value;
   for (const p of pending) {
-    if (!deep.pathsMatch(p, path) || !deep.has(live, p)) continue;
+    if (!deep.pathsMatch(p, path)) continue;
+    const current = readLive(live, p);
+    if (current === ABSENT) continue;
     if (kept === value) kept = deep.copy(value);
-    deep.set(kept, path === "" ? p : p.slice(path.length + 1), deep.get(live, p));
+    deep.set(kept, path === "" ? p : p.slice(path.length + 1), current);
   }
   return kept;
 };

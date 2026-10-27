@@ -1088,6 +1088,52 @@ describe("useForm", () => {
       expect(result.current.form.value()).toEqual(remote);
     });
 
+    it.each([null, undefined])(
+      "should keep a field cleared to %s while a save runs",
+      async (cleared) => {
+        const noteSchema = z.object({
+          key: z.string(),
+          name: z.string(),
+          note: z.string().nullish(),
+        });
+        type Note = z.infer<typeof noteSchema>;
+        const saved: Note[] = [];
+        const entered = Promise.withResolvers<void>();
+        const held = Promise.withResolvers<void>();
+        const useForm = Flux.createForm<Params, typeof noteSchema>({
+          initialValues: { key: "1", name: "", note: "" },
+          schema: noteSchema,
+          name: "test",
+          retrieve: async () => ({ key: "1", name: "Initial Name", note: "Old Note" }),
+          update: async ({ value, reset }) => {
+            const sent = value();
+            saved.push(sent);
+            if (saved.length === 1) {
+              entered.resolve();
+              await held.promise;
+            }
+            reset(sent);
+          },
+        });
+        const { result } = await renderHookSuspended(
+          () =>
+            useForm({
+              query: { key: "1" },
+              autoSave: true,
+              autoSaveDebounce: DEBOUNCE,
+            }),
+          { wrapper: Wrapper },
+        );
+        act(() => result.current.form.set("name", "First Edit"));
+        await act(async () => await entered.promise);
+        act(() => result.current.form.set("note", cleared));
+        await act(async () => held.resolve());
+        await waitFor(() => expect(saved).toHaveLength(2));
+        expect(saved[1].note).toBe(cleared);
+        expect(result.current.form.value().note).toBe(cleared);
+      },
+    );
+
     it("should keep the edit when the running save fails", async () => {
       const failed = Promise.withResolvers<void>();
       let listenerReset!: (values: Values) => void;
