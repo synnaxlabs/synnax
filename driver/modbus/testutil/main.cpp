@@ -10,7 +10,7 @@
 #include <csignal>
 #include <iostream>
 
-#include "driver/modbus/mock/slave.h"
+#include "driver/modbus/testutil/slave.h"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): the signal handler
 // clears it.
@@ -27,7 +27,7 @@ int main() {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
 
-    driver::modbus::mock::SlaveConfig config;
+    driver::modbus::testutil::SlaveConfig config;
 
     config.coils[0] = 1; // ON
     config.coils[1] = 0; // OFF
@@ -50,7 +50,7 @@ int main() {
                   << std::endl;
 
         // Create and start the slave
-        driver::modbus::mock::Slave slave(config);
+        driver::modbus::testutil::Slave slave(config);
         if (const auto err = slave.start()) {
             std::cerr << "Failed to start slave: " << err.message() << std::endl;
             return 1;

@@ -19,9 +19,9 @@
 #include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/master/master.h"
-#include "driver/ethercat/mock/master.h"
+#include "driver/ethercat/testutil/master.h"
 
-namespace driver::ethercat::mock {
+namespace driver::ethercat::testutil {
 
 /// @brief mock implementation of engine::Pool for testing.
 class Pool {

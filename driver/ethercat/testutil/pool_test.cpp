@@ -11,9 +11,9 @@
 
 #include "x/cpp/test/test.h"
 
-#include "driver/ethercat/mock/pool.h"
+#include "driver/ethercat/testutil/pool.h"
 
-namespace driver::ethercat::mock {
+namespace driver::ethercat::testutil {
 
 TEST(PoolConfiguration, ConfigureMasterAddsToEnumerate) {
     Pool pool;

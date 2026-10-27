@@ -14,9 +14,9 @@
 
 #include "x/cpp/test/test.h"
 
-#include "driver/modbus/mock/slave.h"
+#include "driver/modbus/testutil/slave.h"
 
-namespace driver::modbus::mock {
+namespace driver::modbus::testutil {
 namespace {
 using Client = std::unique_ptr<modbus_t, decltype(&modbus_free)>;
 

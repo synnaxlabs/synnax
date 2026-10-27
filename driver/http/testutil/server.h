@@ -19,7 +19,7 @@
 
 #include "driver/http/types/types.h"
 
-namespace driver::http::mock {
+namespace driver::http::testutil {
 /// @brief a single route to register on the mock server.
 struct Route {
     /// @brief HTTP method.

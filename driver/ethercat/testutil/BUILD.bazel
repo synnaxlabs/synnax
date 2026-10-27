@@ -7,27 +7,34 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "mock",
-    hdrs = ["server.h"],
+    name = "testutil",
+    hdrs = [
+        "master.h",
+        "pool.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/opcua/types",
-        "//vendor/open62541",
-        "@abseil-cpp//absl/log",
+        "//driver/ethercat/engine",
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//x/cpp/errors",
     ],
 )
 
-cc_binary(
-    name = "opcua_mock_server",
-    srcs = ["main.cpp"],
+cc_test(
+    name = "testutil_test",
+    srcs = [
+        "master_test.cpp",
+        "pool_test.cpp",
+    ],
     deps = [
-        ":mock",
-        "//driver/opcua/testutil",
-        "//vendor/open62541",
-        "@abseil-cpp//absl/log",
+        ":testutil",
+        "//driver/ethercat/errors",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
     ],
 )
