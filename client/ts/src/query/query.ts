@@ -649,8 +649,10 @@ export class Space<
         }
         this.settle(query, loading, { variant: "ready", keys });
         // The settle drains membership changes that raced the fetch, so the answer
-        // comes off the query: the keys the fetch returned are already stale.
+        // comes off the query: the keys the fetch returned are already stale. A drain
+        // that leaves the query unfetched asks the server again.
         const { state } = query;
+        if (state.variant === "unfetched") return this.fetch(query, options);
         return this.composedOf(query, state.variant === "ready" ? state.keys : keys);
       },
       (reason: unknown) => {
