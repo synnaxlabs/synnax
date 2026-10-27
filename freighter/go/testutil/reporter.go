@@ -7,19 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mock_test
+package testutil
 
-import (
-	"testing"
+import "github.com/synnaxlabs/alamos"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-)
+const protocol = "golang-mock"
 
-func TestMock(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Mock Suite", SuiteConfig())
+type reporter struct{}
+
+func (reporter) Report() alamos.Report {
+	return alamos.Report{"protocol": protocol, "encodings": []string{"in-memory"}}
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
