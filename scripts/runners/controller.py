@@ -14,7 +14,7 @@
 
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
 Also runs the scaler, the gate, and the cost fetch, and creates every channel below
-plus the agents' channels when started with --create-channels.
+plus the agents' channels, for each new runner too, unless --no-create-channels.
 
 Per-runner channels, written on change:
 

@@ -7,10 +7,28 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import argparse
+
 import pytest
 from botocore.exceptions import ClientError
 
-from common import instance_for, instance_prefix, secret
+from common import add_connection_args, instance_for, instance_prefix, secret
+
+
+def parse(*argv: str) -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    add_connection_args(p)
+    return p.parse_args(argv)
+
+
+class TestConnectionArgs:
+    """Tests for the connection flags every script shares."""
+
+    def test_should_create_channels_by_default(self) -> None:
+        assert parse().create_channels
+
+    def test_should_skip_channel_creation_when_asked(self) -> None:
+        assert not parse("--no-create-channels").create_channels
 
 
 class TestInstanceFor:

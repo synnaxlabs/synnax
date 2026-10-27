@@ -186,12 +186,13 @@ BATCH = 40
 
 
 class ChannelCreateError(Exception):
-    """A --create-channels run stops on this rather than retrying every cycle."""
+    """A script stops on this rather than retrying every cycle; its launcher spaces
+    out the restarts."""
 
 
 class Channels:
-    """Creates channels on the Core. While disabled every method does nothing, since
-    the usual accounts cannot create channels."""
+    """Creates channels on the Core. While disabled every method does nothing, for an
+    account that cannot create channels."""
 
     def __init__(self, client: sy.Synnax, enabled: bool) -> None:
         self.client = client
@@ -306,8 +307,10 @@ def add_connection_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--secure", action="store_true", help="connect over TLS")
     p.add_argument(
         "--create-channels",
-        action="store_true",
-        help="create missing channels; needs a role that may create them",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="create missing channels, such as a new runner's; needs a role that "
+        "may create them",
     )
 
 
