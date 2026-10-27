@@ -14,6 +14,7 @@ from synnax import (
     http,
     labjack,
     license,
+    log,
     modbus,
     ni,
     node,
@@ -67,6 +68,7 @@ from synnax.framer import (
     Writer,
     WriterMode,
 )
+from synnax.log import Log
 from synnax.options import Options
 from synnax.project import Project
 from synnax.rack import Rack
@@ -152,6 +154,7 @@ __all__ = [
     "LicenseFingerprintMismatch",
     "LicenseLimitExceeded",
     "LimitReduction",
+    "Log",
     "Loop",
     "MissingLicense",
     "MultiSeries",
@@ -198,6 +201,7 @@ __all__ = [
     "http",
     "labjack",
     "license",
+    "log",
     "modbus",
     "ni",
     "node",
