@@ -28,7 +28,7 @@ cc_test(
     srcs = ["auth_test.cpp"],
     deps = [
         "//client/cpp/auth",
-        "//freighter/cpp/mock",
+        "//freighter/cpp/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
