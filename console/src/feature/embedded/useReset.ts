@@ -20,7 +20,8 @@ const HOLD_TO_CONFIRM = TimeSpan.seconds(1);
 /**
  * Returns a callback that erases everything Synnax Desktop has stored, logs the machine
  * out, and starts the app again. It asks first, and the person must hold the button to
- * confirm.
+ * confirm. Offer it only in the main window: no other window saves the logout before
+ * the restart.
  */
 export const useReset = (): (() => void) => {
   const confirm = Modals.useConfirm();
