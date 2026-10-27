@@ -24,7 +24,7 @@ import { assert, describe, expect, it, vi } from "vitest";
 import { type channel } from "@/channel";
 import { UnexpectedError, UnsupportedError } from "@/errors";
 import { domainOf, offsetOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
-import { index as tileIndex, tileRange } from "@/framer/cache/grid";
+import { index as tileIndex, tileRange, tileSpan } from "@/framer/cache/grid";
 import { type Feed, type FeedOptions } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import {
@@ -982,6 +982,48 @@ describe("Feed.subscribe", () => {
         await settled(core, sub, core.index.key, span);
       } finally {
         stop();
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should read raw samples after an outage only near the live edge", async () => {
+      const core = createCore({ rate: Rate.hz(10), now: START.add(TimeSpan.days(2)) });
+      const raw: TimeRange[] = [];
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readRemote: async (tr, keys, reduction) => {
+          if (reduction == null) raw.push(tr);
+          return core.read(tr, keys, reduction);
+        },
+      });
+      const key = core.data[0].key;
+      const sub = feed.subscribe({
+        keys: [key],
+        window: dynamicWindow(TimeSpan.days(1)),
+        limit: { variant: "points", count: 100, aggregation: "min_max" },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        core.disconnect();
+        await expect
+          .poll(() => sub.value(key).status, POLL)
+          .toMatchObject({ variant: "warning", message: "reconnecting" });
+        core.advance(TimeSpan.hours(6));
+        const reads = raw.length;
+        core.reconnect();
+        // Only a catch-up read ends after the Core's clock.
+        await expect
+          .poll(() => raw.slice(reads).some((tr) => tr.end.after(core.now())), POLL)
+          .toBe(true);
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        const edge = core.now().sub(tileSpan(RAW_LEVEL).mult(2));
+        raw
+          .slice(reads)
+          .forEach((tr) =>
+            expect(tr.start.valueOf()).toBeGreaterThanOrEqual(edge.valueOf()),
+          );
+      } finally {
         sub.close();
         await feed.close();
       }
