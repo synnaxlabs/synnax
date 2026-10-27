@@ -20,8 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { singleWhere } from "@/channel/payload";
+import { channel } from "@/channel";
 import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
@@ -202,10 +201,10 @@ export class Range {
    * @throws {NotFoundError} if no channel has the given key or name.
    * @throws {MultipleFoundError} if more than one channel has the given name.
    */
-  async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
-    const ch = await this.channels(channel);
-    checkForMultipleOrNoResults("channel", singleWhere(channel), ch, true);
-    await this.rangeClient.setAlias(this.key, ch[0].key, alias);
+  async setAlias(ch: channel.Key | Name, alias: string): Promise<void> {
+    const res = await this.channels(ch);
+    checkForMultipleOrNoResults("channel", channel.singleWhere(ch), res, true);
+    await this.rangeClient.setAlias(this.key, res[0].key, alias);
   }
 
   async deleteAlias(...channels: channel.Key[]): Promise<void> {

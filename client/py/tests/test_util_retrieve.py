@@ -10,7 +10,7 @@
 import pytest
 
 import synnax as sy
-from synnax.ranger.types_gen import Where
+from synnax.ranger import Where
 from synnax.util import one, one_or_none
 from x import filter
 

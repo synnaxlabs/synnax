@@ -21,8 +21,8 @@ from pydantic import BaseModel, PrivateAttr
 import synnax.channel.payload as channel
 from freighter import UnaryClient
 from synnax import framer, label, util
+from synnax.channel import single_where
 from synnax.channel.retrieve import Retriever as ChannelRetriever
-from synnax.channel.retrieve import single_where
 from synnax.exceptions import MultipleFoundError, NotFoundError, QueryError
 from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
