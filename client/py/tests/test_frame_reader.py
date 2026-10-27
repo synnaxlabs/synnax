@@ -124,6 +124,44 @@ class TestReader:
         f = client.read(sy.TimeRange.MAX, [idx_ch.name, data_ch.name])
         assert np.array_equal(f[data_ch.name], np.arange(10, dtype=np.float64))
 
+    def test_read_single_key(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return a MultiSeries for a single key"""
+        _, data_ch = written_pair
+        series = client.read(sy.TimeRange.MAX, data_ch.key)
+        assert isinstance(series, sy.MultiSeries)
+        assert np.array_equal(series, np.arange(10, dtype=np.float64))
+
+    def test_read_single_name(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return a MultiSeries for a single name"""
+        _, data_ch = written_pair
+        series = client.read(sy.TimeRange.MAX, data_ch.name)
+        assert isinstance(series, sy.MultiSeries)
+        assert np.array_equal(series, np.arange(10, dtype=np.float64))
+
+    def test_read_one_key_list(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return a Frame for a list with one key"""
+        _, data_ch = written_pair
+        f = client.read(sy.TimeRange.MAX, [data_ch.key])
+        assert isinstance(f, sy.Frame)
+        assert f.channels == [data_ch.key]
+        assert np.array_equal(f[data_ch.key], np.arange(10, dtype=np.float64))
+
+    def test_read_one_name_tuple(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return a Frame for a tuple with one name"""
+        _, data_ch = written_pair
+        f = client.read(sy.TimeRange.MAX, (data_ch.name,))
+        assert isinstance(f, sy.Frame)
+        assert f.channels == [data_ch.name]
+        assert np.array_equal(f[data_ch.name], np.arange(10, dtype=np.float64))
+
     def test_read_strided(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:

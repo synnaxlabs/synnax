@@ -715,7 +715,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             self.client,
             channel_keys=channel_keys,
             start=start,
-            sample_rate=config.sample_rate,
+            sample_rate=float(config.sample_rate),
             strict=strict,
             log=self.log,
         )

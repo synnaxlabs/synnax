@@ -9,7 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { filename } from "@/server/license/limits";
+import { channels, filename, term } from "@/server/license/limits";
+import { LICENSE } from "@/server/license/testutil";
 
 describe("limits", () => {
   describe("filename", () => {
@@ -24,6 +25,34 @@ describe("limits", () => {
     it("should fall back to synnax for a label with nothing usable", () => {
       expect(filename("")).toBe("synnax.lic");
       expect(filename("///")).toBe("synnax.lic");
+    });
+  });
+
+  describe("term", () => {
+    it("should give a subscription's expiry", () => {
+      expect(term(LICENSE)).toBe("Until 2027-03-01");
+    });
+
+    it("should give the version a subscription keeps after it expires", () => {
+      expect(term({ ...LICENSE, maxVersion: "0.60" })).toBe(
+        "Until 2027-03-01, then up to v0.60",
+      );
+    });
+
+    it("should give a perpetual license's last version", () => {
+      expect(
+        term({ ...LICENSE, term: "perpetual", expiresAt: null, maxVersion: "0.62" }),
+      ).toBe("Perpetual, up to v0.62");
+    });
+  });
+
+  describe("channels", () => {
+    it("should call a cap of 0 unlimited", () => {
+      expect(channels(0)).toBe("Unlimited");
+    });
+
+    it("should give any other cap as a number", () => {
+      expect(channels(500)).toBe("500");
     });
   });
 });

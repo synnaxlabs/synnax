@@ -37,7 +37,12 @@ _OUT_OF_INT64 = st.integers(min_value=2**63) | st.integers(max_value=-(2**63) - 
 _SMALL_SPAN = st.integers(min_value=-(2**61), max_value=2**61)
 _SMALL_STAMP = st.integers(min_value=0, max_value=2**61)
 _FACTOR = st.floats(min_value=-1000, max_value=1000, allow_nan=False)
-_BARE_NUMBERS: list[object] = [5, 5.0, np.int64(5), np.float64(5)]
+_BARE_NUMBERS = [
+    pytest.param(5, id="int"),
+    pytest.param(5.0, id="float"),
+    pytest.param(np.int64(5), id="int64"),
+    pytest.param(np.float64(5), id="float64"),
+]
 
 
 @pytest.mark.telem
@@ -638,6 +643,7 @@ class TestTimeArithmetic:
             lambda: -sy.TimeStamp(1),
             lambda: sy.TimeSpan(1) - sy.TimeStamp(1),
         ],
+        ids=["stamp + stamp", "stamp * 2", "2 * stamp", "-stamp", "span - stamp"],
     )
     def test_invalid_stamp_operations(self, operation: Callable[[], object]) -> None:
         """Should reject operations that have no meaning for a timestamp"""
