@@ -345,7 +345,7 @@ describe("Points", () => {
       }
     });
 
-    it("should read whole tiles or less than a raw block as the edge moves", async () => {
+    it("should read each tile once as the edge moves", async () => {
       const core = new SyntheticCore({
         rate: Rate.hz(0.5),
         start: START,
@@ -360,7 +360,7 @@ describe("Points", () => {
       const points = subscribe(core.data[0].key, window, TILED);
       const block = tileSpan(RAW_LEVEL);
       try {
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 8; i++) {
           await expect.poll(() => points.value().status.variant, POLL).toBe("success");
           core.advance(block);
           points.value();
@@ -368,6 +368,8 @@ describe("Points", () => {
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
         const large = reduced.filter((tr) => !isTile(tr) && tr.span.greaterThan(block));
         expect(large).toEqual([]);
+        const ranges = reduced.map((tr) => `${tr.start.valueOf()}/${tr.end.valueOf()}`);
+        expect(new Set(ranges).size).toBe(ranges.length);
       } finally {
         await close();
       }

@@ -441,7 +441,8 @@ export class Points {
     // Tiles are cut to [start, end): from the start of a static window to the start of
     // raw samples. A view may reach past a static window, as on a zoom out, so it cuts
     // tiles only where raw samples start. End moves while the window streams, so the
-    // tile it cuts splits into whole finer tiles, and only a raw level tile reads again.
+    // tile it cuts splits into whole finer tiles, which each read once. When end passes
+    // the edge of a coarser tile, that tile reads once and replaces them.
     const viewed = this.limit.view != null;
     const start = this.dynamic || viewed ? undefined : home.start;
     const raw = this.rawRange(home, boundary);
