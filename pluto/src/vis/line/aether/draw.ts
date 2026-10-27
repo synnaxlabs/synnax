@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  bounds,
-  math,
+  type bounds,
   type MultiSeries,
   type scale,
   type Series,
@@ -18,7 +17,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { seriesOverlap } from "@/vis/line/aether/bounds";
+import { forEachPair } from "@/vis/line/aether/bounds";
 
 export const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
@@ -35,29 +34,17 @@ export const buildDrawOperations = (
   ySeries: MultiSeries,
   overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
-  if (xSeries.series.length === 0 || ySeries.series.length === 0) return [];
   const ops: DrawOperation[] = [];
-  xSeries.series.forEach((x) =>
-    ySeries.series.forEach((y) => {
-      if (!seriesOverlap(x, y, overlapThreshold)) return;
-      let xAlignmentOffset = 0n;
-      let yAlignmentOffset = 0n;
-      // This means that the x series starts before the y series.
-      if (x.alignment < y.alignment) xAlignmentOffset = y.alignment - x.alignment;
-      // This means that the y series starts before the x series.
-      else if (y.alignment < x.alignment) yAlignmentOffset = x.alignment - y.alignment;
-      // The total number of alignment steps that are common to the two series.
-      const alignmentCount = math.min(
-        bounds.span(x.alignmentBounds) - xAlignmentOffset,
-        bounds.span(y.alignmentBounds) - yAlignmentOffset,
-      );
-      if (alignmentCount === 0n) return;
-      const count = Number(alignmentCount / x.alignmentMultiple);
-      const xOffset = Number(xAlignmentOffset / x.alignmentMultiple);
-      const yOffset = Number(yAlignmentOffset / y.alignmentMultiple);
-      ops.push({ x, y, xOffset, yOffset, count });
-    }),
-  );
+  forEachPair(xSeries.series, ySeries.series, overlapThreshold, (x, y, start, end) => {
+    const mult = x.alignmentMultiple;
+    ops.push({
+      x,
+      y,
+      xOffset: Number((start - x.alignment) / mult),
+      yOffset: Number((start - y.alignment) / mult),
+      count: Number((end - start) / mult),
+    });
+  });
   return ops;
 };
 
