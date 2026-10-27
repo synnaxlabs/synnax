@@ -13,13 +13,16 @@ import json
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime
+from types import UnionType
 from typing import (
     Any,
     Generic,
     NoReturn,
     Protocol,
     TypeAlias,
+    Union,
     get_args,
+    get_origin,
     overload,
 )
 
@@ -201,7 +204,21 @@ _SAMPLE_TYPES: dict[DataType, type] = {
 
 
 def _holds(series: Series, sample_type: type[U]) -> TypeIs[Series[U]]:
-    return _SAMPLE_TYPES.get(series.data_type) is sample_type
+    held = _SAMPLE_TYPES.get(series.data_type)
+    return held is not None and issubclass(held, sample_type)
+
+
+def _data_types(annotation: object) -> set[DataType]:
+    """:returns: The data types whose samples are all of the annotated type.
+    :raises TypeError: If the annotation is not a class, a union, or JsonValue.
+    """
+    if annotation == JsonValue:
+        return {DataType.JSON} | _data_types(str | bool | int | float)
+    if isinstance(annotation, UnionType) or get_origin(annotation) is Union:
+        return set().union(*(_data_types(a) for a in get_args(annotation)))
+    if isinstance(annotation, type):
+        return {dt for dt, t in _SAMPLE_TYPES.items() if issubclass(t, annotation)}
+    raise TypeError(f"[Series] - cannot validate samples of {annotation}")
 
 
 class _Payload(BaseModel):
@@ -357,19 +374,18 @@ class Series(ArrayOperators, Generic[T]):
         if not args or args[0] == SampleValue:
             validation["serialization"] = serialization
             return validation
-        sample_type = args[0]
-        if not isinstance(sample_type, type):
-            raise TypeError(f"[Series] - cannot validate samples of {sample_type}")
+        data_types = _data_types(args[0])
 
-        def narrow(series: Series) -> Series:
-            # Pydantic reports only a ValueError as a validation error.
-            try:
-                return series.as_(sample_type)
-            except TypeError as e:
-                raise ValueError(str(e)) from e
+        def check(series: Series) -> Series:
+            if series.data_type in data_types:
+                return series
+            raise ValueError(
+                f"[Series] - a {series.data_type} series does not hold samples of "
+                f"type {args[0]}"
+            )
 
         return core_schema.no_info_after_validator_function(
-            narrow, validation, serialization=serialization
+            check, validation, serialization=serialization
         )
 
     def as_(self, sample_type: type[U]) -> Series[U]:

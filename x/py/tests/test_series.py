@@ -10,7 +10,7 @@
 import operator
 import uuid
 from collections.abc import Callable
-from typing import Any, assert_type
+from typing import Any, Literal, assert_type
 
 import numpy as np
 import numpy.typing as npt
@@ -18,7 +18,7 @@ import pandas as pd
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 
 from x import telem
 from x.interop import ArrayOperators
@@ -786,6 +786,18 @@ class _TypedHolder(BaseModel):
     series: telem.Series[np.float64]
 
 
+class _UnionHolder(BaseModel):
+    series: telem.Series[np.float32 | np.float64]
+
+
+class _JsonHolder(BaseModel):
+    series: telem.Series[JsonValue]
+
+
+class _NumberHolder(BaseModel):
+    series: telem.Series[np.number]
+
+
 class _Holder(BaseModel):
     series: telem.Series
 
@@ -938,6 +950,42 @@ class TestSeriesModel:
         with pytest.raises(ValidationError, match="does not hold samples"):
             _TypedHolder.model_validate({"series": series})
 
+    @pytest.mark.parametrize(
+        ("model", "series", "valid"),
+        [
+            (_UnionHolder, telem.Series([1.5]), True),
+            (_UnionHolder, telem.Series([1]), False),
+            (_JsonHolder, telem.Series([{"a": 1}]), True),
+            (_JsonHolder, telem.Series(["a"]), True),
+            (_JsonHolder, telem.Series([uuid.UUID(int=1)]), False),
+            (_NumberHolder, telem.Series([1], data_type=telem.DataType.INT32), True),
+        ],
+        ids=[
+            "union",
+            "union-mismatch",
+            "json",
+            "json-string",
+            "json-mismatch",
+            "superclass",
+        ],
+    )
+    def test_annotated_field(
+        self, model: type[BaseModel], series: telem.Series, valid: bool
+    ) -> None:
+        """Should check a field annotated with a union, JsonValue, or superclass"""
+        if valid:
+            model.model_validate({"series": series})
+        else:
+            with pytest.raises(ValidationError, match="does not hold samples"):
+                model.model_validate({"series": series})
+
+    def test_unsupported_annotation(self) -> None:
+        """Should reject a field annotation that is not a sample type"""
+        with pytest.raises(TypeError, match="cannot validate samples"):
+
+            class _LiteralHolder(BaseModel):
+                series: telem.Series[Literal["a"]]
+
     def test_iter(self) -> None:
         """Should iterate over samples, not model fields"""
         assert list(_series()) == [1, 2, 3]
@@ -955,6 +1003,11 @@ class TestSeriesNarrowing:
         assert_type(s.to_numpy(), npt.NDArray[np.float64])
         assert s[0] == 1.5
         assert isinstance(s[1], np.float64)
+
+    def test_superclass(self) -> None:
+        """Should narrow to a superclass of the sample type"""
+        s = telem.Series([1.5]).as_(float)
+        assert isinstance(s[0], np.float64)
 
     def test_same_series(self) -> None:
         """Should return the same series"""
