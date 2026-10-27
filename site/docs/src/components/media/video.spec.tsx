@@ -10,7 +10,7 @@
 import { renderToString } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Video } from "@/components/media/Media";
+import { Media } from "@/components/media";
 import { start } from "@/components/media/video";
 
 let touch = false;
@@ -27,7 +27,9 @@ class Observer {
 }
 
 const show = (...ids: string[]): HTMLVideoElement[] => {
-  document.body.innerHTML = ids.map((id) => renderToString(<Video id={id} />)).join("");
+  document.body.innerHTML = ids
+    .map((id) => renderToString(<Media.Video id={id} />))
+    .join("");
   document.dispatchEvent(new Event("astro:after-swap"));
   return [...document.querySelectorAll("video")];
 };
@@ -140,8 +142,8 @@ describe("video", () => {
 
   it("should reload themed videos when the color scheme changes", () => {
     document.body.innerHTML =
-      renderToString(<Video id="themed" />) +
-      renderToString(<Video id="plain" themed={false} />);
+      renderToString(<Media.Video id="themed" />) +
+      renderToString(<Media.Video id="plain" themed={false} />);
     schemeChange?.();
     expect(load).toHaveBeenCalledExactlyOnceWith(document.querySelector("video"));
   });

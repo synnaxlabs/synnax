@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Query } from "@/components/tabs/sync";
+import { type Tabs } from "@/components/tabs";
 
 export const PLATFORMS = ["Linux", "Windows", "macOS", "Docker"] as const;
 
@@ -23,4 +23,4 @@ const detect = (): Platform | null => {
 };
 
 /** Shows the reader's own operating system first. */
-export const QUERY: Query = { initial: detect };
+export const QUERY: Tabs.Query = { initial: detect };

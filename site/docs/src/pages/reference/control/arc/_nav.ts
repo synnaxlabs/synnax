@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/tree";
+import { type Nav } from "@/components/nav";
 import { REFERENCE_NAV } from "@/pages/reference/control/arc/reference/_nav";
 import { STANDARD_LIBRARY_NAV } from "@/pages/reference/control/arc/standard-library/_nav";
 
-export const ARC_NAV: PageNavNode = {
+export const ARC_NAV: Nav.PageNavNode = {
   key: "arc",
   name: "Arc",
   children: [

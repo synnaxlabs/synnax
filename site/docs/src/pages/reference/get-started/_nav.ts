@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/tree";
+import { type Nav } from "@/components/nav";
 
-export const GET_STARTED_NAV: PageNavNode = {
+export const GET_STARTED_NAV: Nav.PageNavNode = {
   key: "get-started",
   name: "Get started",
   children: [

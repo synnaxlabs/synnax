@@ -10,11 +10,10 @@
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Page } from "@/components/nav/Page";
+import { Nav } from "@/components/nav";
 import { start } from "@/components/nav/sidebar";
-import { type PageNavNode } from "@/components/nav/tree";
 
-const NODES: PageNavNode[] = [
+const NODES: Nav.PageNavNode[] = [
   {
     key: "channels",
     name: "Channels",
@@ -54,9 +53,11 @@ const NODES: PageNavNode[] = [
   },
 ];
 
-const show = (path: string, nodes: PageNavNode[] = NODES): void => {
+const show = (path: string, nodes: Nav.PageNavNode[] = NODES): void => {
   window.history.replaceState(null, "", path);
-  document.body.innerHTML = renderToString(<Page nodes={nodes} currentPage={path} />);
+  document.body.innerHTML = renderToString(
+    <Nav.Page nodes={nodes} currentPage={path} />,
+  );
 };
 
 const item = (name: string): HTMLElement => {
@@ -278,7 +279,7 @@ describe("sidebar", () => {
       throw new DOMException("blocked", "SecurityError");
     });
     document.body.innerHTML = `<nav class="page-nav">${renderToString(
-      <Page nodes={NODES} currentPage="/reference/channels" />,
+      <Nav.Page nodes={NODES} currentPage="/reference/channels" />,
     )}</nav>`;
     expect(() => start()).not.toThrow();
   });

@@ -9,7 +9,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { QUERY } from "@/components/platform/choice";
+import { Platform } from "@/components/platform";
 
 const AGENTS: Record<string, string> = {
   macOS: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
@@ -24,7 +24,7 @@ describe("platform choice", () => {
     "should show %s first to its readers",
     (os, agent) => {
       vi.spyOn(navigator, "userAgent", "get").mockReturnValue(agent);
-      expect(QUERY.initial?.()).toBe(os);
+      expect(Platform.QUERY.initial?.()).toBe(os);
     },
   );
 
@@ -32,6 +32,6 @@ describe("platform choice", () => {
     vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
       "Mozilla/5.0 (PlayStation)",
     );
-    expect(QUERY.initial?.()).toBeNull();
+    expect(Platform.QUERY.initial?.()).toBeNull();
   });
 });
