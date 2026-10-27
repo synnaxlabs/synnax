@@ -46,7 +46,7 @@ func makeField(name string, domains map[string]resolution.Domain) resolution.Fie
 	}
 }
 
-var _ = Describe("GetString", func() {
+var _ = Describe("getString", func() {
 	It("should return the string value from a domain expression", func() {
 		t := makeType("User", makeDomains(struct {
 			domain string
@@ -124,7 +124,7 @@ var _ = Describe("GetStringFromField", func() {
 	})
 })
 
-var _ = Describe("GetAllStrings", func() {
+var _ = Describe("getAllStrings", func() {
 	It("should collect values from all expressions with the same name", func() {
 		t := makeType("User", map[string]resolution.Domain{
 			"go": {
@@ -185,7 +185,7 @@ var _ = Describe("GetAllStrings", func() {
 	})
 })
 
-var _ = Describe("HasExpr", func() {
+var _ = Describe("hasExpr", func() {
 	It("should return true when expression exists", func() {
 		t := makeType("User", map[string]resolution.Domain{
 			"validate": {

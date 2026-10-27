@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/query"
 )
 
 var _ = Describe("Writer", func() {
@@ -81,7 +82,7 @@ var _ = Describe("Writer", func() {
 					Where(project.MatchKeys(proj.Key)).
 					Entry(&res).
 					Exec(ctx, tx),
-			).ToNot(Succeed())
+			).To(MatchError(query.ErrNotFound))
 		})
 	})
 })
