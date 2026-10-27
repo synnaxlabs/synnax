@@ -1,0 +1,94 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# A pull request scans only the languages it changes. Its CodeQL check is then neutral,
+# because main has analyses that the pull request does not, and the check is not
+# required. Every other run scans all languages, so main always has a full baseline. A
+# changed category orphans the alerts filed under the old one.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+    branches: [main, release/**]
+  schedule:
+    - cron: "0 6 * * 1" # 6am UTC on Monday
+  workflow_dispatch:
+
+# A new push to a pull request cancels the scan it replaces.
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      languages:
+        ${{ github.event_name == 'pull_request' && steps.filter.outputs.changes ||
+        '["actions", "c-cpp", "go", "javascript-typescript", "python", "rust"]' }}
+    steps:
+      # Each language also keys on this workflow, so a change to it scans all of them.
+      - uses: dorny/paths-filter@v4
+        id: filter
+        if: github.event_name == 'pull_request'
+        with:
+          filters: |
+            actions:
+              - &workflow .github/workflows/codeql.yaml
+              - .github/actions/**
+              - .github/workflows/**
+            c-cpp:
+              - *workflow
+              - "**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}"
+            go:
+              - *workflow
+              - "**/*.go"
+              - "**/go.{mod,sum}"
+            javascript-typescript:
+              - *workflow
+              - "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,html,htm,vue}"
+            python:
+              - *workflow
+              - "**/*.{py,pyi}"
+            rust:
+              - *workflow
+              - "**/*.rs"
+              - "**/Cargo.{toml,lock}"
+
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    needs: changes
+    if: needs.changes.outputs.languages != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(needs.changes.outputs.languages) }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.language == 'go' && 'autobuild' || 'none' }}
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
