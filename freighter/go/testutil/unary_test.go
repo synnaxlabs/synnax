@@ -7,26 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package mock_test
+package testutil_test
 
 import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/freighter/mock"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 )
 
 var _ = Describe("Unary", func() {
 	var (
-		net    *mock.Network[test.Request, test.Response]
-		client *mock.UnaryClient[test.Request, test.Response]
+		net    *testutil.Network[testutil.Request, testutil.Response]
+		client *testutil.UnaryClient[testutil.Request, testutil.Response]
 	)
 
 	BeforeEach(func() {
-		net = mock.NewNetwork[test.Request, test.Response]()
+		net = testutil.NewNetwork[testutil.Request, testutil.Response]()
 		client = net.UnaryClient()
 	})
 
@@ -36,12 +35,14 @@ var _ = Describe("Unary", func() {
 		server := net.UnaryServer("localhost:1")
 		server.BindHandler(func(
 			_ context.Context,
-			req test.Request,
-		) (test.Response, error) {
-			return test.Response{ID: req.ID + 1, Message: req.Message}, nil
+			req testutil.Request,
+		) (testutil.Response, error) {
+			return testutil.Response{ID: req.ID + 1, Message: req.Message}, nil
 		})
-		Expect(client.Send(ctx, "localhost:1", test.Request{ID: 1, Message: "Hello"})).
-			To(Equal(test.Response{ID: 2, Message: "Hello"}))
+		Expect(
+			client.Send(ctx, "localhost:1", testutil.Request{ID: 1, Message: "Hello"}),
+		).
+			To(Equal(testutil.Response{ID: 2, Message: "Hello"}))
 		Expect(net.Entries()).To(HaveLen(1))
 		Expect(net.Entries()[0].Target).To(Equal(address.Address("localhost:1")))
 	})
@@ -50,13 +51,13 @@ var _ = Describe("Unary", func() {
 		server := net.UnaryServer("localhost:1")
 		server.BindHandler(func(
 			_ context.Context,
-			_ test.Request,
-		) (test.Response, error) {
-			return test.Response{}, test.ErrCustom
+			_ testutil.Request,
+		) (testutil.Response, error) {
+			return testutil.Response{}, testutil.ErrCustom
 		})
-		Expect(client.Send(ctx, "localhost:1", test.Request{})).
+		Expect(client.Send(ctx, "localhost:1", testutil.Request{})).
 			Error().
-			To(MatchError(test.ErrCustom))
+			To(MatchError(testutil.ErrCustom))
 	})
 
 	DescribeTable(
@@ -79,12 +80,12 @@ var _ = Describe("Unary", func() {
 			if bind {
 				server.BindHandler(func(
 					_ context.Context,
-					_ test.Request,
-				) (test.Response, error) {
-					return test.Response{}, nil
+					_ testutil.Request,
+				) (testutil.Response, error) {
+					return testutil.Response{}, nil
 				})
 			}
-			Expect(client.Send(ctx, target, test.Request{})).
+			Expect(client.Send(ctx, target, testutil.Request{})).
 				Error().
 				To(SatisfyAll(
 					MatchError(address.ErrNotFound),
