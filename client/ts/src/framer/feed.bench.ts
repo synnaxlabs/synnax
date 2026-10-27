@@ -66,15 +66,41 @@ for (const n of SIZES) {
   );
 }
 
+// Opens a latest subscription to each channel, as a page of values does, and resolves
+// once every one loads.
+const loadLatest = async (keys: channel.Key[]): Promise<void> => {
+  const subs = keys.map((key) =>
+    feed.subscribe({ keys: [key], limit: { variant: "latest", count: 1 } }),
+  );
+  try {
+    await Promise.all(
+      subs.map(
+        async (sub, i) =>
+          await new Promise<void>((resolve, reject) => {
+            const check = (): void => {
+              const { status } = sub.value(keys[i]);
+              if (status.variant === "success") resolve();
+              else if (status.variant === "error") reject(new Error(status.message));
+            };
+            sub.onChange(check);
+            check();
+          }),
+      ),
+    );
+  } finally {
+    subs.forEach((sub) => sub.close());
+  }
+};
+
 const suite = (title: string, keysOf: Map<number, channel.Key[]>): void => {
-  test(title, async ({ bench }) => {
+  // A subscribed run waits for the stream to ack its channels, so a suite outlasts the
+  // default timeout.
+  test(title, { timeout: 0 }, async ({ bench }) => {
     await bench.compare(
       ...SIZES.flatMap((n) => {
         const keys = keysOf.get(n) ?? [];
         return [
-          bench(`batched ${n}`, async () => {
-            await Promise.all(keys.map(async (k) => await feed.readLatest(k)));
-          }),
+          bench(`subscribed ${n}`, async () => await loadLatest(keys)),
           bench(`per key ${n}`, async () => {
             await Promise.all(keys.map(async (k) => await client.readLatest(k, 1)));
           }),
@@ -84,5 +110,5 @@ const suite = (title: string, keysOf: Map<number, channel.Key[]>): void => {
   });
 };
 
-suite("readLatest stored", stored);
-suite("readLatest calculated", calculated);
+suite("latest stored", stored);
+suite("latest calculated", calculated);

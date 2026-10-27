@@ -19,6 +19,7 @@ from websockets.sync.server import ServerConnection, serve
 from alamos import NOOP
 from freighter import URL, Empty
 from freighter.websocket import Message
+from synnax.exceptions import create_registry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
 from x.codec import JSONCodec
@@ -53,14 +54,21 @@ class TestTransport:
     def test_ca_cert_insecure(self) -> None:
         """Should reject a CA certificate for an insecure connection."""
         with pytest.raises(ValueError, match="secure"):
-            Transport(URL("localhost", 9090), NOOP, ca_cert="/certs/ca.crt")
+            Transport(
+                URL("localhost", 9090),
+                NOOP,
+                create_registry(),
+                ca_cert="/certs/ca.crt",
+            )
 
 
 class TestKeepAlive:
     def test_sync(self, pinged_endpoint: tuple[URL, threading.Event]) -> None:
         """Should ping the Core at the keep-alive interval on a sync stream."""
         url, pinged = pinged_endpoint
-        transport = Transport(url, NOOP, keep_alive=TimeSpan.MILLISECOND * 50)
+        transport = Transport(
+            url, NOOP, create_registry(), keep_alive=TimeSpan.MILLISECOND * 50
+        )
         stream = transport.stream.stream("/", Empty, Empty)
         assert pinged.wait(2)
         stream.close_send()
@@ -69,7 +77,9 @@ class TestKeepAlive:
     async def test_async(self, pinged_endpoint: tuple[URL, threading.Event]) -> None:
         """Should ping the Core at the keep-alive interval on an async stream."""
         url, pinged = pinged_endpoint
-        transport = Transport(url, NOOP, keep_alive=TimeSpan.MILLISECOND * 50)
+        transport = Transport(
+            url, NOOP, create_registry(), keep_alive=TimeSpan.MILLISECOND * 50
+        )
         stream = await transport.stream_async.stream("/", Empty, Empty)
         assert await asyncio.to_thread(pinged.wait, 2)
         await stream.close_send()

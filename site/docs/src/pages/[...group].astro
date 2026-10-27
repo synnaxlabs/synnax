@@ -14,11 +14,10 @@
 
 import { FIRST_PAGES } from "@/pages/_nav";
 
-// The static check build prerenders each group; the deployed site renders on request.
 export const getStaticPaths = () =>
     [...FIRST_PAGES.keys()].map((route) => ({ params: { group: route.slice(1) } }));
 
 const page = FIRST_PAGES.get(`/${Astro.params.group}`);
-if (page == null) return new Response(null, { status: 404 });
+if (page == null) throw new Error(`no first page for /${Astro.params.group}`);
 return Astro.rewrite(page);
 ---

@@ -11,100 +11,85 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
   type DataType,
-  MultiSeries,
+  type MultiSeries,
   scheduler,
-  Size,
   sync,
-  TimeRange,
+  type TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
+import { type Block } from "@/framer/cache/block";
+import { type Bounds, tileRange } from "@/framer/cache/grid";
 import { DEFAULT_BATCH_DEBOUNCE, type RemoteReader } from "@/framer/cache/reader";
-import { DEFAULT_STATIC_PROPS } from "@/framer/cache/static";
-import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
+import { type Store } from "@/framer/cache/store";
 
-/**
- * Identifies one tile: the samples of one channel inside a fixed span of time, reduced
- * under a point limit. Tiles at level L span 2^L milliseconds, and tile i of a level
- * starts i spans after the Unix epoch.
- */
-export interface TileSpec {
+/** Identifies one tile of one channel, reduced under a point limit. */
+export interface TileSpec extends Bounds {
   key: channel.Key;
-  level: number;
-  index: number;
   pointLimit: number;
   aggregation: Aggregation;
-  /** Starts the read after the tile does. A read with a start is never cached. */
-  start?: TimeStamp;
-  /**
-   * Ends the read before the tile does, for a tile that is still being written. A read
-   * with an end is never cached.
-   */
-  end?: TimeStamp;
 }
-
-/** @returns the span of every tile at the given level. */
-export const tileSpan = (level: number): TimeSpan =>
-  new TimeSpan(TimeSpan.MILLISECOND.valueOf() << BigInt(level));
-
-/** @returns the time range the tile covers, cut to the spec's start and end. */
-export const tileRange = ({ level, index, start, end }: TileSpec): TimeRange => {
-  const span = tileSpan(level).valueOf();
-  let lower = BigInt(index) * span;
-  let upper = lower + span;
-  if (start != null && start.valueOf() > lower) lower = start.valueOf();
-  if (end != null && end.valueOf() < upper) upper = end.valueOf();
-  return new TimeRange(lower, upper);
-};
 
 export interface TileReaderProps {
   /** Reads reduced tiles from the Core. */
   readRemote: RemoteReader;
-  /** Applied to every series before it enters the cache. Defaults to identity. */
-  transform?: Transform;
+  /** Caches finished tiles. */
+  store: Store;
   /**
    * Window in which tile reads with equal bounds and options merge into one request.
    * @default TimeSpan.milliseconds(50)
    */
   batchDebounce?: TimeSpan;
   /**
-   * Byte size the cache evicts down to, least recently used first. Each tile counts its
-   * samples and a small fixed overhead. A tile whose series a caller holds is never
-   * evicted, so the cache can exceed the budget.
-   * @default Size.megabytes(128)
-   */
-  budget?: Size;
-  /**
-   * How long a cached tile answers reads before it is fetched again, so that writes
-   * into the past show up.
-   * @default TimeSpan.minutes(10)
-   */
-  staleThreshold?: TimeSpan;
-  /**
    * Deadline for a single remote fetch.
    * @default TimeSpan.seconds(30)
    */
   fetchTimeout?: TimeSpan;
+  /**
+   * The current time, which stamps each tile when it is fetched.
+   * @default TimeStamp.now
+   */
+  now?: () => TimeStamp;
 }
 
-interface CacheEntry {
-  channel: channel.Key;
-  series: MultiSeries;
-  bytes: number;
-  fetchedAt: TimeStamp;
+/** A cached tile: one channel's reduced samples. */
+class Tile implements Block {
+  readonly bytes: number;
+  readonly sealed: boolean;
+  pins = 0;
+
+  constructor(
+    readonly channel: channel.Key,
+    readonly range: TimeRange,
+    readonly series: MultiSeries,
+    readonly fetchedAt: TimeStamp,
+  ) {
+    this.bytes = series.series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
+    this.sealed = series.series.some((s) => s.timeRange.end.afterEq(range.end));
+  }
+
+  get held(): boolean {
+    return this.pins > 0;
+  }
 }
 
-const DEFAULT_BUDGET = Size.megabytes(128);
+/** @returns true when the tile is cut short at either end, which keeps it uncached. */
+export const isCut = ({ start, end }: TileSpec): boolean =>
+  start != null || end != null;
 
-// ENTRY_OVERHEAD estimates the memory of a cache entry apart from its samples, so that
-// tiles with no samples count against the budget too.
-const ENTRY_OVERHEAD = 256;
-
-const cacheKey = ({ key, level, index, pointLimit, aggregation }: TileSpec): string =>
-  `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
+/**
+ * @returns the store key of the tile. A tile cut short at either end is never cached.
+ */
+export const tileKey = ({
+  key,
+  level,
+  index,
+  pointLimit,
+  aggregation,
+}: TileSpec): string => `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
 
 /**
  * @returns a key for the time range and reduction of the tile's read. Specs with equal
@@ -117,35 +102,23 @@ export const tileRequestKey = (spec: TileSpec): string => {
   );
 };
 
-const held = (series: MultiSeries): boolean =>
-  series.series.some((s) => s.refCount > 0);
-
-/**
- * Reads reduced tiles of channel data, caching each finished tile under a byte budget.
- */
+/** Reads reduced tiles of channel data, caching each finished tile in the store. */
 export class TileReader {
   private readonly props: Required<Omit<TileReaderProps, "batchDebounce">>;
   private readonly batcher: scheduler.Batcher<TileSpec, MultiSeries>;
-  // Map order is recency order: a hit moves its entry to the end.
-  private readonly tiles = new Map<string, CacheEntry>();
-  // dataTypes holds the data type of each channel's newest fetched tile, which every
-  // cached tile of the channel shares.
-  private readonly dataTypes = new Map<channel.Key, DataType>();
   // pending holds each tile's fetching reads by channel, keyed by tile request key.
   private readonly pending = new Map<string, Map<channel.Key, Promise<MultiSeries>>>();
-  private bytes = 0;
   private closed = false;
 
   constructor(props: TileReaderProps) {
     const {
       readRemote,
-      transform = IDENTITY_TRANSFORM,
+      store,
       batchDebounce = DEFAULT_BATCH_DEBOUNCE,
-      budget = DEFAULT_BUDGET,
-      staleThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
       fetchTimeout = TimeSpan.seconds(30),
+      now = () => TimeStamp.now(),
     } = props;
-    this.props = { readRemote, transform, budget, staleThreshold, fetchTimeout };
+    this.props = { readRemote, store, fetchTimeout, now };
     this.batcher = new scheduler.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
@@ -163,29 +136,27 @@ export class TileReader {
    */
   async read(spec: TileSpec, dataType?: DataType): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
-    if (spec.start != null || spec.end != null) return await this.batcher.enqueue(spec);
-    const key = cacheKey(spec);
+    if (isCut(spec)) return await this.readFresh(spec);
+    const { store } = this.props;
+    const key = tileKey(spec);
     const tile = tileRequestKey(spec);
-    const cached = this.tiles.get(key);
-    if (cached != null) {
-      this.remove(key, cached);
-      const fresh = TimeStamp.since(cached.fetchedAt).lessThan(
-        this.props.staleThreshold,
-      );
+    const cached = store.get(key);
+    if (cached != null && !(cached instanceof Tile))
+      throw new UnexpectedError(`block ${key} is not a tile`);
+    if (cached != null)
       if (
-        fresh &&
-        (dataType == null ||
-          cached.series.series.every((s) => s.dataType.equals(dataType)))
-      ) {
-        this.tiles.set(key, cached);
-        this.bytes += cached.bytes;
+        store.expired(cached) ||
+        (dataType != null &&
+          !cached.series.series.every((s) => s.dataType.equals(dataType)))
+      )
+        store.delete(key);
+      else {
         // Reads made later in this task enter pending first.
         await Promise.resolve();
         if (this.closed) throw new UnexpectedError("tile reader is closed");
         // Samples written into the tile since it was cached can change its group size.
         if (!this.pending.has(tile)) return cached.series;
       }
-    }
     let reads = this.pending.get(tile);
     const pending = reads?.get(spec.key);
     if (pending != null) return await pending;
@@ -193,11 +164,12 @@ export class TileReader {
       reads = new Map();
       this.pending.set(tile, reads);
     }
-    const fetched = this.batcher.enqueue(spec);
+    const fetched = this.readFresh(spec);
     reads.set(spec.key, fetched);
     try {
       const series = await fetched;
-      if (!this.closed) this.insert(key, spec.key, series);
+      if (!this.closed)
+        store.set(key, new Tile(spec.key, tileRange(spec), series, this.props.now()));
       return series;
     } finally {
       reads.delete(spec.key);
@@ -205,35 +177,22 @@ export class TileReader {
     }
   }
 
-  private insert(key: string, ch: channel.Key, series: MultiSeries): void {
-    const replaced = this.tiles.get(key);
-    if (replaced != null) this.remove(key, replaced);
-    const bytes = series.series.reduce(
-      (sum, s) => sum + s.byteLength.valueOf(),
-      ENTRY_OVERHEAD,
-    );
-    this.tiles.set(key, { channel: ch, series, bytes, fetchedAt: TimeStamp.now() });
-    this.bytes += bytes;
-    const budget = this.props.budget.valueOf();
-    for (const [k, t] of this.tiles) {
-      if (this.bytes <= budget) break;
-      if (!held(t.series)) this.remove(k, t);
+  // Fetches the tile again while a history change over its span lands during the fetch,
+  // since the fetch can hold samples from before the change.
+  private async readFresh(spec: TileSpec): Promise<MultiSeries> {
+    const span = tileRange(spec);
+    for (;;) {
+      let changed = false;
+      const stopWatching = this.props.store.onInvalidate((ch, tr) => {
+        if ((ch == null || ch === spec.key) && tr.overlapsWith(span)) changed = true;
+      });
+      try {
+        const series = await this.batcher.enqueue(spec);
+        if (!changed) return series;
+      } finally {
+        stopWatching();
+      }
     }
-  }
-
-  private remove(key: string, tile: CacheEntry): void {
-    this.tiles.delete(key);
-    this.bytes -= tile.bytes;
-  }
-
-  // A channel's data type can change, and tiles of two data types cannot be drawn
-  // together, so a fetched tile of a new data type drops the channel's cached tiles.
-  private retainDataType(ch: channel.Key, dataType: DataType): void {
-    const held = this.dataTypes.get(ch);
-    this.dataTypes.set(ch, dataType);
-    if (held == null || held.equals(dataType)) return;
-    for (const [key, tile] of this.tiles)
-      if (tile.channel === ch) this.remove(key, tile);
   }
 
   private async batchRead(
@@ -256,7 +215,7 @@ export class TileReader {
   private async fetch(
     group: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
   ): Promise<void> {
-    const { readRemote, transform, fetchTimeout } = this.props;
+    const { readRemote, fetchTimeout } = this.props;
     const spec = group[0].req;
     const tr = tileRange(spec);
     const keys = [...new Set(group.map(({ req }) => req.key))];
@@ -276,9 +235,10 @@ export class TileReader {
       if (this.closed) return;
       const results = new Map(
         keys.map((key) => {
-          const series = frame.get(key).series.map((s) => transform.convert(s));
-          if (series.length > 0) this.retainDataType(key, series[0].dataType);
-          return [key, new MultiSeries(series)];
+          const series = frame.get(key);
+          if (series.series.length > 0)
+            this.props.store.retainDataType(key, series.series[0].dataType);
+          return [key, series];
         }),
       );
       group.forEach(({ req, resolve }) => resolve(results.get(req.key)!));
@@ -288,14 +248,11 @@ export class TileReader {
   }
 
   /**
-   * Closes the reader, rejecting every pending read with an UnexpectedError and
-   * dropping every cached tile. Fetch results that arrive later are discarded.
+   * Closes the reader, rejecting every pending read with an UnexpectedError. Fetch
+   * results that arrive later are discarded.
    */
   close(): void {
     this.closed = true;
     this.batcher.close(new UnexpectedError("tile reader is closed"));
-    this.tiles.clear();
-    this.dataTypes.clear();
-    this.bytes = 0;
   }
 }

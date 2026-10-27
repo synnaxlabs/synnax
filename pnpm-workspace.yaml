@@ -153,6 +153,7 @@ catalog:
   compromise: ^14.18.0
   compromise-dates: ^3.9.0
   d3-scale: ^4.0.2
+  dompurify: ^3.4.17
   drizzle-kit: ^0.31.11
   drizzle-orm: ^0.45.4
   error-stack-parser: ^2.1.4
