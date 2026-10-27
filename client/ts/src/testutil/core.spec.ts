@@ -14,7 +14,6 @@ import { NotFoundError } from "@/errors";
 import { SyntheticCore } from "@/testutil/core";
 
 const DOMAIN = 1n << 32n;
-const LEADING_DOMAIN = (1n << 31n) << 32n;
 const MS = TimeSpan.MILLISECOND.valueOf();
 
 // One sample per millisecond from the epoch, so sample i is stamped i milliseconds.
@@ -65,6 +64,46 @@ describe("SyntheticCore", () => {
         .read(new TimeRange(ms(990), ms(2000)), [core.data[0].key])
         .get(core.data[0].key);
       expect(series.length).toBe(10);
+    });
+
+    it("should stamp each series with its domain inside the read", () => {
+      const core = createCore(TimeSpan.seconds(250));
+      const read = (tr: TimeRange, limited = false): TimeRange[] =>
+        core
+          .read(
+            tr,
+            [core.index.key],
+            limited
+              ? { variant: "limit", aggregation: "min_max", pointLimit: 10 }
+              : undefined,
+          )
+          .get(core.index.key)
+          .series.map((s) => s.timeRange);
+      const end = ms(249_999).add(TimeSpan.NANOSECOND);
+      expect(read(new TimeRange(ms(-5), TimeStamp.seconds(300)))).toEqual([
+        new TimeRange(ms(0), ms(100_000)),
+        new TimeRange(ms(100_000), ms(200_000)),
+        new TimeRange(ms(200_000), end),
+      ]);
+      const inside = new TimeRange(ms(10).add(TimeSpan.NANOSECOND), ms(20));
+      expect(read(inside)).toEqual([inside]);
+      expect(read(inside, true)).toEqual([inside]);
+      expect(read(new TimeRange(ms(-5), TimeStamp.seconds(300)), true)).toEqual([
+        new TimeRange(ms(0), end),
+      ]);
+    });
+
+    it("should write only the samples that the lag leaves behind the clock", () => {
+      const core = new SyntheticCore({
+        rate: 1000,
+        start: new TimeStamp(0),
+        now: ms(1000),
+        lag: TimeSpan.milliseconds(400),
+      });
+      const series = core
+        .read(new TimeRange(ms(0), ms(1000)), [core.index.key])
+        .get(core.index.key);
+      expect(series.length).toBe(600);
     });
 
     it("should read samples raw when they fit under the point limit", () => {
@@ -138,6 +177,27 @@ describe("SyntheticCore", () => {
     });
   });
 
+  describe("retype", () => {
+    it("should read and stream the text of a channel retyped to string", async () => {
+      const core = new SyntheticCore({
+        rate: 1000,
+        start: new TimeStamp(0),
+        now: TimeStamp.seconds(1),
+        text: (i) => `line ${i}`,
+      });
+      const { key } = core.data[0];
+      core.retype(key, DataType.STRING);
+      const [latest] = core.readLatest([key], 2).get(key).series;
+      expect(latest.dataType).toEqual(DataType.STRING);
+      expect(latest.toStrings()).toEqual(["line 998", "line 999"]);
+      const streamer = core.openStreamer({ channels: [key] });
+      core.advance(TimeSpan.milliseconds(1));
+      const frame = await streamer.read();
+      expect(frame.get(key).series[0].toStrings()).toEqual(["line 1000"]);
+      streamer.close();
+    });
+  });
+
   describe("advance", () => {
     it("should advance the clock", () => {
       const core = createCore();
@@ -155,20 +215,16 @@ describe("SyntheticCore", () => {
     it("should stream the samples written by an advance to a feed", async () => {
       const core = createCore();
       const feed = core.openFeed({ batchDebounce: TimeSpan.ZERO });
-      const received: bigint[] = [];
-      const sub = feed.stream(
-        (res) =>
-          res.get(core.index.key)?.series.forEach((s) => received.push(s.alignment)),
-        [core.index.key],
-      );
-      // The feed opens its stream asynchronously, and drops samples written before.
+      const sub = feed.subscribe({
+        keys: [core.index.key],
+        limit: { variant: "latest", count: 20 },
+      });
+      // The read holds the samples written before the stream opened.
+      await expect.poll(() => sub.value(core.index.key).status.variant).toBe("success");
+      core.advance(TimeSpan.milliseconds(10));
       await expect
-        .poll(() => {
-          core.advance(TimeSpan.milliseconds(10));
-          return received.length;
-        })
-        .toBeGreaterThan(0);
-      expect(received[0] >= LEADING_DOMAIN + 1000n).toBe(true);
+        .poll(() => sub.value(core.index.key).series.at(-1))
+        .toEqual(1009n * MS);
       sub.close();
       await feed.close();
     });
@@ -176,8 +232,14 @@ describe("SyntheticCore", () => {
     it("should serve the latest sample to a feed", async () => {
       const core = createCore();
       const feed = core.openFeed({ batchDebounce: TimeSpan.ZERO });
-      const [latest] = (await feed.readLatest(core.index.key)).series;
-      expect(latest.at(0)).toEqual(999n * MS);
+      const sub = feed.subscribe({
+        keys: [core.index.key],
+        limit: { variant: "latest", count: 1 },
+      });
+      await expect
+        .poll(() => sub.value(core.index.key).series.at(-1))
+        .toEqual(999n * MS);
+      sub.close();
       await feed.close();
     });
   });
