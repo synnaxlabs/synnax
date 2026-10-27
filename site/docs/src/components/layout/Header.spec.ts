@@ -10,7 +10,7 @@
 // @vitest-environment node
 
 import reactRenderer from "@astrojs/react/server.js";
-import { experimental_AstroContainer as AstroContainer } from "astro/container";
+import { experimental_AstroContainer } from "astro/container";
 import { type Element, type Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
@@ -36,7 +36,7 @@ const RELEASES: Release[] = [
 ];
 
 const render = async (): Promise<Element[]> => {
-  const container = await AstroContainer.create();
+  const container = await experimental_AstroContainer.create();
   container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
   const releases = new Releases({
     fetch: async () => new Response(JSON.stringify(RELEASES)),
