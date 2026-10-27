@@ -76,6 +76,7 @@ jobs:
           EVENT_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
           INPUT_PR: ${{ inputs.pr }}
         run: |
+          # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
           if [ -n "$EVENT_PR" ]; then
             PRS="[$EVENT_PR]"
           elif [ -n "$INPUT_PR" ]; then
