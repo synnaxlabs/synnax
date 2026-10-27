@@ -322,8 +322,7 @@ export class Client {
     if (!this.authState.authenticated) await this.authenticating;
     const { authState } = this;
     if (!authState.authenticated) {
-      this.resumeToken = undefined;
-      this.credentials = undefined;
+      this.forget();
       return;
     }
     const { key } = authState.session;
@@ -344,10 +343,15 @@ export class Client {
       if (this.authState.authenticated && this.authState.session.key === key) {
         this.authState = { authenticated: false };
         this.authenticating = undefined;
-        this.credentials = undefined;
-        this.apiKey = undefined;
+        this.forget();
       }
     }
+  }
+
+  private forget(): void {
+    this.credentials = undefined;
+    this.apiKey = undefined;
+    this.resumeToken = undefined;
   }
 
   /**
