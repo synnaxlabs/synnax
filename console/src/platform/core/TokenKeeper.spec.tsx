@@ -46,12 +46,13 @@ const renderKeeper = async (core: ReturnType<typeof createCore>) => {
 describe("Core.TokenKeeper", () => {
   it("should save the token once the Core accepts the session", async () => {
     const calls = recordKeychain();
-    await renderKeeper(createCore("Local"));
+    const core = createCore("Local");
+    await renderKeeper(core);
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]).toMatchObject({
       cmd: "keychain_set",
       args: {
-        account: "http://synnax@localhost:9090",
+        account: `http://synnax@localhost:9090#${core.key}`,
         secret: expect.stringMatching(/^sys_/),
       },
     });
@@ -59,11 +60,12 @@ describe("Core.TokenKeeper", () => {
 
   it("should forget the token once the Core rejects the session", async () => {
     const calls = recordKeychain();
-    await renderKeeper(createCore("Local", { password: "wrong" }));
+    const core = createCore("Local", { password: "wrong" });
+    await renderKeeper(core);
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]).toEqual({
       cmd: "keychain_delete",
-      args: { account: "http://synnax@localhost:9090" },
+      args: { account: `http://synnax@localhost:9090#${core.key}` },
     });
   });
 

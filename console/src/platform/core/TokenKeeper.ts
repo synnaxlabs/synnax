@@ -12,7 +12,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { errors } from "@synnaxlabs/x";
 import { useEffect, useRef } from "react";
 
-import { accountOf, deleteToken, writeToken } from "@/platform/core/token";
+import { addressOf, deleteToken, writeToken } from "@/platform/core/token";
 import { Session } from "@/session";
 
 /**
@@ -32,8 +32,8 @@ export const TokenKeeper = (): null => {
   const current =
     client != null &&
     core != null &&
-    accountOf(core) ===
-      accountOf({
+    addressOf(core) ===
+      addressOf({
         host: client.params.host,
         port: Number(client.params.port),
         secure: client.params.secure,
