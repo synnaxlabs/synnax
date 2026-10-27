@@ -26,7 +26,7 @@ const panelLine = (panelKey?: string, name?: string): string | null => {
 // Annotates any caught error with the connected Core and, for a crashed panel, its name
 // and key, so a crash screenshot is triageable. An unreachable Core is not a crash, so
 // it gets the connection surface instead.
-export const ErrorDiagnostics = ({
+const ErrorDiagnostics = ({
   panelKey,
   error,
   ...rest

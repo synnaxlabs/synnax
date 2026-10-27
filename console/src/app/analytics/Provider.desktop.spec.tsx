@@ -1,0 +1,228 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { scheduler } from "@synnaxlabs/x";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => {
+  let optedOut = false;
+  return {
+    engine: "tauri" as const,
+    setOptedOut: (next: boolean) => (optedOut = next),
+    posthog: {
+      init: vi.fn(),
+      set_config: vi.fn(),
+      register: vi.fn(),
+      capture: vi.fn(),
+      identify: vi.fn(),
+      reset: vi.fn(),
+      has_opted_out_capturing: vi.fn(() => optedOut),
+      opt_in_capturing: vi.fn(() => (optedOut = false)),
+      opt_out_capturing: vi.fn(() => (optedOut = true)),
+    },
+  };
+});
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
+
+// A window other than main, so only the account and the usage data choice report.
+vi.mock("@tauri-apps/api/window", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCurrentWindow: () => ({ label: "some-child-window" }),
+}));
+
+// PostHog sends from init on, so it is the network boundary of this spec.
+vi.mock("posthog-js/dist/module.no-external", () => ({ default: mocks.posthog }));
+vi.mock("posthog-js/dist/surveys", () => ({}));
+vi.mock("posthog-js/dist/exception-autocapture", () => ({}));
+vi.mock("posthog-js/dist/posthog-recorder", () => ({}));
+
+import { Analytics } from "@/app/analytics";
+import { Analytics as PlatformAnalytics } from "@/platform/analytics";
+import { Session } from "@/session";
+import { createConsoleWrapper } from "@/testutil";
+
+const INSTALL = {
+  id: "install_a",
+  firstLaunch: false,
+  hoursSinceLastLaunch: 1,
+  erasedBytes: null,
+  os: "macos",
+  arch: "aarch64",
+};
+
+const LINK = { secret: "shh", email: "a@example.com", user: "user_a" };
+
+const renderProvider = async (account: Partial<Session.Account.SliceState>) => {
+  const { wrapper: Base, store } = await createConsoleWrapper({
+    client: null,
+    preloadedState: {
+      [Session.Account.SLICE_NAME]: { ...Session.Account.ZERO_SLICE_STATE, ...account },
+    },
+  });
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Base>
+      <Analytics.Provider>{children}</Analytics.Provider>
+    </Base>
+  );
+  const { result } = renderHook(() => PlatformAnalytics.use(), { wrapper: Wrapper });
+  return { store, sink: () => result.current };
+};
+
+describe("Analytics.Provider", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.setOptedOut(false);
+    mockIPC((cmd) => (cmd === "install_info" ? INSTALL : undefined));
+  });
+
+  afterEach(() => clearMocks());
+
+  it("should load posthog only once the user allows usage data", async () => {
+    const { store, sink } = await renderProvider({ link: LINK });
+    sink().capture("plot_created", {});
+    // Async effects start after a task queue flush, so wait one out before asserting.
+    await act(async () => await scheduler.flushTaskQueue());
+    expect(mocks.posthog.init).not.toHaveBeenCalled();
+    act(() => {
+      store.dispatch(Session.Account.setAnalyticsAllowed(true));
+    });
+    await waitFor(() => expect(mocks.posthog.init).toHaveBeenCalledOnce());
+    // An event from before the choice stays dropped.
+    expect(mocks.posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it("should not start posthog when the user refuses while it loads", async () => {
+    let answer: (install: typeof INSTALL) => void = () => {};
+    mockIPC((cmd) =>
+      cmd === "install_info"
+        ? new Promise<typeof INSTALL>((resolve) => {
+            answer = resolve;
+          })
+        : undefined,
+    );
+    const { store } = await renderProvider({ link: LINK, analyticsAllowed: true });
+    act(() => {
+      store.dispatch(Session.Account.setAnalyticsAllowed(false));
+    });
+    answer(INSTALL);
+    await act(async () => await scheduler.flushTaskQueue());
+    expect(mocks.posthog.init).not.toHaveBeenCalled();
+  });
+
+  it("should identify the account once posthog starts", async () => {
+    await renderProvider({ link: LINK, analyticsAllowed: true });
+    await waitFor(() =>
+      expect(mocks.posthog.identify).toHaveBeenCalledWith("user_a", {
+        email: "a@example.com",
+      }),
+    );
+    expect(mocks.posthog.init.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.posthog.identify.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("should reset and opt out when the user refuses usage data", async () => {
+    const { store, sink } = await renderProvider({
+      link: LINK,
+      analyticsAllowed: true,
+    });
+    await waitFor(() => expect(mocks.posthog.identify).toHaveBeenCalled());
+    act(() => {
+      store.dispatch(Session.Account.setAnalyticsAllowed(false));
+    });
+    expect(mocks.posthog.reset).toHaveBeenCalledOnce();
+    expect(mocks.posthog.opt_out_capturing).toHaveBeenCalledOnce();
+    // Flags go off before the reset reloads them, and the reset clears the stored
+    // opt-out, so the opt-out comes last.
+    expect(mocks.posthog.set_config).toHaveBeenCalledWith({
+      advanced_disable_flags: true,
+    });
+    expect(mocks.posthog.set_config.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.posthog.reset.mock.invocationCallOrder[0],
+    );
+    expect(mocks.posthog.reset.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.posthog.opt_out_capturing.mock.invocationCallOrder[0],
+    );
+    sink().capture("plot_created", {});
+    expect(mocks.posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it("should stop posthog when the machine logs out", async () => {
+    const { store } = await renderProvider({ link: LINK, analyticsAllowed: true });
+    await waitFor(() => expect(mocks.posthog.identify).toHaveBeenCalled());
+    act(() => {
+      store.dispatch(Session.Account.clear());
+    });
+    expect(mocks.posthog.opt_out_capturing).toHaveBeenCalledOnce();
+  });
+
+  it("should send and identify again once usage data is allowed again", async () => {
+    const { store, sink } = await renderProvider({
+      link: LINK,
+      analyticsAllowed: true,
+    });
+    await waitFor(() => expect(mocks.posthog.identify).toHaveBeenCalledOnce());
+    act(() => {
+      store.dispatch(Session.Account.setAnalyticsAllowed(false));
+    });
+    act(() => {
+      store.dispatch(Session.Account.setAnalyticsAllowed(true));
+    });
+    expect(mocks.posthog.set_config).toHaveBeenLastCalledWith({
+      advanced_disable_flags: false,
+    });
+    expect(mocks.posthog.opt_in_capturing).toHaveBeenCalledWith({
+      captureEventName: false,
+    });
+    expect(mocks.posthog.identify).toHaveBeenCalledTimes(2);
+    sink().capture("plot_created", {});
+    expect(mocks.posthog.capture).toHaveBeenCalledWith("plot_created", {});
+    expect(mocks.posthog.init).toHaveBeenCalledOnce();
+  });
+
+  it("should opt back in when an earlier launch opted out", async () => {
+    mocks.setOptedOut(true);
+    await renderProvider({ analyticsAllowed: true });
+    await waitFor(() => expect(mocks.posthog.init).toHaveBeenCalled());
+    expect(mocks.posthog.opt_in_capturing).toHaveBeenCalledWith({
+      captureEventName: false,
+    });
+  });
+
+  it("should reset before identifying a different account", async () => {
+    // Without the reset, the second account's first events would carry the first
+    // account's identity.
+    const { store } = await renderProvider({ link: LINK, analyticsAllowed: true });
+    await waitFor(() => expect(mocks.posthog.identify).toHaveBeenCalledOnce());
+    act(() => {
+      store.dispatch(
+        Session.Account.link({
+          secret: "shh",
+          email: "b@example.com",
+          user: "user_b",
+          analyticsAllowed: true,
+        }),
+      );
+    });
+    expect(mocks.posthog.reset).toHaveBeenCalledOnce();
+    expect(mocks.posthog.identify).toHaveBeenLastCalledWith("user_b", {
+      email: "b@example.com",
+    });
+    expect(mocks.posthog.reset.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.posthog.identify.mock.invocationCallOrder[1],
+    );
+  });
+});

@@ -10,6 +10,8 @@
 import { type clerkClient } from "@clerk/astro/server";
 import { errors } from "@synnaxlabs/x";
 
+import { badRequest } from "@/server/errors";
+
 /** Person is a Clerk user as the portal names and mails them. */
 export interface Person {
   email: string;
@@ -22,6 +24,11 @@ export interface Person {
 export interface Listed {
   clerkOrgID: string;
   name: string;
+}
+
+/** Listing is one organization in the Clerk dashboard with its number of members. */
+export interface Listing extends Listed {
+  members: number;
 }
 
 /** Team is one Clerk organization the user belongs to. */
@@ -42,6 +49,14 @@ export interface Member {
 export const ADMIN_ROLE = "org:admin";
 export const MEMBER_ROLE = "org:member";
 
+export const ROLES: { key: string; name: string }[] = [
+  { key: ADMIN_ROLE, name: "Admin" },
+  { key: MEMBER_ROLE, name: "Member" },
+];
+
+export const roleName = (role: string): string =>
+  ROLES.find((r) => r.key === role)?.name ?? role;
+
 /** Directory reads the people and organizations Clerk holds. */
 export interface Directory {
   /** person throws when Clerk does not know the user. */
@@ -50,11 +65,37 @@ export interface Directory {
   /** roster returns every member of a team. */
   roster: (clerkOrgID: string) => Promise<Member[]>;
   /** teams returns every organization in Clerk, newest first. */
-  teams: () => Promise<Listed[]>;
+  teams: () => Promise<Listing[]>;
   /** team returns null when Clerk does not know the organization. */
   team: (clerkOrgID: string) => Promise<Listed | null>;
   /** names resolves user ids to the name each reads as, leaving out unknown ids. */
   names: (userIDs: string[]) => Promise<Record<string, string>>;
+  /** addresses returns the user's verified email addresses in lowercase. */
+  addresses: (userID: string) => Promise<string[]>;
+  /**
+   * add puts a user on a team with a role. Clerk sends no email.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  add: (clerkOrgID: string, userID: string, role: string) => Promise<void>;
+  /**
+   * setRole changes a member's role on a team.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  setRole: (clerkOrgID: string, userID: string, role: string) => Promise<void>;
+  /**
+   * remove takes a member off a team.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  remove: (clerkOrgID: string, userID: string) => Promise<void>;
+  /** create makes a team with no members. */
+  create: (name: string) => Promise<Listed>;
+  /** delete removes a team and its memberships. */
+  delete: (clerkOrgID: string) => Promise<void>;
+  /**
+   * rename changes a team's name.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  rename: (clerkOrgID: string, name: string) => Promise<void>;
 }
 
 type Client = ReturnType<typeof clerkClient>;
@@ -80,6 +121,20 @@ const displayName = (
   const full = [user.firstName, user.lastName].filter((p) => p != null && p !== "");
   if (full.length > 0) return full.join(" ");
   return user.username ?? email;
+};
+
+interface APIError {
+  status?: number;
+  errors?: { message?: string; longMessage?: string }[];
+}
+
+/** refused turns Clerk's refusal of a request into a 400 that carries its reason. */
+const refused = (e: unknown): Error => {
+  const { status, errors: reasons } = (e ?? {}) as APIError;
+  if (status !== 400 && status !== 422) return errors.fromUnknown(e);
+  const first = reasons?.[0];
+  const reason = first?.longMessage ?? first?.message ?? "Clerk refused the request";
+  return badRequest(reason, { cause: e });
 };
 
 export const clerk = (client: Client): Directory => ({
@@ -131,8 +186,16 @@ export const clerk = (client: Client): Directory => ({
   teams: async () =>
     await paged(
       async (offset) =>
-        await client.organizations.getOrganizationList({ limit: PAGE, offset }),
-      (o) => ({ clerkOrgID: o.id, name: o.name }),
+        await client.organizations.getOrganizationList({
+          limit: PAGE,
+          offset,
+          includeMembersCount: true,
+        }),
+      (o) => {
+        if (o.membersCount == null)
+          throw new Error(`Clerk listed organization ${o.id} without its member count`);
+        return { clerkOrgID: o.id, name: o.name, members: o.membersCount };
+      },
     ),
   team: async (clerkOrgID) => {
     const org = await client.organizations
@@ -154,6 +217,59 @@ export const clerk = (client: Client): Directory => ({
         named[u.id] = u.fullName ?? u.primaryEmailAddress?.emailAddress ?? u.id;
     }
     return named;
+  },
+  addresses: async (userID) => {
+    const user = await client.users.getUser(userID);
+    return user.emailAddresses
+      .filter((e) => e.verification?.status === "verified")
+      .map((e) => e.emailAddress.toLowerCase());
+  },
+  add: async (clerkOrgID, userID, role) => {
+    await client.organizations
+      .createOrganizationMembership({
+        organizationId: clerkOrgID,
+        userId: userID,
+        role,
+      })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  setRole: async (clerkOrgID, userID, role) => {
+    await client.organizations
+      .updateOrganizationMembership({
+        organizationId: clerkOrgID,
+        userId: userID,
+        role,
+      })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  remove: async (clerkOrgID, userID) => {
+    await client.organizations
+      .deleteOrganizationMembership({ organizationId: clerkOrgID, userId: userID })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  create: async (name) => {
+    const org = await client.organizations
+      .createOrganization({ name })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+    return { clerkOrgID: org.id, name: org.name };
+  },
+  delete: async (clerkOrgID) => {
+    await client.organizations.deleteOrganization(clerkOrgID);
+  },
+  rename: async (clerkOrgID, name) => {
+    await client.organizations
+      .updateOrganization(clerkOrgID, { name })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
   },
 });
 
@@ -188,11 +304,55 @@ export const memory = ({
       const { name = "", email = "" } = people[userID] ?? {};
       return [{ userID, name, email, role: team.role }];
     }),
-  teams: async () => organizations,
+  teams: async () =>
+    organizations.map((o) => ({
+      ...o,
+      members: Object.values(members).filter((teams) =>
+        teams.some((t) => t.clerkOrgID === o.clerkOrgID),
+      ).length,
+    })),
   team: async (clerkOrgID) =>
     organizations.find((o) => o.clerkOrgID === clerkOrgID) ?? null,
   names: async (userIDs) =>
     Object.fromEntries(
       userIDs.flatMap((id) => (people[id] == null ? [] : [[id, people[id].name]])),
     ),
+  addresses: async (userID) => {
+    const email = people[userID]?.email ?? "";
+    return email === "" ? [] : [email.toLowerCase()];
+  },
+  add: async (clerkOrgID, userID, role) => {
+    const team = organizations.find((o) => o.clerkOrgID === clerkOrgID);
+    if (team == null) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    members[userID] = [...(members[userID] ?? []), { ...team, role }];
+  },
+  setRole: async (clerkOrgID, userID, role) => {
+    members[userID] = (members[userID] ?? []).map((t) =>
+      t.clerkOrgID === clerkOrgID ? { ...t, role } : t,
+    );
+  },
+  remove: async (clerkOrgID, userID) => {
+    members[userID] = (members[userID] ?? []).filter(
+      (t) => t.clerkOrgID !== clerkOrgID,
+    );
+  },
+  create: async (name) => {
+    const team = { clerkOrgID: `org_${organizations.length}`, name };
+    organizations.unshift(team);
+    return team;
+  },
+  delete: async (clerkOrgID) => {
+    const i = organizations.findIndex((o) => o.clerkOrgID === clerkOrgID);
+    if (i === -1) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    organizations.splice(i, 1);
+    for (const [userID, teams] of Object.entries(members))
+      members[userID] = teams.filter((t) => t.clerkOrgID !== clerkOrgID);
+  },
+  rename: async (clerkOrgID, name) => {
+    const team = organizations.find((o) => o.clerkOrgID === clerkOrgID);
+    if (team == null) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    team.name = name;
+    for (const teams of Object.values(members))
+      for (const t of teams) if (t.clerkOrgID === clerkOrgID) t.name = name;
+  },
 });
