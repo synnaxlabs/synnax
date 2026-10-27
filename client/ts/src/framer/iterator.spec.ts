@@ -17,8 +17,12 @@ import {
 import { describe, expect, test } from "vitest";
 
 import { AUTO_SPAN, iteratorConfigZ } from "@/framer/iterator";
-import { createTestClient, newIndexedPair, secondsLinspace } from "@/testutil";
-import { randomSeries } from "@/util/telem";
+import {
+  createTestClient,
+  newIndexedPair,
+  randomSeries,
+  secondsLinspace,
+} from "@/testutil";
 
 const client = createTestClient();
 
