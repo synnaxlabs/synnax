@@ -231,7 +231,9 @@ class Cost:
         self.attempted: sy.TimeStamp | None = None
         # The fetch runs off the controller cycle; step() takes its result.
         self.pool = ThreadPoolExecutor(1)
-        self.pending: Future[tuple[dict[str, float], Priced]] | None = None
+        # A fetch returns values and prices, a reprice prices only.
+        self.pending: Future[tuple[dict[str, float] | None, Priced]] | None = None
+        self.repriced = False
         self.prices_since: dt.datetime | None = None
         # The last fetch's values, every live write's base.
         self.latest: dict[str, float] = {}
@@ -543,15 +545,18 @@ class Cost:
             except Exception as e:
                 self.log.error("cost fetch", e)
             else:
-                landed = True
-                self.latest, self.priced = values, priced
-                self.types |= {
-                    m.group(1) for n in values if (m := TYPE_CHANNEL.match(n))
-                }
-                if name("mtd") in values:
-                    self.log(f"cost fetched, mtd ${values[name('mtd')]:.2f}")
-        if self.latest and not self.priced and self.pending is None:
-            # A restart before the next fetch prices the runners from free calls.
+                self.priced = priced
+                if values is not None:
+                    landed = True
+                    self.repriced = True
+                    self.latest = values
+                    self.types |= {
+                        m.group(1) for n in values if (m := TYPE_CHANNEL.match(n))
+                    }
+                    self.log(f"cost fetched, mtd ${values.get(name('mtd'), 0):.2f}")
+        if self.latest and not self.repriced and self.pending is None:
+            # Once after a restart, so the live rates need not wait for the next fetch.
+            self.repriced = True
             self.pending = self.pool.submit(self.reprice, found)
         if not self.latest:
             return {}
@@ -564,8 +569,8 @@ class Cost:
         self.written = now
         return self.frame(now, found)
 
-    def reprice(self, found: dict[str, dict]) -> tuple[dict[str, float], Priced]:
-        return dict(self.latest), self.price_table(found)
+    def reprice(self, found: dict[str, dict]) -> tuple[None, Priced]:
+        return None, self.price_table(found)
 
     def frame(self, now: sy.TimeStamp, found: dict[str, dict]) -> dict[str, float]:
         """Every cost channel, so the Core accepts the frame: the last values, NaN

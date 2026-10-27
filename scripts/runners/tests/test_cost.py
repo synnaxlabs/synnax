@@ -67,6 +67,15 @@ class TestLiveFrame:
         frame = cost.step(sy.TimeStamp.now(), {RUNNER}, found(True))
         assert math.isnan(frame[channel_name("cost_mtd_est", RUNNER)])
 
+    def test_should_reprice_only_once_after_a_restart(self, cost: Cost) -> None:
+        cost.priced = {}
+        cost.step(sy.TimeStamp.now(), {RUNNER}, found(True))
+        assert cost.pending is not None
+        cost.pending.exception()
+        cost.step(sy.TimeStamp.now(), {RUNNER}, found(True))
+        assert cost.repriced
+        assert cost.pending is None
+
     def test_should_write_once_per_live_interval(self, cost: Cost) -> None:
         now = sy.TimeStamp.now()
         assert cost.step(now, {RUNNER}, found(True))
