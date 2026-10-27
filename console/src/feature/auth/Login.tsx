@@ -143,8 +143,9 @@ export const Login = (): ReactElement => {
       try {
         if (Session.Runtime.ENGINE !== "tauri")
           await Core.beginBrowserLogin(core.key, login);
-        else {
-          await Core.loginDesktop(core, login);
+        // the desktop Console has no serving Core, so core is the selected record
+        else if (selectedCore != null) {
+          await Core.loginDesktop(selectedCore, login);
           // a user who left the login surface has moved on
           if (mounted.current)
             dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));

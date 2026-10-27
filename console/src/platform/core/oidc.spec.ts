@@ -133,7 +133,7 @@ describe("oidc", () => {
 
   describe("loginDesktop", () => {
     it("should exchange the loopback code and save the session's token", async () => {
-      const core = { host: "localhost", port: 9090, secure: false };
+      const core = { host: "localhost", port: 9090, secure: false, username: "ada" };
       await loginDesktop(core, LOGIN);
       const proof = tauri.proofs[tauri.proofs.length - 1] as Record<string, string>;
       expect(proof).toMatchObject({
@@ -151,7 +151,7 @@ describe("oidc", () => {
       );
       expect(tauri.calls).toContainEqual({
         cmd: "keychain_set",
-        args: { account: "http://localhost:9090", secret: "sys_token" },
+        args: { account: "http://ada@localhost:9090", secret: "sys_token" },
       });
     });
   });
