@@ -170,8 +170,8 @@ class ChannelValue<V>
       return { data: empty, status: sourceStatus(this.loading, this.failures) };
     const snapshot = subscription.value(key);
     this.convert(snapshot);
-    const { status, time } = snapshot;
-    return { data: this.converted?.value ?? empty, status, time };
+    const { status, time, appended } = snapshot;
+    return { data: this.converted?.value ?? empty, status, time, appended };
   }
 
   cleanup(): void {
@@ -227,7 +227,7 @@ class ChannelValue<V>
         this.failures.observe(snapshot.status);
         this.convert(snapshot);
         // A history change that rewrites the newest sample notifies too, so the value
-        // redraws. Consumers that count arrivals compare its time.
+        // redraws. Consumers that count arrivals compare its appended count.
         if (this.converted === this.notified) return;
         this.notified = this.converted;
         this.notify();

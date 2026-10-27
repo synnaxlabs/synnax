@@ -169,7 +169,7 @@ describe("remote", () => {
       await expect.poll(counts, POLL).toEqual([2, 2]);
     });
 
-    it("should notify a rewrite of the newest sample at its time", async () => {
+    it("should notify a rewrite of the newest sample at its time and count", async () => {
       const core = createCore();
       const { key } = core.data[0];
       let reads = 0;
@@ -184,7 +184,7 @@ describe("remote", () => {
       source.onChange(handler);
       source.value();
       await expect.poll(() => handler.mock.calls.length, POLL).toBe(1);
-      const { time } = source.value();
+      const { time, appended } = source.value();
       await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
       core.rewrite(key, new TimeRange(START, core.now()), 10);
       await expect.poll(() => reads, POLL).toBe(2);
@@ -192,6 +192,7 @@ describe("remote", () => {
       await expect.poll(() => source.value().data, POLL).toBe(rewritten);
       expect(handler).toHaveBeenCalledTimes(2);
       expect(source.value().time).toEqual(time);
+      expect(source.value().appended).toBe(appended);
     });
 
     it("should clear a value once a history change deletes its samples", async () => {
@@ -216,6 +217,17 @@ describe("remote", () => {
       expect(data).toBeNaN();
       expect(status.variant).toBe("success");
       expect(time).toBeUndefined();
+    });
+
+    it("should count each streamed sample as appended", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      const source = createNumber(connect(core), key);
+      await expect.poll(() => source.value().status.variant, POLL).toBe("success");
+      const { appended = 0 } = source.value();
+      await expect.poll(() => core.streams(key), POLL).toBe(true);
+      core.advance(RATE.period);
+      await expect.poll(() => source.value().appended, POLL).toBe(appended + 1);
     });
 
     it("should report the end of the newest sample as its time", async () => {

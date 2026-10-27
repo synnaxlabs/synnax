@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { bounds, color, type math, notation, type TimeStamp } from "@synnaxlabs/x";
+import { bounds, color, type math, notation } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
@@ -195,8 +195,8 @@ export class RollingAverage extends UnarySourceTransformer<
   static readonly propsZ = rollingAverageProps;
   schema = rollingAverageProps;
   private readonly window: number[] = [];
-  // The time of the newest sample the window holds.
-  private newest?: TimeStamp;
+  // The appended count of the newest sample the window holds.
+  private appended?: number;
 
   protected transform(value: math.Numeric): number {
     const num = Number(value);
@@ -204,15 +204,15 @@ export class RollingAverage extends UnarySourceTransformer<
     return this.window.reduce((a, b) => a + b, 0) / this.window.length;
   }
 
-  // The window advances here, once per change that brings a sample with no time or a
-  // newer one. Every change notifies, so a rewritten sample redraws and staleness can
-  // count arrivals. A NaN sample enters the window like any other, so the average
-  // reports it until it slides out.
-  protected shouldNotify({ data, time }: Result<math.Numeric>): boolean {
+  // The window advances here, once per change that grows the appended count or comes
+  // from a source with no count. Every change notifies, so a rewritten sample redraws
+  // and staleness can count arrivals. A NaN sample enters the window like any other, so
+  // the average reports it until it slides out.
+  protected shouldNotify({ data, appended }: Result<math.Numeric>): boolean {
     if (this.props.windowSize < 2) return true;
-    if (time != null) {
-      if (this.newest != null && !time.after(this.newest)) return true;
-      this.newest = time;
+    if (appended != null) {
+      if (this.appended != null && appended <= this.appended) return true;
+      this.appended = appended;
     }
     this.window.push(Number(data));
     if (this.window.length > this.props.windowSize) this.window.shift();

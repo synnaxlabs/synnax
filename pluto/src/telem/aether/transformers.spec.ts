@@ -105,30 +105,30 @@ describe("RollingAverage", () => {
     expect(t.value().data).toBe(4);
   });
 
-  it("should hold its window when a change brings no newer sample", () => {
+  it("should hold its window when a change keeps the appended count", () => {
     const t = new RollingAverage({ windowSize: 3 });
     const source = new TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
-    source.time = TimeStamp.seconds(1);
+    source.appended = 1;
     source.setValue(2);
-    source.time = TimeStamp.seconds(2);
+    source.appended = 2;
     source.setValue(4);
     source.setValue(10);
     expect(t.value().data).toBe(3);
   });
 
-  it("should add samples with no time that follow a timed one", () => {
+  it("should add a sample whose appended count grows while its time holds", () => {
     const t = new RollingAverage({ windowSize: 3 });
     const source = new TestSource(0);
     t.setSources({ in: source });
     t.onChange(() => {});
-    source.time = TimeStamp.seconds(1);
+    source.time = TimeStamp.seconds(10);
+    source.appended = 1;
     source.setValue(2);
-    source.time = undefined;
+    source.appended = 2;
     source.setValue(4);
-    source.setValue(6);
-    expect(t.value().data).toBe(4);
+    expect(t.value().data).toBe(3);
   });
 
   // Staleness counts arrivals, so a window above 1 must not stretch the countdown.

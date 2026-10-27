@@ -90,6 +90,11 @@ export interface Result<V> {
   aggregation?: Aggregation;
   /** The time of the newest sample. */
   time?: TimeStamp;
+  /**
+   * The count of samples that arrived at the source. A history change leaves it
+   * unchanged, so a count that grows marks an arrival.
+   */
+  appended?: number;
 }
 
 const statusOf = (variant: status.Variant): status.Status => ({
@@ -247,11 +252,15 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
 {
   sources: Record<string, Source<I>> = {};
 
-  /** Reports the worst status and the newest time of the sources. */
+  /**
+   * Reports the worst status and the newest time of the sources, and the sum of their
+   * appended counts.
+   */
   value(): Result<O> {
     const data: Record<string, I> = {};
     let worst = SUCCESS_STATUS;
     let time: TimeStamp | undefined;
+    let appended: number | undefined;
     for (const [id, source] of Object.entries(this.sources)) {
       const result = source.value();
       data[id] = result.data;
@@ -259,8 +268,9 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
         worst = result.status;
       if (result.time != null && (time == null || result.time.after(time)))
         time = result.time;
+      if (result.appended != null) appended = (appended ?? 0) + result.appended;
     }
-    return { data: this.transform(data), status: worst, time };
+    return { data: this.transform(data), status: worst, time, appended };
   }
 
   onChange(handler: () => void): destructor.Destructor {

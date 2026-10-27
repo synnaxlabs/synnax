@@ -50,8 +50,8 @@ export interface EntryProps {
 
 export interface Registration {
   /**
-   * Records a change of the source. A change whose newest sample has no time, or is
-   * newer than the last one recorded, is an arrival: it clears staleness and restarts
+   * Records a change of the source. A change that grows the source's appended count, or
+   * comes from a source with no count, is an arrival: it clears staleness and restarts
    * the countdown.
    */
   received: () => void;
@@ -66,8 +66,9 @@ interface Entry {
   props: EntryProps;
   // Milliseconds on the monotonic clock. Null until the first sample arrives.
   lastReceived: number | null;
-  // The time of the newest sample that arrived.
-  newest?: TimeStamp;
+  // The greatest appended count of the source. A history change can lower the count
+  // until its read lands, so the samples it counts again are no arrival.
+  appended?: number;
 }
 
 // The source itself holds the last reported staleness, so a transition is a change
@@ -134,11 +135,10 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     return {
       source,
       received: () => {
-        const { time } = source.value();
-        if (time != null) {
-          // A history change that rewrites the newest sample is no arrival.
-          if (entry.newest != null && !time.after(entry.newest)) return;
-          entry.newest = time;
+        const { time, appended } = source.value();
+        if (appended != null) {
+          if (entry.appended != null && appended <= entry.appended) return;
+          entry.appended = appended;
         }
         const at = entry.lastReceived == null ? time : undefined;
         const elapsed = at == null ? 0n : TimeStamp.now().valueOf() - at.valueOf();

@@ -36,6 +36,7 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   status: status.Status = SUCCESS_STATUS;
   aggregation?: Aggregation;
   time?: TimeStamp;
+  appended?: number;
   private _value: V;
   private _destructor: destructor.Destructor;
 
@@ -47,8 +48,8 @@ export class TestSource<V> extends observe.Observer<void> implements Source<V>, 
   }
 
   value(_props?: ValueProps): Result<V> {
-    const { status, aggregation, time } = this;
-    return { data: this._value, status, aggregation, time };
+    const { status, aggregation, time, appended } = this;
+    return { data: this._value, status, aggregation, time, appended };
   }
 
   setValue(v: V): void {
