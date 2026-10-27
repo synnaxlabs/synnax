@@ -258,7 +258,7 @@ TEST(TestChannel, testRetrieveManyByNamePattern) {
         client.channels.retrieve(std::vector<std::string>{prefix + "_.*"})
     );
     auto keys = keys_from_channels(channels);
-    std::sort(keys.begin(), keys.end());
+    std::ranges::sort(keys);
     ASSERT_EQ(keys, std::vector<Key>({a.key, b.key}));
 }
 
