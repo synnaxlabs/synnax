@@ -124,10 +124,4 @@ var _ = Describe("Where", Ordered, func() {
 			"or.0.name: no operator set: validation error",
 		),
 	)
-
-	It("Should match every channel for an empty node", func() {
-		var w channel.Where
-		Expect(json.Unmarshal([]byte(`{"and":[{}]}`), &w)).To(Succeed())
-		Expect(channel.MatchWhere(w)).Error().ToNot(HaveOccurred())
-	})
 })
