@@ -61,7 +61,6 @@ class TransitionArrows(ArcCase):
         state = self.read_tlm("ta_state")
         if state is not None:
             self.fail(f"ta_state={state} after ta_start_cmd=0; main started on false")
-            return
 
         self.log("Writing ta_start_cmd=1; main must start")
         self.writer.write("ta_start_cmd", 1)
@@ -73,7 +72,6 @@ class TransitionArrows(ArcCase):
         state = self.read_tlm("ta_state")
         if state != 1:
             self.fail(f"ta_state={state} after ta_abort_cmd=0; abort started on false")
-            return
 
         self.log("Writing ta_abort_cmd=1; abort must start")
         self.writer.write("ta_abort_cmd", 1)

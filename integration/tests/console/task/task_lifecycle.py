@@ -138,6 +138,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         The config stores the inverted dataSavingDisabled flag.
         """
+        actual: bool | None = None
         for _ in range(10):
             task = self.client.tasks.retrieve(names=[name])[0]
             disabled = task.config.get(

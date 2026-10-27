@@ -97,7 +97,7 @@ class ModbusWriteWordOrder(ModbusWriteTaskCase):
     follows the device, and the second overrides it."""
 
     task_name = "Modbus Write Word Order"
-    command_values = [[1.5, 1.5], [1.5, 1.5]]
+    command_values: list[list[float]] | None = [[1.5, 1.5], [1.5, 1.5]]
 
     def create(self, *, device: sy.Device, **kwargs: Any) -> sy.modbus.WriteTask:
         sy.device.ensure_object(device.properties, "connection")["swap_words"] = True

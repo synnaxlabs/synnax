@@ -52,7 +52,6 @@ class StatusRateLimit(OPCUAReadArray):
     def run(self) -> None:
         if self.tsk is None:
             self.fail("Task not configured")
-            return
 
         task_key = self.tsk.key
         self.log(f"Listening for warnings on task key={task_key}")
@@ -83,7 +82,6 @@ class StatusRateLimit(OPCUAReadArray):
                                 f"(expected >= {RATE_LIMIT_SECONDS}s): "
                                 f"{msg[:80]}"
                             )
-                            return
                         seen[msg] = status.time
         if warning_count == 0:
             self.fail(
@@ -91,7 +89,6 @@ class StatusRateLimit(OPCUAReadArray):
                 "Expected 'array too large/small' warnings due to array_size=2 "
                 "vs sim default of 5. Rate-limiter test was not exercised."
             )
-            return
         self.log(
             f"Received {warning_count} warnings, "
             f"no duplicates within {RATE_LIMIT_SECONDS}s"

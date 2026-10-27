@@ -139,7 +139,7 @@ def read_latest_value(client: sy.Synnax, channel_name: str) -> float | None:
     try:
         for attempt in range(3):
             latest = client.read_latest(channel_name)
-            if latest is not None and len(latest) > 0:
+            if len(latest) > 0:
                 return to_float(latest[-1])
             now = sy.TimeStamp.now()
             recent_range = sy.TimeRange(now - sy.TimeSpan.SECOND * 3, now)

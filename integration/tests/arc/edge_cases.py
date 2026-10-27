@@ -593,7 +593,6 @@ class EdgeCases(ArcCase):
         )
         if message is None:
             self.fail(f"[{name_prefix}] deploy unexpectedly succeeded")
-            return
         assert substr in message, (
             f"[{name_prefix}] expected '{substr}' in error, got: {message}"
         )

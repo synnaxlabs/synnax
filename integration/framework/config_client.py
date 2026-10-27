@@ -175,9 +175,6 @@ class ConfigClient:
         sequences: list[Sequence] = []
 
         for seq_idx, seq_dict in enumerate(sequences_array):
-            if not isinstance(seq_dict, dict):
-                continue
-
             seq_name = seq_dict.get("sequence_name", f"Sequence_{seq_idx + 1}")
             seq_order: str = seq_dict.get("sequence_order", "sequential").lower()
             pool_size: int = seq_dict.get("pool_size", -1)

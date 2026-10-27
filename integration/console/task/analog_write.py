@@ -9,6 +9,7 @@
 
 from typing import Any
 
+from console.page import PageType
 from console.task.channels.analog import Analog
 from console.task.channels.analog_output import Current, Voltage
 from console.task.ni import NIChannel, NITask
@@ -23,7 +24,7 @@ _AO_CHANNEL_TYPES: dict[str, type[Analog]] = {
 class AnalogWrite(NITask):
     """NI Analog Write/Output Task automation interface."""
 
-    page_type = "NI analog write task"
+    page_type: PageType = "NI analog write task"
     pluto_label: str = ".console-task-configure--ni_analog_write"
 
     def add_channel(
