@@ -559,6 +559,29 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
+			It("Should take the distinct type of a bool field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/task"
+
+					Flag bool
+
+					Task struct {
+						key uuid {
+							@key
+						}
+						flag Flag {
+							@filter
+						}
+						@ontology type "task"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, p)
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain("func MatchFlag(v Flag) Filter").
+					ToNotContain("func MatchFlag(v bool) Filter")
+			})
+
 			It("Should generate a scalar filter", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/workspace"
