@@ -13,7 +13,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Palette } from "@/app/palette";
 import { Command as FeatureCommand } from "@/feature/command";
-import { Docs } from "@/feature/docs";
 import { Modals } from "@/platform/modals";
 import { createConsoleWrapper, selectTestProject } from "@/testutil";
 
