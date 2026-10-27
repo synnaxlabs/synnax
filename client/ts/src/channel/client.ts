@@ -678,6 +678,8 @@ export class Client extends query.Retriever<
         !this.cfg.ranges.aliases.has(createKey({ range: rangeKey, channel: key })),
     );
     if (missing.length === 0) return;
+    const { aliases } = this.cfg.ranges;
+    const since = aliases.stamp();
     const fetched = await this.cfg.ranges.retrieveAliases(rangeKey, missing);
     Object.entries(fetched).forEach(([channel, alias]) => {
       const entry: ranger.alias.Alias = {
@@ -685,7 +687,7 @@ export class Client extends query.Retriever<
         channel: Number(channel),
         alias,
       };
-      this.cfg.ranges.aliases.set(createKey(entry), entry);
+      aliases.ingest(createKey(entry), entry, { since });
     });
   }
 
@@ -753,11 +755,13 @@ export class Client extends query.Retriever<
     ...req
   }: RetrieveMultipleParams): Promise<Channel[]> {
     if (rangeKey == null) return await this.fetchChannels(req);
+    const { aliases } = this.cfg.ranges;
+    const since = aliases.stamp();
     const payloads = await this.execRetrieve(req, rangeKey);
     payloads.forEach(({ key: channel, alias }) => {
       if (alias == null) return;
       const entry: ranger.alias.Alias = { range: rangeKey, channel, alias };
-      this.cfg.ranges.aliases.set(createKey(entry), entry);
+      aliases.ingest(createKey(entry), entry, { since });
     });
     return payloads.map((p) => this.sugar(stripComposed(p)));
   }
