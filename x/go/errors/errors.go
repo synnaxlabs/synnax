@@ -11,6 +11,7 @@ package errors
 
 import (
 	stderrors "errors"
+	"reflect"
 
 	"github.com/cockroachdb/errors"
 )
@@ -68,10 +69,46 @@ func Wrapf(err error, format string, args ...any) error {
 }
 
 // Join returns an error that wraps the given errors. Any nil error values are
-// discarded. Join returns nil if errs contains no non-nil values. The error formats as
-// the concatenation of the strings obtained by calling the Error method of each element
-// of errs, with a newline between each string. A stack trace is also retained.
-func Join(errs ...error) error { return errors.Join(errs...) }
+// discarded. Join returns nil if errs contains no non-nil values, and the error itself
+// if errs contains exactly one. The members of an argument that Join returned are
+// spliced into the result, so err = Join(err, next) in a loop stays flat. The error
+// formats as the concatenation of the strings obtained by calling the Error method of
+// each member, with a newline between each string. A stack trace is also retained.
+func Join(errs ...error) error {
+	members := make([]error, 0, len(errs))
+	for _, err := range errs {
+		if err == nil {
+			continue
+		}
+		if joined := unwrapJoin(err); joined != nil {
+			members = append(members, joined...)
+			continue
+		}
+		members = append(members, err)
+	}
+	switch len(members) {
+	case 0:
+		return nil
+	case 1:
+		return members[0]
+	}
+	return errors.Join(members...)
+}
+
+// joinType is the type that Join returns: a stack wrapper around a join.
+var joinType = reflect.TypeOf(errors.Join(errors.New(""), errors.New("")))
+
+// unwrapJoin returns the members of err if err is a bare join, or nil if it is not.
+// A join under a wrapper that adds a message stays one member.
+func unwrapJoin(err error) []error {
+	if reflect.TypeOf(err) == joinType {
+		err = errors.UnwrapOnce(err)
+	}
+	if joined, ok := err.(multiCause); ok {
+		return joined.Unwrap()
+	}
+	return nil
+}
 
 // multiCause is implemented by errors that carry more than one cause, such as the
 // result of Join. It mirrors the structural convention the standard library uses for
