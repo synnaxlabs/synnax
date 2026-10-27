@@ -535,7 +535,11 @@ export class Client {
     // a login still in flight would open a session this logout never ends
     if (!this.authState.authenticated) await this.authenticating;
     const { authState } = this;
-    if (!authState.authenticated) return;
+    if (!authState.authenticated) {
+      this.resumeToken = undefined;
+      this.credentials = undefined;
+      return;
+    }
     const { key } = authState.session;
     try {
       await this.sendAs(
