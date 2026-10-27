@@ -32,8 +32,8 @@ Per-runner channels, written on change:
     <runner>_gh_cmd        same
     <runner>_gh_state      bool on gh_state_time: the last gh_cmd sent
 
-Cost channels (cost.py), float32 on the cost_query_time index, written once per
-fetch, every 6 h:
+Cost channels (cost.py), float32 on the cost_query_time index. The totals come
+from a fetch every 6 h; every channel is written each minute, with live runner rates:
 
     cost_<window>                     the account, <window> one of 1d, 7d, mtd, 30d,
                                       90d, lm (last month), ytd, 365d
@@ -44,8 +44,9 @@ fetch, every 6 h:
     <any of the above>_net            the same with credits applied
     hours_<region>_<window>           EC2 instance hours
     cost_month_remaining_forecast     AWS's forecast, today to month end
-    month_hours_remaining             hours from the fetch to month end
-    <runner>_cost_per_hour            list price plus volumes, 0 while stopped
+    month_hours_remaining             hours from the write to month end
+    cost_fetched_at                   timestamp of the last fetch
+    <runner>_cost_per_hour            list price plus volumes, 0 while stopped, live
     <runner>_ebs_cost_per_hour        the volume share
     <runner>_cost_1d_est              price times hours ran yesterday
     <runner>_cost_mtd_est             the same for the month through yesterday
