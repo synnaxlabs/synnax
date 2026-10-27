@@ -72,6 +72,28 @@ describe("filter", () => {
       expect(filter.matchesString({ eq: "ÄRGER", ...ci }, "ärger")).toBe(true);
     });
 
+    it.each([
+      ["a Greek final sigma", "οδοσ", "ΟΔΟΣ", true],
+      ["a final and a medial sigma", "σ", "ς", true],
+      ["a long s", "s", "ſ", true],
+      ["the Kelvin sign", "k", "\u212a", true],
+      ["a Turkish dotted capital I", "i", "İ", false],
+    ])(
+      "should fold case by Unicode simple case folding: %s",
+      (_, eq, value, expected) => {
+        expect(filter.matchesString({ eq, caseInsensitive: true }, value)).toBe(
+          expected,
+        );
+      },
+    );
+
+    it("should treat regex characters in an operand as plain text", () => {
+      expect(filter.matchesString({ eq: "a.b" }, "axb")).toBe(false);
+      expect(filter.matchesString({ contains: "(x)" }, "a(x)b")).toBe(true);
+      expect(filter.matchesString({ startsWith: "[a-z]" }, "[a-z]1")).toBe(true);
+      expect(filter.matchesString({ in: ["a\\b"] }, "a\\b")).toBe(true);
+    });
+
     it("should throw on a regex", () => {
       expect(() => filter.matchesString({ regex: "a" }, "a")).toThrow(
         "cannot match a regex locally",
