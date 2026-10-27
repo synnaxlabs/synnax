@@ -96,7 +96,7 @@ describe("log useCreate", () => {
       });
       await waitFor(() =>
         expect(
-          documentIn(Session.Log.selectSliceState(harness.store.getState()), key),
+          documentIn(harness.store.getState()[Session.Log.SLICE_NAME], key),
         ).toBeDefined(),
       );
     });

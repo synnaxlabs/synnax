@@ -515,6 +515,9 @@ fi
 
 if [ $EXIT_CODE -eq 0 ]; then
     echo "✅ All files have correct copyright headers with year $CURRENT_YEAR"
+else
+    echo "Run 'scripts/fix.sh' to fix the files your branch changes, or"
+    echo "'scripts/update_copyrights.sh' to fix all files."
 fi
 
 exit $EXIT_CODE

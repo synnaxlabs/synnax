@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.exceptions import ExceptionPayload, register_exception
+from x.exceptions import ExceptionPayload, Provider
 
 _FREIGHTER_EXCEPTION_TYPE = "freighter."
 
@@ -67,4 +67,5 @@ def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
     return None
 
 
-register_exception(_freighter_encode, _freighter_decode)
+EXCEPTION_PROVIDER = Provider(encode=_freighter_encode, decode=_freighter_decode)
+"""Encodes and decodes the exceptions that Freighter raises."""

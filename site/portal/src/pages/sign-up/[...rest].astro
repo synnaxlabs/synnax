@@ -9,27 +9,17 @@
 // included in the file licenses/APL.txt.
 
 import Guest from "@/layouts/Guest.astro";
-import { guest, invitee } from "@/page";
+import { guest } from "@/page";
+import { linked } from "@/server/invitation";
 import { landing } from "@/shell";
 import { Auth } from "@/ui/auth";
 
-const ticket = Auth.readTicket(Astro.url.searchParams);
-const invited = ticket == null ? null : await invitee(Astro);
-if (invited == null) {
-    const away = guest(Astro);
-    if (away != null) return away;
-    if (ticket?.page === "/login")
-        return Astro.redirect(`/login${Astro.url.search}`, 303);
-}
+const away = guest(Astro);
+if (away != null) return away;
 const target = landing(Astro.url.searchParams);
+const invited = await linked(Astro.locals.portal.store.query, target);
 ---
 
-<Guest title={ticket == null ? "Create an account" : "Join your team"}>
-    {invited != null ? (
-        <Auth.Invited client:load {...invited} />
-    ) : ticket == null ? (
-        <Auth.SignUp client:load target={target} />
-    ) : (
-        <Auth.Join client:load ticket={ticket.token} target={target} />
-    )}
+<Guest title="Create an account">
+    <Auth.SignUp client:load target={target} invited={invited} />
 </Guest>
