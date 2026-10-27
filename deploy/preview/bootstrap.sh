@@ -25,6 +25,9 @@ PREVIEW_SITES=/etc/caddy/sites
 PREVIEW_TTL_DAYS=${ttl_days}
 PREVIEW_LICENSE_PARAMETER=${license}
 PREVIEW_REGION=${region}
+PREVIEW_MAX=${max}
+PREVIEW_CPUS=${cpus}
+PREVIEW_MEMORY=${memory}
 EOF
 
 cat > /etc/caddy/Caddyfile << 'EOF'

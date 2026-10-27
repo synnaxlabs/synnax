@@ -64,6 +64,9 @@ class Host:
             "PREVIEW_TTL_DAYS=7\n"
             "PREVIEW_LICENSE_PARAMETER=/synnax-preview/license-key\n"
             "PREVIEW_REGION=us-east-1\n"
+            "PREVIEW_MAX=2\n"
+            "PREVIEW_CPUS=0.25\n"
+            "PREVIEW_MEMORY=1g\n"
         )
         self.env = {
             **os.environ,
@@ -106,13 +109,14 @@ class TestUp:
         host.ready()
         result = host.run("up", "12", "registry/synnax-preview:pr-12")
         assert result.returncode == 0, result.stderr
-        docker = host.docker()
+        docker = [c for c in host.docker() if not c.startswith("docker ps")]
         assert docker[0] == "docker pull --quiet registry/synnax-preview:pr-12"
         assert docker[1] == "docker rm --force synnax-pr-12"
         run = docker[2]
         assert run.startswith("docker run --detach --name synnax-pr-12")
         assert "--label synnax.preview=12" in run
         assert "--env SYNNAX_LICENSE_KEY" in run
+        assert "--memory 1g --cpus 0.25" in run
         assert run.endswith(
             "registry/synnax-preview:pr-12 --listen 0.0.0.0:9090 --insecure --mem "
             "--no-driver"
@@ -150,6 +154,45 @@ class TestUp:
         assert "did not start" in result.stderr
         assert "docker logs --tail 100 synnax-pr-12" in host.docker()
         assert not host.site(12).exists()
+
+
+class TestCap:
+    """Tests for the limit on previews the host runs at once."""
+
+    def evicted(self, result: subprocess.CompletedProcess[str]) -> list[str]:
+        return [ln for ln in result.stdout.splitlines() if ln.startswith("evicted")]
+
+    def test_removes_oldest_at_cap(self, host: Host) -> None:
+        host.ready()
+        host.containers((13, 200), (12, 100))
+        host.site(12).write_text("route")
+        result = host.run("up", "14", "image")
+        assert result.returncode == 0, result.stderr
+        assert self.evicted(result) == ["evicted 12"]
+        assert not host.site(12).exists()
+        removed = [c for c in host.docker() if c.startswith("docker rm")]
+        assert removed == ["docker rm --force synnax-pr-12", "docker rm --force synnax-pr-14"]
+
+    def test_replacing_a_preview_removes_nothing(self, host: Host) -> None:
+        host.ready()
+        host.containers((12, 100), (13, 200))
+        result = host.run("up", "12", "image")
+        assert result.returncode == 0, result.stderr
+        assert self.evicted(result) == []
+
+    def test_below_cap_removes_nothing(self, host: Host) -> None:
+        host.ready()
+        host.containers((12, 100))
+        result = host.run("up", "14", "image")
+        assert result.returncode == 0, result.stderr
+        assert self.evicted(result) == []
+
+    def test_over_cap_removes_down_to_room_for_one(self, host: Host) -> None:
+        host.ready()
+        host.containers((12, 300), (13, 100), (14, 200))
+        result = host.run("up", "15", "image")
+        assert result.returncode == 0, result.stderr
+        assert self.evicted(result) == ["evicted 13", "evicted 14"]
 
 
 class TestDown:

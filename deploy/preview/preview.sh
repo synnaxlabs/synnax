@@ -11,7 +11,9 @@
 
 # Manages the preview Cores on this host.
 #
-#   preview up <pr> <image>   Starts or replaces the Core for a pull request.
+#   preview up <pr> <image>   Starts or replaces the Core for a pull request. At the
+#                             cap, it first removes the preview deployed longest ago
+#                             and prints "evicted <pr>".
 #   preview down <pr>         Removes the Core for a pull request.
 #   preview sweep             Removes every Core deployed more than the TTL ago.
 
@@ -21,6 +23,7 @@ set -euo pipefail
 source "${PREVIEW_ENV:-/etc/synnax-preview.env}"
 : "${PREVIEW_DOMAIN:?}" "${PREVIEW_SITES:?}" "${PREVIEW_TTL_DAYS:?}"
 : "${PREVIEW_LICENSE_PARAMETER:?}" "${PREVIEW_REGION:?}"
+: "${PREVIEW_MAX:?}" "${PREVIEW_CPUS:?}" "${PREVIEW_MEMORY:?}"
 
 # One command at a time, so a sweep never removes a preview that up just replaced.
 exec 9> "$PREVIEW_SITES/.lock"
@@ -29,6 +32,13 @@ flock 9
 container() { echo "synnax-pr-$1"; }
 
 reload_caddy() { docker exec caddy caddy reload --config /etc/caddy/Caddyfile; }
+
+# Prints "<pr> <deployed>" for each preview, oldest deploy first.
+previews() {
+    docker ps --all --filter label=synnax.preview \
+        --format '{{.Label "synnax.preview"}} {{.Label "synnax.preview.deployed"}}' \
+        | sort -k2 -n
+}
 
 check_pr() {
     if [[ ! $1 =~ ^[0-9]+$ ]]; then
@@ -47,11 +57,19 @@ up() {
         --name "$PREVIEW_LICENSE_PARAMETER" --with-decryption \
         --query Parameter.Value --output text)
     export SYNNAX_LICENSE_KEY
+    local others=() other i
+    while read -r other _; do
+        if [[ $other != "$pr" ]]; then others+=("$other"); fi
+    done < <(previews)
+    for ((i = 0; i <= ${#others[@]} - PREVIEW_MAX; i++)); do
+        down "${others[i]}"
+        echo "evicted ${others[i]}"
+    done
     docker pull --quiet "$image"
     docker rm --force "$name" > /dev/null
     # In-memory storage: each deploy starts from an empty Core.
     docker run --detach --name "$name" --network preview --restart unless-stopped \
-        --memory 2g --cpus 1 --env SYNNAX_LICENSE_KEY \
+        --memory "$PREVIEW_MEMORY" --cpus "$PREVIEW_CPUS" --env SYNNAX_LICENSE_KEY \
         --label synnax.preview="$pr" --label synnax.preview.deployed="$(date +%s)" \
         "$image" --listen 0.0.0.0:9090 --insecure --mem --no-driver > /dev/null
     for _ in $(seq 60); do
@@ -80,9 +98,7 @@ down() {
 sweep() {
     local cutoff pr deployed
     cutoff=$(($(date +%s) - PREVIEW_TTL_DAYS * 86400))
-    docker ps --all --filter label=synnax.preview \
-        --format '{{.Label "synnax.preview"}} {{.Label "synnax.preview.deployed"}}' \
-        | while read -r pr deployed; do
+    previews | while read -r pr deployed; do
             if ((deployed < cutoff)); then down "$pr"; fi
         done
     docker image prune --all --force --filter "until=$((PREVIEW_TTL_DAYS * 24))h"

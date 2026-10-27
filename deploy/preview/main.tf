@@ -75,7 +75,27 @@ variable "instance_type" {
 variable "ttl_days" {
   description = "Days after its last deploy that the host removes a preview."
   type        = number
-  default     = 7
+  default     = 2
+}
+
+# The defaults fit a t3.large (2 vCPUs, 8 GiB): six previews take 1.5 vCPUs and 6 GiB,
+# which leaves the rest for Caddy, Docker, and the SSM agent.
+variable "max_previews" {
+  description = "Previews the host runs at once. A new one removes the oldest."
+  type        = number
+  default     = 6
+}
+
+variable "preview_cpus" {
+  description = "CPUs each preview Core may use, as docker run --cpus takes them."
+  type        = string
+  default     = "0.25"
+}
+
+variable "preview_memory" {
+  description = "Memory each preview Core may use, as docker run --memory takes it."
+  type        = string
+  default     = "1g"
 }
 
 data "aws_ssm_parameter" "ami" {
@@ -184,6 +204,9 @@ resource "aws_instance" "host" {
   user_data = templatefile("${path.module}/bootstrap.sh", {
     domain    = local.domain
     ttl_days  = var.ttl_days
+    max       = var.max_previews
+    cpus      = var.preview_cpus
+    memory    = var.preview_memory
     license   = var.license_parameter
     region    = var.region
     caddyfile = file("${path.module}/Caddyfile")
