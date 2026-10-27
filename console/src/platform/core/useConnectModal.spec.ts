@@ -67,7 +67,9 @@ describe("useConnectModal", () => {
       await waitFor(() => expect(screen.getByText("Host is required")).toBeTruthy());
       expect(screen.getByText("Name is required")).toBeTruthy();
       expect(screen.getByPlaceholderText("Synnax Core")).toBeTruthy();
-      expect(Session.Core.selectMany(store.getState())).toHaveLength(0);
+      expect(
+        Object.values(store.getState()[Session.Core.SLICE_NAME].cores),
+      ).toHaveLength(0);
     });
 
     // A name is a label, not an identity, so two Cores may share one.
@@ -79,7 +81,9 @@ describe("useConnectModal", () => {
       fillForm("Existing", "localhost", "9090");
       fireEvent.click(findButton("Connect"));
       await waitFor(() =>
-        expect(Session.Core.selectMany(store.getState())).toHaveLength(2),
+        expect(
+          Object.values(store.getState()[Session.Core.SLICE_NAME].cores),
+        ).toHaveLength(2),
       );
     });
   });
@@ -90,9 +94,9 @@ describe("useConnectModal", () => {
       fillForm("SubmitTest", "localhost", "9090");
       fireEvent.click(findButton("Connect"));
       await waitFor(() => {
-        const created = Session.Core.selectMany(store.getState()).find(
-          (c) => c.name === "SubmitTest",
-        );
+        const created = Object.values(
+          store.getState()[Session.Core.SLICE_NAME].cores,
+        ).find((c) => c.name === "SubmitTest");
         expect(created).toBeDefined();
         expect(created?.host).toEqual("localhost");
         expect(created?.port).toEqual(9090);

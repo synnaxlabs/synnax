@@ -16,7 +16,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import Search from "@/components/search/Search.astro";
 import { Page } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
-import { enabled } from "@/flags";
 import Drawer from "@synnaxlabs/site-common/Drawer.astro";
 import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 const url = Astro.url.pathname;
@@ -77,15 +76,13 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <p class="version">{label}</p>
                     <Icon.Logo.Github />
                 </Button.Button>
-                {enabled("portal") && (
-                    <Button.Button
-                        className="login-button"
-                        variant="filled"
-                        href="https://portal.synnaxlabs.com/login"
-                    >
-                        Log in
-                    </Button.Button>
-                )}
+                <Button.Button
+                    className="login-button"
+                    variant="filled"
+                    href="https://portal.synnaxlabs.com/login"
+                >
+                    Log in
+                </Button.Button>
                 <MenuButton />
                 <Drawer home="https://synnaxlabs.com">
                     <div class="mobile-drawer-links">

@@ -22,9 +22,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
-import { Account } from "@/feature/account";
-import { useOpenSample } from "@/feature/project/sample";
 import { ContextMenu, listItem } from "@/feature/project/Selector";
+import { useOpenSample } from "@/feature/project/useOpenSample";
 import { Shell } from "@/feature/shell";
 import { Button } from "@/platform/button";
 import { CSS } from "@/platform/css";
@@ -39,25 +38,6 @@ const LogOutAction = (): ReactElement => {
       <PButton.Button variant="text" textColor={9} size="medium" onClick={logout}>
         <Icon.Logout />
         Log out
-      </PButton.Button>
-    </Header.Actions>
-  );
-};
-
-const UsageDataAction = (): ReactElement | null => {
-  const linked = Session.Account.useSelectEmail() != null;
-  const openUsageData = Account.useUsageDataModal();
-  if (!linked) return null;
-  return (
-    <Header.Actions>
-      <PButton.Button
-        variant="text"
-        textColor={9}
-        size="medium"
-        onClick={() => openUsageData()}
-      >
-        <Icon.Analyze />
-        Usage data
       </PButton.Button>
     </Header.Actions>
   );
@@ -126,7 +106,7 @@ export const Splash = (): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            {Session.Runtime.CORE_EMBEDDED ? <UsageDataAction /> : <LogOutAction />}
+            {!Session.Runtime.CORE_EMBEDDED && <LogOutAction />}
           </Header.Header>
           {awaitingProject && (
             <Status.Summary

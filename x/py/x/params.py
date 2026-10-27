@@ -11,11 +11,13 @@ import functools
 from collections.abc import Callable
 from typing import ParamSpec, TypeVar, overload
 
+from x.exceptions import Error
+
 P = ParamSpec("P")
 R = TypeVar("R")
 
 
-class RequiresNamedParams(TypeError):
+class RequiresNamedParams(Error, TypeError):
     """
     Custom exception raised when a function is called with positional arguments
     instead of named arguments.

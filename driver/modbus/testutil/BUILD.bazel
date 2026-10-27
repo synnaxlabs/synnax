@@ -1,0 +1,52 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "testutil",
+    hdrs = ["slave.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/modbus/util",
+        "//vendor/libmodbus",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@abseil-cpp//absl/log",
+    ],
+)
+
+cc_test(
+    name = "slave_test",
+    srcs = ["slave_test.cpp"],
+    deps = [
+        ":testutil",
+        "//vendor/libmodbus",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "slave",
+    srcs = ["main.cpp"],
+    linkopts = select({
+        "@platforms//os:windows": ["ws2_32.lib"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/modbus/testutil",
+        "//driver/modbus/util",
+        "//vendor/libmodbus",
+        "//x/cpp/errors",
+        "@abseil-cpp//absl/log",
+    ],
+)

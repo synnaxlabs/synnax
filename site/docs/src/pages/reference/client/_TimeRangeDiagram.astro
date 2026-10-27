@@ -1,0 +1,121 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/components/diagram/Block.css";
+---
+
+<figure class="block-diagram">
+    <svg
+        class="block-diagram__svg"
+        viewBox="0 0 560 168"
+        role="img"
+        aria-label="Time range A runs from 12:00 to 13:00 and time range B from 13:00 to 14:00. Each time range includes its start and excludes its end, so a sample at 13:00 is in time range B only."
+    >
+        <line class="axis" x1="40" y1="112" x2="520" y2="112"></line>
+        <line class="boundary" x1="280" y1="8" x2="280" y2="112"></line>
+        <rect class="bar bar--a" x="40" y="16" width="240" height="28" rx="6"></rect>
+        <text class="label" x="160" y="35">
+            Time range A
+        </text>
+        <rect class="bar bar--b" x="280" y="60" width="240" height="28" rx="6"></rect>
+        <text class="label" x="400" y="79">
+            Time range B
+        </text>
+        <circle class="included" cx="40" cy="30" r="5"></circle>
+        <circle class="excluded" cx="280" cy="30" r="5"></circle>
+        <circle class="included" cx="280" cy="74" r="5"></circle>
+        <circle class="excluded" cx="520" cy="74" r="5"></circle>
+        <text class="tick" x="40" y="132">
+            12:00
+        </text>
+        <text class="tick" x="280" y="132">
+            13:00
+        </text>
+        <text class="tick" x="520" y="132">
+            14:00
+        </text>
+        <circle class="included" cx="196" cy="158" r="5"></circle>
+        <text class="legend" x="208" y="162">
+            included
+        </text>
+        <circle class="excluded" cx="300" cy="158" r="5"></circle>
+        <text class="legend" x="312" y="162">
+            excluded
+        </text>
+    </svg>
+</figure>
+
+<style>
+    svg {
+        width: 100%;
+        max-width: 560px;
+    }
+
+    .axis {
+        stroke: var(--pluto-gray-l5);
+        stroke-width: 1;
+    }
+
+    .boundary {
+        stroke: var(--pluto-gray-l7);
+        stroke-width: 1;
+        stroke-dasharray: 3 3;
+    }
+
+    .bar {
+        stroke-width: 0.5;
+    }
+
+    .bar--a {
+        fill: var(--pluto-primary-z-20);
+        stroke: var(--pluto-primary-p1);
+    }
+
+    .bar--b {
+        fill: var(--pluto-gray-l2);
+        stroke: var(--pluto-gray-l6);
+    }
+
+    .included,
+    .excluded {
+        stroke: var(--pluto-gray-l10);
+        stroke-width: 1.5;
+    }
+
+    .included {
+        fill: var(--pluto-gray-l10);
+    }
+
+    .excluded {
+        fill: var(--pluto-gray-l0);
+    }
+
+    text {
+        fill: var(--pluto-gray-l10);
+        font-family: var(--pluto-font-family);
+        font-size: 13px;
+    }
+
+    .label,
+    .tick {
+        text-anchor: middle;
+    }
+
+    .tick {
+        fill: var(--pluto-gray-l9);
+        font-family: var(--pluto-code-font-family);
+        font-size: 12px;
+    }
+
+    .legend {
+        fill: var(--pluto-gray-l9);
+        font-size: 12px;
+    }
+</style>

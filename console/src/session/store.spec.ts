@@ -48,6 +48,9 @@ const waitForPersisted = async (
 
 // State partitions by the cluster a Core connects to, which a spec has to supply
 // itself: nothing here connects.
+const DEMO_KEY = "DEMO";
+const LOCAL_KEY = "LOCAL";
+
 const CLUSTER_KEY = "9a1f7b2c-0d3e-4f56-8a9b-0c1d2e3f4a5b";
 
 const PANEL = { key: "0c9d1a3b-6f8e-4d21-9b77-2f5e8c4a1d60", name: "Overview" };
@@ -74,12 +77,12 @@ describe("createStore", () => {
 
   it("routes dispatched actions to their owning slice", async () => {
     const store = await createStore({ enablePersistence: false });
-    store.dispatch(Session.Core.select(Session.Core.DEMO_KEY));
+    store.dispatch(Session.Core.select(DEMO_KEY));
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
-    expect(Session.Core.selectSelectedKey(store.getState())).toBe(
-      Session.Core.DEMO_KEY,
-    );
-    expect(Session.Nav.selectWindowState(store.getState()).bottom.visible).toBe(true);
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe(DEMO_KEY);
+    expect(
+      store.getState()[Session.Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom.visible,
+    ).toBe(true);
   });
 
   it("honors an explicit preloadedState", async () => {
@@ -89,27 +92,37 @@ describe("createStore", () => {
         ...Session.ZERO_STATE,
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          selected: Session.Core.DEMO_KEY,
+          selected: DEMO_KEY,
         },
       }),
     });
-    expect(Session.Core.selectSelectedKey(store.getState())).toBe(
-      Session.Core.DEMO_KEY,
+    expect(Session.Core.selectSelectedKey(store.getState())).toBe(DEMO_KEY);
+  });
+
+  it("should hold every dispatched change in storage once a flush resolves", async () => {
+    const store = await createStore();
+    store.dispatch(
+      Session.Account.link({
+        secret: "shh",
+        email: "ada@example.com",
+        user: "user_a",
+        analyticsAllowed: false,
+      }),
     );
+    await Session.Persist.flush(store.dispatch);
+    expect(readPersisted(db).some((p) => p.account?.link?.secret === "shh")).toBe(true);
   });
 
   it("persists state and reloads it into a fresh store", async () => {
     const store = await createStore();
-    store.dispatch(Session.Core.select(Session.Core.DEMO_KEY));
+    store.dispatch(Session.Core.select(DEMO_KEY));
     await waitForPersisted(
       db,
-      (p) => p.core?.selected === Session.Core.DEMO_KEY,
+      (p) => p.core?.selected === DEMO_KEY,
       "Core selection not persisted yet",
     );
     const reloaded = await createStore();
-    expect(Session.Core.selectSelectedKey(reloaded.getState())).toBe(
-      Session.Core.DEMO_KEY,
-    );
+    expect(Session.Core.selectSelectedKey(reloaded.getState())).toBe(DEMO_KEY);
   });
 
   it("should keep the account link and analytics choice across launches", async () => {
@@ -254,7 +267,7 @@ describe("createStore", () => {
 
   it("stores a window's view of the project under the window", async () => {
     const store = await createStore();
-    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
     const keys = await db.keys();
     const prefix = `window.${CLUSTER_KEY}.`;
     const windowed = keys.filter((key) => key.startsWith(prefix));
@@ -268,7 +281,7 @@ describe("createStore", () => {
 
   it("splits the panel strip's order from each window's view of it", async () => {
     const store = await createStore();
-    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
     store.dispatch(Session.Panel.reconcileOrder({ panels: [PANEL] }));
     store.dispatch(Session.Panel.select({ key: PANEL.key, windowKey: MAIN_WINDOW }));
     await waitForPersisted(
@@ -294,7 +307,7 @@ describe("createStore", () => {
 
   it("keeps the main window's partition when the main window closes", async () => {
     const store = await createStore();
-    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
     const mainKeys = async (): Promise<string[]> =>
       (await db.keys()).filter(
         (key) => key.startsWith(`window.${CLUSTER_KEY}.`) && key.includes(MAIN_WINDOW),
@@ -317,10 +330,10 @@ describe("createStore", () => {
     const store = await createStore();
     // Enter a context without touching any window-keyed slice, so main's partition
     // holds every slice narrowed to a window none of them has an entry for.
-    store.dispatch(Session.Core.select(Session.Core.DEMO_KEY));
+    store.dispatch(Session.Core.select(DEMO_KEY));
     store.dispatch(
       Session.Core.setClusterKey({
-        key: Session.Core.DEMO_KEY,
+        key: DEMO_KEY,
         clusterKey: CLUSTER_KEY,
       }),
     );
@@ -352,9 +365,9 @@ describe("createStore", () => {
 
   it("purges a removed Core's stored state", async () => {
     const store = await createStore();
-    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
     expect((await clusterKeys(CLUSTER_KEY)).length).toBeGreaterThan(0);
-    store.dispatch(Session.Core.remove(Session.Core.DEMO_KEY));
+    store.dispatch(Session.Core.remove(DEMO_KEY));
     await waitFor(async () => expect(await clusterKeys(CLUSTER_KEY)).toHaveLength(0));
   });
 
@@ -369,7 +382,7 @@ describe("createStore", () => {
   // still a favorite in the next.
   it("stores status favorites under the Core, not the project", async () => {
     const store = await createStore();
-    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
     store.dispatch(Session.Status.toggleFavorite("status-1"));
     await waitForPersisted(db, (p) => p.status != null, "favorite not persisted yet");
     const holders = holdersOf("status");
@@ -379,7 +392,7 @@ describe("createStore", () => {
 
   it("stores ranges under the Core, not the project", async () => {
     const store = await createStore();
-    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
     store.dispatch(Session.Range.select(Session.Range.RECENT_KEY));
     await waitForPersisted(db, (p) => p.range != null, "range not persisted yet");
     const holders = holdersOf("range");
@@ -389,16 +402,16 @@ describe("createStore", () => {
 
   it("keeps a repointed Core's stored state", async () => {
     const store = await createStore();
-    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
     const before = await clusterKeys(CLUSTER_KEY);
     expect(before.length).toBeGreaterThan(0);
-    const demo = Session.Core.selectState(store.getState(), Session.Core.DEMO_KEY);
+    const demo = Session.Core.selectState(store.getState(), DEMO_KEY);
     // The new address may still reach the same cluster, and only a connection can
     // answer that. Dropping the state here loses a workspace to a retyped hostname.
     store.dispatch(Session.Core.set({ ...demo!, host: "elsewhere.com" }));
     await waitForPersisted(
       db,
-      (p) => p.core?.cores[Session.Core.DEMO_KEY]?.host === "elsewhere.com",
+      (p) => p.core?.cores[DEMO_KEY]?.host === "elsewhere.com",
       "the repoint has not been persisted yet",
     );
     expect(await clusterKeys(CLUSTER_KEY)).toEqual(before);
@@ -408,13 +421,13 @@ describe("createStore", () => {
     const store = await createStore();
     store.dispatch(
       Session.Core.setClusterKey({
-        key: Session.Core.LOCAL_KEY,
+        key: LOCAL_KEY,
         clusterKey: CLUSTER_KEY,
       }),
     );
-    await enterAndEdit(store, Session.Core.DEMO_KEY, CLUSTER_KEY);
+    await enterAndEdit(store, DEMO_KEY, CLUSTER_KEY);
     expect((await clusterKeys(CLUSTER_KEY)).length).toBeGreaterThan(0);
-    store.dispatch(Session.Core.remove(Session.Core.DEMO_KEY));
+    store.dispatch(Session.Core.remove(DEMO_KEY));
     // The local Core reaches the same cluster, so its state outlives the removal.
     await waitFor(async () =>
       expect((await clusterKeys(CLUSTER_KEY)).length).toBeGreaterThan(0),
@@ -424,10 +437,10 @@ describe("createStore", () => {
   it("never writes transient haul state", async () => {
     const projectKey = "6f7cd5f4-4b93-4a35-a55c-72ba9dae2c9d";
     const store = await createStore();
-    store.dispatch(Session.Core.select(Session.Core.DEMO_KEY));
+    store.dispatch(Session.Core.select(DEMO_KEY));
     store.dispatch(
       Session.Core.setClusterKey({
-        key: Session.Core.DEMO_KEY,
+        key: DEMO_KEY,
         clusterKey: CLUSTER_KEY,
       }),
     );
@@ -530,10 +543,10 @@ describe("reducer", () => {
       Session.Persist.hydrate({
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
-          selected: Session.Core.DEMO_KEY,
+          selected: DEMO_KEY,
         },
       }),
     );
-    expect(Session.Core.selectSelectedKey(next)).toBe(Session.Core.DEMO_KEY);
+    expect(Session.Core.selectSelectedKey(next)).toBe(DEMO_KEY);
   });
 });
