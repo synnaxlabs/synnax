@@ -36,16 +36,16 @@ const SideEffect = (): null => {
 };
 
 const DesktopContext = ({ children }: PropsWithChildren): ReactElement => (
-  <Analytics.Provider>
-    <Embedded.Provider>
-      <Version.InstallProvider middleware={Embedded.installMiddleware}>
-        {children}
-      </Version.InstallProvider>
-    </Embedded.Provider>
-  </Analytics.Provider>
+  <Embedded.Provider>
+    <Version.InstallProvider middleware={Embedded.installMiddleware}>
+      {children}
+    </Version.InstallProvider>
+  </Embedded.Provider>
 );
 
 const BuildContext = DESKTOP ? DesktopContext : Fragment;
+
+const AnalyticsProvider = DESKTOP ? Analytics.Provider : Fragment;
 
 export const App = ({ workerURL }: AppProps): ReactElement => (
   <>
@@ -53,24 +53,26 @@ export const App = ({ workerURL }: AppProps): ReactElement => (
     <Errors.OverlayWithoutStore>
       <BuildContext>
         <Session.Context>
-          <Pluto.Context workerURL={workerURL}>
-            {DESKTOP && <Analytics.Watch />}
-            <Session.SettledProvider>
-              <Errors.OverlayWithStore>
-                <Panel.Context>
-                  <Tree.Context>
-                    <Range.Context>
-                      <Task.Context>
-                        <Vis.Canvas>
-                          <Window.Window />
-                        </Vis.Canvas>
-                      </Task.Context>
-                    </Range.Context>
-                  </Tree.Context>
-                </Panel.Context>
-              </Errors.OverlayWithStore>
-            </Session.SettledProvider>
-          </Pluto.Context>
+          <AnalyticsProvider>
+            <Pluto.Context workerURL={workerURL}>
+              {DESKTOP && <Analytics.Watch />}
+              <Session.SettledProvider>
+                <Errors.OverlayWithStore>
+                  <Panel.Context>
+                    <Tree.Context>
+                      <Range.Context>
+                        <Task.Context>
+                          <Vis.Canvas>
+                            <Window.Window />
+                          </Vis.Canvas>
+                        </Task.Context>
+                      </Range.Context>
+                    </Tree.Context>
+                  </Panel.Context>
+                </Errors.OverlayWithStore>
+              </Session.SettledProvider>
+            </Pluto.Context>
+          </AnalyticsProvider>
         </Session.Context>
       </BuildContext>
     </Errors.OverlayWithoutStore>

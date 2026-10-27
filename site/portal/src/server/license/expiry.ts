@@ -158,6 +158,8 @@ export const revocationText = (lic: License, organizationName: string): string =
   [
     `The Synnax license "${lic.label}" for ${organizationName} has been revoked.`,
     "",
-    "Cores holding it keep running until their next restart. Contact Synnax Labs if " +
-      "you believe this is a mistake.",
+    "It can no longer activate a Core. A Core checks its license offline, so a Core " +
+      "that already holds it keeps running as its terms allow, even after a restart.",
+    "",
+    "Contact Synnax Labs if you believe this is a mistake.",
   ].join("\n");

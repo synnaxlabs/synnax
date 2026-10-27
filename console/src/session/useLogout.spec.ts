@@ -61,7 +61,7 @@ describe("useLogout", () => {
     const after = store.getState();
     expect(Core.selectSelectedKey(after)).toBeUndefined();
     expect(Project.selectOptionalSelected(after)).toBeUndefined();
-    expect(Panel.selectSliceState(after)).toEqual(Panel.ZERO_SLICE_STATE);
+    expect(after[Panel.SLICE_NAME]).toEqual(Panel.ZERO_SLICE_STATE);
     expect(after[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.left.selected).toBeUndefined();
     expect(after[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom.visible ?? false).toBe(
       false,

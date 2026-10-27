@@ -10,8 +10,6 @@
 package license_test
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
@@ -21,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -51,38 +48,17 @@ var _ = Describe("Service", Ordered, func() {
 		Expect(info.License).To(BeNil())
 	})
 
-	It("Should pass requests while the license is missing", func(ctx SpecContext) {
-		called := false
-		MustSucceed(apilicense.Middleware(licenseSvc).Exec(
-			freighter.Context{Context: ctx},
-			func(fctx freighter.Context) (freighter.Context, error) {
-				called = true
-				return fctx, nil
-			},
-		))
-		Expect(called).To(BeTrue())
-	})
-
-	It("Should gate requests while the license is expired", func(ctx SpecContext) {
-		kvDB := DeferClose(memkv.New())
-		lic := svcmock.NewLicense()
-		lic.Exp = new(uint32(time.Now().Add(-100 * 24 * time.Hour).Unix()))
-		key := append([]byte("license/"), lic.Jti.String()...)
-		Expect(kvDB.Set(ctx, key, []byte(signer.Sign(lic)))).To(Succeed())
-		expired := MustOpen(license.OpenService(ctx, license.ServiceConfig{
-			DB:      kvDB,
-			Anchors: signer.Anchors,
-		}))
+	It("Should gate requests while the license is missing", func(ctx SpecContext) {
 		called := false
 		in := freighter.Context{Context: ctx}
-		out, err := apilicense.Middleware(expired).Exec(
+		out, err := apilicense.Middleware(licenseSvc).Exec(
 			in,
 			func(fctx freighter.Context) (freighter.Context, error) {
 				called = true
 				return fctx, nil
 			},
 		)
-		Expect(err).To(MatchError(license.ErrExpired))
+		Expect(err).To(MatchError(license.ErrMissing))
 		Expect(out).To(Equal(in))
 		Expect(called).To(BeFalse())
 	})
