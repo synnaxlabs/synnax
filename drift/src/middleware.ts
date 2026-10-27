@@ -58,7 +58,7 @@ const EXCLUDE_SYNC_ACTIONS: string[] = [runtimeSetWindowProps.type, reloadWindow
  * @param runtime - The runtime of the current application window.
  * @returns a Redux middleware.
  */
-export const middleware =
+const middleware =
   <S extends StoreState, A extends BaseAction = UnknownAction>(
     runtime: Runtime<S, A | Action>,
     debug: boolean = false,

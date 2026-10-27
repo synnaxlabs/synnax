@@ -12,6 +12,7 @@ import { type UploadBody } from "@synnaxlabs/freighter";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject, Synnax } from "@synnaxlabs/pluto";
 
+import { useOpenSample } from "@/feature/project/useOpenSample";
 import { Command } from "@/platform/command";
 import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
@@ -80,4 +81,22 @@ const ExportProjectCommand = Command.create({
   useVisible: () => Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID),
 });
 
-export const COMMANDS = [CreateCommand, ImportProjectCommand, ExportProjectCommand];
+const useOpenSampleVisible = (): boolean => {
+  const granted = useCreateVisible();
+  return Session.Runtime.CORE_EMBEDDED && granted;
+};
+
+const OpenSampleCommand = Command.create({
+  key: "project_open_sample",
+  name: "Open sample project",
+  icon: <PProject.CreateIcon />,
+  useOnSelect: useOpenSample,
+  useVisible: useOpenSampleVisible,
+});
+
+export const COMMANDS = [
+  CreateCommand,
+  ImportProjectCommand,
+  ExportProjectCommand,
+  OpenSampleCommand,
+];

@@ -20,9 +20,10 @@ import { type Channel, type WriteChannelType } from "@/platform/task/types";
 
 export interface WriteChannelContextMenuItemsProps extends ContextMenuItemProps<Channel> {}
 
-export const WriteChannelContextMenuItems: React.FC<
-  WriteChannelContextMenuItemsProps
-> = ({ channels, keys }) => {
+const WriteChannelContextMenuItems: React.FC<WriteChannelContextMenuItemsProps> = ({
+  channels,
+  keys,
+}) => {
   const key = keys[0];
   const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
   const channel = channels.find((ch) => ch.key === key);

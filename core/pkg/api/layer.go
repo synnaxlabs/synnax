@@ -60,8 +60,12 @@ var DefaultLayerConfig = config.DefaultLayerConfig
 
 type Transport struct {
 	// AUTH
-	AuthLogin          freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
-	AuthChangePassword freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
+	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
+	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
+	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
+	AuthSessionRenew    freighter.UnaryServer[struct{}, struct{}]
+	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
+	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
@@ -266,7 +270,17 @@ func (l *Layer) BindTo(t Transport) {
 	freighter.UseOnAll(
 		insecureMiddleware,
 		t.AuthLogin,
+		t.AuthSessionCreate,
 		t.ConnectivityCheck,
+	)
+
+	// Session upkeep skips the gate so a client can renew and log out of an unlicensed
+	// Core.
+	freighter.UseOnAll(
+		secureMiddleware,
+		t.AuthSessionRenew,
+		t.AuthSessionRetrieve,
+		t.AuthSessionDelete,
 	)
 
 	// The license endpoints skip the gate so an unlicensed Core can be activated.
@@ -456,6 +470,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)
+	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
+	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
+	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
+	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
@@ -677,6 +695,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
 		User:     cfg.Service.User,
+		RBAC:     cfg.Service.RBAC,
 		Cluster:  cfg.Distribution.Cluster,
 	}); err != nil {
 		return nil, err

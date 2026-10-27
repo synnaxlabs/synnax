@@ -118,6 +118,62 @@ describe("Select.Simple", () => {
     expect(c.getByText("No Test Items found")).toBeTruthy();
   });
 
+  it("should name the search by searchName and the trigger by resourceName", () => {
+    const c = render(
+      <Select.Simple<string>
+        value=""
+        onChange={vi.fn()}
+        resourceName="resistance configuration"
+        searchName="configuration"
+      >
+        <Select.Item itemKey="1">First Item</Select.Item>
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByLabelText("Resistance configuration"));
+    expect(c.getByPlaceholderText("Search configurations...")).toBeTruthy();
+  });
+
+  it("should render string empty content as text", () => {
+    const c = render(
+      <Select.Simple<string>
+        value=""
+        onChange={vi.fn()}
+        resourceName="page"
+        emptyContent="No other pages"
+      >
+        {[]}
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByLabelText("Page"));
+    const empty = c.getByText("No other pages");
+    expect(empty.tagName).toBe("P");
+    expect(empty.querySelector("svg")).toBeNull();
+  });
+
+  it("should add a lowercase s to a resource name ending in an acronym", () => {
+    const c = render(
+      <Select.Simple<string> value="" onChange={vi.fn()} resourceName="PDO">
+        <Select.Item itemKey="1">First Item</Select.Item>
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByLabelText("PDO"));
+    expect(c.getByPlaceholderText("Search PDOs...")).toBeTruthy();
+  });
+
+  it("should drop a trailing one-character identifier from the plural", () => {
+    const c = render(
+      <Select.Simple<string>
+        value=""
+        onChange={vi.fn()}
+        resourceName="input terminal A"
+      >
+        <Select.Item itemKey="1">First Item</Select.Item>
+      </Select.Simple>,
+    );
+    fireEvent.click(c.getByLabelText("Input terminal A"));
+    expect(c.getByPlaceholderText("Search input terminals...")).toBeTruthy();
+  });
+
   it("should clear the search when the dialog closes", () => {
     const c = render(<SelectSimple />);
     fireEvent.click(c.getByText("Test Item"));
