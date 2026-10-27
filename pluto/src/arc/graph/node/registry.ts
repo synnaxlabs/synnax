@@ -19,7 +19,7 @@ import { Sink } from "@/arc/graph/node/sink";
 import { Source } from "@/arc/graph/node/source";
 import { StableFor } from "@/arc/graph/node/stable";
 import { Status } from "@/arc/graph/node/status";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import { type types } from "@/arc/graph/node/types";
 
 // REGISTRY maps each Arc function type to its Spec. The key is the node config's "type"
 // discriminant, matched against the Arc compiler's function templates.
@@ -49,10 +49,10 @@ export const configZ = z.discriminatedUnion("type", [
 export type Config = z.infer<typeof configZ>;
 export type ConfigOf<T extends Type> = Extract<Config, { type: T }>;
 
-export const resolveSpec = (type: string): Spec<Type, Config> => {
-  const spec = (REGISTRY as Record<string, Spec>)[type];
+export const resolveSpec = (type: string): types.Spec<Type, Config> => {
+  const spec = (REGISTRY as Record<string, types.Spec>)[type];
   if (spec == null) throw new NotFoundError(`Arc function ${type} not found`);
-  return spec as Spec<Type, Config>;
+  return spec as types.Spec<Type, Config>;
 };
 
 export interface Group {

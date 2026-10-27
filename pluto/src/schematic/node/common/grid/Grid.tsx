@@ -41,7 +41,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { selectNode } from "@/vis/diagram/util";
+import { Diagram } from "@/vis/diagram";
 
 type DraggableElement = ReactElement<{
   style?: CSSProperties;
@@ -177,7 +177,7 @@ const RESIZE_CONTROLS: {
 const RESIZE_OVERLAY_CLASS = CSS.B("resize-overlay");
 
 const reflowPane = (nodeKey: string) => {
-  const node = selectNode(nodeKey);
+  const node = Diagram.selectNode(nodeKey);
   const nearestDiagram = node.closest(".react-flow__pane");
   if (nearestDiagram != null) triggerReflow(nearestDiagram as HTMLElement);
 };

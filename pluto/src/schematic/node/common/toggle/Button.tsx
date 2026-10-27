@@ -15,7 +15,6 @@ import { type CrudeTimeSpan } from "@synnaxlabs/x";
 import { type ComponentPropsWithRef, type ReactElement } from "react";
 
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface ButtonBaseProps extends Omit<
   ComponentPropsWithRef<"button">,
@@ -26,7 +25,7 @@ export interface ButtonBaseProps extends Omit<
   onClickDelay?: CrudeTimeSpan;
 }
 
-export interface ButtonProps extends ButtonBaseProps, OrientableProps {}
+export interface ButtonProps extends ButtonBaseProps, Primitive.OrientableProps {}
 
 export const Button = ({
   className,

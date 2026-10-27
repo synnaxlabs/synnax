@@ -10,7 +10,7 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { noopBooleanSinkSpec } from "@/telem/aether/noop";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { TelemTest } from "@/telem/testutil";
 import { renderAether } from "@/testutil/internal";
@@ -128,7 +128,7 @@ describe("button/aether/Button", () => {
         () =>
           Button.use({
             aetherKey: "btn",
-            sink: noopBooleanSinkSpec,
+            sink: telem.noopBooleanSinkSpec,
             mode: "fire",
           }),
         { wrapper: TestWrapper },

@@ -24,7 +24,7 @@ import {
 } from "@synnaxlabs/x";
 import { type ReactElement, type RefObject, useEffect, useRef } from "react";
 
-import { canDropHaulItem, filterHaulItems } from "@/channel/types";
+import { Channel } from "@/channel";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
 import {
@@ -89,9 +89,9 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
 ): Haul.UseDropReturn =>
   Haul.useDrop({
     type: `channel_lineplot_${direction}_axis`,
-    canDrop: canDropHaulItem,
+    canDrop: Channel.canDropHaulItem,
     onDrop: ({ items }) => {
-      const dropped = filterHaulItems(items);
+      const dropped = Channel.filterHaulItems(items);
       const keys = dropped.map(({ key }) => key);
       onDrop?.(axisKey, keys);
       return dropped;
@@ -321,7 +321,7 @@ const YAxis = ({
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
-      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cls(CSS.dropRegion(Channel.canDropHaulItem(dragging)))}
       onLabelChange={handleLabelChange}
     >
       {lineKeys.map((lineKey) => (
@@ -375,7 +375,7 @@ const XAxis = ({
       {...dropProps}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
-      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cls(CSS.dropRegion(Channel.canDropHaulItem(dragging)))}
       showGrid={axisKey === "x1"}
       onLabelChange={handleLabelChange}
     >

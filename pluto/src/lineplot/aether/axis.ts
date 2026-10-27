@@ -22,7 +22,6 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
 import { axis } from "@/vis/axis";
-import { type TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
 import { type line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
@@ -60,7 +59,7 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
 const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 
 // Computed per call so an empty time axis tracks the present instead of app start.
-const emptyBounds = (type: TickType): bounds.Bounds => {
+const emptyBounds = (type: axis.TickType): bounds.Bounds => {
   if (type === "linear") return EMPTY_LINEAR_BOUNDS;
   const now = TimeStamp.now();
   return {
@@ -81,7 +80,7 @@ export interface AxisRenderProps {
 const autoBounds = (
   b: bounds.Bounds[],
   padding: number = 0.1,
-  type: TickType,
+  type: axis.TickType,
 ): bounds.Bounds => {
   const m = bounds.max(b.filter(bounds.isFinite));
   if (!bounds.isFinite(m)) return emptyBounds(type);

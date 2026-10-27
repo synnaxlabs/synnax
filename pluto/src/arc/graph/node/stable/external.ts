@@ -10,11 +10,11 @@
 import { type Config, defaultConfig } from "@/arc/graph/node/stable/config";
 import { Form } from "@/arc/graph/node/stable/Form";
 import { StableFor } from "@/arc/graph/node/stable/StableFor";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import { type types } from "@/arc/graph/node/types";
 
 export { configZ } from "@/arc/graph/node/stable/config";
 
-const SPEC: Spec<"stable_for", Config> = {
+const SPEC: types.Spec<"stable_for", Config> = {
   key: "stable_for",
   name: "Stable for",
   zIndex: 100,

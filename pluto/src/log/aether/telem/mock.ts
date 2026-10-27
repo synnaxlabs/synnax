@@ -11,12 +11,12 @@ import { type channel } from "@synnaxlabs/client";
 import { type destructor, observe } from "@synnaxlabs/x";
 
 import { telem } from "@/telem/aether";
-import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
+import { telemTest } from "@/telem/aether/testutil";
 
 import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
 export class MockLogSource implements LogSource {
-  static readonly TYPE = TEST_SOURCE_TYPE;
+  static readonly TYPE = telemTest.TEST_SOURCE_TYPE;
   private _entries: LogEntry[] = [];
   private _evictedCount = 0;
   private activeChannels: Set<channel.Key> = new Set();
@@ -66,10 +66,10 @@ export class MockLogSource implements LogSource {
 export const registerMockLogSource = (
   testId: string,
   source: MockLogSource,
-): destructor.Destructor => registerInstance(testId, source);
+): destructor.Destructor => telemTest.registerInstance(testId, source);
 
 export const mockLogSourceSpec = (testId: string): LogSourceSpec => ({
-  type: TEST_SOURCE_TYPE,
+  type: telemTest.TEST_SOURCE_TYPE,
   props: { testId },
   variant: "source",
   valueType: "log",
