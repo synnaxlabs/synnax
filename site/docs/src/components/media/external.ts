@@ -8,4 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/components/media/Media";
-export * from "@/components/media/url";
