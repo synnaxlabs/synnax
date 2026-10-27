@@ -28,6 +28,16 @@
 namespace synnax::rack {
 
 inline std::pair<::service::rack::pb::KeySet, x::errors::Error>
+key_set_to_proto(const ::x::filter::Set<Key> &self);
+inline std::pair<::x::filter::Set<Key>, x::errors::Error>
+key_set_from_proto(const ::service::rack::pb::KeySet &pb);
+
+inline std::pair<::service::rack::pb::StringContains, x::errors::Error>
+string_contains_to_proto(const ::x::filter::Contains<std::string> &self);
+inline std::pair<::x::filter::Contains<std::string>, x::errors::Error>
+string_contains_from_proto(const ::service::rack::pb::StringContains &pb);
+
+inline std::pair<::service::rack::pb::KeySet, x::errors::Error>
 key_set_to_proto(const ::x::filter::Set<Key> &self) {
     ::service::rack::pb::KeySet pb;
     if (self.eq.has_value()) pb.set_eq(*self.eq);

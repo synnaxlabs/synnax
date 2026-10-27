@@ -70,6 +70,11 @@ inline std::pair<std::string, x::errors::Error> {{.FuncName}}_from_pb({{.PBNames
 {{- end}}
 {{- range .InstanceTranslators}}
 
+inline std::pair<{{.PBType}}, x::errors::Error> {{.Name}}_to_proto(const {{.CppType}}& self);
+inline std::pair<{{.CppType}}, x::errors::Error> {{.Name}}_from_proto(const {{.PBType}}& pb);
+{{- end}}
+{{- range .InstanceTranslators}}
+
 inline std::pair<{{.PBType}}, x::errors::Error> {{.Name}}_to_proto(const {{.CppType}}& self) {
     {{.PBType}} pb;
 {{- range .Fields}}
