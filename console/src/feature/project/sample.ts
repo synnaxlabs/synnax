@@ -20,9 +20,6 @@ import {
   UnexpectedError,
 } from "@synnaxlabs/client";
 
-import SEQUENCE from "@/feature/project/sampleSequence.arc?raw";
-import SIMULATOR from "@/feature/project/sampleSimulator.arc?raw";
-
 const NAME = "Sample project";
 
 // Fixed keys make each new sample overwrite the last one, even after a rename, so only
@@ -201,10 +198,23 @@ export const exists = async (client: Synnax): Promise<boolean> => {
 };
 
 /**
+ * The text of the sample's Arc programs, from `sampleSimulator.arc` and
+ * `sampleSequence.arc`.
+ */
+export interface Programs {
+  simulator: string;
+  sequence: string;
+}
+
+/**
  * Creates the sample project and starts its Arc programs, replacing any old sample. The
  * line plot shows the range with key `range`.
  */
-export const create = async (client: Synnax, range: string): Promise<void> => {
+export const create = async (
+  client: Synnax,
+  range: string,
+  programs: Programs,
+): Promise<void> => {
   const ch = await createChannels(client);
   await client.projects.create({ key: KEYS.project, name: NAME });
   await client.schematics.create(KEYS.project, createSchematic(ch));
@@ -221,13 +231,13 @@ export const create = async (client: Synnax, range: string): Promise<void> => {
       key: KEYS.simulator,
       name: "Tank simulator",
       mode: "text",
-      text: { raw: SIMULATOR },
+      text: { raw: programs.simulator },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
       mode: "text",
-      text: { raw: SEQUENCE },
+      text: { raw: programs.sequence },
     },
   ]);
   await deploy(client, KEYS.simulator);
