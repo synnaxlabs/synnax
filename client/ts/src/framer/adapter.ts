@@ -10,7 +10,7 @@
 import { type CrudeSeries, Series } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { analyzeParams, paramsZ } from "@/channel/payload";
+import { analyzeParams, paramsZ, singleWhere } from "@/channel/payload";
 import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
@@ -160,13 +160,7 @@ export class WriteAdapter {
     else cached = this.byKey.get(ch.key);
     if (cached != null) return cached;
     const res = await this.retrieveChannels(ch);
-    const where =
-      typeof ch === "number"
-        ? { key: { eq: ch } }
-        : typeof ch === "string"
-          ? { namePatterns: [ch] }
-          : { key: { eq: ch.key } };
-    checkForMultipleOrNoResults("channel", where, res, true);
+    checkForMultipleOrNoResults("channel", singleWhere(ch), res, true);
     return res[0];
   }
 

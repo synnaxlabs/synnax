@@ -31,6 +31,7 @@ import {
   isCalculated,
   type Params,
   type PrimitiveParams,
+  singleWhere,
   statusKey,
 } from "@/channel/payload";
 import {
@@ -548,10 +549,7 @@ export class Client extends query.Retriever<
       return await super.retrieve(params);
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
-    const single =
-      variant === "keys"
-        ? { key: { eq: rawNormalized[0] } }
-        : { namePatterns: rawNormalized };
+    const single = Array.isArray(params) ? undefined : singleWhere(params);
     const normalized =
       variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {

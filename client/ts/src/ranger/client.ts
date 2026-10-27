@@ -21,6 +21,7 @@ import {
 import { z } from "zod";
 
 import { type channel } from "@/channel";
+import { singleWhere } from "@/channel/payload";
 import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
@@ -203,11 +204,7 @@ export class Range {
    */
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
     const ch = await this.channels(channel);
-    const where =
-      typeof channel === "number"
-        ? { key: { eq: channel } }
-        : { namePatterns: [channel] };
-    checkForMultipleOrNoResults("channel", where, ch, true);
+    checkForMultipleOrNoResults("channel", singleWhere(channel), ch, true);
     await this.rangeClient.setAlias(this.key, ch[0].key, alias);
   }
 

@@ -418,6 +418,16 @@ describe("range", () => {
         );
       });
 
+      it("should describe a numeric channel string as the key it selects", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const set = rng.setAlias("1234", "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow("Found no channel where key = 1234");
+      });
+
       it("should reject a name pattern that matches two channels", async () => {
         const prefix = `alias_${id.create()}`;
         await client.channels.create([

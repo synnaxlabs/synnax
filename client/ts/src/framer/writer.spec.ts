@@ -77,6 +77,15 @@ describe("Writer", () => {
       await writer.close();
     });
 
+    test("write to a numeric channel string that matches no key", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({ start: TimeStamp.now(), channels });
+      const write = writer.write("1234", randomSeries(10, DataType.FLOAT64));
+      await expect(write).rejects.toThrow(NotFoundError);
+      await expect(write).rejects.toThrow("Found no channel where key = 1234");
+      await writer.close();
+    });
+
     it("should not stream data when mode is set ot persist only", async () => {
       const channels = await newIndexedPair(client);
       const stream = await client.openStreamer(channels);
