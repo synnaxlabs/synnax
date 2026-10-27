@@ -22,6 +22,8 @@ export interface LogEntry {
 
 export interface LogSource extends Source<LogEntry[]> {
   setChannels?: (channels: channel.Key[]) => void;
+  /** Reads entries older than the oldest one, if the channels store any. */
+  loadOlder?: () => void;
 }
 
 export const logSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("log") });

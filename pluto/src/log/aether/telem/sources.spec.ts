@@ -598,6 +598,160 @@ describe("StreamMultiChannelLog", () => {
     });
   });
 
+  describe("older pages", () => {
+    // More stored samples than a log reads when it opens.
+    const STORED = PAGE + 2_500;
+    const deep = (): SyntheticCore =>
+      createCore({ now: START.add(TimeSpan.seconds(STORED / 10)) });
+
+    // Asks for older entries until the log shows count entries.
+    const page = async (log: StreamMultiChannelLog, count: number): Promise<void> =>
+      await expect
+        .poll(() => {
+          log.loadOlder();
+          return entriesOf(log).length;
+        }, POLL)
+        .toBe(count);
+
+    it("should read older pages until it shows every stored sample", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, PAGE);
+      log.loadOlder();
+      // The page reads up to and including the oldest sample held.
+      await settle(log, PAGE + 999);
+      await page(log, STORED);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, STORED));
+      expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, STORED));
+    });
+
+    it("should page every channel back together", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a, b] });
+      await settle(log, 2 * PAGE);
+      await page(log, 2 * STORED);
+      expect(sorted(entriesOf(log))).toBe(true);
+      expect(valuesOf(entriesOf(log), b)).toEqual(textOf(core, b, STORED));
+    });
+
+    it("should keep every sample of a time that a page splits", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      // Seven samples share each time, so pages split runs of one time.
+      const time = (i: number): bigint => START.valueOf() + BigInt(Math.floor(i / 7));
+      const client = connect(core, {
+        readLatest: async (_, count, tr) => {
+          let hi = STORED;
+          while (hi > 0 && time(hi - 1) >= tr.end.valueOf()) hi--;
+          let lo = Math.max(0, hi - count);
+          while (lo < hi && time(lo) < tr.start.valueOf()) lo++;
+          const frame = new framer.Frame();
+          if (hi <= lo) return frame;
+          const alignment = (1n << 32n) + BigInt(lo);
+          const indices = Array.from({ length: hi - lo }, (_, j) => lo + j);
+          frame.push(a, new Series({ data: new Float32Array(indices), alignment }));
+          frame.push(core.index.key, indexSeries(alignment, indices.map(time)));
+          return frame;
+        },
+      });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      await page(log, STORED);
+      expect(valuesOf(entriesOf(log), a)).toEqual(
+        Array.from({ length: STORED }, (_, i) => String(i)),
+      );
+    });
+
+    it("should stop reading older pages once a page passes maxEntries", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, PAGE + 1_500);
+      await settle(log, PAGE);
+      await page(log, PAGE + 1_500);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, PAGE + 1_500));
+    });
+
+    it("should read the samples before the entries it evicted", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 100);
+      await settle(log, 90);
+      await page(log, 100);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 100));
+    });
+
+    it("should post a failed page read once, then read the page again", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      let failed = true;
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (failed && tr.end.valueOf() !== TimeStamp.MAX.valueOf())
+            throw new Error("page unavailable");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const statuses: cstatus.Crude[] = [];
+      const log = open(
+        core,
+        client,
+        { channels: [a] },
+        {
+          onStatusChange: (s) => statuses.push(s),
+        },
+      );
+      await settle(log, PAGE);
+      log.loadOlder();
+      await expect.poll(() => statuses.length, POLL).toBe(1);
+      expect(statuses[0]).toMatchObject({
+        variant: "error",
+        description: "page unavailable",
+      });
+      failed = false;
+      await page(log, STORED);
+      expect(statuses).toHaveLength(1);
+    });
+
+    it("should wait for a page while its stream is down", async () => {
+      const core = deep();
+      const [a] = core.data.map((c) => c.key);
+      const retries: Error[] = [];
+      const client = connect(core, { onRetry: (e) => retries.push(e) });
+      const log = open(core, client, { channels: [a] });
+      await settle(log, PAGE);
+      core.disconnect();
+      await expect.poll(() => log.value().status.variant, POLL).toBe("warning");
+      log.loadOlder();
+      await expect.poll(() => retries.length, POLL).toBeGreaterThan(0);
+      core.reconnect();
+      await page(log, STORED);
+    });
+
+    it("should read no older page of a virtual channel", async () => {
+      const core = createCore({ derived: true });
+      const { key } = core.virtual!;
+      const log = open(core, connect(core), { channels: [key] });
+      log.value();
+      await expect.poll(() => core.streams(key), POLL).toBe(true);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, 10);
+      const { reads } = core;
+      log.loadOlder();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(core.reads).toBe(reads);
+    });
+  });
+
   it("should clear its entries and stop on cleanup", async () => {
     const core = createCore();
     const client = connect(core);
