@@ -38,6 +38,10 @@ export interface Link {
 /** invitationPath is the page an invitation's email links to. */
 export const invitationPath = (key: string): string => `/invitations/${key}`;
 
+/** activatePath is the page that activates a machine, open on `license` if given. */
+export const activatePath = (license?: string): string =>
+  license == null ? "/licenses/activate" : `/licenses/activate?license=${license}`;
+
 /** scoped adds the scope to a portal path, so a link keeps the scope it came from. */
 export const scoped = (path: string, scope: Organization): string =>
   `${path}?org=${scope.key}`;

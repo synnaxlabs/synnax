@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -54,8 +54,8 @@ var _ = Describe("Cluster", func() {
 		// isolatedConfig puts both transports on their own in-memory networks, so the
 		// host has no reachable peer.
 		isolatedConfig := func() cluster.Config {
-			gossipNet := mock.NewNetwork[gossip.Message, gossip.Message]()
-			pledgeNet := mock.NewNetwork[pledge.Request, pledge.Response]()
+			gossipNet := freightertestutil.NewNetwork[gossip.Message, gossip.Message]()
+			pledgeNet := freightertestutil.NewNetwork[pledge.Request, pledge.Response]()
 			gossipServer := gossipNet.UnaryServer("")
 			return cluster.Config{
 				HostAddress: gossipServer.Address(),
