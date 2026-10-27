@@ -63,11 +63,20 @@ x::errors::Error Config::enroll() {
     );
     if (create_err) {
         // A retry creates another rack, so remove the one no key logs in as.
-        if (!created) return create_err;
-        if (const auto del_err = client.racks.del(res.first.key))
-            LOG(WARNING) << "failed to remove rack " << res.first.key << ": "
-                         << del_err;
-        return create_err;
+        if (created)
+            if (const auto del_err = client.racks.del(res.first.key))
+                LOG(WARNING) << "failed to remove rack " << res.first.key << ": "
+                             << del_err;
+        if (!create_err.matches(synnax::auth::ERR_ACCESS_DENIED)) return create_err;
+        if (!created) this->rack = res.first;
+        return x::errors::Error(
+            create_err,
+            "User " + this->connection.username +
+                " cannot create an API key for rack " + std::to_string(res.first.key) +
+                ". Run synnax-driver login as a user that can create racks, or "
+                "create an API key for the rack in the Console and set it as "
+                "api_key in the Driver configuration."
+        );
     }
     this->rack = res.first;
     this->remote_info = {.rack_key = 0, .cluster_key = cluster_key};
@@ -83,10 +92,11 @@ x::errors::Error Config::load_remote() {
     const auto [cluster_key, key_err] = retrieve_cluster_key(client);
     if (key_err) return key_err;
     const auto subject = client.auth->current_session().subject;
-    synnax::rack::Key rack_key = 0;
+    synnax::rack::Key rack_key = this->remote_info.rack_key;
     const auto *end = subject.key.data() + subject.key.size();
-    if (subject.type != RACK_SUBJECT_TYPE ||
-        std::from_chars(subject.key.data(), end, rack_key).ptr != end)
+    if (!this->connection.api_key.empty() &&
+        (subject.type != RACK_SUBJECT_TYPE ||
+         std::from_chars(subject.key.data(), end, rack_key).ptr != end))
         return x::errors::Error(
             x::errors::VALIDATION,
             "the API key logs in as " + subject.type + " " + subject.key +
