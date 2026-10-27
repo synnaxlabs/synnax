@@ -15,6 +15,13 @@
       "when": 1790721830685,
       "tag": "0001_desktop",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793073129779,
+      "tag": "0002_invitation",
+      "breakpoints": true
     }
   ]
 }
