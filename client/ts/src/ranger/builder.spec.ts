@@ -49,6 +49,6 @@ describe("builder", () => {
   it("should reject a condition of another entity", () => {
     // @ts-expect-error a range condition is not a channel condition
     const condition: channel.Condition = ranger.name.eq("Hotfire");
-    expect(condition.where).toEqual({ name: { eq: "Hotfire" } });
+    expect(condition.tree).toEqual({ name: { eq: "Hotfire" } });
   });
 });

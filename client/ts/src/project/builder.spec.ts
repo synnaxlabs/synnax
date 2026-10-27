@@ -18,6 +18,6 @@ describe("builder", () => {
     const key = uuid.create();
     // @ts-expect-error a project condition is not a group condition
     const condition: group.Condition = project.key.eq(key);
-    expect(condition.where).toEqual({ key: { eq: key } });
+    expect(condition.tree).toEqual({ key: { eq: key } });
   });
 });

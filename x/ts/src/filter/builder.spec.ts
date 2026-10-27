@@ -33,53 +33,53 @@ const name = b.string("name");
 describe("builder", () => {
   describe("lines", () => {
     it("should build a set condition", () => {
-      expect(key.eq(1).where).toEqual({ key: { eq: 1 } });
-      expect(key.in([1, 2]).where).toEqual({ key: { in: [1, 2] } });
+      expect(key.eq(1).tree).toEqual({ key: { eq: 1 } });
+      expect(key.in([1, 2]).tree).toEqual({ key: { in: [1, 2] } });
     });
 
     it("should build a bool condition", () => {
-      expect(b.bool("active").eq(true).where).toEqual({ active: { eq: true } });
+      expect(b.bool("active").eq(true).tree).toEqual({ active: { eq: true } });
     });
 
     it("should build an ordered condition", () => {
       const count = b.ordered("count");
-      expect(count.gt(3).where).toEqual({ count: { gt: 3 } });
-      expect(count.lte(3).where).toEqual({ count: { lte: 3 } });
+      expect(count.gt(3).tree).toEqual({ count: { gt: 3 } });
+      expect(count.lte(3).tree).toEqual({ count: { lte: 3 } });
     });
 
     it("should build a text condition", () => {
-      expect(name.eq("a").where).toEqual({ name: { eq: "a" } });
-      expect(name.in(["a"]).where).toEqual({ name: { in: ["a"] } });
-      expect(name.contains("a").where).toEqual({ name: { contains: "a" } });
-      expect(name.startsWith("a").where).toEqual({ name: { startsWith: "a" } });
-      expect(name.regex("^a").where).toEqual({ name: { regex: "^a" } });
+      expect(name.eq("a").tree).toEqual({ name: { eq: "a" } });
+      expect(name.in(["a"]).tree).toEqual({ name: { in: ["a"] } });
+      expect(name.contains("a").tree).toEqual({ name: { contains: "a" } });
+      expect(name.startsWith("a").tree).toEqual({ name: { startsWith: "a" } });
+      expect(name.regex("^a").tree).toEqual({ name: { regex: "^a" } });
     });
 
     it("should set caseInsensitive on a text condition", () => {
-      expect(name.contains("a", { caseInsensitive: true }).where).toEqual({
+      expect(name.contains("a", { caseInsensitive: true }).tree).toEqual({
         name: { contains: "a", caseInsensitive: true },
       });
     });
 
     it("should build a contains condition", () => {
       const tags = b.contains("tags");
-      expect(tags.has("a").where).toEqual({ tags: { any: ["a"] } });
-      expect(tags.hasAny(["a", "b"]).where).toEqual({ tags: { any: ["a", "b"] } });
+      expect(tags.has("a").tree).toEqual({ tags: { any: ["a"] } });
+      expect(tags.hasAny(["a", "b"]).tree).toEqual({ tags: { any: ["a", "b"] } });
     });
 
     it("should put a typed bool line's value on the line", () => {
-      expect(b.flag("virtual").eq(false).where).toEqual({ virtual: false });
+      expect(b.flag("virtual").eq(false).tree).toEqual({ virtual: false });
     });
 
     it("should put a typed list line's values on the line", () => {
       const labels = b.list("labels");
-      expect(labels.has("a").where).toEqual({ labels: ["a"] });
-      expect(labels.hasAny(["a", "b"]).where).toEqual({ labels: ["a", "b"] });
+      expect(labels.has("a").tree).toEqual({ labels: ["a"] });
+      expect(labels.hasAny(["a", "b"]).tree).toEqual({ labels: ["a", "b"] });
     });
 
     it("should put a typed line's value on the line", () => {
       const window = { start: 1, end: 2 };
-      expect(b.value("window")(window).where).toEqual({ window });
+      expect(b.value("window")(window).tree).toEqual({ window });
     });
 
     it("should reject a value of the wrong type", () => {
@@ -94,24 +94,24 @@ describe("builder", () => {
 
   describe("tree", () => {
     it("should match every child with and", () => {
-      expect(b.and(key.eq(1), name.eq("a")).where).toEqual({
+      expect(b.and(key.eq(1), name.eq("a")).tree).toEqual({
         and: [{ key: { eq: 1 } }, { name: { eq: "a" } }],
       });
     });
 
     it("should match any child with or", () => {
-      expect(b.or(key.eq(1), key.eq(2)).where).toEqual({
+      expect(b.or(key.eq(1), key.eq(2)).tree).toEqual({
         or: [{ key: { eq: 1 } }, { key: { eq: 2 } }],
       });
     });
 
     it("should negate a child with not", () => {
-      expect(b.not(key.eq(1)).where).toEqual({ not: { key: { eq: 1 } } });
+      expect(b.not(key.eq(1)).tree).toEqual({ not: { key: { eq: 1 } } });
     });
 
     it("should turn a stored tree into a condition", () => {
       const tree: Where = { or: [{ key: { eq: 1 } }] };
-      expect(b.where(tree).where).toBe(tree);
+      expect(b.where(tree).tree).toBe(tree);
     });
 
     it("should reject a condition of another entity", () => {

@@ -22,7 +22,7 @@ declare const entity: unique symbol;
 export class Condition<E extends string, W = unknown> {
   declare readonly [entity]: E;
 
-  constructor(readonly where: W) {}
+  constructor(readonly tree: W) {}
 }
 
 /** An option of a retrieve, which sets the request field F. */
@@ -68,10 +68,10 @@ export const builder = <E extends string, W extends Tree<W>>() => {
     condition({ [line]: { [member]: value, ...options } });
   return {
     and: (...conditions: Array<Condition<E, W>>): Condition<E, W> =>
-      condition({ and: conditions.map((c) => c.where) }),
+      condition({ and: conditions.map((c) => c.tree) }),
     or: (...conditions: Array<Condition<E, W>>): Condition<E, W> =>
-      condition({ or: conditions.map((c) => c.where) }),
-    not: (c: Condition<E, W>): Condition<E, W> => condition({ not: c.where }),
+      condition({ or: conditions.map((c) => c.tree) }),
+    not: (c: Condition<E, W>): Condition<E, W> => condition({ not: c.tree }),
     where: (tree: W): Condition<E, W> => new Condition(tree),
     set: <L extends Line<W>>(line: L) => ({
       eq: (value: Member<W, L, "eq">) => op(line, "eq", value),
@@ -145,7 +145,7 @@ export const toRequest = (
   const request: Record<string, unknown> = {};
   const where: unknown[] = [];
   for (const part of parts)
-    if (part instanceof Condition) where.push(part.where);
+    if (part instanceof Condition) where.push(part.tree);
     else if (part.field in request) throw new Error(`${part.field} is set twice`);
     else request[part.field] = part.value;
 
