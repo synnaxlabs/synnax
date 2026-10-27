@@ -58,7 +58,10 @@ dependency subpath that ships only named exports but is conceptually one namespa
 `import { Range } from "@/range"` then `Range.FavoriteButton` — never
 `import { FavoriteButton } from "@/range/FavoriteButton"` from another module.
 Same-module sibling files import named members directly and use them unqualified (the
-barrel would be circular). Spec files follow the same rule — tests are not exempt.
+barrel would be circular). A module is a directory with an `index.ts`, and a child
+module is another module. A spec imports only barrels, its own module's included, and
+never a sibling file. A module's `testutil` file or directory is a barrel for other
+modules' tests. The `synnax/barrel-imports` lint rule enforces this.
 
 ### Rule 3: Package subpaths mirror `src/` layout
 
