@@ -24,12 +24,13 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { AccessDeniedError, ValidationError } from "@/errors";
-import { rawIndex } from "@/framer/cache/block";
+import { RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import {
   index as tileIndex,
   level as tileLevel,
   pointLimit as tilePointLimit,
   tileRange,
+  tileSpan,
 } from "@/framer/cache/grid";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
@@ -299,6 +300,34 @@ describe("Points", () => {
         core.advance(TimeSpan.seconds(4));
         await expect.poll(() => store.open(key)?.index, POLL).toBe(block + 1);
         expect(servesBuffer()).toBe(true);
+      } finally {
+        await close();
+      }
+    });
+  });
+
+  describe("long window", () => {
+    it("should read raw samples only at the live edge", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(0.5),
+        start: START,
+        now: START.add(TimeSpan.days(31)),
+      });
+      const raw: TimeRange[] = [];
+      const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+        if (reduction == null) raw.push(tr);
+        return core.read(tr, keys, reduction);
+      });
+      const window = dynamicWindow(TimeSpan.days(30));
+      const points = subscribe(core.data[0].key, window, TILED);
+      try {
+        await expect.poll(() => raw.length, POLL).toBeGreaterThan(0);
+        const edge = core.now().sub(tileSpan(RAW_LEVEL).mult(2));
+        raw.forEach((tr) =>
+          expect(tr.start.valueOf()).toBeGreaterThanOrEqual(edge.valueOf()),
+        );
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        expect(points.value().series.series.length).toBeLessThan(64);
       } finally {
         await close();
       }

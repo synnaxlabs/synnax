@@ -401,27 +401,22 @@ export class Points {
     this.live = { demand, leave, keys };
   }
 
-  // rawFrom is where raw samples start. In a dynamic window, it sits on a tile edge of
-  // the window's level, so no tile of that level or finer crosses it. In a static
-  // window, it sits on the raw block edge before the commit point, and at the window's
-  // end once the end commits.
+  // rawFrom is where raw samples start: the raw block edge before the commit point, or
+  // the end of a static window once the end commits.
   private rawFrom(home: TimeRange): TimeStamp {
     if (this.rawOnly) return home.start;
-    if (this.dynamic) {
-      const level = tileLevel(home);
-      return tileRange({ level, index: tileIndex(home.start, level) }).start;
-    }
     const committed = this.props.now().sub(COMMIT_MARGIN);
-    if (!home.end.after(committed)) return home.end;
+    if (!this.dynamic && !home.end.after(committed)) return home.end;
     const edge = tileRange({ level: RAW_LEVEL, index: rawIndex(committed) }).start;
     return TimeStamp.max(home.start, edge);
   }
 
-  // Moves the boundary to at most one span of rawFrom's grid behind rawFrom, so a
-  // window that never draws stops growing.
+  // Moves the boundary to at most one raw block behind rawFrom, so a window that never
+  // draws stops growing.
   private cutoff(home: TimeRange): void {
-    const level = this.dynamic ? tileLevel(home) : RAW_LEVEL;
-    const floor = this.rawOnly ? home.start : this.rawFrom(home).sub(tileSpan(level));
+    const floor = this.rawOnly
+      ? home.start
+      : this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
     this.boundary = TimeStamp.max(this.boundary, floor);
   }
 
