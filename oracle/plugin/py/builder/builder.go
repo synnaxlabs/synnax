@@ -37,7 +37,10 @@ type Options struct {
 func DefaultOptions() Options { return Options{FileNamePattern: "builder_gen.py"} }
 
 // Plugin generates the Python builder of each filter definition.
-type Plugin struct{ Options Options }
+type Plugin struct {
+	// Options sets the names of the generated files.
+	Options Options
+}
 
 // New creates a new py/builder plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }

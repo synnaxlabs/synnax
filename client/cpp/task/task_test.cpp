@@ -353,6 +353,33 @@ TEST(TaskTests, testListTasksWithStatus) {
     ASSERT_EQ(tasks[0].status.value().variant, synnax::status::VARIANT_INFO);
     ASSERT_EQ(tasks[0].status.value().message, "Task info");
 }
+/// @brief it should retrieve the tasks with the given keys, leaving out a key that no
+/// task has.
+TEST(TaskTests, testRetrieveTasksByKeys) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto t1 = Task{
+        .name = "task_by_keys_1",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk-1"}}
+    };
+    auto t2 = Task{
+        .name = "task_by_keys_2",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk-2"}}
+    };
+    ASSERT_NIL(r.tasks.create(t1));
+    ASSERT_NIL(r.tasks.create(t2));
+    const auto tasks = ASSERT_NIL_P(
+        r.tasks.retrieve(std::vector{t1.key, t2.key, x::uuid::create()})
+    );
+    std::set<Key> keys;
+    for (const auto &t: tasks)
+        keys.insert(t.key);
+    ASSERT_EQ(keys, (std::set{t1.key, t2.key}));
+}
+
 /// @brief it should retrieve multiple tasks by their names.
 TEST(TaskTests, testRetrieveTasksByNames) {
     const auto client = new_test_client();
