@@ -23,7 +23,7 @@ import {
 } from "@/log/aether/telem/sources";
 import { type LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 
 const RATE = Rate.hz(10);
 const START = TimeStamp.seconds(1_000_000);
