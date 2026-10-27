@@ -75,6 +75,21 @@ const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
 const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
 const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
 
+export interface SetPasswordParams {
+  /** The user whose password to set. Defaults to the caller. */
+  subject?: ontology.ID;
+  /** The new password. */
+  password: string;
+  /** The caller's current password. Required when the caller sets its own. */
+  currentPassword?: string;
+}
+
+const passwordSetReqZ = z.object({
+  subject: ontology.idZ.optional(),
+  password: z.string(),
+  currentPassword: z.string().optional(),
+});
+
 // the login route a Core without sessions serves; kept for one release
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
 const SESSION_CREATE_ENDPOINT = "/auth/session/create";
@@ -93,6 +108,7 @@ export const SESSION_ENDPOINTS = [
 const KEY_CREATE_ENDPOINT = "/auth/key/create";
 const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
 const KEY_DELETE_ENDPOINT = "/auth/key/delete";
+const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
 const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
@@ -308,6 +324,20 @@ export class Client {
    */
   async deleteKeys(...keys: APIKeyKey[]): Promise<void> {
     await this.client.send(KEY_DELETE_ENDPOINT, { keys }, keyDeleteReqZ, emptyResZ);
+  }
+
+  /**
+   * Sets the caller's password, or another user's when the caller may update that
+   * user, and ends every other session the old password opened.
+   * @throws {AuthError} when the caller sets its own password with a wrong current one.
+   * @throws {AccessDeniedError} when the caller may not update the user.
+   * @throws {ValidationError} when the password is empty, or the caller sets its own
+   * without the current one.
+   */
+  async setPassword(params: SetPasswordParams): Promise<void> {
+    await this.client.send(PASSWORD_SET_ENDPOINT, params, passwordSetReqZ, emptyResZ);
+    const own = params.subject == null || params.subject.key === this.subject?.key;
+    if (own && this.credentials != null) this.credentials.password = params.password;
   }
 
   /**
