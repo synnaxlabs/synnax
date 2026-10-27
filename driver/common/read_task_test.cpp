@@ -12,7 +12,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/common/read_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
 class MockSource final : public Source {
@@ -20,7 +20,7 @@ class MockSource final : public Source {
     const std::vector<x::errors::Error> start_errs;
     size_t stop_count = 0;
     const std::vector<x::errors::Error> stop_errs;
-    pipeline::mock::Source wrapped;
+    pipeline::testutil::Source wrapped;
 
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return synnax::framer::WriterConfig();
@@ -59,7 +59,7 @@ public:
 
 /// @brief it should start and stop the read task with successful status.
 TEST(TestCommonReadTask, testBasicOperation) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -99,7 +99,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
 /// @brief a start on a running task should ack the command without reopening
 /// the source.
 TEST(TestCommonReadTask, testStartWhileRunningAcks) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -135,7 +135,7 @@ TEST(TestCommonReadTask, testStartWhileRunningAcks) {
 
 /// @brief it should report error status when source fails to start.
 TEST(TestCommonReadTask, testErrorOnStart) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -168,7 +168,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
 
 /// @brief it should report error status when source fails to stop.
 TEST(TestCommonReadTask, testErrorOnStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -211,7 +211,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
 
 /// @brief it should support multiple start-stop cycles.
 TEST(TestCommonReadTask, testMultiStartStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -281,7 +281,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 
 /// @brief it should report error status when read fails during operation.
 TEST(TestCommonReadTask, testReadError) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -339,7 +339,7 @@ TEST(TestCommonReadTask, testReadError) {
 
 /// @brief it should recover on second start after first start failure.
 TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -403,7 +403,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
 
 /// @brief it should recover on second stop after first stop failure.
 TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -487,7 +487,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 /// @brief it should report warning status on temporary hardware error and recover.
 /// Neither the warning nor the recovery answers the start, so neither claims its key.
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
-    const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    const auto
+        mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -543,7 +544,8 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
 /// @brief it should show the retry count and the backoff interval in the warning for
 /// each consecutive temporary error.
 TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
-    const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    const auto
+        mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);

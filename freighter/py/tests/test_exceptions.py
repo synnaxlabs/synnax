@@ -10,7 +10,7 @@
 import pytest
 
 import freighter
-from x.exceptions import ExceptionPayload, Registry
+from x.exceptions import Error, ExceptionPayload, Registry
 
 
 @pytest.fixture
@@ -27,10 +27,10 @@ class TestDecode:
         assert isinstance(registry.decode(pld), freighter.EOF)
 
     def test_unknown_type(self, registry: Registry) -> None:
-        """Should decode an unknown freighter type into a generic exception."""
+        """Should decode an unknown freighter type into a generic Error."""
         pld = ExceptionPayload(type="freighter.unknown", data="unknown error")
         exc = registry.decode(pld)
-        assert type(exc) is Exception
+        assert type(exc) is Error
         assert str(exc) == "unknown error"
 
 

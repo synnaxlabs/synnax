@@ -31,8 +31,7 @@ import (
 // persistence and streaming.
 type WriterMode uint8
 
-// Persist returns true if the current mode should persist data.
-func (mode WriterMode) Persist() bool { return mode != WriterModeStreamOnly }
+func (mode WriterMode) persist() bool { return mode != WriterModeStreamOnly }
 
 // Stream returns true if the current mode should stream data.
 func (mode WriterMode) Stream() bool { return mode != WriterModePersistOnly }
@@ -237,7 +236,7 @@ func (db *DB) newStreamWriter(
 			EnableAutoCommit:         cfg.EnableAutoCommit,
 			AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			Start:                    cfg.Start,
-			Persist:                  new(cfg.Mode.Persist()),
+			Persist:                  new(cfg.Mode.persist()),
 			Authority:                cfg.authority(i),
 		}
 	}

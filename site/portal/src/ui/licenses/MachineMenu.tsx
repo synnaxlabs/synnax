@@ -32,7 +32,7 @@ export const MachineMenu = ({ activation, label }: MachineMenuProps): ReactEleme
   const [renaming, setRenaming] = useState(false);
   const download = useAction(async () => {
     const blob = await postFile(`/api/activations/${activation.key}/download`);
-    save(blob, filename(label));
+    save(blob, filename(label, activation.name));
   });
   const release = (): void => setReleasing(true);
   const rename = (): void => setRenaming(true);

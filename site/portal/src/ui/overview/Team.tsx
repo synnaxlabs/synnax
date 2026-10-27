@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 import { type schema } from "@/server/db";
 import { type Invited } from "@/server/invitation";
 import { type Held } from "@/server/license/list";
-import { scoped } from "@/shell";
+import { activatePath, scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
 import { date, standing, statusOf } from "@/ui/format";
 import { Invitations } from "@/ui/invitations";
@@ -55,10 +55,7 @@ export const Team = ({
       subtitle="Synnax Enterprise"
       actions={
         active > 0 && (
-          <Button.Button
-            variant="filled"
-            href={scoped("/licenses/activate", organization)}
-          >
+          <Button.Button variant="filled" href={activatePath()}>
             <Icon.Add />
             Activate a machine
           </Button.Button>

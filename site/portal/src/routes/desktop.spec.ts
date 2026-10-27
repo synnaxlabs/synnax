@@ -104,18 +104,18 @@ describe("desktop routes", () => {
       });
     });
 
-    it("should refuse a fingerprint that is not a host hash", async () => {
+    it("should refuse a fingerprint with a value that is not a hash", async () => {
       harness.signIn("user_a");
       const res = await postLink({ fingerprint: "nope", name: "stand-1" });
       expect(res.status).toBe(400);
-      expect(await body(res)).toEqual({ error: '"nope" is not a host hash' });
+      expect(await body(res)).toEqual({ error: '"nope" is not part of a fingerprint' });
     });
 
     it("should refuse an empty fingerprint", async () => {
       harness.signIn("user_a");
       const res = await postLink({ fingerprint: "", name: "stand-1" });
       expect(res.status).toBe(400);
-      expect(await body(res)).toEqual({ error: "Paste at least one host hash" });
+      expect(await body(res)).toEqual({ error: "Enter the machine's fingerprint" });
     });
 
     it("should refuse a machine without a name", async () => {

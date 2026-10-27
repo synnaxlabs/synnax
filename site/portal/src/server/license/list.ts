@@ -7,7 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { and, count, desc, eq, inArray, isNull, ne, type SQL } from "drizzle-orm";
+import {
+  and,
+  arrayOverlaps,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  ne,
+  type SQL,
+} from "drizzle-orm";
 
 import { type Reader, schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
@@ -72,30 +82,92 @@ export const listAll = async (db: Reader): Promise<(Owned & Held)[]> =>
     .groupBy(schema.license.key, schema.organization.key)
     .orderBy(desc(schema.license.issuedAt));
 
-/**
- * listActivatable returns the licenses of `orgs` that a machine can activate against
- * at `now`, newest first.
- */
-export const listActivatable = async (
+const listActivatableWhere = async (
   db: Reader,
-  orgs: string[],
+  where: SQL,
   now: Date,
-): Promise<Owned[]> => {
-  if (orgs.length === 0) return [];
+): Promise<(Owned & Held)[]> => {
   const rows = await db
-    .select({ license: schema.license, organization: schema.organization })
+    .select({
+      license: schema.license,
+      organization: schema.organization,
+      seats: count(schema.activation.key),
+    })
     .from(schema.license)
     .innerJoin(
       schema.organization,
       eq(schema.license.organization, schema.organization.key),
     )
+    .leftJoin(
+      schema.activation,
+      and(
+        eq(schema.activation.license, schema.license.key),
+        isNull(schema.activation.releasedAt),
+      ),
+    )
     .where(
       and(
-        inArray(schema.license.organization, orgs),
+        where,
         isNull(schema.license.revokedAt),
         ne(schema.license.edition, "desktop"),
       ),
     )
+    .groupBy(schema.license.key, schema.organization.key)
     .orderBy(desc(schema.license.issuedAt));
   return rows.filter((r) => deny(r.license, now) == null);
+};
+
+/**
+ * listActivatable returns the licenses of `orgs` that a machine can activate against
+ * at `now`, with their seats in use, newest first.
+ */
+export const listActivatable = async (
+  db: Reader,
+  orgs: string[],
+  now: Date,
+): Promise<(Owned & Held)[]> => {
+  if (orgs.length === 0) return [];
+  return await listActivatableWhere(
+    db,
+    inArray(schema.license.organization, orgs),
+    now,
+  );
+};
+
+/**
+ * findActivatable returns the license `key` with its organization and seats in use,
+ * or undefined when a machine cannot activate against it at `now`. Staff only.
+ */
+export const findActivatable = async (
+  db: Reader,
+  key: string,
+  now: Date,
+): Promise<(Owned & Held) | undefined> => {
+  const [found] = await listActivatableWhere(db, eq(schema.license.key, key), now);
+  return found;
+};
+
+/**
+ * findSeat returns the seat a machine holds on one of `licenses`: an activation that is
+ * not released and shares a hash with `fingerprint`.
+ */
+export const findSeat = async (
+  db: Reader,
+  licenses: string[],
+  fingerprint: string[],
+): Promise<schema.Activation | undefined> => {
+  if (licenses.length === 0) return undefined;
+  const [seat] = await db
+    .select()
+    .from(schema.activation)
+    .where(
+      and(
+        inArray(schema.activation.license, licenses),
+        isNull(schema.activation.releasedAt),
+        arrayOverlaps(schema.activation.fingerprint, fingerprint),
+      ),
+    )
+    .orderBy(desc(schema.activation.lastSeen))
+    .limit(1);
+  return seat;
 };
