@@ -1,0 +1,268 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "LabJack read task"
+description:
+  "Read analog, digital, and thermocouple inputs from a LabJack into channels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Channel } from "@/components/channel";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A LabJack read task reads the inputs of one LabJack device into channels. For example,
+it can record a pressure transducer on `AIN0` and a switch on `DIO4` at 1 kHz.
+
+Before you start, you need a
+[configured device](/reference/hardware/labjack/configure-device).
+
+<Divider.Divider x />
+
+## Channels and timing
+
+A read task has three types of channels:
+
+- **Analog input** -> a voltage on an `AIN` port.
+- **Digital input** -> the state of a `DIO` port, as 0 or 1.
+- **Thermocouple** -> a temperature from a thermocouple on an `AIN` port. Thermocouples
+  work on the T7 only.
+
+With no thermocouple channels, the device samples the inputs on its own clock. With one
+or more thermocouple channels, the Driver reads one sample of each channel at a time,
+and the **Stream rate** has no effect. See [timing](/reference/hardware/tasks#timing).
+
+<Divider.Divider x />
+
+## Create a LabJack read task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the device and select **Create read task**.
+2. Set **Sample rate** and **Stream rate**.
+3. Click **Add channel**, then select the type of channel and the **Port**.
+4. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels. For a device with the identifier `lj1`, the channel
+for `AIN0` is `lj1_AIN0`, with the index channel `lj1_time`. To use a different name,
+enter it in the channel list before you start the task.
+
+<Video id="hardware/labjack/read-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import labjack
+
+dev = client.devices.retrieve(key="<serial number>")
+time = client.channels.create(
+    name="lj1_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+pressure = client.channels.create(
+    name="lj1_AIN0", index=time.key, data_type=sy.DataType.FLOAT32
+)
+switch = client.channels.create(
+    name="lj1_DIO4", index=time.key, data_type=sy.DataType.UINT8
+)
+
+task = labjack.ReadTask(
+    name="Test stand inputs",
+    device=dev.key,
+    sample_rate=1000,
+    stream_rate=25,
+    channels=[
+        labjack.AnalogReadChannel(port="AIN0", channel=pressure.key),
+        labjack.DigitalReadChannel(port="DIO4", channel=switch.key),
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+Python creates the task on the embedded Driver of the Core. For a device on another
+Driver, use the Console or TypeScript.
+
+For a thermocouple on a T7, use
+`labjack.ThermocoupleReadChannel(port="AIN2", thermocouple_type="K", units="C", channel=...)`.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first.
+
+```typescript
+import { labjack } from "@synnaxlabs/client";
+
+const dev = await client.devices.retrieve({ key: "<serial number>" });
+const time = await client.channels.create({
+  name: "lj1_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const pressure = await client.channels.create({
+  name: "lj1_AIN0",
+  index: time.key,
+  dataType: "float32",
+});
+
+const task = await client.tasks.create({
+  name: "Test stand inputs",
+  rack: dev.rack,
+  type: "labjack_read",
+  config: labjack.readConfigZ.parse({
+    device: dev.key,
+    sampleRate: 1000,
+    streamRate: 25,
+    channels: [{ type: "analog", port: "AIN0", channel: pressure.key }],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Tare channels
+
+Tare sets the current value of an analog channel to zero. The task must be running.
+
+1. In the channel list, click **Tare** on an analog channel. To tare several channels,
+   select them, right-click, and select **Tare**.
+2. The values of those channels start from zero.
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label | Python field           | Default | Notes                                                     |
+| ------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Device        | `device`               |         | The serial number of the device.                          |
+| Sample rate   | `sample_rate`          | 10 Hz   | Up to 50,000 Hz in the Console.                           |
+| Stream rate   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Each channel has a `channel`, the Synnax channel that records the value. Each table
+shows the Console label of a setting, with its Python field under it.
+
+<Channel.Types>
+
+<Channel.Type
+  name="Analog input"
+  type="analog"
+  python="AnalogReadChannel"
+>
+
+Reads a voltage.
+
+| Setting                            | Default | Notes                                                                                          |
+| ---------------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| Port <small>`port`</small>         | `AIN0`  | An `AIN` port.                                                                                 |
+| Max voltage <small>`range`</small> | `10`    | The Driver does not apply this field. Each input uses the default range of the device.         |
+| <small>`neg_chan`</small>          | `199`   | The negative input for a differential reading, on the T7 only. 199 means a single-ended input. |
+| Scale <small>`scale`</small>       | None    | None, linear (slope and offset), or map (from a raw range to a scaled range).                  |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Digital input"
+  type="digital"
+  python="DigitalReadChannel"
+>
+
+Reads the state of a digital line as 0 or 1, as `uint8`.
+
+| Setting                    | Default | Notes         |
+| -------------------------- | ------- | ------------- |
+| Port <small>`port`</small> | `DIO4`  | A `DIO` port. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Thermocouple"
+  type="thermocouple"
+  python="ThermocoupleReadChannel"
+>
+
+Reads a temperature from a thermocouple.
+
+| Setting                                              | Default                | Notes                                                    |
+| ---------------------------------------------------- | ---------------------- | -------------------------------------------------------- |
+| Port <small>`port`</small>                           | `AIN0`                 | An `AIN` port.                                           |
+| Thermocouple type <small>`thermocouple_type`</small> | `K`                    | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`.             |
+| Temperature units <small>`units`</small>             | `K`                    | `C`, `F`, `K`.                                           |
+| Negative channel <small>`neg_chan`</small>           | `199`                  | The negative input. 199 means a single-ended input.      |
+| CJC source <small>`cjc_source`</small>               | `TEMPERATURE_DEVICE_K` | **Device**, **Air**, or an `AIN` port with a CJC sensor. |
+| CJC slope <small>`cjc_slope`</small>                 | `1`                    | The CJC sensor scale, in kelvin per volt.                |
+| CJC offset <small>`cjc_offset`</small>               | `0`                    | The CJC sensor offset, in kelvin.                        |
+| Scale <small>`scale`</small>                         | None                   | Applied after the conversion to temperature.             |
+
+</Channel.Type>
+
+</Channel.Types>
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"Falling behind hardware"}>
+<Problem.Cause>
+
+The Driver cannot send the samples as fast as the device makes them.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the **Stream rate**, or lower the **Sample rate**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"Thermocouple values are wrong."}>
+<Problem.Cause>
+
+The device is not a T7. The Driver sets up thermocouples on the T7 only.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use a T7 for thermocouple channels.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Port ... has already been used on another channel"}>
+<Problem.Cause>
+
+Two channels use the same port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a different port for one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see
+[Configure a LabJack device](/reference/hardware/labjack/configure-device#troubleshooting)
+and [Troubleshoot hardware](/reference/hardware/troubleshooting).
