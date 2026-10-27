@@ -124,7 +124,6 @@ jobs:
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
       eslint_config: ${{ steps.filter.outputs.eslint_config }}
-      exports_go: ${{ steps.filter.outputs.exports_go }}
       exports_py: ${{ steps.filter.outputs.exports_py }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
@@ -609,43 +608,6 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-
-  exports-go:
-    needs: changes
-    if:
-      inputs.full || needs.changes.outputs.exports_go == 'true' ||
-      contains(fromJSON(needs.changes.outputs.ci), 'exports-go')
-    runs-on: ubuntu-latest
-    # The proxy drops streams at times, so a failed fetch falls back to the source.
-    env:
-      GOPROXY: https://proxy.golang.org|direct
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      # The check compiles nothing, and the modules download faster than a cache
-      # restores.
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
-        with:
-          go-version-file: x/go/go.mod
-          cache: false
-
-      - name: Download the Go modules
-        run: |
-          .github/scripts/go_mod_download.sh alamos/go arc/go cesium core freighter/go \
-            freighter/integration gorp oracle x/go
-
-      - name: Build the check
-        working-directory: x/go
-        run: go build -o "$RUNNER_TEMP/exports" ./cmd/exports
-
-      - name: Check exported identifiers no other package uses
-        # Report-only until the current findings are fixed.
-        continue-on-error: true
-        run: |
-          "$RUNNER_TEMP/exports" alamos/go arc/go cesium core freighter/go \
-            freighter/integration gorp oracle x/go
 
   exports-py:
     needs: changes
@@ -1295,7 +1257,6 @@ jobs:
       - driver
       - driver-tsan
       - eslint-config
-      - exports-go
       - exports-py
       - format
       - foundation

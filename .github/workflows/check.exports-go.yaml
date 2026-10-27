@@ -1,0 +1,65 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Reports the exported Go identifiers that no other package uses. It type checks every
+# Go module for three GOOS values, which costs too much to run on each pull request.
+
+name: Check - Go exports
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check Go exports
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Type checking every module for three GOOS values fills the default disk.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: x/go/go.mod
+          cache-dependency-path: "**/go.sum"
+
+      - name: Build the check
+        working-directory: x/go
+        run: go build -o "$RUNNER_TEMP/exports" ./cmd/exports
+
+      - name: Check exported identifiers no other package uses
+        run: |
+          set +e
+          "$RUNNER_TEMP/exports" alamos/go arc/go aspen cesium core freighter/go \
+            freighter/integration gorp oracle x/go >"$RUNNER_TEMP/findings.txt"
+          status=$?
+          set -e
+          {
+            echo "## Exported Go identifiers no other package uses"
+            echo
+            echo "$(wc -l <"$RUNNER_TEMP/findings.txt") findings"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/findings.txt"
+            echo '```'
+          } >>"$GITHUB_STEP_SUMMARY"
+          # Status 1 means findings, which are report-only until they are fixed. Any
+          # other failure, such as a package that fails to load, fails the job.
+          [ "$status" -le 1 ]
