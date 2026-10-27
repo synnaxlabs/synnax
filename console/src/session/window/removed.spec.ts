@@ -38,7 +38,9 @@ const createStore = async (): Promise<TestStore> => {
   [MAIN_WINDOW, AUX_KEY].forEach((windowKey) => {
     store.dispatch(Session.Nav.showBottom({ windowKey }));
     store.dispatch(Session.Panel.select({ key: PANEL_KEY, windowKey }));
-    store.dispatch(Session.Arc.create({ key: DOC_KEY, windowKey }));
+    store.dispatch(
+      Session.Arc.setEditable({ key: DOC_KEY, editable: false, windowKey }),
+    );
     store.dispatch(Session.LinePlot.create({ key: DOC_KEY, windowKey }));
     store.dispatch(Session.Log.create({ key: DOC_KEY, windowKey }));
     store.dispatch(Session.Schematic.create({ key: DOC_KEY, windowKey }));

@@ -20,6 +20,7 @@ import {
   renderOntologyTree,
 } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -91,7 +92,7 @@ describe("arc/ontology", () => {
         root,
         items: Arc.TREE_ITEMS,
       });
-      store.dispatch(Session.Arc.create({ key: arc.key, graph: { editable: false } }));
+      store.dispatch(Session.Arc.setEditable({ key: arc.key, editable: false }));
       await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${arc.name}?`);
@@ -103,8 +104,8 @@ describe("arc/ontology", () => {
       });
       await waitFor(() =>
         expect(
-          Session.Arc.selectState({ state: store.getState(), key: arc.key }),
-        ).toEqual(Session.Arc.ZERO_STATE),
+          documentIn(store.getState()[Session.Arc.SLICE_NAME], arc.key),
+        ).toBeUndefined(),
       );
     });
   });
