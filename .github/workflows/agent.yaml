@@ -105,10 +105,11 @@ jobs:
         uses: actions/create-github-app-token@v3
         with:
           app-id:
-            ${{ env.AGENT == 'codex' && secrets.CODEX_APP_ID || secrets.AGENT_APP_ID }}
+            ${{ env.AGENT == 'codex' && secrets.CODEX_APP_ID ||
+            secrets.CLAUDE_CODE_APP_ID }}
           private-key:
             ${{ env.AGENT == 'codex' && secrets.CODEX_APP_PRIVATE_KEY ||
-            secrets.AGENT_APP_PRIVATE_KEY }}
+            secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
           permission-actions: read
           permission-checks: read
           permission-contents: write
