@@ -25,11 +25,13 @@ import {
   errors,
   MultiSeries,
   primitive,
+  resolveWindow,
   type Series,
   sync,
   TimeRange,
   TimeSpan,
   TimeStamp,
+  windowZ,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -37,13 +39,17 @@ import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
+  LOADING_STATUS,
   type NumberSource,
   type NumberSourceSpec,
+  type Result,
   type SeriesSource,
   type SeriesSourceSpec,
   type Spec,
   type StringSource,
   type StringSourceSpec,
+  success,
+  SUCCESS_STATUS,
   type Telem,
   type ValueProps,
 } from "@/telem/aether/telem";
@@ -64,22 +70,6 @@ export interface Client {
   /** @returns the current time on the Core's clock, which stamps every sample. */
   now: () => TimeStamp;
 }
-
-const readLatestSeries = async (
-  client: Client,
-  ch: channel.Channel,
-  onStatusChange?: status.Adder,
-): Promise<Series | null> => {
-  if (ch.virtual && !channel.isCalculated(ch)) return null;
-  try {
-    const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
-    if (latest == null || latest.length === 0) return null;
-    return latest;
-  } catch (e) {
-    onStatusChange?.(cstatus.fromException(e, "Failed to read latest value"));
-    return null;
-  }
-};
 
 /** Reported by remote sources created while the cluster is disconnected. */
 export const DISCONNECTED_STATUS: cstatus.Crude = {
@@ -117,21 +107,46 @@ const newRetryBreaker = (
  * posts one status when it starts and again only when the failure changes.
  */
 class FailureReporter {
-  private last?: string;
+  /** The last failure since the last reset. */
+  status?: cstatus.Status;
   constructor(private readonly onStatusChange?: status.Adder) {}
 
   report(e: unknown, message: string): void {
-    const failure = cstatus.fromException(e, message);
-    const key = `${failure.message}: ${failure.description}`;
-    if (this.last === key) return;
-    this.last = key;
-    this.onStatusChange?.(failure);
+    const prev = this.status;
+    this.status = cstatus.fromException(e, message);
+    if (
+      prev?.message === this.status.message &&
+      prev.description === this.status.description
+    )
+      return;
+    this.onStatusChange?.(this.status);
   }
 
   reset(): void {
-    this.last = undefined;
+    this.status = undefined;
   }
 }
+
+// Loading until a source's first read lands, then its last failure, if any.
+const sourceStatus = (loading: boolean, failures: FailureReporter): cstatus.Status =>
+  loading ? LOADING_STATUS : (failures.status ?? SUCCESS_STATUS);
+
+// A failure goes to onError and reads as null.
+const readLatestSeries = async (
+  client: Client,
+  ch: channel.Channel,
+  onError: (e: unknown) => void,
+): Promise<Series | null> => {
+  if (ch.virtual && !channel.isCalculated(ch)) return null;
+  try {
+    const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
+    if (latest == null || latest.length === 0) return null;
+    return latest;
+  } catch (e) {
+    onError(e);
+    return null;
+  }
+};
 
 export const streamChannelValuePropsZ = z.object({
   channel: z.number().or(z.string()),
@@ -151,18 +166,17 @@ export class StreamChannelValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
-  private sampleTime_: TimeStamp | null = null;
+  private time?: TimeStamp;
   private generation = 0;
   private valid = false;
+  private loading = true;
+  private readonly failures: FailureReporter;
   private readonly onStatusChange?: status.Adder;
   constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
-  }
-
-  sampleTime(): TimeStamp | null {
-    return this.sampleTime_;
+    this.failures = new FailureReporter(this.onStatusChange);
   }
 
   /** @returns the leading series buffer for testing purposes. */
@@ -182,17 +196,24 @@ export class StreamChannelValue
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
-    this.sampleTime_ = null;
+    this.time = undefined;
     this.removeStreamHandler = null;
+    this.loading = true;
+    this.failures.reset();
   }
 
-  value(): number {
+  value(): Result<number> {
     // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return NaN;
+    if (primitive.isZero(this.props.channel)) return success(NaN);
     if (!this.valid) void this.read();
+    const status = sourceStatus(this.loading, this.failures);
     // No data has been received and no recent samples were fetched on initialization.
-    if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return NaN;
-    return this.leadingBuffer.at(-1, true) as number;
+    if (this.leadingBuffer == null || this.leadingBuffer.length === 0)
+      return { data: NaN, status };
+    const v = this.leadingBuffer.at(-1, true);
+    // A boolean channel reads as 0 or 1, and an int64 channel as its nearest number.
+    const data = Number(v);
+    return { data, status, time: this.time };
   }
 
   /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
@@ -201,6 +222,7 @@ export class StreamChannelValue
     this.valid = true;
     const { client } = this;
     if (client == null) {
+      this.loading = false;
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
@@ -216,33 +238,43 @@ export class StreamChannelValue
           first.acquire();
           this.leadingBuffer?.release();
           this.leadingBuffer = first;
-          this.sampleTime_ = null;
+          this.time = undefined;
         }
         // Just because we didn't get a new buffer doesn't mean one wasn't allocated: an
         // empty update means the leading buffer was appended to in place. A frame that
         // holds nothing for this channel looks the same, so with no buffer yet there is
         // nothing to report.
         else if (this.leadingBuffer == null) return;
+        this.loading = false;
+        this.failures.reset();
         this.notify();
       };
       if (generation !== this.generation) return;
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
+      this.failures.reset();
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
       if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
         this.notify();
         return;
       }
-      const latest = await readLatestSeries(client, ch, this.onStatusChange);
-      if (latest == null) return;
-      if (generation !== this.generation || this.leadingBuffer != null) return;
+      const latest = await readLatestSeries(client, ch, (e) => {
+        // A live sample or a cleanup makes the failed read moot.
+        if (generation === this.generation && this.leadingBuffer == null)
+          this.failures.report(e, "Failed to read latest value");
+      });
+      if (generation !== this.generation) return;
+      this.loading = false;
+      if (latest == null || this.leadingBuffer != null) return;
       latest.acquire();
       this.leadingBuffer = latest;
-      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
+      this.time = latest.timeRange.isZero ? undefined : latest.timeRange.end;
       this.notify();
     } catch (e) {
+      if (generation !== this.generation) return;
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel value"));
+      this.loading = false;
+      this.failures.report(e, "Failed to stream channel value");
     }
   }
 }
@@ -508,18 +540,21 @@ export class StreamChannelStringValue
   private readonly client: Client | null;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
-  private sampleTime_: TimeStamp | null = null;
+  private time?: TimeStamp;
   private latest = "";
   // Buffer length the latest decode was taken at, or -1 to force a re-decode.
   private decodedAt = -1;
   // Bumped by cleanup to invalidate a read that is still awaiting.
   private generation = 0;
   private valid = false;
+  private loading = true;
+  private readonly failures: FailureReporter;
   private readonly onStatusChange?: status.Adder;
   constructor(client: Client | null, props: unknown, options?: CreateOptions) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
+    this.failures = new FailureReporter(this.onStatusChange);
   }
 
   cleanup(): void {
@@ -528,29 +563,28 @@ export class StreamChannelStringValue
     this.valid = false;
     this.leadingBuffer?.release();
     this.leadingBuffer = null;
-    this.sampleTime_ = null;
+    this.time = undefined;
     this.latest = "";
     this.decodedAt = -1;
     this.removeStreamHandler = null;
+    this.loading = true;
+    this.failures.reset();
   }
 
-  sampleTime(): TimeStamp | null {
-    return this.sampleTime_;
-  }
-
-  value(): string {
+  value(): Result<string> {
     // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return "";
+    if (primitive.isZero(this.props.channel)) return success("");
     if (!this.valid) void this.read();
+    const status = sourceStatus(this.loading, this.failures);
     const buffer = this.leadingBuffer;
-    if (buffer == null || buffer.length === 0) return "";
+    if (buffer == null || buffer.length === 0) return { data: "", status };
     // Samples are appended into the leading buffer in place, so the length is what
     // marks new data. Decoding is gated on it because asString scans linearly.
     if (buffer.length !== this.decodedAt) {
       this.latest = buffer.asString(-1) ?? this.latest;
       this.decodedAt = buffer.length;
     }
-    return this.latest;
+    return { data: this.latest, status, time: this.time };
   }
 
   /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
@@ -559,6 +593,7 @@ export class StreamChannelStringValue
     this.valid = true;
     const { client } = this;
     if (client == null) {
+      this.loading = false;
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
@@ -574,36 +609,44 @@ export class StreamChannelStringValue
           leading.acquire();
           this.leadingBuffer?.release();
           this.leadingBuffer = leading;
-          this.sampleTime_ = null;
+          this.time = undefined;
           this.decodedAt = -1;
         }
         // An empty update means the leading buffer was appended to in place. A frame
         // that holds nothing for this channel looks the same, so with no buffer yet
         // there is nothing to report.
         else if (this.leadingBuffer == null) return;
+        this.loading = false;
+        this.failures.reset();
         this.notify();
       };
       if (generation !== this.generation) return;
       this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
+      this.failures.reset();
       // Opening the stream is not a sample. Notify only when a buffer already holds
       // one, so a consumer that counts arrivals does not count the open.
       if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
         this.notify();
         return;
       }
-      const latest = await readLatestSeries(client, ch, this.onStatusChange);
-      if (latest == null) return;
-      if (generation !== this.generation || this.leadingBuffer != null) return;
+      const latest = await readLatestSeries(client, ch, (e) => {
+        // A live sample or a cleanup makes the failed read moot.
+        if (generation === this.generation && this.leadingBuffer == null)
+          this.failures.report(e, "Failed to read latest value");
+      });
+      if (generation !== this.generation) return;
+      this.loading = false;
+      if (latest == null || this.leadingBuffer != null) return;
       latest.acquire();
       this.leadingBuffer = latest;
-      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
+      this.time = latest.timeRange.isZero ? undefined : latest.timeRange.end;
       this.decodedAt = -1;
       this.notify();
     } catch (e) {
+      if (generation !== this.generation) return;
       this.valid = false;
-      this.onStatusChange?.(
-        cstatus.fromException(e, "Failed to stream channel string value"),
-      );
+      this.loading = false;
+      this.failures.report(e, "Failed to stream channel string value");
     }
   }
 }
@@ -615,16 +658,9 @@ const tiledChannelDataPropsZ = z.object({
   xChannel: z.number().or(z.string()).default(0),
   /** The key of the line's y channel, which an x source draws against. */
   yChannel: z.number().default(0),
-  /** The home view of a static line. */
-  timeRange: TimeRange.z.optional(),
-  /** The span of the home view of a live line, which ends now. */
-  timeSpan: TimeSpan.z.optional(),
+  /** The home view: a fixed range, or a span that ends now for a live line. */
+  window: windowZ,
   aggregation: aggregationZ.default("min_max"),
-  /** The number of aggregation groups the line draws per pixel column. */
-  groupsPerColumn: z
-    .number()
-    .positive()
-    .default(1 / 2),
 });
 
 export type TiledChannelDataProps = z.input<typeof tiledChannelDataPropsZ>;
@@ -634,14 +670,8 @@ interface HeldTile {
   series: MultiSeries;
 }
 
-// The width tiles are sized for before a line reports its own.
-const DEFAULT_WIDTH = 1000;
-
-// How long a view must hold a new level before its tiles are requested.
-const DEFAULT_LEVEL_SETTLE = TimeSpan.milliseconds(150);
-
-// Spans within the live buffer draw immediately and skip the loading state.
-const LOADING_MIN_SPAN = TimeSpan.minutes(1).valueOf();
+// The points tiles are sized for before a read gives its own.
+const DEFAULT_POINTS = 1000;
 
 const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
   new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
@@ -668,7 +698,7 @@ export class TiledChannelData
   private xy = false;
   private readonly held = new Map<string, HeldTile>();
   private readonly pending = new Set<string>();
-  private width = DEFAULT_WIDTH;
+  private points = DEFAULT_POINTS;
   // window holds a live line's full-resolution series from boundary on.
   private readonly window: LiveWindow;
   // boundary is where a live line's tiles end and its full-resolution data begins. It
@@ -678,7 +708,8 @@ export class TiledChannelData
   // drawn is the view of the last read that drew.
   private drawn?: TimeRange;
   private rawLoaded = false;
-  private readonly skipLoading: boolean;
+  // loading is true until the home view first loads or a read fails.
+  private loading = true;
   private readonly failures: FailureReporter;
   private readonly retryNotifier = new sync.Notifier();
   // breaker paces retries of the channel and live reads, and tileBreaker paces retries
@@ -689,24 +720,17 @@ export class TiledChannelData
   // the keys of tiles a definitive rejection stopped.
   private readonly retrying = new Set<string>();
   private readonly parked = new Set<string>();
-  private readonly levelSettle: TimeSpan;
-  // viewLevel is the level of the last view drawn, and settleTimer runs until that
-  // level has held for levelSettle.
-  private viewLevel?: number;
-  private settleTimer?: ReturnType<typeof setTimeout>;
 
   constructor(
     client: Client | null,
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = client?.now ?? (() => TimeStamp.now()),
-    levelSettle: TimeSpan = DEFAULT_LEVEL_SETTLE,
     breakerConfig?: breaker.Config,
   ) {
     super(props);
     this.client = client;
     this.now = now;
-    this.levelSettle = levelSettle;
     this.onStatusChange = options?.onStatusChange;
     this.failures = new FailureReporter(options?.onStatusChange);
     this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
@@ -721,55 +745,49 @@ export class TiledChannelData
       dataType: () => this.heldDataType(),
       restart: () => this.restart(),
     });
-    const { timeSpan } = this.props;
-    this.skipLoading = timeSpan != null && timeSpan.valueOf() <= LOADING_MIN_SPAN;
-    this.loading_ = true;
   }
 
   private get live(): boolean {
-    return this.props.timeSpan != null;
+    return this.props.window.variant === "dynamic";
   }
 
-  loading(): boolean {
-    if (this.skipLoading || primitive.isZero(this.props.channel) || !this.loading_)
-      return false;
-    this.value();
-    return this.loading_;
-  }
-
-  fetching(): boolean {
-    return (this.skipLoading || !this.loading_) && this.pending.size > 0;
-  }
-
-  value({ view, extremesKept = false }: ValueProps = {}): [bounds.Bounds, MultiSeries] {
+  value({ bounds: view, points, extremesKept = false }: ValueProps = {}): Result<
+    [bounds.Bounds, MultiSeries]
+  > {
+    if (points != null) this.points = points;
     if (primitive.isZero(this.props.channel))
-      return [bounds.INVALID, new MultiSeries()];
+      return success([bounds.INVALID, new MultiSeries()]);
     if (!this.valid) void this.resolve();
     const ch = this.channel;
-    if (ch == null) return [bounds.INVALID, new MultiSeries()];
+    if (ch == null) return this.result([bounds.INVALID, new MultiSeries()]);
     const home = this.home();
-    if (view != null) this.width = view.width;
     const drawsView =
-      view != null &&
-      !this.xy &&
-      bounds.isFinite(view.bounds) &&
-      bounds.span(view.bounds) > 0;
-    // Any read with a view draws, so it releases the tiles the line no longer needs.
+      view != null && !this.xy && bounds.isFinite(view) && bounds.span(view) > 0;
+    // Any read with bounds draws, so it releases the tiles the line no longer needs.
     const series = this.select(
       ch.key,
-      drawsView ? viewRange(view.bounds) : home,
+      drawsView ? viewRange(view) : home,
       view != null,
+      view == null || points != null,
       extremesKept,
     );
-    if (!drawsView && this.loaded(ch.key, home)) this.loading_ = false;
-    return [this.bounds(ch, home, series), series];
+    if (this.loading && this.loaded(ch.key, home)) this.loading = false;
+    return this.result([this.bounds(ch, home, series), series]);
+  }
+
+  private result(
+    data: [bounds.Bounds, MultiSeries],
+  ): Result<[bounds.Bounds, MultiSeries]> {
+    const loading = this.loading || this.pending.size > 0;
+    return {
+      data,
+      status: sourceStatus(loading, this.failures),
+      aggregation: this.aggregation(),
+    };
   }
 
   private home(): TimeRange {
-    const { timeRange, timeSpan } = this.props;
-    if (timeSpan == null) return timeRange ?? TimeRange.ZERO;
-    const now = this.now();
-    return new TimeRange(now.sub(timeSpan), now);
+    return resolveWindow(this.props.window, this.now());
   }
 
   // rawFrom is where a live line's full-resolution data starts. It sits on a tile
@@ -798,12 +816,8 @@ export class TiledChannelData
     return TimeStamp.min(boundary, this.window.drawsFrom(boundary));
   }
 
-  aggregation(): Aggregation {
+  private aggregation(): Aggregation {
     return this.xy ? "decimate" : this.props.aggregation;
-  }
-
-  dataType(): DataType | null {
-    return this.channel?.dataType ?? null;
   }
 
   private targets(
@@ -833,8 +847,8 @@ export class TiledChannelData
     const limit = pointLimit({
       level: l,
       view,
-      width: this.width,
-      groupsPerColumn: this.props.groupsPerColumn,
+      points: this.points,
+      drawn: this.aggregation(),
       aggregation,
     });
     return indexes(tiled, l).map((index) => {
@@ -874,25 +888,10 @@ export class TiledChannelData
     return other;
   }
 
-  // A zoom that changes the view's level waits for the level to hold, so a fast zoom
-  // does not read the levels it passes through. A pan within a level reads at once.
-  private settled(l: number): boolean {
-    if (l === this.viewLevel) return this.settleTimer == null;
-    this.viewLevel = l;
-    clearTimeout(this.settleTimer);
-    this.settleTimer = undefined;
-    if (this.levelSettle.isZero) return true;
-    this.settleTimer = setTimeout(() => {
-      this.settleTimer = undefined;
-      this.notify();
-    }, this.levelSettle.milliseconds);
-    return false;
-  }
-
   // advance moves the boundary to rawFrom once the tiles that replace the raw series
   // before rawFrom in the drawn view arrive. It returns the keys of those tiles while
   // any is missing.
-  private advance(key: channel.Key): string[] {
+  private advance(key: channel.Key, reads: boolean): string[] {
     const rawFrom = this.rawFrom();
     if (!rawFrom.after(this.boundary)) return [];
     const next = this.targets(key, this.drawn ?? this.home(), false, rawFrom);
@@ -901,7 +900,7 @@ export class TiledChannelData
       this.boundary = rawFrom;
       return [];
     }
-    if (this.settled(next[0].level)) next.forEach((spec) => this.request(spec));
+    if (reads) next.forEach((spec) => this.request(spec));
     return keys;
   }
 
@@ -909,14 +908,14 @@ export class TiledChannelData
     key: channel.Key,
     view: TimeRange,
     prune: boolean,
+    reads: boolean,
     extremesKept: boolean,
   ): MultiSeries {
     if (prune) this.drawn = view;
-    const next = this.live ? this.advance(key) : [];
+    const next = this.live ? this.advance(key, reads) : [];
     if (this.live) this.window.prune();
     const targets = this.targets(key, view, extremesKept);
-    if (!prune || (targets.length > 0 && this.settled(targets[0].level)))
-      targets.forEach((spec) => this.request(spec));
+    if (reads) targets.forEach((spec) => this.request(spec));
     const preferred = new Map(
       targets.map((t) => [`${t.level}/${t.index}`, framer.tileRequestKey(t)]),
     );
@@ -1102,6 +1101,13 @@ export class TiledChannelData
     this.declareLoaded();
   }
 
+  // Notifies so a failure still wakes observers of the status.
+  private declareLoaded(): void {
+    if (!this.loading) return;
+    this.loading = false;
+    this.notify();
+  }
+
   // The data type of every series the line holds, or undefined when it holds none.
   private heldDataType(): DataType | undefined {
     for (const tile of this.held.values())
@@ -1117,9 +1123,6 @@ export class TiledChannelData
   cleanup(): void {
     this.generation++;
     this.retryNotifier.notify();
-    clearTimeout(this.settleTimer);
-    this.settleTimer = undefined;
-    this.viewLevel = undefined;
     this.drawn = undefined;
     this.window.clear();
     this.held.forEach((tile) => tile.series.release());
@@ -1129,7 +1132,7 @@ export class TiledChannelData
     this.parked.clear();
     this.valid = false;
     this.channel = null;
-    this.loading_ = true;
+    this.loading = true;
     this.rawLoaded = false;
     this.failures.reset();
   }

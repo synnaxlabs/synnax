@@ -127,7 +127,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     return {
       source,
       received: () => {
-        const at = source.sampleTime?.();
+        const at = source.value().time;
         const elapsed = at == null ? 0n : TimeStamp.now().valueOf() - at.valueOf();
         const age = Math.max(0, new TimeSpan(elapsed).milliseconds);
         entry.lastReceived = performance.now() - age;

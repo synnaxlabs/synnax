@@ -35,34 +35,41 @@ export const indexes = (tr: TimeRange, level: number): number[] => {
   return out;
 };
 
+/** The points one aggregation group draws. */
+export const POINTS_PER_GROUP: Record<Aggregation, number> = {
+  min_max: 2,
+  average: 1,
+  decimate: 1,
+};
+
 export interface PointLimitProps {
   level: number;
   /** The range the line shows. */
   view: TimeRange;
-  /** The width of the line in pixels. */
-  width: number;
-  /** The number of aggregation groups the line draws per pixel column. */
-  groupsPerColumn: number;
+  /** About how many points the line draws across the view. */
+  points: number;
+  /** The aggregation the line draws. */
+  drawn: Aggregation;
+  /** The aggregation of the tile. */
   aggregation: Aggregation;
 }
 
 /**
- * @returns the point limit of one tile at the level: its share of the line's pixel
- * width, times groups per pixel column, times points per group. The limit rounds up to
- * a power of two, so a resize of a few pixels keeps the same limit.
+ * @returns the point limit of one tile at the level: its share of the line's groups
+ * across the view, times the points per group of the tile's aggregation. The limit
+ * rounds up to a power of two, so a resize of a few pixels keeps the same limit.
  */
 export const pointLimit = ({
   level,
   view,
-  width,
-  groupsPerColumn,
+  points,
+  drawn,
   aggregation,
 }: PointLimitProps): number => {
+  const groups = points / POINTS_PER_GROUP[drawn];
   const share =
-    (Number(framer.tileSpan(level).valueOf()) / Number(view.span.valueOf())) * width;
-  const perGroup = aggregation === "min_max" ? 2 : 1;
-  const points = Math.max(share * groupsPerColumn * perGroup, 1);
-  return 2 ** Math.ceil(Math.log2(points));
+    (Number(framer.tileSpan(level).valueOf()) / Number(view.span.valueOf())) * groups;
+  return 2 ** Math.ceil(Math.log2(Math.max(share * POINTS_PER_GROUP[aggregation], 1)));
 };
 
 const positionKey = ({ level, index }: Position): string => `${level}/${index}`;

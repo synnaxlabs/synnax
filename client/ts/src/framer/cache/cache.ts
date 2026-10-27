@@ -47,7 +47,6 @@ export class Cache {
       dynamicBufferSize = DEFAULT_DYNAMIC_BUFFER_SIZE,
       gcInterval = TimeSpan.seconds(30),
       instrumentation = DEFAULT_STATIC_PROPS.instrumentation,
-      transform = DEFAULT_STATIC_PROPS.transform,
       staleEntryThreshold = DEFAULT_STATIC_PROPS.staleEntryThreshold,
       staleCoverageThreshold = DEFAULT_STATIC_PROPS.staleCoverageThreshold,
     } = props;
@@ -55,7 +54,6 @@ export class Cache {
       dynamicBufferSize,
       gcInterval,
       instrumentation,
-      transform,
       staleEntryThreshold,
       staleCoverageThreshold,
     };
@@ -72,15 +70,10 @@ export class Cache {
       throw new UnexpectedError(`get(${key}) called on a closed telemetry cache`);
     const existing = this.cache.get(key);
     if (existing != null) return existing;
-    const {
-      dynamicBufferSize,
-      transform,
-      staleEntryThreshold,
-      staleCoverageThreshold,
-    } = this.props;
+    const { dynamicBufferSize, staleEntryThreshold, staleCoverageThreshold } =
+      this.props;
     const unary = new Unary({
       dynamicBufferSize,
-      transform,
       staleEntryThreshold,
       staleCoverageThreshold,
       instrumentation: this.props.instrumentation.child(`cache-${key}`),

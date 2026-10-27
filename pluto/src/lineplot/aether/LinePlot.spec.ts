@@ -11,8 +11,10 @@ import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testuti
 import {
   box,
   DataType,
+  dynamicWindow,
   id,
   sleep,
+  staticWindow,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -277,7 +279,10 @@ describe("LinePlot against a Core", () => {
 
   it("should draw full detail tiles after a zoom", async () => {
     const { data, home } = await writeData();
-    const { plot, setViewport } = mount({ channel: data.key, timeRange: home });
+    const { plot, setViewport } = mount({
+      channel: data.key,
+      window: staticWindow(home),
+    });
     const homeSpan = Number(home.span.valueOf());
     const lower = Number(home.start.valueOf()) + homeSpan / 2;
     const targets = [0.1, 0.3, 0.5, 0.7, 0.9].map(
@@ -308,7 +313,10 @@ describe("LinePlot against a Core", () => {
       dataType: DataType.FLOAT32,
       index: time.key,
     });
-    const { plot } = mount({ channel: data.key, timeSpan: TimeSpan.seconds(10) });
+    const { plot } = mount({
+      channel: data.key,
+      window: dynamicWindow(TimeSpan.seconds(10)),
+    });
     const writer = await synnax.openWriter({
       start: TimeStamp.now(),
       channels: [time.key, data.key],

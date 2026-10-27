@@ -36,8 +36,8 @@ test("grid", async ({ bench }) => {
         void pointLimit({
           level: HOUR_LEVEL,
           view: HOUR,
-          width: 1000,
-          groupsPerColumn: 1 / 2,
+          points: 1000,
+          drawn: "min_max",
           aggregation: "min_max",
         }),
     ),

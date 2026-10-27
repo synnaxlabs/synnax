@@ -9,7 +9,7 @@
 
 import {
   type DataType,
-  MultiSeries,
+  type MultiSeries,
   scheduler,
   type Size,
   type TimeRange,
@@ -23,7 +23,6 @@ import {
   Reader,
   type ReaderProps,
 } from "@/framer/cache/reader";
-import { DEFAULT_STATIC_PROPS } from "@/framer/cache/static";
 import {
   MultiplexedStreamer,
   type MultiplexedStreamerProps,
@@ -82,7 +81,6 @@ export class Feed {
       openStreamer,
       readLatest,
       tileBudget,
-      transform = DEFAULT_STATIC_PROPS.transform,
       instrumentation,
       dynamicBufferSize,
       gcInterval,
@@ -97,7 +95,6 @@ export class Feed {
       onRetry,
     } = props;
     this.cache = new Cache({
-      transform,
       dynamicBufferSize,
       gcInterval,
       staleEntryThreshold,
@@ -114,7 +111,6 @@ export class Feed {
     });
     this.tiles = new TileReader({
       readRemote,
-      transform,
       batchDebounce,
       budget: tileBudget,
       staleThreshold: staleCoverageThreshold,
@@ -141,10 +137,7 @@ export class Feed {
       interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
         const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
-        entries.forEach(({ req, resolve }) => {
-          const series = frame.get(req).series.map((s) => transform.convert(s));
-          resolve(new MultiSeries(series));
-        });
+        entries.forEach(({ req, resolve }) => resolve(frame.get(req)));
       },
     });
   }

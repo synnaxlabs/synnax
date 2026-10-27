@@ -24,9 +24,7 @@ import {
   type LogSourceSpec,
 } from "@/log/aether/telem/types";
 import { type status } from "@/status/aether";
-import { type CreateOptions } from "@/telem/aether/factory";
-import { type Client, DISCONNECTED_STATUS } from "@/telem/aether/remote";
-import { AbstractSource } from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 
 const MAX_ENTRIES = 100_000;
 
@@ -47,13 +45,13 @@ interface ChannelMeta {
 }
 
 export class StreamMultiChannelLog
-  extends AbstractSource<typeof streamMultiChannelLogPropsZ>
+  extends telem.AbstractSource<typeof streamMultiChannelLogPropsZ>
   implements LogSource
 {
   static readonly TYPE = "stream-multi-channel-log";
   schema = streamMultiChannelLogPropsZ;
 
-  private readonly client: Client | null;
+  private readonly client: telem.Client | null;
   private readonly onStatusChange?: status.Adder;
   private readonly now: () => TimeStamp;
   private readonly maxEntries: number;
@@ -70,9 +68,9 @@ export class StreamMultiChannelLog
   }
 
   constructor(
-    client: Client | null,
+    client: telem.Client | null,
     props: unknown,
-    options?: CreateOptions,
+    options?: telem.CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
     maxEntries: number = MAX_ENTRIES,
   ) {
@@ -86,10 +84,10 @@ export class StreamMultiChannelLog
     );
   }
 
-  value(): LogEntry[] {
-    if (this._channels.length === 0) return this.entries;
+  value(): telem.Result<LogEntry[]> {
+    if (this._channels.length === 0) return telem.success(this.entries);
     if (!this.valid) void this.read();
-    return this.entries;
+    return telem.success(this.entries);
   }
 
   setChannels(channels: channel.Key[]): void {
@@ -111,7 +109,7 @@ export class StreamMultiChannelLog
     this.valid = true;
     const { client } = this;
     if (client == null) {
-      this.onStatusChange?.(DISCONNECTED_STATUS);
+      this.onStatusChange?.(telem.DISCONNECTED_STATUS);
       return;
     }
     try {

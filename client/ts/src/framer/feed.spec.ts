@@ -8,22 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Unreachable } from "@synnaxlabs/freighter";
-import {
-  DataType,
-  id,
-  Series,
-  Size,
-  sleep,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { id, Series, Size, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { tileSpan, type TileSpec } from "@/framer/cache/tile";
-import { type Transform } from "@/framer/cache/transform";
 import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
 import { createTestClient } from "@/testutil";
@@ -81,27 +71,6 @@ describe("feed", () => {
     const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
     const res = await feed.read(tr, data.key);
     expect(Array.from(res)).toEqual([1, 2]);
-  });
-
-  it("should apply the configured transform to cached series", async () => {
-    const transform: Transform = {
-      resolveDataType: () => DataType.FLOAT64,
-      convert: (series) =>
-        new Series({
-          data: new Float64Array((Array.from(series) as number[]).map((v) => v * 2)),
-          timeRange: series.timeRange,
-          alignment: series.alignment,
-        }),
-    };
-    const transformed = client.openFeed({ transform });
-    const { time, data } = await createChannels();
-    const start = TimeStamp.now();
-    await client.write(start, { [time.key]: [start], [data.key]: [3] });
-    const tr = new TimeRange(start, start.add(TimeSpan.seconds(1)));
-    const res = await transformed.read(tr, data.key);
-    await transformed.close();
-    expect(res.dataType.equals(DataType.FLOAT64)).toBe(true);
-    expect(Array.from(res)).toEqual([6]);
   });
 
   it("should deliver written frames to a subscribed stream handler", async () => {
@@ -638,18 +607,6 @@ describe("feed", () => {
       await direct.close();
     });
 
-    it("should apply the configured transform to tiles", async () => {
-      const transform: Transform = {
-        resolveDataType: () => DataType.FLOAT64,
-        convert: (series) => series.convert(DataType.FLOAT64),
-      };
-      const { direct } = createFeed({ transform });
-      const tile = await direct.readTile(TILE);
-      expect(tile.dataType.equals(DataType.FLOAT64)).toBe(true);
-      expect(Array.from(tile)).toEqual([1]);
-      await direct.close();
-    });
-
     it("should forward staleCoverageThreshold to the tile cache", async () => {
       const { direct, counter } = createFeed({
         staleCoverageThreshold: TimeSpan.milliseconds(50),
@@ -680,9 +637,8 @@ describe("feed", () => {
   });
 
   describe("readLatest", () => {
-    const createFeed = (readLatest: LatestReader, transform?: Transform): Feed =>
+    const createFeed = (readLatest: LatestReader): Feed =>
       new Feed({
-        transform,
         readLatest,
         readRemote: async () => {
           throw new UnexpectedError("reader unused");
@@ -735,25 +691,6 @@ describe("feed", () => {
       await direct.readLatest(1);
       await direct.readLatest(1);
       expect(calls).toBe(2);
-      await direct.close();
-    });
-
-    it("should apply the configured transform", async () => {
-      const transform: Transform = {
-        resolveDataType: () => DataType.FLOAT32,
-        convert: (series) => series.convert(DataType.FLOAT32),
-      };
-      const direct = createFeed(
-        async (keys) =>
-          new Frame(
-            keys,
-            keys.map(() => new Series({ data: new Int32Array([9]) })),
-          ),
-        transform,
-      );
-      const res = await direct.readLatest(1);
-      expect(res.series[0].dataType.equals(DataType.FLOAT32)).toBe(true);
-      expect(Array.from(res)).toEqual([9]);
       await direct.close();
     });
 

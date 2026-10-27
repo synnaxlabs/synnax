@@ -53,28 +53,32 @@ describe("tiles", () => {
   describe("pointLimit", () => {
     const view = range(0, 1024);
 
-    it("should give one pair of points per two columns at half a group", () => {
-      const limit = pointLimit({
-        level: 9,
-        view,
-        width: 1000,
-        groupsPerColumn: 1 / 2,
-        aggregation: "min_max",
-      });
-      expect(limit).toBe(512);
+    it.each([
+      [500, 256],
+      [1000, 512],
+      [2000, 1024],
+    ])("should give a tile its share of %d points", (points, expected) => {
+      expect(
+        pointLimit({
+          level: 9,
+          view,
+          points,
+          drawn: "min_max",
+          aggregation: "min_max",
+        }),
+      ).toBe(expected);
     });
 
     it.each([
-      [1 / 4, "min_max", 256],
-      [1, "min_max", 1024],
-      [1 / 2, "average", 256],
-      [1, "average", 512],
+      ["min_max", "decimate", 256],
+      ["average", "min_max", 1024],
+      ["average", "average", 512],
     ] as const)(
-      "should scale %d groups per column with %s",
-      (groupsPerColumn, aggregation, expected) => {
-        expect(
-          pointLimit({ level: 9, view, width: 1000, groupsPerColumn, aggregation }),
-        ).toBe(expected);
+      "should give a %s line's %s tile the points of its own aggregation",
+      (drawn, aggregation, expected) => {
+        expect(pointLimit({ level: 9, view, points: 1000, drawn, aggregation })).toBe(
+          expected,
+        );
       },
     );
 
@@ -82,11 +86,11 @@ describe("tiles", () => {
       const props = {
         level: 9,
         view,
-        groupsPerColumn: 1 / 2,
+        drawn: "min_max",
         aggregation: "min_max",
       } as const;
-      expect(pointLimit({ ...props, width: 900 })).toBe(
-        pointLimit({ ...props, width: 1000 }),
+      expect(pointLimit({ ...props, points: 900 })).toBe(
+        pointLimit({ ...props, points: 1000 }),
       );
     });
 
@@ -95,9 +99,9 @@ describe("tiles", () => {
         pointLimit({
           level: 0,
           view,
-          width: 1,
-          groupsPerColumn: 1 / 4,
-          aggregation: "average",
+          points: 1,
+          drawn: "min_max",
+          aggregation: "min_max",
         }),
       ).toBe(1);
     });

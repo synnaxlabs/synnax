@@ -20,12 +20,12 @@ import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
-import { type telem } from "@/telem/aether";
+import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { staleness } from "@/vis/staleness/aether";
 
 const createSource = (): telem.Source<unknown> => ({
-  value: () => null,
+  value: () => telem.success(null),
   onChange: () => () => {},
 });
 
@@ -389,7 +389,7 @@ describe("staleness", () => {
 
   describe("sample time", () => {
     const stamp = (leaf: Leaf, offset: CrudeTimeSpan): void => {
-      leaf.source.sampleTime = () => TimeStamp.now().add(offset);
+      leaf.source.value = () => telem.success(null, TimeStamp.now().add(offset));
     };
 
     it("should date the sample from its sample time", () => {
@@ -420,7 +420,7 @@ describe("staleness", () => {
 
     it("should read a sample without a time as arriving now", () => {
       const { leaf } = mount({ timeouts: [5] });
-      leaf.source.sampleTime = () => null;
+      leaf.source.value = () => telem.success(null);
       leaf.received();
       vi.advanceTimersByTime(4750);
       expect(leaf.transitions).toEqual([]);
@@ -442,7 +442,7 @@ describe("staleness", () => {
       const { leaf } = mount({ timeouts: [5] });
       stamp(leaf, TimeSpan.seconds(-10));
       leaf.received();
-      leaf.source.sampleTime = () => null;
+      leaf.source.value = () => telem.success(null);
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);

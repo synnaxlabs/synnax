@@ -29,7 +29,7 @@ const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   const handleChange = vi.fn();
   source.onChange(handleChange);
   await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
-  return source.value();
+  return source.value().data;
 };
 
 describe("StreamMultiChannelLog", () => {
@@ -127,7 +127,7 @@ describe("StreamMultiChannelLog", () => {
       timeSpan: TimeSpan.seconds(30),
     };
     const log = new StreamMultiChannelLog(c, props);
-    expect(log.value()).toHaveLength(0);
+    expect(log.value().data).toHaveLength(0);
     expect(c.streamF).not.toHaveBeenCalled();
   });
 
@@ -151,7 +151,7 @@ describe("StreamMultiChannelLog", () => {
     await waitForResolve(log);
     const series = new Series({ data: new Float32Array([1, 2, 3]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(3);
+    expect(log.value().data).toHaveLength(3);
   });
 
   it("should populate channelKey and value in each entry", async () => {
@@ -163,7 +163,7 @@ describe("StreamMultiChannelLog", () => {
     await waitForResolve(log);
     const series = new Series({ data: new Float32Array([42]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    const entries = log.value();
+    const entries = log.value().data;
     expect(entries).toHaveLength(1);
     expect(entries[0].channelKey).toBe(c.channelA.key);
     expect(entries[0].value).toBe("42");
@@ -178,9 +178,21 @@ describe("StreamMultiChannelLog", () => {
     await waitForResolve(log);
     const series = new Series({ data: new Float32Array([1.234]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    const entries = log.value();
+    const entries = log.value().data;
     expect(entries).toHaveLength(1);
     expect(entries[0].value).toBe("1.234");
+  });
+
+  it("should stringify FLOAT64 values exactly", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series = new Series({ data: new Float64Array([0.1 + 0.2]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+    expect(log.value().data[0].value).toBe("0.30000000000000004");
   });
 
   it("should stringify INT64 bigint values", async () => {
@@ -192,7 +204,7 @@ describe("StreamMultiChannelLog", () => {
     await waitForResolve(log);
     const series = new Series({ data: new BigInt64Array([42n, -7n]) });
     c.streamHandler?.(new Map([[c.channelInt.key, new MultiSeries([series])]]));
-    const entries = log.value();
+    const entries = log.value().data;
     expect(entries).toHaveLength(2);
     expect(entries[0].value).toBe("42");
     expect(entries[1].value).toBe("-7");
@@ -210,7 +222,7 @@ describe("StreamMultiChannelLog", () => {
       dataType: DataType.JSON,
     });
     c.streamHandler?.(new Map([[c.channelJSON.key, new MultiSeries([series])]]));
-    const entries = log.value();
+    const entries = log.value().data;
     expect(entries).toHaveLength(1);
     expect(entries[0].value).toBe('{"name":"Alice","value":30}');
   });
@@ -228,7 +240,7 @@ describe("StreamMultiChannelLog", () => {
     const seriesB = new Series({ data: new Float32Array([2]) });
     c.streamHandler?.(new Map([[c.channelB.key, new MultiSeries([seriesB])]]));
 
-    const entries = log.value();
+    const entries = log.value().data;
     expect(entries).toHaveLength(2);
     expect(entries[0].channelKey).toBe(c.channelA.key);
     expect(entries[1].channelKey).toBe(c.channelB.key);
@@ -268,9 +280,9 @@ describe("StreamMultiChannelLog", () => {
     await waitForResolve(log);
     const series = new Series({ data: new Float32Array([1, 2, 3]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(3);
+    expect(log.value().data).toHaveLength(3);
     log.cleanup();
-    expect(log.value()).toHaveLength(0);
+    expect(log.value().data).toHaveLength(0);
   });
 
   it("should cap entries at 100,000", async () => {
@@ -283,7 +295,7 @@ describe("StreamMultiChannelLog", () => {
     const bigData = new Float32Array(100_001).fill(1);
     const series = new Series({ data: bigData });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(100_000);
+    expect(log.value().data).toHaveLength(100_000);
   }, 30_000);
 
   it("should read entries from subsequent buffer allocations", async () => {
@@ -295,12 +307,12 @@ describe("StreamMultiChannelLog", () => {
     await waitForResolve(log);
     const series1 = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series1])]]));
-    expect(log.value()).toHaveLength(2);
+    expect(log.value().data).toHaveLength(2);
     const series2 = new Series({ data: new Float32Array([3, 4]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series2])]]));
-    expect(log.value()).toHaveLength(4);
-    expect(log.value()[2].value).toBe("3");
-    expect(log.value()[3].value).toBe("4");
+    expect(log.value().data).toHaveLength(4);
+    expect(log.value().data[2].value).toBe("3");
+    expect(log.value().data[3].value).toBe("4");
   });
 
   it("should read all entries when multiple buffers arrive in a single callback", async () => {
@@ -314,7 +326,7 @@ describe("StreamMultiChannelLog", () => {
     const series1 = new Series({ data: new Float32Array([1, 2, 3]) });
     const series2 = new Series({ data: new Float32Array([4, 5]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series1, series2])]]));
-    const entries = log.value();
+    const entries = log.value().data;
     expect(entries).toHaveLength(5);
     expect(entries.map((e) => e.value)).toEqual(["1", "2", "3", "4", "5"]);
   });
@@ -328,12 +340,12 @@ describe("StreamMultiChannelLog", () => {
     await waitForResolve(log);
     const series = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-    expect(log.value()).toHaveLength(2);
+    expect(log.value().data).toHaveLength(2);
     // Empty allocated — simulates the common case where the dynamic cache writes
     // new samples into the existing buffer in-place and returns no newly allocated
     // buffers. The cursor should not advance and no entries should be duplicated.
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([])]]));
-    expect(log.value()).toHaveLength(2);
+    expect(log.value().data).toHaveLength(2);
   });
 
   it("should garbage collect entries older than keepFor", async () => {
@@ -348,14 +360,14 @@ describe("StreamMultiChannelLog", () => {
 
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    expect(log.value()).toHaveLength(2);
+    expect(log.value().data).toHaveLength(2);
 
     // Advance time past keepFor — threshold becomes 2000 - 500 = 1500ms
     now = TimeStamp.milliseconds(2_000);
 
     const seriesB = new Series({ data: new Float32Array([3]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
-    const entries = log.value();
+    const entries = log.value().data;
     expect(entries).toHaveLength(1);
     expect(entries[0].value).toBe("3");
   });
@@ -372,7 +384,7 @@ describe("StreamMultiChannelLog", () => {
 
     const seriesA = new Series({ data: new Float32Array([1, 2]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesA])]]));
-    expect(log.value()).toHaveLength(2);
+    expect(log.value().data).toHaveLength(2);
 
     // Advance time so both existing entries are stale (threshold = 2000 - 500 = 1500ms)
     now = TimeStamp.milliseconds(2_000);
@@ -384,7 +396,7 @@ describe("StreamMultiChannelLog", () => {
     const seriesB = new Series({ data: new Float32Array([3, 4]) });
     c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([seriesB])]]));
     await expect.poll(() => handleChange.mock.calls.length > 0).toBe(true);
-    const entries = log.value();
+    const entries = log.value().data;
     expect(entries).toHaveLength(2);
     expect(entries.map((e) => e.value)).toEqual(["3", "4"]);
   });
@@ -457,7 +469,7 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       const series = new Series({ data: ["line1\nline2\n"] });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(3);
       expect(entries.map((e) => e.value)).toEqual(["line1", "line2", ""]);
       expect(entries.map((e) => e.continuation === true)).toEqual([false, true, true]);
@@ -479,7 +491,7 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       const series = new Series({ data: ["line1\r\nline2"] });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value().map((e) => e.value)).toEqual(["line1", "line2"]);
+      expect(log.value().data.map((e) => e.value)).toEqual(["line1", "line2"]);
     });
 
     it("should preserve consecutive newlines as blank entries", async () => {
@@ -495,7 +507,7 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       const series = new Series({ data: ["a\n\nb"] });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value().map((e) => e.value)).toEqual(["a", "", "b"]);
+      expect(log.value().data.map((e) => e.value)).toEqual(["a", "", "b"]);
     });
 
     it("should produce a single non-continuation entry for a string with no \\n", async () => {
@@ -511,7 +523,7 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       const series = new Series({ data: ["hello world", ""] });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(2);
       expect(entries[0].value).toBe("hello world");
       expect(entries[0].continuation === true).toBe(false);
@@ -530,7 +542,7 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       const series = new Series({ data: new Float32Array([1, 2, 3]) });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(3);
       expect(entries.map((e) => e.value)).toEqual(["1", "2", "3"]);
     });
@@ -548,7 +560,7 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       const series = new Series({ data: [{ msg: "hi\nthere" }] });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe(JSON.stringify({ msg: "hi\nthere" }));
     });
@@ -568,7 +580,7 @@ describe("StreamMultiChannelLog", () => {
         data: [{ user_id: 1, first_name: "alice" }],
       });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe('{"user_id":1,"first_name":"alice"}');
     });
@@ -586,7 +598,7 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       const series = new Series({ data: [""] });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe("");
       expect(entries[0].continuation === true).toBe(false);
@@ -609,7 +621,7 @@ describe("StreamMultiChannelLog", () => {
       new Uint8Array(buf).set(payload, 4);
       const series = new Series({ data: buf, dataType: DataType.BYTES });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe("line1\nline2");
       expect(entries[0].continuation === true).toBe(false);
@@ -630,7 +642,7 @@ describe("StreamMultiChannelLog", () => {
       const data = new Array(35).fill("a\nb\nc");
       const series = new Series({ data });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries.length).toBeGreaterThan(0);
       expect(entries[0].continuation === true).toBe(false);
     });
@@ -646,11 +658,11 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       const series = new Series({ data: new Float32Array([1, 2]) });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value()).toHaveLength(2);
+      expect(log.value().data).toHaveLength(2);
 
       log.setChannels([c.channelA.key]);
       expect(c.streamDestructorF).not.toHaveBeenCalled();
-      expect(log.value()).toHaveLength(2);
+      expect(log.value().data).toHaveLength(2);
     });
 
     it("should preserve entries for remaining channels when a channel is removed", async () => {
@@ -669,7 +681,7 @@ describe("StreamMultiChannelLog", () => {
           [c.channelB.key, new MultiSeries([seriesB])],
         ]),
       );
-      expect(log.value()).toHaveLength(3);
+      expect(log.value().data).toHaveLength(3);
 
       log.setChannels([c.channelA.key]);
       const entries = await waitForResolve(log);
@@ -693,7 +705,7 @@ describe("StreamMultiChannelLog", () => {
           [c.channelB.key, new MultiSeries([seriesB])],
         ]),
       );
-      expect(log.value()).toHaveLength(3);
+      expect(log.value().data).toHaveLength(3);
 
       log.setChannels([c.channelB.key]);
       const entries = await waitForResolve(log);
@@ -727,7 +739,7 @@ describe("StreamMultiChannelLog", () => {
 
       const series = new Series({ data: new Float32Array([1, 2, 3]) });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value()).toHaveLength(3);
+      expect(log.value().data).toHaveLength(3);
 
       // Add channel B — this restarts the stream. The mock's stream() will
       // call c.streamHandler again with an initial batch. Simulate the batch containing
@@ -739,7 +751,7 @@ describe("StreamMultiChannelLog", () => {
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
-      const entries = log.value();
+      const entries = log.value().data;
       const channelAEntries = entries.filter((e) => e.channelKey === c.channelA.key);
       expect(channelAEntries).toHaveLength(3);
     });
@@ -754,7 +766,7 @@ describe("StreamMultiChannelLog", () => {
 
       const series = new Series({ data: new Float32Array([1]) });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
-      expect(log.value()).toHaveLength(1);
+      expect(log.value().data).toHaveLength(1);
 
       // Add channel B. Simulate the initial batch delivering cached data for channel B
       // that was accumulated by another component — we should NOT dump it.
@@ -765,7 +777,7 @@ describe("StreamMultiChannelLog", () => {
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(1);
       expect(entries[0].channelKey).toBe(c.channelA.key);
     });
@@ -793,7 +805,7 @@ describe("StreamMultiChannelLog", () => {
       });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
-      expect(log.value()).toHaveLength(1); // only the original entry
+      expect(log.value().data).toHaveLength(1); // only the original entry
 
       const newA = new Series({ data: new Float32Array([2]) });
       const newB = new Series({ data: new Float32Array([20]) });
@@ -803,7 +815,7 @@ describe("StreamMultiChannelLog", () => {
           [c.channelB.key, new MultiSeries([newB])],
         ]),
       );
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(3);
       expect(entries[1].channelKey).toBe(c.channelA.key);
       expect(entries[1].value).toBe("2");
@@ -824,7 +836,7 @@ describe("StreamMultiChannelLog", () => {
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
 
-      const entries = log.value();
+      const entries = log.value().data;
       expect(entries).toHaveLength(2);
       expect(entries[0].value).toBe("10");
       expect(entries[1].value).toBe("20");
@@ -839,10 +851,10 @@ describe("StreamMultiChannelLog", () => {
         { channels: [1], timeSpan: TimeSpan.seconds(30) },
         { onStatusChange: (s) => statuses.push(s) },
       );
-      expect(log.value()).toHaveLength(0);
+      expect(log.value().data).toHaveLength(0);
       expect(statuses).toHaveLength(1);
       expect(statuses[0].variant).toEqual("warning");
-      expect(log.value()).toHaveLength(0);
+      expect(log.value().data).toHaveLength(0);
       expect(statuses).toHaveLength(1);
     });
   });

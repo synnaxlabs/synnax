@@ -26,9 +26,11 @@ import {
   box,
   location,
   scale,
+  staticWindow,
   TimeRange,
   TimeSpan,
   unique,
+  type Window,
   type xy,
 } from "@synnaxlabs/x";
 import { type ReactElement, type RefObject, useRef, useState } from "react";
@@ -194,27 +196,21 @@ const Internal = (): ReactElement => {
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
   const resolved = Range.useResolveMultiple(rangeKeys);
   const { custom } = ranges;
-  const m = new Map<string, Base.ResolvedRange>();
+  const windows = new Map<string, Window>();
   for (const r of resolved)
-    m.set(
+    windows.set(
       r.key,
       r.variant === "dynamic"
-        ? { variant: "dynamic", span: new TimeSpan(r.span) }
-        : { variant: "static", timeRange: new TimeRange(r.timeRange) },
+        ? { variant: "dynamic", timeSpan: r.span }
+        : staticWindow(new TimeRange(r.timeRange)),
     );
   if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
-    m.set(
+    windows.set(
       Range.CUSTOM_KEY,
       custom.variant === "dynamic"
-        ? { variant: "dynamic", span: new TimeSpan(custom.span) }
-        : {
-            variant: "static",
-            // BigInt, not the constructor: TimeStamp parses a bare string as a
-            // date-time, not a decimal int64.
-            timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
-          },
+        ? { variant: "dynamic", timeSpan: custom.span }
+        : { variant: "static", timeRange: { start: custom.start, end: custom.end } },
     );
-  const resolvedRanges = m;
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
   const hiddenLines = new Set(hiddenLineKeys);
@@ -295,7 +291,7 @@ const Internal = (): ReactElement => {
           aetherKey={key}
           editable={hasUpdatePermission}
           enableTriggers={hasUpdatePermission}
-          resolvedRanges={resolvedRanges}
+          windows={windows}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           measureMode={vis.measure.mode}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   bounds,
@@ -15,15 +15,17 @@ import {
   color,
   type CrudeTimeRange,
   DataType,
+  dynamicWindow,
   id,
   MultiSeries,
   scale,
   Series,
+  staticWindow,
   TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/test";
@@ -103,13 +105,19 @@ describe("line", () => {
           )
           .map((c) => [Number(c.args[1]), Number(c.args[2])]);
       const remove = () => h.deleteChild("line");
+      const line = h.child<Line>("line");
+      const update = (next: Partial<State>) =>
+        h.setChildState("line", Line.TYPE, { ...line.state, ...next });
+      const hide = () => update({ visible: false });
       return {
-        line: h.child<Line>("line"),
+        line,
         recorder,
         calls,
         draws,
         strips,
         remove,
+        update,
+        hide,
         xSource,
         ySource,
       };
@@ -127,17 +135,185 @@ describe("line", () => {
       const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
       m.line.render(props);
       m.line.findByXValue(props, 1);
-      const view = { view: { bounds: { lower: 100, upper: 300 }, width: 800 } };
-      values.forEach((value) => expect(value.mock.calls).toEqual([[view], [view]]));
+      const read = { bounds: { lower: 100, upper: 300 } };
+      values.forEach((value) => expect(value.mock.calls).toEqual([[read], [read]]));
+    });
+
+    describe("zoom settle", () => {
+      beforeEach(() => {
+        vi.useFakeTimers();
+      });
+
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      const showing = (lower: number, upper: number): LineProps => ({
+        ...PROPS,
+        dataToDecimalScale: new scale.XY(
+          scale.Scale.scale<number>(lower, upper).scale(0, 1),
+        ),
+      });
+
+      const mountSpied = (state: Partial<State> = {}) => {
+        const m = mount([X1], [Y1], state);
+        const value = vi.spyOn(m.ySource, "value");
+        const lastPoints = (): number | undefined =>
+          value.mock.calls.at(-1)?.[0]?.points;
+        return { ...m, lastPoints };
+      };
+
+      const settled = (state: Partial<State> = {}) => {
+        const m = mountSpied(state);
+        m.line.render(showing(100, 300));
+        vi.advanceTimersByTime(150);
+        m.line.render(showing(100, 300));
+        return m;
+      };
+
+      it("should give its sources points once a zoom holds", () => {
+        const m = mountSpied();
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(149);
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(1);
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should give its sources points for a pan at once", () => {
+        const m = settled();
+        m.line.render(showing(200, 400));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should wait again for a zoom to hold", () => {
+        const m = settled();
+        m.line.render(showing(100, 150));
+        expect(m.lastPoints()).toBeUndefined();
+        vi.advanceTimersByTime(150);
+        m.line.render(showing(100, 150));
+        expect(m.lastPoints()).toBe(800);
+      });
+
+      it("should size points by the y aggregation and groups per column", () => {
+        const m = mountSpied({ groupsPerColumn: 1 });
+        m.ySource.aggregation = "average";
+        m.line.render(showing(100, 300));
+        vi.advanceTimersByTime(150);
+        m.line.render(showing(100, 300));
+        expect(m.lastPoints()).toBe(800);
+        const coarse = settled({ groupsPerColumn: 1 / 4 });
+        expect(coarse.lastPoints()).toBe(400);
+      });
+
+      it("should stop its settle timer when deleted", () => {
+        const m = mountSpied();
+        m.line.render(showing(100, 300));
+        expect(vi.getTimerCount()).toBe(1);
+        m.remove();
+        expect(vi.getTimerCount()).toBe(0);
+      });
     });
 
     it("should read its bounds with the extremes of every sample kept", () => {
       const m = mount([X1], [Y1]);
       const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
-      expect(m.line.yBounds({ lower: 0, upper: 2 })).toEqual({ lower: 10, upper: 30 });
+      expect(m.line.yBounds({ lower: 0, upper: 2 })).toEqual({
+        bounds: { lower: 10, upper: 30 },
+        loading: false,
+      });
       values.forEach((value) =>
         expect(value.mock.calls).toEqual([[{ extremesKept: true }]]),
       );
+    });
+
+    it("should report its bounds as loading while a source they read loads", () => {
+      const m = mount([X1], [Y1]);
+      m.xSource.status = telem.LOADING_STATUS;
+      expect(m.line.xBounds().loading).toBe(true);
+      expect(m.line.yBounds({ lower: 0, upper: 2 }).loading).toBe(true);
+      expect(m.line.yBounds(bounds.INFINITE).loading).toBe(false);
+    });
+
+    describe("loading", () => {
+      it("should report loading while a source loads with no data", () => {
+        const m = mount([X1], []);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
+      it("should report fetching while a source loads and data draws", () => {
+        const m = mount([X1], [Y1]);
+        m.xSource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
+      });
+
+      it("should show no first-load message for a live window of a minute or less", () => {
+        const m = mount([X1], [], {
+          window: dynamicWindow(TimeSpan.minutes(1)),
+        });
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+
+      it("should show a first-load message for a longer live window", () => {
+        const m = mount([X1], [], {
+          window: dynamicWindow(TimeSpan.minutes(2)),
+        });
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect(m.line.loading).toBe(true);
+      });
+
+      it("should report fetching for a load after the first, with no data", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
+      });
+
+      it("should report loading for the first load of a new source", () => {
+        const m = mount([X1], []);
+        m.line.render(PROPS);
+        const y = createSource([]);
+        y.status = telem.LOADING_STATUS;
+        m.update({ y: sourceSpec(y) });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([true, false]);
+      });
+
+      it("should report neither once its sources leave loading", () => {
+        const m = mount([X1], []);
+        m.ySource.status = status.create({ variant: "error", message: "failed" });
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+
+      it("should report neither while hidden", () => {
+        const m = mount([X1], []);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        m.hide();
+        m.line.render(PROPS);
+        expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
+      });
+
+      it("should report the state of its last render without a read", () => {
+        const m = mount([X1], []);
+        m.ySource.status = telem.LOADING_STATUS;
+        m.line.render(PROPS);
+        const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
+        m.ySource.status = telem.SUCCESS_STATUS;
+        expect(m.line.loading).toBe(true);
+        values.forEach((value) => expect(value).not.toHaveBeenCalled());
+      });
     });
 
     describe("render", () => {
@@ -255,10 +431,14 @@ describe("line", () => {
           scale.Scale.scale<number>(lower, upper).scale(0, 1),
         ),
       });
+      // Series upload as static draws, and the stroke and bridge buffers as dynamic.
       const uploads = (m: ReturnType<typeof mount>): number[][] =>
         m.calls
-          .filter((c) => c.op === "bufferData" && c.args[1] instanceof ArrayBuffer)
-          .map((c) => Array.from(new Float32Array(c.args[1] as ArrayBuffer)));
+          .filter(
+            (c) =>
+              c.op === "bufferData" && c.args[2] === canvasTest.GL_ENUMS.STATIC_DRAW,
+          )
+          .map((c) => Array.from(c.args[1] as Float32Array));
       const deletes = (m: ReturnType<typeof mount>): number =>
         m.calls.filter((c) => c.op === "deleteBuffer").length;
 
@@ -346,7 +526,7 @@ describe("line", () => {
 
       it("should reduce by its y source's aggregation and groups per column", () => {
         const decimated = mount([ramp(N)], [waves(N)]);
-        decimated.ySource.aggregation = () => "decimate";
+        decimated.ySource.aggregation = "decimate";
         decimated.line.render(showing(0, N - 1));
         expect(decimated.strips()).toEqual([[0, N / 32]]);
         const fine = mount([ramp(N)], [waves(N)], { groupsPerColumn: 1 });
@@ -354,16 +534,19 @@ describe("line", () => {
         expect(fine.strips()).toEqual([[0, 2 * (N / 16)]]);
       });
 
-      it("should average by the data types its sources' channels store", () => {
-        const bits = series(
-          Array.from({ length: N }, (_, i) => i % 2),
-          0n,
-          RANGE,
-        );
-        const m = mount([ramp(N)], [bits]);
-        m.xSource.dataType = () => DataType.TIMESTAMP;
-        m.ySource.dataType = () => DataType.INT16;
-        m.ySource.aggregation = () => "average";
+      it("should round down the averages of integer series", () => {
+        const timeRange = new TimeRange(RANGE.start, RANGE.end);
+        const x = new Series({
+          data: new BigInt64Array(Array.from({ length: N }, (_, i) => BigInt(i))),
+          dataType: DataType.TIMESTAMP,
+          timeRange,
+        });
+        const bits = new Series({
+          data: new Int16Array(Array.from({ length: N }, (_, i) => i % 2)),
+          timeRange,
+        });
+        const m = mount([x], [bits]);
+        m.ySource.aggregation = "average";
         m.line.render(showing(0, N - 1));
         const [xs, ys] = uploads(m).slice(-2);
         expect(xs.slice(0, 2)).toEqual([15, 47]);
@@ -386,6 +569,15 @@ describe("line", () => {
       it("should return the sample under the target", () => {
         const m = mount([X], [Y]);
         expect(m.line.findByXValue(PROPS, 3).value).toEqual({ x: 3, y: 30 });
+      });
+
+      it("should return the exact value of a float64 sample", () => {
+        const y = new Series({
+          data: new Float64Array([0.1, 0.2, 0.3]),
+          timeRange: new TimeRange(0, 100),
+        });
+        const m = mount([X1], [y]);
+        expect(m.line.findByXValue(PROPS, 1).value).toEqual({ x: 1, y: 0.2 });
       });
 
       it("should return a NaN sample under the target", () => {
@@ -455,15 +647,21 @@ describe("line", () => {
     };
 
     const create = (props: Partial<telem.TiledChannelDataProps>) =>
-      new telem.TiledChannelData(client, props, undefined, undefined, TimeSpan.ZERO);
+      new telem.TiledChannelData(client, props);
 
     const createPair = (dataKey: channel.Key, home: TimeRange) => ({
-      x: create({ channel: dataKey, useIndexOfChannel: true, timeRange: home }),
-      y: create({ channel: dataKey, timeRange: home }),
+      x: create({
+        channel: dataKey,
+        useIndexOfChannel: true,
+        window: staticWindow(home),
+      }),
+      y: create({ channel: dataKey, window: staticWindow(home) }),
     });
 
     const settle = async (...sources: telem.TiledChannelData[]): Promise<void> =>
-      await expect.poll(() => sources.every((s) => !s.loading())).toBe(true);
+      await expect
+        .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
+        .toBe(true);
 
     const drawn = (x: MultiSeries, y: MultiSeries) =>
       buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
@@ -472,8 +670,8 @@ describe("line", () => {
       const { data, home } = await writeChannels();
       const { x, y } = createPair(data.key, home);
       await settle(x, y);
-      const [xBounds, xs] = x.value();
-      const [, ys] = y.value();
+      const [xBounds, xs] = x.value().data;
+      const [, ys] = y.value().data;
       expect(xBounds).toEqual(home.numericBounds);
       expect(xs.length).toBe(ys.length);
       expect(xs.length).toBeLessThan(COUNT);
@@ -483,18 +681,24 @@ describe("line", () => {
       expect(ys.series.every((s) => s.alignmentMultiple > 1n)).toBe(true);
       const ops = drawn(xs, ys);
       expect(ops.reduce((n, op) => n + op.count, 0)).toBe(ys.length);
-      expect(y.value()[0].upper).toBeCloseTo(1, 3);
-      expect(y.value()[0].lower).toBeCloseTo(-1, 3);
+      expect(y.value().data[0].upper).toBeCloseTo(1, 3);
+      expect(y.value().data[0].lower).toBeCloseTo(-1, 3);
       x.cleanup();
       y.cleanup();
     });
 
     it("should keep a spike that an average drops inside the line's bounds", async () => {
       const { data, home } = await writeChannels(COUNT / 2);
-      const y = create({ channel: data.key, timeRange: home, aggregation: "average" });
+      const y = create({
+        channel: data.key,
+        window: staticWindow(home),
+        aggregation: "average",
+      });
       await settle(y);
-      expect(y.value()[0].upper).toBeLessThan(SPIKE / 2);
-      await expect.poll(() => y.value({ extremesKept: true })[0].upper).toBe(SPIKE);
+      expect(y.value().data[0].upper).toBeLessThan(SPIKE / 2);
+      await expect
+        .poll(() => y.value({ extremesKept: true }).data[0].upper)
+        .toBe(SPIKE);
       y.cleanup();
     });
 
@@ -502,24 +706,29 @@ describe("line", () => {
       const { data, home } = await writeChannels();
       const { x, y } = createPair(data.key, home);
       await settle(x, y);
-      const homePoints = y.value()[1].length;
+      const homePoints = y.value().data[1].length;
       const start = Number(home.start.valueOf());
-      const v: telem.View = {
+      const v: telem.ValueProps = {
         bounds: {
           lower: start,
           upper: start + Number(TimeSpan.milliseconds(500).valueOf()),
         },
-        width: 1000,
+        points: 1000,
       };
-      x.value({ view: v });
-      y.value({ view: v });
+      x.value(v);
+      y.value(v);
       await expect
-        .poll(
-          () => !x.fetching() && !y.fetching() && y.value({ view: v })[1].length > 0,
-        )
+        .poll(() => {
+          const [xr, yr] = [x.value(v), y.value(v)];
+          return (
+            xr.status.variant !== "loading" &&
+            yr.status.variant !== "loading" &&
+            yr.data[1].length > 0
+          );
+        })
         .toBe(true);
-      const xs = x.value({ view: v })[1];
-      const ys = y.value({ view: v })[1];
+      const xs = x.value(v).data[1];
+      const ys = y.value(v).data[1];
       expect(ys.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
       expect(ys.length).toBeGreaterThanOrEqual(500);
       expect(ys.length).toBeLessThan(homePoints + 1024);
