@@ -60,6 +60,10 @@ interface Load {
   // repeated is true when the read returns samples that already counted as appended,
   // so they do not count again.
   repeated?: boolean;
+  // after starts the read after the samples held, since they already counted.
+  after?: TimeStamp;
+  // dropped is true when the stream dropped while the load ran.
+  dropped?: boolean;
 }
 
 /**
@@ -189,11 +193,12 @@ export class Latest {
     return at + span;
   }
 
-  // Reads the newest samples again, since frames may have dropped. The samples held
-  // stay until the read lands.
+  // Reads the samples written after the newest one held, since frames may have dropped.
+  // A drop while a load runs reads them once that load lands.
   private reload(): void {
     this.closeLeading();
-    this.restart(this.running?.mark ?? this.series.length);
+    if (this.running != null) this.running.dropped = true;
+    else this.restart(this.series.length, { after: this.time() });
     this.snapshot = null;
     this.notify();
   }
@@ -223,7 +228,7 @@ export class Latest {
   // mark is null.
   private restart(
     mark: number | null,
-    read: Pick<Load, "end" | "repeated"> = {},
+    read: Pick<Load, "end" | "repeated" | "after"> = {},
   ): void {
     this.running?.abort.abort();
     this.notifier.notify();
@@ -276,6 +281,11 @@ export class Latest {
             this.window == null ? TimeRange.MAX : resolveWindow(this.window, now());
           if (run.end != null)
             tr = new TimeRange(tr.start, TimeStamp.min(tr.end, run.end));
+          if (run.after != null)
+            tr = new TimeRange(
+              TimeStamp.min(TimeStamp.max(tr.start, run.after), tr.end),
+              tr.end,
+            );
           read = (await readLatest(this.key, this.count, tr)).series;
         }
         if (this.running !== run) return;
@@ -302,6 +312,7 @@ export class Latest {
   // The streamed samples count again as they land after the read.
   private land(read: Series[]): void {
     const repeated = this.running?.repeated ?? false;
+    const dropped = this.running?.dropped ?? false;
     this.landed = true;
     this.closeLeading();
     const streamed = this.series.splice(this.running?.mark ?? 0);
@@ -316,6 +327,7 @@ export class Latest {
     this.push(streamed);
     this.unserved = this.total;
     this.snapshot = null;
+    if (dropped) this.reload();
   }
 
   private push(series: Series[]): void {

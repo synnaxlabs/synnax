@@ -1074,6 +1074,37 @@ describe("Feed.subscribe", () => {
       }
     });
 
+    it("should count no streamed sample again after the stream reconnects", async () => {
+      const core = createCore();
+      const feed = core.openFeed(OPTIONS);
+      const key = core.index.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1000 },
+      });
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        core.advance(TimeSpan.milliseconds(500));
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        const { appended } = sub.value(key);
+        assert(appended != null);
+        core.disconnect();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("warning");
+        core.advance(TimeSpan.seconds(1));
+        core.reconnect();
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        expectComplete(timesOf(sub.value(key)));
+        expect(sub.value(key).appended).toBe(appended + 100);
+      } finally {
+        sub.close();
+        await feed.close();
+      }
+    });
+
     it("should read the newest samples again after the stream reconnects", async () => {
       const core = createCore();
       const feed = core.openFeed(OPTIONS);
