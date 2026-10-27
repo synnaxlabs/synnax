@@ -9,7 +9,7 @@
 
 [project]
 name = "synnax-freighter"
-version = "0.59.0"
+version = "0.60.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
 dependencies = [
@@ -27,6 +27,7 @@ dev = [
     "pytest>=9.1.1,<10",
     "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",
+    "pytest-timeout>=2.4.0,<3",
     "trustme>=1.2.1,<2",
 ]
 
@@ -70,6 +71,8 @@ init_typed = true
 warn_required_dynamic_aliases = true
 
 [tool.pytest.ini_options]
+strict = true
+timeout = 60
 markers = [
     "http: mark test as an http test",
     "sync: mark test as a sync test",

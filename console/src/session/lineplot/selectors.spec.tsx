@@ -23,15 +23,18 @@ import { assertDefined, createConsoleWrapper, uniqueName } from "@/testutil";
 
 const KEY = "plot-1";
 
-const customState = LinePlot.stateZ.parse({
-  control: { hold: true, enableTooltip: false, clickMode: "measure" },
-  toolbar: { activeTab: "annotations" },
+const ZERO = LinePlot.ZERO_STATE;
+
+const customState: LinePlot.State = {
+  ...ZERO,
+  control: { ...ZERO.control, hold: true, enableTooltip: false, clickMode: "measure" },
+  toolbar: { ...ZERO.toolbar, activeTab: "annotations" },
   mode: "pan",
-  measure: { mode: "two" },
-  annotations: { visible: false },
+  measure: { ...ZERO.measure, mode: "two" },
+  annotations: { ...ZERO.annotations, visible: false },
   selectedRules: ["r1", "r2"],
   hiddenLines: ["l1"],
-});
+};
 
 const storeWith = (slice: LinePlot.SliceState) =>
   createSliceStore({
@@ -97,7 +100,7 @@ describe("lineplot selector hooks", () => {
 describe("lineplot selector stability under dispatch", () => {
   it("should keep a stable reference when an unrelated field changes", () => {
     const store = createCustomStore();
-    const { result } = renderHook(() => LinePlot.useSelectToolbar(), {
+    const { result } = renderHook(() => LinePlot.useSelectControlState(), {
       wrapper: wrapperFor(store, KEY),
     });
     const first = result.current;
@@ -109,15 +112,15 @@ describe("lineplot selector stability under dispatch", () => {
 
   it("should return a new reference when the tracked field changes", () => {
     const store = createCustomStore();
-    const { result } = renderHook(() => LinePlot.useSelectToolbar(), {
+    const { result } = renderHook(() => LinePlot.useSelectControlState(), {
       wrapper: wrapperFor(store, KEY),
     });
     const first = result.current;
     act(() => {
-      store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "lines" }));
+      store.dispatch(LinePlot.setControlHold({ key: KEY, hold: false }));
     });
     expect(result.current).not.toBe(first);
-    expect(result.current.activeTab).toBe("lines");
+    expect(result.current.hold).toBe(false);
   });
 
   it("should re-point the selector when its key dependency changes", () => {
@@ -125,7 +128,7 @@ describe("lineplot selector stability under dispatch", () => {
       version: 0,
       windows: inWindow({
         [KEY]: customState,
-        "plot-2": LinePlot.stateZ.parse({ toolbar: { activeTab: "axes" } }),
+        "plot-2": { ...ZERO, toolbar: { ...ZERO.toolbar, activeTab: "axes" } },
       }),
     });
     const { result, rerender } = renderHook(
@@ -135,44 +138,6 @@ describe("lineplot selector stability under dispatch", () => {
     expect(result.current).toBe("annotations");
     rerender({ key: "plot-2" });
     expect(result.current).toBe("axes");
-  });
-});
-
-describe("lineplot getters", () => {
-  it("should read a plot's state on demand across dispatches", () => {
-    const store = storeWith(LinePlot.ZERO_SLICE_STATE);
-    const { result } = renderHook(() => LinePlot.useGet(), {
-      wrapper: wrapperFor(store, KEY),
-    });
-    const get = result.current;
-    expect(get()).toEqual(LinePlot.ZERO_STATE);
-    act(() => {
-      store.dispatch(LinePlot.create({ key: KEY }));
-      store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "lines" }));
-    });
-    expect(get().toolbar.activeTab).toBe("lines");
-  });
-
-  it("should reflect dispatches through an explicit key override", () => {
-    const store = storeWith(LinePlot.ZERO_SLICE_STATE);
-    const { result } = renderHook(() => LinePlot.useGetActiveToolbarTab(), {
-      wrapper: wrapperFor(store, "absent"),
-    });
-    const get = result.current;
-    expect(get({ key: KEY })).toBe("data");
-    act(() => {
-      store.dispatch(LinePlot.create({ key: KEY }));
-      store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "axes" }));
-    });
-    expect(get({ key: KEY })).toBe("axes");
-  });
-
-  it("should resolve the key from scope and allow an explicit override", () => {
-    const { result } = renderHook(() => LinePlot.useGetActiveToolbarTab(), {
-      wrapper: wrapperFor(createCustomStore(), "absent"),
-    });
-    expect(result.current()).toBe("data");
-    expect(result.current({ key: KEY })).toBe("annotations");
   });
 });
 

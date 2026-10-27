@@ -57,6 +57,9 @@ export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 
 export class ExpiredTokenError extends AuthError.sub("expired_token") {}
 
+/** SessionEndedError is raised when the session a stream or request used has ended. */
+export class SessionEndedError extends AuthError.sub("session_ended") {}
+
 /** Raised when the caller's policies do not permit the action. */
 export class AccessDeniedError extends AuthError.sub("access_denied") {
   toStatus() {
@@ -150,6 +153,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))
       return new ExpiredTokenError(payload.data);
+    if (payload.type.startsWith(SessionEndedError.TYPE))
+      return new SessionEndedError(payload.data);
     if (payload.type.startsWith(AccessDeniedError.TYPE))
       return new AccessDeniedError(payload.data);
     return new AuthError(payload.data);

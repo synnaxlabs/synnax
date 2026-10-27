@@ -16,6 +16,7 @@ import {
   TimeRange,
   ValidationError,
 } from "@synnaxlabs/client";
+import { SyntheticCore } from "@synnaxlabs/client/testutil";
 import {
   bounds,
   type breaker,
@@ -28,7 +29,16 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 
 import { createFactory, type CreateOptions } from "@/telem/aether/factory";
 import {
@@ -43,6 +53,7 @@ import {
 } from "@/telem/aether/remote";
 import { type Source, type ValueProps } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/test";
+import { line } from "@/vis/line/aether";
 
 const waitForResolve = async <T>(source: Source<T>): Promise<T> => {
   source.value();
@@ -1834,16 +1845,25 @@ describe("remote", () => {
         expect(c.reads.map((r) => r.end)).toEqual([openedAt]);
       });
 
-      it("should read the span between the back-fill and the first live series", async () => {
+      it("should read the seam up to where the later of the channel and index streams starts", async () => {
         const source = create({ window: dynamicWindow(SPAN) }, () => TimeStamp.now());
         await firstRead(source);
         expect(c.reads).toHaveLength(1);
-        const liveStart = c.reads[0].end.add(TimeSpan.milliseconds(200));
         const live = new Series({
           data: new Float32Array([1, 2]),
+          timeRange: new TimeRange(
+            c.reads[0].end.add(TimeSpan.milliseconds(100)),
+            TimeStamp.MAX,
+          ),
+        });
+        const liveStart = c.reads[0].end.add(TimeSpan.milliseconds(200));
+        const index = new Series({
+          data: new BigInt64Array([1n, 2n]),
+          dataType: DataType.TIMESTAMP,
           timeRange: new TimeRange(liveStart, TimeStamp.MAX),
         });
         c.streamHandler?.(new Map([[DATA_KEY, new MultiSeries([live])]]));
+        c.streamHandler?.(new Map([[INDEX_KEY, new MultiSeries([index])]]));
         // The seam read waits a second for its samples to commit.
         await sleep.sleep(TimeSpan.milliseconds(300));
         expect(c.reads).toHaveLength(1);
@@ -1893,6 +1913,172 @@ describe("remote", () => {
         release();
         source.cleanup();
       });
+    });
+
+    // A line pairs x and y by alignment, and the Core streams a sample with an
+    // alignment that never pairs with the one it reads back.
+    describe("live line", () => {
+      const START = TimeStamp.seconds(100);
+      const PERIOD = TimeSpan.milliseconds(100);
+      let core: SyntheticCore;
+      let client: ReturnType<typeof telemTest.createClient>;
+      beforeEach(() => {
+        core = new SyntheticCore({
+          rate: 10,
+          start: START,
+          now: START.add(TimeSpan.seconds(1)),
+        });
+        client = telemTest.createClient(core);
+      });
+      afterEach(async () => await client.feed.close());
+
+      // stream subscribes to the channel as another view of it would, then streams the
+      // given number of its samples.
+      const stream = async (
+        key: channel.Key,
+        count: number,
+      ): Promise<framer.Subscription> => {
+        let streaming = false;
+        const sub = client.feed.stream(
+          (res) => {
+            if ((res.get(key)?.length ?? 0) > 0) streaming = true;
+          },
+          [key],
+        );
+        // The feed opens its stream after a debounce, and drops samples written before.
+        await expect
+          .poll(() => {
+            core.advance(PERIOD);
+            return streaming;
+          })
+          .toBe(true);
+        for (let i = 0; i < count; i++) {
+          core.advance(PERIOD);
+          await sleep.sleep(TimeSpan.ZERO);
+        }
+        return sub;
+      };
+
+      // createLine opens the x and y sources of a live line of the data channel as a
+      // line plot does, with the index as the line's X channel or with no X channel.
+      const createLine = (
+        timeSpan: TimeSpan,
+        indexAsX: boolean,
+      ): [TiledChannelData, TiledChannelData] => {
+        const yChannel = core.data[0].key;
+        const xChannel = indexAsX ? core.index.key : 0;
+        const create = (props: Partial<TiledChannelDataProps>): TiledChannelData =>
+          new TiledChannelData(
+            client,
+            {
+              channel: yChannel,
+              window: dynamicWindow(timeSpan),
+              xChannel,
+              yChannel,
+              ...props,
+            },
+            undefined,
+            core.now,
+          );
+        const x = create(
+          indexAsX ? { channel: xChannel } : { useIndexOfChannel: true },
+        );
+        return [x, create({})];
+      };
+
+      const sample = (t: TimeStamp): number =>
+        Math.round(t.span(START).seconds / PERIOD.seconds);
+
+      const samples = (from: number, to: number): number[] =>
+        Array.from({ length: to - from }, (_, i) => from + i);
+
+      // drawn returns the index of every sample a line of x and y draws, in order.
+      const drawn = (
+        x: TiledChannelData,
+        y: TiledChannelData,
+        shown?: ValueProps,
+      ): number[] =>
+        line
+          .buildDrawOperations(
+            x.value(shown).data[1],
+            y.value(shown).data[1],
+            line.DEFAULT_OVERLAP_THRESHOLD,
+          )
+          .flatMap((op) =>
+            Array.from({ length: op.count }, (_, i) => {
+              const t = op.x.at(op.xOffset + i, true);
+              assert(typeof t === "bigint");
+              return sample(new TimeStamp(t));
+            }),
+          )
+          .sort((a, b) => a - b);
+
+      const STREAMING = [
+        { streaming: "index", channels: () => [core.index.key], indexAsX: false },
+        {
+          streaming: "data channel",
+          channels: () => [core.data[0].key],
+          indexAsX: false,
+        },
+        {
+          streaming: "index and then its data channel",
+          channels: () => [core.index.key, core.data[0].key],
+          indexAsX: false,
+        },
+        {
+          streaming: "index, its X channel,",
+          channels: () => [core.index.key],
+          indexAsX: true,
+        },
+      ];
+
+      it.each(STREAMING)(
+        "should draw every sample of a line added while its $streaming streams",
+        async ({ channels, indexAsX }) => {
+          const subs: framer.Subscription[] = [];
+          for (const key of channels()) subs.push(await stream(key, 20));
+          const [x, y] = createLine(TimeSpan.seconds(30), indexAsX);
+          await expect.poll(() => drawn(x, y)).toEqual(samples(0, sample(core.now())));
+          x.cleanup();
+          y.cleanup();
+          subs.forEach((s) => s.close());
+        },
+      );
+
+      // A paused view stays put while the line moves on, so it soon draws from tiles.
+      it.each(STREAMING)(
+        "should keep every sample of a paused line added while its $streaming streams",
+        async ({ channels, indexAsX }) => {
+          const subs: framer.Subscription[] = [];
+          for (const key of channels()) subs.push(await stream(key, 200));
+          const span = TimeSpan.seconds(2);
+          const [x, y] = createLine(span, indexAsX);
+          const end = core.now();
+          const [from, to] = [sample(end.sub(span)), sample(end)];
+          await expect
+            .poll(() => drawn(x, y))
+            .toEqual(expect.arrayContaining(samples(from, to)));
+          const paused: ValueProps = {
+            bounds: {
+              lower: Number(end.sub(span).valueOf()),
+              upper: Number(end.valueOf()),
+            },
+            points: 2000,
+          };
+          for (let i = 0; i < 10; i++) {
+            core.advance(TimeSpan.seconds(1));
+            x.value(paused);
+            y.value(paused);
+            await sleep.sleep(TimeSpan.milliseconds(20));
+          }
+          await expect
+            .poll(() => drawn(x, y, paused).filter((i) => i >= from && i < to))
+            .toEqual(samples(from, to));
+          x.cleanup();
+          y.cleanup();
+          subs.forEach((s) => s.close());
+        },
+      );
     });
   });
 
