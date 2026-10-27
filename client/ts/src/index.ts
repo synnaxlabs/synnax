@@ -43,6 +43,7 @@ export {
   QueryError,
   RouteError,
   UnexpectedError,
+  UnsupportedError,
   ValidationError,
 } from "@/errors";
 export { ethercat } from "@/ethercat";
