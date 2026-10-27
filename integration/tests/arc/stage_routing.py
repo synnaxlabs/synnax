@@ -17,7 +17,7 @@ from tests.arc.arc import ArcCase
 
 ARC_STAGE_ROUTING = """
 
-func decide_stage{low f64, high f64} (value f64) (vent u8, press u8, abort u8) {
+func decide_stage(low f64, high f64) {value f64} (vent u8, press u8, abort u8) {
     if (value < low) {
         vent = 1
     } else if (value <= high) {
@@ -27,7 +27,7 @@ func decide_stage{low f64, high f64} (value f64) (vent u8, press u8, abort u8) {
     }
 }
 
-func multi_route{} (value f64) (first u8, second u8, third u8, fourth u8) {
+func multi_route() {value f64} (first u8, second u8, third u8, fourth u8) {
     if (value > 50.0) {
         first = 1
         third = 1
@@ -42,7 +42,7 @@ start_stage_routing_cmd => main
 sequence main {
     stage select_hold {
         "select_hold" -> routing_stage_log
-        routing_flag -> select{} -> {
+        routing_flag -> select() -> {
             true: true => select_on,
             false: true => select_off
         }
@@ -58,7 +58,7 @@ sequence main {
 
     stage decide_stage_hold {
         "decide_stage_hold" -> routing_stage_log
-        routing_sensor -> decide_stage{low=30.0, high=80.0} -> {
+        routing_sensor -> decide_stage(low=30.0, high=80.0) -> {
             vent: true => decide_stage_vent,
             press: true => decide_stage_press,
             abort: true => decide_stage_abort
@@ -79,7 +79,7 @@ sequence main {
 
     stage chain_body_hold {
         "chain_body_hold" -> routing_stage_log
-        routing_flag -> select{} -> {
+        routing_flag -> select() -> {
             true: "chain_true" -> routing_stage_log,
             false: "chain_false" -> routing_stage_log
         }
@@ -88,7 +88,7 @@ sequence main {
 
     stage arrow_body_hold {
         "arrow_body_hold" -> routing_stage_log
-        routing_flag -> select{} -> {
+        routing_flag -> select() -> {
             true: true => arrow_on,
             false: true => arrow_off
         }
@@ -104,7 +104,7 @@ sequence main {
 
     stage multi_hold {
         "multi_hold" -> routing_stage_log
-        routing_sensor -> multi_route{} -> {
+        routing_sensor -> multi_route() -> {
             first: "multi_1" -> routing_multi_log_1,
             second: "multi_2" -> routing_multi_log_2,
             third: "multi_3" -> routing_multi_log_3,
@@ -123,7 +123,7 @@ sequence main {
 class StageRouting(ArcCase):
     """Test routing table with stage targets (SY-4045, SY-4460).
 
-    Exercises both select{} and a custom multi-output function routing tables
+    Exercises both select() and a custom multi-output function routing tables
     targeting stages within the same sequence.
     Phase 1 uses select to route based on a boolean flag.
     Phase 2 uses decide_stage to route to vent/press/abort based on sensor thresholds.

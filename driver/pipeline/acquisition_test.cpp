@@ -16,7 +16,7 @@
 
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::pipeline {
 class MockSource final : public Source {
@@ -90,7 +90,7 @@ x::breaker::Config fast_breaker(const int max_retries) {
 /// first frame written.
 TEST(AcquisitionPipeline, ResolvesStartFromFirstFrame) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     auto start_ts = x::telem::TimeStamp::now();
     const auto source = std::make_shared<MockSource>(start_ts);
     synnax::framer::WriterConfig writer_config{.channels = {1}};
@@ -110,7 +110,7 @@ TEST(AcquisitionPipeline, ResolvesStartFromFirstFrame) {
 /// occurs.
 TEST(AcquisitionPipeline, RetriesWriterOpenOnUnreachable) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(
         writes,
         std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, x::errors::NIL}
     );
@@ -134,7 +134,7 @@ TEST(AcquisitionPipeline, RetriesWriterOpenOnUnreachable) {
 /// @brief it should not retry when a non-unreachable error occurs.
 TEST(AcquisitionPipeline, DoesNotRetryWriterOpenOnUnauthorized) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(
         writes,
         std::vector{x::errors::Error(x::errors::UNAUTHORIZED), x::errors::NIL}
     );
@@ -159,7 +159,7 @@ TEST(AcquisitionPipeline, DoesNotRetryWriterOpenOnUnauthorized) {
 /// error is unreachable.
 TEST(AcquisitionPipeline, ReopensWriterOnUnreachableWrite) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(
         writes,
         std::vector<x::errors::Error>{},
         std::vector{freighter::UNREACHABLE},
@@ -186,7 +186,7 @@ TEST(AcquisitionPipeline, ReopensWriterOnUnreachableWrite) {
 /// error is not unreachable.
 TEST(AcquisitionPipeline, DoesNotReopenWriterOnUnauthorizedWrite) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(
         writes,
         std::vector<x::errors::Error>{},
         std::vector{x::errors::Error(x::errors::UNAUTHORIZED)},
@@ -213,7 +213,7 @@ TEST(AcquisitionPipeline, DoesNotReopenWriterOnUnauthorizedWrite) {
 /// @brief it should not restart the pipeline if it has already been started.
 TEST(AcquisitionPipeline, DoesNotRestartStartedPipeline) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = Acquisition(
         mock_factory,
@@ -230,7 +230,7 @@ TEST(AcquisitionPipeline, DoesNotRestartStartedPipeline) {
 /// @brief it should not stop the pipeline if it has already been stopped.
 TEST(AcquisitionPipeline, DoesNotStopStoppedPipeline) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = Acquisition(
         mock_factory,
@@ -248,7 +248,7 @@ TEST(AcquisitionPipeline, DoesNotStopStoppedPipeline) {
 /// and communicate the error back to the source.
 TEST(AcquisitionPipeline, StopsAndReportsCriticalReadError) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     auto critical_error = x::errors::Error(errors::CRITICAL_HARDWARE_ERROR);
     const auto source = std::make_shared<MockSource>(
         x::telem::TimeStamp::now(),
@@ -272,7 +272,7 @@ TEST(AcquisitionPipeline, StopsAndReportsCriticalReadError) {
 /// source recovers.
 TEST(AcquisitionPipeline, ResumesAfterTemporaryReadError) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<ScriptedSource>(
         std::vector{TEMPORARY, TEMPORARY}
     );
@@ -292,7 +292,7 @@ TEST(AcquisitionPipeline, ResumesAfterTemporaryReadError) {
 /// separate outages do not add up to the retry limit.
 TEST(AcquisitionPipeline, EmptyReadResetsRetries) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<ScriptedSource>(
         std::vector{TEMPORARY, x::errors::NIL, TEMPORARY, x::errors::NIL}
     );
@@ -311,7 +311,7 @@ TEST(AcquisitionPipeline, EmptyReadResetsRetries) {
 /// @brief it should not stop the pipeline if it was never started.
 TEST(AcquisitionPipeline, DoesNotStopUnstartedPipeline) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = Acquisition(
         mock_factory,
@@ -387,7 +387,7 @@ public:
 /// @brief it should resolve the minimum timestamp when multiple timestamp series exist
 TEST(AcquisitionPipeline, ResolvesStartFromMinimumTimestamp) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     auto ts1 = x::telem::TimeStamp(1000000000);
     auto ts2 = x::telem::TimeStamp(2000000000);
@@ -414,7 +414,7 @@ TEST(AcquisitionPipeline, ResolvesStartFromMinimumTimestamp) {
 /// @brief it should fall back to now() when no timestamp series exist
 TEST(AcquisitionPipeline, ResolvesStartToNowWithoutTimestamps) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     auto before = x::telem::TimeStamp::now();
     const auto source = std::make_shared<NonTimestampSource>();
@@ -461,7 +461,7 @@ public:
 /// NOMINAL_SHUTDOWN_ERROR, as this represents a clean shutdown, not a failure.
 TEST(AcquisitionPipeline, NominalShutdownDoesNotReportError) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<NominalShutdownSource>();
     auto pipeline = Acquisition(
         mock_factory,
@@ -478,7 +478,7 @@ TEST(AcquisitionPipeline, NominalShutdownDoesNotReportError) {
 /// @brief it should ignore empty timestamp series and fall back to now()
 TEST(AcquisitionPipeline, ResolvesStartIgnoringEmptyTimestamps) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     auto before = x::telem::TimeStamp::now();
     const auto source = std::make_shared<EmptyTimestampSource>();
@@ -529,7 +529,7 @@ public:
 /// @brief it should forward authority changes from Source to Writer
 TEST(AcquisitionPipeline, ForwardsAuthorityChanges) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     Authorities auth{
         .keys = {1, 2},
@@ -590,7 +590,7 @@ public:
 /// @brief it should forward multiple sequential authority changes across reads.
 TEST(AcquisitionPipeline, ForwardsSequentialAuthorityChanges) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     std::vector<Authorities> changes = {
         {.keys = {1}, .authorities = {100}},
@@ -624,7 +624,7 @@ TEST(AcquisitionPipeline, ForwardsSequentialAuthorityChanges) {
 /// @brief it should forward global authority changes (empty keys) correctly.
 TEST(AcquisitionPipeline, ForwardsGlobalAuthorityChanges) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     Authorities auth{
         .keys = {},
@@ -656,7 +656,7 @@ TEST(AcquisitionPipeline, ForwardsGlobalAuthorityChanges) {
 /// triggers the writer to open.
 TEST(AcquisitionPipeline, ForwardsAuthorityOnFirstFrame) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     Authorities auth{
         .keys = {42},
@@ -718,7 +718,7 @@ public:
 /// @brief it should forward authority changes even when the frame is empty.
 TEST(AcquisitionPipeline, ForwardsAuthorityWithEmptyFrame) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     Authorities auth{
         .keys = {10},
@@ -780,7 +780,7 @@ public:
 /// and apply them once the first frame opens the writer.
 TEST(AcquisitionPipeline, BuffersAuthorityUntilWriterOpens) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     std::vector<Authorities> pre_auths = {
         {.keys = {1}, .authorities = {100}},
@@ -811,7 +811,7 @@ TEST(AcquisitionPipeline, BuffersAuthorityUntilWriterOpens) {
 /// opens, keeping only the last value for each channel.
 TEST(AcquisitionPipeline, DedupesBufferedChannelAuthority) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     std::vector<Authorities> pre_auths = {
         {.keys = {1, 2}, .authorities = {100, 200}},
@@ -847,7 +847,7 @@ TEST(AcquisitionPipeline, DedupesBufferedChannelAuthority) {
 /// new authority level.
 TEST(AcquisitionPipeline, SetsAuthorityBeforeWrite) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     Authorities auth{
         .keys = {1},
@@ -875,10 +875,11 @@ TEST(AcquisitionPipeline, SetsAuthorityBeforeWrite) {
     size_t first_set_auth = SIZE_MAX;
     size_t first_write = SIZE_MAX;
     for (size_t i = 0; i < mock_factory->ops->size(); i++) {
-        if (mock_factory->ops->at(i) == mock::OpType::SetAuthority &&
+        if (mock_factory->ops->at(i) == testutil::OpType::SetAuthority &&
             first_set_auth == SIZE_MAX)
             first_set_auth = i;
-        if (mock_factory->ops->at(i) == mock::OpType::Write && first_write == SIZE_MAX)
+        if (mock_factory->ops->at(i) == testutil::OpType::Write &&
+            first_write == SIZE_MAX)
             first_write = i;
     }
     ASSERT_NE(first_set_auth, SIZE_MAX);
@@ -892,7 +893,7 @@ TEST(AcquisitionPipeline, SetsAuthorityBeforeWrite) {
 /// explicit value is provided (the default for hardware acquisition tasks).
 TEST(AcquisitionPipeline, ErrOnUnauthorizedDefaultsToTrue) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipe = Acquisition(
         mock_factory,
@@ -911,7 +912,7 @@ TEST(AcquisitionPipeline, ErrOnUnauthorizedDefaultsToTrue) {
 /// need authority handoff).
 TEST(AcquisitionPipeline, ErrOnUnauthorizedCanBeDisabled) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipe = Acquisition(
         mock_factory,
@@ -950,7 +951,7 @@ public:
 /// first frame arrives, using the pre-configured start timestamp.
 TEST(AcquisitionPipeline, EagerOpenOpensWriterBeforeFirstFrame) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<NeverProducesSource>();
     auto configured_start = x::telem::TimeStamp(5000000000);
     auto pipe = Acquisition(
@@ -975,7 +976,7 @@ TEST(AcquisitionPipeline, EagerOpenOpensWriterBeforeFirstFrame) {
 /// the previous writer's committed data range.
 TEST(AcquisitionPipeline, RestartUsesFreshStartTimestamp) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipe = Acquisition(
         mock_factory,
@@ -1005,7 +1006,7 @@ TEST(AcquisitionPipeline, RestartUsesFreshStartTimestamp) {
 /// source only produces empty frames.
 TEST(AcquisitionPipeline, LazyOpenSkipsWriterOnEmptyFrames) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<NeverProducesSource>();
     auto pipe = Acquisition(
         mock_factory,
@@ -1023,7 +1024,7 @@ TEST(AcquisitionPipeline, LazyOpenSkipsWriterOnEmptyFrames) {
 /// any previously buffered per-channel changes.
 TEST(AcquisitionPipeline, BufferedGlobalAuthorityClearsChannels) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     std::vector<Authorities> pre_auths = {
         {.keys = {1, 2}, .authorities = {100, 200}},
@@ -1055,7 +1056,7 @@ TEST(AcquisitionPipeline, BufferedGlobalAuthorityClearsChannels) {
 /// @brief it should stop the pipeline when the source returns invalid authorities.
 TEST(AcquisitionPipeline, InvalidAuthoritiesStopPipeline) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
 
     Authorities invalid_auth{
         .keys = {1, 2, 3},

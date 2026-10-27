@@ -103,6 +103,7 @@ export default defineConfig({
     "/reference/console/requirements": "/reference/enterprise/requirements",
     "/reference/console/channels": "/reference/channels",
     "/reference/console/calculated-channels": "/reference/channels/calculated",
+    "/reference/desktop/usage-data": "/privacy-policy#desktop-usage-data",
     "/reference/console/ranges": "/reference/ranges/find",
     "/reference/console/workspaces": "/reference/visualize/projects",
     "/reference/control/arc/concepts": "/reference/control/arc/execution-model",
