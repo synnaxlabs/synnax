@@ -13,7 +13,7 @@
 
 #include <utility>
 
-#include "client/cpp/device/types.gen.h"
+#include "client/cpp/device/json.gen.h"
 #include "x/cpp/filter/builder.h"
 
 namespace synnax::device {

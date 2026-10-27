@@ -13,7 +13,7 @@
 
 #include <utility>
 
-#include "client/cpp/ranger/types.gen.h"
+#include "client/cpp/ranger/json.gen.h"
 #include "x/cpp/filter/builder.h"
 
 namespace synnax::ranger {

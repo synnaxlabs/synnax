@@ -13,7 +13,7 @@
 
 #include <utility>
 
-#include "client/cpp/rack/types.gen.h"
+#include "client/cpp/rack/json.gen.h"
 #include "x/cpp/filter/builder.h"
 
 namespace synnax::rack {

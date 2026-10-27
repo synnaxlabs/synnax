@@ -52,7 +52,7 @@ func (p *Plugin) Name() string { return "cpp/builder" }
 func (p *Plugin) Domains() []string { return []string{"cpp"} }
 
 // Requires returns plugin dependencies.
-func (p *Plugin) Requires() []string { return []string{"cpp/types"} }
+func (p *Plugin) Requires() []string { return []string{"cpp/types", "cpp/json"} }
 
 // Generate emits a builder.gen.h next to each filter definition with a C++ output. A
 // filter in a version file gets none.
@@ -91,7 +91,8 @@ var lines = map[string]string{
 }
 
 type templateData struct {
-	// Include is the path of the header that declares the filter.
+	// Include is the path of the JSON codec of the filter, which conditions use to
+	// describe themselves in errors.
 	Include   string
 	Namespace string
 	// Where is the C++ name of the filter.
@@ -130,7 +131,7 @@ func generateFile(
 		)
 	}
 	data := templateData{
-		Include:   outputPath + "/types.gen.h",
+		Include:   outputPath + "/json.gen.h",
 		Namespace: naming.Namespace(outputPath),
 		Where:     domain.GetName(where, "cpp"),
 	}

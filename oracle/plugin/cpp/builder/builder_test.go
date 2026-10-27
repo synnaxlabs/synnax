@@ -47,8 +47,8 @@ var _ = Describe("C++ Builder Plugin", func() {
 			Expect(p.Domains()).To(Equal([]string{"cpp"}))
 		})
 
-		It("Should require cpp/types", func() {
-			Expect(p.Requires()).To(Equal([]string{"cpp/types"}))
+		It("Should require cpp/types and cpp/json", func() {
+			Expect(p.Requires()).To(Equal([]string{"cpp/types", "cpp/json"}))
 		})
 	})
 
@@ -82,7 +82,7 @@ var _ = Describe("C++ Builder Plugin", func() {
 				}
 			`, "thing", loader, p)
 			ExpectContent(resp, "builder.gen.h").ToContain(
-				`#include "client/cpp/thing/types.gen.h"`,
+				`#include "client/cpp/thing/json.gen.h"`,
 				`#include "x/cpp/filter/builder.h"`,
 				"namespace synnax::thing {",
 				"using Condition = x::filter::Condition<Where>;",

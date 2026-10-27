@@ -33,7 +33,10 @@ struct Where {
     std::optional<std::int64_t> window;
 
     [[nodiscard]] x::json::json to_json() const {
-        return x::json::json{{"key", this->key.value().eq.value()}};
+        return x::json::json{
+            {"key", {{"eq", this->key.value().eq.value()}, {"in", nullptr}}},
+            {"name", nullptr},
+        };
     }
 };
 
@@ -96,7 +99,10 @@ TEST(FilterBuilder, OrderedLine) {
 /// @brief it should build each operator of a string line.
 TEST(FilterBuilder, StringLine) {
     EXPECT_EQ(name.eq("a").tree.name.value().eq.value(), "a");
-    EXPECT_EQ(name.in({"a"}).tree.name.value().in.value(), std::vector<std::string>{"a"});
+    EXPECT_EQ(
+        name.in({"a"}).tree.name.value().in.value(),
+        std::vector<std::string>{"a"}
+    );
     EXPECT_EQ(name.contains("a").tree.name.value().contains.value(), "a");
     EXPECT_EQ(name.starts_with("a").tree.name.value().starts_with.value(), "a");
     EXPECT_EQ(name.regex("^a").tree.name.value().regex.value(), "^a");
@@ -111,7 +117,10 @@ TEST(FilterBuilder, StringLineCaseInsensitive) {
 
 /// @brief it should build a condition on a contains line.
 TEST(FilterBuilder, ContainsLine) {
-    EXPECT_EQ(tags.has("a").tree.tags.value().any.value(), std::vector<std::string>{"a"});
+    EXPECT_EQ(
+        tags.has("a").tree.tags.value().any.value(),
+        std::vector<std::string>{"a"}
+    );
     const auto any = tags.has_any({"a", "b"});
     EXPECT_EQ(any.tree.tags.value().any.value(), (std::vector<std::string>{"a", "b"}));
 }
@@ -230,10 +239,11 @@ TEST(FilterBuilder, Includes) {
     static_assert(!x::filter::includes<RetrieveRequest, x::filter::Limit>);
 }
 
-/// @brief it should describe the filter of a request for error messages.
+/// @brief it should describe the filter of a request without null fields, for error
+/// messages.
 TEST(FilterBuilder, Describe) {
     EXPECT_EQ(x::filter::describe(std::optional<Where>{}), "any filter");
     const auto req = x::filter::request<Where, RetrieveRequest>(key.eq(7));
-    EXPECT_EQ(x::filter::describe(req.where), R"(filter {"key":7})");
+    EXPECT_EQ(x::filter::describe(req.where), R"(filter {"key":{"eq":7}})");
 }
 }

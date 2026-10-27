@@ -13,7 +13,7 @@
 
 #include <utility>
 
-#include "client/cpp/channel/types.gen.h"
+#include "client/cpp/channel/json.gen.h"
 #include "x/cpp/filter/builder.h"
 
 namespace synnax::channel {

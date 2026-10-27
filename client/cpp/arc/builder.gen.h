@@ -13,7 +13,7 @@
 
 #include <utility>
 
-#include "client/cpp/arc/types.gen.h"
+#include "client/cpp/arc/json.gen.h"
 #include "x/cpp/filter/builder.h"
 
 namespace synnax::arc {

@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "x/cpp/filter/types.gen.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 
 namespace x::filter {
@@ -172,7 +173,8 @@ struct OrderedLine {
 template<auto Field>
 struct StringLine {
     /// @brief matches a value equal to value.
-    [[nodiscard]] auto eq(const std::string &value, const StringOptions options = {}) const {
+    [[nodiscard]] auto
+    eq(const std::string &value, const StringOptions options = {}) const {
         return details::make<Field>({
             .eq = value,
             .case_insensitive = options.case_insensitive,
@@ -220,8 +222,8 @@ struct StringLine {
 template<auto Field>
 struct ContainsLine {
     /// @brief value_type is the type of the elements of the line's arrays.
-    using value_type =
-        decltype(details::operand_of<Field>::any)::value_type::value_type;
+    using value_type = decltype(details::operand_of<
+                                Field>::any)::value_type::value_type;
 
     /// @brief matches an array that holds value.
     [[nodiscard]] auto has(value_type value) const {
@@ -238,7 +240,9 @@ struct ContainsLine {
 template<auto Field>
 struct FlagLine {
     /// @brief matches the records that the line holds for value.
-    [[nodiscard]] auto eq(const bool value) const { return details::make<Field>(value); }
+    [[nodiscard]] auto eq(const bool value) const {
+        return details::make<Field>(value);
+    }
 };
 
 /// @brief ListLine is a typed line of a list type, whose values go on the line.
@@ -325,7 +329,8 @@ template<typename P, typename R>
 constexpr bool is_include = false;
 
 template<auto Field, typename R>
-constexpr bool is_include<Include<Field>, R> = std::is_same_v<decltype(Field), bool R::*>;
+constexpr bool
+    is_include<Include<Field>, R> = std::is_same_v<decltype(Field), bool R::*>;
 
 template<typename P, typename W, typename R>
 constexpr bool is_part = std::is_same_v<P, Condition<W>> || std::is_same_v<P, Limit> ||
@@ -333,9 +338,8 @@ constexpr bool is_part = std::is_same_v<P, Condition<W>> || std::is_same_v<P, Li
                          std::is_same_v<P, One> || is_include<P, R>;
 
 template<typename W, typename... Parts>
-constexpr bool unique = ((std::is_same_v<Parts, Condition<W>> ||
-                          count<Parts, Parts...> == 1) &&
-                         ...);
+constexpr bool unique =
+    ((std::is_same_v<Parts, Condition<W>> || count<Parts, Parts...> == 1) && ...);
 
 template<typename... Parts>
 constexpr bool one_last = [] {
@@ -398,10 +402,26 @@ template<typename W, typename R, typename... Parts>
     return req;
 }
 
+namespace details {
+inline void drop_nulls(x::json::json &j) {
+    if (j.is_array())
+        for (auto &e: j)
+            drop_nulls(e);
+    if (!j.is_object()) return;
+    for (auto it = j.begin(); it != j.end();)
+        if (it->is_null())
+            it = j.erase(it);
+        else
+            drop_nulls(*it++);
+}
+}
+
 /// @returns a description of the records that where selects, for error messages.
 template<typename W>
 [[nodiscard]] std::string describe(const std::optional<W> &where) {
     if (!where.has_value()) return "any filter";
-    return "filter " + where->to_json().dump();
+    auto j = where->to_json();
+    details::drop_nulls(j);
+    return "filter " + j.dump();
 }
 }
