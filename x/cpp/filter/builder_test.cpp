@@ -33,10 +33,13 @@ struct Where {
     std::optional<std::int64_t> window;
 
     [[nodiscard]] x::json::json to_json() const {
-        return x::json::json{
-            {"key", {{"eq", this->key.value().eq.value()}, {"in", nullptr}}},
-            {"name", nullptr},
-        };
+        x::json::json j{{"name", nullptr}};
+        if (this->key.has_value())
+            j["key"] = {{"eq", this->key.value().eq.value()}, {"in", nullptr}};
+        if (this->and_.has_value())
+            for (const auto &w: *this->and_)
+                j["and"].push_back(w.to_json());
+        return j;
     }
 };
 
@@ -94,6 +97,11 @@ TEST(FilterBuilder, OrderedLine) {
     EXPECT_EQ(count.gte(3).tree.count.value().gte.value(), 3);
     EXPECT_EQ(count.lt(3).tree.count.value().lt.value(), 3);
     EXPECT_EQ(count.lte(3).tree.count.value().lte.value(), 3);
+    EXPECT_EQ(count.eq(3).tree.count.value().eq.value(), 3);
+    EXPECT_EQ(
+        count.in({1, 2}).tree.count.value().in.value(),
+        (std::vector<std::int64_t>{1, 2})
+    );
 }
 
 /// @brief it should build each operator of a string line.
@@ -245,5 +253,10 @@ TEST(FilterBuilder, Describe) {
     EXPECT_EQ(x::filter::describe(std::optional<Where>{}), "any filter");
     const auto req = x::filter::request<Where, RetrieveRequest>(key.eq(7));
     EXPECT_EQ(x::filter::describe(req.where), R"(filter {"key":{"eq":7}})");
+    const auto both = x::filter::request<Where, RetrieveRequest>(key.eq(7), key.eq(8));
+    EXPECT_EQ(
+        x::filter::describe(both.where),
+        R"(filter {"and":[{"key":{"eq":7}},{"key":{"eq":8}}]})"
+    );
 }
 }
