@@ -1770,6 +1770,14 @@ func (p *Plugin) generateArrayConversion(
 			true, false
 	}
 
+	if inst, ok := instance.Of(elemType, data.Namespace, data.table); ok {
+		p.addInstance(inst, data)
+		name := pluralizeDistinct(inst.Name)
+		return fmt.Sprintf("%sToPB(%s)", name, goField),
+			fmt.Sprintf("%sFromPB(%s)", name, pbField),
+			true, true
+	}
+
 	elemResolved, ok := elemType.Resolve(data.table)
 	// An alias element converts as the type it stands for.
 	elem, elemRef, dealiased := resolution.Dealias(elemType, data.table)

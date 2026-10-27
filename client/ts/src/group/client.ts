@@ -85,7 +85,7 @@ export class Client extends query.Retriever<
     const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Group>({
       name: "groups",
-      fetch: async (keys) => await this.execRetrieveKeys(keys),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, groupZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -188,13 +188,6 @@ export class Client extends query.Retriever<
     if (this.cfg.ontology == null)
       throw new Error("ontology client is not available on this client");
     return this.cfg.ontology;
-  }
-
-  private async execRetrieveKeys(keys: Key[]): Promise<Group[]> {
-    const res = await this.requireOntology().retrieve({
-      ids: keys.map((key) => ontologyID(key)),
-    });
-    return res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Group[]> {
