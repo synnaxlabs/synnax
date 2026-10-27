@@ -56,3 +56,4 @@ pythonpath = ["."]
 
 [tool.coverage.run]
 omit = ["tests/*"]
+patch = ["subprocess"]
