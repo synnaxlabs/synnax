@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"slices"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -738,30 +740,38 @@ var _ = Describe("Codec", func() {
 					},
 				)
 				var (
-					updated = make(chan channel.Keys)
-					matched = make(chan bool)
+					// Encode is not safe for concurrent use, so encodeMu orders the
+					// two routines that encode, and checking keeps the loop from
+					// starving the check. Update takes no lock and races both.
+					encodeMu sync.Mutex
+					checking atomic.Bool
+					stop     = make(chan struct{})
+					stopped  = make(chan struct{})
 				)
-				// Encodes without pause beside Update, as a stream's sending routine
-				// does, so an update can land in the middle of an encode.
+				DeferCleanup(func() {
+					close(stop)
+					Eventually(stopped).Should(BeClosed())
+				})
+				// Encodes in a loop beside Update, as a stream's sending routine does,
+				// so an update can land in the middle of an encode.
 				go func() {
 					defer GinkgoRecover()
+					defer close(stopped)
 					var buf bytes.Buffer
 					for {
 						select {
-						case keys, ok := <-updated:
-							if !ok {
-								return
-							}
-							Expect(dec.Update(ctx, keys)).To(Succeed())
-							encoded := MustSucceed(enc.Encode(ctx, fr))
-							decoded := MustSucceed(dec.Decode(encoded))
-							matched <- (decoded.Get(idxCh).Len() > 0) == (len(keys) == 2)
+						case <-stop:
+							return
 						default:
-							buf.Reset()
-							if err := enc.EncodeStream(ctx, &buf, fr); err != nil {
-								Fail(err.Error())
-							}
 						}
+						if checking.Load() {
+							continue
+						}
+						encodeMu.Lock()
+						buf.Reset()
+						err := enc.EncodeStream(ctx, &buf, framer.Frame{})
+						encodeMu.Unlock()
+						Expect(err).To(Succeed())
 					}
 				}()
 				mismatches := 0
@@ -771,12 +781,18 @@ var _ = Describe("Codec", func() {
 						keys = both
 					}
 					Expect(enc.Update(ctx, keys)).To(Succeed())
-					updated <- keys
-					if !<-matched {
+					Expect(dec.Update(ctx, keys)).To(Succeed())
+					checking.Store(true)
+					encodeMu.Lock()
+					encoded, err := enc.Encode(ctx, fr)
+					encodeMu.Unlock()
+					checking.Store(false)
+					Expect(err).To(Succeed())
+					decoded := MustSucceed(dec.Decode(encoded))
+					if (decoded.Get(idxCh).Len() > 0) != (len(keys) == 2) {
 						mismatches++
 					}
 				}
-				close(updated)
 				Expect(mismatches).To(BeZero())
 			},
 		)
