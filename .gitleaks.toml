@@ -12,3 +12,38 @@
 [extend]
 useDefault = true
 disabledRules = ["generic-api-key"]
+
+[[allowlists]]
+description = "Test TLS keys for localhost; only the mock servers and specs use them."
+paths = [
+  '''^driver/http/mock/test_key\.pem$''',
+  '''^freighter/cpp/grpc/mock/test_(leaf_)?key\.pem$''',
+]
+
+[[allowlists]]
+description = "Removed 2024 OPC UA development keys for a local test server."
+paths = ['''^driver/opc/''']
+
+[[allowlists]]
+description = "License fixtures signed by a test key that release builds reject."
+paths = [
+  '''^core/pkg/service/license/testdata/''',
+  '''^site/portal/src/server/license/testutil\.ts$''',
+]
+
+[[allowlists]]
+description = "Search-only Algolia key that the docs site sends from the browser."
+regexTarget = "match"
+regexes = ['''1f8b0497301392c94adedf89a98afb6f''']
+
+[[allowlists]]
+description = "PostHog project key, which only sends events and ships in every install."
+paths = ['''^console/src/app/analytics/posthog\.ts$''']
+
+[[allowlists]]
+description = "Not secrets: a form placeholder, an organization UUID, local dev config."
+paths = [
+  '''^studio/scripts/pagerduty-alert-create\.ts$''',
+  '''^site/portal/scripts/create_internal_organization\.ts$''',
+  '''^alamos/dev/uptrace\.yaml$''',
+]
