@@ -96,10 +96,11 @@ const conjuncts = (node: Node): Conjunct[] => {
   if (and != null) terms.push(...and.flatMap(conjuncts));
   if (or != null)
     if (or.length === 0) terms.push({ text: "false", disjunction: false });
+    else if (or.length === 1) terms.push(...conjuncts(or[0]));
     else
       terms.push({
         text: or.map((child) => disjunct(conjuncts(child))).join(" or "),
-        disjunction: or.length > 1,
+        disjunction: true,
       });
   if (not != null) {
     const inner = conjuncts(not);

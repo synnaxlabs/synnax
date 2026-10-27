@@ -112,6 +112,17 @@ TEST(FilterDescribe, OrBesideTerms) {
     );
 }
 
+/// @brief it should keep the grouping of a child of a single-child or.
+TEST(FilterDescribe, SingleOrChildGrouping) {
+    EXPECT_EQ(
+        describe(
+            R"({"key":{"eq":1},"or":[{"or":[)"
+            R"({"name":{"eq":"a"}},{"name":{"eq":"b"}}]}]})"
+        ),
+        R"(key = 1 and (name = "a" or name = "b"))"
+    );
+}
+
 /// @brief it should wrap a child of or that has more than one term.
 TEST(FilterDescribe, OrChildTerms) {
     EXPECT_EQ(
@@ -140,6 +151,7 @@ TEST(FilterDescribe, NestedEmpty) {
     EXPECT_EQ(describe(R"({"or":[{},{"key":{"eq":1}}]})"), "true or key = 1");
     EXPECT_EQ(describe(R"({"or":[{"and":[]},{"key":{"eq":1}}]})"), "true or key = 1");
     EXPECT_EQ(describe(R"({"or":[]})"), "false");
+    EXPECT_EQ(describe(R"({"or":[{}]})"), "");
     EXPECT_EQ(describe(R"({"not":{}})"), "not (true)");
 }
 

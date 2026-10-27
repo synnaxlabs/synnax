@@ -91,6 +91,15 @@ describe("filter.describe", () => {
     ).toBe('key = 1 and (name = "a" or name = "b")');
   });
 
+  it("should keep the grouping of a child of a single-child or", () => {
+    expect(
+      filter.describe({
+        key: { eq: 1 },
+        or: [{ or: [{ name: { eq: "a" } }, { name: { eq: "b" } }] }],
+      }),
+    ).toBe('key = 1 and (name = "a" or name = "b")');
+  });
+
   it("should wrap a child of or that has more than one term", () => {
     expect(
       filter.describe({
@@ -117,6 +126,7 @@ describe("filter.describe", () => {
       "true or key = 1",
     );
     expect(filter.describe({ or: [] })).toBe("false");
+    expect(filter.describe({ or: [{}] })).toBe("");
     expect(filter.describe({ not: {} })).toBe("not (true)");
   });
 });

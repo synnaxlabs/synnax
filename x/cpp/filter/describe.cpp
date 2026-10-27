@@ -119,13 +119,16 @@ std::vector<Conjunct> conjuncts(const x::json::json &node) {
     if (const auto it = node.find("or"); it != node.end() && it->is_array()) {
         if (it->empty())
             terms.push_back({"false"});
+        else if (it->size() == 1)
+            for (auto &term: conjuncts(it->front()))
+                terms.push_back(std::move(term));
         else {
             std::string text;
             for (std::size_t i = 0; i < it->size(); ++i) {
                 if (i > 0) text += " or ";
                 text += disjunct(conjuncts((*it)[i]));
             }
-            terms.push_back({std::move(text), it->size() > 1});
+            terms.push_back({std::move(text), true});
         }
     }
     if (const auto it = node.find("not"); it != node.end() && it->is_object()) {

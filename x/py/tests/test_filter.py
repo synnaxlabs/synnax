@@ -247,6 +247,14 @@ class TestDescribe:
         )
         assert filter.describe(where) == 'key = 1 and (name = "a" or name = "b")'
 
+    def test_single_or_child_grouping(self) -> None:
+        """Should keep the grouping of a child of a single-child or."""
+        inner = ThingWhere(
+            or_=[_name(filter.String(eq="a")), _name(filter.String(eq="b"))]
+        )
+        where = ThingWhere(key=filter.Set[int](eq=1), or_=[inner])
+        assert filter.describe(where) == 'key = 1 and (name = "a" or name = "b")'
+
     def test_or_child_terms(self) -> None:
         """Should wrap a child of or that has more than one term."""
         where = ThingWhere(
@@ -278,4 +286,5 @@ class TestDescribe:
         where = ThingWhere(or_=[ThingWhere(and_=[]), one])
         assert filter.describe(where) == "true or key = 1"
         assert filter.describe(ThingWhere(or_=[])) == "false"
+        assert filter.describe(ThingWhere(or_=[ThingWhere()])) == ""
         assert filter.describe(ThingWhere(not_=ThingWhere())) == "not (true)"

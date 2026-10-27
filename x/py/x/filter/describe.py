@@ -85,11 +85,12 @@ def _conjuncts(node: dict[str, Any]) -> list[_Conjunct]:
     if disjuncts is not None:
         if len(disjuncts) == 0:
             terms.append(_Conjunct("false"))
+        elif len(disjuncts) == 1:
+            terms.extend(_conjuncts(disjuncts[0]))
         else:
             terms.append(
                 _Conjunct(
-                    " or ".join(_disjunct(_conjuncts(c)) for c in disjuncts),
-                    len(disjuncts) > 1,
+                    " or ".join(_disjunct(_conjuncts(c)) for c in disjuncts), True
                 )
             )
     negated = node.get("not")
