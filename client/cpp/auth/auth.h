@@ -57,6 +57,7 @@ const x::errors::Error ERR_INVALID_TOKEN = ERR.sub("invalid_token");
 const x::errors::Error ERR_EXPIRED_TOKEN = ERR.sub("expired_token");
 const x::errors::Error ERR_SESSION_ENDED = ERR.sub("session_ended");
 const x::errors::Error ERR_INVALID_CREDENTIALS = ERR.sub("invalid-credentials");
+const x::errors::Error ERR_ACCESS_DENIED = ERR.sub("access_denied");
 /// @brief errors after which a request logs in again and retries.
 const std::vector RETRY_ON_ERRORS = {ERR_INVALID_TOKEN, ERR_EXPIRED_TOKEN};
 /// @brief errors meaning the Core no longer holds the session.

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { addressOf, deleteToken, writeToken } from "@/platform/core/token";
 import { Session } from "@/session";
@@ -24,10 +25,17 @@ export const TokenKeeper = (): null => {
   const status = Synnax.useConnectionStatus();
   const core = Session.Core.useSelectSelected();
   const handleError = Status.useErrorHandler();
+  // The saved Core selected when the client appeared owns the client. Two saved Cores
+  // can share an address, so the address alone cannot tell them apart.
+  const [owner, setOwner] = useState<{ client: Client; key: string }>();
+  if (client != null && core != null && owner?.client !== client)
+    setOwner({ client, key: core.key });
   // for a moment after a Core switch, the status still belongs to the old Core's client
   const current =
     client != null &&
     core != null &&
+    owner?.client === client &&
+    owner.key === core.key &&
     addressOf(core) ===
       addressOf({
         host: client.params.host,

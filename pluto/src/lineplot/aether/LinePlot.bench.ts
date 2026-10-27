@@ -19,16 +19,16 @@ import {
 } from "@synnaxlabs/x";
 import { type Bench, test } from "vitest";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { LinePlot } from "@/lineplot/aether/LinePlot";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
-import { lineTest } from "@/vis/line/aether/test";
-import { canvasTest } from "@/vis/render/test";
+import { lineTest } from "@/vis/line/aether/testutil";
+import { canvasTest } from "@/vis/render/testutil";
 
 // Times one frame of a 1000 by 500 pixel plot of 1 kHz channels, with every tile it
 // draws cached. The frame runs through a recording GL context, so the timings cover the
