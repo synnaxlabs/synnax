@@ -129,7 +129,6 @@ class TestCase(ABC):
             client=self.client,
             read_timeout=self.read_timeout,
             log=self.log,
-            set_failed=lambda: setattr(self, "STATUS", STATUS.FAILED),
         )
         self._should_stop = False
         self.is_running = True
@@ -292,6 +291,7 @@ class TestCase(ABC):
             failure = f"Failed to {action}: {e}"
             if self._error_message is None:
                 self._error_message = failure
+                self._error_traceback = traceback.format_exc()
             else:
                 self._error_message += f"\n{failure}"
             self.STATUS = STATUS.FAILED
@@ -643,6 +643,14 @@ class TestCase(ABC):
                     self._notifications.close()
                 if self._task_status is not None:
                     self._task_status.close()
+                self.streamer.stop()
+                self.streamer.join()
+                with self._try_to("stream telemetry"):
+                    self.streamer.check()
+                    if self._notifications is not None:
+                        self._notifications.check()
+                    if self._task_status is not None:
+                        self._task_status.check()
                 self._check_expectation()
             finally:
                 self._stop_client()
