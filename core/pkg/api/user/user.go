@@ -187,6 +187,13 @@ func (s *Service) ChangeUsername(
 		ChangeUsername(ctx, req.Key, req.Username); err != nil {
 		return struct{}{}, err
 	}
+	// a user who logs in only through a provider has no password to rename
+	hasPassword, err := s.password.NewRetrieve().
+		Where(password.MatchSubjects(u.OntologyID())).
+		Exists(ctx, tx)
+	if err != nil || !hasPassword {
+		return struct{}{}, err
+	}
 	return struct{}{}, s.password.NewWriter(tx).
 		Rename(ctx, u.OntologyID(), req.Username)
 }

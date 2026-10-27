@@ -174,6 +174,14 @@ func proofForward(p svcauth.Proof) (*Proof, error) {
 		}, nil
 	case svcauth.ApiKeyProof:
 		return &Proof{Method: string(svcauth.MethodAPIKey), Key: v.Key}, nil
+	case svcauth.OidcProof:
+		return &Proof{
+			Method:      string(svcauth.MethodOidc),
+			Provider:    v.Provider,
+			Code:        v.Code,
+			Verifier:    v.Verifier,
+			RedirectUri: v.RedirectURI,
+		}, nil
 	default:
 		return nil, errors.Wrapf(validate.ErrValidation, "unknown proof %T", v)
 	}
@@ -194,6 +202,15 @@ func proofBackward(p *Proof) (svcauth.Proof, error) {
 	case svcauth.MethodAPIKey:
 		return svcauth.Proof{Variant: svcauth.ApiKeyProof{
 			APIKeyCredentials: svcauth.APIKeyCredentials{Key: p.Key},
+		}}, nil
+	case svcauth.MethodOidc:
+		return svcauth.Proof{Variant: svcauth.OidcProof{
+			OIDCCredentials: svcauth.OIDCCredentials{
+				Provider:    p.Provider,
+				Code:        p.Code,
+				Verifier:    p.Verifier,
+				RedirectURI: p.RedirectUri,
+			},
 		}}, nil
 	default:
 		return svcauth.Proof{}, errors.Wrapf(

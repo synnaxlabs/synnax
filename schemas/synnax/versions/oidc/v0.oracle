@@ -1,0 +1,37 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/ontology/v0"
+
+Key = uuid {
+    @doc value "is a unique identifier for a provider link."
+}
+
+Link struct {
+    key      Key = create {
+        @doc value "is the unique identifier for this link."
+        @key
+    }
+    subject  ontology.ID {
+        @doc value "is the user the provider account logs in as."
+    }
+    provider string      {
+        @doc value "is the name of the provider in the Core's settings."
+    }
+    account  string      {
+        @doc value "is the provider's permanent ID for the account, its `sub` claim."
+    }
+
+    @doc value  """
+        links an OpenID Connect provider account to a user. A user holds one link per
+        provider.
+    """
+    @go marshal
+    @go migrate
+}

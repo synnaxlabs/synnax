@@ -240,6 +240,27 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
+			"Should rename a user who has no password",
+			func(ctx SpecContext) {
+				newName := "change-username-new-" + uuid.New().String()
+				u := MustSucceed(writer.Create(ctx, user.User{
+					Username: "change-username-" + uuid.New().String(),
+				}))
+				Expect(
+					apiSvc.ChangeUsername(
+						rootCtx(ctx),
+						db,
+						apiuser.ChangeUsernameRequest{Key: u.Key, Username: newName},
+					),
+				).Error().
+					ToNot(HaveOccurred())
+				var updated user.User
+				Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
+					Entry(&updated).Exec(ctx, nil)).To(Succeed())
+				Expect(updated.Username).To(Equal(newName))
+			},
+		)
+		It(
 			"Should be a no-op when the target name already matches",
 			func(ctx SpecContext) {
 				username := "change-username-noop-" + uuid.New().String()

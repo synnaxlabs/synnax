@@ -24,6 +24,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -110,6 +111,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to every method.
 	AuthMethods []auth.Method
+	// OIDCProviders are the OpenID Connect providers users log in through. The Core
+	// accepts the oidc method only when at least one is set.
+	//
+	// [OPTIONAL] - Defaults to none.
+	OIDCProviders []oidc.Provider
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
@@ -148,6 +154,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		other.SessionIdleTimeout,
 	)
 	c.AuthMethods = override.Slice(c.AuthMethods, other.AuthMethods)
+	c.OIDCProviders = override.Slice(c.OIDCProviders, other.OIDCProviders)
 	c.License = c.License.Override(other.License)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
@@ -184,6 +191,8 @@ type Layer struct {
 	Password *password.Service
 	// APIKey stores API keys and checks proofs of them.
 	APIKey *apikey.Service
+	// OIDC stores provider links and checks proofs of provider accounts.
+	OIDC *oidc.Service
 	// Auth logs subjects in and checks the session tokens their requests carry.
 	Auth *auth.Service
 	// Ranger is for working with ranges.
@@ -490,18 +499,43 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.RBAC) {
 		return nil, err
 	}
-	authenticators := map[auth.Method]auth.Authenticator{
-		auth.MethodPassword: l.Password,
-		auth.MethodAPIKey:   l.APIKey,
+	if l.OIDC, err = oidc.OpenService(ctx, oidc.ServiceConfig{
+		Instrumentation: cfg.Child("oidc"),
+		DB:              cfg.Distribution.DB,
+		User:            l.User,
+		Role:            l.RBAC.Role,
+		NewUserRole:     l.RBAC.Builtin.ViewerKey,
+		Providers:       cfg.OIDCProviders,
+	}); !ok(err, l.OIDC) {
+		return nil, err
 	}
-	if len(cfg.AuthMethods) > 0 {
-		authenticators = lo.PickByKeys(authenticators, cfg.AuthMethods)
+	accepted := cfg.AuthMethods
+	if len(accepted) == 0 {
+		accepted = []auth.Method{
+			auth.MethodPassword,
+			auth.MethodAPIKey,
+			auth.MethodOidc,
+		}
+	}
+	if len(cfg.OIDCProviders) == 0 {
+		accepted = lo.Without(accepted, auth.MethodOidc)
+	}
+	if len(accepted) == 0 {
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"no login method is accepted: oidc needs at least one provider",
+		)
 	}
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
 		DB:              cfg.Distribution.DB,
-		Authenticators:  authenticators,
-		IdleTimeout:     cfg.SessionIdleTimeout,
+		Authenticators: map[auth.Method]auth.Authenticator{
+			auth.MethodPassword: l.Password,
+			auth.MethodAPIKey:   l.APIKey,
+			auth.MethodOidc:     l.OIDC,
+		},
+		Accepted:    accepted,
+		IdleTimeout: cfg.SessionIdleTimeout,
 	}); !ok(err, l.Auth) {
 		return nil, err
 	}

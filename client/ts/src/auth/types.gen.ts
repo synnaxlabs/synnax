@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const METHODS = ["password", "api_key"] as const;
+export const METHODS = ["password", "api_key", "oidc"] as const;
 export const methodZ = z.enum(METHODS);
 export type Method = z.infer<typeof methodZ>;
 
@@ -34,6 +34,22 @@ export const apiKeyCredentialsZ = z.object({
 });
 export interface APIKeyCredentials extends z.infer<typeof apiKeyCredentialsZ> {}
 
+/**
+ * OIDCCredentials is an OpenID Connect authorization code presented at login. The Core
+ * exchanges it with the provider.
+ */
+export const oidcCredentialsZ = z.object({
+  /** provider is the name of the provider in the Core's settings. */
+  provider: z.string().min(1, "provider is required"),
+  /** code is the authorization code the provider returned. */
+  code: z.string().min(1, "code is required"),
+  /** verifier is the PKCE code verifier that matches the login request. */
+  verifier: z.string().min(1, "verifier is required"),
+  /** redirectUri is the redirect URI the login request used. */
+  redirectUri: z.string().min(1, "redirect_uri is required"),
+});
+export interface OIDCCredentials extends z.infer<typeof oidcCredentialsZ> {}
+
 export const sessionKeyZ = z.uuid();
 export type SessionKey = z.infer<typeof sessionKeyZ>;
 
@@ -49,18 +65,29 @@ export const apiKeyProofZ = apiKeyCredentialsZ.extend({
 });
 export interface ApiKeyProof extends z.infer<typeof apiKeyProofZ> {}
 
+/** OidcProof proves an OpenID Connect provider account. */
+export const oidcProofZ = oidcCredentialsZ.extend({
+  method: z.literal("oidc"),
+});
+export interface OidcProof extends z.infer<typeof oidcProofZ> {}
+
 /**
  * Proof is what a subject presents to log in. The method selects the authenticator that
  * checks it.
  */
-export const proofZ = z.discriminatedUnion("method", [passwordProofZ, apiKeyProofZ]);
-export type Proof = PasswordProof | ApiKeyProof;
+export const proofZ = z.discriminatedUnion("method", [
+  passwordProofZ,
+  apiKeyProofZ,
+  oidcProofZ,
+]);
+export type Proof = PasswordProof | ApiKeyProof | OidcProof;
 
 export const PROOF_SCHEMAS: {
   [K in Method]: z.ZodType<Extract<Proof, { method: K }>>;
 } = {
   password: passwordProofZ,
   api_key: apiKeyProofZ,
+  oidc: oidcProofZ,
 };
 
 /**

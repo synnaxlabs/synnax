@@ -10,6 +10,7 @@
 package auth_test
 
 import (
+	"context"
 	"sync"
 	"time"
 	"uuid"
@@ -219,6 +220,54 @@ var _ = Describe("Service", func() {
 		It("Should refuse a method with no authenticator", func() {
 			Expect(svc.Accepts(auth.MethodAPIKey)).
 				To(MatchError(validate.ErrValidation))
+		})
+	})
+	Describe("Accepted", func() {
+		var (
+			keys     *recorder
+			narrowed *auth.Service
+		)
+		BeforeEach(func(ctx SpecContext) {
+			keys = &recorder{}
+			narrowed = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: db,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodPassword: pw,
+					auth.MethodAPIKey:   keys,
+				},
+				Accepted: []auth.Method{auth.MethodPassword},
+			}))
+		})
+		It("Should list only the accepted methods", func() {
+			Expect(narrowed.Methods()).To(Equal([]auth.Method{auth.MethodPassword}))
+		})
+		It("Should refuse a login with a method that is not accepted", func(
+			ctx SpecContext,
+		) {
+			Expect(narrowed.Login(ctx, auth.Proof{Variant: auth.ApiKeyProof{
+				APIKeyCredentials: auth.APIKeyCredentials{Key: "syk_key"},
+			}})).Error().To(MatchError(ContainSubstring("not accepted")))
+		})
+		It("Should delete credentials of a method that is not accepted", func(
+			ctx SpecContext,
+		) {
+			subject := ontology.ID{
+				Type: ontology.ResourceTypeUser,
+				Key:  uuid.New().String(),
+			}
+			Expect(narrowed.NewWriter(nil).DeleteFor(ctx, subject)).To(Succeed())
+			Expect(keys.deleted).To(ConsistOf(subject))
+		})
+		It("Should reject an accepted method with no authenticator", func(
+			ctx SpecContext,
+		) {
+			Expect(auth.OpenService(ctx, auth.ServiceConfig{
+				DB: db,
+				Authenticators: map[auth.Method]auth.Authenticator{
+					auth.MethodPassword: pw,
+				},
+				Accepted: []auth.Method{auth.MethodOidc},
+			})).Error().To(MatchError(ContainSubstring("method oidc has no authenticator")))
 		})
 	})
 	Describe("Authenticate", func() {
@@ -606,3 +655,20 @@ var _ = Describe("Service", func() {
 		).To(MatchError(query.ErrNotFound))
 	})
 })
+
+// recorder is an authenticator that checks no proof and records the subjects whose
+// credentials it deletes.
+type recorder struct{ deleted []ontology.ID }
+
+func (*recorder) Authenticate(context.Context, auth.Proof) (auth.Identity, error) {
+	return auth.Identity{}, auth.ErrInvalidCredentials
+}
+
+func (r *recorder) DeleteFor(
+	_ context.Context,
+	_ gorp.Tx,
+	subjects ...ontology.ID,
+) error {
+	r.deleted = append(r.deleted, subjects...)
+	return nil
+}

@@ -235,6 +235,23 @@ var _ = Describe("Auth", func() {
 			Expect(fwd.Proof.Key).To(Equal("syk_secret"))
 			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
 		})
+		It("Should round-trip an OIDC proof", func(ctx SpecContext) {
+			t := create.RequestTranslator
+			msg := auth.SessionCreateRequest{Proof: svcauth.Proof{
+				Variant: svcauth.OidcProof{
+					OIDCCredentials: svcauth.OIDCCredentials{
+						Provider:    "idp",
+						Code:        "code",
+						Verifier:    "verifier",
+						RedirectURI: "http://127.0.0.1:4242/callback",
+					},
+				},
+			}}
+			fwd := MustSucceed(t.Forward(ctx, msg))
+			Expect(fwd.Proof.Method).To(Equal(string(svcauth.MethodOidc)))
+			Expect(fwd.Proof.RedirectUri).To(Equal("http://127.0.0.1:4242/callback"))
+			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
+		})
 		It("Should reject a proof with no variant", func(ctx SpecContext) {
 			Expect(create.RequestTranslator.Forward(
 				ctx,

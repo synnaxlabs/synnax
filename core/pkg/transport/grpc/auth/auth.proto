@@ -84,6 +84,10 @@ message Proof {
   string username = 2;
   string password = 3;
   string key = 4;
+  string provider = 5;
+  string code = 6;
+  string verifier = 7;
+  string redirect_uri = 8;
 }
 
 // Subject names the user or rack a session belongs to.
