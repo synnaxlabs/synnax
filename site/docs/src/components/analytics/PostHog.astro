@@ -64,6 +64,9 @@
     })(document, window.posthog || []);
     posthog.init("phc_NX1V2suy6Rd924qT3hjDCM23miC3SxqoP7r1GHF8Vsq", {
         api_host: "https://us.i.posthog.com",
-        person_profiles: "identified_only", // or 'always' to create profiles for anonymous users as well
+        person_profiles: "identified_only",
+        // Stores nothing in the browser, so EU visitors need no consent banner. PostHog
+        // drops every event unless the project turns on cookieless tracking.
+        cookieless_mode: "always",
     });
 </script>

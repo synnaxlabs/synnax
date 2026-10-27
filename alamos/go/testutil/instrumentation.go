@@ -52,7 +52,7 @@ func (c InstrumentationConfig) Override(
 	return c
 }
 
-var DefaultInstrumentationConfig = InstrumentationConfig{
+var defaultInstrumentationConfig = InstrumentationConfig{
 	Trace:  new(false),
 	Log:    new(false),
 	Report: new(false),
@@ -94,7 +94,7 @@ func newReports() *alamos.Reporter {
 // within a Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
 func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
 	ginkgo.GinkgoHelper()
-	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
+	cfg, err := config.New(defaultInstrumentationConfig, cfgs...)
 	if err != nil {
 		zap.S().Fatal(err)
 	}

@@ -78,17 +78,6 @@ type SecurityInfo struct {
 // and read by server side middleware.
 type Params map[string]any
 
-// GetRequired returns the value of the given key, or panics if the key is not set. It
-// should only be used in contexts where the absence of a key represents a programming
-// error.
-func (p Params) GetRequired(k string) any {
-	v, ok := p[k]
-	if !ok {
-		panic("missing required param: " + k)
-	}
-	return v
-}
-
 // GetDefault returns the value of the given key, or the given default value if the key
 // is not set.
 func (p Params) GetDefault(k string, def any) any {
@@ -107,10 +96,3 @@ func (p Params) Get(k string) (any, bool) {
 
 // Set sets the value of the given key.
 func (p Params) Set(k string, v any) { p[k] = v }
-
-// SetIfAbsent sets the value of the given key if it is not already set.
-func (p Params) SetIfAbsent(k string, v any) {
-	if _, ok := p[k]; !ok {
-		p[k] = v
-	}
-}

@@ -82,9 +82,6 @@ var validateIteratorCommand = validate.NewInclusiveBoundsChecker(
 	IteratorCommandSetBounds,
 )
 
-// HasOps returns true if the IteratorCommand has any associated on disk operations.
-func (i IteratorCommand) HasOps() bool { return i <= IteratorCommandPrev }
-
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
 //
 //go:generate stringer -type=IteratorCommand

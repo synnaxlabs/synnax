@@ -46,6 +46,7 @@ const CHECK_ENDPOINT = "/connectivity/check";
 const checkResZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string(),
+  nodeKey: z.number(),
   nodeTime: TimeStamp.z,
   license: license.stateZ.default("ok"),
 });
@@ -65,7 +66,9 @@ const sendCheck = async (unary: UnaryClient): Promise<Info> => {
   return {
     clusterKey: res.clusterKey,
     nodeVersion: res.nodeVersion,
+    nodeKey: res.nodeKey,
     clockSkew: skew.skew,
+    roundTrip: skew.roundTrip,
     license: res.license,
   };
 };
@@ -305,12 +308,13 @@ export class Client implements Handle {
   /**
    * Rejects unary requests instantly while the cluster is known unreachable or
    * unlicensed, instead of burning the transport's retry budget per call. The
-   * check, login, and license targets are exempt so the connection can heal.
+   * check, session, and license targets are exempt so the connection can heal and a
+   * session stays maintained.
    */
   middleware(): Middleware {
     const EXEMPT = [
       CHECK_ENDPOINT,
-      auth.LOGIN_ENDPOINT,
+      ...auth.SESSION_ENDPOINTS,
       license.RETRIEVE_ENDPOINT,
       license.ACTIVATE_ENDPOINT,
       license.DEACTIVATE_ENDPOINT,
@@ -501,7 +505,7 @@ export class Client implements Handle {
       `The Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ` +
         `${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.\n` +
         `  This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see\n` +
-        `  https://docs.synnaxlabs.com/reference/client/resources/troubleshooting#old-${toUpgrade.toLowerCase()}-version`,
+        `  https://docs.synnaxlabs.com/reference/client/troubleshooting#old-${toUpgrade.toLowerCase()}-version`,
     );
   }
 }
