@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from typing import TypeAlias, overload
 
@@ -213,11 +214,17 @@ class Frame:
     def to_df(self) -> DataFrame:
         """Converts the frame to a pandas DataFrame with one column per channel. The
         columns are in the order the channels first appear in the frame. Each column
-        is the channel name, or the channel key when the frame does not know the name.
+        is the channel name, or the channel key when the frame does not know the name
+        or when two channels in the frame share the name.
         """
+        cols = {
+            k: self.names.get(k, k) if isinstance(k, channel.Key) else k
+            for k in self.channels
+        }
+        counts = Counter(cols.values())
         base: dict[channel.Key | str, object] = {}
-        for k in dict.fromkeys(self.channels):
-            col = self.names.get(k, k) if isinstance(k, channel.Key) else k
+        for k, name in cols.items():
+            col = name if counts[name] == 1 else k
             v = self[k]
             try:
                 base[col] = v.__array__()

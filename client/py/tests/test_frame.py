@@ -109,6 +109,16 @@ class TestFrameToDF:
         f.names = {2: "dog"}
         assert list(f.to_df().columns) == [1, "dog"]
 
+    def test_shared_name_uses_keys(self) -> None:
+        """Should use the channel keys for channels that share a name."""
+        f = sy.Frame(
+            {1: sy.Series([1]), 2: sy.Series([2]), 3: sy.Series([3])},
+        )
+        f.names = {1: "big", 2: "big", 3: "dog"}
+        df = f.to_df()
+        assert list(df) == [1, 2, "dog"]
+        assert list(df[2]) == [2]
+
     def test_channel_order(self) -> None:
         """Should order the columns by the first appearance of each channel."""
         f = sy.Frame(
