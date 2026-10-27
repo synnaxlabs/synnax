@@ -112,27 +112,31 @@ jobs:
           COMMAND: >-
             /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }}
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
+        # Records the removed previews even when the deploy fails after removing them.
         run: |
-          .github/scripts/run_preview_command.sh | tee deploy.log
-          echo "evicted=$(sed -n 's/^evicted //p' deploy.log | xargs)" >> "$GITHUB_OUTPUT"
+          status=0
+          .github/scripts/run_preview_command.sh | tee deploy.log || status=$?
+          evicted=$(sed -n 's/^evicted //p' deploy.log | xargs)
+          echo "evicted=$evicted" >> "$GITHUB_OUTPUT"
+          exit "$status"
 
       # The host runs a fixed number of previews, so a deploy can remove the oldest.
       - name: Note the removed previews
-        if: steps.deploy.outputs.evicted != ''
+        if: ${{ !cancelled() && steps.deploy.outputs.evicted != '' }}
         env:
           GH_TOKEN: ${{ github.token }}
           EVICTED: ${{ steps.deploy.outputs.evicted }}
         run: |
           marker="<!-- Sticky Pull Request Commentpreview -->"
+          issues="repos/$GITHUB_REPOSITORY/issues"
+          body=$(printf '%s\n\n%s\n%s\n%s' "### Preview" \
+            "Removed to make room for the preview of #$PR. Push a commit or add" \
+            "the \`preview\` label to deploy it again." "$marker")
           for pr in $EVICTED; do
-            id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$pr/comments" \
+            id=$(gh api --paginate "$issues/$pr/comments" \
               --jq ".[] | select(.body | contains(\"$marker\")) | .id")
             if [ -n "$id" ]; then
-              gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="### Preview
-
-          Removed to make room for the preview of #$PR. Push a commit or add the \`preview\`
-          label to deploy it again.
-          $marker"
+              gh api -X PATCH "$issues/comments/$id" -f body="$body"
             fi
           done
 

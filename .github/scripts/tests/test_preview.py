@@ -22,6 +22,7 @@ FAKE_DOCKER = """#!/usr/bin/env bash
 echo "docker $* | license=${SYNNAX_LICENSE_KEY:-}" >> "$FAKE_DIR/calls"
 case "$1 $2" in
     "exec synnax-"*) [[ -f "$FAKE_DIR/ready" ]] || exit 7 ;;
+    "pull "*) [[ ! -f "$FAKE_DIR/pull_fails" ]] || exit 1 ;;
     "ps "*) cat "$FAKE_DIR/containers" ;;
 esac
 """
@@ -171,7 +172,18 @@ class TestCap:
         assert self.evicted(result) == ["evicted 12"]
         assert not host.site(12).exists()
         removed = [c for c in host.docker() if c.startswith("docker rm")]
-        assert removed == ["docker rm --force synnax-pr-12", "docker rm --force synnax-pr-14"]
+        assert removed == [
+            "docker rm --force synnax-pr-12",
+            "docker rm --force synnax-pr-14",
+        ]
+
+    def test_pull_failure_removes_nothing(self, host: Host) -> None:
+        (host.path / "pull_fails").touch()
+        host.containers((12, 100), (13, 200))
+        result = host.run("up", "14", "image")
+        assert result.returncode != 0
+        assert self.evicted(result) == []
+        assert not [c for c in host.docker() if c.startswith("docker rm")]
 
     def test_replacing_a_preview_removes_nothing(self, host: Host) -> None:
         host.ready()
