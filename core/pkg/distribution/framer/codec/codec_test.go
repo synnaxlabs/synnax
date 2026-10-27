@@ -688,6 +688,39 @@ var _ = Describe("Codec", func() {
 			},
 		)
 
+		It(
+			"Should accept updates while no frame is encoded or decoded",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				only := channel.Keys{dataCh}
+				both := channel.Keys{dataCh, idxCh}
+				done := make(chan struct{})
+				go func() {
+					defer GinkgoRecover()
+					defer close(done)
+					for i := range 100 {
+						keys := only
+						if i%2 == 1 {
+							keys = both
+						}
+						Expect(enc.Update(ctx, keys)).To(Succeed())
+						Expect(dec.Update(ctx, keys)).To(Succeed())
+					}
+				}()
+				Eventually(done).Should(BeClosed())
+				fr := frame.NewMulti(
+					both,
+					[]telem.Series{
+						telem.NewSeriesV[float32](1, 2),
+						telem.NewSeriesSecondsTSV(1, 2),
+					},
+				)
+				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
+				Expect(decoded.Frame).To(telem.MatchFrame(fr.Frame))
+			},
+		)
+
 		// This test is a regression that ensures the codec is designed to handle
 		// race conditions between the encoding side and an upstream go-routines
 		// producing frames. Even if an upstream routine passes a frame to the encoder
