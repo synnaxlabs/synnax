@@ -13,7 +13,7 @@ import { z } from "zod";
 import { License } from "@/platform/license";
 
 /** The URL scheme the hub hands a login back through. */
-export const SCHEME = "synnax-desktop";
+const SCHEME = "synnax-desktop";
 
 const LINK_HOST = "activate";
 
@@ -53,6 +53,8 @@ export interface Linked {
   activation: string;
   email: string;
   user: string;
+  /** True only when the hub turned usage data on for this login. */
+  analyticsAllowed: boolean;
 }
 
 /**
@@ -68,7 +70,7 @@ export const parseLink = (url: string): Linked => {
   }
   if (parsed.protocol !== `${SCHEME}:` || parsed.host !== LINK_HOST)
     throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
-  const read = (field: keyof Linked): string => {
+  const read = (field: Exclude<keyof Linked, "analyticsAllowed">): string => {
     const value = parsed.searchParams.get(field);
     if (value == null || value === "")
       throw new Error(`The login link is missing its ${field}`);
@@ -81,28 +83,38 @@ export const parseLink = (url: string): Linked => {
     activation: read("activation"),
     email: read("email"),
     user: read("user"),
+    analyticsAllowed: parsed.searchParams.get("analytics") === "on",
   };
 };
 
 export type RenewResult =
   { variant: "renewed"; key: string } | { variant: "unlinked"; message: string };
 
-const errorZ = z.object({ error: z.string() });
+/** The code the hub puts on a refusal for a machine it no longer knows. */
+const UNLINKED_CODE = "unlinked";
+
+const refusalZ = z.object({ error: z.string(), code: z.string().optional() });
 const renewedZ = z.object({ key: z.string() });
 
-const readMessage = async (res: Response): Promise<string> => {
+interface Refusal {
+  message: string;
+  code?: string;
+}
+
+const readRefusal = async (res: Response): Promise<Refusal> => {
   try {
-    const body = errorZ.safeParse(await res.json());
-    if (body.success) return body.data.error;
+    const body = refusalZ.safeParse(await res.json());
+    if (body.success) return { message: body.data.error, code: body.data.code };
   } catch {
     // A body that is not JSON carries no message.
   }
-  return res.statusText;
+  return { message: res.statusText };
 };
 
 /**
  * Asks the hub for a fresh license key for the machine the secret belongs to. Unlinked
- * means the hub no longer knows the machine, so the secret is spent.
+ * means the hub no longer knows the machine, so the secret is spent. Only the hub's own
+ * unlinked answer counts: a proxy can refuse with the same status.
  * @throws {Error} if the hub cannot be reached or refuses for another reason.
  */
 export const renew = async (secret: string): Promise<RenewResult> => {
@@ -110,10 +122,12 @@ export const renew = async (secret: string): Promise<RenewResult> => {
     method: "POST",
     headers: { authorization: `Bearer ${secret}` },
   });
-  if (res.status === 401 || res.status === 403)
-    return { variant: "unlinked", message: await readMessage(res) };
-  if (!res.ok)
-    throw new Error(`Could not renew the license: ${await readMessage(res)}`);
-  const { key } = renewedZ.parse(await res.json());
-  return { variant: "renewed", key };
+  if (res.ok) {
+    const { key } = renewedZ.parse(await res.json());
+    return { variant: "renewed", key };
+  }
+  const { message, code } = await readRefusal(res);
+  if ((res.status === 401 || res.status === 403) && code === UNLINKED_CODE)
+    return { variant: "unlinked", message };
+  throw new Error(`Could not renew the license: ${message}`);
 };

@@ -44,7 +44,7 @@ AlignmentType = Literal[
     "bottom",
 ]
 
-ALIGNMENT_EXTRACTORS = {
+_ALIGNMENT_EXTRACTORS = {
     "left": box_left,
     "right": box_right,
     "top": box_top,

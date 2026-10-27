@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -54,6 +55,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
+	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		User:     userSvc,
+	}))
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
@@ -64,6 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:     authSvc,
 		Password: passwordSvc,
 		User:     userSvc,
+		RBAC:     rbacSvc,
 		Cluster:  node.Cluster,
 	}))
 })

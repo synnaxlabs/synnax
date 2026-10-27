@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render } from "@testing-library/react";
+import { type CSSProperties } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
@@ -335,7 +336,12 @@ describe("Dialog", () => {
       vi.restoreAllMocks();
     });
 
-    const open = (target: DOMRect, dialog: DOMRect): HTMLElement => {
+    const open = (
+      target: DOMRect,
+      dialog: DOMRect,
+      variant?: Dialog.Variant,
+      style?: CSSProperties,
+    ): HTMLElement => {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
         this: Element,
       ) {
@@ -356,9 +362,9 @@ describe("Dialog", () => {
       );
       const c = render(
         <Triggers.Provider>
-          <Dialog.Frame>
+          <Dialog.Frame variant={variant}>
             <Dialog.Trigger>Toggle</Dialog.Trigger>
-            <Dialog.Dialog>
+            <Dialog.Dialog style={style}>
               <p>Content</p>
             </Dialog.Dialog>
           </Dialog.Frame>
@@ -425,6 +431,43 @@ describe("Dialog", () => {
       resize();
       expect(el.style.top).toBe(`${top}px`);
       expect(variable(el, "available-height")).toBe(`${500 - top - 6}px`);
+    });
+
+    describe("a connected dialog with a min-width", () => {
+      const MIN_WIDTH: CSSProperties = { minWidth: "300px" };
+
+      it("should widen to its min-width past a narrower trigger", () => {
+        const el = open(
+          rect(400, 100, 100, 30),
+          rect(0, 0, 100, 100),
+          "connected",
+          MIN_WIDTH,
+        );
+        expect(el.style.width).toBe("300px");
+      });
+
+      it("should match a trigger wider than its min-width", () => {
+        const el = open(
+          rect(400, 100, 400, 30),
+          rect(0, 0, 400, 100),
+          "connected",
+          MIN_WIDTH,
+        );
+        expect(el.style.width).toBe("400px");
+      });
+
+      it("should keep a widened dialog inside the window edge", () => {
+        const el = open(
+          rect(window.innerWidth - 120, 100, 100, 30),
+          rect(0, 0, 100, 100),
+          "connected",
+          MIN_WIDTH,
+        );
+        expect(el.style.width).toBe("300px");
+        expect(parseFloat(el.style.left)).toBeLessThanOrEqual(
+          window.innerWidth - 6 - 300,
+        );
+      });
     });
 
     describe("a dialog that outgrows its space", () => {

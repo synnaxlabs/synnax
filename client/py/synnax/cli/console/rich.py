@@ -14,10 +14,10 @@ from rich.prompt import Confirm, FloatPrompt, IntPrompt, Prompt
 
 from synnax.cli.console.protocol import Console, R
 
-SYNNAX_PRIMARY_Z = "#3774D0"
+_SYNNAX_PRIMARY_Z = "#3774D0"
 
 
-class RichConsole:
+class Rich:
     """A Console implementation using Rich."""
 
     info_color: str
@@ -27,7 +27,7 @@ class RichConsole:
 
     def __init__(
         self,
-        info_color: str = SYNNAX_PRIMARY_Z,
+        info_color: str = _SYNNAX_PRIMARY_Z,
         warn_color: str = "yellow",
         error_color: str = "red",
         success_color: str = "green",
