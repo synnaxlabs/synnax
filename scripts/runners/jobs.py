@@ -212,9 +212,13 @@ class Jobs:
         self.queued = queued
         for payload in pending:
             self.queue(payload["workflow_job"], payload.get("action"))
+        done = {
+            p["workflow_job"]["id"] for p in pending if p.get("action") == "completed"
+        }
         # Restores the jobs that started before a restart.
         for job in running:
-            self.active.setdefault(job["runner_name"], view(job))
+            if job["id"] not in done:
+                self.active.setdefault(job["runner_name"], view(job))
 
     def fetch(self) -> tuple[dict[int, set[str]], list[dict]]:
         queued: dict[int, set[str]] = {}

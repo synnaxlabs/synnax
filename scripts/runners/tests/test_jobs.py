@@ -162,6 +162,25 @@ class TestJobs:
         j.resync(sy.TimeStamp.now())
         assert j.queued == {3: set(LABELS)}
 
+    def test_should_not_restore_a_job_that_finished_during_a_resync(
+        self, client: Client
+    ) -> None:
+        running = delivery("in_progress", 3)["workflow_job"] | {"status": "in_progress"}
+        github = Responses(
+            {
+                "/actions/runs?status=queued&per_page=100&page=1": runs(),
+                "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
+                "/actions/runs/7/jobs?per_page=100&page=1": {"jobs": [running]},
+            }
+        )
+        pool = Held(immediate=False)
+        j = jobs(github, client, pool)
+        j.resync(sy.TimeStamp.now())
+        pool.release()
+        j.apply([delivery("in_progress", 3), delivery("completed", 3)])
+        j.resync(sy.TimeStamp.now())
+        assert "runner" not in j.active
+
     def test_should_read_every_page_of_jobs(self, client: Client) -> None:
         first = [job(i, "completed") for i in range(100)]
         github = Responses(

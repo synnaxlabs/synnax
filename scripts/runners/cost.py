@@ -224,6 +224,10 @@ class Cost:
         # The fetch runs off the controller cycle; step() takes its result.
         self.pool = ThreadPoolExecutor(1)
         self.pending: Future[dict[str, float]] | None = None
+        # Each priced runner's instance, list price, and volume share, from the last
+        # fetch, so rates follow starts and stops between fetches.
+        self.priced: dict[str, tuple[str, float, float]] = {}
+        self.rates: dict[str, float] = {}
 
     def channels(self) -> dict[str, sy.DataType]:
         """Every data channel, all on the QUERY_TIME index."""
@@ -365,6 +369,7 @@ class Cost:
                 for s in PER_RUNNER:
                     values[channel_name(s, r)] = math.nan
                 continue
+            self.priced[r] = (iid, price, ebs)
             values[channel_name(RATE, r)] = ebs + (price if info["running"] else 0.0)
             values[channel_name(EBS, r)] = ebs
             values[channel_name(EST_1D, r)] = price * yesterday[iid] + ebs * 24
@@ -482,23 +487,43 @@ class Cost:
         values[HOURS_REMAINING] = (month_end(today) - moment).total_seconds() / 3600
         return values
 
+    def current_rates(self, found: dict[str, dict]) -> dict[str, float]:
+        """Each priced runner's rate whose instance started or stopped since the
+        rate was last returned."""
+        changed: dict[str, float] = {}
+        for r, (iid, price, ebs) in self.priced.items():
+            info = found.get(iid)
+            if info is None:
+                continue
+            rate = ebs + (price if info["running"] else 0.0)
+            if self.rates.get(r) != rate:
+                changed[channel_name(RATE, r)] = rate
+                self.rates[r] = rate
+        return changed
+
     def step(
         self, now: sy.TimeStamp, known: set[str], found: dict[str, dict]
     ) -> dict[str, float]:
-        """The values on the cycle a fetch lands, else nothing."""
+        """The values on the cycle a fetch lands, else the rates that changed since the
+        last cycle, from the last fetch's prices."""
         self.known = sorted(r for r in known if instance_prefix(r) is not None)
         if self.pending is None and self.due(now):
             self.attempted = now
             self.pending = self.pool.submit(self.fetch, self.moment(), found)
         if self.pending is None or not self.pending.done():
-            return {}
+            return self.current_rates(found)
         try:
             values = self.pending.result()
         except Exception as e:
             self.log.error("cost fetch", e)
-            return {}
+            return self.current_rates(found)
         finally:
             self.pending = None
+        self.rates = {
+            r: v
+            for r in self.priced
+            if (v := values.get(channel_name(RATE, r))) is not None
+        }
         self.types |= {m.group(1) for n in values if (m := TYPE_CHANNEL.match(n))}
         self.log(f"cost fetched, mtd ${values[name('mtd')]:.2f}")
         return values
