@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/sync/list.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/write_task.h"

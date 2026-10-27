@@ -46,7 +46,7 @@
 ///         std::chrono::milliseconds(100)
 ///     );
 /// @endcode
-namespace x::test {
+namespace x::testutil {
 
 /// @brief Core function that implements the eventual assertion logic with a generic
 /// condition
@@ -254,7 +254,7 @@ inline void eventually_nil(
 /// @param actual The actual value or expression to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_EQ(actual, expected)                                         \
-    x::test::eventually_eq<decltype(actual)>(                                          \
+    x::testutil::eventually_eq<decltype(actual)>(                                      \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -267,7 +267,7 @@ inline void eventually_nil(
 /// @param timeout Maximum time to wait for equality
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(actual, expected, timeout, interval)         \
-    x::test::eventually_eq<decltype(actual)>(                                          \
+    x::testutil::eventually_eq<decltype(actual)>(                                      \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -281,7 +281,7 @@ inline void eventually_nil(
 /// @param actual The actual value or expression to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_LE(actual, expected)                                         \
-    x::test::eventually_le<decltype(actual)>(                                          \
+    x::testutil::eventually_le<decltype(actual)>(                                      \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -295,7 +295,7 @@ inline void eventually_nil(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_LE_WITH_TIMEOUT(actual, expected, timeout, interval)         \
-    x::test::eventually_le<decltype(actual)>(                                          \
+    x::testutil::eventually_le<decltype(actual)>(                                      \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -309,7 +309,7 @@ inline void eventually_nil(
 /// @param actual The actual value or expression to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_GE(actual, expected)                                         \
-    x::test::eventually_ge<decltype(actual)>(                                          \
+    x::testutil::eventually_ge<decltype(actual)>(                                      \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -323,7 +323,7 @@ inline void eventually_nil(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(actual, expected, timeout, interval)         \
-    x::test::eventually_ge<decltype(actual)>(                                          \
+    x::testutil::eventually_ge<decltype(actual)>(                                      \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -337,7 +337,7 @@ inline void eventually_nil(
 /// @param fn The function to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_EQ_F(fn, expected)                                           \
-    x::test::eventually_eq<decltype((fn) ())>(                                         \
+    x::testutil::eventually_eq<decltype((fn) ())>(                                     \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -351,7 +351,7 @@ inline void eventually_nil(
 /// @param timeout Maximum time to wait for equality
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(fn, expected, timeout, interval)           \
-    x::test::eventually_eq<decltype((fn) ())>(                                         \
+    x::testutil::eventually_eq<decltype((fn) ())>(                                     \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -365,7 +365,7 @@ inline void eventually_nil(
 /// @param fn The function to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_LE_F(fn, expected)                                           \
-    x::test::eventually_le<decltype((fn) ())>(                                         \
+    x::testutil::eventually_le<decltype((fn) ())>(                                     \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -379,7 +379,7 @@ inline void eventually_nil(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_LE_F_WITH_TIMEOUT(fn, expected, timeout, interval)           \
-    x::test::eventually_le<decltype((fn) ())>(                                         \
+    x::testutil::eventually_le<decltype((fn) ())>(                                     \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -393,7 +393,7 @@ inline void eventually_nil(
 /// @param fn The function to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_GE_F(fn, expected)                                           \
-    x::test::eventually_ge<decltype((fn) ())>(                                         \
+    x::testutil::eventually_ge<decltype((fn) ())>(                                     \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -407,7 +407,7 @@ inline void eventually_nil(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_GE_F_WITH_TIMEOUT(fn, expected, timeout, interval)           \
-    x::test::eventually_ge<decltype((fn) ())>(                                         \
+    x::testutil::eventually_ge<decltype((fn) ())>(                                     \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
         __FILE__,                                                                      \
@@ -436,7 +436,8 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line)
 /// succeeded and returning the result value
 /// @param pair_expr The expression returning the pair to evaluate
 /// @return The first element of the pair (the result value) if successful
-#define ASSERT_NIL_P(pair_expr) x::test::assert_nil_p((pair_expr), __FILE__, __LINE__)
+#define ASSERT_NIL_P(pair_expr)                                                        \
+    x::testutil::assert_nil_p((pair_expr), __FILE__, __LINE__)
 
 /// @brief Helper function for ASSERT_OCCURRED_AS_P macro
 /// @tparam Pair The pair type (automatically deduced)
@@ -484,7 +485,7 @@ auto assert_occurred_as_p(
 /// @param err The expected error
 /// @return The first element of the pair (the result value) if error matches
 #define ASSERT_OCCURRED_AS_P(pair_expr, err)                                           \
-    x::test::assert_occurred_as_p((pair_expr), (err), __FILE__, __LINE__)
+    x::testutil::assert_occurred_as_p((pair_expr), (err), __FILE__, __LINE__)
 
 /// @brief macro asserting that the provided error matches the expeced err via a call
 /// to err.matches(expect).
@@ -495,7 +496,7 @@ auto assert_occurred_as_p(
 /// @brief macro asserting that the provided error will eventually be NIL.
 /// @param expr The expression to evaluate
 #define ASSERT_EVENTUALLY_NIL(expr)                                                    \
-    x::test::eventually_nil([&]() { return (expr); }, __FILE__, __LINE__)
+    x::testutil::eventually_nil([&]() { return (expr); }, __FILE__, __LINE__)
 
 /// @brief macro asserting that the provided error will eventually be NIL, with a
 /// custom timeout and interval.
@@ -503,7 +504,7 @@ auto assert_occurred_as_p(
 /// @param timeout Maximum time to wait for the error to become nil
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_NIL_WITH_TIMEOUT(expr, timeout, interval)                    \
-    x::test::eventually_nil(                                                           \
+    x::testutil::eventually_nil(                                                       \
         [&]() { return (expr); },                                                      \
         __FILE__,                                                                      \
         __LINE__,                                                                      \
@@ -579,7 +580,7 @@ T eventually_nil_p(
 /// @param expr The expression returning the pair to evaluate
 /// @return The value component of the pair once the error becomes nil
 #define ASSERT_EVENTUALLY_NIL_P(expr)                                                  \
-    x::test::eventually_nil_p<                                                         \
+    x::testutil::eventually_nil_p<                                                     \
         typename std::remove_reference<decltype((expr).first)>::type>(                 \
         [&]() { return (expr); },                                                      \
         __FILE__,                                                                      \
@@ -593,7 +594,7 @@ T eventually_nil_p(
 /// @param interval Time to wait between checks
 /// @return The value component of the pair once the error becomes nil
 #define ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(expr, timeout, interval)                  \
-    x::test::eventually_nil_p<                                                         \
+    x::testutil::eventually_nil_p<                                                     \
         typename std::remove_reference<decltype((expr).first)>::type>(                 \
         [&]() { return (expr); },                                                      \
         __FILE__,                                                                      \
@@ -671,7 +672,7 @@ inline void eventually_true(
 /// @brief macro for asserting that a condition will eventually become false
 /// @param expr The expression to evaluate
 #define ASSERT_EVENTUALLY_FALSE(expr)                                                  \
-    x::test::eventually_false([&]() { return (expr); }, __FILE__, __LINE__)
+    x::testutil::eventually_false([&]() { return (expr); }, __FILE__, __LINE__)
 
 /// @brief macro for asserting that a condition will eventually become false with custom
 /// timeout and interval
@@ -679,7 +680,7 @@ inline void eventually_true(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(expr, timeout, interval)                  \
-    x::test::eventually_false(                                                         \
+    x::testutil::eventually_false(                                                     \
         [&]() { return (expr); },                                                      \
         __FILE__,                                                                      \
         __LINE__,                                                                      \
@@ -690,7 +691,7 @@ inline void eventually_true(
 /// @brief macro for asserting that a condition will eventually become true
 /// @param expr The expression to evaluate
 #define ASSERT_EVENTUALLY_TRUE(expr)                                                   \
-    x::test::eventually_true([&]() { return (expr); }, __FILE__, __LINE__)
+    x::testutil::eventually_true([&]() { return (expr); }, __FILE__, __LINE__)
 
 /// @brief macro for asserting that a condition will eventually become true with custom
 /// timeout and interval
@@ -698,7 +699,7 @@ inline void eventually_true(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(expr, timeout, interval)                   \
-    x::test::eventually_true(                                                          \
+    x::testutil::eventually_true(                                                      \
         [&]() { return (expr); },                                                      \
         __FILE__,                                                                      \
         __LINE__,                                                                      \
