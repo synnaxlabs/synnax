@@ -51,6 +51,7 @@ go: &go
 py: &py
   - *ci
   - .github/workflows/test.py.yaml
+  - .python-version
   - codecov.yaml
   - pyproject.toml
   - uv.lock
