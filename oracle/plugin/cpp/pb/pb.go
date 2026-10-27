@@ -1270,6 +1270,45 @@ func (p *Plugin) generateArrayConversion(
 	)
 }
 
+// instanceArrayConversion converts each element of an array of a generic struct
+// instance through the instance's free functions.
+func instanceArrayConversion(
+	name string,
+	isOptional bool,
+	cppFieldName, pbAccessorName string,
+) (forward, backward string) {
+	if isOptional {
+		forward = fmt.Sprintf(`if (this->%s.has_value()) {
+        auto* wrapper = pb.mutable_%s();
+        for (const auto& item : *this->%s) {
+            auto [v, err] = %s_to_proto(item);
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }`, cppFieldName, pbAccessorName, cppFieldName, name)
+		backward = fmt.Sprintf(`if (pb.has_%s()) {
+        cpp.%s.emplace();
+        for (const auto& item : pb.%s().values()) {
+            auto [v, err] = %s_from_proto(item);
+            if (err) return {{}, err};
+            cpp.%s->push_back(std::move(v));
+        }
+    }`, pbAccessorName, cppFieldName, pbAccessorName, name, cppFieldName)
+		return forward, backward
+	}
+	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        auto [v, err] = %s_to_proto(item);
+        if (err) return {{}, err};
+        *pb.add_%s() = v;
+    }`, cppFieldName, name, pbAccessorName)
+	backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
+        auto [v, err] = %s_from_proto(item);
+        if (err) return {{}, err};
+        cpp.%s.push_back(std::move(v));
+    }`, pbAccessorName, name, cppFieldName)
+	return forward, backward
+}
+
 // generateArrayElementConversion renders the proto conversion for an array field.
 // A nullable array maps to a wrapper message (a list message whose repeated field
 // is named values) so absence is distinguishable from emptiness; the generated
@@ -1281,6 +1320,14 @@ func (p *Plugin) generateArrayElementConversion(
 	isOptional bool,
 	data *templateData,
 ) (forward, backward string) {
+	if inst, ok := instance.Of(elemType, data.rawNs, data.table); ok {
+		return instanceArrayConversion(
+			p.addInstance(inst, data),
+			isOptional,
+			cppFieldName,
+			pbAccessorName,
+		)
+	}
 	if !resolution.IsPrimitive(elemType.Name) {
 		if resolved, _, ok := resolution.Dealias(elemType, data.table); ok {
 			if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
