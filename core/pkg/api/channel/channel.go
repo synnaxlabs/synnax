@@ -261,6 +261,10 @@ func (s *Service) retrieve(
 	}
 	var limit int
 	if r.Limit != nil {
+		// SearchChannels reads a zero limit as no limit.
+		if *r.Limit == 0 {
+			return nil, nil
+		}
 		limit = int(*r.Limit)
 	}
 	return s.alias.NewReader(nil).SearchChannels(

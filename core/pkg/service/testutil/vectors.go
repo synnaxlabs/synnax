@@ -54,6 +54,8 @@ func ReadVectors[R, W any](entity string) (Vectors[R, W], error) {
 	if !ok {
 		return v, errors.Newf("no filter vectors for %s", entity)
 	}
-	err = json.Unmarshal(raw, &v, json.RejectUnknownMembers(true))
-	return v, err
+	if err := json.Unmarshal(raw, &v, json.RejectUnknownMembers(true)); err != nil {
+		return Vectors[R, W]{}, err
+	}
+	return v, nil
 }
