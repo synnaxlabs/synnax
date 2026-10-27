@@ -50,7 +50,7 @@ var memberDoc = doc.New(
 	doc.Divider(),
 	doc.Code(
 		"arc",
-		"status_key := sensor -> status.set{key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}",
+		"status_key := sensor -> status.set(key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\")",
 	),
 	doc.Divider(),
 	doc.Paragraph(

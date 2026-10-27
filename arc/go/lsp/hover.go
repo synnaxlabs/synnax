@@ -236,7 +236,10 @@ var keywordDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralFUNC, "Keyword"),
 		doc.Paragraph("Declares a function."),
 		doc.Divider(),
-		doc.Code("arc", "func name(param type) returnType {\n    // body\n}"),
+		doc.Code(
+			"arc",
+			"func name(param type) {trigger type} returnType {\n    // body\n}",
+		),
 	).Render(),
 	parser.LiteralSTAGE: doc.New(
 		doc.TitleWithKind(parser.LiteralSTAGE, "Keyword"),
@@ -654,28 +657,41 @@ func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 	var sig strings.Builder
 	sig.WriteString("func ")
 	sig.WriteString(sym.Name)
-	sig.WriteString("(")
-	for i, param := range sym.Type.Inputs {
-		if i > 0 {
-			sig.WriteString(", ")
+	inputs, triggers := sym.Type.Inputs, types.Params(nil)
+	if idx := inputs.GetIndex(sym.Trigger.Target); idx >= 0 {
+		if sym.AST != nil {
+			// A declared function lists its triggers after its inputs.
+			inputs, triggers = inputs[:idx], inputs[idx:]
+		} else {
+			// An STL node lists its one trigger first.
+			triggers = inputs[idx : idx+1]
+			inputs = slices.Concat(inputs[:idx], inputs[idx+1:])
 		}
-		_, _ = fmt.Fprintf(&sig, "%s %s", param.Name, param.Type)
 	}
-	sig.WriteString(")")
+	writeParams(&sig, "(", inputs, ")")
+	if len(triggers) > 0 {
+		writeParams(&sig, " {", triggers, "}")
+	}
 	if len(sym.Type.Outputs) > 0 {
 		sig.WriteString(" ")
 		if len(sym.Type.Outputs) == 1 {
-			outputType := sym.Type.Outputs[0].Type
-			sig.WriteString(outputType.String())
+			sig.WriteString(sym.Type.Outputs[0].Type.String())
 		} else {
-			sig.WriteString("{")
-			for _, param := range sym.Type.Outputs {
-				_, _ = fmt.Fprintf(&sig, "\n    %s %s", param.Name, param.Type)
-			}
-			sig.WriteString("\n}")
+			writeParams(&sig, "(", sym.Type.Outputs, ")")
 		}
 	}
 	return sig.String()
+}
+
+func writeParams(sig *strings.Builder, start string, params types.Params, end string) {
+	sig.WriteString(start)
+	for i, param := range params {
+		if i > 0 {
+			sig.WriteString(", ")
+		}
+		_, _ = fmt.Fprintf(sig, "%s %s", param.Name, param.Type)
+	}
+	sig.WriteString(end)
 }
 
 func formatFunctionKindDescription(sym *symbol.Symbol) string {
