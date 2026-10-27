@@ -14,7 +14,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
-	aspentransportmock "github.com/synnaxlabs/aspen/transport/mock"
+	aspentransporttestutil "github.com/synnaxlabs/aspen/transport/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	transporttestutil "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil"
@@ -32,7 +32,7 @@ type Cluster struct {
 	// Nodes maps each provisioned node's host key to its Node.
 	Nodes       map[node.Key]Node
 	distNet     *transporttestutil.Network
-	aspenNet    *aspentransportmock.Network
+	aspenNet    *aspentransporttestutil.Network
 	addrFactory *address.Factory
 }
 
@@ -55,7 +55,7 @@ func OpenCluster(ctx context.Context, n int) *Cluster {
 	c := &Cluster{
 		storage:     storagetestutil.NewCluster(),
 		distNet:     transporttestutil.NewNetwork(),
-		aspenNet:    aspentransportmock.NewNetwork(),
+		aspenNet:    aspentransporttestutil.NewNetwork(),
 		addrFactory: address.NewLocalFactory(0),
 		Nodes:       make(map[node.Key]Node),
 	}

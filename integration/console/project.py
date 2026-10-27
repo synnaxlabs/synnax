@@ -18,7 +18,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.base import ResourceClient
 from console.layout import LayoutClient
-from framework.run_dir import resolve_results_path
 
 
 class ProjectClient(ResourceClient):
@@ -123,14 +122,14 @@ class ProjectClient(ResourceClient):
         project_item.wait_for(state="visible", timeout=5000)
         with self.layout.page.expect_download(timeout=10000) as download_info:
             self.ctx_menu.action(project_item, "Export")
-        zip_path = resolve_results_path(f"{name}_export.zip")
+        zip_path = str(self.layout.results_dir / f"{name}_export.zip")
         download_info.value.save_as(zip_path)
 
         if not self.notifications.wait_for("Downloaded file", name=name):
             raise AssertionError(
                 f"Export of project {name!r} did not emit a success notification"
             )
-        export_dir = resolve_results_path(f"{name}_export")
+        export_dir = str(self.layout.results_dir / f"{name}_export")
         if os.path.isdir(export_dir):
             shutil.rmtree(export_dir)
         os.makedirs(export_dir)
