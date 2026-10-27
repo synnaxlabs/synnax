@@ -24,6 +24,8 @@ import { License } from "@/platform/license";
 const FAST_INTERVAL = TimeSpan.seconds(2);
 const FAST_PERIOD = TimeSpan.minutes(10);
 const SLOW_INTERVAL = TimeSpan.minutes(1);
+// A request the portal never answers would stop the polls behind it.
+const REQUEST_TIMEOUT = TimeSpan.seconds(10);
 
 type State =
   | { variant: "idle" }
@@ -57,20 +59,27 @@ export const Handoff = ({
     if (!waiting || client == null) return;
     const controller = new AbortController();
     const poll = async (): Promise<void> => {
+      const deadline = new AbortController();
+      const timer = setTimeout(() => deadline.abort(), REQUEST_TIMEOUT.milliseconds);
       let key: string | null;
       try {
-        key = await License.receive(code, controller.signal);
+        key = await License.receive(
+          code,
+          AbortSignal.any([controller.signal, deadline.signal]),
+        );
       } catch (e) {
+        clearTimeout(timer);
         if (controller.signal.aborted) return;
         // An unreachable portal is normal on a machine with no internet access. The
         // key field stays open, and the next poll tries again.
-        if (e instanceof TypeError) return;
+        if (e instanceof TypeError || deadline.signal.aborted) return;
         setState({
           variant: "failed",
           status: status.fromException(e, "Failed to get the license key"),
         });
         return;
       }
+      clearTimeout(timer);
       if (key == null || controller.signal.aborted) return;
       controller.abort();
       try {

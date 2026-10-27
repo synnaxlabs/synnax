@@ -77,6 +77,25 @@ export const listAll = async (db: Reader): Promise<(Owned & Held)[]> =>
     .groupBy(license.key, organization.key)
     .orderBy(desc(license.issuedAt));
 
+const listActivatableWhere = async (
+  db: Reader,
+  where: SQL,
+  now: Date,
+): Promise<(Owned & Held)[]> => {
+  const rows = await db
+    .select({ license, organization, seats: count(activation.key) })
+    .from(license)
+    .innerJoin(organization, eq(license.organization, organization.key))
+    .leftJoin(
+      activation,
+      and(eq(activation.license, license.key), isNull(activation.releasedAt)),
+    )
+    .where(and(where, isNull(license.revokedAt), ne(license.edition, "desktop")))
+    .groupBy(license.key, organization.key)
+    .orderBy(desc(license.issuedAt));
+  return rows.filter((r) => deny(r.license, now) == null);
+};
+
 /**
  * listActivatable returns the licenses of `orgs` that a machine can activate against
  * at `now`, with their seats in use, newest first.
@@ -87,24 +106,20 @@ export const listActivatable = async (
   now: Date,
 ): Promise<(Owned & Held)[]> => {
   if (orgs.length === 0) return [];
-  const rows = await db
-    .select({ license, organization, seats: count(activation.key) })
-    .from(license)
-    .innerJoin(organization, eq(license.organization, organization.key))
-    .leftJoin(
-      activation,
-      and(eq(activation.license, license.key), isNull(activation.releasedAt)),
-    )
-    .where(
-      and(
-        inArray(license.organization, orgs),
-        isNull(license.revokedAt),
-        ne(license.edition, "desktop"),
-      ),
-    )
-    .groupBy(license.key, organization.key)
-    .orderBy(desc(license.issuedAt));
-  return rows.filter((r) => deny(r.license, now) == null);
+  return await listActivatableWhere(db, inArray(license.organization, orgs), now);
+};
+
+/**
+ * findActivatable returns the license `key` with its organization and seats in use,
+ * or undefined when a machine cannot activate against it at `now`. Staff only.
+ */
+export const findActivatable = async (
+  db: Reader,
+  key: string,
+  now: Date,
+): Promise<(Owned & Held) | undefined> => {
+  const [found] = await listActivatableWhere(db, eq(license.key, key), now);
+  return found;
 };
 
 /**

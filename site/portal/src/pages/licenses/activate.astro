@@ -12,7 +12,7 @@ import Root from "@/layouts/Root.astro";
 import { load } from "@/page";
 import { parse } from "@/server/license/fingerprint";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
-import { findSeat, listActivatable } from "@/server/license/list";
+import { findActivatable, findSeat, listActivatable } from "@/server/license/list";
 import { organizationsFor } from "@/server/organization";
 import { Licenses } from "@/ui/licenses";
 import "@/styles/portal.css";
@@ -27,6 +27,16 @@ const choices = await listActivatable(
     portal.now(),
 );
 const params = Astro.url.searchParams;
+const requested = params.get("license");
+// Staff open the page from the license of a team they are not on.
+if (
+    session.staff &&
+    requested != null &&
+    !choices.some((c) => c.license.key === requested)
+) {
+    const found = await findActivatable(portal.store.query, requested, portal.now());
+    if (found != null) choices.unshift(found);
+}
 const raw = params.get("fingerprint");
 let fingerprint: string[] | null = null;
 try {
@@ -42,7 +52,7 @@ const seat =
               choices.map((c) => c.license.key),
               fingerprint,
           );
-const requested = seat?.license ?? params.get("license");
+const opened = seat?.license ?? requested;
 const name = (seat?.name ?? params.get("name") ?? "").slice(0, MAX_NAME_LENGTH);
 ---
 
@@ -51,9 +61,7 @@ const name = (seat?.name ?? params.get("name") ?? "").slice(0, MAX_NAME_LENGTH);
         <Licenses.Activate
             client:load
             choices={choices}
-            selected={
-                choices.some((c) => c.license.key === requested) ? requested : null
-            }
+            selected={choices.some((c) => c.license.key === opened) ? opened : null}
             machine={
                 fingerprint == null
                     ? null

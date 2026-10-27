@@ -186,6 +186,33 @@ describe("License.Guard", () => {
     ).toBeTruthy();
   });
 
+  it("should ask again when the portal does not answer", async () => {
+    const hub = stubHub(
+      async (_, init) =>
+        await new Promise((_, reject) => {
+          const signal = init?.signal;
+          if (signal == null) throw new Error("the request has no signal");
+          signal.addEventListener("abort", () =>
+            reject(new DOMException("The request was aborted", "AbortError")),
+          );
+        }),
+    );
+    await renderGuard(createTestClient(), UNLICENSED_STATUS);
+    await findPortalLink("Activate on the portal");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fireEvent.click(screen.getByText("Activate on the portal"));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TimeSpan.seconds(15).milliseconds);
+    });
+    expect(hub).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByText("Waiting for the portal. This updates on its own."),
+    ).toBeTruthy();
+  });
+
   it("should ask the portal less often after ten minutes", async () => {
     const hub = stubHub(async () => new Response(null, { status: 204 }));
     await renderGuard(createTestClient(), UNLICENSED_STATUS);

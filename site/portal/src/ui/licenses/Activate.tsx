@@ -281,7 +281,7 @@ const Fields = ({
     seats = (
       <Flex.Box x align="center" justify="between" gap="small">
         <Text.Text level="small" status="warning">
-          Every seat on this license is taken.
+          Every seat is taken. Only a machine that holds one can activate.
         </Text.Text>
         <Button.Button
           variant="text"
@@ -359,7 +359,6 @@ const Fields = ({
         full="x"
         justify="center"
         status={action.loading ? "loading" : undefined}
-        disabled={full}
         onClick={action.run}
         trigger={editing ? undefined : ["Enter"]}
       >
@@ -515,7 +514,7 @@ const Finished = ({ done, handoff }: FinishedProps): ReactElement => {
               title="In an environment variable"
               description="For Docker, Kubernetes, and CI."
             >
-              <Command text={`SYNNAX_LICENSE_KEY="$(cat ${done.filename})"`} />
+              <Command text={`export SYNNAX_LICENSE_KEY="$(cat ${done.filename})"`} />
             </Way>
           </Flex.Box>
         </Flex.Box>

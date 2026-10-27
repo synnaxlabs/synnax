@@ -12,6 +12,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
+  findActivatable,
   findSeat,
   listActivatable,
   listAll,
@@ -187,6 +188,31 @@ describe("list", () => {
       expect(await listActivatable(store.query, [acme.key], NOW)).toEqual([
         { license: lic, organization: acme, seats: 1 },
       ]);
+    });
+  });
+
+  describe("findActivatable", () => {
+    it("should find a license of any organization with its seats", async () => {
+      const lic = await createLicense(store, { organization: globex.key });
+      await createActivation(store, { license: lic.key, fingerprint: [HASH_A] });
+      expect(await findActivatable(store.query, lic.key, NOW)).toEqual({
+        license: lic,
+        organization: globex,
+        seats: 1,
+      });
+    });
+
+    it("should skip a revoked, Desktop, or unknown license", async () => {
+      const revoked = await createLicense(store, {
+        organization: acme.key,
+        revokedAt: NOW,
+      });
+      const desktop = await createLicense(store, {
+        organization: acme.key,
+        edition: "desktop",
+      });
+      for (const key of [revoked.key, desktop.key, crypto.randomUUID()])
+        expect(await findActivatable(store.query, key, NOW)).toBeUndefined();
     });
   });
 
