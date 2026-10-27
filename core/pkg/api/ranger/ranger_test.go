@@ -44,6 +44,25 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Ranges).To(HaveExactElements(HaveField("Key", r.Key)))
 	})
 
+	It("Should return no range for a zero limit", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := apiranger.Range{
+			Key:       uuid.New(),
+			Name:      "limited",
+			TimeRange: telem.TimeRange{Start: 1, End: 2},
+		}
+		Expect(svc.Ranger.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+		res := MustSucceed(apiSvc.Retrieve(
+			AuthedCtx(ctx, u),
+			apiranger.RetrieveRequest{
+				Where: &ranger.Where{Key: &filter.Set[apiranger.Key]{Eq: &r.Key}},
+				Limit: new(uint32(0)),
+			},
+		))
+		Expect(res.Ranges).To(BeEmpty())
+	})
+
 	It("Should return a path error under where for an invalid where", func(
 		ctx SpecContext,
 	) {
