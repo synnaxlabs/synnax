@@ -11,6 +11,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   array,
   DataType,
+  dynamicWindow,
   id,
   Series,
   Size,
@@ -26,9 +27,9 @@ import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { tileSpan } from "@/framer/cache/grid";
 import { type TileSpec } from "@/framer/cache/tile";
-import { Feed, type FeedProps, type LatestReader } from "@/framer/feed";
+import { Feed, type FeedProps, type RemoteLatestReader } from "@/framer/feed";
 import { Frame } from "@/framer/frame";
-import { createTestClient, ManualClock } from "@/testutil";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 const feed = client.openFeed();
@@ -282,49 +283,6 @@ describe("feed", () => {
     }
   });
 
-  it("should keep reads complete across leading buffer rollovers", async () => {
-    const { time, data } = await createChannels();
-    // A small buffer forces frequent flush and realloc cycles.
-    const small = client.openFeed({ dynamicBufferSize: 50 });
-    try {
-      const start = TimeStamp.now();
-      const next = createClock();
-      const w = await client.openWriter({
-        start,
-        channels: [time.key, data.key],
-        enableAutoCommit: true,
-      });
-      try {
-        const sub = small.stream(() => {}, [time.key, data.key]);
-        let value = 0;
-        for (let i = 0; i < 10; i++) {
-          for (let j = 0; j < 30; j++)
-            await w.write({
-              [time.key]: [next(), next()],
-              [data.key]: [value++, value++],
-            });
-          const tr = new TimeRange(start, TimeStamp.now());
-          // The fresh baseline reads first: anything committed by now must also
-          // reach the later cached read, so autocommit lag cannot flake this.
-          const fresh = client.openFeed();
-          try {
-            const all = Array.from(await fresh.read(tr, data.key)) as number[];
-            const got = new Set(Array.from(await small.read(tr, data.key)) as number[]);
-            const missing = all.filter((v) => !got.has(v));
-            expect(missing).toHaveLength(0);
-          } finally {
-            await fresh.close();
-          }
-        }
-        sub.close();
-      } finally {
-        await w.close();
-      }
-    } finally {
-      await small.close();
-    }
-  });
-
   it("should refetch samples written while a channel was unstreamed", async () => {
     const { time, data } = await createChannels();
     const short = client.openFeed({ removalDelay: TimeSpan.milliseconds(100) });
@@ -457,32 +415,6 @@ describe("feed", () => {
     await closable.close();
     const tr = new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeSpan.seconds(1)));
     await expect(closable.read(tr, 123)).rejects.toThrow(UnexpectedError);
-  });
-
-  it("should forward staleCoverageThreshold to the cache", async () => {
-    let calls = 0;
-    const clock = new ManualClock();
-    const direct = new Feed({
-      staleCoverageThreshold: TimeSpan.milliseconds(50),
-      now: clock.now,
-      retrieveChannels: retrieveIndexes,
-      readRemote: async () => {
-        calls++;
-        return new Frame([], []);
-      },
-      openStreamer: async () => {
-        throw new UnexpectedError("streamer unused");
-      },
-      readLatest: async () => new Frame([], []),
-    });
-    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
-    await direct.read(tr, 1);
-    await direct.read(tr, 1);
-    expect(calls).toBe(1);
-    clock.advance(TimeSpan.milliseconds(50));
-    await direct.read(tr, 1);
-    expect(calls).toBe(2);
-    await direct.close();
   });
 
   it("should forward fetchTimeout to the reader", async () => {
@@ -667,21 +599,6 @@ describe("feed", () => {
       await direct.close();
     });
 
-    it("should forward staleCoverageThreshold to the tile cache", async () => {
-      const clock = new ManualClock();
-      const { direct, counter } = createFeed({
-        staleCoverageThreshold: TimeSpan.milliseconds(50),
-        now: clock.now,
-      });
-      await direct.readTile(TILE);
-      await direct.readTile(TILE);
-      expect(counter.calls).toBe(1);
-      clock.advance(TimeSpan.milliseconds(50));
-      await direct.readTile(TILE);
-      expect(counter.calls).toBe(2);
-      await direct.close();
-    });
-
     it("should forward budget to the block cache", async () => {
       const { direct, counter } = createFeed({ budget: Size.bytes(4) });
       await direct.readTile({ ...TILE, index: 1 });
@@ -699,7 +616,7 @@ describe("feed", () => {
   });
 
   describe("readLatest", () => {
-    const createFeed = (readLatest: LatestReader): Feed =>
+    const createFeed = (readLatest: RemoteLatestReader): Feed =>
       new Feed({
         readLatest,
         retrieveChannels: retrieveIndexes,
@@ -810,6 +727,83 @@ describe("feed", () => {
       await direct.close();
       release();
       await expect(read).rejects.toThrow(UnexpectedError);
+    });
+  });
+
+  describe("subscribe", () => {
+    it("should hold each sample once while a writer runs", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT64,
+        index: index.key,
+      });
+      const start = TimeStamp.now();
+      const writer = await client.openWriter({
+        start,
+        channels: [index.key, data.key],
+      });
+      let written = 0;
+      let running = true;
+      // A 1 kHz writer: ten samples a millisecond apart, paced to the wall clock. Each
+      // data sample holds its sample number.
+      const writing = (async () => {
+        while (running) {
+          const numbers = Array.from({ length: 10 }, (_, i) => written + i);
+          await writer.write({
+            [index.key]: new BigInt64Array(
+              numbers.map((n) => start.add(TimeSpan.milliseconds(n)).valueOf()),
+            ),
+            [data.key]: new Float64Array(numbers),
+          });
+          written += 10;
+          const ahead = start.add(TimeSpan.milliseconds(written)).span(TimeStamp.now());
+          if (start.add(TimeSpan.milliseconds(written)).after(TimeStamp.now()))
+            await sleep.sleep(ahead);
+        }
+      })();
+      const seamFeed = client.openFeed({ removalDelay: TimeSpan.ZERO });
+      const span = TimeSpan.seconds(2);
+      try {
+        for (let i = 0; i < 20; i++) {
+          const sub = seamFeed.subscribe({
+            keys: [data.key],
+            window: dynamicWindow(span),
+            limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+          });
+          try {
+            await expect
+              .poll(
+                () => {
+                  const snap = sub.value(data.key);
+                  return snap.status.variant === "success" && snap.series.length > 0;
+                },
+                { timeout: 5000, interval: 5 },
+              )
+              .toBe(true);
+            await sleep.sleep(TimeSpan.milliseconds(50 + 10 * i));
+            const opened = TimeStamp.now().sub(span);
+            const numbers = Array.from(sub.value(data.key).series) as number[];
+            const steps = new Set(numbers.slice(1).map((n, j) => n - numbers[j]));
+            expect([...steps]).toEqual([1]);
+            const from = TimeStamp.max(start, opened);
+            expect(numbers[0]).toBeLessThanOrEqual(
+              Number(from.span(start).milliseconds) + 1,
+            );
+          } finally {
+            sub.close();
+          }
+        }
+      } finally {
+        running = false;
+        await writing;
+        await writer.close();
+        await seamFeed.close();
+      }
     });
   });
 });

@@ -44,6 +44,8 @@ export interface ClientConfig {
   retrieveChannels: ChannelRetriever;
   /** Receives each failed reconnect attempt of a feed's stream. */
   onRetry?: (error: Error) => void;
+  /** The key of the Core node the client connects to, once known. */
+  node?: () => number | undefined;
 }
 
 /**
@@ -113,11 +115,13 @@ export class Client {
     return new Feed({
       ...options,
       onRetry: this.cfg.onRetry,
+      node: this.cfg.node,
       readRemote: async (tr, keys, reduction) =>
         await this.read(tr, keys, { reduction }),
       retrieveChannels: this.cfg.retrieveChannels,
       openStreamer: async (config) => await this.openStreamer(config),
-      readLatest: async (keys) => await this.readLatest(keys, 1),
+      readLatest: async (keys, count, tr) =>
+        await this.readLatestNFrame(keys, count, tr),
     });
   }
 
@@ -276,8 +280,12 @@ export class Client {
     return fr;
   }
 
-  private async readLatestNFrame(channels: channel.Params, n: number): Promise<Frame> {
-    const i = await this.openIterator(TimeRange.MAX, channels, { chunkSize: n });
+  private async readLatestNFrame(
+    channels: channel.Params,
+    n: number,
+    tr: TimeRange = TimeRange.MAX,
+  ): Promise<Frame> {
+    const i = await this.openIterator(tr, channels, { chunkSize: n });
     const frame = new Frame();
     if (n > 0)
       try {

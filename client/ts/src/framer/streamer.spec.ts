@@ -1257,6 +1257,31 @@ describe("Streamer", () => {
       expect(openerMock).toHaveBeenCalledTimes(2);
     });
 
+    it("should rethrow a definitive update rejection and keep its channels", async () => {
+      const rejected = new AccessDeniedError("no access to channel 2");
+      const streamer1 = new MockStreamer();
+      streamer1.updateErrors = [rejected];
+      streamer1.responses = [[new Frame(), new Unreachable({ message: "down" })]];
+      const streamer2 = new MockStreamer();
+      const fr = new Frame({ 1: new Series([1]) });
+      streamer2.responses = [[fr, null]];
+      const opened: channel.Params[] = [];
+      const onDrop = vi.fn();
+      const hardened = await HardenedStreamer.open(
+        async (config) => {
+          opened.push(streamerConfigZ.parse(config).channels);
+          return opened.length === 1 ? streamer1 : streamer2;
+        },
+        { channels: [1] },
+        { onDrop, breaker: FAST_RETRY, onRetry: quiet },
+      );
+      await expect(hardened.update([1, 2])).rejects.toThrow(rejected);
+      expect(onDrop).not.toHaveBeenCalled();
+      expect(await hardened.read()).toBe(fr);
+      expect(opened).toEqual([[1], [1]]);
+      hardened.close();
+    });
+
     it("should retry an acked update on the reopened stream", async () => {
       const streamer1 = new MockStreamer();
       streamer1.updateErrors = [new Unreachable({ message: "down" })];

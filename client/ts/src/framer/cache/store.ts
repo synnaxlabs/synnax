@@ -10,17 +10,20 @@
 import { alamos } from "@synnaxlabs/alamos";
 import {
   type DataType,
+  type destructor,
   MultiSeries,
   type Series,
   Size,
+  TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import {
   type Block,
+  offsetOf,
   RAW_LEVEL,
   RawBlock,
   rawIndex,
@@ -47,6 +50,11 @@ export interface StoreProps extends Partial<
   staleThreshold?: TimeSpan;
   /** Used for logging. */
   instrumentation?: alamos.Instrumentation;
+  /**
+   * The key of the Core node the client connects to, once known. History signals name
+   * only the channels stored on it.
+   */
+  node?: () => number | undefined;
 }
 
 const DEFAULT_BUDGET = Size.megabytes(128);
@@ -69,9 +77,17 @@ interface Live {
 }
 
 /**
+ * Receives a span of a channel's history that changed, or of every channel's when the
+ * channel is null.
+ */
+export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
+
+/**
  * Caches blocks of channel samples under one byte budget. The least recently used block
  * leaves first. Every block of a channel holds one data type. Streamed samples go into
  * the raw block of their time, which stays open until the stream moves past it.
+ * A sealed block stays valid until a history change names it while the history signals
+ * stream. Other blocks expire.
  */
 export class Store {
   private readonly budget: number;
@@ -79,11 +95,25 @@ export class Store {
   private readonly dynamicBufferSize: number | TimeSpan;
   private readonly instrumentation: alamos.Instrumentation;
   private readonly now: () => TimeStamp;
+  private readonly node: () => number | undefined;
   // Map order is recency order: a get moves its entry to the end.
   private readonly entries = new Map<string, Entry>();
   private readonly dataTypes = new Map<channel.Key, DataType>();
   private readonly live = new Map<channel.Key, Live>();
+  // newest holds the newest raw block that held samples of each channel. A block that
+  // leaves stays its newest, until the channel's data type changes.
+  private readonly newest = new Map<channel.Key, number>();
+  // epochs counts the changes to the series of each channel's raw blocks.
+  private readonly epochs = new Map<channel.Key, number>();
   private bytes = 0;
+  private readonly calculated = new Set<channel.Key>();
+  // leaseholders holds the node of each stored channel.
+  private readonly leaseholders = new Map<channel.Key, number>();
+  private signalKey: channel.Key | null = null;
+  // signalsSince is when the stream last acked the history signals, or null when it
+  // does not carry them.
+  private signalsSince: TimeStamp | null = null;
+  private readonly invalidateHandlers = new Set<InvalidateHandler>();
 
   constructor({
     budget = DEFAULT_BUDGET,
@@ -91,12 +121,14 @@ export class Store {
     dynamicBufferSize = tileSpan(RAW_LEVEL),
     instrumentation = alamos.NOOP,
     now = () => TimeStamp.now(),
+    node = () => undefined,
   }: StoreProps = {}) {
     this.budget = budget.valueOf();
     this.staleThreshold = staleThreshold;
     this.dynamicBufferSize = dynamicBufferSize;
     this.instrumentation = instrumentation;
     this.now = now;
+    this.node = node;
   }
 
   /** @returns the block cached under the key, marking it the most recently used. */
@@ -115,11 +147,33 @@ export class Store {
    * against the budget.
    */
   set(key: string, block: Block): void {
+    if (block instanceof RawBlock) {
+      this.changed(block.channel);
+      if (block.coveredCount > 0)
+        this.newest.set(
+          block.channel,
+          Math.max(block.index, this.newest.get(block.channel) ?? -Infinity),
+        );
+    }
     const bytes = block.bytes + ENTRY_OVERHEAD;
     this.bytes += bytes - (this.entries.get(key)?.bytes ?? 0);
     this.entries.delete(key);
     this.entries.set(key, { block, bytes });
     this.evict(key);
+  }
+
+  /**
+   * Moves a subscription's pins from the blocks it served to the blocks it serves now,
+   * then evicts least recently used blocks past the budget.
+   */
+  repin(prev: Set<Block>, next: Set<Block>): void {
+    prev.forEach((b) => {
+      if (!next.has(b)) b.pins--;
+    });
+    next.forEach((b) => {
+      if (!prev.has(b)) b.pins++;
+    });
+    this.evict(null);
   }
 
   /**
@@ -157,18 +211,84 @@ export class Store {
   delete(key: string): void {
     const entry = this.entries.get(key);
     if (entry == null) return;
+    if (entry.block instanceof RawBlock) this.changed(entry.block.channel);
     this.entries.delete(key);
     this.bytes -= entry.bytes;
   }
 
   /**
    * @returns true when the block's fetched samples are too old to answer reads. A held
-   * block never expires.
+   * block never expires, nor does a sealed block that history signals keep valid.
    */
   expired(block: Block): boolean {
     if (block.held) return false;
     const age = this.now().valueOf() - block.fetchedAt.valueOf();
-    return (age < 0n ? -age : age) >= this.staleThreshold.valueOf();
+    if ((age < 0n ? -age : age) < this.staleThreshold.valueOf()) return false;
+    return !this.signaled(block);
+  }
+
+  // A sealed block fetched while the stream carried the history signals stays valid
+  // until a signal names it. The signals name only the channels stored on the node, and
+  // never an append.
+  private signaled(block: Block): boolean {
+    const node = this.node();
+    return (
+      block.sealed &&
+      this.signalsSince != null &&
+      node != null &&
+      this.leaseholders.get(block.channel) === node &&
+      !block.fetchedAt.before(this.signalsSince)
+    );
+  }
+
+  /** @returns true when the channel is calculated. */
+  isCalculated(ch: channel.Key): boolean {
+    return this.calculated.has(ch);
+  }
+
+  /** Records the channel, which decides whether history signals name it. */
+  setChannel(p: channel.Payload): void {
+    if (channel.isCalculated(p)) this.calculated.add(p.key);
+    else this.calculated.delete(p.key);
+    if (p.virtual) this.leaseholders.delete(p.key);
+    else this.leaseholders.set(p.key, p.leaseholder);
+  }
+
+  /** Sets the channel that carries the history signals. */
+  setSignalKey(key: channel.Key): void {
+    this.signalKey = key;
+  }
+
+  /** Records the keys the stream has acked. */
+  setAcked(keys: Set<channel.Key>): void {
+    const flowing = this.signalKey != null && keys.has(this.signalKey);
+    if (!flowing) this.signalsSince = null;
+    else this.signalsSince ??= this.now();
+  }
+
+  /** Registers a handler for changed spans of history. */
+  onInvalidate(handler: InvalidateHandler): destructor.Destructor {
+    this.invalidateHandlers.add(handler);
+    return () => this.invalidateHandlers.delete(handler);
+  }
+
+  /**
+   * Drops the cached samples of the channel over the time range, or of every channel
+   * when the channel is null.
+   */
+  invalidate(ch: channel.Key | null = null, tr: TimeRange = TimeRange.MAX): void {
+    const touched = [...this.entries]
+      .map(([key, { block }]) => [key, block] as const)
+      .filter(([, b]) => (ch == null || b.channel === ch) && b.range.overlapsWith(tr));
+    for (const [key, block] of touched)
+      if (!(block instanceof RawBlock)) this.delete(key);
+      else if (block.expire()) this.set(key, block);
+    this.invalidateHandlers.forEach((h) => h(ch, tr));
+  }
+
+  /** @returns the data type of the channel's cached samples. */
+  dataType(ch: channel.Key): DataType | undefined {
+    return this.dataTypes.get(ch);
   }
 
   /**
@@ -199,6 +319,61 @@ export class Store {
     if (!(cached instanceof RawBlock))
       throw new UnexpectedError(`block ${key} is not a raw block`);
     return cached;
+  }
+
+  /**
+   * @returns the index of the newest raw block of the channel that a read or the stream
+   * filled with samples, or -Infinity when none did.
+   */
+  newestBlock(ch: channel.Key): number {
+    return this.newest.get(ch) ?? -Infinity;
+  }
+
+  /**
+   * @returns a count that moves each time a raw block of the channel gains or loses a
+   * series. A stream that grows the open block's buffer in place leaves it alone.
+   */
+  epoch(ch: channel.Key): number {
+    return this.epochs.get(ch) ?? 0;
+  }
+
+  /** @returns the block the stream is writing the channel's samples into, if any. */
+  open(ch: channel.Key): RawBlock | null {
+    return this.live.get(ch)?.block ?? null;
+  }
+
+  /**
+   * Opens the block for the stream's block-aligned samples of its channel. The block it
+   * replaces closes, complete when the stream moved past it. The store keeps an open
+   * block.
+   */
+  join(block: RawBlock): void {
+    const live = this.liveOf(block.channel);
+    if (live.block === block && block.joined) return;
+    if (live.block != null) this.seal(live, live.block.index < block.index);
+    block.buffer = live.buffer;
+    block.joined = true;
+    live.block = block;
+    this.set(rawKey(block.channel, block.index), block);
+  }
+
+  /**
+   * Appends a block-aligned piece to the stream's buffer of the block's channel, and
+   * extends the block's coverage to the end of the piece. The block opens as by
+   * {@link join}.
+   * @returns the buffers the append allocated.
+   */
+  append(block: RawBlock, p: Series): MultiSeries {
+    const live = this.liveOf(block.channel);
+    const opened = live.block !== block || !block.joined;
+    if (opened) this.join(block);
+    const res = live.buffer.write(new MultiSeries([p]));
+    const flushed = res.flushed.series.length > 0;
+    if (flushed) block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
+    block.extend(p.timeRange.end, offsetOf(p.alignment) + p.length);
+    if (opened || flushed || res.allocated.series.length > 0)
+      this.set(rawKey(block.channel, block.index), block);
+    return res.allocated;
   }
 
   /**
@@ -261,10 +436,14 @@ export class Store {
     });
     for (const [key, { block }] of this.entries)
       if (block.channel === ch) this.delete(key);
+    this.newest.delete(ch);
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
-    if (live.block != null) live.block.buffer = null;
+    if (live.block != null) {
+      live.block.buffer = null;
+      live.block.joined = false;
+    }
     live.block = null;
     return true;
   }
@@ -273,19 +452,31 @@ export class Store {
   close(): void {
     this.live.forEach(({ buffer }) => buffer.close());
     this.live.clear();
+    this.invalidateHandlers.clear();
     this.entries.clear();
     this.dataTypes.clear();
+    this.newest.clear();
     this.bytes = 0;
   }
 
-  private seal(live: Live): void {
+  // Closes the open block. A joined block keeps its streamed samples as fetched ones,
+  // and is complete when the stream moved past it.
+  private seal(live: Live, complete = false): void {
     const { block } = live;
     if (block == null) return;
     const flushed = live.buffer.flush();
-    if (flushed != null && flushed.length > 0) block.stream([flushed]);
+    if (flushed != null && flushed.length > 0)
+      if (block.joined) block.fill([flushed], block.coveredEnd, block.coveredCount);
+      else block.stream([flushed]);
+    if (block.joined && complete) block.extend(block.range.end, block.coveredCount);
+    block.joined = false;
     block.buffer = null;
     live.block = null;
     this.set(rawKey(block.channel, block.index), block);
+  }
+
+  private changed(ch: channel.Key): void {
+    this.epochs.set(ch, this.epoch(ch) + 1);
   }
 
   private liveOf(ch: channel.Key): Live {

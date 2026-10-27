@@ -14,6 +14,7 @@ import {
   type MultiSeries,
   scheduler,
   sync,
+  type TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -57,22 +58,38 @@ export interface TileReaderProps {
 /** A cached tile: one channel's reduced samples. */
 class Tile implements Block {
   readonly bytes: number;
+  readonly sealed: boolean;
+  pins = 0;
 
   constructor(
     readonly channel: channel.Key,
+    readonly range: TimeRange,
     readonly series: MultiSeries,
     readonly fetchedAt: TimeStamp,
   ) {
     this.bytes = series.series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
+    this.sealed = series.series.some((s) => s.timeRange.end.afterEq(range.end));
   }
 
   get held(): boolean {
-    return this.series.series.some((s) => s.refCount > 0);
+    return this.pins > 0 || this.series.series.some((s) => s.refCount > 0);
   }
 }
 
-const cacheKey = ({ key, level, index, pointLimit, aggregation }: TileSpec): string =>
-  `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
+/** @returns true when the tile is cut short at either end, which keeps it uncached. */
+export const isCut = ({ start, end }: TileSpec): boolean =>
+  start != null || end != null;
+
+/**
+ * @returns the store key of the tile. A tile cut short at either end is never cached.
+ */
+export const tileKey = ({
+  key,
+  level,
+  index,
+  pointLimit,
+  aggregation,
+}: TileSpec): string => `${key}/${level}/${index}/${pointLimit}/${aggregation}`;
 
 /**
  * @returns a key for the time range and reduction of the tile's read. Specs with equal
@@ -119,9 +136,9 @@ export class TileReader {
    */
   async read(spec: TileSpec, dataType?: DataType): Promise<MultiSeries> {
     if (this.closed) throw new UnexpectedError("tile reader is closed");
-    if (spec.start != null || spec.end != null) return await this.batcher.enqueue(spec);
+    if (isCut(spec)) return await this.readFresh(spec);
     const { store } = this.props;
-    const key = cacheKey(spec);
+    const key = tileKey(spec);
     const tile = tileRequestKey(spec);
     const cached = store.get(key);
     if (cached != null && !(cached instanceof Tile))
@@ -147,15 +164,34 @@ export class TileReader {
       reads = new Map();
       this.pending.set(tile, reads);
     }
-    const fetched = this.batcher.enqueue(spec);
+    const fetched = this.readFresh(spec);
     reads.set(spec.key, fetched);
     try {
       const series = await fetched;
-      if (!this.closed) store.set(key, new Tile(spec.key, series, this.props.now()));
+      if (!this.closed)
+        store.set(key, new Tile(spec.key, tileRange(spec), series, this.props.now()));
       return series;
     } finally {
       reads.delete(spec.key);
       if (reads.size === 0) this.pending.delete(tile);
+    }
+  }
+
+  // Fetches the tile again while a history change over its span lands during the fetch,
+  // since the fetch can hold samples from before the change.
+  private async readFresh(spec: TileSpec): Promise<MultiSeries> {
+    const span = tileRange(spec);
+    for (;;) {
+      let changed = false;
+      const stopWatching = this.props.store.onInvalidate((ch, tr) => {
+        if ((ch == null || ch === spec.key) && tr.overlapsWith(span)) changed = true;
+      });
+      try {
+        const series = await this.batcher.enqueue(spec);
+        if (!changed) return series;
+      } finally {
+        stopWatching();
+      }
     }
   }
 

@@ -9,6 +9,7 @@
 
 import { Unreachable } from "@synnaxlabs/freighter";
 import {
+  type destructor,
   errors,
   MultiSeries,
   type Reduction,
@@ -26,8 +27,10 @@ import { type ChannelRetriever } from "@/framer/adapter";
 import {
   align,
   countBefore,
+  type Part,
   RAW_LEVEL,
   type RawBlock,
+  rawIndex,
   rawKey,
   split,
 } from "@/framer/cache/block";
@@ -42,22 +45,30 @@ export interface RemoteReader {
 
 export const DEFAULT_BATCH_DEBOUNCE = TimeSpan.milliseconds(50);
 
-// Samples stamped this close to a fetch may commit after it answers, so a fetch never
-// marks them as covered.
-const COMMIT_MARGIN = TimeSpan.seconds(1);
+/**
+ * Samples stamped this close to a fetch may commit after it answers, so a fetch never
+ * marks them as covered.
+ */
+export const COMMIT_MARGIN = TimeSpan.seconds(1);
 
-// A request to fill a read's raw block up to at least end.
+// A request to fill a read's raw block up to at least end. A catch-up request trusts
+// the read up to the channel's newest sample, since the stream acked the channel before
+// it.
 interface Request {
   block: RawBlock;
   end: TimeStamp;
+  catchUp: boolean;
 }
 
-// One Core read from start through the end of the blocks first to last, shared by every
-// channel whose blocks need that span.
+// One Core read from start to end over the blocks first to last, shared by every
+// channel whose blocks need that span. A catch-up read ends at TimeStamp.MAX, and fills
+// the blocks after last that hold the channel's newer samples.
 interface Group {
   first: number;
   last: number;
   start: TimeStamp;
+  end: TimeStamp;
+  catchUp: boolean;
   entries: Array<scheduler.BatcherEntry<Request>>;
 }
 
@@ -129,7 +140,9 @@ export class Reader {
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
-      waits.push(b.pending ?? this.enqueue(b, TimeStamp.min(tr.end, b.range.end)));
+      waits.push(
+        b.pending ?? this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false),
+      );
     }
     // The read settles after its last fetch, and its first failure wins.
     let failure: Error | undefined;
@@ -154,32 +167,71 @@ export class Reader {
     return new MultiSeries(series);
   }
 
-  private enqueue(block: RawBlock, end: TimeStamp): Promise<void> {
-    return this.props.store.hold(block, this.batcher.enqueue({ block, end }));
+  /**
+   * Fetches the channel's raw blocks from first through its newest sample, from the end
+   * of their coverage, and trusts every sample the read returns. Call it only after the
+   * stream acked the channel and its index, so the stream delivers every sample the
+   * read misses. The store keeps the blocks until the returned destructor runs, so the
+   * join finds the samples it numbers the stream's samples after.
+   * @throws {UnexpectedError} if the reader is closed while the read is pending.
+   * @throws {Unreachable} if the fetch exceeds the fetch timeout.
+   * @throws {NotFoundError} if the channel does not exist.
+   */
+  async catchUp(ch: channel.Key, first: number): Promise<destructor.Destructor> {
+    if (this.closed) throw new UnexpectedError("telemetry reader is closed");
+    const { store, now } = this.props;
+    const last = Math.max(first, rawIndex(now()));
+    const pinned = new Set<RawBlock>();
+    const release = (): void => store.repin(pinned, new Set());
+    const waits: Array<Promise<void>> = [];
+    for (let i = first; i <= last; i++) {
+      const b = store.raw(ch, i);
+      // Pinned one at a time, since the next block can evict an unpinned one.
+      store.repin(new Set(), new Set([b]));
+      pinned.add(b);
+      const end = i === last ? TimeStamp.MAX : b.range.end;
+      waits.push(this.batcher.enqueue({ block: b, end, catchUp: true }));
+    }
+    try {
+      await Promise.all(waits);
+    } catch (e) {
+      release();
+      throw errors.fromUnknown(e);
+    }
+    return release;
+  }
+
+  private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {
+    return this.props.store.hold(block, this.batcher.enqueue({ block, end, catchUp }));
   }
 
   private async batchRead(
     entries: Array<scheduler.BatcherEntry<Request>>,
   ): Promise<void> {
-    const byChannel = new Map<channel.Key, Array<scheduler.BatcherEntry<Request>>>();
+    const byChannel = new Map<string, Array<scheduler.BatcherEntry<Request>>>();
     for (const entry of entries) {
-      const { block, end } = entry.req;
-      // A fetch that landed while the request waited may have covered it.
-      if (!block.coveredEnd.before(end)) {
+      const { block, end, catchUp } = entry.req;
+      // A fetch that landed while the request waited may have covered it, and a joined
+      // block takes its samples from the stream.
+      if (block.joined || !block.coveredEnd.before(end)) {
         entry.resolve();
         continue;
       }
-      const existing = byChannel.get(block.channel);
-      if (existing == null) byChannel.set(block.channel, [entry]);
+      const key = `${block.channel}/${catchUp}`;
+      const existing = byChannel.get(key);
+      if (existing == null) byChannel.set(key, [entry]);
       else existing.push(entry);
     }
     const groups = new Map<string, Group>();
     byChannel.forEach((pending) =>
       runs(pending).forEach((run) => {
-        const key = `${run.first}/${run.last}/${run.start.valueOf()}`;
+        const key = `${run.first}/${run.last}/${run.start.valueOf()}/${run.catchUp}`;
         const group = groups.get(key);
         if (group == null) groups.set(key, run);
-        else group.entries.push(...run.entries);
+        else {
+          group.entries.push(...run.entries);
+          group.end = TimeStamp.max(group.end, run.end);
+        }
       }),
     );
     await Promise.all([...groups.values()].map(async (g) => await this.fetch(g)));
@@ -188,15 +240,12 @@ export class Reader {
   // Never throws: every outcome settles the group's entries.
   private async fetch(group: Group): Promise<void> {
     const { entries } = group;
-    const tr = new TimeRange(
-      group.start,
-      tileRange({ level: RAW_LEVEL, index: group.last }).end,
-    );
+    const tr = new TimeRange(group.start, group.end);
     try {
       const refetch = await this.load(group, tr);
       entries.forEach(({ req, resolve }) => {
         if (!refetch.has(req)) return resolve();
-        resolve(this.enqueue(req.block, req.end));
+        resolve(this.enqueue(req.block, req.end, req.catchUp));
       });
     } catch (err) {
       const byChannel = Map.groupBy(entries, ({ req }) => req.block.channel);
@@ -216,11 +265,14 @@ export class Reader {
   // Reads the requested channels and their indexes over tr, splits the result at block
   // edges, and fills each block whose coverage still ends where the read starts in it.
   // A new data type resets a block, so a block that the read started after its start
-  // comes back in the result, to fetch again.
+  // comes back in the result, to fetch again. So does a catch-up block that another
+  // fetch filled first, since that fetch did not trust its newest samples, and a block
+  // of a channel whose history changed while the read ran.
   private async load(
-    { first, last, start, entries }: Group,
+    { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
   ): Promise<Set<Request>> {
+    const open = tr.end.equals(TimeStamp.MAX);
     const { readRemote, retrieveChannels, store, now } = this.props;
     const committed = now().sub(COMMIT_MARGIN);
     const requested = new Map<channel.Key, Request[]>();
@@ -242,15 +294,32 @@ export class Reader {
       const idx = p.isIndex ? p.key : p.index;
       indexOf.set(p.key, idx);
       if (idx !== 0) indexOf.set(idx, idx);
+      store.setChannel(p);
     });
     channels.forEach((ch) => {
       if (!indexOf.has(ch)) throw new NotFoundError(`channel ${ch} not found`);
     });
-    const frame = await this.timed(
-      readRemote(tr, [...indexOf.keys()]),
-      `block read for ${tr.toString()}`,
+    // rewritten holds the channels whose history changed over the read's blocks while
+    // it ran, and null when every channel's did.
+    const rewritten = new Set<channel.Key | null>();
+    const span = new TimeRange(
+      tileRange({ level: RAW_LEVEL, index: first }).start,
+      tr.end,
     );
+    const stopWatching = store.onInvalidate((ch, changed) => {
+      if (changed.overlapsWith(span)) rewritten.add(ch);
+    });
+    let frame: Frame;
+    try {
+      frame = await this.timed(
+        readRemote(tr, [...indexOf.keys()]),
+        `block read for ${tr.toString()}`,
+      );
+    } finally {
+      stopWatching();
+    }
     if (this.closed) return refetch;
+    const stale = (k: channel.Key): boolean => rewritten.has(null) || rewritten.has(k);
     const grouped = new Map<channel.Key, Series[]>();
     frame.forEach((k, s) => {
       const key = k as channel.Key;
@@ -263,12 +332,30 @@ export class Reader {
       const changed =
         series.length > 0 && store.retainDataType(key, series[0].dataType);
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
-      const parts = split(first, last, timestamps, series);
-      const targets =
-        requested.get(key) ??
-        parts.map((_, i) => ({ block: store.raw(key, first + i), end: tr.end }));
+      const newest = open ? newestBlock(timestamps) : last;
+      const parts = split(first, Math.max(last, newest), timestamps, series);
+      const targets = [...(requested.get(key) ?? [])];
+      for (
+        let i = targets.length === 0 ? first : last + 1;
+        i < first + parts.length;
+        i++
+      )
+        targets.push({ block: store.raw(key, i), end: tr.end, catchUp });
+      const trusted = catchUp ? newestEnd(parts, start) : committed;
+      // The Core stamps a series with the span of its domain inside the read, so the
+      // channel's samples reach seen.
+      const seen = series.reduce(
+        (end, s) => TimeStamp.max(end, s.timeRange.end),
+        TimeStamp.ZERO,
+      );
+      const rewrote = stale(key) || (idx !== 0 && stale(idx));
       targets.forEach((r) => {
         const { block } = r;
+        if (block.joined) return;
+        if (rewrote) {
+          if (requested.has(key)) refetch.add(r);
+          return;
+        }
         const from = block.index === first ? start : block.range.start;
         if (changed) {
           block.reset();
@@ -277,18 +364,19 @@ export class Reader {
             return;
           }
         }
-        if (!block.coveredEnd.equals(from)) return;
+        if (!block.coveredEnd.equals(from)) {
+          if (catchUp && requested.has(key)) refetch.add(r);
+          return;
+        }
         const part = parts[block.index - first];
-        const coveredEnd = TimeStamp.max(
-          from,
-          TimeStamp.min(block.range.end, committed),
-        );
+        const coveredEnd = TimeStamp.max(from, TimeStamp.min(block.range.end, trusted));
         const base = block.coveredCount;
         block.fill(
           align(block.index, base, part.timestamps, part.series),
           coveredEnd,
           base + countBefore(part.timestamps, coveredEnd),
         );
+        block.sealed = !seen.before(coveredEnd);
         store.set(rawKey(key, block.index), block);
       });
     });
@@ -319,6 +407,24 @@ export class Reader {
   }
 }
 
+// Returns the raw block of the newest index sample, or -Infinity when there is none.
+const newestBlock = (timestamps: Series[]): number => {
+  const last = timestamps.findLast((s) => s.length > 0);
+  if (last == null) return -Infinity;
+  return rawIndex(new TimeStamp(last.data[last.length - 1]));
+};
+
+// Returns the end of the span of the newest sample in the parts, or start when there is
+// none.
+const newestEnd = (parts: Part[], start: TimeStamp): TimeStamp => {
+  const part = parts.findLast((p) => p.series.length > 0);
+  if (part == null) return start;
+  const last = part.series[part.series.length - 1];
+  const alignment = last.alignment + BigInt(last.length - 1);
+  const ts = part.timestamps.find((t) => alignment < t.alignment + BigInt(t.length))!;
+  return new TimeStamp(BigInt(ts.data[Number(alignment - ts.alignment)]) + 1n);
+};
+
 // Splits one channel's pending requests into runs of adjacent blocks that one Core read
 // can fill: a run starts at the coverage end of its first block, and every later block
 // in it has no coverage.
@@ -334,15 +440,26 @@ const runs = (entries: Array<scheduler.BatcherEntry<Request>>): Group[] => {
       coveredEnd.equals(index === run.first ? run.start : range.start);
     if (joins) {
       run.last = Math.max(run.last, index);
+      run.end = TimeStamp.max(run.end, entry.req.end, range.end);
       run.entries.push(entry);
-    } else out.push({ first: index, last: index, start: coveredEnd, entries: [entry] });
+    } else
+      out.push({
+        first: index,
+        last: index,
+        start: coveredEnd,
+        end: TimeStamp.max(entry.req.end, range.end),
+        catchUp: entry.req.catchUp,
+        entries: [entry],
+      });
   }
   return out;
 };
 
-// Returns the series of the blocks that overlap tr in time order. The fetched form of a
-// span wins: a streamed series that overlaps a fetched one is left out.
-const assemble = (tr: TimeRange, blocks: RawBlock[]): Series[] => {
+/**
+ * @returns the series of the blocks that overlap tr in time order. The fetched form of
+ * a span wins: a streamed series that overlaps a fetched one is left out.
+ */
+export const assemble = (tr: TimeRange, blocks: RawBlock[]): Series[] => {
   const fetched = blocks.flatMap((b) =>
     b.fetched
       .filter((s) => s.timeRange.overlapsWith(tr))

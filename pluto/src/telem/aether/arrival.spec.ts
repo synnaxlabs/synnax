@@ -34,10 +34,7 @@ class MockClient implements Client {
     readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
     readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
     read: async (): Promise<MultiSeries> => new MultiSeries([]),
-    stream: (
-      handler: framer.StreamHandler,
-      keys: channel.Key[],
-    ): framer.Subscription => {
+    stream: (handler: framer.StreamHandler, keys: channel.Key[]): framer.Demand => {
       this.streamHandler = handler;
       this.streamF(handler, keys);
       // The streamer delivers the cached leading buffers synchronously at

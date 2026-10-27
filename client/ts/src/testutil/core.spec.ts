@@ -67,6 +67,46 @@ describe("SyntheticCore", () => {
       expect(series.length).toBe(10);
     });
 
+    it("should stamp each series with its domain inside the read", () => {
+      const core = createCore(TimeSpan.seconds(250));
+      const read = (tr: TimeRange, limited = false): TimeRange[] =>
+        core
+          .read(
+            tr,
+            [core.index.key],
+            limited
+              ? { variant: "limit", aggregation: "min_max", pointLimit: 10 }
+              : undefined,
+          )
+          .get(core.index.key)
+          .series.map((s) => s.timeRange);
+      const end = ms(249_999).add(TimeSpan.NANOSECOND);
+      expect(read(new TimeRange(ms(-5), TimeStamp.seconds(300)))).toEqual([
+        new TimeRange(ms(0), ms(100_000)),
+        new TimeRange(ms(100_000), ms(200_000)),
+        new TimeRange(ms(200_000), end),
+      ]);
+      const inside = new TimeRange(ms(10).add(TimeSpan.NANOSECOND), ms(20));
+      expect(read(inside)).toEqual([inside]);
+      expect(read(inside, true)).toEqual([inside]);
+      expect(read(new TimeRange(ms(-5), TimeStamp.seconds(300)), true)).toEqual([
+        new TimeRange(ms(0), end),
+      ]);
+    });
+
+    it("should write only the samples that the lag leaves behind the clock", () => {
+      const core = new SyntheticCore({
+        rate: 1000,
+        start: new TimeStamp(0),
+        now: ms(1000),
+        lag: TimeSpan.milliseconds(400),
+      });
+      const series = core
+        .read(new TimeRange(ms(0), ms(1000)), [core.index.key])
+        .get(core.index.key);
+      expect(series.length).toBe(600);
+    });
+
     it("should read samples raw when they fit under the point limit", () => {
       const core = createCore();
       const [s] = core.read(new TimeRange(ms(0), ms(100)), [core.index.key], {

@@ -10,8 +10,9 @@
 import { type framer, status } from "@synnaxlabs/client";
 
 /** @returns a telemetry subscription stub whose close is the given function. */
-export const mockSubscription = (close: () => void): framer.Subscription => ({
+export const mockSubscription = (close: () => void): framer.Demand => ({
   close,
   status: () => status.create({ variant: "loading", message: "subscribing" }),
   onStatusChange: () => () => {},
+  onDrop: () => () => {},
 });

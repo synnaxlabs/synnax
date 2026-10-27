@@ -198,6 +198,21 @@ describe("Reader", () => {
     });
   });
 
+  describe("catch-up", () => {
+    it("should cover a channel up to its own newest sample", async () => {
+      const { reader, store } = createReader({
+        elapsed: 20,
+        // The Core committed the index two samples past its data channel.
+        answer: (frame) =>
+          new Frame(frame.map((k, s) => [k, k === 2 ? s.slice(0, s.length - 2) : s])),
+      });
+      await Promise.all([reader.catchUp(1, 100), reader.catchUp(2, 100)]);
+      expect(store.raw(1, 100).coveredCount).toBe(20);
+      expect(store.raw(2, 100).coveredCount).toBe(18);
+      expect(store.raw(2, 100).coveredEnd).toEqual(at(17).add(1));
+    });
+  });
+
   describe("back-fill", () => {
     it.each([TimeSpan.minutes(10), TimeSpan.days(1)])(
       "should back-fill %s in one Core read split at block edges",
@@ -692,6 +707,40 @@ describe("Reader", () => {
       expect(await reader.read(tr, data.key)).toHaveLength(0);
       expect(await reader.read(tr, data.key)).toHaveLength(0);
       expect(fetched).toHaveLength(1);
+    });
+
+    it("should seal only the blocks that the channel's samples pass", async () => {
+      const client = createTestClient();
+      const time = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        dataType: "float32",
+        index: time.key,
+      });
+      const first = rawIndex(TimeStamp.now().sub(TimeSpan.minutes(10)));
+      // One sample per second from 5 seconds into the first block to inside the third.
+      const times = Array.from({ length: 146 }, (_, i) =>
+        blockRange(first).start.add(TimeSpan.seconds(5 + i)),
+      );
+      await client.write(times[0], {
+        [time.key]: times,
+        [data.key]: times.map((_, i) => i),
+      });
+      const store = new Store();
+      const reader = new Reader({
+        readRemote: async (tr, keys) => await client.read(tr, keys),
+        retrieveChannels: async (keys) =>
+          (await client.channels.retrieve(keys as channel.Key[])).map((c) => c.payload),
+        store,
+      });
+      await reader.read(blockRange(first), data.key);
+      await reader.read(blockRange(first + 2), data.key);
+      expect(store.findRaw(data.key, first)?.sealed).toBe(true);
+      expect(store.findRaw(data.key, first + 2)?.sealed).toBe(false);
     });
   });
 });

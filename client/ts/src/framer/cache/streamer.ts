@@ -13,6 +13,7 @@ import {
   breaker,
   type CrudeTimeSpan,
   type destructor,
+  errors,
   MultiSeries,
   Rate,
   scheduler,
@@ -22,13 +23,10 @@ import {
 } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import {
-  AccessDeniedError,
-  NotFoundError,
-  UnexpectedError,
-  ValidationError,
-} from "@/errors";
+import { UnexpectedError } from "@/errors";
+import { type Joins } from "@/framer/cache/join";
 import { type Store } from "@/framer/cache/store";
+import { isDefinitive } from "@/framer/retry";
 import { type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { status } from "@/status";
 
@@ -49,41 +47,64 @@ export interface HardenedOpener {
 }
 
 /**
- * Receives every channel that changed on the shared stream, which may include
- * keys the handler did not subscribe to.
+ * Receives every channel that changed on the shared stream, which may include keys the
+ * handler did not demand.
  */
 export type StreamHandler = (data: Map<channel.Key, MultiSeries>) => void;
 
-/** Receives per-key data-plane status transitions for subscribed channels. */
+/**
+ * Receives each frame of the shared stream: the series of each channel as the Core
+ * streamed them, and the buffers the store allocated for them.
+ */
+export type FrameHandler = (
+  frame: Map<channel.Key, Series[]>,
+  allocated: Map<channel.Key, MultiSeries>,
+) => void;
+
+/** Receives per-key data-plane status transitions for demanded channels. */
 export type StatusHandler = (key: channel.Key, status: status.Status) => void;
 
 /**
  * A durable handle on streaming demand. Closing it releases the demand; until then
  * the streamer owns converging the underlying stream to it.
  */
-export interface Subscription {
-  /** Releases the subscription's demand. */
+export interface Demand {
+  /** Releases the demand. */
   close: () => void;
   /** @returns the current data-plane status for the given key. */
   status: (key: channel.Key) => status.Status;
-  /** Registers a handler for status transitions on the subscription's keys. */
+  /** Registers a handler for status transitions on the demand's keys. */
   onStatusChange: (handler: StatusHandler) => destructor.Destructor;
+  /** Registers a handler that runs when the stream drops, since frames may be lost. */
+  onDrop: (handler: () => void) => destructor.Destructor;
 }
 
 interface Entry {
-  handler: StreamHandler;
+  handler: FrameHandler;
   keys: Set<channel.Key>;
   statusHandlers: Set<StatusHandler>;
+  dropHandlers: Set<() => void>;
   removed: boolean;
+}
+
+// Waits for the stream to ack a set of keys.
+interface AckWaiter {
+  keys: channel.Key[];
+  resolve: () => void;
+  reject: (e: Error) => void;
 }
 
 export interface MultiplexedStreamerProps {
   store: Store;
+  /** Writes the stream's frames into the store. */
+  joins: Joins;
+  /** Receives the index channels of the joins that wait for a catch-up read. */
+  onWait: (indexes: Set<channel.Key>) => void;
   openStreamer: HardenedOpener;
   instrumentation?: alamos.Instrumentation;
   /**
-   * How long a closed subscription's keys stay on the stream, damping churn from
-   * rapid unsubscribe and resubscribe cycles.
+   * How long the keys of a released demand stay on the stream, damping churn from rapid
+   * release and demand cycles.
    * @default TimeSpan.seconds(5)
    */
   removalDelay?: CrudeTimeSpan;
@@ -100,17 +121,10 @@ const LOADING: status.Crude = { variant: "loading", message: "subscribing" };
 const STREAMING: status.Crude = { variant: "success", message: "streaming" };
 const RECONNECTING: status.Crude = { variant: "warning", message: "reconnecting" };
 
-// A rejection that names the stream's keys, not its connection: the same keys fail on
-// every retry.
-const isKeyRejection = (e: unknown): boolean =>
-  NotFoundError.matches(e) ||
-  AccessDeniedError.matches(e) ||
-  ValidationError.matches(e);
-
 /**
- * Multiplexes durable subscriptions onto one shared frame stream. Demand
- * registration is synchronous and cannot fail per key; all convergence work
- * surfaces as per-key statuses instead of thrown errors.
+ * Multiplexes durable stream demands onto one shared frame stream. Demand registration
+ * is synchronous and cannot fail per key; all convergence work surfaces as per-key
+ * statuses instead of thrown errors.
  */
 export class MultiplexedStreamer {
   private readonly props: Required<
@@ -139,16 +153,23 @@ export class MultiplexedStreamer {
   // The key set last accepted by the stream. Kept separately from the streamer so a
   // mid-reconnect streamer cannot be consulted for it.
   private sentKeys = new Set<channel.Key>();
-  // Keys the Core rejected on their own. They stay off the stream so the rest of it
-  // keeps flowing.
-  private readonly rejected = new Set<channel.Key>();
+  // outdated is true from a stream drop until a stream opens again.
+  private outdated = false;
+  // Keys the Core rejected on their own, with the rejection. They stay off the stream
+  // so the rest of it keeps flowing.
+  private readonly rejected = new Map<channel.Key, Error>();
   // Keys held back while a rejection of several new keys is narrowed down. One returns
   // to the stream per successful reconcile.
   private deferred: channel.Key[] = [];
+  // The keys the current stream acked. A drop clears them until the stream reopens.
+  private acked = new Set<channel.Key>();
+  private readonly ackWaiters = new Set<AckWaiter>();
 
   constructor(props: MultiplexedStreamerProps) {
     const {
       store,
+      joins,
+      onWait,
       openStreamer,
       instrumentation = alamos.NOOP,
       removalDelay = TimeSpan.seconds(5),
@@ -156,6 +177,8 @@ export class MultiplexedStreamer {
     this.props = {
       instrumentation,
       store,
+      joins,
+      onWait,
       openStreamer,
       removalDelay: new TimeSpan(removalDelay),
     };
@@ -181,11 +204,10 @@ export class MultiplexedStreamer {
    * new demand in the background.
    * @throws {UnexpectedError} if the streamer has been closed.
    */
-  stream(handler: StreamHandler, keys: channel.Key[]): Subscription {
+  stream(handler: StreamHandler, keys: channel.Key[]): Demand {
     if (this.connMu.closed)
       throw new UnexpectedError("stream() called on a closed telemetry streamer");
-    const { store, instrumentation: ins } = this.props;
-    ins.L.debug("adding stream handler", { keys });
+    const { store } = this.props;
     // Deliver existing buffers before registration so a throwing handler leaves no
     // demand behind.
     const initial: Map<channel.Key, MultiSeries> = new Map(
@@ -195,10 +217,23 @@ export class MultiplexedStreamer {
       ]),
     );
     handler(initial);
+    return this.demand(keys, (_, allocated) => handler(allocated));
+  }
+
+  /**
+   * Registers demand for the given keys, and passes each frame of the stream to the
+   * handler. The stream converges to the new demand in the background.
+   * @throws {UnexpectedError} if the streamer has been closed.
+   */
+  demand(keys: channel.Key[], handler: FrameHandler): Demand {
+    if (this.connMu.closed)
+      throw new UnexpectedError("demand() called on a closed telemetry streamer");
+    this.props.instrumentation.L.debug("adding stream demand", { keys });
     const entry: Entry = {
       handler,
       keys: new Set(keys),
       statusHandlers: new Set(),
+      dropHandlers: new Set(),
       removed: false,
     };
     this.entries.add(entry);
@@ -216,11 +251,68 @@ export class MultiplexedStreamer {
         entry.statusHandlers.add(statusHandler);
         return () => entry.statusHandlers.delete(statusHandler);
       },
+      onDrop: (dropHandler) => {
+        entry.dropHandlers.add(dropHandler);
+        return () => entry.dropHandlers.delete(dropHandler);
+      },
     };
+  }
+
+  /**
+   * Resolves when the stream carries the keys and the Core has acked them, so the
+   * stream delivers every sample written after it resolves.
+   * @param signal - Rejects the wait with its reason when it aborts.
+   * @throws {UnexpectedError} if the streamer closes first.
+   * @throws the Core's rejection of a key, if the stream leaves the key off.
+   */
+  async waitAcked(keys: channel.Key[], signal?: AbortSignal): Promise<void> {
+    if (this.connMu.closed) throw new UnexpectedError("telemetry streamer is closed");
+    signal?.throwIfAborted();
+    await new Promise<void>((resolve, reject) => {
+      const abort = (): void => {
+        if (this.ackWaiters.delete(waiter)) reject(errors.fromUnknown(signal?.reason));
+      };
+      const waiter: AckWaiter = {
+        keys,
+        resolve: () => {
+          signal?.removeEventListener("abort", abort);
+          resolve();
+        },
+        reject: (e) => {
+          signal?.removeEventListener("abort", abort);
+          reject(e);
+        },
+      };
+      signal?.addEventListener("abort", abort);
+      this.ackWaiters.add(waiter);
+      this.settleAckWaiters();
+    });
+  }
+
+  private setAcked(keys: Set<channel.Key>): void {
+    this.acked = keys;
+    this.props.store.setAcked(keys);
+    this.settleAckWaiters();
+  }
+
+  private settleAckWaiters(): void {
+    this.ackWaiters.forEach((w) => {
+      const rejected = w.keys.find((k) => this.rejected.has(k));
+      if (rejected != null) {
+        this.ackWaiters.delete(w);
+        return w.reject(this.rejected.get(rejected)!);
+      }
+      if (!w.keys.every((k) => this.acked.has(k))) return;
+      this.ackWaiters.delete(w);
+      w.resolve();
+    });
   }
 
   async close(): Promise<void> {
     const { instrumentation: ins } = this.props;
+    const closed = new UnexpectedError("telemetry streamer is closed");
+    this.ackWaiters.forEach((w) => w.reject(closed));
+    this.ackWaiters.clear();
     this.scheduleReconcile.cancel();
     this.removalTimers.forEach(clearTimeout);
     this.removalTimers.clear();
@@ -236,6 +328,7 @@ export class MultiplexedStreamer {
   }
 
   private async releaseStream(): Promise<void> {
+    this.setAcked(new Set());
     const prev = this.streamer;
     const prevLoop = this.runLoop;
     this.streamer = null;
@@ -277,7 +370,7 @@ export class MultiplexedStreamer {
   /** @returns the demanded keys the stream should carry now. */
   private desiredKeys(): Set<channel.Key> {
     const demanded = this.demandedKeys();
-    this.rejected.forEach((k) => {
+    this.rejected.forEach((_, k) => {
       if (!demanded.has(k)) this.rejected.delete(k);
     });
     this.deferred = this.deferred.filter((k) => demanded.has(k));
@@ -308,8 +401,35 @@ export class MultiplexedStreamer {
   // Closes the open blocks of the keys, so reads fetch the span the stream will not
   // deliver.
   private flushBuffers(keys: Iterable<channel.Key>): void {
-    const { store } = this.props;
-    for (const key of keys) store.flush(key);
+    const { joins, onWait } = this.props;
+    for (const key of keys) onWait(joins.flush(key));
+  }
+
+  // Frames may drop until a stream opens again.
+  private drop(): void {
+    this.outdated = true;
+    this.entries.forEach((e) => {
+      if (e.removed) return;
+      e.dropHandlers.forEach((handler) => {
+        try {
+          handler();
+        } catch (err) {
+          this.props.instrumentation.L.error(
+            "drop handler failed",
+            { error: err },
+            true,
+          );
+        }
+      });
+    });
+  }
+
+  // Drops every cached block once a stream opens after a drop, since the drop can miss
+  // history changes that outdate them.
+  private refresh(): void {
+    if (!this.outdated) return;
+    this.outdated = false;
+    this.props.onWait(this.props.joins.invalidate());
   }
 
   private async reconcile(): Promise<void> {
@@ -346,25 +466,32 @@ export class MultiplexedStreamer {
             { channels: arrKeys, throttleRate: THROTTLE_RATE },
             {
               signal: this.streamAbort.signal,
-              onReopen: () =>
-                this.sentKeys.forEach((key) => this.setStatus(key, STREAMING)),
-              // Frames may drop until the reopen, so the open blocks close here.
+              // The reopened stream acked its keys when it opened.
+              onReopen: () => {
+                this.refresh();
+                this.setAcked(new Set(this.sentKeys));
+                this.sentKeys.forEach((key) => this.setStatus(key, STREAMING));
+              },
               onDrop: () => {
+                this.setAcked(new Set());
                 this.flushBuffers(this.sentKeys);
+                this.drop();
                 this.sentKeys.forEach((key) => this.setStatus(key, RECONNECTING));
               },
             },
           );
           this.streamer = streamer;
+          this.refresh();
           this.runLoop = this.run(streamer);
         } else {
           ins.L.debug("updating streamer", () => ({
             prev: Array.from(this.sentKeys),
             next: arrKeys,
           }));
-          await this.streamer.update(arrKeys);
+          await this.streamer.update(arrKeys, { waitForAck: true });
         }
         this.sentKeys = desired;
+        this.setAcked(new Set(desired));
         this.flushBuffers(removed);
         // Existing keys keep their status so a demand change cannot clear a per-key
         // error.
@@ -375,12 +502,13 @@ export class MultiplexedStreamer {
       } catch (e) {
         ins.L.error("failed to update streamer", { error: e });
         const failure = status.fromException(e, "Failed to stream channel");
-        if (isKeyRejection(e) && !this.connMu.closed && fresh.length > 0) {
+        if (isDefinitive(e) && !this.connMu.closed && fresh.length > 0) {
           // One of the new keys caused the rejection. Retry with one of them, and
           // return the rest one at a time, until the culprit fails alone.
           if (fresh.length === 1) {
-            this.rejected.add(fresh[0]);
+            this.rejected.set(fresh[0], errors.fromUnknown(e));
             this.setStatus(fresh[0], failure);
+            this.settleAckWaiters();
             this.releaseDeferred();
           } else {
             this.deferred.push(...fresh.slice(1));
@@ -415,7 +543,7 @@ export class MultiplexedStreamer {
   }
 
   private async run(streamer: Streamer): Promise<void> {
-    const { store, instrumentation: ins } = this.props;
+    const { joins, onWait, instrumentation: ins } = this.props;
     try {
       for await (const frame of streamer) {
         // Group series by key in one pass; per-key get() scans the whole frame.
@@ -426,20 +554,20 @@ export class MultiplexedStreamer {
           if (existing == null) grouped.set(key, [s]);
           else existing.push(s);
         });
-        const changed: Map<channel.Key, MultiSeries> = new Map();
+        const { allocated, waiting } = joins.write(grouped);
+        onWait(waiting);
         const demanded = this.demandedKeys();
-        grouped.forEach((series, k) => {
-          changed.set(k, store.write(k, new MultiSeries(series)));
+        grouped.forEach((_, k) => {
           // A frame for a key with no remaining demand arrived behind the stream
           // update, so its block must not stay open.
-          if (!demanded.has(k)) store.flush(k);
+          if (!demanded.has(k)) onWait(joins.flush(k));
           this.setStatus(k, STREAMING);
         });
-        if (changed.size !== 0)
+        if (grouped.size !== 0)
           this.entries.forEach((e) => {
             if (e.removed) return;
             try {
-              e.handler(changed);
+              e.handler(grouped, allocated);
             } catch (err) {
               ins.L.error("stream handler failed", { error: err }, true);
             }
@@ -453,7 +581,9 @@ export class MultiplexedStreamer {
         this.streamer = null;
         this.runLoop = null;
         this.streamAbort = null;
+        this.setAcked(new Set());
         this.flushBuffers(this.sentKeys);
+        this.drop();
         this.sentKeys = new Set();
         this.reconcileNow();
       }

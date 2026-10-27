@@ -11,6 +11,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { id, TimeRange, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { UnsupportedError } from "@/errors";
 import { Client } from "@/framer/client";
 import { createTestClient, secondsLinspace, TEST_CORE_ADDRESS } from "@/testutil";
 import { Transport } from "@/transport";
@@ -100,6 +101,22 @@ describe("Client", () => {
       const start = TimeStamp.now();
       await client.write(start, time.key, start);
       await client.write(start, data.key, 1);
+    });
+    it("should reject a read of a calculation over a virtual channel", async () => {
+      const source = await client.channels.create({
+        name: id.create(),
+        dataType: "float64",
+        virtual: true,
+      });
+      const calc = await client.channels.create({
+        name: id.create(),
+        dataType: "float64",
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      const read = client.read(TimeRange.MAX, calc.key);
+      await expect(read).rejects.toThrow(UnsupportedError);
+      await expect(read).rejects.toThrow(/cannot open iterator on virtual channel/);
     });
   });
   describe("retrieveGroup", () => {

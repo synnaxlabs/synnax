@@ -309,13 +309,15 @@ describe("block", () => {
     });
 
     describe("expire", () => {
-      it("should drop the fetched samples and their coverage", () => {
+      it("should drop the fetched samples, their coverage, and the seal", () => {
         const block = new RawBlock(1, 0);
         block.fill([fetched(0, [1], seconds(1).range(seconds(2)))], seconds(5), 1);
+        block.sealed = true;
         expect(block.expire()).toBe(true);
         expect(block.fetched).toEqual([]);
         expect(block.coveredEnd).toEqual(block.range.start);
         expect(block.coveredCount).toBe(0);
+        expect(block.sealed).toBe(false);
       });
 
       it("should keep the streamed samples", () => {

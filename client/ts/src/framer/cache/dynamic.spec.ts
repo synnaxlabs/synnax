@@ -494,6 +494,16 @@ describe("DynamicCache", () => {
       original.release();
     });
 
+    it("should leave every buffer alone when compaction is disabled", () => {
+      const cache = new Dynamic({ dynamicBufferSize: ROOMY, compactionDisabled: true });
+      const first = cache.write(new MultiSeries([f32([1, 2, 3])]));
+      const original = first.allocated.series[0];
+      const { flushed } = cache.write(
+        new MultiSeries([f32(Array.from({ length: ROOMY }, (_, i) => i)).reAlign(3n)]),
+      );
+      expect(flushed.series[0]).toBe(original);
+    });
+
     it("should leave a nearly full buffer alone", () => {
       const cache = new Dynamic({ dynamicBufferSize: ROOMY });
       const fill = Array.from({ length: ROOMY - 1 }, (_, i) => i);

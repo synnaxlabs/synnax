@@ -27,17 +27,19 @@ export interface WriteResponse {
   allocated: MultiSeries;
 }
 
-/** Props for the {@link Dynamic} cache. */
+/** Props for the {@link Dynamic} buffer. */
 export interface DynamicProps {
   /**
-   * Sets the maximum size of the buffer that the cache will maintain before flushing
-   * data out to the caller.
+   * The samples each buffer holds, or a span that the measured write rate turns into a
+   * sample count.
    */
   dynamicBufferSize: number | TimeSpan;
   /** Used for logging. */
   instrumentation?: alamos.Instrumentation;
   /** Pulls the current time. */
   now?: () => TimeStamp;
+  /** Flushes every buffer as the same object, never as a right-sized copy. */
+  compactionDisabled?: boolean;
 }
 
 // Bounds for dynamically calculated buffer sizes.
@@ -79,9 +81,9 @@ const shouldCompact = (buffer: Series): boolean => {
 };
 
 /**
- * A cache for channel data that maintains a single, rolling Series as a buffer
- * for channel data. The buffer's data type is derived from the first written series,
- * so the cache needs no channel metadata.
+ * Grows written series in one leading buffer, and flushes it when a series does not fit
+ * or does not continue it. The buffer takes its data type from the first series
+ * written, so it needs no channel metadata.
  */
 export class Dynamic {
   private readonly props: Required<Omit<DynamicProps, "now">>;
@@ -102,8 +104,9 @@ export class Dynamic {
       dynamicBufferSize,
       instrumentation = alamos.NOOP,
       now = () => TimeStamp.now(),
+      compactionDisabled = false,
     } = props;
-    this.props = { dynamicBufferSize, instrumentation };
+    this.props = { dynamicBufferSize, instrumentation, compactionDisabled };
     this.now = now;
     this.timeOfLastWrite = this.now();
   }
@@ -219,9 +222,14 @@ export class Dynamic {
    * it is collected, which is wasteful when an oversized series ended it early.
    */
   private compacted(buffer: Series, res: WriteResponse): Series {
-    // A buffer allocated during this same write has not reached its subscribers yet,
-    // so its reference count cannot yet report who is about to hold it.
-    if (!shouldCompact(buffer) || res.allocated.series.includes(buffer)) return buffer;
+    // A buffer allocated during this same write has not reached its holders yet, so its
+    // reference count cannot yet report who is about to hold it.
+    if (
+      this.props.compactionDisabled ||
+      !shouldCompact(buffer) ||
+      res.allocated.series.includes(buffer)
+    )
+      return buffer;
     return buffer.compact();
   }
 
