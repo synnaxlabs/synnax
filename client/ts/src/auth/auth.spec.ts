@@ -20,6 +20,7 @@ import {
 } from "@/errors";
 import { createTestClient, TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
 import { Transport } from "@/transport";
+import { user } from "@/user";
 
 const DUMMY_CTX: Context = {
   target: "test",
@@ -509,6 +510,58 @@ describe("auth", () => {
           errors.decode({ type: "sy.auth.session_ended", data: "ended" }),
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("setPassword", () => {
+    const makeClient = (credentials: auth.Credentials) => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, { credentials });
+      transport.use(client.middleware());
+      return client;
+    };
+    const createUser = async () => {
+      const username = `set-password-${id.create()}`;
+      const u = await createTestClient().users.create({
+        username,
+        password: "old",
+        firstName: "Set",
+        lastName: "Password",
+      });
+      return { username, subject: user.ontologyID(u.key) };
+    };
+
+    it("should let an owner set another user's password", async () => {
+      const { username, subject } = await createUser();
+      const owner = makeClient(TEST_CREDENTIALS);
+      await owner.setPassword({ subject, password: "new" });
+      await makeClient({ username, password: "new" }).retrieveSessions();
+      await expect(
+        makeClient({ username, password: "old" }).retrieveSessions(),
+      ).rejects.toThrow(AuthError);
+    });
+
+    it("should set the caller's own password given the current one", async () => {
+      const { username } = await createUser();
+      const self = makeClient({ username, password: "old" });
+      await expect(self.setPassword({ password: "new" })).rejects.toThrow();
+      await self.retrieveSessions();
+      await self.setPassword({
+        subject: self.subject,
+        password: "new",
+        currentPassword: "old",
+      });
+      const key = self.session?.key;
+      if (key == null) throw new Error("no session");
+      await self.deleteSessions(key);
+      await self.retrieveSessions();
+      expect(self.session?.key).not.toEqual(key);
+      await makeClient({ username, password: "new" }).retrieveSessions();
     });
   });
 

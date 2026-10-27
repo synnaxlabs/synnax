@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -169,6 +170,97 @@ var _ = Describe("ChangePassword", func() {
 				To(MatchError(auth.ErrInvalidToken))
 		},
 	)
+})
+
+var _ = Describe("SetPassword", func() {
+	var (
+		bob       user.User
+		bobToken  string
+		rootToken string
+	)
+	login := func(ctx context.Context, username, pwd string) string {
+		GinkgoHelper()
+		return MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
+		)).Token
+	}
+	set := func(
+		ctx context.Context,
+		token string,
+		req apiauth.PasswordSetRequest,
+	) (struct{}, error) {
+		return apiSvc.SetPassword(authed(ctx, token), nil, req)
+	}
+	BeforeEach(func(ctx SpecContext) {
+		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
+		bobToken = login(ctx, bob.Username, "old")
+		rootToken = login(ctx, creds.Username, creds.Password)
+	})
+	It("Should set the caller's own password given the current one", func(
+		ctx SpecContext,
+	) {
+		other := login(ctx, bob.Username, "old")
+		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
+			Password:        "new",
+			CurrentPassword: "old",
+		})).Error().ToNot(HaveOccurred())
+		login(ctx, bob.Username, "new")
+		MustSucceed(authSvc.Authenticate(ctx, bobToken))
+		Expect(authSvc.Authenticate(ctx, other)).Error().
+			To(MatchError(auth.ErrInvalidToken))
+	})
+	It("Should refuse the caller's own password with a wrong current one", func(
+		ctx SpecContext,
+	) {
+		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
+			Password:        "new",
+			CurrentPassword: "wrong",
+		})).Error().To(MatchError(auth.ErrInvalidCredentials))
+		login(ctx, bob.Username, "old")
+	})
+	It("Should refuse the caller's own password without the current one", func(
+		ctx SpecContext,
+	) {
+		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{Password: "new"})).
+			Error().To(MatchError(ContainSubstring("password: required")))
+		login(ctx, bob.Username, "old")
+	})
+	It("Should let the owner set another user's password", func(ctx SpecContext) {
+		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
+			Subject:  bob.OntologyID(),
+			Password: "new",
+		})).Error().ToNot(HaveOccurred())
+		login(ctx, bob.Username, "new")
+		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
+			To(MatchError(auth.ErrInvalidToken))
+	})
+	It("Should deny a user setting another user's password", func(ctx SpecContext) {
+		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
+			Subject:  root.OntologyID(),
+			Password: "new",
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should reject a subject that is not a user", func(ctx SpecContext) {
+		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
+			Subject:  ontology.ID{Type: ontology.ResourceTypeRack, Key: "1"},
+			Password: "new",
+		})).Error().To(MatchError(validate.ErrValidation))
+	})
+	It("Should report a user with no password as not found", func(ctx SpecContext) {
+		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			Username: "nopass-" + uuid.New().String(),
+		}))
+		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
+			Subject:  u.OntologyID(),
+			Password: "new",
+		})).Error().To(MatchError(query.ErrNotFound))
+	})
+	It("Should reject an empty password", func(ctx SpecContext) {
+		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
+			Subject: bob.OntologyID(),
+		})).Error().To(MatchError(ContainSubstring("password: required")))
+	})
 })
 
 var _ = Describe("Middleware", func() {
