@@ -63,6 +63,7 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 known-first-party = ["freighter", "alamos", "x"]
 
 [tool.mypy]
+python_version = "3.12"
 plugins = ["pydantic.mypy"]
 strict = true
 
