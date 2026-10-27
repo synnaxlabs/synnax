@@ -35,6 +35,10 @@ func (r RetrieveRequest) Apply(q serviceview.Retrieve) (serviceview.Retrieve, er
 		q = q.Where(serviceview.MatchSearch(r.SearchTerm))
 	}
 	if r.Limit != nil {
+		// Gorp reads a zero limit as no limit, and an empty key set matches no record.
+		if *r.Limit == 0 {
+			return q.Where(serviceview.MatchKeys()), nil
+		}
 		q = q.Limit(int(*r.Limit))
 	}
 	return q.Offset(int(r.Offset)), nil
