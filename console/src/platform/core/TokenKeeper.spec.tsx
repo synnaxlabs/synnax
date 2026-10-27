@@ -20,6 +20,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 });
 
 import { Core } from "@/platform/core";
+import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { createSessionConsoleWrapper, createStatusConsoleWrapper } from "@/testutil";
 
@@ -66,6 +67,63 @@ describe("Core.TokenKeeper", () => {
     });
   });
 
+  it("should not save its token again over a later login's token", async () => {
+    const calls = recordKeychain();
+    const core = createCore("Local");
+    const { wrapper, store } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: createCoreState([core], core.key),
+    });
+    render(<Core.TokenKeeper />, { wrapper });
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => {
+      store.dispatch(Session.Core.set({ ...core, lastLogin: Date.now() }));
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ cmd: "keychain_set" });
+  });
+
+  it("should retry a save the keychain rejected", async () => {
+    const calls: Array<{ cmd: string }> = [];
+    let failures = 1;
+    mockIPC((cmd) => {
+      if (!cmd.startsWith("keychain_")) return undefined;
+      calls.push({ cmd });
+      if (cmd === "keychain_set" && failures-- > 0) throw new Error("locked");
+      return undefined;
+    });
+    onTestFinished(clearMocks);
+    const core = createCore("Local");
+    const { wrapper, store } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: createCoreState([core], core.key),
+    });
+    render(<Core.TokenKeeper />, { wrapper });
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => {
+      store.dispatch(Session.Core.set({ ...core, lastLogin: Date.now() }));
+    });
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls).toEqual([{ cmd: "keychain_set" }, { cmd: "keychain_set" }]);
+  });
+
+  it("should not replay a rejection onto a later login's token", async () => {
+    const calls = recordKeychain();
+    const core = createCore("Local", { password: "wrong" });
+    const { wrapper, store } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: createCoreState([core], core.key),
+    });
+    render(<Core.TokenKeeper />, { wrapper });
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => {
+      store.dispatch(Session.Core.set({ ...core, lastLogin: Date.now() }));
+    });
+    expect(calls).toEqual([
+      { cmd: "keychain_delete", args: { account: "http://localhost:9090" } },
+    ]);
+  });
+
   it("should leave the keychain alone while the client belongs to another Core", async () => {
     const calls = recordKeychain();
     const client = createTestClient();
@@ -79,5 +137,36 @@ describe("Core.TokenKeeper", () => {
     render(<Core.TokenKeeper />, { wrapper });
     await act(async () => {});
     expect(calls).toEqual([]);
+  });
+
+  const CODE = {
+    provider: "idp",
+    code: "code",
+    verifier: "verifier",
+    redirectUri: "http://127.0.0.1:4242/callback",
+  };
+
+  // a client logged in to the same Core the record names, which holds a spent code
+  const renderWithCode = async () => {
+    const client = createTestClient();
+    await client.connect();
+    const core = createCore("Local", { oidc: CODE });
+    const { wrapper, store } = await createStatusConsoleWrapper({
+      client,
+      status: client.connection.status,
+      preloadedState: createCoreState([core], core.key),
+    });
+    render(<Core.TokenKeeper />, { wrapper });
+    return { core, store };
+  };
+
+  it("should keep a spent code on the web while no cookie holds the session", async () => {
+    mocks.engine = "web";
+    onTestFinished(() => {
+      mocks.engine = "tauri";
+    });
+    const { core, store } = await renderWithCode();
+    await act(async () => {});
+    expect(store.getState().core.cores[core.key].oidc).toEqual(CODE);
   });
 });

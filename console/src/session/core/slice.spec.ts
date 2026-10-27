@@ -195,7 +195,9 @@ describe("coreZ", () => {
       "clusterKey",
       "host",
       "key",
+      "lastLogin",
       "name",
+      "oidc",
       "password",
       "port",
       "secure",
@@ -212,12 +214,25 @@ describe("PERSIST_EXCLUDE", () => {
         { ...BRAVO, password: "other" },
       ),
     };
-    const [purgePasswords] = Core.PERSIST_EXCLUDE;
-    const purged = purgePasswords(state);
+    const [purge] = Core.PERSIST_EXCLUDE;
+    const purged = purge(state);
     const cores = Object.values(purged[Core.SLICE_NAME].cores);
     expect(cores.map((c) => c.password)).toEqual(["", ""]);
     expect(cores.map((c) => c.name)).toEqual([ALPHA.name, BRAVO.name]);
     expect(state[Core.SLICE_NAME].cores.alpha.password).toBe("secret");
+  });
+
+  it("should keep every OpenID Connect code out of the stored state", () => {
+    const oidc = {
+      provider: "idp",
+      code: "code",
+      verifier: "verifier",
+      redirectUri: "http://127.0.0.1:4242/callback",
+    };
+    const state = { [Core.SLICE_NAME]: withCores({ ...ALPHA, oidc }) };
+    const [purge] = Core.PERSIST_EXCLUDE;
+    expect(purge(state)[Core.SLICE_NAME].cores.alpha).not.toHaveProperty("oidc");
+    expect(state[Core.SLICE_NAME].cores.alpha.oidc).toEqual(oidc);
   });
 });
 
@@ -246,5 +261,31 @@ describe("rename", () => {
       Core.rename({ key: "nowhere", name: "Alpha" }),
     );
     expect(state.cores.nowhere).toBeUndefined();
+  });
+});
+
+describe("recordLogin", () => {
+  it("should stamp the login and select the Core, keeping later edits", () => {
+    const state = reduce(
+      withCores({ ...ALPHA, name: "Renamed", username: "ada", password: "pw" }),
+      Core.recordLogin({ key: ALPHA.key, at: 42 }),
+    );
+    expect(state.cores[ALPHA.key]).toMatchObject({
+      name: "Renamed",
+      username: "",
+      password: "",
+      lastLogin: 42,
+    });
+    expect(state.cores[ALPHA.key].oidc).toBeUndefined();
+    expect(state.selected).toBe(ALPHA.key);
+  });
+
+  it("should not restore a Core removed during the login", () => {
+    const state = reduce(
+      withCores(BRAVO),
+      Core.recordLogin({ key: ALPHA.key, at: 42 }),
+    );
+    expect(state.cores[ALPHA.key]).toBeUndefined();
+    expect(state.selected).toBeUndefined();
   });
 });
