@@ -79,7 +79,7 @@ typically has an empty bundle dir.
 
 ```bash
 # Quick failure overview from any worktree:
-jq '.tests[] | select(.status != "PASSED" and .status != "FLAKY")' \
+jq '.tests[] | select(.status | IN("FAILED", "TIMEOUT", "KILLED"))' \
   integration/tests/results/latest/summary.json
 ```
 
@@ -87,10 +87,11 @@ Fields:
 
 - `case` -> registry path like `console/pages/open_close`
 - `name` -> display name (used as the bundle subdir slug)
-- `status` -> `PASSED`, `FLAKY`, `FAILED`, `TIMEOUT`, `KILLED`
+- `status` -> `PASSED`, `FLAKY`, `SKIPPED`, `FAILED`, `TIMEOUT`, `KILLED`
 - `started_at` / `ended_at` -> ISO UTC; use these to correlate with external logs
 - `duration_s` -> wall-clock seconds
 - `error_message` -> populated when the test called `self.fail(msg)`
+- `skip_reason` -> populated when the test called `self.skip(reason)`
 - `bundle_dir` -> relative path under the run dir
 
 ## Inspecting the trace
