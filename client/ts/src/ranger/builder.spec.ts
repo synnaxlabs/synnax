@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { filter, TimeRange, TimeStamp, uuid } from "@synnaxlabs/x";
+import { filter, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
@@ -15,8 +15,8 @@ import { ranger } from "@/ranger";
 
 describe("builder", () => {
   it("should build a request that the request schema accepts", () => {
-    const key = uuid.create();
-    const label = uuid.create();
+    const key = "00000000-0000-4000-8000-000000000001";
+    const label = "00000000-0000-4000-8000-000000000002";
     const window = new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(2));
     const request = filter.toRequest([
       ranger.or(
