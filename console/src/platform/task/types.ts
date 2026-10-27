@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, device } from "@synnaxlabs/client";
-import { z } from "zod";
+import { type z } from "zod";
 
 export type Command = "start" | "stop";
 
@@ -38,8 +38,6 @@ export const validateChannels = ({
     issues.push({ code, message, path: [i, "key"], input: channels });
   });
 };
-
-export const nameZ = z.string().default("");
 
 // Spread over a duplicated channel to reset its Synnax channel bindings.
 export const READ_CHANNEL_OVERRIDE = { channel: 0, name: "" } as const;

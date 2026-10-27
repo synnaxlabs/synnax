@@ -13,7 +13,7 @@ from typing import Literal
 Environment = Literal["bench", "debug", "prod"]
 
 
-ENVIRONMENTS: list[Environment] = ["bench", "debug", "prod"]
+_ENVIRONMENTS: list[Environment] = ["bench", "debug", "prod"]
 """List of valid environments."""
 
 
@@ -31,4 +31,4 @@ def env_threshold_filter(threshold: Environment) -> EnvironmentFilter:
 
     :param threshold: The minimum environment level to allow.
     """
-    return lambda env: ENVIRONMENTS.index(env) >= ENVIRONMENTS.index(threshold)
+    return lambda env: _ENVIRONMENTS.index(env) >= _ENVIRONMENTS.index(threshold)

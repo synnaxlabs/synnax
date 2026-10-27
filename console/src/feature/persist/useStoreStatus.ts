@@ -12,8 +12,6 @@ import { useEffect, useRef } from "react";
 
 import { Session } from "@/session";
 
-export const UNAVAILABLE_MESSAGE = "This session will not be saved";
-
 /**
  * Tells the user their session will not be saved. The platform refuses the store
  * outright — a cross-origin frame, private browsing on an older engine, an exhausted
@@ -29,7 +27,7 @@ export const useStoreStatus = (): void => {
     reported.current = true;
     addStatus({
       variant: "warning",
-      message: UNAVAILABLE_MESSAGE,
+      message: "This session will not be saved",
       description:
         "Synnax cannot reach browser storage, so your workspace resets when you reload.",
     });
