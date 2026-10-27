@@ -190,6 +190,11 @@ export class Range {
     return r;
   }
 
+  /**
+   * Sets the alias of a channel in the range.
+   * @throws {NotFoundError} if no channel has the given key or name.
+   * @throws {MultipleFoundError} if more than one channel has the given name.
+   */
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
     const ch = await this.channels(channel);
     checkForMultipleOrNoResults("channel", channel, ch, true);
@@ -204,6 +209,10 @@ export class Range {
     return await this.aliaser.list();
   }
 
+  /**
+   * @returns the key of the channel with the given alias in the range.
+   * @throws {NotFoundError} if no channel has the alias.
+   */
   async resolveAlias(alias: string): Promise<channel.Key> {
     return await this.aliaser.resolve(alias);
   }
