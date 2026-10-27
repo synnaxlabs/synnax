@@ -1,0 +1,53 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`stable`"
+description:
+  "Look up stable.for, which passes a value only after it holds steady for a duration."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `stable` module removes short changes from a signal. Import it with `import stable`.
+
+<Divider.Divider x />
+
+## `for`
+
+Passes a value only after the value stays the same for `duration`.
+
+<Field.List>
+
+<Field.Item name="duration" type="i64 ns" required id="for-duration">
+
+How long the value must stay the same, such as `500ms`.
+
+</Field.Item>
+
+</Field.List>
+
+`duration` takes a literal or a variable. A new variable value applies from the next
+change of the input value.
+
+- Input -> a numeric or `bool` value. A `str` value gives the error
+  `stable.for input must be a numeric or bool type, got str`.
+- Output -> the steady value, of the same type as the input. It has the time of the
+  cycle that sends it.
+- Runs -> on each new input value. A change of value starts the hold time again, from
+  the timestamp of that value. When an input arrives after the value has held for
+  `duration`, `stable.for` sends the value once. It sends again only when a different
+  value holds for `duration`.
+
+Because `stable.for` checks the hold time only when an input arrives, a slow channel can
+send the value later than `duration`. When its stage starts, `stable.for` forgets the
+last value.
+
+```arc channels="tank_pt, high_pt"
+import stable
+
+tank_pt > 500 -> stable.for{duration=500ms} -> high_pt
+```
+
+`stable.for` works the same on the Core and on a Driver.

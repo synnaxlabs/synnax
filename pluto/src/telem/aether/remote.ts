@@ -261,18 +261,30 @@ interface SelectedChannelProperties extends Pick<
   isCalculated: boolean;
 }
 
-const fetchChannelProperties = async (
-  client: Client,
-  ch: channel.Key | channel.Name,
-  fetchIndex: boolean,
-): Promise<SelectedChannelProperties> => {
-  const c = await client.channels.retrieve(ch);
+const selectChannel = (
+  c: channel.Channel,
+  useIndex: boolean,
+): SelectedChannelProperties => {
   const isCalculated = channel.isCalculated(c);
-  if (!fetchIndex || c.isIndex)
+  if (!useIndex || c.isIndex)
     return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
   if (c.virtual && !isCalculated)
     throw new NotFoundError("cannot use virtual channels as a data source");
   return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+};
+
+// pairOf returns the channel that a line draws the source's channel against: y for x,
+// and x for y. It returns null for an x source whose line did not give its y.
+const pairOf = (
+  c: channel.Channel,
+  useIndexOfChannel: boolean,
+  x: channel.Channel | null,
+  y: channel.Key,
+): channel.Key | null => {
+  if (useIndexOfChannel) return c.key;
+  if (x == null) return primitive.isZero(c.index) ? c.key : c.index;
+  if (x.key !== c.key) return x.key;
+  return primitive.isZero(y) ? null : y;
 };
 
 // How long a seam waits before its read, matching the margin the cache gives commits.
@@ -306,39 +318,69 @@ class LiveWindow {
   private generation = 0;
   private stopStreaming?: destructor.Destructor;
   private readonly notifier = new sync.Notifier();
+  // seam belongs to the open stream. Its liveStart is where the line's streamed series
+  // start to pair.
+  private seam: Seam = { filled: false };
+  // streamed holds the series the stream delivered.
+  private readonly streamed = new WeakSet<Series>();
 
   constructor(private readonly config: LiveWindowConfig) {}
 
   /**
    * Opens the stream, then back-fills from start(), so a stalled or failed back-fill
    * never blocks live data. Resolves when the back-fill lands.
+   * @param pair - The channel the line draws this one against, or null if unknown.
    * @throws {Error} if the back-fill fails. The caller reports the failure.
    */
-  async open(client: Client, ch: SelectedChannelProperties): Promise<void> {
+  async open(
+    client: Client,
+    ch: SelectedChannelProperties,
+    pair: channel.Key | null,
+  ): Promise<void> {
     const generation = this.generation;
     const seam: Seam = { filled: false };
+    this.seam = seam;
+    const keys = pair == null || pair === ch.key ? [ch.key] : [ch.key, pair];
+    // firsts holds where the first streamed series of each key starts.
+    const firsts = new Map<channel.Key, TimeStamp>();
     const handler: framer.StreamHandler = (res) => {
       if (generation !== this.generation) return;
       const series = res.get(ch.key);
-      if (series == null || !this.push(series.series)) return;
-      if (seam.liveStart == null && series.series.length > 0) {
-        seam.liveStart = TimeStamp.min(...series.series.map((s) => s.timeRange.start));
+      if (series != null) {
+        for (const s of series.series) this.streamed.add(s);
+        if (!this.push(series.series)) return;
+      }
+      for (const key of keys) {
+        if (firsts.has(key)) continue;
+        const first = res.get(key)?.series ?? [];
+        if (first.length > 0)
+          firsts.set(key, TimeStamp.min(...first.map((s) => s.timeRange.start)));
+      }
+      if (seam.liveStart == null && firsts.size === keys.length) {
+        seam.liveStart = TimeStamp.max(...firsts.values());
         void this.fillSeam(generation, client, ch.key, seam);
       }
+      if (series == null) return;
       this.config.notify();
       this.prune();
     };
     this.stopStreaming?.();
     const streamStart = this.config.now();
-    this.stopStreaming = client.feed.stream(handler, [ch.key]).close;
+    this.stopStreaming = client.feed.stream(handler, keys).close;
     if (ch.virtual && !ch.isCalculated) return;
     try {
-      // The back-fill stops where live data starts: the cache can return a span in
-      // both representations, and overlapping series pair into stray segments.
-      const liveStart = this.data.series.reduce(
+      // Streamed series never pair with fetched ones, so x and y end their back-fills
+      // where the later of their streams starts. A stream that has not started counts
+      // as starting where this one opened. Without a known pair, the back-fill ends
+      // there.
+      const held = this.data.series.reduce(
         (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
         streamStart,
       );
+      const starts = keys.map((k) =>
+        k === ch.key ? held : (firsts.get(k) ?? streamStart),
+      );
+      const liveStart = pair == null ? streamStart : TimeStamp.max(...starts);
       // Live data held across a long retry can start before the window.
       const start = this.config.start();
       if (!liveStart.after(start)) return;
@@ -359,9 +401,9 @@ class LiveWindow {
     }
   }
 
-  // Reads the span between the back-fill's end and the first streamed series once both
-  // are known. The stream delivers only samples written after it opens, which is later
-  // than the back-fill's end.
+  // Reads the span between the back-fill's end and the later first streamed series of
+  // the channel and its pair once both are known. The stream delivers only samples
+  // written after it opens, which is later than the back-fill's end.
   private async fillSeam(
     generation: number,
     client: Client,
@@ -418,6 +460,25 @@ class LiveWindow {
       else this.data.series.splice(at, 0, s);
     }
     return true;
+  }
+
+  /**
+   * @returns where the held series that end after the boundary start to draw, or
+   * TimeStamp.MAX if none does. A streamed series draws from the line's live start at
+   * the earliest, since its earlier samples have nothing to pair with.
+   */
+  drawsFrom(boundary: TimeStamp): TimeStamp {
+    const { liveStart } = this.seam;
+    let from = TimeStamp.MAX;
+    for (const s of this.data.series) {
+      const { start, end } = s.timeRange;
+      if (!start.before(from)) break;
+      if (!end.after(boundary)) continue;
+      if (!this.streamed.has(s)) from = start;
+      else if (liveStart != null)
+        from = TimeStamp.min(from, TimeStamp.max(start, liveStart));
+    }
+    return from;
   }
 
   /** Releases the series that end at or before the cutoff. */
@@ -559,6 +620,8 @@ const tiledChannelDataPropsZ = z.object({
   useIndexOfChannel: z.boolean().default(false),
   /** The line's x channel, or zero when x is the index of the line's y channel. */
   xChannel: z.number().or(z.string()).default(0),
+  /** The key of the line's y channel, which an x source draws against. */
+  yChannel: z.number().default(0),
   /** The home view of a static line. */
   timeRange: TimeRange.z.optional(),
   /** The span of the home view of a live line, which ends now. */
@@ -736,11 +799,10 @@ export class TiledChannelData
     return this.boundary;
   }
 
-  // tilesEnd is where a live line's tiles stop for the boundary: the boundary, or the
-  // start of a held raw series that crosses it, so no span draws twice.
+  // tilesEnd is where a live line's tiles stop for the boundary: the boundary, or where
+  // a held raw series that crosses it starts to draw, so no span draws twice.
   private tilesEnd(boundary: TimeStamp = this.boundary): TimeStamp {
-    const first = this.window.data.series.find((s) => s.timeRange.end.after(boundary));
-    return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
+    return TimeStamp.min(boundary, this.window.drawsFrom(boundary));
   }
 
   aggregation(): Aggregation {
@@ -1022,17 +1084,18 @@ export class TiledChannelData
   }
 
   private async attempt(generation: number, client: Client): Promise<void> {
-    const { channel, useIndexOfChannel, xChannel } = this.props;
-    const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
-    const xy =
-      !primitive.isZero(xChannel) &&
-      !(await client.channels.retrieve(xChannel)).isIndex;
+    const { channel, useIndexOfChannel, xChannel, yChannel } = this.props;
+    const c = await client.channels.retrieve(channel);
+    const ch = selectChannel(c, useIndexOfChannel);
+    const x = primitive.isZero(xChannel)
+      ? null
+      : await client.channels.retrieve(xChannel);
     if (generation !== this.generation) return;
     this.channel = ch;
-    this.xy = xy;
+    this.xy = x != null && !x.isIndex;
     if (this.live) {
       this.boundary = this.rawFrom();
-      await this.window.open(client, ch);
+      await this.window.open(client, ch, pairOf(c, useIndexOfChannel, x, yChannel));
       if (generation !== this.generation) return;
       this.rawLoaded = true;
     }
