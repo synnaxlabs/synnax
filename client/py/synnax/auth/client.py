@@ -54,9 +54,9 @@ _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
 _SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
 _SESSION_DELETE_ENDPOINT = "/auth/session/delete"
 
-AUTHORIZATION_HEADER = "Authorization"
-RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
-TOKEN_PREFIX = "Bearer "
+_AUTHORIZATION_HEADER = "Authorization"
+_RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
+_TOKEN_PREFIX = "Bearer "
 
 
 class Client:
@@ -150,7 +150,7 @@ class Client:
         self.session = None
         try:
             self.delete_sessions(key)
-        except RETRY_ON_ERRORS:
+        except _RETRY_ON_ERRORS:
             pass
         finally:
             self._logout_token.reset(reset)
@@ -170,11 +170,11 @@ class Client:
         # again.
         logout_token = self._logout_token.get()
         if logout_token is not None and target.endswith(_SESSION_DELETE_ENDPOINT):
-            ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + logout_token)
+            ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + logout_token)
             return False
         if not self.authenticated:
             self.authenticate()
-        ctx.set(AUTHORIZATION_HEADER, TOKEN_PREFIX + self.token)
+        ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + self.token)
         return True
 
     def middleware(self) -> Middleware:
@@ -183,7 +183,7 @@ class Client:
             sent = self.token
             try:
                 return _next(ctx)
-            except RETRY_ON_ERRORS:
+            except _RETRY_ON_ERRORS:
                 if not retry:
                     raise
                 self._forget(sent)
@@ -197,7 +197,7 @@ class Client:
             sent = self.token
             try:
                 return await _next(ctx)
-            except RETRY_ON_ERRORS:
+            except _RETRY_ON_ERRORS:
                 if not retry:
                     raise
                 self._forget(sent)
