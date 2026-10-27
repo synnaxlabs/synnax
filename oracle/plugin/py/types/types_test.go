@@ -2564,6 +2564,30 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 	)
 
 	It(
+		"Should panic on a union default that does not set its discriminator",
+		func(ctx SpecContext) {
+			withDefault := source + `
+			Item struct { scale Scale = { slope = 2 } }
+		`
+			Expect(func() {
+				MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			}).To(PanicWith(ContainSubstring("does not set its discriminator type")))
+		},
+	)
+
+	It(
+		"Should panic on a union default that names an unknown variant",
+		func(ctx SpecContext) {
+			withDefault := source + `
+			Item struct { scale Scale = { type = "cubic" } }
+		`
+			Expect(func() {
+				MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			}).To(PanicWith(ContainSubstring(`names unknown variant "cubic"`)))
+		},
+	)
+
+	It(
 		"Should alias a module import that an inline variant field shadows",
 		func(ctx SpecContext) {
 			loader.Add("schemas/status", `
