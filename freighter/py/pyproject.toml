@@ -9,7 +9,7 @@
 
 [project]
 name = "synnax-freighter"
-version = "0.59.0"
+version = "0.60.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
 dependencies = [
@@ -62,6 +62,7 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 known-first-party = ["freighter", "alamos", "x"]
 
 [tool.mypy]
+python_version = "3.12"
 plugins = ["pydantic.mypy"]
 strict = true
 

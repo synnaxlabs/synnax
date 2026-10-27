@@ -78,7 +78,7 @@ class Timer:
 
     def elapsed(self) -> TimeSpan:
         """Returns the time elapsed since the timer was started."""
-        return TimeSpan(time.perf_counter_ns() - self._start)
+        return TimeStamp(time.perf_counter_ns()) - self._start
 
     def start(self) -> None:
         """Starts the timer."""

@@ -448,6 +448,21 @@ describe("encoder", () => {
       expect(decoded.keys[0]).toEqual(2);
       expect(decoded.series[0].data).toEqual(fr2.series[0].data);
     });
+
+    it("should reject a frame encoded with keys older than the last frame decoded", () => {
+      const encoder = new Codec();
+      const decoder = new Codec();
+      encoder.update([1], [DataType.INT32]);
+      decoder.update([1], [DataType.INT32]);
+      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const stale = encoder.encode(fr);
+      encoder.update([1, 2], [DataType.INT32, DataType.INT64]);
+      decoder.update([1, 2], [DataType.INT32, DataType.INT64]);
+      decoder.decode(encoder.encode(fr));
+      expect(() => decoder.decode(stale)).toThrow(
+        new ValidationError("remote sent invalid sequence number 1"),
+      );
+    });
   });
 
   describe("websocket writer codec", () => {
