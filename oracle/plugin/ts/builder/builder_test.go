@@ -126,19 +126,24 @@ var _ = Describe("TS Builder Plugin", func() {
 			)
 		})
 
-		It("Should export a reserved word under an alias", func(ctx SpecContext) {
-			resp := MustGenerate(ctx, thing+`
-				Where filter Thing {
-					for Span
-				}
-			`, "thing", loader, p)
-			ExpectContent(resp, "builder.gen.ts").
-				ToContain(
-					`const for_ = builder.value("for");`,
-					"export { for_ as for };",
-				).
-				ToNotContain("export const for ")
-		})
+		DescribeTable("Should export a reserved word under an alias",
+			func(ctx SpecContext, name string) {
+				resp := MustGenerate(ctx, thing+`
+					Where filter Thing {
+						`+name+` Span
+					}
+				`, "thing", loader, p)
+				ExpectContent(resp, "builder.gen.ts").
+					ToContain(
+						`const `+name+`_ = builder.value("`+name+`");`,
+						"export { "+name+"_ as "+name+" };",
+					).
+					ToNotContain("export const " + name + " ")
+			},
+			Entry("for", "for"),
+			Entry("eval", "eval"),
+			Entry("arguments", "arguments"),
+		)
 
 		It("Should export the tree functions", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`

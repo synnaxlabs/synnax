@@ -408,6 +408,21 @@ and its flat fields go away together, since a client must match the Core's versi
 - **Phase 12: Filter sentences.** TypeScript, Python, and C++ each get a `describe` that
   writes a filter as a sentence, and the single-record errors of §2.6 use it.
 
+| Phase | Scope                                                    | Touches                                                   | Depends on |
+| ----- | -------------------------------------------------------- | --------------------------------------------------------- | ---------- |
+| 1     | Write the Oracle filter tree RFC                         | `docs/tech/rfc`                                           | -          |
+| 2     | Generate filter trees from Oracle schemas                | `oracle`, `schemas/x`, `x`, `gorp`                        | 1          |
+| 3     | Move ranges and statuses to filter trees                 | `schemas`, `core`, `client`, `pluto`, `console`           | 2          |
+| 4     | Move channels, devices, racks, and tasks to filter trees | `schemas`, `core`, `client`, `pluto`, `console`, `driver` | 3          |
+| 5     | Move every other entity to filter trees                  | `schemas`, `core`, `client`, `pluto`, `console`           | 4          |
+| 6     | Check single-record retrieves in every client            | `client`, `driver`                                        | 5          |
+| 7     | Add text operators to string filters                     | `schemas/x`, `x`, `client/ts`                             | 6          |
+| 8     | Generate the TypeScript query builder                    | `oracle/plugin/ts`, `client/ts`, `console`                | 7          |
+| 9     | Generate the Python query builder                        | `oracle/plugin/py`, `client/py`, `site/docs`              | 8          |
+| 10    | Generate the C++ query builder                           | `oracle/plugin/cpp`, `client/cpp`, `driver`               | 9          |
+| 11    | Reject filter operators that set no operator             | `oracle/plugin/go/filter`, `core`, `client/ts`            | 10         |
+| 12    | Describe filters in single-record errors                 | `x`, `client`, `driver`, `console`                        | 11         |
+
 ## 4 What this RFC does not cover
 
 - **The Console filter builder**: The UI to add conditions and group them with AND, OR,

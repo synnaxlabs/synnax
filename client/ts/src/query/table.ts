@@ -350,17 +350,41 @@ export class Table<
    */
   ingest(
     values: Keyed<Key, Value> | Array<Keyed<Key, Value>>,
-    { mode = this.hydrateMode, since }: IngestOptions = {},
+    options?: IngestOptions,
+  ): destructor.Destructor;
+  /**
+   * Writes one fetched value under the given key, by the same rules.
+   * @returns A rollback that undoes the entry, if this call wrote it.
+   */
+  ingest(key: Key, value: Value, options?: IngestOptions): destructor.Destructor;
+  ingest(
+    keyOrValues: Key | Keyed<Key, Value> | Array<Keyed<Key, Value>>,
+    valueOrOptions?: Value | IngestOptions,
+    options?: IngestOptions,
   ): destructor.Destructor {
+    if (typeof keyOrValues !== "object") {
+      const key = keyOrValues as Key;
+      const { mode = this.hydrateMode, since } = options ?? {};
+      if (
+        !this.ingestible(key, since) ||
+        (mode === "if-absent" && this.entries.has(key))
+      )
+        return destructor.NOOP;
+      return this.setOne(key, valueOrOptions as Value) ?? destructor.NOOP;
+    }
+    const { mode = this.hydrateMode, since }: IngestOptions =
+      (valueOrOptions as IngestOptions | undefined) ?? {};
     const arr = array
-      .toArray(values)
-      .filter(
-        ({ key }) =>
-          !this.tombstones.has(key) &&
-          (since == null || !this.writtenSince(key, since)),
-      );
+      .toArray(keyOrValues)
+      .filter(({ key }) => this.ingestible(key, since));
     if (mode === "if-absent") return this.setIfAbsent(arr);
     return this.setMany(arr);
+  }
+
+  private ingestible(key: Key, since?: Stamp): boolean {
+    return (
+      !this.tombstones.has(key) && (since == null || !this.writtenSince(key, since))
+    );
   }
 
   /** Returns every entry in the table, or every entry the filter accepts. */
