@@ -42,17 +42,9 @@ CodecFlags CodecFlags::decode(const uint8_t b) {
 }
 
 x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
-    if (this->seq_num >= 1) {
-        const auto &cur = this->states[this->seq_num].keys;
-        if (cur.size() == keys.size() &&
-            std::ranges::all_of(keys, [&](const channel::Key k) {
-                return cur.contains(k);
-            }))
-            return x::errors::NIL;
-    } else if (keys.empty())
-        return x::errors::NIL;
-
-    this->seq_num++;
+    // The Core counts every update that carries keys, and both sides must agree on the
+    // sequence number of each state.
+    if (keys.empty()) return x::errors::NIL;
     auto [channels, err] = this->channel_client.retrieve(keys);
     if (err) return err;
     Codec::State state;
@@ -61,7 +53,7 @@ x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
         state.key_data_types[ch.key] = ch.data_type;
         if (ch.data_type.is_variable()) state.has_variable_data_types = true;
     }
-    this->states[seq_num] = state;
+    this->states[++this->seq_num] = std::move(state);
     return x::errors::NIL;
 }
 

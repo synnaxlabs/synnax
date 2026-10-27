@@ -157,8 +157,9 @@ public:
     explicit Codec(channel::Client channel_client):
         channel_client(std::move(channel_client)) {}
 
-    /// @brief updates the codec to use the given channels. If the channels do not
-    /// exist, the codec will return a query::NOT_FOUND error.
+    /// @brief updates the codec to use the given channels. An empty list leaves the
+    /// codec unchanged. If the channels do not exist, the codec will return a
+    /// query::NOT_FOUND error.
     x::errors::Error update(const std::vector<channel::Key> &keys);
 
     /// @brief Encodes a frame into a byte array
