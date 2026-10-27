@@ -10,7 +10,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Handoff, type HandoffWriter } from "@/components/diagram/Handoff";
+import { Diagram } from "@/components/diagram";
 
 const events = (count: number) =>
   Array.from({ length: count }, (_, i) => ({
@@ -18,10 +18,10 @@ const events = (count: number) =>
     reason: "Why.",
   }));
 
-const results = (writers: HandoffWriter[]): string[] => {
+const results = (writers: Diagram.HandoffWriter[]): string[] => {
   const count = writers[0].authority.length;
   document.body.innerHTML = renderToString(
-    <Handoff title="Handoff" writers={writers} events={events(count)} />,
+    <Diagram.Handoff title="Handoff" writers={writers} events={events(count)} />,
   );
   return [...document.querySelectorAll(".handoff-diagram__event-result")].map(
     (result) => result.textContent ?? "",
@@ -61,7 +61,7 @@ describe("Handoff", () => {
   it("should throw when a writer has no authority for an event", () => {
     expect(() =>
       renderToString(
-        <Handoff
+        <Diagram.Handoff
           title="Handoff"
           writers={[{ name: "A", authority: [100] }]}
           events={events(2)}
