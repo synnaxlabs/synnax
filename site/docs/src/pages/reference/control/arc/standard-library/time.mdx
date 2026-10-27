@@ -7,6 +7,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -41,9 +42,15 @@ error is a warning. On a Driver it stops the automation.
 
 Fires again and again, once each `period`.
 
-| Parameter | Type     | Required | Default | Meaning                     |
-| --------- | -------- | -------- | ------- | --------------------------- |
-| `period`  | `i64 ns` | Yes      |         | The time between two fires. |
+<Field.List>
+
+<Field.Item name="period" type="i64 ns" required id="interval-period">
+
+The time between two fires.
+
+</Field.Item>
+
+</Field.List>
 
 - Input -> optional. Trigger-only: the first input value starts the timer, and later
   values have no effect. With no input, the timer starts when its stage starts.
@@ -85,9 +92,15 @@ start_cmd == 1 => time.now{} -> start_time
 
 Fires once, after `duration`.
 
-| Parameter  | Type     | Required | Default | Meaning           |
-| ---------- | -------- | -------- | ------- | ----------------- |
-| `duration` | `i64 ns` | Yes      |         | The time to wait. |
+<Field.List>
+
+<Field.Item name="duration" type="i64 ns" required id="wait-duration">
+
+The time to wait.
+
+</Field.Item>
+
+</Field.List>
 
 - Input -> optional. Trigger-only: the first input value starts the timer, and later
   values have no effect. With no input, the timer starts when its stage starts.
