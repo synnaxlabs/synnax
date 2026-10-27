@@ -122,7 +122,6 @@ client.channels.create(
 
 device = serial.Serial(PORT, 9600)
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_value"],
 ) as writer:
     while True:
@@ -164,7 +163,6 @@ await client.channels.create(
 const device = new SerialPort({ path: PORT, baudRate: 9600 });
 const lines = device.pipe(new ReadlineParser({ delimiter: "\n" }));
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["arduino_time", "arduino_value"],
 });
 try {
@@ -397,7 +395,6 @@ client.channels.create(
 
 device = serial.Serial(PORT, 9600)
 with client.open_streamer(["arduino_command"]) as streamer, client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["arduino_time", "arduino_state", "arduino_value"],
 ) as writer:
     while True:
@@ -455,7 +452,6 @@ const device = new SerialPort({ path: PORT, baudRate: 9600 });
 const lines = device.pipe(new ReadlineParser({ delimiter: "\n" }));
 const streamer = await client.openStreamer(["arduino_command"]);
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["arduino_time", "arduino_state", "arduino_value"],
 });
 

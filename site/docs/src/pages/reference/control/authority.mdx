@@ -143,7 +143,6 @@ Pass one authority for every channel, or one authority for each channel:
 
 ```python
 writer = client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["press_time", "press_vlv_cmd"],
     authorities=100,
 )
@@ -174,7 +173,6 @@ Pass one authority for every channel, or one authority for each channel:
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["press_time", "press_vlv_cmd"],
   authorities: 100,
 });
