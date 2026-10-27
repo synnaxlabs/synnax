@@ -277,7 +277,6 @@
         border: none;
         padding: 0;
         position: relative;
-        border-radius: var(--pluto-border-radius-small);
         transition:
             background 0.15s ease-in-out,
             transform 0.15s ease;
