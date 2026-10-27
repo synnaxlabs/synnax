@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	passwordversions "github.com/synnaxlabs/synnax/pkg/service/auth/password/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -171,6 +172,8 @@ type Layer struct {
 	RBAC *rbac.Service
 	// Password stores passwords and checks proofs of them.
 	Password *password.Service
+	// APIKey stores API keys and checks proofs of them.
+	APIKey *apikey.Service
 	// Auth logs subjects in and checks the session tokens their requests carry.
 	Auth *auth.Service
 	// Ranger is for working with ranges.
@@ -441,6 +444,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Password) {
 		return nil, err
 	}
+	if l.APIKey, err = apikey.OpenService(ctx, apikey.ServiceConfig{
+		Instrumentation: cfg.Child("apikey"),
+		DB:              cfg.Distribution.DB,
+	}); !ok(err, l.APIKey) {
+		return nil, err
+	}
 	var (
 		root                user.User
 		rootPasswordChanged bool
@@ -476,6 +485,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: l.Password,
+			auth.MethodAPIKey:   l.APIKey,
 		},
 		IdleTimeout: cfg.SessionIdleTimeout,
 	}); !ok(err, l.Auth) {
