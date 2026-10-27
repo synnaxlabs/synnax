@@ -1,0 +1,274 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "PagerDuty alert task"
+description: "Open and resolve PagerDuty incidents when Synnax statuses change."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Video } from "@/components/media/Media";
+import { Fragment } from "react";
+import Details from "@/components/details/Details.astro";
+import { Client } from "@/components/client";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A PagerDuty alert task sends the [statuses](/reference/alarms/statuses) that you choose
+to PagerDuty. For example, when an Arc automation sets the "Engine 1" status to
+**Error**, the task triggers a PagerDuty alert, and the on-call engineer gets a page.
+When the status changes to **Success**, the task resolves the alert.
+
+Before you start, you need a PagerDuty service with an Events API v2 integration, and
+the statuses to send. To get the 32-character integration key, also called the routing
+key, open **Services** -> **Service Directory** in PagerDuty, select the service, then
+**Integrations** -> **Add Integration** -> **Events API v2**.
+
+<Divider.Divider x />
+
+## How the task sends events
+
+| Status variant    | PagerDuty                                                         |
+| ----------------- | ----------------------------------------------------------------- |
+| Error             | An `error` event, or `critical` with **Treat error as critical**. |
+| Warning           | A `warning` event.                                                |
+| Info              | An `info` event.                                                  |
+| Success           | Resolves the alert.                                               |
+| Loading, Disabled | Nothing.                                                          |
+
+- The status key is the PagerDuty dedup key, so a later change updates the same open
+  alert.
+- Error, warning, and info all send a trigger event. The settings of the PagerDuty
+  service decide whether the alert opens an incident and how urgent it is.
+- The summary of the event is the status message, followed by `: ` and the description
+  when there is one. The source is the status name, or the key when the name is empty.
+  The details are the status details.
+- The task sends only changes that happen while it runs. It does not send the current
+  value of a status when it starts.
+- Deleting the task or a status does not resolve open incidents. Set the statuses to
+  **Success** first.
+- When PagerDuty rejects an event, the task shows an error and keeps running.
+
+The Synnax Core runs the task and sends the events, so the computer that runs the Core
+needs internet access to `events.pagerduty.com`. The task follows the standard
+[task lifecycle](/reference/hardware/tasks#task-lifecycle).
+
+<Divider.Divider x />
+
+## Create a PagerDuty alert task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. Run the "Create PagerDuty alert task" command from the
+   [command palette](/reference/get-started/ui-overview#search-and-command-palette).
+2. Enter the **Routing key**.
+3. Leave **Connect from** set to the Core.
+4. Click **Add alert**. Under **Trigger**, select the **Status** to watch.
+5. Optional: turn on **Treat error as critical**, and fill in **Component**, **Group**,
+   and **Class** under **Incident**.
+6. Add an alert for each status.
+7. Click <Icon.Play /> (**Start**).
+
+The task creates no channels.
+
+<Video id="device-drivers/pagerduty/alert-task/create" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Play /> Create and run an alert task</Text.Text>
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+STATUS_KEY = "engine-1"
+client.statuses.set(
+    sy.Status(
+        key=STATUS_KEY,
+        name="Engine 1",
+        variant="success",
+        message="Running",
+    )
+)
+
+alert_task = sy.pagerduty.AlertTask(
+    name="Engine alerts",
+    routing_key="<your-32-character-integration-key>",
+    auto_start=False,
+    alerts=[
+        sy.pagerduty.Alert(
+            status=STATUS_KEY,
+            errors_critical=True,
+            component="engine-1",
+            group="engines",
+            class_="engine-failure",
+        ),
+    ],
+)
+client.tasks.configure(alert_task)
+
+with alert_task.run():
+    # Opens an incident
+    client.statuses.set(
+        sy.Status(
+            key=STATUS_KEY,
+            name="Engine 1",
+            variant="error",
+            message="Not responding",
+            description="The connection to the controller is lost.",
+        )
+    )
+    sy.sleep(5)
+    # Resolves the incident
+    client.statuses.set(
+        sy.Status(
+            key=STATUS_KEY,
+            name="Engine 1",
+            variant="success",
+            message="Running",
+        )
+    )
+    sy.sleep(3)
+```
+
+</Details>
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+import { pagerduty } from "@synnaxlabs/client";
+
+await client.statuses.set({
+  key: "engine-1",
+  name: "Engine 1",
+  variant: "success",
+  message: "Running",
+});
+
+const [rack] = await client.racks.retrieve({
+  where: { integrations: { any: ["pagerduty"] } },
+});
+const alertTask = await client.tasks.create({
+  name: "Engine alerts",
+  rack: rack.key,
+  type: "pagerduty_alert",
+  config: pagerduty.taskConfigZ.parse({
+    routingKey: "<your-32-character-integration-key>",
+    alerts: [
+      {
+        status: "engine-1",
+        errorsCritical: true,
+        component: "engine-1",
+        group: "engines",
+        class: "engine-failure",
+      },
+    ],
+  }),
+});
+await alertTask.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label | Python field  | Default  | Notes                                                              |
+| ------------- | ------------- | -------- | ------------------------------------------------------------------ |
+| Routing key   | `routing_key` | -        | The 32-character Events API v2 integration key.                    |
+| Connect from  | -             | The Core | The Core runs the task. Python and TypeScript use the Core's rack. |
+| Auto start    | `auto_start`  | Off      | Starts the task when you configure it.                             |
+| Alerts        | `alerts`      | -        | At least one alert must be enabled.                                |
+
+<Divider.Divider x />
+
+## Alert reference
+
+| Console label           | Python field      | Default | Notes                                                                 |
+| ----------------------- | ----------------- | ------- | --------------------------------------------------------------------- |
+| Status                  | `status`          | -       | The key of the status to watch.                                       |
+| Enabled check box       | `disabled`        | Off     | A disabled alert is left out of the task.                             |
+| Treat error as critical | `errors_critical` | Off     | Sends **Error** as `critical` instead of `error`.                     |
+| Component               | `component`       | Empty   | The part of the system, such as `"engine-1"`.                         |
+| Group                   | `group`           | Empty   | A group of components, such as `"engines"`.                           |
+| Class                   | `class_`          | Empty   | The kind of event, such as `"engine-failure"`. `class` in TypeScript. |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### `must be exactly 32 characters`
+
+<Problem.Body>
+<Problem.Cause>
+
+The routing key is not 32 characters long.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Copy the integration key again from the **Events API v2** integration in PagerDuty.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `at least one alert must be enabled`
+
+<Problem.Body>
+<Problem.Cause>
+
+The task has no alerts, or every alert is disabled.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add an alert, or enable one.
+
+</Problem.Fix>
+</Problem.Body>
+
+### `Failed to send PagerDuty event`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core could not send the event to PagerDuty. The description gives the cause. The
+task keeps running and sends the next change.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **PagerDuty rejected the event** -> check the routing key.
+- **The Core could not reach `events.pagerduty.com`** -> check the internet access of
+  the computer that runs the Core.
+
+</Problem.Fix>
+</Problem.Body>
+
+### No incident opens
+
+<Problem.Body>
+<Problem.Cause>
+
+The task sends only changes that happen while it runs, and only for the status keys in
+its alerts.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **The task is not running** -> start the task.
+- **The automation sets a different key** -> set the key of an alert. An Arc
+  `status.set` with a name that matches no status creates a new status with a new key.
+
+</Problem.Fix>
+</Problem.Body>
+
+For other problems, see [tasks](/reference/hardware/tasks).

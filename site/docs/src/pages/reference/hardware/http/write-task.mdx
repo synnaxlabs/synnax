@@ -1,0 +1,215 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "HTTP write task"
+description: "Send a request to a web API each time a command channel gets a new value."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An HTTP write task sends a request to a web API each time you write a value to a command
+channel. For example, a valve on a schematic can send `{"open": 1}` to a pump
+controller. If you write several values at once, the task sends only the last one.
+
+The task has no state channels. To see the value on the server, read it back with an
+[HTTP read task](/reference/hardware/http/read-task). Before you start, you need a
+[connected HTTP server](/reference/hardware/http/connect-server).
+
+<Divider.Divider x />
+
+## Request body
+
+Each endpoint has one command channel. The task puts the channel value in the JSON body
+at a **Pointer**, with a **JSON type** of Number, String, or Boolean. With the pointer
+`/setpoint`, a value of 42 sends this body:
+
+```json
+{ "setpoint": 42 }
+```
+
+- **Empty pointer** -> the body is the value alone, such as `42`. The endpoint cannot
+  have other fields.
+- **Static** field -> adds a fixed value at its own pointer, such as `/unit` with
+  `"psi"`.
+- **Generated** field -> adds a new UUID or timestamp at its own pointer in each
+  request.
+- **Enum mapping** -> for the String type, sends a label for each number, such as
+  `"open"` for 1.
+
+<Divider.Divider x />
+
+## Create an HTTP write task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the server and select **Create write task**.
+2. Click **Add endpoint**, then set **Method** (POST, PUT, or PATCH) and **Path**.
+3. Set **Pointer** and **JSON type** for the channel value.
+4. To add more body fields, click **Static** or **Generated**.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates a command channel for each endpoint. For a server named "Pump
+controller" and the path `/api/control`, it creates `Pump_controller_api_control_cmd`
+and its index `Pump_controller_api_control_cmd_time`. To choose another name,
+right-click the endpoint and select **Rename** before you start.
+
+<Video id="hardware/http/write-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create the command channel and its index first.
+
+```python
+import synnax as sy
+from synnax import http
+
+server = client.devices.retrieve(name="Pump controller")
+cmd_time = client.channels.create(
+    name="pump_setpoint_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="pump_setpoint_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT64
+)
+
+task = http.WriteTask(
+    name="Pump controller write",
+    device=server.key,
+    endpoints=[
+        http.WriteEndpoint(
+            method="POST",
+            path="/api/control",
+            channel=http.ChannelField(pointer="/setpoint", channel=cmd.key),
+            fields=[http.StaticWriteField(pointer="/unit", value="psi")],
+        )
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create the command channel and its index first.
+
+```typescript
+import { http } from "@synnaxlabs/client";
+
+const [server] = await client.devices.retrieve({
+  where: { name: { eq: "Pump controller" } },
+});
+const cmdTime = await client.channels.create({
+  name: "pump_setpoint_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const cmd = await client.channels.create({
+  name: "pump_setpoint_cmd",
+  index: cmdTime.key,
+  dataType: "float64",
+});
+
+const task = await client.tasks.create({
+  name: "Pump controller write",
+  rack: server.rack,
+  type: "http_write",
+  config: http.writeConfigZ.parse({
+    device: server.key,
+    endpoints: [
+      {
+        method: "POST",
+        path: "/api/control",
+        channel: { pointer: "/setpoint", channel: cmd.key },
+        fields: [
+          { type: "static", pointer: "/unit", jsonType: "string", value: "psi" },
+        ],
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+The HTTP write task has one option, **Auto start** (`auto_start`), which starts the task
+each time the Driver starts.
+
+<Divider.Divider x />
+
+## Endpoint reference
+
+Each table shows the Console label of a setting, with its Python field under it. An
+endpoint has these settings:
+
+| Setting                                        | Default | Notes                                     |
+| ---------------------------------------------- | ------- | ----------------------------------------- |
+| Method <small>`method`</small>                 | `POST`  | `POST`, `PUT`, or `PATCH` in the Console. |
+| Path <small>`path`</small>                     |         | Added to the base address of the server.  |
+| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.           |
+| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                |
+| <small>`disabled`</small>                      | `false` | Leaves the endpoint out of the task.      |
+
+The channel value has these settings:
+
+| Setting                                   | Default   | Notes                                                |
+| ----------------------------------------- | --------- | ---------------------------------------------------- |
+| Pointer <small>`pointer`</small>          | Empty     | Where the value goes in the body.                    |
+| JSON type <small>`json_type`</small>      | Number    | Number, String, or Boolean. Not for timestamps.      |
+| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel.      |
+| Time format <small>`time_format`</small>  | `iso8601` | For a `timestamp` channel.                           |
+| Enum mapping <small>`enum_values`</small> | None      | String type only. Maps numbers to labels.            |
+| <small>`channel`</small>                  |           | The command channel. The Console creates it for you. |
+
+An additional field is static or generated:
+
+| Type      | Fields                                                                        |
+| --------- | ----------------------------------------------------------------------------- |
+| Static    | `pointer`, `value`. The value goes into the body as you give it.              |
+| Generated | `pointer`, `generator` (`uuid` or `timestamp`), `time_format` for timestamps. |
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"... returned ...: ..."}>
+<Problem.Cause>
+
+The server rejected the request. The description shows the status code and the response
+body. The task tries again after a temporary error, such as 408, 429, or a 5xx code.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the path, the body fields, and the authentication of the server.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Pointer ... is already used by another field"}>
+<Problem.Cause>
+
+Two fields in the body use the same pointer.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give each field its own pointer.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

@@ -204,7 +204,7 @@ export const taskStatus = (
   key: task.statusKey(t.key),
   name: t.name,
   variant: "success" as const,
-  message: running ? "Task started successfully" : "Task stopped successfully",
+  message: running ? "Started task" : "Stopped task",
   details: {
     task: t.key,
     running,

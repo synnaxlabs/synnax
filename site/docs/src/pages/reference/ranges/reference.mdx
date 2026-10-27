@@ -1,0 +1,114 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Ranges reference"
+description:
+  "Range properties, stage changes, saved and local ranges, and the errors that clients
+  raise."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Client } from "@/components/client";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This page lists the properties of a [range](/reference/ranges), how each stage change
+sets its times, and what local ranges cannot do.
+
+<Divider.Divider x />
+
+## Properties
+
+<Field.List>
+
+<Field.Item name="key" type="UUID">
+  The unique ID of the range. Synnax makes one when you leave it out. Create with an
+  existing key to update that range.
+</Field.Item>
+
+<Field.Item name="name" type="string" required>
+  The name of the range, at least one character. Names do not have to be unique.
+</Field.Item>
+
+<Field.Item
+  id="time-range"
+  type="TimeRange"
+  typeHref="/reference/client/time-types#timerange"
+  required
+>
+  <Client.Var slot="name" py="time_range" ts="timeRange" />
+  The interval of the range. It includes the start and excludes the end. The start
+  cannot be after the end, and neither can be zero.
+</Field.Item>
+
+<Field.Item name="color" type="string">
+  A hex color such as `"#FF0000"`. The client returns it as a color object. An empty
+  string clears it. Line plots show only ranges that have a color. The Console cannot
+  set it. An [Arc automation](/reference/ranges/arc) can.
+</Field.Item>
+
+<Field.Item name="parent" type="Range">
+  The parent range. Set it when you create the range.
+</Field.Item>
+
+<Field.Item name="retrieve_if_name_exists" type="boolean">
+  Python only. Returns an existing range with the same name instead of creating a new
+  one. See [create ranges](/reference/ranges/create).
+</Field.Item>
+
+</Field.List>
+
+Labels and metadata are not properties of the create call. See
+[metadata and labels](/reference/ranges/metadata).
+
+<Divider.Divider x />
+
+## Stages
+
+The Console computes the stage of a range from its times and the current time:
+
+| Stage       | When                                                    |
+| ----------- | ------------------------------------------------------- |
+| To do       | The range has no start, or it starts in the future.     |
+| In progress | The range has started and has not ended, or has no end. |
+| Completed   | The range has ended.                                    |
+
+Each stage change in the Console sets a time:
+
+| From        | Select            | Change                                                               |
+| ----------- | ----------------- | -------------------------------------------------------------------- |
+| To do       | **Start**         | The start becomes now. The end stays.                                |
+| To do       | **Complete**      | The end becomes now. A start in the future also becomes now.         |
+| In progress | **Complete**      | The end becomes now.                                                 |
+| In progress | **Move to to do** | The start moves to the end. A range with no end loses its start too. |
+| Completed   | **Reopen**        | The end is removed. The start stays.                                 |
+
+On the timeline, **Unschedule** clears the start and the end, and **Remove end** clears
+the end. When you move the start past the end, the end moves with it and the range keeps
+its length. The same is true when you move the end before the start.
+
+<Divider.Divider x />
+
+## Saved and local ranges
+
+**Save to Core** stores a range in the Synnax Core, where every user sees it. **Save
+locally** keeps it only in this Console, marked with an **L** in the ranges toolbar.
+
+A local range keeps only its name and its time range. It cannot:
+
+- Open a range overview, or have child ranges, labels, or metadata.
+- Be deleted with **Delete**. Select **Unfavorite** to remove it.
+- Have channel aliases or snapshots.
+- Be shared with a link.
+
+To keep a local range, right-click it in the ranges toolbar and select **Save to Core**.
+
+<Divider.Divider x />
+
+## Errors
+
+| Error                | When                                                                       |
+| -------------------- | -------------------------------------------------------------------------- |
+| `NotFoundError`      | A retrieve matches no range.                                               |
+| `MultipleFoundError` | A retrieve by name matches more than one range.                            |
+| Validation error     | A create has an empty name, a zero start or end, or a start after its end. |
