@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { save } from "@tauri-apps/plugin-dialog";
-import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Command } from "@/feature/command";
 import { Embedded } from "@/feature/embedded";
 import {
   clearSupervisor,
@@ -18,6 +19,7 @@ import {
   createDesktopWrapper,
   mockSupervisor,
   RUNNING,
+  type Status,
 } from "@/feature/embedded/testutil";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
@@ -49,7 +51,7 @@ const LOG = [
 ].join("\n");
 
 const openDiagnostics = async (
-  status: Embedded.Status,
+  status: Status,
   handlers: Record<string, CommandHandler> = {},
 ): Promise<ReturnType<typeof mockSupervisor>> => {
   const supervisor = mockSupervisor(() => status, {
@@ -58,13 +60,24 @@ const openDiagnostics = async (
     ...handlers,
   });
   const { wrapper } = await createDesktopWrapper();
-  const { result } = renderHook(() => Embedded.useDiagnosticsModal(), { wrapper });
-  await act(async () => result.current());
+  render(
+    <Command.List
+      commands={Embedded.COMMANDS}
+      value=">"
+      onChange={() => {}}
+      inputPlaceholder={<>Commands</>}
+    />,
+    { wrapper },
+  );
+  const command = await screen.findByText("Open diagnostics");
+  await act(async () => {
+    fireEvent.click(command, { detail: 1 });
+  });
   await screen.findByText("Diagnostics");
   return supervisor;
 };
 
-describe("Embedded.useDiagnosticsModal", () => {
+describe("Embedded diagnostics", () => {
   beforeEach(() => vi.mocked(save).mockReset());
   afterEach(clearSupervisor);
 

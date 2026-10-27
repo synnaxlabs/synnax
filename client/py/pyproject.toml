@@ -9,7 +9,7 @@
 
 [project]
 name = "synnax"
-version = "0.59.0"
+version = "0.60.0"
 readme = "README.md"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]

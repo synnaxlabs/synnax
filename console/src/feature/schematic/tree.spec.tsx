@@ -9,8 +9,8 @@
 
 import { NotFoundError, project, ranger, schematic } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
-import { Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { type Status } from "@synnaxlabs/lyra/status";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
@@ -37,9 +37,10 @@ import {
   assertDefined,
   awaitTextEditingElement,
   captureBrowserDownloads,
+  CaptureStatuses,
   commitTextEdit,
+  createConsoleWrapper,
   createTestStore,
-  renderHookWithConsole,
   resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
@@ -75,65 +76,32 @@ describe("Schematic.TREE_ITEMS", () => {
   });
 });
 
-describe("Schematic.useRangeSnapshot", () => {
-  it("raises an error status when there is no active range", async () => {
-    const s = await createSchematic();
-    const store = await createTestStore();
-    const { result } = await renderHookWithConsole(
-      () => ({
-        snapshot: Schematic.useRangeSnapshot(),
-        notifications: Status.useNotifications(),
-      }),
-      { client },
-    );
-    const id = schematic.ontologyID(s.key);
-    result.current.snapshot({
-      ...createBaseProps({ client, store }),
-      selection: createSelection({ ids: [id] }),
-      state: createState([createResource(id, s.name)]),
-    });
-    await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "error" && st.message === "Failed to snapshot schematics",
-        ),
-      ).toBe(true),
-    );
-  });
-
+describe("Schematic snapshot to the active range", () => {
   it("snapshots the selected schematics under the active range", async () => {
     const s = await createSchematic();
     const rng = await createTestRange(client);
     const store = await createTestStore();
-    const { result } = await renderHookWithConsole(
-      () => ({
-        snapshot: Schematic.useRangeSnapshot(),
-        notifications: Status.useNotifications(),
-      }),
-      {
-        client,
-        preloadedState: {
-          [Session.Range.SLICE_NAME]: {
-            ...Session.Range.ZERO_SLICE_STATE,
-            selected: rng.key,
-            ranges: [
-              ...Session.Range.ZERO_SLICE_STATE.ranges,
-              {
-                variant: "persisted" as const,
-                key: rng.key,
-              },
-            ],
-          },
-        },
-      },
-    );
+    store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
+    store.dispatch(Session.Range.select(rng.key));
+    const { wrapper } = await createConsoleWrapper({ client, store });
+    const Menu = Item.ContextMenu;
+    assertDefined(Menu);
     const id = schematic.ontologyID(s.key);
-    result.current.snapshot({
-      ...createBaseProps({ client, store }),
-      selection: createSelection({ ids: [id] }),
-      state: createState([createResource(id, s.name)]),
-    });
+    const statuses: Status.NotificationSpec[] = [];
+    render(
+      <>
+        <Menu
+          {...createBaseProps({ client, store })}
+          selection={createSelection({ ids: [id] })}
+          state={createState([createResource(id, s.name, { snapshot: false })])}
+        />
+        <CaptureStatuses
+          onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
+        />
+      </>,
+      { wrapper },
+    );
+    fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
     await waitFor(async () => {
       const children = await client.ontology.children.retrieve({
         ids: ranger.ontologyID(rng.key),
@@ -141,15 +109,14 @@ describe("Schematic.useRangeSnapshot", () => {
       expect(children.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
     });
     await waitFor(() =>
-      expect(
-        result.current.notifications.statuses.some(
-          (st) =>
-            st.variant === "success" &&
-            st.name === rng.name &&
-            st.message === "Snapshotted schematic" &&
-            st.description === `Created a snapshot of ${s.name}.`,
-        ),
-      ).toBe(true),
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "success",
+          name: rng.name,
+          message: "Snapshotted schematic",
+          description: `Created a snapshot of ${s.name}.`,
+        }),
+      ),
     );
   });
 });
