@@ -109,6 +109,37 @@ var _ = Describe("Go PB Plugin", func() {
 			},
 		)
 
+		It("Should translate each element of a list of a generic use", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					key   uuid
+					sets  filter.Set<uuid>[]
+					ids   filter.Set<uuid>[]?
+					names filter.Set<string>[]?
+				}
+			`, "thing", loader, pbPlugin)
+			ExpectContent(resp, "translator.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {",
+					"func StringSetsFromPB(pbs []*StringSet) ([]filter.Set[string], error) {",
+					"setsVal, err := UuidSetsToPB(r.Sets)",
+					"r.Sets, err = UuidSetsFromPB(pb.Sets)",
+					"pb.Ids = &UuidSetList{Values: vals}",
+					"pb.Names = &StringSetList{Values: vals}",
+					"vals, err := StringSetsFromPB(pb.Names.Values)",
+				).
+				ToNotContain("SetsToPB[", "FilterSetList")
+		})
+
 		Context("field-level omit", func() {
 			It("Should not translate a field omitted in pb", func(ctx SpecContext) {
 				source := `
