@@ -13,8 +13,8 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
+import { type Invited } from "@/server/invitation";
 import { type Machine } from "@/server/license/desktop";
-import { type Invited } from "@/server/organization";
 import { Devices } from "@/ui/devices";
 import { Enterprise } from "@/ui/Enterprise";
 import { date, machineName, statusOf } from "@/ui/format";
@@ -35,7 +35,7 @@ export interface PersonalProps {
   machines: Machine[];
   /** devices is the URL of the Devices tab. */
   devices: string;
-  /** invitations are the team invitations the user has not accepted. */
+  /** invitations are the open invitations to the user's verified addresses. */
   invitations: Invited[];
   now: Date;
 }

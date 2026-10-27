@@ -22,6 +22,10 @@ export const GL_ENUMS = {
   FRAGMENT_SHADER: 9,
   COMPILE_STATUS: 10,
   TRIANGLES: 11,
+  DEPTH_TEST: 12,
+  STENCIL_TEST: 13,
+  CULL_FACE: 14,
+  DITHER: 15,
 };
 
 const RETURNS: Record<string, () => unknown> = {

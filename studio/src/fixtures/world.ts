@@ -47,6 +47,8 @@ const SENSORS = [
   "fuel_tc_2",
   "press_tc_1",
   "press_tc_2",
+  "ox_level",
+  "fuel_level",
 ] as const;
 
 type Sensor = (typeof SENSORS)[number];
@@ -97,6 +99,11 @@ const POLL_MS = 10;
 const HEARTBEAT_MS = 1000;
 /** Fuel tank pressure while the fuel side stands by, in psi. */
 const FUEL_HOLD = 42;
+/** Propellant in each tank before a run, in percent of capacity. */
+const OX_FULL = 88;
+const FUEL_FULL = 82;
+/** Percent of OX capacity drained per unit of flow per second. */
+const OX_DRAIN = 0.15;
 /** Idle seconds recorded before and after each past run. */
 const PAST_LEAD_S = 4;
 const PAST_TAIL_S = 8;
@@ -182,12 +189,14 @@ interface Stand {
   state: Record<Valve, number>;
   p: { ox: number; fuel: number; press: number };
   t: { ox: number; fuel: number; press: number };
+  level: { ox: number; fuel: number };
 }
 
 const newStand = (press: number): Stand => ({
   state: Object.fromEntries(VALVE_NAMES.map((v) => [v, 0])) as Record<Valve, number>,
   p: { ox: 0, fuel: FUEL_HOLD, press },
   t: { ox: -183, fuel: 19, press: 21 },
+  level: { ox: OX_FULL, fuel: FUEL_FULL },
 });
 
 const flowing = (s: Stand, v: Valve): boolean =>
@@ -195,7 +204,7 @@ const flowing = (s: Stand, v: Valve): boolean =>
 
 /** step advances the stand by dt seconds and returns its sensor readings. */
 const step = (s: Stand, dt: number): Record<Sensor, number> => {
-  const { p, t } = s;
+  const { p, t, level } = s;
   const feeds = Number(flowing(s, "ox_press")) + Number(flowing(s, "ox_press_2"));
   const inflow = flowing(s, "press_iso")
     ? 0.25 * feeds * Math.max(0, p.press - p.ox)
@@ -208,6 +217,7 @@ const step = (s: Stand, dt: number): Record<Sensor, number> => {
   p.fuel = flowing(s, "fuel_vent") ? approach(p.fuel, 0, 1, dt) : p.fuel;
   t.ox = approach(t.ox, flow > 0 ? -190 : -183, 2, dt);
   t.press = approach(t.press, 21 - 0.1 * inflow, 1.5, dt);
+  level.ox = Math.max(0, level.ox - OX_DRAIN * flow * dt);
   return {
     ox_pt_1: p.ox + noise(0.15),
     ox_pt_2: p.ox * 0.97 + noise(0.15),
@@ -223,6 +233,8 @@ const step = (s: Stand, dt: number): Record<Sensor, number> => {
     fuel_tc_2: t.fuel + 0.3 + noise(0.1),
     press_tc_1: t.press + noise(0.1),
     press_tc_2: t.press - 0.4 + noise(0.1),
+    ox_level: level.ox + noise(0.05),
+    fuel_level: level.fuel + noise(0.05),
   };
 };
 
@@ -333,6 +345,22 @@ const hardware = async (
       port,
       device: DAQ_DEVICE,
     };
+    if (name.endsWith("_level"))
+      return {
+        ...base,
+        type: "ai_voltage" as const,
+        terminalConfig: "RSE" as const,
+        minVal: 0,
+        maxVal: 100,
+        // A 0 to 10 V level probe over the tank's capacity.
+        customScale: {
+          type: "linear" as const,
+          slope: 10,
+          yIntercept: 0,
+          preScaledUnits: "Volts" as const,
+          scaledUnits: "%",
+        },
+      };
     if (!name.includes("_tc_"))
       return {
         ...base,
