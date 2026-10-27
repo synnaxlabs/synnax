@@ -29,6 +29,7 @@ import { type ChannelRetriever } from "@/framer/adapter";
 import { type Block, RAW_LEVEL, type RawBlock, rawIndex } from "@/framer/cache/block";
 import {
   choose,
+  cover,
   index as tileIndex,
   indexes,
   level as tileLevel,
@@ -443,7 +444,8 @@ export class Points {
     const aggregation: Aggregation = extremesKept ? "min_max" : this.limit.aggregation;
     // Tiles are cut to [start, end): from the start of a static window to the start of
     // raw samples. A view may reach past a static window, as on a zoom out, so it cuts
-    // tiles only where raw samples start.
+    // tiles only where raw samples start. End moves while the window streams, so the
+    // tile it cuts splits into whole finer tiles, and only a raw level tile reads again.
     const viewed = this.limit.view != null;
     const start = this.dynamic || viewed ? undefined : home.start;
     const raw = this.rawRange(home, boundary);
@@ -455,20 +457,28 @@ export class Points {
     );
     if (!tiled.start.before(tiled.end)) return [];
     const level = tileLevel(view);
-    const pointLimit = tilePointLimit({
-      level,
-      view,
-      points: this.limit.count,
-      drawn: this.limit.aggregation,
-      aggregation,
-    });
-    return indexes(tiled, level).map((index) => {
-      const spec: TileSpec = { key: this.key, level, index, pointLimit, aggregation };
-      const tr = tileRange(spec);
-      if (start != null && tr.start.before(start)) spec.start = start;
-      if (end != null && tr.end.after(end)) spec.end = end;
-      return spec;
-    });
+    const floor = this.streaming ? RAW_LEVEL : level;
+    return indexes(tiled, level)
+      .flatMap((index) =>
+        end == null ? [{ level, index }] : cover({ level, index }, end, floor),
+      )
+      .filter((p) => start == null || tileRange(p).end.after(start))
+      .map((p) => {
+        const spec: TileSpec = {
+          ...p,
+          key: this.key,
+          pointLimit: tilePointLimit({
+            level: p.level,
+            view,
+            points: this.limit.count,
+            drawn: this.limit.aggregation,
+            aggregation,
+          }),
+          aggregation,
+        };
+        if (start != null && tileRange(p).start.before(start)) spec.start = start;
+        return spec;
+      });
   }
 
   // Moves the boundary to rawFrom once the tiles that replace the raw samples before

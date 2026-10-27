@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   choose,
+  cover,
   index,
   indexes,
   level,
@@ -171,6 +172,40 @@ describe("grid", () => {
           aggregation: "min_max",
         }),
       ).toBe(1);
+    });
+  });
+
+  describe("cover", () => {
+    const ms = (n: number): TimeStamp => TimeStamp.microseconds(n * 1000);
+
+    it("should return a tile that end does not cut whole", () => {
+      const p = { level: 4, index: 2 };
+      expect(cover(p, ms(48), 1)).toEqual([p]);
+    });
+
+    it("should cut a tile at or below the floor level at end", () => {
+      expect(cover({ level: 1, index: 5 }, ms(11.5), 1)).toEqual([
+        { level: 1, index: 5, end: ms(11.5) },
+      ]);
+    });
+
+    it("should cover a cut tile with whole finer tiles up to end", () => {
+      expect(cover({ level: 4, index: 0 }, ms(12), 1)).toEqual([
+        { level: 3, index: 0 },
+        { level: 2, index: 2 },
+      ]);
+    });
+
+    it("should cut a tile of the floor level at an end between its edges", () => {
+      expect(cover({ level: 4, index: 0 }, ms(11.5), 1)).toEqual([
+        { level: 3, index: 0 },
+        { level: 1, index: 4 },
+        { level: 1, index: 5, end: ms(11.5) },
+      ]);
+    });
+
+    it("should return no tiles when end is at the tile's start", () => {
+      expect(cover({ level: 4, index: 1 }, ms(16), 1)).toEqual([]);
     });
   });
 

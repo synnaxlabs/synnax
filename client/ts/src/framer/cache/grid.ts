@@ -75,6 +75,27 @@ export const indexes = (tr: TimeRange, level: number): number[] => {
   return out;
 };
 
+/**
+ * @returns tiles that cover the tile at the position from its start to end: whole tiles
+ * of finer levels down to floor, then a tile of floor cut at end. The tile comes back
+ * whole when end does not cut it, or cut at end when its level is at or below floor.
+ */
+export const cover = (p: Position, end: TimeStamp, floor: number): Bounds[] => {
+  const tr = tileRange(p);
+  if (!tr.end.after(end)) return [p];
+  if (p.level <= floor) return [{ ...p, end }];
+  const out: Bounds[] = [];
+  let from = tr.start;
+  for (let l = p.level - 1; l >= floor; l--) {
+    const next = from.add(tileSpan(l));
+    if (next.after(end)) continue;
+    out.push({ level: l, index: index(from, l) });
+    from = next;
+  }
+  if (from.before(end)) out.push({ level: floor, index: index(from, floor), end });
+  return out;
+};
+
 export interface PointLimitProps {
   level: number;
   /** The range the line shows. */

@@ -52,6 +52,15 @@ const BREAKER: breaker.Config = {
 const RAW: PointsLimit = { variant: "points", count: Infinity, aggregation: "min_max" };
 const TILED: PointsLimit = { variant: "points", count: 100, aggregation: "min_max" };
 
+// Returns true when the range is one whole tile of the grid.
+const isTile = (tr: TimeRange): boolean => {
+  const level = Math.log2(Number(tr.span.valueOf() / TimeSpan.MILLISECOND.valueOf()));
+  return (
+    Number.isInteger(level) &&
+    tileRange({ level, index: tileIndex(tr.start, level) }).equals(tr)
+  );
+};
+
 const leadingOf = (store: Store, key: channel.Key): Series | null =>
   store.open(key)?.buffer?.leadingBuffer ?? null;
 
@@ -328,6 +337,34 @@ describe("Points", () => {
         );
         await expect.poll(() => points.value().status.variant, POLL).toBe("success");
         expect(points.value().series.series.length).toBeLessThan(64);
+      } finally {
+        await close();
+      }
+    });
+
+    it("should read whole tiles or less than a raw block as the edge moves", async () => {
+      const core = new SyntheticCore({
+        rate: Rate.hz(0.5),
+        start: START,
+        now: START.add(TimeSpan.days(31)),
+      });
+      const reduced: TimeRange[] = [];
+      const { subscribe, close } = createPoints(core, async (tr, keys, reduction) => {
+        if (reduction != null) reduced.push(tr);
+        return core.read(tr, keys, reduction);
+      });
+      const window = dynamicWindow(TimeSpan.days(30));
+      const points = subscribe(core.data[0].key, window, TILED);
+      const block = tileSpan(RAW_LEVEL);
+      try {
+        for (let i = 0; i < 4; i++) {
+          await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+          core.advance(block);
+          points.value();
+        }
+        await expect.poll(() => points.value().status.variant, POLL).toBe("success");
+        const large = reduced.filter((tr) => !isTile(tr) && tr.span.greaterThan(block));
+        expect(large).toEqual([]);
       } finally {
         await close();
       }
