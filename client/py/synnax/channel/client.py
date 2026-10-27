@@ -467,7 +467,9 @@ class Client:
             if len(normal.channels) == 0:
                 return []
             single = normal.single
-            selected = params_where(channel)
+            selected = (
+                single_where(normal.channels[0]) if single else params_where(channel)
+            )
         flat = Where(
             key=selected.key,
             name_patterns=selected.name_patterns,
@@ -502,10 +504,7 @@ class Client:
             range_key,
         )
         sug = self._sugar(res)
-        if channel is not None and single:
-            selected = single_where(normalize_params(channel).channels[0])
-            return util.one("channel", selected, sug)
-        if one:
+        if single or one:
             return util.one("channel", where, sug)
         return sug
 

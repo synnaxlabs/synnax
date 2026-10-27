@@ -229,6 +229,17 @@ class TestChannel:
         ):
             client.channels.retrieve(1234)
 
+    def test_retrieve_by_key_not_found_with_filters(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should describe every filter of a key retrieve that matches no channel."""
+        key = indexed_pair[0].key
+        with pytest.raises(
+            sy.NotFoundError,
+            match=rf"^Found no channel where key = {key} and virtual = true$",
+        ):
+            client.channels.retrieve(key, virtual=True)
+
     def test_retrieve_by_list_of_names(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
