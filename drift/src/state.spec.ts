@@ -7,33 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction } from "@reduxjs/toolkit";
+import { type Reducer } from "@reduxjs/toolkit";
 import { describe, expect, it } from "vitest";
 
 import {
-  assignLabel,
+  configureStore,
   createWindow,
-  type CreateWindowPayload,
   focusWindow,
-  internalSetInitial,
+  MAIN_WINDOW,
   reducer,
   restoreWindows,
-  runtimeSetWindowProps,
   type SliceState,
-  ZERO_SLICE_STATE,
-} from "@/state";
-import {
-  INITIAL_PRERENDER_WINDOW_STATE,
-  INITIAL_WINDOW_STATE,
-  MAIN_WINDOW,
+  type StoreState,
   type WindowState,
-} from "@/window";
+  ZERO_SLICE_STATE,
+} from "@/index";
+import { configureMockStore, createWindowState, MockRuntime } from "@/testutil";
 
-const reserved = (key: string, props: Partial<WindowState> = {}): WindowState => ({
-  ...INITIAL_WINDOW_STATE,
-  key,
-  reserved: true,
-  ...props,
+const reserved = (key: string, props: Partial<WindowState> = {}): WindowState =>
+  createWindowState({ key, reserved: true, ...props });
+
+const prerender = (): WindowState =>
+  createWindowState({ key: "prerender", visible: false });
+
+// The action a runtime dispatches when the window it drives changes.
+const runtimeProps = (payload: Partial<WindowState> & { label: string }) => ({
+  type: "drift/runtimeSetWindowProps",
+  payload,
 });
 
 const sliceState = (windows: Record<string, WindowState>): SliceState => {
@@ -114,7 +114,7 @@ describe("createWindow", () => {
   it("should assign an ordinal when claiming a pre-rendered window", () => {
     const s = sliceState({
       [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }),
-      spare: { ...INITIAL_PRERENDER_WINDOW_STATE },
+      spare: prerender(),
     });
     const next = reducer(
       s,
@@ -136,31 +136,39 @@ describe("createWindow", () => {
 });
 
 describe("assignLabel", () => {
-  const labels = (a: PayloadAction<CreateWindowPayload>): (string | undefined)[] => [
-    a.payload.label,
-    a.payload.prerenderLabel,
-  ];
-
   // Any window may open another one, and the one that dispatches is the one that
   // names it. Waiting for the main window to do the naming left the dispatching
   // window applying a create the reducer rejects.
-  it("should mint labels for a create dispatched outside the main window", () => {
-    const a = assignLabel(createWindow({ key: "a" }), {
-      ...ZERO_SLICE_STATE,
-      label: "secondary",
+  it("should mint labels for a create dispatched outside the main window", async () => {
+    const runtime = new MockRuntime<StoreState>(false, { key: "secondary" });
+    const configured = configureStore<StoreState>({
+      runtime,
+      reducer: { drift: reducer as Reducer<SliceState> },
+      enablePrerender: false,
     });
-    expect(labels(a)).not.toContain(undefined);
+    await expect.poll(() => runtime.emissions.length).toBeGreaterThan(0);
+    runtime.subscribeCallback({
+      state: { drift: sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }) },
+      emitter: MAIN_WINDOW,
+    });
+    const store = await configured;
+    const action = createWindow({ key: "a" });
+    store.dispatch(action);
+    const emitted = (): unknown =>
+      runtime.emissions.find((e) => e.action?.type === action.type)?.action?.payload;
+    await expect
+      .poll(emitted)
+      .toMatchObject({ label: expect.any(String), prerenderLabel: expect.any(String) });
   });
 
-  it("should keep the labels an emitted create already carries", () => {
-    const a = assignLabel(
-      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
-      {
-        ...ZERO_SLICE_STATE,
-        label: MAIN_WINDOW,
-      },
-    );
-    expect(labels(a)).toEqual(["la", "pa"]);
+  it("should keep the labels an emitted create already carries", async () => {
+    const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
+    const store = await configureMockStore(runtime);
+    runtime.subscribeCallback({
+      action: createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
+      emitter: "b",
+    });
+    expect(store.getState().drift.windows.la?.key).toEqual("a");
   });
 });
 
@@ -168,13 +176,13 @@ describe("setWindowProps", () => {
   const withPrerender = (): SliceState =>
     sliceState({
       [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }),
-      pre: { ...INITIAL_PRERENDER_WINDOW_STATE },
+      pre: prerender(),
     });
 
   it("should ignore writes to an unreserved pre-rendered window", () => {
     const next = reducer(
       withPrerender(),
-      runtimeSetWindowProps({ label: "pre", visible: true }),
+      runtimeProps({ label: "pre", visible: true }),
     );
     expect(next.windows.pre.visible).toEqual(false);
   });
@@ -182,7 +190,7 @@ describe("setWindowProps", () => {
   it("should ignore runtime prop echoes on an unreserved window", () => {
     const next = reducer(
       withPrerender(),
-      runtimeSetWindowProps({ label: "pre", minimized: true }),
+      runtimeProps({ label: "pre", minimized: true }),
     );
     expect(next.windows.pre.minimized).toBeUndefined();
   });
@@ -194,57 +202,62 @@ describe("setWindowProps", () => {
     );
     expect(s.windows.pre.reserved).toEqual(true);
     expect(s.windows.pre.visible).toEqual(true);
-    s = reducer(s, runtimeSetWindowProps({ label: "pre", position: { x: 5, y: 5 } }));
+    s = reducer(s, runtimeProps({ label: "pre", position: { x: 5, y: 5 } }));
     expect(s.windows.pre.position).toEqual({ x: 5, y: 5 });
   });
 });
 
 describe("focusWindow", () => {
-  const withPrerender = (): SliceState =>
-    sliceState({
-      [MAIN_WINDOW]: reserved(MAIN_WINDOW, { ordinal: 1 }),
-      pre: { ...INITIAL_PRERENDER_WINDOW_STATE },
+  const withPrerender = async () => {
+    const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
+    const store = await configureStore<StoreState>({
+      runtime,
+      reducer: { drift: reducer as Reducer<SliceState> },
     });
+    const label = (): string =>
+      Object.keys(store.getState().drift.windows).find((l) => l !== MAIN_WINDOW)!;
+    await expect.poll(label).toBeDefined();
+    return { store, label: label() };
+  };
 
   // A pre-render runs the whole app, so anything the app focuses on startup is
   // dispatched from there too, with the pre-render's own label.
-  it("should leave an unreserved pre-rendered window hidden", () => {
-    const s = withPrerender();
-    const next = reducer(s, assignLabel(focusWindow({ key: "pre" }), s));
-    expect(next.windows.pre.visible).toEqual(false);
-    expect(next.windows.pre.focusCount).toEqual(0);
+  it("should leave an unreserved pre-rendered window hidden", async () => {
+    const { store, label } = await withPrerender();
+    store.dispatch(focusWindow({ key: "prerender" }));
+    const win = store.getState().drift.windows[label];
+    expect(win.visible).toEqual(false);
+    expect(win.focusCount).toEqual(0);
   });
 
-  it("should raise a claimed window", () => {
-    let s = reducer(
-      withPrerender(),
-      createWindow({ key: "a", label: "la", prerenderLabel: "pa" }),
-    );
-    s = reducer(s, assignLabel(focusWindow({ key: "a" }), s));
-    expect(s.windows.pre.visible).toEqual(true);
-    expect(s.windows.pre.focusCount).toEqual(2);
+  it("should raise a claimed window", async () => {
+    const { store, label } = await withPrerender();
+    store.dispatch(createWindow({ key: "a" }));
+    store.dispatch(focusWindow({ key: "a" }));
+    const win = store.getState().drift.windows[label];
+    expect(win.visible).toEqual(true);
+    expect(win.focusCount).toEqual(2);
   });
 });
 
-describe("internalSetInitial", () => {
-  it("should keep the default window props when the caller omits them", () => {
-    const s: SliceState = {
-      ...ZERO_SLICE_STATE,
-      config: {
-        ...ZERO_SLICE_STATE.config,
-        defaultWindowProps: { size: { width: 400, height: 200 } },
+describe("configureStore", () => {
+  it("should keep the stored default window props when the caller omits them", async () => {
+    const runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
+    const store = await configureStore<StoreState>({
+      runtime,
+      reducer: { drift: reducer as Reducer<SliceState> },
+      enablePrerender: false,
+      preloadedState: {
+        drift: {
+          ...sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
+          config: {
+            ...ZERO_SLICE_STATE.config,
+            defaultWindowProps: { size: { width: 400, height: 200 } },
+          },
+        },
       },
-    };
-    const next = reducer(
-      s,
-      internalSetInitial({
-        label: MAIN_WINDOW,
-        enablePrerender: false,
-        debug: false,
-        defaultWindowProps: undefined,
-      }),
-    );
-    expect(next.config.defaultWindowProps).toEqual({
+    });
+    expect(store.getState().drift.config.defaultWindowProps).toEqual({
       size: { width: 400, height: 200 },
     });
   });
@@ -318,7 +331,7 @@ describe("restoreWindows", () => {
   });
 
   it("should keep unused pre-rendered windows out of the swap", () => {
-    const spare = { ...INITIAL_PRERENDER_WINDOW_STATE };
+    const spare = prerender();
     const next = restoreWindows(
       sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW), spare }),
       sliceState({ [MAIN_WINDOW]: reserved(MAIN_WINDOW) }),
