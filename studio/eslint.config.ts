@@ -8,10 +8,5 @@
 // included in the file licenses/APL.txt.
 
 import cfg from "@synnaxlabs/eslint-config";
-import type { Linter } from "eslint";
 
-export default [
-  ...cfg,
-  // Off until a decision on how the spec reaches entryHash, which no barrel exports.
-  { files: ["src/cli/hash.spec.ts"], rules: { "synnax/barrel-imports": "off" } },
-] as Linter.Config[];
+export default cfg;
