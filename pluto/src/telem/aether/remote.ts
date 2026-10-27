@@ -295,10 +295,11 @@ export class ChannelData
   private drawStatus?: cstatus.Status;
   private bounds: framer.Subscription | null = null;
   private boundsStatus?: cstatus.Status;
-  // The view and points of the draw's last request, and the points of the bounds' last
-  // request. An equal read sends no request.
+  // The view, points, and settling of the draw's last request, and the points of the
+  // bounds' last request. An equal read sends no request.
   private drawView?: bounds.Bounds;
   private drawPoints = 0;
+  private drawSettling = false;
   private boundsPoints = 0;
   // boundsRead is true when a bounds read ran since the last draw.
   private boundsRead = false;
@@ -357,21 +358,27 @@ export class ChannelData
     };
   }
 
-  // A read with points draws its view. Any other read serves what the line drew last.
+  // A read with points draws its view. Bounds with no points come while a zoom settles,
+  // so they draw the view from the samples held. Any other read serves what the line
+  // drew last.
   private readDraw(
     client: Client,
     key: channel.Key,
     view: bounds.Bounds | undefined,
     draws: boolean,
   ): framer.Snapshot {
-    // A read with no points draws no view, so the first reads of x and y agree.
-    const target = draws ? view : undefined;
-    if (this.draw == null || (draws && this.drawChanged(target))) {
-      const request = this.drawRequest(key, target);
+    const settling = !draws && view != null;
+    const target = draws || settling ? view : undefined;
+    if (
+      this.draw == null ||
+      ((draws || settling) && this.drawChanged(target, settling))
+    ) {
+      const request = this.drawRequest(key, target, settling);
       if (this.draw == null) this.draw = this.subscribe(client, request);
       else this.draw.update(request);
       this.drawView = target && { ...target };
       this.drawPoints = this.points;
+      this.drawSettling = settling;
     }
     // A line that stops reading its bounds closes them at its next draw.
     if (draws) {
@@ -384,9 +391,10 @@ export class ChannelData
     return snapshot;
   }
 
-  private drawChanged(view: bounds.Bounds | undefined): boolean {
+  private drawChanged(view: bounds.Bounds | undefined, settling: boolean): boolean {
     const last = this.drawView;
     return (
+      settling !== this.drawSettling ||
       this.points !== this.drawPoints ||
       view?.lower !== last?.lower ||
       view?.upper !== last?.upper
@@ -396,6 +404,7 @@ export class ChannelData
   private drawRequest(
     key: channel.Key,
     view: bounds.Bounds | undefined,
+    settling: boolean,
   ): framer.PointsRequest {
     const { window, aggregation } = this.props;
     if (this.xy) {
@@ -414,6 +423,7 @@ export class ChannelData
     };
     if (view != null && bounds.isFinite(view) && bounds.span(view) > 0)
       limit.view = viewRange(view);
+    if (settling) limit.settling = true;
     return { keys: [key], window, limit };
   }
 

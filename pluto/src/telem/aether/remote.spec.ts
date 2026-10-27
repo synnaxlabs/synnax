@@ -22,6 +22,7 @@ import {
   Rate,
   type Reduction,
   Series,
+  sleep,
   staticWindow,
   TimeRange,
   TimeSpan,
@@ -403,26 +404,45 @@ describe("remote", () => {
       expect(series.length).toBeGreaterThanOrEqual(500);
     });
 
-    it("should serve what it drew last for bounds given without points", async () => {
+    it("should draw a zoom out from the samples it holds before the zoom settles", async () => {
       const core = createCore();
-      const y = create(connect(core), { channel: core.data[0].key });
+      const { client, reductions } = connectCounting(core);
+      const y = create(client, { channel: core.data[0].key });
       await settle(y);
-      const home = y.value().data[1].series;
-      const { bounds: zoomed } = view(TimeSpan.seconds(60), TimeSpan.seconds(65));
-      expect(y.value({ bounds: zoomed }).data[1].series).toEqual(home);
+      const zoomed = view(TimeSpan.seconds(60), TimeSpan.seconds(65));
+      await expect
+        .poll(() => {
+          const { data, status } = y.value(zoomed);
+          return (
+            status.variant === "success" &&
+            data[1].series.every((s) => s.alignmentMultiple === 1n)
+          );
+        }, POLL)
+        .toBe(true);
+      const reads = reductions.length;
+      const { bounds: home } = view(TimeSpan.ZERO, HOME.span);
+      const [, series] = y.value({ bounds: home }).data;
+      expect(series.series[0].timeRange.start).toEqual(START);
+      expect(
+        series.series.at(-1)?.timeRange.end.afterEq(HOME.end.sub(RATE.period)),
+      ).toBe(true);
+      await sleep.sleep(TimeSpan.milliseconds(50));
+      expect(reductions).toHaveLength(reads);
     });
 
-    it("should draw its home view when its first read gives no points", async () => {
+    it("should read nothing for bounds given without points", async () => {
       const core = createCore();
-      const client = connect(core);
-      const x = create(client, { channel: core.data[0].key, useIndexOfChannel: true });
+      const { client, reductions } = connectCounting(core);
       const y = create(client, { channel: core.data[0].key });
-      const { bounds: zoomed } = view(TimeSpan.seconds(60), TimeSpan.seconds(65));
-      await settle(x);
-      await settle(y, { bounds: zoomed });
-      const alignments = (source: ChannelData): bounds.Bounds<bigint>[] =>
-        source.value().data[1].series.map((s) => s.alignmentBounds);
-      expect(alignments(y)).toEqual(alignments(x));
+      const { bounds: home } = view(TimeSpan.ZERO, HOME.span);
+      // The line reads again on every change while its zoom settles.
+      const stop = y.onChange(() => y.value({ bounds: home }));
+      y.value({ bounds: home });
+      await sleep.sleep(TimeSpan.milliseconds(50));
+      stop();
+      expect(reductions).toHaveLength(0);
+      await settle(y, { bounds: home, points: 1000 });
+      expect(reductions.length).toBeGreaterThan(0);
     });
 
     it("should release the series a new view no longer draws", async () => {
