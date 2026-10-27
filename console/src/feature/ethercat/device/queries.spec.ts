@@ -14,8 +14,12 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
-import { createSlaveDevice as createSlave } from "@/feature/ethercat/testutil";
-import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
+import {
+  createEntryReadChannel,
+  createSlaveDevice as createSlave,
+  STATUS_ENTRY,
+} from "@/feature/ethercat/testutil";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
@@ -32,7 +36,7 @@ beforeEach(async () => {
   rack = await client.racks.create({ name: `test-ethercat-rack-${id.create()}` });
 });
 
-describe("useSlave", () => {
+describe("useResultSlave", () => {
   it("should retrieve a slave device by key", async () => {
     const dev = await createSlaveDevice(rack.key, {
       name: "Test Slave",
@@ -40,8 +44,8 @@ describe("useSlave", () => {
       position: 1,
     });
 
-    const { result } = await renderHookSuspended(
-      () => EtherCAT.Device.useSlave({ key: dev.key }),
+    const { result } = renderHook(
+      () => EtherCAT.Device.useResultSlave({ key: dev.key }).data,
       { wrapper },
     );
 
@@ -55,8 +59,8 @@ describe("useSlave", () => {
       network: "eth0",
     });
 
-    const { result } = await renderHookSuspended(
-      () => EtherCAT.Device.useSlave({ key: dev.key }),
+    const { result } = renderHook(
+      () => EtherCAT.Device.useResultSlave({ key: dev.key }).data,
       { wrapper },
     );
 
@@ -104,8 +108,8 @@ describe("useSlave", () => {
       enabled: true,
     });
 
-    const { result } = await renderHookSuspended(
-      () => EtherCAT.Device.useSlave({ key: dev.key }),
+    const { result } = renderHook(
+      () => EtherCAT.Device.useResultSlave({ key: dev.key }).data,
       { wrapper },
     );
 
@@ -116,9 +120,7 @@ describe("useSlave", () => {
     expect(result.current?.properties?.pdos?.inputs[0].name).toEqual("Status");
     expect(result.current?.properties?.enabled).toBe(true);
   });
-});
 
-describe("useResultSlave", () => {
   it("should serve the slave from the cache", async () => {
     const dev = await createSlaveDevice(rack.key, { name: "Cached Test" });
 
@@ -167,15 +169,10 @@ describe("useCommonNetwork", () => {
     });
 
     const channels: EtherCAT.Task.Channel[] = [
-      {
-        type: "automatic",
-        device: dev.key,
-        pdo: "Status",
+      createEntryReadChannel(dev.key, STATUS_ENTRY, {
         channel: 1,
-        disabled: false,
-        key: id.create(),
         name: "Test Channel",
-      },
+      }),
     ];
 
     const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
@@ -197,15 +194,10 @@ describe("useCommonNetwork", () => {
 
   it("should return empty string when no channels have devices", async () => {
     const channels: EtherCAT.Task.Channel[] = [
-      {
-        type: "automatic",
-        device: "",
-        pdo: "Status",
+      createEntryReadChannel("", STATUS_ENTRY, {
         channel: 1,
-        disabled: false,
-        key: id.create(),
         name: "No Device Channel",
-      },
+      }),
     ];
 
     const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {
@@ -222,15 +214,10 @@ describe("useCommonNetwork", () => {
     });
 
     const channels: EtherCAT.Task.Channel[] = [
-      {
-        type: "automatic",
-        device: dev.key,
-        pdo: "Status",
+      createEntryReadChannel(dev.key, STATUS_ENTRY, {
         channel: 1,
-        disabled: false,
-        key: id.create(),
         name: "Test Channel",
-      },
+      }),
     ];
 
     const { result } = renderHook(() => EtherCAT.Device.useCommonNetwork(channels), {

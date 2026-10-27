@@ -28,3 +28,6 @@ site/www/public/images/us-flag.svg
 site/www/src/components/company/nasa.svg
 site/www/src/components/company/yc.svg
 site/www/src/components/sponsorships/*.svg
+
+# Module versions copied from the Bazel Central Registry
+vendor/registry/**

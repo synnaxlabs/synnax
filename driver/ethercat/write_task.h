@@ -47,9 +47,11 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
         x::json::Parser &cfg
     ):
         ::synnax::ethercat::WriteConfig(::synnax::ethercat::WriteConfig::parse(cfg)) {
+        if (cfg.error()) return;
         std::unordered_map<std::string, slave::Properties> slave_cache;
         std::string first_network;
 
+        channel::Claims claims;
         for (std::size_t i = 0; i < this->channels.size(); ++i) {
             const auto path = "channels." + std::to_string(i) + ".";
             const auto &slave_key = channel::base(this->channels[i]).device;
@@ -83,7 +85,9 @@ struct WriteTaskConfig : ::synnax::ethercat::WriteConfig {
 
             const auto &slave = slave_cache.at(slave_key);
             auto output = channel::make_output(this->channels[i], slave, cfg, path);
-            if (output->enabled) this->outputs.push_back(std::move(output));
+            if (!output->enabled) continue;
+            claims.claim(*output, slave, cfg, path);
+            this->outputs.push_back(std::move(output));
         }
 
         if (cfg.error()) return;
@@ -143,10 +147,8 @@ public:
 
     x::errors::Error start() override {
         if (auto err = this->engine->ensure_initialized(); err) return err;
-        if (auto err = topology::validate(
-                slave::discovered_properties(this->engine->slaves()),
-                this->cfg.device_cache
-            ))
+        const auto slaves = slave::discovered_properties(this->engine->slaves());
+        if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
             return err;
 
         std::vector<pdo::Entry> entries;
