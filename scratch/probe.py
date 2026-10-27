@@ -27,7 +27,14 @@ view = WebKit2.WebView()
 settings = view.get_settings()
 settings.set_enable_webgl(True)
 if len(sys.argv) > 1:
-    settings.set_hardware_acceleration_policy(WebKit2.HardwareAccelerationPolicy.ALWAYS)
+    feats = WebKit2.Settings.get_all_features()
+    for i in range(feats.get_length()):
+        f = feats.get(i)
+        ident = f.get_identifier()
+        if any(k in ident.lower() for k in ("offscreen", "webgl", "canvas", "worker")):
+            print("feature", ident, f.get_status(), settings.get_feature_enabled(f), flush=True)
+            if "offscreen" in ident.lower():
+                settings.set_feature_enabled(f, True)
 win.add(view)
 win.set_default_size(400, 300)
 win.show_all()
