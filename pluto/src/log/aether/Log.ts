@@ -65,6 +65,12 @@ export const logStateZ = log.logZ
     computedLineHeight: z.number().default(0),
   });
 
+/**
+ * A selection end that follows the newest entry, so select-all needs no entry count
+ * from the worker.
+ */
+export const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
+
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const SCROLLBAR_WIDTH = 6;
 // Floor on the thumb so it stays visible at the entry cap, where the proportional
@@ -371,10 +377,15 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
   }
 
+  // A selection endpoint past the last entry anchors to the last entry, unless it is
+  // SELECT_ALL_END, which stays open.
   private setAnchors(selectionStart: number, selectionEnd: number): void {
+    const last = this.entries.length - 1;
+    const anchor = (i: number): LogEntry | undefined =>
+      i === SELECT_ALL_END ? undefined : this.entries[Math.min(i, last)];
     this.anchors = {
-      start: this.entries[selectionStart],
-      end: this.entries[selectionEnd],
+      start: anchor(selectionStart),
+      end: anchor(selectionEnd),
       scroll: this.state.scrolling
         ? this.entries[this.scrollState.offset - 1]
         : undefined,
@@ -411,10 +422,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       this.scrollState.offset = offset;
       this.anchors.scroll = this.entries[offset - 1];
     }
-    if (start == null || end == null) return;
-    const [newStart, newEnd] = [this.locate(start), this.locate(end)];
     const { selectionStart, selectionEnd } = this.state;
-    if (newStart === selectionStart && newEnd === selectionEnd) return;
+    if (selectionStart < 0 || selectionEnd < 0 || (start == null && end == null))
+      return;
+    const newStart = start == null ? selectionStart : this.locate(start);
+    const newEnd = end == null ? selectionEnd : this.locate(end);
     if (newStart < 0 && newEnd < 0) {
       this.anchors = { scroll: this.anchors.scroll };
       this.setState((s) => ({
@@ -427,6 +439,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     }
     const [nextStart, nextEnd] = [Math.max(0, newStart), Math.max(0, newEnd)];
     this.setAnchors(nextStart, nextEnd);
+    if (nextStart === selectionStart && nextEnd === selectionEnd) return;
     this.setState((s) => ({
       ...s,
       selectionStart: nextStart,

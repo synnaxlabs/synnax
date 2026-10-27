@@ -12,7 +12,7 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Log, logStateZ } from "@/log/aether/Log";
+import { Log, logStateZ, SELECT_ALL_END } from "@/log/aether/Log";
 import {
   MockLogSource,
   mockLogSourceSpec,
@@ -536,6 +536,42 @@ describe("log/aether/Log", () => {
 
       expect(log.state.selectionStart).toBe(0);
       expect(log.state.selectionEnd).toBe(4);
+    });
+
+    it("should anchor a selection end past the last entry to the last entry", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 5,
+        selectionEnd: 30,
+      });
+      source.setEntries(entries.slice(3));
+      source.notify();
+      expect(log.state.selectionStart).toBe(2);
+      expect(log.state.selectionEnd).toBe(16);
+    });
+
+    it("should keep select-all open while entries are evicted", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 0,
+        selectionEnd: SELECT_ALL_END,
+      });
+      source.setEntries([...entries.slice(3), makeEntry(20)]);
+      source.notify();
+      expect(log.state.selectionStart).toBe(0);
+      expect(log.state.selectionEnd).toBe(SELECT_ALL_END);
     });
 
     it("should follow the selected entries when an entry lands before them", () => {
