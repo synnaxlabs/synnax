@@ -417,6 +417,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.eslint_config == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: eslint-config
       directory: configs/eslint
       package: eslint-config
     secrets: inherit
@@ -460,6 +461,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.foundation == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: foundation
       directory: site/foundation
       macos: *full
       package: foundation
@@ -732,6 +734,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.vite_plugin == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: vite-plugin
       directory: configs/vite
       macos: *full
       package: vite-plugin
