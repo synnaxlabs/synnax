@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Options configures the go/filter plugin.
@@ -235,13 +236,11 @@ func generateFile(
 		matchers,
 		func(m matcher.Matcher) string { return m.Field.Name },
 	)
-	funcs := lo.SliceToMap(matchers, func(m matcher.Matcher) (string, struct{}) {
-		return m.Func, struct{}{}
-	})
-	funcs["MatchKeys"] = struct{}{}
-	funcs["MatchWhere"] = struct{}{}
+	funcs := set.New(lo.Map(matchers, func(m matcher.Matcher, _ int) string {
+		return m.Func
+	})...).Add("MatchKeys", "MatchWhere")
 	if hasSearch(target, table) {
-		funcs["MatchSearch"] = struct{}{}
+		funcs.Add("MatchSearch")
 	}
 
 	data := templateData{
@@ -276,7 +275,7 @@ func generateFile(
 		if line.HasType() {
 			ld.Typed = true
 			ld.Func = "Match" + ld.GoName
-			if _, taken := funcs[ld.Func]; taken {
+			if funcs.Contains(ld.Func) {
 				return fail(
 					"typed line %s calls %s, which the generated code already "+
 						"declares; rename the line",
