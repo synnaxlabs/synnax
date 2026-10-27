@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { strings, sync, TimeSpan } from "@synnaxlabs/x";
@@ -59,7 +59,6 @@ export const useDeep = (
   handlers: Record<string, Link.Handler>,
   deps: Link.Deps = Link.DEFAULT_DEPS,
 ): void => {
-  const enabled = deps.engine === "tauri";
   const handleError = Status.useAsyncErrorHandler();
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
@@ -119,25 +118,5 @@ export const useDeep = (
       },
     );
 
-  // Handles the case where the app is opened from a link
-  useAsyncEffect(
-    async (signal) => {
-      if (!enabled) return;
-      const urls = await deps.getCurrentURLs();
-      // A hard reload re-runs this effect with the same launch link; skip it once.
-      if (localStorage.getItem(Link.SHOULD_IGNORE_KEY) === "true") {
-        localStorage.setItem(Link.SHOULD_IGNORE_KEY, "false");
-        return;
-      }
-      if (urls == null || signal.aborted) return;
-      await urlHandler(urls);
-    },
-    [enabled],
-  );
-
-  // Handles the case where the app is open and a link gets called
-  useAsyncEffect(async () => {
-    if (!enabled) return;
-    return await deps.onOpenURL((urls) => void urlHandler(urls));
-  }, [enabled]);
+  Link.useReceive(urlHandler, deps);
 };

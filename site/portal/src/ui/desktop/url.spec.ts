@@ -28,16 +28,16 @@ describe("desktop link", () => {
     });
   });
   describe("activateURL", () => {
+    const LINKED = {
+      key: "t.o.k",
+      secret: "sec ret",
+      activation: "act",
+      email: "a@b.c",
+      user: "user_a",
+    };
+
     it("should carry every field on the app's scheme", () => {
-      const url = new URL(
-        activateURL("s".repeat(16), {
-          key: "t.o.k",
-          secret: "sec ret",
-          activation: "act",
-          email: "a@b.c",
-          user: "user_a",
-        }),
-      );
+      const url = new URL(activateURL("s".repeat(16), LINKED, true));
       expect(url.protocol).toBe(`${SCHEME}:`);
       expect(url.host).toBe("activate");
       expect(url.searchParams.get("state")).toBe("s".repeat(16));
@@ -46,6 +46,12 @@ describe("desktop link", () => {
       expect(url.searchParams.get("activation")).toBe("act");
       expect(url.searchParams.get("email")).toBe("a@b.c");
       expect(url.searchParams.get("user")).toBe("user_a");
+      expect(url.searchParams.get("analytics")).toBe("on");
+    });
+
+    it("should turn analytics off when the user did not allow it", () => {
+      const url = new URL(activateURL("s".repeat(16), LINKED, false));
+      expect(url.searchParams.get("analytics")).toBe("off");
     });
   });
   describe("read", () => {

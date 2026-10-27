@@ -19,7 +19,12 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AuthError, DisconnectedError, ExpiredLicenseError } from "@/errors";
+import {
+  AuthError,
+  DisconnectedError,
+  ExpiredLicenseError,
+  MissingLicenseError,
+} from "@/errors";
 import { license } from "@/license";
 import { status } from "@/status";
 
@@ -172,6 +177,8 @@ export interface Info {
   nodeVersion: string;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
+  /** The check's round trip. The skew is off by at most half of it. */
+  roundTrip: TimeSpan;
   license: license.State;
 }
 
@@ -203,6 +210,11 @@ const UNREACHABLE = "Cannot reach Core";
 const AUTH_FAILED = "Failed to authenticate";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
+
+const licenseError = (state: Exclude<license.State, "ok">): Error =>
+  state === "missing"
+    ? new MissingLicenseError(license.STATE_MESSAGES.missing)
+    : new ExpiredLicenseError(license.STATE_MESSAGES.expired);
 
 /** The status a freshly constructed client starts in. */
 export const createInitialStatus = (config: Config): Status => ({
@@ -273,7 +285,10 @@ const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   // the check traverses the auth middleware, so a response is proof of auth
   authenticated: true,
   clockSkew: info.clockSkew,
-  clockSkewExceeded: info.clockSkew.abs().greaterThan(config.clockSkewThreshold),
+  // A slow round trip is not skew, so only skew beyond its error bound counts.
+  clockSkewExceeded: info.clockSkew
+    .abs()
+    .greaterThan(config.clockSkewThreshold.add(info.roundTrip.div(2))),
   clientServerCompatible: isCompatible(info.nodeVersion, config.clientVersion),
   license: info.license,
 });
@@ -303,11 +318,11 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
   if (clusterKey !== "" && info.clusterKey !== clusterKey)
     return reduceClusterReplaced(prev, info, config);
   const facts = checkFacts(info, config);
-  if (info.license === "expired")
-    return enterError(prev, license.STATE_MESSAGES.expired, {
+  if (info.license !== "ok")
+    return enterError(prev, license.STATE_MESSAGES[info.license], {
       ...facts,
       reason: "unlicensed",
-      error: new ExpiredLicenseError(license.STATE_MESSAGES.expired),
+      error: licenseError(info.license),
       retry: null,
     });
   // reachable but the stream is still dark: the client re-demands it and we
