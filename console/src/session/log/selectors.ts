@@ -10,7 +10,6 @@
 import { type log } from "@synnaxlabs/client";
 import { Log } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
 
 import {
   SLICE_NAME,
@@ -23,7 +22,7 @@ import {
 import { Select } from "@/session/select";
 import { Window } from "@/session/window";
 
-export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export interface KeyedSelectorParams extends record.Keyed<log.Key> {
   state: StoreState;
@@ -35,24 +34,8 @@ const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
   return Log.Scope.bindHook(useSelector);
 };
 
-const createGetter = <R>(selector: (params: KeyedSelectorParams) => R) => {
-  const useGetter = (): ((args?: { key?: log.Key }) => R) => {
-    const store = useStore<StoreState>();
-    const scopeKey = Log.Scope.useOptional();
-    return (args) =>
-      selector({
-        state: store.getState(),
-        key: Log.Scope.require(args?.key ?? scopeKey),
-      });
-  };
-  return useGetter;
-};
-
 const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
-
-export const useSelectState = createSelector(selectState);
-export const useGetState = createGetter(selectState);
 
 const selectSelectedToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
   selectState(params).toolbar.selectedTab;

@@ -115,7 +115,9 @@ const createConfig = (
 const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info => ({
   clusterKey: "test-cluster",
   nodeVersion: __VERSION__,
+  nodeKey: 1,
   clockSkew: TimeSpan.ZERO,
+  roundTrip: TimeSpan.ZERO,
   license: "ok",
   ...overrides,
 });
@@ -155,6 +157,7 @@ describe("connection", () => {
       const info = await sendCheck(liveUnary());
       expect(z.validate(z.uuid(), info.clusterKey)).toBe(true);
       expect(info.nodeVersion).not.toEqual("");
+      expect(info.nodeKey).toBe(1);
     });
 
     it("should fold a check into a connected status", async () => {
@@ -267,6 +270,30 @@ describe("connection", () => {
         info: await sendCheck(unary),
       });
       expect(status.details.clockSkewExceeded).toBe(false);
+    });
+
+    it("should not flag skew within half the round trip", () => {
+      const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
+      const status = apply(config, {
+        type: "check.success",
+        info: createInfo({
+          clockSkew: TimeSpan.milliseconds(-1500),
+          roundTrip: TimeSpan.seconds(2),
+        }),
+      });
+      expect(status.details.clockSkewExceeded).toBe(false);
+    });
+
+    it("should flag skew beyond half the round trip", () => {
+      const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
+      const status = apply(config, {
+        type: "check.success",
+        info: createInfo({
+          clockSkew: TimeSpan.milliseconds(-2500),
+          roundTrip: TimeSpan.seconds(2),
+        }),
+      });
+      expect(status.details.clockSkewExceeded).toBe(true);
     });
   });
 
@@ -726,6 +753,7 @@ describe("connection", () => {
         ["clusterKey", withDetails({ clusterKey: "other-cluster" })],
         ["clientVersion", withDetails({ clientVersion: "9.9.9" })],
         ["nodeVersion", withDetails({ nodeVersion: "9.9.9" })],
+        ["nodeKey", withDetails({ nodeKey: 2 })],
         ["clientServerCompatible", withDetails({ clientServerCompatible: false })],
         ["clockSkewExceeded", withDetails({ clockSkewExceeded: true })],
         ["retry", withDetails({ retry: { attempt: 1, nextAt } })],
@@ -756,6 +784,7 @@ describe("connection", () => {
         "clusterKey",
         "clientVersion",
         "nodeVersion",
+        "nodeKey",
         "clientServerCompatible",
         "clockSkew",
         "clockSkewExceeded",
@@ -1169,7 +1198,7 @@ describe("connection", () => {
       await client.close();
     });
 
-    it("should exempt the check and login endpoints so the connection can heal", async () => {
+    it("should exempt the check and session endpoints so the connection can heal", async () => {
       const unary = createScriptedUnary({ failing: true });
       const client = createClient(unary, { escalateAfter: 1 });
       await observe.until(
@@ -1181,6 +1210,28 @@ describe("connection", () => {
       const next = vi.fn(async (ctx: Context) => ctx);
       await mw(createUnaryContext("/api/v1/connectivity/check"), next);
       await mw(createUnaryContext("/api/v1/auth/login"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/create"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/renew"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/retrieve"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/delete"), next);
+      expect(next).toHaveBeenCalledTimes(6);
+      await client.close();
+    });
+
+    it("should let session upkeep through while the Core is unlicensed", async () => {
+      const client = createClient(createScriptedUnary({ license: "expired" }));
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error" && s.details.reason === "unlicensed",
+      );
+      const mw = client.middleware();
+      const next = vi.fn(async (ctx: Context) => ctx);
+      await mw(createUnaryContext("/api/v1/auth/session/renew"), next);
+      await mw(createUnaryContext("/api/v1/auth/session/retrieve"), next);
+      await expect(mw(createUnaryContext("/channel/retrieve"), next)).rejects.toThrow(
+        ExpiredLicenseError,
+      );
       expect(next).toHaveBeenCalledTimes(2);
       await client.close();
     });

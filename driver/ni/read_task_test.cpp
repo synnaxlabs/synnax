@@ -20,7 +20,7 @@
 #include "driver/errors/errors.h"
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/read_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 /// @brief it should correctly parse a basic analog read task.
 namespace driver::ni {
@@ -216,7 +216,7 @@ protected:
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
     std::shared_ptr<hardware::mock::Reader<double>> mock_hw;
     std::size_t make_hw_calls = 0;
     synnax::channel::Channel index_channel = synnax::channel::Channel{
@@ -289,7 +289,7 @@ protected:
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     }
 
     std::unique_ptr<common::ReadTask>
@@ -702,7 +702,7 @@ protected:
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
     std::shared_ptr<hardware::mock::Reader<uint8_t>> mock_hw;
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
@@ -763,7 +763,7 @@ protected:
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     }
 
     std::unique_ptr<common::ReadTask>
@@ -900,7 +900,7 @@ protected:
     synnax::task::Task task;
     std::unique_ptr<ni::ReadTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
     std::shared_ptr<hardware::mock::Reader<double>> mock_hw;
     synnax::channel::Channel index_channel = synnax::channel::Channel{
         .name = make_unique_channel_name("time_channel"),
@@ -970,7 +970,7 @@ protected:
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     }
 
     std::unique_ptr<common::ReadTask>

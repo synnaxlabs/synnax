@@ -23,7 +23,7 @@ from framework.test_case import TestCase
 from framework.watchdog import Slots, Timeout, Watchdog, interrupt
 
 # Range coloring
-COLORS: list[str] = [
+_COLORS: list[str] = [
     "#001833",
     "#003333",
     "#003318",
@@ -40,7 +40,7 @@ COLORS: list[str] = [
 
 # Seconds past its timeout a test has to finish before the conductor stops waiting on
 # it.
-TIMEOUT_GRACE = 60.0
+_TIMEOUT_GRACE = 60.0
 
 
 class ExecutionClient:
@@ -78,7 +78,7 @@ class ExecutionClient:
         self._total_tests = 0
         self._tests_offset = 0
         self._timeout_thread: threading.Thread | None = None
-        self._watchdog = Watchdog(TIMEOUT_GRACE)
+        self._watchdog = Watchdog(_TIMEOUT_GRACE)
 
     def run(self, sequences: list[Sequence]) -> None:
         """Execute all sequences."""
@@ -320,7 +320,7 @@ class ExecutionClient:
         )
 
         test_index = len(self._tests)
-        color = COLORS[test_index % len(COLORS)]
+        color = _COLORS[test_index % len(_COLORS)]
 
         if self._conductor_range is not None:
             test.range = self._conductor_range.create_child_range(
@@ -362,6 +362,7 @@ class ExecutionClient:
                 test.error_message = test_instance._error_message
             if test_instance._error_traceback is not None:
                 test.error_traceback = test_instance._error_traceback
+            test.skip_reason = test_instance.skip_reason
 
         except Timeout:
             test.status = STATUS.TIMEOUT

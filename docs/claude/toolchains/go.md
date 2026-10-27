@@ -13,6 +13,10 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 ## Commands
 
 - Build: `cd <module> && go build ./...`
+- Exports: `cd x/go && go run ./cmd/exports ../../core ../../x/go ...` prints the
+  exported identifiers that no other package's non-test code uses. Unexport them, or
+  move a helper that other packages' tests need into a `testutil` package. Pass every
+  module that can import the package.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
 
@@ -57,7 +61,8 @@ defer func() {
 
 `fmt.Errorf` is forbidden in all cases (including `%w`), as are the std `errors` package
 and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)`,
-`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`.
+`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`. The `depguard` and
+`forbidigo` linters enforce it.
 
 ### Rule 3: Sentinel errors for matchable conditions
 
@@ -107,7 +112,7 @@ committing).
 Identified by `Code generated ... DO NOT EDIT.` headers and `.gen.` / `_gen` suffixes.
 Edit the source `.oracle` schema in `/schemas/` instead, then run `oracle sync` — always
 installing first via `./oracle/install.sh`, the only blessed install method (see
-`oracle/CLAUDE.md` Sync Workflow). If the schema language can't express the change,
+`oracle/AGENTS.md` Sync Workflow). If the schema language can't express the change,
 investigate the generator in `/oracle/` (`analyzer/`, `formatter/`, `resolution/`,
 `exec/`), describe the gap and blast radius, and wait for user approval before touching
 it.
@@ -142,7 +147,7 @@ an app-startup function) instead.
 
 ## Comments
 
-The universal body-comment and doc-comment rules in the root CLAUDE.md apply.
+The universal body-comment and doc-comment rules in the root AGENTS.md apply.
 Go-specific form:
 
 **Every exported identifier gets a doc comment.** Standard Go conventions: start with

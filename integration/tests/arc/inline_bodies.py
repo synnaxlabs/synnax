@@ -97,7 +97,7 @@ trigger_1 -> sequence {
 }
 
 // Select into a multi-write stage branch; writes fire in parallel.
-trigger_1 -> select{} -> {
+trigger_1 -> select() -> {
     true: stage {
         1 -> select_multi_stage_1
         2 -> select_multi_stage_2
@@ -106,7 +106,7 @@ trigger_1 -> select{} -> {
 }
 
 // Select into a multi-write sequence branch; writes run as steps.
-trigger_1 -> select{} -> {
+trigger_1 -> select() -> {
     true: sequence {
         1 -> select_multi_seq_1
         2 -> select_multi_seq_2
@@ -115,21 +115,21 @@ trigger_1 -> select{} -> {
 }
 
 // Single-branch select: a true-only stage branch.
-trigger_1 -> select{} -> {
+trigger_1 -> select() -> {
     true: stage { 1 -> select_single_stage_out }
 }
 
 // Single-branch select: a true-only sequence branch.
-trigger_1 -> select{} -> {
+trigger_1 -> select() -> {
     true: sequence { 1 -> select_single_seq_out }
 }
 
 // Triple-nested select (stage): the innermost branch fires in-cycle.
-trigger_1 -> select{} -> {
+trigger_1 -> select() -> {
     true: stage {
-        true -> select{} -> {
+        true -> select() -> {
             true: stage {
-                true -> select{} -> {
+                true -> select() -> {
                     true: stage { 1 -> nested_select_stage_out }
                 }
             }
@@ -138,11 +138,11 @@ trigger_1 -> select{} -> {
 }
 
 // Triple-nested select (sequence): the innermost branch fires in-cycle.
-trigger_1 -> select{} -> {
+trigger_1 -> select() -> {
     true: sequence {
-        true -> select{} -> {
+        true -> select() -> {
             true: sequence {
-                true -> select{} -> {
+                true -> select() -> {
                     true: sequence { 1 -> nested_select_seq_out }
                 }
             }
@@ -152,13 +152,13 @@ trigger_1 -> select{} -> {
 
 // Cross-nested: a flow stage body wrapping a select.
 trigger_1 -> stage {
-    true -> select{} -> {
+    true -> select() -> {
         true: stage { 1 -> cross_flow_select_out }
     }
 }
 
 // Cross-nested: a select wrapping a flow stage body.
-trigger_1 -> select{} -> {
+trigger_1 -> select() -> {
     true: stage {
         1 -> stage { 1 -> cross_select_flow_out }
     }
@@ -166,13 +166,13 @@ trigger_1 -> select{} -> {
 
 // Cross-nested: a flow sequence body wrapping a select.
 trigger_1 -> sequence {
-    true -> select{} -> {
+    true -> select() -> {
         true: stage { 1 -> cross_seq_select_out }
     }
 }
 
 // Cross-nested: a select wrapping a flow sequence body.
-trigger_1 -> select{} -> {
+trigger_1 -> select() -> {
     true: sequence {
         1 -> sequence { 1 -> cross_select_seq_out }
     }
@@ -206,24 +206,24 @@ sequence main {
 }
 
 // Select branch selection (stage): true fires the true branch, false the false.
-select_stage_flag -> select{} -> {
+select_stage_flag -> select() -> {
     true: stage { 1 -> select_stage_true_out },
     false: stage { 1 -> select_stage_false_out }
 }
 
 // Select branch selection (sequence): same true/false routing.
-select_seq_flag -> select{} -> {
+select_seq_flag -> select() -> {
     true: sequence { 1 -> select_seq_true_out },
     false: sequence { 1 -> select_seq_false_out }
 }
 
 // Single-branch select (false-only): the stage branch fires on a false input.
-select_stage_flag -> select{} -> {
+select_stage_flag -> select() -> {
     false: stage { 1 -> select_false_stage_out }
 }
 
 // Single-branch select (false-only): the sequence-branch variant.
-select_seq_flag -> select{} -> {
+select_seq_flag -> select() -> {
     false: sequence { 1 -> select_false_seq_out }
 }
 
@@ -233,7 +233,7 @@ trigger_2 => select_main
 
 sequence select_main {
     stage sel_first_stage {
-        true -> select{} -> {
+        true -> select() -> {
             true: stage {
                 1 -> select_sibling_first_a
                 1 -> select_sibling_first_b
@@ -243,7 +243,7 @@ sequence select_main {
         }
     }
     stage sel_second_stage {
-        true -> select{} -> {
+        true -> select() -> {
             true: sequence {
                 1 -> select_sibling_second_a
                 1 -> select_sibling_second_b
@@ -261,7 +261,7 @@ sequence select_main {
 trigger_3 => select_gated_stage_main
 
 stage select_gated_stage_main {
-    true -> select{} -> {
+    true -> select() -> {
         true: stage { 1 -> select_gated_stage_out }
     }
 }
@@ -271,7 +271,7 @@ stage select_gated_stage_main {
 trigger_4 => select_gated_seq_main
 
 sequence select_gated_seq_main {
-    true -> select{} -> {
+    true -> select() -> {
         true: sequence { 1 -> select_gated_seq_out }
     }
 }
@@ -280,7 +280,7 @@ sequence select_gated_seq_main {
 // LIFECYCLE FLOWS
 //
 // Temporal/lifecycle semantics the bodies above do not cover: stage blocking,
-// wait{} backstop exits, multi-exit races, sub-sequence reset on re-entry, and
+// wait() backstop exits, multi-exit races, sub-sequence reset on re-entry, and
 // stage deactivation. Each is gated behind its own trigger and verified one at
 // a time, separate from the trigger_1-driven bodies.
 // ============================================================================
@@ -295,13 +295,13 @@ sequence race_main {
     1 -> race_first_out
     stage {
         race_cond < 15 => next
-        wait{10s} => next
+        wait(10s) => next
     }
     0 -> race_first_out
     1 -> race_second_out
     stage {
         race_cond > 9000 => next
-        wait{2s} => next
+        wait(2s) => next
     }
     0 -> race_second_out
 }
@@ -405,7 +405,7 @@ OUTPUTS = (
     + REENTRY_OUTS
 )
 
-# Inputs the test drives. trigger_1 (the start cmd) is bool: it feeds select{}.
+# Inputs the test drives. trigger_1 (the start cmd) is bool: it feeds select().
 INPUTS = [
     "trigger_2",
     "trigger_3",
@@ -414,7 +414,7 @@ INPUTS = [
     "trigger_6",
 ]
 
-# Bool inputs: channels routed into select{}, which takes a bool discriminator.
+# Bool inputs: channels routed into select(), which takes a bool discriminator.
 BOOL_INPUTS = ["trigger_1", "select_stage_flag", "select_seq_flag"]
 
 # Float inputs driving the ported lifecycle flows' reactive conditions.
@@ -468,7 +468,7 @@ class InlineBodies(ArcCase):
       is activated, routing its constant into the matching branch body.
     - Blocking / wait race: inside a named ``sequence``, an inline ``stage``
       blocks progression until an exit fires — a condition exit beats its
-      ``wait{}`` backstop, while an unreachable condition lets the backstop win.
+      ``wait()`` backstop, while an unreachable condition lets the backstop win.
     - Re-entry / deactivation: an inline ``sequence`` inside a stage re-runs from
       its first step when the parent stage is re-entered, and a stage stops
       applying its writes once it is left.
