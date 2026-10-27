@@ -93,6 +93,19 @@ var _ = Describe("Check", func() {
 		},
 	)
 
+	It(
+		"Should remove its workspace when a package fails to load",
+		func(ctx SpecContext) {
+			tmp := GinkgoT().TempDir()
+			GinkgoT().Setenv("TMPDIR", tmp)
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: []string{"testdata/missing"},
+				GOOS:    []string{"linux"},
+			})).Error().To(MatchError(ContainSubstring("exports: load packages")))
+			Expect(os.ReadDir(tmp)).To(BeEmpty())
+		},
+	)
+
 	It("Should return an error when a package fails to load", func(ctx SpecContext) {
 		Expect(exports.Check(ctx, exports.Config{
 			Modules: []string{"testdata/missing"},

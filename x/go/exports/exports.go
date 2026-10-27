@@ -92,16 +92,20 @@ func Check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 	if err != nil {
 		return nil, err
 	}
-	work, err := writeWorkspace(modules)
+	dir, err := os.MkdirTemp("", "exports")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "exports: create workspace directory")
 	}
 	defer func() {
-		if rmErr := os.RemoveAll(filepath.Dir(work)); rmErr != nil && err == nil {
+		if rmErr := os.RemoveAll(dir); rmErr != nil && err == nil {
 			findings = nil
 			err = errors.Wrap(rmErr, "exports: remove workspace directory")
 		}
 	}()
+	work, err := writeWorkspace(dir, modules)
+	if err != nil {
+		return nil, err
+	}
 	merged := map[string]*Finding{}
 	kept, internal := set.Set[string]{}, set.Set[string]{}
 	for _, goos := range cfg.GOOS {
@@ -152,7 +156,7 @@ func absolute(modules []string) ([]string, error) {
 	return abs, nil
 }
 
-func writeWorkspace(modules []string) (string, error) {
+func writeWorkspace(dir string, modules []string) (string, error) {
 	var b strings.Builder
 	// The running toolchain satisfies the go directive of every module it can load.
 	fmt.Fprintf(&b, "go %s\n\nuse (\n", strings.TrimPrefix(runtime.Version(), "go"))
@@ -160,14 +164,9 @@ func writeWorkspace(modules []string) (string, error) {
 		fmt.Fprintf(&b, "\t%q\n", m)
 	}
 	b.WriteString(")\n")
-	dir, err := os.MkdirTemp("", "exports")
-	if err != nil {
-		return "", errors.Wrap(err, "exports: create workspace directory")
-	}
 	work := filepath.Join(dir, "go.work")
 	if err := os.WriteFile(work, []byte(b.String()), 0o644); err != nil {
-		rmErr := os.RemoveAll(dir)
-		return "", errors.Combine(errors.Wrap(err, "exports: write go.work"), rmErr)
+		return "", errors.Wrap(err, "exports: write go.work")
 	}
 	return work, nil
 }
