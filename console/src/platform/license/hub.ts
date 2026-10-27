@@ -10,7 +10,7 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { RENEW_URL, UNLINK_URL } from "@/platform/license/urls";
+import { HANDOFF_URL, RENEW_URL, UNLINK_URL } from "@/platform/license/urls";
 
 export type RenewResult =
   { variant: "renewed"; key: string } | { variant: "unlinked"; message: string };
@@ -21,7 +21,7 @@ const UNLINKED_CODE = "unlinked";
 const UNLINK_TIMEOUT = TimeSpan.seconds(5);
 
 const refusalZ = z.object({ error: z.string(), code: z.string().optional() });
-const renewedZ = z.object({ key: z.string() });
+const keyZ = z.object({ key: z.string() });
 
 interface Refusal {
   message: string;
@@ -50,7 +50,7 @@ export const renew = async (secret: string): Promise<RenewResult> => {
     headers: { authorization: `Bearer ${secret}` },
   });
   if (res.ok) {
-    const { key } = renewedZ.parse(await res.json());
+    const { key } = keyZ.parse(await res.json());
     return { variant: "renewed", key };
   }
   const { message, code } = await readRefusal(res);
@@ -73,4 +73,26 @@ export const unlink = async (secret: string): Promise<void> => {
   if (res.ok) return;
   const { message } = await readRefusal(res);
   throw new Error(`Could not log out: ${message}`);
+};
+
+/**
+ * Asks the hub for the license key it holds for a handoff code. The hub gives the key
+ * out once.
+ * @returns the key, or null while the hub holds none for the code.
+ * @throws {Error} if the hub refuses.
+ * @throws {TypeError} if the hub cannot be reached.
+ */
+export const receive = async (
+  code: string,
+  signal?: AbortSignal,
+): Promise<string | null> => {
+  const res = await fetch(HANDOFF_URL, {
+    method: "POST",
+    headers: { authorization: `Bearer ${code}` },
+    signal,
+  });
+  if (res.status === 204) return null;
+  if (res.ok) return keyZ.parse(await res.json()).key;
+  const { message } = await readRefusal(res);
+  throw new Error(`Could not get the license key: ${message}`);
 };

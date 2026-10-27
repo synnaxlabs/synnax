@@ -12,6 +12,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import {
+  findSeat,
   listActivatable,
   listAll,
   listAllHeld,
@@ -142,11 +143,11 @@ describe("list", () => {
         issuedAt: issuedOn(3),
       });
       expect(await listActivatable(store.query, [acme.key], NOW)).toEqual([
-        { license: older, organization: acme },
+        { license: older, organization: acme, seats: 0 },
       ]);
       expect(await listActivatable(store.query, [acme.key, globex.key], NOW)).toEqual([
-        { license: other, organization: globex },
-        { license: older, organization: acme },
+        { license: other, organization: globex, seats: 0 },
+        { license: older, organization: acme, seats: 0 },
       ]);
     });
 
@@ -161,7 +162,7 @@ describe("list", () => {
         maxVersion: "0.60",
       });
       expect(await listActivatable(store.query, [acme.key], NOW)).toEqual([
-        { license: fallback, organization: acme },
+        { license: fallback, organization: acme, seats: 0 },
       ]);
     });
 
@@ -173,6 +174,51 @@ describe("list", () => {
     it("should list nothing for no organizations", async () => {
       await createLicense(store, { organization: acme.key });
       expect(await listActivatable(store.query, [], NOW)).toEqual([]);
+    });
+
+    it("should count only the seats that machines hold", async () => {
+      const lic = await createLicense(store, { organization: acme.key });
+      await createActivation(store, { license: lic.key, fingerprint: [HASH_A] });
+      await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_B],
+        releasedAt: NOW,
+      });
+      expect(await listActivatable(store.query, [acme.key], NOW)).toEqual([
+        { license: lic, organization: acme, seats: 1 },
+      ]);
+    });
+  });
+
+  describe("findSeat", () => {
+    it("should find the seat of a machine that shares any hash", async () => {
+      const lic = await createLicense(store, { organization: acme.key });
+      const seat = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A, HASH_B],
+      });
+      expect(await findSeat(store.query, [lic.key], [HASH_B, HASH_C])).toEqual(seat);
+    });
+
+    it("should skip a released seat", async () => {
+      const lic = await createLicense(store, { organization: acme.key });
+      await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+        releasedAt: NOW,
+      });
+      expect(await findSeat(store.query, [lic.key], [HASH_A])).toBeUndefined();
+    });
+
+    it("should skip a seat on another license", async () => {
+      const lic = await createLicense(store, { organization: acme.key });
+      const other = await createLicense(store, { organization: globex.key });
+      await createActivation(store, { license: other.key, fingerprint: [HASH_A] });
+      expect(await findSeat(store.query, [lic.key], [HASH_A])).toBeUndefined();
+    });
+
+    it("should find nothing among no licenses", async () => {
+      expect(await findSeat(store.query, [], [HASH_A])).toBeUndefined();
     });
   });
 });
