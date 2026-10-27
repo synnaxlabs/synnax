@@ -237,9 +237,12 @@ export class TileReader {
   }
 
   private async batchRead(
-    entries: Array<scheduler.Entry<TileSpec, MultiSeries>>,
+    entries: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
   ): Promise<void> {
-    const groups = new Map<string, Array<scheduler.Entry<TileSpec, MultiSeries>>>();
+    const groups = new Map<
+      string,
+      Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>
+    >();
     entries.forEach((entry) => {
       const key = tileRequestKey(entry.req);
       const group = groups.get(key);
@@ -251,7 +254,7 @@ export class TileReader {
 
   // Never throws: every outcome settles the group's entries.
   private async fetch(
-    group: Array<scheduler.Entry<TileSpec, MultiSeries>>,
+    group: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
   ): Promise<void> {
     const { readRemote, transform, fetchTimeout } = this.props;
     const spec = group[0].req;

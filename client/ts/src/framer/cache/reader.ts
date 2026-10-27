@@ -43,7 +43,7 @@ interface ReadRequest {
 // Tracks one read's outstanding fetches, so the read settles when its last fetch lands.
 // The first failure among them wins.
 interface Tracker {
-  entry: scheduler.Entry<ReadRequest>;
+  entry: scheduler.BatcherEntry<ReadRequest>;
   remaining: number;
   failure?: unknown;
 }
@@ -123,10 +123,12 @@ export class Reader {
     return unary.read(tr).series;
   }
 
-  private async batchRead(entries: Array<scheduler.Entry<ReadRequest>>): Promise<void> {
+  private async batchRead(
+    entries: Array<scheduler.BatcherEntry<ReadRequest>>,
+  ): Promise<void> {
     const { cache, overlapThreshold } = this.props;
     const batched: BatchFetch[] = [];
-    const trackers = new Map<scheduler.Entry<ReadRequest>, Tracker>();
+    const trackers = new Map<scheduler.BatcherEntry<ReadRequest>, Tracker>();
     entries.forEach((entry) => {
       const unary = cache.get(entry.req.channel);
       entry.req.gaps.forEach((rawGap) => {

@@ -9,10 +9,10 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Batcher, type Entry } from "@/scheduler/batcher";
+import { Batcher, type BatcherEntry } from "@/scheduler/batcher";
 import { TimeSpan } from "@/telem/telem";
 
-const resolveAll = (entries: Array<Entry<number, number>>): void =>
+const resolveAll = (entries: Array<BatcherEntry<number, number>>): void =>
   entries.forEach(({ req, resolve }) => resolve(req * 2));
 
 describe("Batcher", () => {
