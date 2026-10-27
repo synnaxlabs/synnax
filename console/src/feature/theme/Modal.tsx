@@ -19,7 +19,7 @@ import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/platform/css";
-import { create } from "@/platform/modals/factory";
+import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 import { Theme } from "@/session/theme";
 
@@ -80,4 +80,4 @@ const Content = ({
   );
 };
 
-export const useModal = create(Content);
+export const useModal = Modals.create(Content);

@@ -24,7 +24,7 @@ import { Access, Status } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
-import { ContextMenu } from "@/feature/status/list/ContextMenu";
+import { List as StatusList } from "@/feature/status/list";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -50,7 +50,7 @@ const favoriteNameID = (key: status.Key): string =>
   BaseList.itemNameID(`favorite-${key}`);
 
 const contextMenu = Component.renderProp((props: Menu.ContextMenuMenuProps) => (
-  <ContextMenu {...props} nameID={favoriteNameID} />
+  <StatusList.ContextMenu {...props} nameID={favoriteNameID} />
 ));
 
 const List = (): ReactElement => {

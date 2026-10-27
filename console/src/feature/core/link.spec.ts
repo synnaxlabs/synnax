@@ -16,12 +16,14 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { Core } from "@/feature/core";
 import { Session } from "@/session";
 import { CONNECTION_PARAMS, createCore } from "@/session/core/testutil";
-import { type State } from "@/session/store";
 import { createConnectedConsoleWrapper } from "@/testutil";
 
 // Each Core is keyed and named after the cluster it reaches, so a spec names one Core
 // by the cluster key a link would carry.
-const createState = (clusterKeys: string[], selected: string | null): State => ({
+const createState = (
+  clusterKeys: string[],
+  selected: string | null,
+): Session.State => ({
   ...Session.ZERO_STATE,
   [Session.Core.SLICE_NAME]: {
     ...Session.Core.ZERO_SLICE_STATE,
@@ -79,7 +81,7 @@ describe("connect", () => {
     const setActive = vi.fn();
     const prior = createTestClient();
     const next = createTestClient();
-    const state: State = {
+    const state: Session.State = {
       ...Session.ZERO_STATE,
       [Session.Core.SLICE_NAME]: {
         ...Session.Core.ZERO_SLICE_STATE,

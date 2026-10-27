@@ -13,7 +13,7 @@ import { fireEvent, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Feed } from "@/app/notifications/Feed";
+import { Notifications } from "@/app/notifications";
 import { installPortalRoot, renderWithConsole } from "@/testutil";
 
 const Harness = ({ crude }: { crude: status.Crude }): ReactElement => {
@@ -21,7 +21,7 @@ const Harness = ({ crude }: { crude: status.Crude }): ReactElement => {
   return (
     <>
       <button onClick={() => add(crude)}>add</button>
-      <Feed />
+      <Notifications.Feed />
     </>
   );
 };

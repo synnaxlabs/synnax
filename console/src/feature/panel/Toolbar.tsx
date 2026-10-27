@@ -14,7 +14,7 @@ import { type ReactElement } from "react";
 import { isNotFound } from "@/feature/panel/Mosaic";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { ResourceGuard, useTab } from "@/platform/panel/tab";
+import { Panel as PlatformPanel } from "@/platform/panel";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -52,7 +52,7 @@ const NotFoundFallback = (props: Errors.FallbackProps): ReactElement => {
 // Header for a focused component without its own toolbar: the tab's Name (icon +
 // name) with an explanatory empty body. Renames stay with the tab itself.
 const NoToolbarContent = (): ReactElement => {
-  const { Name } = useTab();
+  const { Name } = PlatformPanel.useTab();
   return (
     <Toolbar.Content>
       <Toolbar.Header>
@@ -66,7 +66,7 @@ const NoToolbarContent = (): ReactElement => {
 };
 
 const LiveContent = (): ReactElement => {
-  const { Toolbar: TabToolbar } = useTab();
+  const { Toolbar: TabToolbar } = PlatformPanel.useTab();
   return (
     <Errors.SuspenseBoundary FallbackComponent={NotFoundFallback}>
       {TabToolbar == null ? <NoToolbarContent /> : <TabToolbar />}
@@ -75,15 +75,15 @@ const LiveContent = (): ReactElement => {
 };
 
 const Content = (): ReactElement => (
-  <ResourceGuard FallbackComponent={DeletedContent}>
+  <PlatformPanel.ResourceGuard FallbackComponent={DeletedContent}>
     <LiveContent />
-  </ResourceGuard>
+  </PlatformPanel.ResourceGuard>
 );
 
 const IconFallback = (): ReactElement => <Icon.Component />;
 
 const FocusedTabIcon = (props: Icon.IconProps): ReactElement => {
-  const { Icon: TabIcon } = useTab();
+  const { Icon: TabIcon } = PlatformPanel.useTab();
   return <TabIcon {...props} />;
 };
 

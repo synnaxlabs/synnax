@@ -49,7 +49,7 @@ import {
   type TreeState,
 } from "@/platform/tree/types";
 import { useResources } from "@/platform/tree/useResource";
-import { type Action, type State } from "@/session/store";
+import { type Session } from "@/session";
 
 interface InternalProps {
   root: ontology.ID;
@@ -397,7 +397,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const openTab = Panel.useOpenTab();
   const addStatus = Status.useAdder();
-  const store = useStore<State, Action>();
+  const store = useStore<Session.State, Session.Action>();
 
   const { update: moveChildren } = Ontology.useMoveChildren({});
 

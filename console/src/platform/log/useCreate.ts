@@ -12,7 +12,7 @@ import { Log } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Panel } from "@/platform/panel";
-import { useMaybeChange } from "@/platform/project/useMaybeChange";
+import { Project } from "@/platform/project";
 import { Session } from "@/session";
 
 export interface UseCreateProps {
@@ -24,7 +24,7 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   params?: Partial<log.New>,
 ) => void) => {
   const getActiveProject = Session.Project.useGetSelected();
-  const maybeChangeProject = useMaybeChange();
+  const maybeChangeProject = Project.useMaybeChange();
   const openTab = Panel.useOpenTab();
   const dispatch = useDispatch();
   const { update } = Log.useCreate({

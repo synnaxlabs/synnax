@@ -16,18 +16,17 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 
-import { ContextMenu } from "@/feature/range/list/ContextMenu";
-import { Item, type ItemProps } from "@/feature/range/list/Item";
+import { List } from "@/feature/range/list";
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 import { type Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { View } from "@/platform/view";
 
-const item = Component.renderProp((props: ItemProps) => (
-  <Item {...props} role="listitem" />
+const item = Component.renderProp((props: List.ItemProps) => (
+  <List.Item {...props} role="listitem" />
 ));
-const contextMenu = Component.renderProp(ContextMenu);
+const contextMenu = Component.renderProp(List.ContextMenu);
 
 export const Explorer: Panel.Content = () => (
   <View.Frame resourceType="range" icon="Range">

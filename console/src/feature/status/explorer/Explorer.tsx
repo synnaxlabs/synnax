@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Status } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 
-import { contextMenu } from "@/feature/status/list/ContextMenu";
+import { List } from "@/feature/status/list";
 import { Label } from "@/platform/label";
 import { type Panel } from "@/platform/panel";
 import { Status as PlatformStatus } from "@/platform/status";
@@ -56,7 +56,7 @@ const Internal = () => {
           </Button.Button>
         )}
       </View.Toolbar>
-      <View.Items contextMenu={contextMenu}>{item}</View.Items>
+      <View.Items contextMenu={List.contextMenu}>{item}</View.Items>
     </View.Form>
   );
 };
