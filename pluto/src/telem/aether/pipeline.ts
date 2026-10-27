@@ -8,18 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import {
-  type Aggregation,
-  type DataType,
-  type destructor,
-  type TimeStamp,
-} from "@synnaxlabs/x";
+import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSink,
   AbstractSource,
+  type Result,
   type Sink,
   type SinkSpec,
   sinkSpecZ,
@@ -104,32 +100,12 @@ export class SourcePipeline<V>
     });
   }
 
-  value(props?: ValueProps): V {
+  value(props?: ValueProps): Result<V> {
     return this.outlet.value(props);
-  }
-
-  loading(): boolean {
-    return this.outlet.loading?.() ?? false;
-  }
-
-  fetching(): boolean {
-    return this.outlet.fetching?.() ?? false;
-  }
-
-  aggregation(): Aggregation | null {
-    return this.outlet.aggregation?.() ?? null;
-  }
-
-  dataType(): DataType | null {
-    return this.outlet.dataType?.() ?? null;
   }
 
   onChange(handler: () => void): destructor.Destructor {
     return this.outlet.onChange(handler);
-  }
-
-  sampleTime(): TimeStamp | null {
-    return this.outlet.sampleTime?.() ?? null;
   }
 
   cleanup(): void {

@@ -33,7 +33,6 @@ from console.plot import Plot
 from console.schematic import Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
 from console.table import Table
-from framework.run_dir import resolve_results_path
 from framework.utils import (
     assert_envelope,
     get_core_fixture_path,
@@ -218,7 +217,7 @@ class ImportGoldens(ConsoleCase):
         assert_envelope(exported, envelope_type=envelope_type, min_version=1, name=name)
 
         reimport_name = f"{golden.label}_rt_{self.suffix}"
-        export_path = resolve_results_path(f"{name}_export.json")
+        export_path = str(self.results_dir / f"{name}_export.json")
         self._import_as(export_path, reimport_name)
         self._cleanup_pages.append(reimport_name)
         page = golden.page_class.from_open_page(

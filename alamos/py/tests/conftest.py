@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import logging
+
 import pytest
 
 from alamos import Instrumentation
@@ -16,3 +18,8 @@ from alamos.dev import instrumentation as dev_instrumentation
 @pytest.fixture(scope="session")
 def instrumentation() -> Instrumentation:
     return dev_instrumentation()
+
+
+@pytest.fixture
+def base() -> logging.Logger:
+    return logging.getLogger("alamos_test")

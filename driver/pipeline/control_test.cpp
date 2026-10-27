@@ -16,7 +16,7 @@
 #include "x/cpp/test/test.h"
 
 #include "driver/pipeline/control.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::pipeline {
 /// @brief it should read frames from streamer and write to sink.
@@ -35,13 +35,13 @@ TEST(ControlPipeline, testHappyPath) {
         }
     );
     const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+    const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
         std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<mock::StreamerConfig>>(
-            std::vector{mock::StreamerConfig{reads, read_errors, x::errors::NIL}}
+        std::make_shared<std::vector<testutil::StreamerConfig>>(
+            std::vector{testutil::StreamerConfig{reads, read_errors, x::errors::NIL}}
         )
     );
-    const auto sink = std::make_shared<mock::Sink>();
+    const auto sink = std::make_shared<testutil::Sink>();
     auto control = Control(
         streamer_factory,
         streamer_config,
@@ -55,11 +55,11 @@ TEST(ControlPipeline, testHappyPath) {
 
 /// @brief it should stop and report error when streamer open fails with unknown error.
 TEST(ControlPipeline, testUnknownErrOnOpen) {
-    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+    const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
         std::vector{x::errors::UNKNOWN},
-        std::make_shared<std::vector<mock::StreamerConfig>>()
+        std::make_shared<std::vector<testutil::StreamerConfig>>()
     );
-    const auto sink = std::make_shared<mock::Sink>();
+    const auto sink = std::make_shared<testutil::Sink>();
     auto control = Control(
         streamer_factory,
         synnax::framer::StreamerConfig{},
@@ -90,23 +90,23 @@ void assert_open_retries(const x::errors::Error &open_err) {
         }
     );
     const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<mock::StreamerFactory>(
+    const auto streamer_factory = std::make_shared<testutil::StreamerFactory>(
         std::vector{open_err, open_err, x::errors::NIL},
-        std::make_shared<std::vector<mock::StreamerConfig>>(std::vector{
-            mock::StreamerConfig{
+        std::make_shared<std::vector<testutil::StreamerConfig>>(std::vector{
+            testutil::StreamerConfig{
                 reads,
                 read_errors,
                 x::errors::NIL,
             },
-            mock::StreamerConfig{
+            testutil::StreamerConfig{
                 reads,
                 read_errors,
                 x::errors::NIL,
             },
-            mock::StreamerConfig{reads, read_errors, x::errors::NIL}
+            testutil::StreamerConfig{reads, read_errors, x::errors::NIL}
         })
     );
-    const auto sink = std::make_shared<mock::Sink>();
+    const auto sink = std::make_shared<testutil::Sink>();
     auto control = Control(
         streamer_factory,
         streamer_config,
@@ -138,13 +138,13 @@ TEST(ControlPipeline, testOpenRetryUnlicensed) {
 }
 /// @brief it should tell the sink once the streamer is open.
 TEST(ControlPipeline, OpenedFollowsStreamerOpen) {
-    const auto factory = mock::simple_streamer_factory(
+    const auto factory = testutil::simple_streamer_factory(
         {1},
         std::make_shared<std::vector<x::telem::Frame>>()
     );
     std::promise<void> release;
     factory->open_gate = release.get_future().share();
-    const auto sink = std::make_shared<mock::Sink>();
+    const auto sink = std::make_shared<testutil::Sink>();
     auto control = Control(
         factory,
         synnax::framer::StreamerConfig{.channels = {1}},
@@ -161,11 +161,11 @@ TEST(ControlPipeline, OpenedFollowsStreamerOpen) {
 
 /// @brief it should not tell the sink the streamer is open when it fails to open.
 TEST(ControlPipeline, OpenedSkippedOnOpenFailure) {
-    const auto factory = std::make_shared<mock::StreamerFactory>(
+    const auto factory = std::make_shared<testutil::StreamerFactory>(
         std::vector{x::errors::UNKNOWN},
-        std::make_shared<std::vector<mock::StreamerConfig>>()
+        std::make_shared<std::vector<testutil::StreamerConfig>>()
     );
-    const auto sink = std::make_shared<mock::Sink>();
+    const auto sink = std::make_shared<testutil::Sink>();
     auto control = Control(
         factory,
         synnax::framer::StreamerConfig{},
