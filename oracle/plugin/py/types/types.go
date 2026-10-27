@@ -146,7 +146,12 @@ func generatePyFile(
 		}
 	}
 	for _, u := range unions {
-		for _, v := range u.Form.(resolution.UnionForm).Variants {
+		form := u.Form.(resolution.UnionForm)
+		for _, v := range form.Variants {
+			_, declared := resolver.VariantBases(form, v, table)
+			for _, field := range declared {
+				data.imports.registerFieldName(fieldName(field.Name))
+			}
 			if payload, ok := v.Type.Resolve(table); ok {
 				for _, field := range resolution.UnifiedFields(payload, table) {
 					data.imports.registerFieldName(fieldName(field.Name))

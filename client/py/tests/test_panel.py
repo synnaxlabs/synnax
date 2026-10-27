@@ -7,13 +7,61 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 
 import synnax as sy
+from synnax import panel
 from synnax.exceptions import NotFoundError, ValidationError
 from x.testutil import assert_eventually
+
+
+class TestPanel:
+    def test_defaults(self) -> None:
+        """Should create a panel with an empty leaf from only a name."""
+        p = panel.Panel(name="Ops")
+        assert p.root == panel.LeafNode(tabs=[])
+
+    def test_round_trip(self) -> None:
+        """Should parse a split tree of tabs and dump it back unchanged."""
+        p = panel.Panel.model_validate(
+            {
+                "name": "Ops",
+                "root": {
+                    "variant": "split",
+                    "direction": "x",
+                    "size": 0.5,
+                    "first": {
+                        "variant": "leaf",
+                        "tabs": [
+                            {
+                                "variant": "resource",
+                                "resource": {"type": "lineplot", "key": "k"},
+                            }
+                        ],
+                    },
+                    "last": {
+                        "variant": "leaf",
+                        "tabs": [{"variant": "view", "type": "docs"}],
+                    },
+                },
+            }
+        )
+        assert isinstance(p.root, panel.SplitNode)
+        assert isinstance(p.root.first, panel.LeafNode)
+        assert isinstance(p.root.first.tabs[0], panel.ResourceTab)
+        assert isinstance(p.root.last, panel.LeafNode)
+        assert isinstance(p.root.last.tabs[0], panel.ViewTab)
+        assert panel.Panel.model_validate_json(p.model_dump_json()) == p
+
+    def test_ontology_id(self) -> None:
+        """Should build the ontology ID of a panel."""
+        key = uuid4()
+        assert panel.ontology_id(key).type == panel.ONTOLOGY_TYPE.type
+        assert panel.ontology_id(key).key == str(key)
+        p = panel.Panel(name="Ops")
+        assert hash(p) == hash(p.key)
 
 
 @pytest.fixture
@@ -24,7 +72,7 @@ def parent(client: sy.Synnax) -> sy.ontology.ID:
 
 
 @pytest.mark.panel
-class TestPanel:
+class TestClient:
     def test_create(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
         """Should create a single panel with an empty root leaf."""
         p = client.panels.create(name="Test Panel", parent=parent)
