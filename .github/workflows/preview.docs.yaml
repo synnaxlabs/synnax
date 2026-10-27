@@ -51,15 +51,18 @@ jobs:
       - name: Build
         run: pnpm build:docs
 
+      # The CLI joins the project's root directory, site/docs, to its working directory,
+      # so it runs from the repository root and reads the output from there.
       - name: Deploy the preview
         id: deploy
-        working-directory: site/docs
         env:
           VERCEL_ORG_ID: team_Ct3QPGNmHHaqBqa5BBIAv2x9
           VERCEL_PROJECT_ID: prj_G9x2ZoIrsFQym5DqbqZIM8jUsSer
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           [ -n "$VERCEL_TOKEN" ] || { echo "::error::VERCEL_TOKEN is not set"; exit 1; }
+          mkdir -p .vercel
+          mv site/docs/.vercel/output .vercel/output
           deployment=$(npx --yes vercel@63.1.2 deploy --prebuilt --archive=tgz \
             --format=json)
           url=$(jq -er '.deployment.url // .url' <<< "$deployment")
