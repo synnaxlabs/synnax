@@ -37,12 +37,6 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::arc::DeleteRequest, google::protobuf::Empty>;
 
-/// @brief Options for retrieving Arc programs.
-struct RetrieveOptions {
-    /// @brief If true, the Core compiles each Arc and sets its program.
-    bool include_program = false;
-};
-
 /// @brief Client for managing Arc automation programs in a Synnax cluster.
 /// @details Provides methods to create, retrieve, and delete Arc programs.
 /// Arc programs can contain visual graph representations and/or text-based source code.
@@ -82,47 +76,54 @@ public:
     [[nodiscard]] std::pair<Arc, x::errors::Error>
     create(const std::string &name) const;
 
-    /// @brief Retrieves an Arc program by its name.
-    /// @param name The name of the Arc program to retrieve.
-    /// @param options Optional retrieve options.
-    /// @returns A pair containing the retrieved Arc program and an error.
-    /// If the Arc program does not exist or multiple programs have the same name,
-    /// an error is returned.
-    [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_by_name(
-        const std::string &name,
-        const RetrieveOptions &options = {}
-    ) const;
+    /// @brief Retrieves the Arc program with the given key, with each include option in
+    /// includes applied.
+    /// @returns the Arc program, or a NOT_FOUND error when no Arc program has the key.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
+    [[nodiscard]] std::pair<Arc, x::errors::Error>
+    retrieve(const Key &key, Includes... includes) const {
+        return this->retrieve_one(
+            x::filter::request<Where, RetrieveRequest>(arc::key.eq(key), includes...),
+            "key " + key.to_string()
+        );
+    }
 
-    /// @brief Retrieves an Arc program by its key (UUID).
-    /// @param key The key of the Arc program to retrieve.
-    /// @param options Optional retrieve options.
-    /// @returns A pair containing the retrieved Arc program and an error.
-    /// If the Arc program does not exist, an error is returned.
-    [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_by_key(
-        const x::uuid::UUID &key,
-        const RetrieveOptions &options = {}
-    ) const;
+    /// @brief Retrieves the Arc program with the given name, with each include option
+    /// in includes applied.
+    /// @returns the Arc program, or an error when no Arc program or more than one Arc
+    /// program has the name.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
+    [[nodiscard]] std::pair<Arc, x::errors::Error>
+    retrieve(const std::string &name, Includes... includes) const {
+        return this->retrieve_one(
+            x::filter::request<Where, RetrieveRequest>(arc::name.eq(name), includes...),
+            "name " + name
+        );
+    }
 
-    /// @brief Retrieves Arc programs by their names.
-    /// @param names Vector of names of Arc programs to retrieve.
-    /// @param options Optional retrieve options.
-    /// @returns A pair containing a vector of retrieved Arc programs and an error.
-    /// If an Arc program with a given name does not exist, it will not be in the
-    /// result.
-    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve(
-        const std::vector<std::string> &names,
-        const RetrieveOptions &options = {}
-    ) const;
+    /// @brief Retrieves the Arc programs with the given keys, with each include option
+    /// in includes applied. A key that no Arc program has is left out.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
+    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error>
+    retrieve(const std::vector<Key> &keys, Includes... includes) const {
+        return this->retrieve(
+            x::filter::request<Where, RetrieveRequest>(arc::key.in(keys), includes...)
+        );
+    }
 
-    /// @brief Retrieves Arc programs by their keys (UUIDs).
-    /// @param keys Vector of keys of Arc programs to retrieve.
-    /// @param options Optional retrieve options.
-    /// @returns A pair containing a vector of retrieved Arc programs and an error.
-    /// If an Arc program with a given key does not exist, it will not be in the result.
-    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve_by_keys(
-        const std::vector<x::uuid::UUID> &keys,
-        const RetrieveOptions &options = {}
-    ) const;
+    /// @brief Retrieves the Arc programs with the given names, with each include option
+    /// in includes applied. A name that no Arc program has is left out.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
+    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error>
+    retrieve(const std::vector<std::string> &names, Includes... includes) const {
+        return this->retrieve(
+            x::filter::request<Where, RetrieveRequest>(arc::name.in(names), includes...)
+        );
+    }
 
     /// @brief Retrieves the Arc programs that req selects.
     [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error>

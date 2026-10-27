@@ -546,7 +546,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
     };
     ASSERT_NIL(client.devices.create(d));
     const auto d2 = ASSERT_NIL_P(
-        client.devices.retrieve(d.key, {.include_status = true})
+        client.devices.retrieve(d.key, device::include_status())
     );
     ASSERT_EQ(d2.name, "device_with_status");
     ASSERT_TRUE(d.status.has_value());
@@ -593,7 +593,7 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     ASSERT_NIL(client.devices.create(d2));
     const std::vector<std::string> keys = {d1.key, d2.key};
     const auto devices = ASSERT_NIL_P(
-        client.devices.retrieve(keys, {.include_status = true})
+        client.devices.retrieve(keys, device::include_status())
     );
     ASSERT_EQ(devices.size(), 2);
     auto dm = map_device_keys(devices);

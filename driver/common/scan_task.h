@@ -161,12 +161,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) override {
-        return this->client->devices.retrieve(
-            key,
-            synnax::device::RetrieveOptions{
-                .include_status = true,
-            }
-        );
+        return this->client->devices.retrieve(key, synnax::device::include_status());
     }
 
     x::errors::Error

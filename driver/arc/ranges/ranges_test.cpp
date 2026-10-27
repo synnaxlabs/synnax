@@ -230,7 +230,7 @@ TEST(CreateRangeTest, NextCreatesOpenRange) {
 
     const auto key = output_key(s);
     const auto uid = ASSERT_NIL_P(x::uuid::UUID::parse(key));
-    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(uid));
+    const auto r = ASSERT_NIL_P(client->ranges.retrieve(uid));
     EXPECT_EQ(r.name, name);
     EXPECT_EQ(r.time_range.end, x::telem::TIME_STAMP_MAX);
 }
@@ -253,7 +253,7 @@ TEST(CreateRangeTest, NextParsesColor) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    const auto r = ASSERT_NIL_P(client->ranges.retrieve_by_key(
+    const auto r = ASSERT_NIL_P(client->ranges.retrieve(
         ASSERT_NIL_P(x::uuid::UUID::parse(output_key(s)))
     ));
     ASSERT_TRUE(r.color.has_value());
@@ -368,7 +368,7 @@ TEST(EndRangeTest, NextSetsEndToNow) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
 
-    const auto updated = ASSERT_NIL_P(client->ranges.retrieve_by_key(r.key));
+    const auto updated = ASSERT_NIL_P(client->ranges.retrieve(r.key));
     EXPECT_GE(updated.time_range.end.nanoseconds(), before.nanoseconds());
     EXPECT_LE(
         updated.time_range.end.nanoseconds(),

@@ -124,9 +124,7 @@ TEST(RackTests, testCreateRackWithStatusIncluded) {
         }
     };
     ASSERT_NIL(client.racks.create(r));
-    const auto r2 = ASSERT_NIL_P(
-        client.racks.retrieve(r.key, {.include_status = true})
-    );
+    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key, rack::include_status()));
     ASSERT_EQ(r2.name, "test_rack_with_status");
     ASSERT_TRUE(r2.status.has_value());
     ASSERT_EQ(r2.status.value().variant, synnax::status::VARIANT_SUCCESS);

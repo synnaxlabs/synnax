@@ -26,7 +26,7 @@ inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
     const synnax::rack::Rack &rack,
     synnax::task::Task &task
 ) {
-    auto [existing, err] = rack.tasks.retrieve_by_type(std::vector{task.type});
+    auto [existing, err] = rack.tasks.retrieve(synnax::task::type.eq(task.type));
     if (err) return {false, err};
     if (!existing.empty()) return {false, x::errors::NIL};
     return {true, rack.tasks.create(task)};
@@ -101,7 +101,7 @@ inline x::errors::Error delete_legacy_task_by_type(
     const std::string &task_type,
     const std::string &integration_name
 ) {
-    auto [legacy, err] = rack.tasks.retrieve_by_type(std::vector{task_type});
+    auto [legacy, err] = rack.tasks.retrieve(synnax::task::type.eq(task_type));
     if (err) return err;
     for (const auto &task: legacy)
         if (const auto del_err = rack.tasks.del(task.key))

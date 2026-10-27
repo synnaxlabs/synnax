@@ -126,35 +126,33 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief Retrieves a status with the given key.
-    /// @tparam Details The type of custom details expected in the retrieved status.
-    /// @param key The key of the status to retrieve.
-    /// @returns A pair containing the retrieved status and an error where ok() is
-    /// false if the status could not be retrieved. In the case of an error, the
-    /// returned status will be invalid. Use err.message() to get the error message
-    /// or err.type to get the error type.
-    template<typename Details = x::json::json>
+    /// @brief Retrieves the status with the given key, with each include option in
+    /// includes applied.
+    /// @returns the status, or a NOT_FOUND error when no status has the key.
+    template<typename Details = x::json::json, typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
-    retrieve(const std::string &key) const {
+    retrieve(const std::string &key, Includes... includes) const {
         return this->retrieve_one<Details>(
-            RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.eq = key}}},
+            x::filter::request<Where, RetrieveRequest>(
+                status::key.eq(key),
+                includes...
+            ),
             "key " + key
         );
     }
 
-    /// @brief Retrieves statuses with the given keys.
-    /// @tparam Details The type of custom details expected in the retrieved statuses.
-    /// @param keys The keys of the statuses to retrieve.
-    /// @returns A pair containing all statuses matching the given keys and an error
-    /// where ok() is false if the statuses could not be retrieved. Statuses that
-    /// don't exist will not be in the returned vector.
-    template<typename Details = x::json::json>
+    /// @brief Retrieves the statuses with the given keys, with each include option in
+    /// includes applied. A key that no status has is left out.
+    template<typename Details = x::json::json, typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
     [[nodiscard]] std::
         pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
-        retrieve(const std::vector<std::string> &keys) const {
-        return this->retrieve<Details>(
-            RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
-        );
+        retrieve(const std::vector<std::string> &keys, Includes... includes) const {
+        return this->retrieve<Details>(x::filter::request<Where, RetrieveRequest>(
+            status::key.in(keys),
+            includes...
+        ));
     }
 
     /// @brief Retrieves the statuses that req selects.

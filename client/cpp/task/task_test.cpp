@@ -90,7 +90,9 @@ TEST(TaskTests, testRetrieveTaskByType) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type("pagerduty_alert"));
+    const auto t2 = ASSERT_NIL_P(
+        r.tasks.retrieve(task::type.eq("pagerduty_alert"), task::one())
+    );
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(t.rack, r.key);
 }
@@ -109,7 +111,7 @@ TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
         ASSERT_NIL(r.tasks.create(t));
     }
     ASSERT_OCCURRED_AS_P(
-        r.tasks.retrieve_by_type("pagerduty_alert"),
+        r.tasks.retrieve(task::type.eq("pagerduty_alert"), task::one()),
         x::errors::MULTIPLE_RESULTS
     );
 }
@@ -295,7 +297,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
         }
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key, {.include_status = true}));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key, task::include_status()));
     ASSERT_EQ(t2.name, "test_task_with_status");
     ASSERT_TRUE(t2.status.has_value());
     ASSERT_EQ(t2.status.value().variant, synnax::status::VARIANT_SUCCESS);
@@ -322,7 +324,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
         }
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, {.include_status = true}));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, task::include_status()));
     ASSERT_EQ(t2.name, rand_name);
     ASSERT_TRUE(t2.status.has_value());
     ASSERT_EQ(t2.status.value().variant, synnax::status::VARIANT_WARNING);
@@ -346,7 +348,7 @@ TEST(TaskTests, testListTasksWithStatus) {
         }
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(task::include_status()));
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_TRUE(tasks[0].status.has_value());
     ASSERT_EQ(tasks[0].status.value().variant, synnax::status::VARIANT_INFO);
@@ -402,7 +404,7 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
     const std::vector<std::string> types = {type1, type2};
-    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve_by_type(types));
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(task::type.in(types)));
     ASSERT_EQ(tasks.size(), 2);
     bool found1 = false, found2 = false;
     for (const auto &t: tasks) {

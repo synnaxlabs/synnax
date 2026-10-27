@@ -24,36 +24,6 @@ Client::Client(
     rack_delete_client(std::move(rack_delete_client)),
     tasks(std::move(tasks)) {}
 
-std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
-    return retrieve(key, RetrieveOptions{});
-}
-
-std::pair<Rack, x::errors::Error>
-Client::retrieve(const Key key, const RetrieveOptions &options) const {
-    return this->retrieve_one(
-        {
-            .where = Where{.key = x::filter::Set<Key>{.eq = key}},
-            .include_status = options.include_status,
-        },
-        "key " + std::to_string(key)
-    );
-}
-
-std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) const {
-    return retrieve(name, RetrieveOptions{});
-}
-
-std::pair<Rack, x::errors::Error>
-Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
-    return this->retrieve_one(
-        {
-            .where = Where{.name = x::filter::String{.eq = name}},
-            .include_status = options.include_status,
-        },
-        "name " + name
-    );
-}
-
 std::pair<std::vector<Rack>, x::errors::Error>
 Client::retrieve(const RetrieveRequest &req) const {
     auto [pb_req, pb_err] = req.to_proto();

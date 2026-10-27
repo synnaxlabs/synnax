@@ -66,14 +66,6 @@ inline std::string status_key(const Device &device) {
     return ontology_id(device.key).string();
 }
 
-/// @brief Options for retrieving devices.
-struct RetrieveOptions {
-    /// @brief Whether to include status information in the retrieved devices.
-    bool include_status = false;
-    /// @brief Whether to include parent ontology ID in the retrieved devices.
-    bool include_parent = false;
-};
-
 /// @brief Client for managing devices in a Synnax cluster.
 class Client {
 public:
@@ -87,38 +79,36 @@ public:
         std::unique_ptr<DeleteClient> device_delete_client
     );
 
-    /// @brief Retrieves a device by its key.
-    /// @param key The key of the device to retrieve.
-    /// @returns A pair containing the retrieved device and an error if one
-    /// occurred.
-    [[nodiscard]]
-    std::pair<Device, x::errors::Error> retrieve(const std::string &key) const;
+    /// @brief Retrieves the device with the given key, with each include option in
+    /// includes applied.
+    /// @returns the device, or a NOT_FOUND error when no device has the key.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
+    [[nodiscard]] std::pair<Device, x::errors::Error>
+    retrieve(const std::string &key, Includes... includes) const {
+        return this->retrieve_one(
+            x::filter::request<Where, RetrieveRequest>(
+                device::key.eq(key),
+                includes...
+            ),
+            "key " + key
+        );
+    }
 
-    /// @brief Retrieves a device by its key with options.
-    /// @param key The key of the device to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns A pair containing the retrieved device and an error if one
-    /// occurred.
-    [[nodiscard]]
-    std::pair<Device, x::errors::Error>
-    retrieve(const std::string &key, const RetrieveOptions &options) const;
-
-    /// @brief Retrieves multiple devices by their keys.
-    /// @param keys The keys of the devices to retrieve.
-    /// @returns the devices for the keys that exist, and an error if one occurred.
-    [[nodiscard]]
-    std::pair<std::vector<Device>, x::errors::Error>
-    retrieve(const std::vector<std::string> &keys) const;
-
-    /// @brief Retrieves multiple devices by their keys with options.
-    /// @param keys The keys of the devices to retrieve.
-    /// @param options Options for the retrieval.
-    /// @returns the devices for the keys that exist, and an error if one occurred.
-    [[nodiscard]]
-    std::pair<std::vector<Device>, x::errors::Error> retrieve(
-        const std::vector<std::string> &keys,
-        const RetrieveOptions &options
-    ) const;
+    /// @brief Retrieves the devices with the given keys, with each include option in
+    /// includes applied. A key that no device has is left out.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
+    [[nodiscard]] std::pair<std::vector<Device>, x::errors::Error>
+    retrieve(const std::vector<std::string> &keys, Includes... includes) const {
+        if (keys.empty()) return {std::vector<Device>(), x::errors::NIL};
+        return this->retrieve(
+            x::filter::request<Where, RetrieveRequest>(
+                device::key.in(keys),
+                includes...
+            )
+        );
+    }
 
     /// @brief Retrieves the devices that req selects.
     [[nodiscard]]
