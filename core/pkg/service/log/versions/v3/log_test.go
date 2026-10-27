@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"io"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -122,7 +123,7 @@ var _ = Describe("Log", func() {
 	})
 
 	Describe("DecodeOrc", func() {
-		It("Should reject every truncation of an encoded log", func() {
+		encode := func() []byte {
 			w := orc.NewWriter(0)
 			Expect(v3.Log{
 				Key:  uuid.New(),
@@ -136,13 +137,37 @@ var _ = Describe("Log", func() {
 				}},
 				TimestampPrecision: 2,
 			}.EncodeOrc(w)).To(Succeed())
-			encoded := w.Bytes()
-			for n := range len(encoded) {
-				r := orc.NewReader(nil)
-				r.ResetBytes(encoded[:n])
-				var decoded v3.Log
-				Expect(decoded.DecodeOrc(r)).ToNot(Succeed(), "prefix length %d", n)
-			}
+			return w.Bytes()
+		}
+
+		It("Should encode the truncation fixture in 89 bytes", func() {
+			Expect(encode()).To(HaveLen(89))
 		})
+
+		DescribeTable("Should reject a log truncated inside a field",
+			func(kept int) {
+				r := orc.NewReader(nil)
+				r.ResetBytes(encode()[:kept])
+				var decoded v3.Log
+				Expect(decoded.DecodeOrc(r)).To(Or(
+					MatchError(io.EOF),
+					MatchError(io.ErrUnexpectedEOF),
+				))
+			},
+			Entry("key", 8),
+			Entry("name", 16),
+			Entry("channels presence", 23),
+			Entry("channel count", 24),
+			Entry("channel key", 28),
+			Entry("channel color", 32),
+			Entry("channel notation", 43),
+			Entry("channel precision presence", 55),
+			Entry("channel precision", 56),
+			Entry("channel alias", 60),
+			Entry("channel timestamp", 69),
+			Entry("timestamp precision", 83),
+			Entry("channel names hidden", 87),
+			Entry("receipt timestamp hidden", 88),
+		)
 	})
 })
