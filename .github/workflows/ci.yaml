@@ -139,6 +139,15 @@ jobs:
       windows: *full
     secrets: inherit
 
+  alamos-py-lowest:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.alamos_py == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: alamos/py
+      lowest: true
+    secrets: inherit
+
   alamos-ts:
     needs: changes
     if: inputs.full || needs.changes.outputs.alamos_ts == 'true'
@@ -243,6 +252,19 @@ jobs:
       coverage_flag: client-py
       coverage_module: synnax
       directory: client/py
+      type_check_dir: ./synnax ./examples ./tests
+    secrets: inherit
+
+  client-py-lowest:
+    needs: [changes, core-image]
+    if:
+      inputs.full || needs.changes.outputs.client_py == 'true' ||
+      needs.changes.outputs.core == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      core_image: ${{ needs.core-image.outputs.image }}
+      directory: client/py
+      lowest: true
       type_check_dir: ./synnax ./examples ./tests
     secrets: inherit
 
@@ -503,6 +525,18 @@ jobs:
       freighter_image: ${{ needs.freighter-image.outputs.image }}
     secrets: inherit
 
+  freighter-py-lowest:
+    needs: [changes, freighter-image]
+    if:
+      inputs.full || needs.changes.outputs.freighter_py == 'true' ||
+      needs.changes.outputs.freighter_integration == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: freighter/py
+      freighter_image: ${{ needs.freighter-image.outputs.image }}
+      lowest: true
+    secrets: inherit
+
   freighter-ts:
     needs: [changes, freighter-image]
     if:
@@ -751,6 +785,15 @@ jobs:
       windows: *full
     secrets: inherit
 
+  x-py-lowest:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.x_py == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: x/py
+      lowest: true
+    secrets: inherit
+
   x-ts:
     needs: changes
     if: inputs.full || needs.changes.outputs.x_ts == 'true'
@@ -807,6 +850,7 @@ jobs:
       - actionlint
       - alamos-go
       - alamos-py
+      - alamos-py-lowest
       - alamos-ts
       - arc-cpp
       - arc-go
@@ -817,6 +861,7 @@ jobs:
       - ci-scripts
       - client-cpp
       - client-py
+      - client-py-lowest
       - client-ts
       - console
       - copyright
@@ -837,6 +882,7 @@ jobs:
       - freighter-image
       - freighter-integration
       - freighter-py
+      - freighter-py-lowest
       - freighter-ts
       - gorp
       - integration
@@ -860,6 +906,7 @@ jobs:
       - x-cpp
       - x-go
       - x-py
+      - x-py-lowest
       - x-ts
     runs-on: ubuntu-latest
     steps:

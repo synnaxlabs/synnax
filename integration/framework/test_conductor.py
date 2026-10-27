@@ -74,7 +74,7 @@ class _TestConductor:
         # Establish the run directory before anything else writes artifacts.
         # Capture the server log's current size so that the run-scoped slice
         # at exit doesn't include lines from prior server sessions.
-        self.run_dir = run_dir.init_run_dir(self.name)
+        self.run_dir = run_dir.create(self.name)
         self.started_at = time.time()
         self._server_log_path = server_log_path
         self._server_log_start_offset = server_log.current_offset(server_log_path)
@@ -135,6 +135,7 @@ class _TestConductor:
             synnax_connection=self.synnax_connection,
             options=options,
             server_log_path=server_log_path,
+            run_dir=self.run_dir,
             client=self.client,
             conductor_range=self.range,
             tests=self.tests,
