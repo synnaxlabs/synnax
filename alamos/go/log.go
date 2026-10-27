@@ -29,9 +29,8 @@ type LoggerConfig struct {
 }
 
 var (
-	_ config.Config[LoggerConfig] = LoggerConfig{}
-	// DefaultLoggerConfig is the default config for a Logger.
-	DefaultLoggerConfig = LoggerConfig{}
+	_                   config.Config[LoggerConfig] = LoggerConfig{}
+	defaultLoggerConfig                             = LoggerConfig{}
 )
 
 // Validate implements config.Config.
@@ -53,7 +52,7 @@ type Logger struct {
 
 // NewLogger creates a new Logger with the given configuration.
 func NewLogger(configs ...LoggerConfig) (*Logger, error) {
-	cfg, err := config.New(DefaultLoggerConfig, configs...)
+	cfg, err := config.New(defaultLoggerConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -155,17 +154,6 @@ func (l *Logger) WithOptions(opts ...zap.Option) *Logger {
 		return &Logger{zap: l.zap.WithOptions(opts...), config: l.config}
 	}
 	return nil
-}
-
-func (l *Logger) WithConfig(configs ...LoggerConfig) (*Logger, error) {
-	if l == nil {
-		return nil, nil
-	}
-	l2, err := NewLogger(configs...)
-	if err != nil {
-		return nil, err
-	}
-	return &Logger{zap: l2.zap.Named(l.zap.Name()), config: l2.config}, nil
 }
 
 func CustomZapCore(core zapcore.Core) zapcore.Core {

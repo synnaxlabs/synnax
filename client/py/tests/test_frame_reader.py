@@ -116,6 +116,25 @@ class TestReader:
         assert np.array_equal(f[data_ch.key], np.arange(10, dtype=np.float64))
         assert np.array_equal(f[idx_ch.key], seconds_linspace(1, 10))
 
+    @pytest.mark.parametrize("by_name", [True, False])
+    def test_read_to_df(
+        self,
+        written_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+        by_name: bool,
+    ) -> None:
+        """Should convert the frame to a DataFrame with channel name columns in the
+        requested order"""
+        idx_ch, data_ch = written_pair
+        requested = [data_ch, idx_ch]
+        if by_name:
+            fr = client.read(sy.TimeRange.MAX, [ch.name for ch in requested])
+        else:
+            fr = client.read(sy.TimeRange.MAX, [ch.key for ch in requested])
+        df = fr.to_df()
+        assert list(df.columns) == [data_ch.name, idx_ch.name]
+        assert np.array_equal(df[data_ch.name], np.arange(10, dtype=np.float64))
+
     def test_read_by_name(
         self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:

@@ -11,7 +11,7 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
 
 const { Leaf } = aetherTest;

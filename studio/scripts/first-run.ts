@@ -25,7 +25,7 @@ func step() {
     ramp = value
 }
 
-time.interval{period=100ms} -> step{}
+time.interval(period=100ms) -> step()
 `;
 
 /** Presentation speed of typed text: the tutorial plays at speed. */
