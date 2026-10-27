@@ -698,6 +698,8 @@ jobs:
     if: inputs.full || needs.changes.outputs.runners == 'true'
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: runners
+      coverage_module: .
       directory: scripts/runners
     secrets: inherit
 
