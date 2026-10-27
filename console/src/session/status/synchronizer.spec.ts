@@ -40,10 +40,12 @@ describe("Status.SYNCHRONIZERS", () => {
       () => Session.Synchronizer.use(Session.Status.SYNCHRONIZERS),
       { client, preloadedState: preloadWith(created.key) },
     );
-    expect(Session.Status.selectFavorites(store.getState())).toContain(created.key);
+    expect(store.getState()[Session.Status.SLICE_NAME].favorites).toContain(
+      created.key,
+    );
     await client.statuses.delete(created.key);
     await waitFor(() => {
-      expect(Session.Status.selectFavorites(store.getState())).not.toContain(
+      expect(store.getState()[Session.Status.SLICE_NAME].favorites).not.toContain(
         created.key,
       );
     });
@@ -57,9 +59,13 @@ describe("Status.SYNCHRONIZERS", () => {
       { client, preloadedState: preloadWith(survivor.key, ghost) },
     );
     await waitFor(() => {
-      expect(Session.Status.selectFavorites(store.getState())).not.toContain(ghost);
+      expect(store.getState()[Session.Status.SLICE_NAME].favorites).not.toContain(
+        ghost,
+      );
     });
-    expect(Session.Status.selectFavorites(store.getState())).toContain(survivor.key);
+    expect(store.getState()[Session.Status.SLICE_NAME].favorites).toContain(
+      survivor.key,
+    );
   });
 
   it("should keep a favorite created moments before the sweep", async () => {
@@ -71,6 +77,6 @@ describe("Status.SYNCHRONIZERS", () => {
       { client, preloadedState: preloadWith(fresh.key) },
     );
     await waitFor(() => expect(result.current).toBe(true));
-    expect(Session.Status.selectFavorites(store.getState())).toContain(fresh.key);
+    expect(store.getState()[Session.Status.SLICE_NAME].favorites).toContain(fresh.key);
   });
 });

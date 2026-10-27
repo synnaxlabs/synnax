@@ -51,6 +51,7 @@ go: &go
 py: &py
   - *ci
   - .github/workflows/test.py.yaml
+  - .python-version
   - codecov.yaml
   - pyproject.toml
   - uv.lock
@@ -270,6 +271,11 @@ client_py: &client_py
   - *x_py
   - client/py/**
 
+py_packages:
+  - *client_py
+  - .github/scripts/pin_internal_deps.sh
+  - .github/workflows/test.py.packages.yaml
+
 lint_integration:
   - *client_py
   - *py
@@ -389,7 +395,6 @@ integration:
   - .github/workflows/build.synnax.yaml
   - .github/workflows/test.integration.worker.yaml
   - .github/workflows/test.integration.yaml
-  - .github/workflows/test.migration.yaml
   - integration/**
 
 core_image:
@@ -408,3 +413,20 @@ freighter_image:
   - *freighter_py
   - *freighter_ts
   - .github/workflows/build.docker.yaml
+
+# Source that changes what a reviewer sees in a preview Core or Console: the Go that
+# builds the Core, and the TypeScript the Console bundles. Tests, docs, and CI or tool
+# config deploy no preview.
+preview:
+  - "{alamos/go,arc/go,aspen,cesium,core,freighter/go,gorp,x/go}/**/!(*_test).go"
+  - "{alamos/go,arc/go,aspen,cesium,core,freighter/go,gorp,x/go}/go.{mod,sum}"
+  - core/Dockerfile
+  - core/docker-entrypoint.sh
+  - core/pkg/console/fallback.html
+  - "{alamos/ts,arc/ts,client/ts,console,drift}/src/**/!(*.spec.ts|*.spec.tsx|*.md)"
+  - "{freighter/ts,lyra,pluto,x/ts}/src/**/!(*.spec.ts|*.spec.tsx|*.md)"
+  - "{alamos/ts,arc/ts,client/ts,console,drift}/{package.json,vite.config.ts}"
+  - "{freighter/ts,lyra,pluto,x/ts}/{package.json,vite.config.ts}"
+  - arc/ts/syntaxes/**
+  - console/index.html
+  - lyra/static/**

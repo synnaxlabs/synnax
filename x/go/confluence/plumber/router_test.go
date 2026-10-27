@@ -42,7 +42,8 @@ var _ = Describe("Router", func() {
 				SinkTarget:   "sink",
 				Capacity:     1,
 			}
-			Expect(router.Route(p)).ToNot(Succeed())
+			Expect(router.Route(p)).
+				To(MatchError(ContainSubstring("at address source not found")))
 		})
 		It("Should return an error if sink is not found", func() {
 			source := &confluence.Emitter[int]{}
@@ -52,7 +53,8 @@ var _ = Describe("Router", func() {
 				SinkTarget:   "sink",
 				Capacity:     1,
 			}
-			Expect(router.Route(p)).ToNot(Succeed())
+			Expect(router.Route(p)).
+				To(MatchError(ContainSubstring("at address sink not found")))
 		})
 	})
 

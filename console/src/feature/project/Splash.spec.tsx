@@ -63,7 +63,7 @@ describe("project/Splash", () => {
     it("should log out of the Core", async () => {
       const { store } = await renderWithConsole(<Project.Splash />);
       act(() => {
-        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+        store.dispatch(Session.Core.select("LOCAL"));
       });
       fireEvent.click(screen.getByRole("button", { name: "Log out" }));
       expect(Session.Core.selectSelected(store.getState())).toBeUndefined();
@@ -72,7 +72,7 @@ describe("project/Splash", () => {
     it("should name the selected Core in the connection island", async () => {
       const { store } = await renderWithConsole(<Project.Splash />);
       act(() => {
-        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+        store.dispatch(Session.Core.select("LOCAL"));
       });
       const name = Session.Core.selectSelected(store.getState())?.name;
       if (name == null) throw new Error("no Core is selected");

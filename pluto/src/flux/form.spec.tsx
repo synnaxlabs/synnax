@@ -713,6 +713,16 @@ describe("useForm", () => {
       await expectAlways(() => expect(update).toHaveBeenCalledTimes(1), SETTLE);
     });
 
+    it("should not autosave an edit that an explicit save already sent", async () => {
+      const { result, update } = renderDebouncedForm();
+      act(() => result.current.form.set("name", "Jane"));
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(update).toHaveBeenCalledWith("Jane");
+      await expectAlways(() => expect(update).toHaveBeenCalledTimes(1), SETTLE);
+    });
+
     it("should flush a pending update when the form unmounts", async () => {
       const { result, update, unmount } = renderDebouncedForm();
       act(() => {
@@ -976,6 +986,237 @@ describe("useForm", () => {
       await waitFor(() => expect(update).toHaveBeenCalled());
       expect(saved).toEqual("Edited Name");
       expect(result.current.form.value().name).toEqual("Edited Name");
+    });
+
+    it("should apply a listener write to a field once its edit is saved", async () => {
+      let listenerSet!: (path: string, value: unknown) => void;
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "1", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async () => ({ key: "1", name: "Initial Name", age: 25 }),
+        update: async () => {},
+        mountListeners: ({ set }) => {
+          listenerSet = set;
+          return () => {};
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "1" } }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.form.set("name", "Edited Name"));
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      act(() => listenerSet("name", "Remote Name"));
+      expect(result.current.form.value().name).toEqual("Remote Name");
+    });
+  });
+
+  describe("edits made while a save runs", () => {
+    type Values = z.infer<typeof formSchema>;
+    const INITIAL: Values = { key: "1", name: "Initial Name", age: 25 };
+
+    // Holds the first save open. Each save writes back the values it sent, as a record
+    // whose update resets the form from the Core's response does.
+    const renderInFlightForm = async () => {
+      const saved: Values[] = [];
+      const entered = Promise.withResolvers<void>();
+      const held = Promise.withResolvers<void>();
+      let listenerReset!: (values: Values) => void;
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "1", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async () => INITIAL,
+        update: async ({ value, reset }) => {
+          const sent = value();
+          saved.push(sent);
+          if (saved.length === 1) {
+            entered.resolve();
+            await held.promise;
+          }
+          reset(sent);
+        },
+        mountListeners: ({ reset }) => {
+          listenerReset = reset;
+          return () => {};
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () =>
+          useForm({
+            query: { key: "1" },
+            autoSave: true,
+            autoSaveDebounce: DEBOUNCE,
+          }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.form.set("name", "First Edit"));
+      await act(async () => await entered.promise);
+      return {
+        result,
+        saved,
+        release: held.resolve,
+        listenerReset: (values: Values) => listenerReset(values),
+      };
+    };
+
+    it("should keep the edit when the running save writes back what it sent", async () => {
+      const { result, saved, release } = await renderInFlightForm();
+      act(() => result.current.form.set("age", 40));
+      await act(async () => release());
+      await waitFor(() => expect(saved).toHaveLength(2));
+      expect(saved[1]).toEqual({ key: "1", name: "First Edit", age: 40 });
+      expect(result.current.form.value()).toEqual(saved[1]);
+    });
+
+    it("should keep the edit when a listener writes what the running save sent", async () => {
+      const { result, saved, release, listenerReset } = await renderInFlightForm();
+      act(() => result.current.form.set("age", 40));
+      act(() => listenerReset({ key: "1", name: "First Edit", age: 25 }));
+      expect(result.current.form.value().age).toEqual(40);
+      await act(async () => release());
+      await waitFor(() => expect(saved).toHaveLength(2));
+      expect(saved[1].age).toEqual(40);
+    });
+
+    it("should keep the sent edit when a listener writes the pre-edit value", async () => {
+      const { result, release, listenerReset } = await renderInFlightForm();
+      act(() => listenerReset(INITIAL));
+      expect(result.current.form.value().name).toEqual("First Edit");
+      await act(async () => release());
+    });
+
+    it("should apply a listener write once every edit is saved", async () => {
+      const { result, release, listenerReset } = await renderInFlightForm();
+      await act(async () => release());
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const remote = { key: "1", name: "Remote Name", age: 30 };
+      act(() => listenerReset(remote));
+      expect(result.current.form.value()).toEqual(remote);
+    });
+
+    it.each([null, undefined])(
+      "should keep a field cleared to %s while a save runs",
+      async (cleared) => {
+        const noteSchema = z.object({
+          key: z.string(),
+          name: z.string(),
+          note: z.string().nullish(),
+        });
+        type Note = z.infer<typeof noteSchema>;
+        const saved: Note[] = [];
+        const entered = Promise.withResolvers<void>();
+        const held = Promise.withResolvers<void>();
+        const useForm = Flux.createForm<Params, typeof noteSchema>({
+          initialValues: { key: "1", name: "", note: "" },
+          schema: noteSchema,
+          name: "test",
+          retrieve: async () => ({ key: "1", name: "Initial Name", note: "Old Note" }),
+          update: async ({ value, reset }) => {
+            const sent = value();
+            saved.push(sent);
+            if (saved.length === 1) {
+              entered.resolve();
+              await held.promise;
+            }
+            reset(sent);
+          },
+        });
+        const { result } = await renderHookSuspended(
+          () =>
+            useForm({
+              query: { key: "1" },
+              autoSave: true,
+              autoSaveDebounce: DEBOUNCE,
+            }),
+          { wrapper: Wrapper },
+        );
+        act(() => result.current.form.set("name", "First Edit"));
+        await act(async () => await entered.promise);
+        act(() => result.current.form.set("note", cleared));
+        await act(async () => held.resolve());
+        await waitFor(() => expect(saved).toHaveLength(2));
+        expect(saved[1].note).toBe(cleared);
+        expect(result.current.form.value().note).toBe(cleared);
+      },
+    );
+
+    it("should keep the edit when the running save fails", async () => {
+      const failed = Promise.withResolvers<void>();
+      let listenerReset!: (values: Values) => void;
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "1", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async () => INITIAL,
+        update: async () => {
+          await failed.promise;
+          throw new Error("save failed");
+        },
+        mountListeners: ({ reset }) => {
+          listenerReset = reset;
+          return () => {};
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => useForm({ query: { key: "1" } }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.form.set("name", "Edited Name"));
+      let saving!: Promise<boolean>;
+      act(() => {
+        saving = result.current.saveAsync();
+      });
+      failed.resolve();
+      await act(async () => expect(await saving).toBe(false));
+      act(() => listenerReset(INITIAL));
+      expect(result.current.form.value().name).toEqual("Edited Name");
+    });
+
+    it("should not keep the edit of a save that failed after the form re-pointed", async () => {
+      const failed = Promise.withResolvers<void>();
+      const entered = Promise.withResolvers<void>();
+      let listenerReset!: (values: Values) => void;
+      const useForm = Flux.createForm<Params, typeof formSchema>({
+        initialValues: { key: "", name: "", age: 0 },
+        schema: formSchema,
+        name: "test",
+        retrieve: async ({ query: { key } }) => ({
+          key: key as string,
+          name: `Record ${key}`,
+          age: 25,
+        }),
+        update: async () => {
+          entered.resolve();
+          await failed.promise;
+          throw new Error("save failed");
+        },
+        mountListeners: ({ reset }) => {
+          listenerReset = reset;
+          return () => {};
+        },
+      });
+      const { result, rerender } = await renderHookSuspended(
+        ({ key }: { key: string }) => useForm({ query: { key } }),
+        { wrapper: Wrapper, initialProps: { key: "1" } },
+      );
+      act(() => result.current.form.set("name", "Edited Name"));
+      let saving!: Promise<boolean>;
+      act(() => {
+        saving = result.current.saveAsync();
+      });
+      await act(async () => await entered.promise);
+      await act(async () => {
+        rerender({ key: "2" });
+      });
+      failed.resolve();
+      await act(async () => expect(await saving).toBe(false));
+      const remote = { key: "2", name: "Remote Name", age: 30 };
+      act(() => listenerReset(remote));
+      expect(result.current.form.value()).toEqual(remote);
     });
   });
 });
