@@ -39,8 +39,7 @@ class NIInvalidConfig(TestCase):
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
-            self.auto_pass(msg="Windows DAQmx drivers required")
-            return
+            self.skip("Windows DAQmx drivers required")
         self.devices = {
             loc: self.client.devices.retrieve(location=loc) for loc in ["E101Mod4"]
         }
@@ -203,7 +202,7 @@ class NIMissingLibraries(TestCase):
 
     def setup(self) -> None:
         if platform.system().lower() == "windows":
-            self.auto_pass(msg="NI-DAQmx is available on Windows")
+            self.skip("NI-DAQmx is available on Windows")
 
     def run(self) -> None:
         self.log("Testing: NI task on machine without DAQmx libraries")
