@@ -33,9 +33,11 @@ const (
 // treeFields are the fields every expanded filter starts with.
 var treeFields = []string{"and", "or", "not"}
 
-// builderNames are the names that the generated builders give their own functions, so a
-// line cannot take them. A line also cannot start with includePrefix.
-var builderNames = []string{"where", "limit", "offset", "search", "one"}
+// builderNames are the names that the generated builders declare, so a line cannot take
+// them. A line also cannot start with includePrefix.
+var builderNames = []string{
+	"where", "limit", "offset", "search", "one", "filter", "builder",
+}
 
 const includePrefix = "include_"
 
