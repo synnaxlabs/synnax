@@ -10,7 +10,7 @@
 import { type CrudeTimeSpan, TimeSpan } from "@/telem/telem";
 
 /** A request queued in a {@link Batcher} window. */
-export interface Entry<Req, Res = void> extends Pick<
+export interface BatcherEntry<Req, Res = void> extends Pick<
   PromiseWithResolvers<Res>,
   "resolve" | "reject"
 > {
@@ -23,15 +23,15 @@ export interface BatcherProps<Req, Res = void> {
   interval: CrudeTimeSpan;
   /** Executes an accumulated batch, settling each entry. An error thrown or
    * rejected from it rejects the batch's unsettled entries. */
-  exec: (entries: Array<Entry<Req, Res>>) => void | Promise<void>;
+  exec: (entries: Array<BatcherEntry<Req, Res>>) => void | Promise<void>;
 }
 
 /** Coalesces requests arriving within a fixed window into one executor call. */
 export class Batcher<Req, Res = void> {
   private readonly interval: TimeSpan;
   private readonly exec: BatcherProps<Req, Res>["exec"];
-  private pending: Array<Entry<Req, Res>> | null = null;
-  private readonly running = new Set<Array<Entry<Req, Res>>>();
+  private pending: Array<BatcherEntry<Req, Res>> | null = null;
+  private readonly running = new Set<Array<BatcherEntry<Req, Res>>>();
   private timer: ReturnType<typeof setTimeout> | null = null;
 
   constructor({ interval, exec }: BatcherProps<Req, Res>) {

@@ -25,12 +25,11 @@ export const debounce = <Args extends unknown[]>(
   waitFor: CrudeTimeSpan,
 ): DebouncedFn<Args> => {
   const debouncePeriod = new TimeSpan(waitFor);
-  if (debouncePeriod.valueOf() <= 0) {
-    const passthrough = ((...args: Args) => func(...args)) as DebouncedFn<Args>;
-    passthrough.cancel = noop;
-    passthrough.flush = noop;
-    return passthrough;
-  }
+  if (debouncePeriod.valueOf() <= 0)
+    return Object.assign((...args: Args) => func(...args), {
+      cancel: noop,
+      flush: noop,
+    });
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let latestArgs: Args | null = null;
   const invoke = (): void => {
@@ -39,24 +38,24 @@ export const debounce = <Args extends unknown[]>(
     latestArgs = null;
     func(...args);
   };
-  const debounced = ((...args: Args): void => {
+  const debounced = (...args: Args): void => {
     latestArgs = args;
     clearTimeout(timeout);
     timeout = setTimeout(() => {
       timeout = undefined;
       invoke();
     }, debouncePeriod.milliseconds);
-  }) as DebouncedFn<Args>;
-  debounced.cancel = (): void => {
+  };
+  const cancel = (): void => {
     clearTimeout(timeout);
     timeout = undefined;
     latestArgs = null;
   };
-  debounced.flush = (): void => {
+  const flush = (): void => {
     if (timeout === undefined) return;
     clearTimeout(timeout);
     timeout = undefined;
     invoke();
   };
-  return debounced;
+  return Object.assign(debounced, { cancel, flush });
 };
