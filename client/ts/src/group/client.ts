@@ -11,7 +11,18 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type Group, groupZ, type Key, keyZ, ontologyID } from "@/group/types.gen";
+import {
+  type Group,
+  groupZ,
+  type Key,
+  keyZ,
+  ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  type Where,
+} from "@/group/types.gen";
+import { matches, serverComputed } from "@/group/where.gen";
 import { ontology } from "@/ontology";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
 import { query } from "@/query";
@@ -33,18 +44,17 @@ const deleteReqZ = z.object({ keys: z.array(keyZ) });
 
 export interface CreateParams extends z.infer<typeof createReqZ> {}
 
-const retrieveChildrenParamsZ = z.object({
-  parent: ontologyIDZ,
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
+// The Core knows nothing of parents, so the client resolves parent through the ontology
+// graph.
+const retrieveMultipleParamsZ = retrieveRequestZ.extend({
+  parent: ontologyIDZ.optional(),
 });
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveChildrenParams = z.input<typeof retrieveChildrenParamsZ>;
-export type RetrieveParams = RetrieveSingleParams | RetrieveChildrenParams;
+export type RetrieveMultipleParams = z.input<typeof retrieveMultipleParamsZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
-interface ChildrenRequest extends z.infer<typeof retrieveChildrenParamsZ> {}
+interface MultipleRequest extends z.infer<typeof retrieveMultipleParamsZ> {}
 
 const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -60,7 +70,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  typeof retrieveChildrenParamsZ,
+  typeof retrieveMultipleParamsZ,
   Key,
   Group
 > {
@@ -83,13 +93,17 @@ export class Client extends query.Retriever<
       name: "group",
       table: store,
       request: {
-        schema: retrieveChildrenParamsZ,
-        fetch: async (req) => await this.fetchChildren(req),
-        matches: (g, req) => this.isCachedChild(req.parent, g.key),
+        schema: retrieveMultipleParamsZ,
+        fetch: async (req) => await this.fetchRequest(req),
+        matches: (g, req) =>
+          matches(g, req.where) &&
+          (req.parent == null || this.isCachedChild(req.parent, g.key)),
+        serverComputed: (req) => serverComputed(req.where),
         watch: [
           query.watch(
             ontologyClient.cache.relationships,
-            (event, req: ChildrenRequest) => {
+            (event, req: MultipleRequest) => {
+              if (req.parent == null) return null;
               const rel =
                 event.variant === "set"
                   ? event.value
@@ -181,8 +195,30 @@ export class Client extends query.Retriever<
     return res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));
   }
 
-  private async fetchChildren(req: ChildrenRequest): Promise<Group[]> {
-    const { parent, ...options } = req;
+  private async execRetrieve(req: RetrieveRequest): Promise<Group[]> {
+    const res = await this.cfg.unary.send(
+      "/ontology/retrieve-group",
+      req,
+      retrieveRequestZ,
+      retrieveResponseZ,
+    );
+    return res.groups;
+  }
+
+  private async fetchRequest({ parent, ...req }: MultipleRequest): Promise<Group[]> {
+    if (parent == null) return await this.execRetrieve(req);
+    const { where, ...options } = req;
+    if (where == null) return await this.fetchChildren(parent, options);
+    const keys = (await this.fetchChildren(parent, {})).map((g) => g.key);
+    if (keys.length === 0) return [];
+    const children: Where = { key: { in: keys } };
+    return await this.execRetrieve({ ...options, where: { and: [where, children] } });
+  }
+
+  private async fetchChildren(
+    parent: ontology.ID,
+    options: Omit<RetrieveRequest, "where">,
+  ): Promise<Group[]> {
     const res = await this.requireOntology().children.retrieve({
       ids: parent,
       ...options,
