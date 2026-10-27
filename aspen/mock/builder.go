@@ -35,7 +35,7 @@ type NodeInfo struct {
 	Dir  string
 }
 
-func (b *Builder) Dir() string {
+func (b *Builder) dir() string {
 	if b.tmpDir == "" {
 		var err error
 		b.tmpDir, err = os.MkdirTemp(b.DataDir, "aspen")
@@ -49,7 +49,7 @@ func (b *Builder) Dir() string {
 // New opens a node on a port the operating system chooses, peered with every node the
 // Builder opened before it. The first node bootstraps the cluster.
 func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, error) {
-	dir := filepath.Join(b.Dir(), strconv.Itoa(len(b.peerAddresses)))
+	dir := filepath.Join(b.dir(), strconv.Itoa(len(b.peerAddresses)))
 	if len(b.Nodes) == 0 {
 		opts = append(opts, aspen.Bootstrap())
 	}
@@ -75,7 +75,7 @@ func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, err
 
 func (b *Builder) Cleanup() error {
 	if !b.memBacked {
-		return os.RemoveAll(b.Dir())
+		return os.RemoveAll(b.dir())
 	}
 	return nil
 }

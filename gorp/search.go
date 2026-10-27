@@ -97,8 +97,8 @@ func (s *SearchIndex[K, E]) Search(
 }
 
 // Filter returns a Filter matching the entries that Search returns for term. A
-// Retrieve whose only key constraint is the Filter returns the entries closest match
-// first, so Limit and Offset page through them by relevance.
+// Retrieve returns the entries closest match first, also when other filters narrow
+// them, so Limit and Offset page through them by relevance.
 func (s *SearchIndex[K, E]) Filter(term string) Filter[K, E] {
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
@@ -106,7 +106,7 @@ func (s *SearchIndex[K, E]) Filter(term string) Filter[K, E] {
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
-			return resolved[K, E]{keys: keyset.Hashed(res.Keys)}, nil
+			return resolved[K, E]{keys: keyset.Ranked(res.Keys)}, nil
 		},
 	}
 }
