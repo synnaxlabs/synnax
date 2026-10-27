@@ -21,22 +21,22 @@ from synnax.ontology.payload import ID, CrudeID
 from x import filter
 
 
-class CreateReq(BaseModel):
+class _CreateReq(BaseModel):
     parent: ID
     key: UUID | None = None
     name: str
 
 
-class CreateRes(BaseModel):
+class _CreateRes(BaseModel):
     group: Group
 
 
-class RenameReq(BaseModel):
+class _RenameReq(BaseModel):
     key: UUID
     name: str
 
 
-class DeleteReq(BaseModel):
+class _DeleteReq(BaseModel):
     keys: list[UUID]
 
 
@@ -49,8 +49,8 @@ class Client:
     def create(self, parent: CrudeID, name: str, key: str | None = None) -> Group:
         return self._client.send(
             "/ontology/create-group",
-            CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
-            CreateRes,
+            _CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
+            _CreateRes,
         ).group
 
     @overload
@@ -128,8 +128,8 @@ class Client:
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send(
-            "/ontology/rename-group", RenameReq(key=key, name=name), Empty
+            "/ontology/rename-group", _RenameReq(key=key, name=name), Empty
         )
 
     def delete(self, keys: list[UUID]) -> Empty:
-        return self._client.send("/ontology/delete-group", DeleteReq(keys=keys), Empty)
+        return self._client.send("/ontology/delete-group", _DeleteReq(keys=keys), Empty)

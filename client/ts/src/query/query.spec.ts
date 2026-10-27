@@ -1689,6 +1689,60 @@ describe("Answers", () => {
         .toEqual([rec("b", 10)]);
     });
 
+    it.each([
+      {
+        failure: "deletion",
+        error: new NotFoundError("gone"),
+        reports: 0,
+        records: [rec("b", 10)],
+      },
+      {
+        failure: "access denial",
+        error: new AccessDeniedError("gone"),
+        reports: 1,
+        records: [rec("b", 10)],
+      },
+      {
+        failure: "transport error",
+        error: new Error("unreachable"),
+        reports: 2,
+        records: [],
+      },
+    ])("handles $failure during backfill", async ({ error, reports, records }) => {
+      const primary = new query.Table<string, Rec>({
+        onError: () => {},
+        fetch: async (keys) => {
+          if (keys.includes("gone")) throw error;
+          return keys.map((k) => rec(k, 10));
+        },
+      });
+      const foreign = new query.Table<string, Rel>({ onError: () => {} });
+      const onError = vi.fn();
+      const answers = new Space<{ tag: string }, Rec[], string, Rec>(
+        {
+          name: "things",
+          table: primary,
+          fetch: async () => [],
+          compose: (records) => records,
+          matches: (r) => foreign.has(r.key),
+          watch: [query.watch(foreign, (event) => [event.key, "gone"])],
+        },
+        { onError },
+      );
+      answers.onChange({ tag: "t" }, vi.fn());
+      await answers.retrieve({ tag: "t" });
+      foreign.set("b", { key: "b" });
+      await expect
+        .poll(() => {
+          const cached = answers.getCached({ tag: "t" });
+          return cached != null && !Deleted.matches(cached) ? cached : [];
+        })
+        .toEqual(records);
+      await expect.poll(() => onError.mock.calls.length).toBe(reports);
+      if (reports > 0)
+        expect(onError).toHaveBeenCalledWith(expect.objectContaining({ cause: error }));
+    });
+
     it("schedules a wholesale refetch when a watch projects refetch", async () => {
       const table = newTable();
       const foreign = new query.Table<string, Rel>({ onError: () => {} });

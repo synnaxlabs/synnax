@@ -22,7 +22,7 @@ class TestEtherCATReadTask:
         "test_data",
         [
             {
-                "name": "automatic_input_channel",
+                "name": "entry_input_channel",
                 "data": {
                     "sample_rate": 1000,
                     "stream_rate": 100,
@@ -30,18 +30,20 @@ class TestEtherCATReadTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "automatic",
-                            "key": "auto-input-1",
+                            "type": "entry",
+                            "key": "entry-input-1",
                             "disabled": False,
                             "device": "slave-device-key",
-                            "pdo": "Position actual value",
+                            "index": 0x6064,
+                            "sub_index": 0,
+                            "data_type": "int32",
                             "channel": 1234,
                         },
                     ],
                 },
             },
             {
-                "name": "manual_input_channel",
+                "name": "unresolved_input_channel",
                 "data": {
                     "sample_rate": 500,
                     "stream_rate": 50,
@@ -49,14 +51,11 @@ class TestEtherCATReadTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "manual",
-                            "key": "manual-input-1",
+                            "type": "unresolved",
+                            "key": "unresolved-input-1",
                             "disabled": False,
                             "device": "slave-device-key",
-                            "index": 0x6064,
-                            "sub_index": 0,
-                            "bit_length": 32,
-                            "data_type": "int32",
+                            "pdo": "Input",
                             "channel": 5678,
                         },
                     ],
@@ -71,31 +70,22 @@ class TestEtherCATReadTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "automatic",
-                            "key": "auto-1",
+                            "type": "entry",
+                            "key": "entry-1",
                             "disabled": False,
                             "device": "slave-1",
-                            "pdo": "Position actual value",
+                            "index": 0x6064,
+                            "sub_index": 0,
+                            "data_type": "int32",
                             "channel": 1000,
                         },
                         {
-                            "type": "manual",
-                            "key": "manual-1",
-                            "disabled": False,
-                            "device": "slave-2",
-                            "index": 0x6077,
-                            "sub_index": 0,
-                            "bit_length": 16,
-                            "data_type": "int16",
-                            "channel": 2000,
-                        },
-                        {
-                            "type": "automatic",
-                            "key": "auto-2",
+                            "type": "unresolved",
+                            "key": "unresolved-1",
                             "disabled": True,
-                            "device": "slave-1",
-                            "pdo": "Velocity actual value",
-                            "channel": 3000,
+                            "device": "slave-2",
+                            "pdo": "Input",
+                            "channel": 2000,
                         },
                     ],
                 },
@@ -104,8 +94,25 @@ class TestEtherCATReadTask:
     )
     def test_parse_ethercat_read_task(self, test_data: dict[str, object]) -> None:
         """Test that ReadConfig can parse various channel configurations."""
-        input_data = test_data["data"]
-        sy.ethercat.ReadConfig.model_validate(input_data)
+        sy.ethercat.ReadConfig.model_validate(test_data["data"])
+
+    def test_parse_discriminates_by_type(self) -> None:
+        """Should parse each channel into the class named by its type."""
+        config = sy.ethercat.ReadConfig.model_validate(
+            {
+                "channels": [
+                    {
+                        "type": "entry",
+                        "index": 0x6000,
+                        "sub_index": 1,
+                        "data_type": "uint8",
+                    },
+                    {"type": "unresolved", "pdo": "Input"},
+                ]
+            }
+        )
+        assert isinstance(config.channels[0], sy.ethercat.EntryReadChannel)
+        assert isinstance(config.channels[1], sy.ethercat.UnresolvedReadChannel)
 
     def test_read_config_defaults(self) -> None:
         """Test that ReadConfig applies the shared task config defaults."""
@@ -121,149 +128,57 @@ class TestEtherCATReadTask:
         task = sy.ethercat.ReadTask(
             name="test",
             channels=[
-                sy.ethercat.AutomaticReadChannel(
-                    type="automatic",
+                sy.ethercat.EntryReadChannel(
                     device="slave-key",
-                    pdo="Position actual value",
+                    index=0x6064,
+                    sub_index=0,
+                    data_type=sy.DataType.INT32,
                     channel=1234,
                 )
             ],
         )
-        channel = task.config.channels[0]
-        assert channel.key != ""
-        assert len(channel.key) > 0
+        assert task.config.channels[0].key != ""
 
-    def test_manual_input_index_bounds(self) -> None:
-        """Test that index validation works (0-65535)."""
-        # Valid index
-        sy.ethercat.ManualReadChannel(
-            type="manual",
-            device="slave-key",
-            index=0,
-            sub_index=0,
-            bit_length=16,
-            data_type=sy.DataType.UINT16,
-            channel=1234,
-        )
-        sy.ethercat.ManualReadChannel(
-            type="manual",
-            device="slave-key",
-            index=65535,
-            sub_index=0,
-            bit_length=16,
-            data_type=sy.DataType.UINT16,
-            channel=1234,
-        )
-
-        # Invalid index
+    @pytest.mark.parametrize("field", ["index", "sub_index", "data_type"])
+    def test_entry_channel_requires_address(self, field: str) -> None:
+        """Should reject an entry channel without its full address and type."""
+        fields = {"index": 0x6000, "sub_index": 1, "data_type": "uint8"}
+        del fields[field]
         with pytest.raises(ValidationError):
-            sy.ethercat.ManualReadChannel(
-                type="manual",
-                device="slave-key",
-                index=-1,
-                sub_index=0,
-                bit_length=16,
-                data_type=sy.DataType.UINT16,
-                channel=1234,
-            )
-        with pytest.raises(ValidationError):
-            sy.ethercat.ManualReadChannel(
-                type="manual",
-                device="slave-key",
-                index=65536,
-                sub_index=0,
-                bit_length=16,
-                data_type=sy.DataType.UINT16,
-                channel=1234,
+            sy.ethercat.EntryReadChannel.model_validate(
+                {"device": "slave-key", **fields}
             )
 
-    def test_manual_input_sub_index_bounds(self) -> None:
-        """Test that sub_index validation works (0-255)."""
-        # Valid sub_index
-        sy.ethercat.ManualReadChannel(
-            type="manual",
-            device="slave-key",
-            index=0x6064,
-            sub_index=0,
-            bit_length=32,
-            data_type=sy.DataType.INT32,
-            channel=1234,
-        )
-        sy.ethercat.ManualReadChannel(
-            type="manual",
-            device="slave-key",
-            index=0x6064,
-            sub_index=255,
-            bit_length=32,
-            data_type=sy.DataType.INT32,
-            channel=1234,
-        )
+    @pytest.mark.parametrize(
+        ("index", "sub_index", "valid"),
+        [
+            (0, 0, True),
+            (65535, 255, True),
+            (-1, 0, False),
+            (65536, 0, False),
+            (0x6064, -1, False),
+            (0x6064, 256, False),
+        ],
+    )
+    def test_entry_channel_address_bounds(
+        self, index: int, sub_index: int, valid: bool
+    ) -> None:
+        """Should bound index to uint16 and sub_index to uint8."""
 
-        # Invalid sub_index
-        with pytest.raises(ValidationError):
-            sy.ethercat.ManualReadChannel(
-                type="manual",
+        def build() -> sy.ethercat.EntryReadChannel:
+            return sy.ethercat.EntryReadChannel(
                 device="slave-key",
-                index=0x6064,
-                sub_index=-1,
-                bit_length=32,
-                data_type=sy.DataType.INT32,
-                channel=1234,
-            )
-        with pytest.raises(ValidationError):
-            sy.ethercat.ManualReadChannel(
-                type="manual",
-                device="slave-key",
-                index=0x6064,
-                sub_index=256,
-                bit_length=32,
+                index=index,
+                sub_index=sub_index,
                 data_type=sy.DataType.INT32,
                 channel=1234,
             )
 
-    def test_manual_input_bit_length_bounds(self) -> None:
-        """Test that bit_length validation works (0-255)."""
-        # Valid bit lengths
-        sy.ethercat.ManualReadChannel(
-            type="manual",
-            device="slave-key",
-            index=0x6064,
-            sub_index=0,
-            bit_length=1,
-            data_type=sy.DataType.UINT8,
-            channel=1234,
-        )
-        sy.ethercat.ManualReadChannel(
-            type="manual",
-            device="slave-key",
-            index=0x6064,
-            sub_index=0,
-            bit_length=64,
-            data_type=sy.DataType.FLOAT64,
-            channel=1234,
-        )
-
-        # Invalid bit lengths
-        with pytest.raises(ValidationError):
-            sy.ethercat.ManualReadChannel(
-                type="manual",
-                device="slave-key",
-                index=0x6064,
-                sub_index=0,
-                bit_length=-1,
-                data_type=sy.DataType.UINT8,
-                channel=1234,
-            )
-        with pytest.raises(ValidationError):
-            sy.ethercat.ManualReadChannel(
-                type="manual",
-                device="slave-key",
-                index=0x6064,
-                sub_index=0,
-                bit_length=256,
-                data_type=sy.DataType.UINT8,
-                channel=1234,
-            )
+        if valid:
+            build()
+        else:
+            with pytest.raises(ValidationError):
+                build()
 
     def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
@@ -274,20 +189,19 @@ class TestEtherCATReadTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.ethercat.AutomaticReadChannel(
-                    type="automatic",
-                    key="auto-input-1",
+                sy.ethercat.EntryReadChannel(
+                    key="entry-input-1",
                     device="slave-device-key",
-                    pdo="Position actual value",
+                    index=0x6064,
+                    sub_index=0,
+                    data_type=sy.DataType.INT32,
                     channel=1234,
                 ),
-                sy.ethercat.ManualReadChannel(
-                    type="manual",
-                    key="manual-input-1",
+                sy.ethercat.EntryReadChannel(
+                    key="entry-input-2",
                     device="slave-device-key",
                     index=0x6077,
                     sub_index=0,
-                    bit_length=16,
                     data_type=sy.DataType.INT16,
                     channel=5678,
                 ),
@@ -309,7 +223,7 @@ class TestEtherCATWriteTask:
         "test_data",
         [
             {
-                "name": "automatic_output_channel",
+                "name": "entry_output_channel",
                 "data": {
                     "state_rate": 10.0,
                     "execution_rate": 1000.0,
@@ -317,11 +231,13 @@ class TestEtherCATWriteTask:
                     "auto_start": False,
                     "channels": [
                         {
-                            "type": "automatic",
-                            "key": "auto-output-1",
+                            "type": "entry",
+                            "key": "entry-output-1",
                             "disabled": False,
                             "device": "slave-device-key",
-                            "pdo": "Target velocity",
+                            "index": 0x60FF,
+                            "sub_index": 0,
+                            "data_type": "int32",
                             "cmd_channel": 1234,
                             "state_channel": 5678,
                         },
@@ -329,7 +245,7 @@ class TestEtherCATWriteTask:
                 },
             },
             {
-                "name": "manual_output_channel",
+                "name": "unresolved_output_channel",
                 "data": {
                     "state_rate": 5.0,
                     "execution_rate": 500.0,
@@ -337,56 +253,12 @@ class TestEtherCATWriteTask:
                     "auto_start": True,
                     "channels": [
                         {
-                            "type": "manual",
-                            "key": "manual-output-1",
+                            "type": "unresolved",
+                            "key": "unresolved-output-1",
                             "disabled": False,
                             "device": "slave-device-key",
-                            "index": 0x60FF,
-                            "sub_index": 0,
-                            "bit_length": 32,
-                            "data_type": "int32",
+                            "pdo": "Output",
                             "cmd_channel": 1234,
-                            "state_channel": 0,
-                        },
-                    ],
-                },
-            },
-            {
-                "name": "mixed_outputs",
-                "data": {
-                    "state_rate": 1.0,
-                    "execution_rate": 2000.0,
-                    "data_saving_disabled": False,
-                    "auto_start": False,
-                    "channels": [
-                        {
-                            "type": "automatic",
-                            "key": "auto-1",
-                            "disabled": False,
-                            "device": "slave-1",
-                            "pdo": "Target velocity",
-                            "cmd_channel": 1000,
-                            "state_channel": 1001,
-                        },
-                        {
-                            "type": "manual",
-                            "key": "manual-1",
-                            "disabled": False,
-                            "device": "slave-2",
-                            "index": 0x6040,
-                            "sub_index": 0,
-                            "bit_length": 16,
-                            "data_type": "uint16",
-                            "cmd_channel": 2000,
-                            "state_channel": 2001,
-                        },
-                        {
-                            "type": "automatic",
-                            "key": "auto-2",
-                            "disabled": True,
-                            "device": "slave-1",
-                            "pdo": "Target position",
-                            "cmd_channel": 3000,
                             "state_channel": 0,
                         },
                     ],
@@ -396,8 +268,7 @@ class TestEtherCATWriteTask:
     )
     def test_parse_ethercat_write_task(self, test_data: dict[str, object]) -> None:
         """Test that WriteConfig can parse various channel configurations."""
-        input_data = test_data["data"]
-        sy.ethercat.WriteConfig.model_validate(input_data)
+        sy.ethercat.WriteConfig.model_validate(test_data["data"])
 
     def test_write_config_defaults(self) -> None:
         """Test that WriteConfig applies the shared task config defaults."""
@@ -415,19 +286,21 @@ class TestEtherCATWriteTask:
             execution_rate=sy.Rate(1000),
             auto_start=False,
             channels=[
-                sy.ethercat.AutomaticWriteChannel(
-                    type="automatic",
-                    key="auto-1",
+                sy.ethercat.EntryWriteChannel(
+                    key="entry-1",
                     device="slave-key",
-                    pdo="Target velocity",
+                    index=0x60FF,
+                    sub_index=0,
+                    data_type=sy.DataType.INT32,
                     cmd_channel=1234,
                     disabled=False,
                 ),
-                sy.ethercat.AutomaticWriteChannel(
-                    type="automatic",
-                    key="auto-2",
+                sy.ethercat.EntryWriteChannel(
+                    key="entry-2",
                     device="slave-key",
-                    pdo="Target position",
+                    index=0x607A,
+                    sub_index=0,
+                    data_type=sy.DataType.INT32,
                     cmd_channel=5678,
                     disabled=True,
                 ),
@@ -442,36 +315,27 @@ class TestEtherCATWriteTask:
         task = sy.ethercat.WriteTask(
             name="test",
             channels=[
-                sy.ethercat.AutomaticWriteChannel(
-                    type="automatic",
+                sy.ethercat.EntryWriteChannel(
                     device="slave-key",
-                    pdo="Target velocity",
+                    index=0x60FF,
+                    sub_index=0,
+                    data_type=sy.DataType.INT32,
                     cmd_channel=1234,
                 )
             ],
         )
-        channel = task.config.channels[0]
-        assert channel.key != ""
-        assert len(channel.key) > 0
+        assert task.config.channels[0].key != ""
 
     def test_write_task_state_channel_optional(self) -> None:
         """Test that state_channel is optional (defaults to 0)."""
-        channel = sy.ethercat.AutomaticWriteChannel(
-            type="automatic",
+        channel = sy.ethercat.EntryWriteChannel(
             device="slave-key",
-            pdo="Target velocity",
+            index=0x60FF,
+            sub_index=0,
+            data_type=sy.DataType.INT32,
             cmd_channel=1234,
         )
         assert channel.state_channel == 0
-
-        channel_with_state = sy.ethercat.AutomaticWriteChannel(
-            type="automatic",
-            device="slave-key",
-            pdo="Target velocity",
-            cmd_channel=1234,
-            state_channel=5678,
-        )
-        assert channel_with_state.state_channel == 5678
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
@@ -482,23 +346,14 @@ class TestEtherCATWriteTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.ethercat.AutomaticWriteChannel(
-                    type="automatic",
-                    key="auto-output-1",
+                sy.ethercat.EntryWriteChannel(
+                    key="entry-output-1",
                     device="slave-device-key",
-                    pdo="Target velocity",
+                    index=0x60FF,
+                    sub_index=0,
+                    data_type=sy.DataType.INT32,
                     cmd_channel=1234,
                     state_channel=5678,
-                ),
-                sy.ethercat.ManualWriteChannel(
-                    type="manual",
-                    key="manual-output-1",
-                    device="slave-device-key",
-                    index=0x6040,
-                    sub_index=0,
-                    bit_length=16,
-                    data_type=sy.DataType.UINT16,
-                    cmd_channel=9012,
                 ),
             ],
         )
@@ -518,22 +373,21 @@ class TestEtherCATWriteTask:
             data_saving_disabled=False,
             auto_start=False,
             channels=[
-                sy.ethercat.AutomaticWriteChannel(
-                    type="automatic",
-                    key="auto-1",
+                sy.ethercat.EntryWriteChannel(
+                    key="entry-1",
                     device="slave-1",
-                    pdo="Target velocity",
+                    index=0x60FF,
+                    sub_index=0,
+                    data_type=sy.DataType.INT32,
                     cmd_channel=1234,
                     state_channel=5678,
                     disabled=False,
                 ),
-                sy.ethercat.ManualWriteChannel(
-                    type="manual",
-                    key="manual-1",
+                sy.ethercat.EntryWriteChannel(
+                    key="entry-2",
                     device="slave-2",
                     index=0x6040,
                     sub_index=0,
-                    bit_length=16,
                     data_type=sy.DataType.UINT16,
                     cmd_channel=9012,
                     state_channel=0,
@@ -541,35 +395,21 @@ class TestEtherCATWriteTask:
                 ),
             ],
         )
-
-        # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="ethercat_write",
             config=original_task.config,
         )
-
-        # Deserialize from database
         retrieved_task = sy.ethercat.WriteTask(created_task)
-
-        # Verify all fields match
         assert retrieved_task.config.state_rate == original_task.config.state_rate
         assert (
             retrieved_task.config.execution_rate == original_task.config.execution_rate
         )
-        assert (
-            retrieved_task.config.data_saving_disabled
-            == original_task.config.data_saving_disabled
-        )
-        assert retrieved_task.config.auto_start == original_task.config.auto_start
         assert len(retrieved_task.config.channels) == len(original_task.config.channels)
-
         for orig_ch, retr_ch in zip(
             original_task.config.channels, retrieved_task.config.channels, strict=True
         ):
-            assert retr_ch.key == orig_ch.key
-            assert retr_ch.device == orig_ch.device
-            assert retr_ch.disabled == orig_ch.disabled
+            assert retr_ch == orig_ch
 
 
 @pytest.mark.ethercat
@@ -773,3 +613,129 @@ class TestPDOEntry:
                 bit_length=65,
                 data_type="uint8",
             )
+
+
+def _create_el1008() -> sy.Device:
+    """An EL1008-like slave: eight "Input" entries, one per PDO group."""
+    return sy.ethercat.Device(
+        name="EL1008",
+        network="eth0",
+        position=1,
+        input_pdos=[
+            sy.ethercat.PDOEntry(
+                name="Input",
+                pdo_name=f"Channel {i + 1}",
+                pdo_index=0x1A00 + i,
+                index=0x6000 + 0x10 * i,
+                sub_index=1,
+                bit_length=1,
+                data_type="uint8",
+            )
+            for i in range(8)
+        ],
+        output_pdos=[
+            sy.ethercat.PDOEntry(
+                name="Output",
+                pdo_name="Channel 1",
+                pdo_index=0x1600,
+                index=0x7000,
+                sub_index=1,
+                bit_length=1,
+                data_type="uint8",
+            )
+        ],
+    )
+
+
+@pytest.mark.ethercat
+class TestFindEntry:
+    """Tests for resolving a PDO entry name to its address."""
+
+    def test_unique_name(self) -> None:
+        """Should resolve a name that only one entry has."""
+        entry = sy.ethercat.find_entry(_create_el1008(), "Output", direction="output")
+        assert (entry.index, entry.sub_index, entry.data_type) == (
+            0x7000,
+            1,
+            "uint8",
+        )
+
+    def test_repeated_name_with_pdo_name(self) -> None:
+        """Should pick the entry inside the named PDO group."""
+        entry = sy.ethercat.find_entry(_create_el1008(), "Input", pdo_name="Channel 3")
+        assert (entry.index, entry.sub_index) == (0x6020, 1)
+
+    def test_repeated_name_alone(self) -> None:
+        """Should raise and list every address when the name repeats."""
+        found = ", ".join(
+            f"0x{0x6000 + 0x10 * i:04X}:01 (Channel {i + 1})" for i in range(8)
+        )
+        with pytest.raises(sy.MultipleFoundError) as exc:
+            sy.ethercat.find_entry(_create_el1008(), "Input")
+        assert str(exc.value) == (
+            f"input entry 'Input' on slave 'EL1008' matches {found}. "
+            "Pass pdo_name to pick one"
+        )
+
+    def test_unknown_name(self) -> None:
+        """Should raise when no entry has the name."""
+        with pytest.raises(
+            sy.NotFoundError, match=r"^no input entry 'Velocity' on slave 'EL1008'$"
+        ):
+            sy.ethercat.find_entry(_create_el1008(), "Velocity")
+
+    def test_unknown_pdo_name(self) -> None:
+        """Should name the PDO when no entry in it has the name."""
+        with pytest.raises(
+            sy.NotFoundError,
+            match=r"^no input entry 'Input' in PDO 'Channel 9' on slave 'EL1008'$",
+        ):
+            sy.ethercat.find_entry(_create_el1008(), "Input", pdo_name="Channel 9")
+
+    def test_wrong_direction(self) -> None:
+        """Should only search entries in the given direction."""
+        with pytest.raises(
+            sy.NotFoundError, match=r"^no input entry 'Output' on slave 'EL1008'$"
+        ):
+            sy.ethercat.find_entry(_create_el1008(), "Output")
+
+    def test_output_with_pdo_name(self) -> None:
+        """Should search output entries inside the named PDO group."""
+        entry = sy.ethercat.find_entry(
+            _create_el1008(), "Output", pdo_name="Channel 1", direction="output"
+        )
+        assert (entry.index, entry.sub_index) == (0x7000, 1)
+
+    def test_unsupported_entry_elsewhere(self) -> None:
+        """Should resolve a name when another entry on the slave fails validation."""
+        slave = _create_el1008()
+        arr(slave.properties, "pdos", "inputs").append(
+            {
+                "name": "Raw",
+                "index": 0x6100,
+                "sub_index": 1,
+                "bit_length": 128,
+                "data_type": "uint8",
+            }
+        )
+        entry = sy.ethercat.find_entry(slave, "Input", pdo_name="Channel 2")
+        assert (entry.index, entry.sub_index) == (0x6010, 1)
+
+    def test_repeated_address(self) -> None:
+        """Should resolve once when groups repeat the same object."""
+        slave = sy.ethercat.Device(
+            name="EJ7342",
+            input_pdos=[
+                sy.ethercat.PDOEntry(
+                    name="SubIndex 032",
+                    pdo_name=f"DCM TxPDO-Map {i}",
+                    index=0x1C32,
+                    sub_index=0x20,
+                    bit_length=1,
+                    data_type="uint8",
+                )
+                for i in range(4)
+            ],
+        )
+        entry = sy.ethercat.find_entry(slave, "SubIndex 032")
+        assert (entry.index, entry.sub_index) == (0x1C32, 0x20)

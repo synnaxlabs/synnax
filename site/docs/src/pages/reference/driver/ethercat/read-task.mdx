@@ -45,69 +45,39 @@ identify the TxPDOs (input PDOs) to read from each one.
 
 <Divider.Divider x />
 
-## Channel configuration modes
+## Channel configuration
 
-### Automatic mode (recommended)
-
-In automatic mode, you select a device and PDO name. The system automatically resolves
-the CoE index, subindex, and data type from the device's ESI information.
+Each channel reads one TxPDO entry at its CoE index and sub-index. The Driver gets the
+size of the entry from the device, so the data type of the channel must be the same
+size.
 
 <DetailsGroup>
 
 <ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Automatic channel</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Entry channel</Text.Text>
 
-Reads data from a TxPDO using the PDO name for automatic configuration.
+Reads one TxPDO entry.
 
-| Parameter | Type   | Required | Default | Description                                          |
-| --------- | ------ | -------- | ------- | ---------------------------------------------------- |
-| `type`    | string | Yes      | -       | Must be `"automatic"`                                |
-| `device`  | string | Yes      | -       | Device key                                           |
-| `pdo`     | string | Yes      | -       | PDO name from device discovery (e.g., `status_word`) |
-| `channel` | number | Yes      | -       | Synnax channel key                                   |
+| Parameter   | Type   | Required | Default | Description                                  |
+| ----------- | ------ | -------- | ------- | -------------------------------------------- |
+| `type`      | string | Yes      | -       | Must be `"entry"`                            |
+| `device`    | string | Yes      | -       | Device key                                   |
+| `index`     | number | Yes      | -       | CoE object index (e.g., `0x6041`)            |
+| `sub_index` | number | Yes      | -       | CoE object sub-index                         |
+| `data_type` | string | Yes      | -       | Synnax data type, the same size as the entry |
+| `channel`   | number | Yes      | -       | Synnax channel key                           |
 
 </ChannelType>
 
 </DetailsGroup>
 
-**When to use automatic mode:**
+The Console lists each entry the device reports, with its address. In code, find the
+address of an entry by name with `ethercat.find_entry` in Python or `ethercat.findEntry`
+in TypeScript.
 
-- Device has complete ESI information
-- PDO names are visible in the Console device properties
-- Standard device configurations
-
-### Manual mode
-
-In manual mode, you specify the CoE index, subindex, and data type directly. Use this
-mode when the ESI file is incomplete or when working with non-standard PDO mappings.
-
-<DetailsGroup>
-
-<ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Edit /> Manual channel</Text.Text>
-
-Reads data from a TxPDO using explicit CoE addressing.
-
-| Parameter    | Type   | Required | Default  | Description                                          |
-| ------------ | ------ | -------- | -------- | ---------------------------------------------------- |
-| `type`       | string | Yes      | -        | Must be `"manual"`                                   |
-| `device`     | string | Yes      | -        | Device key                                           |
-| `index`      | number | Yes      | -        | CoE object index (e.g., `0x6041`)                    |
-| `sub_index`  | number | Yes      | -        | CoE object subindex (typically `0`)                  |
-| `bit_length` | number | No       | `16`     | Data width in bits (8, 16, 32, 64)                   |
-| `data_type`  | string | No       | `uint16` | Synnax data type (`uint8`, `int16`, `float32`, etc.) |
-| `channel`    | number | Yes      | -        | Synnax channel key                                   |
-
-</ChannelType>
-
-</DetailsGroup>
-
-**When to use manual mode:**
-
-- ESI file is incomplete or missing PDO definitions
-- Custom PDO mappings configured on the device
-- Non-standard devices
-- Accessing vendor-specific objects
+A task from an earlier release can hold an `"unresolved"` channel: one that named an
+entry the device does not have, or has more than once. Pick an entry for it in the
+Console before the task runs.
 
 <Note.Note variant="info">
   CoE (CAN over EtherCAT) addressing uses a 16-bit index and 8-bit subindex. Common
@@ -144,7 +114,7 @@ Reads data from a TxPDO using explicit CoE addressing.
   <Fragment slot="python">
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (automatic mode)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
 import synnax as sy
@@ -178,20 +148,27 @@ position = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Create and configure the task in automatic mode
+# Find the address of each entry by name
+status_entry = ethercat.find_entry(dev, "Statusword")
+position_entry = ethercat.find_entry(dev, "Position actual value")
+
 task = ethercat.ReadTask(
     name="EtherCAT Read Task",
     sample_rate=sy.Rate.HZ * 1000,
     stream_rate=sy.Rate.HZ * 50,
     channels=[
-        ethercat.AutomaticReadChannel(
+        ethercat.EntryReadChannel(
             device=dev.key,
-            pdo="status_word",
+            index=status_entry.index,
+            sub_index=status_entry.sub_index,
+            data_type=sy.DataType(status_entry.data_type),
             channel=status.key,
         ),
-        ethercat.AutomaticReadChannel(
+        ethercat.EntryReadChannel(
             device=dev.key,
-            pdo="position_actual",
+            index=position_entry.index,
+            sub_index=position_entry.sub_index,
+            data_type=sy.DataType(position_entry.data_type),
             channel=position.key,
         ),
     ],
@@ -206,77 +183,6 @@ with task.run():
             frame = streamer.read()
             print(f"Status: {frame['status_word'][-1]}, "
                   f"Position: {frame['position_actual'][-1]}")
-```
-
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (manual mode)</Text.Text>
-
-```python
-import synnax as sy
-from synnax import ethercat
-
-client = sy.Synnax()
-
-# Retrieve EtherCAT device
-dev = client.devices.retrieve(name="Servo Drive")
-
-# Create index channel
-ec_time = client.channels.create(
-    name="ec_read_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
-)
-
-# Create data channels
-status = client.channels.create(
-    name="status_word",
-    index=ec_time.key,
-    data_type=sy.DataType.UINT16,
-    retrieve_if_name_exists=True,
-)
-position = client.channels.create(
-    name="position_actual",
-    index=ec_time.key,
-    data_type=sy.DataType.INT32,
-    retrieve_if_name_exists=True,
-)
-
-# Create the task in manual mode with CoE addressing
-task = ethercat.ReadTask(
-    name="EtherCAT Manual Read",
-    sample_rate=sy.Rate.HZ * 1000,
-    stream_rate=sy.Rate.HZ * 50,
-    channels=[
-        ethercat.ManualReadChannel(
-            device=dev.key,
-            index=0x6041,  # Status word
-            sub_index=0,
-            bit_length=16,
-            data_type="uint16",
-            channel=status.key,
-        ),
-        ethercat.ManualReadChannel(
-            device=dev.key,
-            index=0x6064,  # Position actual value
-            sub_index=0,
-            bit_length=32,
-            data_type="int32",
-            channel=position.key,
-        ),
-    ],
-)
-
-client.tasks.configure(task)
-
-# Start and read
-with task.run():
-    with client.open_streamer(["status_word", "position_actual"]) as streamer:
-        for _ in range(10):
-            frame = streamer.read()
-            print(frame)
 ```
 
 </Details>
@@ -305,10 +211,14 @@ new_channel = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
+dev = client.devices.retrieve(key=task.config.channels[0].device)
+velocity_entry = ethercat.find_entry(dev, "Velocity actual value")
 task.config.channels.append(
-    ethercat.AutomaticReadChannel(
-        device=task.config.channels[0].device,
-        pdo="velocity_actual",
+    ethercat.EntryReadChannel(
+        device=dev.key,
+        index=velocity_entry.index,
+        sub_index=velocity_entry.sub_index,
+        data_type=sy.DataType(velocity_entry.data_type),
         channel=new_channel.key,
     )
 )
@@ -323,7 +233,7 @@ client.tasks.configure(task)
   <Fragment slot="typescript">
 
 <Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (automatic mode)</Text.Text>
+<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
 import { device, Synnax } from "@synnaxlabs/client";
@@ -362,7 +272,7 @@ const position = await client.channels.create(
   { retrieveIfNameExists: true },
 );
 
-// Create and configure task using automatic mode
+// Create and configure the task with the CoE address of each entry
 const task = await client.tasks.create({
   name: "EtherCAT Read Task",
   rack: dev.rack,
@@ -372,15 +282,19 @@ const task = await client.tasks.create({
     streamRate: 50, // Stream at 50 Hz
     channels: [
       {
-        type: "automatic",
+        type: "entry",
         device: dev.key,
-        pdo: "status_word",
+        index: 0x6041, // Statusword
+        subIndex: 0,
+        dataType: "uint16",
         channel: status.key,
       },
       {
-        type: "automatic",
+        type: "entry",
         device: dev.key,
-        pdo: "position_actual",
+        index: 0x6064, // Position actual value
+        subIndex: 0,
+        dataType: "int32",
         channel: position.key,
       },
     ],
@@ -400,92 +314,6 @@ for (let i = 0; i < 10; i++) {
 }
 
 // Stop task
-await task.stop();
-await streamer.close();
-```
-
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task (manual mode)</Text.Text>
-
-```typescript
-import { device, Synnax } from "@synnaxlabs/client";
-
-const client = new Synnax();
-
-// Retrieve EtherCAT device
-const dev = await client.devices.retrieve(device.name.eq("Servo Drive"), device.one());
-
-// Create index channel
-const ecTime = await client.channels.create(
-  {
-    name: "ec_read_time",
-    isIndex: true,
-    dataType: "timestamp",
-  },
-  { retrieveIfNameExists: true },
-);
-
-// Create data channels
-const status = await client.channels.create(
-  {
-    name: "status_word",
-    index: ecTime.key,
-    dataType: "uint16",
-  },
-  { retrieveIfNameExists: true },
-);
-
-const position = await client.channels.create(
-  {
-    name: "position_actual",
-    index: ecTime.key,
-    dataType: "int32",
-  },
-  { retrieveIfNameExists: true },
-);
-
-// Create task using manual mode with CoE addressing
-const task = await client.tasks.create({
-  name: "EtherCAT Manual Read",
-  rack: dev.rack,
-  type: "ethercat_read",
-  config: {
-    sampleRate: 1000,
-    streamRate: 50,
-    channels: [
-      {
-        type: "manual",
-        device: dev.key,
-        index: 0x6041, // Status word
-        subIndex: 0,
-        bitLength: 16,
-        dataType: "uint16",
-        channel: status.key,
-      },
-      {
-        type: "manual",
-        device: dev.key,
-        index: 0x6064, // Position actual value
-        subIndex: 0,
-        bitLength: 32,
-        dataType: "int32",
-        channel: position.key,
-      },
-    ],
-  },
-});
-
-// Start and read
-await task.start();
-
-const streamer = await client.openStreamer(["status_word", "position_actual"]);
-for (let i = 0; i < 10; i++) {
-  const frame = await streamer.read();
-  console.log(frame);
-}
-
 await task.stop();
 await streamer.close();
 ```
@@ -522,9 +350,12 @@ const newChannel = await client.channels.create(
 );
 
 config.channels.push(
-  ethercat.automaticReadChannelZ.parse({
+  ethercat.entryReadChannelZ.parse({
+    type: "entry",
     device: config.channels[0].device,
-    pdo: "velocity_actual",
+    index: 0x606c, // Velocity actual value
+    subIndex: 0,
+    dataType: "int32",
     channel: newChannel.key,
   }),
 );
