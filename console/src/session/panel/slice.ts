@@ -17,7 +17,7 @@ import z from "zod";
 
 import { Window } from "@/session/window";
 
-export const stateZ = z.object({
+const stateZ = z.object({
   selectedTabs: panel.tabKeyZ.array().default([]),
 });
 
@@ -25,7 +25,7 @@ export interface State extends z.output<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
-export const windowStateZ = z.object({
+const windowStateZ = z.object({
   selected: panel.keyZ.optional(),
   isOverlaid: z.boolean().optional().default(false),
   panels: z.record(panel.keyZ, stateZ).default({}),
@@ -322,7 +322,7 @@ export const MIDDLEWARE = [
  * cold start. Clearing on write also means a project swap hydrates an empty set,
  * so a project's panels never stay mounted into the next one.
  */
-export const purgeSliceState = <S extends StoreState>(state: S): S => {
+const purgeSliceState = <S extends StoreState>(state: S): S => {
   Object.values(state[SLICE_NAME].windows).forEach((win) => {
     win.mounted = [];
   });
