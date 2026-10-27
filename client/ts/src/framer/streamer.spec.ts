@@ -240,6 +240,22 @@ describe("Streamer", () => {
         streamer.close();
         expect(EOF.matches(await update)).toBe(true);
       });
+
+      it("should end a read with EOF when an ack arrives after the streamer closes", async () => {
+        const ch = await newVirtualChannel(client);
+        const streamer = await client.openStreamer([]);
+        const pending = streamer.read().catch((e: unknown) => e);
+        const first = streamer.update(ch.key, { waitForAck: true });
+        const second = streamer
+          .update(ch.key, { waitForAck: true })
+          .catch((e: unknown) => e);
+        await first;
+        // The Core applied the second update before the close reached it, so its ack
+        // arrives after the close.
+        streamer.close();
+        await second;
+        expect(EOF.matches(await pending)).toBe(true);
+      });
     });
     describe("excludeGroups", () => {
       test("should filter out frames from a writer whose group matches", async () => {
