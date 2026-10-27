@@ -257,6 +257,14 @@ var _ = Describe("Service", func() {
 				})).To(Equal([]channel.Key{byName.Key()}))
 			})
 
+			It("Should return no channel for a zero limit", func(ctx SpecContext) {
+				Expect(retrieve(ctx, apichannel.RetrieveRequest{
+					Where:      both,
+					SearchTerm: term,
+					Limit:      new(uint32(0)),
+				})).To(BeEmpty())
+			})
+
 			It("Should require retrieve access on the aliases it fills", func(
 				ctx SpecContext,
 			) {

@@ -33,7 +33,7 @@ const FilterContextMenu = ({ request, onRequestChange }: SelectFiltersProps) => 
   const handleRequestChange = (setter: state.SetArg<ranger.RetrieveMultipleParams>) => {
     onRequestChange((prev) => {
       const next = state.executeSetter(setter, prev);
-      return { ...next, offset: 0, limit: 0 };
+      return { ...next, offset: 0, limit: undefined };
     });
   };
 
