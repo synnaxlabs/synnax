@@ -160,6 +160,7 @@ var _ = Describe("Filter definitions", func() {
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.Where").Form.(resolution.StructForm)
 			doc := func(name string) string {
+				GinkgoHelper()
 				f := MustBeOk(form.Field(name))
 				return f.Domains["doc"].Expressions[0].Values[0].StringValue
 			}
