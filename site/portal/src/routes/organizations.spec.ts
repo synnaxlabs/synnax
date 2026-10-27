@@ -19,7 +19,6 @@ import { POST as registerRoute } from "@/pages/api/organizations/index";
 import { event, invitation, type Organization, organization } from "@/server/db/schema";
 import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
-import { OPEN_MS } from "@/server/invitation";
 import { NOW } from "@/server/license/testutil";
 import {
   body,
@@ -113,7 +112,7 @@ describe("organization routes", () => {
         email: "cy@acme.com",
         role: MEMBER_ROLE,
         sentAt: NOW,
-        expiresAt: new Date(NOW.getTime() + OPEN_MS),
+        expiresAt: new Date("2026-10-17T12:00:00Z"),
       });
       expect(h.mail.sent).toEqual([
         {
@@ -151,8 +150,11 @@ describe("organization routes", () => {
 
     it("should save and send nothing when the event cannot be recorded", async () => {
       h.signIn(ADMIN);
-      const res = await failingEvents(store, "invite", invite);
-      expect(res.status).toBe(500);
+      await expectError(
+        await failingEvents(store, "invite", invite),
+        500,
+        "Internal error",
+      );
       expect(await invitations()).toEqual([]);
       expect(h.mail.sent).toEqual([]);
     });
@@ -160,7 +162,7 @@ describe("organization routes", () => {
     it("should save and record nothing when the email fails", async () => {
       h.signIn(ADMIN);
       failMail();
-      expect((await invite()).status).toBe(500);
+      await expectError(await invite(), 500, "Internal error");
       expect(await invitations()).toEqual([]);
       expect(await events()).toEqual([]);
     });
@@ -179,7 +181,7 @@ describe("organization routes", () => {
           ...sent,
           role: ADMIN_ROLE,
           sentAt: NOW,
-          expiresAt: new Date(NOW.getTime() + OPEN_MS),
+          expiresAt: new Date("2026-10-17T12:00:00Z"),
         },
       ]);
       expect(h.mail.sent[0].action.href).toBe(`/invitations/${sent.key}`);
@@ -421,7 +423,7 @@ describe("organization routes", () => {
         "revoke_invitation",
         async () => await revoke(sent.key),
       );
-      expect(res.status).toBe(500);
+      await expectError(res, 500, "Internal error");
       expect(await invitations()).toEqual([sent]);
     });
 

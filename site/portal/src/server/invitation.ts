@@ -27,7 +27,7 @@ import { type Session } from "@/server/session";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** OPEN_MS is how long an invitation stays open after it is sent. */
-export const OPEN_MS = 30 * DAY_MS;
+const OPEN_MS = 30 * DAY_MS;
 
 /** Invited is an invitation with the team it joins. */
 export interface Invited {

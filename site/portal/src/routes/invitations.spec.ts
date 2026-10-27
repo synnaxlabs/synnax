@@ -168,7 +168,7 @@ describe("invitation routes", () => {
         "accept_invitation",
         async () => await accept(sent.key),
       );
-      expect(res.status).toBe(500);
+      await expectError(res, 500, "Internal error");
       expect(roleOf(CY)).toBeUndefined();
       expect(await invitations()).toEqual([sent]);
     });
