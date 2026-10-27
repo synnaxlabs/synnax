@@ -919,9 +919,13 @@ class TestChannelRetriever:
         retrieved = client.channels._retriever.retrieve_one(ch.key)
         assert retrieved.key == ch.key
 
-    def test_retrieve_one_not_found(self, client: sy.Synnax) -> None:
-        with pytest.raises(sy.NotFoundError):
-            client.channels._retriever.retrieve_one(1234)
+    @pytest.mark.parametrize("param", [1234, "1234"], ids=["key", "numeric string"])
+    def test_retrieve_one_not_found(self, client: sy.Synnax, param: int | str) -> None:
+        """Should describe a key, or a numeric string, as the key it selects."""
+        with pytest.raises(
+            sy.NotFoundError, match=r"^Found no channel where key = 1234$"
+        ):
+            client.channels._retriever.retrieve_one(param)
 
     def test_retrieve_one_multiple_found(self, client: sy.Synnax) -> None:
         """Should raise MultipleFoundError when a pattern matches two channels."""

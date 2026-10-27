@@ -414,6 +414,17 @@ class TestRangeClient:
             ):
                 rng.set_alias("not_found", "test")
 
+        def test_channel_key_string_not_found_on_set(self, client: sy.Synnax) -> None:
+            """Should describe a numeric string as the key it selects."""
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            with pytest.raises(
+                sy.NotFoundError, match=r"^Found no channel where key = 1234$"
+            ):
+                rng.set_alias("1234", "test")
+
         def test_scoped_channel_multiple_found(self, client: sy.Synnax) -> None:
             """Should raise MultipleFoundError when a scoped channel matches two
             channels and is used as one."""
