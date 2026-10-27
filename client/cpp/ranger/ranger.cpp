@@ -9,6 +9,7 @@
 
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/ranger/ranger.h"
+#include "x/cpp/filter/describe.h"
 
 namespace synnax::ranger {
 
@@ -28,12 +29,23 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Range, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+Client::retrieve_one(const RetrieveRequest &req) const {
     auto [ranges, err] = this->retrieve(req);
     if (err) return {Range(), err};
-    if (ranges.empty()) return {Range(), errors::not_found_error("range", query)};
+    if (ranges.empty())
+        return {
+            Range(),
+            errors::not_found_error("range", x::filter::describe(req.where))
+        };
     if (ranges.size() > 1)
-        return {Range(), errors::multiple_found_error("ranges", query)};
+        return {
+            Range(),
+            errors::multiple_found_error(
+                "range",
+                x::filter::describe(req.where),
+                ranges.size()
+            )
+        };
     return {std::move(ranges[0]), x::errors::NIL};
 }
 

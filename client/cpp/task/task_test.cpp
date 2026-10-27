@@ -251,8 +251,7 @@ TEST(TaskTests, testRetrieveOneMultipleFound) {
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     ASSERT_EQ(
         err.data,
-        R"(Multiple tasks matching filter {"type":{"case_insensitive":false,)"
-        R"("eq":"pagerduty_alert"}} found.)"
+        R"(Expected one task where type = "pagerduty_alert", but found 2)"
     );
 }
 

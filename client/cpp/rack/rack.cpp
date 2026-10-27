@@ -11,6 +11,7 @@
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/describe.h"
 
 namespace synnax::rack {
 Client::Client(
@@ -40,11 +41,23 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Rack, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+Client::retrieve_one(const RetrieveRequest &req) const {
     auto [racks, err] = this->retrieve(req);
     if (err) return {Rack{}, err};
-    if (racks.empty()) return {Rack{}, errors::not_found_error("Rack", query)};
-    if (racks.size() > 1) return {Rack{}, errors::multiple_found_error("racks", query)};
+    if (racks.empty())
+        return {
+            Rack{},
+            errors::not_found_error("rack", x::filter::describe(req.where))
+        };
+    if (racks.size() > 1)
+        return {
+            Rack{},
+            errors::multiple_found_error(
+                "rack",
+                x::filter::describe(req.where),
+                racks.size()
+            )
+        };
     return {std::move(racks[0]), x::errors::NIL};
 }
 

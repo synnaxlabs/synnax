@@ -20,7 +20,6 @@
 #include <vector>
 
 #include "x/cpp/filter/types.gen.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 
 namespace x::filter {
@@ -402,26 +401,4 @@ template<typename W, typename R, typename... Parts>
     return req;
 }
 
-namespace details {
-inline void drop_nulls(x::json::json &j) {
-    if (j.is_array())
-        for (auto &e: j)
-            drop_nulls(e);
-    if (!j.is_object()) return;
-    for (auto it = j.begin(); it != j.end();)
-        if (it->is_null())
-            it = j.erase(it);
-        else
-            drop_nulls(*it++);
-}
-}
-
-/// @returns a description of the records that where selects, for error messages.
-template<typename W>
-[[nodiscard]] std::string describe(const std::optional<W> &where) {
-    if (!where.has_value()) return "any filter";
-    auto j = where->to_json();
-    details::drop_nulls(j);
-    return "filter " + j.dump();
-}
 }

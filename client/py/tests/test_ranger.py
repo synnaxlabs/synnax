@@ -150,7 +150,8 @@ class TestRangeClient:
     ) -> None:
         """Should raise an error when a range is not found"""
         with pytest.raises(
-            sy.NotFoundError, match="Range matching not_found not found"
+            sy.NotFoundError,
+            match=re.escape('Found no range where name in ["not_found"]'),
         ):
             client.ranges.retrieve(name="not_found")
 
@@ -161,7 +162,9 @@ class TestRangeClient:
         client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
         with pytest.raises(
             sy.MultipleFoundError,
-            match=f"Expected one Range matching {name}, but found 2",
+            match=re.escape(
+                f'Expected one range where name in ["{name}"], but found 2'
+            ),
         ):
             client.ranges.retrieve(name=name)
 
@@ -406,7 +409,7 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             with pytest.raises(
-                sy.NotFoundError, match="Channel matching not_found not found"
+                sy.NotFoundError, match=r'^Found no channel where name = "not_found"$'
             ):
                 rng.set_alias("not_found", "test")
 
@@ -437,7 +440,10 @@ class TestRangeClient:
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
             with pytest.raises(
-                sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+                sy.MultipleFoundError,
+                match=re.escape(
+                    f'Expected one channel where name = "{prefix}_.*", but found 2'
+                ),
             ):
                 rng.set_alias(f"{prefix}_.*", "test")
 

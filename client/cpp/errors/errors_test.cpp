@@ -25,43 +25,37 @@ TEST(ErrorsTest, UnexpectedMissingError) {
     );
 }
 
-/// @brief it should create a not found error with key identifier.
+/// @brief it should create a not found error that describes the filter.
 TEST(ErrorsTest, NotFoundError) {
-    const auto err = not_found_error("channel", "key 123");
+    const auto err = not_found_error("channel", "key = 123");
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    EXPECT_EQ(
-        err.message(),
-        "[sy.query.not_found] channel matching key 123 not found."
-    );
+    EXPECT_EQ(err.message(), "[sy.query.not_found] Found no channel where key = 123");
 }
 
-/// @brief it should create a not found error with name identifier.
-TEST(ErrorsTest, NotFoundErrorWithName) {
-    const auto err = not_found_error("task", "name test-task");
+/// @brief it should leave out an empty filter description.
+TEST(ErrorsTest, NotFoundErrorNoFilter) {
+    const auto err = not_found_error("task", "");
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    EXPECT_EQ(
-        err.message(),
-        "[sy.query.not_found] task matching name test-task not found."
-    );
+    EXPECT_EQ(err.message(), "[sy.query.not_found] Found no task");
 }
 
-/// @brief it should create a multiple results error for channels.
+/// @brief it should create a multiple results error that describes the filter.
 TEST(ErrorsTest, MultipleFoundError) {
-    const auto err = multiple_found_error("channels", "name test");
+    const auto err = multiple_found_error("range", "key = 1", 2);
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     EXPECT_EQ(
         err.message(),
-        "[sy.query.multiple_results] Multiple channels matching name test found."
+        "[sy.query.multiple_results] Expected one range where key = 1, but found 2"
     );
 }
 
-/// @brief it should create a multiple results error for ranges.
-TEST(ErrorsTest, MultipleFoundErrorRanges) {
-    const auto err = multiple_found_error("ranges", "name experiment-1");
+/// @brief it should leave out an empty filter description.
+TEST(ErrorsTest, MultipleFoundErrorNoFilter) {
+    const auto err = multiple_found_error("range", "", 3);
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     EXPECT_EQ(
         err.message(),
-        "[sy.query.multiple_results] Multiple ranges matching name experiment-1 found."
+        "[sy.query.multiple_results] Expected one range, but found 3"
     );
 }
 

@@ -157,7 +157,13 @@ export class WriteAdapter {
     else cached = this.byKey.get(ch.key);
     if (cached != null) return cached;
     const res = await this.retrieveChannels(ch);
-    checkForMultipleOrNoResults("channel", ch, res, true);
+    const where =
+      typeof ch === "number"
+        ? { key: { eq: ch } }
+        : typeof ch === "string"
+          ? { name: { eq: ch } }
+          : { key: { eq: ch.key } };
+    checkForMultipleOrNoResults("channel", where, res, true);
     return res[0];
   }
 

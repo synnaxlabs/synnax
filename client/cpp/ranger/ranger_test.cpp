@@ -237,9 +237,8 @@ TEST(RangerTests, testRetrieveOneMultipleFound) {
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     ASSERT_EQ(
         err.data,
-        R"(Multiple ranges matching filter {"name":{"case_insensitive":false,)"
-        R"("starts_with":")" +
-            rand_name + R"("}} found.)"
+        R"(Expected one range where name starts with ")" + rand_name +
+            R"(", but found 2)"
     );
 }
 

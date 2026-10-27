@@ -72,7 +72,7 @@ describe("Writer", () => {
       );
       await expect(write).rejects.toThrow(NotFoundError);
       await expect(write).rejects.toThrow(
-        'channel not found matching "nonexistent_channel"',
+        'Found no channel where name = "nonexistent_channel"',
       );
       await writer.close();
     });

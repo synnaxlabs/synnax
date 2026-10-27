@@ -10,6 +10,7 @@
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/describe.h"
 #include "x/cpp/json/struct.h"
 
 namespace synnax::task {
@@ -36,11 +37,23 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Task, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+Client::retrieve_one(const RetrieveRequest &req) const {
     auto [tasks, err] = this->retrieve(req);
     if (err) return {Task{}, err};
-    if (tasks.empty()) return {Task{}, errors::not_found_error("task", query)};
-    if (tasks.size() > 1) return {Task{}, errors::multiple_found_error("tasks", query)};
+    if (tasks.empty())
+        return {
+            Task{},
+            errors::not_found_error("task", x::filter::describe(req.where))
+        };
+    if (tasks.size() > 1)
+        return {
+            Task{},
+            errors::multiple_found_error(
+                "task",
+                x::filter::describe(req.where),
+                tasks.size()
+            )
+        };
     return {std::move(tasks[0]), x::errors::NIL};
 }
 

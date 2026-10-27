@@ -21,7 +21,7 @@ from synnax.channel.payload import (
     Params,
     normalize_params,
 )
-from synnax.channel.retrieve import Retriever, params_where
+from synnax.channel.retrieve import Retriever, params_where, single_where
 from synnax.channel.types_gen import (
     Operation,
     Payload,
@@ -506,9 +506,10 @@ class Client:
         if channel is not None and single:
             if len(res) > 1:
                 raise _multiple_results_error(channel, res)
-            return util.one("Channel", channel, sug)
+            selected = single_where(normalize_params(channel).channels[0])
+            return util.one("channel", selected, sug)
         if one:
-            return util.one("Channel", where, sug)
+            return util.one("channel", where, sug)
         return sug
 
     @overload

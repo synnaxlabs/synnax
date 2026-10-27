@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
 import numpy as np
 import pytest
 
@@ -222,7 +224,9 @@ class TestChannel:
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when key not found"""
-        with pytest.raises(sy.NotFoundError, match="Channel matching 1234 not found"):
+        with pytest.raises(
+            sy.NotFoundError, match=r"^Found no channel where key = 1234$"
+        ):
             client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
@@ -924,7 +928,10 @@ class TestChannelRetriever:
                 data_type=sy.DataType.FLOAT32, name=f"{prefix}_{suffix}", virtual=True
             )
         with pytest.raises(
-            sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+            sy.MultipleFoundError,
+            match=re.escape(
+                f'Expected one channel where name = "{prefix}_.*", but found 2'
+            ),
         ):
             client.channels._retriever.retrieve_one(f"{prefix}_.*")
 

@@ -192,7 +192,11 @@ export class Range {
 
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
     const ch = await this.channels(channel);
-    checkForMultipleOrNoResults("channel", channel, ch, true);
+    const where =
+      typeof channel === "number"
+        ? { key: { eq: channel } }
+        : { name: { eq: channel } };
+    checkForMultipleOrNoResults("channel", where, ch, true);
     await this.rangeClient.setAlias(this.key, ch[0].key, alias);
   }
 
@@ -704,11 +708,12 @@ export class Client extends query.Retriever<
     if (cached != null) return this.composeOne(cached);
     if (z.validate(keyZ, query)) {
       const ranges = await this.store.retrieve([query]);
-      checkForMultipleOrNoResults("Range", query, ranges, true);
+      checkForMultipleOrNoResults("range", { key: { eq: query } }, ranges, true);
       return this.composeOne(ranges[0]);
     }
-    const ranges = await this.execRetrieve({ where: { name: { eq: query } } });
-    checkForMultipleOrNoResults("Range", query, ranges, true);
+    const where = { name: { eq: query } };
+    const ranges = await this.execRetrieve({ where });
+    checkForMultipleOrNoResults("range", where, ranges, true);
     this.hydrate(ranges[0]);
     return ranges[0];
   }

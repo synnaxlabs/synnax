@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "client/cpp/channel/builder.gen.h"
@@ -117,8 +118,7 @@ public:
             x::filter::request<Where, RetrieveRequest>(
                 channel::key.eq(key),
                 includes...
-            ),
-            "key " + std::to_string(key)
+            )
         );
     }
 
@@ -136,7 +136,7 @@ public:
                 channel::name_patterns.has(name),
                 includes...
             ),
-            "name " + name
+            channel::name.eq(name).tree
         );
     }
 
@@ -186,14 +186,23 @@ public:
             std::move(parts)...
         );
         if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one(req, x::filter::describe(req.where));
+            return this->retrieve_one(req);
         else
             return this->retrieve(req);
     }
 
 private:
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+    retrieve_one(const RetrieveRequest &req) const {
+        return this->retrieve_one(req, req.where);
+    }
+
+    /// @brief retrieves the one channel that req selects. Its errors describe described
+    /// in place of the filter of req.
+    [[nodiscard]] std::pair<Channel, x::errors::Error> retrieve_one(
+        const RetrieveRequest &req,
+        const std::optional<Where> &described
+    ) const;
 
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve_keys(const RetrieveRequest &req, const std::vector<Key> &keys) const;

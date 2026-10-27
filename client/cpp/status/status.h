@@ -20,6 +20,7 @@
 #include "client/cpp/status/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/describe.h"
 #include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/status/pb/status.pb.h"
@@ -134,11 +135,7 @@ public:
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
     retrieve(const std::string &key, Includes... includes) const {
         return this->retrieve_one<Details>(
-            x::filter::request<Where, RetrieveRequest>(
-                status::key.eq(key),
-                includes...
-            ),
-            "key " + key
+            x::filter::request<Where, RetrieveRequest>(status::key.eq(key), includes...)
         );
     }
 
@@ -193,7 +190,7 @@ public:
             std::move(parts)...
         );
         if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one<Details>(req, x::filter::describe(req.where));
+            return this->retrieve_one<Details>(req);
         else
             return this->retrieve<Details>(req);
     }
@@ -251,18 +248,22 @@ public:
 private:
     template<typename Details>
     [[nodiscard]] std::pair<synnax::status::Status<Details>, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    retrieve_one(const RetrieveRequest &req) const {
         auto [statuses, err] = this->retrieve<Details>(req);
         if (err) return {synnax::status::Status<Details>{}, err};
         if (statuses.empty())
             return {
                 synnax::status::Status<Details>{},
-                errors::not_found_error("status", query)
+                errors::not_found_error("status", x::filter::describe(req.where))
             };
         if (statuses.size() > 1)
             return {
                 synnax::status::Status<Details>{},
-                errors::multiple_found_error("statuses", query)
+                errors::multiple_found_error(
+                    "status",
+                    x::filter::describe(req.where),
+                    statuses.size()
+                )
             };
         return {std::move(statuses[0]), x::errors::NIL};
     }

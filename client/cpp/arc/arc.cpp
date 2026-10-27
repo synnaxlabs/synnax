@@ -14,6 +14,7 @@
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/describe.h"
 
 namespace synnax::arc {
 const std::string CREATE_ENDPOINT = "/api/v1/arc/create";
@@ -86,11 +87,20 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Arc, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+Client::retrieve_one(const RetrieveRequest &req) const {
     auto [arcs, err] = this->retrieve(req);
     if (err) return {Arc{}, err};
-    if (arcs.empty()) return {Arc{}, errors::not_found_error("Arc", query)};
-    if (arcs.size() > 1) return {Arc{}, errors::multiple_found_error("arcs", query)};
+    if (arcs.empty())
+        return {Arc{}, errors::not_found_error("Arc", x::filter::describe(req.where))};
+    if (arcs.size() > 1)
+        return {
+            Arc{},
+            errors::multiple_found_error(
+                "Arc",
+                x::filter::describe(req.where),
+                arcs.size()
+            )
+        };
     return {std::move(arcs[0]), x::errors::NIL};
 }
 

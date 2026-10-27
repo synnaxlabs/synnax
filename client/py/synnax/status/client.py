@@ -253,7 +253,7 @@ class Client:
 
         if query is None and not one:
             return res
-        return util.one("Status", where if query is None else query, res)
+        return util.one("status", where, res)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a status.
