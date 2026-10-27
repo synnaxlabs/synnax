@@ -113,6 +113,7 @@ print("Running continuously - Press Ctrl+C to stop\n")
 print(f"{'Sample':<10} {'Temp (°C)':>12} {'Pressure (kPa)':>16} {'Humidity (%)':>14}")
 print("-" * 70)
 
+sample_count = 0
 try:
     print("\033[?25l", end="", flush=True)
 
@@ -122,10 +123,9 @@ try:
             ["http_temperature", "http_pressure", "http_humidity"]
         ) as streamer,
     ):
-        sample_count = 0
         while True:
             frame = streamer.read()
-            if frame and "http_temperature" in frame:
+            if "http_temperature" in frame:
                 temp = frame["http_temperature"][-1]
                 pres = frame["http_pressure"][-1]
                 hum = frame["http_humidity"][-1]
