@@ -63,7 +63,7 @@ jobs:
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
 
       - name: Install the agent
-        run: npm install --global @anthropic-ai/claude-code@2.1.310
+        run: npm install --global @anthropic-ai/claude-code@latest
 
       - name: Classify
         env:
