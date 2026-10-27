@@ -10,11 +10,11 @@
 import {
   array,
   type CrudeTimeSpan,
-  debounce,
   deep,
   destructor,
   errors,
   type record,
+  scheduler,
   state,
   TimeSpan,
   TimeStamp,
@@ -165,7 +165,7 @@ export class Table<
   private readonly equal: (a: Value, b: Value, key: Key) => boolean;
   private readonly fetchEntries?: (keys: Key[]) => Promise<Array<Keyed<Key, Value>>>;
   private readonly hydrateMode: HydrateMode;
-  private readonly fetchBatcher: debounce.Batcher<
+  private readonly fetchBatcher: scheduler.Batcher<
     Key[],
     Array<Keyed<Key, Value>>
   > | null;
@@ -192,7 +192,7 @@ export class Table<
     this.fetchBatcher =
       fetch == null
         ? null
-        : new debounce.Batcher({
+        : new scheduler.Batcher({
             interval: fetchDebounce,
             exec: async (requests) => {
               const keys = new Set<Key>();

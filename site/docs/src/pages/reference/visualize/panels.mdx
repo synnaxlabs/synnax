@@ -1,0 +1,136 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Arrange panels and tabs"
+description:
+  "Create panels, open visualizations in tabs, and split, move, and focus tabs."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A panel is one arrangement of tabs in a [project](/reference/visualize/projects). Each
+tab shows one visualization, a task, or an Arc automation. Use panels to keep separate
+views, such as one for each operator or each phase of a test. The panel selector in the
+top bar of the Console shows the panels of the project.
+
+<Divider.Divider x />
+
+## Create and switch panels
+
+To create a panel, click <Icon.Add /> at the right of the panel selector. The Console
+opens a new panel named **New panel**.
+
+To switch panels, click the name of a panel in the panel selector. To change the order
+of the panels, drag a name to a new position.
+
+<Video id="console/panels/create" />
+
+<Divider.Divider x />
+
+## Rename and delete panels
+
+To rename a panel, double-click its name in the panel selector. Type the new name, then
+press **Enter**.
+
+To delete a panel:
+
+1. Right-click the panel in the panel selector.
+2. Select **Delete**.
+3. Click **Delete** to confirm.
+
+<Video id="console/panels/rename-and-delete" />
+
+<Divider.Divider x />
+
+## Change the icon of a panel
+
+1. Right-click the panel in the panel selector.
+2. Select **Change icon**.
+3. Click a color swatch, then click one of the 64 icons. Type in the search field to
+   find an icon by name.
+
+You can also run the "Change panel icon" command for the selected panel. The color
+applies to the icon only, not to the name of the panel. The icon shows in the panel
+selector, in the projects toolbar, and in the **Move to panel** list.
+
+{/* Still to capture: console/panels/change-icon -- the icon picker with a color */}
+
+<Divider.Divider x />
+
+## Open a visualization in a tab
+
+1. Press **Ctrl+T** (**Cmd+T** on macOS), or click <Icon.Add /> at the right of the tab
+   bar. A **Create component** tab opens.
+2. Select **Line plot**, **Schematic**, **Log**, or **Table**.
+
+<Video id="console/panels/open-tab" />
+
+The tab shows the new visualization. The list also has an item for each kind of
+[task](/reference/hardware/tasks) and for an [Arc automation](/reference/control/arc).
+
+<Divider.Divider x />
+
+## Split a tab
+
+To show two tabs side by side, drag a tab to the edge of the panel. Drop it on the left,
+right, top, or bottom third of the panel.
+
+<Video id="console/panels/split" />
+
+You can also right-click a tab and select **Split horizontally** or **Split
+vertically**. These items show when the tab shares its pane with another tab.
+
+<Divider.Divider x />
+
+## Move a tab
+
+To move a tab to a different panel, drag it onto the name of that panel in the panel
+selector. To pick where it lands, hold it over the name until the panel opens, then drop
+it in the panel. You can also right-click the tab and select **Move to panel**.
+
+<Video id="console/panels/move" />
+
+To move a tab to a new panel, drag it onto <Icon.Add /> at the right of the panel
+selector.
+
+<Divider.Divider x />
+
+## Open a panel in a new window
+
+1. Right-click the panel in the panel selector.
+2. Select **Open in new window**.
+
+The panel shows in a second window and stays in the main window too. Use this to put a
+panel on a second monitor.
+
+To move one tab to its own window, right-click the tab and select **Move to new
+window**. The Console makes a new panel for the tab, named after it.
+
+Windows are only available in the Console app and Synnax Desktop, not in a web browser.
+
+<Divider.Divider x />
+
+## Focus a tab
+
+To make one tab fill the panel, right-click it and select **Focus**. To return, press
+**Esc** two times, or right-click the tab and select **Exit focus**.
+
+<Video id="console/panels/focus" />
+
+<Divider.Divider x />
+
+## Keyboard shortcuts
+
+On macOS, use **Cmd** where the table shows **Ctrl**.
+
+| Shortcut      | Action                                                     |
+| ------------- | ---------------------------------------------------------- |
+| Ctrl+T        | Open a **Create component** tab.                           |
+| Ctrl+W        | Close the focused tab.                                     |
+| Ctrl+E        | Rename the focused tab.                                    |
+| Ctrl+L        | Focus the focused tab, or exit focus.                      |
+| Esc two times | Exit focus.                                                |
+| Ctrl+O        | Open the selected panel in a new window. Not in a browser. |

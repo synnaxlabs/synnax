@@ -11,7 +11,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 
 import { Runtime } from "@/platform/runtime";
 
-const URL = "https://docs.synnaxlabs.com/reference/console/get-started";
+const URL = "https://docs.synnaxlabs.com/reference/";
 
 /** Opens the Synnax documentation in the user's browser. */
 export const useOpen = (): (() => void) => {
