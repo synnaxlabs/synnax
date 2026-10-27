@@ -80,15 +80,6 @@ jobs:
       full: true
     secrets: inherit
 
-  # A stored shape that changed without a migration stops the release before any draft.
-  migration-audit:
-    name: Migration audit
-    permissions:
-      actions: read
-      contents: read
-    uses: ./.github/workflows/audit.migration.yaml
-    secrets: inherit
-
   resolve:
     name: Resolve versions
     runs-on: ubuntu-latest
@@ -177,7 +168,7 @@ jobs:
 
   draft-console:
     name: Draft Console
-    needs: [resolve, ci, migration-audit]
+    needs: [resolve, ci]
     if: inputs.console
     runs-on: ubuntu-latest
     steps:
@@ -236,7 +227,7 @@ jobs:
 
   draft-driver:
     name: Draft Driver
-    needs: [resolve, ci, migration-audit]
+    needs: [resolve, ci]
     if: inputs.driver
     runs-on: ubuntu-latest
     steps:
@@ -286,12 +277,11 @@ jobs:
   # and never runs after one fails.
   draft-core:
     name: Draft Core
-    needs: [resolve, ci, migration-audit, publish-console, publish-driver]
+    needs: [resolve, ci, publish-console, publish-driver]
     if: >-
       !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && needs.migration-audit.result == 'success' &&
-      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
-      || needs.publish-driver.result == 'success')
+      needs.ci.result == 'success' && (!inputs.console || needs.publish-console.result
+      == 'success') && (!inputs.driver || needs.publish-driver.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

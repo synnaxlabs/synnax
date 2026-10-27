@@ -1,0 +1,211 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Statuses"
+description: "Create, set, find, and delete statuses, and read their notifications."
+clients: ["console", "python", "typescript", "arc"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A status is a named record of the current condition of one thing, such as "Tank
+pressure". Arc automations, scripts, tasks, and people set statuses, and the Synnax
+Console shows each change as a notification. Statuses are the base of
+[alarms](/reference/alarms) in Synnax.
+
+<Divider.Divider x />
+
+## Set a status
+
+Setting a status with a key that already exists replaces the whole status. Give every
+field each time, or the fields that you leave out become empty.
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+1. Run the "Create status" command from the
+   [command palette](/reference/get-started/ui-overview#search-and-command-palette), or
+   click <Icon.Add /> in the statuses toolbar or the status explorer.
+2. Enter a name, then select a **Variant** and enter a **Message**.
+3. Optional: select labels.
+4. Click **Create**.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client.statuses.set(
+    sy.Status(
+        key="tank-pressure",
+        name="Tank pressure",
+        variant="warning",
+        message="Above 600 psi",
+        description="Vent the tank before you continue.",
+    )
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.statuses.set({
+  key: "tank-pressure",
+  name: "Tank pressure",
+  variant: "warning",
+  message: "Above 600 psi",
+  description: "Vent the tank before you continue.",
+});
+```
+
+  </Fragment>
+
+  <Fragment slot="arc">
+
+An [Arc automation](/reference/control/arc/introduction) sets a status when a condition
+is true. `status.set` finds the status by its key or its name, and creates it when none
+matches:
+
+```arc channels="tank_pressure"
+import status
+
+tank_pressure > 600.0 => status.set{
+    key_or_name="tank-pressure",
+    variant="warning",
+    message="Tank pressure is above 600 psi",
+}
+```
+
+To set the status once for each change, and to clear it, see
+[Arc alarms](/reference/alarms/arc).
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Find statuses
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Press **S** or click <Icon.Status /> on the left side of the Console to open the
+statuses toolbar. It shows your favorite statuses with their variant, name, message,
+labels, and the time since their last change.
+
+To see every status, run the "Open status explorer" command, or click the explore button
+in the statuses toolbar. In the explorer, search by name and filter by label and by
+variant.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+status = client.statuses.retrieve(key="tank-pressure")
+errors = client.statuses.retrieve(variants=["error"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const status = await client.statuses.retrieve("tank-pressure");
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Rename, favorite, or delete statuses
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+In the status explorer, right-click one or more statuses and select:
+
+- **Rename** -> change the name.
+- **Favorite** or **Unfavorite** -> add them to the statuses toolbar or remove them.
+- **Copy diagnostics** -> copy the details to the clipboard.
+- **Delete** -> delete them, after you confirm.
+
+</Fragment>
+
+  <Fragment slot="python">
+
+```python
+client.statuses.rename("tank-pressure", "Main tank pressure")
+client.statuses.delete("tank-pressure")
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.statuses.rename("tank-pressure", "Main tank pressure");
+await client.statuses.delete("tank-pressure");
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Notifications
+
+When a status changes, the Console shows a notification in the corner of the window.
+
+- The Console shows notifications only while it is connected to the Core.
+- A notification closes 7 seconds after the time of the status.
+- The Console shows one notification for each status key. A new change replaces it.
+- Different statuses with the same name, variant, message, and description merge into
+  one notification with a count.
+- The Console shows up to four notifications. Click **+N more** to see the rest, and
+  **Clear all** to close them.
+- When you close a notification, the Console does not show that status again until you
+  restart it.
+
+Tasks, Drivers, and devices set statuses too. The Console does not show their success,
+loading, and disabled statuses, so routine changes do not fill the screen.
+
+<Divider.Divider x />
+
+## Reference
+
+### Fields
+
+| Field       | Required | Description                                                          |
+| ----------- | -------- | -------------------------------------------------------------------- |
+| Key         | No       | The unique ID of the status. Synnax makes one when you leave it out. |
+| Name        | No       | What the status is about, such as "Tank pressure".                   |
+| Variant     | Yes      | The kind of condition. See [variants](#variants).                    |
+| Message     | Yes      | What happened, or the current state, in one short line.              |
+| Description | No       | Why, and what to do now, in full sentences.                          |
+| Time        | No       | The time of the change. The default is now.                          |
+| Details     | No       | Extra data in JSON, such as the value that set off the alarm.        |
+| Labels      | No       | Labels that group related statuses. Set them in the Console.         |
+
+### Variants
+
+| Variant  | Use it for                                      |
+| -------- | ----------------------------------------------- |
+| Success  | A nominal condition, or a problem that cleared. |
+| Info     | Information that needs no action.               |
+| Warning  | A condition that needs attention.               |
+| Error    | A failure or a condition out of limits.         |
+| Loading  | An operation that is in progress.               |
+| Disabled | A part of the system that is not active.        |
