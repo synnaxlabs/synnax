@@ -22,7 +22,7 @@ import { Table } from "@/table";
 import { table as aetherTable } from "@/table/aether";
 import { INDICATOR_SIZE } from "@/table/Indicator";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";
 
 const client = createTestClient();
