@@ -128,7 +128,7 @@ describe("table/ontology", () => {
         );
       });
       expect(
-        documentIn(Session.Table.selectSliceState(store.getState()), t.key),
+        documentIn(store.getState()[Session.Table.SLICE_NAME], t.key),
       ).toBeUndefined();
     });
 

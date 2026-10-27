@@ -11,7 +11,6 @@ package check
 
 import (
 	"context"
-	"errors"
 	"io/fs"
 	"os"
 	"runtime"
@@ -21,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"golang.org/x/sync/errgroup"
 )
