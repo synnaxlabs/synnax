@@ -26,7 +26,7 @@ export interface Block {
   readonly fetchedAt: TimeStamp;
   /** The bytes of the block's samples. */
   readonly bytes: number;
-  /** True while the block must stay cached, as when a caller holds its series. */
+  /** True while the block must stay cached, as when a subscription serves it. */
   readonly held: boolean;
   /**
    * True when the fetch saw the channel's samples reach the block's coverage end.
@@ -152,27 +152,17 @@ const cut = (s: Series, tr: TimeRange): Series =>
   });
 
 /**
- * Splits a fetch's series of one channel at the edges of the raw blocks first to last,
- * and cuts the time range of each part to its block. A series cut in two copies its
- * samples, so a block never holds the buffer of samples another block holds. Samples
- * with no index sample of the same Core alignment stay out, as when the Core commits a
- * channel before its index.
- * @param first - The first raw block the fetch read.
- * @param last - The last raw block the fetch read.
+ * Splits a fetch's series of one channel at raw block edges, and cuts the time range of
+ * each part to its block. A series cut in two copies its samples, so a block never
+ * holds the buffer of samples another block holds. Samples with no index sample of the
+ * same Core alignment stay out, as when the Core commits a channel before its index.
  * @param timestamps - The fetch's series of the channel's index, in time order.
  * @param series - The fetch's series of the channel, in time order.
- * @returns the part of each block, from first to last.
+ * @returns the part of each raw block that holds index samples, by block index, in
+ * block order.
  */
-export const split = (
-  first: number,
-  last: number,
-  timestamps: Series[],
-  series: Series[],
-): Part[] => {
-  const parts: Part[] = Array.from({ length: last - first + 1 }, () => ({
-    timestamps: [],
-    series: [],
-  }));
+export const split = (timestamps: Series[], series: Series[]): Map<number, Part> => {
+  const parts = new Map<number, Part>();
   // edges holds the Core alignment bounds of the index samples of each part, in order.
   const edges: Array<{ part: Part; range: TimeRange; lower: bigint; upper: bigint }> =
     [];
@@ -181,7 +171,11 @@ export const split = (
       const index = rawIndex(new TimeStamp(ts.data[lo]));
       const range = tileRange({ level: RAW_LEVEL, index });
       const hi = search(ts, range.end.valueOf(), lo);
-      const part = parts[index - first];
+      let part = parts.get(index);
+      if (part == null) {
+        part = { timestamps: [], series: [] };
+        parts.set(index, part);
+      }
       part.timestamps.push(cut(ts.slice(lo, hi), range));
       const lower = ts.alignment + BigInt(lo);
       edges.push({ part, range, lower, upper: lower + BigInt(hi - lo) });
@@ -204,31 +198,21 @@ export const split = (
 const sumBytes = (series: Series[]): number =>
   series.reduce((sum, s) => sum + s.byteCapacity.valueOf(), 0);
 
-/** A streamed series and the span its samples cover. */
-interface Streamed {
-  series: Series;
-  range: TimeRange;
-}
-
 /**
- * One channel's raw samples over one level 16 tile of the grid. Fetched series carry
- * block alignment and cover the block from its start. Streamed series keep the stream's
- * alignment and never claim coverage, unless the block is joined: then the stream
- * writes block-aligned samples that extend the coverage.
+ * One channel's raw samples over one level 16 tile of the grid, in block alignment.
+ * Fetched series cover the block from its start. While a join writes the stream into
+ * the block, the stream's buffer holds the samples after them.
  */
 export class RawBlock implements Block {
   readonly range: TimeRange;
   fetchedAt = TimeStamp.ZERO;
   sealed = false;
   pins = 0;
-  /** True while a join writes the stream's samples into the block. */
-  joined = false;
   /** Fetched samples cover [range.start, coveredEnd). */
   coveredEnd: TimeStamp;
   /** The index samples in [range.start, coveredEnd). */
   coveredCount = 0;
   private _fetched: Series[] = [];
-  private _streamed: Series[] = [];
   /** The channel's live buffer while a stream writes into the block. */
   buffer: Dynamic | null = null;
   /** Settles when the fetch that fills the block lands. */
@@ -248,24 +232,18 @@ export class RawBlock implements Block {
     return this._fetched;
   }
 
-  /** Buffers the stream filled while the block was open. */
-  get streamed(): readonly Series[] {
-    return this._streamed;
-  }
-
   get bytes(): number {
     const live = this.buffer?.leadingBuffer?.byteCapacity.valueOf() ?? 0;
-    return sumBytes(this._fetched) + sumBytes(this._streamed) + live;
+    return sumBytes(this._fetched) + live;
+  }
+
+  /** True while a join writes the stream's samples into the block. */
+  get joined(): boolean {
+    return this.buffer != null;
   }
 
   get held(): boolean {
-    return (
-      this.pins > 0 ||
-      this.buffer != null ||
-      this.pending != null ||
-      this.fetched.some((s) => s.refCount > 0) ||
-      this.streamed.some((s) => s.refCount > 0)
-    );
+    return this.pins > 0 || this.buffer != null || this.pending != null;
   }
 
   /**
@@ -303,20 +281,8 @@ export class RawBlock implements Block {
     return true;
   }
 
-  /** Drops every sample and the coverage, so reads fetch the block from its start. */
-  reset(): void {
-    this.expire();
-    this._streamed = [];
-  }
-
-  /** Adds buffers the stream filled. */
-  stream(series: Series[]): void {
-    this._streamed.push(...series);
-  }
-
   /**
    * Adds the series of a fetch from coveredEnd. Samples the block already holds win.
-   * Streamed series that a fetched series holds in time leave the block.
    * @param series - The fetch's series in block alignment.
    * @param coveredEnd - The end of the span the fetch answers for.
    * @param coveredCount - The index samples in the block before coveredEnd.
@@ -326,28 +292,18 @@ export class RawBlock implements Block {
     series.forEach((s) => this.insert(s));
     this.coveredEnd = coveredEnd;
     this.coveredCount = coveredCount;
-    this._streamed = this._streamed.filter(
-      (s) =>
-        !this._fetched.some(
-          (f) =>
-            f.timeRange.start.beforeEq(s.timeRange.start) &&
-            f.timeRange.end.afterEq(s.timeRange.end),
-        ),
-    );
   }
 
   /**
-   * @returns the streamed series whose samples overlap tr, with the live buffer last.
-   * The live buffer's span ends at its last stamped write, not at its open end.
+   * @returns the series whose samples overlap tr in time order, the stream's buffer
+   * last. The buffer's span ends at its last stamped write, not at its open end.
    */
-  streamedIn(tr: TimeRange): Streamed[] {
-    const out = this._streamed
-      .filter((s) => s.timeRange.overlapsWith(tr))
-      .map((series) => ({ series, range: series.timeRange }));
+  seriesIn(tr: TimeRange): Series[] {
+    const out = this._fetched.filter((s) => s.timeRange.overlapsWith(tr));
     const live = this.buffer?.leadingBuffer;
     const range = this.buffer?.dataTimeRange;
     if (live != null && range != null && live.length > 0 && range.overlapsWith(tr))
-      out.push({ series: live, range });
+      out.push(live);
     return out;
   }
 

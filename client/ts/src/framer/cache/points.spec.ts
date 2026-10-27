@@ -11,6 +11,7 @@ import {
   type breaker,
   dynamicWindow,
   Rate,
+  type Series,
   Size,
   sleep,
   staticWindow,
@@ -49,6 +50,9 @@ const BREAKER: breaker.Config = {
 };
 const RAW: PointsLimit = { variant: "points", count: Infinity, aggregation: "min_max" };
 const TILED: PointsLimit = { variant: "points", count: 100, aggregation: "min_max" };
+
+const leadingOf = (store: Store, key: channel.Key): Series | null =>
+  store.open(key)?.buffer?.leadingBuffer ?? null;
 
 const createCore = (): SyntheticCore =>
   new SyntheticCore({
@@ -239,7 +243,7 @@ describe("Points", () => {
       const key = core.index.key;
       const points = subscribe(key, window, RAW);
       const servesBuffer = () =>
-        points.value().series.series.at(-1) === store.leadingBuffer(key);
+        points.value().series.series.at(-1) === leadingOf(store, key);
       try {
         await expect.poll(() => joins.joined(key), POLL).toBe(true);
         core.advance(TimeSpan.milliseconds(100));
@@ -267,14 +271,14 @@ describe("Points", () => {
       const key = core.index.key;
       const points = subscribe(key, window, RAW);
       const servesBuffer = () =>
-        points.value().series.series.at(-1) === store.leadingBuffer(key);
+        points.value().series.series.at(-1) === leadingOf(store, key);
       try {
         await expect.poll(() => joins.joined(key), POLL).toBe(true);
         core.advance(TimeSpan.milliseconds(100));
         await expect.poll(servesBuffer, POLL).toBe(true);
-        const filled = store.leadingBuffer(key);
+        const filled = leadingOf(store, key);
         core.advance(TimeSpan.milliseconds(300));
-        await expect.poll(() => store.leadingBuffer(key) !== filled, POLL).toBe(true);
+        await expect.poll(() => leadingOf(store, key) !== filled, POLL).toBe(true);
         expect(servesBuffer()).toBe(true);
       } finally {
         await close();
@@ -286,7 +290,7 @@ describe("Points", () => {
       const key = core.index.key;
       const points = subscribe(key, window, RAW);
       const servesBuffer = () =>
-        points.value().series.series.at(-1) === store.leadingBuffer(key);
+        points.value().series.series.at(-1) === leadingOf(store, key);
       try {
         await expect.poll(() => joins.joined(key), POLL).toBe(true);
         core.advance(TimeSpan.milliseconds(100));

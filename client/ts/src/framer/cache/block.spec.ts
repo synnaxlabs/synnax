@@ -143,7 +143,7 @@ describe("block", () => {
       const edge = Number(span.milliseconds);
       const ts = createIndex(500n, 1, edge - 1, edge, 2 * edge + 1);
       const values = createValues(500n, [1, 2, 3, 4], ts.timeRange);
-      const parts = split(0, 2, [ts], [values]);
+      const parts = [...split([ts], [values]).values()];
       expect(parts.map((p) => p.series.map((s) => Array.from(s)))).toEqual([
         [[1, 2]],
         [[3]],
@@ -160,7 +160,9 @@ describe("block", () => {
     it("should split a series that spans index series of two blocks", () => {
       const edge = Number(span.milliseconds);
       const ts = [createIndex(500n, 1, 2), createIndex(502n, edge + 1)];
-      const parts = split(0, 1, ts, [createValues(501n, [2, 3], ts[0].timeRange)]);
+      const parts = [
+        ...split(ts, [createValues(501n, [2, 3], ts[0].timeRange)]).values(),
+      ];
       expect(parts.map((p) => p.series.map((s) => s.alignmentBounds))).toEqual([
         [{ lower: 501n, upper: 502n }],
         [{ lower: 502n, upper: 503n }],
@@ -170,23 +172,32 @@ describe("block", () => {
     it("should give each block of a cut series its own buffer", () => {
       const edge = Number(span.milliseconds);
       const ts = createIndex(500n, 1, edge + 1);
-      const parts = split(0, 1, [ts], [createValues(500n, [1, 2], ts.timeRange)]);
+      const parts = [
+        ...split([ts], [createValues(500n, [1, 2], ts.timeRange)]).values(),
+      ];
       const buffers = parts.flatMap((p) => [p.timestamps[0], p.series[0]]);
       buffers.forEach((s) =>
         expect(s.buffer.byteLength).toBe(s.byteCapacity.valueOf()),
       );
     });
 
+    it("should make parts only for the blocks that hold index samples", () => {
+      const edge = Number(span.milliseconds);
+      const ts = createIndex(500n, 1, 2 * edge + 1);
+      const parts = split([ts], [createValues(500n, [1, 2], ts.timeRange)]);
+      expect([...parts.keys()]).toEqual([0, 2]);
+    });
+
     it("should keep a series in one block as it is", () => {
       const ts = createIndex(500n, 1, 2);
       const values = createValues(500n, [1, 2], ts.timeRange);
-      const [part] = split(0, 0, [ts], [values]);
+      const [part] = split([ts], [values]).values();
       expect(part.series[0].buffer).toBe(values.buffer);
     });
 
     it("should leave out samples with no index sample of their Core alignment", () => {
       const ts = createIndex(500n, 1, 2);
-      const [part] = split(0, 0, [ts], [createValues(501n, [1, 2])]);
+      const [part] = split([ts], [createValues(501n, [1, 2])]).values();
       expect(part.series.map((s) => Array.from(s))).toEqual([[1]]);
       expect(part.series[0].alignment).toBe(501n);
     });
@@ -297,15 +308,6 @@ describe("block", () => {
         expect(block.fetched[2]).toBe(next);
         expect(block.fetched.flatMap((s) => Array.from(s))).toEqual([1, 2, 3, 4, 5, 6]);
       });
-
-      it("should drop a streamed series a fetched series holds in time", () => {
-        const block = new RawBlock(1, 0);
-        const inside = createValues(9n, [1], seconds(2).range(seconds(3)));
-        const across = createValues(9n, [1], seconds(4).range(seconds(8)));
-        block.stream([inside, across]);
-        block.fill([fetched(0, [1, 2], seconds(1).range(seconds(5)))], seconds(5), 2);
-        expect(block.streamed).toEqual([across]);
-      });
     });
 
     describe("expire", () => {
@@ -320,28 +322,32 @@ describe("block", () => {
         expect(block.sealed).toBe(false);
       });
 
-      it("should keep the streamed samples", () => {
-        const block = new RawBlock(1, 0);
-        const streamed = createValues(9n, [1], seconds(9).range(seconds(10)));
-        block.stream([streamed]);
-        block.fill([], seconds(5), 0);
-        block.expire();
-        expect(block.streamed).toEqual([streamed]);
-      });
-
       it("should report a block with nothing to drop", () => {
         expect(new RawBlock(1, 0).expire()).toBe(false);
       });
     });
 
-    describe("streamedIn", () => {
-      it("should return the streamed series that overlap a range", () => {
+    describe("seriesIn", () => {
+      it("should return the fetched series that overlap a range", () => {
         const block = new RawBlock(1, 0);
-        const early = createValues(9n, [1], seconds(1).range(seconds(2)));
-        const late = createValues(10n, [2], seconds(8).range(seconds(9)));
-        block.stream([early, late]);
-        expect(block.streamedIn(seconds(7).range(seconds(20)))).toEqual([
-          { series: late, range: late.timeRange },
+        const early = fetched(0, [1], seconds(1).range(seconds(2)));
+        const late = fetched(1, [2], seconds(8).range(seconds(9)));
+        block.fill([early, late], seconds(9), 2);
+        expect(block.seriesIn(seconds(7).range(seconds(20)))).toEqual([late]);
+      });
+
+      it("should return the open buffer after the fetched series", () => {
+        const block = new RawBlock(1, 0);
+        const early = fetched(0, [1], seconds(1).range(seconds(2)));
+        block.fill([early], seconds(4), 1);
+        const buffer = new Dynamic({ dynamicBufferSize: 10 });
+        buffer.write(
+          new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
+        );
+        block.buffer = buffer;
+        expect(block.seriesIn(seconds(0).range(seconds(20)))).toEqual([
+          early,
+          buffer.leadingBuffer,
         ]);
       });
 
@@ -352,10 +358,10 @@ describe("block", () => {
           new MultiSeries([createValues(9n, [1, 2], seconds(4).range(seconds(6)))]),
         );
         block.buffer = buffer;
-        expect(block.streamedIn(seconds(7).range(seconds(20)))).toEqual([]);
-        const [live] = block.streamedIn(seconds(5).range(seconds(20)));
-        expect(live.series).toBe(buffer.leadingBuffer);
-        expect(live.range).toEqual(seconds(4).range(seconds(6)));
+        expect(block.seriesIn(seconds(7).range(seconds(20)))).toEqual([]);
+        expect(block.seriesIn(seconds(5).range(seconds(20)))).toEqual([
+          buffer.leadingBuffer,
+        ]);
       });
     });
 
@@ -376,49 +382,42 @@ describe("block", () => {
         expect(block.held).toBe(true);
       });
 
-      it("should hold a block while a caller holds a fetched series", () => {
+      it("should hold a block while a subscription pins it", () => {
+        const block = new RawBlock(1, 0);
+        block.fill([fetched(0, [1], seconds(1).range(seconds(2)))], seconds(5), 1);
+        block.pins++;
+        expect(block.held).toBe(true);
+        block.pins--;
+        expect(block.held).toBe(false);
+      });
+
+      it("should not hold a block for a series a caller acquires", () => {
         const block = new RawBlock(1, 0);
         const series = fetched(0, [1], seconds(1).range(seconds(2)));
         block.fill([series], seconds(5), 1);
         series.acquire();
-        expect(block.held).toBe(true);
-        series.release();
         expect(block.held).toBe(false);
-      });
-
-      it("should hold a block while a caller holds a streamed series", () => {
-        const block = new RawBlock(1, 0);
-        const series = createValues(9n, [1], seconds(9).range(seconds(10)));
-        block.stream([series]);
-        series.acquire();
-        expect(block.held).toBe(true);
         series.release();
-        expect(block.held).toBe(false);
       });
     });
 
     it("should stop counting the bytes of the series it drops", () => {
       const block = new RawBlock(1, 0);
-      block.stream([createValues(9n, [1], seconds(2).range(seconds(3)))]);
-      block.stream([createValues(9n, [1], seconds(9).range(seconds(10)))]);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(5)))], seconds(5), 2);
-      expect(block.bytes).toBe(2 * 4 + 4);
+      expect(block.bytes).toBe(2 * 4);
       block.expire();
-      expect(block.bytes).toBe(4);
-      block.reset();
       expect(block.bytes).toBe(0);
     });
 
     it("should count the bytes of every series it holds", () => {
       const block = new RawBlock(1, 0);
       block.fill([fetched(0, [1, 2], seconds(1).range(seconds(3)))], seconds(5), 2);
-      block.stream([createValues(9n, [1], seconds(9).range(seconds(10)))]);
       const buffer = new Dynamic({ dynamicBufferSize: 10 });
       buffer.write(
         new MultiSeries([createValues(9n, [1], seconds(11).range(seconds(12)))]),
       );
       block.buffer = buffer;
-      expect(block.bytes).toBe(2 * 4 + 4 + 10 * 4);
+      expect(block.bytes).toBe(2 * 4 + 10 * 4);
     });
   });
 });

@@ -9,12 +9,10 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  array,
   breaker,
   type CrudeTimeSpan,
   type destructor,
   errors,
-  MultiSeries,
   Rate,
   scheduler,
   type Series,
@@ -47,19 +45,10 @@ export interface HardenedOpener {
 }
 
 /**
- * Receives every channel that changed on the shared stream, which may include keys the
- * handler did not demand.
- */
-export type StreamHandler = (data: Map<channel.Key, MultiSeries>) => void;
-
-/**
  * Receives each frame of the shared stream: the series of each channel as the Core
- * streamed them, and the buffers the store allocated for them.
+ * streamed them.
  */
-export type FrameHandler = (
-  frame: Map<channel.Key, Series[]>,
-  allocated: Map<channel.Key, MultiSeries>,
-) => void;
+export type FrameHandler = (frame: Map<channel.Key, Series[]>) => void;
 
 /** Receives per-key data-plane status transitions for demanded channels. */
 export type StatusHandler = (key: channel.Key, status: status.Status) => void;
@@ -96,7 +85,7 @@ interface AckWaiter {
 
 export interface MultiplexedStreamerProps {
   store: Store;
-  /** Writes the stream's frames into the store. */
+  /** Joins the stream's frames to the raw blocks of joined channels. */
   joins: Joins;
   /** Receives the index channels of the joins that wait for a catch-up read. */
   onWait: (indexes: Set<channel.Key>) => void;
@@ -196,28 +185,6 @@ export class MultiplexedStreamer {
       scale,
       jitter,
     });
-  }
-
-  /**
-   * Registers demand for the given keys. Registration is synchronous: the handler
-   * is called with any existing leading buffers, and the stream converges to the
-   * new demand in the background.
-   * @throws {UnexpectedError} if the streamer has been closed.
-   */
-  stream(handler: StreamHandler, keys: channel.Key[]): Demand {
-    if (this.connMu.closed)
-      throw new UnexpectedError("stream() called on a closed telemetry streamer");
-    const { store } = this.props;
-    // Deliver existing buffers before registration so a throwing handler leaves no
-    // demand behind.
-    const initial: Map<channel.Key, MultiSeries> = new Map(
-      keys.map((key) => [
-        key,
-        new MultiSeries(array.toArray<Series>(store.leadingBuffer(key))),
-      ]),
-    );
-    handler(initial);
-    return this.demand(keys, (_, allocated) => handler(allocated));
   }
 
   /**
@@ -554,20 +521,13 @@ export class MultiplexedStreamer {
           if (existing == null) grouped.set(key, [s]);
           else existing.push(s);
         });
-        const { allocated, waiting } = joins.write(grouped);
-        onWait(waiting);
-        const demanded = this.demandedKeys();
-        grouped.forEach((_, k) => {
-          // A frame for a key with no remaining demand arrived behind the stream
-          // update, so its block must not stay open.
-          if (!demanded.has(k)) onWait(joins.flush(k));
-          this.setStatus(k, STREAMING);
-        });
+        onWait(joins.write(grouped));
+        grouped.forEach((_, k) => this.setStatus(k, STREAMING));
         if (grouped.size !== 0)
           this.entries.forEach((e) => {
             if (e.removed) return;
             try {
-              e.handler(grouped, allocated);
+              e.handler(grouped);
             } catch (err) {
               ins.L.error("stream handler failed", { error: err }, true);
             }

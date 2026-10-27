@@ -78,12 +78,9 @@ const runIngest = async (
   });
   const perHandler = Math.ceil(keys.length / handlerCount);
   for (let i = 0; i < handlerCount; i++)
-    streamer.stream(
-      (res) => {
-        _sink += res.size;
-      },
-      keys.slice(i * perHandler, (i + 1) * perHandler),
-    );
+    streamer.demand(keys.slice(i * perHandler, (i + 1) * perHandler), (frame) => {
+      _sink += frame.size;
+    });
   await done;
   await streamer.close();
   store.close();

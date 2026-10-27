@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type DataType,
   type MultiSeries,
   scheduler,
   type Size,
-  TimeRange,
+  type TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x";
 
@@ -30,10 +29,9 @@ import {
   type Demand,
   MultiplexedStreamer,
   type MultiplexedStreamerProps,
-  type StreamHandler,
 } from "@/framer/cache/streamer";
 import { Handle } from "@/framer/cache/subscription";
-import { TileReader, type TileSpec } from "@/framer/cache/tile";
+import { TileReader } from "@/framer/cache/tile";
 import { type Frame } from "@/framer/frame";
 import { HardenedStreamer } from "@/framer/hardened";
 import { type StreamOpener } from "@/framer/streamer";
@@ -71,8 +69,8 @@ export interface FeedProps
    */
   node?: () => number | undefined;
   /**
-   * Byte size the block cache evicts down to. Blocks a caller holds and blocks the
-   * stream writes into are never evicted.
+   * Byte size the block cache evicts down to. Blocks a subscription serves and blocks
+   * the stream writes into are never evicted.
    * @default Size.megabytes(128)
    */
   budget?: Size;
@@ -87,9 +85,9 @@ export interface FeedOptions extends Omit<
 > {}
 
 /**
- * Cached, demand-managed access to channel telemetry: durable streaming subscriptions
- * multiplexed onto one frame stream, and batched historical reads, all cached in raw
- * and reduced blocks under one byte budget.
+ * Cached access to channel telemetry through subscriptions. Subscriptions share one
+ * frame stream and batched historical reads, cached in raw and reduced blocks under one
+ * byte budget.
  */
 export class Feed {
   private readonly reader: Reader;
@@ -265,53 +263,6 @@ export class Feed {
       instrumentation?.L.warn("failed to stream history changes", { error: e });
       this.listening = false;
     }
-  }
-
-  /**
-   * Registers durable streaming demand for the given keys. Returns synchronously;
-   * convergence failures surface as per-key statuses, never as rejections. The
-   * handler's first call precedes registration, so a throw from it leaves no
-   * subscription behind.
-   * @throws {UnexpectedError} if the feed has been closed.
-   */
-  stream(handler: StreamHandler, keys: channel.Key[]): Demand {
-    return this.streamer.stream(handler, keys);
-  }
-
-  /**
-   * Reads the given time range for the given channel, serving from cached raw blocks
-   * and fetching the blocks the cache lacks. Series are not cut to the range, so the
-   * result can hold samples outside it.
-   * @throws {NotFoundError} if the channel does not exist.
-   * @throws {UnexpectedError} if the feed is closed while the read is pending.
-   * @throws {Unreachable} if a fetch serving the read exceeds the fetch timeout.
-   */
-  async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-    return await this.reader.read(tr, key);
-  }
-
-  /**
-   * Reads one tile of a channel, reduced under the tile's point limit. Finished tiles
-   * are cached, so the result may be shared with other callers. Reads of tiles with
-   * equal bounds and options within one batch window share a single request, so their
-   * series share one group size.
-   * @param dataType - The data type of the series the caller holds. A cached tile of
-   * another data type is read again.
-   * @throws {UnexpectedError} if the feed is closed while the read is pending.
-   * @throws {Unreachable} if the fetch serving the read exceeds the fetch timeout.
-   */
-  async readTile(spec: TileSpec, dataType?: DataType): Promise<MultiSeries> {
-    return await this.tiles.read(spec, dataType);
-  }
-
-  /**
-   * Reads the latest stored sample of the given channel, in the representation the
-   * cache serves. Reads within one batch window share a single request.
-   * @throws {UnexpectedError} if the feed is closed while the read is pending.
-   */
-  async readLatest(key: channel.Key): Promise<MultiSeries> {
-    if (this.closed) throw new UnexpectedError("telemetry feed is closed");
-    return await this.latest.enqueue({ key, count: 1, tr: TimeRange.MAX });
   }
 
   /**

@@ -18,6 +18,7 @@ import {
   type location,
   primitive,
   resolveWindow,
+  TimeSpan,
   TimeStamp,
   type Window,
 } from "@synnaxlabs/x";
@@ -110,6 +111,10 @@ const GROUPS_PER_COLUMN: Record<lineplot.Detail, number> = {
   high: 1,
 };
 
+// A live window of a minute or less draws from the stream at once, so its lines report
+// no loading while they have no data.
+const LOADING_MIN_SPAN = Number(TimeSpan.minutes(1).valueOf());
+
 const createTelemetry = (
   window: Window,
   xChannel: channel.Key,
@@ -120,16 +125,15 @@ const createTelemetry = (
   const props = {
     window,
     xChannel,
-    yChannel,
     aggregation,
   };
   return {
-    x: telem.tiledChannelData({
+    x: telem.channelData({
       ...props,
       channel: hasX ? xChannel : yChannel,
       useIndexOfChannel: !hasX,
     }),
-    y: telem.tiledChannelData({ ...props, channel: yChannel }),
+    y: telem.channelData({ ...props, channel: yChannel }),
   };
 };
 
@@ -144,9 +148,8 @@ const Line = ({
   // JSX takes the rest object, so the compiler counts reads from it as changing later.
   const { xChannel, yChannel } = spec;
   const groupsPerColumn = GROUPS_PER_COLUMN[detail];
-  const telemetry =
-    window == null ? null : createTelemetry(window, xChannel, yChannel, aggregation);
-  if (telemetry == null) return null;
+  if (window == null) return null;
+  const telemetry = createTelemetry(window, xChannel, yChannel, aggregation);
   return (
     <BaseLine
       key={key}
@@ -155,7 +158,9 @@ const Line = ({
       y={telemetry.y}
       visible={visible}
       groupsPerColumn={groupsPerColumn}
-      window={window}
+      loadingHidden={
+        window.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
+      }
       legendGroup={line.yAxis.toUpperCase()}
       {...line}
     />

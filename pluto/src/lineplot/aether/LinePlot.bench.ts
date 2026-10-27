@@ -69,7 +69,7 @@ const yieldTask = async (): Promise<void> =>
 
 const mount = async (
   lines: number,
-  props: Omit<telem.TiledChannelDataProps, "channel">,
+  props: Omit<telem.ChannelDataProps, "channel">,
   viewport: box.Box,
 ): Promise<Plot> => {
   const now =
@@ -105,8 +105,8 @@ const mount = async (
   const linePaths = core.data.map((ch) => {
     const path = [...yAxis, `l${ch.key}`];
     stack.driver.update(path, line.Line.TYPE, {
-      x: telem.tiledChannelData({ ...props, channel: ch.key, useIndexOfChannel: true }),
-      y: telem.tiledChannelData({ ...props, channel: ch.key }),
+      x: telem.channelData({ ...props, channel: ch.key, useIndexOfChannel: true }),
+      y: telem.channelData({ ...props, channel: ch.key }),
       color: "#ff0000",
     });
     return path;

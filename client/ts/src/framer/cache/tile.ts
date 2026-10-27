@@ -72,7 +72,7 @@ class Tile implements Block {
   }
 
   get held(): boolean {
-    return this.pins > 0 || this.series.series.some((s) => s.refCount > 0);
+    return this.pins > 0;
   }
 }
 

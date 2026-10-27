@@ -24,6 +24,7 @@ import {
 import { type lineplot as pLineplot } from "@synnaxlabs/pluto/ether";
 import {
   box,
+  dynamicWindow,
   location,
   scale,
   staticWindow,
@@ -201,14 +202,14 @@ const Internal = (): ReactElement => {
     windows.set(
       r.key,
       r.variant === "dynamic"
-        ? { variant: "dynamic", timeSpan: r.span }
+        ? dynamicWindow(r.span)
         : staticWindow(new TimeRange(r.timeRange)),
     );
   if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
     windows.set(
       Range.CUSTOM_KEY,
       custom.variant === "dynamic"
-        ? { variant: "dynamic", timeSpan: custom.span }
+        ? dynamicWindow(custom.span)
         : { variant: "static", timeRange: { start: custom.start, end: custom.end } },
     );
 

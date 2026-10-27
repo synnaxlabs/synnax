@@ -90,6 +90,11 @@ export interface Result<V> {
   aggregation?: Aggregation;
   /** The time of the newest sample. */
   time?: TimeStamp;
+  /**
+   * The count of samples that arrived at the source. A history change leaves it
+   * unchanged, so a count that grows marks an arrival.
+   */
+  appended?: number;
 }
 
 const statusOf = (variant: status.Variant): status.Status => ({
@@ -226,7 +231,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
 
   onChange(handler: () => void): destructor.Destructor {
     return this.source.onChange(() => {
-      if (this.shouldNotify(this.source.value().data)) handler();
+      if (this.shouldNotify(this.source.value())) handler();
     });
   }
 
@@ -234,7 +239,7 @@ export abstract class UnarySourceTransformer<I, O, P extends z.ZodType>
     this.source_ = Object.values(sources)[0];
   }
 
-  protected shouldNotify(_: I): boolean {
+  protected shouldNotify(_: Result<I>): boolean {
     return true;
   }
 
@@ -247,20 +252,27 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
 {
   sources: Record<string, Source<I>> = {};
 
-  /** Reports the worst status and the newest time of the sources. */
+  /**
+   * Reports the worst status and the newest time of the sources, and the sum of their
+   * appended counts, or no count when any source has none.
+   */
   value(): Result<O> {
     const data: Record<string, I> = {};
     let worst = SUCCESS_STATUS;
     let time: TimeStamp | undefined;
+    let appended: number | undefined = 0;
     for (const [id, source] of Object.entries(this.sources)) {
       const result = source.value();
       data[id] = result.data;
-      if (status.moreSevere(result.status.variant, worst.variant))
-        worst = result.status;
+      worst = status.worst(worst, result.status)!;
       if (result.time != null && (time == null || result.time.after(time)))
         time = result.time;
+      appended =
+        appended == null || result.appended == null
+          ? undefined
+          : appended + result.appended;
     }
-    return { data: this.transform(data), status: worst, time };
+    return { data: this.transform(data), status: worst, time, appended };
   }
 
   onChange(handler: () => void): destructor.Destructor {

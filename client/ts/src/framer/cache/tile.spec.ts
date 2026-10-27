@@ -24,7 +24,12 @@ import { UnexpectedError } from "@/errors";
 import { rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Store, type StoreProps } from "@/framer/cache/store";
-import { TileReader, type TileReaderProps, type TileSpec } from "@/framer/cache/tile";
+import {
+  tileKey,
+  TileReader,
+  type TileReaderProps,
+  type TileSpec,
+} from "@/framer/cache/tile";
 import { Frame } from "@/framer/frame";
 import { ManualClock } from "@/testutil";
 
@@ -277,17 +282,19 @@ describe("tile", () => {
       reader.close();
     });
 
-    it("should keep a tile a caller holds past the budget", async () => {
-      const { reader, calls } = createReader(
+    it("should keep a tile a subscription pins past the budget", async () => {
+      const { reader, calls, store } = createReader(
         { budget: Size.bytes(1.5 * LARGE_BYTES) },
         LARGE_SAMPLES,
       );
-      const heldTile = await reader.read(createSpec({ index: 1 }));
-      heldTile.acquire();
+      const spec = createSpec({ index: 1 });
+      await reader.read(spec);
+      const tile = store.get(tileKey(spec))!;
+      tile.pins++;
       await reader.read(createSpec({ index: 2 }));
       await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(2);
-      heldTile.release();
+      tile.pins--;
       await reader.read(createSpec({ index: 3 }));
       await reader.read(createSpec({ index: 1 }));
       expect(calls).toHaveLength(4);

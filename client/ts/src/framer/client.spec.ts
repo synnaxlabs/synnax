@@ -35,7 +35,7 @@ describe("Client", () => {
       const feed = unreachable.openFeed({
         breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
       });
-      const sub = feed.stream(() => {}, [1]);
+      const sub = feed.subscribe({ keys: [1], limit: { variant: "latest", count: 1 } });
       await expect.poll(() => retries.length).toBeGreaterThan(1);
       expect(retries.every((error) => Unreachable.matches(error.cause))).toBe(true);
       sub.close();

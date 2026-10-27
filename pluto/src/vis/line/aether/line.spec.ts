@@ -15,7 +15,6 @@ import {
   color,
   type CrudeTimeRange,
   DataType,
-  dynamicWindow,
   id,
   MultiSeries,
   scale,
@@ -253,22 +252,11 @@ describe("line", () => {
         expect([m.line.loading, m.line.fetching]).toEqual([false, true]);
       });
 
-      it("should show no first-load message for a live window of a minute or less", () => {
-        const m = mount([X1], [], {
-          window: dynamicWindow(TimeSpan.minutes(1)),
-        });
+      it("should report neither while it has no data and hides loading", () => {
+        const m = mount([X1], [], { loadingHidden: true });
         m.ySource.status = telem.LOADING_STATUS;
         m.line.render(PROPS);
         expect([m.line.loading, m.line.fetching]).toEqual([false, false]);
-      });
-
-      it("should show a first-load message for a longer live window", () => {
-        const m = mount([X1], [], {
-          window: dynamicWindow(TimeSpan.minutes(2)),
-        });
-        m.ySource.status = telem.LOADING_STATUS;
-        m.line.render(PROPS);
-        expect(m.line.loading).toBe(true);
       });
 
       it("should report fetching for a load after the first, with no data", () => {
@@ -607,7 +595,7 @@ describe("line", () => {
     });
   });
 
-  describe("TiledChannelData against a Core", () => {
+  describe("ChannelData against a Core", () => {
     const synnax = createTestClient();
     const feed = synnax.openFeed();
     const client: telem.Client = {
@@ -646,8 +634,8 @@ describe("line", () => {
       return { data, home };
     };
 
-    const create = (props: Partial<telem.TiledChannelDataProps>) =>
-      new telem.TiledChannelData(client, props);
+    const create = (props: Partial<telem.ChannelDataProps>) =>
+      new telem.ChannelData(client, props);
 
     const createPair = (dataKey: channel.Key, home: TimeRange) => ({
       x: create({
@@ -658,7 +646,7 @@ describe("line", () => {
       y: create({ channel: dataKey, window: staticWindow(home) }),
     });
 
-    const settle = async (...sources: telem.TiledChannelData[]): Promise<void> =>
+    const settle = async (...sources: telem.ChannelData[]): Promise<void> =>
       await expect
         .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
         .toBe(true);

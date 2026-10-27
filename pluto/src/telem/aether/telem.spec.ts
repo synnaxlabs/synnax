@@ -60,7 +60,7 @@ describe("telem", () => {
     const stringifier = (): telem.StringifyNumber =>
       new telem.StringifyNumber({ precision: 2, notation: "standard" });
 
-    it("should copy status, aggregation, and time through a unary transformer", () => {
+    it("should copy status, aggregation, time, and appended through a unary transformer", () => {
       const t = stringifier();
       t.setSources({
         s: resultSource({
@@ -68,6 +68,7 @@ describe("telem", () => {
           status: telem.LOADING_STATUS,
           aggregation: "average",
           time: SAMPLE_TIME,
+          appended: 7,
         }),
       });
       expect(t.value()).toEqual({
@@ -75,6 +76,7 @@ describe("telem", () => {
         status: telem.LOADING_STATUS,
         aggregation: "average",
         time: SAMPLE_TIME,
+        appended: 7,
       });
     });
 
@@ -86,6 +88,24 @@ describe("telem", () => {
         c: resultSource(telem.success(6)),
       });
       expect(m.value()).toEqual({ data: 4, status: ERROR_STATUS, time: SAMPLE_TIME });
+    });
+
+    it("should sum the appended counts of its sources", () => {
+      const m = new telem.Mean({});
+      m.setSources({
+        a: resultSource({ ...telem.success(2), appended: 3 }),
+        b: resultSource({ ...telem.success(4), appended: 4 }),
+      });
+      expect(m.value().appended).toBe(7);
+    });
+
+    it("should report no appended count when a source has none", () => {
+      const m = new telem.Mean({});
+      m.setSources({
+        a: resultSource({ ...telem.success(2), appended: 3 }),
+        b: resultSource(telem.success(6)),
+      });
+      expect(m.value().appended).toBeUndefined();
     });
 
     it("should report success and no time when no source has one", () => {

@@ -51,6 +51,7 @@ const createLatest = (
     streamer,
     retrieveChannels: core.retrieveChannels,
     now: core.now,
+    breaker: { baseInterval: TimeSpan.milliseconds(10) },
     readLatest: async (key, count, tr) => {
       await onRead();
       reads++;
@@ -284,6 +285,36 @@ describe("Latest", () => {
         variant: "error",
         message: "Failed to read channel data",
       });
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should keep samples it served under an error when a read lands", async () => {
+    const core = createCore();
+    let failed = false;
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => (release = resolve));
+    const { open, close } = createLatest(core, async () => {
+      if (!failed) {
+        failed = true;
+        throw new Error("stream closed unexpectedly");
+      }
+      await released;
+    });
+    const latest = open(1000, undefined, core.index.key);
+    try {
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("error");
+      core.advance(TimeSpan.milliseconds(100));
+      await expect.poll(() => latest.value().series.length, POLL).toBe(10);
+      const served = latest.value().series.series;
+      release();
+      await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
+      expect(latest.value().series.length).toBe(10);
+      const { series } = latest.value().series;
+      expect(series).toHaveLength(served.length);
+      series.forEach((s, i) => expect(s).toBe(served[i]));
     } finally {
       latest.close();
       await close();

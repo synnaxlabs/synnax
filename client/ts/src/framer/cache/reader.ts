@@ -11,7 +11,6 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type destructor,
   errors,
-  MultiSeries,
   type Reduction,
   scheduler,
   type Series,
@@ -30,7 +29,6 @@ import {
   type Part,
   RAW_LEVEL,
   type RawBlock,
-  rawIndex,
   rawKey,
   split,
 } from "@/framer/cache/block";
@@ -58,6 +56,8 @@ interface Request {
   block: RawBlock;
   end: TimeStamp;
   catchUp: boolean;
+  // The blocks the read filled, which a catch-up keeps until its caller releases them.
+  pinned?: Set<RawBlock>;
 }
 
 // One Core read from start to end over the blocks first to last, shared by every
@@ -127,24 +127,28 @@ export class Reader {
   }
 
   /**
-   * Reads the given time range for the given channel. Series are not cut to the range,
-   * so the result can hold samples outside it. Series come in time order. A streamed
-   * series that overlaps a fetched one is left out.
-   * @throws {UnexpectedError} if the reader is closed while the read is pending.
-   * @throws {Unreachable} if a fetch serving the read exceeds the fetch timeout.
+   * Fetches the channel's raw blocks over the time range that their samples do not
+   * cover yet. Settles once every fetch lands.
+   * @throws {UnexpectedError} if the reader is closed while the fill is pending.
+   * @throws {Unreachable} if a fetch serving the fill exceeds the fetch timeout.
    * @throws {NotFoundError} if the channel does not exist.
    */
-  async read(tr: TimeRange, ch: channel.Key): Promise<MultiSeries> {
+  async fill(tr: TimeRange, ch: channel.Key): Promise<void> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
     const blocks = indexes(tr, RAW_LEVEL).map((i) => this.props.store.raw(ch, i));
     const waits: Array<Promise<void>> = [];
     for (const b of blocks) {
       if (b.covers(tr)) continue;
       waits.push(
-        b.pending ?? this.enqueue(b, TimeStamp.min(tr.end, b.range.end), false),
+        b.pending ??
+          this.enqueue({
+            block: b,
+            end: TimeStamp.min(tr.end, b.range.end),
+            catchUp: false,
+          }),
       );
     }
-    // The read settles after its last fetch, and its first failure wins.
+    // The fill settles after its last fetch, and its first failure wins.
     let failure: Error | undefined;
     await Promise.all(
       waits.map(async (w) => {
@@ -156,44 +160,28 @@ export class Reader {
       }),
     );
     if (failure != null) throw failure;
-    // A streamed series stays in the block it starts in, so one that crosses into the
-    // read's first block is in the block before it.
-    const before = this.props.store.findRaw(ch, blocks[0].index - 1);
-    const series = assemble(tr, before == null ? blocks : [before, ...blocks]);
-    // A fetch with a new data type drops the channel's blocks from the store, but this
-    // read took its blocks before the fetch, so they can hold the old data type.
-    if (new Set(series.map((s) => s.dataType.toString())).size > 1)
-      return await this.read(tr, ch);
-    return new MultiSeries(series);
   }
 
   /**
-   * Fetches the channel's raw blocks from first through its newest sample, from the end
-   * of their coverage, and trusts every sample the read returns. Call it only after the
+   * Fetches the channel's samples from the coverage end of raw block first onward into
+   * the blocks that hold them, and trusts every sample the read returns. Its cost grows
+   * with the blocks that hold samples, not with the span to now. Call it only after the
    * stream acked the channel and its index, so the stream delivers every sample the
-   * read misses. The store keeps the blocks until the returned destructor runs, so the
-   * join finds the samples it numbers the stream's samples after.
+   * read misses. The store keeps the blocks the read fills until the returned
+   * destructor runs, so the join finds the samples it numbers the stream's samples
+   * after.
    * @throws {UnexpectedError} if the reader is closed while the read is pending.
    * @throws {Unreachable} if the fetch exceeds the fetch timeout.
    * @throws {NotFoundError} if the channel does not exist.
    */
   async catchUp(ch: channel.Key, first: number): Promise<destructor.Destructor> {
     if (this.closed) throw new UnexpectedError("telemetry reader is closed");
-    const { store, now } = this.props;
-    const last = Math.max(first, rawIndex(now()));
+    const { store } = this.props;
+    const block = store.raw(ch, first);
     const pinned = new Set<RawBlock>();
     const release = (): void => store.repin(pinned, new Set());
-    const waits: Array<Promise<void>> = [];
-    for (let i = first; i <= last; i++) {
-      const b = store.raw(ch, i);
-      // Pinned one at a time, since the next block can evict an unpinned one.
-      store.repin(new Set(), new Set([b]));
-      pinned.add(b);
-      const end = i === last ? TimeStamp.MAX : b.range.end;
-      waits.push(this.batcher.enqueue({ block: b, end, catchUp: true }));
-    }
     try {
-      await Promise.all(waits);
+      await this.batcher.enqueue({ block, end: TimeStamp.MAX, catchUp: true, pinned });
     } catch (e) {
       release();
       throw errors.fromUnknown(e);
@@ -201,27 +189,25 @@ export class Reader {
     return release;
   }
 
-  private enqueue(block: RawBlock, end: TimeStamp, catchUp: boolean): Promise<void> {
-    return this.props.store.hold(block, this.batcher.enqueue({ block, end, catchUp }));
+  private enqueue(req: Request): Promise<void> {
+    return this.props.store.hold(req.block, this.batcher.enqueue(req));
   }
 
   private async batchRead(
     entries: Array<scheduler.BatcherEntry<Request>>,
   ): Promise<void> {
-    const byChannel = new Map<string, Array<scheduler.BatcherEntry<Request>>>();
-    for (const entry of entries) {
-      const { block, end, catchUp } = entry.req;
+    const pending = entries.filter((entry) => {
+      const { block, end } = entry.req;
       // A fetch that landed while the request waited may have covered it, and a joined
       // block takes its samples from the stream.
-      if (block.joined || !block.coveredEnd.before(end)) {
-        entry.resolve();
-        continue;
-      }
-      const key = `${block.channel}/${catchUp}`;
-      const existing = byChannel.get(key);
-      if (existing == null) byChannel.set(key, [entry]);
-      else existing.push(entry);
-    }
+      if (!block.joined && block.coveredEnd.before(end)) return true;
+      entry.resolve();
+      return false;
+    });
+    const byChannel = Map.groupBy(
+      pending,
+      ({ req }) => `${req.block.channel}/${req.catchUp}`,
+    );
     const groups = new Map<string, Group>();
     byChannel.forEach((pending) =>
       runs(pending).forEach((run) => {
@@ -245,7 +231,7 @@ export class Reader {
       const refetch = await this.load(group, tr);
       entries.forEach(({ req, resolve }) => {
         if (!refetch.has(req)) return resolve();
-        resolve(this.enqueue(req.block, req.end, req.catchUp));
+        resolve(this.enqueue(req));
       });
     } catch (err) {
       const byChannel = Map.groupBy(entries, ({ req }) => req.block.channel);
@@ -262,25 +248,22 @@ export class Reader {
     }
   }
 
-  // Reads the requested channels and their indexes over tr, splits the result at block
-  // edges, and fills each block whose coverage still ends where the read starts in it.
-  // A new data type resets a block, so a block that the read started after its start
-  // comes back in the result, to fetch again. So does a catch-up block that another
-  // fetch filled first, since that fetch did not trust its newest samples, and a block
-  // of a channel whose history changed while the read ran.
+  // Reads the channels and their indexes over tr, and fills the blocks. A block after
+  // the first merges the read with its samples. The first block takes the read only
+  // while its coverage ends at the read's start. The result holds the requests to fetch
+  // again: a first block that a new data type reset, a first catch-up block that
+  // another fetch filled with newest samples it did not trust, and a block whose
+  // history changed while the read ran.
   private async load(
     { first, last, start, catchUp, entries }: Group,
     tr: TimeRange,
   ): Promise<Set<Request>> {
-    const open = tr.end.equals(TimeStamp.MAX);
     const { readRemote, retrieveChannels, store, now } = this.props;
     const committed = now().sub(COMMIT_MARGIN);
-    const requested = new Map<channel.Key, Request[]>();
-    entries.forEach(({ req }) => {
-      const existing = requested.get(req.block.channel);
-      if (existing == null) requested.set(req.block.channel, [req]);
-      else existing.push(req);
-    });
+    const requested = Map.groupBy(
+      entries.map(({ req }) => req),
+      (req) => req.block.channel,
+    );
     const channels = [...requested.keys()];
     const refetch = new Set<Request>();
     const payloads = await this.timed(
@@ -332,16 +315,16 @@ export class Reader {
       const changed =
         series.length > 0 && store.retainDataType(key, series[0].dataType);
       const timestamps = idx === 0 ? [] : (grouped.get(idx) ?? []);
-      const newest = open ? newestBlock(timestamps) : last;
-      const parts = split(first, Math.max(last, newest), timestamps, series);
+      const parts = split(timestamps, series);
       const targets = [...(requested.get(key) ?? [])];
-      for (
-        let i = targets.length === 0 ? first : last + 1;
-        i < first + parts.length;
-        i++
-      )
-        targets.push({ block: store.raw(key, i), end: tr.end, catchUp });
-      const trusted = catchUp ? newestEnd(parts, start) : committed;
+      // A read fills the blocks of the index it reads along with a channel, and a
+      // catch-up fills the blocks of the newer samples it read.
+      const extra = [...parts.keys()].filter((i) => i > last);
+      if (targets.length === 0) for (let i = first; i <= last; i++) extra.push(i);
+      extra.forEach((i) =>
+        targets.push({ block: store.raw(key, i), end: tr.end, catchUp }),
+      );
+      const trusted = catchUp ? newestEnd([...parts.values()], start) : committed;
       // The Core stamps a series with the span of its domain inside the read, so the
       // channel's samples reach seen.
       const seen = series.reduce(
@@ -358,25 +341,35 @@ export class Reader {
         }
         const from = block.index === first ? start : block.range.start;
         if (changed) {
-          block.reset();
+          block.expire();
           if (!from.equals(block.range.start)) {
             refetch.add(r);
             return;
           }
         }
-        if (!block.coveredEnd.equals(from)) {
+        const merged = block.index !== first;
+        if (!merged && !block.coveredEnd.equals(from)) {
           if (catchUp && requested.has(key)) refetch.add(r);
           return;
         }
-        const part = parts[block.index - first];
-        const coveredEnd = TimeStamp.max(from, TimeStamp.min(block.range.end, trusted));
-        const base = block.coveredCount;
-        block.fill(
-          align(block.index, base, part.timestamps, part.series),
-          coveredEnd,
-          base + countBefore(part.timestamps, coveredEnd),
-        );
-        block.sealed = !seen.before(coveredEnd);
+        const part = parts.get(block.index) ?? { timestamps: [], series: [] };
+        const end = TimeStamp.max(from, TimeStamp.min(block.range.end, trusted));
+        const base = merged ? 0 : block.coveredCount;
+        const aligned = align(block.index, base, part.timestamps, part.series);
+        // An older read can end inside the coverage of a newer one, which then keeps
+        // its end, count, and seal.
+        if (block.coveredEnd.after(end))
+          block.fill(aligned, block.coveredEnd, block.coveredCount);
+        else {
+          block.fill(aligned, end, base + countBefore(part.timestamps, end));
+          block.sealed = !seen.before(end);
+        }
+        // A pin before the set, since the set can evict the blocks filled before it.
+        entries.forEach(({ req: { pinned } }) => {
+          if (pinned == null || pinned.has(block)) return;
+          pinned.add(block);
+          store.repin(new Set(), new Set([block]));
+        });
         store.set(rawKey(key, block.index), block);
       });
     });
@@ -406,13 +399,6 @@ export class Reader {
     this.batcher.close(new UnexpectedError("telemetry reader is closed"));
   }
 }
-
-// Returns the raw block of the newest index sample, or -Infinity when there is none.
-const newestBlock = (timestamps: Series[]): number => {
-  const last = timestamps.findLast((s) => s.length > 0);
-  if (last == null) return -Infinity;
-  return rawIndex(new TimeStamp(last.data[last.length - 1]));
-};
 
 // Returns the end of the span of the newest sample in the parts, or start when there is
 // none.
@@ -453,23 +439,4 @@ const runs = (entries: Array<scheduler.BatcherEntry<Request>>): Group[] => {
       });
   }
   return out;
-};
-
-/**
- * @returns the series of the blocks that overlap tr in time order. The fetched form of
- * a span wins: a streamed series that overlaps a fetched one is left out.
- */
-export const assemble = (tr: TimeRange, blocks: RawBlock[]): Series[] => {
-  const fetched = blocks.flatMap((b) =>
-    b.fetched
-      .filter((s) => s.timeRange.overlapsWith(tr))
-      .map((series) => ({ series, range: series.timeRange })),
-  );
-  const all = blocks.flatMap((b) => b.fetched);
-  const streamed = blocks
-    .flatMap((b) => b.streamedIn(tr))
-    .filter(({ range }) => !all.some((f) => f.timeRange.overlapsWith(range)));
-  return [...fetched, ...streamed]
-    .sort((a, b) => TimeRange.sort(a.range, b.range))
-    .map(({ series }) => series);
 };

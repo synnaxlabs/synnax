@@ -64,6 +64,18 @@ const raw = (keys: channel.Key[], span: TimeSpan): SubscribeRequest => ({
   limit: { variant: "points", count: Infinity, aggregation: "min_max" },
 });
 
+const rawOver = (keys: channel.Key[], tr: TimeRange): SubscribeRequest => ({
+  keys,
+  window: staticWindow(tr),
+  limit: { variant: "points", count: Infinity, aggregation: "min_max" },
+});
+
+// Returns the series of the channel once the subscription loads them.
+const loaded = async (sub: Subscription, key: channel.Key): Promise<Series[]> => {
+  await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+  return sub.value(key).series.series;
+};
+
 const timesOf = (snap: Snapshot): bigint[] => Array.from(snap.series) as bigint[];
 
 // Waits for the stream of history changes that the feed opens for its first
@@ -214,6 +226,24 @@ describe("Feed.subscribe", () => {
       } finally {
         stop();
         a.close();
+        await feed.close();
+      }
+    });
+  });
+
+  describe("calculated", () => {
+    it("should draw the index of a calculated channel", async () => {
+      const core = createCore({ derived: true });
+      const feed = core.openFeed(OPTIONS);
+      const key = core.calculatedIndex!.key;
+      const span = TimeSpan.seconds(30);
+      const sub = feed.subscribe(raw([key], span));
+      const stop = tick(core);
+      try {
+        await settled(core, sub, key, span);
+      } finally {
+        stop();
+        sub.close();
         await feed.close();
       }
     });
@@ -549,12 +579,17 @@ describe("Feed.subscribe", () => {
         await feed.close();
       }
       const block = Number(domainOf(streamed.at(-2)!.alignment));
+      const sample = streamed.at(-2)!.at(-1, true) as bigint;
+      // A static window loads only once the Core commits all of it.
+      core.advance(TimeSpan.seconds(5));
       const fresh = core.openFeed(OPTIONS);
+      const tr = new TimeRange(
+        tileRange({ level: 16, index: block }).start,
+        new TimeStamp(sample + 1n),
+      );
+      const read = fresh.subscribe(rawOver([core.index.key], tr));
       try {
-        const fetched = await fresh.read(
-          tileRange({ level: 16, index: block }),
-          core.index.key,
-        );
+        const fetched = await loaded(read, core.index.key);
         const offsetOf = (series: Series[], t: bigint): bigint | undefined => {
           for (const s of series) {
             const at = (Array.from(s) as bigint[]).indexOf(t);
@@ -562,10 +597,10 @@ describe("Feed.subscribe", () => {
           }
           return undefined;
         };
-        const sample = streamed.at(-2)!.at(-1, true) as bigint;
         expect(offsetOf(streamed, sample)).toBeDefined();
-        expect(offsetOf(fetched.series, sample)).toBe(offsetOf(streamed, sample));
+        expect(offsetOf(fetched, sample)).toBe(offsetOf(streamed, sample));
       } finally {
+        read.close();
         await fresh.close();
       }
     });
@@ -773,7 +808,14 @@ describe("Feed.subscribe", () => {
           .toBe(true);
         await settled(core, sub, core.index.key, span);
         const reads = core.reads;
-        await feed.read(new TimeRange(first.sub(span), first), core.index.key);
+        const past = feed.subscribe(
+          rawOver([core.index.key], new TimeRange(first.sub(span), first)),
+        );
+        try {
+          await loaded(past, core.index.key);
+        } finally {
+          past.close();
+        }
         expect(core.reads).toBe(reads + 1);
       } finally {
         stop();
@@ -1268,6 +1310,50 @@ describe("Feed.subscribe", () => {
         expect(sub.value(key).appended).toBe(appended + 6);
       } finally {
         release();
+        sub.close();
+        await feed.close();
+      }
+    });
+
+    it("should land a read before the samples streamed after a stream drop", async () => {
+      const core = createCore();
+      let held = false;
+      let waiting = false;
+      const { promise: released, resolve: release } = Promise.withResolvers<void>();
+      const feed = core.openFeed({
+        ...OPTIONS,
+        readLatest: async (keys, count, tr) => {
+          if (held) {
+            waiting = true;
+            await released;
+          }
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const key = core.index.key;
+      const sub = feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1000 },
+      });
+      // A consumer reads a value on every change, as Pluto does.
+      sub.onChange(() => sub.value(key));
+      try {
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        held = true;
+        core.disconnect();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("warning");
+        // The stream never delivers the samples written while it is down.
+        core.advance(TimeSpan.seconds(1));
+        core.reconnect();
+        await expect.poll(() => waiting, POLL).toBe(true);
+        core.advance(TimeSpan.milliseconds(100));
+        await expect
+          .poll(() => timesOf(sub.value(key)).at(-1), POLL)
+          .toBe(newestOf(core));
+        release();
+        await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
+        expectComplete(timesOf(sub.value(key)));
+      } finally {
         sub.close();
         await feed.close();
       }

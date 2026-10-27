@@ -235,7 +235,7 @@ describe("LinePlot against a Core", () => {
     return { data, home: new TimeRange(start, start.add(DURATION)) };
   };
 
-  const mount = (props: telem.TiledChannelDataProps) => {
+  const mount = (props: telem.ChannelDataProps) => {
     const stack = buildStack({
       registry: {
         [telem.PROVIDER_TYPE]: telem.Provider,
@@ -261,8 +261,8 @@ describe("LinePlot against a Core", () => {
     stack.driver.update([...base, "x1"], XAxis.TYPE, { location: "bottom" });
     stack.driver.update([...base, "x1", "y1"], YAxis.TYPE, { location: "left" });
     stack.driver.update([...base, "x1", "y1", "l1"], line.Line.TYPE, {
-      x: telem.tiledChannelData({ ...props, useIndexOfChannel: true }),
-      y: telem.tiledChannelData(props),
+      x: telem.channelData({ ...props, useIndexOfChannel: true }),
+      y: telem.channelData(props),
       color: "#ff0000",
     });
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));

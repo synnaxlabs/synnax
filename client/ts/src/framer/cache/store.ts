@@ -26,7 +26,6 @@ import {
   offsetOf,
   RAW_LEVEL,
   RawBlock,
-  rawIndex,
   rawKey,
 } from "@/framer/cache/block";
 import { Dynamic, type DynamicProps } from "@/framer/cache/dynamic";
@@ -83,11 +82,18 @@ interface Live {
 export type InvalidateHandler = (ch: channel.Key | null, tr: TimeRange) => void;
 
 /**
+ * @returns true when a calculation writes the channel's samples. It writes a calculated
+ * channel and the virtual index of one.
+ */
+export const calculated = (p: channel.Payload): boolean =>
+  channel.isCalculated(p) || (p.virtual && p.isIndex);
+
+/**
  * Caches blocks of channel samples under one byte budget. The least recently used block
- * leaves first. Every block of a channel holds one data type. Streamed samples go into
- * the raw block of their time, which stays open until the stream moves past it.
- * A sealed block stays valid until a history change names it while the history signals
- * stream. Other blocks expire.
+ * leaves first. Every block of a channel holds one data type. A join appends streamed
+ * samples to the raw block of their time, which stays open until the stream moves past
+ * it. A sealed block stays valid until a history change names it while the history
+ * signals stream. Other blocks expire.
  */
 export class Store {
   private readonly budget: number;
@@ -248,7 +254,7 @@ export class Store {
 
   /** Records the channel, which decides whether history signals name it. */
   setChannel(p: channel.Payload): void {
-    if (channel.isCalculated(p)) this.calculated.add(p.key);
+    if (calculated(p)) this.calculated.add(p.key);
     else this.calculated.delete(p.key);
     if (p.virtual) this.leaseholders.delete(p.key);
     else this.leaseholders.set(p.key, p.leaseholder);
@@ -349,10 +355,9 @@ export class Store {
    */
   join(block: RawBlock): void {
     const live = this.liveOf(block.channel);
-    if (live.block === block && block.joined) return;
+    if (live.block === block) return;
     if (live.block != null) this.seal(live, live.block.index < block.index);
     block.buffer = live.buffer;
-    block.joined = true;
     live.block = block;
     this.set(rawKey(block.channel, block.index), block);
   }
@@ -361,11 +366,10 @@ export class Store {
    * Appends a block-aligned piece to the stream's buffer of the block's channel, and
    * extends the block's coverage to the end of the piece. The block opens as by
    * {@link join}.
-   * @returns the buffers the append allocated.
    */
-  append(block: RawBlock, p: Series): MultiSeries {
+  append(block: RawBlock, p: Series): void {
     const live = this.liveOf(block.channel);
-    const opened = live.block !== block || !block.joined;
+    const opened = live.block !== block;
     if (opened) this.join(block);
     const res = live.buffer.write(new MultiSeries([p]));
     const flushed = res.flushed.series.length > 0;
@@ -373,36 +377,6 @@ export class Store {
     block.extend(p.timeRange.end, offsetOf(p.alignment) + p.length);
     if (opened || flushed || res.allocated.series.length > 0)
       this.set(rawKey(block.channel, block.index), block);
-    return res.allocated;
-  }
-
-  /**
-   * Writes streamed series of the channel into the raw blocks of their start times. A
-   * series with no time range goes into the block of the wall clock.
-   * @returns the buffers the write allocated. A write that fits the open buffer appends
-   * in place and returns none.
-   */
-  write(ch: channel.Key, series: MultiSeries): MultiSeries {
-    const allocated = new MultiSeries([]);
-    for (const s of series.series) {
-      this.retainDataType(ch, s.dataType);
-      const live = this.liveOf(ch);
-      const index = rawIndex(s.timeRange.isZero ? this.now() : s.timeRange.start);
-      if (live.block != null && live.block.index !== index) this.seal(live);
-      let block = live.block;
-      const opened = block == null;
-      if (block == null) {
-        block = this.raw(ch, index);
-        block.buffer = live.buffer;
-        live.block = block;
-      }
-      const res = live.buffer.write(new MultiSeries([s]));
-      block.stream(res.flushed.series);
-      allocated.push(res.allocated);
-      if (opened || res.flushed.series.length > 0 || res.allocated.series.length > 0)
-        this.set(rawKey(ch, index), block);
-    }
-    return allocated;
   }
 
   /**
@@ -412,11 +386,6 @@ export class Store {
   flush(ch: channel.Key): void {
     const live = this.live.get(ch);
     if (live != null) this.seal(live);
-  }
-
-  /** @returns the buffer the stream is writing the channel's samples into. */
-  leadingBuffer(ch: channel.Key): Series | null {
-    return this.live.get(ch)?.buffer.leadingBuffer ?? null;
   }
 
   /**
@@ -440,10 +409,7 @@ export class Store {
     const live = this.live.get(ch);
     if (live == null) return true;
     live.buffer.retainDataType(dataType);
-    if (live.block != null) {
-      live.block.buffer = null;
-      live.block.joined = false;
-    }
+    if (live.block != null) live.block.buffer = null;
     live.block = null;
     return true;
   }
@@ -459,17 +425,15 @@ export class Store {
     this.bytes = 0;
   }
 
-  // Closes the open block. A joined block keeps its streamed samples as fetched ones,
-  // and is complete when the stream moved past it.
+  // Closes the open block. It keeps its streamed samples as fetched ones, and is
+  // complete when the stream moved past it.
   private seal(live: Live, complete = false): void {
     const { block } = live;
     if (block == null) return;
     const flushed = live.buffer.flush();
     if (flushed != null && flushed.length > 0)
-      if (block.joined) block.fill([flushed], block.coveredEnd, block.coveredCount);
-      else block.stream([flushed]);
-    if (block.joined && complete) block.extend(block.range.end, block.coveredCount);
-    block.joined = false;
+      block.fill([flushed], block.coveredEnd, block.coveredCount);
+    if (complete) block.extend(block.range.end, block.coveredCount);
     block.buffer = null;
     live.block = null;
     this.set(rawKey(block.channel, block.index), block);

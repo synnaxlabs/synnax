@@ -23,7 +23,7 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { type Block, RAW_LEVEL, type RawBlock, rawIndex } from "@/framer/cache/block";
@@ -40,9 +40,9 @@ import {
 } from "@/framer/cache/grid";
 import { type Joins } from "@/framer/cache/join";
 import { type Joiner } from "@/framer/cache/joiner";
-import { assemble, COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
+import { COMMIT_MARGIN, type Reader } from "@/framer/cache/reader";
 import { LOADING, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { type Store } from "@/framer/cache/store";
+import { calculated, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import {
   isCut,
@@ -351,7 +351,7 @@ export class Points {
         const [payload] = await this.props.retrieveChannels([this.key]);
         if (generation !== this.generation) return;
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
-        if (payload.virtual && !channel.isCalculated(payload))
+        if (payload.virtual && !calculated(payload))
           throw new ValidationError(
             `virtual channel ${payload.name} has no samples to draw`,
           );
@@ -658,10 +658,9 @@ export class Points {
     const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(tr));
     if (unread.length > 0)
       this.readRaw(new TimeRange(unread[0].range.start, unread.at(-1)!.range.end));
-    const fresh = assemble(
-      tr,
-      blocks.filter((b) => !filling.has(b.index)),
-    );
+    const fresh = blocks
+      .filter((b) => !filling.has(b.index))
+      .flatMap((b) => b.seriesIn(tr));
     const standIns = this.raw.filter(
       (s) =>
         filling.has(rawIndex(s.timeRange.start)) &&
@@ -698,7 +697,7 @@ export class Points {
         } catch (e) {
           if (!abort.signal.aborted) throw errors.fromUnknown(e);
         }
-      if (generation === this.generation) await reader.read(tr, this.key);
+      if (generation === this.generation) await reader.fill(tr, this.key);
     };
     read()
       .then(() => {

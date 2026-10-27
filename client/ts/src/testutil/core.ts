@@ -71,6 +71,11 @@ export interface SyntheticCoreProps {
   /** Streams data series at alignments that none of their index samples have. */
   dataMisaligned?: boolean;
   /**
+   * The text of sample i of a channel retyped to string.
+   * @default the sample's index as text
+   */
+  text?: (i: number) => string;
+  /**
    * How far the newest written sample trails the Core's clock, as for a writer that
    * stamps its samples late.
    */
@@ -127,6 +132,7 @@ export class SyntheticCore {
   private readonly dataFramedApart: boolean;
   private readonly dataUntimed: boolean;
   private readonly dataMisaligned: boolean;
+  private readonly text: (i: number) => string;
   private readonly lag: TimeSpan;
   private readonly denied = new Set<channel.Key>();
 
@@ -140,6 +146,7 @@ export class SyntheticCore {
     dataFramedApart = false,
     dataUntimed = false,
     dataMisaligned = false,
+    text = (i) => String(i),
     lag = TimeSpan.ZERO,
   }: SyntheticCoreProps) {
     this.start = start.valueOf();
@@ -149,6 +156,7 @@ export class SyntheticCore {
     this.dataFramedApart = dataFramedApart;
     this.dataUntimed = dataUntimed;
     this.dataMisaligned = dataMisaligned;
+    this.text = text;
     this.lag = lag;
     this.index = new channel.Channel({
       key: INDEX_KEY,
@@ -492,6 +500,13 @@ export class SyntheticCore {
     timeRange: TimeRange,
   ): Series {
     const n = to - from;
+    if (this.dataTypes.get(key)?.equals(DataType.STRING))
+      return new Series({
+        data: Array.from({ length: n }, (_, i) => this.text(from + i)),
+        dataType: DataType.STRING,
+        timeRange,
+        alignment,
+      });
     let data:
       | BigInt64Array<ArrayBuffer>
       | Float32Array<ArrayBuffer>

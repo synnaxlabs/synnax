@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MultiSeries, Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { Series, TimeRange, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
 import {
@@ -170,22 +170,14 @@ class Join {
   }
 }
 
-/** The buffers a write allocated, and the joins it sent back to wait. */
-export interface Written {
-  allocated: Map<channel.Key, MultiSeries>;
-  /** The index channels of the joins that wait for a catch-up read. */
-  waiting: Set<channel.Key>;
-}
-
 /**
- * Writes the stream's frames into the store, and joins the streams of joined channels
- * to their raw blocks. A join holds the streamed series of its index channel and of
- * the data channels on it while it catches up with a read. Then index samples get
- * block offsets in time order, and data samples take the offsets of the index samples
- * that share their Core alignment, from the same frame or an earlier one. A gap in the
- * stream, a new data type, or a change to the history of an open block sends a join
- * back to wait. Every method that can do so returns the index channels of the joins
- * that wait.
+ * Joins the streams of joined channels to their raw blocks in the store. A join holds
+ * the streamed series of its index channel and of the data channels on it while it
+ * catches up with a read. Then index samples get block offsets in time order, and data
+ * samples take the offsets of the index samples that share their Core alignment, from
+ * the same frame or an earlier one. A gap in the stream, a new data type, or a change
+ * to the history of an open block sends a join back to wait. Every method that can do
+ * so returns the index channels of the joins that wait.
  */
 export class Joins {
   private readonly joins = new Map<channel.Key, Join>();
@@ -323,24 +315,20 @@ export class Joins {
     return this.drain();
   }
 
-  /** Writes a streamed frame, holding the series of joined channels that wait. */
-  write(frame: Map<channel.Key, Series[]>): Written {
-    const allocated = new Map<channel.Key, MultiSeries>();
+  /**
+   * Writes the series of joined channels in a streamed frame, holding those of members
+   * that wait. Other channels' series stay out of the store.
+   */
+  write(frame: Map<channel.Key, Series[]>): Set<channel.Key> {
     frame.forEach((series, ch) => {
       const j = this.joins.get(ch);
-      if (j != null) allocated.set(ch, this.writeIndex(j, series));
+      if (j != null) this.writeIndex(j, series);
     });
     frame.forEach((series, ch) => {
-      if (this.joins.has(ch)) return;
       const m = this.members.get(ch);
-      allocated.set(
-        ch,
-        m == null
-          ? this.store.write(ch, new MultiSeries(series))
-          : this.writeData(m, series),
-      );
+      if (m != null && !this.joins.has(ch)) this.writeData(m, series);
     });
-    return { allocated, waiting: this.drain() };
+    return this.drain();
   }
 
   /**
@@ -466,8 +454,7 @@ export class Joins {
     return series;
   }
 
-  private writeIndex(j: Join, series: Series[]): MultiSeries {
-    const allocated = new MultiSeries([]);
+  private writeIndex(j: Join, series: Series[]): void {
     const im = j.indexMember;
     for (const s of series) {
       if (!im.joined) {
@@ -489,16 +476,13 @@ export class Joins {
         continue;
       }
       for (const { from, fresh: at, to, block, offset } of fresh)
-        allocated.push(
-          this.store.append(
-            this.store.raw(j.index, block),
-            piece(s, at, to, s, at, block, offset + at - from),
-          ),
+        this.store.append(
+          this.store.raw(j.index, block),
+          piece(s, at, to, s, at, block, offset + at - from),
         );
       if (fresh.length > 0) im.fresh = false;
       j.remember({ series: s, runs });
     }
-    return allocated;
   }
 
   // Splits an index series into the runs of each raw block. Samples stamped after the
@@ -528,8 +512,7 @@ export class Joins {
     return runs;
   }
 
-  private writeData(m: Member, series: Series[]): MultiSeries {
-    const allocated = new MultiSeries([]);
+  private writeData(m: Member, series: Series[]): void {
     const j = m.join;
     for (const s of series) {
       if (!m.joined || !j.indexMember.joined) {
@@ -543,13 +526,12 @@ export class Joins {
       if (
         at == null ||
         at.pos + s.length > at.mapped.series.length ||
-        !this.place(m, s, at.mapped, at.pos, allocated)
+        !this.place(m, s, at.mapped, at.pos)
       ) {
         this.waitMember(m);
         m.hold(s);
       }
     }
-    return allocated;
   }
 
   // Writes the samples of a data series into the blocks its index samples went into.
@@ -560,7 +542,6 @@ export class Joins {
     s: Series,
     { series: times, runs }: Mapped,
     pos: number,
-    allocated: MultiSeries,
   ): boolean {
     const pieces: Array<{ block: RawBlock; p: Series }> = [];
     for (const span of spansOf(runs, pos, pos + s.length)) {
@@ -583,7 +564,7 @@ export class Joins {
     }
     if (pieces.length === 0) return true;
     if (this.store.retainDataType(m.key, s.dataType)) return false;
-    pieces.forEach(({ block, p }) => allocated.push(this.store.append(block, p)));
+    pieces.forEach(({ block, p }) => this.store.append(block, p));
     m.fresh = false;
     return true;
   }
@@ -604,9 +585,8 @@ const newestOf = (block: RawBlock): { end: bigint; count: number } => {
 
 // Returns the block offset of the index sample stamped t.
 const offsetAt = (block: RawBlock, t: bigint): number => {
-  const series = [...block.fetched, ...block.streamed];
   const live = block.buffer?.leadingBuffer;
-  if (live != null) series.push(live);
+  const series = live == null ? block.fetched : [...block.fetched, live];
   return series.reduce(
     (offset, s) =>
       s.length > 0 && BigInt(s.data[0]) <= t

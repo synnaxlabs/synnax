@@ -13,11 +13,14 @@ import { type SyntheticCore } from "@synnaxlabs/client/testutil";
 import { type Client } from "@/telem/aether/remote";
 
 /**
- * @returns the client that the telemetry provider builds, served by the synthetic Core.
- * The caller closes its feed.
+ * @returns the client that the telemetry provider builds, served by the synthetic Core
+ * through a feed opened with the props. The caller closes the feed.
  */
-export const createClient = (core: SyntheticCore): Client & { feed: framer.Feed } => ({
-  feed: core.openFeed(),
+export const createClient = (
+  core: SyntheticCore,
+  props: Partial<framer.FeedProps> = {},
+): Client & { feed: framer.Feed } => ({
+  feed: core.openFeed(props),
   channels: core.channels,
   now: core.now,
 });

@@ -19,13 +19,13 @@ import {
   type Window,
 } from "@synnaxlabs/x";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { NotFoundError, UnsupportedError } from "@/errors";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { domainOf } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
 import { LOADING, NO_HISTORY, READ_FAILED, SUCCESS } from "@/framer/cache/status";
-import { type Store } from "@/framer/cache/store";
+import { calculated, type Store } from "@/framer/cache/store";
 import { type Demand, type MultiplexedStreamer } from "@/framer/cache/streamer";
 import { createBreaker, isDefinitive } from "@/framer/retry";
 import { type Snapshot } from "@/framer/subscription";
@@ -70,9 +70,7 @@ interface Load {
 /**
  * Serves the newest samples of one channel: a read of its newest stored samples, and
  * every newer sample the stream delivers. Streamed samples serve while the read waits
- * or fails. When the stream drops, it reads the newest samples again once the Core acks
- * the channel. The samples grow at their end and lose whole series from their front,
- * unless their data type changes. A series leaves only once a value served it.
+ * or fails, and a stream drop reads the newest samples again.
  */
 export class Latest {
   // series holds the closed series, oldest first. The buffer's leading buffer holds the
@@ -83,14 +81,15 @@ export class Latest {
   // unserved counts the newest samples that no value served.
   private unserved = 0;
   private appended = 0;
-  // landed is true once a read of the request lands.
-  private landed = false;
+  // taken is true once consumers may have taken the samples held: a read of the
+  // request landed, or a value served streamed samples under an error or warning.
+  private taken = false;
   private running: Load | null;
   private readonly demand: Demand;
   private readonly stopInvalidations: () => void;
   // dedupe is how fresh finds repeated samples: by Core alignment for a stored channel,
-  // and by time for a calculated one, whose alignments depend on how its inputs split
-  // into series. A channel that only streams repeats no sample.
+  // and by time for one a calculation writes, whose alignments depend on how its inputs
+  // split into series. A channel that only streams repeats no sample.
   private dedupe: "alignment" | "time" | null = null;
   private failure: status.Status | null = null;
   private readonly notifier = new sync.Notifier();
@@ -101,6 +100,10 @@ export class Latest {
   // snapshot is the value last served, or null after a change. It also goes out of date
   // when a series leaves the window. A growing leading buffer leaves it in date.
   private snapshot: Snapshot | null = null;
+  // shown is true when a value served samples streamed since the running load began,
+  // under an error or warning. Consumers may have taken them, so the read must not land
+  // before them.
+  private shown = false;
 
   constructor(
     private readonly props: LatestProps,
@@ -133,7 +136,7 @@ export class Latest {
     if (count === this.count && deep.equal(window, this.window)) return;
     this.window = window;
     this.count = count;
-    this.landed = false;
+    this.taken = false;
     this.clear();
     this.restart(0);
   }
@@ -144,6 +147,26 @@ export class Latest {
    * the newest series keeps the snapshot's series and moves its time.
    */
   value(): Snapshot {
+    const snapshot = this.current();
+    const { running } = this;
+    if (
+      running != null &&
+      snapshot.status.variant !== "loading" &&
+      (this.buffer.leadingBuffer != null || this.series.length > running.mark)
+    )
+      [this.shown, this.taken] = [true, true];
+    return snapshot;
+  }
+
+  /** Releases the channel's stream. */
+  close(): void {
+    this.restart(null);
+    this.stopInvalidations();
+    this.demand.close();
+    this.clear();
+  }
+
+  private current(): Snapshot {
     if (this.snapshot == null || this.props.now().valueOf() >= this.leavesAt())
       return this.rebuild();
     const status = this.status();
@@ -156,14 +179,6 @@ export class Latest {
       appended: this.appended,
     };
     return this.snapshot;
-  }
-
-  /** Releases the channel's stream. */
-  close(): void {
-    this.restart(null);
-    this.stopInvalidations();
-    this.demand.close();
-    this.clear();
   }
 
   private rebuild(): Snapshot {
@@ -217,10 +232,10 @@ export class Latest {
     )
       return;
     const end = this.time() ?? this.running?.end;
-    const repeated = this.landed && end != null;
+    const repeated = this.taken && end != null;
     // The read of the samples after a drop still runs, once this read lands.
     const dropped = this.running?.dropped === true || this.running?.after != null;
-    // Until a read lands, the samples dropped count again when the read returns them.
+    // Samples no consumer took count again when the read returns them.
     if (!repeated) this.appended -= this.total;
     this.clear();
     this.restart(0, { end, repeated, dropped });
@@ -246,6 +261,7 @@ export class Latest {
     this.series = [];
     this.closedTotal = 0;
     this.unserved = 0;
+    this.shown = false;
     this.snapshot = null;
   }
 
@@ -276,7 +292,7 @@ export class Latest {
         if (payload == null) throw new NotFoundError(`channel ${this.key} not found`);
         let read: Series[] = [];
         if (!payload.virtual) this.dedupe = "alignment";
-        else this.dedupe = channel.isCalculated(payload) ? "time" : null;
+        else this.dedupe = calculated(payload) ? "time" : null;
         if (this.dedupe != null) {
           await streamer.waitAcked([this.key], signal);
           if (this.running !== run) return;
@@ -314,9 +330,15 @@ export class Latest {
   // Puts the read before the series streamed while it ran, keeping each sample once.
   // The streamed samples count again as they land after the read.
   private land(read: Series[]): void {
-    const repeated = this.running?.repeated ?? false;
+    this.taken = true;
     const dropped = this.running?.dropped ?? false;
-    this.landed = true;
+    if (this.shown) {
+      [this.running, this.shown] = [null, false];
+      this.push(read);
+      if (dropped) this.reload();
+      return;
+    }
+    const repeated = this.running?.repeated ?? false;
     this.closeLeading();
     const streamed = this.series.splice(this.running?.mark ?? 0);
     streamed.forEach((s) => {
