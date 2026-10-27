@@ -355,6 +355,7 @@ export abstract class Retriever<
    * Routes params to their answer space, memoized per params object identity.
    * {@link Params} is readonly, so a given object always routes identically; repeat
    * reads of the same object skip schema validation entirely.
+   * @throws {ValidationError} if params are a name or a list of names.
    */
   private route(params: unknown): [Retrieves<Params, D | D[]>, Params] {
     const cacheable = typeof params === "object" && params !== null;
@@ -362,6 +363,11 @@ export abstract class Retriever<
       const held = this.routes.get(params);
       if (held !== undefined) return held;
     }
+    if (this.isName(params))
+      throw new ValidationError(
+        `${JSON.stringify(params)} is not a ${this.name} key. Select by name with ` +
+          `a request whose where has a name condition.`,
+      );
     const single = this.trySingle(params);
     const route: [Retrieves<Params, D | D[]>, Params] =
       single != null
@@ -465,6 +471,7 @@ export abstract class Retriever<
   /**
    * Subscribes to changes in the cached answer to the given query. The handler fires on
    * every change or deletion. Returns a destructor that unsubscribes.
+   * @throws {ValidationError} if params are a name or a list of names.
    */
   onChange(params: K | SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(
@@ -482,6 +489,7 @@ export abstract class Retriever<
   /**
    * Returns the cached answer to the given query without touching the network, or
    * undefined when nothing is cached. May be stale for unsubscribed queries.
+   * @throws {ValidationError} if params are a name or a list of names.
    */
   getCached(params: K | SingleInput): Cached<D> | undefined;
   getCached(params: K[] | RequestInput<Z>): Cached<D[]> | undefined;
