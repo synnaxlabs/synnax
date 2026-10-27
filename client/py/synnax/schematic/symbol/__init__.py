@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.schematic.symbol.client import Client
 from synnax.schematic.symbol.types_gen import (
     ONTOLOGY_TYPE,
     Handle,
@@ -20,6 +21,7 @@ from synnax.schematic.symbol.types_gen import (
 
 __all__ = [
     "ONTOLOGY_TYPE",
+    "Client",
     "Handle",
     "Key",
     "Region",

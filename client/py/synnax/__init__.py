@@ -71,6 +71,7 @@ from synnax.options import Options
 from synnax.project import Project
 from synnax.rack import Rack
 from synnax.ranger import Range
+from synnax.schematic import Schematic
 from synnax.status import Status
 from synnax.synnax import Synnax
 from synnax.task import Task
@@ -169,6 +170,7 @@ __all__ = [
     "Reduction",
     "Role",
     "RouteError",
+    "Schematic",
     "Series",
     "SessionEnded",
     "Size",
