@@ -42,6 +42,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp/grpc",
-        "//freighter/cpp/grpc/mock:service_grpc",
+        "//freighter/cpp/grpc/testutil:service_grpc",
     ],
 )

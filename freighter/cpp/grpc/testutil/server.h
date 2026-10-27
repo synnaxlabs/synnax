@@ -22,9 +22,9 @@
 #include <grpcpp/server_builder.h>
 #include <grpcpp/server_context.h>
 
-#include "freighter/cpp/grpc/mock/freighter/cpp/grpc/mock/service.grpc.pb.h"
+#include "freighter/cpp/grpc/testutil/freighter/cpp/grpc/testutil/service.grpc.pb.h"
 
-namespace freighter::grpc::mock {
+namespace freighter::grpc::testutil {
 /// @brief Used to awake main thread when we are
 /// done processing messages.
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): every mock server

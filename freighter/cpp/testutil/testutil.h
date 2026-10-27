@@ -13,7 +13,7 @@
 
 #include "freighter/cpp/freighter.h"
 
-namespace freighter::mock {
+namespace freighter::testutil {
 template<typename RQ, typename RS>
 class UnaryClient final : public freighter::UnaryClient<RQ, RS>, Finalizer<RQ, RS> {
 public:
