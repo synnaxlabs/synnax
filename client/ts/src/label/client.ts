@@ -50,6 +50,9 @@ const emptyResZ = z.object({});
 
 const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
+// The client does not cache every attachment, so only the Core can check for.
+const LINES: Lines = { for: null };
+
 /** @returns the resources that the for lines of where name. */
 const forIDs = (where: Where): ontology.ID[] => [
   ...(where.for != null ? [where.for] : []),
@@ -97,18 +100,14 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    const lines: Lines = {
-      for: (l, id) =>
-        relationships.has(ontology.relationshipToString(labeledByRel(id, l.key))),
-    };
     super(cache, {
       name: "label",
       table: store,
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (l, req) => matches(lines, l, req.where),
-        serverComputed: (req) => serverComputed(lines, req.where),
+        matches: (l, req) => matches(LINES, l, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         watch: [
           query.watch(relationships, (event, req: RetrieveRequest) => {
             if (req.where == null) return null;
