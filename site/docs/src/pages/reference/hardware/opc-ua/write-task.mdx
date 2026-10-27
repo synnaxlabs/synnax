@@ -1,0 +1,213 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "OPC UA write task"
+description:
+  "Write a value to an OPC UA node each time a command channel gets a new value."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An OPC UA write task writes a value to a node each time you write a value to a command
+channel. For example, a valve on a schematic can set a PLC setpoint. If you write
+several values at once, the task writes only the last one. The task writes single
+values, not arrays.
+
+The task has no state channels. To see the value on the server, read the node back with
+an [OPC UA read task](/reference/hardware/opc-ua/read-task). Before you start, you need
+a [connected OPC UA server](/reference/hardware/opc-ua/connect-server).
+
+<Divider.Divider x />
+
+## Create an OPC UA write task
+
+When you create command channels with a client library, give each one its own index
+channel. A writer that holds several commands on one index must write all of them in
+every frame.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the server and select **Create write task**.
+2. In the **Browser**, expand the folders of the server.
+3. Drag the variables to write into **Channels**.
+4. Click <Icon.Play /> (**Start**).
+
+The Console creates a command channel for each node, named `<node>_cmd`, and its index
+`<node>_cmd_time`. To choose another name, right-click the channel and select **Rename**
+before you start.
+
+<Video id="hardware/opc-ua/write-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create the command channel and its index first.
+
+```python
+import synnax as sy
+from synnax import opcua
+
+server = client.devices.retrieve(name="Line 1 PLC")
+cmd_time = client.channels.create(
+    name="pump_setpoint_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="pump_setpoint_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT64
+)
+
+task = opcua.WriteTask(
+    name="Line 1 PLC write",
+    device=server.key,
+    channels=[
+        opcua.WriteChannel(cmd_channel=cmd.key, node_id="NS=2;S=Pump1.Setpoint")
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create the command channel and its index first.
+
+```typescript
+import { device, opcua } from "@synnaxlabs/client";
+
+const server = await client.devices.retrieve(
+  device.name.eq("Line 1 PLC"),
+  device.one(),
+);
+const cmdTime = await client.channels.create({
+  name: "pump_setpoint_cmd_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const cmd = await client.channels.create({
+  name: "pump_setpoint_cmd",
+  index: cmdTime.key,
+  dataType: "float64",
+});
+
+const task = await client.tasks.create({
+  name: "Line 1 PLC write",
+  rack: server.rack,
+  type: "opc_write",
+  config: opcua.writeConfigZ.parse({
+    device: server.key,
+    channels: [{ cmdChannel: cmd.key, nodeId: "NS=2;S=Pump1.Setpoint" }],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+The OPC UA write task has one option, **Auto start** (`auto_start`), which starts the
+task each time the Driver starts. For node IDs, see
+[node IDs](/reference/hardware/opc-ua/read-task#node-ids).
+
+<Divider.Divider x />
+
+## Channel reference
+
+The table shows the Console label of each setting, with its Python field under it.
+
+| Setting                              | Default   | Notes                                                          |
+| ------------------------------------ | --------- | -------------------------------------------------------------- |
+| Channel name <small>`name`</small>   | Empty     | The name of the command channel that the Console creates.      |
+| <small>`cmd_channel`</small>         |           | The key of the command channel.                                |
+| Node ID <small>`node_id`</small>     |           | See [node IDs](/reference/hardware/opc-ua/read-task#node-ids). |
+| Node name <small>`node_name`</small> | Empty     | The browse name. For display only.                             |
+| <small>`data_type`</small>           | `float32` | The data type of the channel that the Console creates.         |
+| Enabled <small>`disabled`</small>    | Off       | A disabled channel is not written.                             |
+
+### Data types
+
+The Driver writes each value with the OPC UA type that matches the data type of the
+command channel:
+
+| Synnax data type | OPC UA type |
+| ---------------- | ----------- |
+| `uint8`          | Boolean     |
+| `int8`           | SByte       |
+| `int16`          | Int16       |
+| `uint16`         | UInt16      |
+| `int32`          | Int32       |
+| `uint32`         | UInt32      |
+| `int64`          | Int64       |
+| `uint64`         | UInt64      |
+| `float32`        | Float       |
+| `float64`        | Double      |
+| `string`         | String      |
+| `timestamp`      | DateTime    |
+| `uuid`           | Guid        |
+
+A `uint8` channel writes a Boolean, so the task cannot write to a Byte node.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"... (NS=...): The value supplied for the attribute is not of the same type as the attribute's value."}>
+<Problem.Cause>
+
+The data type of the command channel does not match the type of the node.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use the data type from the [table](#channel-reference). For example, a Double node needs
+a `float64` channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... (NS=...): The access level does not allow writing to the Node."}>
+<Problem.Cause>
+
+The node is read only on the server, or the user of the connection cannot write to it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Make the node writable on the server, or connect with a user that can write to it.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Invalid NodeId format"}>
+<Problem.Cause>
+
+The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Write `NS` and the type in uppercase.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item symptom={"The server disconnects during a write."}>
+<Problem.Cause>
+
+The Driver connects again once and repeats the write. If the second write fails, the
+task shows the error.
+
+</Problem.Cause>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).
