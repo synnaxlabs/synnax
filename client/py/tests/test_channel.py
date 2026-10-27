@@ -382,6 +382,11 @@ class TestChannel:
         )
         assert [ch.key for ch in res] == [a.key]
 
+    def test_retrieve_shortcut_with_conditions(self, client: sy.Synnax) -> None:
+        """Should reject a key or name list followed by conditions"""
+        with pytest.raises(TypeError, match=r"\['a'\] is not a Channel condition"):
+            client.channels.retrieve(["a"], sy.channel.key.eq(1))
+
     def test_delete_by_key(self, client: sy.Synnax) -> None:
         """Should delete channels using a list of keys"""
         channels = client.channels.create(

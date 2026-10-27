@@ -95,6 +95,40 @@ var _ = Describe("C++ PB Plugin", func() {
 		)
 
 		It(
+			"Should translate each element of an array of a generic use",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+				@pb
+
+				Thing struct {
+					sets  filter.Set<uuid>[]
+					maybe filter.Set<uuid>[]?
+				}
+			`
+				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").
+					ToContain(
+						"for (const auto& item : this->sets) {\n"+
+							"        auto [v, err] = uuid_set_to_proto(item);",
+						"*pb.add_sets() = v;",
+						"for (const auto& item : pb.sets()) {\n"+
+							"        auto [v, err] = uuid_set_from_proto(item);",
+						"cpp.sets.push_back(std::move(v));",
+						"for (const auto& item : *this->maybe) {\n"+
+							"            auto [v, err] = uuid_set_to_proto(item);",
+						"for (const auto& item : pb.maybe().values()) {\n"+
+							"            auto [v, err] = uuid_set_from_proto(item);",
+						"cpp.maybe->push_back(std::move(v));",
+					).
+					ToNotContain("item.to_proto()", "from_proto_repeated")
+			},
+		)
+
+		It(
 			"Should translate a generic use over an optional enum value",
 			func(ctx SpecContext) {
 				AddFilterSchema(loader)
