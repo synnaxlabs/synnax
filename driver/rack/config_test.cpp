@@ -131,6 +131,13 @@ TEST_F(RackConfigTest, EnrollLegacyRack) {
     ASSERT_EQ(state["conn_params"]["api_key"], cfg.connection.api_key);
 }
 
+/// @brief it should keep a saved rack key until the rack is enrolled.
+TEST_F(RackConfigTest, RemoteInfoKeepsUnenrolledRackKey) {
+    const RemoteInfo info{.rack_key = 12};
+    ASSERT_EQ(info.to_json()["rack_key"], 12);
+    ASSERT_FALSE(RemoteInfo{}.to_json().contains("rack_key"));
+}
+
 /// @brief it should enroll a new rack when the saved cluster key does not match.
 TEST_F(RackConfigTest, RecreateOnClusterKeyMismatch) {
     const auto client = new_test_client();

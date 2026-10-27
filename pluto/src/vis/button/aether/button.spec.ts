@@ -11,8 +11,8 @@ import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { noopBooleanSinkSpec } from "@/telem/aether/noop";
-import { telemTest } from "@/telem/aether/test";
-import { TelemTest } from "@/telem/test";
+import { telemTest } from "@/telem/aether/testutil";
+import { TelemTest } from "@/telem/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { Button } from "@/vis/button";
 import { button } from "@/vis/button/aether";

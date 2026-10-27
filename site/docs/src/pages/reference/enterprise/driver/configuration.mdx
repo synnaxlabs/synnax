@@ -120,8 +120,9 @@ The `integrations` list replaces the default list.
 
 A Driver with no API key logs in once with `username` and `password`, creates a rack and
 its API key, and saves the key in the state file. An upgraded Driver that saved a rack
-before does this at its first start and keeps its rack. Once a key is saved, the Driver
-ignores a username and password and logs a warning.
+before does this at its first start and keeps its rack. If that user cannot create
+racks, the Driver keeps logging in with the password and tries again at each start. Once
+a key is saved, the Driver ignores a username and password and logs a warning.
 
 <Divider.Divider x />
 

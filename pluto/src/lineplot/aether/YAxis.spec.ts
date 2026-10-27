@@ -19,15 +19,15 @@ import {
 } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { Line } from "@/vis/line/aether/line";
-import { lineTest } from "@/vis/line/aether/test";
-import { canvasTest } from "@/vis/render/test";
+import { lineTest } from "@/vis/line/aether/testutil";
+import { canvasTest } from "@/vis/render/testutil";
 
 // Covers the calls the line programs make when they compile.
 const GL = {
