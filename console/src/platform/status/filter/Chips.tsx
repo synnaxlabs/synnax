@@ -15,6 +15,7 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { getSelected } from "@/platform/status/filter/selected";
 import { View } from "@/platform/view";
 
 export const Chips = (): ReactElement | null => {
@@ -22,8 +23,8 @@ export const Chips = (): ReactElement | null => {
   const field = Form.useField<status.Where["variant"]>("where.variant", {
     optional: true,
   });
-  const variants = field?.value?.in;
-  if (variants == null || variants.length === 0 || field == null) return null;
+  const variants = getSelected(field?.value);
+  if (variants.length === 0 || field == null) return null;
   const handleClose = (variant: status.Variant) => {
     const next = variants.filter((v) => v !== variant);
     field.onChange(next.length === 0 ? undefined : { in: next });

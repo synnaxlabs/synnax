@@ -136,6 +136,19 @@ func generateFile(
 	if !ok {
 		return fail("unknown response type %s", elem.Name)
 	}
+	// The matcher names the record with no type arguments, as the client cache does.
+	if tp, ok := lo.Find(
+		resolution.TypeParams(record.Form),
+		func(tp resolution.TypeParam) bool { return !tp.Optional && !tp.HasDefault() },
+	); ok {
+		return fail(
+			"the type parameter %s of %s needs a default, since the matcher names %s "+
+				"with no type arguments",
+			tp.Name,
+			record.Name,
+			record.Name,
+		)
+	}
 	fields, ok := resolution.RecordFields(record, table)
 	if !ok {
 		return fail("the response type %s must be a struct or a union", record.Name)
