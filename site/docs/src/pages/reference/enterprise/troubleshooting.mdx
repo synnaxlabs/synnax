@@ -1,0 +1,315 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Troubleshoot Synnax Enterprise"
+description:
+  "Find why a Synnax Core does not start, why the Console cannot connect, and fix
+  license problems."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Start with the log of the Core, then find the message or symptom below. For problems in
+other parts of Synnax, see [client troubleshooting](/reference/client/troubleshooting),
+[hardware troubleshooting](/reference/hardware/troubleshooting), and
+[Synnax Desktop troubleshooting](/reference/desktop/troubleshooting).
+
+<Divider.Divider x />
+
+## Read the log
+
+The Core writes its log to its terminal and to the file set by `--log-file-path`:
+
+- **Terminal or Docker** -> the output of `synnax start` or `docker logs synnax`.
+- **systemd** -> `journalctl -u synnax -a`.
+- **Windows service** -> `C:\ProgramData\Synnax\logs\synnax.log`, or
+  `synnax service status` for the last errors.
+- **Other** -> `./synnax-logs/synnax.log` in the folder where the Core started.
+
+For more detail, start the Core with `--verbose`.
+
+<Divider.Divider x />
+
+## The Core does not start
+
+When the Core cannot start, it logs
+`Synnax has encountered an error and is shutting down:`, then the cause.
+
+### node certificate not found
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core uses TLS by default and found no certificate in `/usr/local/synnax/certs`.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Start the Core with `--auto-cert` to create a certificate, set `--certs-dir` to your
+certificates, or use `--insecure` for a test Core. See
+[Set up TLS](/reference/enterprise/tls).
+
+</Problem.Fix>
+</Problem.Body>
+
+### serves a certificate that does not cover that host
+
+<Problem.Body>
+<Problem.Cause>
+
+The certificate does not cover the `--listen` host.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Use a certificate for that host, or change `--listen` to a name the certificate covers.
+See [Set up TLS](/reference/enterprise/tls#use-your-own-certificate).
+
+</Problem.Fix>
+</Problem.Body>
+
+### bind: address already in use
+
+<Problem.Body>
+<Problem.Cause>
+
+Another program uses the port. On Windows, the message is "Only one usage of each socket
+address is normally permitted".
+
+</Problem.Cause>
+<Problem.Fix>
+
+Stop that program, or start the Core on a different port in `--listen`.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Failed to acquire lock on storage directory
+
+<Problem.Body>
+<Problem.Cause>
+
+Another Core uses the same data folder.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Stop the other Core, or start this one with a different `--data` folder.
+
+</Problem.Fix>
+</Problem.Body>
+
+### permission denied
+
+<Problem.Body>
+<Problem.Cause>
+
+The user that runs the Core cannot write a folder it needs: the data folder, the log
+folder, the certificate folder, or its home folder. A message about `$HOME` means the
+user has no home folder.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give the user write access, or set `--data`, `--log-file-path`, and `--certs-dir` to
+folders it can write. See [Run the Core as a service](/reference/enterprise/service).
+
+</Problem.Fix>
+</Problem.Body>
+
+### Synnax requires the storage directory to have at least -rwx------ permissions
+
+<Problem.Body>
+<Problem.Cause>
+
+The owner of the data folder cannot read, write, or open it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Run `chmod u+rwx` on the folder.
+
+</Problem.Fix>
+</Problem.Body>
+
+### The disk is full
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core does not check free space. When the data disk is full, the Core can stop with
+"no space left on device".
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Free space on the disk.
+2. Start the Core.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## The Console cannot connect or log in
+
+### The Core shows as Unreachable
+
+<Problem.Body>
+<Problem.Cause>
+
+The Console cannot use the Core. Hover over the status to see the reason.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **Cannot reach Core at** -> check that the Core runs, the host and port are correct,
+  and a firewall allows the port. For a Core with TLS, turn on **Secure**, and
+  [install its certificate](/reference/enterprise/certificates) if it is self-signed.
+- **No license is active on this Core** -> log in, then
+  [activate a license](/reference/enterprise/license#activate-from-the-console).
+- **The license on this Core has expired** -> see
+  [expiry](/reference/enterprise/license#expiry).
+
+</Problem.Fix>
+</Problem.Body>
+
+### invalid credentials
+
+<Problem.Body>
+<Problem.Cause>
+
+The username or password is wrong.
+
+</Problem.Cause>
+<Problem.Fix>
+
+For the root user, restart the Core with a new `--password`. For other users, an Owner
+deletes the user and registers them again. See [Users](/reference/enterprise/users).
+
+</Problem.Fix>
+</Problem.Body>
+
+### Version mismatch
+
+<Problem.Body>
+<Problem.Cause>
+
+The Console and the Core have a different major or minor version.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Upgrade the older one. See [Upgrade the Core](/reference/enterprise/upgrade).
+
+</Problem.Fix>
+</Problem.Body>
+
+### Clock is ahead of the Core
+
+<Problem.Body>
+<Problem.Cause>
+
+The clocks of this computer and the Core differ by more than one second.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Synchronize both clocks with NTP.
+
+</Problem.Fix>
+</Problem.Body>
+
+### Live updates are unavailable
+
+<Problem.Body>
+<Problem.Cause>
+
+The role of the user cannot read the channels that carry live changes.
+
+</Problem.Cause>
+<Problem.Fix>
+
+An Owner gives the user a role with more permissions. See
+[roles](/reference/enterprise/users#roles).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## License problems
+
+### refused the license key passed at startup
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core refused the key that you gave with `--license-key`, `--license-file`, or
+`SYNNAX_LICENSE_KEY`. The log says why: "the license was not issued for this machine",
+"invalid license", "the license on this Core has expired", or "a Desktop license runs
+only on a Core that listens on loopback addresses". An old numeric key logs "numeric
+license keys are no longer accepted". The Core starts with the keys that it stored, or
+without a license.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Get a new key from the portal, and replace the key file or variable. See
+[Activate a license](/reference/enterprise/license#activate-at-start).
+
+</Problem.Fix>
+</Problem.Body>
+
+### The license term cannot be checked
+
+<Problem.Body>
+<Problem.Cause>
+
+The system clock moved back. The log says that the system clock is more than 24 hours
+behind the last recorded time.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Fix the clock. The license then applies again.
+
+</Problem.Fix>
+</Problem.Body>
+
+### The license stopped after a hardware change
+
+<Problem.Body>
+<Problem.Cause>
+
+The network hardware of the computer changed, so its fingerprint changed. A recreated
+Docker container without a fixed `--mac-address` has the same problem. The log says
+`skipping a stored license key that does not fit this Core`.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Activate the license again with the new fingerprint. See
+[Activate a license](/reference/enterprise/license#move-a-core-to-a-different-computer).
+
+</Problem.Fix>
+</Problem.Body>
+
+### using more channels than allowed by the license
+
+<Problem.Body>
+<Problem.Cause>
+
+The Core has as many channels as the license allows. Virtual channels do not count. See
+[channel limit](/reference/enterprise/license#channel-limit).
+
+</Problem.Cause>
+<Problem.Fix>
+
+To create more channels, replace the license with one that allows more. See
+[renew or replace a license](/reference/enterprise/license#renew-or-replace-a-license).
+
+</Problem.Fix>
+</Problem.Body>
