@@ -25,16 +25,18 @@ TESTS_DIR="integration/tests"
 EXEMPT="example"
 
 # Matrix definition (single source of truth)
-# Format: "name:target" where target can be comma-separated file prefixes
+# Format: "name:target:hosted" where target can be comma-separated file prefixes.
+# hosted is true when the suite runs on a GitHub-hosted runner. A suite that needs NI
+# software, the timer precision of a test bot, or more than 4 CPUs is not hosted.
 MATRIX_ENTRIES=(
-    "arc:arc,control,latency"
-    "console:console"
-    "driver:driver"
+    "arc:arc,control:true"
+    "console:console:false"
+    "driver:driver,latency:false"
 )
 
 covered=""
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    target="${entry#*:}"
+    IFS=: read -r _ target _ <<< "$entry"
     for prefix in $(echo "$target" | tr ',' ' '); do
         covered="$covered $prefix"
     done
@@ -87,14 +89,13 @@ fi
 json='{"include":['
 first=true
 for entry in "${MATRIX_ENTRIES[@]}"; do
-    name="${entry%%:*}"
-    target="${entry#*:}"
+    IFS=: read -r name target hosted <<< "$entry"
     if [ "$first" = true ]; then
         first=false
     else
         json+=","
     fi
-    json+="{\"name\":\"$name\",\"target\":\"$target\"}"
+    json+="{\"name\":\"$name\",\"target\":\"$target\",\"hosted\":$hosted}"
 done
 json+=']}'
 

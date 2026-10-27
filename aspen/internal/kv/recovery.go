@@ -33,9 +33,8 @@ type RecoveryResponse struct {
 
 type (
 	RecoveryTransportClient       = freighter.StreamClient[RecoveryRequest, RecoveryResponse]
-	RecoveryTransportClientStream = freighter.ClientStream[RecoveryRequest, RecoveryResponse]
 	RecoveryTransportServer       = freighter.StreamServer[RecoveryRequest, RecoveryResponse]
-	RecoveryTransportServerStream = freighter.ServerStream[RecoveryRequest, RecoveryResponse]
+	recoveryTransportServerStream = freighter.ServerStream[RecoveryRequest, RecoveryResponse]
 )
 
 type recoveryServer struct{ Config }
@@ -48,7 +47,7 @@ func newRecoveryServer(cfg Config) *recoveryServer {
 
 func (r *recoveryServer) recoverPeer(
 	ctx context.Context,
-	stream RecoveryTransportServerStream,
+	stream recoveryTransportServerStream,
 ) (err error) {
 	req, err := stream.Receive()
 	if err != nil {
@@ -182,7 +181,7 @@ func runSingleNodeRecovery(
 				if err = op.apply(ctx, tx); err != nil {
 					return err
 				}
-				if err = op.Digest().apply(ctx, tx); err != nil {
+				if err = op.digest().apply(ctx, tx); err != nil {
 					return err
 				}
 			}
