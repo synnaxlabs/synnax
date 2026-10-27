@@ -376,6 +376,10 @@ scripts:
   - *py
   - scripts/**
 
+runners:
+  - *py
+  - scripts/runners/**
+
 console_build: &console_build
   - *console
 

@@ -94,6 +94,7 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
@@ -626,6 +627,14 @@ jobs:
       directory: scripts
     secrets: inherit
 
+  runners:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.runners == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: scripts/runners
+    secrets: inherit
+
   site-common:
     needs: changes
     if: inputs.full || needs.changes.outputs.site_common == 'true'
@@ -809,6 +818,7 @@ jobs:
       - protobuf
       - py-packages
       - scripts
+      - runners
       - site-common
       - soem
       - versions
