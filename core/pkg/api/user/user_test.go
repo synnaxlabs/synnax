@@ -282,7 +282,7 @@ var _ = Describe("Service", func() {
 						},
 					),
 				).Error().
-					To(HaveOccurred())
+					To(MatchError(query.ErrNotFound))
 			},
 		)
 		It(
