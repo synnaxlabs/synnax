@@ -481,12 +481,7 @@ export class ChannelData
   }
 
   private status(): cstatus.Status {
-    const { drawStatus, boundsStatus } = this;
-    if (drawStatus == null) return boundsStatus ?? LOADING_STATUS;
-    if (boundsStatus == null) return drawStatus;
-    return cstatus.moreSevere(boundsStatus.variant, drawStatus.variant)
-      ? boundsStatus
-      : drawStatus;
+    return cstatus.worst(this.drawStatus, this.boundsStatus) ?? LOADING_STATUS;
   }
 
   private aggregation(): Aggregation {

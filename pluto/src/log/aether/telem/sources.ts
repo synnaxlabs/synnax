@@ -158,7 +158,7 @@ export class StreamMultiChannelLog
     for (const key of this._channels) {
       const snapshot = subscription.value(key);
       const { variant } = snapshot.status;
-      if (cstatus.moreSevere(variant, worst.variant)) worst = snapshot.status;
+      worst = cstatus.worst(worst, snapshot.status)!;
       if (variant !== "loading") pushed += this.append(key, snapshot, now);
     }
     this.status = worst;

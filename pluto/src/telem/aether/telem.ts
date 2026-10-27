@@ -264,8 +264,7 @@ export abstract class MultiSourceTransformer<I, O, P extends z.ZodType>
     for (const [id, source] of Object.entries(this.sources)) {
       const result = source.value();
       data[id] = result.data;
-      if (status.moreSevere(result.status.variant, worst.variant))
-        worst = result.status;
+      worst = status.worst(worst, result.status)!;
       if (result.time != null && (time == null || result.time.after(time)))
         time = result.time;
       if (result.appended != null) appended = (appended ?? 0) + result.appended;
