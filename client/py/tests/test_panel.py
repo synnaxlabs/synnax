@@ -137,4 +137,5 @@ class TestPanel:
         p1 = client.panels.create(name="Delete 1", parent=parent)
         p2 = client.panels.create(name="Delete 2", parent=parent)
         client.panels.delete([p1.key, p2.key])
-        assert client.panels.retrieve(keys=[p1.key, p2.key]) == []
+        with pytest.raises(NotFoundError):
+            client.panels.retrieve(keys=[p1.key, p2.key])
