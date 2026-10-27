@@ -12,7 +12,7 @@ import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
-import { type FindResult } from "@/vis/line/aether/line";
+import { type line } from "@/vis/line/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
 
@@ -37,7 +37,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
   findByXDecimal(
     props: Omit<AxisRenderProps, "canvases">,
     target: number,
-  ): FindResult[] {
+  ): line.FindResult[] {
     const [scale, , err] = this.dataToDecimalScale(
       props.hold,
       this.dataBounds.bind(this),
@@ -47,7 +47,10 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     return this.findByXValue(props, scale.reverse().pos(target));
   }
 
-  findByXValue(props: Omit<AxisRenderProps, "canvases">, target: number): FindResult[] {
+  findByXValue(
+    props: Omit<AxisRenderProps, "canvases">,
+    target: number,
+  ): line.FindResult[] {
     const [xDataToDecimalScale, xBounds, error] = this.dataToDecimalScale(
       props.hold,
       this.dataBounds.bind(this),
@@ -103,7 +106,7 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     );
   }
 
-  private dataBounds(): bounds.Bounds[] {
+  private dataBounds(): line.DataBounds[] {
     return this.yAxes.map((el) => el.xBounds());
   }
 }
