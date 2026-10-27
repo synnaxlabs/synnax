@@ -193,3 +193,12 @@ class TestSymbol:
         key = uuid4()
         assert symbol.ontology_id(key).type == symbol.ONTOLOGY_TYPE.type
         assert symbol.ontology_id(key).key == str(key)
+
+
+class TestBorderRadius:
+    def test_shorthand(self) -> None:
+        """Should expand a shorthand border radius on an element config."""
+        config = ELEMENT.validate_python({"variant": "cylinder", "border_radius": 4})
+        assert isinstance(config, schematic.CylinderElementConfig)
+        assert config.border_radius is not None
+        assert config.border_radius.top_left.x == 4
