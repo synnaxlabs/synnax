@@ -37,6 +37,7 @@ export const TokenKeeper = (): null => {
         host: client.params.host,
         port: Number(client.params.port),
         secure: client.params.secure,
+        username: client.params.username ?? "",
       });
   const rejected =
     current && status.variant === "error" && status.details.reason === "auth";

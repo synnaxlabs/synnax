@@ -118,7 +118,7 @@ describe("Core.useConnParams", () => {
     expect(result.current?.sessionCookie).toBeUndefined();
     expect(result.current?.sessionPersistent).toBe(true);
     expect(result.current).not.toHaveProperty("name");
-    expect(reads).toEqual([{ account: "http://example.com:9095" }]);
+    expect(reads).toEqual([{ account: "http://synnax@example.com:9095" }]);
   });
 
   it("should not resume over plain text from a token saved for TLS", async () => {
@@ -138,6 +138,34 @@ describe("Core.useConnParams", () => {
     });
     await waitFor(() => expect(result.current?.secure).toBe(false));
     expect(result.current?.token).toBeUndefined();
+  });
+
+  it("should keep separate tokens for two users of one Core", async () => {
+    mocks.engine = "tauri";
+    mockIPC((cmd, args) => {
+      if (cmd !== "keychain_get") return undefined;
+      const { account } = args as { account: string };
+      if (account === "http://alice@example.com:9095") return "sys_alice";
+      if (account === "http://bob@example.com:9095") return "sys_bob";
+      return null;
+    });
+    onTestFinished(clearMocks);
+    const alice = { ...CORE, username: "alice" };
+    const bob = createCore("Bravo", {
+      host: "example.com",
+      port: 9095,
+      password: "",
+      username: "bob",
+    });
+    const { result, store } = await renderHookWithConsole(() => Core.useConnParams(), {
+      preloadedState: createCoreState([alice, bob], alice.key),
+    });
+    await waitFor(() => expect(result.current?.token).toBe("sys_alice"));
+    act(() => {
+      store.dispatch(Session.Core.select(bob.key));
+    });
+    await waitFor(() => expect(result.current?.token).toBe("sys_bob"));
+    expect(result.current?.username).toBe("bob");
   });
 
   it("should connect without a token when the keychain holds none", async () => {
