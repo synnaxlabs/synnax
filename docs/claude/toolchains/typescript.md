@@ -19,6 +19,10 @@ orchestration.
 - `pnpm test` / `pnpm test:<pkg>`
 - `pnpm lint` / `pnpm fix` (also per-pkg variants)
 - `pnpm cycles` / `pnpm cycles:console` — circular dependency check (knip)
+- `pnpm knip --production --include exports,types` — exports that only specs import.
+  Drop the `export` and make its specs test through the public API. When the package's
+  users need the symbol, export it from the package entry instead. A pattern in
+  `knip.json` that ends in `!` is production code.
 
 ### Console dev login
 
@@ -95,7 +99,7 @@ subject:
 
 ## Comments
 
-The universal body-comment and doc-comment rules in the root CLAUDE.md apply. TypeScript
+The universal body-comment and doc-comment rules in the root AGENTS.md apply. TypeScript
 form: JSDoc `/** */` directly above the declaration. Tags: `@param name - Description.`,
 `@returns`, `@throws {ErrType} if ...` (see Error Handling Rule 4), `{@link Symbol}` for
 cross-references. Never put types in JSDoc; the signature carries them.
@@ -152,6 +156,10 @@ errors.
   compiler builds. The compiler caches each value and function on its inputs. A function
   named like a hook, and a `memo` or `forwardRef` component, compiles even when it calls
   no hook.
+- Declare a function above each function that calls it when a hook call comes between
+  them. If you do not, the compiler caches neither function, and no lint rule reports
+  it. Each value made from them, such as a callback that a hook returns, then changes on
+  every render, and an effect that depends on it runs on every render.
 - The compiler reads a call it cannot see into, such as a library method or a plain
   helper, as a change to the values it receives. When a hook comes between the code that
   makes a value and such a call, the compiler drops the value's cache. Call hooks first,
