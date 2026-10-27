@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { crdt } from "@/crdt";
-import { ReferenceText } from "@/crdt/reference";
+import { ReferenceText } from "@/crdt/testutil";
 
 // mulberry32 is a tiny seedable PRNG so schedules are reproducible per seed.
 const mulberry32 = (seed: number): (() => number) => {

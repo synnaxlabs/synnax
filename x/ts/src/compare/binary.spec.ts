@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { insert, search } from "@/compare/binary";
+import { compare } from "@/compare";
 
 describe("compare", () => {
   describe("search", () => {
@@ -84,7 +84,7 @@ describe("compare", () => {
       ];
       SPECS.forEach((spec) => {
         it(spec.name, () => {
-          expect(search(spec.array, spec.value)).toBe(spec.expected);
+          expect(compare.search(spec.array, spec.value)).toBe(spec.expected);
         });
       });
     });
@@ -118,7 +118,7 @@ describe("compare", () => {
       ];
       SPECS.forEach((spec) => {
         it(spec.name, () => {
-          expect(search(spec.array, spec.value)).toBe(spec.expected);
+          expect(compare.search(spec.array, spec.value)).toBe(spec.expected);
         });
       });
     });
@@ -159,7 +159,9 @@ describe("compare", () => {
       SPECS.forEach((spec) => {
         it(spec.name, () => {
           const comparator = (a: Item, b: Item) => a.id - b.id;
-          expect(search(spec.array, spec.value, comparator)).toBe(spec.expected);
+          expect(compare.search(spec.array, spec.value, comparator)).toBe(
+            spec.expected,
+          );
         });
       });
     });
@@ -208,7 +210,7 @@ describe("compare", () => {
       SPECS.forEach((spec) => {
         it(spec.name, () => {
           const arr = [...spec.array];
-          insert(arr, spec.value);
+          compare.insert(arr, spec.value);
           expect(arr).toEqual(spec.expected);
         });
       });
@@ -250,7 +252,7 @@ describe("compare", () => {
       SPECS.forEach((spec) => {
         it(spec.name, () => {
           const arr = [...spec.array];
-          insert(arr, spec.value);
+          compare.insert(arr, spec.value);
           expect(arr).toEqual(spec.expected);
         });
       });
@@ -299,7 +301,7 @@ describe("compare", () => {
         it(spec.name, () => {
           const arr = [...spec.array];
           const comparator = (a: Item, b: Item) => a.id - b.id;
-          insert(arr, spec.value, comparator);
+          compare.insert(arr, spec.value, comparator);
           expect(arr).toEqual(spec.expected);
         });
       });

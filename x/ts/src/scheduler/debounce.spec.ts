@@ -9,8 +9,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { debounce } from "@/scheduler/debounce";
-import { TimeSpan } from "@/telem/telem";
+import { scheduler } from "@/scheduler";
+import { TimeSpan } from "@/telem";
 
 describe("debounce", () => {
   beforeEach(() => {
@@ -23,7 +23,7 @@ describe("debounce", () => {
 
   it("should not execute immediately", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
 
@@ -32,7 +32,7 @@ describe("debounce", () => {
 
   it("should execute after the wait period", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
 
@@ -46,7 +46,7 @@ describe("debounce", () => {
 
   it("should reset the timer on repeated calls", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
     vi.advanceTimersByTime(90);
@@ -64,7 +64,7 @@ describe("debounce", () => {
 
   it("should run with the latest arguments", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
     debounced(20);
@@ -79,7 +79,7 @@ describe("debounce", () => {
 
   it("should not execute before the full wait period since the latest call", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
     vi.advanceTimersByTime(50);
@@ -97,7 +97,7 @@ describe("debounce", () => {
 
   it("should only execute once for a burst of calls", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
     vi.advanceTimersByTime(25);
@@ -120,7 +120,7 @@ describe("debounce", () => {
 
   it("should execute again after a previous debounce cycle completes", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
     vi.advanceTimersByTime(100);
@@ -137,7 +137,7 @@ describe("debounce", () => {
 
   it("should preserve null arguments", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
     debounced(null);
@@ -152,7 +152,7 @@ describe("debounce", () => {
 
   it("should preserve multiple arguments", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(1, "a", false);
     debounced(2, "b", true);
@@ -169,7 +169,7 @@ describe("debounce", () => {
       if (value === 20) debounced(30);
     });
 
-    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
     debounced(10);
     debounced(20);
@@ -189,7 +189,7 @@ describe("debounce", () => {
 
   it("should invoke the function synchronously when the wait period is 0", () => {
     const fn = vi.fn();
-    const debounced = debounce(fn, TimeSpan.ZERO);
+    const debounced = scheduler.debounce(fn, TimeSpan.ZERO);
 
     debounced(10);
 
@@ -200,7 +200,7 @@ describe("debounce", () => {
   describe("cancel", () => {
     it("should drop a pending invocation", () => {
       const fn = vi.fn();
-      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+      const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
       debounced(10);
       debounced.cancel();
@@ -212,7 +212,7 @@ describe("debounce", () => {
 
     it("should be a no-op when no invocation is pending", () => {
       const fn = vi.fn();
-      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+      const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
       expect(() => debounced.cancel()).not.toThrow();
 
@@ -225,7 +225,7 @@ describe("debounce", () => {
 
     it("should be a no-op for a zero-wait debounce", () => {
       const fn = vi.fn();
-      const debounced = debounce(fn, TimeSpan.ZERO);
+      const debounced = scheduler.debounce(fn, TimeSpan.ZERO);
 
       expect(() => debounced.cancel()).not.toThrow();
 
@@ -235,7 +235,7 @@ describe("debounce", () => {
 
     it("should allow scheduling a new invocation after cancellation", () => {
       const fn = vi.fn();
-      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+      const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
       debounced(10);
       debounced.cancel();
@@ -253,7 +253,7 @@ describe("debounce", () => {
   describe("flush", () => {
     it("should invoke a pending call immediately with the latest arguments", () => {
       const fn = vi.fn();
-      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+      const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
       debounced(10);
       debounced(20);
@@ -265,7 +265,7 @@ describe("debounce", () => {
 
     it("should be a no-op when no invocation is pending", () => {
       const fn = vi.fn();
-      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+      const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
       debounced.flush();
 
@@ -274,7 +274,7 @@ describe("debounce", () => {
 
     it("should clear the pending timer so the function does not fire again later", () => {
       const fn = vi.fn();
-      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+      const debounced = scheduler.debounce(fn, TimeSpan.milliseconds(100));
 
       debounced(10);
       debounced.flush();
