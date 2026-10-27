@@ -11,8 +11,8 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import {
   type Aggregation,
   type DataType,
-  debounce,
   type MultiSeries,
+  scheduler,
   Size,
   sync,
   TimeRange,
@@ -122,7 +122,7 @@ const held = (series: MultiSeries): boolean =>
  */
 export class TileReader {
   private readonly props: Required<Omit<TileReaderProps, "batchDebounce">>;
-  private readonly batcher: debounce.Batcher<TileSpec, MultiSeries>;
+  private readonly batcher: scheduler.Batcher<TileSpec, MultiSeries>;
   // Map order is recency order: a hit moves its entry to the end.
   private readonly tiles = new Map<string, CacheEntry>();
   // dataTypes holds the data type of each channel's newest fetched tile, which every
@@ -142,7 +142,7 @@ export class TileReader {
       fetchTimeout = TimeSpan.seconds(30),
     } = props;
     this.props = { readRemote, budget, staleThreshold, fetchTimeout };
-    this.batcher = new debounce.Batcher({
+    this.batcher = new scheduler.Batcher({
       interval: batchDebounce,
       exec: async (entries) => await this.batchRead(entries),
     });
@@ -233,9 +233,12 @@ export class TileReader {
   }
 
   private async batchRead(
-    entries: Array<debounce.Entry<TileSpec, MultiSeries>>,
+    entries: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
   ): Promise<void> {
-    const groups = new Map<string, Array<debounce.Entry<TileSpec, MultiSeries>>>();
+    const groups = new Map<
+      string,
+      Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>
+    >();
     entries.forEach((entry) => {
       const key = tileRequestKey(entry.req);
       const group = groups.get(key);
@@ -247,7 +250,7 @@ export class TileReader {
 
   // Never throws: every outcome settles the group's entries.
   private async fetch(
-    group: Array<debounce.Entry<TileSpec, MultiSeries>>,
+    group: Array<scheduler.BatcherEntry<TileSpec, MultiSeries>>,
   ): Promise<void> {
     const { readRemote, fetchTimeout } = this.props;
     const spec = group[0].req;

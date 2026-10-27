@@ -9,8 +9,8 @@
 
 import {
   type DataType,
-  debounce,
   type MultiSeries,
+  scheduler,
   type Size,
   type TimeRange,
 } from "@synnaxlabs/x";
@@ -72,7 +72,7 @@ export class Feed {
   private readonly reader: Reader;
   private readonly streamer: MultiplexedStreamer;
   private readonly tiles: TileReader;
-  private readonly latest: debounce.Batcher<channel.Key, MultiSeries>;
+  private readonly latest: scheduler.Batcher<channel.Key, MultiSeries>;
   private closed = false;
 
   constructor(props: FeedProps) {
@@ -133,7 +133,7 @@ export class Feed {
       breaker,
       instrumentation: instrumentation?.child("streamer"),
     });
-    this.latest = new debounce.Batcher({
+    this.latest = new scheduler.Batcher({
       interval: batchDebounce ?? DEFAULT_BATCH_DEBOUNCE,
       exec: async (entries) => {
         const frame = await readLatest([...new Set(entries.map(({ req }) => req))]);
