@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { createServer } from "node:http";
+import { type AddressInfo } from "node:net";
+
 import { AuthError, connection } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { assert, describe, expect, it, vi } from "vitest";
+import { assert, describe, expect, it, onTestFinished, vi } from "vitest";
 
 // A serving Core skips the Core step, and detection reports one for every browser
 // build. The module is the only seam.
@@ -31,6 +34,27 @@ import {
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
 
+// No test Core turns passwords off, so a local server answers the methods request.
+const serveMethods = async (methods: string[]): Promise<number> => {
+  const server = createServer((req, res) => {
+    req.resume();
+    req.on("end", () => {
+      if (req.url?.endsWith("/auth/methods") !== true) {
+        res.statusCode = 404;
+        res.end();
+        return;
+      }
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ methods }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  onTestFinished(
+    async () => await new Promise<void>((resolve) => server.close(() => resolve())),
+  );
+  return (server.address() as AddressInfo).port;
+};
+
 const REJECTED: connection.Status = {
   ...connection.DEFAULT_STATUS,
   variant: "error",
@@ -47,13 +71,13 @@ const REJECTED: connection.Status = {
 const BACK = ".console-login__back";
 const USERNAME_PLACEHOLDER = "synnax";
 
-const renderLogin = async (): Promise<HTMLElement> => {
+const renderLogin = async (alpha = ALPHA): Promise<HTMLElement> => {
   const { wrapper } = await createSessionConsoleWrapper({
     client: null,
     preloadedState: {
       [Session.Core.SLICE_NAME]: {
         ...Session.Core.ZERO_SLICE_STATE,
-        cores: { [ALPHA.key]: ALPHA, [BETA.key]: BETA },
+        cores: { [alpha.key]: alpha, [BETA.key]: BETA },
         selected: undefined,
       },
     },
@@ -77,6 +101,22 @@ describe("auth/Login", () => {
     assert(username instanceof HTMLInputElement);
     expect(username.value).toBe(BETA.username);
     expect(screen.queryByText(ALPHA.name)).toBeNull();
+  });
+
+  it("should keep the password form when the Core accepts passwords", async () => {
+    const port = await serveMethods(["password", "api_key"]);
+    await renderLogin({ ...ALPHA, host: "127.0.0.1", port });
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    expect(await screen.findByPlaceholderText(USERNAME_PLACEHOLDER)).toBeTruthy();
+    expect(screen.queryByText("Password login is off")).toBeNull();
+  });
+
+  it("should hide the password form when the Core refuses passwords", async () => {
+    const port = await serveMethods(["api_key"]);
+    await renderLogin({ ...ALPHA, host: "127.0.0.1", port });
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    expect(await screen.findByText("Password login is off")).toBeTruthy();
+    expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
   });
 
   it("should return to the Core list from the credentials", async () => {

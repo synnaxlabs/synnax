@@ -9,9 +9,11 @@
 
 import "@/feature/auth/Login.css";
 
+import { auth } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -47,6 +49,22 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   size: "large",
 };
 
+// An unreachable Core, or one older than the methods endpoint, keeps the password
+// form: the connection status reports the first, and the second accepts passwords.
+const usePasswordAccepted = (core?: auth.MethodsParams): boolean => {
+  const [accepted, setAccepted] = useState(true);
+  useAsyncEffect(
+    async (signal) => {
+      setAccepted(true);
+      if (core == null) return;
+      const methods = await auth.retrieveMethods(core).catch(() => null);
+      if (methods != null && !signal.aborted) setAccepted(methods.includes("password"));
+    },
+    [core?.host, core?.port, core?.secure],
+  );
+  return accepted;
+};
+
 /**
  * Full-screen login surface. Serves both initial login and credential re-entry after
  * the active Core rejects auth, where submitting resumes its connection.
@@ -64,6 +82,7 @@ export const Login = (): ReactElement => {
     servingCore != null || activeKey != null ? "login" : "cores",
   );
   const target = servingCore ?? selectedCore;
+  const passwordAccepted = usePasswordAccepted(target);
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
@@ -116,42 +135,52 @@ export const Login = (): ReactElement => {
           <Form.Form<typeof credentialsZ> {...methods}>
             <Flex.Box y align="center" justify="center" grow gap="huge" shrink={false}>
               <PlatformShell.Mark />
-              <Flex.Box y full="x" empty>
-                <Form.TextField
-                  path="username"
-                  required={false}
-                  inputProps={USERNAME_INPUT_PROPS}
-                />
-                <Form.TextField
-                  path="password"
-                  required={false}
-                  inputProps={PASSWORD_INPUT_PROPS}
-                />
-              </Flex.Box>
-              <Flex.Box gap="small" align="center" full="x">
-                {client != null && (
-                  <Flex.Box className={CSS.BE("login", "status")}>
-                    {connStatus.message !== "" && (
-                      <Status.Summary
-                        variant={connStatus.variant}
-                        message={connStatus.message}
-                        description={connStatus.description}
-                      />
-                    )}
+              {passwordAccepted ? (
+                <>
+                  <Flex.Box y full="x" empty>
+                    <Form.TextField
+                      path="username"
+                      required={false}
+                      inputProps={USERNAME_INPUT_PROPS}
+                    />
+                    <Form.TextField
+                      path="password"
+                      required={false}
+                      inputProps={PASSWORD_INPUT_PROPS}
+                    />
                   </Flex.Box>
-                )}
-                <Button.Button
-                  onClick={handleSubmit}
-                  trigger={LOG_IN_TRIGGER}
-                  variant="filled"
-                  size="large"
-                  full="x"
-                  justify="center"
-                >
-                  Log in
-                  <Icon.Arrow.Right />
-                </Button.Button>
-              </Flex.Box>
+                  <Flex.Box gap="small" align="center" full="x">
+                    {client != null && (
+                      <Flex.Box className={CSS.BE("login", "status")}>
+                        {connStatus.message !== "" && (
+                          <Status.Summary
+                            variant={connStatus.variant}
+                            message={connStatus.message}
+                            description={connStatus.description}
+                          />
+                        )}
+                      </Flex.Box>
+                    )}
+                    <Button.Button
+                      onClick={handleSubmit}
+                      trigger={LOG_IN_TRIGGER}
+                      variant="filled"
+                      size="large"
+                      full="x"
+                      justify="center"
+                    >
+                      Log in
+                      <Icon.Arrow.Right />
+                    </Button.Button>
+                  </Flex.Box>
+                </>
+              ) : (
+                <Status.Summary
+                  variant="warning"
+                  message="Password login is off"
+                  description="This Core does not accept passwords. Ask an administrator to add password to its accepted login methods."
+                />
+              )}
             </Flex.Box>
           </Form.Form>
         </Flex.Box>

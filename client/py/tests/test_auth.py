@@ -157,6 +157,27 @@ class TestAuthRetry:
 
 
 @pytest.mark.auth
+class TestMethods:
+    def test_retrieve_methods(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should list the login methods the Core accepts."""
+        host, port, username, password = login_info
+        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
+        client.close()
+
+    def test_retrieve_methods_logged_out(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should list the methods after logout without logging in again."""
+        host, port, username, password = login_info
+        client = sy.Synnax(host=host, port=port, username=username, password=password)
+        client.auth.logout()
+        assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
+        assert not client.auth.authenticated
+        client.close()
+
+
+@pytest.mark.auth
 class TestSessions:
     def test_session_lifecycle(self, login_info: tuple[str, int, str, str]) -> None:
         """Should open a session on login, renew it, list it, and end it on logout."""

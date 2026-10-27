@@ -108,6 +108,16 @@ describe("auth", () => {
     });
   });
 
+  describe("retrieveMethods", () => {
+    it("should list the methods the Core accepts without logging in", async () => {
+      const methods = await auth.retrieveMethods({
+        host: TEST_CLIENT_PARAMS.host,
+        port: TEST_CLIENT_PARAMS.port,
+      });
+      expect(methods.toSorted()).toEqual(["api_key", "password"]);
+    });
+  });
+
   describe("sessions", () => {
     const makeClient = (
       credentials: auth.Credentials = TEST_CREDENTIALS,
