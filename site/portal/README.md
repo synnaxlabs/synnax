@@ -1,9 +1,10 @@
 # Portal
 
 The portal at `portal.synnaxlabs.com` issues licenses. Vercel's Git integration deploys
-`main` to production and every other branch to a preview. The Vercel build migrates the
-database after it builds, so each migration must only add to the schema: the old
-deployment serves on the new schema until the new one is promoted.
+only `main`, to production. Other branches get no automatic preview; deploy one with the
+Vercel CLI. The Vercel build migrates the database after it builds, so each migration
+must only add to the schema: the old deployment serves on the new schema until the new
+one is promoted.
 
 ## Environments
 
