@@ -23,8 +23,11 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Rack } from "@/feature/rack";
-import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
+import {
+  createResource,
+  findModalButton,
+  renderTreeContextMenu,
+} from "@/platform/tree/testutil";
 import { assertDefined, createTestClientWithGrants, uniqueName } from "@/testutil";
 
 const client = createTestClient();

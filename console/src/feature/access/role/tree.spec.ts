@@ -15,9 +15,13 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Access } from "@/feature/access";
-import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import {
+  createResource,
+  findModalButton,
+  findTreeRow,
+  renderOntologyTree,
+  renderTreeContextMenu,
+} from "@/platform/tree/testutil";
 import { assertDefined, queryIcon, uniqueName } from "@/testutil";
 
 const client = createTestClient();

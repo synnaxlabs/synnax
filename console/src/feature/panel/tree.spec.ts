@@ -13,7 +13,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/feature/panel";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import { findTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();

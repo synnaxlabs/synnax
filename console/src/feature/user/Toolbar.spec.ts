@@ -15,9 +15,9 @@ import { User } from "@/feature/user";
 import {
   expandTreeRow,
   findModalButton,
+  findTreeRow,
   renderToolbar,
-} from "@/platform/tree/menuTestutil";
-import { findTreeRow } from "@/platform/tree/treeTestutil";
+} from "@/platform/tree/testutil";
 import { getIconButton, getIconButtons, uniqueName } from "@/testutil";
 
 const client = createTestClient();

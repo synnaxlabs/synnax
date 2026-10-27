@@ -30,13 +30,13 @@ import { describe, expect, it } from "vitest";
 import { Channel } from "@/feature/channel";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
 import {
+  createResource,
   findTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
-} from "@/platform/tree/treeTestutil";
+  renderTreeContextMenu,
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   assertDefined,
