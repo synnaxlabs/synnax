@@ -113,34 +113,52 @@ class TestCheck:
         )
         assert check(repo) == [Finding("app/src/kv/kv.ts", 1, "MemoryKV")]
 
-    def test_should_keep_an_export_a_child_module_uses(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch
+    @pytest.mark.parametrize(
+        ("export", "user", "flagged"),
+        [
+            pytest.param(
+                "app/src/kv/kv.ts", "app/src/store/store.ts", False, id="production"
+            ),
+            pytest.param(
+                "app/src/kv/kv.ts", "app/src/store/store.spec.ts", True, id="spec"
+            ),
+            pytest.param(
+                "app/src/kv/kv.ts", "app/src/testutil/store.ts", True, id="testutil"
+            ),
+            pytest.param(
+                "app/src/kv/kv.ts", "app/src/kv/child/child.ts", False, id="child"
+            ),
+            pytest.param(
+                "app/src/testutil/kv.ts",
+                "app/src/store/store.spec.ts",
+                False,
+                id="testutil-export",
+            ),
+            pytest.param(
+                "app/src/testutil/kv.ts",
+                "app/src/testutil/kv.spec.ts",
+                True,
+                id="testutil-own-spec",
+            ),
+        ],
+    )
+    def test_should_judge_a_use_from_another_module(
+        self,
+        repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        export: str,
+        user: str,
+        flagged: bool,
     ) -> None:
-        (repo / "app/src/kv/child").mkdir()
-        (repo / "app/src/kv/child/index.ts").touch()
-        trace = (
-            "app/src/kv/kv.ts:MemoryKV\n"
-            "└── app/src/kv/child/child.spec.ts:import[MemoryKV] ✓\n"
-        )
-        outputs = {"--production": report(("app/src/kv/kv.ts", "MemoryKV"))}
+        for d in ("app/src/kv/child", "app/src/testutil"):
+            (repo / d).mkdir(exist_ok=True)
+            (repo / d / "index.ts").touch()
+        trace = f"{export}:MemoryKV\n└── {user}:import[MemoryKV] ✓\n"
+        outputs = {"--production": report((export, "MemoryKV"))}
         monkeypatch.setattr(
             check_exports_ts,
             "knip",
             lambda _, *args: outputs.get(args[0], trace),
         )
-        assert check(repo) == []
-
-    def test_should_keep_an_export_another_module_uses(
-        self, repo: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        trace = (
-            "app/src/kv/kv.ts:MemoryKV\n"
-            "└── app/src/store/store.spec.ts:import[MemoryKV] ✓\n"
-        )
-        outputs = {"--production": report(("app/src/kv/kv.ts", "MemoryKV"))}
-        monkeypatch.setattr(
-            check_exports_ts,
-            "knip",
-            lambda _, *args: outputs.get(args[0], trace),
-        )
-        assert check(repo) == []
+        expected = [Finding(export, 1, "MemoryKV")] if flagged else []
+        assert check(repo) == expected

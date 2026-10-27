@@ -7,13 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Reports TypeScript exports that only the specs of their own module use.
+"""Reports TypeScript exports that only their own module or test code use.
 
 Knip in production mode reports each export that no production file uses. This check
-keeps a finding only when no file outside the export's module uses it either, so a
-helper that the specs or test utilities of another module use stays public. A module
-is the nearest directory with an index file. The check traces each finding with Knip's
-`--trace-export` and reads which members each importing file references.
+traces each finding with Knip's `--trace-export` and reads which members each importing
+file references. It drops a finding that a file outside the export's module uses, when
+that file is not test code, or when the export lives in a test utility module. A module
+is the nearest directory with an index file. Test code is a spec, test, or bench file,
+or a file under a test utility directory: `testutil`, `test`, or `mock`.
 
     python3 scripts/check_exports_ts.py
 """
@@ -27,6 +28,8 @@ from pathlib import Path
 
 KNIP = "node_modules/.bin/knip"
 INDEX_FILES = ("index.ts", "index.tsx")
+TEST_DIRS = {"testutil", "test", "mock"}
+TEST_SUFFIXES = (".spec", ".test", ".bench")
 
 _ROOT = re.compile(r"^(?P<file>[^\s│├└]\S*?):(?P<name>[^\s\[]+)$")
 _NODE = re.compile(
@@ -45,8 +48,8 @@ class Finding:
 
     def __str__(self) -> str:
         return (
-            f"{self.path}:{self.line}: {self.name} is exported but only the specs of "
-            "its own module use it"
+            f"{self.path}:{self.line}: {self.name} is exported but only its own module "
+            "or test code uses it"
         )
 
 
@@ -96,6 +99,17 @@ def users(trace: str) -> dict[tuple[str, str], set[str]]:
     return result
 
 
+def is_test_utility(file: str) -> bool:
+    """Reports whether file lives under a test utility directory."""
+    return any(part in TEST_DIRS for part in Path(file).parent.parts)
+
+
+def is_test_code(file: str) -> bool:
+    """Reports whether file is a spec, test, or bench file or a test utility."""
+    name = Path(file).name
+    return is_test_utility(file) or any(f"{s}." in name for s in TEST_SUFFIXES)
+
+
 def module_dir(repo: Path, file: str) -> Path:
     """Returns the directory of the module that holds file."""
     path = repo / file
@@ -133,7 +147,7 @@ def candidates(repo: Path) -> list[Finding]:
 
 
 def check(repo: Path) -> list[Finding]:
-    """Returns the exports that only the specs of their own module use."""
+    """Returns the exports that only their own module or test code use."""
     found = candidates(repo)
     used: dict[tuple[str, str], set[str]] = {}
     for name in sorted({f.name for f in found}):
@@ -141,8 +155,12 @@ def check(repo: Path) -> list[Finding]:
     result = []
     for f in found:
         own = module_dir(repo, f.path)
-        files = used.get((f.path, f.name), set())
-        if all(module_dir(repo, u) == own for u in files):
+        outside = [
+            u for u in used.get((f.path, f.name), set()) if module_dir(repo, u) != own
+        ]
+        if is_test_utility(f.path) and outside:
+            continue
+        if all(is_test_code(u) for u in outside):
             result.append(f)
     return sorted(result, key=lambda f: (f.path, f.line))
 
@@ -154,7 +172,7 @@ def main() -> None:
         print(f)
     if findings:
         print(
-            f"{len(findings)} exports only their own module's specs use",
+            f"{len(findings)} exports only their own module or test code use",
             file=sys.stderr,
         )
         sys.exit(1)
