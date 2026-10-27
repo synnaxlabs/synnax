@@ -351,18 +351,17 @@ export class Reader {
           return;
         }
         const part = parts.get(block.index) ?? { timestamps: [], series: [] };
-        const coveredEnd = TimeStamp.max(
-          block.coveredEnd,
-          from,
-          TimeStamp.min(block.range.end, trusted),
-        );
+        const end = TimeStamp.max(from, TimeStamp.min(block.range.end, trusted));
         const base = merged ? 0 : block.coveredCount;
-        block.fill(
-          align(block.index, base, part.timestamps, part.series),
-          coveredEnd,
-          base + countBefore(part.timestamps, coveredEnd),
-        );
-        block.sealed = !seen.before(coveredEnd);
+        const aligned = align(block.index, base, part.timestamps, part.series);
+        // An older read can end inside the coverage of a newer one, which then keeps
+        // its end, count, and seal.
+        if (block.coveredEnd.after(end))
+          block.fill(aligned, block.coveredEnd, block.coveredCount);
+        else {
+          block.fill(aligned, end, base + countBefore(part.timestamps, end));
+          block.sealed = !seen.before(end);
+        }
         // A pin before the set, since the set can evict the blocks filled before it.
         entries.forEach(({ req: { pinned } }) => {
           if (pinned == null || pinned.has(block)) return;

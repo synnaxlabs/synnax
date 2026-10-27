@@ -280,6 +280,31 @@ describe("Reader", () => {
       expect(block?.coveredCount).toBe(expected.length);
       expect(block?.coveredEnd).toEqual(range.end);
     });
+
+    it("should keep the coverage of a later block that a newer read filled", async () => {
+      const gate = createGate();
+      let reads = 0;
+      const setup = createReader({
+        elapsed: 100,
+        batchDebounce: TimeSpan.milliseconds(10),
+        // The first read answers with the samples of when it ran, after the gate opens.
+        readRemote: async (tr, keys) => {
+          const frame = setup.core.read(tr, keys);
+          if (reads++ === 0) await gate.wait();
+          return frame;
+        },
+      });
+      const { core, reader, store, read } = setup;
+      const caught = reader.catchUp(1, 100);
+      await expect.poll(() => reads).toBe(1);
+      core.advance(TimeSpan.seconds(20));
+      await read(new TimeRange(at(70), at(80)), 1);
+      const block = store.raw(1, 101);
+      const newer = [block.coveredEnd, block.coveredCount, block.sealed];
+      gate.open();
+      await caught;
+      expect([block.coveredEnd, block.coveredCount, block.sealed]).toEqual(newer);
+    });
   });
 
   describe("budget", () => {
