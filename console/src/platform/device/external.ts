@@ -9,6 +9,7 @@
 
 export * from "@/platform/device/ChangeIdentifierMenuItem";
 export * from "@/platform/device/checkConfigured";
+export * from "@/platform/device/checkFound";
 export * from "@/platform/device/Configure";
 export * from "@/platform/device/ConfigureMenuItem";
 export * from "@/platform/device/ConnectFooter";
