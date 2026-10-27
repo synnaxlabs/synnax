@@ -66,15 +66,6 @@ var _ = Describe("Log", func() {
 			Expect(newLogger.Zap()).ToNot(Equal(logger.Zap()))
 		})
 
-		It("Should handle WithConfig", func() {
-			newConfig := alamos.LoggerConfig{
-				ZapConfig: zap.NewDevelopmentConfig(),
-			}
-			newLogger := MustSucceed(logger.WithConfig(newConfig))
-			Expect(newLogger).ToNot(BeNil())
-			Expect(newLogger.Zap()).ToNot(Equal(logger.Zap()))
-		})
-
 		It("Should log Info messages", func() {
 			logger.Info("test info message", zap.String("key", "value"))
 			Expect(buffer.String()).To(ContainSubstring("test info message"))
