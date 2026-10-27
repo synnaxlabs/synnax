@@ -33,7 +33,7 @@ if len(sys.argv) > 1:
         ident = f.get_identifier()
         if any(k in ident.lower() for k in ("offscreen", "webgl", "canvas", "worker")):
             print("feature", ident, f.get_status(), settings.get_feature_enabled(f), flush=True)
-            if "offscreen" in ident.lower():
+            if ident == "AllowWebGLInWorkers":
                 settings.set_feature_enabled(f, True)
 win.add(view)
 win.set_default_size(400, 300)
