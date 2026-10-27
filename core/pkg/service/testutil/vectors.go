@@ -22,8 +22,11 @@ import (
 
 // Case is a filter case: the records, by alias, that Where matches.
 type Case[W any] struct {
-	Name     string   `json:"name"`
-	Where    W        `json:"where"`
+	// Name names the case in spec output.
+	Name string `json:"name"`
+	// Where is the filter under test.
+	Where W `json:"where"`
+	// Expected holds the aliases of the records that Where matches, in any order.
 	Expected []string `json:"expected"`
 	// ServerComputed is for the TypeScript matches. The Core computes every case.
 	ServerComputed bool `json:"server_computed"`
@@ -31,8 +34,10 @@ type Case[W any] struct {
 
 // Vectors holds the records of one entity, keyed by alias, and its filter cases.
 type Vectors[R, W any] struct {
+	// Records holds the records to create before each case, keyed by alias.
 	Records map[string]R `json:"records"`
-	Cases   []Case[W]    `json:"cases"`
+	// Cases are the filters to run against Records.
+	Cases []Case[W] `json:"cases"`
 }
 
 // ReadVectors reads the filter vectors of the entity, such as "ranges", which the
