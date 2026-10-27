@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { MultiSeries, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { type aether } from "@/aether/aether";
@@ -16,7 +16,6 @@ import { aetherTest } from "@/aether/test";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
 
 const { mockUse } = vi.hoisted(() => ({ mockUse: vi.fn() }));
 
@@ -40,8 +39,6 @@ interface StubCore {
 const stubCore = (clockSkew: TimeSpan = TimeSpan.ZERO): StubCore => ({
   connection: { status: { details: { clockSkew } } },
   openFeed: vi.fn(() => ({
-    read: async () => new MultiSeries([]),
-    stream: () => telemTest.mockSubscription(() => {}),
     close: async () => {},
   })),
   channels: {
@@ -163,8 +160,6 @@ describe("telem.Provider", () => {
     const core = stubCore();
     const close = vi.fn(async () => {});
     core.openFeed.mockReturnValue({
-      read: async () => new MultiSeries([]),
-      stream: () => telemTest.mockSubscription(() => {}),
       close,
     });
     mockUse.mockReturnValue(core);
@@ -184,8 +179,6 @@ describe("telem.Provider", () => {
     const core = stubCore();
     const err = new Error("close failed");
     core.openFeed.mockReturnValue({
-      read: async () => new MultiSeries([]),
-      stream: () => telemTest.mockSubscription(() => {}),
       close: async () => {
         throw err;
       },

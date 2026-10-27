@@ -301,6 +301,7 @@ func (frameStreamerRequestTranslator) Forward(
 		DownsampleFactor: msg.DownsampleFactor,
 		ThrottleRateHz:   float64(msg.ThrottleRate),
 		ExcludeGroups:    msg.ExcludeGroups,
+		AckRequested:     msg.AckRequested,
 	}, nil
 }
 
@@ -313,6 +314,7 @@ func (t frameStreamerRequestTranslator) Backward(
 		DownsampleFactor: msg.DownsampleFactor,
 		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
 		ExcludeGroups:    msg.ExcludeGroups,
+		AckRequested:     msg.AckRequested,
 	}
 	if t.codec != nil && len(rq.Keys) > 0 {
 		if err := t.codec.Update(ctx, rq.Keys); err != nil {
@@ -331,13 +333,13 @@ func (t frameStreamerResponseTranslator) Forward(
 		if err != nil {
 			return nil, err
 		}
-		return &StreamerResponse{Buffer: buf}, nil
+		return &StreamerResponse{Buffer: buf, Ack: msg.Ack}, nil
 	}
 	frm, err := telempb.FrameToPB(msg.Frame.Frame)
 	if err != nil {
 		return nil, err
 	}
-	return &StreamerResponse{Frame: frm}, nil
+	return &StreamerResponse{Frame: frm, Ack: msg.Ack}, nil
 }
 
 func (t frameStreamerResponseTranslator) Backward(
@@ -349,13 +351,13 @@ func (t frameStreamerResponseTranslator) Backward(
 		if err != nil {
 			return framer.StreamerResponse{}, err
 		}
-		return framer.StreamerResponse{Frame: fr}, nil
+		return framer.StreamerResponse{Frame: fr, Ack: msg.Ack}, nil
 	}
 	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
 		return framer.StreamerResponse{}, err
 	}
-	return framer.StreamerResponse{Frame: framer.Frame{Frame: tr}}, nil
+	return framer.StreamerResponse{Frame: framer.Frame{Frame: tr}, Ack: msg.Ack}, nil
 }
 
 func (frameDeleteRequestTranslator) Forward(
