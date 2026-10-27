@@ -53,6 +53,7 @@ x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
         state.key_data_types[ch.key] = ch.data_type;
         if (ch.data_type.is_variable()) state.has_variable_data_types = true;
     }
+    std::lock_guard lock(*this->mu);
     this->states[++this->seq_num] = std::move(state);
     return x::errors::NIL;
 }
@@ -116,11 +117,12 @@ unpack_bool_bits(const uint8_t *src, const size_t n_samples) {
 
 x::errors::Error
 Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
+    std::lock_guard lock(*this->mu);
     this->throw_if_uninitialized();
     CodecFlags flags;
     size_t byte_array_size = FLAGS_SIZE + SEQ_NUM_SIZE;
 
-    auto state = this->states[this->seq_num];
+    const auto &state = this->states.at(this->seq_num);
 
     if (frame.channels->size() != state.keys.size()) {
         flags.all_channels_present = false;
@@ -294,6 +296,7 @@ Codec::decode(const std::vector<uint8_t> &data) const {
 
 std::pair<x::telem::Frame, x::errors::Error>
 Codec::decode(const uint8_t *data, const size_t size) const {
+    std::lock_guard lock(*this->mu);
     this->throw_if_uninitialized();
     auto reader = x::binary::Reader(data, size);
     x::telem::Frame frame;
@@ -319,7 +322,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
         };
 
     const auto seq_n = reader.uint32();
-    auto state = this->states.at(seq_n);
+    const auto &state = this->states.at(seq_n);
 
     if (flags.equal_lens) data_len = reader.uint32();
 

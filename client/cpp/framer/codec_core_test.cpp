@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <thread>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -95,5 +97,38 @@ TEST(CodecTests, OutOfSyncCodecs) {
     ASSERT_NIL(encoder.encode(frame2, encoded));
     auto decoded_frame3 = ASSERT_NIL_P(decoder.decode(encoded));
     assert_frames_equal(frame2, decoded_frame3);
+}
+
+/// @brief it should decode frames while another thread updates the codec, as a streamer
+/// does when set_channels runs beside read.
+TEST(CodecTests, DecodeWhileUpdating) {
+    auto client = new_test_client();
+    auto [idx_ch, data_ch] = create_indexed_pair(client);
+    Codec encoder(client.channels);
+    Codec decoder(client.channels);
+    ASSERT_NIL(encoder.update(std::vector{idx_ch.key}));
+    ASSERT_NIL(decoder.update(std::vector{idx_ch.key}));
+    const auto frame = x::telem::Frame(
+        idx_ch.key,
+        x::telem::Series(x::telem::TimeStamp(x::telem::SECOND))
+    );
+    std::vector<uint8_t> encoded;
+    ASSERT_NIL(encoder.encode(frame, encoded));
+    std::atomic updating = true;
+    x::errors::Error update_err;
+    std::thread updater([&] {
+        for (int i = 0; i < 50 && !update_err; i++)
+            update_err = decoder.update(std::vector{idx_ch.key, data_ch.key});
+        updating = false;
+    });
+    x::telem::Frame decoded;
+    x::errors::Error decode_err;
+    do {
+        std::tie(decoded, decode_err) = decoder.decode(encoded);
+    } while (updating && !decode_err);
+    updater.join();
+    ASSERT_NIL(update_err);
+    ASSERT_NIL(decode_err);
+    assert_frames_equal(frame, decoded);
 }
 }

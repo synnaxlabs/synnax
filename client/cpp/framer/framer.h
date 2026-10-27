@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <set>
 #include <utility>
 #include <vector>
@@ -135,6 +136,10 @@ class Codec {
     /// @brief the codec state for each sequence number. This is used to identify the
     /// relevant channel keys and data types for encoding/decoding frames.
     std::unordered_map<std::uint32_t, State> states;
+
+    /// @brief guards seq_num and states, so update() can run while another thread
+    /// encodes or decodes. It lives on the heap so the codec stays movable.
+    std::unique_ptr<std::mutex> mu = std::make_unique<std::mutex>();
 
     /// @brief used to retrieve channels when updating the codec state.
     channel::Client channel_client;
