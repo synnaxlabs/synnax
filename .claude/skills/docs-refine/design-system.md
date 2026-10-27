@@ -9,8 +9,8 @@ the content means, not by how it should look. The model page is
 ### Column and rhythm
 
 - Every block sits flush with the prose column: code, tab panes, tables, lists,
-  diagrams, media, and notes. No inset, no bleed. The one exception is a cover still,
-  the framed product shot near the top of a page, which bleeds 5rem on wide screens.
+  diagrams, media, and notes. No inset, no bleed. The one exception is a hero, which
+  bleeds 5rem on wide screens.
 - A diagram never widens the column. Below 560px, a block or nest diagram switches to
   its narrow layout: block diagrams flow from top to bottom, and a rank too wide for a
   phone breaks its labels onto two lines.
@@ -50,7 +50,11 @@ An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the ca
 - **Gray-l4 frame** (`--pluto-border`) -> the edge of a block that has its own surface.
 - **Primary** -> links, the state that matters in a diagram, the Enterprise mark, and
   the brand accent: the rule under a page title and the landing use cases.
-- **Error and warning** -> the severity dot of a problem entry, and notes.
+- **Error and warning** -> the severity dot of a problem entry, and notes. Error also
+  marks a required field: the asterisk before **Required**.
+- **Arc code colors** (`tokens` in `@synnaxlabs/arc`) -> Arc code blocks, and the type
+  (teal) and default (green) of a field entry. Never Lyra primary for a type: primary
+  means a link.
 - **Warning (amber) and secondary (green)** -> the accents of the outer and inner group
   of a nest diagram: border, hatch, and header icon. Nothing else uses color.
 
@@ -70,6 +74,26 @@ An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the ca
 A block gets a frame only when it has its own surface: code, tab panes, media, notes,
 disclosures, and the `Diagram.Block` canvas. Lists, tables, and diagrams that draw their
 own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
+
+### Heroes
+
+A hero is the cover picture of a section page or a release: one Console picture on a
+two-color gradient, from `Hero.Hero`.
+
+- A section page, and each release from 0.60 on, gets a Studio still. Write a script
+  that saves one 1280 x 800 still named `window`, add it to `studio/videos.ts` with
+  `hero(id, script)`, run `pnpm batch` and `pnpm upload`, then add
+  `<Hero.Hero still="<id>" ... />`. The tag never names a version: a new capture updates
+  the page by itself.
+- A release before 0.60 frames its existing picture or video with `image` or `video`.
+  `framed` shows all of it. `bleed` cuts it at the right and bottom, for media whose
+  subject is at its top left. A video is always `framed`, so its controls show.
+- A still is `bleed`, `layered`, or `centered` when its subject is at the left of the
+  window. A subject at the middle, such as a dialog, needs `framed`.
+- A page or release has one cover: the hero at its top. A hero for a feature inside it
+  is `inset`, which keeps it in the text column, shorter, and in a faint tint. An inset
+  hero takes no `tone` and cannot be `layered`.
+- Give neighbors a different palette and tone. `layered` needs a `toolbar` region.
 
 ### Navigation
 
@@ -131,8 +155,9 @@ own regions (`Diagram.Nest`, `Diagram.Handoff`) sit on the page.
 
 ### Field list
 
-- One entry per option. The name is the title. Type, default, and whether it is required
-  go in the meta line. The description is the body.
+- One entry per option. The first line holds the name (the title), then `type = default`
+  in Arc code colors, then **Required** after a red asterisk, as on a Lyra form label.
+  The description follows, then the meta line with the other values.
 - When an option has a Console label and a client field, the Console label is the title
   and the field goes in the meta line in mono. When one label sets two fields, the meta
   line lists both (**Range** -> `min_val`, `max_val`).
