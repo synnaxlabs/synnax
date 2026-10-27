@@ -126,8 +126,8 @@ class Client:
         limit: int | None = None,
         offset: int = 0,
     ) -> View | list[View]:
-        """Retrieves views that match every condition and filter. Returns one view for
-        a key, a name, or one, and a list otherwise.
+        """Retrieves views that match every condition and filter. Returns one view for a
+        key, a name, or one, and a list otherwise.
 
         :param args: Conditions from the view builder, such as
             ``view.type.eq("lineplot")``, or one key, name, or list of either.

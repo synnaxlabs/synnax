@@ -738,8 +738,8 @@ class Client:
         condition and filter. A filter left at its default does not filter.
 
         :param args: Conditions from the ranger builder, such as
-            ``ranger.name.contains("Hotfire")``, or one key, name, or list of either.
-            A key or a name returns one range.
+            ``ranger.name.contains("Hotfire")``, or one key, name, or list of either. A
+            key or a name returns one range.
         :param key: The key of one range to retrieve.
         :param name: The name of one range to retrieve.
         :param one: Returns the one range that matches, instead of a list.

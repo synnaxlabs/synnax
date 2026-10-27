@@ -149,9 +149,7 @@ class TestUserClient:
     def test_retrieve_by_bare_username(
         self, client: sy.Synnax, new_user_list: list[sy.user.New]
     ) -> None:
-        """Should retrieve a user by a key or a username passed as the first
-        argument.
-        """
+        """Should retrieve a user by a key or a username passed as the first argument."""
         users = client.users.create(users=new_user_list[:2])
         assert client.users.retrieve(users[0].username).key == users[0].key
         assert client.users.retrieve(users[0].key).username == users[0].username
