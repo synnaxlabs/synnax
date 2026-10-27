@@ -140,8 +140,12 @@ class TestConfigClient:
     def test_sequence_not_an_object(self, cases_dir: Path) -> None:
         """Should fail on a sequence entry that is not an object."""
         cases_dir.mkdir(parents=True)
-        (cases_dir / "spec_tests.json").write_text(json.dumps({"sequences": ["bad"]}))
-        with pytest.raises(AttributeError):
+        sequences = [{"sequence_name": "ok", "tests": []}, "bad"]
+        (cases_dir / "spec_tests.json").write_text(json.dumps({"sequences": sequences}))
+        with pytest.raises(
+            ValueError,
+            match=r"^Sequence 1 in test file 'spec_tests\.json' is not an object$",
+        ):
             config_client.ConfigClient(tests_dir=cases_dir).load(
                 TargetFilter(file_filter=["spec"])
             )
