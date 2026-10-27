@@ -11,15 +11,22 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { Session } from "@/session";
 
-type Target = Pick<Session.Core.Core, "host" | "port" | "secure" | "username">;
+type Address = Pick<Session.Core.Core, "host" | "port" | "secure" | "username">;
+
+type Target = Address & Pick<Session.Core.Core, "key">;
 
 /**
- * The keychain account a Core's session token is stored under. The scheme is part of
- * it, so a token saved for TLS never goes out in plain text. The username is part of
- * it, so two saved Cores at one address never resume each other's user.
+ * The scheme, user, and address of a Core. The scheme is part of it, so a token saved
+ * for TLS never goes out in plain text.
  */
-export const accountOf = ({ host, port, secure, username }: Target): string =>
+export const addressOf = ({ host, port, secure, username }: Address): string =>
   `${secure ? "https" : "http"}://${encodeURIComponent(username)}@${host}:${port}`;
+
+/**
+ * The keychain account a saved Core's session token is stored under. It holds the key
+ * of the saved Core, so two saved Cores never resume each other's session.
+ */
+export const accountOf = (core: Target): string => `${addressOf(core)}#${core.key}`;
 
 /**
  * Reads the session token the keychain holds for the Core. Resolves undefined when
