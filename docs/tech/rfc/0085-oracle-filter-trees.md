@@ -112,7 +112,11 @@ The mark goes on the type declaration, so a foreign key filters by value, not by
 A distinct alias of `string` or `bool` gets `filter.Set<T>`, so its values keep their
 type. All operators set on one slot are ANDed. "All of these labels" is an AND of nodes.
 A regex is RE2 and unanchored. `filter.String` also has a `case_insensitive` flag, which
-makes every operator on the slot ignore case, a regex included.
+makes every operator on the slot ignore case, a regex included. Case is folded by the
+Unicode simple case folding rule of the `(?i)` regex flag, in the Core and in the
+TypeScript cache. An operator object that sets no operator, such as `name: {}` or
+`case_insensitive` alone, is a validation error at its path, since it would match every
+record.
 
 The generic operator types are `@pb omit`. Protobuf gets one message per use, such as
 `RackKeySet`, and no shared generic message.
@@ -234,6 +238,10 @@ in Django `get`, SQLAlchemy `one`, and Entity Framework `Single`. In Python,
 `ignore_not_found=True` returns `None` when no record matches, and still raises when
 more than one matches. A list retrieve drops missing keys. A caller that needs every
 record checks for itself, as the framer and the C++ channel client do.
+
+The error states the filter as a sentence, the same in every client:
+`Expected one range where name starts with "press", but found 2`, or
+`Found no range where key = 12`.
 
 ### 2.7 The client API
 
@@ -394,6 +402,10 @@ and its flat fields go away together, since a client must match the Core's versi
 - **Phase 10: The C++ builder.** The same, with a variadic `retrieve`. Include options
   replace each client's `RetrieveOptions`, and `retrieve` replaces the `retrieve_by_*`
   methods.
+- **Phase 11: Empty operators.** The generated matcher rejects an operator object that
+  sets no operator, with specs in the Core and the TypeScript client.
+- **Phase 12: Filter sentences.** TypeScript, Python, and C++ each get a `describe` that
+  writes a filter as a sentence, and the single-record errors of §2.6 use it.
 
 ## 4 What this RFC does not cover
 
@@ -455,14 +467,22 @@ and its flat fields go away together, since a client must match the Core's versi
 16. **Case-insensitive operators, rejected**: `containsIgnoreCase` and its siblings
     double the text operators. One flag covers all of them. Prisma's flag fails on
     databases that cannot run it, but the Core runs every match itself.
+17. **Lower-casing to ignore case, rejected**: Go `ToLower`, JavaScript `toLowerCase`,
+    and the `(?i)` flag disagree on letters such as the Greek final sigma and the long
+    s, so the Core and the cache would disagree on a record. Simple case folding is the
+    rule of the regex engines in both languages.
+18. **Errors that print the filter as JSON or as builder code, rejected**: JSON lists
+    every unset field, and builder code differs by language and nests `and_` and `or_`
+    calls. A sentence reads the same in every client.
+19. **An empty retrieve as an error, rejected**: SQL, Prisma, MongoDB, and Kubernetes
+    all return every record for an empty query, and an empty `and` matching every record
+    keeps the tree rules free of special cases. No delete or update takes a filter, so
+    an empty filter cannot destroy data.
 
 ## 6 Open questions
 
 1. **Optional fields**: Whether bare lines on optional fields get an `is set` operator.
-2. **Empty operator objects**: `name: {}` matches every record, so a JavaScript caller
-   that passes `undefined` to `eq` matches everything. Whether the Core rejects an
-   operator object with no operator set.
-3. **The search option name**: `search` in TypeScript and C++, against Python's shipped
+2. **The search option name**: `search` in TypeScript and C++, against Python's shipped
    `search_term=`.
-4. **`name_patterns` in the builder**: Whether the channel builder exposes the line, or
+3. **`name_patterns` in the builder**: Whether the channel builder exposes the line, or
    only the names shortcut sends it.
