@@ -1,0 +1,186 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Find channels"
+description:
+  "Find channels in the Console, or retrieve them in code by name, key, pattern, or
+  search term."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+In the Console, you find a [channel](/reference/channels) to plot it or to add it to a
+schematic. In a script, you retrieve a channel before you read or write its data.
+
+<Divider.Divider x />
+
+## Find a channel in the Console
+
+The [channels toolbar](/reference/channels#channels-in-the-console) lists all of the
+channels in Synnax. To open it, click <Icon.Channel /> or press **C**. To add a channel
+to a schematic, drag it from the toolbar onto the schematic.
+
+To find a channel by name, click <Icon.Search /> at the top of the left bar, or press
+**Ctrl+P** (**Cmd+P** on macOS), to open the
+[search palette](/reference/get-started/ui-overview#search-and-command-palette). Then
+type part of the name. Select a result to add the channel to the open line plot, or to a
+new line plot. A virtual channel opens in a log.
+
+<Video id="client/channels/find" />
+
+<Divider.Divider x />
+
+## Retrieve channels in code
+
+A script gets a channel from the Core before it reads or writes its data. Retrieve
+channels by name or key, by a pattern, or by a search term.
+
+### By name or key
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+# One channel, by name or by key
+tank_pressure = client.channels.retrieve("tank_pressure")
+tank_pressure = client.channels.retrieve(tank_pressure.key)
+
+# Many channels, by names or by keys
+channels = client.channels.retrieve(["tank_pressure", "tank_temperature"])
+channels = client.channels.retrieve([tank_pressure.key, tank_temperature.key])
+```
+
+When you pass one name or key, `retrieve` returns one channel. It raises
+`sy.NotFoundError` when no channel matches. When you pass a list, `retrieve` returns a
+list and leaves out the channels that it does not find.
+
+Pass names or keys, not both in one list. A key never changes, but a name can change.
+Store keys in programs that run for a long time.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// One channel, by name or by key
+const tankPressure = await client.channels.retrieve("tank_pressure");
+const sameChannel = await client.channels.retrieve(tankPressure.key);
+
+// Many channels, by names or by keys
+const names = ["tank_pressure", "tank_temperature"];
+const byName = await client.channels.retrieve(names);
+const byKey = await client.channels.retrieve([tankPressure.key, sameChannel.key]);
+```
+
+When you pass one name or key, `retrieve` returns one channel. It throws a
+`NotFoundError` when no channel matches. When you pass an array, `retrieve` returns an
+array and leaves out the channels that it does not find.
+
+Pass names or keys, not both in one array. A key never changes, but a name can change.
+Store keys in programs that run for a long time.
+
+  </Fragment>
+
+</Client.Tabs>
+
+### By pattern
+
+A name that is not a valid [channel name](/reference/channels#names) is a regular
+expression, in [Go RE2 syntax](https://github.com/google/re2/wiki/Syntax). The pattern
+must match the full name, unless it starts with `^` or ends with `$`. For example,
+`tank_.*` matches `tank_pressure` and `tank_time`, but not `ox_tank_pressure`.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+# Returns list[sy.Channel]
+tank_channels = client.channels.retrieve(["tank_.*"])
+```
+
+Put the pattern in a list. With a pattern that is not in a list, `retrieve` raises
+`sy.MultipleFoundError` when more than one channel matches.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// Returns Channel[]
+const tankChannels = await client.channels.retrieve(["tank_.*"]);
+```
+
+Put the pattern in an array. With a pattern that is not in an array, `retrieve` throws a
+`MultipleFoundError` when more than one channel matches.
+
+  </Fragment>
+
+</Client.Tabs>
+
+### By search term
+
+Both clients can search channels by a part of their name and filter them by their
+properties.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+matches = client.channels.retrieve(search_term="pressure", limit=10)
+floats = client.channels.retrieve(data_types=[sy.DataType.FLOAT32], is_index=False)
+```
+
+The filters are `search_term`, `data_types`, `not_data_types`, `is_index`, `virtual`,
+`internal`, `node_key`, `limit`, and `offset`. Results match all the filters. Use
+`range_key` to include aliases from a range and search those aliases too. Set
+`include_status=True` to attach each channel's status; a channel with no status gets
+`None`.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { channel, DataType } from "@synnaxlabs/client";
+
+// The ten best matches for "pressure"
+const matches = await client.channels.retrieve(
+  channel.search("pressure"),
+  channel.limit(10),
+);
+
+// All float32 data channels
+const floats = await client.channels.retrieve(
+  channel.dataType.eq(DataType.FLOAT32),
+  channel.isIndex.eq(false),
+);
+```
+
+`channel.search` keeps the channels whose names are similar to a term, closest match
+first. To filter by other properties, such as `channel.dataType`, `channel.isIndex`,
+`channel.virtual`, and `channel.internal`, pass
+[conditions](/reference/client/queries#conditions). Synnax returns only the channels
+that match all of the conditions.
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Find the channels of a range
+
+A range can give channels a different name, called an
+[alias](/reference/ranges/aliases). To find channels by alias, or to read their data in
+a range, see [read and write range data](/reference/ranges/data).
