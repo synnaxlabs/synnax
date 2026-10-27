@@ -10,10 +10,10 @@
 import { box, type runtime } from "@synnaxlabs/x";
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { buildStack } from "@/testutil/providers";
 import { canvas } from "@/vis/canvas/aether";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const { GL_ENUMS } = canvasTest;
 

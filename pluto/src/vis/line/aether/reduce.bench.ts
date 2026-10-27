@@ -19,7 +19,7 @@ import {
 import { afterAll, test } from "vitest";
 
 import { ChannelData, type ChannelDataProps } from "@/telem/aether/remote";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import {
   buildDrawOperations,
   DEFAULT_OVERLAP_THRESHOLD,
