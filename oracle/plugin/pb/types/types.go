@@ -261,7 +261,7 @@ func (p *Plugin) generateFile(
 		Messages:   make([]messageData, 0, len(structs)),
 		Enums:      make([]enumData, 0, len(enums)),
 		imports:    newImportManager(),
-		instances:  make(set.Set[string]),
+		instances:  make(map[string]string),
 		table:      table,
 	}
 
@@ -408,21 +408,47 @@ func (p *Plugin) processFields(
 	return nil
 }
 
-// addInstance adds the message of inst to the file once and returns its name.
+// addInstance adds the message of inst to the file once and returns its name. It fails
+// when a different generic use already has the name.
 func (p *Plugin) addInstance(
 	inst instance.Instance,
 	data *templateData,
 ) (string, error) {
-	if data.instances.Contains(inst.Name) {
+	use := typeString(inst.Ref)
+	if prev, ok := data.instances[inst.Name]; ok {
+		if prev != use {
+			return "", errors.Newf(
+				"generic uses %s and %s share the protobuf message name %s",
+				prev,
+				use,
+				inst.Name,
+			)
+		}
 		return inst.Name, nil
 	}
-	data.instances.Add(inst.Name)
+	data.instances[inst.Name] = use
 	md := messageData{Name: inst.Name, Doc: doc.Get(inst.Generic.Domains)}
 	if err := p.processFields(&md, inst.Fields, data); err != nil {
 		return "", errors.Wrapf(err, "instance %q", inst.Name)
 	}
 	data.Messages = append(data.Messages, md)
 	return inst.Name, nil
+}
+
+// typeString writes ref with its namespaces and array sizes, such as
+// first.Box<string>.
+func typeString(ref resolution.TypeRef) string {
+	s := ref.Name
+	if len(ref.TypeArgs) > 0 {
+		args := lo.Map(ref.TypeArgs, func(arg resolution.TypeRef, _ int) string {
+			return typeString(arg)
+		})
+		s += "<" + strings.Join(args, ", ") + ">"
+	}
+	if ref.ArraySize != nil {
+		s += "[" + strconv.FormatInt(*ref.ArraySize, 10) + "]"
+	}
+	return s
 }
 
 func (p *Plugin) processField(
@@ -839,7 +865,7 @@ func (m *importManager) add(path string) {
 
 type templateData struct {
 	wrapperMessages set.Set[string]
-	instances       set.Set[string]
+	instances       map[string]string
 	imports         *importManager
 	table           *resolution.Table
 	Package         string
