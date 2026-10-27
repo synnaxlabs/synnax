@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import uuid4
+from uuid import UUID
 
 import pytest
 
@@ -19,7 +19,7 @@ from x.testutil import assert_eventually
 @pytest.fixture
 def parent(client: sy.Synnax) -> sy.ontology.ID:
     """Creates a project to own the panels of a test."""
-    proj = client.projects.create(name=f"panel-parent-{uuid4()}")
+    proj = client.projects.create(name="Panel Parent")
     return sy.project.ontology_id(proj.key)
 
 
@@ -84,7 +84,7 @@ class TestPanel:
         """Should retrieve only the panels that are children of the parent."""
         p1 = client.panels.create(name="Child 1", parent=parent)
         p2 = client.panels.create(name="Child 2", parent=parent)
-        other = client.projects.create(name=f"other-{uuid4()}")
+        other = client.projects.create(name="Other Parent")
         client.panels.create(name="Other", parent=sy.project.ontology_id(other.key))
         panels = client.panels.retrieve(parent=parent)
         assert {p.key for p in panels} == {p1.key, p2.key}
@@ -99,7 +99,7 @@ class TestPanel:
         self, client: sy.Synnax, parent: sy.ontology.ID
     ) -> None:
         """Should search for panels by name."""
-        prefix = f"searchable-panel-{uuid4()}"
+        prefix = "searchable-panel"
         client.panels.create(
             [
                 sy.Panel(name=f"{prefix}-1", parent=parent),
@@ -117,7 +117,7 @@ class TestPanel:
     def test_retrieve_missing_raises(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when retrieving a missing panel by key."""
         with pytest.raises(NotFoundError):
-            client.panels.retrieve(key=uuid4())
+            client.panels.retrieve(key=UUID("7c3e9a52-4b1d-4f0e-9a6c-2d8b5e1f3a90"))
 
     def test_rename(self, client: sy.Synnax, parent: sy.ontology.ID) -> None:
         """Should rename a panel."""
