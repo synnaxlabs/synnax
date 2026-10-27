@@ -280,7 +280,8 @@ class BaseStreamer implements Streamer {
   }
 
   close(): void {
-    this.pendingAcks.splice(0).forEach(({ reject }) => reject(new EOF()));
+    // Rejected updates stay queued, so the acks the Core already owes still find them.
+    this.pendingAcks.forEach(({ reject }) => reject(new EOF()));
     this.stream.closeSend();
   }
 
