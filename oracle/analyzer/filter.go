@@ -33,6 +33,12 @@ const (
 // treeFields are the fields every expanded filter starts with.
 var treeFields = []string{"and", "or", "not"}
 
+// builderNames are the names that the generated builders give their own functions, so
+// a line cannot take them. A line also cannot start with includePrefix.
+var builderNames = []string{"where", "limit", "offset", "search", "one"}
+
+const includePrefix = "include_"
+
 // collectFilter registers a filter definition as a struct holding the tree fields and
 // the typed lines. expandFilters adds the bare lines once the target resolves.
 func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
@@ -82,6 +88,16 @@ func collectFilter(c *analysisCtx, def parser.IFilterDefContext) {
 					msg = "filter %s: %q is reserved for the tree"
 				}
 				c.report(diagnostics.Errorf(fd, msg, name, line.Name))
+				continue
+			}
+			if slices.Contains(builderNames, line.Name) ||
+				strings.HasPrefix(line.Name, includePrefix) {
+				c.report(diagnostics.Errorf(
+					fd,
+					"filter %s: %q is reserved for the builder",
+					name,
+					line.Name,
+				))
 				continue
 			}
 			names.Add(line.Name)

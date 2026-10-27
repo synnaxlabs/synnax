@@ -7,5 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/rack/builder.gen";
 export * from "@/rack/client";
 export * from "@/rack/types.gen";

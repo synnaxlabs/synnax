@@ -9,6 +9,7 @@
 
 export * from "@/lineplot/actions";
 export * from "@/lineplot/actions.gen";
+export * from "@/lineplot/builder.gen";
 export * from "@/lineplot/client";
 export * from "@/lineplot/line";
 export * from "@/lineplot/types.gen";

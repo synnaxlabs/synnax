@@ -9,6 +9,7 @@
 
 export * from "@/panel/actions";
 export * from "@/panel/actions.gen";
+export * from "@/panel/builder.gen";
 export * from "@/panel/client";
 export * from "@/panel/tree";
 export * from "@/panel/types.gen";

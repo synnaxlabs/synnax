@@ -25,6 +25,7 @@ import (
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
 	tsactions "github.com/synnaxlabs/oracle/plugin/ts/actions"
+	tsbuilder "github.com/synnaxlabs/oracle/plugin/ts/builder"
 	tsfilter "github.com/synnaxlabs/oracle/plugin/ts/filter"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
@@ -55,6 +56,7 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		goimex.New(goimex.DefaultOptions()),
 		tsactions.New(tsactions.DefaultOptions()),
 		tsfilter.New(tsfilter.DefaultOptions()),
+		tsbuilder.New(tsbuilder.DefaultOptions()),
 	} {
 		if err := registry.Register(p); err != nil {
 			return nil, err
