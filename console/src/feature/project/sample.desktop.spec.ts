@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { type TestStore } from "@/testutil";
 
 const client = createTestClient();
@@ -94,10 +95,10 @@ describe("Sample project", () => {
     const waitForOpened = async (sample: Sample) =>
       await waitFor(() =>
         expect(
-          Session.Schematic.selectState({
-            state: palette.store.getState(),
-            key: sample.schematic,
-          }).editable,
+          documentIn(
+            palette.store.getState()[Session.Schematic.SLICE_NAME],
+            sample.schematic,
+          )?.editable,
         ).toBe(false),
       );
     await open();
@@ -126,8 +127,8 @@ describe("Sample project", () => {
       expect(Session.Persist.selectSwapping(store.getState())).toBe(false),
     );
     expect(
-      Session.Schematic.selectState({ state: store.getState(), key: sample.schematic })
-        .editable,
+      documentIn(store.getState()[Session.Schematic.SLICE_NAME], sample.schematic)
+        ?.editable,
     ).toBe(false);
   });
 
