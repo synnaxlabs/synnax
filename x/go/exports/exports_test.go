@@ -80,6 +80,19 @@ var _ = Describe("Check", func() {
 		},
 	)
 
+	It(
+		"Should return an error when it cannot create the workspace",
+		func(ctx SpecContext) {
+			notDir := filepath.Join(GinkgoT().TempDir(), "file")
+			Expect(os.WriteFile(notDir, nil, 0o644)).To(Succeed())
+			GinkgoT().Setenv("TMPDIR", notDir)
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+			})).Error().To(MatchError(ContainSubstring("exports: create workspace directory")))
+		},
+	)
+
 	It("Should return an error when a package fails to load", func(ctx SpecContext) {
 		Expect(exports.Check(ctx, exports.Config{
 			Modules: []string{"testdata/missing"},
