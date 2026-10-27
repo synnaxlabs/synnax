@@ -13,9 +13,10 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Credential, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Token } from "@/platform/credential/Token";
 import { Modals } from "@/platform/modals";
@@ -111,8 +112,18 @@ const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
     invalidateSessions(query);
     setGeneration((g) => g + 1);
   };
+  const handleError = Status.useErrorHandler();
+  const mounted = useRef(true);
   const create = Credential.useCreateKey({
     afterSuccess: ({ data }) => {
+      // a closed dialog can never show the token, so the key is of no use
+      if (!mounted.current) {
+        handleError(
+          async () => await client?.auth.deleteKeys(data.key.key),
+          "Failed to delete an unused API key",
+        );
+        return;
+      }
       setCreated(data);
       setName("");
       refresh();
@@ -125,13 +136,14 @@ const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
     },
   });
   // Drop the answers on close so the next open shows sessions opened or ended since.
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       invalidateKeys(query);
       invalidateSessions(query);
-    },
-    [],
-  );
+    };
+  }, []);
   return (
     <Flex.Box y>
       <Text.Text level="h5">API keys</Text.Text>
