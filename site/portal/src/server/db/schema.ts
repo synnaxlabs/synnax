@@ -124,6 +124,16 @@ export const invitation = pgTable(
 );
 export type Invitation = typeof invitation.$inferSelect;
 
+/**
+ * handoff holds a license key until the Console that asked for it collects it. The
+ * Console proves that it asked with the code whose SHA-256 is codeHash.
+ */
+export const handoff = pgTable("handoff", {
+  codeHash: text("code_hash").primaryKey(),
+  key: text("key").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
 export const event = pgTable(
   "event",
   {

@@ -11,6 +11,7 @@ import random
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Literal
 
 from playwright.sync_api import Locator, Page, expect
@@ -128,8 +129,9 @@ class LayoutClient:
     )
     TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .pluto-tabs__tab"
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, results_dir: Path):
         self.page = page
+        self.results_dir = results_dir
         self.ctx_menu = ContextMenu(self.page)
         self.notifications = NotificationsClient(self.page)
         self.tree = Tree(self)

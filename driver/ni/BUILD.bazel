@@ -50,7 +50,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ni",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
@@ -62,7 +62,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ni",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/test",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:log_entry",

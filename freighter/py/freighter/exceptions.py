@@ -7,12 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.exceptions import ExceptionPayload, Provider
+from x.exceptions import Error, ExceptionPayload, Provider
 
 _FREIGHTER_EXCEPTION_TYPE = "freighter."
 
 
-class Unreachable(Exception):
+class Unreachable(Error):
     """Raised when a target is unreachable."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "unreachable"
@@ -29,7 +29,7 @@ class Unreachable(Exception):
         return self.message
 
 
-class StreamClosed(Exception):
+class StreamClosed(Error):
     """Raised when a stream is closed."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "stream_closed"
@@ -38,7 +38,7 @@ class StreamClosed(Exception):
         return "StreamClosed"
 
 
-class EOF(Exception):
+class EOF(Error):
     """Raised when a stream reaches end-of-file."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "eof"
