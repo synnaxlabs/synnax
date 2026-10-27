@@ -19,6 +19,9 @@ jobs:
         dmabuf: [default, disabled]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Download AppImage
         uses: actions/download-artifact@v8
         with:
@@ -35,6 +38,19 @@ jobs:
           sudo apt-get install -y xvfb imagemagick x11-utils libegl1 libgles2 \
             libgl1-mesa-dri "$FUSE"
 
+      - name: Probe WebGL in WebKitGTK
+        env:
+          DISPLAY: ":99"
+        run: |
+          sudo apt-get install -y python3-gi gir1.2-webkit2-4.1
+          if [ "${{ matrix.dmabuf }}" = disabled ]; then
+            export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          fi
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 3
+          python3 scratch/probe.py 2>&1 | grep -v dbind | tee probe.log
+          python3 scratch/probe.py always 2>&1 | grep -v dbind | tee -a probe.log
+
       - name: Launch AppImage and screenshot
         env:
           DISPLAY: ":99"
@@ -45,8 +61,6 @@ jobs:
           if [ "${{ matrix.dmabuf }}" = disabled ]; then
             export WEBKIT_DISABLE_DMABUF_RENDERER=1
           fi
-          Xvfb :99 -screen 0 1920x1080x24 &
-          sleep 3
           "$APPIMAGE" > app.log 2>&1 &
           PID=$!
           sleep 60
@@ -63,6 +77,7 @@ jobs:
           dpkg-deb -I bundles/*.deb
           BIN=$(dpkg -L synnax | grep '^/usr/bin/' | head -1)
           echo "Binary: $BIN"
+          pkill -f synnax-console || true
           pkill -f AppImage || true
           sleep 2
           "$BIN" > deb.log 2>&1 &
