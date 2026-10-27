@@ -12,6 +12,9 @@ import { type APIRoute } from "astro";
 import { Desktop } from "@/components/desktop";
 import { assetURL } from "@/util/releases";
 
+// The installer depends on the browser, so the route answers each request.
+export const prerender = false;
+
 /**
  * Redirects to the installer of the latest stable Synnax Desktop for the platform of
  * the browser, or to the install page when no installer fits it.
