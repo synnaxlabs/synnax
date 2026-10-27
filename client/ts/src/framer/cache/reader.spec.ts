@@ -54,7 +54,6 @@ interface Setup {
   read: (tr: TimeRange, ch: channel.Key) => Promise<MultiSeries>;
 }
 
-// Fills the channel's blocks over tr, and returns their samples that overlap it.
 const readBlocks = async (
   reader: Reader,
   store: Store,
