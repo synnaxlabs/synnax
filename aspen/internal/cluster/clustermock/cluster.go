@@ -16,14 +16,14 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 )
 
 type Builder struct {
-	GossipNet   *mock.Network[gossip.Message, gossip.Message]
-	PledgeNet   *mock.Network[pledge.Request, pledge.Response]
+	GossipNet   *freightertestutil.Network[gossip.Message, gossip.Message]
+	PledgeNet   *freightertestutil.Network[pledge.Request, pledge.Response]
 	ClusterAPIs map[node.Key]*cluster.Cluster
 	Configs     []cluster.Config
 }
@@ -31,8 +31,8 @@ type Builder struct {
 func NewBuilder(cfgs ...cluster.Config) *Builder {
 	return &Builder{
 		Configs:     cfgs,
-		GossipNet:   mock.NewNetwork[gossip.Message, gossip.Message](),
-		PledgeNet:   mock.NewNetwork[pledge.Request, pledge.Response](),
+		GossipNet:   freightertestutil.NewNetwork[gossip.Message, gossip.Message](),
+		PledgeNet:   freightertestutil.NewNetwork[pledge.Request, pledge.Response](),
 		ClusterAPIs: make(map[node.Key]*cluster.Cluster),
 	}
 }
