@@ -38,7 +38,13 @@
 #include "driver/task/task.h"
 
 namespace driver::rack {
+/// @brief the persisted state file or its directory cannot be used safely, such as
+/// when either is a symbolic link.
+const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
+
 struct RemoteInfo {
+    /// @brief the rack an older Driver saved. It is read only to enroll that rack, and
+    /// never saved again.
     synnax::rack::Key rack_key = 0;
     x::uuid::UUID cluster_key;
 
@@ -55,10 +61,7 @@ struct RemoteInfo {
     }
 
     [[nodiscard]] x::json::json to_json() const {
-        return {
-            {"rack_key", this->rack_key},
-            {"cluster_key", this->cluster_key.to_string()},
-        };
+        return {{"cluster_key", this->cluster_key.to_string()}};
     }
 };
 
@@ -89,9 +92,7 @@ inline std::vector<std::string> default_integrations() {
 /// using the --config flag followed by a path to a configuration file. This file
 /// can override the values in the persisted state file.
 struct Config {
-    /// @brief this is the rack that the driver will attach to on the server. If not
-    /// provided, the driver will automatically create a new rack and persist it in
-    /// state.
+    /// @brief the rack the driver runs as. It is the subject of the driver's API key.
     synnax::rack::Rack rack;
     /// @brief important info used to determine the identity of the driver when
     /// connecting to a cluster. This is cached on the local file system to compare
@@ -158,8 +159,8 @@ struct Config {
                 {
                     .host = "localhost",
                     .port = 9090,
-                    .username = "synnax",
-                    .password = "seldon",
+                    .username = "",
+                    .password = "",
                 },
             .integrations = default_integrations(),
         };
@@ -171,7 +172,25 @@ struct Config {
         if (const auto err = cfg.load_env()) return {cfg, err};
         VLOG(1) << "loading configuration from command line";
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
+        cfg.resolve_credentials(breaker.retry_count() == 0);
         return {cfg, x::errors::NIL};
+    }
+
+    /// @brief makes the API key win over a username and password, warning when it
+    /// drops them if warn is true. Without a key, a missing username defaults to
+    /// "synnax" and a missing password to "seldon".
+    void resolve_credentials(const bool warn) {
+        auto &conn = this->connection;
+        if (!conn.api_key.empty()) {
+            if (warn && (!conn.username.empty() || !conn.password.empty()))
+                LOG(WARNING) << "an API key is set, so the username and password "
+                                "are ignored. Remove them from the configuration";
+            conn.username.clear();
+            conn.password.clear();
+            return;
+        }
+        if (conn.username.empty()) conn.username = "synnax";
+        if (conn.password.empty()) conn.password = "seldon";
     }
 
     static std::pair<Config, x::errors::Error>
@@ -179,14 +198,21 @@ struct Config {
         auto [cfg, err] = resolve(parser, breaker);
         if (err) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
-        err = cfg.load_remote(breaker);
+        if (cfg.connection.api_key.empty()) {
+            if (err = cfg.enroll(); err) return {cfg, err};
+            if (err = save_api_key(parser, cfg.connection.api_key); err)
+                return {cfg, err};
+            LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name
+                      << " and saved its API key" << x::log::RESET();
+        }
+        err = cfg.load_remote();
         if (err) return {cfg, err};
         LOG(INFO) << x::log::BLUE() << "successfully reached cluster at "
                   << cfg.connection.address() << ". Continuing with driver startup"
                   << x::log::RESET();
         LOG(INFO) << "remote info" << "\n"
                   << x::log::SHALE() << "  rack: " << x::log::RESET() << cfg.rack.name
-                  << " (" << cfg.remote_info.rack_key << ")\n"
+                  << " (" << cfg.rack.key << ")\n"
                   << x::log::SHALE() << "  cluster: " << x::log::RESET()
                   << cfg.remote_info.cluster_key;
         VLOG(1) << "saving remote info";
@@ -211,6 +237,10 @@ struct Config {
     static x::errors::Error
     save_conn_params(x::args::Parser &args, const synnax::Config &conn_params);
 
+    /// @brief saves the API key to the persisted state file and drops any username
+    /// and password saved there.
+    static x::errors::Error save_api_key(x::args::Parser &args, const std::string &key);
+
     /// @brief permanently saves the remote info to the persisted state file.
     static x::errors::Error
     save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info);
@@ -228,7 +258,13 @@ struct Config {
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);
 
-    [[nodiscard]] x::errors::Error load_remote(x::breaker::Breaker &breaker);
+    /// @brief logs in with the username and password, then creates an API key for the
+    /// rack an older Driver saved, or for a new rack when there is none. Sets the key
+    /// and the rack, and clears the username and password.
+    [[nodiscard]] x::errors::Error enroll();
+
+    /// @brief logs in with the API key and loads the rack it logs in as.
+    [[nodiscard]] x::errors::Error load_remote();
 };
 
 /// @brief clears the persisted state file, removing all cached information.
