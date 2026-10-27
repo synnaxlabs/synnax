@@ -1,0 +1,24 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Serves each reference group's route as the group's first page. A rest route under
+// /reference would outrank [...slug].md.ts, so this one sits at the root, below every
+// other route.
+
+import { FIRST_PAGES } from "@/pages/_nav";
+
+// The static check build prerenders each group; the deployed site renders on request.
+export const getStaticPaths = () =>
+    [...FIRST_PAGES.keys()].map((route) => ({ params: { group: route.slice(1) } }));
+
+const page = FIRST_PAGES.get(`/${Astro.params.group}`);
+if (page == null) return new Response(null, { status: 404 });
+return Astro.rewrite(page);
+---

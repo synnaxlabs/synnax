@@ -14,18 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/version"
 )
 
 var _ = Describe("Node", func() {
-	Describe("Parse", func() {
-		It("Should parse the Name of a node from a string", func() {
-			id := MustSucceed(node.Key(0).Parse("1"))
-			Expect(id).To(Equal(node.Key(1)))
-		})
-	})
-
 	Describe("Group", func() {
 		Describe("Filter", func() {
 			It("Should filter nodes correctly", func() {
@@ -89,7 +81,10 @@ var _ = Describe("Node", func() {
 					},
 				}
 				Expect(g.Digests()).To(HaveLen(2))
-				Expect(g.Digests()[1]).To(Equal(g[1].Digest()))
+				Expect(g.Digests()[1]).To(Equal(node.Digest{
+					Key:       1,
+					Heartbeat: version.Heartbeat{Version: 1, Generation: 1},
+				}))
 			})
 		})
 	})
