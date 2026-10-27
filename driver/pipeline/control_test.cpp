@@ -9,6 +9,7 @@
 
 #include <condition_variable>
 #include <deque>
+#include <future>
 #include <mutex>
 #include <thread>
 
@@ -210,5 +211,48 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
 /// @brief it should wait out an unlicensed Core and succeed once it is licensed.
 TEST(ControlPipeline, testOpenRetryUnlicensed) {
     assert_open_retries(synnax::errors::LICENSE_MISSING);
+}
+/// @brief it should tell the sink once the streamer is open.
+TEST(ControlPipeline, OpenedFollowsStreamerOpen) {
+    const auto factory = mock::simple_streamer_factory(
+        {1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    std::promise<void> release;
+    factory->open_gate = release.get_future().share();
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{.channels = {1}},
+        sink,
+        x::breaker::Config{}
+    );
+    auto started = std::async(std::launch::async, [&control] {
+        return control.start();
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    EXPECT_EQ(sink->opens.load(), 0);
+    release.set_value();
+    ASSERT_NIL(started.get());
+    ASSERT_EQ(sink->opens.load(), 1);
+    control.stop();
+}
+
+/// @brief it should not tell the sink the streamer is open when it fails to open.
+TEST(ControlPipeline, OpenedSkippedOnOpenFailure) {
+    const auto factory = std::make_shared<mock::StreamerFactory>(
+        std::vector{x::errors::UNKNOWN},
+        std::make_shared<std::vector<mock::StreamerConfig>>()
+    );
+    const auto sink = std::make_shared<mock::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{}
+    );
+    ASSERT_OCCURRED_AS(control.start(), x::errors::UNKNOWN);
+    control.stop();
+    ASSERT_EQ(sink->opens.load(), 0);
 }
 }

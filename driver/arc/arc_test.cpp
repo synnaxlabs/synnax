@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <future>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -1206,14 +1210,35 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         input_frames
     );
 
+    std::promise<void> open;
+    mock_streamer->open_gate = open.get_future().share();
+
     auto ctx = std::make_shared<task::MockContext>(client);
 
     auto task = ASSERT_NIL_P(
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
+    // An automatic start has no command key. A second start arrives while the first
+    // waits for the command streamer.
+    task->start("");
     task->start("verify_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    // A client that waits for the start status must be able to send commands at once.
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_SUCCESS),
+        nullptr
+    );
+    open.set_value();
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    for (const std::string key: {"", "verify_start"})
+        EXPECT_TRUE(
+            std::ranges::any_of(
+                ctx->statuses,
+                [&](const auto &s) { return s.details.cmd == key && s.details.running; }
+            )
+        ) << "no running status for start "
+          << key;
 
     auto *start_status = find_status_by_variant(
         ctx->statuses,

@@ -11,11 +11,11 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { afterAll, onTestFinished, vi } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
+import { TEST_CORE_ADDRESS } from "@/testutil/address";
 import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 
 export const TEST_CLIENT_PARAMS: SynnaxParams = {
-  host: "localhost",
-  port: 9090,
+  ...TEST_CORE_ADDRESS,
   username: "synnax",
   password: "seldon",
   retry: {
@@ -65,7 +65,13 @@ export const createProxiedTestClient = async (
   params?: Partial<SynnaxParams>,
 ): Promise<ProxiedTestClient> => {
   const proxy = await createSeverableProxy();
-  const client = new Synnax({ ...TEST_CLIENT_PARAMS, ...params, port: proxy.port });
+  const client = new Synnax({
+    ...TEST_CLIENT_PARAMS,
+    ...params,
+    // The proxy listens on this machine, even when the Core runs on another.
+    host: "localhost",
+    port: proxy.port,
+  });
   onTestFinished(async () => {
     // A blackholed stream never acknowledges a close, so the proxy goes first.
     await proxy.close();

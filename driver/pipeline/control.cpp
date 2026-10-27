@@ -79,6 +79,7 @@ void Control::run() {
         if (!this->resolve_open(open_err)) this->sink->stopped_with_err(open_err);
         return;
     }
+    this->sink->opened();
     this->resolve_open(x::errors::NIL);
 
     x::errors::Error sink_err = x::errors::NIL;

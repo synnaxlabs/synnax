@@ -38,6 +38,11 @@ public:
     /// This method may be called even if stop() was called on the pipeline.
     virtual void stopped_with_err(const x::errors::Error &_) {}
 
+    /// @brief called on the pipeline thread each time the streamer opens. Frames
+    /// written to the Core after it is called reach write(). A start() that waits for
+    /// the open returns after this call.
+    virtual void opened() {}
+
     virtual ~Sink() = default;
 };
 
