@@ -13,9 +13,9 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -59,7 +59,7 @@ func (w Writer) SetWithParent[D any](
 	if err != nil {
 		return err
 	}
-	if err = gorp.NewCreate[Key, Status[D]]().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := s.OntologyID()
@@ -140,13 +140,15 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	}
 	// Raw details round-trip byte for byte. Decoding them as any would round numbers
 	// past float64 precision.
-	return gorp.NewUpdate[Key, Status[json.RawMessage]]().
+	var s Status[json.RawMessage]
+	if err := gorp.NewRetrieve[Key, Status[json.RawMessage]]().
 		Where(gorp.MatchKeys[Key, Status[json.RawMessage]](key)).
-		Change(func(_ gorp.Context, s Status[json.RawMessage]) Status[json.RawMessage] {
-			s.Name = name
-			return s
-		}).
-		Exec(ctx, w.tx)
+		Entry(&s).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	s.Name = name
+	return w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx)
 }
 
 // Delete deletes the statuses with the given keys. Delete is idempotent.

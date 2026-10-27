@@ -11,7 +11,6 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Schematic } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
@@ -21,18 +20,12 @@ export const Control = () => {
   const authority = Session.Schematic.useSelectAuthority();
   const legendVisible = Session.Schematic.useSelectLegendVisible();
   const key = Schematic.useKey();
-  const handleAuthorityChange = useCallback(
-    (authority: control.Authority) => {
-      dispatch(Session.Schematic.setControlAuthority({ key, authority }));
-    },
-    [key],
-  );
-  const handleLegendVisibleChange = useCallback(
-    (visible: boolean) => {
-      dispatch(Session.Schematic.setLegendVisible({ key, visible }));
-    },
-    [key],
-  );
+  const handleAuthorityChange = (authority: control.Authority) => {
+    dispatch(Session.Schematic.setControlAuthority({ key, authority }));
+  };
+  const handleLegendVisibleChange = (visible: boolean) => {
+    dispatch(Session.Schematic.setLegendVisible({ key, visible }));
+  };
   return (
     <Flex.Box x gap="small" className={CSS.BE("schematic", "control")}>
       <Input.Item label="Control authority">

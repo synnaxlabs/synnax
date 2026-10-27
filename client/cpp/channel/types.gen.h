@@ -86,38 +86,32 @@ struct Channel {
     /// internal use.
     ::synnax::node::Key leaseholder = ::synnax::node::Key(0);
     /// @brief data_type is the data type of samples stored in this channel (e.g.,
-    /// float64,
-    /// int32, timestamp).
+    /// float64, int32, timestamp).
     ::x::telem::DataType data_type;
     /// @brief is_index is true if this is an index channel. Index channels must have
-    /// int64
-    /// values (TIMESTAMP data type) written in ascending order, and are most commonly
-    /// Unix nanosecond timestamps.
+    /// int64 values (TIMESTAMP data type) written in ascending order, and are most
+    /// commonly Unix nanosecond timestamps.
     bool is_index = false;
     /// @brief index is the channel used to index this channel's values, associating
-    /// each
-    /// value with a timestamp.
+    /// each value with a timestamp.
     Key index = Key(0);
     /// @brief alias is an optional alternate name for the channel within a specific
     /// context.
     std::optional<std::string> alias;
     /// @brief is_virtual is true if this channel does not store data in the database
-    /// but
-    /// can still be used for streaming purposes.
+    /// but can still be used for streaming purposes.
     bool is_virtual = false;
     /// @brief internal is true if this is a system channel hidden from normal user
     /// queries.
     bool internal = false;
     /// @brief expression is an Arc expression for calculated channels. If set, the
-    /// channel
-    /// is automatically configured as virtual.
+    /// channel is automatically configured as virtual.
     std::string expression = "";
     /// @brief operations contains optional aggregation operations (min, max, avg,
     /// derivative) applied to channel data over time or triggered by a reset channel.
     std::vector<Operation> operations = {};
     /// @brief concurrency sets the policy for concurrent writes to the channel's data.
-    /// Only
-    /// virtual channels can have a policy of shared concurrency.
+    /// Only virtual channels can have a policy of shared concurrency.
     ::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive;
     /// @brief status is the current operational status of the channel.
     std::optional<Status> status;

@@ -38,6 +38,8 @@ cc_library(
         "nisyscfg_errors.h",
         "nisyscfg_wide.h",
     ],
+    # Vendor SDK headers follow the vendor's conventions.
+    tags = ["no-clang-tidy"],
     deps = [],
 )
 

@@ -47,6 +47,7 @@ ReadConfig struct extends task.PersistConfig {
         configures an HTTP read task, which polls one or more endpoints on an HTTP
         server device and writes extracted JSON values to Synnax channels.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }

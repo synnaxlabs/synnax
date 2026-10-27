@@ -17,7 +17,7 @@ import { List as PList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Arc as PArc, type Flux } from "@synnaxlabs/pluto";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { Item, type ItemProps } from "@/feature/arc/list/Item";
 import { Arc } from "@/platform/arc";
@@ -54,11 +54,8 @@ export const List = ({
   const menuProps = Menu.useContextMenu();
   const { update: handleRename } = PArc.useRename();
 
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => (
-      <Arc.ContextMenu {...props} getItem={getItem} textIdPrefix={textIdPrefix} />
-    ),
-    [getItem, textIdPrefix],
+  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
+    <Arc.ContextMenu {...props} getItem={getItem} textIdPrefix={textIdPrefix} />
   );
 
   return (

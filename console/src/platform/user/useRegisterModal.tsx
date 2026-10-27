@@ -16,7 +16,6 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax, User } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -47,11 +46,11 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   full: "x",
 };
 
-export const useRegisterModal = Modals.create(({ close }) => {
+const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.use();
   const { form, save, variant } = User.useForm({
     query: null,
-    afterSave: useCallback(() => close(), [close]),
+    afterSave: () => close(),
   });
 
   return (
@@ -106,4 +105,6 @@ export const useRegisterModal = Modals.create(({ close }) => {
       </Modal.Footer>
     </Modal.Frame>
   );
-});
+};
+
+export const useRegisterModal = Modals.create(Register);

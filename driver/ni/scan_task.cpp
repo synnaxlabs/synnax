@@ -35,7 +35,7 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
     dev.make = MAKE;
     dev.rack = this->task.rack;
     dev.configured = false;
-    NISysCfgBool is_simulated;
+    NISysCfgBool is_simulated = NISysCfgBoolFalse;
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyIsSimulated,
@@ -212,13 +212,9 @@ Scanner::scan(const common::ScannerContext &ctx) {
     }
 
     // Stage 3: Sort chassis before modules for creation ordering, then convert.
-    std::stable_sort(
-        ni_devices.begin(),
-        ni_devices.end(),
-        [](const ni::Device &a, const ni::Device &b) {
-            return a.is_chassis > b.is_chassis;
-        }
-    );
+    std::ranges::stable_sort(ni_devices, [](const ni::Device &a, const ni::Device &b) {
+        return a.is_chassis > b.is_chassis;
+    });
 
     std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());
@@ -243,7 +239,9 @@ x::errors::Error Scanner::start() {
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.rate.period() - x::telem::SECOND).milliseconds(),
+            static_cast<unsigned int>(
+                (this->cfg.rate.period() - x::telem::SECOND).milliseconds()
+            ),
             nullptr,
             &this->session
         ))

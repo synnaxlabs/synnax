@@ -21,10 +21,13 @@ const useOpen = () => {
   const handleError = Status.useErrorHandler();
   return ({ id, name }: ontology.Resource) => {
     if (client == null) return;
-    handleError(async () => {
-      const proj = await client.projects.retrieve(id.key);
-      store.dispatch(Session.Project.select(proj.key));
-    }, `Failed to select ${name}`);
+    handleError(
+      async () => {
+        const proj = await client.projects.retrieve(id.key);
+        store.dispatch(Session.Project.select(proj.key));
+      },
+      { message: "Failed to select project", name },
+    );
   };
 };
 

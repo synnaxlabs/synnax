@@ -13,25 +13,6 @@
     width: 44rem;
     padding: 1.5rem;
 
-    .pluto-color-picker__swatches {
-        display: grid;
-        grid-template-columns: repeat(10, var(--pluto-height-tiny));
-        row-gap: 0.75rem;
-        justify-content: space-between;
-
-        & .pluto--selected.pluto-color-swatch {
-            box-shadow: var(--pluto-selected-ring);
-        }
-    }
-
-    .pluto-color-picker__auto.pluto-btn {
-        grid-column: span 2;
-        gap: 0.25rem;
-        min-width: 0;
-        padding: 0 0.75rem;
-        justify-content: center;
-    }
-
     .pluto-color-picker__plane,
     .pluto-color-picker__slider {
         position: relative;

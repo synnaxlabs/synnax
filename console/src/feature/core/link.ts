@@ -11,7 +11,6 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Synnax } from "@synnaxlabs/pluto";
 import { breaker, TimeSpan } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { type Link } from "@/platform/link";
 import { Session } from "@/session";
@@ -86,14 +85,11 @@ export const useLink = (): Link.Connect => {
   const clientRef = useSyncedRef(client);
   const dispatch = Session.useDispatch();
   const store = Session.useStore();
-  return useCallback(
-    (clusterKey) =>
-      connect(clusterKey, {
-        getState: () => store.getState(),
-        getClient: () => clientRef.current,
-        setActive: (key) => dispatch(Session.Core.select(key)),
-        poll: new breaker.Breaker(SWAP_POLL_BREAKER_CONFIG),
-      }),
-    [dispatch, store],
-  );
+  return (clusterKey) =>
+    connect(clusterKey, {
+      getState: () => store.getState(),
+      getClient: () => clientRef.current,
+      setActive: (key) => dispatch(Session.Core.select(key)),
+      poll: new breaker.Breaker(SWAP_POLL_BREAKER_CONFIG),
+    });
 };

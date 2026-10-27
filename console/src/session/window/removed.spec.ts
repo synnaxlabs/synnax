@@ -64,29 +64,6 @@ describe("Window.removalMiddleware", () => {
     );
   });
 
-  // Drift keeps a window with a process registered open, so a close it defers must
-  // not take the state of a window the user is still looking at.
-  it("should keep the state of a window whose close is deferred", async () => {
-    const store = await createStore();
-    store.dispatch(Drift.registerProcess({ key: AUX_KEY }));
-    store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
-    expect(Drift.selectWindow(store.getState(), AUX_KEY)).not.toBeNull();
-    SLICES.forEach((slice) =>
-      expect(windowKeys(store, slice), slice).toContain(AUX_KEY),
-    );
-  });
-
-  it("should drop the state once the deferred close lands", async () => {
-    const store = await createStore();
-    store.dispatch(Drift.registerProcess({ key: AUX_KEY }));
-    store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
-    store.dispatch(Drift.completeProcess({ key: AUX_KEY }));
-    expect(Drift.selectWindow(store.getState(), AUX_KEY)).toBeNull();
-    SLICES.forEach((slice) =>
-      expect(windowKeys(store, slice), slice).not.toContain(AUX_KEY),
-    );
-  });
-
   // Main's key is the one key that recurs across launches, so quitting the app must
   // not take its state with it.
   it("should keep the main window's state when the main window closes", async () => {

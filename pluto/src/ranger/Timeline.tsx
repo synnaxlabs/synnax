@@ -19,7 +19,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type NumericTimeRange, type text, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { moveEnd, moveStart, UNSET } from "@/ranger/move";
 import {
@@ -28,6 +28,7 @@ import {
   type Stage,
   STAGE_ICONS,
   STAGE_NAMES,
+  useClock,
 } from "@/ranger/stage";
 import { describeChanges, TimelineEffect } from "@/ranger/TimelineEffect";
 
@@ -44,12 +45,15 @@ const resolutionFor = (span: TimeSpan): TimeSpan => {
 };
 
 /**
- * The resolution for the labels of `range`. An open range is measured to now, and
+ * The resolution for the labels of `range`. An open range is measured to `now`, and
  * never reads finer than the second its elapsed clock ticks by.
  */
-const rangeResolution = ({ start, end }: NumericTimeRange): TimeSpan => {
+const rangeResolution = (
+  { start, end }: NumericTimeRange,
+  now: TimeStamp,
+): TimeSpan => {
   const open = end >= UNSET;
-  const far = open ? TimeStamp.now().nanoseconds : end;
+  const far = open ? now.nanoseconds : end;
   const near = start < UNSET ? start : far;
   const resolution = resolutionFor(
     new TimeSpan(BigInt(Math.abs(Math.trunc(far - near)))),
@@ -77,18 +81,20 @@ const TRANSITIONS: Record<Stage, Transition[]> = {
 
 /**
  * The transitions out of the range's stage, over the effect of the hovered one. It
- * mounts with the menu, so the hover resets each time the menu opens.
+ * mounts with the menu, so the hover and the time it previews at reset each time the
+ * menu opens.
  */
 const StageMenu = ({
   value,
   onChange,
 }: Input.Control<NumericTimeRange>): ReactElement => {
   const [hovered, setHovered] = useState<Stage | null>(null);
+  const [openedAt] = useState(() => TimeStamp.now());
   return (
     <>
       <Flex.Box y gap="tiny" className={CSS.BE("stage-button", "items")}>
         <Menu.Menu onChange={(to) => onChange(moveToStage(value, to as Stage))}>
-          {TRANSITIONS[getStage(value)].map(({ to, name }) => {
+          {TRANSITIONS[getStage(value, openedAt)].map(({ to, name }) => {
             const ToIcon = STAGE_ICONS[to];
             return (
               <Menu.Item
@@ -109,8 +115,8 @@ const StageMenu = ({
       <Input.Effect className={CSS.BE("stage-button", "effect")}>
         {hovered == null ? null : (
           <TimelineEffect
-            changes={describeChanges(value, moveToStage(value, hovered))}
-            resolution={rangeResolution(value)}
+            changes={describeChanges(value, moveToStage(value, hovered, openedAt))}
+            resolution={rangeResolution(value, openedAt)}
           />
         )}
       </Input.Effect>
@@ -147,7 +153,8 @@ export const StageButton = ({
   className,
 }: StageButtonProps): ReactElement => {
   const [open, setOpen] = useState(false);
-  const stage = getStage(value);
+  const now = useClock(value);
+  const stage = getStage(value, now);
   const I = STAGE_ICONS[stage];
   return (
     <Dialog.Frame
@@ -199,28 +206,6 @@ export interface TimelineProps extends Input.Control<NumericTimeRange> {
   className?: string;
 }
 
-// setTimeout overflows past this delay and fires at once.
-const MAX_TIMEOUT_MS = 2 ** 31 - 1;
-
-/**
- * Re-renders when now crosses the range's next boundary, since the stage and the row's
- * layout are read from the clock.
- */
-const useStageBoundary = ({ start, end }: NumericTimeRange): void => {
-  const [tick, setTick] = useState(0);
-  const now = TimeStamp.now().nanoseconds;
-  let boundary: number | null = null;
-  if (start < UNSET && start > now) boundary = start;
-  else if (end < UNSET && end > now) boundary = end;
-  useEffect(() => {
-    if (boundary == null) return;
-    const remaining = (boundary - TimeStamp.now().nanoseconds) / 1e6;
-    const delay = Math.min(Math.max(0, Math.ceil(remaining)) + 1, MAX_TIMEOUT_MS);
-    const t = setTimeout(() => setTick((p) => p + 1), delay);
-    return () => clearTimeout(t);
-  }, [boundary, tick]);
-};
-
 /**
  * A range's stage and the timestamps that define it, in one row. To do shows the
  * planned start and, once it is set, the planned end; In progress shows the start, the
@@ -242,12 +227,12 @@ export const Timeline = ({
   preview,
   className,
 }: TimelineProps): ReactElement => {
-  useStageBoundary(value);
+  const now = useClock(value);
   const { start, end } = value;
-  const stage = getStage(value);
+  const stage = getStage(value, now);
   const scheduled = start < UNSET;
   const ended = end < UNSET;
-  const resolution = rangeResolution(value);
+  const resolution = rangeResolution(value, now);
 
   const handleStart = (next: number): void => onChange(moveStart(value, next));
   const handleEnd = (next: number): void => onChange(moveEnd(value, next));
@@ -275,7 +260,7 @@ export const Timeline = ({
   const cellName = (bound: string, instant: number): string =>
     instant >= UNSET
       ? `${bound}, not set`
-      : `${bound}, ${Input.formatInstant(instant, TimeStamp.now(), resolution)}`;
+      : `${bound}, ${Input.formatInstant(instant, now, resolution)}`;
   const startName = cellName("Start", start);
   const endName = cellName("End", end);
 

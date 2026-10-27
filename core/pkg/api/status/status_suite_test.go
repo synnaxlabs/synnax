@@ -15,10 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/gorp"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -26,17 +24,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestAPIStatus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Status Suite")
+	RunSpecs(t, "API Status Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -56,29 +52,25 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg, Search: searchIdx,
+		DB: db, Ontology: otg,
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g,
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx, User: userSvc,
+		DB: db, Ontology: otg, Group: g, User: userSvc,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g, Label: labelSvc,
 	}))
-	apiSvc = MustSucceed(apistatus.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service: &svc.Layer{
-			Status: statusSvc,
-			Label:  labelSvc,
-			RBAC:   rbacSvc,
-		},
+	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
+		Status: statusSvc,
+		Label:  labelSvc,
+		RBAC:   rbacSvc,
 	}))
 	author = MustSucceed(
 		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),

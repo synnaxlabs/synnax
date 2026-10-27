@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 
 export const PAGERDUTY_NAV: PageNavNode = {
   key: "pagerduty",
   name: "PagerDuty",
   children: [
     {
-      key: "/reference/driver/pagerduty/alert-task",
       href: "/reference/driver/pagerduty/alert-task",
       name: "Alert task",
     },

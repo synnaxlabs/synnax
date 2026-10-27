@@ -19,7 +19,7 @@ import (
 
 func TestWasm(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "STL WASM Suite")
+	RunSpecs(t, "STL WASM Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

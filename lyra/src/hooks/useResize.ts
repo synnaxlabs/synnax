@@ -12,8 +12,9 @@ import {
   type CrudeTimeSpan,
   debounce as xDebounce,
   type direction,
+  TimeSpan,
 } from "@synnaxlabs/x";
-import { type RefCallback, useCallback, useEffect, useRef } from "react";
+import { type RefCallback, useEffect, useRef } from "react";
 
 import { useSyncedRef } from "@/hooks/ref";
 import { compareArrayDeps, useMemoCompare } from "@/memo";
@@ -47,6 +48,7 @@ export const useResize = <E extends HTMLElement>(
   opts: UseResizeOpts = {},
 ): RefCallback<E> => {
   const { triggers = [], debounce = 0, enabled = true } = opts;
+  const debouncePeriod = new TimeSpan(debounce).valueOf();
   const prev = useRef<box.Box>(box.ZERO);
   const ref = useRef<E | null>(null);
   const obs = useRef<ResizeObserver | null>(null);
@@ -54,35 +56,28 @@ export const useResize = <E extends HTMLElement>(
     triggers,
   ] as const);
 
-  const startObserving = useCallback(
-    (el: HTMLElement) => {
-      if (obs.current != null) obs.current.disconnect();
-      prev.current ??= box.ZERO;
-      const deb = xDebounce.debounce(() => {
-        const next = box.construct(el);
-        if (shouldResize(memoTriggers, prev.current, next)) {
-          prev.current = next;
-          onResize(next, ref.current as E);
-        }
-      }, debounce);
-      obs.current = new ResizeObserver(deb);
-      obs.current.observe(el);
-    },
-    [memoTriggers, onResize, debounce.valueOf()],
-  );
+  const startObserving = (el: HTMLElement) => {
+    if (obs.current != null) obs.current.disconnect();
+    const deb = xDebounce.debounce(() => {
+      const next = box.construct(el);
+      if (shouldResize(memoTriggers, prev.current, next)) {
+        prev.current = next;
+        onResize(next, ref.current as E);
+      }
+    }, debouncePeriod);
+    obs.current = new ResizeObserver(deb);
+    obs.current.observe(el);
+  };
 
   useEffect(() => {
     if (ref.current != null && enabled) startObserving(ref.current);
     return () => obs.current?.disconnect();
   }, [startObserving, enabled]);
 
-  return useCallback(
-    (el: E | null) => {
-      ref.current = el;
-      if (el != null && enabled) startObserving(el);
-    },
-    [startObserving],
-  );
+  return (el: E | null) => {
+    ref.current = el;
+    if (el != null && enabled) startObserving(el);
+  };
 };
 
 const shouldResize = (

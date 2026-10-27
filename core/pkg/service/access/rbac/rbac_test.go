@@ -14,12 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,7 +32,6 @@ var _ = Describe("ServiceConfig", func() {
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 			User:     userSvc,
 		}
 	})
@@ -44,7 +43,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Group).To(Equal(groupSvc))
-				Expect(result.Search).To(Equal(searchIdx))
 				Expect(result.User).To(Equal(userSvc))
 			},
 		)
@@ -55,7 +53,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Group).To(Equal(groupSvc))
-				Expect(result.Search).To(Equal(searchIdx))
 				Expect(result.User).To(Equal(userSvc))
 			},
 		)
@@ -86,11 +83,6 @@ var _ = Describe("ServiceConfig", func() {
 				"group: must be non-nil",
 			),
 			Entry(
-				"search",
-				func(c *rbac.ServiceConfig) { c.Search = nil },
-				"search: must be non-nil",
-			),
-			Entry(
 				"user",
 				func(c *rbac.ServiceConfig) { c.User = nil },
 				"user: must be non-nil",
@@ -110,7 +102,6 @@ var _ = Describe("Service", func() {
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
-				Search:   searchIdx,
 				User:     userSvc,
 			}))
 			Expect(s).ToNot(BeNil())

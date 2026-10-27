@@ -33,7 +33,7 @@ TEST(TestReadChannelParse, testAIChan) {
     auto p = x::json::Parser(cfg);
     const auto chan = parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto ai_chan = dynamic_cast<AIChan *>(chan.get());
+    auto *const ai_chan = dynamic_cast<AIChan *>(chan.get());
     ASSERT_NE(ai_chan, nullptr);
     ASSERT_EQ(ai_chan->port, "AIN0");
     ASSERT_EQ(ai_chan->enabled, true);
@@ -53,7 +53,7 @@ TEST(TestReadChannelParse, testDIChan) {
     auto p = x::json::Parser(cfg);
     const auto chan = parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto di_chan = dynamic_cast<DIChan *>(chan.get());
+    auto *const di_chan = dynamic_cast<DIChan *>(chan.get());
     ASSERT_NE(di_chan, nullptr);
     ASSERT_EQ(di_chan->port, "DIO0");
     ASSERT_EQ(di_chan->enabled, true);
@@ -80,7 +80,7 @@ TEST(TestReadChannelParse, testTCChan) {
     auto p = x::json::Parser(cfg);
     const auto chan = parse_input_chan(p);
     ASSERT_NIL(p.error());
-    const auto tc_chan = dynamic_cast<ThermocoupleChan *>(chan.get());
+    auto *const tc_chan = dynamic_cast<ThermocoupleChan *>(chan.get());
     ASSERT_NE(tc_chan, nullptr);
     ASSERT_EQ(tc_chan->port, "AIN3_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
@@ -237,7 +237,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(cfg->ljm_scan_backlog_warn_on_count, 10);
     ASSERT_EQ(cfg->channels.size(), 3);
 
-    const auto tc_chan = dynamic_cast<ThermocoupleChan *>(cfg->channels[0].get());
+    auto *const tc_chan = dynamic_cast<ThermocoupleChan *>(cfg->channels[0].get());
     ASSERT_NE(tc_chan, nullptr);
     ASSERT_EQ(tc_chan->port, "AIN0_EF_READ_A");
     ASSERT_EQ(tc_chan->enabled, true);
@@ -250,13 +250,13 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
 
-    const auto di_chan = dynamic_cast<DIChan *>(cfg->channels[1].get());
+    auto *const di_chan = dynamic_cast<DIChan *>(cfg->channels[1].get());
     ASSERT_NE(di_chan, nullptr);
     ASSERT_EQ(di_chan->port, "DIO4");
     ASSERT_EQ(di_chan->enabled, true);
     ASSERT_EQ(di_chan->synnax_key, di_ch.key);
 
-    const auto ai_chan = dynamic_cast<AIChan *>(cfg->channels[2].get());
+    auto *const ai_chan = dynamic_cast<AIChan *>(cfg->channels[2].get());
     ASSERT_NE(ai_chan, nullptr);
     ASSERT_EQ(ai_chan->port, "AIN6");
     ASSERT_EQ(ai_chan->enabled, true);

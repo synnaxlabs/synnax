@@ -56,26 +56,24 @@ describe("haul selectors", () => {
     });
   });
 
-  describe("PROVIDER_PROPS", () => {
-    const renderProviderState = (store: ReturnType<typeof createStore>) =>
-      renderHook(() => Haul.PROVIDER_PROPS.useState?.(Haul.ZERO_SLICE_STATE.state), {
-        wrapper: createWrapper(store),
-      });
+  describe("useProviderProps", () => {
+    const renderProps = (store: ReturnType<typeof createStore>) =>
+      renderHook(() => Haul.useProviderProps(), { wrapper: createWrapper(store) });
 
-    it("exposes a useState hook reflecting the dragging state", () => {
+    it("reflects the dragging state", () => {
       const store = createStore();
-      const { result } = renderProviderState(store);
-      expect(result.current?.[0]).toEqual(Haul.ZERO_SLICE_STATE.state);
+      const { result } = renderProps(store);
+      expect(result.current.value).toEqual(Haul.ZERO_SLICE_STATE.state);
       act(() => {
         store.dispatch(Haul.setHauled(dragging));
       });
-      expect(result.current?.[0]).toEqual(dragging);
+      expect(result.current.value).toEqual(dragging);
     });
 
-    it("dispatches setHauled when the setter is called", () => {
+    it("dispatches setHauled on change", () => {
       const store = createStore();
-      const { result } = renderProviderState(store);
-      act(() => result.current?.[1](dragging));
+      const { result } = renderProps(store);
+      act(() => result.current.onChange?.(dragging));
       expect(store.getState()[Haul.SLICE_NAME].state).toEqual(dragging);
     });
   });

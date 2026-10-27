@@ -11,9 +11,7 @@ import { array, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useLayoutEffect,
-  useMemo,
   useRef,
   useSyncExternalStore,
 } from "react";
@@ -113,19 +111,16 @@ export const createMembership = (name: string): Membership => {
   }: MembershipProps): ReactElement => {
     const valueRef = useRef(value);
     const { notifyListeners, subscribe } = useKeyedListeners();
-    const getValue = useCallback(() => valueRef.current, []);
+    const getValue = () => valueRef.current;
     // Read through a ref so a caller's new callbacks do not re-render every item.
     const actionsRef = useSyncedRef({ onItem, setValue, clear });
-    const ctx = useMemo<ContextValue>(
-      () => ({
-        onItem: (key) => actionsRef.current.onItem(key),
-        setValue: (keys) => actionsRef.current.setValue(keys),
-        clear: () => actionsRef.current.clear(),
-        subscribe,
-        getValue,
-      }),
-      [getValue, subscribe],
-    );
+    const ctx: ContextValue = {
+      onItem: (key) => actionsRef.current.onItem(key),
+      setValue: (keys) => actionsRef.current.setValue(keys),
+      clear: () => actionsRef.current.clear(),
+      subscribe,
+      getValue,
+    };
     useLayoutEffect(() => {
       const changed = new Set(array.toArray(valueRef.current)).symmetricDifference(
         new Set(array.toArray(value)),
@@ -141,12 +136,9 @@ export const createMembership = (name: string): Membership => {
   // The value is known on the first render, so the server renders it too.
   const useIsMember = (key: record.Key): boolean => {
     const { getValue, subscribe } = useContext();
-    const isMember = useCallback(
-      (): boolean => contains(getValue(), key),
-      [key, getValue],
-    );
+    const isMember = (): boolean => contains(getValue(), key);
     return useSyncExternalStore(
-      useCallback((onStoreChange) => subscribe(onStoreChange, key), [key, subscribe]),
+      (onStoreChange) => subscribe(onStoreChange, key),
       isMember,
       isMember,
     );
@@ -155,25 +147,22 @@ export const createMembership = (name: string): Membership => {
   const useItem = (key: record.Key): MembershipItem => {
     const { onItem } = useContext();
     const member = useIsMember(key);
-    const handleItem = useCallback(() => onItem(key), [key, onItem]);
-    return useMemo(() => ({ member, onItem: handleItem }), [member, handleItem]);
+    const handleItem = () => onItem(key);
+    return { member, onItem: handleItem };
   };
 
   const useMemberAmong = (keys: record.Key[]): record.Key | undefined => {
     const { getValue, subscribe } = useContext();
-    const memberAmong = useCallback((): record.Key | undefined => {
+    const memberAmong = (): record.Key | undefined => {
       const value = getValue();
       if (value === undefined) return undefined;
       return array.toArray(value).find((key) => keys.includes(key));
-    }, [keys, getValue]);
+    };
     return useSyncExternalStore(
-      useCallback(
-        (onStoreChange) => {
-          const destructors = keys.map((key) => subscribe(() => onStoreChange(), key));
-          return () => destructors.forEach((d) => d());
-        },
-        [keys, subscribe],
-      ),
+      (onStoreChange) => {
+        const destructors = keys.map((key) => subscribe(onStoreChange, key));
+        return () => destructors.forEach((d) => d());
+      },
       memberAmong,
       memberAmong,
     );
@@ -182,7 +171,7 @@ export const createMembership = (name: string): Membership => {
   const useMembers = (): record.Key[] => {
     const { getValue, subscribe } = useContext();
     const res = useSyncExternalStore(subscribe, getValue, getValue);
-    return useMemo((): record.Key[] => (res == null ? [] : array.toArray(res)), [res]);
+    return res == null ? [] : array.toArray(res);
   };
 
   return { Context, useContext, useItem, useIsMember, useMembers, useMemberAmong };

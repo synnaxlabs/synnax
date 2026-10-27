@@ -145,7 +145,7 @@ public:
     /// hardware errors.
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
-        std::shared_ptr<synnax::Synnax> client,
+        const std::shared_ptr<synnax::Synnax> &client,
         const synnax::framer::StreamerConfig &streamer_config,
         const std::shared_ptr<Sink> &sink,
         const x::breaker::Config &breaker_config,

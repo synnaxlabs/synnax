@@ -450,6 +450,14 @@ describe("Input", () => {
         expect(input.value).toBe("");
       });
 
+      it("should render an empty string when the value and emptyValue are NaN", () => {
+        const c = render(
+          <Input.Numeric value={NaN} onChange={vi.fn()} emptyValue={NaN} />,
+        );
+        const input = c.getByRole("textbox") as HTMLInputElement;
+        expect(input.value).toBe("");
+      });
+
       it("should render the value when it does not equal emptyValue", () => {
         const c = render(
           <Input.Numeric value={3} onChange={vi.fn()} emptyValue={-1} />,

@@ -87,6 +87,10 @@
     }
 }
 
+.pluto-dialog__frame.pluto--anchored {
+    display: contents;
+}
+
 .pluto-dialog__bg {
     width: 100%;
     height: 100%;

@@ -19,7 +19,10 @@
 #include "x/cpp/test/test.h"
 
 namespace synnax::arc {
-std::mt19937 gen_rand = random_generator(std::move("Arc Tests"));
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
+std::mt19937 gen_rand = random_generator("Arc Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 std::string random_arc_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);
@@ -192,32 +195,34 @@ func calc(val f32) f32 {
     ASSERT_EQ(retrieved.key, arc.key);
 
     // Verify the module was compiled - should have WASM bytes
-    ASSERT_FALSE(retrieved.program->wasm.empty())
+    ASSERT_FALSE(retrieved.program.value().wasm.empty())
         << "Expected WASM bytecode to be present after compilation";
 
     // Verify correct node structure (same as Go test expectations)
     // 3 nodes: source (on), calc function, sink (write)
-    ASSERT_EQ(retrieved.program->nodes.size(), 3)
+    ASSERT_EQ(retrieved.program.value().nodes.size(), 3)
         << "Expected 3 nodes: source, calc, sink";
 
     // First node: source channel (on)
-    ASSERT_EQ(retrieved.program->nodes[0].type, "on");
-    ASSERT_GT(retrieved.program->nodes[0].channels.read.count(ox_pt_1.key), 0)
+    ASSERT_EQ(retrieved.program.value().nodes[0].type, "on");
+    ASSERT_GT(retrieved.program.value().nodes[0].channels.read.count(ox_pt_1.key), 0)
         << "First node should read from ox_pt_1 channel";
-    ASSERT_EQ(retrieved.program->nodes[0].outputs.size(), 1);
+    ASSERT_EQ(retrieved.program.value().nodes[0].outputs.size(), 1);
 
     // Second node: calc function
-    ASSERT_EQ(retrieved.program->nodes[1].type, "calc");
+    ASSERT_EQ(retrieved.program.value().nodes[1].type, "calc");
 
     // Third node: sink channel (write)
-    ASSERT_EQ(retrieved.program->nodes[2].type, "write");
-    ASSERT_GT(retrieved.program->nodes[2].channels.write.count(ox_pt_doubled.key), 0)
-        << "Third node should write to ox_pt_doubled channel";
+    ASSERT_EQ(retrieved.program.value().nodes[2].type, "write");
+    ASSERT_GT(
+        retrieved.program.value().nodes[2].channels.write.count(ox_pt_doubled.key),
+        0
+    ) << "Third node should write to ox_pt_doubled channel";
     // write node has two inputs: the value input and the channel param.
-    ASSERT_EQ(retrieved.program->nodes[2].inputs.size(), 2);
+    ASSERT_EQ(retrieved.program.value().nodes[2].inputs.size(), 2);
 
     // Verify edges (2 edges connecting the 3 nodes)
-    ASSERT_EQ(retrieved.program->edges.size(), 2)
+    ASSERT_EQ(retrieved.program.value().edges.size(), 2)
         << "Expected 2 edges connecting the nodes";
 }
 
@@ -244,10 +249,10 @@ sequence main {
             .compile = true,
         }
     ));
-    ASSERT_FALSE(retrieved.program->wasm.empty());
+    ASSERT_FALSE(retrieved.program.value().wasm.empty());
 
     bool found_interval = false;
-    for (const auto &node: retrieved.program->nodes) {
+    for (const auto &node: retrieved.program.value().nodes) {
         if (node.type == "interval") {
             found_interval = true;
             bool found_period = false;
@@ -278,7 +283,7 @@ sequence main {
         for (const auto &m: scope.steps)
             if (m.scope) find_main(*m.scope);
     };
-    find_main(retrieved.program->root);
+    find_main(retrieved.program.value().root);
     ASSERT_NE(main_scope, nullptr);
     ASSERT_EQ(main_scope->steps.size(), 2);
 }

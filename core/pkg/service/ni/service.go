@@ -13,10 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -80,7 +81,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_analog_read",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.AnalogReadConfigLadder,
 			Legacy:             &legacy.AnalogRead,
 			SetEntryKey:        (*AnalogReadConfig).SetKey,
 			ApplyEntryDefaults: (*AnalogReadConfig).ApplyDefaults,
@@ -94,7 +96,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_analog_write",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.AnalogWriteConfigLadder,
 			Legacy:             &legacy.AnalogWrite,
 			SetEntryKey:        (*AnalogWriteConfig).SetKey,
 			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
@@ -108,7 +111,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_counter_read",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.CounterReadConfigLadder,
 			Legacy:             &legacy.CounterRead,
 			SetEntryKey:        (*CounterReadConfig).SetKey,
 			ApplyEntryDefaults: (*CounterReadConfig).ApplyDefaults,
@@ -122,7 +126,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_digital_read",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.DigitalReadConfigLadder,
 			Legacy:             &legacy.Digital,
 			SetEntryKey:        (*DigitalReadConfig).SetKey,
 			ApplyEntryDefaults: (*DigitalReadConfig).ApplyDefaults,
@@ -135,7 +140,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_digital_write",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.DigitalWriteConfigLadder,
 			Legacy:             &legacy.Digital,
 			SetEntryKey:        (*DigitalWriteConfig).SetKey,
 			ApplyEntryDefaults: (*DigitalWriteConfig).ApplyDefaults,
@@ -148,7 +154,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_scanner",
-			Version:            legacy.LastVersion + 1,
+			LegacyVersion:      legacy.LastVersion,
+			Ladder:             versions.ScanConfigLadder,
 			Legacy:             &legacy.Scanner,
 			SetEntryKey:        (*ScanConfig).SetKey,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,

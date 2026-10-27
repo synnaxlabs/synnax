@@ -11,14 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type dimensions } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type FC,
-  memo,
-  type ReactElement,
-  useCallback,
-  useMemo,
-} from "react";
+import { type CSSProperties, type FC, memo, type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { type Primitive } from "@/schematic/node/common/primitive";
@@ -39,18 +32,13 @@ interface InternalProps
 
 const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps) => {
   const { label = "", level = "p", direction: dir, align, maxInlineSize } = config;
-  const handleLabelChange = useCallback(
-    (value: string) => onChange?.({ label: { ...config, label: value } }),
-    [config],
-  );
-  const style = useMemo(
-    () => ({
-      textAlign: align as CSSProperties["textAlign"],
-      maxInlineSize,
-      ...baseStyle,
-    }),
-    [align, maxInlineSize, baseStyle],
-  );
+  const handleLabelChange = (value: string) =>
+    onChange?.({ label: { ...config, label: value } });
+  const style = {
+    textAlign: align as CSSProperties["textAlign"],
+    maxInlineSize,
+    ...baseStyle,
+  };
   return (
     <Text.Editable
       {...rest}

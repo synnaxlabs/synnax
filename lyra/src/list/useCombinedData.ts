@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { destructor, type record } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
 
@@ -31,28 +30,25 @@ export const useCombinedData = <
   first,
   second,
 }: UseCombinedDataParams<K, E>): FrameProps<K, E> => {
-  const data = useMemo(
-    () => [...first.data, ...second.data],
-    [first.data, second.data],
-  );
-  const getItem = useCallback(
-    (key: K | K[]) => {
-      if (Array.isArray(key)) {
-        const firstGotten = first.getItem?.(key) ?? [];
-        const secondGotten = second.getItem?.(key) ?? [];
-        return [...firstGotten, ...secondGotten];
-      }
-      return first.getItem?.(key) ?? second.getItem?.(key);
-    },
-    [first.getItem, second.getItem],
-  ) as GetItem<K, E>;
-  const subscribe = useCallback(
-    (callback: () => void, key: K) => {
-      const firstUnsub = first.subscribe?.(callback, key);
-      const secondUnsub = second.subscribe?.(callback, key);
-      return () => destructor.unwind(firstUnsub, secondUnsub);
-    },
-    [first.subscribe, second.subscribe],
-  );
-  return useMemo(() => ({ data, getItem, subscribe }), [data, getItem, subscribe]);
+  const { data: firstData, getItem: firstGetItem, subscribe: firstSubscribe } = first;
+  const {
+    data: secondData,
+    getItem: secondGetItem,
+    subscribe: secondSubscribe,
+  } = second;
+  const data = [...firstData, ...secondData];
+  const getItem = ((key: K | K[]) => {
+    if (Array.isArray(key)) {
+      const firstGotten = firstGetItem?.(key) ?? [];
+      const secondGotten = secondGetItem?.(key) ?? [];
+      return [...firstGotten, ...secondGotten];
+    }
+    return firstGetItem?.(key) ?? secondGetItem?.(key);
+  }) as GetItem<K, E>;
+  const subscribe = (callback: () => void, key: K) => {
+    const firstUnsub = firstSubscribe?.(callback, key);
+    const secondUnsub = secondSubscribe?.(callback, key);
+    return () => destructor.unwind(firstUnsub, secondUnsub);
+  };
+  return { data, getItem, subscribe };
 };

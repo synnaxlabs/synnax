@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdlib>
 
 #include "grpc/grpc.h"
@@ -50,7 +51,7 @@ inline x::errors::Error err_from_status(const ::grpc::Status &status) {
 class Pool {
     std::mutex mu;
     /// @brief A map of channels to targets.
-    std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels{};
+    std::unordered_map<std::string, std::shared_ptr<::grpc::Channel>> channels;
     /// @brief GRPC credentials to provide when connecting to a target.
     std::shared_ptr<::grpc::ChannelCredentials> credentials;
 
@@ -134,6 +135,7 @@ public:
         ::grpc::ClientContext grpc_ctx;
         for (const auto &[k, v]: req_ctx.params)
             grpc_ctx.AddMetadata(k, v);
+        if (req_ctx.deadline) grpc_ctx.set_deadline(*req_ctx.deadline);
 
         // Execute request.
         auto channel = this->pool->get_channel(req_ctx.target);
@@ -153,8 +155,9 @@ public:
 
 /// @brief Freighter stream object.
 template<typename RQ, typename RS, typename RPC>
-class Stream final : public freighter::Stream<RQ, RS>,
-                     Finalizer<nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
+class Stream final
+    : public freighter::Stream<RQ, RS>,
+      Finalizer<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> {
 
     MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>> mw;
 

@@ -10,7 +10,7 @@
 import { type panel } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { TimeSpan } from "@synnaxlabs/x";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { Session } from "@/session";
@@ -40,36 +40,30 @@ export const useDwell = (): Dwell => {
   // The panel to return to, set on the first switch of a drag.
   const origin = useRef<panel.Key>(undefined);
 
-  const cancel = useCallback(() => {
+  const cancel = () => {
     clearTimeout(timeout.current);
     timeout.current = undefined;
     pending.current = undefined;
-  }, []);
+  };
 
-  const enter = useCallback(
-    (key: panel.Key) => {
-      if (pending.current === key) return;
-      cancel();
-      pending.current = key;
-      timeout.current = setTimeout(() => {
-        pending.current = undefined;
-        const selected = getSelected();
-        if (selected === key) return;
-        origin.current ??= selected;
-        dispatch(Session.Panel.select({ key }));
-      }, DWELL_DURATION);
-    },
-    [cancel, dispatch, getSelected],
-  );
+  const enter = (key: panel.Key) => {
+    if (pending.current === key) return;
+    cancel();
+    pending.current = key;
+    timeout.current = setTimeout(() => {
+      pending.current = undefined;
+      const selected = getSelected();
+      if (selected === key) return;
+      if (origin.current == null) origin.current = selected;
+      dispatch(Session.Panel.select({ key }));
+    }, DWELL_DURATION);
+  };
 
-  const leave = useCallback(
-    (key: panel.Key) => {
-      // Moving between neighboring pills can report the leave after the next pill's
-      // drag-over, which must not cancel the timer that just started.
-      if (pending.current === key) cancel();
-    },
-    [cancel],
-  );
+  const leave = (key: panel.Key) => {
+    // Moving between neighboring pills can report the leave after the next pill's
+    // drag-over, which must not cancel the timer that just started.
+    if (pending.current === key) cancel();
+  };
 
   Haul.useOnResolve((landed) => {
     cancel();
@@ -80,5 +74,5 @@ export const useDwell = (): Dwell => {
 
   useEffect(() => () => clearTimeout(timeout.current), []);
 
-  return useMemo(() => ({ enter, leave }), [enter, leave]);
+  return { enter, leave };
 };

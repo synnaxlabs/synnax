@@ -11,7 +11,7 @@ import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { type Theming } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Runtime } from "@/session/runtime";
 import { Select } from "@/session/select";
@@ -39,8 +39,8 @@ export const useProviderProps = (): Theming.ProviderProps => {
   const [osKey, setOSKey] = useState(() => keyFor(prefersDark()));
   useAsyncEffect(
     async (signal) => {
-      if (!system) return;
       if (Runtime.ENGINE !== "tauri") {
+        if (!system) return;
         const query = window.matchMedia("(prefers-color-scheme: dark)");
         setOSKey(keyFor(query.matches));
         const handler = (e: MediaQueryListEvent) => setOSKey(keyFor(e.matches));
@@ -48,6 +48,10 @@ export const useProviderProps = (): Theming.ProviderProps => {
         return () => query.removeEventListener("change", handler);
       }
       const win = getCurrentWindow();
+      // The native macOS window controls draw in the window's theme. A null theme
+      // follows the OS, so it has to be set before the OS theme is read.
+      await win.setTheme(system ? null : mode);
+      if (!system || signal.aborted) return;
       const theme = await win.theme();
       if (signal.aborted) return;
       setOSKey(keyFor(theme === "dark"));
@@ -55,8 +59,8 @@ export const useProviderProps = (): Theming.ProviderProps => {
         setOSKey(keyFor(payload === "dark")),
       );
     },
-    [system],
+    [mode],
   );
   const key = system ? osKey : FIXED_KEYS[mode];
-  return useMemo<Theming.ProviderProps>(() => ({ theme: { key } }), [key]);
+  return { theme: { key } };
 };

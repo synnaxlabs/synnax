@@ -25,8 +25,6 @@ const formSchema = z.object({
   description: z.string().min(1, "Please enter a message"),
 });
 
-const REQUIRED_PATHS = ["name", "email", "description"] as const;
-
 interface SendButtonProps {
   loading: boolean;
   success: boolean;
@@ -34,7 +32,11 @@ interface SendButtonProps {
 }
 
 const SendButton = ({ loading, success, onClick }: SendButtonProps): ReactElement => {
-  const values = REQUIRED_PATHS.map((path) => Base.useFieldValue<string>(path));
+  const values = [
+    Base.useFieldValue<string>("name"),
+    Base.useFieldValue<string>("email"),
+    Base.useFieldValue<string>("description"),
+  ];
   const incomplete = values.some((v) => v == null || v.trim().length === 0);
   return (
     <Button.Button

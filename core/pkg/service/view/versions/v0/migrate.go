@@ -12,18 +12,18 @@ package v0
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 )
 
 // Migration re-encodes stored views from MessagePack to Orc.
-var Migration = gorp.CodecMigration[Key, View]("msgpack_to_orc")
+var Migration = migrate.Codec[Key, View]("msgpack_to_orc")
 
 // NormalizeKeys re-keys View rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, View]("View")
+var NormalizeKeys = migrate.NormalizeKeys[Key, View]("View")
 
 // NameMigration names each stored view that has an empty name "View <key>",
 // where <key> is the first eight characters of its key.
-var NameMigration = gorp.NewEntryMigration(
+var NameMigration = migrate.NewEntry(
 	"v60_require_name",
 	func(_ context.Context, v View) (View, error) {
 		if v.Name == "" {

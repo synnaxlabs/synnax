@@ -93,8 +93,9 @@ export const defaultGetter = (obj: record.Unknown, key: string): unknown => {
 export const resolvePath = <T = record.Unknown>(path: string, obj: T): string => {
   const parts = path.split(SEPARATOR);
   parts.forEach((part, i) => {
+    const inArray = Array.isArray(obj);
     obj = defaultGetter(obj as record.Unknown, part) as T;
-    if (obj != null && typeof obj === "object" && "key" in obj)
+    if (inArray && obj != null && typeof obj === "object" && "key" in obj)
       parts[i] = obj.key as string;
   });
   return parts.join(SEPARATOR);
@@ -142,7 +143,7 @@ export const findBestKey = (
   obj: record.Unknown,
   remainingParts: string[],
 ): [string, number] | null => {
-  for (let i = 1; i <= remainingParts.length; i++) {
+  for (let i = remainingParts.length; i >= 1; i--) {
     const candidateKey = remainingParts.slice(0, i).join(SEPARATOR);
     const v = defaultGetter(obj, candidateKey);
     if (v != null) return [candidateKey, i];

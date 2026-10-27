@@ -10,24 +10,23 @@
 import "@/haul/Haul.css";
 
 import { type destructor, type optional, type record, xy } from "@synnaxlabs/x";
-import React, {
+import {
   type DragEvent,
   type DragEventHandler,
   memo,
   type PropsWithChildren,
   type ReactNode,
   type RefObject,
-  useCallback,
   useEffect,
   useId,
-  useMemo,
   useRef,
+  useState,
 } from "react";
 import { z } from "zod";
 
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks/ref";
-import { type state } from "@/state";
+import { state } from "@/state";
 
 /** Zod schema for a draggable/droppable {@link Item}. */
 export const itemZ = z.object({
@@ -151,8 +150,9 @@ const [StateContext, useStateContext] = context.create<DraggingState>({
 
 /** Props for {@link Provider}. */
 export interface ProviderProps extends PropsWithChildren {
-  /** State hook backing the drag; defaults to `React.useState`. */
-  useState?: state.PureUse<DraggingState>;
+  /** The drag state. Set it, with `onChange`, to let the caller own it. */
+  value?: DraggingState;
+  onChange?: (state: DraggingState) => void;
 }
 
 interface ProviderRef extends DraggingState {
@@ -166,83 +166,81 @@ const HAUL_REF: ProviderRef = {
 
 /** Provides haul drag-and-drop state to descendants. */
 export const Provider = memo(
-  ({ children, useState = React.useState }: ProviderProps): ReactNode => {
+  ({ children, value, onChange }: ProviderProps): ReactNode => {
     const ctx = useContext();
 
-    const [state, setState] = useState(ZERO_DRAGGING_STATE);
+    const [dragging, setDragging] = state.usePurePassthrough({
+      initialValue: ZERO_DRAGGING_STATE,
+      value,
+      onChange,
+    });
     const ref = useRef<ProviderRef>(HAUL_REF);
     const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
     const watchers = useRef<Set<OnResolve>>(new Set());
     const handledEvents = useRef<WeakSet<Event>>(new WeakSet());
 
-    const claimDragEvent: ContextValue["claimDragEvent"] = useCallback((event) => {
+    const claimDragEvent: ContextValue["claimDragEvent"] = (event) => {
       if (handledEvents.current.has(event)) return false;
       handledEvents.current.add(event);
       return true;
-    }, []);
+    };
 
-    const start: ContextValue["start"] = useCallback(
-      (source, items, onSuccessfulDrop) => {
-        ref.current = { source, items, onSuccessfulDrop };
-        setState({ source, items });
-      },
-      [setState],
-    );
+    const start: ContextValue["start"] = (source, items, onSuccessfulDrop) => {
+      ref.current = { source, items, onSuccessfulDrop };
+      setDragging({ source, items });
+    };
 
-    const resolve = useCallback(
-      (landed: boolean) => watchers.current.forEach((watcher) => watcher(landed)),
-      [],
-    );
+    const resolve = (landed: boolean) =>
+      watchers.current.forEach((watcher) => watcher(landed));
 
-    const drop: ContextValue["drop"] = useCallback(
-      ({ target, dropped }) => {
-        const hauled = ref.current.items;
-        ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
-        ref.current = HAUL_REF;
-        setState(ZERO_DRAGGING_STATE);
-        resolve(true);
-      },
-      [setState, resolve],
-    );
+    const drop: ContextValue["drop"] = ({ target, dropped }) => {
+      const hauled = ref.current.items;
+      ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
+      ref.current = HAUL_REF;
+      setDragging(ZERO_DRAGGING_STATE);
+      resolve(true);
+    };
 
-    const end: ContextValue["end"] = useCallback(
-      (cursor: xy.XY) => {
-        // A drag already finalized by a drop leaves nothing to resolve: dragend still
-        // fires after it, and the drag must be reported exactly once.
-        const active = ref.current.items.length > 0;
-        let dropped: DropProps | null = null;
-        interceptors.current.forEach((interceptor) => {
-          if (dropped != null) return;
-          dropped = interceptor(ref.current, cursor);
-        });
-        if (dropped != null) return drop(dropped);
-        ref.current = HAUL_REF;
-        setState(ZERO_DRAGGING_STATE);
-        if (active) resolve(false);
-      },
-      [setState, drop, resolve],
-    );
+    const end: ContextValue["end"] = (cursor: xy.XY) => {
+      // A drag already finalized by a drop leaves nothing to resolve: dragend still
+      // fires after it, and the drag must be reported exactly once.
+      const active = ref.current.items.length > 0;
+      let dropped: DropProps | null = null;
+      interceptors.current.forEach((interceptor) => {
+        if (dropped != null) return;
+        dropped = interceptor(ref.current, cursor);
+      });
+      if (dropped != null) return drop(dropped);
+      ref.current = HAUL_REF;
+      setDragging(ZERO_DRAGGING_STATE);
+      if (active) resolve(false);
+    };
 
-    const bind: ContextValue["bind"] = useCallback((interceptor) => {
+    const bind: ContextValue["bind"] = (interceptor) => {
       interceptors.current.add(interceptor);
       return () => interceptors.current.delete(interceptor);
-    }, []);
+    };
 
-    const watch: ContextValue["watch"] = useCallback((onResolve) => {
+    const watch: ContextValue["watch"] = (onResolve) => {
       watchers.current.add(onResolve);
       return () => watchers.current.delete(onResolve);
-    }, []);
+    };
 
-    const controls = useMemo<ContextValue>(
-      () => ({ start, end, drop, bind, watch, claimDragEvent, stateRef: ref }),
-      [start, end, drop, bind, watch, claimDragEvent],
-    );
+    const controls: ContextValue = {
+      start,
+      end,
+      drop,
+      bind,
+      watch,
+      claimDragEvent,
+      stateRef: ref,
+    };
     // A nested Provider reuses the outer one's contexts, which are already in scope,
     // so it renders children without re-providing.
     if (ctx != null) return children;
     return (
       <Context value={controls}>
-        <StateContext value={state}>{children}</StateContext>
+        <StateContext value={dragging}>{children}</StateContext>
       </Context>
     );
   },
@@ -295,32 +293,27 @@ export interface UseDragReturn {
 /** Wires an element up as a drag source of `type`. */
 export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const generatedKey = useId();
-  key ??= generatedKey;
-  const source: Item = useMemo(() => ({ key, type }), [key, type]);
+  const source: Item = { key: key ?? generatedKey, type };
   const ctx = useContext();
-  if (ctx == null) return { startDrag: () => {}, onDragEnd: () => {} };
-  const { start, end, stateRef } = ctx;
-  return {
-    startDrag: useCallback(
-      (items, f) => {
-        start(source, items, f);
-        // A source that unmounts mid-drag fires `dragend` on a detached node, which
-        // never reaches here. Mouse events resume only once a drag is over, so the
-        // first one ends a drag its own source cannot.
-        document.addEventListener(
-          "mousemove",
-          (e) => {
-            if (stateRef.current.items.length === 0) return;
-            end(xy.construct({ x: e.screenX, y: e.screenY }));
-          },
-          { once: true },
-        );
+  const startDrag: UseDragReturn["startDrag"] = (items, f) => {
+    if (ctx == null) return;
+    const { start, end, stateRef } = ctx;
+    start(source, items, f);
+    // A source that unmounts mid-drag fires `dragend` on a detached node, which never
+    // reaches here. Mouse events resume only once a drag is over, so the first one ends
+    // a drag its own source cannot.
+    document.addEventListener(
+      "mousemove",
+      (e) => {
+        if (stateRef.current.items.length === 0) return;
+        end(xy.construct({ x: e.screenX, y: e.screenY }));
       },
-      [start, end, stateRef, source],
-    ),
-    onDragEnd: (e: DragEvent | MouseEvent) =>
-      end(xy.construct({ x: e.screenX, y: e.screenY })),
+      { once: true },
+    );
   };
+  const onDragEnd = (e: DragEvent | MouseEvent) =>
+    ctx?.end(xy.construct({ x: e.screenX, y: e.screenY }));
+  return { startDrag, onDragEnd };
 };
 
 /** Predicate deciding whether a drop target accepts the current drag. */
@@ -364,37 +357,28 @@ export const useDrop = ({
 }: UseDropProps): UseDropReturn => {
   const ref = useDraggingRef();
   const ctx = useContext();
-  if (ctx == null) return { onDragOver: () => {}, onDrop: () => {} };
-  const { drop, claimDragEvent } = ctx;
-
   const generatedKey = useId();
-  key ??= generatedKey;
-  const target: Item = useMemo(() => ({ key, type }), [key, type]);
-
+  const target: Item = { key: key ?? generatedKey, type };
   const prevDragOver = useRef<xy.XY>({ x: -1, y: -1 });
 
-  const handleDragOver = useCallback(
-    (event: DragEvent) => {
-      event.preventDefault();
-      const cursor = xy.construct({ x: event.screenX, y: event.screenY });
-      if (xy.equals(cursor, prevDragOver.current)) return;
-      prevDragOver.current = cursor;
-      if (!canDrop(ref.current)) return;
-      if (!claimDragEvent(event.nativeEvent)) return;
-      onDragOver?.({ event, ...ref.current });
-    },
-    [ref, canDrop, claimDragEvent],
-  );
+  const handleDragOver = (event: DragEvent) => {
+    if (ctx == null) return;
+    event.preventDefault();
+    const cursor = xy.construct({ x: event.screenX, y: event.screenY });
+    if (xy.equals(cursor, prevDragOver.current)) return;
+    prevDragOver.current = cursor;
+    if (!canDrop(ref.current)) return;
+    if (!ctx.claimDragEvent(event.nativeEvent)) return;
+    onDragOver?.({ event, ...ref.current });
+  };
 
-  const handleDrop = useCallback(
-    (event: DragEvent) => {
-      if (!canDrop(ref.current)) return;
-      if (!claimDragEvent(event.nativeEvent)) return;
-      event.preventDefault();
-      drop({ target, dropped: onDrop({ ...ref.current, event }) });
-    },
-    [ref, onDrop, canDrop, drop, claimDragEvent, target],
-  );
+  const handleDrop = (event: DragEvent) => {
+    if (ctx == null) return;
+    if (!canDrop(ref.current)) return;
+    if (!ctx.claimDragEvent(event.nativeEvent)) return;
+    event.preventDefault();
+    ctx.drop({ target, dropped: onDrop({ ...ref.current, event }) });
+  };
 
   return { onDragOver: handleDragOver, onDrop: handleDrop };
 };
@@ -416,8 +400,7 @@ export const useDragAndDrop = ({
   ...rest
 }: UseDragAndDropProps): UseDragAndDropReturn => {
   const generatedKey = useId();
-  key ??= generatedKey;
-  const sourceAndTarget: Item = useMemo(() => ({ key, type }), [key, type]);
+  const sourceAndTarget: Item = { key: key ?? generatedKey, type };
   const dragProps = useDrag(sourceAndTarget);
   const dropProps = useDrop({ ...rest, ...sourceAndTarget });
   return { ...dragProps, ...dropProps };
@@ -438,21 +421,21 @@ export interface UseDragOverReturn {
 export const useDragOver = (): UseDragOverReturn => {
   // Entering a child fires dragenter on it before dragleave on the parent.
   const depth = useRef(0);
-  const [over, setOver] = React.useState(false);
+  const [over, setOver] = useState(false);
   const dragging = useDraggingState().items.length > 0;
   useEffect(() => {
     if (dragging) return;
     depth.current = 0;
     setOver(false);
   }, [dragging]);
-  const onDragEnter = useCallback(() => {
+  const onDragEnter = () => {
     depth.current += 1;
     setOver(true);
-  }, []);
-  const onDragLeave = useCallback(() => {
+  };
+  const onDragLeave = () => {
     depth.current = Math.max(0, depth.current - 1);
     if (depth.current === 0) setOver(false);
-  }, []);
+  };
   return { over, onDragEnter, onDragLeave };
 };
 
@@ -465,17 +448,6 @@ export const canDropOfType =
 /** Returns the subset of `entities` whose type is `type`. */
 export const filterByType = (type: string, entities: Item[]): Item[] =>
   entities.filter((entity) => entity.type === type);
-
-/** Memoizes `fn`, pre-filtering its `items` to `type` before it runs. */
-export const useFilterByTypeCallback = (
-  type: string,
-  fn: OnDrop,
-  deps: unknown[],
-): OnDrop =>
-  useCallback(
-    (props) => fn({ ...props, items: filterByType(type, props.items) }),
-    deps,
-  );
 
 /** Props for a drop handled outside the normal tree; `onDrop` also gets the cursor. */
 export interface UseDropOutsideProps extends Omit<UseDropProps, "onDrop"> {

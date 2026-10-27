@@ -19,7 +19,7 @@ import (
 
 func TestLegacy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "PagerDuty Legacy Suite")
+	RunSpecs(t, "PagerDuty Legacy Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

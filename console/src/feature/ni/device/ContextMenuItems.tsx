@@ -7,55 +7,44 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
 import { Menu } from "@synnaxlabs/lyra/menu";
 
-import { useConfigureModal } from "@/feature/ni/device/useConfigureModal";
 import { Task } from "@/feature/ni/task";
 import { Device as PlatformDevice } from "@/platform/device";
-import { type Tree } from "@/platform/tree";
 
-const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[] = [
-  {
+const TASK_CONTEXT_MENU_ITEMS = [
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.analogReadTask",
     label: "Create analog read task",
     useCreate: Task.useCreateAnalogRead,
-  },
-  {
+  }),
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.analogWriteTask",
     label: "Create analog write task",
     useCreate: Task.useCreateAnalogWrite,
-  },
-  {
+  }),
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.counterReadTask",
     label: "Create counter read task",
     useCreate: Task.useCreateCounterRead,
-  },
-  {
+  }),
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.digitalReadTask",
     label: "Create digital read task",
     useCreate: Task.useCreateDigitalRead,
-  },
-  {
+  }),
+  PlatformDevice.createTaskContextMenuItem({
     itemKey: "ni.digitalWriteTask",
     label: "Create digital write task",
     useCreate: Task.useCreateDigitalWrite,
-  },
+  }),
 ];
 
-export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
-  const configure = useConfigureModal();
-  const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
-  return (
-    <>
-      <PlatformDevice.ConfigureMenuItem {...props} onConfigure={onConfigure} />
-      <PlatformDevice.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
-      <Menu.Divider />
-      <PlatformDevice.TaskContextMenuItems
-        {...props}
-        onConfigure={onConfigure}
-        taskContextMenuItemConfigs={TASK_CONTEXT_MENU_ITEM_CONFIGS}
-      />
-    </>
-  );
-};
+export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => (
+  <>
+    <PlatformDevice.ConfigureMenuItem {...props} />
+    <PlatformDevice.ChangeIdentifierMenuItem {...props} icon="Logo.NI" />
+    <Menu.Divider />
+    <PlatformDevice.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
+  </>
+);

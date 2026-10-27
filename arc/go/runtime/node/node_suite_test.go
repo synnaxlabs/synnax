@@ -19,7 +19,7 @@ import (
 
 func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Runtime Node Suite")
+	RunSpecs(t, "Runtime Node Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

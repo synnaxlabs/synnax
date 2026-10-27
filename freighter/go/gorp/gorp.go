@@ -15,7 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 )
 
 // CreateWriteUnaryHandler wraps a unary handler that needs to execute inside a single

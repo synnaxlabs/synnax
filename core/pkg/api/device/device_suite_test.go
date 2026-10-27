@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -30,7 +29,7 @@ import (
 
 func TestAPIDevice(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Device Suite")
+	RunSpecs(t, "API Device Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -44,9 +43,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
 	svc = MustOpen(svcmock.OpenLayer(ctx, node))
-	apiSvc = MustSucceed(apidevice.NewService(apicfg.LayerConfig{
-		Distribution: node.Layer,
-		Service:      svc,
+	apiSvc = MustSucceed(apidevice.NewService(apidevice.ServiceConfig{
+		Device:   svc.Device,
+		Status:   svc.Status,
+		RBAC:     svc.RBAC,
+		Ontology: svc.Ontology,
 	}))
 })
 

@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { LinePlot } from "@synnaxlabs/pluto";
 import { bounds, type color, id } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -229,14 +229,11 @@ export const Annotations = (): ReactElement => {
   const dispatchSession = useDispatch();
   const dispatch = LinePlot.useSingleDispatch();
 
-  const setSelectedRuleKeys = useCallback(
-    (ruleKey: string[]): void => {
-      dispatchSession(Session.LinePlot.setSelectedRule({ key, ruleKey }));
-    },
-    [dispatchSession, key],
-  );
+  const setSelectedRuleKeys = (ruleKey: string[]): void => {
+    dispatchSession(Session.LinePlot.setSelectedRule({ key, ruleKey }));
+  };
 
-  const handleCreateRule = useCallback((): void => {
+  const handleCreateRule = (): void => {
     const ruleKey = id.create();
     const axis: lineplot.AxisKey = "y1";
     const position = bounds.mean(axes[axis].bounds);
@@ -244,7 +241,7 @@ export const Annotations = (): ReactElement => {
     const rule = lineplot.ruleZ.parse({ key: ruleKey, label, axis, position });
     dispatch(lineplot.setRule({ rule }));
     setSelectedRuleKeys([ruleKey]);
-  }, [dispatch, key, axes, rules.length, setSelectedRuleKeys]);
+  };
 
   const handleRemoveRules = (keys: string[]): void => {
     dispatch(keys.map((ruleKey) => lineplot.removeRule({ key: ruleKey })));
