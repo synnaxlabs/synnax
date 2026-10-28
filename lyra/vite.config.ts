@@ -10,6 +10,7 @@
 /// <reference types="vitest/config" />
 
 import react from "@vitejs/plugin-react";
+import { playwright } from "@vitest/browser-playwright";
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
@@ -39,13 +40,36 @@ export default defineConfig({
   ],
   test: {
     globals: true,
-    environment: "jsdom",
-    setupFiles: ["src/testutil/setup.ts"],
     testTimeout: 15_000,
-    exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],
       exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx"],
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "jsdom",
+          environment: "jsdom",
+          setupFiles: ["src/testutil/setup.ts"],
+          include: ["src/**/*.spec.{ts,tsx}"],
+          exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.browser.spec.tsx"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "browser",
+          setupFiles: ["src/testutil/browser.ts"],
+          include: ["src/**/*.browser.spec.tsx"],
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright(),
+            instances: [{ browser: "chromium" }],
+          },
+        },
+      },
+    ],
   },
 });

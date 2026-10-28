@@ -631,6 +631,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.lyra == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
+      chromium: true
       coverage_flag: lyra
       directory: lyra
       macos: *full
