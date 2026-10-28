@@ -19,18 +19,18 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
+	"github.com/synnaxlabs/aspen/internal/kv/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("kvStore", func() {
 	var (
-		builder *kvmock.Builder
+		builder *testutil.Builder
 		db      *kv.DB
 	)
 
 	BeforeEach(func() {
-		builder = DeferClose(kvmock.NewBuilder(
+		builder = DeferClose(testutil.NewBuilder(
 			kv.Config{GossipInterval: 10 * time.Millisecond},
 			cluster.Config{},
 		))

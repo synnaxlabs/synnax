@@ -17,7 +17,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -140,10 +140,10 @@ TEST(FactoryTest, HandlesReturnsTrueForExistingFunction) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -161,10 +161,10 @@ TEST(FactoryTest, CreateReturnsErrorWhenFunctionNotFound) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -193,10 +193,10 @@ TEST(FactoryTest, CreateSucceedsWithValidConfig) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -225,10 +225,10 @@ TEST(FactoryTest, CreateReturnsErrorWhenParamsMismatchSignature) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -258,10 +258,10 @@ TEST(NodeTest, NextReturnsEarlyWhenNoInputsRefreshed) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -312,10 +312,10 @@ TEST(NodeTest, ResetKeepsConsumedEdgeFedInput) {
     ASSERT_NIL(client.channels.create(input_ch));
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + input_name + " -> double{}";
+)" + input_name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -424,10 +424,10 @@ TEST(NodeTest, NextExecutesFunctionAndProducesOutput) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + input_name + " -> double{} -> " +
+)" + input_name + " -> double() -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -696,10 +696,10 @@ TEST(NodeTest, NextReportsErrorOnWasmTrap) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func divide_by_zero(val i32) i32 {
+func divide_by_zero() {val i32} i32 {
     return val / 0
 }
-)" + input_name + " -> divide_by_zero{} -> " +
+)" + input_name + " -> divide_by_zero() -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -762,10 +762,10 @@ TEST(NodeTest, IsOutputTruthyReturnsFalseForNonexistent) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -812,10 +812,10 @@ TEST(NodeTest, IsOutputTruthyEvaluatesOutputValues) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func passthrough(val f32) f32 {
+func passthrough() {val f32} f32 {
     return val
 }
-)" + input_name + " -> passthrough{} -> " +
+)" + input_name + " -> passthrough() -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -886,7 +886,7 @@ TEST(NodeTest, NoInputNodeExecutesOnEveryNext) {
 func constant() i64 {
     return 42
 }
-constant{} -> )" + output_name;
+constant() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -1056,10 +1056,10 @@ TEST(NodeTest, NodeWithInputsExecutesNormally) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func double(val i64) i64 {
+func double() {val i64} i64 {
     return val * 2
 }
-)" + input_name + " -> double{} -> " +
+)" + input_name + " -> double() -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -1151,7 +1151,7 @@ TEST(NodeTest, FlowExpressionExecutesEveryTime) {
 func counter() i64 {
     return 42
 }
-counter{} -> )" + output_name;
+counter() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -1215,7 +1215,7 @@ TEST(NodeTest, FlowExpressionContinuesAfterReset) {
 func counter() i64 {
     return 42
 }
-counter{} -> )" + output_name;
+counter() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -1281,7 +1281,7 @@ TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
 func counter() i64 {
     return 42
 }
-counter{} -> )" + output_name;
+counter() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -1356,10 +1356,10 @@ TEST(NodeTest, ConfigParametersPassedToWasm) {
     // Function with config parameter 'x' and input parameter 'y'
     // Use i32 since integer literals default to i32
     const std::string source = R"(
-func add_config{x i32}(y i32) i32 {
+func add_config(x i32){y i32} i32 {
     return x + y
 }
-)" + input_name + " -> add_config{x=10} -> " +
+)" + input_name + " -> add_config(x=10) -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -1450,10 +1450,10 @@ TEST(NodeTest, MultipleConfigParametersPassedToWasm) {
 
     // Function with two config parameters 'a', 'b' and input parameter 'c'
     const std::string source = R"(
-func multi_config{a i32, b i32}(c i32) i32 {
+func multi_config(a i32, b i32){c i32} i32 {
     return a + b + c
 }
-)" + input_name + " -> multi_config{a=5, b=10} -> " +
+)" + input_name + " -> multi_config(a=5, b=10) -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -1545,14 +1545,14 @@ TEST(NodeTest, StatefulVariablesAreIsolatedBetweenNodeInstances) {
     ASSERT_NIL(client.channels.create(output_b_ch));
 
     const std::string source = R"(
-func counter(trigger i64) i64 {
+func counter() {trigger i64} i64 {
     count i64 $= 0
     count = count + 1
     return count
 }
-)" + trigger_name + " -> counter{} -> " +
+)" + trigger_name + " -> counter() -> " +
                                output_a_name + "\n" + trigger_name +
-                               " -> counter{} -> " + output_b_name;
+                               " -> counter() -> " + output_b_name;
 
     auto mod = testutil::compile_text(client, source);
 
@@ -1682,7 +1682,7 @@ func counter() i64 {
     count = count + 1
     return count
 }
-counter{} -> )" + output_name;
+counter() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
 
@@ -1774,8 +1774,8 @@ func counter() i64 {
     count = count + 1
     return count
 }
-counter{} -> )" + output_a_name +
-                               "\ncounter{} -> " + output_b_name;
+counter() -> )" + output_a_name +
+                               "\ncounter() -> " + output_b_name;
 
     auto mod = testutil::compile_text(client, source);
 
@@ -1891,11 +1891,11 @@ TEST(NodeTest, ChannelConfigParamReadsChannelData) {
     // Function with a channel-typed config param.
     // 'ch + f32(0.0)' forces a channel read (rather than a channel alias).
     const std::string source = R"(
-func read_chan{ch chan f32}(trigger u8) f32 {
+func read_chan(ch chan f32){trigger u8} f32 {
     return ch + f32(0.0)
 }
 )" + trigger_name +
-                               " -> read_chan{ch=" + data_name + "} -> " + output_name;
+                               " -> read_chan(ch=" + data_name + ") -> " + output_name;
 
     auto mod = testutil::compile_text(client, source);
 
@@ -2038,10 +2038,10 @@ TEST(NodeTest, StringChannelInputConvertedToHandles) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func str_len(s str) i64 {
+func str_len() {s str} i64 {
     return len(s)
 }
-)" + input_name + " -> str_len{} -> " +
+)" + input_name + " -> str_len() -> " +
                                output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
@@ -2165,12 +2165,12 @@ TEST(NodeTest, NamedStringOutputMemoryLayout) {
 
     const std::string source =
         R"arc(
-func labeler(x i64) (label str, value i64) {
+func labeler() {x i64} (label str, value i64) {
     label = "ok"
     value = x * 2
 }
 )arc" + input_name +
-        " -> labeler{} -> {label: \"ok\" -> " + label_out_name + ", value: 0 -> " +
+        " -> labeler() -> {label: \"ok\" -> " + label_out_name + ", value: 0 -> " +
         value_out_name + "}";
 
     auto str_st = std::make_shared<stl::strings::State>();
@@ -2285,10 +2285,10 @@ TEST(NodeTest, StringChannelInputWithQualifiedStringLen) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func qstr_len(s str) i64 {
+func qstr_len() {s str} i64 {
     return len(s)
 }
-)" + input_name + " -> qstr_len{} -> " +
+)" + input_name + " -> qstr_len() -> " +
                                output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
@@ -2382,7 +2382,7 @@ TEST(NodeTest, FlowExpressionStringDefaultOutput) {
 func produce_str() str {
     return str(42)
 }
-produce_str{} -> )" + output_name;
+produce_str() -> )" + output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
@@ -2451,7 +2451,7 @@ TEST(NodeTest, FlowExpressionStringConcatDefaultOutput) {
 func produce_str() str {
     return "value=" + str(42) + " items"
 }
-produce_str{} -> )" + output_name;
+produce_str() -> )" + output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
@@ -2543,11 +2543,11 @@ TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func concat_len(a str, b str) i64 {
+func concat_len() {a str, b str} i64 {
     return len(a + b)
 }
 )" + input_a_name + ", " + input_b_name +
-                               " -> concat_len{} -> " + output_name;
+                               " -> concat_len() -> " + output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
@@ -3244,14 +3244,14 @@ TEST(ForLoopTest, DISABLED_StatefulAccumulationAcrossCalls) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func loop_state(trigger i64) i64 {
+func loop_state() {trigger i64} i64 {
     total i64 $= 0
     for i := range(3) {
         total = total + 1
     }
     return total
 }
-)" + trigger_name + " -> loop_state{} -> " +
+)" + trigger_name + " -> loop_state() -> " +
                                output_name;
 
     auto channel_st = std::make_shared<stl::channels::State>(
@@ -3362,10 +3362,10 @@ TEST(ModuleFuncTest, ReturnsErrorForUnresolvedOutputType) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
 
@@ -3386,7 +3386,7 @@ func double(val f32) f32 {
 TEST(NodeEdgeFedTest, EdgeFedHonorsLiteralInputBeforeEdgeFedInput) {
     const auto client = new_test_client();
     const std::string func_def = R"(
-func sum2(x i32, y i32) i32 {
+func sum2() {x i32, y i32} i32 {
     return x + y
 }
 )";

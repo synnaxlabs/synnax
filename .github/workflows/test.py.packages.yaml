@@ -16,6 +16,9 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Check distributions
@@ -44,7 +47,7 @@ jobs:
         run: uvx check-wheel-contents@0.6.3 --ignore W002 dist/*.whl
 
       - name: Check metadata
-        run: uvx twine@7.0.0 check dist/*
+        run: uvx twine@7.0.0 check --strict dist/*
 
       - name: Check that the synnax sdist leaves out examples
         run: |

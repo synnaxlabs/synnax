@@ -43,6 +43,8 @@ interface ChannelRowProps {
   disabled: boolean;
 }
 
+const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = { variant: "shadow" };
+
 const ChannelRow = ({
   index,
   channel,
@@ -101,6 +103,7 @@ const ChannelRow = ({
           allowNone
           initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
           disabled={disabled}
+          triggerProps={SHADOW_TRIGGER_PROPS}
           className={CSS.BE("log", "channel-select")}
         />
         <Input.Text
@@ -152,6 +155,7 @@ const ChannelRow = ({
             <Telem.SelectTimestampFormat
               value={timestamp.format}
               onChange={handleFormatChange}
+              triggerProps={SHADOW_TRIGGER_PROPS}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}

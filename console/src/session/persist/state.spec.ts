@@ -28,6 +28,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 
 import { Persist } from "@/session/persist";
 import { Window } from "@/session/window";
+import { MemoryKV } from "@/testutil";
 
 interface MockState {
   core: { selected?: string };
@@ -90,7 +91,7 @@ const STATE: MockState = {
 const GLOBAL_KEYS = 2;
 
 /** A store whose writes to keys matching failOn reject, standing in for a full disk. */
-class FailingKV extends Persist.MemoryKV {
+class FailingKV extends MemoryKV {
   failOn: RegExp | null = null;
 
   override async setMany(entries: Persist.Entry[]): Promise<void> {
@@ -107,7 +108,7 @@ class FailingKV extends Persist.MemoryKV {
 }
 
 /** Counts the batched calls production makes, so a spec can assert it writes once. */
-class CountingKV extends Persist.MemoryKV {
+class CountingKV extends MemoryKV {
   readonly writes: Persist.Entry[][] = [];
   readonly deletes: string[][] = [];
 
@@ -123,7 +124,7 @@ class CountingKV extends Persist.MemoryKV {
 }
 
 const openPersist = async (
-  store: Persist.MemoryKV,
+  store: MemoryKV,
   overrides: Partial<Persist.Config<MockState>> = {},
 ) =>
   await Persist.open<MockState>({
@@ -144,7 +145,7 @@ const openPersist = async (
  * through the chain.
  */
 const createDriver = async (
-  store: Persist.MemoryKV,
+  store: MemoryKV,
   overrides: Partial<Persist.Config<MockState>> = {},
 ) => {
   const { initialState, middleware } = await openPersist(store, overrides);
@@ -257,19 +258,19 @@ describe("Persist.open", () => {
 
   describe("composition", () => {
     it("should start from the initial state when nothing has been persisted", async () => {
-      const { initialState } = await openPersist(new Persist.MemoryKV());
+      const { initialState } = await openPersist(new MemoryKV());
       expect(initialState).toEqual(ZERO_MOCK_STATE);
     });
 
     it("should apply the migrated slices to an empty store", async () => {
-      const { initialState } = await openPersist(new Persist.MemoryKV(), {
+      const { initialState } = await openPersist(new MemoryKV(), {
         migrate: async () => ({ work: { value: "0.56.0" } }),
       });
       expect(initialState?.work.value).toBe("0.56.0");
     });
 
     it("should not consult the migration once the store holds a session", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
@@ -281,7 +282,7 @@ describe("Persist.open", () => {
 
     it("should still open when the migration throws", async () => {
       const onError = vi.fn<(error: Error) => void>();
-      const { initialState } = await openPersist(new Persist.MemoryKV(), {
+      const { initialState } = await openPersist(new MemoryKV(), {
         onError,
         migrate: async () => {
           throw new Error("unreadable legacy store");
@@ -296,7 +297,7 @@ describe("Persist.open", () => {
     });
 
     it("should compose the global, selected Core, and active project partitions", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
@@ -304,7 +305,7 @@ describe("Persist.open", () => {
     });
 
     it("should stop at the global partition when no Core was selected", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       driver.dispatch({ type: "work/edit" }, { ...ZERO_MOCK_STATE, work: STATE.work });
       await vi.waitFor(async () => expect(await store.length()).toBe(GLOBAL_KEYS));
@@ -316,14 +317,14 @@ describe("Persist.open", () => {
 
   describe("partitions", () => {
     it("should write only the global partition when no Core is in context", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       driver.dispatch({ type: "work/edit" }, { ...ZERO_MOCK_STATE, work: STATE.work });
       await vi.waitFor(async () => expect(await store.length()).toBe(GLOBAL_KEYS));
     });
 
     it("should skip the project partition when no project is in context", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, { core: "c1" });
       driver.dispatch(
@@ -336,7 +337,7 @@ describe("Persist.open", () => {
     });
 
     it("should store a window's slices under its own partition", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await editView(driver, WINDOW, "left");
@@ -352,7 +353,7 @@ describe("Persist.open", () => {
     });
 
     it("should compose every window's slices on open", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await editView(driver, WINDOW, "left");
@@ -364,7 +365,7 @@ describe("Persist.open", () => {
     });
 
     it("should delete a window's partition once the window is gone", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await editView(driver, WINDOW, "left");
@@ -411,7 +412,7 @@ describe("Persist.open", () => {
     });
 
     it("should bound a partition to four slots", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
@@ -444,7 +445,7 @@ describe("Persist.open", () => {
     });
 
     it("should leave a partition alone while its slices hold still", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       for (let i = 0; i < 10; i++) await edit(driver, `16.2.${i}`);
@@ -455,7 +456,7 @@ describe("Persist.open", () => {
     });
 
     it("should fall back to the first slot when the slot pointer is corrupt", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
@@ -501,7 +502,7 @@ describe("Persist.open", () => {
     });
 
     it("should scope slices to the context they were written under", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "p1-work");
@@ -514,7 +515,7 @@ describe("Persist.open", () => {
 
   describe("shared fields", () => {
     it("should store a window slice's shared fields in the project partition", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await editView(driver, WINDOW, "left");
@@ -529,7 +530,7 @@ describe("Persist.open", () => {
     });
 
     it("should compose shared fields with every window's entries", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await editLabel(driver, "tagged");
@@ -573,7 +574,7 @@ describe("Persist.open", () => {
     });
 
     it("should scope shared fields to the project they were written under", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await editLabel(driver, "p1-tag");
@@ -589,7 +590,7 @@ describe("Persist.open", () => {
     it("should neither compose nor persist state outside the main window", async () => {
       mocks.engine = "tauri";
       mocks.label = "child-window";
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const driver = await createDriver(store);
       expect(driver.initialState).toBeUndefined();
       const action = { type: "work/edit" };
@@ -601,7 +602,7 @@ describe("Persist.open", () => {
 
   describe("exclude", () => {
     it("should strip excluded state from writes", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       const stripTransient = (s: MockState): MockState => ({
         ...s,
         work: { value: s.work.value },
@@ -614,14 +615,14 @@ describe("Persist.open", () => {
   });
 
   describe("schemas", () => {
-    const createPersisted = async (store: Persist.MemoryKV) => {
+    const createPersisted = async (store: MemoryKV) => {
       const driver = await createDriver(store);
       await enter(driver, CTX);
       await edit(driver, "16.2.0");
     };
 
     it("should drop fields the slice's schema does not declare", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       await createPersisted(store);
       const { initialState } = await openPersist(store, {
         scopes: {
@@ -636,7 +637,7 @@ describe("Persist.open", () => {
     });
 
     it("should fall back to the slice's initial state when the stored bytes fail its schema", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       await createPersisted(store);
       const onError = vi.fn<(error: Error) => void>();
       const { initialState } = await openPersist(store, {
@@ -652,7 +653,7 @@ describe("Persist.open", () => {
     });
 
     it("should leave the other slices of a partition alone when one fails", async () => {
-      const store = new Persist.MemoryKV();
+      const store = new MemoryKV();
       await createPersisted(store);
       const onError = vi.fn<(error: Error) => void>();
       const { initialState } = await openPersist(store, {
@@ -763,7 +764,7 @@ describe("Persist.open", () => {
   describe("scope coverage", () => {
     it("should throw when a slice is in no scope and not transient", async () => {
       await expect(
-        openPersist(new Persist.MemoryKV(), {
+        openPersist(new MemoryKV(), {
           scopes: { ...SCOPES, project: {} },
         }),
       ).rejects.toThrow("work");
@@ -771,7 +772,7 @@ describe("Persist.open", () => {
 
     it("should throw when a slice is declared in two scopes", async () => {
       await expect(
-        openPersist(new Persist.MemoryKV(), {
+        openPersist(new MemoryKV(), {
           scopes: { ...SCOPES, global: { core: selectedZ, work: workZ } },
         }),
       ).rejects.toThrow("more than one scope");
@@ -779,7 +780,7 @@ describe("Persist.open", () => {
 
     it("should accept a slice declared transient instead of scoped", async () => {
       await expect(
-        openPersist(new Persist.MemoryKV(), {
+        openPersist(new MemoryKV(), {
           scopes: { ...SCOPES, project: {}, transient: ["work", "windows"] },
         }),
       ).resolves.toBeDefined();
@@ -789,7 +790,7 @@ describe("Persist.open", () => {
     // would make every window partition unreadable on the next launch.
     it("should throw when a window-scoped schema rejects a bare windows record", async () => {
       await expect(
-        openPersist(new Persist.MemoryKV(), {
+        openPersist(new MemoryKV(), {
           scopes: {
             ...SCOPES,
             window: { view: viewZ.extend({ label: z.string() }) },
@@ -807,21 +808,21 @@ describe("Persist.middleware", () => {
   });
 
   it("should pass the action through to next and return its result", async () => {
-    const driver = await createDriver(new Persist.MemoryKV());
+    const driver = await createDriver(new MemoryKV());
     const action = { type: "any/action" };
     expect(driver.dispatch(action)).toBe(action);
     expect(driver.next).toHaveBeenCalledWith(action);
   });
 
   it("should persist the current store state under the current context", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "edited");
   });
 
   it("should delete a Core's partitions on a purge action", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -844,7 +845,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should purge behind the swap that leaves the purged Core", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -895,7 +896,7 @@ describe("Persist.middleware", () => {
   // production code swallows that failure via .catch, so we suppress the expected log.
   it("should revert the innermost partition one version on a revertState action", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -924,7 +925,7 @@ describe("Persist.middleware", () => {
 
   it("should fall back to the initial state when reverting past the first version", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -935,7 +936,7 @@ describe("Persist.middleware", () => {
 
   it("should revert the window partition before the project partition", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -952,7 +953,7 @@ describe("Persist.middleware", () => {
 
   it("should clear the entire store on a clearState action", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "16.2.0");
@@ -962,7 +963,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should load the target context and dispatch hydrate on a context switch", async () => {
-    const driver = await createDriver(new Persist.MemoryKV());
+    const driver = await createDriver(new MemoryKV());
     await enter(driver, CTX);
     await edit(driver, "c1-work");
     await enter(driver, { core: "c2", project: "p2" });
@@ -980,7 +981,7 @@ describe("Persist.middleware", () => {
 
   it("should end the swap when loading the target context fails", async () => {
     const onError = vi.fn<(error: Error) => void>();
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const failing: Persist.SugaredKV = {
       get: async <V>(key: string): Promise<V | null> => {
         if (key.startsWith("core.c2.")) throw new Error("read failed");
@@ -1006,7 +1007,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should mark the swap window with beginSwap before hydrate", async () => {
-    const driver = await createDriver(new Persist.MemoryKV());
+    const driver = await createDriver(new MemoryKV());
     await enter(driver, CTX);
     const calls = driver.dispatched.mock.calls.map(
       ([action]) => (action as { type: string }).type,
@@ -1020,7 +1021,7 @@ describe("Persist.middleware", () => {
   // A write and a purge used to run on separate chains, so a write in flight could
   // put back the keys the purge had just deleted.
   it("should not write a purged Core's partition back", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     await edit(driver, "doomed");
@@ -1035,7 +1036,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should swap only the project partition when the Core is unchanged", async () => {
-    const driver = await createDriver(new Persist.MemoryKV());
+    const driver = await createDriver(new MemoryKV());
     await enter(driver, CTX);
     await edit(driver, "p1-work");
     await enter(driver, { core: "c1", project: "p2" });
@@ -1051,7 +1052,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should hydrate zero slices for a never-visited context", async () => {
-    const driver = await createDriver(new Persist.MemoryKV());
+    const driver = await createDriver(new MemoryKV());
     await enter(driver, { core: "fresh" });
     expect(driver.dispatched).toHaveBeenCalledWith(
       Persist.hydrate({
@@ -1064,7 +1065,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should adopt the hydrated context instead of re-swapping on hydrate", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store);
     await enter(driver, CTX);
     const swaps = driver.dispatched.mock.calls.length;
@@ -1074,7 +1075,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should discard a stale swap when a newer context switch supersedes it", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const written = await createDriver(store);
     await enter(written, CTX);
     await edit(written, "fresh");
@@ -1126,7 +1127,7 @@ describe("Persist.middleware", () => {
   });
 
   it("should queue a swap's flush behind a write already in flight", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     let armed = false;
     let inFlight = 0;
     let maxInFlight = 0;
@@ -1171,8 +1172,31 @@ describe("Persist.middleware", () => {
     expect(maxInFlight).toBe(1);
   });
 
+  it("should write a change still waiting on the debounce when flushed", async () => {
+    const store = new MemoryKV();
+    const driver = await createDriver(store, { debounceInterval: TimeSpan.hours(1) });
+    driver.dispatch({ type: "a" }, ZERO_MOCK_STATE);
+    await expect(store.length()).resolves.toBe(0);
+    await Persist.flush((action) => driver.dispatch(action));
+    expect(await store.length()).toBe(GLOBAL_KEYS);
+  });
+
+  it("should reject a flush whose write fails", async () => {
+    const store = new FailingKV();
+    const onError = vi.fn<(error: Error) => void>();
+    const driver = await createDriver(store, {
+      onError,
+      debounceInterval: TimeSpan.hours(1),
+    });
+    store.failOn = /./;
+    driver.dispatch({ type: "a" }, ZERO_MOCK_STATE);
+    const flush = Persist.flush((action) => driver.dispatch(action));
+    await expect(flush).rejects.toThrow("failed to write the session state");
+    expect(onError).toHaveBeenCalledWith(new Error("failed to persist state"));
+  });
+
   it("should coalesce rapid dispatches into a single persist when debounced", async () => {
-    const store = new Persist.MemoryKV();
+    const store = new MemoryKV();
     const driver = await createDriver(store, {
       debounceInterval: TimeSpan.milliseconds(250),
     });
@@ -1204,7 +1228,7 @@ describe("Persist.hardClearAndReload", () => {
   });
 
   it("should clear the session store", async () => {
-    const db = Persist.openSugaredKV(Persist.STORE_NAME);
+    const db = Persist.openSugaredKV("session");
     await db.set("global.slot", { slot: 1 });
     Persist.hardClearAndReload();
     await vi.waitFor(async () => {

@@ -7,81 +7,101 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import queue
-import threading
-from collections.abc import Iterator
-from typing import cast
-
 import pytest
 
 import synnax as sy
 from framework.streamer import Streamer
+from framework.tests.fake import Client
 
+CHANNEL = "value"
 WAIT = 5.0
 
 
-class FakeStream:
-    def __init__(self, frames: "queue.Queue[sy.Frame]") -> None:
-        self._frames = frames
-
-    def read(self, timeout: sy.CrudeTimeSpan) -> sy.Frame | None:
-        try:
-            return self._frames.get(timeout=sy.TimeSpan.from_seconds(timeout).seconds)
-        except queue.Empty:
-            return None
-
-    def close(self) -> None:
-        pass
-
-
-class FakeChannels:
-    def retrieve(self, channels: str | list[str]) -> str | list[str]:
-        return channels
-
-
-class FakeClient:
-    """Stands in for the Synnax client: channels always exist and the stream
-    delivers only the frames a test puts on it."""
-
-    def __init__(self) -> None:
-        self.channels = FakeChannels()
-        self.frames: queue.Queue[sy.Frame] = queue.Queue()
-        self.opened = threading.Event()
-
-    def open_streamer(self, channels: list[str]) -> FakeStream:
-        self.opened.set()
-        return FakeStream(self.frames)
+@pytest.fixture
+def client() -> Client:
+    return Client()
 
 
 @pytest.fixture
-def client() -> FakeClient:
-    return FakeClient()
+def streamer(client: Client) -> Streamer:
+    streamer = Streamer(client=client, read_timeout=0.01, log=lambda _: None)
+    streamer.subscribe(CHANNEL)
+    return streamer
 
 
-@pytest.fixture
-def streamer(client: FakeClient) -> Iterator[Streamer]:
-    streamer = Streamer(
-        client=cast(sy.Synnax, client),
-        read_timeout=0.01,
-        log=lambda _: None,
-        set_failed=lambda: None,
-    )
-    streamer.subscribe("a", timeout=WAIT)
-    streamer.start()
-    assert client.opened.wait(WAIT)
-    yield streamer
+def stop(streamer: Streamer) -> None:
     streamer.stop()
     streamer.join(WAIT)
 
 
 class TestStreamer:
-    def test_unseen_channel_has_no_value(self, streamer: Streamer) -> None:
+    def test_unseen_channel_has_no_value(
+        self, client: Client, streamer: Streamer
+    ) -> None:
         """Should read None and not satisfy a wait for 0 before any sample."""
-        assert streamer.read("a") is None
-        assert not streamer.wait_for("a", lambda v: v == 0, 0.1)
+        streamer.start()
+        assert streamer.read(CHANNEL) is None
+        assert not streamer.wait_for(CHANNEL, lambda v: v == 0, 0.1)
+        client.stream.push(sy.Frame({CHANNEL: sy.Series([0.0])}))
+        assert streamer.wait_for(CHANNEL, lambda v: v == 0, WAIT)
+        stop(streamer)
 
-    def test_wait_for_sample(self, streamer: Streamer, client: FakeClient) -> None:
-        """Should satisfy a wait once a matching sample arrives."""
-        client.frames.put(sy.Frame({"a": sy.Series([0], data_type=sy.DataType.INT64)}))
-        assert streamer.wait_for("a", lambda v: v == 0, WAIT)
-        assert streamer.read("a") == 0
+    def test_wait_for_value(self, client: Client, streamer: Streamer) -> None:
+        """Should return True once the value satisfies the predicate."""
+        streamer.start()
+        client.stream.push(sy.Frame({CHANNEL: sy.Series([1.0, 2.0])}))
+        assert streamer.wait_for(CHANNEL, lambda v: v == 2.0, WAIT)
+        assert streamer.read(CHANNEL) == 2.0
+        stop(streamer)
+        assert client.stream.closed
+
+    def test_wait_for_raises_read_error(
+        self, client: Client, streamer: Streamer
+    ) -> None:
+        """Should raise the error that stopped the stream from a waiting call."""
+        streamer.start()
+        client.stream.push(ValueError("decode failed"))
+        with pytest.raises(RuntimeError, match="decode failed") as info:
+            streamer.wait_for(CHANNEL, lambda v: v == 1.0, WAIT)
+        assert isinstance(info.value.__cause__, ValueError)
+        stop(streamer)
+        assert client.stream.closed
+        with pytest.raises(RuntimeError, match="decode failed"):
+            streamer.read(CHANNEL)
+        with pytest.raises(RuntimeError, match="decode failed"):
+            streamer.check()
+
+    def test_raises_open_error(self, client: Client, streamer: Streamer) -> None:
+        """Should raise an error from opening the stream."""
+        client.open_error = ConnectionError("refused")
+        streamer.start()
+        with pytest.raises(RuntimeError, match="refused"):
+            streamer.wait_for(CHANNEL, lambda v: v == 1.0, WAIT)
+
+    def test_raises_close_error(self, client: Client, streamer: Streamer) -> None:
+        """Should raise an error from closing the stream after a stop."""
+        client.stream.close_error = ConnectionError("reset")
+        streamer.start()
+        stop(streamer)
+        with pytest.raises(RuntimeError, match="reset"):
+            streamer.check()
+
+    def test_keeps_read_error_over_close_error(
+        self, client: Client, streamer: Streamer
+    ) -> None:
+        """Should raise the read error that stopped the stream, not a later close
+        error."""
+        client.stream.close_error = ConnectionError("reset")
+        streamer.start()
+        client.stream.push(ValueError("decode failed"))
+        with pytest.raises(RuntimeError, match="decode failed"):
+            streamer.wait_for(CHANNEL, lambda v: v == 1.0, WAIT)
+        stop(streamer)
+        with pytest.raises(RuntimeError, match="decode failed"):
+            streamer.check()
+
+    def test_stop_without_error(self, client: Client, streamer: Streamer) -> None:
+        """Should not report an error after a clean stop."""
+        streamer.start()
+        stop(streamer)
+        streamer.check()
