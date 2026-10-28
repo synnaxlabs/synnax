@@ -233,7 +233,7 @@ describe("project/Splash", () => {
       fireEvent.keyUp(search, { code: "ArrowDown" });
 
       fireEvent.click(screen.getByText("New project"));
-      await screen.findByPlaceholderText("Name");
+      await screen.findByPlaceholderText("Project name");
       fireEvent.keyDown(document.body, { code: "Enter" });
       await act(async () => {});
       expect(Session.Project.selectOptionalSelected(store.getState())).toBeUndefined();
@@ -253,7 +253,7 @@ describe("project/Splash", () => {
       const name = `proj-${id.create()}`;
 
       fireEvent.click(await screen.findByText("New project"));
-      fireEvent.change(await screen.findByPlaceholderText("Name"), {
+      fireEvent.change(await screen.findByPlaceholderText("Project name"), {
         target: { value: name },
       });
       fireEvent.click(screen.getByRole("button", { name: "Create" }));

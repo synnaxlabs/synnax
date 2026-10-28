@@ -92,9 +92,9 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	return w.Set(ctx, toWrite...)
 }
 
-type MergeExistingFunc[K Key, E Entry[K]] = func(ctx Context, creating, existing E) (E, error)
+type mergeExistingFunc[K Key, E Entry[K]] = func(ctx Context, creating, existing E) (E, error)
 
-type onUpdate[K Key, E Entry[K]] []MergeExistingFunc[K, E]
+type onUpdate[K Key, E Entry[K]] []mergeExistingFunc[K, E]
 
 func (o onUpdate[K, E]) exec(ctx Context, creating, existing E) (E, error) {
 	var err error

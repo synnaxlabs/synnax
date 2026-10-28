@@ -162,6 +162,9 @@ on:
 env:
   RELEASE_TAG: ${{ inputs.release_tag }}
 
+permissions:
+  contents: read
+
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -1122,6 +1125,9 @@ jobs:
   build-console-tauri:
     name: Build Console app
     needs: [setup]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
     if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:
@@ -1137,6 +1143,9 @@ jobs:
   build-desktop-tauri:
     name: Build Synnax Desktop
     needs: [setup, build, republish]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
     if: inputs.desktop && needs.setup.outputs.console_tauri_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:

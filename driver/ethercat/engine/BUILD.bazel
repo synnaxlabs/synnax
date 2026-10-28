@@ -54,9 +54,9 @@ cc_test(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/ethercat/engine",
-        "//driver/ethercat/mock",
+        "//driver/ethercat/testutil",
         "//x/cpp/defer",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

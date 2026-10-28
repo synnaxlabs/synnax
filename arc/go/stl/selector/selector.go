@@ -46,7 +46,7 @@ var (
 		doc.Divider(),
 		doc.Code(
 			"arc",
-			"flag -> select{} -> {\n    true: true -> open_valve,\n    false: true -> shut_valve\n}",
+			"flag -> select() -> {\n    true: true -> open_valve,\n    false: true -> shut_valve\n}",
 		),
 	)
 )
