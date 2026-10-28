@@ -37,7 +37,7 @@ export const GET: APIRoute = async (context) => {
     const account = visit.distinctID.startsWith(CLERK_USER)
       ? await portal.directory.account(visit.distinctID)
       : null;
-    const email = account?.email ?? visit.email;
+    const email = account?.email || visit.email;
     if (email != null && isInternal(email)) continue;
     await portal.slack.post(recap(visit, account));
   }
