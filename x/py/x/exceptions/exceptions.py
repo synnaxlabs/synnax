@@ -18,6 +18,12 @@ _TYPE_NONE = "nil"
 _TYPE_UNKNOWN = "unknown"
 
 
+class Error(Exception):
+    """The base of every exception class that Synnax defines, and of every error that
+    the Core sends. Built-in exceptions such as TimeoutError do not inherit it.
+    """
+
+
 class ExceptionPayload(BaseModel):
     """A payload that can be sent between a Freighter client and server, so that
     it can be decoded into a proper exception by the implementing language.
@@ -70,7 +76,7 @@ class Registry:
     def decode(self, pld: ExceptionPayload | None) -> Exception | None:
         """Decodes a payload from the network into an exception.
 
-        :returns: None when pld is None or has type "nil", and a generic Exception
+        :returns: None when pld is None or has type "nil", and a generic Error
             that carries the payload's data when no provider handles its type.
         """
         if pld is None or pld.type == _TYPE_NONE:
@@ -79,10 +85,10 @@ class Registry:
             exc = provider.decode(pld)
             if exc is not None:
                 return exc
-        return Exception(pld.data)
+        return Error(pld.data)
 
 
-class ContiguityError(Exception):
+class ContiguityError(Error):
     """Raised when time-series data is not contiguous."""
 
     TYPE = "sy.contiguity"

@@ -10,13 +10,21 @@
  */
 
 .pluto-modal__header {
+    padding-block: var(--pluto-modal-inset);
+
     .pluto-navbar__content {
         &.pluto--start {
-            padding-left: 2rem;
+            padding-left: var(--pluto-modal-inset);
         }
 
         &.pluto--end {
-            padding-right: 1rem;
+            padding-right: var(--pluto-modal-inset);
         }
+    }
+
+    /* The icon sits 1rem inside its tile's border on every side. */
+    .pluto-icon-tile > .pluto-icon {
+        width: calc(100% - 2rem);
+        height: calc(100% - 2rem);
     }
 }

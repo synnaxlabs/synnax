@@ -184,6 +184,15 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
         )
         self.assert_not_deployed(page, "no device")
 
+    def assert_channel_required(self, page: TaskPage) -> None:
+        """Deploy with no enabled channel; the form blocks it at the channel list."""
+        page.deploy(expect=None)
+        message = page.channel_list_help_text()
+        assert message == "At least one enabled channel is required", (
+            f"Channel list should report a channel is required, got '{message}'"
+        )
+        self.assert_not_deployed(page, "no enabled channel")
+
     def assert_rates_rejected(self, page: TaskPage) -> None:
         """Deploy with a stream rate above the sample rate; the form blocks it."""
         page.set_parameters(sample_rate=10, stream_rate=100)

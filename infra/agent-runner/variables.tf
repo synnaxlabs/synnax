@@ -18,10 +18,28 @@ variable "repository" {
   default     = "synnaxlabs/synnax"
 }
 
-variable "instances" {
-  description = "Size of the pool: the most agent jobs that run at once"
-  type        = number
-  default     = 2
+# A seat is one Claude Max or ChatGPT login. Each runner on a seat runs one job at a
+# time, and a Claude seat adds one runner reserved for Label - Classify.
+variable "seats" {
+  description = "Agent CLI logins by name, one instance each"
+  type = map(object({
+    agent   = string
+    runners = optional(number, 3)
+  }))
+  default = {
+    claude-1 = { agent = "claude" }
+  }
+  validation {
+    condition = alltrue([
+      for name, s in var.seats :
+      can(regex("^[a-z0-9-]+$", name)) && contains(["claude", "codex"], s.agent) &&
+      s.runners > 0 && floor(s.runners) == s.runners
+    ])
+    error_message = join(" ", [
+      "Seat names use a-z, 0-9, and dashes. Agents are claude or codex.",
+      "Runner counts are positive whole numbers.",
+    ])
+  }
 }
 
 variable "zones" {
@@ -31,13 +49,14 @@ variable "zones" {
 }
 
 variable "instance_type" {
-  type    = string
-  default = "c7i.4xlarge"
+  type = string
+  # Three agents build at once, so memory runs out before CPU.
+  default = "m7i.4xlarge"
 }
 
 variable "disk_gb" {
   type    = number
-  default = 250
+  default = 400
 }
 
 variable "idle_minutes" {
@@ -47,7 +66,7 @@ variable "idle_minutes" {
 }
 
 output "instance_ids" {
-  value = aws_instance.runner[*].id
+  value = { for name, i in aws_instance.seat : name => i.id }
 }
 
 output "start_role_arn" {
