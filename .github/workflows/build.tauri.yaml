@@ -45,9 +45,15 @@ on:
         type: string
         default: stable
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
+    # gh release upload adds the bundles to the draft release.
+    permissions:
+      contents: write
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
