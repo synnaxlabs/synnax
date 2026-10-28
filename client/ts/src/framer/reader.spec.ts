@@ -493,7 +493,7 @@ describe("Reader", () => {
       await writer1.commit();
       await writer1.close();
       const writer2 = await client.openWriter({
-        start: TimeStamp.nanoseconds(15),
+        start: TimeStamp.nanoseconds(13),
         channels: [index2.key, data2.key],
       });
       await writer2.write({
