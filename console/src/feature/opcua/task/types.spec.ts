@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
+import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 
 describe("OPC UA Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
@@ -57,7 +58,7 @@ describe("OPC UA Write Task Types", () => {
 });
 
 describe("OPC UA Read Task Config Validation", () => {
-  const createConfig = (channels: Partial<OPCUA.Task.ReadChannel>[]): unknown => ({
+  const createConfig = (channels: Partial<OPCUA.Task.ReadChannel>[]) => ({
     device: "dev",
     arrayMode: false,
     sampleRate: 50,
@@ -105,11 +106,9 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject an array size larger than the sample rate", () => {
     const config = {
-      device: "dev",
+      ...createConfig([{}]),
       arrayMode: true,
-      sampleRate: 50,
       arraySize: 100,
-      channels: [],
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
@@ -122,11 +121,9 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject a non-positive array size", () => {
     const config = {
-      device: "dev",
+      ...createConfig([{}]),
       arrayMode: true,
-      sampleRate: 50,
       arraySize: 0,
-      channels: [],
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
@@ -139,7 +136,7 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject a stream rate outside of (0, 10000]", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse({
-      ...(createConfig([{}]) as object),
+      ...createConfig([{}]),
       streamRate: 20000,
     });
     expect(result.success).toBe(false);
@@ -187,27 +184,34 @@ describe("Scanned Nodes", () => {
           nodeId: "ns=2;s=A",
         },
       ],
-      connection: OPCUA.Device.ZERO_PROPERTIES.connection,
     });
-    expect(result?.channels[0].key).toBe("ns=2;s=A");
+    expect(result).toMatchObject({ channels: [{ key: "ns=2;s=A" }] });
   });
 });
 
-describe("draft configs", () => {
-  // Drafts persist server-side before configuration, so the shape schema must
-  // accept every zero config; retrieve parses with it.
-  it("should accept the zero read config", () => {
-    expect(
-      OPCUA.Task.READ_SCHEMAS.config.safeParse(OPCUA.Task.READ_SCHEMAS.config.parse({}))
-        .success,
-    ).toBe(true);
+describe("Scan command replies", () => {
+  it("should parse a certificate reply", () => {
+    const reply = { current: SERVER_CERTIFICATE, next: SERVER_CERTIFICATE };
+    expect(OPCUA.Device.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
   });
-  it("should accept the zero write config", () => {
-    expect(
-      z.validate(
-        OPCUA.Task.WRITE_SCHEMAS.config,
-        OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
-      ),
-    ).toBe(true);
+
+  it("should parse a failed test connection reply with the server certificate", () => {
+    const reply = { serverCertificate: SERVER_CERTIFICATE };
+    expect(OPCUA.Device.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+  });
+});
+
+describe("deploy configs", () => {
+  it.each([
+    ["read", OPCUA.Task.READ_SCHEMAS.config, OPCUA.Task.deployReadConfigZ],
+    ["write", OPCUA.Task.WRITE_SCHEMAS.config, OPCUA.Task.deployWriteConfigZ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
   });
 });

@@ -13,17 +13,17 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/modbus/device/device.h"
-#include "driver/modbus/mock/slave.h"
+#include "driver/modbus/testutil/slave.h"
 
 namespace driver::modbus::device {
 TEST(ManagerTest, AcquireAlwaysCreatesNewConnection) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1520;
-    mock::Slave slave(slave_config);
+    testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -39,12 +39,12 @@ TEST(ManagerTest, AcquireAlwaysCreatesNewConnection) {
 }
 
 TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
-    std::vector<std::unique_ptr<mock::Slave>> slaves;
+    std::vector<std::unique_ptr<testutil::Slave>> slaves;
     for (int i = 0; i < 4; i++) {
-        mock::SlaveConfig config;
+        testutil::SlaveConfig config;
         config.host = "127.0.0.1";
         config.port = (1510 + i);
-        auto slave = std::make_unique<mock::Slave>(config);
+        auto slave = std::make_unique<testutil::Slave>(config);
         ASSERT_NIL(slave->start());
         slaves.push_back(std::move(slave));
     }
@@ -92,13 +92,13 @@ TEST(ManagerTest, AcquireFailsWhenServerNotRunning) {
 }
 
 TEST(DeviceTest, ReadCoilsWorks) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1543;
     slave_config.coils[0] = 1;
     slave_config.coils[1] = 0;
     slave_config.coils[2] = 1;
-    mock::Slave slave(slave_config);
+    testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -118,13 +118,13 @@ TEST(DeviceTest, ReadCoilsWorks) {
 }
 
 TEST(DeviceTest, ReadDiscreteInputsWorks) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1549;
     slave_config.discrete_inputs[0] = 1;
     slave_config.discrete_inputs[1] = 1;
     slave_config.discrete_inputs[2] = 0;
-    mock::Slave slave(slave_config);
+    testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -144,12 +144,12 @@ TEST(DeviceTest, ReadDiscreteInputsWorks) {
 }
 
 TEST(DeviceTest, ReadHoldingRegistersWorks) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1544;
     slave_config.holding_registers[0] = static_cast<uint16_t>(0x1234);
     slave_config.holding_registers[1] = static_cast<uint16_t>(0x5678);
-    mock::Slave slave(slave_config);
+    testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -168,12 +168,12 @@ TEST(DeviceTest, ReadHoldingRegistersWorks) {
 }
 
 TEST(DeviceTest, ReadInputRegistersWorks) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1550;
     slave_config.input_registers[0] = static_cast<uint16_t>(0xAAAA);
     slave_config.input_registers[1] = static_cast<uint16_t>(0xBBBB);
-    mock::Slave slave(slave_config);
+    testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -192,12 +192,12 @@ TEST(DeviceTest, ReadInputRegistersWorks) {
 }
 
 TEST(DeviceTest, WriteBitsWorks) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1545;
     slave_config.coils[0] = 0;
     slave_config.coils[1] = 0;
-    mock::Slave slave(slave_config);
+    testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -219,12 +219,12 @@ TEST(DeviceTest, WriteBitsWorks) {
 }
 
 TEST(DeviceTest, WriteRegistersWorks) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1546;
     slave_config.holding_registers[0] = static_cast<uint16_t>(0);
     slave_config.holding_registers[1] = static_cast<uint16_t>(0);
-    mock::Slave slave(slave_config);
+    testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -246,11 +246,11 @@ TEST(DeviceTest, WriteRegistersWorks) {
 }
 
 TEST(DeviceTest, ServerStopsWhileConnected) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1547;
     slave_config.coils[0] = 1;
-    auto slave = std::make_unique<mock::Slave>(slave_config);
+    auto slave = std::make_unique<testutil::Slave>(slave_config);
     ASSERT_NIL(slave->start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -270,7 +270,7 @@ TEST(DeviceTest, ServerStopsWhileConnected) {
 }
 
 TEST(DeviceTest, ReconnectAfterServerRestart) {
-    mock::SlaveConfig slave_config;
+    testutil::SlaveConfig slave_config;
     slave_config.host = "127.0.0.1";
     slave_config.port = 1548;
     slave_config.coils[0] = 1;
@@ -279,7 +279,7 @@ TEST(DeviceTest, ReconnectAfterServerRestart) {
     ConnectionConfig config{"127.0.0.1", 1548};
 
     {
-        mock::Slave slave(slave_config);
+        testutil::Slave slave(slave_config);
         ASSERT_NIL(slave.start());
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -296,7 +296,7 @@ TEST(DeviceTest, ReconnectAfterServerRestart) {
 
     {
         slave_config.coils[0] = 0;
-        mock::Slave slave(slave_config);
+        testutil::Slave slave(slave_config);
         ASSERT_NIL(slave.start());
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
 

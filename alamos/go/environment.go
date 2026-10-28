@@ -19,7 +19,7 @@ const (
 
 type EnvironmentFilter func(env Environment, key string) bool
 
-func ThresholdEnvFilter(level Environment) EnvironmentFilter {
+func thresholdEnvFilter(level Environment) EnvironmentFilter {
 	return func(l Environment, _ string) bool {
 		return l >= level
 	}

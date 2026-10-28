@@ -15,6 +15,7 @@ import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
 import { POST as renewRoute } from "@/pages/api/desktop/renew";
 import { POST as desktopUnlinkRoute } from "@/pages/api/desktop/unlink";
+import { POST as handoffRoute } from "@/pages/api/handoff";
 import { pipeline } from "@/pipeline";
 import { activation } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
@@ -108,6 +109,18 @@ describe("pipeline", () => {
         expect(res.headers.get("access-control-allow-origin")).toBe("*");
         expect(await body(res)).toHaveProperty("key");
       });
+
+    it("should hand a license key to a Console on another origin", async () => {
+      const res = await send(handoffRoute, {
+        path: "/api/handoff",
+        headers: {
+          authorization: `Bearer ${crypto.randomUUID()}`,
+          origin: "http://localhost:9090",
+          "sec-fetch-site": "cross-site",
+        },
+      });
+      expect(res.status).toBe(204);
+    });
 
     it("should log out from the Desktop app's origin", async () => {
       const { secret } = await linkMachine();

@@ -272,6 +272,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           )}
           <PlatformForm.KeyValueEditor
             path={`${path}.queryParams`}
+            resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
             keyPlaceholder="limit"
@@ -279,6 +280,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.headers`}
+            resourceName="header"
             label="Headers"
             keyField="name"
             keyPlaceholder="Content-Type"
@@ -325,6 +327,7 @@ const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey })
         <PForm.Section title="Enum mapping">
           <PlatformForm.KeyValueEditor
             path={`${path}.enumValues`}
+            resourceName="mapping"
             keyField="label"
             keyPlaceholder="String (e.g. ON)"
             valueType="number"

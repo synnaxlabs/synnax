@@ -10,19 +10,21 @@
 package writer
 
 import (
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/address"
 )
 
 // Network backs the in-memory writer transport for a cluster of nodes.
 type Network struct {
-	net *mock.Network[writer.Request, writer.Response]
+	net *freightertestutil.Network[writer.Request, writer.Response]
 }
 
 // NewNetwork constructs a Network with a freshly initialized writer network.
 func NewNetwork() *Network {
-	return &Network{net: mock.NewNetwork[writer.Request, writer.Response]()}
+	return &Network{
+		net: freightertestutil.NewNetwork[writer.Request, writer.Response](),
+	}
 }
 
 // New provisions an in-memory writer.Transport whose server is hosted at addr. buffers
