@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	authv0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -26,9 +27,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
+	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var _ = Describe("Layer", func() {
@@ -90,6 +93,31 @@ var _ = Describe("Layer", func() {
 			Expect(third.Auth.Authenticate(ctx, token)).Error().
 				To(MatchError(auth.ErrInvalidToken))
 			Expect(third.Close()).To(Succeed())
+		},
+	)
+
+	It(
+		"Should log in a user whose password a Core before 0.59 stored",
+		func(ctx SpecContext) {
+			node := mock.NewNode(ctx)
+			alice := userv0.User{Key: uuid.New(), Username: "alice"}
+			hash := MustSucceed(bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost))
+			Expect(gorp.WrapWriter[string, ontology.Resource](node.DB).
+				Set(ctx, ontology.Resource{ID: alice.OntologyID()})).To(Succeed())
+			legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))
+			Expect(gorp.WrapWriter[userv0.Key, userv0.User](legacyDB).Set(ctx, alice)).
+				To(Succeed())
+			Expect(gorp.WrapWriter[string, authv0.SecureCredentials](legacyDB).Set(
+				ctx,
+				authv0.SecureCredentials{Username: "alice", Password: hash},
+			)).To(Succeed())
+			layer := MustOpen(svcmock.OpenLayer(ctx, node))
+			session, _ := MustSucceed2(layer.Auth.Login(ctx, auth.Proof{
+				Variant: auth.PasswordProof{
+					Credentials: auth.Credentials{Username: "alice", Password: "p"},
+				},
+			}))
+			Expect(session.Subject).To(Equal(alice.OntologyID()))
 		},
 	)
 
