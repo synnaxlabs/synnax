@@ -8,8 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from botocore.exceptions import ClientError
 
-from common import instance_for, instance_prefix
+from common import instance_for, instance_prefix, secret
 
 
 class TestInstanceFor:
@@ -29,3 +30,43 @@ class TestInstanceFor:
 
     def test_should_ignore_runners_without_an_instance(self) -> None:
         assert instance_prefix("github-hosted") is None
+
+
+class SSM:
+    """Stands in for the SSM client: serves parameters and records each request."""
+
+    def __init__(self, parameters: dict[str, str]) -> None:
+        self.parameters = parameters
+        self.requests: list[tuple[str, bool]] = []
+
+    def get_parameter(self, *, Name: str, WithDecryption: bool = False) -> dict:
+        self.requests.append((Name, WithDecryption))
+        if Name not in self.parameters:
+            raise ClientError({"Error": {"Code": "ParameterNotFound"}}, "GetParameter")
+        return {"Parameter": {"Value": self.parameters[Name]}}
+
+
+@pytest.fixture
+def ssm(monkeypatch: pytest.MonkeyPatch) -> SSM:
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.delenv("SYNNAX_PASSWORD", raising=False)
+    return SSM({"/runners/gh-token": "stored"})
+
+
+class TestSecret:
+    """Tests for reading a secret from the environment or Parameter Store."""
+
+    def test_should_prefer_the_environment(
+        self, ssm: SSM, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("GH_TOKEN", "from-env")
+        assert secret("GH_TOKEN", ssm) == "from-env"
+        assert ssm.requests == []
+
+    def test_should_read_the_decrypted_parameter(self, ssm: SSM) -> None:
+        assert secret("GH_TOKEN", ssm) == "stored"
+        assert ssm.requests == [("/runners/gh-token", True)]
+
+    def test_should_raise_when_the_parameter_is_missing(self, ssm: SSM) -> None:
+        with pytest.raises(ClientError):
+            secret("SYNNAX_PASSWORD", ssm)

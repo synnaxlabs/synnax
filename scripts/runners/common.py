@@ -11,10 +11,13 @@
 creation, quiet teardown, and connection arguments."""
 
 import argparse
+import os
 import re
 import signal
-from typing import Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
+import boto3
 import numpy as np
 import synnax as sy
 from pydantic import BaseModel
@@ -272,11 +275,34 @@ def seconds(raw: str) -> sy.TimeSpan:
     return sy.TimeSpan.from_seconds(float(raw))
 
 
+class ParameterStore(Protocol):
+    def get_parameter(
+        self, *, Name: str, WithDecryption: bool = ...
+    ) -> Mapping[str, Any]: ...
+
+
+def parameter_store() -> ParameterStore:
+    """The us-east-1 Parameter Store, from the boto3 credential chain."""
+    return boto3.client("ssm", region_name="us-east-1")
+
+
+def secret(name: str, store: ParameterStore) -> str:
+    """The environment variable name, else the SecureString parameter /runners/<name>
+    in store, lowercased with dashes (GH_TOKEN reads /runners/gh-token). Raises when
+    the parameter does not exist."""
+    if value := os.environ.get(name):
+        return value
+    path = "/runners/" + name.lower().replace("_", "-")
+    return str(
+        store.get_parameter(Name=path, WithDecryption=True)["Parameter"]["Value"]
+    )
+
+
 def add_connection_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--host", default="localhost")
     p.add_argument("--port", type=int, default=9090)
     p.add_argument("--username", default="synnax")
-    p.add_argument("--password", default="seldon")
+    p.add_argument("--password", help="defaults to the SYNNAX_PASSWORD secret")
     p.add_argument("--secure", action="store_true", help="connect over TLS")
     p.add_argument(
         "--create-channels",
@@ -285,11 +311,11 @@ def add_connection_args(p: argparse.ArgumentParser) -> None:
     )
 
 
-def connect(args: argparse.Namespace) -> sy.Synnax:
+def connect(args: argparse.Namespace, store: ParameterStore) -> sy.Synnax:
     return sy.Synnax(
         host=args.host,
         port=args.port,
         username=args.username,
-        password=args.password,
+        password=args.password or secret("SYNNAX_PASSWORD", store),
         secure=args.secure,
     )
