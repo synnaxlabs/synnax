@@ -1740,7 +1740,8 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 				})
 
-			DescribeTable("Should bind a hand-written type apart from a generated import",
+			DescribeTable(
+				"Should bind a hand-written type apart from a generated import",
 				func(ctx SpecContext, name, imported, field string) {
 					source := `
 						@py output "x/py/x/color"
