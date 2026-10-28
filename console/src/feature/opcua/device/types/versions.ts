@@ -7,19 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package clustermock_test
-
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-)
-
-func TestClustermock(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cluster ClusterMock Suite", SuiteConfig())
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
+export * as v0 from "@/feature/opcua/device/types/v0";
+export * as v1 from "@/feature/opcua/device/types/v1";

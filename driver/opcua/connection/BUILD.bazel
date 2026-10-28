@@ -43,7 +43,7 @@ cc_test(
     deps = [
         ":connection",
         "//driver/opcua/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
