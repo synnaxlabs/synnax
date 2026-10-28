@@ -325,7 +325,6 @@
     ],
     "site/www/src/components/Header.astro": [
       "pluto-btn",
-      "pluto-btn--filled",
       "pluto-btn--text",
       "pluto-icon"
     ],

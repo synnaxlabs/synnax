@@ -7,17 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package control
+package control_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	grpccontrol "github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
 	xcontrol "github.com/synnaxlabs/x/control"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+type retrieveServer = grpc.UnaryServer[
+	control.RetrieveRequest,
+	*grpccontrol.RetrieveRequest,
+	control.RetrieveResponse,
+	*grpccontrol.RetrieveResponse,
+]
 
 var states = []control.State{
 	{
@@ -33,8 +42,14 @@ var states = []control.State{
 }
 
 var _ = Describe("gRPC Control Translators", func() {
+	var (
+		transport api.Transport
+		bindable  = grpccontrol.New(&transport)
+		server    = transport.ControlRetrieve.(*retrieveServer)
+	)
+
 	Describe("RetrieveRequest", func() {
-		t := retrieveRequestTranslator{}
+		t := server.RequestTranslator
 		It("Should round-trip the channel keys", func(ctx SpecContext) {
 			msg := control.RetrieveRequest{Keys: channel.Keys{
 				channel.NewKey(1, 2),
@@ -54,7 +69,7 @@ var _ = Describe("gRPC Control Translators", func() {
 	})
 
 	Describe("RetrieveResponse", func() {
-		t := retrieveResponseTranslator{}
+		t := server.ResponseTranslator
 		It("Should round-trip the states", func(ctx SpecContext) {
 			msg := control.RetrieveResponse{States: states}
 			fwd := MustSucceed(t.Forward(ctx, msg))
@@ -76,12 +91,7 @@ var _ = Describe("gRPC Control Translators", func() {
 
 	Describe("New", func() {
 		It("Should bind the retrieve server onto the API transport", func() {
-			var transport api.Transport
-			bindable := New(&transport)
-			Expect(bindable).ToNot(BeNil())
-			Expect(transport.ControlRetrieve).To(
-				BeIdenticalTo(bindable.(*retrieveServer)),
-			)
+			Expect(bindable).To(BeIdenticalTo(server))
 		})
 	})
 })
