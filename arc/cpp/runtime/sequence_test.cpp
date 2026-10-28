@@ -39,7 +39,7 @@ template<typename T>
 T last(const x::telem::Frame &fr, const types::ChannelKey key) {
     const x::telem::Series *found = nullptr;
     for (const auto &[ch, series]: fr)
-        if (ch == key && series.size() > 0) found = &series;
+        if (ch == key && !series.empty()) found = &series;
     if (found == nullptr) {
         ADD_FAILURE() << "channel " << key << " not written";
         return T{};
@@ -405,11 +405,26 @@ void assert_last(
     const std::string &arc_type,
     const double expected
 ) {
-    if (arc_type == "i8") return expect_contains<std::int8_t>(s, expected);
-    if (arc_type == "i16") return expect_contains<std::int16_t>(s, expected);
-    if (arc_type == "i32") return expect_contains<std::int32_t>(s, expected);
-    if (arc_type == "i64") return expect_contains<std::int64_t>(s, expected);
-    if (arc_type == "f32") return expect_contains<float>(s, expected);
+    if (arc_type == "i8") {
+        expect_contains<std::int8_t>(s, expected);
+        return;
+    }
+    if (arc_type == "i16") {
+        expect_contains<std::int16_t>(s, expected);
+        return;
+    }
+    if (arc_type == "i32") {
+        expect_contains<std::int32_t>(s, expected);
+        return;
+    }
+    if (arc_type == "i64") {
+        expect_contains<std::int64_t>(s, expected);
+        return;
+    }
+    if (arc_type == "f32") {
+        expect_contains<float>(s, expected);
+        return;
+    }
     expect_contains<double>(s, expected);
 }
 

@@ -20,7 +20,7 @@ import (
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/recovery"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -32,8 +32,8 @@ const panicID = -1
 
 var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 	var (
-		unaryClient  freighter.UnaryClient[test.Request, test.Response]
-		streamClient freighter.StreamClient[test.Request, test.Response]
+		unaryClient  freighter.UnaryClient[testutil.Request, testutil.Response]
+		streamClient freighter.StreamClient[testutil.Request, testutil.Response]
 		addr         address.Address
 	)
 
@@ -42,8 +42,8 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 		ins := alamos.Instrumentation{}
 		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 			uServer := &fgrpc.UnaryServer[
-				test.Request, *v1.Request,
-				test.Response, *v1.Response,
+				testutil.Request, *v1.Request,
+				testutil.Response, *v1.Response,
 			]{
 				RequestTranslator:  requestTranslator{},
 				ResponseTranslator: responseTranslator{},
@@ -51,11 +51,11 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				Internal:           true,
 			}
 			uServer.BindHandler(
-				func(_ context.Context, req test.Request) (test.Response, error) {
+				func(_ context.Context, req testutil.Request) (testutil.Response, error) {
 					if req.ID == panicID {
 						panic("boom in unary handler")
 					}
-					return test.Response(req), nil
+					return testutil.Response(req), nil
 				},
 			)
 			uServer.BindTo(reg)
@@ -68,7 +68,7 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 			}
 			sServer.BindHandler(func(
 				_ context.Context,
-				server freighter.ServerStream[test.Request, test.Response],
+				server freighter.ServerStream[testutil.Request, testutil.Response],
 			) error {
 				req, err := server.Receive()
 				if err != nil {
@@ -77,13 +77,15 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				if req.ID == panicID {
 					panic("boom in stream handler")
 				}
-				return server.Send(test.Response{ID: req.ID + 1, Message: req.Message})
+				return server.Send(
+					testutil.Response{ID: req.ID + 1, Message: req.Message},
+				)
 			})
 			sServer.BindTo(reg)
 
 			unaryClient = &fgrpc.UnaryClient[
-				test.Request, *v1.Request,
-				test.Response, *v1.Response,
+				testutil.Request, *v1.Request,
+				testutil.Response, *v1.Response,
 			]{
 				RequestTranslator:  requestTranslator{},
 				ResponseTranslator: responseTranslator{},
@@ -98,8 +100,8 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 				},
 			}
 			streamClient = &fgrpc.StreamClient[
-				test.Request, *v1.Request,
-				test.Response, *v1.Response,
+				testutil.Request, *v1.Request,
+				testutil.Response, *v1.Response,
 			]{
 				RequestTranslator:  requestTranslator{},
 				ResponseTranslator: responseTranslator{},
@@ -120,29 +122,29 @@ var _ = Describe("Recovery (wire)", Ordered, Serial, func() {
 
 	It("should contain a unary handler panic and keep serving", func(ctx SpecContext) {
 		By("surfacing the panic to the client as a generic error")
-		Expect(unaryClient.Send(ctx, addr, test.Request{ID: panicID})).
+		Expect(unaryClient.Send(ctx, addr, testutil.Request{ID: panicID})).
 			Error().To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
 
 		By("continuing to serve subsequent requests")
 		Expect(
 			MustSucceed(
-				unaryClient.Send(ctx, addr, test.Request{ID: 7, Message: "ok"}),
+				unaryClient.Send(ctx, addr, testutil.Request{ID: 7, Message: "ok"}),
 			),
 		).
-			To(Equal(test.Response{ID: 7, Message: "ok"}))
+			To(Equal(testutil.Response{ID: 7, Message: "ok"}))
 	})
 
 	It("should contain a stream handler panic and keep serving", func(ctx SpecContext) {
 		By("surfacing the panic on the panicking stream")
 		panicStream := MustSucceed(streamClient.Stream(ctx, addr))
-		Expect(panicStream.Send(test.Request{ID: panicID})).To(Succeed())
+		Expect(panicStream.Send(testutil.Request{ID: panicID})).To(Succeed())
 		Expect(panicStream.Receive()).
 			Error().To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
 
 		By("continuing to serve new streams")
 		okStream := MustSucceed(streamClient.Stream(ctx, addr))
-		Expect(okStream.Send(test.Request{ID: 5, Message: "ok"})).To(Succeed())
+		Expect(okStream.Send(testutil.Request{ID: 5, Message: "ok"})).To(Succeed())
 		Expect(MustSucceed(okStream.Receive())).
-			To(Equal(test.Response{ID: 6, Message: "ok"}))
+			To(Equal(testutil.Response{ID: 6, Message: "ok"}))
 	})
 })

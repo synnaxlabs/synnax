@@ -255,6 +255,161 @@ Entry struct {
 				"schemas/synnax/channel.oracle", "channel")
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
+
+		Describe("Redeclaring types over aliases", func() {
+			var table *resolution.Table
+
+			BeforeEach(func(ctx SpecContext) {
+				table = resolution.NewTable()
+				diag := analyzer.AnalyzeSeeded(ctx, `
+Size enum {
+	small = "small"
+	large = "large"
+}
+
+Method enum {
+	password = "password"
+}
+
+Labeled struct {
+	label  string
+	hidden bool
+}
+
+Valve struct extends Labeled {
+	open bool
+}
+
+Credentials struct {
+	username string
+}
+
+Edge union on variant {
+	pipe Labeled
+}
+`,
+					"schemas/synnax/versions/widget/v0.oracle", "v0", loader, table,
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			})
+
+			analyzeV1 := func(ctx SpecContext, decls string) *diagnostics.Files {
+				return analyzer.AnalyzeSeeded(ctx, `
+Size = v0.Size
+
+Method = v0.Method
+
+Labeled = v0.Labeled
+
+Valve = v0.Valve
+
+Credentials = v0.Credentials
+
+Edge = v0.Edge
+`+decls,
+					"schemas/synnax/versions/widget/v1.oracle", "v1", loader, table,
+				)
+			}
+
+			fieldNames := func(fields []resolution.Field) []string {
+				names := make([]string, len(fields))
+				for i, f := range fields {
+					names[i] = f.Name
+				}
+				return names
+			}
+
+			It("Should accept aliased variants, bases, enums, and defaults", func(
+				ctx SpecContext,
+			) {
+				diag := analyzeV1(ctx, `
+Wide enum extends Size {
+	huge = "huge"
+}
+
+Panel struct extends Labeled {
+	size Size = large
+	hidden?
+}
+
+Node union on variant {
+	valve Valve
+	tank extends Labeled {
+		-hidden
+		size Size = small
+	}
+}
+
+Element union on variant extends Node, Edge {}
+
+Shape union on kind extends Labeled {
+	circle Credentials
+}
+
+Proof union on method Method {
+	password Credentials
+}
+`)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				panel := table.MustGet("v1.Panel")
+				Expect(fieldNames(resolution.UnifiedFields(panel, table))).To(
+					Equal([]string{"label", "size", "hidden"}),
+				)
+				Expect(findField(
+					resolution.UnifiedFields(panel, table), "hidden",
+				).Type.Name).To(Equal("bool"))
+				node := table.MustGet("v1.Node")
+				form := node.Form.(resolution.UnionForm)
+				valve := MustBeOk(form.Variant("valve"))
+				Expect(fieldNames(resolution.UnifiedVariantFields(node, valve, table))).
+					To(Equal([]string{"label", "hidden", "open"}))
+				tank := MustBeOk(form.Variant("tank"))
+				Expect(fieldNames(resolution.UnifiedVariantFields(node, tank, table))).
+					To(Equal([]string{"label", "size"}))
+				element := table.MustGet("v1.Element").Form.(resolution.UnionForm)
+				Expect(element.Variants).To(HaveLen(3))
+				Expect(
+					MustBeOk(element.Variant("pipe")).Type.Name,
+				).To(Equal("v0.Labeled"))
+				shape := table.MustGet("v1.Shape")
+				circle := MustBeOk(shape.Form.(resolution.UnionForm).Variant("circle"))
+				Expect(
+					fieldNames(resolution.UnifiedVariantFields(shape, circle, table)),
+				).
+					To(Equal([]string{"label", "hidden", "username"}))
+			})
+
+			DescribeTable("Should run kind checks through aliases",
+				func(ctx SpecContext, decls, message string) {
+					diag := analyzeV1(ctx, decls)
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.String()).To(ContainSubstring(message))
+				},
+				Entry("a union default whose aliased payload has a required field", `
+Panel struct {
+	edge Edge = pipe
+}
+`, `defaults to union variant "pipe", whose field "label" is required`),
+				Entry("a variant omitting a field it does not inherit", `
+Node union on variant {
+	tank extends Labeled {
+		-open
+	}
+}
+`, `cannot omit field "open", which the variant does not inherit`),
+				Entry("an enum extending an aliased struct", `
+Wide enum extends Labeled {}
+`, "which is not an enum"),
+				Entry("a struct extending an aliased enum", `
+Panel struct extends Size {}
+`, "extends non-struct type"),
+				Entry("a union variant naming an aliased enum", `
+Node union on variant {
+	size Size
+}
+`, "must reference a struct type"),
+			)
+		})
 	})
 
 	Describe("ImEx marker", func() {
@@ -268,6 +423,35 @@ Entry struct {
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
+		})
+
+		It("Should accept @go imex body", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex body
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		It("Should error when @go imex carries an unknown argument", func(
+			ctx SpecContext,
+		) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go imex bodies
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring(
+				"malformed @go imex; the marker takes no argument or body",
+			))
 		})
 
 		It("Should error when @go imex carries arguments", func(ctx SpecContext) {
@@ -381,6 +565,92 @@ Entry struct {
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
+
+		It(
+			"Should reject a reference to a type with no output in the language",
+			func(ctx SpecContext) {
+				loader.Add("schemas/x/notation", `
+				@ts output "ts/notation"
+				Notation enum {
+					standard = "standard"
+				}
+			`)
+				source := `
+				import "schemas/x/notation"
+				@py output "py/out"
+				Entry struct {
+					notation notation.Notation
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Entry generates for py but field notation references " +
+						"notation.Notation, which has no py output",
+				))
+			},
+		)
+
+		It(
+			"Should reject an alias of a type with no output in the language",
+			func(ctx SpecContext) {
+				loader.Add("schemas/x/notation", `
+				@ts output "ts/notation"
+				Notation enum {
+					standard = "standard"
+				}
+			`)
+				source := `
+				import "schemas/x/notation"
+				@py output "py/out"
+				Mode = notation.Notation
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.String()).To(ContainSubstring(
+					"test.Mode generates for py but its alias target references " +
+						"notation.Notation, which has no py output",
+				))
+			},
+		)
+
+		It(
+			"Should allow an enum placed beside a same-file struct's output",
+			func(ctx SpecContext) {
+				source := `
+				Mode enum {
+					fast = "fast"
+				}
+				Entry struct {
+					mode Mode
+					@py output "py/out"
+				}
+			`
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
+
+		It(
+			"Should allow a reference to a version-file type",
+			func(ctx SpecContext) {
+				loader.Add("schemas/x/versions/color/v0", "Color = string\n")
+				source := `
+				import "schemas/x/versions/color/v0"
+				@go output "out"
+				Label struct {
+					color color.Color
+				}
+			`
+				diag := analyzer.AnalyzeSeeded(
+					ctx,
+					source,
+					"schemas/synnax/versions/label/v0.oracle",
+					"label",
+					loader,
+					resolution.NewTable(),
+				)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+			},
+		)
 
 		It(
 			"Should error when every type omits a declared output",
@@ -1101,7 +1371,9 @@ Entry struct {
 				Range struct {}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag).To(HaveOccurred())
+			Expect(
+				diag,
+			).To(MatchError(ContainSubstring("failed to import schema/core")))
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -1239,7 +1511,9 @@ Entry struct {
 				Range struct {}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag).To(HaveOccurred())
+			Expect(
+				diag,
+			).To(MatchError(ContainSubstring("duplicate type definition")))
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -1254,7 +1528,9 @@ Entry struct {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag).To(HaveOccurred())
+			Expect(
+				diag,
+			).To(MatchError(ContainSubstring("duplicate type definition: test.State")))
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -2620,6 +2896,47 @@ Entry struct {
 				Expect(form.TypeParams[0].Default).NotTo(BeNil())
 				Expect(form.TypeParams[0].Default.Name).To(Equal("string"))
 			},
+		)
+
+		DescribeTable(
+			"Should bind an omitted optional type argument to nil",
+			func(ctx SpecContext, ref string, want []string) {
+				source := `
+				Box struct<T?> {
+					value T?
+				}
+				Pair struct<A?, B?> {
+					a A?
+					b B?
+				}
+				Task struct<T?, C = string> {
+					value  T?
+					config C
+				}
+				Crate<T?> = Box<T>
+
+				Wrapper struct {
+					value ` + ref + `
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				form := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
+				var got []string
+				for _, arg := range findField(form.Fields, "value").Type.TypeArgs {
+					got = append(got, arg.Name)
+				}
+				Expect(got).To(Equal(want))
+			},
+			Entry("a bare struct", "Box", []string{"nil"}),
+			Entry("a bound struct", "Box<string>", []string{"string"}),
+			Entry("a partly bound struct", "Pair<string>", []string{"string", "nil"}),
+			Entry(
+				"a struct whose later parameter has a default",
+				"Task",
+				[]string{"nil"},
+			),
+			Entry("a bare alias", "Crate", []string{"nil"}),
 		)
 
 		It("Should parse struct with generic field type", func(ctx SpecContext) {

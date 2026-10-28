@@ -15,7 +15,6 @@ ReadTaskCase: Read-specific lifecycle (sample counting, data saving, rate change
 WriteTaskCase: Write-specific lifecycle (command sending).
 """
 
-import os
 import sys
 from abc import abstractmethod
 from collections.abc import Callable
@@ -236,12 +235,13 @@ def run_and_expect_rejection(
     *,
     timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
 ) -> str | None:
-    """Start a saved task and return the driver's rejection message, if any.
+    """Start a saved task and return the Driver's rejection text, if any.
 
-    Deploy failures acknowledge the start command with an error status; runtime
-    failures surface after a successful ack, so statuses are watched for the full
-    timeout window. Returns None when no rejection arrives. The task is stopped
-    before returning. Accepts both sugared tasks and plain ``sy.task.Task``.
+    Deploy failures acknowledge the start command with an error status; runtime failures
+    surface after a successful ack, so statuses are watched for the full timeout window.
+    The text is the status message and its description. Returns None when no rejection
+    arrives. The task is stopped before returning. Accepts both sugared tasks and plain
+    ``sy.task.Task``.
     """
     internal = task if isinstance(task, sy.Task) else task._internal
     with client.open_streamer(["sy_status_set"]) as streamer:
@@ -262,7 +262,7 @@ def run_and_expect_rejection(
                     if status.details is None or status.details.task != task.key:
                         continue
                     if status.variant in ("warning", "error"):
-                        return str(status.message)
+                        return _status_text(status)
         finally:
             internal.execute_command("stop")
     return None
@@ -289,9 +289,8 @@ def assert_start_rejected(
     *,
     timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
 ) -> str:
-    """Save a task, start it, and assert the driver rejects it with an error or
-    warning status. Returns the rejection message. The task is deleted before
-    returning."""
+    """Save a task, start it, and assert the Driver rejects it with an error or warning
+    status. Returns the rejection text. The task is deleted before returning."""
     client.tasks.configure(task)
     try:
         message = run_and_expect_rejection(client, task, timeout=timeout)
@@ -319,8 +318,13 @@ def _buffered_task_errors(statuses: sy.Streamer, task_key: sy.task.Key) -> list[
             if status.details is None or status.details.task != task_key:
                 continue
             if status.variant in ("warning", "error"):
-                errors.append(f"{status.variant}: {status.message}")
+                errors.append(f"{status.variant}: {_status_text(status)}")
     return errors
+
+
+def _status_text(status: sy.task.Status) -> str:
+    """Join the message and description of a status."""
+    return ": ".join(part for part in (status.message, status.description) if part)
 
 
 def assert_streamed_values(
@@ -507,7 +511,6 @@ class TaskCase(TestCase, Generic[TaskT]):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
-    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
     @abstractmethod
     def create(
@@ -712,7 +715,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             self.client,
             channel_keys=channel_keys,
             start=start,
-            sample_rate=config.sample_rate,
+            sample_rate=float(config.sample_rate),
             strict=strict,
             log=self.log,
         )

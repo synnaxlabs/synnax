@@ -16,6 +16,7 @@ import (
 	"io"
 	"slices"
 	"sort"
+	"sync"
 	"sync/atomic"
 
 	"github.com/samber/lo"
@@ -160,16 +161,18 @@ type Codec struct {
 		// the previous state. seqNum and the states backlog are used to keep the two in
 		// sync.
 		states map[uint32]state
-		// updates is a channel that the routine in Update pushes a new state down for
-		// processing within Encode/Decode.
-		updates chan state
+		// oldest is the lowest sequence number that states can hold.
+		oldest uint32
+		// pending holds the states added by Update that Encode and Decode have not
+		// applied yet, oldest first. pendingMu guards it.
+		pending   []state
+		pendingMu sync.Mutex
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
 		seqNum uint32
-		// updateAvailable is an atomic flag indicating that a new state update is
-		// available for processing on the encoding/decoding routine. Checking this
-		// boolean is more performant than using a non-blocking select on every
-		// encode/decode operation.
+		// updateAvailable is an atomic flag indicating that pending holds a state for
+		// the encoding/decoding routine to apply. Checking it lets each encode and
+		// decode skip pendingMu when no update is pending.
 		updateAvailable atomic.Bool
 	}
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
@@ -256,7 +259,6 @@ func newCodec(opts ...Option) *Codec {
 		reader: binary.NewReader(nil, byteOrder),
 		opts:   o,
 	}
-	c.mu.updates = make(chan state, 50)
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)
 	return c
@@ -306,22 +308,24 @@ func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.Dat
 		}
 	}
 	slices.Sort(s.keys)
+	c.mu.pendingMu.Lock()
+	c.mu.pending = append(c.mu.pending, s)
+	c.mu.pendingMu.Unlock()
+	// Set after the append, so the routine that clears the flag also finds s.
 	c.mu.updateAvailable.Store(true)
-	c.mu.updates <- s
 }
 
 func (c *Codec) processUpdates() {
 	if !c.mu.updateAvailable.CompareAndSwap(true, false) {
 		return
 	}
-	for {
-		select {
-		case s := <-c.mu.updates:
-			c.mu.seqNum++
-			c.mu.states[c.mu.seqNum] = s
-		default:
-			return
-		}
+	c.mu.pendingMu.Lock()
+	pending := c.mu.pending
+	c.mu.pending = nil
+	c.mu.pendingMu.Unlock()
+	for _, s := range pending {
+		c.mu.seqNum++
+		c.mu.states[c.mu.seqNum] = s
 	}
 }
 
@@ -342,9 +346,17 @@ type flags struct {
 	equalAlignments bool
 	// zeroAlignments is true if all alignments are zero
 	zeroAlignments bool
+	// multiplesPresent is true when each series carries its alignment multiple after
+	// its alignment. It is set only when a series has a multiple above one.
+	multiplesPresent bool
+	// extended marks a second flags byte after the first. No encoder sets it yet, so a
+	// decoder rejects it.
+	extended bool
 }
 
 const (
+	extendedFlagPos           bit.FlagPos = 7
+	multiplesPresentFlagPos   bit.FlagPos = 6
 	zeroAlignmentsFlagPos     bit.FlagPos = 5
 	equalAlignmentsFlagPos    bit.FlagPos = 4
 	equalLengthsFlagPos       bit.FlagPos = 3
@@ -361,6 +373,7 @@ func (f flags) encode() byte {
 	b = allChannelsPresentFlagPos.Set(b, f.allChannelsPresent)
 	b = equalAlignmentsFlagPos.Set(b, f.equalAlignments)
 	b = zeroAlignmentsFlagPos.Set(b, f.zeroAlignments)
+	b = multiplesPresentFlagPos.Set(b, f.multiplesPresent)
 	return b
 }
 
@@ -372,6 +385,8 @@ func decodeFlags(b byte) flags {
 	f.allChannelsPresent = allChannelsPresentFlagPos.Get(b)
 	f.equalAlignments = equalAlignmentsFlagPos.Get(b)
 	f.zeroAlignments = zeroAlignmentsFlagPos.Get(b)
+	f.multiplesPresent = multiplesPresentFlagPos.Get(b)
+	f.extended = extendedFlagPos.Get(b)
 	return f
 }
 
@@ -399,23 +414,32 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 	return result, nil
 }
 
+// prune drops the states older than seqNum. A remote encoder never goes back to an
+// older state, and an encoder only uses its newest one.
+func (c *Codec) prune(seqNum uint32) {
+	for ; c.mu.oldest < seqNum; c.mu.oldest++ {
+		delete(c.mu.states, c.mu.oldest)
+	}
+}
+
 func (c *Codec) panicIfNotUpdated(opName string) {
 	if c.mu.seqNum < 1 {
 		panic(
 			fmt.Sprintf(
-				"[framer.codec] - dynamic codec was not updated for first call to %s",
+				"dynamic codec was not updated for first call to %s",
 				opName,
 			),
 		)
 	}
 }
 
-// isAlignmentContiguous checks if two series have contiguous alignments where
-// the first series' upper bound equals the second series' lower bound.
+// isAlignmentContiguous checks if two series have equal alignment multiples and
+// contiguous alignments where the first series' upper bound equals the second series'
+// lower bound.
 func isAlignmentContiguous(s1, s2 telem.Series) bool {
 	bounds1 := s1.AlignmentBounds()
 	bounds2 := s2.AlignmentBounds()
-	return bounds1.Upper == bounds2.Lower
+	return s1.Multiple() == s2.Multiple() && bounds1.Upper == bounds2.Lower
 }
 
 // mergedSeriesInfo holds information about a series that may be merged or original.
@@ -512,9 +536,10 @@ func (c *Codec) mergeContiguousSeries(
 					if k == runStart {
 						// Initialize merged series with first series properties
 						mergedSeries = telem.Series{
-							DataType:  s.DataType,
-							Alignment: s.Alignment,
-							TimeRange: s.TimeRange,
+							DataType:          s.DataType,
+							Alignment:         s.Alignment,
+							AlignmentMultiple: s.AlignmentMultiple,
+							TimeRange:         s.TimeRange,
 						}
 					} else {
 						// Extend time range to encompass all series
@@ -577,6 +602,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
+	c.prune(c.mu.seqNum)
 	currState := c.mu.states[c.mu.seqNum]
 	src = src.KeepKeys(currState.keySet)
 
@@ -692,6 +718,10 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			fgs.equalAlignments = false
 		}
 	}
+	fgs.multiplesPresent = slices.ContainsFunc(
+		mergedSeries,
+		func(msi mergedSeriesInfo) bool { return msi.series.Multiple() > 1 },
+	)
 
 	fgs.timeRangesZero = fgs.equalTimeRanges && refTr.Start.IsZero() &&
 		refTr.End.IsZero()
@@ -716,6 +746,9 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		} else {
 			byteArraySize += 8
 		}
+	}
+	if fgs.multiplesPresent {
+		byteArraySize += len(mergedSeries) * 4
 	}
 
 	// Allocate buffer and write headers
@@ -757,6 +790,9 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		if !fgs.equalAlignments {
 			c.buf.Uint64(uint64(s.Alignment))
 		}
+		if fgs.multiplesPresent {
+			c.buf.Uint32(s.Multiple())
+		}
 	}
 
 	return nil
@@ -794,13 +830,20 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		states := lo.Keys(c.mu.states)
 		err = errors.Wrapf(
 			validate.ErrValidation,
-			"[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v",
+			"remote sent invalid sequence number %d. Valid rawIndices are %v",
 			seqNum,
 			states,
 		)
 		return framer.Frame{}, err
 	}
+	c.prune(seqNum)
 	fgs := decodeFlags(flagB)
+	if fgs.extended {
+		return framer.Frame{}, errors.Wrap(
+			validate.ErrValidation,
+			"remote sent an extended flags byte, which this codec does not support",
+		)
+	}
 	if fgs.equalLens {
 		if dataLen, err = c.reader.Uint32(); err != nil {
 			return framer.Frame{}, err
@@ -859,6 +902,15 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 				return readErr
 			}
 			s.Alignment = telem.Alignment(v)
+		}
+		if fgs.multiplesPresent {
+			multiple, readErr := c.reader.Uint32()
+			if readErr != nil {
+				return readErr
+			}
+			if multiple > 1 {
+				s.AlignmentMultiple = multiple
+			}
 		}
 		fr = fr.Append(key, s)
 		return err

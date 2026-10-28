@@ -17,7 +17,7 @@
 #include "driver/bypass/bypass.h"
 #include "driver/bypass/pipeline/writer.h"
 #include "driver/control/state.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace {
 x::telem::Frame make_frame(const uint32_t num_channels, const size_t samples) {
@@ -88,6 +88,7 @@ static void BM_BusPublish_NSubs(benchmark::State &state) {
     for (uint32_t i = 0; i < w.channels; i++)
         keys[i] = i + 1;
     std::vector<std::shared_ptr<driver::bypass::Subscription>> subs;
+    subs.reserve(num_subs);
     for (int i = 0; i < num_subs; i++)
         subs.push_back(bus.subscribe(keys));
     auto frame = make_frame(w.channels, w.samples);
@@ -322,9 +323,8 @@ static void BM_EndToEnd(benchmark::State &state) {
         keys[i] = i + 1;
 
     auto mock_writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
-        mock_writes
-    );
+    auto mock_writer_factory = std::make_shared<
+        driver::pipeline::testutil::WriterFactory>(mock_writes);
     auto [server_writer, open_err] = mock_writer_factory->open_writer(
         synnax::framer::WriterConfig{.channels = keys}
     );

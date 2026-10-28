@@ -20,16 +20,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -51,35 +50,29 @@ type stack struct {
 func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	GinkgoHelper()
 	otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustSucceed(search.OpenIndex())
 	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	lbl := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
-		Search:   searchIdx,
 	}))
 	stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 		Ontology: otg,
 		DB:       db,
 		Group:    g,
 		Label:    lbl,
-		Search:   searchIdx,
 	}))
 	cfg.DB = db
 	cfg.Ontology = otg
 	cfg.Group = g
 	cfg.HostProvider = mock.NewStaticHostProvider(1)
 	cfg.Status = stat
-	cfg.Search = searchIdx
 	svc := MustSucceed(rack.OpenService(ctx, cfg))
-	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	return stack{
-		MultiCloser: xio.MultiCloser{otg, searchIdx, g, lbl, stat, svc},
+		MultiCloser: xio.MultiCloser{otg, g, lbl, stat, svc},
 		rack:        svc,
 		status:      stat,
 		otg:         otg,
@@ -550,53 +543,71 @@ var _ = Describe("Rack", Ordered, func() {
 			})
 		})
 		Describe("Search", func() {
+			BeforeEach(func(ctx SpecContext) {
+				Expect(writer.Create(ctx, &rack.Rack{Name: "turbopump rack"})).
+					To(Succeed())
+			})
 			It(
-				"Should execute the search path via Exec without error",
+				"Should retrieve the racks whose name matches the term",
 				func(ctx SpecContext) {
-					Expect(
-						writer.Create(ctx, &rack.Rack{Name: "SearchableRackAlpha"}),
-					).To(Succeed())
 					var res []rack.Rack
 					Expect(svc.NewRetrieve().
-						Search("SearchableRackAlpha").
+						Search("turbopump").
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
-				},
-			)
-			It(
-				"Should match committed entries through Count via the search path",
-				func(ctx SpecContext) {
 					Expect(
-						writer.Create(ctx, &rack.Rack{Name: "SearchableRackBeta"}),
-					).To(Succeed())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Eventually(func() int {
-						count, err := svc.NewRetrieve().
-							Search("SearchableRackBeta").
-							Count(ctx, nil)
-						Expect(err).ToNot(HaveOccurred())
-						return count
-					}).Should(BeNumerically(">=", 1))
+						res,
+					).To(HaveExactElements(HaveField("Name", "turbopump rack")))
 				},
 			)
-			It(
-				"Should match committed entries through Exists via the search path",
-				func(ctx SpecContext) {
-					Expect(
-						writer.Create(ctx, &rack.Rack{Name: "SearchableRackGamma"}),
-					).To(Succeed())
-					Expect(tx.Commit(ctx)).To(Succeed())
-					Eventually(func() bool {
-						exists, err := svc.NewRetrieve().
-							Search("SearchableRackGamma").
-							Exists(ctx, nil)
-						Expect(err).ToNot(HaveOccurred())
-						return exists
-					}).Should(BeTrue())
-				},
-			)
+			It("Should count the matches", func(ctx SpecContext) {
+				Expect(
+					svc.NewRetrieve().Search("turbopump").Count(ctx, tx),
+				).To(Equal(1))
+			})
+			It("Should report whether a match exists", func(ctx SpecContext) {
+				Expect(
+					svc.NewRetrieve().Search("turbopump").Exists(ctx, tx),
+				).To(BeTrue())
+				Expect(svc.NewRetrieve().Search("valve").Exists(ctx, tx)).To(BeFalse())
+			})
+			It("Should add no filter for an empty term", func(ctx SpecContext) {
+				Expect(svc.NewRetrieve().Search("").Count(ctx, tx)).
+					To(Equal(MustSucceed(svc.NewRetrieve().Count(ctx, tx))))
+			})
 		})
 	})
+	Describe("Search", func() {
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			r := rack.Rack{Name: name}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+			return r.OntologyID()
+		}
+
+		It(
+			"Should return the matching racks, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It(
+			"Should not match a staged rack outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
+	})
+
 	Describe("Create with Integrations", func() {
 		It("Should persist integrations on the rack", func(ctx SpecContext) {
 			r := &rack.Rack{
@@ -821,7 +832,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := rack.Rack{Name: "test rack"}
 			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-			Expect(s.Message).To(Equal("Status unknown"))
+			Expect(s.Message).To(Equal("Rack status unknown"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 			Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
@@ -927,16 +938,18 @@ var _ = Describe("Rack", Ordered, func() {
 
 				Eventually(func(g Gomega) {
 					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
-					g.Expect(s.Message).
-						To(Equal("Synnax Driver on dead test rack not running"))
+					g.Expect(s.Message).To(Equal("Driver not running"))
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
 					g.Expect(s.Time).
 						To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 					g.Expect(s.Key).
 						To(ContainSubstring(string(ontology.ResourceTypeRack)))
 					g.Expect(s.Details.Rack).To(Equal(r.Key))
-					g.Expect(s.Description).
-						To(ContainSubstring("Driver was last alive"))
+					g.Expect(s.Description).To(MatchRegexp(
+						`^The Core has not heard from the Driver on dead test rack ` +
+							`for .+\. Check that the Driver is running and can reach ` +
+							`the Core\.$`,
+					))
 				}).Should(Succeed())
 			},
 		)
@@ -968,8 +981,7 @@ var _ = Describe("Rack", Ordered, func() {
 					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 					g.Expect(s.Message).To(Equal("Running"))
 					g.Expect(s.Variant).To(Equal(status.VariantSuccess))
-					g.Expect(s.Description).
-						ToNot(ContainSubstring("Driver was last alive"))
+					g.Expect(s.Description).To(BeEmpty())
 				}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
 			},
 		)
@@ -1077,8 +1089,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Eventually(func(g Gomega) {
 					s := MustSucceed(after.rack.RetrieveStatus(ctx, r.Key))
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
-					g.Expect(s.Message).
-						To(Equal("Synnax Driver on restarted rack not running"))
+					g.Expect(s.Message).To(Equal("Driver not running"))
 				}).Should(Succeed())
 			},
 		)

@@ -8,14 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type project, query, schematic } from "@synnaxlabs/client";
-import { array, compare, uuid, verbs, xy } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { array, compare, uuid, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
 import { Group } from "@/schematic/group";
-import { Node } from "@/schematic/node";
 import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
 
@@ -253,31 +251,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   },
 });
 
-export interface AddNodeProps<V extends Node.Variant = Node.Variant> {
-  key: string;
-  position?: xy.XY;
-  config: Node.Input<V>;
-}
-
-export const useAddNode = () => {
-  const client = Synnax.use();
-  const dispatch = useSingleDispatch();
-
-  return useCallback(
-    <V extends Node.Variant>({ key, position, config: input }: AddNodeProps<V>) => {
-      const config: Node.Config = Node.createConfig(input);
-      if (Node.isCustomConfig(config)) {
-        const sym = client?.schematics.symbols.getCached(config.specKey);
-        if (query.isLive(sym)) config.label.label = sym.name;
-      }
-      dispatch(
-        schematic.setNode({ node: { key, position: position ?? xy.ZERO }, config }),
-      );
-    },
-    [dispatch, client],
-  );
-};
-
 /**
  * useGroup returns a callback that groups the given selection, dispatched as a
  * single undoable step. Returns the keys to select, the new group first, or null
@@ -287,21 +260,18 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
-  return useCallback(
-    (selected) => {
-      const s = client?.schematics.getCached({ key });
-      if (!query.isLive(s)) return null;
-      const result = Group.createActions({
-        selected,
-        nodes: s.nodes,
-        configs: s.configs,
-      });
-      if (result == null) return null;
-      dispatch(result.actions);
-      return result.selection;
-    },
-    [client, key, dispatch],
-  );
+  return (selected) => {
+    const s = client?.schematics.getCached({ key });
+    if (!query.isLive(s)) return null;
+    const result = Group.createActions({
+      selected,
+      nodes: s.nodes,
+      configs: s.configs,
+    });
+    if (result == null) return null;
+    dispatch(result.actions);
+    return result.selection;
+  };
 };
 
 /**
@@ -313,15 +283,12 @@ export const useUngroup = (): ((selected: readonly string[]) => string[] | null)
   const key = Scope.use();
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
-  return useCallback(
-    (selected) => {
-      const s = client?.schematics.getCached({ key });
-      if (!query.isLive(s)) return null;
-      const result = Group.ungroupActions(selected, s.configs);
-      if (result == null) return null;
-      dispatch(result.actions);
-      return result.freed;
-    },
-    [client, key, dispatch],
-  );
+  return (selected) => {
+    const s = client?.schematics.getCached({ key });
+    if (!query.isLive(s)) return null;
+    const result = Group.ungroupActions(selected, s.configs);
+    if (result == null) return null;
+    dispatch(result.actions);
+    return result.freed;
+  };
 };

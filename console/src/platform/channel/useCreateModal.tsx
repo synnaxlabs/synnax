@@ -25,7 +25,7 @@ import { Triggers } from "@/platform/triggers";
 
 const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 
-export const useCreateModal = Modals.create(({ close }) => {
+const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const [createMore, setCreateMore] = useState(false);
   const { capture } = Analytics.use();
   const { form, variant, save } = Channel.useForm({
@@ -49,13 +49,14 @@ export const useCreateModal = Modals.create(({ close }) => {
       <Modal.Header icon={<Icon.Channel />}>Channel.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Channel.formSchema> {...form}>
-          <Form.Field<string> path="name" label="Name">
+          <Form.Field<string> path="name" showLabel={false}>
             {(p) => (
               <Input.Text
                 autoFocus
                 level="h2"
                 variant="text"
-                placeholder="Name"
+                placeholder="Channel name"
+                aria-label="Channel name"
                 {...p}
               />
             )}
@@ -102,7 +103,6 @@ export const useCreateModal = Modals.create(({ close }) => {
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText />
         <Nav.Bar.End align="center" gap="large">
           <Flex.Box x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />
@@ -113,6 +113,7 @@ export const useCreateModal = Modals.create(({ close }) => {
             variant="filled"
             onClick={() => save()}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Create
           </Button.Button>
@@ -120,4 +121,6 @@ export const useCreateModal = Modals.create(({ close }) => {
       </Modal.Footer>
     </Modal.Frame>
   );
-});
+};
+
+export const useCreateModal = Modals.create(Create);

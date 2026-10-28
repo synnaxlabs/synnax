@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <cstdlib>
+#include <charconv>
 #include <utility>
 
 #include "x/cpp/url/url.h"
@@ -60,9 +60,8 @@ URL::URL(const std::string &address) {
 
     ip = address.substr(0, colon);
     const auto path_start = address.find('/', colon + 1);
-    port = static_cast<uint16_t>(
-        std::atoi(address.substr(colon + 1, path_start - colon - 1).c_str())
-    );
+    const auto port_str = address.substr(colon + 1, path_start - colon - 1);
+    std::from_chars(port_str.data(), port_str.data() + port_str.size(), port);
     path = path_start != std::string::npos ? join_paths("", address.substr(path_start))
                                            : "";
 }

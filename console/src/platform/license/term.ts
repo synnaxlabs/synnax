@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type license, type status } from "@synnaxlabs/client";
+import { type license } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
 
 const EDITIONS: Record<license.Edition, string> = { d: "Desktop", e: "Enterprise" };
@@ -26,21 +26,7 @@ export const describeTerm = ({ exp, maxVersion }: license.License): string => {
 export const describeChannels = ({ channels }: license.License): string =>
   channels === 0 ? "Unlimited" : `Up to ${channels}`;
 
-/** A license's state as a short label and a status variant. */
-export interface Standing {
-  label: string;
-  variant: status.Variant;
-}
-
-/** Labels the Core's license. A Core with no license runs in the free tier. */
-export const standing = ({ state, warning }: license.Info): Standing => {
-  if (state === "expired") return { label: "Expired", variant: "error" };
-  if (state === "missing") return { label: "Free", variant: "success" };
-  if (warning !== "") return { label: "Expiring", variant: "warning" };
-  return { label: "Active", variant: "success" };
-};
-
-/** Joins host hashes the way the portal reads them. */
+/** Joins the hashes of a fingerprint the way the portal reads them. */
 export const joinFingerprint = (fingerprint: string[]): string =>
   fingerprint.join(", ");
 

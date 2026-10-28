@@ -1,381 +1,208 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Troubleshooting"
-description: "Solve common issues when working with the Synnax client."
-prev: "Examples"
-prevURL: "/reference/client/examples"
+description:
+  "Fix common errors of the Python and TypeScript clients: install problems, version
+  warnings, connection errors, and rejected writes."
 clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
-import { Platform } from "@/components/platform";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This page covers common issues users encounter when working with the Synnax client
-libraries.
+Find the error or the symptom that you see, then follow the fix.
 
 <Divider.Divider x />
 
-## Installing the language
+## pip installs an old synnax version
 
-<Client.Tabs exclude={["cpp","console"]}>
+With a version pin, pip fails with this error instead:
 
-  <Fragment slot="python">
-
-Synnax doesn't enforce a specific way to work with Python, although our development team
-recommends using the latest version of the official
-[Python installer](https://www.python.org/downloads/).
-
-<Platform.Tabs exclude={["Docker"]}>
-
-<Fragment slot="Windows">
-
-Make sure to check the box that says "Add Python to PATH" during the installation
-process. This will ensure that the `python` command is available in your terminal.
-
-Alternatively, if you plan to use Synnax inside
-[WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10), follow the
-instructions for Linux instead.
-
-</Fragment>
-
-<Fragment slot="macOS">
-
-On macOS, [homebrew](https://brew.sh/) is recommended for installing Python. Homebrew
-makes configuring newer Python versions much easier than using the installer.
-
-```bash
-brew install python
+```
+ERROR: Ignored the following versions that require a different python version: 0.33.0 Requires-Python <4.0,>=3.12; ...
+ERROR: Could not find a version that satisfies the requirement synnax==0.58.*
 ```
 
-</Fragment>
+<Problem.Body>
+<Problem.Cause>
 
-<Fragment slot="Linux">
+The Python client needs Python 3.12 or later. On an older Python, `pip install synnax`
+installs an old release with no error. To see the version that pip installed, run
+`pip show synnax`.
 
-**Red Hat / Amazon Linux:**
+</Problem.Cause>
+<Problem.Fix>
 
-```bash
-sudo yum install python3.12.x86_64 python3.12-devel.x86_64 python3.12-pip.noarch
-```
+1. Install Python 3.12 or later from [python.org](https://www.python.org/downloads/) or
+   with the package manager of your operating system.
+2. Install the client in a virtual environment of the new Python:
 
-**Ubuntu** (24.04 has Python 3.12 pre-installed; for older versions use `deadsnakes`):
+   ```bash
+   python3.12 -m venv .venv
+   source .venv/bin/activate
+   pip install synnax
+   ```
 
-```bash
-# Update package index and install dependencies
-sudo apt update
-sudo apt install build-essential software-properties-common -y
-
-# Add deadsnakes PPA and install Python 3.12
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt update
-sudo apt install python3.12 -y
-
-# Verify installation
-python3.12 --version
-```
-
-</Fragment>
-
-</Platform.Tabs>
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-The latest version of Node.js from the [official Node.js website](https://nodejs.org/)
-is recommended.
-
-<Note.Note variant="info" className="compact">
-  After installing Node.js, you can install the Synnax client with `npm install
-  @synnaxlabs/client`.
-</Note.Note>
-
-<Platform.Tabs exclude={["Docker"]}>
-
-<Fragment slot="Windows">
-
-Download and run the Windows installer from [nodejs.org](https://nodejs.org/). The
-installer will automatically add Node.js to your PATH.
-
-Alternatively, if using
-[Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10),
-follow the Linux instructions instead.
-
-</Fragment>
-
-<Fragment slot="macOS">
-
-[Homebrew](https://brew.sh/) is recommended for installing Node.js:
-
-```bash
-brew install node
-```
-
-</Fragment>
-
-<Fragment slot="Linux">
-
-**Ubuntu / Debian:**
-
-```bash
-# Install Node.js 24.x
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Verify installation
-node --version
-npm --version
-```
-
-**Red Hat / Amazon Linux:**
-
-```bash
-curl -fsSL https://rpm.nodesource.com/setup_24.x | sudo bash -
-sudo yum install -y nodejs
-```
-
-</Fragment>
-
-</Platform.Tabs>
-
-  </Fragment>
-</Client.Tabs>
+</Problem.Fix>
+</Problem.Body>
 
 <Divider.Divider x />
 
-## Incorrect version
+## externally-managed-environment
 
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-Synnax requires Python 3.12+. Check your version:
-
-```bash
-python --version # or try: python3 --version, python3.12 --version
+```
+error: externally-managed-environment
 ```
 
-If the output shows `Python 3.12.x` or higher, the version is compatible. If older,
-update Python:
+<Problem.Body>
+<Problem.Cause>
 
-<Platform.Tabs exclude={["Docker"]}>
+Your operating system manages this Python, so pip does not install packages into it.
 
-<Fragment slot="Windows">
+</Problem.Cause>
+<Problem.Fix>
 
-Reinstall from [python.org](https://www.python.org/downloads/) - make sure to check "Add
-Python to PATH".
-
-</Fragment>
-
-<Fragment slot="macOS">
+Install the client in a virtual environment:
 
 ```bash
-brew upgrade python
+python3 -m venv .venv
+source .venv/bin/activate
+pip install synnax
 ```
 
-</Fragment>
-
-<Fragment slot="Linux">
-
-See the [Installing the Language](#installing-the-language) section above for
-distribution-specific instructions.
-
-</Fragment>
-
-</Platform.Tabs>
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-Check your Node.js version:
-
-```bash
-node --version
-```
-
-If you need to update, see the [Installing the Language](#installing-the-language)
-section above.
-
-  </Fragment>
-</Client.Tabs>
+</Problem.Fix>
+</Problem.Body>
 
 <Divider.Divider x />
 
-## Command not found
+## sy: command not found
 
-<Client.Tabs exclude={["cpp","console"]}>
+<Problem.Body>
+<Problem.Cause>
 
-  <Fragment slot="python">
+The shell cannot find the `sy` command that the Python client installs.
 
-If `python --version` returns `command not found`, the executable isn't on your PATH.
+</Problem.Cause>
+<Problem.Fix>
 
-<Note.Note variant="info" className="compact">
-  If multiple Python versions are installed, an older version may shadow the newer one
-  in your PATH. Check your PATH order and remove or reorder conflicting entries.
-</Note.Note>
+- **The client is in a virtual environment** -> activate the environment, or run the
+  command through your environment manager, such as `uv run sy login` or
+  `poetry run sy login`.
+- **The pip that you used is for a different Python** -> check with `pip --version`.
+  Then install with the Python that you use: `python3.12 -m pip install synnax`.
+- **The scripts folder of Python is not on your `PATH`** -> pip prints a warning with
+  the folder when it installs the client. Add that folder to your `PATH`.
 
-<Platform.Tabs exclude={["Docker"]}>
-
-<Fragment slot="Windows">
-
-**Common install locations:**
-
-- Official installer: `C:\Users\{username}\AppData\Local\Programs\Python312`
-- Anaconda: `C:\Users\{username}\Anaconda3`
-
-**To fix:** Search "environment variables" in Start Menu → Edit system environment
-variables → Environment Variables → Edit `Path` → Add your Python directory → Log out
-and back in.
-
-</Fragment>
-
-<Fragment slot="macOS">
-
-**Common install location:** `/opt/homebrew/bin/python3`
-
-```bash
-# Add to PATH temporarily
-export PATH="/opt/homebrew/bin:$PATH"
-
-# Or permanently (add to ~/.zshrc)
-echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-</Fragment>
-
-<Fragment slot="Linux">
-
-**Common install location:** `/usr/bin/python3.12`
-
-```bash
-# Add to PATH temporarily
-export PATH="/usr/bin:$PATH"
-
-# Or permanently (add to ~/.bashrc)
-echo 'export PATH="/usr/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-</Fragment>
-
-</Platform.Tabs>
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-If `node --version` returns `command not found`, Node.js isn't on your PATH.
-
-<Platform.Tabs exclude={["Docker"]}>
-
-<Fragment slot="Windows">
-Reinstall from [nodejs.org](https://nodejs.org/) - the installer automatically adds
-Node.js to PATH.
-
-</Fragment>
-
-<Fragment slot="macOS">
-
-```bash
-# If installed via homebrew
-export PATH="/opt/homebrew/bin:$PATH"
-
-# Make permanent
-echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-</Fragment>
-
-<Fragment slot="Linux">
-
-```bash
-# Common location after nodesource install
-export PATH="/usr/bin:$PATH"
-
-# Make permanent
-echo 'export PATH="/usr/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-</Fragment>
-
-</Platform.Tabs>
-
-  </Fragment>
-</Client.Tabs>
+</Problem.Fix>
+</Problem.Body>
 
 <Divider.Divider x />
 
-## Synnax command not found
+## Promise.withResolvers is not a function
 
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-If `synnax` returns `command not found` after installing via pip:
-
-**1. Check pip is using the correct Python version:**
-
-```bash
-pip --version # Should show (python 3.12) or higher
+```
+TypeError: Promise.withResolvers is not a function
 ```
 
-If it shows an older version, your PATH may point to the wrong pip. See
-[Command not found](#command-not-found) for PATH troubleshooting.
-
-**2. If using a virtual environment, run commands within it.** Use the command for your
-environment manager:
-
-| Tool   | Command                                                     |
-| ------ | ----------------------------------------------------------- |
-| uv     | `uv run sy --help`                                          |
-| poetry | `poetry run sy --help` (or `poetry shell` then `sy --help`) |
-| venv   | `source venv/bin/activate` then `sy --help`                 |
-| conda  | `conda activate myenv` then `sy --help`                     |
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-The TypeScript client is a library, not a CLI tool. Install it via npm and import it
-directly into your code:
-
-```bash
-npm install @synnaxlabs/client
 ```
+ReferenceError: WebSocket is not defined
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+The TypeScript client needs Node.js 22 or later. On an older Node.js, `connect` does not
+return, and reads, writes, and streamers throw these errors.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Update Node.js to version 22 or later from [nodejs.org](https://nodejs.org). To see your
+version, run `node --version`.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Synnax is not a constructor
+
+```
+SyntaxError: The requested module '@synnaxlabs/client' does not provide an export named 'default'
+```
+
+```
+TypeError: Synnax is not a constructor
+```
+
+```
+Error [ERR_REQUIRE_ESM]: require() of ES Module
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+The TypeScript client is an ES module with no default export.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Import `Synnax` by name with `import`, not `require`:
 
 ```typescript
-import Synnax from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/client";
 ```
 
-  </Fragment>
-</Client.Tabs>
+</Problem.Fix>
+</Problem.Body>
 
 <Divider.Divider x />
 
 ## Old Core version
 
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
 ```
-Synnax Core version is too old for client version x.x.x. This may cause compatibility
-issues. We recommend updating the Core.
+The Synnax Core version 0.57.0 is too old for client version 0.58.1. This may cause compatibility issues. We recommend updating the Core. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version
 ```
 
-Your client is newer than the Synnax Core you're connecting to. Either
-[upgrade Synnax Core](/reference/core/installation) or downgrade the client:
+  </Fragment>
 
-<Client.Tabs exclude={["cpp","console"]}>
+  <Fragment slot="typescript">
+
+```
+The Synnax Core version 0.57.0 is too old for client version 0.58.1.
+  This may cause compatibility issues. We recommend updating the Core. For more information, see
+  https://docs.synnaxlabs.com/reference/client/troubleshooting#old-core-version
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Problem.Body>
+<Problem.Cause>
+
+The major and minor version of the client is newer than the Core.
+
+</Problem.Cause>
+<Problem.Fix>
+
+[Upgrade the Core](/reference/enterprise/upgrade), or install the client version that
+matches the Core:
+
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```bash
-pip install synnax==x.x.x
+pip install "synnax==0.57.*"
 ```
 
   </Fragment>
@@ -383,29 +210,58 @@ pip install synnax==x.x.x
   <Fragment slot="typescript">
 
 ```bash
-npm install @synnaxlabs/client@x.x.x
+npm install @synnaxlabs/client@0.57
 ```
 
   </Fragment>
+
 </Client.Tabs>
+
+</Problem.Fix>
+</Problem.Body>
 
 <Divider.Divider x />
 
 ## Old client version
 
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
 ```
-Synnax Core version is too new for client version x.x.x. This may cause
-compatibility issues. We recommend updating the client.
+The Synnax Core version 0.58.1 is too new for client version 0.57.0. This may cause compatibility issues. We recommend updating the client. For more information, see https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version
 ```
 
-Your client is older than the Synnax Core you're connecting to. Update the client:
+  </Fragment>
 
-<Client.Tabs exclude={["cpp","console"]}>
+  <Fragment slot="typescript">
+
+```
+The Synnax Core version 0.58.1 is too new for client version 0.57.0.
+  This may cause compatibility issues. We recommend updating the client. For more information, see
+  https://docs.synnaxlabs.com/reference/client/troubleshooting#old-client-version
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Problem.Body>
+<Problem.Cause>
+
+The client is older than the Core.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Install the client version that matches the Core:
+
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```bash
-pip install --upgrade synnax
+pip install "synnax==0.58.*"
 ```
 
   </Fragment>
@@ -413,8 +269,235 @@ pip install --upgrade synnax
   <Fragment slot="typescript">
 
 ```bash
-npm install @synnaxlabs/client@latest
+npm install @synnaxlabs/client@0.58
 ```
 
   </Fragment>
+
 </Client.Tabs>
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Measured excessive clock skew
+
+```
+Measured excessive clock skew between this host and the Synnax Core. This host is ahead of the Synnax Core by approximately 2s.
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+The clocks of your computer and the Core differ by more than one second. Timestamps that
+your code makes are then wrong by the same amount.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Synchronize both clocks with a time server, for example with NTP.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Cannot reach the Core
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```
+Failed to reach cluster at core.example.com:9090
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```
+Cannot reach Core at core.example.com:9090
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Problem.Body>
+<Problem.Cause>
+
+One of these:
+
+- The Core does not run, or the host or the port is wrong.
+- A firewall blocks the port.
+- `secure` does not match the Core.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Check that the Core runs, and that the host and the port are correct.
+2. Check that no firewall blocks the port.
+3. Set `secure` to true when the Core serves TLS, and to false when it does not.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Invalid credentials
+
+```
+invalid credentials: auth error
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+The username or password is wrong.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give the correct username and password. To change a saved Python login, run `sy login`
+again.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## No configuration file was found
+
+```
+ValidationError: No options provided and no configuration file was found. Please provide options or login via the CLI using the `sy login` command.
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+You created a Python client with no arguments, and there is no saved login.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Run `sy login`, or give the connection values to `sy.Synnax`. See
+[Connect to a Core](/reference/client/connect).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Channel not found
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```
+NotFoundError: Channel matching 'tank_pressure' not found.
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```
+channel not found matching "tank_pressure"
+```
+
+```
+Could not find channels: ["tank_pressure"]
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Problem.Body>
+<Problem.Cause>
+
+No channel has this name or key. Channel names are case sensitive.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the spelling. To see the channels of the Core, see
+[Find channels](/reference/channels/find).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Write overlaps with existing data
+
+```
+cannot open writer because there is already data in the writer's time range
+```
+
+```
+write overlaps with existing data in database
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+A channel already has samples in the time range of the write. The first error comes when
+the writer opens, and the second when it commits.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Write to a time range that has no samples, or
+[delete the samples](/reference/client/delete-data) first.
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Frame must have the same length for all series
+
+```
+frame must have the same length for all series
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+In one write, an index channel and its data channels need the same number of samples.
+The client raises a `ValidationError`.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Give the index channel and each of its data channels the same number of samples. See
+[Rule 1](/reference/client/write-data#rule-1).
+
+</Problem.Fix>
+</Problem.Body>
+
+<Divider.Divider x />
+
+## Received no data for index channel
+
+```
+received no data for index channel [time]<1> that must be provided when writing to related data channels [[temperature]<2>]
+```
+
+<Problem.Body>
+<Problem.Cause>
+
+The write holds samples for a data channel, but not for its index channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add the timestamps to the write, or turn on auto-index. See
+[the rules of writes](/reference/client/write-data#the-rules-of-writes).
+
+</Problem.Fix>
+</Problem.Body>

@@ -1,229 +1,362 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Errors"
-description: "Arc error code reference for compile-time and runtime errors"
-prev: "`time`"
-prevURL: "/reference/control/arc/reference/standard-library/time"
+description:
+  "Look up the diagnostics that the Arc compiler reports, with their causes and fixes."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
 
-Arc errors fall into two categories: compile-time errors (caught before deployment) and
-runtime errors (occur during execution).
+The Arc compiler checks the code while you type, and the editor marks each problem. Each
+diagnostic has a line and a column, a severity, a message, and sometimes a code and a
+note. An error stops the automation from compiling. A warning does not. In a status, a
+diagnostic looks like this:
 
-## Error code format
-
-Arc error codes follow the pattern:
-
+```text
+5:14 error [ARC3001]: missing required argument for parameter 'y' of func 'add'
+  note: signature: add(x f64, y f64) f64
 ```
-ARC<category><number>
-```
 
-| Category    | Range   | Description                               |
-| ----------- | ------- | ----------------------------------------- |
-| Type System | ARC2xxx | Type mismatches and constraint violations |
-| Functions   | ARC3xxx | Argument count and type errors            |
-| Symbols     | ARC4xxx | Undefined or redefined symbols            |
+In the messages below, `<name>` stands for a value that changes.
 
 <Divider.Divider x />
 
-## Compile-time errors
+## Diagnostic codes
 
-The compiler catches these before deployment.
+<Problem.List>
 
-### Type system errors (ARC2xxx)
+<Problem.Item
+  code="ARC3001"
+  severity="error"
+  message={[
+    "missing required argument for parameter '<p>' of func '<f>'",
+    "too many arguments for func '<f>': expected at most <n>",
+  ]}
+>
+  <Problem.Cause>The call has too few or too many arguments.</Problem.Cause>
+  <Problem.Fix>Match the signature in the note.</Problem.Fix>
+</Problem.Item>
 
-| Code    | Name                    | Description                                   |
-| ------- | ----------------------- | --------------------------------------------- |
-| ARC2001 | TypeMismatch            | Incompatible types in operation or assignment |
-| ARC2003 | TypeConstraintViolation | Type doesn't satisfy constraint               |
+<Problem.Item
+  code="ARC3002"
+  severity="error"
+  message="type mismatch in argument '<p>' of '<f>': expected <T>, got <U>"
+>
+  <Problem.Cause>An argument has the wrong type.</Problem.Cause>
+  <Problem.Fix>
+    Convert the value. For a duration in a variable, declare the variable as `i64 ns`.
+  </Problem.Fix>
+</Problem.Item>
 
-**Example: TypeMismatch**
+<Problem.Item
+  code="ARC4003"
+  severity="warning"
+  message="'<old>' is deprecated, use '<new>' instead"
+>
+  <Problem.Cause>The code uses an old name, such as `interval`.</Problem.Cause>
+  <Problem.Fix>Use the qualified name, such as `time.interval`.</Problem.Fix>
+</Problem.Item>
 
-```arc
-// Error: cannot add i32 and f64
-x i32 := 42
-y f64 := x + 1.0
-```
+<Problem.Item
+  code="ARC5001"
+  severity="error"
+  message={'imported module "<m>" is unused'}
+>
+  <Problem.Cause>The code imports a module and does not use it.</Problem.Cause>
+  <Problem.Fix>Remove the import.</Problem.Fix>
+</Problem.Item>
 
-**Fix:** Use explicit type casting:
+</Problem.List>
 
-```arc
-x i32 := 42
-y f64 := f64(x) + 1.0
-```
-
-### Function errors (ARC3xxx)
-
-| Code    | Name         | Description                      |
-| ------- | ------------ | -------------------------------- |
-| ARC3001 | FuncArgCount | Wrong number of arguments        |
-| ARC3002 | FuncArgType  | Function argument has wrong type |
-
-**Example: FuncArgCount**
-
-```arc
-func add(x f64, y f64) f64 {
-    return x + y
-}
-// Error: expected 2 arguments, got 1
-result := add(5.0)
-```
-
-### Symbol errors (ARC4xxx)
-
-| Code    | Name            | Description                                                  |
-| ------- | --------------- | ------------------------------------------------------------ |
-| ARC4001 | SymbolUndefined | Referenced symbol not found                                  |
-| ARC4002 | SymbolRedefined | Symbol conflicts with declaration in same or enclosing scope |
-
-**Example: SymbolUndefined**
-
-```arc
-// Error: undefined symbol 'ox_pt_1'
-value := ox_pt_1 // channel doesn't exist in cluster
-```
-
-**Example: SymbolRedefined**
-
-```arc
-x := 42
-x := 100 // Error: x already declared
-```
-
-```arc
-func example() {
-    x := 10
-    if x > 0 {
-        x := 20 // Error: conflicts with outer x
-    }
-}
-```
+Codes ARC2001, ARC2003, ARC4001, and ARC4002 are reserved. The compiler does not emit
+them.
 
 <Divider.Divider x />
 
-## Common error messages
+## Common messages without a code
 
-| Message                                                | Meaning                                               |
-| ------------------------------------------------------ | ----------------------------------------------------- |
-| `"X is not a channel"`                                 | Using a non-channel where a channel is expected       |
-| `"X is not a function"`                                | Using `{}` syntax on something that isn't a function  |
-| `"X is not a channel or sequence"`                     | Invalid target for flow or transition                 |
-| `"X has more than one parameter"`                      | Function needs a routing table for multiple inputs    |
-| `"input routing table must precede a func invocation"` | Routing table in wrong position                       |
-| `"compound assignment requires numeric element type"`  | Using `+=` etc. with non-numeric type                 |
-| `"undefined symbol: X"`                                | Symbol not declared (typo or missing channel)         |
-| `"type mismatch"`                                      | Incompatible types in operation                       |
-| `"authority value must be an integer in range 0-255"`  | Authority value out of range                          |
-| `"authority declaration must appear before ..."`       | Authority block after func/sequence declarations      |
-| `"multiple default authority values"`                  | More than one bare numeric default in authority block |
-| `"duplicate authority for 'X'"`                        | Same channel listed twice in authority block          |
-| `"channel 'X' not found"`                              | Authority references a channel that doesn't exist     |
-| `"missing return"`                                     | Function with return type has no return statement     |
-| `"unreachable code"`                                   | Code after unconditional return                       |
+This section lists the most common diagnostics without a code, not all of them.
+
+### Syntax, imports, and names
+
+<Problem.List>
+
+<Problem.Item message={"mismatched input '<x>' expecting <tokens>"}>
+  <Problem.Cause>The syntax is not correct at that position.</Problem.Cause>
+  <Problem.Fix>Correct the code at the line and column.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"token recognition error at: '<c>'"}>
+  <Problem.Cause>The character is not part of Arc, such as `&`.</Problem.Cause>
+  <Problem.Fix>Use the Arc operator, such as `and`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"unknown unit: <text>"}>
+  <Problem.Cause>
+    A number has a suffix that is not a unit, such as `0xFF` or `1e3`. In a function
+    body, the error shows only when the automation starts.
+  </Problem.Cause>
+  <Problem.Fix>Write the number in decimal digits.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={'unknown module "<m>"'}>
+  <Problem.Cause>No module has that name.</Problem.Cause>
+  <Problem.Fix>
+    Use a module from the [standard library](/reference/control/arc/standard-library).
+  </Problem.Fix>
+</Problem.Item>
+<Problem.Item message={'duplicate import: "<m>" is already imported'}>
+  <Problem.Cause>The code imports the module two times.</Problem.Cause>
+  <Problem.Fix>Remove one import.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={"import statements must appear before any other top-level declarations"}
+>
+  <Problem.Cause>An import comes after other code.</Problem.Cause>
+  <Problem.Fix>Move the imports to the top of the file.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"undefined symbol: <name>"}>
+  <Problem.Cause>
+    The name is not declared, the channel does not exist, or the module is not imported.
+    A note gives the `import` to add.
+  </Problem.Cause>
+  <Problem.Fix>
+    Declare the name, correct the channel name, or add the import.
+  </Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"name <x> conflicts with existing <kind> at line <l>, col <c>"}>
+  <Problem.Cause>Two declarations in the same scope have the same name.</Problem.Cause>
+  <Problem.Fix>Rename one of them.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Types and expressions
+
+<Problem.List>
+
+<Problem.Item message={"type mismatch: cannot assign <T> to '<name>' (type <U>)"}>
+  <Problem.Cause>The value and the variable have different types.</Problem.Cause>
+  <Problem.Fix>Convert the value, such as `f64(x)`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"cannot use <T> in <op> operation"}>
+  <Problem.Cause>The operator does not take that type, such as `x and true` with a number `x`.</Problem.Cause>
+  <Problem.Fix>Use a comparison, such as `x > 0 and true`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"boolean conversions are not supported; define the comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"}>
+  <Problem.Cause>The code casts a value to `bool`.</Problem.Cause>
+  <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Variables and functions
+
+<Problem.List>
+
+<Problem.Item
+  message={
+    "cannot reassign a top-level variable; assignment is only valid inside a sequence, stage, or function"
+  }
+>
+  <Problem.Cause>A top-level variable is a constant.</Problem.Cause>
+  <Problem.Fix>Assign it inside a sequence, a stage, or a function.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"stateful variables cannot be declared at the top level"}>
+  <Problem.Cause>A `$=` declaration is at the top level.</Problem.Cause>
+  <Problem.Fix>Declare it in a sequence, a stage, or a function.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"cannot assign to loop variable '<i>'"}>
+  <Problem.Cause>The loop body changes the loop variable.</Problem.Cause>
+  <Problem.Fix>Use a different variable.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"function '<f>' must return a value of type <T> on all paths"}>
+  <Problem.Cause>One path through the function has no `return`.</Problem.Cause>
+  <Problem.Fix>Add a `return` to each path.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"cannot return a value from a function with no return type"}>
+  <Problem.Cause>
+    `return x` in a function without an output type, or with a named output.
+  </Problem.Cause>
+  <Problem.Fix>Add an output type, or assign the named output.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={
+    "function '<f>' cannot be called inside a func block. Use it as a flow statement instead: <f>{}"
+  }
+>
+  <Problem.Cause>
+    A function body calls a flow function, such as `math.avg`.
+  </Problem.Cause>
+  <Problem.Fix>Use the function in a flow.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"unknown parameter '<p>' for func '<f>'"}>
+  <Problem.Cause>The function has no parameter with that name.</Problem.Cause>
+  <Problem.Fix>Use a name from the signature in the note.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"duplicate argument for parameter '<p>' of func '<f>'"}>
+  <Problem.Cause>The call gives the same parameter two times.</Problem.Cause>
+  <Problem.Fix>Remove one argument.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Flows, sequences, and stages
+
+<Problem.List>
+
+<Problem.Item message={"input value for '<p>' must be a literal"}>
+  <Problem.Cause>A parameter in `{}` gets a channel or an expression.</Problem.Cause>
+  <Problem.Fix>Use a literal or a variable.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"upstream value type <T> does not match func '<f>' trigger parameter '<p>' type <U>"}>
+  <Problem.Cause>The flow sends the wrong type into the function, such as a `bool` into `control.set_authority`.</Problem.Cause>
+  <Problem.Fix>Send a value of the type that the function takes.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"<source> value type <T> does not match channel <ch> value type <U>"}>
+  <Problem.Cause>A flow writes one channel type to a channel of another type.</Problem.Cause>
+  <Problem.Fix>Convert the value in a function, or use a channel of the same type.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"func <f> output type <T> does not match channel <ch> value type <U>"}>
+  <Problem.Cause>The function output and the channel have different types.</Problem.Cause>
+  <Problem.Fix>Use a channel of the output type.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"<name> is not a function"}>
+  <Problem.Cause>`{}` follows a name that is not a function.</Problem.Cause>
+  <Problem.Fix>Call a function, or remove the `{}`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"'=>' cannot feed select{}, use '->'"}>
+  <Problem.Cause>A `=>` sends values into `select`.</Problem.Cause>
+  <Problem.Fix>Use `->`.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"input routing tables not yet implemented in text compiler"}>
+  <Problem.Cause>The code uses an input routing table.</Problem.Cause>
+  <Problem.Fix>Set the extra parameters in `{}`, or call the function from a function.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"'next' used outside of a sequence"}>
+  <Problem.Cause>A `=> next` is in a top-level stage or flow.</Problem.Cause>
+  <Problem.Fix>Move it into a sequence.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"'next' in last stage '<s>' has no next stage"}>
+  <Problem.Cause>The last stage of a sequence uses `=> next`.</Problem.Cause>
+  <Problem.Fix>Add a step after it, or go to a named stage.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"sequence '<s>' has no steps"}>
+  <Problem.Cause>The sequence is empty.</Problem.Cause>
+  <Problem.Fix>Add a step.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Authority and standard library arguments
+
+<Problem.List>
+
+<Problem.Item
+  message={
+    "authority declaration must appear before function, flow, and sequence declarations"
+  }
+>
+  <Problem.Cause>Other code comes before `authority`.</Problem.Cause>
+  <Problem.Fix>Move `authority` to just after the imports.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"multiple default authority values"}>
+  <Problem.Cause>The declaration has more than one default.</Problem.Cause>
+  <Problem.Fix>Keep one default.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"duplicate authority for '<ch>'"}>
+  <Problem.Cause>A channel has more than one value.</Problem.Cause>
+  <Problem.Fix>Keep one value for the channel.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"channel '<ch>' not found"}>
+  <Problem.Cause>The declaration names a channel that does not exist.</Problem.Cause>
+  <Problem.Fix>Correct the channel name.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"authority value must be an integer in range 0-255, got '<v>'"}>
+  <Problem.Cause>The value is outside 0 to 255.</Problem.Cause>
+  <Problem.Fix>Use a value from 0 to 255.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"<param> must be positive, got <span>"}>
+  <Problem.Cause>A timer has a `period` or `duration` of 0 or less.</Problem.Cause>
+  <Problem.Fix>Use a positive duration.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={
+    '"<v>" is not a valid status variant: [success, info, warning, error, loading, disabled]'
+  }
+>
+  <Problem.Cause>`status.set` has an unknown `variant`.</Problem.Cause>
+  <Problem.Fix>Use a variant from the list.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={[
+    'color must be a hex value (e.g. "#3bc454") or rgb(r,g,b): "<v>": validation error',
+    'invalid hex color: "<v>": validation error',
+    'invalid hex color length: "<v>": validation error',
+    'rgb() takes 3 channels; use rgba() for alpha: "<v>": validation error',
+    'rgba() requires a 4th alpha channel: "<v>": validation error',
+    'rgb channels must be 0-255: "<v>": validation error',
+    'invalid rgb alpha: "<v>": validation error',
+    'rgba alpha must be 0-1: "<v>": validation error',
+  ]}
+>
+  <Problem.Cause>`ranges.create` has a `color` that is not a color.</Problem.Cause>
+  <Problem.Fix>Use a hex, `rgb()`, or `rgba()` color.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"stable.for input must be a numeric or bool type, got <T>"}>
+  <Problem.Cause>`stable.for` gets a `str` value.</Problem.Cause>
+  <Problem.Fix>Send a numeric or `bool` value.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Errors when the automation starts
+
+These errors come from the last compile step. The editor does not mark them, and they
+have no line number. They show in the status when the automation starts, after a prefix
+that names the place, such as:
+
+```text
+failed to compile function 'f' body: failed to compile return expression: float modulo not yet implemented
+```
+
+<Problem.List>
+
+<Problem.Item message={"float modulo not yet implemented"}>
+  <Problem.Cause>The code uses `%` on floats.</Problem.Cause>
+  <Problem.Fix>Use `%` on integers only.</Problem.Fix>
+</Problem.Item>
+<Problem.Item
+  message={"cannot read '<name>': its initializer is not a compile-time constant"}
+>
+  <Problem.Cause>
+    Code reads a top-level variable whose value is not a constant, such as a series.
+  </Problem.Cause>
+  <Problem.Fix>Declare the variable in the function or stage that uses it.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+### Warnings without a code
+
+<Problem.List>
+
+<Problem.Item
+  severity="warning"
+  message={"numeric conditions are deprecated; use an explicit comparison like x != 0"}
+>
+  <Problem.Cause>An `if` or a `=>` uses a number as a condition.</Problem.Cause>
+  <Problem.Fix>Write a comparison, such as `x != 0`.</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
 
 <Divider.Divider x />
 
-## Runtime errors
+## Errors while it runs
 
-These errors occur during execution and stop the Arc task (but not the Driver).
-
-### Arithmetic errors
-
-| Error            | Cause                          |
-| ---------------- | ------------------------------ |
-| Division by zero | Dividing by zero in `/` or `%` |
-
-```arc
-// Runtime error if b is 0
-result := a / b
-```
-
-**Prevention:**
-
-```arc
-if b != 0 {
-    result := a / b
-}
-```
-
-### Array/string errors
-
-| Error                | Cause                                         |
-| -------------------- | --------------------------------------------- |
-| Out-of-bounds access | Index outside valid range                     |
-| Length mismatch      | Series operation with different-length arrays |
-
-```arc
-data := [1.0, 2.0, 3.0]
-value := data[5] // Runtime error: index 5 out of bounds
-```
-
-**Prevention:**
-
-```arc
-if index < len(data) {
-    value := data[index]
-}
-```
-
-<Divider.Divider x />
-
-## Error isolation
-
-A runtime error in one Arc task only stops that task. Other tasks and the hardware
-driver continue running normally. The error status is reported to Console where you can
-see what went wrong.
-
-<Divider.Divider x />
-
-## Debugging
-
-### Check task status
-
-When an Arc automation doesn't behave as expected:
-
-1. Check the task status in Console
-2. Runtime errors (division by zero, out-of-bounds) stop the task and report the error
-3. The error message indicates what went wrong
-
-### Use LSP diagnostics
-
-The text editor shows compile-time errors inline:
-
-- Red underline: Error (won't compile)
-- Yellow underline: Warning (compiles but suspicious)
-- Hover for error message and suggested fix
-
-### Write intermediate values
-
-Write intermediate values to channels for debugging:
-
-```arc channels="setpoint, gain, debug_error"
-func debug_controller(value f64) f64 {
-    error := value - setpoint
-
-    // Write to channel for visibility
-    debug_error = f"Error is: {error}"
-    return error * gain
-}
-```
-
-Monitor these channels in Console to trace data flow.
-
-<Divider.Divider x />
-
-## Common fixes
-
-| Problem              | Fix                                      |
-| -------------------- | ---------------------------------------- |
-| Type mismatch        | Add explicit cast: `f64(x)`              |
-| Undefined symbol     | Check spelling, verify channel exists    |
-| Wrong argument count | Check function signature                 |
-| Division by zero     | Add guard: `if b != 0`                   |
-| Index out of bounds  | Add guard: `if i < len(data)`            |
-| Missing return       | Add `return` statement to all code paths |
+Errors while an automation runs have no code. An example is an integer division by zero.
+On the Core, Synnax shows a warning and the automation keeps running. On a Driver, an
+error stops the automation. A failed `status.set` or `ranges` call shows a warning on
+both, and the automation keeps running. For the full rules, see
+[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).

@@ -19,7 +19,7 @@ import (
 
 func TestTestutil(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service ImEx Testutil Suite")
+	RunSpecs(t, "Service ImEx Testutil Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

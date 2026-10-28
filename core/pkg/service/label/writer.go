@@ -14,8 +14,8 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Writer wraps a transaction to create, update, and delete labels.

@@ -13,7 +13,7 @@
 #include "open62541/types.h"
 
 #include "x/cpp/json/json.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/types/types.h"
 
@@ -41,6 +41,7 @@ TEST(TypesTest, NodeIdRAII) {
 }
 
 /// @brief it should properly implement NodeId copy semantics.
+// NOLINTBEGIN(bugprone-use-after-move): the tests check the moved-from state.
 TEST(TypesTest, NodeIdCopySemantics) {
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
     NodeId nodeId1(string_id);
@@ -216,6 +217,7 @@ TEST(TypesTest, StringRAII) {
     EXPECT_GT(str4.get().length, 0);
     EXPECT_EQ(str3.get().length, 0);
 }
+// NOLINTEND(bugprone-use-after-move)
 
 /// @brief it should properly manage ByteString lifecycle with RAII.
 TEST(TypesTest, ByteStringRAII) {
@@ -306,7 +308,7 @@ TEST(TypesTest, NodeIdToStringNumeric) {
 /// @brief it should convert string NodeId to string.
 TEST(TypesTest, NodeIdToStringString) {
     UA_String uaStr;
-    uaStr.data = (UA_Byte *) "TestString";
+    uaStr.data = reinterpret_cast<UA_Byte *>(const_cast<char *>("TestString"));
     uaStr.length = 10;
     UA_NodeId nodeId;
     nodeId.namespaceIndex = 2;
@@ -493,14 +495,7 @@ TEST(TypesTest, ParseInvalidByteStringNodeIdFromJSON) {
     ASSERT_EQ(parser.errors->size(), 1);
     const auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "node_id");
-    EXPECT_EQ(
-        err["message"],
-        x::errors::Error(
-            x::errors::VALIDATION,
-            "Invalid base64 in ByteString identifier: AAE"
-        )
-            .message()
-    );
+    EXPECT_EQ(err["message"], "Invalid base64 in ByteString identifier: AAE");
 }
 
 /// @brief it should round-trip NodeId through parse and to_string.

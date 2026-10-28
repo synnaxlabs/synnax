@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/topology/topology.h"
 
@@ -81,7 +81,12 @@ TEST_F(TopologyValidateTest, WrongVendorIdReturnsMismatch) {
     std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000099, 0x12345678));
 
-    ASSERT_OCCURRED_AS(validate(actual, expected), errors::TOPOLOGY_MISMATCH);
+    const auto err = validate(actual, expected);
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "device dev1 at position 1: expected vendor_id 0x00000099, found 0x00000002"
+    );
 }
 
 TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
@@ -92,7 +97,13 @@ TEST_F(TopologyValidateTest, WrongProductCodeReturnsMismatch) {
     std::unordered_map<std::string, slave::Properties> expected;
     expected.emplace("dev1", make_props("dev1", 1, 0x00000002, 0x87654321));
 
-    ASSERT_OCCURRED_AS(validate(actual, expected), errors::TOPOLOGY_MISMATCH);
+    const auto err = validate(actual, expected);
+    ASSERT_OCCURRED_AS(err, errors::TOPOLOGY_MISMATCH);
+    EXPECT_EQ(
+        err.data,
+        "device dev1 at position 1: expected product_code 0x87654321, found "
+        "0x12345678"
+    );
 }
 
 TEST_F(TopologyValidateTest, EmptyExpectedReturnsNil) {

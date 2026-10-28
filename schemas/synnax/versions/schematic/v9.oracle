@@ -11,6 +11,7 @@ import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/symbol/v2"
 import "schemas/x/versions/border/v0"
 import "schemas/x/versions/color/v1"
+import "schemas/x/versions/notation/v0"
 import "schemas/x/versions/spatial/v0"
 import "schemas/x/versions/text/v0"
 
@@ -109,10 +110,9 @@ LabelConfig struct {
         @doc value "is the axis along which the label text flows."
     }
     max_inline_size float64 = 150 {
-        @doc value    """
+        @doc value """
             is the maximum inline size of the label in pixels before wrapping.
         """
-        @validate min 1
     }
     align           FlexAlignment = FlexAlignmentCenter {
         @doc value "is the alignment of the label text within its box."
@@ -167,8 +167,7 @@ NumericTelemConfig struct {
         @doc value "is the sample window for rolling-average smoothing."
     }
     precision       float64 = 2 {
-        @doc value    "is the number of decimal places shown."
-        @validate min 0
+        @doc value "is the number of decimal places shown."
     }
     notation        notation.Notation = "standard" {
         @doc value "is the numeric notation used to format the value."
@@ -449,8 +448,7 @@ NodeConfig union on variant {
             @doc value "is the numeric range displayed by the gauge."
         }
         bar_width    float64 = 10 {
-            @doc value    "is the thickness of the gauge arc in pixels."
-            @validate min 1
+            @doc value "is the thickness of the gauge arc in pixels."
         }
         location     spatial.LocationXY = {
             x = spatial.XCenterLocationLeft,
@@ -521,8 +519,7 @@ NodeConfig union on variant {
             @doc value "is the second endpoint, offset from the node position."
         }
         stroke_width float64 = 2 {
-            @doc value    "is the stroke width of the line in pixels."
-            @validate min 1
+            @doc value "is the stroke width of the line in pixels."
         }
 
         @doc value "is the configuration for straight line symbols."
@@ -584,8 +581,7 @@ NodeConfig union on variant {
             """
         }
         inline_size     float64 = 100 {
-            @doc value    "is the inline size of the select in pixels."
-            @validate min 1
+            @doc value "is the inline size of the select in pixels."
         }
         options         StateMapping[] = [] {
             @doc value "is the set of selectable states."
@@ -659,8 +655,7 @@ NodeConfig union on variant {
             @doc value "is the border color of the indicator."
         }
         inline_size  float64 = 100 {
-            @doc value    "is the inline size of the indicator in pixels."
-            @validate min 1
+            @doc value "is the inline size of the indicator in pixels."
         }
         options      StateMapping[] = [] {
             @doc value "is the set of displayable states."
@@ -682,8 +677,7 @@ NodeConfig union on variant {
             @doc value "is the list of tooltip lines shown on hover."
         }
         inline_size  float64 = 100 {
-            @doc value    "is the inline size of the display in pixels."
-            @validate min 1
+            @doc value "is the inline size of the display in pixels."
         }
         channel      channel.Key? {
             @doc value "is the channel whose string value the symbol displays."
@@ -700,8 +694,7 @@ NodeConfig union on variant {
             @doc value "is the text color."
         }
         width             float64 = 75 {
-            @doc value    "is the rendered width of the text box in pixels."
-            @validate min 1
+            @doc value "is the rendered width of the text box in pixels."
         }
         align             FlexAlignment = FlexAlignmentCenter {
             @doc value "is the alignment of the text within the box."
@@ -744,8 +737,7 @@ NodeConfig union on variant {
             @doc value "is the unit suffix displayed after the value."
         }
         inline_size  float64 = 70 {
-            @doc value    "is the inline size of the value in pixels."
-            @validate min 1
+            @doc value "is the inline size of the value in pixels."
         }
         level        text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed value."

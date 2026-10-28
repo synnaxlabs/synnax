@@ -16,6 +16,8 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "ecrt_official",
     hdrs = ["ecrt.h"],
+    # Vendor SDK headers follow the vendor's conventions.
+    tags = ["no-clang-tidy"],
     visibility = ["//visibility:public"],
 )
 
@@ -26,6 +28,8 @@ cc_library(
     deps = [
         ":ecrt_official",
         "//driver/errors",
+        "//driver/ethercat/errors",
+        "//x/cpp/errors",
         "//x/cpp/lib",
     ],
 )
@@ -65,7 +69,8 @@ cc_test(
         ":igh",
         ":mock_api",
         "//driver/ethercat/errors",
-        "//x/cpp/test",
+        "//driver/ethercat/esi",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

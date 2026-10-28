@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -81,9 +82,6 @@ var validateIteratorCommand = validate.NewInclusiveBoundsChecker(
 	IteratorCommandSetBounds,
 )
 
-// HasOps returns true if the IteratorCommand has any associated on disk operations.
-func (i IteratorCommand) HasOps() bool { return i <= IteratorCommandPrev }
-
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
 //
 //go:generate stringer -type=IteratorCommand
@@ -128,6 +126,10 @@ type streamIterator struct {
 	confluence.UnarySink[IteratorRequest]
 	confluence.AbstractUnarySource[IteratorResponse]
 	internal []*unary.Iterator
+	// limited is true when the read has a limit reduction. A limited read is never
+	// chunked, because a chunk edge would cut its groups.
+	limited   bool
+	chunkSize int64
 }
 
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
@@ -141,11 +143,11 @@ type IteratorConfig struct {
 	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
 	// or Prev() request it IteratorAutoSpan as the span. It must not be negative.
 	AutoChunkSize int64
-	// DownsampleFactor keeps the samples whose alignment is a multiple of n, so every
-	// channel that shares an index keeps the same samples. The read is strided at the
-	// source, so the discarded samples are never read into memory. Values below 2 keep
-	// every sample.
-	DownsampleFactor uint32
+	// Reduction reduces the samples of each channel the iterator reads. A stride keeps
+	// the samples whose alignment is a multiple of its factor and never reads the rest.
+	// A limit reduces each channel in Bounds to about PointLimit points. Either way,
+	// every channel on one index keeps the same alignments.
+	Reduction telem.Reduction
 }
 
 // Flow implements the confluence.Segment interface.
@@ -183,15 +185,23 @@ func (s *streamIterator) exec(
 	}
 	switch req.Command {
 	case IteratorCommandNext:
-		ok = s.execWithResponse(
-			req.SeqNum,
-			func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },
-		)
+		if s.limited || req.Span == AutoSpan {
+			ok = s.execWithResponse(
+				req.SeqNum,
+				func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) },
+			)
+		} else {
+			ok, err = s.readInChunks(ctx, req)
+		}
 	case IteratorCommandPrev:
-		ok = s.execWithResponse(
-			req.SeqNum,
-			func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
-		)
+		if s.limited || req.Span == AutoSpan {
+			ok = s.execWithResponse(
+				req.SeqNum,
+				func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) },
+			)
+		} else {
+			ok, err = s.readInChunks(ctx, req)
+		}
 	case IteratorCommandSeekFirst:
 		ok = s.execWithoutResponse(
 			func(i *unary.Iterator) bool { return i.SeekFirst(ctx) },
@@ -220,22 +230,90 @@ func (s *streamIterator) exec(
 	return ok, err
 }
 
+// execWithResponse runs f on each iterator and sends the data of every iterator that f
+// moves as one response.
 func (s *streamIterator) execWithResponse(
 	seqNum int,
 	f func(i *unary.Iterator) bool,
 ) (ok bool) {
+	var fr Frame
 	for _, i := range s.internal {
 		if f(i) {
 			ok = true
-			s.Out.Inlet() <- IteratorResponse{
-				Variant: IteratorResponseVariantData,
-				Command: IteratorCommandNext,
-				SeqNum:  seqNum,
-				Frame:   i.Value(),
-			}
+			fr = fr.Extend(i.Value())
 		}
 	}
+	s.send(seqNum, fr)
 	return ok
+}
+
+// readInChunks runs a Next or Prev with a fixed span. It reads the range of each
+// iterator forward in chunks that each hold at most chunkSize samples summed over the
+// channels, or more for a run of equal timestamps. Each chunk is one data response that
+// holds every channel's data up to the end of the chunk.
+func (s *streamIterator) readInChunks(
+	ctx context.Context,
+	req IteratorRequest,
+) (ok bool, err error) {
+	var (
+		ends = make([]telem.TimeStamp, len(s.internal))
+		last telem.TimeStamp
+		n    = max(1, s.chunkSize/int64(max(1, len(s.internal))))
+	)
+	for j, i := range s.internal {
+		tr := i.View().End.SpanRange(req.Span)
+		if req.Command == IteratorCommandPrev {
+			tr = i.View().Start.SpanRange(-req.Span)
+		}
+		tr = tr.BoundBy(i.Bounds())
+		i.MoveTo(ctx, tr.Start)
+		ends[j] = tr.End
+		last = max(last, tr.End)
+	}
+	for {
+		end := last
+		probed := make(set.Set[channel.Key], len(s.internal))
+		for j, i := range s.internal {
+			idx := i.Channel.Index
+			if i.Channel.IsIndex {
+				idx = i.Channel.Key
+			}
+			if i.View().End >= ends[j] || probed.Contains(idx) {
+				continue
+			}
+			probed.Add(idx)
+			chunkEnd, err := i.EndAfter(ctx, n)
+			if err != nil {
+				return ok, err
+			}
+			end = min(end, chunkEnd)
+		}
+		var chunk Frame
+		for j, i := range s.internal {
+			stop := min(end, ends[j])
+			if stop > i.View().End && i.Continue(ctx, stop) {
+				ok = true
+				chunk = chunk.Extend(i.Value())
+			}
+		}
+		s.send(req.SeqNum, chunk)
+		if end >= last {
+			return ok, nil
+		}
+	}
+}
+
+// send sends fr as a data response unless it holds no series.
+func (s *streamIterator) send(seqNum int, fr Frame) {
+	if fr.Empty() {
+		return
+	}
+	s.Out.Inlet() <- IteratorResponse{
+		Variant: IteratorResponseVariantData,
+		Command: IteratorCommandNext,
+		SeqNum:  seqNum,
+		Frame:   fr,
+	}
 }
 
 func (s *streamIterator) execWithoutResponse(f func(i *unary.Iterator) bool) (ok bool) {

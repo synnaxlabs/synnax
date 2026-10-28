@@ -15,6 +15,7 @@ import { useReset } from "@/feature/embedded/useReset";
 import { useRestart } from "@/feature/embedded/useRestart";
 import { useReveal } from "@/feature/embedded/useReveal";
 import { Command } from "@/platform/command";
+import { Session } from "@/session";
 
 const OpenDiagnosticsCommand = Command.create({
   key: "open-diagnostics",
@@ -34,14 +35,14 @@ const ShowLogsCommand = Command.create({
   key: "show-logs",
   name: "Show logs",
   icon: <Icon.Log />,
-  useOnSelect: () => useReveal(showLogs, "Failed to show the logs"),
+  useOnSelect: () => useReveal(showLogs, "Failed to show logs"),
 });
 
 const ShowDataCommand = Command.create({
   key: "show-data-folder",
   name: "Show data folder",
   icon: <Icon.Explore />,
-  useOnSelect: () => useReveal(showData, "Failed to show the data folder"),
+  useOnSelect: () => useReveal(showData, "Failed to show data folder"),
 });
 
 const EraseDataCommand = Command.create({
@@ -49,6 +50,7 @@ const EraseDataCommand = Command.create({
   name: "Erase all data",
   icon: <Icon.Delete />,
   useOnSelect: useReset,
+  useVisible: () => Session.Runtime.isMainWindow(),
 });
 
 export const COMMANDS = [

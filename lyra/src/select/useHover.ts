@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type location, type record, TimeSpan } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type destructor,
+  type location,
+  type record,
+  TimeSpan,
+  xy,
+} from "@synnaxlabs/x";
+import { useEffect, useRef, useState } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks";
@@ -45,8 +51,14 @@ const HOVER_INTERVAL = TimeSpan.milliseconds(100).milliseconds;
 
 /** Return value for {@link useHover}. */
 export interface UseHoverReturn<K extends record.Key> {
-  /** The key the arrow keys currently rest on. */
+  /** The key the arrow keys or the pointer currently rest on. */
   hover: K | undefined;
+  /**
+   * Moves the hover onto the option under the pointer, so the pointer and the arrow
+   * keys share one hover. Does nothing while the keyboard triggers are off, or when the
+   * pointer has not moved since its last move.
+   */
+  setHover: (key: K) => void;
 }
 
 const resolveHover = <K extends record.Key>(
@@ -62,8 +74,8 @@ const resolveHover = <K extends record.Key>(
 /**
  * Moves a hover cursor through the options with the arrow keys and clicks the hovered
  * option with Enter, scrolling the hovered option into view. Holding an arrow key
- * repeats. The hover is a key, so it survives options appearing or disappearing around
- * it.
+ * repeats, and the pointer moves the same cursor. The hover is a key, so it survives
+ * options appearing or disappearing around it.
  */
 export const useHover = <K extends record.Key>({
   getOrder,
@@ -73,14 +85,13 @@ export const useHover = <K extends record.Key>({
   scrollTo,
   enableTriggers,
 }: UseHoverProps<K>): UseHoverReturn<K> => {
-  // The key the arrow keys last moved to, which may since have left the order.
+  // The key the arrow keys or the pointer last moved to, which may since have left the
+  // order.
   const movedRef = useRef<K | undefined>(undefined);
-  const [hover, setHover] = useState<K | undefined>(undefined);
+  const [hover, setHoverKey] = useState<K | undefined>(undefined);
   const getOrderRef = useSyncedRef(getOrder);
-  const resolve = useCallback(
-    () => setHover(resolveHover(getOrder(), movedRef.current, initialHover)),
-    [getOrder, initialHover],
-  );
+  const resolve = () =>
+    setHoverKey(resolveHover(getOrder(), movedRef.current, initialHover));
   useEffect(() => {
     resolve();
     return subscribe(resolve);
@@ -90,50 +101,77 @@ export const useHover = <K extends record.Key>({
   const enabledRef = useSyncedRef<Triggers.Condition>(enableTriggers ?? visible);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleTrigger = useCallback(
-    ({ triggers, stage }: Triggers.UseEvent) => {
-      if (!Triggers.resolveCondition(enabledRef.current)) return;
-      if (intervalRef.current != null) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (stage !== "start") return;
+  const handleTrigger = ({ triggers, stage }: Triggers.UseEvent) => {
+    if (!Triggers.resolveCondition(enabledRef.current)) return;
+    if (intervalRef.current != null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (stage !== "start") return;
 
-      if (Triggers.match(triggers, [SELECT_TRIGGER])) {
-        const current = resolveHover(
-          getOrderRef.current(),
-          movedRef.current,
-          initialHover,
-        );
-        if (current != null) click(current);
-        return;
-      }
-      const move = () => {
-        const order = getOrderRef.current();
-        if (order.length === 0) return;
-        const current = resolveHover(order, movedRef.current, initialHover);
-        const pos = current == null ? -1 : order.indexOf(current);
-        let next: number;
-        if (Triggers.match(triggers, [UP_TRIGGER], { loose: true }))
-          next = pos <= 0 ? order.length - 1 : pos - 1;
-        else if (Triggers.match(triggers, [DOWN_TRIGGER], { loose: true }))
-          next = pos >= order.length - 1 ? 0 : pos + 1;
-        else return;
-        movedRef.current = order[next];
-        setHover(order[next]);
-        scrollToRef.current?.(order[next], pos > next ? "bottom" : "top");
-      };
-      move();
-      intervalRef.current = setTimeout(() => {
-        intervalRef.current = setInterval(move, HOVER_INTERVAL);
-      }, INITIAL_HOVER_DELAY);
-    },
-    [click, initialHover],
-  );
+    if (Triggers.match(triggers, [SELECT_TRIGGER])) {
+      const current = resolveHover(
+        getOrderRef.current(),
+        movedRef.current,
+        initialHover,
+      );
+      if (current != null) click(current);
+      return;
+    }
+    const move = () => {
+      const order = getOrderRef.current();
+      if (order.length === 0) return;
+      const current = resolveHover(order, movedRef.current, initialHover);
+      const pos = current == null ? -1 : order.indexOf(current);
+      let next: number;
+      if (Triggers.match(triggers, [UP_TRIGGER], { loose: true }))
+        next = pos <= 0 ? order.length - 1 : pos - 1;
+      else if (Triggers.match(triggers, [DOWN_TRIGGER], { loose: true }))
+        next = pos >= order.length - 1 ? 0 : pos + 1;
+      else return;
+      movedRef.current = order[next];
+      setHoverKey(order[next]);
+      scrollToRef.current?.(order[next], pos > next ? "bottom" : "top");
+    };
+    move();
+    intervalRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(move, HOVER_INTERVAL);
+    }, INITIAL_HOVER_DELAY);
+  };
   Triggers.use({
     triggers: TRIGGERS,
     callback: handleTrigger,
     loose: true,
   });
-  return { hover };
+  // WebKit sends a pointer move when the list scrolls or appears under a still pointer.
+  // Only a move to a new position moves the hover, or the arrow keys would scroll the
+  // hover back under the pointer.
+  const pointerMovedRef = useRef(false);
+  const tracking = enableTriggers != null || visible;
+  useEffect(() => {
+    if (!tracking) return;
+    let last: xy.XY | undefined;
+    const handleMove = (e: PointerEvent): void => {
+      const position = xy.construct(e);
+      pointerMovedRef.current = last != null && !xy.equals(last, position);
+      last = position;
+    };
+    window.addEventListener("pointermove", handleMove, {
+      capture: true,
+      passive: true,
+    });
+    return () =>
+      window.removeEventListener("pointermove", handleMove, { capture: true });
+  }, [tracking]);
+  const setHover = (key: K) => {
+    if (
+      movedRef.current === key ||
+      !pointerMovedRef.current ||
+      !Triggers.resolveCondition(enabledRef.current)
+    )
+      return;
+    movedRef.current = key;
+    setHoverKey(key);
+  };
+  return { hover, setHover };
 };

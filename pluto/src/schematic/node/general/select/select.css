@@ -10,8 +10,6 @@
  */
 
 .pluto-select-symbol {
-    --pluto-border-color: var(--pluto-symbol-display);
-
     display: flex;
     align-items: center;
     gap: 0;
@@ -31,17 +29,13 @@
         border-width: 1px;
     }
 
-    .pluto-btn.pluto-dialog__trigger:not(.pluto--disabled) {
-        --pluto-border-color: var(--pluto-symbol-display);
-    }
-
     svg.pluto-caret-animated {
-        color: var(--pluto-gray-l9);
         fill: currentcolor;
     }
 
-    .pluto-handle__2 {
-        z-index: 5;
+    /* Lines the readout text up with the trigger's label. */
+    .pluto-symbol-field__readout {
+        padding-left: 8px;
     }
 }
 

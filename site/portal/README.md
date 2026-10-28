@@ -1,9 +1,10 @@
 # Portal
 
 The portal at `portal.synnaxlabs.com` issues licenses. Vercel's Git integration deploys
-`main` to production and every other branch to a preview. The Vercel build migrates the
-database after it builds, so each migration must only add to the schema: the old
-deployment serves on the new schema until the new one is promoted.
+only `main`, to production. Other branches get no automatic preview; deploy one with the
+Vercel CLI. The Vercel build migrates the database after it builds, so each migration
+must only add to the schema: the old deployment serves on the new schema until the new
+one is promoted.
 
 ## Environments
 
@@ -17,6 +18,9 @@ Every preview shares the `preview` branch, so an unmerged migration never reache
 production. Previews sign with the production key, so a license key issued there works
 on any Core but is recorded only in the `preview` branch. Previews are visible only to
 members of the Vercel team, so the Desktop app cannot renew against one.
+
+Previews and development send no mail, so an invitation reaches no one. Copy its link
+from the team's Members tab instead.
 
 ## Development
 
@@ -82,7 +86,8 @@ In each instance:
 1. Organizations: enable them with membership optional. The portal creates a user's
    personal organization after sign-in, so a required membership loops sign-in. Create
    the team organization "Synnax Labs" and give every staff member the admin role. Its
-   id is that environment's `STAFF_ORG_ID`.
+   id is that environment's `STAFF_ORG_ID`. Register every other team from the portal's
+   Admin tab.
 2. Sign-in options: Google and Microsoft. Production needs its own OAuth credentials for
    both, with the redirect URLs the dashboard shows.
 
@@ -91,16 +96,29 @@ In the production instance only:
 1. Domains: add the DNS records it asks for. `src/middleware.ts` allows its Frontend API
    host, `clerk.synnaxlabs.com`.
 2. Webhooks: add an endpoint at `https://portal.synnaxlabs.com/api/webhooks/clerk`
-   subscribed to `user.created`, `organization.created`, and `organization.updated`. Its
-   signing secret is `CLERK_WEBHOOK_SIGNING_SECRET`.
+   subscribed to `user.created`, `user.deleted`, `organization.created`, and
+   `organization.updated`. Its signing secret is `CLERK_WEBHOOK_SIGNING_SECRET`.
 
 Previews receive no webhooks. The portal creates organizations on first use instead.
 
 ### Resend
 
 Verify the `synnaxlabs.com` sending domain and create an API key with send permission
-for it. Set it as `RESEND_API_KEY` on production only. Expiry and revocation notices go
-out from `MAIL_FROM`.
+for it. Set it as `RESEND_API_KEY` on production only. Issue, expiry, revocation, and
+restoration notices go out from `MAIL_FROM`.
+
+### Slack
+
+Create a Slack app with an incoming webhook for the staff channel. Set the webhook URL
+as `SLACK_WEBHOOK_URL` on production only. The portal posts each new account, each first
+Desktop login, each user's first Desktop use of a day, each refused activation, a recap
+of each Desktop visit (a user's sessions in all windows, until 30 minutes idle), and a
+daily digest of Desktop use. Previews and local development log each post instead.
+
+### PostHog
+
+Create a PostHog personal API key with query read access to the Desktop project
+(621680). Set it as `POSTHOG_API_KEY` on production only. The session recaps read it.
 
 ### Vercel
 
@@ -119,14 +137,16 @@ OIDC federation in team issuer mode. `vercel.json` sets the install, build, and 
 | `AWS_ROLE_ARN`                 | From the script | From the script, preview |
 | `RESEND_API_KEY`               | Resend key      | Unset                    |
 | `CRON_SECRET`                  | Random string   | Random string            |
+| `SLACK_WEBHOOK_URL`            | Slack webhook   | Unset                    |
+| `POSTHOG_API_KEY`              | PostHog key     | Unset                    |
 
 Add the domain `portal.synnaxlabs.com`, and point a `portal` CNAME at the value Vercel
-shows. Vercel Cron calls the daily expiry sweep on production with `CRON_SECRET`.
+shows. Vercel Cron calls the daily expiry sweep, the Slack digest, and the session
+recaps every 15 minutes on production with `CRON_SECRET`.
 
 ### CI license
 
-Log in to the portal as staff, open the Synnax Labs organization's licenses, issue a
-subscription of a few months with one node and no channel cap labelled "CI", and use
-"Floating license key" on it. Store it with
-`gh secret set SYNNAX_LICENSE_TOKEN < <file>`. Rotate it by issuing a new one before the
-old one expires.
+Log in to the portal as staff, open Synnax Labs under Admin, issue a subscription of a
+few months with one node and no channel cap labelled "CI", and use "Floating license
+key" on it. Store it with `gh secret set SYNNAX_LICENSE_TOKEN < <file>`. Rotate it by
+issuing a new one before the old one expires.

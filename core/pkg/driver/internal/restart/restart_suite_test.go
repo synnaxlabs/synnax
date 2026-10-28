@@ -19,7 +19,7 @@ import (
 
 func TestRestart(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Driver Restart Suite")
+	RunSpecs(t, "Driver Restart Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

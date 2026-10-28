@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { AuthError, connection } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -19,11 +21,28 @@ vi.mock("@/platform/core/detectConnection", () => ({
 import { Login } from "@/feature/auth/Login";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
-import { createSessionConsoleWrapper, getBySelector } from "@/testutil";
+import {
+  createSessionConsoleWrapper,
+  createStatusConsoleWrapper,
+  getBySelector,
+} from "@/testutil";
 
 // Dead ports: the list checks each Core, and no assertion here reads the result.
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
 const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" });
+
+const REJECTED: connection.Status = {
+  ...connection.DEFAULT_STATUS,
+  variant: "error",
+  name: ALPHA.name,
+  message: "Failed to authenticate",
+  description: "invalid credentials",
+  details: {
+    ...connection.DEFAULT_STATUS.details,
+    reason: "auth",
+    error: new AuthError("invalid credentials"),
+  },
+};
 
 const BACK = ".console-login__back";
 const USERNAME_PLACEHOLDER = "synnax";
@@ -67,5 +86,22 @@ describe("auth/Login", () => {
     fireEvent.click(getBySelector(container, BACK));
     expect(await screen.findByText(BETA.name)).toBeTruthy();
     expect(screen.queryByPlaceholderText(USERNAME_PLACEHOLDER)).toBeNull();
+  });
+
+  it("should show why the Core rejected the connection", async () => {
+    const { wrapper } = await createStatusConsoleWrapper({
+      client: createTestClient(),
+      status: REJECTED,
+      preloadedState: {
+        [Session.Core.SLICE_NAME]: {
+          ...Session.Core.ZERO_SLICE_STATE,
+          cores: { [ALPHA.key]: ALPHA },
+          selected: ALPHA.key,
+        },
+      },
+    });
+    render(<Login />, { wrapper });
+    expect(await screen.findByText("Failed to authenticate")).toBeTruthy();
+    expect(screen.getByText("invalid credentials")).toBeTruthy();
   });
 });

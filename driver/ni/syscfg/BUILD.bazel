@@ -38,6 +38,8 @@ cc_library(
         "nisyscfg_errors.h",
         "nisyscfg_wide.h",
     ],
+    # Vendor SDK headers follow the vendor's conventions.
+    tags = ["no-clang-tidy"],
     deps = [],
 )
 
@@ -47,7 +49,7 @@ cc_test(
     deps = [
         ":syscfg",
         "//driver/ni/errors",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

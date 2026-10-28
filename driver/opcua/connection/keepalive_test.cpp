@@ -13,18 +13,18 @@
 #include "open62541/client.h"
 #include "open62541/client_highlevel.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/connection/connection.h"
-#include "driver/opcua/mock/server.h"
+#include "driver/opcua/testutil/server.h"
 
 namespace driver::opcua::connection {
 class ConnectionPoolKeepAliveTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        server_cfg_ = mock::ServerConfig::create_default();
+        server_cfg_ = testutil::ServerConfig::create_default();
         server_cfg_.port = 4847;
-        server_ = std::make_unique<mock::Server>(server_cfg_);
+        server_ = std::make_unique<testutil::Server>(server_cfg_);
         server_->start();
         ASSERT_TRUE(server_->wait_until_ready());
 
@@ -37,8 +37,8 @@ protected:
         if (server_) { server_->stop(); }
     }
 
-    mock::ServerConfig server_cfg_;
-    std::unique_ptr<mock::Server> server_;
+    testutil::ServerConfig server_cfg_;
+    std::unique_ptr<testutil::Server> server_;
     Config conn_cfg_;
 };
 
@@ -52,8 +52,8 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
         auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
         // Verify connection is actually functional
-        UA_SessionState session_state;
-        UA_SecureChannelState channel_state;
+        UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+        UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
         UA_Client_getState(connection.get(), &channel_state, &session_state, nullptr);
 
         EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED)
@@ -88,8 +88,8 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
     // Acquire again - should get same connection, still alive
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
+    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(conn2.get(), &channel_state, &session_state, nullptr);
 
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
@@ -107,6 +107,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
 
     std::vector<std::thread> threads;
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&]() {
             for (int j = 0; j < iterations_per_thread; ++j) {
@@ -116,8 +117,8 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
                     continue;
                 }
 
-                UA_SessionState session_state;
-                UA_SecureChannelState channel_state;
+                UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+                UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
                 UA_Client_getState(
                     connection.get(),
                     &channel_state,
@@ -188,8 +189,8 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
         auto connection = ASSERT_NIL_P(pool.acquire(short_cfg, "[test] "));
 
         // Verify connection is active
-        UA_SessionState session_state;
-        UA_SecureChannelState channel_state;
+        UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+        UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
         UA_Client_getState(connection.get(), &channel_state, &session_state, nullptr);
 
         EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED)

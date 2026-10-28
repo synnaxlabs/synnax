@@ -9,10 +9,10 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/read_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
 class MockSource final : public Source {
@@ -20,13 +20,15 @@ class MockSource final : public Source {
     const std::vector<x::errors::Error> start_errs;
     size_t stop_count = 0;
     const std::vector<x::errors::Error> stop_errs;
-    pipeline::mock::Source wrapped;
+    pipeline::testutil::Source wrapped;
 
-    synnax::framer::WriterConfig writer_config() const override {
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return synnax::framer::WriterConfig();
     }
 
-    std::vector<synnax::channel::Channel> channels() const override { return {}; }
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+        return {};
+    }
 
 public:
     explicit MockSource(
@@ -57,13 +59,13 @@ public:
 
 /// @brief it should start and stop the read task with successful status.
 TEST(TestCommonReadTask, testBasicOperation) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
     auto mock_source = std::make_unique<MockSource>(reads);
     ReadTask read_task(
         t,
@@ -80,7 +82,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(start_state.message, "Task started successfully");
+    EXPECT_EQ(start_state.message, "Started task");
     ASSERT_EVENTUALLY_EQ(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
         1
@@ -97,13 +99,13 @@ TEST(TestCommonReadTask, testBasicOperation) {
 /// @brief a start on a running task should ack the command without reopening
 /// the source.
 TEST(TestCommonReadTask, testStartWhileRunningAcks) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
     auto mock_source = std::make_unique<MockSource>(reads);
     ReadTask read_task(
         t,
@@ -124,7 +126,7 @@ TEST(TestCommonReadTask, testStartWhileRunningAcks) {
     EXPECT_EQ(ack_state.key, synnax::task::status_key(t));
     EXPECT_EQ(ack_state.details.cmd, "start_cmd_2");
     EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ack_state.message, "Task started successfully");
+    EXPECT_EQ(ack_state.message, "Started task");
     EXPECT_EQ(ack_state.details.running, true);
     // The live source was not closed and reopened.
     EXPECT_EQ(mock_writer_factory->writer_opens.load(std::memory_order_acquire), 1);
@@ -133,13 +135,13 @@ TEST(TestCommonReadTask, testStartWhileRunningAcks) {
 
 /// @brief it should report error status when source fails to start.
 TEST(TestCommonReadTask, testErrorOnStart) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
@@ -160,18 +162,19 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(start_state.message, "start error");
+    EXPECT_EQ(start_state.message, "Failed to start task");
+    EXPECT_EQ(start_state.description, "start error");
 }
 
 /// @brief it should report error status when source fails to stop.
 TEST(TestCommonReadTask, testErrorOnStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
     auto mock_source = std::make_unique<MockSource>(
         reads,
         nullptr,
@@ -202,12 +205,13 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, t.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state.message, "stop error");
+    EXPECT_EQ(stop_state.message, "Failed to stop task");
+    EXPECT_EQ(stop_state.description, "stop error");
 }
 
 /// @brief it should support multiple start-stop cycles.
 TEST(TestCommonReadTask, testMultiStartStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -215,7 +219,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
+        reads->emplace_back(i, s.deep_copy());
 
     auto mock_source = std::make_unique<MockSource>(reads);
     ReadTask read_task(
@@ -277,14 +281,14 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 
 /// @brief it should report error status when read fails during operation.
 TEST(TestCommonReadTask, testReadError) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, s.deep_copy()));
-    reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
+    reads->emplace_back(0, s.deep_copy());
+    reads->emplace_back(1, s.deep_copy());
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<x::errors::Error>>(
@@ -308,7 +312,7 @@ TEST(TestCommonReadTask, testReadError) {
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(start_state.message, "Task started successfully");
+    EXPECT_EQ(start_state.message, "Started task");
 
     ASSERT_EVENTUALLY_GE(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
@@ -319,7 +323,8 @@ TEST(TestCommonReadTask, testReadError) {
     ASSERT_EQ(run_err.key, synnax::task::status_key(t));
     ASSERT_EQ(run_err.details.task, t.key);
     ASSERT_EQ(run_err.variant, synnax::status::VARIANT_ERROR);
-    ASSERT_EQ(run_err.message, "read error");
+    ASSERT_EQ(run_err.message, "Failed to read data");
+    ASSERT_EQ(run_err.description, "read error");
 
     ASSERT_FALSE(read_task.stop("stop_cmd", true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 3);
@@ -328,18 +333,19 @@ TEST(TestCommonReadTask, testReadError) {
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.details.task, t.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state.message, "read error");
+    EXPECT_EQ(stop_state.message, "Failed to read data");
+    EXPECT_EQ(stop_state.description, "read error");
 }
 
 /// @brief it should recover on second start after first start failure.
 TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
-    reads->emplace_back(x::telem::Frame(0, std::move(s)));
+    reads->emplace_back(0, std::move(s));
 
     // Create a source that fails on first start but succeeds on second start
     auto mock_source = std::make_unique<MockSource>(
@@ -365,7 +371,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     EXPECT_EQ(start_state1.details.cmd, start_cmd_key1);
     EXPECT_EQ(start_state1.details.task, t.key);
     EXPECT_EQ(start_state1.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(start_state1.message, "first start error");
+    EXPECT_EQ(start_state1.message, "Failed to start task");
+    EXPECT_EQ(start_state1.description, "first start error");
 
     // Second start attempt - should succeed
     const std::string start_cmd_key2 = "start_cmd2";
@@ -376,7 +383,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     EXPECT_EQ(start_state2.details.cmd, start_cmd_key2);
     EXPECT_EQ(start_state2.details.task, t.key);
     EXPECT_EQ(start_state2.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(start_state2.message, "Task started successfully");
+    EXPECT_EQ(start_state2.message, "Started task");
 
     ASSERT_EVENTUALLY_EQ(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
@@ -396,7 +403,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
 
 /// @brief it should recover on second stop after first stop failure.
 TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -404,7 +411,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     // Give the pipeline essentially infinite reads.
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(x::telem::Frame(0, s.deep_copy()));
+        reads->emplace_back(0, s.deep_copy());
 
     // Create a source that fails on first stop but succeeds on second stop
     auto mock_source = std::make_unique<MockSource>(
@@ -432,7 +439,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
     EXPECT_EQ(start_state.details.task, t.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(start_state.message, "Task started successfully");
+    EXPECT_EQ(start_state.message, "Started task");
 
     ASSERT_EVENTUALLY_EQ(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
@@ -448,7 +455,8 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     EXPECT_EQ(stop_state1.details.cmd, stop_cmd_key1);
     EXPECT_EQ(stop_state1.details.task, t.key);
     EXPECT_EQ(stop_state1.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(stop_state1.message, "first stop error");
+    EXPECT_EQ(stop_state1.message, "Failed to stop task");
+    EXPECT_EQ(stop_state1.description, "first stop error");
 
     // Start the task again
     const std::string start_cmd_key2 = "start_cmd2";
@@ -479,14 +487,15 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 /// @brief it should report warning status on temporary hardware error and recover.
 /// Neither the warning nor the recovery answers the start, so neither claims its key.
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
-    const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    const auto
+        mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
+        reads->emplace_back(i, s.deep_copy());
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<x::errors::Error>>(std::vector{
@@ -512,10 +521,8 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(warning_state.key, synnax::task::status_key(t));
     EXPECT_EQ(warning_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(warning_state.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(
-        warning_state.message,
-        errors::TEMPORARY_HARDWARE_ERROR.message() + " (retry 1/50 in 0.0 s)"
-    );
+    EXPECT_EQ(warning_state.message, "Failed to read data");
+    EXPECT_EQ(warning_state.description, "Next retry 1/50 in 0.0 s.");
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     auto recovered_state = ctx->statuses[2];
@@ -531,20 +538,21 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(stop_state.key, synnax::task::status_key(t));
     EXPECT_EQ(stop_state.details.cmd, "stop_cmd");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state.message, "Task stopped successfully");
+    EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
 /// @brief it should show the retry count and the backoff interval in the warning for
 /// each consecutive temporary error.
 TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
-    const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    const auto
+        mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
-        reads->emplace_back(x::telem::Frame(i, s.deep_copy()));
+        reads->emplace_back(i, s.deep_copy());
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<x::errors::Error>>(std::vector{
@@ -561,11 +569,10 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
         read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
     read_task.start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 4);
-    const auto msg = errors::TEMPORARY_HARDWARE_ERROR.message();
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[1].message, msg + " (retry 1/3 in 0.1 s)");
+    EXPECT_EQ(ctx->statuses[1].description, "Next retry 1/3 in 0.1 s.");
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[2].message, msg + " (retry 2/3 in 0.2 s)");
+    EXPECT_EQ(ctx->statuses[2].description, "Next retry 2/3 in 0.2 s.");
     EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_SUCCESS);
     read_task.stop("stop_cmd", true);
 }

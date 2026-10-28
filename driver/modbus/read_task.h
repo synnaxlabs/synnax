@@ -153,7 +153,7 @@ public:
 /// @brief configuration for a modbus read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the total number of data channels in the task.
-    size_t data_channel_count;
+    size_t data_channel_count{0};
     /// @brief the key of the device to read from.
     std::string device_key;
     /// @brief the indexes of all data channels in the task.
@@ -185,7 +185,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         x::json::Parser &cfg
     ):
         BaseReadTaskConfig(cfg),
-        data_channel_count(0),
         device_key(cfg.field<std::string>("device")),
         samples_per_chan(sample_rate / stream_rate) {
         std::vector<channel::InputRegister> holding_registers;
@@ -195,14 +194,17 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         auto [dev, dev_err] = client->devices.retrieve(this->device_key);
         if (dev_err) {
-            cfg.field_err("device", dev_err.message());
+            cfg.field_err("device", dev_err.data);
             return;
         }
 
         auto conn_parser = x::json::Parser(dev.properties);
         this->conn = device::ConnectionConfig(conn_parser.child("connection"));
         if (conn_parser.error()) {
-            cfg.field_err("device", conn_parser.error().message());
+            cfg.field_err(
+                "device",
+                common::config_err_description(conn_parser.error())
+            );
             return;
         }
 
@@ -215,17 +217,19 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 parsed
             );
             if (base.disabled) return;
-            if (base.channel == 0)
-                return ch.field_err("channel", "channel must be specified");
+            if (base.channel == 0) {
+                ch.field_err("channel", "channel must be specified");
+                return;
+            }
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterReadChannel>(&parsed))
-                holding_registers.emplace_back(*c);
+                holding_registers.emplace_back(*c, this->conn);
             else if (
                 const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
                     &parsed
                 )
             )
-                input_registers.emplace_back(*c);
+                input_registers.emplace_back(*c, this->conn);
             else if (
                 const auto *c = std::get_if<::synnax::modbus::CoilReadChannel>(&parsed)
             )
@@ -243,6 +247,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         channel::sort_by_address(discrete_inputs);
 
         std::vector<synnax::channel::Key> keys;
+        keys.reserve(holding_registers.size());
         for (const auto &ch: holding_registers)
             keys.push_back(ch.synnax_key);
         for (const auto &ch: input_registers)
@@ -254,7 +259,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         auto [synnax_channels, err] = client->channels.retrieve(keys);
         if (err) {
-            cfg.field_err("channels", err.message());
+            cfg.field_err("channels", err.data);
             return;
         }
 

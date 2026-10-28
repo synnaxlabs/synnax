@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "boost/uuid/nil_generator.hpp"
 #include "boost/uuid/string_generator.hpp"
 #include "boost/uuid/uuid_io.hpp"
@@ -20,7 +22,7 @@ UUID::UUID(): value(boost::uuids::nil_uuid()) {}
 UUID::UUID(const boost::uuids::uuid &u): value(u) {}
 
 UUID::UUID(const std::array<std::uint8_t, 16> &bytes) {
-    std::copy(bytes.begin(), bytes.end(), this->value.begin());
+    std::ranges::copy(bytes, this->value.begin());
 }
 
 std::pair<UUID, errors::Error> UUID::parse(const std::string &str) {

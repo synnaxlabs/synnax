@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { type bounds, box, xy } from "@synnaxlabs/x";
+import { type bounds, box, type destructor, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -33,6 +33,7 @@ export const linePlotStateZ = z.object({
   visible: z.boolean().default(true),
   clearOverScan: xy.crudeZ.default(xy.ZERO),
   loading: z.boolean().default(false),
+  fetching: z.boolean().default(false),
 });
 
 const axesBoundsZ = z.record(
@@ -48,15 +49,10 @@ interface InternalState {
   instrumentation: Instrumentation;
   handleError: status.ErrorHandler;
   renderCtx: render.Context;
+  stopListeningRestore?: destructor.Destructor;
 }
 
 type Children = XAxis | tooltip.Tooltip | measure.Measure;
-
-const calculateExposure = (viewport: box.Box, region: box.Box): number => {
-  const vpArea = box.width(viewport) * Math.sqrt(box.height(viewport));
-  const regArea = box.width(region) * Math.sqrt(box.height(region));
-  return vpArea / regArea;
-};
 
 const RENDER_CANVASES: render.CanvasVariant[] = ["upper2d", "lower2d", "gl"] as const;
 const TOOL_RENDER_CANVASES: render.CanvasVariant[] = ["upper2d"];
@@ -83,30 +79,27 @@ export class LinePlot
       if (!this.state.visible) return;
       this.requestRender("low", r);
     });
+    this.internal.stopListeningRestore?.();
+    this.internal.stopListeningRestore = this.internal.renderCtx.onRestore(() => {
+      if (this.state.visible) this.requestRender("high", "layout");
+    });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender("high", "layout");
   }
 
   afterDelete(ctx: aether.Context): void {
+    this.internal.stopListeningRestore?.();
     this.internal.renderCtx = render.Context.use(ctx);
     this.requestRender("high", "layout");
   }
 
   findByXDecimal(x: number): FindResult[] {
-    const props = {
-      ...this.state,
-      plot: this.calculatePlot(),
-      exposure: this.exposure,
-    };
+    const props = { ...this.state, plot: this.calculatePlot() };
     return this.axes.flatMap((xAxis) => xAxis.findByXDecimal(props, x)).flat();
   }
 
   findByXValue(x: number): FindResult[] {
-    const props = {
-      ...this.state,
-      plot: this.calculatePlot(),
-      exposure: this.exposure,
-    };
+    const props = { ...this.state, plot: this.calculatePlot() };
     return this.axes.flatMap((a) => a.findByXValue(props, x)).flat();
   }
 
@@ -122,16 +115,23 @@ export class LinePlot
     return this.childrenOfType<measure.Measure>(measure.Measure.TYPE);
   }
 
-  private get exposure(): number {
-    return calculateExposure(this.state.viewport, this.state.container);
-  }
-
   private get loading(): boolean {
     return this.axes.some((a) => a.loading);
   }
 
+  private get fetching(): boolean {
+    return this.axes.some((a) => a.fetching);
+  }
+
+  // Lines record their loading state as they render, so it syncs after a render.
+  private syncLoading(): void {
+    const { loading, fetching } = this;
+    if (loading !== this.state.loading || fetching !== this.state.fetching)
+      this.setState((p) => ({ ...p, loading, fetching }));
+  }
+
   private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
-    const p = { ...this.state, plot, canvases, exposure: this.exposure };
+    const p = { ...this.state, plot, canvases };
     this.axes.forEach((xAxis) => xAxis.render(p));
   }
 
@@ -173,12 +173,9 @@ export class LinePlot
       ins.L.debug("deleted, skipping render", { key: this.key });
       return;
     }
-    // Skips draws while loading to free the worker and avoid autoscaling partial data.
-    const loading = this.loading;
-    if (loading !== this.state.loading) this.setState((p) => ({ ...p, loading }));
-    const skip = !this.state.visible ? "not visible" : loading ? "loading" : null;
-    if (skip != null) {
-      ins.L.debug(`${skip}, skipping render`, { key: this.key });
+    if (!this.state.visible) {
+      ins.L.debug("not visible, skipping render", { key: this.key });
+      this.syncLoading();
       return ({ canvases }) =>
         renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
@@ -217,6 +214,7 @@ export class LinePlot
       removeCanvasScissor();
       removeGLScissor();
     }
+    this.syncLoading();
     ins.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
 

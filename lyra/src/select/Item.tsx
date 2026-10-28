@@ -10,13 +10,7 @@
 import "@/select/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import {
-  type ReactNode,
-  type RefObject,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { type ReactNode, type RefObject, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/button";
@@ -43,13 +37,14 @@ export type ItemProps<
 const BlockItem = <K extends record.Key, E extends Button.ElementType>(
   props: List.ItemProps<K, E>,
 ): ReactNode => {
-  const { selected, hovered, onSelect, sole } = useItemState(props.itemKey);
+  const { selected, hovered, onSelect, onHover, sole } = useItemState(props.itemKey);
   const reselectNoop = useReselectNoop();
   return (
     <List.Item<K, E>
       role="option"
       selected={selected}
       hovered={hovered}
+      onHover={onHover}
       onSelect={onSelect}
       preventClick={reselectNoop && sole ? true : undefined}
       {...props}
@@ -86,7 +81,7 @@ const ButtonItem = <K extends record.Key>({
   return (
     <Button.Toggle
       preview={preview}
-      variant={variant}
+      variant={variant === "card" ? "outlined" : variant}
       {...rest}
       ref={ref}
       id={itemKey.toString()}
@@ -108,7 +103,7 @@ const ClosedFixedItem = <K extends record.Key>({
   itemKey,
   children,
 }: Pick<ItemProps<K>, "itemKey" | "children">): ReactNode => {
-  const keys = useMemo(() => [itemKey], [itemKey]);
+  const keys = [itemKey];
   const selected = useSelectedAmong(keys) != null;
   const registry = useRegistryContext("Select.Item");
   if (!selected) return null;
@@ -119,7 +114,7 @@ const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
   props: List.ItemProps<K, E>,
 ): ReactNode => {
   const { itemKey, children } = props;
-  const { selected, hovered, onSelect, sole } = useItemState(itemKey);
+  const { selected, hovered, onSelect, onHover, sole } = useItemState(itemKey);
   const reselectNoop = useReselectNoop();
   const registry = useRegistryContext("Select.Item");
   const hidden = useIsHidden(itemKey);
@@ -130,6 +125,7 @@ const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
         role="option"
         selected={selected}
         hovered={hovered}
+        onHover={onHover}
         onSelect={onSelect}
         preventClick={reselectNoop && sole ? true : undefined}
         hidden={hidden}

@@ -12,18 +12,20 @@ package user
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"go.uber.org/zap"
 )
 
-// ProvisionRoot makes the user holding creds.Username the only root user, promoting or
-// creating it, and demotes every other root user without touching its roles. It writes
-// the password only when creds does not verify, and reports that write. It runs in one
-// transaction and returns a validation error when creds is incomplete.
+// ProvisionRoot makes the user whose password holds creds.Username the only root user,
+// promoting or creating it, and demotes every other root user without touching its
+// roles. It writes the password only when creds does not verify, and reports that
+// write. It runs in one transaction and returns a validation error when creds is
+// incomplete.
 func ProvisionRoot(
 	ctx context.Context,
 	users *Service,
@@ -43,7 +45,13 @@ func ProvisionRoot(
 		if err != nil {
 			return err
 		}
-		if root, err = users.resolveRoot(ctx, tx, roots, creds.Username); err != nil {
+		if root, err = users.resolveRoot(
+			ctx,
+			tx,
+			passwords,
+			roots,
+			creds.Username,
+		); err != nil {
 			return err
 		}
 		for _, r := range roots {
@@ -93,21 +101,19 @@ func (s *Service) loadRootUsers(ctx context.Context, tx gorp.Tx) ([]User, error)
 	return roots, nil
 }
 
+// resolveRoot returns the user whose password holds username, creating a root user
+// when no password holds it.
 func (s *Service) resolveRoot(
 	ctx context.Context,
 	tx gorp.Tx,
+	passwords *password.Service,
 	roots []User,
 	username string,
 ) (User, error) {
-	for _, r := range roots {
-		if r.Username == username {
-			return r, nil
-		}
-	}
-	var existing User
-	err := s.NewRetrieve().
-		Where(MatchUsernames(username)).
-		Entry(&existing).
+	var p password.Password
+	err := passwords.NewRetrieve().
+		Where(password.MatchUsernames(username)).
+		Entry(&p).
 		Exec(ctx, tx)
 	if errors.Is(err, query.ErrNotFound) {
 		created, err := s.NewWriter(tx).create(ctx, User{
@@ -122,6 +128,25 @@ func (s *Service) resolveRoot(
 	}
 	if err != nil {
 		return User{}, errors.Wrap(err, "look up configured root username")
+	}
+	for _, r := range roots {
+		if r.OntologyID() == p.Subject {
+			return r, nil
+		}
+	}
+	if p.Subject.Type != ontology.ResourceTypeUser {
+		return User{}, errors.Newf("password %q is not held by a user", username)
+	}
+	key, err := KeyFromOntologyID(p.Subject)
+	if err != nil {
+		return User{}, err
+	}
+	var existing User
+	if err = s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&existing).
+		Exec(ctx, tx); err != nil {
+		return User{}, errors.Wrapf(err, "look up user holding %q", username)
 	}
 	if err := s.NewWriter(tx).setRootUser(ctx, existing.Key, true); err != nil {
 		return User{}, errors.Wrapf(err, "promote existing user %q to root", username)

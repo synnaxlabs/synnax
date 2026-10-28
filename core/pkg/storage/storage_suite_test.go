@@ -14,9 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestStorage(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Storage Suite")
+	RunSpecs(t, "Storage Suite", SuiteConfig())
 }

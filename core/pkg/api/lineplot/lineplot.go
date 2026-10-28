@@ -12,33 +12,67 @@ package lineplot
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the line plot API service.
+type ServiceConfig struct {
+	// LinePlot stores and retrieves line plots.
+	//
+	// [REQUIRED]
+	LinePlot *lineplot.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the line plot API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.lineplot")
+	v.NotNil("line_plot", c.LinePlot)
+	v.NotNil("rbac", c.RBAC)
+	return v.Error()
+}
 
 type Service struct {
 	access   *rbac.Service
 	internal *lineplot.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		internal: cfg.Service.LinePlot,
-		access:   cfg.Service.RBAC,
+		internal: cfg.LinePlot,
+		access:   cfg.RBAC,
 	}, nil
 }
 

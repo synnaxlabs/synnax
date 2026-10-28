@@ -10,15 +10,19 @@
 package config_test
 
 import (
+	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	arcversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -37,6 +41,7 @@ var _ = Describe("Service", func() {
 			config.ServiceConfig[arctask.Config]{
 				DB:                 db,
 				Type:               testType,
+				Ladder:             arcversions.ConfigLadder,
 				SetEntryKey:        (*arctask.Config).SetKey,
 				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
 				ValidateEntry:      (*arctask.Config).Validate,
@@ -70,10 +75,27 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(config.OpenService(
 					ctx,
-					config.ServiceConfig[arctask.Config]{DB: db, Type: testType},
+					config.ServiceConfig[arctask.Config]{
+						DB:     db,
+						Type:   testType,
+						Ladder: arcversions.ConfigLadder,
+					},
 				)).Error().To(MatchError(ContainSubstring("set_entry_key: must be non-nil")))
 			},
 		)
+
+		It("Should reject a config missing the ladder", func(ctx SpecContext) {
+			Expect(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:          db,
+					Type:        testType,
+					SetEntryKey: (*arctask.Config).SetKey,
+				},
+			)).Error().To(MatchError(ContainSubstring(
+				"ladder.decode: must be non-nil",
+			)))
+		})
 	})
 
 	Describe("Type", func() {
@@ -137,6 +159,65 @@ var _ = Describe("Service", func() {
 				"arc_key":     uuid.New().String(),
 				"performance": "BOGUS",
 			})).To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+		})
+
+		Context("With a resolve hook", func() {
+			openResolving := func(
+				ctx SpecContext,
+				resolve func(context.Context, gorp.Tx, *arctask.Config) error,
+			) *config.Service[arctask.Config] {
+				GinkgoHelper()
+				return MustOpen(config.OpenService(
+					ctx,
+					config.ServiceConfig[arctask.Config]{
+						DB:            db,
+						Type:          testType,
+						Ladder:        arcversions.ConfigLadder,
+						SetEntryKey:   (*arctask.Config).SetKey,
+						ResolveEntry:  resolve,
+						ValidateEntry: (*arctask.Config).Validate,
+					},
+				))
+			}
+
+			It("Should store the entry the hook resolves, before validating it", func(
+				ctx SpecContext,
+			) {
+				resolving := openResolving(ctx, func(
+					_ context.Context,
+					tx gorp.Tx,
+					c *arctask.Config,
+				) error {
+					Expect(tx).ToNot(BeNil())
+					c.Performance = "low"
+					return nil
+				})
+				key := uuid.New()
+				Expect(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+					"arc_key":     uuid.New().String(),
+					"performance": "BOGUS",
+				})).To(Succeed())
+				data := MustSucceed(resolving.Read(ctx, nil, key))
+				Expect(data["performance"]).To(Equal("low"))
+			})
+
+			It("Should return the hook's error and store nothing", func(
+				ctx SpecContext,
+			) {
+				resolving := openResolving(ctx, func(
+					context.Context,
+					gorp.Tx,
+					*arctask.Config,
+				) error {
+					return errors.New("resolve failed")
+				})
+				key := uuid.New()
+				Expect(resolving.Write(ctx, nil, key, msgpack.EncodedJSON{
+					"arc_key": uuid.New().String(),
+				})).To(MatchError("resolve failed"))
+				Expect(resolving.Read(ctx, nil, key)).Error().
+					To(MatchError(query.ErrNotFound))
+			})
 		})
 	})
 
@@ -203,42 +284,58 @@ var _ = Describe("Service", func() {
 			versioned = MustOpen(config.OpenService(
 				ctx,
 				config.ServiceConfig[arctask.Config]{
-					DB:          db,
-					Type:        "versioned_test",
-					Version:     2,
-					SetEntryKey: (*arctask.Config).SetKey,
+					DB:            db,
+					Type:          "versioned_test",
+					Ladder:        arcversions.ConfigLadder,
+					LegacyVersion: 1,
+					SetEntryKey:   (*arctask.Config).SetKey,
 					Legacy: &legacy.Rewrite{
 						Post: func(cfg msgpack.EncodedJSON) {
-							legacy.RenameKey(cfg, "old_name", "new_name")
+							legacy.RenameKey(cfg, "module", "arc_key")
 						},
 					},
 				},
 			))
 		})
 
-		It("Should reject a version above the store's version", func() {
-			Expect(versioned.Normalize(3, msgpack.EncodedJSON{})).Error().
-				To(SatisfyAll(
-					MatchError(ContainSubstring("validation")),
-					MatchError(ContainSubstring("newer than this Core supports")),
-				))
+		It("Should reject a version above the ladder's latest", func(ctx SpecContext) {
+			Expect(versioned.Normalize(
+				ctx, arcversions.Latest+1, msgpack.EncodedJSON{},
+			)).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
+				"version: versioned_test version %d is newer than this Core supports "+
+					"(latest: %d): validation error",
+				arcversions.Latest+1,
+				arcversions.Latest,
+			))))
 		})
 
-		It("Should return current-version data unchanged", func() {
-			data := msgpack.EncodedJSON{"camelKey": 1, "old_name": 2}
-			Expect(versioned.Normalize(2, data)).To(Equal(data))
+		It("Should decode current-version data into the current shape", func(
+			ctx SpecContext,
+		) {
+			arcKey := uuid.New()
+			out := MustSucceed(versioned.Normalize(
+				ctx,
+				arcversions.Latest,
+				msgpack.EncodedJSON{"arc_key": arcKey.String(), "unknown": 1},
+			))
+			Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
+			Expect(out).ToNot(HaveKey("unknown"))
 		})
 
-		It("Should run the legacy rewrite on a legacy version", func() {
-			out := MustSucceed(versioned.Normalize(0, msgpack.EncodedJSON{
-				"camelKey": 1,
-				"oldName":  2,
-			}))
-			Expect(out).To(Equal(msgpack.EncodedJSON{
-				"camel_key": 1,
-				"new_name":  2,
-			}))
-		})
+		It(
+			"Should run the legacy rewrite on a legacy version, then decode at the "+
+				"ladder's first version",
+			func(ctx SpecContext) {
+				arcKey := uuid.New()
+				out := MustSucceed(versioned.Normalize(ctx, 0, msgpack.EncodedJSON{
+					"module":     arcKey.String(),
+					"dataSaving": true,
+				}))
+				Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
+				Expect(out).To(HaveKeyWithValue("data_saving_disabled", false))
+				Expect(out).ToNot(HaveKey("module"))
+			},
+		)
 
 		It("Should apply era normalization alone when no legacy rewrite is set", func(
 			ctx SpecContext,
@@ -248,34 +345,57 @@ var _ = Describe("Service", func() {
 				config.ServiceConfig[arctask.Config]{
 					DB:          db,
 					Type:        "era_only_test",
-					Version:     1,
+					Ladder:      arcversions.ConfigLadder,
 					SetEntryKey: (*arctask.Config).SetKey,
 				},
 			))
-			out := MustSucceed(eraOnly.Normalize(0, msgpack.EncodedJSON{
-				"camelKey":   1,
-				"dataSaving": true,
+			arcKey := uuid.New()
+			out := MustSucceed(eraOnly.Normalize(ctx, 0, msgpack.EncodedJSON{
+				"arcKey":     arcKey.String(),
+				"dataSaving": false,
 			}))
-			Expect(out).To(Equal(msgpack.EncodedJSON{
-				"camel_key":            1,
-				"data_saving_disabled": false,
-			}))
+			Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
+			Expect(out).To(HaveKeyWithValue("data_saving_disabled", true))
+		})
+
+		It("Should apply the store's defaults to the normalized config", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(svc.Normalize(
+				ctx,
+				arcversions.Latest,
+				msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+			))
+			Expect(out).To(HaveKeyWithValue("performance", "auto"))
+		})
+
+		It("Should run the legacy rewrite on a version below the ladder's first", func(
+			ctx SpecContext,
+		) {
+			arcKey := uuid.New()
+			out := MustSucceed(versioned.Normalize(
+				ctx,
+				arcversions.ConfigLadder.First-1,
+				msgpack.EncodedJSON{"module": arcKey.String()},
+			))
+			Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
+		})
+
+		It("Should reject data that does not decode at its version", func(
+			ctx SpecContext,
+		) {
+			Expect(versioned.Normalize(
+				ctx, arcversions.Latest, msgpack.EncodedJSON{"arc_key": 12},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("decoding versioned_test config")),
+			))
 		})
 	})
 
 	Describe("Version", func() {
-		It("Should report the configured version", func(ctx SpecContext) {
-			versioned := MustOpen(config.OpenService(
-				ctx,
-				config.ServiceConfig[arctask.Config]{
-					DB:          db,
-					Type:        "version_report_test",
-					Version:     3,
-					SetEntryKey: (*arctask.Config).SetKey,
-				},
-			))
-			Expect(versioned.Version()).To(Equal(imex.Version(3)))
-			Expect(svc.Version()).To(Equal(imex.Version(0)))
+		It("Should report the ladder's latest version", func() {
+			Expect(svc.Version()).To(Equal(arcversions.Latest))
 		})
 	})
 })
@@ -288,6 +408,7 @@ var _ = Describe("Registry", func() {
 			config.ServiceConfig[arctask.Config]{
 				DB:          db,
 				Type:        testType,
+				Ladder:      arcversions.ConfigLadder,
 				SetEntryKey: (*arctask.Config).SetKey,
 			},
 		))

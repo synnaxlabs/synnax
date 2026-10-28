@@ -13,6 +13,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -101,7 +102,7 @@ inline int resolve_ain_index(x::json::Parser &parser, const std::string &port) {
 inline int resolve_cjc_addr(x::json::Parser &parser, const std::string &cjc_source) {
     if (cjc_source == DEVICE_CJC_SOURCE) return LJM_TEMPERATURE_DEVICE_K_ADDRESS;
     if (cjc_source == AIR_CJC_SOURCE) return LJM_TEMPERATURE_AIR_K_ADDRESS;
-    if (cjc_source.find(AIN_PREFIX) != std::string::npos) {
+    if (cjc_source.contains(AIN_PREFIX)) {
         const int port_num = std::stoi(cjc_source.substr(3));
         return port_num * 2;
     }
@@ -431,7 +432,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
         auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
-            parser.field_err("device", "failed to retrieve device: " + err.message());
+            parser.field_err("device", "failed to retrieve device: " + err.data);
             return;
         }
         this->dev_model = dev.model;
@@ -441,10 +442,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(ch->synnax_key);
         const auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err(
-                "channels",
-                "failed to retrieve channels: " + ch_err.message()
-            );
+            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
             return;
         }
         size_t i = 0;
@@ -523,11 +521,11 @@ class UnarySource final : public common::Source {
     /// released on stop.
     std::shared_ptr<device::Device> dev;
     /// @brief a handle to the interval that is regulating the sample clock.
-    const int interval_handle;
+    const int interval_handle{0};
 
 public:
     UnarySource(const std::shared_ptr<device::Manager> &devs, ReadTaskConfig cfg):
-        cfg(std::move(cfg)), devs(devs), interval_handle(0) {}
+        cfg(std::move(cfg)), devs(devs) {}
 
     /// @brief claims the device on every start so a device that disconnects and
     /// returns between runs gets a fresh LJM handle on the next start.
@@ -564,12 +562,12 @@ public:
     read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
         common::ReadResult res;
         common::initialize_frame(data, this->cfg.channels, this->cfg.indexes, 1);
-        int err_addr;
+        int err_addr = 0;
         std::vector<const char *> locations;
         std::vector<double> values;
         for (const auto &channel: this->cfg.channels)
             if (channel->enabled) locations.push_back(channel->port.c_str());
-        int skipped_intervals;
+        int skipped_intervals = 0;
         if (res.error = this->dev->wait_for_next_interval(
                 this->interval_handle,
                 &skipped_intervals
@@ -726,8 +724,8 @@ public:
         common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
 
         const auto start = this->sample_clock.wait(breaker);
-        int device_scan_backlog;
-        int ljm_scan_backlog;
+        int device_scan_backlog = 0;
+        int ljm_scan_backlog = 0;
         if (res.error = translate_error(this->dev->e_stream_read(
                 this->interleaved_buf.data(),
                 &device_scan_backlog,
@@ -737,12 +735,15 @@ public:
             if (res.error.matches(ljm::TEMPORARILY_UNREACHABLE)) this->restart(true);
             return res;
         }
-        if (static_cast<size_t>(device_scan_backlog) >
-            this->cfg.device_scan_backlog_warn_on_count)
-            res.warning = common::skew_warning(device_scan_backlog);
-        if (static_cast<size_t>(ljm_scan_backlog) >
-            this->cfg.ljm_scan_backlog_warn_on_count)
-            res.warning = common::skew_warning(ljm_scan_backlog);
+        if (std::cmp_greater(
+                device_scan_backlog,
+                this->cfg.device_scan_backlog_warn_on_count
+            ) ||
+            std::cmp_greater(
+                ljm_scan_backlog,
+                this->cfg.ljm_scan_backlog_warn_on_count
+            ))
+            res.warning = common::SKEW_WARNING;
         const auto end = this->sample_clock.end();
         common::transfer_buf(this->deinterleave(), fr, n_channels, n_samples);
         common::generate_index_data(

@@ -12,18 +12,64 @@ package user
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the user API service.
+type ServiceConfig struct {
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// User stores and retrieves users.
+	//
+	// [REQUIRED]
+	User *user.Service
+	// Password stores passwords and checks proofs of them.
+	//
+	// [REQUIRED]
+	Password *password.Service
+	// Auth logs subjects in and checks their session tokens.
+	//
+	// [REQUIRED]
+	Auth *svcauth.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the user API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.User = override.Nil(c.User, other.User)
+	c.Password = override.Nil(c.Password, other.Password)
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.user")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("user", c.User)
+	v.NotNil("password", c.Password)
+	v.NotNil("auth", c.Auth)
+	return v.Error()
+}
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
@@ -35,16 +81,16 @@ type Service struct {
 
 // NewService creates a new Service that allows for registering, updating, and removing
 // users.
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.Service.RBAC,
-		internal: cfg.Service.User,
-		password: cfg.Service.Password,
-		auth:     cfg.Service.Auth,
+		access:   cfg.RBAC,
+		internal: cfg.User,
+		password: cfg.Password,
+		auth:     cfg.Auth,
 	}, nil
 }
 
@@ -176,7 +222,8 @@ type (
 	}
 )
 
-// Retrieve returns the users with the provided keys or usernames.
+// Retrieve returns the users with the provided keys or usernames, each with the
+// username of its password.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -186,7 +233,14 @@ func (s *Service) Retrieve(
 		q = q.Where(user.MatchKeys(req.Keys...))
 	}
 	if len(req.Usernames) > 0 {
-		q = q.Where(user.MatchUsernames(req.Usernames...))
+		keys, err := s.keysByUsername(ctx, req.Usernames)
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+		if len(keys) == 0 {
+			return RetrieveResponse{Users: []user.User{}}, nil
+		}
+		q = q.Where(user.MatchKeys(keys...))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
@@ -199,7 +253,58 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if err := s.fillUsernames(ctx, users); err != nil {
+		return RetrieveResponse{}, err
+	}
 	return RetrieveResponse{Users: users}, nil
+}
+
+func (s *Service) keysByUsername(
+	ctx context.Context,
+	usernames []string,
+) ([]user.Key, error) {
+	var passwords []password.Password
+	if err := s.password.NewRetrieve().
+		Where(password.MatchUsernames(usernames...)).
+		Entries(&passwords).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	keys := make([]user.Key, 0, len(passwords))
+	for _, p := range passwords {
+		if p.Subject.Type != ontology.ResourceTypeUser {
+			continue
+		}
+		key, err := user.KeyFromOntologyID(p.Subject)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+// fillUsernames sets each user's username from its password, leaving it empty for a
+// user with no password.
+func (s *Service) fillUsernames(ctx context.Context, users []user.User) error {
+	if len(users) == 0 {
+		return nil
+	}
+	var passwords []password.Password
+	if err := s.password.NewRetrieve().
+		Where(password.MatchSubjects(user.OntologyIDsFromUsers(users)...)).
+		Entries(&passwords).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	usernames := make(map[ontology.ID]string, len(passwords))
+	for _, p := range passwords {
+		usernames[p.Subject] = p.Username
+	}
+	for i := range users {
+		users[i].Username = usernames[users[i].OntologyID()]
+	}
+	return nil
 }
 
 type DeleteRequest struct {

@@ -48,6 +48,13 @@ worktree that serves the Console: a core from another branch can return schema t
 Console fails to parse, and permission retrieves failing silently drop every palette
 command.
 
+A script that exports `desktop = true` shows the Console as Synnax Desktop, so it needs
+a second dev server built for Desktop:
+`cd console && VITE_DESKTOP=true pnpm dev-vite --port 5175`. Pass `--desktop-url` when
+it is not on localhost:5175. The page stands in for the Desktop shell and reports the
+capture core as the embedded one. A capture fails if the Console asks the shell for
+anything else.
+
 The studio manages the core itself. Each capture spawns a fresh in-memory one
 (`--no-driver`, logging to `<out>/core.log`) on the studio's port 9095, points the
 Console at it through the override, and stops it when the capture ends. Fixtures pick
@@ -83,11 +90,24 @@ pnpm run clean --all      # remove out/ entirely
 
 For each entry, batch captures light and dark against fresh ephemeral cores, renders the
 pair to `out/videos/<id>-light.mp4` / `-dark.mp4` (the id's slashes flattened), and
-stamps `out/<id>/produce.json` with a hash of the script and options; unchanged entries
-are skipped on the next run (`--force` overrides). Captured frames run to gigabytes per
+stamps `out/<id>/produce.json` with a hash of the script, the modules it imports from
+`scripts/`, and options; unchanged entries are skipped on the next run (`--force`
+overrides). Engine changes under `src/` leave the hash alone, so re-record by hand with
+`--force` when one changes what a shot shows. Captured frames run to gigabytes per
 theme, so batch prunes them after a successful render (`--keep-frames` retains them for
 `produce --skip-capture` iteration). Draft renders are refused by `pnpm upload` unless
 `--allow-draft` is passed.
+
+An entry with `stills` produces stills instead of a video. Its script saves each one
+with `session.still(name, regions)`, which also records the box of each named region.
+Batch captures both themes, skips the render, and writes the stills to
+`out/stills/<id>/<version>/<name>-<theme>.webp`, where `<version>` hashes their content.
+It writes the version and the regions to the entry's `regions` path, and fails when the
+two themes disagree. Upload serves each still at
+`docs/<id>/<version>/<name>-<theme>.webp`, so the CDN never serves a cached old still. A
+page or release hero is an entry made with `hero(id, script)` in `videos.ts`. It writes
+its regions to `site/docs/src/components/hero/stills/<id>.json`, where the docs `Hero`
+component finds the still by its id.
 
 ## One-off production
 
@@ -109,28 +129,31 @@ pnpm produce --script scripts/line-plot-slope.ts --out out/slope --target 4k
 
 ## Resolution
 
-Capture happens at `--width x --height` CSS pixels (default 1512x945) with device scale
-factor `--dsf` (default 2), so native frames are 3024x1890. `--target`
+Capture happens at `--width x --height` CSS pixels (default 1600x900, 16:9) with device
+scale factor `--dsf` (default 2), so native frames are 3200x1800. At 1600 CSS px the
+Console reads at the scale of a desktop window, not a zoomed-in browser. `--target`
 (`1080p | 1440p | 4k | <pixels>`) sets the rendered video's width independently of the
 capture. It defaults to 1080p, the width the docs site serves: a 4k page load is seconds
 of video the reader waits through. Targets below native are supersampled, which also
 buys zoom headroom: crisp zoom tops out at `(width * dsf) / target`, so a 1080p target
-from a dsf-2 capture keeps 2x zooms pixel-perfect, while a 4k target upscales during
-them. For deeper crisp zooms at 4k, capture with `--dsf 3`.
+from the default capture keeps zooms to 1.67x pixel-perfect. The camera caps every zoom
+at that limit, so a 4k target from the default capture does not zoom. For deeper crisp
+zooms, capture with `--dsf 3`: a 1080p target then allows 2.5x.
 
 ## Camera
 
-Auto-zoom frames each click on the clicked element, not the click point: capture records
-the target's bounding rect into the timeline, and the director picks a zoom amount that
-fits the rect plus a margin (capped at the Screen Studio default), then positions the
-crop to contain it. Scripts can also author the camera directly: `session.zoom(locator)`
-opens an override framing the element (amount derived from its rect unless given) and
-suppresses auto-zoom until `session.endZoom()`.
+Clicks never zoom. Scripts author the camera: `session.zoom(locator)` opens a zoom that
+frames the element's rect plus a margin (amount derived from the rect unless given, and
+capped at the crisp limit either way), a list of locators frames the box around them,
+and `session.endZoom()` returns to the full frame. Inside a zoom, the camera holds its
+framing while the cursor's targets stay in frame, and pans only as far as it must when a
+target leaves it. The pan starts when the cursor departs, so the camera and cursor
+arrive together. `AUTHORING.md` holds the rules for where to zoom.
 
-The synthetic cursor fades out after sitting still for 1.5s and fades back in the moment
-it moves or presses again, matching Screen Studio's idle behavior. The fade is computed
-in the director from actual sample motion, so click anticipation and spring settle count
-as movement.
+The synthetic cursor fades out after sitting still for 0.75s and fades back in the
+moment it moves or presses again, matching Screen Studio's idle behavior. The fade is
+computed in the director from actual sample motion, so click anticipation and spring
+settle count as movement.
 
 ## Pacing
 

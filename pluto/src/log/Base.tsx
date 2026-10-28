@@ -17,17 +17,13 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, strings } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
+import { type ReactElement, type ReactNode, useRef } from "react";
 
+import { log } from "@/log/aether";
 import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
-
-// Select-all sends "to end" rather than a concrete index so the entry count never
-// has to be synced from the worker on every batch. The worker holds entries.length
-// and its slice/clamp logic resolves this to the true last entry at render time.
-const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
 
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
@@ -42,6 +38,12 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 };
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
+
+const EMPTY_CONTENT = (
+  <Status.Summary center level="h3" variant="disabled" hideIcon>
+    No log entries
+  </Status.Summary>
+);
 
 export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
@@ -60,11 +62,7 @@ export const Base = ({
   receiptTimestampHidden,
   timestampPrecision,
   channels,
-  emptyContent = (
-    <Status.Summary center level="h3" variant="disabled" hideIcon>
-      No log entries
-    </Status.Summary>
-  ),
+  emptyContent = EMPTY_CONTENT,
   color,
   telem,
   extraContextMenuItems,
@@ -99,62 +97,48 @@ export const Base = ({
     computedLineHeight,
   } = state;
 
-  const setHold = useCallback(
-    (hold: boolean) => {
-      setState((s) => ({ ...s, scrolling: hold }));
-      onHold?.(hold);
-    },
-    [setState, onHold],
-  );
+  const setHold = (hold: boolean) => {
+    setState((s) => ({ ...s, scrolling: hold }));
+    onHold?.(hold);
+  };
 
-  const resizeRef = Canvas.useRegion(
-    useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),
-  );
+  const resizeRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
   const containerRef = useRef<HTMLDivElement>(null);
   const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
   const draggingRef = useRef(false);
 
-  const mouseYToEntryIndex = useCallback(
-    (clientY: number): number => {
-      if (computedLineHeight <= 0) return 0;
-      const localY = clientY - box.top(region);
-      const lineIndex = Math.floor((localY - 6) / computedLineHeight);
-      return Math.max(0, visibleStart + lineIndex);
-    },
-    [region, computedLineHeight, visibleStart],
-  );
+  const mouseYToEntryIndex = (clientY: number): number => {
+    if (computedLineHeight <= 0) return 0;
+    const localY = clientY - box.top(region);
+    const lineIndex = Math.floor((localY - 6) / computedLineHeight);
+    return Math.max(0, visibleStart + lineIndex);
+  };
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      const idx = mouseYToEntryIndex(e.clientY);
-      draggingRef.current = true;
-      if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
-      else
-        setState((s) => {
-          if (s.selectionStart === idx && s.selectionEnd === idx)
-            return { ...s, selectionStart: -1, selectionEnd: -1 };
-          return { ...s, selectionStart: idx, selectionEnd: idx };
-        });
-    },
-    [mouseYToEntryIndex, setState],
-  );
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const idx = mouseYToEntryIndex(e.clientY);
+    draggingRef.current = true;
+    if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
+    else
+      setState((s) => {
+        if (s.selectionStart === idx && s.selectionEnd === idx)
+          return { ...s, selectionStart: -1, selectionEnd: -1 };
+        return { ...s, selectionStart: idx, selectionEnd: idx };
+      });
+  };
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!draggingRef.current) return;
-      const idx = mouseYToEntryIndex(e.clientY);
-      setState((s) => ({ ...s, selectionEnd: idx }));
-    },
-    [mouseYToEntryIndex, setState],
-  );
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!draggingRef.current) return;
+    const idx = mouseYToEntryIndex(e.clientY);
+    setState((s) => ({ ...s, selectionEnd: idx }));
+  };
 
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = () => {
     draggingRef.current = false;
-  }, []);
+  };
 
-  const buildCopyHTML = useCallback((): string => {
+  const buildCopyHTML = (): string => {
     const lines = selectedLines.map((l) => {
       const escaped = strings.escapeHTML(l.text);
       if (l.color.length === 0) return escaped;
@@ -162,20 +146,17 @@ export const Base = ({
       return `<span style="color: ${strings.escapeHTML(l.color)}">${escaped}</span>`;
     });
     return `<pre style="font-family: monospace">${lines.join("\n")}</pre>`;
-  }, [selectedLines]);
+  };
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const notifyCopied = useCallback(
-    (count: number) =>
-      addStatus({
-        variant: "success",
-        message: `Copied ${count} ${count === 1 ? "line" : "lines"} to clipboard`,
-      }),
-    [addStatus],
-  );
+  const notifyCopied = (count: number) =>
+    addStatus({
+      variant: "success",
+      message: `Copied ${count} ${count === 1 ? "line" : "lines"} to clipboard`,
+    });
 
-  const copyToClipboard = useCallback(() => {
+  const copyToClipboard = () => {
     if (selectedText.length === 0) return;
     const item = new ClipboardItem({
       "text/html": new Blob([buildCopyHTML()], { type: "text/html" }),
@@ -186,67 +167,62 @@ export const Base = ({
       await navigator.clipboard.write([item]);
       notifyCopied(count);
     }, "Failed to copy to clipboard");
-  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied, handleError]);
+  };
 
   Triggers.use({
     triggers: FLATTENED_TRIGGERS,
     enabled: enableTriggers,
-    callback: useCallback(
-      ({ triggers, stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
-        if (mode === "selectAll")
-          setState((s) => ({ ...s, selectionStart: 0, selectionEnd: SELECT_ALL_END }));
-        else if (mode === "clearSelection")
-          setState((s) => ({
-            ...s,
-            selectionStart: -1,
-            selectionEnd: -1,
-            selectedText: "",
-          }));
-        else if (mode === "togglePause") setHold(!scrolling);
-      },
-      [setState, scrolling, setHold],
-    ),
+    callback: ({ triggers, stage }: Triggers.UseEvent) => {
+      if (stage !== "start") return;
+      const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
+      if (mode === "selectAll")
+        setState((s) => ({
+          ...s,
+          selectionStart: 0,
+          selectionEnd: log.SELECT_ALL_END,
+        }));
+      else if (mode === "clearSelection")
+        setState((s) => ({
+          ...s,
+          selectionStart: -1,
+          selectionEnd: -1,
+          selectedText: "",
+        }));
+      else if (mode === "togglePause") setHold(!scrolling);
+    },
   });
 
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
   const hasSelection = selectedText.length > 0;
 
-  const handleMenuSelect = useCallback(
-    (key: string) => {
-      if (key === "copy") copyToClipboard();
-    },
-    [copyToClipboard],
-  );
+  const handleMenuSelect = (key: string) => {
+    if (key === "copy") copyToClipboard();
+  };
 
-  const menuContent = useCallback(
-    () => (
-      <Menu.Menu level="small" onChange={handleMenuSelect}>
-        {undoRedo != null && (
-          <>
-            <Menu.UndoRedoItems {...undoRedo} />
-            <Menu.Divider />
-          </>
-        )}
-        <Menu.Item
-          itemKey="copy"
-          trigger={Triggers.COPY}
-          triggerIndicator
-          disabled={!hasSelection}
-        >
-          <Icon.Copy />
-          Copy
-        </Menu.Item>
-        {extraContextMenuItems != null && (
-          <>
-            <Menu.Divider />
-            {extraContextMenuItems}
-          </>
-        )}
-      </Menu.Menu>
-    ),
-    [handleMenuSelect, hasSelection, extraContextMenuItems, undoRedo],
+  const menuContent = () => (
+    <Menu.Menu level="small" onChange={handleMenuSelect}>
+      {undoRedo != null && (
+        <>
+          <Menu.UndoRedoItems {...undoRedo} />
+          <Menu.Divider />
+        </>
+      )}
+      <Menu.Item
+        itemKey="copy"
+        trigger={Triggers.COPY}
+        triggerIndicator
+        disabled={!hasSelection}
+      >
+        <Icon.Copy />
+        Copy
+      </Menu.Item>
+      {extraContextMenuItems != null && (
+        <>
+          <Menu.Divider />
+          {extraContextMenuItems}
+        </>
+      )}
+    </Menu.Menu>
   );
 
   return (

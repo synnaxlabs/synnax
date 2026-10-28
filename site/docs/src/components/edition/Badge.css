@@ -1,0 +1,35 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.edition-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 7px;
+    border: 1px solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-gray-l1);
+    font: 550 12px/1 var(--pluto-font-family);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    color: var(--pluto-gray-l10);
+}
+
+.edition-badge--enterprise {
+    border-color: color-mix(in srgb, var(--pluto-primary-z) 35%, transparent);
+    background: color-mix(in srgb, var(--pluto-primary-z) 8%, transparent);
+    color: var(--pluto-primary-z);
+}
+
+/* An Enterprise page says so once, under its title, so its tabs and blocks do not. */
+article[data-edition="enterprise"] .edition-badge--enterprise:not(.article-top > *) {
+    display: none;
+}

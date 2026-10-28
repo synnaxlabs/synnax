@@ -11,13 +11,14 @@ import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { getStage, STAGE_ICONS } from "@/ranger/stage";
+import { getStage, STAGE_ICONS, useClock } from "@/ranger/stage";
 
 export interface StageIconProps extends Icon.IconProps {
   timeRange: CrudeTimeRange;
 }
 
 export const StageIcon = ({ timeRange, ...rest }: StageIconProps): ReactElement => {
-  const I = STAGE_ICONS[getStage(timeRange)];
+  const now = useClock(timeRange);
+  const I = STAGE_ICONS[getStage(timeRange, now)];
   return <I {...rest} />;
 };

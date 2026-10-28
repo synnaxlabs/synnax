@@ -18,9 +18,8 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -92,7 +91,7 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Arc",
-		Migrations: []migrate.Migration{v4.Migration},
+		Migrations: []gorp.Migration{v4.Migration},
 	})).To(Succeed())
 	var got v4.Arc
 	Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().

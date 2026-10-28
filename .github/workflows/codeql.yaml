@@ -1,0 +1,53 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Every run scans all languages. The code scanning rule on main blocks a pull request
+# until it has an analysis for each category main has. A changed category orphans the
+# alerts filed under the old one.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+    branches: [main, release/**]
+  schedule:
+    - cron: "0 6 * * 1" # 6am UTC on Monday
+  workflow_dispatch:
+
+# A new push to a pull request cancels the scan it replaces.
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, c-cpp, go, javascript-typescript, python, rust]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.language == 'go' && 'autobuild' || 'none' }}
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}

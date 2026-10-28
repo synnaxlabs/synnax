@@ -29,13 +29,13 @@ const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
 
 std::pair<Device, x::errors::Error>
-Scanner::parse_device(NISysCfgResourceHandle resource) const {
+Scanner::parse_device(NISysCfgResourceHandle resource) {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
     dev.rack = this->task.rack;
     dev.configured = false;
-    NISysCfgBool is_simulated;
+    NISysCfgBool is_simulated = NISysCfgBoolFalse;
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyIsSimulated,
@@ -145,8 +145,9 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
 
     auto err = x::errors::NIL;
     if (this->cfg.should_ignore(dev.model)) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "device ignored by filter: " << dev.key
-                     << " (model: " << dev.model << ")";
+        if (this->ignored_keys.insert(dev.key).second)
+            VLOG(1) << SCAN_LOG_PREFIX << "skipping " << dev.model << " (" << dev.key
+                    << "): model matches an ignored_models pattern";
         err = SKIP_DEVICE_ERR;
     } else {
         VLOG(1) << SCAN_LOG_PREFIX << "device validated successfully: " << dev.key
@@ -212,13 +213,9 @@ Scanner::scan(const common::ScannerContext &ctx) {
     }
 
     // Stage 3: Sort chassis before modules for creation ordering, then convert.
-    std::stable_sort(
-        ni_devices.begin(),
-        ni_devices.end(),
-        [](const ni::Device &a, const ni::Device &b) {
-            return a.is_chassis > b.is_chassis;
-        }
-    );
+    std::ranges::stable_sort(ni_devices, [](const ni::Device &a, const ni::Device &b) {
+        return a.is_chassis > b.is_chassis;
+    });
 
     std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());
@@ -243,7 +240,9 @@ x::errors::Error Scanner::start() {
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.rate.period() - x::telem::SECOND).milliseconds(),
+            static_cast<unsigned int>(
+                (this->cfg.rate.period() - x::telem::SECOND).milliseconds()
+            ),
             nullptr,
             &this->session
         ))

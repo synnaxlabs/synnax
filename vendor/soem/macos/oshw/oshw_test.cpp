@@ -13,9 +13,11 @@ extern "C" {
 }
 
 #include <cstring>
+#include <set>
 #include <string>
 
 #include <arpa/inet.h>
+#include <pcap.h>
 #include "gtest/gtest.h"
 
 /// @brief Test fixture for byte order conversion tests.
@@ -223,6 +225,22 @@ TEST_F(OshwAdapterTest, FindAdaptersContainsLoopback) {
         }
     }
     EXPECT_TRUE(found_loopback);
+    oshw_free_adapters(adapters);
+}
+
+/// @brief it should leave out every adapter that libpcap reports as wireless.
+TEST_F(OshwAdapterTest, FindAdaptersExcludesWirelessAdapters) {
+    std::set<std::string> wireless;
+    pcap_if_t *devs = nullptr;
+    char errbuf[PCAP_ERRBUF_SIZE];
+    ASSERT_EQ(pcap_findalldevs(&devs, errbuf), 0) << errbuf;
+    for (pcap_if_t *d = devs; d != nullptr; d = d->next)
+        if (d->flags & PCAP_IF_WIRELESS) wireless.insert(d->name);
+    pcap_freealldevs(devs);
+    if (wireless.empty()) GTEST_SKIP() << "this host has no wireless adapter";
+    ec_adaptert *adapters = oshw_find_adapters();
+    for (ec_adaptert *a = adapters; a != nullptr; a = a->next)
+        EXPECT_FALSE(wireless.contains(a->name)) << a->name;
     oshw_free_adapters(adapters);
 }
 

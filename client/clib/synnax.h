@@ -14,7 +14,9 @@
 
 #pragma once
 
+// NOLINTBEGIN(modernize-deprecated-headers): C callers include this header.
 #include <stdint.h>
+// NOLINTEND(modernize-deprecated-headers)
 
 #include "client/clib/channel/channel.h"
 #include "client/clib/export.h"

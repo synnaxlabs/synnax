@@ -9,7 +9,7 @@
 
 package v2
 
-import "github.com/synnaxlabs/x/gorp"
+import "github.com/synnaxlabs/gorp/migrate"
 
 // Migration lifts stored racks from v1 to v2, dropping the task-key counter.
-var Migration = gorp.NewEntryMigration("v56_drop_task_counter", autoMigrateRack)
+var Migration = migrate.NewEntry("v56_drop_task_counter", autoMigrateRack)

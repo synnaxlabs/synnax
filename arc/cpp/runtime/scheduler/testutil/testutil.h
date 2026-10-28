@@ -93,10 +93,13 @@ inline std::function<void(node::Context &)> mark_on_next(const size_t ordinal) {
     return [ordinal](node::Context &ctx) { ctx.mark_changed(ordinal); };
 }
 
-/// @brief collects scheduler-reported errors for assertion.
+/// @brief collects scheduler-reported errors, and the keys of the nodes that raised
+/// them, for assertion.
 struct MockErrorHandler {
     std::vector<x::errors::Error> errors;
-    errors::Handler handler = [this](const x::errors::Error &e) {
+    std::vector<std::string> node_keys;
+    ErrorHandler handler = [this](const ir::Node &node, const x::errors::Error &e) {
+        node_keys.push_back(node.key);
         errors.push_back(e);
     };
 };
@@ -257,7 +260,7 @@ public:
         return std::make_unique<Scheduler>(std::move(ir), this->nodes);
     }
 
-    std::unique_ptr<Scheduler> build_with_handler(ir::IR ir, errors::Handler handler) {
+    std::unique_ptr<Scheduler> build_with_handler(ir::IR ir, ErrorHandler handler) {
         return std::make_unique<Scheduler>(
             std::move(ir),
             this->nodes,

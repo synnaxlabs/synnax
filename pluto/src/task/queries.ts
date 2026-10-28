@@ -98,6 +98,17 @@ export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
   getCached: ({ client, query }) => client.tasks.getCached(query),
 });
 
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  ListQuery,
+  task.Task[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
+  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
+  getCached: ({ client, query }) => client.tasks.getCached(query),
+});
+
 const createFormSchema = <S extends task.Schemas = task.Schemas>(
   schemas: S,
 ): FormSchema<S> =>
@@ -283,15 +294,15 @@ export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodNever>(
   );
 };
 
-const COMMAND_VERBS: verbs.Verbs = {
-  present: "command",
-  participle: "commanding",
-  past: "commanded",
+const SEND_VERBS: verbs.Verbs = {
+  present: "send",
+  participle: "sending",
+  past: "sent",
 };
 
 export const { useUpdate: useCommand } = Flux.createUpdate<CommandParams>({
-  name: PLURAL_RESOURCE_NAME,
-  verbs: COMMAND_VERBS,
+  name: "task commands",
+  verbs: SEND_VERBS,
   update: async ({ data, client }) => {
     const commands = array.toArray(data);
     const keys = commands.map(({ task }) => task);

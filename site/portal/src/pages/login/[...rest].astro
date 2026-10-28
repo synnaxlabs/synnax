@@ -10,13 +10,16 @@
 
 import Guest from "@/layouts/Guest.astro";
 import { guest } from "@/page";
+import { linked } from "@/server/invitation";
 import { landing } from "@/shell";
 import { Auth } from "@/ui/auth";
 
 const away = guest(Astro);
 if (away != null) return away;
+const target = landing(Astro.url.searchParams);
+const invited = await linked(Astro.locals.portal.store.query, target);
 ---
 
 <Guest title="Log in">
-    <Auth.Login client:load target={landing(Astro.url.searchParams)} />
+    <Auth.Login client:load target={target} invited={invited} />
 </Guest>

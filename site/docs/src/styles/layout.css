@@ -24,13 +24,18 @@ main {
     flex-direction: row;
 
     & > section {
+        /* Width spare beside the 1100 px section widens the gap to the outline, so
+           wide media in the article keeps clear of it. */
+        --docs-outline-gap: clamp(2rem, (100vw - 1100px) / 2, 8rem);
+
         display: flex;
         flex-direction: row;
         flex: 1;
         padding: 0 2rem;
-        gap: 2rem;
-        max-width: 1100px;
+        gap: var(--docs-outline-gap);
+        max-width: calc(1100px - 2rem + var(--docs-outline-gap));
         margin: 0 auto;
+        justify-content: center;
         min-width: 0;
         overflow-x: clip;
     }
@@ -40,6 +45,11 @@ main {
     main > section {
         padding: 0 1rem;
     }
+}
+
+/* A legal page has no outline, so it keeps the gutter of a reference article. */
+main > section.legal-page {
+    padding: 0 3rem;
 }
 
 /* Sticky navigation */
@@ -53,33 +63,163 @@ nav {
     }
 }
 
-/* Page navigation sidebar */
+/* Page navigation sidebar. Collapsed, it narrows to a rail of section icons. Every
+   icon keeps its x position in both states, centered in the rail. */
+main {
+    --docs-page-nav-width: 45rem;
+}
+
+:root[data-page-nav-collapsed] main {
+    --docs-page-nav-width: 8rem;
+}
+
+.page-nav ~ section {
+    --docs-outline-gap: clamp(
+        2rem,
+        (100vw - var(--docs-page-nav-width) - 1100px) / 2,
+        8rem
+    );
+}
+
 .page-nav {
-    width: 45rem;
-    min-width: 45rem;
-    overflow: hidden;
-    padding-left: 2rem;
-    align-self: flex-start;
+    /* Icons center 4rem from the left edge, half the rail width. */
+    --docs-page-nav-padding: 0.75rem;
+    --docs-page-nav-rail-item: 5.3333rem;
     position: sticky;
     top: var(--nav-height);
+    align-self: flex-start;
+    width: var(--docs-page-nav-width);
+    min-width: var(--docs-page-nav-width);
     height: calc(100vh - var(--nav-height));
-    background: var(--pluto-gray-l2-20);
+    overflow: hidden;
+    /* Opaque, so art that runs past the text column, such as the landing hero's grid,
+       stays behind it. */
+    background:
+        linear-gradient(var(--pluto-gray-l2-20), var(--pluto-gray-l2-20)),
+        var(--pluto-gray-l0);
     border-right: var(--pluto-border);
+    transition:
+        width 0.2s ease,
+        min-width 0.2s ease;
 
-    .pluto-tabs__selector {
-        position: sticky;
-        top: 0;
-        background: var(--pluto-gray-l0);
-        margin-bottom: 3rem;
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+    }
+}
 
-        & .pluto-text {
-            font-size: var(--pluto-small-size);
-            font-weight: 400;
+/* The panel keeps its full width, so the sidebar clips it rather than reflowing it. */
+.page-nav__panel {
+    display: flex;
+    flex-direction: column;
+    width: 45rem;
+    height: 100%;
+}
+
+/* The toggle centers in a rail-wide box, so it shares the icon column. */
+.page-nav__header {
+    display: flex;
+    flex-shrink: 0;
+    justify-content: center;
+    width: 8rem;
+    padding-top: 1.5rem;
+}
+
+.page-nav .pluto-tree.reference-tree {
+    flex: 1;
+    /* Padding, not a margin, so the current section's bar at the rail edge stays
+       inside the tree's clip. */
+    padding-left: var(--docs-page-nav-padding);
+    min-height: 0;
+    padding-top: 2rem;
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 2rem,
+        black calc(100% - 5rem),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 2rem,
+        black calc(100% - 5rem),
+        transparent 100%
+    );
+}
+
+:root[data-page-nav-collapsed] .page-nav {
+    .reference-tree {
+        overflow-y: hidden;
+        scrollbar-width: none;
+    }
+
+    .reference-tree [role="treeitem"]:not([aria-level="1"]) {
+        display: none;
+    }
+
+    /* A square Console nav button: the icon sits where it sits in the open sidebar,
+       and the label clips at the right edge. */
+    .pluto-tree .page-nav-section-header {
+        position: relative;
+        width: var(--docs-page-nav-rail-item);
+        height: var(--docs-page-nav-rail-item);
+        margin-top: 0.5rem;
+        margin-left: calc(
+            4rem - var(--docs-page-nav-padding) - var(--docs-page-nav-rail-item) / 2
+        );
+        padding: 0 calc((var(--docs-page-nav-rail-item) - 2.5rem) / 2);
+        border-radius: var(--pluto-border-radius);
+        background: var(--pluto-bg);
+        cursor: pointer;
+        clip-path: inset(0 0 0 -2rem);
+
+        &:first-child {
+            margin-top: 0;
         }
 
-        & .pluto-tabs__tab {
-            flex-grow: 1;
+        &:hover {
+            background: var(--pluto-hover-bg);
         }
+
+        > .pluto-text {
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        /* The section of the current page: no section header sits between it and the
+           selected page. It takes the Console's selected nav item style. */
+        &:has(~ .pluto--selected):not(
+                :has(~ .page-nav-section-header ~ .pluto--selected)
+            ) {
+            --pluto-bg: var(--pluto-selected-list-bg);
+            --pluto-hover-bg: var(--pluto-selected-list-hover-bg);
+            --docs-page-nav-bar: var(--pluto-primary-z);
+        }
+
+        &::after {
+            content: "";
+            position: absolute;
+            left: calc(var(--docs-page-nav-rail-item) / 2 - 4rem);
+            top: 0.5rem;
+            width: 0.5rem;
+            height: calc(100% - 1rem);
+            border-radius: 0 0.5rem 0.5rem 0;
+            background: var(--docs-page-nav-bar, transparent);
+        }
+    }
+}
+
+/* The docs enlarge the small step for prose, so the tooltip steps back down to the
+   size Lyra tooltips use in the Console. */
+.page-nav__tooltip {
+    &[hidden],
+    [hidden] {
+        display: none;
+    }
+
+    .pluto-text {
+        font-size: calc(var(--pluto-small-size) * 0.8);
+        line-height: 1.5;
     }
 }
 
@@ -93,14 +233,15 @@ nav {
     line-height: var(--pluto-small-line-height);
 }
 
-@media (max-width: 800px) {
+/* Below this width, the header menu opens the page list. */
+@media (max-width: 1023px) {
     .page-nav {
         display: none;
     }
 }
 
 /* On this page sidebar - hide when left sidebar is present (reference pages) */
-@media (max-width: 1150px) {
+@media (max-width: 1279px) {
     .page-nav ~ section nav.on-this-page,
     .page-nav ~ section .on-this-page {
         display: none !important;
@@ -115,21 +256,38 @@ nav {
     }
 }
 
+/* The outline bar under the header stands in for the outline sidebar. Beside the page
+   nav, it shows once the header menu replaces the nav. */
+.outline-bar {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    body:has(.page-nav) .outline-bar {
+        display: block;
+    }
+}
+
+@media (max-width: 900px) {
+    .outline-bar {
+        display: block;
+    }
+}
+
 /* Article content */
 article {
     h1,
     h1.pluto-text {
         margin-top: 5rem;
         margin-bottom: 3rem;
-        letter-spacing: -0.02em;
+        letter-spacing: var(--pluto-h1-letter-spacing);
     }
 
     h2,
     h2.pluto-text {
-        margin-top: 8rem;
+        margin-top: 12rem;
         margin-bottom: 3rem;
-        letter-spacing: -0.01em;
-        color: var(--pluto-gray-l11);
+        letter-spacing: var(--pluto-h2-letter-spacing);
         font-feature-settings:
             "liga" 1,
             "calt" 1;
@@ -145,10 +303,6 @@ article {
         margin-top: 4rem;
     }
 
-    .pluto-tabs__selector .pluto-text {
-        color: var(--pluto-gray-l10);
-    }
-
     /* Block flow collapses margins in a panel exactly as in the article body. */
     .pluto-tabs__content {
         display: block;
@@ -160,16 +314,15 @@ article {
 
     h3,
     h3.pluto-text {
-        margin-top: 5rem;
+        margin-top: 8rem;
         margin-bottom: 2.5rem;
-        color: var(--pluto-gray-l11);
+        letter-spacing: -0.015em;
     }
 
     h4,
     h4.pluto-text {
         margin-top: 4rem;
         margin-bottom: 2rem;
-        color: var(--pluto-gray-l11);
     }
 
     h5,
@@ -178,8 +331,34 @@ article {
         margin-bottom: 2rem;
     }
 
-    table {
+    /* An MDX table scrolls inside a wrapper, so the wrapper is the block that takes the
+       margin. */
+    :is(table, .table-wrapper) {
         margin: 4rem 0;
+    }
+
+    .table-wrapper > table {
+        margin: 0;
+    }
+
+    /* Field, problem, and rule lists: a hairline opens the list, and hairlines split
+       its entries. */
+    .docs-entry-list {
+        margin: 3rem 0 var(--docs-block-gap);
+        padding: 0;
+        border-top: var(--pluto-border-width) solid var(--pluto-gray-l3);
+        list-style: none;
+
+        & > * {
+            margin: 0;
+            padding: 3rem 0;
+            border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l3);
+        }
+
+        & > :last-child {
+            padding-bottom: 0;
+            border-bottom: none;
+        }
     }
 
     :is(h2, h2.pluto-text) + :is(h3, h3.pluto-text) {
@@ -190,20 +369,16 @@ article {
         margin-top: 2rem;
     }
 
-    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text) + table {
-        margin-top: 2rem;
+    /* A heading owns the gap below it. */
+    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text)
+        + :is(table, .table-wrapper, .pluto-tabs, .docs-entry-list) {
+        margin-top: 0;
     }
 
-    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text) + .astro-code-wrapper {
-        margin-top: 3rem;
-    }
-
-    .pluto-btn .pluto-text {
-        margin: 0;
-    }
-
-    p {
-        margin: 2.5rem 0;
+    /* A prose paragraph has no class. Lyra text and component paragraphs set their own
+       margins and color. */
+    p:not([class]) {
+        margin: 3rem 0;
         color: var(--docs-body-color);
     }
 
@@ -213,12 +388,31 @@ article {
     }
 
     /* Media shares the note and code block geometry. */
-    video,
+    video:not(.docs-hero video),
     iframe,
-    img:not(.diagram img, .blog-author__photo, figure img) {
+    img:not(
+        .diagram img,
+        .docs-hero img,
+        .docs-landing img,
+        .blog-author__photo,
+        figure img
+    ) {
         display: block;
-        width: calc(100% - 2 * var(--docs-block-inset));
-        margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
+        width: 100%;
+        margin: 5rem 0 var(--docs-block-gap);
+    }
+
+    :is(
+        video:not(.docs-hero video),
+        img:not(.diagram img, .docs-hero img, .docs-landing img, .blog-author__photo)
+    ) {
+        border: var(--pluto-border);
+        border-radius: 1rem;
+        box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
+
+        @media (prefers-color-scheme: dark) {
+            box-shadow: 0 0 2rem 0 rgb(50 50 50 / 10%);
+        }
     }
 
     /* The picture only picks a source, so the image lays out as if unwrapped. */
@@ -228,28 +422,65 @@ article {
 
     .docs-video {
         position: relative;
-
-        & > video {
-            border-radius: var(--pluto-border-radius);
-        }
     }
 
-    /* Themed images render inside a picture, and videos inside a play button wrapper. */
-    p:has(+ :is(video, img, .docs-picture, .docs-video)) {
+    .docs-image,
+    .docs-video > video {
+        cursor: zoom-in;
+    }
+
+    /* A lead-in sentence sits close to the block it introduces. Themed images render
+       inside a picture, and videos inside a play button wrapper. A table keeps the full
+       gap: its header is text, so a close lead-in reads as one more line. */
+    p:has(+ :is(video, img, .docs-picture, .docs-video, .pluto-tabs)),
+    p:has(+ .docs-entry-list) {
         margin-bottom: 2rem;
     }
 
-    p + :is(video, img),
+    p + :is(video, img, .pluto-tabs),
+    p + .docs-entry-list,
     p + .docs-picture > img,
     p + .docs-video > video {
         margin-top: 0;
     }
 
-    /* Leading media sits under the tab strip like a leading code block. */
-    .pluto-tabs__content > :is(video, img):first-child,
-    .pluto-tabs__content > .docs-picture:first-child > img,
-    .pluto-tabs__content > .docs-video:first-child > video {
-        margin-top: 0;
+    /* In a pane, media is a band across the full pane, the same as a code block, so it
+       does not draw a frame inside the frame of the pane. */
+    :is(.pluto-tabs__content, .docs-details > .content) {
+        & > :is(video, img),
+        & > .docs-picture > img,
+        & > .docs-video > video {
+            width: calc(100% + 2 * var(--docs-block-padding));
+            max-width: none;
+            margin: var(--docs-block-padding) calc(-1 * var(--docs-block-padding));
+            border: none;
+            border-block: var(--pluto-border-width) solid var(--pluto-gray-l3);
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        & > :is(video, img):first-child,
+        & > .docs-picture:first-child > img,
+        & > .docs-video:first-child > video {
+            margin-top: calc(-1 * var(--docs-block-padding));
+            border-top: none;
+        }
+
+        & > :is(video, img):last-child,
+        & > .docs-picture:last-child > img,
+        & > .docs-video:last-child > video {
+            margin-bottom: calc(-1 * var(--docs-block-padding));
+            border-bottom: none;
+        }
+
+        & > p:has(+ :is(video, img, .docs-picture, .docs-video)) {
+            margin-bottom: 0;
+        }
+
+        & > .docs-video > .docs-video__progress {
+            inset: 0 calc(-1 * var(--docs-block-padding));
+            border-radius: 0;
+        }
     }
 
     /* Touch devices play a video on a tap, so a paused one shows a play button. */
@@ -269,14 +500,79 @@ article {
         pointer-events: none;
     }
 
+    /* Shows how far the loop has played, so a reader sees where a recording starts. It
+       clips to the video's rounded corners. */
+    .docs-video__progress {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        border-radius: 1rem;
+        pointer-events: none;
+
+        & > .pluto-progress {
+            position: absolute;
+            bottom: 0;
+        }
+    }
+
+    .docs-video__controls {
+        position: absolute;
+        right: 2rem;
+        bottom: 2.5rem;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+
+    .docs-video:is(:hover, :focus-within) > .docs-video__controls {
+        opacity: 1;
+    }
+
+    .docs-video__pause-button,
+    .docs-video--playing .docs-video__play-button {
+        display: none;
+    }
+
+    .docs-video--playing .docs-video__pause-button {
+        display: flex;
+    }
+
+    /* A tap plays or pauses a video on a touch device, so only the expand button sits
+       in the corner. */
     @media (hover: none) and (pointer: coarse) {
         .docs-video:not(.docs-video--playing) > .docs-video__play {
             display: grid;
         }
+
+        .docs-video__controls {
+            opacity: 1;
+
+            & > :is(.docs-video__play-button, .docs-video__pause-button) {
+                display: none;
+            }
+        }
     }
 
-    ul {
-        padding-left: 5rem;
+    /* Bullets are drawn, so their size and place do not change with the font. A list
+       with a class draws its own items. */
+    ul:not([class]) {
+        padding-left: 0;
+        list-style: none;
+
+        & > li {
+            position: relative;
+            padding-left: 20px;
+
+            &::before {
+                content: "";
+                position: absolute;
+                top: calc(0.5lh - 2.5px);
+                left: 3px;
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: var(--docs-marker-color);
+            }
+        }
     }
 
     .yt-video {
@@ -309,12 +605,5 @@ article {
                 }
             }
         }
-    }
-}
-
-/* Responsive article styles */
-@media (max-width: 800px) {
-    article ul {
-        padding-left: 2rem;
     }
 }

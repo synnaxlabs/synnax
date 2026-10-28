@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/arc/text"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 )
 
 // MigrateArc lifts a v3 Arc, rewriting its text from the grammar that wrote inputs in
@@ -38,4 +38,4 @@ func MigrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
 }
 
 // Migration rewrites the text of every stored Arc for the bracket swap.
-var Migration = gorp.NewEntryMigration("v61_swap_brackets", MigrateArc)
+var Migration = migrate.NewEntry("v61_swap_brackets", MigrateArc)

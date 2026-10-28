@@ -11,7 +11,7 @@ import { panel, query } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, Panel, Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { useMovePicker } from "@/feature/panel/MovePicker";
 import { type TabOrigin } from "@/feature/panel/useMoveTab";
@@ -45,10 +45,10 @@ const FocusItem = (): ReactElement => {
   const isFocused = Session.Panel.useSelectIsTabFocused();
   const startOverlaying = Session.Panel.useStartOverlaying();
   const dispatch = Session.useDispatch();
-  const handleFocus = useCallback(() => {
+  const handleFocus = () => {
     if (isOverlaid) dispatch(Session.Panel.stopOverlaying({}));
     else startOverlaying(tabKey);
-  }, [isOverlaid, dispatch, startOverlaying, tabKey]);
+  };
   return (
     <Menu.Item
       itemKey="focus"
@@ -67,12 +67,12 @@ const useOrigin = (): (() => TabOrigin | undefined) => {
   const key = Panel.useKey();
   const tabKey = Panel.useTabKey();
   const client = Synnax.use();
-  return useCallback(() => {
+  return () => {
     const cached = client?.panels.getCached(key);
     if (!query.isLive(cached)) return undefined;
     const tab = panel.findTab(cached.root, tabKey);
     return tab == null ? undefined : { panel: key, tab };
-  }, [key, tabKey, client]);
+  };
 };
 
 const SplitItems = (): ReactElement | null => {
@@ -85,10 +85,10 @@ const MoveToPanelItem = (): ReactElement | null => {
   const getOrigin = useOrigin();
   const openPicker = useMovePicker();
   const canEdit = Panel.useCanEdit({});
-  const handleMove = useCallback(() => {
+  const handleMove = () => {
     const origin = getOrigin();
     if (origin != null) openPicker({ origin });
-  }, [getOrigin, openPicker]);
+  };
   if (!canEdit) return null;
   return (
     <Menu.Item itemKey="move-to-panel" onClick={handleMove}>
@@ -103,10 +103,10 @@ const MoveToNewWindowItem = (): ReactElement | null => {
   const tearOff = useTearOffTab();
   const canEdit = Panel.useCanEdit({});
   const canCreate = Access.useCreateGranted(panel.TYPE_ONTOLOGY_ID);
-  const handleMove = useCallback(() => {
+  const handleMove = () => {
     const origin = getOrigin();
     if (origin != null) tearOff(origin);
-  }, [getOrigin, tearOff]);
+  };
   if (!canEdit || !canCreate) return null;
   if (Session.Runtime.ENGINE !== "tauri") return null;
   return (

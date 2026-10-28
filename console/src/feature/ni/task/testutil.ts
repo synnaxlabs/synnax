@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type device, type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { expect } from "vitest";
 
-import * as Device from "@/feature/ni/device/types";
+import {
+  type Device,
+  MAKE,
+  type Properties,
+  SCHEMAS,
+  ZERO_PROPERTIES,
+} from "@/feature/ni/device/types";
 import { type Task } from "@/platform/task";
 import {
   awaitEditableForm,
@@ -24,8 +30,10 @@ import {
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-export interface CreateNIDeviceOptions extends Partial<Omit<Device.New, "properties">> {
-  properties?: Partial<Device.Properties>;
+type New = device.New<typeof SCHEMAS.properties, typeof SCHEMAS.make>;
+
+export interface CreateNIDeviceOptions extends Partial<Omit<New, "properties">> {
+  properties?: Partial<Properties>;
 }
 
 /**
@@ -35,7 +43,7 @@ export interface CreateNIDeviceOptions extends Partial<Omit<Device.New, "propert
 export const createNIDevice = async (
   client: Synnax,
   { properties, ...overrides }: CreateNIDeviceOptions = {},
-): Promise<Device.Device> => {
+): Promise<Device> => {
   const rack = await client.racks.create({ name: uniqueName("ni_rack") });
   const dev = await client.devices.create(
     {
@@ -43,18 +51,18 @@ export const createNIDevice = async (
       name: uniqueName("ni_dev"),
       rack: rack.key,
       location: "Dev1",
-      make: Device.MAKE,
+      make: MAKE,
       model: "TEST-MODEL",
       configured: true,
-      properties: { ...Device.ZERO_PROPERTIES, identifier: id.create(), ...properties },
+      properties: { ...ZERO_PROPERTIES, identifier: id.create(), ...properties },
       ...overrides,
     },
-    Device.SCHEMAS,
+    SCHEMAS,
   );
   // Core metadata is eventually consistent; wait until the device is retrievable so
   // task configuration flows see it.
   await waitFor(async () => {
-    await client.devices.retrieve({ key: dev.key, schemas: Device.SCHEMAS });
+    await client.devices.retrieve({ key: dev.key, schemas: SCHEMAS });
   });
   return dev;
 };

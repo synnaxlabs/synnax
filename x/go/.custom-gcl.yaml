@@ -18,3 +18,9 @@ plugins:
   - module: "github.com/synnaxlabs/x"
     import: "github.com/synnaxlabs/x/analyzers/goroutineleak"
     path: .
+  - module: "github.com/synnaxlabs/x"
+    import: "github.com/synnaxlabs/x/analyzers/suiteconfig"
+    path: .
+  - module: "github.com/synnaxlabs/x"
+    import: "github.com/synnaxlabs/x/analyzers/errmatch"
+    path: .

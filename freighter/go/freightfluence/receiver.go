@@ -33,22 +33,22 @@ func (r *Receiver[M]) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (r *Receiver[M]) receive(ctx context.Context) error {
+	results := receiveUnderContext(ctx, r.Receiver)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-			msg, rErr := r.Receiver.Receive()
-			if errors.Is(rErr, freighter.EOF) {
+		case res := <-results:
+			if errors.Is(res.err, freighter.EOF) {
 				return nil
 			}
-			if errors.Is(rErr, freighter.ErrStreamClosed) {
+			if errors.Is(res.err, freighter.ErrStreamClosed) {
 				return context.Canceled
 			}
-			if rErr != nil {
-				return rErr
+			if res.err != nil {
+				return res.err
 			}
-			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), msg); err != nil {
+			if err := signal.SendUnderContext(ctx, r.Out.Inlet(), res.msg); err != nil {
 				return err
 			}
 		}
@@ -69,23 +69,23 @@ func (r *TransformReceiver[I, M]) Flow(ctx signal.Context, opts ...confluence.Op
 }
 
 func (r *TransformReceiver[I, M]) receive(ctx context.Context) error {
+	results := receiveUnderContext(ctx, r.Receiver)
 o:
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
-			res, err := r.Receiver.Receive()
-			if errors.Is(err, freighter.EOF) {
+		case res := <-results:
+			if errors.Is(res.err, freighter.EOF) {
 				return nil
 			}
-			if errors.Is(err, freighter.ErrStreamClosed) {
+			if errors.Is(res.err, freighter.ErrStreamClosed) {
 				return context.Canceled
 			}
-			if err != nil {
-				return err
+			if res.err != nil {
+				return res.err
 			}
-			tRes, ok, err := r.Transform(ctx, res)
+			tRes, ok, err := r.Transform(ctx, res.msg)
 			if !ok {
 				continue o
 			}
@@ -97,4 +97,33 @@ o:
 			}
 		}
 	}
+}
+
+type received[M freighter.Payload] struct {
+	msg M
+	err error
+}
+
+// receiveUnderContext calls r.Receive on its own goroutine and sends each result on the
+// returned channel, so a receiver can exit while Receive blocks. The goroutine exits
+// after the first error, or when ctx is done and Receive returns.
+func receiveUnderContext[M freighter.Payload](
+	ctx context.Context,
+	r freighter.StreamReceiver[M],
+) <-chan received[M] {
+	results := make(chan received[M])
+	go func() {
+		for {
+			msg, err := r.Receive()
+			select {
+			case results <- received[M]{msg: msg, err: err}:
+			case <-ctx.Done():
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return results
 }

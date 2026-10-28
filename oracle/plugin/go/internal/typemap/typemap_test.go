@@ -60,6 +60,87 @@ var _ = Describe("IsUUID", func() {
 	})
 })
 
+var _ = Describe("Nilable", func() {
+	var table *resolution.Table
+	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {
+		return resolution.TypeRef{Name: name, TypeArgs: args}
+	}
+	strings := ref("Array", ref("string"))
+	quad := ref("Array", ref("float64"))
+	quad.ArraySize = new(int64(4))
+	index := ref("Map", ref("string"), ref("int32"))
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		for _, typ := range []resolution.Type{
+			{
+				Name:          "Labels",
+				QualifiedName: "test.Labels",
+				Form:          resolution.AliasForm{Target: strings},
+			},
+			{
+				Name:          "Names",
+				QualifiedName: "test.Names",
+				Form:          resolution.DistinctForm{Base: ref("test.Labels")},
+			},
+			{
+				Name:          "Quad",
+				QualifiedName: "test.Quad",
+				Form:          resolution.AliasForm{Target: quad},
+			},
+			{
+				Name:          "Index",
+				QualifiedName: "test.Index",
+				Form:          resolution.DistinctForm{Base: index},
+			},
+			{
+				Name:          "Blob",
+				QualifiedName: "test.Blob",
+				Form:          resolution.DistinctForm{Base: ref("bytes")},
+			},
+			{
+				Name:          "Data",
+				QualifiedName: "test.Data",
+				Form:          resolution.DistinctForm{Base: ref("record")},
+			},
+			{
+				Name:          "Key",
+				QualifiedName: "test.Key",
+				Form:          resolution.DistinctForm{Base: ref("uint32")},
+			},
+		} {
+			Expect(table.Add(typ)).To(Succeed())
+		}
+	})
+
+	DescribeTable("Should report whether nil marks a Go value of a type absent",
+		func(r resolution.TypeRef, expected bool) {
+			Expect(typemap.Nilable(r, table)).To(Equal(expected))
+		},
+		Entry("an array", strings, true),
+		Entry("a fixed-size array", quad, false),
+		Entry("a map", index, true),
+		Entry("a record", ref("record"), true),
+		Entry("bytes", ref("bytes"), true),
+		Entry("any", ref("any"), false),
+		Entry("a number", ref("uint32"), false),
+		Entry("a distinct type over an alias of an array", ref("test.Names"), true),
+		Entry("an alias of a fixed-size array", ref("test.Quad"), false),
+		Entry("a distinct map", ref("test.Index"), true),
+		Entry("a distinct type over bytes", ref("test.Blob"), true),
+		Entry("a distinct type over a record", ref("test.Data"), true),
+		Entry("a distinct number", ref("test.Key"), false),
+		Entry("a type parameter defaulted to a record", resolution.TypeRef{
+			Name:      "D",
+			TypeParam: &resolution.TypeParam{Name: "D", Default: new(ref("record"))},
+		}, true),
+		Entry("a type parameter without a default", resolution.TypeRef{
+			Name:      "D",
+			TypeParam: &resolution.TypeParam{Name: "D"},
+		}, false),
+	)
+})
+
 var _ = Describe("UnwrapType", func() {
 	It("should return the type itself for a struct", func() {
 		table := resolution.NewTable()
@@ -262,6 +343,139 @@ var _ = Describe("UnwrapTypeRef", func() {
 	})
 })
 
+var _ = Describe("UnwrapTypeRef generics", func() {
+	param := resolution.TypeParam{Name: "T"}
+	table := func(forms ...resolution.Type) *resolution.Table {
+		GinkgoHelper()
+		t := resolution.NewTable()
+		for _, f := range forms {
+			Expect(t.Add(f)).To(Succeed())
+		}
+		return t
+	}
+	base := resolution.Type{
+		Name:          "Base",
+		QualifiedName: "test.Base",
+		Form:          resolution.StructForm{TypeParams: []resolution.TypeParam{param}},
+	}
+	wrapped := resolution.TypeRef{
+		Name:     "test.Base",
+		TypeArgs: []resolution.TypeRef{{Name: "T", TypeParam: &param}},
+	}
+
+	DescribeTable("Should pass a reference's type arguments to the type it wraps",
+		func(wrapper resolution.Type) {
+			ref := resolution.TypeRef{
+				Name:     wrapper.QualifiedName,
+				TypeArgs: []resolution.TypeRef{{Name: "uuid"}},
+			}
+			result, args := typemap.UnwrapTypeRef(wrapper, ref, table(base, wrapper))
+			Expect(result.QualifiedName).To(Equal("test.Base"))
+			Expect(args).To(Equal([]resolution.TypeRef{{Name: "uuid"}}))
+		},
+		Entry("an alias", resolution.Type{
+			Name:          "Alias",
+			QualifiedName: "test.Alias",
+			Form: resolution.AliasForm{
+				TypeParams: []resolution.TypeParam{param},
+				Target:     wrapped,
+			},
+		}),
+		Entry("a distinct type", resolution.Type{
+			Name:          "Distinct",
+			QualifiedName: "test.Distinct",
+			Form: resolution.DistinctForm{
+				TypeParams: []resolution.TypeParam{param},
+				Base:       wrapped,
+			},
+		}),
+	)
+})
+
+var _ = Describe("GoTypeRefName", func() {
+	goTypeName := func(t resolution.Type) (string, error) { return t.Name, nil }
+	t := resolution.TypeParam{Name: "T"}
+	u := resolution.TypeParam{Name: "U", Default: &resolution.TypeRef{Name: "string"}}
+	var table *resolution.Table
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		for _, typ := range []resolution.Type{
+			{
+				Name:          "Box",
+				QualifiedName: "test.Box",
+				Form: resolution.StructForm{
+					TypeParams: []resolution.TypeParam{t, u},
+				},
+			},
+			{
+				Name:          "Alias",
+				QualifiedName: "test.Alias",
+				Form: resolution.AliasForm{
+					TypeParams: []resolution.TypeParam{t},
+					Target: resolution.TypeRef{
+						Name:     "test.Box",
+						TypeArgs: []resolution.TypeRef{{Name: "T", TypeParam: &t}},
+					},
+				},
+			},
+			{
+				Name:          "Key",
+				QualifiedName: "test.Key",
+				Form: resolution.DistinctForm{
+					Base: resolution.TypeRef{Name: "uint32"},
+				},
+			},
+		} {
+			Expect(table.Add(typ)).To(Succeed())
+		}
+	})
+
+	key := resolution.TypeRef{Name: "test.Key"}
+
+	DescribeTable("Should render a reference as a Go type",
+		func(ref resolution.TypeRef, expected string) {
+			Expect(typemap.GoTypeRefName(ref, table, goTypeName)).To(Equal(expected))
+		},
+		Entry("a type parameter", resolution.TypeRef{Name: "T", TypeParam: &t}, "T"),
+		Entry(
+			"a defaulted type parameter",
+			resolution.TypeRef{Name: "U", TypeParam: &u},
+			"string",
+		),
+		Entry("an array", resolution.TypeRef{
+			Name:     "Array",
+			TypeArgs: []resolution.TypeRef{key},
+		}, "[]Key"),
+		Entry("a fixed-size array", resolution.TypeRef{
+			Name:      "Array",
+			TypeArgs:  []resolution.TypeRef{key},
+			ArraySize: new(int64(4)),
+		}, "[4]Key"),
+		Entry("a map", resolution.TypeRef{
+			Name:     "Map",
+			TypeArgs: []resolution.TypeRef{{Name: "string"}, key},
+		}, "map[string]Key"),
+		Entry("a generic struct without its defaulted argument", resolution.TypeRef{
+			Name:     "test.Box",
+			TypeArgs: []resolution.TypeRef{key, {Name: "string"}},
+		}, "Box[Key]"),
+		Entry("a generic alias", resolution.TypeRef{
+			Name:     "test.Alias",
+			TypeArgs: []resolution.TypeRef{key},
+		}, "Alias[Key]"),
+		Entry("a distinct type", key, "Key"),
+	)
+
+	It("Should fail for a reference that does not resolve", func() {
+		Expect(typemap.GoTypeRefName(
+			resolution.TypeRef{Name: "test.Missing"},
+			table,
+			goTypeName,
+		)).Error().To(MatchError("cannot resolve type test.Missing"))
+	})
+})
+
 var _ = Describe("ResolveLeafPrimitive", func() {
 	goTypeName := func(t resolution.Type) (string, error) {
 		return t.Name, nil
@@ -355,9 +569,8 @@ var _ = Describe("ResolveLeafPrimitive", func() {
 			Form:          resolution.StructForm{},
 		}
 		Expect(table.Add(structType)).To(Succeed())
-		_, _, err := typemap.ResolveLeafPrimitive(structType, table, goTypeName)
-		Expect(err).To(HaveOccurred())
-		Expect(err).To(MatchError(ContainSubstring("unsupported type form")))
+		Expect(typemap.ResolveLeafPrimitive(structType, table, goTypeName)).Error().
+			To(MatchError(ContainSubstring("unsupported type form for leaf")))
 	})
 
 	It("should error when distinct base is unresolvable", func() {
@@ -428,7 +641,11 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 		}
 		Expect(table.Add(structType)).To(Succeed())
 		result := MustSucceed(
-			typemap.ResolveGoSliceElemType(structType, table, goTypeName),
+			typemap.ResolveGoSliceElemType(
+				resolution.TypeRef{Name: structType.QualifiedName},
+				table,
+				goTypeName,
+			),
 		)
 		Expect(result).To(Equal("User"))
 	})
@@ -449,7 +666,11 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 		}
 		Expect(table.Add(base)).To(Succeed())
 		Expect(table.Add(alias)).To(Succeed())
-		result := MustSucceed(typemap.ResolveGoSliceElemType(alias, table, goTypeName))
+		result := MustSucceed(typemap.ResolveGoSliceElemType(
+			resolution.TypeRef{Name: alias.QualifiedName},
+			table,
+			goTypeName,
+		))
 		Expect(result).To(Equal("Base"))
 	})
 
@@ -475,7 +696,11 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 			Expect(table.Add(base)).To(Succeed())
 			Expect(table.Add(distinct)).To(Succeed())
 			result := MustSucceed(
-				typemap.ResolveGoSliceElemType(distinct, table, goTypeName),
+				typemap.ResolveGoSliceElemType(
+					resolution.TypeRef{Name: distinct.QualifiedName},
+					table,
+					goTypeName,
+				),
 			)
 			Expect(result).To(Equal("Distinct"))
 		},
@@ -491,8 +716,54 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 			},
 		}
 		Expect(table.Add(alias)).To(Succeed())
-		_, err := typemap.ResolveGoSliceElemType(alias, table, goTypeName)
-		Expect(err).To(MatchError(ContainSubstring("cannot resolve type")))
+		Expect(typemap.ResolveGoSliceElemType(
+			resolution.TypeRef{Name: alias.QualifiedName},
+			table,
+			goTypeName,
+		)).Error().To(MatchError("cannot resolve type nonexistent"))
+	})
+
+	It("should render a generic element with its type arguments", func() {
+		table := resolution.NewTable()
+		param := resolution.TypeParam{Name: "T"}
+		Expect(table.Add(resolution.Type{
+			Name:          "Box",
+			QualifiedName: "test.Box",
+			Form: resolution.StructForm{
+				TypeParams: []resolution.TypeParam{param},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "List",
+			QualifiedName: "test.List",
+			Form: resolution.AliasForm{
+				TypeParams: []resolution.TypeParam{param},
+				Target: resolution.TypeRef{
+					Name: "Array",
+					TypeArgs: []resolution.TypeRef{{
+						Name:     "test.Box",
+						TypeArgs: []resolution.TypeRef{{Name: "T", TypeParam: &param}},
+					}},
+				},
+			},
+		})).To(Succeed())
+		Expect(typemap.ResolveGoSliceElemType(
+			resolution.TypeRef{
+				Name:     "test.List",
+				TypeArgs: []resolution.TypeRef{{Name: "string"}},
+			},
+			table,
+			goTypeName,
+		)).To(Equal("[]Box[string]"))
+	})
+
+	It("should render a type parameter element", func() {
+		param := resolution.TypeParam{Name: "T"}
+		Expect(typemap.ResolveGoSliceElemType(
+			resolution.TypeRef{Name: "T", TypeParam: &param},
+			resolution.NewTable(),
+			goTypeName,
+		)).To(Equal("T"))
 	})
 
 	It("should handle nested arrays", func() {
@@ -509,7 +780,11 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 		}
 		Expect(table.Add(innerAlias)).To(Succeed())
 		result := MustSucceed(
-			typemap.ResolveGoSliceElemType(innerAlias, table, goTypeName),
+			typemap.ResolveGoSliceElemType(
+				resolution.TypeRef{Name: innerAlias.QualifiedName},
+				table,
+				goTypeName,
+			),
 		)
 		Expect(result).To(Equal("[]string"))
 	})

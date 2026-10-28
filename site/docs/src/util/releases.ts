@@ -30,6 +30,13 @@ export const tag = (product: Product, version: string): string =>
 export const assetURL = (product: Product, version: string, asset: string): string =>
   `https://github.com/${REPO}/releases/download/${tag(product, version)}/${asset}`;
 
+/**
+ * Converts a release version to the version in an app's installer names. The MSI
+ * bundler accepts only a numeric pre-release, so candidate `1.0.0-rc.1` builds as
+ * `1.0.0-1`.
+ */
+export const appVersion = (version: string): string => version.replace("-rc.", "-");
+
 /** Builds the URL of the updater manifest on a release of an app. */
 export const manifestURL = (product: Product, version: string): string =>
   assetURL(product, version, "latest.json");

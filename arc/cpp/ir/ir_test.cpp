@@ -11,7 +11,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 
@@ -193,12 +193,12 @@ TEST(IRTest, testEdgeTo) {
 
     auto edge1 = ir.edge_to(tgt1);
     ASSERT_TRUE(edge1.has_value());
-    ASSERT_EQ(edge1->source.node, "node_a");
-    ASSERT_EQ(edge1->source.param, "output");
+    ASSERT_EQ(edge1.value().source.node, "node_a");
+    ASSERT_EQ(edge1.value().source.param, "output");
 
     auto edge2 = ir.edge_to(tgt2);
     ASSERT_TRUE(edge2.has_value());
-    ASSERT_EQ(edge2->source.node, "node_c");
+    ASSERT_EQ(edge2.value().source.node, "node_c");
 
     Handle missing("missing", "input");
     const auto no_edge = ir.edge_to(missing);
@@ -353,7 +353,7 @@ TEST(IRTest, testScopeToStringParallel) {
     ASSERT_NE(str.find("parallel"), std::string::npos);
     ASSERT_NE(str.find("gated"), std::string::npos);
     ASSERT_NE(str.find("stratum 0"), std::string::npos);
-    ASSERT_NE(str.find("A"), std::string::npos);
+    ASSERT_NE(str.find('A'), std::string::npos);
 }
 
 /// @brief it should format a sequential Scope with steps and a transition

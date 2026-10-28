@@ -26,11 +26,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -77,6 +78,23 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 		),
 		"version",
 	)
+}
+
+// Ladder lifts a body stamped at any version a type has exported to the type's current
+// shape. Oracle generates one for every type that declares @go imex body.
+type Ladder[T any] struct {
+	// First is the oldest version Decode accepts.
+	First Version
+	// Latest is the version stamped on exports and the newest version Decode accepts.
+	Latest Version
+	// Decode decodes data as the type's shape at version and migrates it to the current
+	// shape. It returns a path-scoped validation error for a version the type never
+	// exported.
+	Decode func(
+		ctx context.Context,
+		version Version,
+		data msgpack.EncodedJSON,
+	) (T, error)
 }
 
 // newFieldError constructs a validation error scoped to the named wire field so API

@@ -18,15 +18,13 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { debounce, TimeSpan, url } from "@synnaxlabs/x";
+import { scheduler, TimeSpan, url } from "@synnaxlabs/x";
 import {
   type ReactNode,
   type Ref,
   type RefObject,
-  useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -256,6 +254,36 @@ const checkRenameAvailable = async (
 
 const RENAME_CHECK_DEBOUNCE = TimeSpan.milliseconds(80);
 
+// A failed import is logged here, once, and resolves to null.
+const resolveLanguageFeatures = (): Promise<ILanguageFeaturesService | null> =>
+  import("@codingame/monaco-vscode-api/services")
+    .then(({ getService, ILanguageFeaturesService }) =>
+      getService(ILanguageFeaturesService),
+    )
+    .catch((err: unknown) => {
+      console.error("failed to resolve language features service", err);
+      return null;
+    });
+
+const createBlockURI = (): string => {
+  const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
+  const id = Math.random().toString(36).substring(7);
+  return `arc://block/${id}#${encoded}`;
+};
+
+const setValueSuppressed = (
+  model: Monaco.editor.ITextModel,
+  next: string,
+  suppressChange: RefObject<boolean>,
+): void => {
+  suppressChange.current = true;
+  try {
+    applyMinimalEdit(model, next);
+  } finally {
+    suppressChange.current = false;
+  }
+};
+
 // useRenameAvailable reports whether the editor's rename action would succeed at the
 // current cursor position, re-probing the LSP rename providers (debounced) on each cursor
 // move. It returns false while no editor or monaco instance is available.
@@ -270,17 +298,9 @@ const useRenameAvailable = (
       return;
     }
     // Resolve the language features service once — it is stable across the editor's
-    // lifetime. Checks scheduled before it resolves run once it lands. A failed
-    // import is logged here, once, and leaves every later check unavailable.
-    const featuresPromise: Promise<ILanguageFeaturesService | null> =
-      import("@codingame/monaco-vscode-api/services")
-        .then(({ getService, ILanguageFeaturesService }) =>
-          getService(ILanguageFeaturesService),
-        )
-        .catch((err: unknown) => {
-          console.error("failed to resolve language features service", err);
-          return null;
-        });
+    // lifetime. Checks scheduled before it resolves run once it lands. A failed import
+    // leaves every later check unavailable.
+    const featuresPromise = resolveLanguageFeatures();
 
     let abort: AbortController | null = null;
     const run = () => {
@@ -315,7 +335,7 @@ const useRenameAvailable = (
         }
       })();
     };
-    const debounced = debounce.debounce(run, RENAME_CHECK_DEBOUNCE);
+    const debounced = scheduler.debounce(run, RENAME_CHECK_DEBOUNCE);
     const cursorDispose = editor.onDidChangeCursorPosition(debounced);
     run();
     return () => {
@@ -356,13 +376,7 @@ const use = ({
   );
   const cursorRenameable = useRenameAvailable(editor, monaco);
 
-  const customURIRef = useRef<string | undefined>(undefined);
-  if (customURIRef.current === undefined && isBlock) {
-    const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
-    const id = Math.random().toString(36).substring(7);
-    customURIRef.current = `arc://block/${id}#${encoded}`;
-  }
-  const customURI = customURIRef.current;
+  const [customURI] = useState(() => (isBlock ? createBlockURI() : undefined));
 
   useEffect(() => {
     if (containerRef.current == null) return;
@@ -432,28 +446,20 @@ const use = ({
     triggers: ESCAPE_TRIGGERS,
     priority: 120,
     double: true,
-    callback: useCallback(({ stage, target, stopPropagation }: Triggers.UseEvent) => {
+    callback: ({ stage, target, stopPropagation }: Triggers.UseEvent) => {
       if (stage !== "start" || containerRef.current?.contains(target) !== true) return;
       target.blur();
       stopPropagation();
-    }, []),
+    },
   });
 
-  const handle = useMemo<EditorHandle>(
-    () => ({
-      setValue: (next) => {
-        const model = editorRef.current?.getModel();
-        if (model == null) return;
-        suppressChange.current = true;
-        try {
-          applyMinimalEdit(model, next);
-        } finally {
-          suppressChange.current = false;
-        }
-      },
-    }),
-    [],
-  );
+  const handle: EditorHandle = {
+    setValue: (next) => {
+      const model = editorRef.current?.getModel();
+      if (model == null) return;
+      setValueSuppressed(model, next, suppressChange);
+    },
+  };
 
   return { containerRef, editorRef, cursorRenameable, handle };
 };
@@ -505,18 +511,15 @@ const EditorInternal = ({
   });
   useImperativeHandle(ref, () => handle, [handle]);
 
-  const createMenuAction = useCallback(
-    (key: string) => () => {
-      const editor = editorRef.current;
-      if (editor == null) return;
-      editor.focus();
-      const action = MENU_EDITOR_ACTIONS[key];
-      editor.trigger("contextMenu", action, null);
-    },
-    [],
-  );
+  const createMenuAction = (key: string) => () => {
+    const editor = editorRef.current;
+    if (editor == null) return;
+    editor.focus();
+    const action = MENU_EDITOR_ACTIONS[key];
+    editor.trigger("contextMenu", action, null);
+  };
 
-  const menuContent = useCallback(() => {
+  const menuContent = () => {
     const editor = editorRef.current;
     const selection = editor?.getSelection();
     const hasSelection =
@@ -583,7 +586,7 @@ const EditorInternal = ({
         {extraMenuItems}
       </Menu.Menu>
     );
-  }, [createMenuAction, cursorRenameable, extraMenuItems]);
+  };
 
   return (
     <Flex.Box

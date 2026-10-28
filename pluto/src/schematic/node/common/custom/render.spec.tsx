@@ -31,7 +31,7 @@ describe("Custom.useRender", () => {
   const createMockSpec = (
     overrides?: Partial<schematic.symbol.Spec>,
   ): schematic.symbol.Spec => ({
-    svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
+    svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
     states: [
       {
         key: "inactive",
@@ -173,6 +173,21 @@ describe("Custom.useRender", () => {
       expect(svg.querySelector(".main")).toBeTruthy();
     });
 
+    it("should mount a symbol without its scripts or event handlers", () => {
+      const container = document.createElement("div");
+      const spec = createMockSpec({
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><rect class="main" onclick="alert(1)" /><script>alert(1)</script></svg>',
+      });
+      renderAttached(
+        { orientation: "top", activeState: "inactive", externalScale: 1, spec },
+        container,
+      );
+      const svg = container.querySelector("svg");
+      expect(svg?.getAttribute("onload")).toBeNull();
+      expect(svg?.querySelector(".main")?.getAttribute("onclick")).toBeNull();
+      expect(svg?.querySelector("script")).toBeNull();
+    });
+
     it("should call onMount callback with SVG element", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
@@ -197,7 +212,7 @@ describe("Custom.useRender", () => {
     it("should wrap SVG content in g element if not present", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg viewBox="0 0 100 100"><rect width="50" height="50"/><circle r="10"/></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="50" height="50"/><circle r="10"/></svg>',
       });
 
       renderAttached(
@@ -219,7 +234,7 @@ describe("Custom.useRender", () => {
     it("should not wrap if g element already exists", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg viewBox="0 0 100 100"><g><rect width="50" height="50"/></g></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g><rect width="50" height="50"/></g></svg>',
       });
 
       renderAttached(
@@ -377,7 +392,7 @@ describe("Custom.useRender", () => {
     it("should handle multiple selectors in a region", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50"/><circle class="secondary" r="10"/></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50"/><circle class="secondary" r="10"/></svg>',
         states: [
           {
             key: "inactive",
@@ -564,7 +579,7 @@ describe("Custom.useRender", () => {
     it("should swap dimensions for vertical orientations", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg viewBox="0 0 200 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
       });
 
       renderAttached(
@@ -652,7 +667,7 @@ describe("Custom.useRender", () => {
     it("should apply vector-effect to all shape elements", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: `<svg viewBox="0 0 100 100">
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
           <path d="M10 10"/>
           <circle r="5"/>
           <rect width="10" height="10"/>
@@ -753,7 +768,7 @@ describe("Custom.useRender", () => {
 
       rerender({
         spec: createMockSpec({
-          svg: '<svg viewBox="0 0 200 200"><circle r="50"/></svg>',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle r="50"/></svg>',
         }),
       });
 
@@ -800,7 +815,7 @@ describe("Custom.useRender", () => {
         {
           initialProps: {
             spec: createMockSpec({
-              svg: '<svg viewBox="0 0 100 100"><rect class="first"/></svg>',
+              svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="first"/></svg>',
             }),
           },
         },
@@ -812,7 +827,7 @@ describe("Custom.useRender", () => {
 
       rerender({
         spec: createMockSpec({
-          svg: '<svg viewBox="0 0 100 100"><rect class="second"/></svg>',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="second"/></svg>',
         }),
       });
 
@@ -1000,7 +1015,7 @@ describe("Custom.useRender", () => {
     it("should restore original fill when fillColor is removed from state", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="blue"/></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="blue"/></svg>',
         states: [
           {
             key: "inactive",
@@ -1055,7 +1070,7 @@ describe("Custom.useRender", () => {
     it("should restore colors when element is removed from region", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/><circle class="secondary" r="10" stroke="blue" fill="yellow"/></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/><circle class="secondary" r="10" stroke="blue" fill="yellow"/></svg>',
         states: [
           {
             key: "inactive",
@@ -1124,7 +1139,7 @@ describe("Custom.useRender", () => {
     it("should handle fill color changes across multiple state transitions", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({
-        svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
         states: [
           {
             key: "state1",
@@ -1181,71 +1196,53 @@ describe("Custom.useRender", () => {
     });
   });
 
-  // The symbol editor's form mutates its value object in place rather than producing a
-  // new reference on every change, so the same spec object is passed across rerenders.
-  // The diff must detect changes by value, not by object identity.
-  describe("in-place spec mutation", () => {
-    it("should update dimensions when the internal scale is mutated in place", () => {
+  describe("spec changes", () => {
+    const renderSpec = (spec: schematic.symbol.Spec) => {
       const container = document.createElement("div");
-      const spec = createMockSpec();
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
+      const utils = renderAttached(
+        { orientation: "top", activeState: "inactive", externalScale: 1, spec },
+        container,
+      );
+      const rerender = (next: schematic.symbol.Spec) =>
+        utils.rerender({
           orientation: "top",
           activeState: "inactive",
           externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
+          spec: next,
+        });
+      return { container, rerender };
+    };
 
+    it("should update dimensions when the internal scale changes", () => {
+      const spec = createMockSpec();
+      const { container, rerender } = renderSpec(spec);
       const svg = container.querySelector("svg") as SVGSVGElement;
       expect(svg.getAttribute("width")).toBe("100");
-
-      spec.scale = 2;
-      rerender();
+      rerender({ ...spec, scale: 2 });
       expect(svg.getAttribute("width")).toBe("200");
       expect(svg.getAttribute("height")).toBe("200");
     });
 
-    it("should apply region color changes when a state is mutated in place", () => {
-      const container = document.createElement("div");
+    it("should apply region color changes when a state changes", () => {
       const spec = createMockSpec();
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
-
+      const { container, rerender } = renderSpec(spec);
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("stroke")).toBe("#333333");
-
-      spec.states[0].regions[0].strokeColor = color.construct("#aabbcc");
-      rerender();
+      const [inactive, active] = spec.states;
+      const region = {
+        ...inactive.regions[0],
+        strokeColor: color.construct("#aabbcc"),
+      };
+      rerender({ ...spec, states: [{ ...inactive, regions: [region] }, active] });
       expect(rect.getAttribute("stroke")).toBe(color.hex(color.construct("#aabbcc")));
     });
 
-    it("should toggle stroke scaling when strokeScaled is mutated in place", () => {
-      const container = document.createElement("div");
+    it("should toggle stroke scaling when strokeScaled changes", () => {
       const spec = createMockSpec({ strokeScaled: false });
-      const { result, rerender } = renderHook(() =>
-        Custom.useRender({
-          orientation: "top",
-          activeState: "inactive",
-          externalScale: 1,
-          spec,
-        }),
-      );
-      result.current(container);
-
+      const { container, rerender } = renderSpec(spec);
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("vector-effect")).toBe("non-scaling-stroke");
-
-      spec.strokeScaled = true;
-      rerender();
+      rerender({ ...spec, strokeScaled: true });
       expect(rect.getAttribute("vector-effect")).toBeNull();
     });
   });
@@ -1274,7 +1271,7 @@ describe("Custom.useRender", () => {
 
       rerender({
         spec: createMockSpec({
-          svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="purple" fill="orange"/></svg>',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="purple" fill="orange"/></svg>',
         }),
       });
 
@@ -1305,7 +1302,7 @@ describe("Custom.useRender", () => {
       rerender({
         spec: createMockSpec({
           strokeScaled: false,
-          svg: '<svg viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
+          svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect class="main" width="50" height="50" stroke="black" fill="white"/></svg>',
         }),
       });
 
@@ -1323,7 +1320,7 @@ interface SymbolValues {
 }
 
 const EDITOR_SVG =
-  '<svg viewBox="0 0 100 100"><rect data-region-id="rect-1" width="50" height="50" stroke="black" fill="white"/></svg>';
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect data-region-id="rect-1" width="50" height="50" stroke="black" fill="white"/></svg>';
 
 const editorInitialValues = (): SymbolValues => ({
   data: {
@@ -1338,9 +1335,7 @@ const editorInitialValues = (): SymbolValues => ({
 });
 
 // Mirrors the editor's Preview: reads the live form spec and drives useRender with the
-// currently-selected state key as activeState. The editor's form mutates its value
-// object in place, so this exercises useRender through the real Form rather than a
-// hand-mutated spec.
+// currently-selected state key as activeState.
 const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => {
   const spec = Form.useFieldValue<schematic.symbol.Spec>("data");
   const setContainer = Custom.useRender({
@@ -1352,18 +1347,18 @@ const PreviewLike = ({ activeState }: { activeState: string }): ReactElement => 
   return <div data-testid="container" ref={setContainer} />;
 };
 
-describe("Custom.parseSVG", () => {
-  it("should return the root of valid markup", () => {
-    const root = Custom.parseSVG('<svg viewBox="0 0 10 10"><rect /></svg>');
-    expect(root?.tagName.toLowerCase()).toBe("svg");
+describe("Custom.isValidSVG", () => {
+  it("should accept markup in the SVG namespace", () => {
+    expect(
+      Custom.isValidSVG('<svg xmlns="http://www.w3.org/2000/svg"><rect /></svg>'),
+    ).toBe(true);
   });
 
   it.each([
     ["empty", ""],
     ["malformed", "<svg><rect></svg>"],
     ["not rooted in svg", "<div><svg /></div>"],
-  ])("should return null for %s markup", (_, svg) => {
-    expect(Custom.parseSVG(svg)).toBeNull();
+  ])("should reject %s markup", (_, svg) => {
     expect(Custom.isValidSVG(svg)).toBe(false);
   });
 });
@@ -1372,7 +1367,8 @@ describe("custom symbol editor preview", () => {
   it("should recolor a region when its color is edited through the form", () => {
     let form!: Form.ContextValue<any>;
     const Harness = (): ReactElement => {
-      form = Form.use<any>({ values: editorInitialValues() });
+      const values = editorInitialValues();
+      form = Form.use<any>({ values });
       return (
         <Form.Form {...form}>
           <PreviewLike activeState="base" />

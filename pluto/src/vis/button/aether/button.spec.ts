@@ -11,8 +11,8 @@ import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { noopBooleanSinkSpec } from "@/telem/aether/noop";
-import { telemTest } from "@/telem/aether/test";
-import { TelemTest } from "@/telem/test";
+import { telemTest } from "@/telem/aether/testutil";
+import { TelemTest } from "@/telem/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { Button } from "@/vis/button";
 import { button } from "@/vis/button/aether";
@@ -118,14 +118,19 @@ describe("button/aether/Button", () => {
     });
   });
 
-  // The aether Button carries the behavior above; Button.use is a thin React adapter
-  // over its RPC methods. These tests cover only that adapter wiring.
+  // The aether Button carries the behavior above; Button.use is a thin React
+  // adapter over its RPC methods. These tests cover only that adapter wiring.
   describe("Button.use (React adapter)", () => {
     const TestWrapper = TelemTest.createTestWrapper({ registry: button.REGISTRY });
 
     it("should expose handlers with onClick aliasing mouse up", () => {
       const { result } = renderHook(
-        () => Button.use({ aetherKey: "btn", sink: noopBooleanSinkSpec, mode: "fire" }),
+        () =>
+          Button.use({
+            aetherKey: "btn",
+            sink: noopBooleanSinkSpec,
+            mode: "fire",
+          }),
         { wrapper: TestWrapper },
       );
       expect(result.current.onMouseDown).toBeDefined();

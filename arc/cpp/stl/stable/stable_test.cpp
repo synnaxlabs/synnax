@@ -9,13 +9,14 @@
 
 #include <cstdint>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
 
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/mem/local_shared.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -710,7 +711,7 @@ TypePreservationCase
 make_preservation_case(types::Kind kind, x::telem::DataType dt, T value) {
     std::vector<uint8_t> bytes(sizeof(T));
     std::memcpy(bytes.data(), &value, sizeof(T));
-    return {kind, dt, std::move(bytes)};
+    return {kind, std::move(dt), std::move(bytes)};
 }
 
 class StableForTypePreservationTest

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type project, UnexpectedError } from "@synnaxlabs/client";
-import { useCallback } from "react";
 import { useStore } from "react-redux";
 
 import { SLICE_NAME, type SliceState, type StoreState } from "@/session/project/slice";
@@ -22,11 +21,6 @@ export const selectOptionalSelected = (state: StoreState): project.Key | undefin
 export const useSelectOptionalSelected = (): project.Key | undefined =>
   Select.useMemo(selectOptionalSelected, []);
 
-export const useGetOptionalSelected = (): (() => project.Key | undefined) => {
-  const store = useStore<StoreState>();
-  return useCallback(() => selectOptionalSelected(store.getState()), [store]);
-};
-
 export const selectSelected = (state: StoreState): project.Key => {
   const selected = selectOptionalSelected(state);
   if (selected == null)
@@ -38,7 +32,7 @@ export const useSelectSelected = (): project.Key => Select.useMemo(selectSelecte
 
 export const useGetSelected = (): (() => project.Key) => {
   const store = useStore<StoreState>();
-  return useCallback(() => selectSelected(store.getState()), [store]);
+  return () => selectSelected(store.getState());
 };
 
 const selectIsAnySelected = (state: StoreState): boolean =>
@@ -46,8 +40,3 @@ const selectIsAnySelected = (state: StoreState): boolean =>
 
 export const useSelectIsAnySelected = (): boolean =>
   Select.useMemo(selectIsAnySelected, []);
-
-export const useGetIsAnySelected = (): (() => boolean) => {
-  const store = useStore<StoreState>();
-  return useCallback(() => selectIsAnySelected(store.getState()), [store]);
-};

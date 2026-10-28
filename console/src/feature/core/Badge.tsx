@@ -18,7 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { location, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
@@ -33,14 +33,21 @@ interface SummaryProps {
   status: connection.Status;
 }
 
-const Summary = ({ status: { variant, message } }: SummaryProps): ReactElement => (
+const Summary = ({
+  status: { variant, name, description },
+}: SummaryProps): ReactElement => (
   <Flex.Box y gap="tiny">
     <Text.Text status={variant} weight={650}>
       {Connection.STATUS_LABELS[variant]}
     </Text.Text>
     <Text.Text color={9} weight={450}>
-      {message}
+      {name}
     </Text.Text>
+    {primitive.isNonZero(description) && (
+      <Text.Text level="small" color={9}>
+        {description}
+      </Text.Text>
+    )}
   </Flex.Box>
 );
 
@@ -55,9 +62,11 @@ const Content = (): ReactElement => {
   const { close } = Dialog.useContext();
   const degraded =
     variant === "loading" || variant === "warning" || variant === "error";
-  const skewDirection = details.clockSkew.valueOf() > 0n ? "ahead of" : "behind";
+  const skewDirection = details.clockSkew.greaterThan(TimeSpan.ZERO)
+    ? "ahead of"
+    : "behind";
   const copyAddress = (): void => {
-    if (core != null) copy(`${core.host}:${core.port}`, "Core address");
+    if (core != null) copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
   const editConnection = (): void => {
     if (activeKey == null) return;

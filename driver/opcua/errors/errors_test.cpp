@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 #include "open62541/types.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/errors/errors.h"
 
@@ -65,6 +65,11 @@ TEST(ErrorTest, testParseErrorConnectionClosed) {
     ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADCONNECTIONCLOSED), UNREACHABLE);
 }
 
+/// @brief it should map a connection status with flag bits set to unreachable error.
+TEST(ErrorTest, ParseErrorConnectionCodeWithFlags) {
+    ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADTIMEOUT | 0x0400), UNREACHABLE);
+}
+
 /// @brief it should map out of range status to critical error.
 TEST(ErrorTest, testParseErrorNonConnectionError) {
     ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADOUTOFRANGE), CRITICAL);
@@ -78,5 +83,21 @@ TEST(ErrorTest, testParseErrorInvalidNodeId) {
 /// @brief it should map user access denied status to critical error.
 TEST(ErrorTest, testParseErrorAccessDenied) {
     ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADUSERACCESSDENIED), CRITICAL);
+}
+
+/// @brief it should describe a status code by its condition when flag bits are set.
+TEST(ErrorTest, ParseErrorDescribesCodeWithFlags) {
+    EXPECT_EQ(
+        parse(UA_STATUSCODE_BADTIMEOUT | 0x0400).data,
+        "The operation timed out."
+    );
+}
+
+/// @brief it should describe an unknown status code by its name and hex value.
+TEST(ErrorTest, ParseErrorDescribesUnknownCode) {
+    EXPECT_EQ(
+        parse(0x80FF0000).data,
+        "The server returned Unknown StatusCode (0x80FF0000)."
+    );
 }
 }

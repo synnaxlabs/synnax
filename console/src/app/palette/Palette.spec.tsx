@@ -13,9 +13,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Palette } from "@/app/palette";
 import { Command as FeatureCommand } from "@/feature/command";
-import { Docs } from "@/feature/docs";
 import { Modals } from "@/platform/modals";
 import { createConsoleWrapper, selectTestProject } from "@/testutil";
+
+const READ_DOCS = "Read documentation";
 
 const renderAppPalette = async () => {
   const client = createTestClient();
@@ -63,6 +64,8 @@ const pressChord = async (...codes: string[]): Promise<HTMLInputElement> => {
 };
 
 describe("Palette", () => {
+  const DOCS_URL = "https://docs.synnaxlabs.com/reference/";
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -95,6 +98,15 @@ describe("Palette", () => {
     expect(tip.textContent).toContain("Command palette");
   });
 
+  it("should close on one Escape from the search field", async () => {
+    await renderAppPalette();
+    const input = await openPalette();
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Escape", code: "Escape" });
+    });
+    expect(document.querySelector(".console-palette__input")).toBeNull();
+  });
+
   it("should run a command selected through the command palette", async () => {
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     await renderAppPalette();
@@ -103,16 +115,16 @@ describe("Palette", () => {
     // permission queries answer, and the list is virtual, so a row read off the
     // unfiltered list is recycled out of view before the click reaches it.
     fireEvent.change(await paletteInput(), {
-      target: { value: `${FeatureCommand.PREFIX}${Docs.ReadCommand.commandName}` },
+      target: { value: `${FeatureCommand.PREFIX}${READ_DOCS}` },
     });
     const item = await screen.findByRole("option", {
-      name: Docs.ReadCommand.commandName,
+      name: READ_DOCS,
     });
     await act(async () => {
       fireEvent.click(item);
     });
     await waitFor(() => {
-      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+      expect(open).toHaveBeenCalledWith(DOCS_URL, "_blank", "noopener,noreferrer");
     });
   });
 
@@ -121,9 +133,9 @@ describe("Palette", () => {
     await renderAppPalette();
     fireEvent.change(await openPalette(), { target: { value: FeatureCommand.PREFIX } });
     fireEvent.change(await paletteInput(), {
-      target: { value: `${FeatureCommand.PREFIX}${Docs.ReadCommand.commandName}` },
+      target: { value: `${FeatureCommand.PREFIX}${READ_DOCS}` },
     });
-    await screen.findByRole("option", { name: Docs.ReadCommand.commandName });
+    await screen.findByRole("option", { name: READ_DOCS });
     await act(async () => {
       fireEvent.keyDown(window, { code: "Enter" });
     });
@@ -131,7 +143,7 @@ describe("Palette", () => {
       fireEvent.keyUp(window, { code: "Enter" });
     });
     await waitFor(() => {
-      expect(open).toHaveBeenCalledWith(Docs.URL, "_blank", "noopener,noreferrer");
+      expect(open).toHaveBeenCalledWith(DOCS_URL, "_blank", "noopener,noreferrer");
     });
     expect(open).toHaveBeenCalledTimes(1);
     await waitFor(() => {

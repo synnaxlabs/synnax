@@ -10,7 +10,7 @@
 import "@/select/SingleTrigger.css";
 
 import { primitive, type record } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, useCallback, useId } from "react";
+import { type KeyboardEvent, type ReactElement, useId } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -89,30 +89,24 @@ export const SingleTrigger = <K extends record.Key>({
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
-  const canDrop = useCallback(
-    (hauled: Haul.DraggingState) =>
-      staticCanDrop(hauled, haulType, allSelected, disabled),
-    [haulType, allSelected, disabled],
-  );
+  const canDrop = (hauled: Haul.DraggingState) =>
+    staticCanDrop(hauled, haulType, allSelected, disabled);
   const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop,
-    onDrop: Haul.useFilterByTypeCallback(
-      haulType,
-      ({ items }) => {
-        if (items.length !== 0) setSelected([items[0].key as K]);
-        return items;
-      },
-      [setSelected],
-    ),
+    onDrop: ({ items }) => {
+      const dropped = Haul.filterByType(haulType, items);
+      if (dropped.length !== 0) setSelected([dropped[0].key as K]);
+      return dropped;
+    },
   });
   // A drag copies the selection: a single select must keep its value. Only a key that
   // resolves to an entry drags, so an empty sentinel such as 0 never does.
   const draggable =
     haulType !== "" && item != null && !fixed && disabled !== true && preview !== true;
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = () => {
     if (item != null) startDrag([{ key: item.key, type: haulType }]);
-  }, [startDrag, item, haulType]);
+  };
   const dragging = Haul.useDraggingState();
   const baseId = useId();
   const id = idProp ?? baseId;

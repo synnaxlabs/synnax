@@ -12,6 +12,8 @@
 Designed for multiple inheritance with TestCase subclasses.
 """
 
+from typing import Any
+
 import synnax as sy
 from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.test_case import TestCase
@@ -30,16 +32,23 @@ class HardwareCase(TestCase):
         synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
-        **params: object,
+        **params: Any,
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
         self._test_rack_keys: list[int] = []
         self._test_device_keys: list[str] = []
         self._test_task_keys: list[sy.task.Key] = []
 
-    def create_test_rack(self, name: str) -> sy.Rack:
-        """Create a rack that teardown deletes."""
-        rack = self.client.racks.create(name=name)
+    def create_test_rack(
+        self, name: str, integrations: list[str] | None = None
+    ) -> sy.Rack:
+        """Create a rack that teardown deletes.
+
+        :param integrations: The integrations the rack reports, such as "ni".
+        """
+        rack = self.client.racks.create(
+            sy.Rack(name=name, integrations=integrations or [])
+        )
         self._test_rack_keys.append(rack.key)
         return rack
 

@@ -14,7 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy"
-	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -31,9 +31,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	} else {
 		var doc legacy.Document
 		if doc, err = decodeConsole(ctx, env); err == nil {
-			// Every Console-era file predates the bracket swap.
-			a, err = v4.MigrateArc(
-				ctx, Arc{Mode: Mode(doc.Mode), Graph: doc.Graph, Text: doc.Text},
+			a, err = liftFirst(
+				ctx,
+				v3.Arc{Mode: v3.Mode(doc.Mode), Graph: doc.Graph, Text: doc.Text},
 			)
 		}
 	}

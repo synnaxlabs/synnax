@@ -12,19 +12,52 @@ package panel
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
-	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// ServiceConfig is the configuration for the panel API service.
+type ServiceConfig struct {
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Panel stores and retrieves panels.
+	//
+	// [REQUIRED]
+	Panel *panel.Service
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the panel API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Panel = override.Nil(c.Panel, other.Panel)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.panel")
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("panel", c.Panel)
+	return v.Error()
+}
 
 // Service is the API-layer panel service. It enforces access control and routes
 // requests to the distribution panel service. Write handlers execute inside the
@@ -34,14 +67,14 @@ type Service struct {
 	internal *panel.Service
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		access:   cfg.Service.RBAC,
-		internal: cfg.Service.Panel,
+		access:   cfg.RBAC,
+		internal: cfg.Panel,
 	}, nil
 }
 

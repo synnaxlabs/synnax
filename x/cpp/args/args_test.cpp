@@ -10,13 +10,13 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/args/args.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::args {
 class ArgsTest : public ::testing::Test {
 protected:
     static std::pair<int, char **> make_args(const std::vector<std::string> &args) {
-        auto argv = new char *[args.size()];
+        auto *argv = new char *[args.size()];
         for (size_t i = 0; i < args.size(); i++) {
             argv[i] = new char[args[i].size() + 1];
             strcpy(argv[i], args[i].c_str());

@@ -1,0 +1,167 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import LostSignal from "@synnaxlabs/site-common/LostSignal.astro";
+
+import { labels } from "@/components/nav/tree";
+import { REFERENCE_PAGES } from "@/pages/_nav";
+import { suggest } from "@/util/suggest";
+
+const route = Astro.url.pathname;
+const names = labels(REFERENCE_PAGES);
+const similar = suggest(route, [...names.keys()]);
+---
+
+<section>
+    <Flex.Box y className="not-found">
+        <Flex.Box y gap="large" className="not-found__text">
+            <Text.Text level="small" variant="code" className="not-found__code">
+                Error 404
+            </Text.Text>
+            <Text.Text level="h1">Page not found</Text.Text>
+            <Text.Text level="p" color={9} className="not-found__lede">
+                <span>
+                    No page exists at <code>{route}</code>. The page can have moved, or
+                    the address can have an error.
+                </span>
+            </Text.Text>
+        </Flex.Box>
+        {similar.length > 0 && (
+            <div class="not-found__similar">
+                <Text.Text level="small" color={8}>
+                    Similar pages
+                </Text.Text>
+                {similar.map((route) => (
+                    <a href={route} class="not-found__page">
+                        <span class="not-found__name">{names.get(route)}</span>
+                        <span class="not-found__route">{route}</span>
+                        <Icon.Arrow.Right className="not-found__arrow" />
+                    </a>
+                ))}
+            </div>
+        )}
+        <Flex.Box x gap="small" wrap>
+            <Button.Button variant="filled" data-open-search>
+                <Icon.Search />
+                Search the docs
+            </Button.Button>
+            <Button.Button variant="outlined" href="/reference/">
+                Go to the docs home
+            </Button.Button>
+        </Flex.Box>
+        <div class="not-found__plot">
+            <LostSignal />
+        </div>
+    </Flex.Box>
+</section>
+
+<script>
+    // Opens the header search, which loads on its first click.
+    document.addEventListener("click", (e) => {
+        if (
+            !(e.target instanceof Element) ||
+            e.target.closest("[data-open-search]") == null
+        )
+            return;
+        const search = document.querySelector<HTMLElement>(
+            '[data-island="search"] button',
+        );
+        if (search == null) throw new Error("the header has no search button");
+        search.click();
+    });
+</script>
+
+<style is:global>
+    .not-found {
+        flex: 1;
+        min-width: 0;
+        max-width: 150rem;
+        gap: 5rem;
+        padding: 10rem 6rem 25rem;
+    }
+
+    .not-found__code {
+        color: var(--pluto-error-z);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .not-found__lede > span {
+        display: block;
+        max-width: 110rem;
+    }
+
+    .not-found__similar {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .not-found__page {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 3rem;
+        padding: 1.75rem 2.5rem;
+        border: var(--pluto-border);
+        border-radius: 1rem;
+        color: var(--pluto-text-color);
+        font-size: var(--pluto-p-size);
+
+        &:hover {
+            background: var(--pluto-gray-l1);
+            border-color: var(--pluto-gray-l5);
+            text-decoration: none;
+        }
+    }
+
+    .not-found__name {
+        font-weight: 500;
+    }
+
+    .not-found__route {
+        font-family: var(--pluto-code-font-family);
+        font-size: var(--pluto-small-size);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: var(--pluto-gray-l8);
+    }
+
+    .not-found__arrow {
+        color: var(--pluto-gray-l7);
+    }
+
+    .not-found__plot {
+        border: var(--pluto-border);
+        border-radius: 1.5rem;
+        background: var(--pluto-gray-l1);
+        overflow: hidden;
+    }
+
+    @media (max-width: 800px) {
+        .not-found {
+            padding: 6rem 1rem 15rem;
+        }
+
+        .not-found__page {
+            grid-template-columns: minmax(0, 1fr) auto;
+            row-gap: 0.5rem;
+        }
+
+        .not-found__route {
+            grid-row: 2;
+        }
+    }
+</style>

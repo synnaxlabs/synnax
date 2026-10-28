@@ -15,9 +15,10 @@ file at the run-dir root. The format is shaped for autonomous LLM triage: stable
 headings, code fences, and concise sections so an agent reading the file once can decide
 what to drill into.
 
-Trace parsing reads ``trace.trace`` and ``trace.network`` JSONL streams from the zip
-directly. The ``pnpm dlx playwright trace`` CLI is the *interactive* fallback documented
-in the skill; this module is the *batch* path that runs at exit.
+Trace parsing reads the ``trace.trace`` and ``trace.network`` JSONL streams and the
+``trace.stacks`` JSON from the zip directly. The ``pnpm dlx playwright trace`` CLI is
+the *interactive* fallback documented in the skill; this module is the *batch* path that
+runs at exit.
 """
 
 import json
@@ -32,17 +33,17 @@ from framework.models import STATUS, Test
 
 # Maximum entries to render per section. Beyond this an agent gets diminishing
 # returns and the markdown becomes noisy.
-MAX_ACTIONS = 12
-MAX_CONSOLE_ERRORS = 10
-MAX_NETWORK_FAILURES = 10
-MAX_SERVER_LOG_LINES = 30
-CODE_SNIPPET_CONTEXT = 4
+_MAX_ACTIONS = 12
+_MAX_CONSOLE_ERRORS = 10
+_MAX_NETWORK_FAILURES = 10
+_MAX_SERVER_LOG_LINES = 30
+_CODE_SNIPPET_CONTEXT = 4
 
-FAILED_STATUSES = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)
+_FAILED_STATUSES = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)
 
 
 @dataclass
-class TraceAction:
+class _TraceAction:
     """A single Playwright action with timing and any captured error."""
 
     call_id: str
@@ -54,13 +55,13 @@ class TraceAction:
 
 
 @dataclass
-class TraceSummary:
-    actions: list[TraceAction] = field(default_factory=list)
+class _TraceSummary:
+    actions: list[_TraceAction] = field(default_factory=list)
     console_errors: list[dict[str, Any]] = field(default_factory=list)
     network_failures: list[dict[str, Any]] = field(default_factory=list)
 
 
-def parse_trace(trace_zip: Path) -> TraceSummary | None:
+def _parse_trace(trace_zip: Path) -> _TraceSummary | None:
     """Parse a Playwright trace.zip into a structured summary.
 
     Returns None if the zip is missing or malformed. Tracing errors must never
@@ -68,18 +69,19 @@ def parse_trace(trace_zip: Path) -> TraceSummary | None:
     """
     if not trace_zip.exists():
         return None
-    summary = TraceSummary()
+    summary = _TraceSummary()
     paired: dict[str, dict[str, Any]] = {}
     try:
         with zipfile.ZipFile(trace_zip) as z:
             _parse_trace_events(z, paired, summary)
             _parse_network_events(z, summary)
+            teardown_calls = _parse_teardown_calls(z)
     except (zipfile.BadZipFile, KeyError, OSError):
         return None
 
     for call_id, pair in paired.items():
         before = pair.get("before")
-        if before is None:
+        if before is None or call_id in teardown_calls:
             continue
         after = pair.get("after", {})
         err = _extract_action_error(after)
@@ -88,7 +90,7 @@ def parse_trace(trace_zip: Path) -> TraceSummary | None:
         if "endTime" in after and "startTime" in before:
             duration = after["endTime"] - before["startTime"]
         summary.actions.append(
-            TraceAction(
+            _TraceAction(
                 call_id=call_id,
                 method=method,
                 params=before.get("params", {}),
@@ -104,7 +106,7 @@ def parse_trace(trace_zip: Path) -> TraceSummary | None:
 def _parse_trace_events(
     z: zipfile.ZipFile,
     paired: dict[str, dict[str, Any]],
-    summary: TraceSummary,
+    summary: _TraceSummary,
 ) -> None:
     try:
         info = z.getinfo("trace.trace")
@@ -130,7 +132,26 @@ def _parse_trace_events(
                 )
 
 
-def _parse_network_events(z: zipfile.ZipFile, summary: TraceSummary) -> None:
+def _parse_teardown_calls(z: zipfile.ZipFile) -> set[str]:
+    """Return the call IDs of actions made from a ``teardown`` method. The report leaves
+    them out so its last actions end at the failure, not at cleanup."""
+    try:
+        info = z.getinfo("trace.stacks")
+    except KeyError:
+        return set()
+    with z.open(info) as f:
+        try:
+            stacks = json.load(f).get("stacks", [])
+        except json.JSONDecodeError:
+            return set()
+    return {
+        call_id
+        for call_id, frames in stacks
+        if any(caller.endswith(".teardown") for *_, caller in frames)
+    }
+
+
+def _parse_network_events(z: zipfile.ZipFile, summary: _TraceSummary) -> None:
     try:
         info = z.getinfo("trace.network")
     except KeyError:
@@ -165,9 +186,9 @@ def _extract_action_error(after: dict[str, Any]) -> str | None:
     return str(err)
 
 
-def render_failure_report(run_dir: Path, tests: list[Test]) -> Path | None:
+def _render_failure_report(run_dir: Path, tests: list[Test]) -> Path | None:
     """Write ``run_dir/all-failures.md`` if any tests failed. Returns the path."""
-    failing = [t for t in tests if t.status in FAILED_STATUSES]
+    failing = [t for t in tests if t.status in _FAILED_STATUSES]
     if not failing:
         return None
 
@@ -228,7 +249,7 @@ def _render_test(idx: int, test: Test, run_dir: Path) -> list[str]:
         out.append("</details>")
         out.append("")
 
-    summary = parse_trace(bundle / "trace.zip") if bundle else None
+    summary = _parse_trace(bundle / "trace.zip") if bundle else None
     if summary is not None:
         out.extend(_render_actions(summary))
         out.extend(_render_console(summary))
@@ -247,10 +268,10 @@ def _dur(test: Test) -> float | None:
     return test.ended_at - test.started_at
 
 
-def _render_actions(summary: TraceSummary) -> list[str]:
+def _render_actions(summary: _TraceSummary) -> list[str]:
     if not summary.actions:
         return []
-    actions = summary.actions[-MAX_ACTIONS:]
+    actions = summary.actions[-_MAX_ACTIONS:]
     out: list[str] = ["### Last actions", ""]
     out.append("```")
     for a in actions:
@@ -265,7 +286,7 @@ def _render_actions(summary: TraceSummary) -> list[str]:
     return out
 
 
-def _action_target(action: TraceAction) -> str:
+def _action_target(action: _TraceAction) -> str:
     """One-line summary of what an action targeted (selector, url, etc.)."""
     p = action.params
     for key in ("selector", "url", "name", "value", "text"):
@@ -275,22 +296,22 @@ def _action_target(action: TraceAction) -> str:
     return ""
 
 
-def _render_console(summary: TraceSummary) -> list[str]:
+def _render_console(summary: _TraceSummary) -> list[str]:
     if not summary.console_errors:
         return []
     out: list[str] = ["### Browser console errors", ""]
     out.append("```")
-    for entry in summary.console_errors[:MAX_CONSOLE_ERRORS]:
+    for entry in summary.console_errors[:_MAX_CONSOLE_ERRORS]:
         line = entry.get("text", "")
         out.append(_truncate(line, 200))
-    if len(summary.console_errors) > MAX_CONSOLE_ERRORS:
-        out.append(f"... +{len(summary.console_errors) - MAX_CONSOLE_ERRORS} more")
+    if len(summary.console_errors) > _MAX_CONSOLE_ERRORS:
+        out.append(f"... +{len(summary.console_errors) - _MAX_CONSOLE_ERRORS} more")
     out.append("```")
     out.append("")
     return out
 
 
-def _render_network(summary: TraceSummary) -> list[str]:
+def _render_network(summary: _TraceSummary) -> list[str]:
     if not summary.network_failures:
         return []
     out: list[str] = ["### Network failures", ""]
@@ -298,10 +319,10 @@ def _render_network(summary: TraceSummary) -> list[str]:
     out.extend(
         f"{f['status']} {f['status_text']:<15} {f['method']} "
         f"{_truncate(f['url'], 100)}".rstrip()
-        for f in summary.network_failures[:MAX_NETWORK_FAILURES]
+        for f in summary.network_failures[:_MAX_NETWORK_FAILURES]
     )
-    if len(summary.network_failures) > MAX_NETWORK_FAILURES:
-        out.append(f"... +{len(summary.network_failures) - MAX_NETWORK_FAILURES} more")
+    if len(summary.network_failures) > _MAX_NETWORK_FAILURES:
+        out.append(f"... +{len(summary.network_failures) - _MAX_NETWORK_FAILURES} more")
     out.append("```")
     out.append("")
     return out
@@ -325,7 +346,7 @@ def _render_server_log_tail(bundle: Path | None) -> list[str]:
         for line in lines
         if re.search(r"\b(ERROR|WARN|FATAL|panic)\b", line, re.IGNORECASE)
     ]
-    rendered = interesting[-MAX_SERVER_LOG_LINES:] or lines[-MAX_SERVER_LOG_LINES:]
+    rendered = interesting[-_MAX_SERVER_LOG_LINES:] or lines[-_MAX_SERVER_LOG_LINES:]
     label = (
         "Server log (matching ERROR/WARN/FATAL)" if interesting else "Server log (tail)"
     )
@@ -389,8 +410,8 @@ def _code_snippet_from_traceback(tb_text: str) -> str | None:
         source = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return None
-    start = max(0, lineno - 1 - CODE_SNIPPET_CONTEXT)
-    end = min(len(source), lineno + CODE_SNIPPET_CONTEXT)
+    start = max(0, lineno - 1 - _CODE_SNIPPET_CONTEXT)
+    end = min(len(source), lineno + _CODE_SNIPPET_CONTEXT)
     width = len(str(end))
     fenced: list[str] = ["```python"]
     fenced.append(f"# {file_path}:{lineno} in {target['func']}")
@@ -415,7 +436,7 @@ def safe_render(run_dir: Path, tests: list[Test]) -> Path | None:
     valid.
     """
     try:
-        return render_failure_report(run_dir, tests)
+        return _render_failure_report(run_dir, tests)
     except Exception:
         # Surface the traceback into the bundle so the next debugging session
         # can find it, rather than silently losing it.

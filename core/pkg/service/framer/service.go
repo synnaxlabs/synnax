@@ -16,6 +16,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -52,6 +52,7 @@ type (
 	StreamerRequest         = streamer.Request
 	StreamerResponse        = streamer.Response
 	Streamer                = streamer.Streamer
+	HistoryChange           = framer.HistoryChange
 )
 
 const (
@@ -66,6 +67,7 @@ const (
 	IteratorCommandValid        = iterator.CommandValid
 	IteratorCommandError        = iterator.CommandError
 	IteratorCommandSetBounds    = iterator.CommandSetBounds
+	IteratorAutoSpan            = iterator.AutoSpan
 	WriterCommandOpen           = writer.CommandOpen
 	WriterCommandWrite          = writer.CommandWrite
 	WriterCommandCommit         = writer.CommandCommit

@@ -28,6 +28,9 @@ var (
 	ErrInvalidToken = errors.Wrap(ErrAuth, "invalid token")
 	// ErrExpiredToken is returned when a bearer token has expired.
 	ErrExpiredToken = errors.Wrap(ErrAuth, "expired token")
+	// ErrSessionEnded closes a stream whose session was revoked or timed out while the
+	// stream was open.
+	ErrSessionEnded = errors.Wrap(ErrInvalidToken, "session ended")
 	// ErrAccessDenied is returned when a subject does not have permission to
 	// perform an action on a resource.
 	ErrAccessDenied = errors.Wrap(ErrAuth, "access denied")
@@ -37,12 +40,16 @@ const (
 	errorType              = "sy.auth"
 	invalidCredentialsType = errorType + ".invalid-credentials"
 	invalidTokenType       = errorType + ".invalid_token"
+	sessionEndedType       = errorType + ".session_ended"
 	expiredTokenType       = errorType + ".expired_token"
 	repeatedUsernameType   = errorType + ".repeated-username"
 	accessDeniedType       = errorType + ".access_denied"
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
+	if errors.CheapIs(err, ErrSessionEnded) {
+		return errors.Payload{Type: sessionEndedType, Data: err.Error()}, true
+	}
 	if errors.CheapIs(err, ErrInvalidToken) {
 		return errors.Payload{Type: invalidTokenType, Data: err.Error()}, true
 	}
@@ -70,6 +77,8 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 		return errors.Wrap(ErrInvalidCredentials, p.Data), true
 	case invalidTokenType:
 		return errors.Wrap(ErrInvalidToken, p.Data), true
+	case sessionEndedType:
+		return errors.Wrap(ErrSessionEnded, p.Data), true
 	case repeatedUsernameType:
 		return errors.Wrap(ErrRepeatedUsername, p.Data), true
 	case expiredTokenType:

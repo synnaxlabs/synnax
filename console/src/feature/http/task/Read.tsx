@@ -23,11 +23,11 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Access, Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import * as Device from "@/feature/http/device/types";
+import { SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -102,24 +102,18 @@ const renderTelemSelectDataType = Component.renderProp(
 
 const MethodSelect: FC<{ path: string; epPath: string }> = ({ path, epPath }) => {
   const { set } = PForm.useContext();
-  const handleChange = useCallback(
-    (method: ReadMethod) => {
-      set(path, method);
-      // GET carries no request body. Clearing it here keeps a body typed under POST
-      // from staying in the saved config, where it would set a content type on a
-      // request that sends nothing.
-      if (method !== "POST") set(`${epPath}.body`, "");
-    },
-    [set, path, epPath],
-  );
-  const renderMethod = useCallback(
-    (p: Select.ButtonsProps<ReadMethod>) => (
-      <Select.Buttons<ReadMethod> {...p} onChange={handleChange}>
-        <Select.Item<ReadMethod> itemKey="GET">GET</Select.Item>
-        <Select.Item<ReadMethod> itemKey="POST">POST</Select.Item>
-      </Select.Buttons>
-    ),
-    [handleChange],
+  const handleChange = (method: ReadMethod) => {
+    set(path, method);
+    // GET carries no request body. Clearing it here keeps a body typed under POST
+    // from staying in the saved config, where it would set a content type on a
+    // request that sends nothing.
+    if (method !== "POST") set(`${epPath}.body`, "");
+  };
+  const renderMethod = (p: Select.ButtonsProps<ReadMethod>) => (
+    <Select.Buttons<ReadMethod> {...p} onChange={handleChange}>
+      <Select.Item<ReadMethod> itemKey="GET">GET</Select.Item>
+      <Select.Item<ReadMethod> itemKey="POST">POST</Select.Item>
+    </Select.Buttons>
   );
   return (
     <PForm.Field<ReadMethod> path={path} label="Method">
@@ -136,18 +130,15 @@ const FieldBinder = ({ epKey }: { epKey: string }) => {
   const dev = useFromConfig();
   const epPath = PForm.useFieldValue<string>(`config.endpoints.${epKey}.path`);
   const indexKey = PForm.useFieldValue<string>(`config.endpoints.${epKey}.index`);
-  const resolve = useCallback(
-    (field: ReadField) => {
-      if (dev == null) return null;
-      const props = dev.properties.read[epPath];
-      if (props == null) return { channel: 0 };
-      return {
-        channel:
-          field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
-      };
-    },
-    [dev, epPath, indexKey],
-  );
+  const resolve = (field: ReadField) => {
+    if (dev == null) return null;
+    const props = dev.properties.read[epPath];
+    if (props == null) return { channel: 0 };
+    return {
+      channel:
+        field.key === indexKey ? props.index : (props.channels[field.pointer] ?? 0),
+    };
+  };
   return (
     <Task.BindChannels<ReadField>
       path={`config.endpoints.${epKey}.fields`}
@@ -187,12 +178,9 @@ const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) =>
   const { update } = PChannel.useRename();
   const canRename = Access.useUpdateGranted(channel.TYPE_ONTOLOGY_ID);
   const isPreview = Task.useIsPreview();
-  const handleChange = useCallback(
-    (next: string) => {
-      if (next.length > 0 && next !== name) update({ key, name: next });
-    },
-    [key, name, update],
-  );
+  const handleChange = (next: string) => {
+    if (next.length > 0 && next !== name) update({ key, name: next });
+  };
   return (
     <Input.Item label="Channel" padHelpText={false}>
       <Input.Text
@@ -213,26 +201,23 @@ const TimestampFields: FC<{ path: string }> = ({ path }) => {
   const indexField = fields.find(isTimingField);
   const isValueTiming = indexField != null;
 
-  const handleChange = useCallback(
-    (mode: TimingMode) => {
-      if (mode === "value" && !isValueTiming) {
-        const indexF: ReadField = {
-          ...http.readFieldZ.parse({}),
-          key: id.create(),
-          timeFormat: "unix_sec",
-        };
-        set(`${path}.fields`, [...fields, indexF]);
-        set(`${path}.index`, indexF.key);
-      } else if (mode === "software" && isValueTiming) {
-        set(
-          `${path}.fields`,
-          fields.filter((f) => !isTimingField(f)),
-        );
-        set(`${path}.index`, "");
-      }
-    },
-    [fields, isValueTiming, path, set],
-  );
+  const handleChange = (mode: TimingMode) => {
+    if (mode === "value" && !isValueTiming) {
+      const indexF: ReadField = {
+        ...http.readFieldZ.parse({}),
+        key: id.create(),
+        timeFormat: "unix_sec",
+      };
+      set(`${path}.fields`, [...fields, indexF]);
+      set(`${path}.index`, indexF.key);
+    } else if (mode === "software" && isValueTiming) {
+      set(
+        `${path}.fields`,
+        fields.filter((f) => !isTimingField(f)),
+      );
+      set(`${path}.index`, "");
+    }
+  };
 
   return (
     <>
@@ -427,7 +412,7 @@ const channelExists = async (client: Client, key: channel.Key): Promise<boolean>
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
@@ -506,7 +491,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       }
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

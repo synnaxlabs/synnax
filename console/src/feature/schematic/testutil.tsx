@@ -213,7 +213,7 @@ export const SYMBOL_FILE_DROP_PROMPT =
 
 /** A minimal SVG whose single rect can act as a region selector target. */
 const SYMBOL_SVG =
-  '<svg viewBox="0 0 10 10"><rect id="body" width="10" height="10" fill="#ffffff"/></svg>';
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect id="body" width="10" height="10" fill="#ffffff"/></svg>';
 
 /** Builds a valid symbol wire payload for import fixtures. */
 export const createSymbolPayload = (name: string) => ({

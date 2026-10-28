@@ -2,216 +2,109 @@
 layout: "@/layouts/Reference.astro"
 title: "Sequences"
 description:
-  "Arc sequence reference for state machine declarations, transitions, and entry points"
-prev: "Flow"
-prevURL: "/reference/control/arc/reference/flow"
-next: "Stages"
-nextURL: "/reference/control/arc/reference/stages"
+  "Syntax of Arc sequences: the declaration, the kinds of steps, how to start a
+  sequence, and sequence variables."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
 
-## Sequence declaration
+A sequence runs its steps in order, one step at a time. Newlines or commas separate the
+steps.
 
-```arc
-sequence name {
-    // sequence items
-}
+```text
+sequence = "sequence" name? "{" step* "}"
 ```
 
-A sequence runs its items in order. Only one item is active at a time.
+```arc channels="start_cmd, press_vlv_cmd, tank_pt" bodies="press"
+import time
 
-A sequence can be named or anonymous. A named sequence starts when an entry point
-triggers it. An anonymous top-level sequence starts automatically when the program
-loads.
-
-```arc channels="start_cmd"
-sequence named {
-    // ... items ...
+sequence press {
+    1 -> press_vlv_cmd
+    tank_pt > 300 => next
+    time.wait{duration=10s}
+    0 -> press_vlv_cmd
 }
-start_cmd => named
 
-sequence {
-    // ... items, auto-started ...
-}
+start_cmd == 1 => press
 ```
+
+To learn when a step moves on and when a sequence stops, see
+[steps of a sequence](/reference/control/arc/execution-model#steps-of-a-sequence).
 
 <Divider.Divider x />
 
-## Sequence items
+## Steps
 
-A sequence item is one of:
+| Step          | Example                                     |
+| ------------- | ------------------------------------------- |
+| Write         | `1 -> press_vlv_cmd`                        |
+| Wait          | `time.wait{duration=10s}`                   |
+| Gate          | `tank_pt > 300 => next`, or `tank_pt > 300` |
+| Stage         | `stage hold { ... }`                        |
+| Sequence      | `sequence { ... }`                          |
+| Assignment    | `target = 400.0`                            |
+| Function call | `notify{}`                                  |
 
-| Item           | Syntax                | Description                                   |
-| -------------- | --------------------- | --------------------------------------------- |
-| Condition gate | `expr => next`        | Pause until the expression is truthy, advance |
-| Write          | `expr -> chan`        | Write once, advance                           |
-| Wait           | `time.wait{duration}` | Pause for the duration, advance               |
-| Sequence       | `sequence { ... }`    | Run nested items in order                     |
-| Stage          | `stage { ... }`       | Enter stage; advance when a transition fires  |
+A step that is not a stage or a sequence moves on when the last node of the step outputs
+a true value. When that node has no output, the step moves on after the node runs
+without an error. A write always moves on. A wait moves on when its time is up. To learn
+more, see
+[steps of a sequence](/reference/control/arc/execution-model#steps-of-a-sequence).
 
-Stages and sequences can be named. A named item is a valid `=> name` target for its
-siblings; an anonymous one can only be reached in order.
-
-```arc channels="vent_vlv_cmd, press_vlv_cmd, tank_pressure", bodies="abort"
-sequence prime {
-    true -> vent_vlv_cmd              // write
-    tank_pressure < 50 => next        // condition gate
-    false -> vent_vlv_cmd             // write
-    time.wait{5s}                     // wait
-    stage pressurize {                // stage
-        tank_pressure > 700 => abort
-        true -> press_vlv_cmd
-        tank_pressure > 500 => next
-    }
-    false -> press_vlv_cmd            // write
-}
-```
-
-<Note.Note variant="info">
-  A bare sequence can't respond to safety conditions while a condition gate is holding.
-  If you need to watch for abort conditions during a step, put the step inside a stage.
+<Note.Note variant="warning">
+  Known bug: a step whose output is not true stalls the sequence. Examples are a
+  function step whose output is 0 and an assignment such as `x = 0.0`.
 </Note.Note>
 
-<Divider.Divider x />
+A [stage](/reference/control/arc/reference/stages) or a nested sequence can have a name.
+Other steps of the same sequence can move to a named step with `=> name`. A step with no
+name is reached only in order.
 
-## Sequencing rules
+Do not put an abort stage right after a write, a wait, or a gate. See
+[steps of a sequence](/reference/control/arc/execution-model#steps-of-a-sequence).
 
-1. When an item completes, the sequence advances; when the last item completes, the
-   sequence exits.
-2. `=> name` to a sibling item jumps there. Re-entry resets
-   [`:=` variables](/reference/control/arc/reference/variables#declaration) and keeps
-   [`$=` variables](/reference/control/arc/reference/variables#stateful).
-3. `=> name` to a top-level scope stops the whole top-level sequence or stage that holds
-   the transition, then starts the target in the same cycle. Nothing in the stopped
-   scope resumes. A running target does not restart, but a jump to the scope that holds
-   it restarts that scope.
-4. Activations are independent: several top-level scopes can run at the same time.
+Starting a sequence with an empty body fails with `sequence 'press' has no steps`.
 
 <Divider.Divider x />
 
-## Entry points
+## Starting a sequence
 
-Entry points trigger sequences from external events:
+| Sequence             | Starts                                                     |
+| -------------------- | ---------------------------------------------------------- |
+| Named, top level     | When a flow targets it, such as `start_cmd == 1 => press`. |
+| Anonymous, top level | When the automation starts.                                |
+| Nested               | When its parent sequence or stage reaches it.              |
 
-```arc channels="start_cmd, em_stop",  bodies="abort, main"
-start_cmd => main  // channel triggers main sequence
-em_stop => abort   // channel triggers abort sequence
-```
+A flow that starts a top-level sequence can be at the top level, or in a step of a
+different sequence. From a step, it stops the whole top-level sequence or stage that
+holds the transition, then starts the target in the same cycle. From the top level, it
+stops nothing. A running target does not restart, except when a transition inside it
+targets itself.
 
-Entry points use `=>` because they fire while the channel value is truthy. The target
-sequence activates on the first truthy tick; subsequent truthy ticks are no-ops because
-the sequence is already active.
-
-### Triggering sequences
-
-Entry point channels are typically `bool` virtual channels:
-
-1. Create a `bool` virtual channel in Synnax (e.g., `start_cmd`)
-2. Wire the channel to a button in Console
-3. When clicked, the button writes `true` to the channel
-4. Arc sees the truthy value and triggers the sequence
-
-### Anonymous top-level sequences
-
-An anonymous top-level sequence has no entry point and starts automatically on program
-load:
-
-```arc channels="vent_vlv_cmd, press_vlv_cmd"
-sequence {
-    false -> vent_vlv_cmd
-    true -> press_vlv_cmd
-    time.wait{5s}
-    false -> press_vlv_cmd
-}
-```
+Several flows can start the same sequence. Each flow can activate it when its condition
+is true and the sequence is not already running.
 
 <Divider.Divider x />
 
-## Inline stages in a sequence
+## Sequence variables
 
-An anonymous `stage { ... }` used as a sequence item acts as a multi-exit gate.
-`=> next` advances the enclosing sequence; other
-[transition targets](/reference/control/arc/reference/flow#transition-targets) jump as
-usual.
+A variable declared in a sequence is not a step. All the steps of the sequence can read
+it. To learn when it goes back to its first value, see
+[entering a stage](/reference/control/arc/execution-model#entering-a-stage).
 
-```arc channels="press_vlv_cmd, tank_pressure", bodies="abort"
+```arc channels="start_cmd, remote_start_cmd, press_vlv_cmd, tank_pt" bodies="press"
 sequence press {
-    true -> press_vlv_cmd
-    stage {
-        tank_pressure > 500 => next
-        time.wait{30s} => abort
-    }
-    false -> press_vlv_cmd
+    target := 300.0
+    1 -> press_vlv_cmd
+    tank_pt > target => next
+    0 -> press_vlv_cmd
 }
+
+start_cmd == 1 or remote_start_cmd == 1 => press
 ```
 
-<Divider.Divider x />
-
-## Complete example
-
-```arc channels="press_vlv_cmd, vent_vlv_cmd, start_btn, ox_pt_1, fuel_pt_1, abort_btn, start_cmd, emergency_stop", bodies="pressurize, abort, hold, vent, complete, main"
-authority 200
-
-sequence main {
-    stage idle {
-        false -> press_vlv_cmd
-        false -> vent_vlv_cmd
-        start_btn => pressurize
-    }
-
-    stage pressurize {
-        // Safety first
-        ox_pt_1 > 700 => abort
-        fuel_pt_1 > 500 => abort
-        abort_btn => abort
-        // Control
-        true -> press_vlv_cmd
-        false -> vent_vlv_cmd
-        // Progress
-        ox_pt_1 > 500 => hold
-    }
-
-    stage hold {
-        ox_pt_1 > 700 => abort
-        abort_btn => abort
-        true -> press_vlv_cmd
-        time.wait{duration=5s} => vent
-    }
-
-    stage vent {
-        false -> press_vlv_cmd
-        true -> vent_vlv_cmd
-        ox_pt_1 < 50 => complete
-    }
-
-    stage complete {
-        false -> press_vlv_cmd
-        false -> vent_vlv_cmd
-    }
-}
-
-sequence abort {
-    stage safed {
-        false -> press_vlv_cmd
-        true -> vent_vlv_cmd
-    }
-}
-// Entry points
-start_cmd => main
-emergency_stop => abort
-```
-
-<Divider.Divider x />
-
-## Restrictions
-
-| Restriction               | Description                                       |
-| ------------------------- | ------------------------------------------------- |
-| One active item           | Only one item per sequence is active at a time    |
-| `next` needs a next item  | `next` in the last item of a sequence is an error |
-| Entry points at top level | Entry points must be outside sequences            |
+Set a sequence variable with `=` or with a flow, such as `tank_pt -> peak`. Compound
+assignment fails: `compound and indexed assignment to a variable are not yet supported`.

@@ -12,17 +12,17 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
-#include "driver/modbus/mock/slave.h"
 #include "driver/modbus/scan_task.h"
+#include "driver/modbus/testutil/slave.h"
 
 namespace driver::modbus {
 /// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
-    auto slave = mock::Slave(mock::SlaveConfig{});
+    auto slave = testutil::Slave(testutil::SlaveConfig{});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -58,7 +58,7 @@ TEST(ScanTask, testConnection) {
     EXPECT_EQ(first.key, synnax::task::status_key(t));
     EXPECT_EQ(first.details.cmd, cmd.key);
     EXPECT_EQ(first.details.task, t.key);
-    EXPECT_EQ(first.message, "Connection successful");
+    EXPECT_EQ(first.message, "Connected to device");
 }
 
 TEST(ScanTask, testConfigReturnsCorrectValues) {
@@ -88,7 +88,7 @@ TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
 }
 
 TEST(ScanTask, testScanChecksDeviceHealth) {
-    auto slave = mock::Slave(mock::SlaveConfig{});
+    auto slave = testutil::Slave(testutil::SlaveConfig{});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -121,8 +121,8 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(devices[0].status->message, "Device connected");
+    EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status.value().message, "Device connected");
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -155,7 +155,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
 
     auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status->variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(devices[0].status->message, "Failed to reach device");
+    EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(devices[0].status.value().message, "Failed to reach device");
 }
 }

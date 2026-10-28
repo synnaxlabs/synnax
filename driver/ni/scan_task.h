@@ -21,6 +21,7 @@
 #endif
 #include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include "nlohmann/json.hpp"
@@ -126,6 +127,8 @@ class Scanner final : public common::Scanner {
     NISysCfgSessionHandle session = nullptr;
     /// @brief ni filter we use to only find certain ni devices;
     NISysCfgFilterHandle filter = nullptr;
+    /// @brief keys of devices already logged as ignored by the model filter.
+    std::unordered_set<std::string> ignored_keys;
 
     /// @brief parses the device located at the specified resource handle.
     /// @returns the parsed device and x::errors::NIL error if successful.
@@ -133,9 +136,9 @@ class Scanner final : public common::Scanner {
     /// skipped.
     /// @returns an empty device and an error if the device could not be parsed.
     std::pair<ni::Device, x::errors::Error>
-    parse_device(NISysCfgResourceHandle resource) const;
+    parse_device(NISysCfgResourceHandle resource);
 
-    common::ScannerConfig config() const override {
+    [[nodiscard]] common::ScannerConfig config() const override {
         return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 

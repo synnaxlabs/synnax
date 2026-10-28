@@ -9,18 +9,9 @@
 
 import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
-import { List } from "@synnaxlabs/lyra/list";
-import { Text } from "@synnaxlabs/lyra/text";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -40,10 +31,12 @@ import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
   assertDefined,
-  awaitTextEditing,
+  awaitTextEditingElement,
+  CaptureStatuses,
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
+  openContextMenu,
   resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
@@ -106,14 +99,18 @@ const createMenuProps = async ({
 
 const renderMenu = async (props: Tree.ContextMenuProps) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const statuses: Status.NotificationSpec[] = [];
   render(
     <>
       <Menu {...props} />
       <Modals.Stack />
+      <CaptureStatuses
+        onStatuses={(next) => statuses.splice(0, statuses.length, ...next)}
+      />
     </>,
     { wrapper },
   );
-  return { store };
+  return { store, statuses };
 };
 
 describe("task ontology", () => {
@@ -181,27 +178,10 @@ describe("task ontology", () => {
 
     it("should rename the task through the inline editor", async () => {
       const t = await createTask();
-      const store = await createTestStore();
-      const props: Tree.ContextMenuProps = {
-        ...createBaseProps({ client, store }),
-        selection: createSelection({ ids: [t.ontologyID] }),
-        state: createState([createResource(t.ontologyID, t.name, { snapshot: false })]),
-      };
-      const itemID = List.itemNameID(ontology.idToString(t.ontologyID));
-      const { wrapper: Console } = await createConsoleWrapper({ client, store });
-      // The editable item is the surface the rename drives, so it mounts alongside
-      // the hook exactly as the tree mounts it in production.
-      const wrapper = ({ children }: PropsWithChildren): ReactElement => (
-        <Console>
-          {children}
-          <Text.MaybeEditable id={itemID} value={t.name} onChange={() => {}} />
-        </Console>
-      );
-      const { result } = renderHook(() => Task.useRename(props), { wrapper });
-      act(() => {
-        result.current();
-      });
-      const editor = await awaitTextEditing(itemID);
+      await renderTaskTree(t);
+      await openContextMenu(t.name);
+      fireEvent.click(await screen.findByText("Rename"));
+      const editor = await awaitTextEditingElement();
       const renamed = uniqueName("renamed");
       await act(async () => {
         commitTextEdit(editor, renamed);
@@ -219,7 +199,7 @@ describe("task ontology", () => {
         timeRange: { start, end: start.add(TimeSpan.seconds(1)) },
       });
       const props = await createMenuProps({ tasks: [t] });
-      const { store } = await renderMenu(props);
+      const { store, statuses } = await renderMenu(props);
       store.dispatch(Session.Range.add(Session.Range.fromClient(rng.payload)));
       store.dispatch(Session.Range.select(rng.key));
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
@@ -229,6 +209,16 @@ describe("task ontology", () => {
         });
         expect(children.some((c) => c.id.type === "task")).toBe(true);
       });
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "success",
+            name: rng.name,
+            message: "Snapshotted task",
+            description: `Created a snapshot of ${t.name}.`,
+          }),
+        ),
+      );
     });
   });
 });

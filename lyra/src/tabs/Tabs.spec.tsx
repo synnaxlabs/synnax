@@ -486,11 +486,26 @@ describe("Tabs", () => {
     it.each([
       ["default", "align-center", "sizing-elastic"],
       ["pill", "align-start", "sizing-fixed"],
+      ["chip", "align-start", "sizing-content"],
     ] as const)("should default %s to %s and %s", (variant, align, sizing) => {
       const el = strip({ variant });
       expect(el.classList.contains(`pluto-tabs__selector--${align}`)).toBe(true);
       expect(el.classList.contains(`pluto-tabs__selector--${sizing}`)).toBe(true);
     });
+
+    it.each([
+      ["default", "pluto-btn--text", "pluto--rounded-small"],
+      ["pill", "pluto-btn--outlined", "pluto--rounded"],
+      ["chip", "pluto-btn--outlined", "pluto--rounded"],
+    ] as const)(
+      "should render a %s tab as a %s, %s button",
+      (variant, kind, corner) => {
+        strip({ variant });
+        const { classList } = tab("Tab A");
+        expect(classList.contains(kind)).toBe(true);
+        expect(classList.contains(corner)).toBe(true);
+      },
+    );
 
     it.each(["elastic", "fixed", "content"] as const)(
       "should apply the %s sizing",
@@ -826,6 +841,12 @@ describe("Tabs", () => {
 
     const ghost = (): HTMLElement | null =>
       document.querySelector(".pluto-tabs__ghost");
+
+    it("should not accept drops on a wrapping strip", () => {
+      // @ts-expect-error - a wrapping strip takes no haulType.
+      const props: Tabs.SelectorProps = { wrap: true, haulType: TAB_TYPE };
+      expect(props.wrap).toBe(true);
+    });
 
     it("should render a ghost slot while dragging an accepted item", () => {
       render(<DragTabs />);

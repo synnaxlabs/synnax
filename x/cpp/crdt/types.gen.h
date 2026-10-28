@@ -31,8 +31,7 @@ struct Delete;
 /// making the identifier globally unique without coordination.
 struct ID {
     /// @brief replica is the replica that created the character. A zero replica marks
-    /// the
-    /// document root sentinel.
+    /// the document root sentinel.
     std::uint32_t replica = 0;
     /// @brief counter is the per-replica counter, incremented for every character the
     /// replica inserts.
@@ -51,8 +50,7 @@ struct Insert {
     /// @brief id is the identity of the inserted character.
     ID id;
     /// @brief origin is the existing character this one anchors to. Anchoring to the
-    /// root
-    /// sentinel places the character at the start of the document.
+    /// root sentinel places the character at the start of the document.
     ID origin;
     /// @brief side is the side of origin the character anchors to: left places it
     /// immediately before the origin, right immediately after.

@@ -43,8 +43,8 @@ const (
 	ActionTypeSetLineLabel          = "set_line_label"
 	ActionTypeSetLineColor          = "set_line_color"
 	ActionTypeSetLineStrokeWidth    = "set_line_stroke_width"
-	ActionTypeSetLineDownsample     = "set_line_downsample"
-	ActionTypeSetLineDownsampleMode = "set_line_downsample_mode"
+	ActionTypeSetLineAggregation    = "set_line_aggregation"
+	ActionTypeSetLineDetail         = "set_line_detail"
 	ActionTypeSetLine               = "set_line"
 	ActionTypeSetRule               = "set_rule"
 	ActionTypeSetRuleLabel          = "set_rule_label"
@@ -210,17 +210,16 @@ type SetLineStrokeWidthPayload struct {
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
 
-// SetLineDownsamplePayload sets the downsample factor of the line identified by key.
-type SetLineDownsamplePayload struct {
-	Key        string `json:"key" msgpack:"key"`
-	Downsample uint32 `json:"downsample" msgpack:"downsample"`
+// SetLineAggregationPayload sets how the line identified by key reduces a pixel group.
+type SetLineAggregationPayload struct {
+	Key         string      `json:"key" msgpack:"key"`
+	Aggregation Aggregation `json:"aggregation" msgpack:"aggregation"`
 }
 
-// SetLineDownsampleModePayload sets how the downsample factor is applied for the line
-// identified by key.
-type SetLineDownsampleModePayload struct {
-	Key            string         `json:"key" msgpack:"key"`
-	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
+// SetLineDetailPayload sets the number of sample groups per pixel column of the line.
+type SetLineDetailPayload struct {
+	Key    string `json:"key" msgpack:"key"`
+	Detail Detail `json:"detail" msgpack:"detail"`
 }
 
 // SetLinePayload replaces the line with line.key in place, inserting it when no such
@@ -315,8 +314,8 @@ type Action struct {
 	SetLineLabel          *SetLineLabelPayload          `json:"set_line_label,omitzero" msgpack:"set_line_label,omitempty"`
 	SetLineColor          *SetLineColorPayload          `json:"set_line_color,omitzero" msgpack:"set_line_color,omitempty"`
 	SetLineStrokeWidth    *SetLineStrokeWidthPayload    `json:"set_line_stroke_width,omitzero" msgpack:"set_line_stroke_width,omitempty"`
-	SetLineDownsample     *SetLineDownsamplePayload     `json:"set_line_downsample,omitzero" msgpack:"set_line_downsample,omitempty"`
-	SetLineDownsampleMode *SetLineDownsampleModePayload `json:"set_line_downsample_mode,omitzero" msgpack:"set_line_downsample_mode,omitempty"`
+	SetLineAggregation    *SetLineAggregationPayload    `json:"set_line_aggregation,omitzero" msgpack:"set_line_aggregation,omitempty"`
+	SetLineDetail         *SetLineDetailPayload         `json:"set_line_detail,omitzero" msgpack:"set_line_detail,omitempty"`
 	SetLine               *SetLinePayload               `json:"set_line,omitzero" msgpack:"set_line,omitempty"`
 	SetRule               *SetRulePayload               `json:"set_rule,omitzero" msgpack:"set_rule,omitempty"`
 	SetRuleLabel          *SetRuleLabelPayload          `json:"set_rule_label,omitzero" msgpack:"set_rule_label,omitempty"`
@@ -453,16 +452,16 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLineStrokeWidth.Handle(state)
-		case ActionTypeSetLineDownsample:
-			if a.SetLineDownsample == nil {
+		case ActionTypeSetLineAggregation:
+			if a.SetLineAggregation == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetLineDownsample.Handle(state)
-		case ActionTypeSetLineDownsampleMode:
-			if a.SetLineDownsampleMode == nil {
+			state, err = a.SetLineAggregation.Handle(state)
+		case ActionTypeSetLineDetail:
+			if a.SetLineDetail == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetLineDownsampleMode.Handle(state)
+			state, err = a.SetLineDetail.Handle(state)
 		case ActionTypeSetLine:
 			if a.SetLine == nil {
 				return state, union.MissingPayload(a.Type)
@@ -638,14 +637,14 @@ func NewSetLineStrokeWidthAction(p SetLineStrokeWidthPayload) Action {
 	return Action{Type: ActionTypeSetLineStrokeWidth, SetLineStrokeWidth: &p}
 }
 
-// NewSetLineDownsampleAction wraps a SetLineDownsamplePayload in an Action envelope.
-func NewSetLineDownsampleAction(p SetLineDownsamplePayload) Action {
-	return Action{Type: ActionTypeSetLineDownsample, SetLineDownsample: &p}
+// NewSetLineAggregationAction wraps a SetLineAggregationPayload in an Action envelope.
+func NewSetLineAggregationAction(p SetLineAggregationPayload) Action {
+	return Action{Type: ActionTypeSetLineAggregation, SetLineAggregation: &p}
 }
 
-// NewSetLineDownsampleModeAction wraps a SetLineDownsampleModePayload in an Action envelope.
-func NewSetLineDownsampleModeAction(p SetLineDownsampleModePayload) Action {
-	return Action{Type: ActionTypeSetLineDownsampleMode, SetLineDownsampleMode: &p}
+// NewSetLineDetailAction wraps a SetLineDetailPayload in an Action envelope.
+func NewSetLineDetailAction(p SetLineDetailPayload) Action {
+	return Action{Type: ActionTypeSetLineDetail, SetLineDetail: &p}
 }
 
 // NewSetLineAction wraps a SetLinePayload in an Action envelope.

@@ -68,8 +68,10 @@ class ParkedWait(ArcCase):
             if timer.elapsed() > 5 * sy.TimeSpan.SECOND:
                 self.fail("the task reports no warning for the zero wait duration")
             sy.sleep(0.05)
-        if WARNING_MESSAGE not in f"{status.message} {status.description}":
-            self.fail(f"the warning is not about the wait: {status.message}")
+        if status.message != "Node failed":
+            self.fail(f"the warning message is {status.message!r}, not 'Node failed'")
+        if WARNING_MESSAGE not in status.description:
+            self.fail(f"the warning is not about the wait: {status.description}")
         self.wait_for_eq("pw_alive", 1, timeout=5 * sy.TimeSpan.SECOND)
         if self.read_tlm("pw_done") == 1:
             self.fail("the parked wait fired before its stage was entered again")

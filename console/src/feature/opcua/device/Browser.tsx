@@ -15,7 +15,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
-import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -24,7 +24,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
 import { array, type optional } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
@@ -45,7 +45,7 @@ export const HAUL_TYPE = "opc";
 
 export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, ScannedNode>;
 
-export const createHaulItem = (node: ScannedNode): HaulItem => ({
+const createHaulItem = (node: ScannedNode): HaulItem => ({
   type: HAUL_TYPE,
   key: node.nodeId,
   data: node,
@@ -53,9 +53,6 @@ export const createHaulItem = (node: ScannedNode): HaulItem => ({
 
 export const isHaulItem = (item: Haul.Item): item is HaulItem =>
   item.type === HAUL_TYPE;
-
-export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
-  items.filter(isHaulItem);
 
 export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
@@ -67,7 +64,7 @@ const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
   bottomRight: Icon.Array,
 });
 
-const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>) => {
+const NodeItem = (props: Tree.ItemRenderProps<string>) => {
   const node = List.useItem<string, ScannedNode>(props.itemKey);
   const { getState } = Select.useContext<string>();
   const { getItem } = List.useUtilContext<string, ScannedNode>();
@@ -75,14 +72,14 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
     type: HAUL_TYPE,
     key: node?.nodeId,
   });
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = () => {
     if (node == null) return;
     const selected = array.toArray(getState().value);
     if (getItem != null && selected.includes(props.itemKey)) {
       const nodes = getItem(selected);
       startDrag(nodes.map(createHaulItem));
     } else startDrag([createHaulItem(node)]);
-  }, [startDrag, node, getState, getItem, props.itemKey]);
+  };
   if (node == null) return null;
   const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];
   return (
@@ -93,7 +90,9 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
       </Text.Text>
     </Tree.Item>
   );
-});
+};
+
+const itemRenderProp = Component.renderProp(NodeItem);
 
 const BROWSE_TIMEOUT = TimeSpan.seconds(10);
 
@@ -104,12 +103,13 @@ const browseNodes = async (
   id: string,
 ): Promise<ScannedNode[]> => {
   const scanTask = await retrieveScanTask(client, rack);
-  const { details, variant, message } = await scanTask.executeCommandSync({
+  const browseStatus = await scanTask.executeCommandSync({
     type: BROWSE_COMMAND_TYPE,
     timeout: BROWSE_TIMEOUT,
     args: { connection, node_id: id },
   });
-  if (variant !== "success") throw new Error(message);
+  if (browseStatus.variant === "error") throw status.toError(browseStatus);
+  const { details } = browseStatus;
   if (details?.data == null || !("channels" in details.data)) return [];
   return details.data.channels;
 };
@@ -120,66 +120,64 @@ export const Browser = ({ device }: BrowserProps) => {
   );
   const opcNodesStore = List.useMapData<string, ScannedNode>();
   const [stat, setStat] = useState<status.Status | null>(null);
+  const [initialLoading, setInitialLoading] = useState(false);
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const retrieveNodes = useCallback(
-    (id: string, key: string | undefined) => {
-      if (client == null) return;
-      setStat(status.create({ variant: "loading", message: "Browsing OPC UA nodes" }));
-      handleError(async () => {
-        let channels: ScannedNode[];
-        try {
-          channels = await browseNodes(
-            client,
-            device.rack,
-            device.properties.connection,
-            id,
-          );
-        } catch (e) {
-          setStat(status.fromException(e, "Failed to browse OPC UA nodes"));
-          return;
-        }
-        setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
-        const isRoot = id === "";
-        const newNodes = channels.map((node): Tree.Node => ({
-          key: nodeKey(node.nodeId, id),
-          children: [],
-        }));
-        opcNodesStore.setItem(
-          channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, id) })),
+  const retrieveNodes = (id: string, key: string | undefined) => {
+    if (client == null) return;
+    setStat(status.create({ variant: "loading", message: "Browsing OPC UA nodes" }));
+    handleError(async () => {
+      let channels: ScannedNode[];
+      try {
+        channels = await browseNodes(
+          client,
+          device.rack,
+          device.properties.connection,
+          id,
         );
-        setInitialLoading(false);
-        if (isRoot) setTreeNodes(newNodes);
-        else
-          setTreeNodes([
-            ...Tree.setNode({
-              tree: treeNodesRef.current,
-              destination: key ?? null,
-              additions: newNodes,
-            }),
-          ]);
-      }, "Failed to browse OPC UA nodes");
-    },
-    [client, device, handleError, opcNodesStore],
-  );
+      } catch (e) {
+        setStat(status.fromException(e, "Failed to browse OPC UA nodes"));
+        return;
+      }
+      setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
+      const isRoot = id === "";
+      const newNodes = channels.map((node): Tree.Node => ({
+        key: nodeKey(node.nodeId, id),
+        children: [],
+      }));
+      opcNodesStore.setItem(
+        channels.map((node) => ({ ...node, key: nodeKey(node.nodeId, id) })),
+      );
+      setInitialLoading(false);
+      if (isRoot) setTreeNodes(newNodes);
+      else
+        setTreeNodes([
+          ...Tree.setNode({
+            tree: treeNodesRef.current,
+            destination: key ?? null,
+            additions: newNodes,
+          }),
+        ]);
+    }, "Failed to browse OPC UA nodes");
+  };
 
-  const expand = useCallback(
-    ({ clicked, action }: optional.Optional<Tree.HandleExpandProps, "clicked">) => {
-      if (action === "contract") return;
-      retrieveNodes(clicked == null ? "" : parseNodeID(clicked), clicked);
-    },
-    [retrieveNodes],
-  );
+  const expand = ({
+    clicked,
+    action,
+  }: optional.Optional<Tree.HandleExpandProps, "clicked">) => {
+    if (action === "contract") return;
+    retrieveNodes(clicked == null ? "" : parseNodeID(clicked), clicked);
+  };
 
   const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
   const { shape, clearExpanded } = treeProps;
-  const [initialLoading, setInitialLoading] = useState(false);
-  const refresh = useCallback(() => {
+  const refresh = () => {
     setInitialLoading(true);
     expand({ action: "expand", current: [] });
     clearExpanded();
-  }, [clearExpanded]);
-  useEffect(refresh, [refresh]);
+  };
+  const refreshRef = useSyncedRef(refresh);
+  useEffect(() => refreshRef.current(), [refreshRef]);
   let content: ReactElement;
   if (stat?.variant === "error") content = <Status.Summary center status={stat} />;
   else if (initialLoading)

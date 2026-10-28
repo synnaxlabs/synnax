@@ -9,14 +9,14 @@
 
 import re
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.layout import LayoutClient
 from console.multiedit import Colors
 from console.page import ConsolePage
 
-DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
+_DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 
 
 class Table(ConsolePage):
@@ -201,16 +201,20 @@ class Table(ConsolePage):
         cell_index = row * self.get_column_count() + col
         return cells.nth(cell_index)
 
+    def _get_indicator(self, direction: str, index: int) -> Locator:
+        """Get a locator for the indicator of the row ("y") or column ("x") at index."""
+        return self.page.locator(f'td[id^="resizer-{direction}-"]').nth(index)
+
     def get_row_count(self) -> int:
         """Get the number of data rows in the table (excludes the column resizer row)."""
-        self.page.locator(DATA_ROW_SELECTOR).first.wait_for(
+        self.page.locator(_DATA_ROW_SELECTOR).first.wait_for(
             state="visible", timeout=5000
         )
-        return self.page.locator(DATA_ROW_SELECTOR).count()
+        return self.page.locator(_DATA_ROW_SELECTOR).count()
 
     def get_column_count(self) -> int:
         """Get the number of data columns in the table (excludes the row resizer cell)."""
-        data_row = self.page.locator(DATA_ROW_SELECTOR).first
+        data_row = self.page.locator(_DATA_ROW_SELECTOR).first
         data_row.wait_for(state="visible", timeout=5000)
         return data_row.locator(".pluto-table__cell").count()
 
@@ -228,11 +232,11 @@ class Table(ConsolePage):
 
     def select_row_via_header(self, row: int) -> None:
         """Click the row indicator (left header) to select every cell in the row."""
-        self.page.locator(f'td[id="resizer-y-{row}"]').click()
+        self._get_indicator("y", row).click()
 
     def select_col_via_header(self, col: int) -> None:
         """Click the column indicator (top header) to select every cell in the column."""
-        self.page.locator(f'td[id="resizer-x-{col}"]').click()
+        self._get_indicator("x", col).click()
 
     def add_row_above(self, row: int, col: int = 0) -> None:
         """Insert a row above the row containing the cell at (row, col)."""
@@ -288,43 +292,60 @@ class Table(ConsolePage):
         )
         self.ctx_menu.click_option(label)
 
+    def _drag_by(self, handle: Locator, dx: float, dy: float, name: str) -> None:
+        """Press the center of handle, move the pointer by (dx, dy), and release."""
+        box = handle.bounding_box()
+        if box is None:
+            raise ValueError(f"Could not locate {name}")
+        cx = box["x"] + box["width"] / 2
+        cy = box["y"] + box["height"] / 2
+        self.page.mouse.move(cx, cy)
+        self.page.mouse.down()
+        self.page.mouse.move(cx + dx, cy + dy, steps=10)
+        self.page.mouse.up()
+
     def drag_col_resizer(self, col: int, dx: float) -> None:
         """Drag the right edge of a column's resize handle by `dx` pixels.
 
         Positive `dx` widens the column; negative narrows it.
         """
-        handle = self.page.locator(f'td[id="resizer-x-{col}"] button')
-        box = handle.bounding_box()
-        if box is None:
-            raise ValueError(f"Could not locate resize handle for column {col}")
-        cx = box["x"] + box["width"] / 2
-        cy = box["y"] + box["height"] / 2
-        self.page.mouse.move(cx, cy)
-        self.page.mouse.down()
-        self.page.mouse.move(cx + dx, cy, steps=10)
-        self.page.mouse.up()
+        handle = self._get_indicator("x", col).locator("button")
+        self._drag_by(handle, dx, 0, f"resize handle for column {col}")
 
     def drag_row_resizer(self, row: int, dy: float) -> None:
         """Drag the bottom edge of a row's resize handle by `dy` pixels."""
-        handle = self.page.locator(f'td[id="resizer-y-{row}"] button')
-        box = handle.bounding_box()
-        if box is None:
-            raise ValueError(f"Could not locate resize handle for row {row}")
-        cx = box["x"] + box["width"] / 2
-        cy = box["y"] + box["height"] / 2
-        self.page.mouse.move(cx, cy)
-        self.page.mouse.down()
-        self.page.mouse.move(cx, cy + dy, steps=10)
-        self.page.mouse.up()
+        handle = self._get_indicator("y", row).locator("button")
+        self._drag_by(handle, 0, dy, f"resize handle for row {row}")
+
+    def drag_col_label(self, col: int, dx: float) -> None:
+        """Drag a column's indicator label by `dx` pixels to move the column."""
+        label = self._get_indicator("x", col).locator(".pluto-table__label")
+        self._drag_by(label, dx, 0, f"label for column {col}")
+
+    def drag_row_label(self, row: int, dy: float) -> None:
+        """Drag a row's indicator label by `dy` pixels to move the row."""
+        label = self._get_indicator("y", row).locator(".pluto-table__label")
+        self._drag_by(label, 0, dy, f"label for row {row}")
+
+    def get_cell_key(self, row: int, col: int) -> str:
+        """Read the key of the cell at (row, col)."""
+        key = self._get_cell(row, col).get_attribute("id")
+        if key is None:
+            raise ValueError(f"Cell ({row}, {col}) has no key")
+        return key
+
+    def wait_for_cell_key(self, row: int, col: int, key: str) -> None:
+        """Wait until the cell with the given key sits at (row, col)."""
+        expect(self._get_cell(row, col)).to_have_attribute("id", key)
 
     def get_column_width(self, col: int) -> float:
         """Read the rendered pixel width of a column."""
-        indicator = self.page.locator(f'td[id="resizer-x-{col}"]')
+        indicator = self._get_indicator("x", col)
         return float(indicator.evaluate("el => el.offsetWidth"))
 
     def get_row_height(self, row: int) -> float:
         """Read the rendered pixel height of a row's indicator."""
-        indicator = self.page.locator(f'td[id="resizer-y-{row}"]')
+        indicator = self._get_indicator("y", row)
         return float(indicator.evaluate("el => el.offsetHeight"))
 
     SIZE_LABELS = ("XL", "L", "M", "S", "XS")

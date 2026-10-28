@@ -7,27 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel, framer, status as cstatus } from "@synnaxlabs/client";
 import {
-  AccessDeniedError,
-  channel,
-  type framer,
-  NotFoundError,
-  status as cstatus,
-  ValidationError,
-} from "@synnaxlabs/client";
-import {
+  type Aggregation,
+  aggregationZ,
   bounds,
-  breaker,
+  type breaker,
   DataType,
-  type destructor,
-  errors,
   MultiSeries,
   primitive,
+  resolveWindow,
   type Series,
   sync,
   TimeRange,
-  TimeSpan,
   TimeStamp,
+  windowZ,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -35,19 +29,23 @@ import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
-  type NumberSource,
+  LOADING_STATUS,
   type NumberSourceSpec,
+  type Result,
   type SeriesSource,
   type SeriesSourceSpec,
+  type Source,
   type Spec,
-  type StringSource,
   type StringSourceSpec,
+  success,
+  SUCCESS_STATUS,
   type Telem,
+  type ValueProps,
 } from "@/telem/aether/telem";
 
 /** The slice of a Synnax client that remote telemetry sources consume. */
 export interface Client {
-  feed: Pick<framer.Feed, "read" | "stream" | "readLatest">;
+  feed: Pick<framer.Feed, "subscribe">;
   channels: {
     retrieve: (ch: channel.Key | channel.Name) => Promise<channel.Channel>;
   };
@@ -55,73 +53,46 @@ export interface Client {
   now: () => TimeStamp;
 }
 
-const readLatestSeries = async (
-  client: Client,
-  ch: channel.Channel,
-  onStatusChange?: status.Adder,
-): Promise<Series | null> => {
-  if (ch.virtual && !channel.isCalculated(ch)) return null;
-  try {
-    const latest = (await client.feed.readLatest(ch.key)).series.at(-1);
-    if (latest == null || latest.length === 0) return null;
-    return latest;
-  } catch (e) {
-    onStatusChange?.(cstatus.fromException(e, "Failed to read latest value"));
-    return null;
-  }
-};
-
 /** Reported by remote sources created while the cluster is disconnected. */
 export const DISCONNECTED_STATUS: cstatus.Crude = {
   variant: "warning",
   message: "Core disconnected",
 };
 
-// Retrying only fixes connectivity; a definitive rejection recurs on every attempt.
-const isDefinitive = (e: unknown): boolean =>
-  AccessDeniedError.matches(e) ||
-  ValidationError.matches(e) ||
-  NotFoundError.matches(e);
-
-/**
- * Backs off a source's read retries. A tall interval cap suits a source whose retries
- * only refresh history. Notifying the notifier interrupts a pending backoff, so a
- * retired source's retry loop ends promptly.
- */
-const newRetryBreaker = (
-  notifier: sync.Notifier,
-  config?: breaker.Config,
-): breaker.Breaker =>
-  new breaker.Breaker({
-    baseInterval: TimeSpan.seconds(1),
-    maxInterval: TimeSpan.seconds(30),
-    maxRetries: Infinity,
-    scale: 2,
-    jitter: 0.25,
-    sleepFn: async (duration) => await notifier.wait(duration),
-    ...config,
-  });
-
 /**
  * Posts a source's failures. Retries repeat at the breaker's pace, so an incident
  * posts one status when it starts and again only when the failure changes.
  */
-class FailureReporter {
-  private last?: string;
+export class FailureReporter {
+  /** The last failure since the last reset. */
+  status?: cstatus.Status;
   constructor(private readonly onStatusChange?: status.Adder) {}
 
   report(e: unknown, message: string): void {
-    const failure = cstatus.fromException(e, message);
-    const key = `${failure.message}: ${failure.description}`;
-    if (this.last === key) return;
-    this.last = key;
-    this.onStatusChange?.(failure);
+    this.post(cstatus.fromException(e, message));
+  }
+
+  /** Posts a subscription's status when it is an error, and resets on any other. */
+  observe(s: cstatus.Status): void {
+    if (s.variant === "error") this.post(s);
+    else this.reset();
   }
 
   reset(): void {
-    this.last = undefined;
+    this.status = undefined;
+  }
+
+  private post(s: cstatus.Status): void {
+    const prev = this.status;
+    this.status = s;
+    if (prev?.message === s.message && prev.description === s.description) return;
+    this.onStatusChange?.(s);
   }
 }
+
+// Loading until a source's channel resolves, then its last failure, if any.
+const sourceStatus = (loading: boolean, failures: FailureReporter): cstatus.Status =>
+  loading ? LOADING_STATUS : (failures.status ?? SUCCESS_STATUS);
 
 export const streamChannelValuePropsZ = z.object({
   channel: z.number().or(z.string()),
@@ -129,291 +100,222 @@ export const streamChannelValuePropsZ = z.object({
 
 export type StreamChannelValueProps = z.infer<typeof streamChannelValuePropsZ>;
 
-// StreamChannelValue is an implementation of NumberSource that reads and returns the
-// most recent value of a channel in real-time.
-export class StreamChannelValue
+/** Converts the newest sample of a non-empty series to a source's value. */
+interface Conversion<V> {
+  /** The value of a channel with no samples. */
+  empty: V;
+  convert: (series: Series) => V;
+}
+
+// A boolean reads as 0 or 1, and an int64 as its nearest number.
+const NUMBER: Conversion<number> = {
+  empty: NaN,
+  convert: (series) => Number(series.at(-1, true)),
+};
+
+// Keeps variable density data types as text rather than coercing them to a number.
+const STRING: Conversion<string> = {
+  empty: "",
+  convert: (series) => series.asString(-1, true),
+};
+
+interface Converted<V> {
+  series: Series;
+  length: number;
+  value: V;
+}
+
+/** A source of the newest sample of a channel, converted to V. */
+class ChannelValue<V>
   extends AbstractSource<typeof streamChannelValuePropsZ>
-  implements NumberSource
+  implements Source<V>
 {
-  static readonly TYPE = "stream-channel-value";
+  static readonly NUMBER_TYPE = "stream-channel-value";
+  static readonly STRING_TYPE = "stream-channel-string-value";
   schema = streamChannelValuePropsZ;
 
   private readonly client: Client | null;
-  private removeStreamHandler: destructor.Destructor | null = null;
-  private leadingBuffer: Series | null = null;
-  private sampleTime_: TimeStamp | null = null;
+  private readonly conversion: Conversion<V>;
+  private readonly onStatusChange?: status.Adder;
+  private readonly failures: FailureReporter;
+  private subscription: framer.Subscription | null = null;
+  private key: channel.Key | null = null;
+  private converted: Converted<V> | null = null;
+  // notified is the value listeners last heard of. A read can convert a new sample
+  // before the subscription's notice runs.
+  private notified: Converted<V> | null = null;
   private generation = 0;
   private valid = false;
-  private readonly onStatusChange?: status.Adder;
-  constructor(client: Client | null, props: unknown, options?: CreateOptions) {
+  private loading = true;
+
+  constructor(
+    client: Client | null,
+    props: unknown,
+    conversion: Conversion<V>,
+    options?: CreateOptions,
+  ) {
     super(props);
     this.client = client;
+    this.conversion = conversion;
     this.onStatusChange = options?.onStatusChange;
+    this.failures = new FailureReporter(this.onStatusChange);
   }
 
-  sampleTime(): TimeStamp | null {
-    return this.sampleTime_;
-  }
-
-  /** @returns the leading series buffer for testing purposes. */
-  get testingOnlyLeadingBuffer(): Series | null {
-    return this.leadingBuffer;
-  }
-
-  /** @returns the internal valid flag for testing purposes */
-  get testingOnlyValid(): boolean {
-    return this.valid;
+  value(): Result<V> {
+    const { empty } = this.conversion;
+    if (primitive.isZero(this.props.channel)) return success(empty);
+    if (!this.valid) void this.resolve();
+    const { subscription, key } = this;
+    if (subscription == null || key == null)
+      return { data: empty, status: sourceStatus(this.loading, this.failures) };
+    const snapshot = subscription.value(key);
+    this.convert(snapshot);
+    const { status, time, appended } = snapshot;
+    return { data: this.converted?.value ?? empty, status, time, appended };
   }
 
   cleanup(): void {
     this.generation++;
-    this.removeStreamHandler?.();
-    // Set valid to false so if we read again, we know to update the buffer.
+    this.subscription?.close();
+    this.subscription = null;
+    this.key = null;
+    this.converted = null;
+    this.notified = null;
     this.valid = false;
-    this.leadingBuffer?.release();
-    this.leadingBuffer = null;
-    this.sampleTime_ = null;
-    this.removeStreamHandler = null;
+    this.loading = true;
+    this.failures.reset();
   }
 
-  value(): number {
-    // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return NaN;
-    if (!this.valid) void this.read();
-    // No data has been received and no recent samples were fetched on initialization.
-    if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return NaN;
-    return this.leadingBuffer.at(-1, true) as number;
+  // Converts the newest sample when its series or length changes, since a string
+  // conversion scans the series. A successful read with no samples, as after a delete,
+  // clears it.
+  private convert({ series, status }: framer.Snapshot): void {
+    const last = series.series.at(-1);
+    if (last == null || last.length === 0) {
+      if (status.variant === "success") this.converted = null;
+      return;
+    }
+    const prev = this.converted;
+    if (prev?.series === last && prev.length === last.length) return;
+    this.converted = {
+      series: last,
+      length: last.length,
+      value: this.conversion.convert(last),
+    };
   }
 
-  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
-  private async read(): Promise<void> {
+  /** Never rejects: a failure invalidates the source and reaches onStatusChange. */
+  private async resolve(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
     const { client } = this;
     if (client == null) {
+      this.loading = false;
       this.onStatusChange?.(DISCONNECTED_STATUS);
       return;
     }
     try {
-      this.removeStreamHandler?.();
-      const ch = await client.channels.retrieve(this.props.channel);
-      const handler: framer.StreamHandler = (res) => {
-        if (generation !== this.generation) return;
-        const data = res.get(ch.key);
-        if (data == null) return;
-        const first = data.series.at(-1);
-        if (first != null) {
-          first.acquire();
-          this.leadingBuffer?.release();
-          this.leadingBuffer = first;
-          this.sampleTime_ = null;
-        }
-        // Just because we didn't get a new buffer doesn't mean one wasn't allocated: an
-        // empty update means the leading buffer was appended to in place. A frame that
-        // holds nothing for this channel looks the same, so with no buffer yet there is
-        // nothing to report.
-        else if (this.leadingBuffer == null) return;
-        this.notify();
-      };
+      const { key } = await client.channels.retrieve(this.props.channel);
       if (generation !== this.generation) return;
-      this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
-      // Opening the stream is not a sample. Notify only when a buffer already holds
-      // one, so a consumer that counts arrivals does not count the open.
-      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
+      const subscription = client.feed.subscribe({
+        keys: [key],
+        limit: { variant: "latest", count: 1 },
+      });
+      [this.subscription, this.key] = [subscription, key];
+      subscription.onChange(() => {
+        const snapshot = subscription.value(key);
+        this.failures.observe(snapshot.status);
+        this.convert(snapshot);
+        // A history change that rewrites the newest sample notifies too, so the value
+        // redraws. Consumers that count arrivals compare its appended count.
+        if (this.converted === this.notified) return;
+        this.notified = this.converted;
         this.notify();
-        return;
-      }
-      const latest = await readLatestSeries(client, ch, this.onStatusChange);
-      if (latest == null) return;
-      if (generation !== this.generation || this.leadingBuffer != null) return;
-      latest.acquire();
-      this.leadingBuffer = latest;
-      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
-      this.notify();
+      });
     } catch (e) {
+      if (generation !== this.generation) return;
       this.valid = false;
-      this.onStatusChange?.(cstatus.fromException(e, "Failed to stream channel value"));
+      this.loading = false;
+      this.failures.report(e, "Failed to stream channel value");
     }
   }
 }
 
-interface SelectedChannelProperties extends Pick<
-  channel.Payload,
-  "key" | "dataType" | "virtual"
-> {
-  isCalculated: boolean;
-}
+type SelectedChannelProperties = Pick<channel.Payload, "key" | "dataType">;
 
+// A channel with no index draws itself, so the cache reports why it cannot draw.
 const fetchChannelProperties = async (
   client: Client,
   ch: channel.Key | channel.Name,
   fetchIndex: boolean,
 ): Promise<SelectedChannelProperties> => {
   const c = await client.channels.retrieve(ch);
-  const isCalculated = channel.isCalculated(c);
-  if (!fetchIndex || c.isIndex)
-    return { key: c.key, dataType: c.dataType, virtual: c.virtual, isCalculated };
-  if (c.virtual && !isCalculated)
-    throw new NotFoundError("cannot use virtual channels as a data source");
-  return { key: c.index, dataType: DataType.TIMESTAMP, virtual: false, isCalculated };
+  if (!fetchIndex || c.isIndex || c.index === 0)
+    return { key: c.key, dataType: c.dataType };
+  return { key: c.index, dataType: DataType.TIMESTAMP };
 };
 
-// Spans within the live buffer draw immediately and skip the loading state.
-const LOADING_MIN_SPAN = TimeSpan.minutes(1).valueOf();
-
-const channelDataSourcePropsZ = z.object({
-  timeRange: TimeRange.z,
+const channelDataPropsZ = z.object({
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().default(false),
+  /** The line's x channel, or zero when x is the index of the line's y channel. */
+  xChannel: z.number().or(z.string()).default(0),
+  /** The home view: a fixed range, or a span that ends now for a live line. */
+  window: windowZ,
+  aggregation: aggregationZ.default("min_max"),
 });
 
-export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
+export type ChannelDataProps = z.input<typeof channelDataPropsZ>;
 
+// The points a line draws before a read gives its own.
+const DEFAULT_POINTS = 1000;
+
+const viewRange = ({ lower, upper }: bounds.Bounds): TimeRange =>
+  new TimeRange(BigInt(Math.max(Math.floor(lower), 0)), BigInt(Math.ceil(upper)));
+
+/**
+ * A series source that draws a channel across the view passed to value(), or across
+ * the home view when none is passed. A live line draws its newest samples at full
+ * resolution. An xy line draws its home view reduced with decimate.
+ */
 export class ChannelData
-  extends AbstractSource<typeof channelDataSourcePropsZ>
+  extends AbstractSource<typeof channelDataPropsZ>
   implements SeriesSource
 {
-  static readonly TYPE = "series-source";
+  static readonly TYPE = "channel-data";
+  schema = channelDataPropsZ;
+
   private readonly client: Client | null;
-  schema = channelDataSourcePropsZ;
-
-  private data: MultiSeries = new MultiSeries();
-  private valid: boolean = false;
-  private generation = 0;
-  private channel: SelectedChannelProperties | null = null;
-  private readonly onStatusChange?: status.Adder;
-  private readonly skipLoading: boolean;
-  private readonly retryNotifier = new sync.Notifier();
-  private readonly breaker: breaker.Breaker;
-  private readonly failures: FailureReporter;
-
-  constructor(
-    client: Client | null,
-    props: unknown,
-    options?: CreateOptions,
-    breakerConfig?: breaker.Config,
-  ) {
-    super(props);
-    this.client = client;
-    this.onStatusChange = options?.onStatusChange;
-    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
-    this.failures = new FailureReporter(options?.onStatusChange);
-    const { channel, timeRange } = this.props;
-    this.skipLoading = channel === 0 || timeRange.span.isZero;
-    this.loading_ = true;
-  }
-
-  cleanup(): void {
-    this.generation++;
-    this.retryNotifier.notify();
-    this.data.release();
-    this.valid = false;
-    this.loading_ = false;
-    this.channel = null;
-  }
-
-  loading(): boolean {
-    if (this.skipLoading || !this.loading_) return false;
-    if (!this.valid) void this.read();
-    return this.loading_;
-  }
-
-  value(): [bounds.Bounds, MultiSeries] {
-    const { channel, timeRange } = this.props;
-    // If either of these conditions is true, leave the telem invalid
-    // and return an empty array.
-    if (timeRange.span.isZero || channel === 0) return [bounds.INVALID, this.data];
-    if (!this.valid) void this.read();
-    const { channel: ch, data } = this;
-    if (ch == null) return [bounds.INVALID, this.data];
-    let b = data.bounds;
-    if (ch.dataType.equals(DataType.TIMESTAMP)) {
-      b = bounds.min([b, timeRange.numericBounds]);
-      // A reversed intersection means the data lies outside the requested range.
-      if (b.lower > b.upper) b = bounds.INVALID;
-    }
-    return [b, data];
-  }
-
-  /**
-   * Never rejects. A connectivity failure retries under the breaker; a definitive
-   * rejection parks the source. Every distinct failure reaches onStatusChange.
-   */
-  private async read(): Promise<void> {
-    const generation = this.generation;
-    this.valid = true;
-    const { client } = this;
-    if (client == null) {
-      this.declareLoaded();
-      this.onStatusChange?.(DISCONNECTED_STATUS);
-      return;
-    }
-    while (generation === this.generation)
-      try {
-        await this.attempt(generation, client);
-        this.declareLoaded();
-        this.breaker.reset();
-        this.failures.reset();
-        return;
-      } catch (e) {
-        this.declareLoaded();
-        this.failures.report(e, "Failed to read channel data");
-        if (isDefinitive(e) || !(await this.breaker.wait())) return;
-      }
-  }
-
-  private async attempt(generation: number, client: Client): Promise<void> {
-    const { timeRange, channel, useIndexOfChannel } = this.props;
-    const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
-    if (generation !== this.generation) return;
-    this.channel = ch;
-    const series = await client.feed.read(timeRange, ch.key);
-    if (generation !== this.generation) return;
-    series.acquire();
-    this.data = series;
-    this.notify();
-  }
-}
-
-// How long a seam waits before its read, matching the margin the cache gives commits.
-const SEAM_SETTLE = TimeSpan.seconds(1);
-
-// The span a live source's back-fill and stream both miss.
-interface Seam {
-  backfillEnd?: TimeStamp;
-  liveStart?: TimeStamp;
-  filled: boolean;
-}
-
-const streamChannelDataPropsZ = z.object({
-  channel: z.number().or(z.string()),
-  useIndexOfChannel: z.boolean().default(false),
-  timeSpan: TimeSpan.z,
-  keepFor: TimeSpan.z.optional(),
-});
-
-export type StreamChannelDataProps = z.input<typeof streamChannelDataPropsZ>;
-
-export class StreamChannelData
-  extends AbstractSource<typeof streamChannelDataPropsZ>
-  implements SeriesSource
-{
-  static readonly TYPE = "dynamic-series-source";
-  private readonly client: Client | null;
-  private readonly data: MultiSeries = new MultiSeries([]);
   private readonly now: () => TimeStamp;
   private readonly onStatusChange?: status.Adder;
-
-  private channel: SelectedChannelProperties | null = null;
-  private stopStreaming?: destructor.Destructor;
-  private valid: boolean = false;
-  private readonly skipLoading: boolean;
   private generation = 0;
-  private readonly breakerConfig?: breaker.Config;
-  private readonly breaker: breaker.Breaker;
-  private readonly retryNotifier = new sync.Notifier();
+  private valid = false;
+  private channel: SelectedChannelProperties | null = null;
+  // xy is true when the line's x channel is not an index.
+  private xy = false;
+  private points = DEFAULT_POINTS;
+  // draw serves the samples the line draws, and bounds the min_max samples that bound a
+  // line that is not xy. Each status is the last one its subscription served.
+  private draw: framer.Subscription | null = null;
+  private drawStatus?: cstatus.Status;
+  private bounds: framer.Subscription | null = null;
+  private boundsStatus?: cstatus.Status;
+  // The view, points, and settling of the draw's last request, and the points of the
+  // bounds' last request. An equal read sends no request.
+  private drawView?: bounds.Bounds;
+  private drawPoints = 0;
+  private drawSettling = false;
+  private boundsPoints = 0;
+  // boundsRead is true when a bounds read ran since the last draw.
+  private boundsRead = false;
+  // drawn holds the series of the last draw snapshot. The line buffers them to the GPU,
+  // and releasing a series' last reference frees its buffer.
+  private drawn = new MultiSeries();
+  // loading is true until the channel resolves or its retrieval fails.
+  private loading = true;
   private readonly failures: FailureReporter;
-  schema = streamChannelDataPropsZ;
+  private readonly retryNotifier = new sync.Notifier();
+  private readonly breaker: breaker.Breaker;
 
   constructor(
     client: Client | null,
@@ -426,345 +328,237 @@ export class StreamChannelData
     this.client = client;
     this.now = now;
     this.onStatusChange = options?.onStatusChange;
-    const { channel, timeSpan } = this.props;
-    this.skipLoading = channel === 0 || timeSpan.valueOf() <= LOADING_MIN_SPAN;
-    this.loading_ = true;
-    this.breakerConfig = breakerConfig;
-    this.breaker = newRetryBreaker(this.retryNotifier, breakerConfig);
     this.failures = new FailureReporter(options?.onStatusChange);
+    this.breaker = framer.retry.createBreaker(this.retryNotifier, breakerConfig);
   }
 
-  loading(): boolean {
-    if (this.skipLoading || !this.loading_) return false;
-    if (!this.valid) void this.read();
-    return this.loading_;
+  private get live(): boolean {
+    return this.props.window.variant === "dynamic";
   }
 
-  value(): [bounds.Bounds, MultiSeries] {
-    const { channel, timeSpan } = this.props;
-    if (channel === 0) return [bounds.INVALID, this.data];
-    if (!this.valid) void this.read();
-    const { data, channel: ch } = this;
-    const now = this.now();
-    if (ch != null && ch.dataType.isVariable) return [bounds.INVALID, this.data];
-    const filtered = data.series
-      .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
-      .map((d) => d.bounds);
-    const b = bounds.max(filtered);
-    if (ch != null && ch.dataType.equals(DataType.TIMESTAMP))
-      b.lower = Math.max(b.lower, b.upper - Number(timeSpan.valueOf()));
-    return [b, this.data];
+  value({ bounds: view, points, extremesKept = false }: ValueProps = {}): Result<
+    [bounds.Bounds, MultiSeries]
+  > {
+    if (points != null) this.points = points;
+    if (primitive.isZero(this.props.channel))
+      return success([bounds.INVALID, new MultiSeries()]);
+    if (!this.valid) void this.resolve();
+    const { client, channel: ch } = this;
+    if (client == null || ch == null)
+      return {
+        data: [bounds.INVALID, new MultiSeries()],
+        status: sourceStatus(this.loading, this.failures),
+        aggregation: this.aggregation(),
+      };
+    const { series, time } =
+      extremesKept && !this.xy
+        ? this.readBounds(client, ch.key)
+        : this.readDraw(client, ch.key, view, points != null);
+    const status = this.status();
+    this.failures.observe(status);
+    return {
+      data: [this.dataBounds(ch, series, time), series],
+      status,
+      aggregation: this.aggregation(),
+    };
+  }
+
+  // A read with points draws its view. Bounds with no points come while a zoom settles,
+  // so they draw the view from the samples held. Any other read serves what the line
+  // drew last.
+  private readDraw(
+    client: Client,
+    key: channel.Key,
+    view: bounds.Bounds | undefined,
+    draws: boolean,
+  ): framer.Snapshot {
+    const settling = !draws && view != null;
+    const target = draws || settling ? view : undefined;
+    if (
+      this.draw == null ||
+      ((draws || settling) && this.drawChanged(target, settling))
+    ) {
+      const request = this.drawRequest(key, target, settling);
+      if (this.draw == null) this.draw = this.subscribe(client, request);
+      else this.draw.update(request);
+      this.drawView = target && { ...target };
+      this.drawPoints = this.points;
+      this.drawSettling = settling;
+    }
+    // A line that stops reading its bounds closes them at its next draw.
+    if (draws) {
+      if (!this.boundsRead) this.closeBounds();
+      this.boundsRead = false;
+    }
+    const snapshot = this.draw.value(key);
+    this.drawStatus = snapshot.status;
+    this.hold(snapshot.series);
+    return snapshot;
+  }
+
+  private drawChanged(view: bounds.Bounds | undefined, settling: boolean): boolean {
+    const last = this.drawView;
+    return (
+      settling !== this.drawSettling ||
+      this.points !== this.drawPoints ||
+      view?.lower !== last?.lower ||
+      view?.upper !== last?.upper
+    );
+  }
+
+  private drawRequest(
+    key: channel.Key,
+    view: bounds.Bounds | undefined,
+    settling: boolean,
+  ): framer.PointsRequest {
+    const { window, aggregation } = this.props;
+    if (this.xy)
+      return {
+        keys: [key],
+        window,
+        limit: { variant: "points", count: this.points, aggregation: "decimate" },
+      };
+    const limit: framer.PointsLimit = {
+      variant: "points",
+      count: this.points,
+      aggregation,
+    };
+    if (view != null && bounds.isFinite(view) && bounds.span(view) > 0)
+      limit.view = viewRange(view);
+    if (settling) limit.settling = true;
+    return { keys: [key], window, limit };
+  }
+
+  // Reads the samples that bound the home view, reduced with min_max so they keep the
+  // extremes that other aggregations drop. The draw serves until the first ones load.
+  private readBounds(client: Client, key: channel.Key): framer.Snapshot {
+    this.boundsRead = true;
+    if (this.bounds == null || this.points !== this.boundsPoints) {
+      const request: framer.PointsRequest = {
+        keys: [key],
+        window: this.props.window,
+        limit: {
+          variant: "points",
+          count: this.points,
+          aggregation: this.props.aggregation,
+          extremesKept: true,
+        },
+      };
+      if (this.bounds == null) this.bounds = this.subscribe(client, request);
+      else this.bounds.update(request);
+      this.boundsPoints = this.points;
+    }
+    let snapshot = this.bounds.value(key);
+    if (snapshot.status.variant === "loading" && snapshot.series.length === 0)
+      snapshot = this.draw?.value(key) ?? snapshot;
+    this.boundsStatus = snapshot.status;
+    return snapshot;
+  }
+
+  private closeBounds(): void {
+    this.bounds?.close();
+    this.bounds = null;
+    this.boundsStatus = undefined;
+  }
+
+  private subscribe(
+    client: Client,
+    request: framer.PointsRequest,
+  ): framer.Subscription {
+    const subscription = client.feed.subscribe(request);
+    subscription.onChange(() => this.notify());
+    return subscription;
+  }
+
+  private hold(series: MultiSeries): void {
+    if (series === this.drawn) return;
+    series.series.forEach((s) => s.acquire());
+    this.drawn.series.forEach((s) => s.release());
+    this.drawn = series;
+  }
+
+  private status(): cstatus.Status {
+    return cstatus.worst(this.drawStatus, this.boundsStatus) ?? LOADING_STATUS;
+  }
+
+  private aggregation(): Aggregation {
+    return this.xy ? "decimate" : this.props.aggregation;
+  }
+
+  private dataBounds(
+    ch: SelectedChannelProperties,
+    series: MultiSeries,
+    time: TimeStamp | undefined,
+  ): bounds.Bounds {
+    if (!ch.dataType.equals(DataType.TIMESTAMP) || this.xy) return series.bounds;
+    const home = resolveWindow(this.props.window, this.now());
+    if (!this.live) return home.numericBounds;
+    const upper = Number((time ?? home.end).valueOf());
+    return { lower: upper - Number(home.span.valueOf()), upper };
   }
 
   /**
-   * Never rejects. A connectivity failure retries under the breaker; a definitive
+   * Never rejects. A connectivity failure retries under the breaker, and a definitive
    * rejection parks the source. Every distinct failure reaches onStatusChange.
    */
-  private async read(): Promise<void> {
+  private async resolve(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
     const { client } = this;
     if (client == null) {
-      this.declareLoaded();
+      this.loading = false;
       this.onStatusChange?.(DISCONNECTED_STATUS);
-      return;
+      return this.notify();
     }
+    const { channel, useIndexOfChannel, xChannel } = this.props;
     while (generation === this.generation)
       try {
-        await this.attempt(generation, client);
-        this.declareLoaded();
+        const ch = await fetchChannelProperties(client, channel, useIndexOfChannel);
+        const xy =
+          !primitive.isZero(xChannel) &&
+          !(await client.channels.retrieve(xChannel)).isIndex;
+        if (generation !== this.generation) return;
+        [this.channel, this.xy] = [ch, xy];
         this.breaker.reset();
         this.failures.reset();
-        return;
+        return this.notify();
       } catch (e) {
-        // Declare loaded on the first failure so retries never hold loading forever.
-        this.declareLoaded();
-        if (isDefinitive(e) || !(await this.breaker.wait())) return;
-      }
-  }
-
-  // One full read attempt: it opens the live stream, then runs the historical
-  // back-fill, so a stalled or failed back-fill never blocks live data. Throws the
-  // failure after posting its status.
-  private async attempt(generation: number, client: Client): Promise<void> {
-    const { channel, useIndexOfChannel, timeSpan } = this.props;
-    let fetched: SelectedChannelProperties;
-    let streamStart: TimeStamp;
-    const seam: Seam = { filled: false };
-    try {
-      fetched = await fetchChannelProperties(client, channel, useIndexOfChannel);
-      if (generation !== this.generation) return;
-      this.channel = fetched;
-      const handler: framer.StreamHandler = (res) => {
-        if (generation !== this.generation || this.channel == null) return;
-        const series = res.get(this.channel.key);
-        if (series == null) return;
-        // Held series of the channel's old data type cannot share a MultiSeries with
-        // the new one.
-        const { dataType } = this.data;
-        if (
-          series.series.some((s) => !s.dataType.equals(dataType)) &&
-          this.data.length > 0
-        )
-          return this.restart();
-        this.pushNew(series.series);
-        if (seam.liveStart == null && series.series.length > 0) {
-          seam.liveStart = TimeStamp.min(
-            ...series.series.map((s) => s.timeRange.start),
-          );
-          void this.fillSeam(generation, client, seam);
-        }
-        this.notify();
-        this.gcOutOfRangeData();
-      };
-      this.stopStreaming?.();
-      streamStart = this.now();
-      this.stopStreaming = client.feed.stream(handler, [fetched.key]).close;
-    } catch (e) {
-      this.failures.report(e, "Failed to stream channel data");
-      throw errors.fromUnknown(e);
-    }
-    if (!fetched.virtual || fetched.isCalculated)
-      try {
-        // The back-fill stops where live data starts: the cache can return a span in
-        // both representations, and overlapping series pair into stray segments.
-        const liveStart = this.data.series.reduce(
-          (start, s) => (s.timeRange.start.before(start) ? s.timeRange.start : start),
-          streamStart,
-        );
-        // Live data held across a long retry can start before the window.
-        const start = this.now().sub(timeSpan);
-        if (liveStart.after(start)) {
-          const res = await client.feed.read(
-            new TimeRange(start, liveStart),
-            fetched.key,
-          );
-          if (generation !== this.generation) return;
-          this.pushNew(res.series);
-          seam.backfillEnd = liveStart;
-          void this.fillSeam(generation, client, seam);
-        }
-      } catch (e) {
-        // Certain calculated channels can fail to read because they need access to
-        // virtual channels that cannot be read from historically.
-        if (
-          e instanceof Error &&
-          (e.message.includes("cannot open iterator on virtual channel") ||
-            e.message.includes("cannot read from free channel"))
-        )
-          console.warn("failed to read calculated channel data", e);
-        else {
-          this.failures.report(e, "Failed to read channel data");
-          throw errors.fromUnknown(e);
-        }
-      }
-    this.notify();
-  }
-
-  // Reads the span between the back-fill's end and the first streamed series once both
-  // are known. The stream delivers only samples written after it opens, which is later
-  // than the back-fill's end.
-  private async fillSeam(
-    generation: number,
-    client: Client,
-    seam: Seam,
-  ): Promise<void> {
-    const { backfillEnd, liveStart } = seam;
-    if (backfillEnd == null || liveStart == null || seam.filled || this.channel == null)
-      return;
-    seam.filled = true;
-    if (!liveStart.after(backfillEnd)) return;
-    const { key } = this.channel;
-    // Samples written just before the stream opened may still be committing.
-    const settled = liveStart.add(SEAM_SETTLE);
-    // A wake saved by an earlier cleanup ends a wait early, so recheck the clock.
-    for (let now = this.now(); now.before(settled); now = this.now()) {
-      await this.retryNotifier.wait(settled.span(now));
-      if (generation !== this.generation) return;
-    }
-    const brk = newRetryBreaker(this.retryNotifier, this.breakerConfig);
-    while (generation === this.generation)
-      try {
-        const res = await client.feed.read(new TimeRange(backfillEnd, liveStart), key);
         if (generation !== this.generation) return;
-        this.pushNew(res.series);
-        this.notify();
-        return;
-      } catch (e) {
         this.failures.report(e, "Failed to read channel data");
-        if (isDefinitive(e) || !(await brk.wait())) return;
+        // Retries never hold loading, so a failure wakes observers of the status.
+        if (this.loading) {
+          this.loading = false;
+          this.notify();
+        }
+        if (framer.retry.isDefinitive(e) || !(await this.breaker.wait())) return;
       }
-  }
-
-  // feed.read returns the live leading buffer that the stream's first delivery repeats,
-  // so series already held by identity are skipped. Consumers assume the array is
-  // chronological, so a late back-fill is inserted by time. Alignment would misorder
-  // the buffers of a restarted Core, which resets its leading alignment.
-  private pushNew(series: Series[]): void {
-    for (const s of series) {
-      if (this.data.series.includes(s)) continue;
-      s.acquire();
-      const at = this.data.series.findIndex(
-        (held) =>
-          held.timeRange.start.after(s.timeRange.start) ||
-          (held.timeRange.start.equals(s.timeRange.start) &&
-            held.alignment > s.alignment),
-      );
-      if (at === -1) this.data.push(s);
-      else this.data.series.splice(at, 0, s);
-    }
-  }
-
-  private gcOutOfRangeData(): void {
-    const threshold = this.now().sub(this.props.keepFor ?? this.props.timeSpan);
-    const toGC = this.data.series.findIndex((d) => d.timeRange.end.before(threshold));
-    if (toGC === -1) return;
-    this.data.series.splice(toGC, 1).forEach((d) => d.release());
-    this.gcOutOfRangeData();
-  }
-
-  // Drops everything held and reads the channel again on the next value() call.
-  private restart(): void {
-    this.cleanup();
-    this.data.series.splice(0);
-    this.notify();
   }
 
   cleanup(): void {
     this.generation++;
     this.retryNotifier.notify();
-    this.stopStreaming?.();
-    this.stopStreaming = undefined;
-    this.data.release();
+    this.draw?.close();
+    this.draw = null;
+    this.drawStatus = undefined;
+    this.closeBounds();
+    this.boundsRead = false;
+    this.hold(new MultiSeries());
     this.valid = false;
-    // No notify so a read settling after cleanup cannot wake stale observers.
-    this.loading_ = false;
+    this.channel = null;
+    this.loading = true;
+    this.failures.reset();
   }
 }
 
-// StreamChannelStringValue reads the most recent value of a channel in real-time as
-// text, preserving variable density data types rather than coercing to a number.
-export class StreamChannelStringValue
-  extends AbstractSource<typeof streamChannelValuePropsZ>
-  implements StringSource
-{
-  static readonly TYPE = "stream-channel-string-value";
-  schema = streamChannelValuePropsZ;
+type Create = (client: Client | null, props: unknown, options?: CreateOptions) => Telem;
 
-  private readonly client: Client | null;
-  private removeStreamHandler: destructor.Destructor | null = null;
-  private leadingBuffer: Series | null = null;
-  private sampleTime_: TimeStamp | null = null;
-  private latest = "";
-  // Buffer length the latest decode was taken at, or -1 to force a re-decode.
-  private decodedAt = -1;
-  // Bumped by cleanup to invalidate a read that is still awaiting.
-  private generation = 0;
-  private valid = false;
-  private readonly onStatusChange?: status.Adder;
-  constructor(client: Client | null, props: unknown, options?: CreateOptions) {
-    super(props);
-    this.client = client;
-    this.onStatusChange = options?.onStatusChange;
-  }
-
-  cleanup(): void {
-    this.generation++;
-    this.removeStreamHandler?.();
-    this.valid = false;
-    this.leadingBuffer?.release();
-    this.leadingBuffer = null;
-    this.sampleTime_ = null;
-    this.latest = "";
-    this.decodedAt = -1;
-    this.removeStreamHandler = null;
-  }
-
-  sampleTime(): TimeStamp | null {
-    return this.sampleTime_;
-  }
-
-  value(): string {
-    // No valid channel has been set.
-    if (primitive.isZero(this.props.channel)) return "";
-    if (!this.valid) void this.read();
-    const buffer = this.leadingBuffer;
-    if (buffer == null || buffer.length === 0) return "";
-    // Samples are appended into the leading buffer in place, so the length is what
-    // marks new data. Decoding is gated on it because asString scans linearly.
-    if (buffer.length !== this.decodedAt) {
-      this.latest = buffer.asString(-1) ?? this.latest;
-      this.decodedAt = buffer.length;
-    }
-    return this.latest;
-  }
-
-  /** Never rejects: a failure invalidates the read and reaches onStatusChange. */
-  private async read(): Promise<void> {
-    const generation = this.generation;
-    this.valid = true;
-    const { client } = this;
-    if (client == null) {
-      this.onStatusChange?.(DISCONNECTED_STATUS);
-      return;
-    }
-    try {
-      this.removeStreamHandler?.();
-      const ch = await client.channels.retrieve(this.props.channel);
-      const handler: framer.StreamHandler = (res) => {
-        if (generation !== this.generation) return;
-        const data = res.get(ch.key);
-        if (data == null) return;
-        const leading = data.series.at(-1);
-        if (leading != null) {
-          leading.acquire();
-          this.leadingBuffer?.release();
-          this.leadingBuffer = leading;
-          this.sampleTime_ = null;
-          this.decodedAt = -1;
-        }
-        // An empty update means the leading buffer was appended to in place. A frame
-        // that holds nothing for this channel looks the same, so with no buffer yet
-        // there is nothing to report.
-        else if (this.leadingBuffer == null) return;
-        this.notify();
-      };
-      if (generation !== this.generation) return;
-      this.removeStreamHandler = client.feed.stream(handler, [ch.key]).close;
-      // Opening the stream is not a sample. Notify only when a buffer already holds
-      // one, so a consumer that counts arrivals does not count the open.
-      if (this.leadingBuffer != null && this.leadingBuffer.length > 0) {
-        this.notify();
-        return;
-      }
-      const latest = await readLatestSeries(client, ch, this.onStatusChange);
-      if (latest == null) return;
-      if (generation !== this.generation || this.leadingBuffer != null) return;
-      latest.acquire();
-      this.leadingBuffer = latest;
-      this.sampleTime_ = latest.timeRange.isZero ? null : latest.timeRange.end;
-      this.decodedAt = -1;
-      this.notify();
-    } catch (e) {
-      this.valid = false;
-      this.onStatusChange?.(
-        cstatus.fromException(e, "Failed to stream channel string value"),
-      );
-    }
-  }
-}
-
-type Constructor = new (
-  client: Client | null,
-  props: unknown,
-  options?: CreateOptions,
-) => Telem;
-
-const REGISTRY: Record<string, Constructor> = {
-  [ChannelData.TYPE]: ChannelData,
-  [StreamChannelData.TYPE]: StreamChannelData,
-  [StreamChannelValue.TYPE]: StreamChannelValue,
-  [StreamChannelStringValue.TYPE]: StreamChannelStringValue,
+const REGISTRY: Record<string, Create> = {
+  [ChannelData.TYPE]: (client, props, options) =>
+    new ChannelData(client, props, options),
+  [ChannelValue.NUMBER_TYPE]: (client, props, options) =>
+    new ChannelValue(client, props, NUMBER, options),
+  [ChannelValue.STRING_TYPE]: (client, props, options) =>
+    new ChannelValue(client, props, STRING, options),
 };
 
 export class RemoteFactory {
@@ -775,9 +569,7 @@ export class RemoteFactory {
   }
 
   create(spec: Spec, options?: CreateOptions): Telem | null {
-    const V = REGISTRY[spec.type];
-    if (V == null) return null;
-    return new V(this.client, spec.props, options);
+    return REGISTRY[spec.type]?.(this.client, spec.props, options) ?? null;
   }
 }
 
@@ -788,17 +580,10 @@ export const channelData = (props: ChannelDataProps): SeriesSourceSpec => ({
   valueType: "series",
 });
 
-export const streamChannelData = (props: StreamChannelDataProps): SeriesSourceSpec => ({
-  type: StreamChannelData.TYPE,
-  props,
-  variant: "source",
-  valueType: "series",
-});
-
 export const streamChannelValue = (
   props: Omit<StreamChannelValueProps, "units">,
 ): NumberSourceSpec => ({
-  type: StreamChannelValue.TYPE,
+  type: ChannelValue.NUMBER_TYPE,
   props,
   variant: "source",
   valueType: "number",
@@ -807,7 +592,7 @@ export const streamChannelValue = (
 export const streamChannelStringValue = (
   props: StreamChannelValueProps,
 ): StringSourceSpec => ({
-  type: StreamChannelStringValue.TYPE,
+  type: ChannelValue.STRING_TYPE,
   props,
   variant: "source",
   valueType: "string",

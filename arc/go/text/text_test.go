@@ -5176,16 +5176,20 @@ time.wait(duration=500ms) -> output`
 
 		Context("Single Node Flow Validation", func() {
 			DescribeTable("Should reject single-node flows at parse time",
-				func(source string) {
+				func(source, expectedError string) {
 					_, diagnostics := text.Parse(text.Text{Raw: source})
-					Expect(diagnostics).To(HaveOccurred())
+					Expect(diagnostics).To(MatchError(ContainSubstring(expectedError)))
 					Expect(diagnostics.Ok()).To(BeFalse())
 				},
 				Entry("single function node", `
 					func print() {}
 
-					print()`),
-				Entry("single channel identifier", `sensor`),
+					print()`, "no viable alternative at input 'print'"),
+				Entry(
+					"single channel identifier",
+					`sensor`,
+					"no viable alternative at input 'sensor'",
+				),
 			)
 		})
 
@@ -6981,15 +6985,15 @@ time.wait(duration=500ms) -> output`
 
 		Context("Step completion without outputs", func() {
 			const funcs = `
-				func notify{msg str} () {
+				func notify(msg str) {} {
 				    out = msg
 				}
 
-				func produce() u8 {
+				func produce() {} u8 {
 				    return 1
 				}
 
-				func sink{} (v u8) {}
+				func sink() {v u8} {}
 `
 			analyze := func(ctx SpecContext, program string) ir.IR {
 				GinkgoHelper()
@@ -7049,21 +7053,21 @@ time.wait(duration=500ms) -> output`
 				},
 				Entry(
 					"a single invocation without outputs",
-					`notify{"one"}`,
+					`notify("one")`,
 					"notify",
 					ir.DoneParam,
 					ir.EdgeKindContinuous,
 				),
 				Entry(
 					"a flow ending in a node without outputs",
-					`sensor -> sink{}`,
+					`sensor -> sink()`,
 					"sink",
 					ir.DoneParam,
 					ir.EdgeKindContinuous,
 				),
 				Entry(
 					"a single invocation with outputs",
-					`produce{}`,
+					`produce()`,
 					"produce",
 					ir.DefaultOutputParam,
 					ir.EdgeKindConditional,
@@ -7075,8 +7079,8 @@ time.wait(duration=500ms) -> output`
 				func(ctx SpecContext) {
 					inter := analyze(ctx, funcs+`
 				sequence main {
-				    produce{}
-				    notify{"done"}
+				    produce()
+				    notify("done")
 				}`)
 					main := findTopLevelScope(inter, "main")
 					Expect(main.Transitions).To(HaveLen(2))
@@ -7096,7 +7100,7 @@ time.wait(duration=500ms) -> output`
 					inter := analyze(ctx, funcs+`
 				sequence main {
 				    sequence first {
-				        notify{"one"}
+				        notify("one")
 				    }
 				    stage after {}
 				}`)
@@ -7122,7 +7126,7 @@ time.wait(duration=500ms) -> output`
 				sequence main {
 				    stage holder {
 				        sequence sub {
-				            notify{"one"}
+				            notify("one")
 				        }
 				    }
 				}`)
@@ -7148,9 +7152,9 @@ time.wait(duration=500ms) -> output`
 				func(ctx SpecContext) {
 					inter := analyze(ctx, "import time\n"+funcs+`
 				sequence main {
-				    notify{"one"}
-				    time.wait{1s}
-				    notify{"two"}
+				    notify("one")
+				    time.wait(1s)
+				    notify("two")
 				}
 
 				true => main`)
@@ -7613,9 +7617,8 @@ time.wait(duration=500ms) -> output`
 						root.Parent.AddChild(&s)
 					}
 					_, diag := text.Analyze(ctx, parsedText, root)
-					Expect(diag).To(HaveOccurred())
+					Expect(diag).To(MatchError(ContainSubstring(expectedError)))
 					Expect(diag.Ok()).To(BeFalse())
-					Expect(diag.String()).To(ContainSubstring(expectedError))
 				},
 				Entry("next in last stage",
 					`

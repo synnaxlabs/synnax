@@ -22,7 +22,7 @@ const Preview = ({
 }: schematic.SetpointNodeConfig): ReactElement => (
   <Setpoint
     {...rest}
-    onChange={() => {}}
+    onSend={() => {}}
     className={CSS.BM("setpoint", "preview")}
     disabled
   />
@@ -36,4 +36,5 @@ export const spec: Spec<"setpoint", schematic.SetpointNodeConfig> = {
   Preview,
   zIndex: 4,
   colorFallbacks,
+  needsPosition: true,
 };
