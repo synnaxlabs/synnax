@@ -102,7 +102,7 @@ describe("Read", () => {
     expect(coilCh.index).toBe(index.key);
     const registerCh = await client.channels.retrieve(register.channel);
     expect(registerCh.name.startsWith(`${dev.name}_register_input_1`)).toBe(true);
-    expect(registerCh.dataType.toString()).toBe("uint8");
+    expect(registerCh.dataType.toString()).toBe("uint16");
   });
 
   it("should bind a new entry to the channel the device already maps", async () => {

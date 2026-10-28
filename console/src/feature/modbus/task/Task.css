@@ -28,6 +28,13 @@
     }
 }
 
+/* The write address shows its Modicon form after the offset. */
+.console-task-configure--modbus_write
+    .console-channel-item
+    > *:nth-child(2):not(:last-child) {
+    width: 22rem;
+}
+
 .console-modbus-channel-item {
     width: 100%;
 }

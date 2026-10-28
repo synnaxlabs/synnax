@@ -38,11 +38,14 @@ const NAME_TYPES: Record<ReadChannelType, string> = {
   discrete_input: "discrete_input",
   holding_register: "holding_register_input",
   input_register: "register_input",
+  holding_register_bit: "holding_register_bit_input",
+  input_register_bit: "register_bit_input",
 };
 
 export const readMapKey = (channel: ReadChannel) => {
   let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
   if (isVariableDensityReadChannel(channel)) s += `-${channel.dataType}`;
+  if ("bit" in channel) s += `-${channel.bit}`;
   return s.replaceAll("_", "-");
 };
 
@@ -50,6 +53,7 @@ export const readChannelName = (deviceName: string, channel: ReadChannel) => {
   let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
   if (isVariableDensityReadChannel(channel))
     s += `_${new DataType(channel.dataType).toString(true)}`;
+  if ("bit" in channel) s += `_${channel.bit}`;
   return s;
 };
 
@@ -125,6 +129,16 @@ const validateReadChannels = ({
   });
 };
 
+const isCoil = (ch: WriteChannel) => ch.type === "coil";
+
+// Bits of one register are written together, so only the same bit overlaps.
+const writesOverlap = (a: WriteChannel, b: WriteChannel): boolean => {
+  if (isCoil(a) !== isCoil(b)) return false;
+  if (a.type === "holding_register_bit" && b.type === "holding_register_bit")
+    return a.address === b.address && a.bit === b.bit;
+  return a.address < nextAddress(b) && b.address < nextAddress(a);
+};
+
 const validateWriteChannels = ({
   value: channels,
   issues,
@@ -134,17 +148,12 @@ const validateWriteChannels = ({
     if (ch.disabled) return;
     const rangeIssue = addressRangeIssue(channels, ch, i);
     if (rangeIssue != null) issues.push(rangeIssue);
-    const overlap = enabled.find(
-      (other) =>
-        other.type === ch.type &&
-        ch.address < nextAddress(other) &&
-        other.address < nextAddress(ch),
-    );
+    const overlap = enabled.find((other) => writesOverlap(other, ch));
     enabled.push(ch);
     if (overlap == null) return;
     issues.push({
       code: "custom",
-      message: `Overlaps the ${ch.type.replaceAll("_", " ")} at address ${overlap.address}`,
+      message: `Overlaps the ${overlap.type.replaceAll("_", " ")} at address ${overlap.address}`,
       path: [i, "address"],
       input: channels,
     });

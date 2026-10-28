@@ -24,6 +24,7 @@ import { type FC } from "react";
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { SCHEMAS } from "@/feature/modbus/device/types";
+import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
@@ -75,12 +76,19 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             });
           }}
         />
-        <PForm.NumericField
-          inputProps={{ showDragHandle: false }}
-          showLabel={false}
-          showHelpText={false}
-          path={`${path}.address`}
-        />
+        <AddressField path={path} />
+        {type === "holding_register_bit" && (
+          <PForm.NumericField
+            inputProps={{
+              showDragHandle: false,
+              bounds: BIT_BOUNDS,
+              startContent: "Bit",
+            }}
+            showLabel={false}
+            showHelpText={false}
+            path={`${path}.bit`}
+          />
+        )}
         {type === "holding_register" && (
           <PForm.Field<string>
             path={`${path}.dataType`}
@@ -106,6 +114,8 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   );
 };
 
+const BIT_BOUNDS = { lower: 0, upper: 15 };
+
 const renderTelemSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
     <Telem.SelectDataType {...props} hideDataTypes={UNSUPPORTED_REGISTER_DATA_TYPES} />
@@ -119,12 +129,12 @@ const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
       key: id.create(),
     };
   const channelToCopy = channels[channels.length - 1];
-  return {
-    ...channelToCopy,
-    key: id.create(),
-    name: "",
-    address: nextAddress(channelToCopy),
-  };
+  const next = { ...channelToCopy, key: id.create(), name: "" };
+  if (next.type !== "holding_register_bit")
+    return { ...next, address: nextAddress(channelToCopy) };
+  // A bit channel takes the next bit, then bit 0 of the next register.
+  if (next.bit < BIT_BOUNDS.upper) return { ...next, bit: next.bit + 1 };
+  return { ...next, address: next.address + 1, bit: 0 };
 };
 
 const listItem = Component.renderProp(ChannelListItem);
@@ -169,11 +179,13 @@ const Form: FC = () => {
 const NAME_TYPES: Record<WriteChannelType, string> = {
   coil: "coil_output",
   holding_register: "holding_register_output",
+  holding_register_bit: "holding_register_bit_output",
 };
 
 const writeMapKey = (channel: WriteChannel) => {
   let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
   if (channel.type === "holding_register") s += `-${channel.dataType}`;
+  if (channel.type === "holding_register_bit") s += `-${channel.bit}`;
   return s.replaceAll("_", "-");
 };
 
@@ -181,6 +193,7 @@ const commandName = (deviceName: string, channel: WriteChannel) => {
   let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
   if (channel.type === "holding_register")
     s += `_${new DataType(channel.dataType).toString(true)}`;
+  if (channel.type === "holding_register_bit") s += `_${channel.bit}`;
   return `${s}_cmd`;
 };
 
