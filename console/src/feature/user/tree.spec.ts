@@ -142,7 +142,7 @@ describe("rename", () => {
     await waitFor(async () => {
       const retrieved = await client.users.retrieve(u.key);
       expect(retrieved.name).toBe(renamed);
-      const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+      const [p] = await client.auth.passwords.retrieve({ usernames: [username] });
       expect(p.subject.key).toBe(u.key);
     });
   });

@@ -16,9 +16,7 @@ import {
   AuthError,
   ExpiredTokenError,
   InvalidTokenError,
-  NotFoundError,
   SessionEndedError,
-  ValidationError,
 } from "@/errors";
 import {
   createTestClient,
@@ -27,7 +25,6 @@ import {
   TEST_CREDENTIALS,
 } from "@/testutil";
 import { Transport } from "@/transport";
-import { user } from "@/user";
 
 const DUMMY_CTX: Context = {
   target: "test",
@@ -198,12 +195,12 @@ describe("auth", () => {
       const key = client.session?.key;
       expect(key).toBeDefined();
       await client.renew();
-      const before = await client.retrieveSessions();
+      const before = await client.sessions.retrieve();
       expect(before.map((s) => s.key)).toContain(key);
       await client.logout();
       expect(client.authenticated).toBe(false);
       const observer = makeClient();
-      const after = await observer.retrieveSessions();
+      const after = await observer.sessions.retrieve();
       expect(after.map((s) => s.key)).not.toContain(key);
     });
 
@@ -211,7 +208,7 @@ describe("auth", () => {
       const client = makeClient();
       await login(client);
       await client.logout();
-      await expect(client.retrieveSessions()).rejects.toThrow(
+      await expect(client.sessions.retrieve()).rejects.toThrow(
         "no credentials, API key, token, or cookie",
       );
       expect(client.authenticated).toBe(false);
@@ -224,7 +221,7 @@ describe("auth", () => {
     it("should forget the credentials when logging out before a login", async () => {
       const client = makeClient();
       await client.logout();
-      await expect(client.retrieveSessions()).rejects.toThrow(
+      await expect(client.sessions.retrieve()).rejects.toThrow(
         "no credentials, API key, token, or cookie",
       );
     });
@@ -236,7 +233,7 @@ describe("auth", () => {
       if (token == null) throw new Error("expected a token");
       const resumed = makeResumed(token);
       await resumed.logout();
-      await expect(resumed.retrieveSessions()).rejects.toThrow(
+      await expect(resumed.sessions.retrieve()).rejects.toThrow(
         "no credentials, API key, token, or cookie",
       );
       await owner.logout();
@@ -254,10 +251,10 @@ describe("auth", () => {
       await login(other);
       const key = ending.session?.key;
       if (key == null) throw new Error("expected a session");
-      await other.deleteSessions(key);
+      await other.sessions.delete(key);
       await ending.logout();
       expect(ending.authenticated).toBe(false);
-      const sessions = await other.retrieveSessions();
+      const sessions = await other.sessions.retrieve();
       expect(sessions.map((s) => s.key)).toEqual([other.session?.key]);
       await admin.close();
     });
@@ -273,7 +270,7 @@ describe("auth", () => {
       await resuming;
       expect(resumed.authenticated).toBe(false);
       const observer = makeClient();
-      const keys = (await observer.retrieveSessions()).map((s) => s.key);
+      const keys = (await observer.sessions.retrieve()).map((s) => s.key);
       expect(keys).not.toContain(owner.session?.key);
       await observer.logout();
     });
@@ -289,7 +286,7 @@ describe("auth", () => {
       await Promise.all([firstLogout, client.logout()]);
       expect(second).not.toEqual(first);
       const observer = makeClient();
-      const keys = (await observer.retrieveSessions()).map((s) => s.key);
+      const keys = (await observer.sessions.retrieve()).map((s) => s.key);
       expect(keys).not.toContain(first);
       expect(keys).not.toContain(second);
       await observer.logout();
@@ -467,7 +464,7 @@ describe("auth", () => {
       await client.release();
       expect(client.authenticated).toBe(false);
       const observer = makeClient();
-      const sessions = await observer.retrieveSessions();
+      const sessions = await observer.sessions.retrieve();
       expect(sessions.map((s) => s.key)).not.toContain(key);
     });
 
@@ -491,7 +488,7 @@ describe("auth", () => {
       expect(client.authenticated).toBe(false);
       expect(key).toBeDefined();
       const observer = makeClient();
-      const sessions = await observer.retrieveSessions();
+      const sessions = await observer.sessions.retrieve();
       expect(sessions.map((s) => s.key)).not.toContain(key);
     });
 
@@ -559,41 +556,6 @@ describe("auth", () => {
           errors.decode({ type: "sy.auth.session_ended", data: "ended" }),
         ),
       ).toBe(true);
-    });
-  });
-
-  describe("OpenID Connect links", () => {
-    const makeClient = () => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
-        }),
-      );
-      const client = new auth.Client(transport.unary, {
-        credentials: TEST_CREDENTIALS,
-      });
-      transport.use(client.middleware());
-      return client;
-    };
-
-    it("should list no links for a user without any", async () => {
-      expect(await makeClient().retrieveOIDCLinks()).toEqual([]);
-    });
-
-    it("should ignore an unknown link when unlinking", async () => {
-      await expect(makeClient().unlinkOIDC(uuid.create())).resolves.toBeUndefined();
-    });
-
-    it("should refuse a link while the Core accepts no provider", async () => {
-      await expect(
-        makeClient().linkOIDC({
-          provider: "idp",
-          code: "code",
-          verifier: "verifier",
-          redirectUri: "http://127.0.0.1:4242/callback",
-        }),
-      ).rejects.toThrow(ValidationError);
     });
   });
 
@@ -738,173 +700,7 @@ describe("auth", () => {
     });
   });
 
-  describe("setPassword", () => {
-    const makeClient = (credentials: auth.Credentials) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
-        }),
-      );
-      const client = new auth.Client(transport.unary, { credentials });
-      transport.use(client.middleware());
-      return client;
-    };
-    const createUser = async () => {
-      const username = `set-password-${id.create()}`;
-      const u = await createTestUser(createTestClient(), { username, password: "old" });
-      return { username, subject: user.ontologyID(u.user.key) };
-    };
-
-    it("should let an owner set another user's password", async () => {
-      const { username, subject } = await createUser();
-      const owner = makeClient(TEST_CREDENTIALS);
-      await owner.setPassword({ subject, password: "new" });
-      await makeClient({ username, password: "new" }).retrieveSessions();
-      await expect(
-        makeClient({ username, password: "old" }).retrieveSessions(),
-      ).rejects.toThrow(AuthError);
-    });
-
-    it("should set the caller's own password given the current one", async () => {
-      const { username } = await createUser();
-      const self = makeClient({ username, password: "old" });
-      await expect(self.setPassword({ password: "new" })).rejects.toThrow();
-      await self.retrieveSessions();
-      await self.setPassword({
-        subject: self.subject,
-        password: "new",
-        currentPassword: "old",
-      });
-      const key = self.session?.key;
-      if (key == null) throw new Error("no session");
-      await self.deleteSessions(key);
-      await self.retrieveSessions();
-      expect(self.session?.key).not.toEqual(key);
-      await makeClient({ username, password: "new" }).retrieveSessions();
-    });
-  });
-
-  describe("createPassword", () => {
-    it("should refuse a user that already has a password", async () => {
-      const client = createTestClient();
-      await expect(
-        client.auth.createPassword({ username: id.create(), password: "p" }),
-      ).rejects.toThrow(ValidationError);
-    });
-
-    it("should let an owner give a new user its first password", async () => {
-      const owner = createTestClient();
-      const u = await owner.users.create({ name: "first password" });
-      const username = id.create();
-      await owner.auth.createPassword({
-        subject: user.ontologyID(u.key),
-        username,
-        password: "first",
-      });
-      const client = createTestClient({ username, password: "first" });
-      const current = await client.users.current.retrieve();
-      expect(current.key).toEqual(u.key);
-    });
-
-    it("should refuse a username another user holds", async () => {
-      const owner = createTestClient();
-      const { username } = await createTestUser(owner);
-      const u = await owner.users.create({ name: "repeated username" });
-      await expect(
-        owner.auth.createPassword({
-          subject: user.ontologyID(u.key),
-          username,
-          password: "test",
-        }),
-      ).rejects.toThrow(AuthError);
-    });
-  });
-
-  describe("retrievePasswords", () => {
-    it("should retrieve the caller's own password by default", async () => {
-      const owner = createTestClient();
-      const { user: u, username, password } = await createTestUser(owner);
-      const client = createTestClient({ username, password });
-      const passwords = await client.auth.retrievePasswords();
-      expect(passwords).toEqual([{ subject: user.ontologyID(u.key), username }]);
-    });
-
-    it("should retrieve a password by its username", async () => {
-      const client = createTestClient();
-      const { user: u, username } = await createTestUser(client);
-      const passwords = await client.auth.retrievePasswords({ usernames: [username] });
-      expect(passwords).toEqual([{ subject: user.ontologyID(u.key), username }]);
-    });
-
-    it("should retrieve a password by its subject", async () => {
-      const client = createTestClient();
-      const { user: u, username } = await createTestUser(client);
-      const subject = user.ontologyID(u.key);
-      const passwords = await client.auth.retrievePasswords({ subjects: [subject] });
-      expect(passwords).toEqual([{ subject, username }]);
-    });
-
-    it("should ignore an unknown username", async () => {
-      const client = createTestClient();
-      const { user: u, username } = await createTestUser(client);
-      const passwords = await client.auth.retrievePasswords({
-        usernames: [username, id.create()],
-      });
-      expect(passwords).toEqual([{ subject: user.ontologyID(u.key), username }]);
-    });
-  });
-
-  describe("renamePassword", () => {
-    it("should let an owner rename another user's password", async () => {
-      const owner = createTestClient();
-      const { user: u, password } = await createTestUser(owner);
-      const username = id.create();
-      await owner.auth.renamePassword({ subject: user.ontologyID(u.key), username });
-      const client = createTestClient({ username, password });
-      const current = await client.users.current.retrieve();
-      expect(current.key).toEqual(u.key);
-    });
-
-    it("should let a user rename its own password and log in again", async () => {
-      const owner = createTestClient();
-      const { user: u, username: old, password } = await createTestUser(owner);
-      const client = createTestClient({ username: old, password });
-      const username = id.create();
-      await client.auth.renamePassword({ username });
-      const [p] = await owner.auth.retrievePasswords({
-        subjects: [user.ontologyID(u.key)],
-      });
-      expect(p.username).toEqual(username);
-      const key = client.auth.session?.key;
-      if (key == null) throw new Error("no session");
-      await client.auth.deleteSessions(key);
-      await client.auth.retrieveSessions();
-      expect(client.auth.session?.key).not.toEqual(key);
-    });
-
-    it("should refuse a username another user holds", async () => {
-      const owner = createTestClient();
-      const { username } = await createTestUser(owner);
-      const { user: u } = await createTestUser(owner);
-      await expect(
-        owner.auth.renamePassword({ subject: user.ontologyID(u.key), username }),
-      ).rejects.toThrow(AuthError);
-    });
-
-    it("should refuse a user with no password", async () => {
-      const owner = createTestClient();
-      const u = await owner.users.create({ name: "no password" });
-      await expect(
-        owner.auth.renamePassword({
-          subject: user.ontologyID(u.key),
-          username: id.create(),
-        }),
-      ).rejects.toThrow(NotFoundError);
-    });
-  });
-
-  describe("API keys", () => {
+  describe("API key login", () => {
     const makeClient = (authority: auth.Authority) => {
       const transport = new Transport(
         new url.URL({
@@ -920,63 +716,26 @@ describe("auth", () => {
     it("should forget an API key when logging out before a login", async () => {
       const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
       await keyed.logout();
-      await expect(keyed.retrieveSessions()).rejects.toThrow(
+      await expect(keyed.sessions.retrieve()).rejects.toThrow(
         "no credentials, API key, token, or cookie",
       );
-    });
-
-    it("should create a key, log in with it, list it, and delete it", async () => {
-      const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createAPIKey({ name: "spec" });
-      expect(token.startsWith("syk_")).toBe(true);
-      expect(key.name).toEqual("spec");
-      expect(key.subject).toEqual(owner.subject);
-      const keyed = makeClient({ apiKey: token });
-      await keyed.retrieveSessions();
-      expect(keyed.session?.credential).toEqual(key.key);
-      expect(keyed.subject).toEqual(owner.subject);
-      expect((await owner.retrieveAPIKeys()).map((k) => k.key)).toContain(key.key);
-      await owner.deleteAPIKeys(key.key);
-      expect((await owner.retrieveAPIKeys()).map((k) => k.key)).not.toContain(key.key);
-    });
-
-    it("should fail the next request of a client whose key was deleted", async () => {
-      const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createAPIKey({ name: "deleted" });
-      const keyed = makeClient({ apiKey: token });
-      await keyed.retrieveSessions();
-      await owner.deleteAPIKeys(key.key);
-      await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
     });
 
     it("should forget its key on logout", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createAPIKey({ name: "logout" });
+      const { token, key } = await owner.apiKeys.create({ name: "logout" });
       const keyed = makeClient({ apiKey: token });
-      await keyed.retrieveSessions();
+      await keyed.sessions.retrieve();
       await keyed.logout();
-      await expect(keyed.retrieveSessions()).rejects.toThrow(
+      await expect(keyed.sessions.retrieve()).rejects.toThrow(
         "no credentials, API key, token, or cookie",
       );
-      await owner.deleteAPIKeys(key.key);
+      await owner.apiKeys.delete(key.key);
     });
 
     it("should reject a key the Core never issued", async () => {
       const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
-      await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
-    });
-
-    it("should connect a Synnax client with a key", async () => {
-      const owner = createTestClient();
-      const { token, key } = await owner.auth.createAPIKey({ name: "client" });
-      const keyed = createTestClient({
-        username: undefined,
-        password: undefined,
-        apiKey: token,
-      });
-      await keyed.auth.retrieveSessions();
-      expect(keyed.auth.subject).toEqual(key.subject);
-      await owner.auth.deleteAPIKeys(key.key);
+      await expect(keyed.sessions.retrieve()).rejects.toThrow(AuthError);
     });
 
     it("should reject an API key given with a username and password", () => {

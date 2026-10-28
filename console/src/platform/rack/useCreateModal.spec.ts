@@ -29,7 +29,7 @@ describe("useCreateModal", () => {
     const [created] = (await client.racks.retrieve({ names: [name] })).filter(
       (r) => r.name === name,
     );
-    const keys = await client.auth.retrieveAPIKeys([rack.ontologyID(created.key)]);
+    const keys = await client.auth.apiKeys.retrieve([rack.ontologyID(created.key)]);
     expect(keys).toHaveLength(1);
     expect(shown.getAttribute("value")?.startsWith("syk_")).toBe(true);
     expect(findButton("Create").className).toContain("pluto--disabled");
@@ -38,7 +38,7 @@ describe("useCreateModal", () => {
   it("should delete the key when the modal closes before it arrives", async () => {
     const client = createTestClient();
     // API keys have no change stream, so the delete call is the only completion signal.
-    const deleteAPIKeys = vi.spyOn(client.auth, "deleteAPIKeys");
+    const deleteAPIKeys = vi.spyOn(client.auth.apiKeys, "delete");
     await openModal(useCreateModal, { client });
     const name = uniqueName("rack");
     fireEvent.change(screen.getByPlaceholderText("Rack name"), {
@@ -50,7 +50,7 @@ describe("useCreateModal", () => {
     await deleteAPIKeys.mock.results[0].value;
     const [created] = await client.racks.retrieve({ names: [name] });
     expect(
-      await client.auth.retrieveAPIKeys([rack.ontologyID(created.key)]),
+      await client.auth.apiKeys.retrieve([rack.ontologyID(created.key)]),
     ).toHaveLength(0);
   });
 });

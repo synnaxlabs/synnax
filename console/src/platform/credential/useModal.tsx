@@ -33,10 +33,10 @@ const sessionsLabel = (sessions: number | null): string => {
 };
 
 interface APIKeyRowProps {
-  apiKey: auth.APIKey;
+  apiKey: auth.apiKey.APIKey;
   /** The key's live sessions, or null when they could not be retrieved. */
   sessions: number | null;
-  onDelete?: (key: auth.APIKeyKey) => void;
+  onDelete?: (key: auth.apiKey.Key) => void;
 }
 
 const APIKeyRow = ({ apiKey, sessions, onDelete }: APIKeyRowProps): ReactElement => (
@@ -62,13 +62,13 @@ const APIKeyRow = ({ apiKey, sessions, onDelete }: APIKeyRowProps): ReactElement
 );
 
 interface APIKeyListProps extends Pick<ModalParams, "subject"> {
-  onDelete?: (key: auth.APIKeyKey) => void;
+  onDelete?: (key: auth.apiKey.Key) => void;
 }
 
 const APIKeyList = ({ subject, onDelete }: APIKeyListProps): ReactElement => {
   const keys = Credential.useResultAPIKeys({ subject });
   const sessions = Credential.useResultSessions({ subject });
-  const sessionCount = (key: auth.APIKeyKey): number | null =>
+  const sessionCount = (key: auth.apiKey.Key): number | null =>
     sessions.variant === "success"
       ? sessions.data.filter((s) => s.credential === key).length
       : null;
@@ -119,7 +119,7 @@ const APIKeys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
       // a closed dialog can never show the token, so the key is of no use
       if (!mounted.current) {
         handleError(
-          async () => await client?.auth.deleteAPIKeys(data.key.key),
+          async () => await client?.auth.apiKeys.delete(data.key.key),
           "Failed to delete an unused API key",
         );
         return;

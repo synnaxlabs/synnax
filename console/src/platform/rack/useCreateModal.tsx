@@ -35,7 +35,7 @@ const Create = (_: Modals.ContentProps<Record<never, never>, void>): ReactElemen
     afterSuccess: async ({ data }) => {
       if (mounted.current) return setToken(data.token);
       // closed before the key could be shown, so nobody holds its secret
-      await client?.auth.deleteAPIKeys(data.key.key);
+      await client?.auth.apiKeys.delete(data.key.key);
     },
   });
   return (

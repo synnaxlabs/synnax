@@ -15,8 +15,8 @@ import freighter
 import synnax as sy
 from freighter import Context, Empty, Next
 from freighter.mock import MockUnaryClient
-from synnax.auth import Password
 from synnax.auth.client import _SessionCreateResponse
+from synnax.auth.password import Password
 from synnax.exceptions import create_registry
 from tests.proxy import Proxy
 from tests.user import create_user
@@ -186,12 +186,12 @@ class TestSessions:
         assert client.auth.subject is not None
         assert client.auth.subject.type == "user"
         assert client.auth.renew().key == session.key
-        keys = [s.key for s in client.auth.retrieve_sessions()]
+        keys = [s.key for s in client.auth.sessions.retrieve()]
         assert session.key in keys
         client.auth.logout()
         assert not client.auth.authenticated
         # The next request logs in again with a fresh session.
-        keys = [s.key for s in client.auth.retrieve_sessions()]
+        keys = [s.key for s in client.auth.sessions.retrieve()]
         assert session.key not in keys
         assert client.auth.session is not None
         assert client.auth.session.key in keys
@@ -211,10 +211,10 @@ class TestSessions:
         other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert ending.auth.session is not None
         assert other.auth.session is not None
-        other.auth.delete_sessions(ending.auth.session.key)
+        other.auth.sessions.delete(ending.auth.session.key)
         ending.auth.logout()
         assert not ending.auth.authenticated
-        keys = [s.key for s in other.auth.retrieve_sessions()]
+        keys = [s.key for s in other.auth.sessions.retrieve()]
         assert keys == [other.auth.session.key]
         ending.close()
         other.close()
@@ -233,10 +233,10 @@ class TestSessions:
         closing = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert other.auth.session is not None
-        assert len(other.auth.retrieve_sessions()) == 2
+        assert len(other.auth.sessions.retrieve()) == 2
         closing.close()
         assert not closing.connectivity._thread.is_alive()
-        keys = [s.key for s in other.auth.retrieve_sessions()]
+        keys = [s.key for s in other.auth.sessions.retrieve()]
         assert keys == [other.auth.session.key]
         other.close()
         admin.close()
@@ -280,7 +280,7 @@ class TestAPIKeys:
         owner = sy.Synnax(
             host=host, port=port, username=new_username, password="seldon"
         )
-        token, key = owner.auth.create_api_key("script")
+        token, key = owner.auth.api_keys.create("script")
         assert token.startswith("syk_")
         assert key.name == "script"
         assert key.subject == owner.auth.subject
@@ -288,9 +288,9 @@ class TestAPIKeys:
         assert keyed.auth.subject == owner.auth.subject
         assert keyed.auth.session is not None
         assert keyed.auth.session.credential == key.key
-        assert [k.key for k in owner.auth.retrieve_api_keys()] == [key.key]
-        owner.auth.delete_api_keys(key.key)
-        assert owner.auth.retrieve_api_keys() == []
+        assert [k.key for k in owner.auth.api_keys.retrieve()] == [key.key]
+        owner.auth.api_keys.delete(key.key)
+        assert owner.auth.api_keys.retrieve() == []
         keyed.close()
         owner.close()
         admin.close()
@@ -299,11 +299,11 @@ class TestAPIKeys:
         """Should fail the next request of a client whose key was deleted."""
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        token, key = admin.auth.create_api_key("deleted")
+        token, key = admin.auth.api_keys.create("deleted")
         keyed = sy.Synnax(host=host, port=port, api_key=token)
-        admin.auth.delete_api_keys(key.key)
+        admin.auth.api_keys.delete(key.key)
         with pytest.raises(sy.AuthError):
-            keyed.auth.retrieve_sessions()
+            keyed.auth.sessions.retrieve()
         keyed.close()
         admin.close()
 
@@ -321,7 +321,7 @@ class TestPasswords:
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         with pytest.raises(sy.ValidationError):
-            admin.auth.create_password(str(uuid4()), "p")
+            admin.auth.passwords.create(str(uuid4()), "p")
         admin.close()
 
     def test_create_for_new_user(self, login_info: tuple[str, int, str, str]) -> None:
@@ -332,7 +332,7 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user = admin.users.create(name="First Password")
         new_username = str(uuid4())
-        admin.auth.create_password(new_username, "first", subject=user.ontology_id)
+        admin.auth.passwords.create(new_username, "first", subject=user.ontology_id)
         client = sy.Synnax(
             host=host, port=port, username=new_username, password="first"
         )
@@ -348,7 +348,7 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user = admin.users.create(name="Repeated Username")
         with pytest.raises(sy.AuthError):
-            admin.auth.create_password(username, "p", subject=user.ontology_id)
+            admin.auth.passwords.create(username, "p", subject=user.ontology_id)
         admin.close()
 
     def test_retrieve_own(self, login_info: tuple[str, int, str, str]) -> None:
@@ -358,7 +358,7 @@ class TestPasswords:
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test")
         client = sy.Synnax(host=host, port=port, username=new_username, password="test")
-        assert client.auth.retrieve_passwords() == [
+        assert client.auth.passwords.retrieve() == [
             Password(subject=user.ontology_id, username=new_username)
         ]
         client.close()
@@ -370,7 +370,7 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test")
-        res = admin.auth.retrieve_passwords(usernames=[new_username, str(uuid4())])
+        res = admin.auth.passwords.retrieve(usernames=[new_username, str(uuid4())])
         assert res == [Password(subject=user.ontology_id, username=new_username)]
         admin.close()
 
@@ -380,7 +380,7 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         new_username = str(uuid4())
         user = create_user(admin, new_username, "test")
-        res = admin.auth.retrieve_passwords(subjects=[user.ontology_id])
+        res = admin.auth.passwords.retrieve(subjects=[user.ontology_id])
         assert res == [Password(subject=user.ontology_id, username=new_username)]
         admin.close()
 
@@ -392,7 +392,7 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user = create_user(admin, str(uuid4()), "test")
         new_username = str(uuid4())
-        admin.auth.rename_password(new_username, subject=user.ontology_id)
+        admin.auth.passwords.rename(new_username, subject=user.ontology_id)
         client = sy.Synnax(host=host, port=port, username=new_username, password="test")
         assert client.auth.subject == user.ontology_id
         client.close()
@@ -406,8 +406,8 @@ class TestPasswords:
         user = create_user(admin, old_username, "test")
         client = sy.Synnax(host=host, port=port, username=old_username, password="test")
         new_username = str(uuid4())
-        client.auth.rename_password(new_username)
-        assert client.auth.retrieve_passwords() == [
+        client.auth.passwords.rename(new_username)
+        assert client.auth.passwords.retrieve() == [
             Password(subject=user.ontology_id, username=new_username)
         ]
         client.close()
@@ -421,5 +421,5 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user = create_user(admin, str(uuid4()), "test")
         with pytest.raises(sy.AuthError):
-            admin.auth.rename_password(username, subject=user.ontology_id)
+            admin.auth.passwords.rename(username, subject=user.ontology_id)
         admin.close()

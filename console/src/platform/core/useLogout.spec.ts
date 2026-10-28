@@ -52,7 +52,7 @@ describe("Core.useLogout", () => {
       ]),
     );
     const other = createTestClient();
-    const keys = (await other.auth.retrieveSessions()).map(({ key }) => key);
+    const keys = (await other.auth.sessions.retrieve()).map(({ key }) => key);
     expect(keys).not.toContain(session.key);
   });
 

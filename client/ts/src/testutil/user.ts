@@ -37,7 +37,7 @@ export const createTestUser = async (
   }: CreateTestUserParams = {},
 ): Promise<TestUser> => {
   const u = await client.users.create({ name });
-  await client.auth.createPassword({
+  await client.auth.passwords.create({
     subject: user.ontologyID(u.key),
     username,
     password,

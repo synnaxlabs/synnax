@@ -80,7 +80,7 @@ def save_api_key(client: Synnax, opts: Options, clusters: Clusters) -> None:
     owns it.
     """
     previous = clusters.get()
-    token, key = client.auth.create_api_key(
+    token, key = client.auth.api_keys.create(
         name=f"Python CLI on {socket.gethostname()}"
     )
     try:
@@ -100,7 +100,7 @@ def save_api_key(client: Synnax, opts: Options, clusters: Clusters) -> None:
         # leaves the key in use
         saved = clusters.get()
         if saved is None or saved.options.api_key != token:
-            client.auth.delete_api_keys(key.key)
+            client.auth.api_keys.delete(key.key)
         raise
     if (
         previous is None
@@ -110,8 +110,8 @@ def save_api_key(client: Synnax, opts: Options, clusters: Clusters) -> None:
         return
     previous_key = api_key_id(previous.options.api_key)
     # A key another account saved is not ours to delete.
-    if any(k.key == previous_key for k in client.auth.retrieve_api_keys()):
-        client.auth.delete_api_keys(previous_key)
+    if any(k.key == previous_key for k in client.auth.api_keys.retrieve()):
+        client.auth.api_keys.delete(previous_key)
 
 
 def from_context(ctx: Context, opts: Options) -> Synnax | None:

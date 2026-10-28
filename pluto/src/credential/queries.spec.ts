@@ -36,7 +36,7 @@ describe("Credential queries", () => {
 
   const loginAsViewer = async () => {
     const viewer = await createTestClientWithRole(client, "Viewer");
-    await viewer.auth.retrieveSessions();
+    await viewer.auth.sessions.retrieve();
     const { subject } = viewer.auth;
     const { username } = viewer.params;
     if (subject == null || username == null) throw new Error("not logged in");
@@ -58,7 +58,7 @@ describe("Credential queries", () => {
     await act(async () => {
       await del.result.current.updateAsync(key.key);
     });
-    expect(await client.auth.retrieveAPIKeys([subject])).toHaveLength(0);
+    expect(await client.auth.apiKeys.retrieve([subject])).toHaveLength(0);
   });
 
   it("should list a subject's sessions", async () => {
@@ -75,6 +75,6 @@ describe("Credential queries", () => {
     await act(async () => {
       await set.result.current.updateAsync({ subject, password: "new" });
     });
-    await createTestClient({ username, password: "new" }).auth.retrieveSessions();
+    await createTestClient({ username, password: "new" }).auth.sessions.retrieve();
   });
 });

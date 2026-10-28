@@ -23,11 +23,11 @@ from freighter import (
     UnaryClient,
 )
 from synnax import ontology
-from synnax.auth.types_gen import PasswordProof, Proof, Session, SessionKey
+from synnax.auth import api_key, password, session
+from synnax.auth.types_gen import PasswordProof, Proof, Session
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
-from x.telem import TimeStamp
 
 _API_KEY_PREFIX = "syk_"
 
@@ -68,95 +68,9 @@ class _SessionRenewResponse(BaseModel):
     user: User | None = None
 
 
-class _SessionRetrieveRequest(BaseModel):
-    subjects: list[ontology.ID] = []
-
-
-class _SessionRetrieveResponse(BaseModel):
-    sessions: list[Session] = []
-
-
-class _SessionDeleteRequest(BaseModel):
-    keys: list[SessionKey] = []
-
-
-class APIKey(BaseModel):
-    """An API key as the API returns it: the stored record without its hash."""
-
-    key: UUID
-    """The unique identifier for this API key."""
-    subject: ontology.ID
-    """The user or rack the key logs in as."""
-    name: str
-    """A label that tells the subject's keys apart."""
-    created: TimeStamp
-    """When the key was created."""
-
-
-class _APIKeyCreateRequest(BaseModel):
-    subject: ontology.ID | None = None
-    name: str
-
-
-class _APIKeyCreateResponse(BaseModel):
-    token: str
-    key: APIKey
-
-
-class _APIKeyRetrieveRequest(BaseModel):
-    subjects: list[ontology.ID] = []
-
-
-class _APIKeyRetrieveResponse(BaseModel):
-    keys: list[APIKey] = []
-
-
-class _APIKeyDeleteRequest(BaseModel):
-    keys: list[UUID] = []
-
-
-class _PasswordCreateRequest(BaseModel):
-    subject: ontology.ID | None = None
-    username: str
-    password: str
-
-
-class Password(BaseModel):
-    """A password as the API returns it: its subject and username, without its
-    hash.
-    """
-
-    subject: ontology.ID
-    """The user the password logs in as."""
-    username: str
-    """The name the password logs in with."""
-
-
-class _PasswordRetrieveRequest(BaseModel):
-    subjects: list[ontology.ID] = []
-    usernames: list[str] = []
-
-
-class _PasswordRetrieveResponse(BaseModel):
-    passwords: list[Password] = []
-
-
-class _PasswordRenameRequest(BaseModel):
-    subject: ontology.ID | None = None
-    username: str
-
-
 _METHODS_ENDPOINT = "/auth/methods"
 _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
-_SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
-_SESSION_DELETE_ENDPOINT = "/auth/session/delete"
-_API_KEY_CREATE_ENDPOINT = "/auth/api-key/create"
-_API_KEY_RETRIEVE_ENDPOINT = "/auth/api-key/retrieve"
-_API_KEY_DELETE_ENDPOINT = "/auth/api-key/delete"
-_PASSWORD_CREATE_ENDPOINT = "/auth/password/create"
-_PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve"
-_PASSWORD_RENAME_ENDPOINT = "/auth/password/rename"
 
 _AUTHORIZATION_HEADER = "Authorization"
 _RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -186,6 +100,9 @@ class Client:
         self.session = None
         self.user = None
         self.authenticated = False
+        self.api_keys = api_key.Client(transport)
+        self.sessions = session.Client(transport)
+        self.passwords = password.Client(transport, self._on_rename)
         # Scoped to the caller's thread or task, so only the logout's own request
         # carries the ended token.
         self._logout_token: ContextVar[str | None] = ContextVar(
@@ -227,127 +144,7 @@ class Client:
         self.user = res.user
         return res.session
 
-    def retrieve_sessions(
-        self, subjects: list[ontology.ID] | None = None
-    ) -> list[Session]:
-        """Lists the caller's sessions, or those of the given subjects when the caller
-        may retrieve them.
-        """
-        res = send_required(
-            self.client,
-            _SESSION_RETRIEVE_ENDPOINT,
-            _SessionRetrieveRequest(subjects=subjects or []),
-            _SessionRetrieveResponse,
-        )
-        return res.sessions
-
-    def delete_sessions(self, *keys: SessionKey) -> None:
-        """Ends the given sessions. Unknown keys are ignored."""
-        send_required(
-            self.client,
-            _SESSION_DELETE_ENDPOINT,
-            _SessionDeleteRequest(keys=list(keys)),
-            Empty,
-        )
-
-    def create_api_key(
-        self, name: str, subject: ontology.ID | None = None
-    ) -> tuple[str, APIKey]:
-        """Creates an API key for the subject, or for the caller when none is given.
-
-        :returns: the token to log in with, the only copy of its secret, and the key.
-        :raises AccessDenied: if the caller may not create a key for the subject.
-        :raises NotFoundError: if the subject does not exist.
-        """
-        res = send_required(
-            self.client,
-            _API_KEY_CREATE_ENDPOINT,
-            _APIKeyCreateRequest(subject=subject, name=name),
-            _APIKeyCreateResponse,
-        )
-        return res.token, res.key
-
-    def retrieve_api_keys(
-        self, subjects: list[ontology.ID] | None = None
-    ) -> list[APIKey]:
-        """Lists the caller's API keys, or those of the given subjects when the caller
-        may retrieve them.
-        """
-        res = send_required(
-            self.client,
-            _API_KEY_RETRIEVE_ENDPOINT,
-            _APIKeyRetrieveRequest(subjects=subjects or []),
-            _APIKeyRetrieveResponse,
-        )
-        return res.keys
-
-    def delete_api_keys(self, *keys: UUID) -> None:
-        """Deletes API keys and ends their sessions. Unknown keys are ignored."""
-        send_required(
-            self.client,
-            _API_KEY_DELETE_ENDPOINT,
-            _APIKeyDeleteRequest(keys=list(keys)),
-            Empty,
-        )
-
-    def create_password(
-        self, username: str, password: str, subject: ontology.ID | None = None
-    ) -> None:
-        """Gives the subject, or the caller when none is given, its first password.
-
-        :raises AuthError: if another user holds the username.
-        :raises AccessDenied: if the caller may not create the subject.
-        :raises NotFoundError: if the subject does not exist.
-        :raises ValidationError: if the username or password is empty, or the subject
-            already has a password.
-        """
-        send_required(
-            self.client,
-            _PASSWORD_CREATE_ENDPOINT,
-            _PasswordCreateRequest(
-                subject=subject, username=username, password=password
-            ),
-            Empty,
-        )
-
-    def retrieve_passwords(
-        self,
-        subjects: list[ontology.ID] | None = None,
-        usernames: list[str] | None = None,
-    ) -> list[Password]:
-        """Lists the caller's password, or those of the given subjects or usernames
-        when the caller may retrieve their subjects. Unknown subjects and usernames
-        are ignored.
-
-        :raises AccessDenied: if the caller may not retrieve another subject.
-        """
-        res = send_required(
-            self.client,
-            _PASSWORD_RETRIEVE_ENDPOINT,
-            _PasswordRetrieveRequest(
-                subjects=subjects or [], usernames=usernames or []
-            ),
-            _PasswordRetrieveResponse,
-        )
-        return res.passwords
-
-    def rename_password(
-        self, username: str, subject: ontology.ID | None = None
-    ) -> None:
-        """Changes the username of the subject's password, or of the caller's when
-        none is given. Sessions stay open.
-
-        :raises AuthError: if another user holds the username.
-        :raises AccessDenied: if the caller may not update the subject.
-        :raises NotFoundError: if the subject has no password.
-        :raises ValidationError: if the username is empty.
-        """
-        send_required(
-            self.client,
-            _PASSWORD_RENAME_ENDPOINT,
-            _PasswordRenameRequest(subject=subject, username=username),
-            Empty,
-        )
+    def _on_rename(self, subject: ontology.ID | None, username: str) -> None:
         own = subject is None or subject == self.subject
         if own and isinstance(self.proof, PasswordProof):
             self.proof = self.proof.model_copy(update={"username": username})
@@ -363,7 +160,7 @@ class Client:
         self.token = ""
         self.session = None
         try:
-            self.delete_sessions(key)
+            self.sessions.delete(key)
         except _RETRY_ON_ERRORS:
             pass
         finally:
@@ -383,7 +180,7 @@ class Client:
         # A logout ends the session its token belongs to; a dead one must not log in
         # again.
         logout_token = self._logout_token.get()
-        if logout_token is not None and target.endswith(_SESSION_DELETE_ENDPOINT):
+        if logout_token is not None and target.endswith(session.DELETE_ENDPOINT):
             ctx.set(_AUTHORIZATION_HEADER, _TOKEN_PREFIX + logout_token)
             return False
         if not self.authenticated:
