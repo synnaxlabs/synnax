@@ -136,9 +136,55 @@ public:
     }
 };
 
+/// @brief writes single bits of holding registers. Each register with a commanded bit
+/// is read and then written back at once, so the device can change its other bits
+/// between the two requests. The commanded bits of one register go in one write.
+class RegisterBitWriter final : public BaseWriter<channel::OutputRegisterBit> {
+    /// @brief sets the register to (current AND and_mask) OR (or_mask AND NOT
+    /// and_mask), the result of function code 22.
+    static x::errors::Error mask_write(
+        device::Device &dev,
+        const std::uint16_t address,
+        const std::uint16_t and_mask,
+        const std::uint16_t or_mask
+    ) {
+        std::uint16_t value = 0;
+        if (auto err = dev.read_registers(device::HoldingRegister, address, 1, &value))
+            return err;
+        value = (value & and_mask) | (or_mask & ~and_mask);
+        return dev.write_registers(address, 1, &value);
+    }
+
+public:
+    explicit RegisterBitWriter(const std::vector<channel::OutputRegisterBit> &chs):
+        BaseWriter(chs) {}
+
+    x::errors::Error write(
+        const std::shared_ptr<device::Device> &dev,
+        const x::telem::Frame &fr
+    ) override {
+        const auto cmds = this->commanded(fr);
+        for (std::size_t first = 0, last = 0; first < cmds.size(); first = last) {
+            const auto address = cmds[first].address;
+            std::uint16_t and_mask = 0xFFFF;
+            std::uint16_t or_mask = 0;
+            for (last = first; last < cmds.size() && cmds[last].address == address;
+                 last++) {
+                const auto bit = static_cast<std::uint16_t>(1U << cmds[last].bit);
+                and_mask &= ~bit;
+                if (x::telem::cast<double>(fr.at(cmds[last].channel, -1)) != 0)
+                    or_mask |= bit;
+            }
+            if (auto err = mask_write(*dev, address, and_mask, or_mask))
+                return wrap(err, "holding registers", {address, 1, first, last}, cmds);
+        }
+        return x::errors::NIL;
+    }
+};
+
 /// @returns the first channel whose addresses overlap those of ch, or nullptr.
-template<typename Channel>
-const Channel *find_overlap(const std::vector<Channel> &channels, const Channel &ch) {
+template<typename Channel, typename Other>
+const Channel *find_overlap(const std::vector<Channel> &channels, const Other &ch) {
     for (const auto &other: channels)
         if (ch.address < other.address + other.width() &&
             other.address < ch.address + ch.width())
@@ -171,6 +217,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
         }
         std::vector<channel::OutputCoil> coils;
         std::vector<channel::OutputHoldingRegister> registers;
+        std::vector<channel::OutputRegisterBit> bits;
         cfg.iter("channels", [&](x::json::Parser &ch) {
             const auto parsed = ::synnax::modbus::parse_write_channel(ch);
             const auto &base = std::visit(
@@ -202,7 +249,41 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                     );
                     return;
                 }
+                if (const auto *other = find_overlap(bits, reg)) {
+                    ch.field_err(
+                        "address",
+                        "overlaps the holding register bit at address " +
+                            std::to_string(other->address)
+                    );
+                    return;
+                }
                 registers.push_back(reg);
+                return;
+            }
+            if (const auto *c = std::get_if<
+                    ::synnax::modbus::HoldingRegisterBitWriteChannel>(&parsed)) {
+                if (c->bit > 15) {
+                    ch.field_err("bit", "must be from 0 to 15");
+                    return;
+                }
+                const channel::OutputRegisterBit bit(*c);
+                if (const auto *other = find_overlap(registers, bit)) {
+                    ch.field_err(
+                        "address",
+                        "overlaps the holding register at address " +
+                            std::to_string(other->address)
+                    );
+                    return;
+                }
+                for (const auto &other: bits)
+                    if (other.address == bit.address && other.bit == bit.bit) {
+                        ch.field_err(
+                            "bit",
+                            "another channel writes this bit of the register"
+                        );
+                        return;
+                    }
+                bits.push_back(bit);
                 return;
             }
             const channel::OutputCoil coil(
@@ -218,10 +299,12 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             coils.push_back(coil);
         });
         std::vector<synnax::channel::Key> keys;
-        keys.reserve(coils.size() + registers.size());
+        keys.reserve(coils.size() + registers.size() + bits.size());
         for (const auto &ch: coils)
             keys.push_back(ch.channel);
         for (const auto &ch: registers)
+            keys.push_back(ch.channel);
+        for (const auto &ch: bits)
             keys.push_back(ch.channel);
         auto [chs, chs_err] = client->channels.retrieve(keys);
         if (chs_err) {
@@ -235,10 +318,14 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             ch.name = names.at(ch.channel);
         for (auto &ch: registers)
             ch.name = names.at(ch.channel);
+        for (auto &ch: bits)
+            ch.name = names.at(ch.channel);
         if (!coils.empty())
             writers.push_back(std::make_unique<CoilWriter>(std::move(coils)));
         if (!registers.empty())
             writers.push_back(std::make_unique<RegisterWriter>(std::move(registers)));
+        if (!bits.empty())
+            writers.push_back(std::make_unique<RegisterBitWriter>(std::move(bits)));
     }
 
     /// @returns the keys of all command channels used by the writer.

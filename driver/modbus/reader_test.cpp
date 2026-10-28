@@ -36,6 +36,58 @@ channel::InputRegister holding(
     return ch;
 }
 
+channel::InputRegister string(
+    const synnax::channel::Key key,
+    const std::uint16_t address,
+    const std::int32_t length,
+    const bool bytes_swapped,
+    const std::string &name
+) {
+    auto p = x::json::Parser(
+        x::json::json{
+            {"type", "input_register"},
+            {"address", address},
+            {"channel", key},
+            {"data_type", "string"},
+            {"string_length", length},
+            {"bytes_swapped", bytes_swapped},
+        }
+    );
+    const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(p);
+    channel::InputRegister ch(cfg, device::ConnectionConfig{});
+    ch.ch = synnax::channel::Channel{
+        .key = key,
+        .name = name,
+        .data_type = x::telem::STRING_T,
+    };
+    return ch;
+}
+
+channel::InputRegister holding_bit(
+    const synnax::channel::Key key,
+    const std::uint16_t address,
+    const std::uint8_t bit,
+    const std::string &name
+) {
+    auto p = x::json::Parser(
+        x::json::json{
+            {"type", "holding_register_bit"},
+            {"address", address},
+            {"channel", key},
+            {"bit", bit},
+        }
+    );
+    channel::InputRegister ch(
+        ::synnax::modbus::HoldingRegisterBitReadChannel::parse(p)
+    );
+    ch.ch = synnax::channel::Channel{
+        .key = key,
+        .name = name,
+        .data_type = x::telem::UINT8_T,
+    };
+    return ch;
+}
+
 channel::InputDiscrete coil(
     const synnax::channel::Key key,
     const std::uint16_t address,
@@ -231,6 +283,75 @@ TEST(BitReader, SplitsAtMaxGap) {
     EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
     EXPECT_EQ(fr.at<uint8_t>(2, 0), 1);
     EXPECT_EQ(slave.requests(MODBUS_FC_READ_COILS), 2);
+    slave.stop();
+}
+
+/// @brief it should read bits of a register in the same request as a value in the
+/// register next to it.
+TEST(RegisterReader, BitsShareRequestWithValues) {
+    testutil::SlaveConfig cfg;
+    cfg.port = 1650;
+    cfg.holding_registers[4] = static_cast<uint16_t>(0b1000'0000'0000'0101);
+    cfg.holding_registers[5] = static_cast<uint16_t>(77);
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1650}));
+
+    RegisterReader reader(
+        device::HoldingRegister,
+        {holding_bit(1, 4, 0, "b0"),
+         holding_bit(2, 4, 1, "b1"),
+         holding_bit(3, 4, 2, "b2"),
+         holding_bit(4, 4, 15, "b15"),
+         holding(5, 5, x::telem::UINT16_T, "value")}
+    );
+    const auto [fr, err] = read_once(reader, dev);
+    ASSERT_NIL(err);
+    EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
+    EXPECT_EQ(fr.at<uint8_t>(2, 0), 0);
+    EXPECT_EQ(fr.at<uint8_t>(3, 0), 1);
+    EXPECT_EQ(fr.at<uint8_t>(4, 0), 1);
+    EXPECT_EQ(fr.at<uint16_t>(5, 0), 77);
+    EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 1);
+    slave.stop();
+}
+
+/// @brief it should read a string two characters to a register, high byte first,
+/// and end it at the first NUL.
+TEST(RegisterReader, String) {
+    testutil::SlaveConfig cfg;
+    cfg.port = 1651;
+    cfg.input_registers[0] = static_cast<uint16_t>('P' << 8 | 'U');
+    cfg.input_registers[1] = static_cast<uint16_t>('M' << 8 | 'P');
+    cfg.input_registers[2] = static_cast<uint16_t>('1' << 8);
+    cfg.input_registers[3] = static_cast<uint16_t>('X' << 8 | 'Y');
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1651}));
+
+    RegisterReader reader(device::InputRegister, {string(1, 0, 8, false, "tag")});
+    const auto [fr, err] = read_once(reader, dev);
+    ASSERT_NIL(err);
+    EXPECT_EQ(fr.series->at(0).strings(), std::vector<std::string>{"PUMP1"});
+    slave.stop();
+}
+
+/// @brief it should read a string with the low byte of each register first when
+/// the bytes are swapped, and stop at the string length.
+TEST(RegisterReader, StringBytesSwapped) {
+    testutil::SlaveConfig cfg;
+    cfg.port = 1652;
+    cfg.input_registers[0] = static_cast<uint16_t>('B' << 8 | 'A');
+    cfg.input_registers[1] = static_cast<uint16_t>('D' << 8 | 'C');
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1652}));
+
+    RegisterReader reader(device::InputRegister, {string(1, 0, 3, true, "tag")});
+    EXPECT_EQ(reader.sy_channels().size(), 1);
+    const auto [fr, err] = read_once(reader, dev);
+    ASSERT_NIL(err);
+    EXPECT_EQ(fr.series->at(0).strings(), std::vector<std::string>{"ABC"});
     slave.stop();
 }
 }

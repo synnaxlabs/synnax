@@ -164,9 +164,9 @@ TEST_F(ModbusReadTest, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
-/// @brief it should default the register data type to uint8 when the config omits
-/// it, preserving the behavior of configs written before the field existed.
-TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
+/// @brief it should read a whole register as uint16 when the config omits the data
+/// type.
+TEST(ModbusChannels, testMissingDataTypeDefaultsToUint16) {
     auto parser = x::json::Parser(
         x::json::json{
             {"type", "input_register"},
@@ -178,7 +178,7 @@ TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
     const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(parser);
     ASSERT_NIL(parser.error());
     const channel::InputRegister ch(cfg, device::ConnectionConfig{});
-    EXPECT_EQ(ch.value_type, x::telem::UINT8_T);
+    EXPECT_EQ(ch.value_type, x::telem::UINT16_T);
 }
 
 /// @brief it should take the device's byte and word order when the channel has no
@@ -1145,20 +1145,137 @@ TEST_F(ModbusReadTest, testDuplicateChannelRejected) {
 /// @brief it should reject a register data type the Driver cannot decode.
 TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
     auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("str"),
+        make_unique_channel_name("ts"),
         x::telem::FLOAT32_T,
         true
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(create_channel_config("holding_register", ch, 0));
-    cfg["channels"][0]["data_type"] = "string";
+    cfg["channels"][0]["data_type"] = "timestamp";
     auto p = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errors = p.error_json()["errors"];
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
-    EXPECT_EQ(errors[0]["message"], "unsupported data type: string");
+    EXPECT_EQ(errors[0]["message"], "unsupported data type: timestamp");
+}
+
+/// @brief it should reject a string with no length, a string read into a channel
+/// that is not a string, and a bit past 15.
+TEST_F(ModbusReadTest, testStringAndBitRejected) {
+    auto str = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("str"),
+        x::telem::STRING_T,
+        true
+    ));
+    auto num = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("num"),
+        x::telem::UINT16_T,
+        true
+    ));
+    auto bit = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("bit"),
+        x::telem::UINT8_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        {{"type", "input_register"},
+         {"channel", str.key},
+         {"address", 0},
+         {"data_type", "string"}}
+    );
+    cfg["channels"].push_back(
+        {{"type", "input_register"},
+         {"channel", num.key},
+         {"address", 10},
+         {"data_type", "string"},
+         {"string_length", 4}}
+    );
+    cfg["channels"].push_back(
+        {{"type", "holding_register_bit"},
+         {"channel", bit.key},
+         {"address", 0},
+         {"bit", 16}}
+    );
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 3);
+    EXPECT_EQ(errors[0]["path"], "channels.0.string_length");
+    EXPECT_EQ(errors[0]["message"], "must be from 1 to 250");
+    EXPECT_EQ(errors[1]["path"], "channels.2.bit");
+    EXPECT_EQ(errors[1]["message"], "must be from 0 to 15");
+    EXPECT_EQ(errors[2]["path"], "channels.1.channel");
+    EXPECT_EQ(errors[2]["message"], "a string must read into a string channel");
+}
+
+/// @brief it should read a string and the bits of a register into one frame.
+TEST_F(ModbusReadTest, testStringAndBitRead) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1502;
+    slave_cfg.holding_registers[0] = static_cast<uint16_t>('O' << 8 | 'K');
+    slave_cfg.holding_registers[1] = static_cast<uint16_t>(0b10);
+    auto slave = testutil::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto str = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("str"),
+        x::telem::STRING_T,
+        index_channel.key,
+        false
+    ));
+    auto bit = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("bit"),
+        x::telem::UINT8_T,
+        index_channel.key,
+        false
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(
+        {{"type", "holding_register"},
+         {"channel", str.key},
+         {"address", 0},
+         {"data_type", "string"},
+         {"string_length", 2}}
+    );
+    cfg["channels"].push_back(
+        {{"type", "holding_register_bit"},
+         {"channel", bit.key},
+         {"address", 1},
+         {"bit", 1}}
+    );
+    auto p = x::json::Parser(cfg);
+    auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    auto devs = std::make_shared<device::Manager>();
+    auto task = common::ReadTask(
+        synnax::task::Task{
+            .rack = rack.key,
+            .name = "string_bit_test",
+            .type = "modbus_read",
+        },
+        ctx,
+        x::breaker::default_config("string_bit_test"),
+        std::make_unique<ReadTaskSource>(devs, std::move(*task_cfg)),
+        mock_factory
+    );
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 2);
+    task.stop("stop_cmd", true);
+
+    for (std::size_t i = 0; i < 2; i++) {
+        const auto &fr = mock_factory->writes->at(i);
+        ASSERT_EQ(fr.length(), 1);
+        EXPECT_EQ(fr.at<uint8_t>(bit.key, 0), 1);
+        for (const auto &[key, ser]: fr)
+            if (key == str.key)
+                EXPECT_EQ(ser.strings(), std::vector<std::string>{"OK"});
+    }
 }
 
 /// @brief it should reject a Synnax channel that cannot hold a number.
