@@ -10,17 +10,18 @@
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
+import { CSS } from "@/css";
 import { Input } from "@/input";
 import { computed, height, renderThemed, resolve } from "@/testutil/style";
 
 const renderInput = async (
   props: Partial<Input.TextProps> = {},
-): Promise<{ input: HTMLInputElement; box: Element }> => {
+): Promise<{ input: Element; box: Element }> => {
   const { getByRole } = await renderThemed(
     <Input.Text value="" onChange={() => {}} placeholder="Name" {...props} />,
   );
-  const input = getByRole("textbox").element() as HTMLInputElement;
-  return { input, box: input.parentElement! };
+  const input = getByRole("textbox").element();
+  return { input, box: input.closest(`.${CSS.B("input")}`)! };
 };
 
 const background = (el: Element): string => computed(el, "background-color");

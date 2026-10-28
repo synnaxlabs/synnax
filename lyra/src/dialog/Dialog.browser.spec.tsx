@@ -11,6 +11,7 @@ import { type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
+import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { computed, renderThemed, resolve } from "@/testutil/style";
 import { Triggers } from "@/triggers";
@@ -73,7 +74,7 @@ describe("Dialog", () => {
   describe("modal", () => {
     it("should tint the whole window behind it", async () => {
       const { dialog } = await openDialog("modal");
-      const bg = dialog.parentElement!;
+      const bg = dialog.closest(`.${CSS.BE("dialog", "bg")}`)!;
       const rect = bg.getBoundingClientRect();
       expect(rect.width).toBe(window.innerWidth);
       expect(rect.height).toBe(window.innerHeight);

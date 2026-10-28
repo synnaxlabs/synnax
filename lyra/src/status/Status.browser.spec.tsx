@@ -11,6 +11,7 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
+import { CSS } from "@/css";
 import { Status } from "@/status";
 import { computed, renderThemed, resolve } from "@/testutil/style";
 
@@ -60,7 +61,7 @@ describe("Status", () => {
 
     it("should wrap a long message inside the card", async () => {
       const card = await renderNotification();
-      const message = card.querySelector("[class*='__message']")!;
+      const message = card.querySelector(`.${CSS.BE("notification", "message")}`)!;
       expect(message.getBoundingClientRect().right).toBeLessThanOrEqual(
         card.getBoundingClientRect().right,
       );
@@ -68,8 +69,8 @@ describe("Status", () => {
 
     it("should swap its time for its controls on hover", async () => {
       const card = await renderNotification();
-      const stamp = card.querySelector("[class*='__stamp']")!;
-      const controls = card.querySelector("[class*='__controls']")!;
+      const stamp = card.querySelector(`.${CSS.BE("notification", "stamp")}`)!;
+      const controls = card.querySelector(`.${CSS.BE("notification", "controls")}`)!;
       expect(computed(stamp, "opacity")).toBe("1");
       expect(computed(controls, "opacity")).toBe("0");
       await userEvent.hover(card);
