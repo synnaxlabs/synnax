@@ -28,3 +28,20 @@
     vertical-align: top;
     pointer-events: none;
 }
+
+/* A checkable item holds its own controls, so hover tints it faintly and a press does
+   not deepen the tint. */
+.pluto-select__item--checkable.pluto-list__item:not(.pluto--selected) {
+    --pluto-hover-bg: color-mix(
+        in srgb,
+        var(--pluto-gray-l2) 40%,
+        var(--pluto-gray-l3)
+    );
+    --pluto-active-bg: var(--pluto-hover-bg);
+}
+
+/* The checkbox's own padding spaces it from the content, so it cancels the item's
+   default gap. */
+.pluto-select__item--checkable > .pluto-input__checkbox {
+    margin-inline-end: -1.5rem;
+}
