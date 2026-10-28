@@ -22,7 +22,7 @@ func close_valve() {
     valve_cmd = 0
 }
 
-time.interval{period=500ms} -> close_valve{}
+time.interval(period=500ms) -> close_valve()
 `;
 
 /**

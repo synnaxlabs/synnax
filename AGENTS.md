@@ -262,6 +262,10 @@ review. A Claude session pushes against it, never along with it:
 - **Prefer separate branches off `main` over a stack.** A dependency on unmerged work
   usually means the earlier piece should have merged already: open it, get it in, then
   branch again from `main`. Stack only when a piece truly cannot land alone.
+- **When the next piece needs an open PR, stack it at once.** Branch from that PR's
+  branch, open the new PR against it, and name the parent in the description. Never add
+  the new piece to the open PR, and never wait for the parent to merge first. When the
+  parent merges, merge `main` into the child and retarget it to `main`.
 - **Unfinished work ships dark, not on a branch.** A feature that is not ready hides
   behind a flag in `console/src/flags.ts` and merges anyway. The flag flip is the last
   small PR, never the first big one.

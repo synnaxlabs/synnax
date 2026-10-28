@@ -47,9 +47,10 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening a Controller.
-	DefaultConfig = Config{Concurrency: control.ConcurrencyExclusive}
+	_             config.Config[Config] = Config{}
+	defaultConfig                       = Config{
+		Concurrency: control.ConcurrencyExclusive,
+	}
 )
 
 // Validate implements config.Config.
@@ -77,7 +78,7 @@ type Controller[R Resource] struct {
 
 // New creates a new Controller that controls access to the specified resource type.
 func New[R Resource](cfg Config) (*Controller[R], error) {
-	cfg, err := config.New(DefaultConfig, cfg)
+	cfg, err := config.New(defaultConfig, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +122,7 @@ type GateConfig[R Resource] struct {
 
 var _ config.Config[GateConfig[Resource]] = GateConfig[Resource]{}
 
-// DefaultGateConfig is the default configuration for opening a Gate.
-func DefaultGateConfig[R Resource]() GateConfig[R] {
+func defaultGateConfig[R Resource]() GateConfig[R] {
 	return GateConfig[R]{
 		ErrIfControlled:       new(false),
 		ErrOnUnauthorizedOpen: new(false),
@@ -200,7 +200,7 @@ func (c *Controller[R]) OpenGate(
 ) (g *Gate[R], t Transfer, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if cfg, err = config.New(DefaultGateConfig[R](), cfg); err != nil {
+	if cfg, err = config.New(defaultGateConfig[R](), cfg); err != nil {
 		return g, t, err
 	}
 
