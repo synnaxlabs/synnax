@@ -233,7 +233,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await choose(controls.locator(".console-rack-select").first(), "Node 1");
   await session.click(controls.locator("button:has(svg.pluto-icon--play)").first());
   session.endZoom();
-  await session.waitFor(controls.getByText("Task started successfully").first());
+  await session.waitFor(controls.getByText("Started task").first());
   await session.moveTo(await at(0.9, 0.4));
   await session.hold(3000);
 };

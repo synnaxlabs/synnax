@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// OffsetResolver is a function that resolves the offset of a sample within a domain.
+// offsetResolver is a function that resolves the offset of a sample within a domain.
 // See the DB.Delete function for more details on the values this function should
 // return.
-type OffsetResolver = func(
+type offsetResolver = func(
 	ctx context.Context,
 	domainStart telem.TimeStamp,
 	ts telem.TimeStamp,
@@ -55,8 +55,8 @@ type OffsetResolver = func(
 func (db *DB) Delete(
 	ctx context.Context,
 	tr telem.TimeRange,
-	calculateStartOffset OffsetResolver,
-	calculateEndOffset OffsetResolver,
+	calculateStartOffset offsetResolver,
+	calculateEndOffset offsetResolver,
 ) (err error) {
 	ctx, span := db.cfg.T.Bench(ctx, "Delete")
 	defer span.End()
@@ -211,6 +211,7 @@ func (db *DB) Delete(
 	}
 
 	persist := db.idx.indexPersist.prepare(startDomain)
+	db.idx.notifyHistoryChange(ctx, tr)
 	// We choose to keep the mutex locked while persisting to index.
 	return span.Error(persist())
 }

@@ -13,7 +13,7 @@ import synnax as sy
 from console.layout import LayoutClient
 from console.page import ConsolePage
 
-CHANNEL_LIST_SELECTOR = ".console-channel-list"
+_CHANNEL_LIST_SELECTOR = ".console-channel-list"
 
 
 class TaskPage(ConsolePage):
@@ -52,7 +52,7 @@ class TaskPage(ConsolePage):
         return controls
 
     def _channel_list(self) -> Locator:
-        return self._pane().locator(CHANNEL_LIST_SELECTOR).first
+        return self._pane().locator(_CHANNEL_LIST_SELECTOR).first
 
     def select_device(self, label: str, name: str) -> None:
         """Pick ``name`` in the device dropdown of the form field ``label``."""
@@ -140,6 +140,12 @@ class TaskPage(ConsolePage):
         )
         help_text = item.locator(".pluto-input-help-text").first
         expect(help_text).not_to_have_text("", timeout=5000)
+        return help_text.inner_text().strip()
+
+    def channel_list_help_text(self) -> str:
+        """Return the error shown under the channel list after a blocked deploy."""
+        help_text = self._channel_list().locator(".console-channel-list__status")
+        help_text.wait_for(state="visible", timeout=5000)
         return help_text.inner_text().strip()
 
     def status(self) -> dict[str, str]:

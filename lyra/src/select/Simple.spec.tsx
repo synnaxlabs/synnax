@@ -9,14 +9,28 @@
 
 import { act, fireEvent, render } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Icon } from "@/icon";
+import { type Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { disableActEnvironment } from "@/testutil/act";
 import { mockBoundingClientRect } from "@/testutil/dom";
+
+const Fixed = ({ initialVisible }: { initialVisible?: boolean }) => (
+  <Select.Simple<string>
+    value="1"
+    onChange={vi.fn()}
+    resourceName="Test Item"
+    initialVisible={initialVisible}
+  >
+    <Select.Item itemKey="1">First Item</Select.Item>
+    <Select.Item itemKey="2">Second Item</Select.Item>
+  </Select.Simple>
+);
 
 describe("Select.Simple", () => {
   beforeAll(() => {
@@ -271,6 +285,57 @@ describe("Select.Simple", () => {
       expect(c.getByText("High").closest("[hidden]")).not.toBeNull();
     });
   });
+
+  describe("variant", () => {
+    const trigger = (variant?: Input.Variant): HTMLElement => {
+      const c = render(
+        <Select.Simple<string>
+          value="high"
+          onChange={vi.fn()}
+          resourceName="Level"
+          triggerProps={{ variant }}
+        >
+          <Select.Item itemKey="high">High</Select.Item>
+        </Select.Simple>,
+      );
+      return c.getByRole("button", { name: "Level High" });
+    };
+
+    it("should draw an outlined trigger by default", () => {
+      const { classList } = trigger();
+      expect(classList.contains("pluto-btn--outlined")).toBe(true);
+      expect(classList.contains("pluto--shadow")).toBe(false);
+    });
+
+    it("should draw a shadow trigger on the outlined chassis", () => {
+      const { classList } = trigger("shadow");
+      expect(classList.contains("pluto-btn--outlined")).toBe(true);
+      expect(classList.contains("pluto--shadow")).toBe(true);
+    });
+
+    it("should draw a text trigger without the shadow modifier", () => {
+      const { classList } = trigger("text");
+      expect(classList.contains("pluto-btn--text")).toBe(true);
+      expect(classList.contains("pluto--shadow")).toBe(false);
+    });
+  });
+
+  describe("server rendering", () => {
+    it("should hydrate the server HTML of a selected fixed item", async () => {
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(<Fixed />);
+      document.body.appendChild(container);
+      const onRecoverableError = vi.fn();
+      const root = await act(async () =>
+        hydrateRoot(container, <Fixed />, { onRecoverableError }),
+      );
+      expect(onRecoverableError).not.toHaveBeenCalled();
+      const trigger = container.querySelector(".pluto-dialog__trigger");
+      expect(trigger?.textContent).toBe("First Item");
+      act(() => root.unmount());
+      container.remove();
+    });
+  });
 });
 
 describe("Select.Simple multiple", () => {
@@ -374,18 +439,6 @@ describe("Select.Simple multiple", () => {
       container.remove();
       return seen;
     };
-
-    const Fixed = ({ initialVisible }: { initialVisible?: boolean }) => (
-      <Select.Simple<string>
-        value="1"
-        onChange={vi.fn()}
-        resourceName="Test Item"
-        initialVisible={initialVisible}
-      >
-        <Select.Item itemKey="1">First Item</Select.Item>
-        <Select.Item itemKey="2">Second Item</Select.Item>
-      </Select.Simple>
-    );
 
     it("should paint the selected fixed item in the trigger at once", async () => {
       expect(await paints(<Fixed />)).toEqual(["First Item"]);

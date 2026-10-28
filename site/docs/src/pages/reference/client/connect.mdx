@@ -1,0 +1,350 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Connect to a Core"
+description:
+  "Connect and authenticate a Python or TypeScript client with a Synnax Core: log in
+  with arguments or sy login, use TLS, and close the client."
+clients: ["python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Create a client to connect your code to a Synnax Core. The client logs in with the
+username and password of a [user](/reference/enterprise/users) on the Core.
+
+<Divider.Divider x />
+
+## Connect with arguments
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client = sy.Synnax(
+    host="core.example.com",
+    port=9090,
+    username="operator",
+    password="secret",
+)
+```
+
+The client logs in when you create it. It raises `sy.AuthError` when the credentials are
+wrong. It raises `Unreachable`, from the `freighter` package, when it cannot reach the
+Core.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax({
+  host: "core.example.com",
+  port: 9090,
+  username: "operator",
+  password: "secret",
+});
+await client.connect();
+```
+
+The client starts to connect when you create it, but it does not wait. `connect` waits
+for the connection. It throws `AuthError` when the credentials are wrong, and
+`DisconnectedError` when it cannot reach the Core. Without `connect`, the first request
+throws the same errors.
+
+  </Fragment>
+
+</Client.Tabs>
+
+To keep credentials out of a script, read them from environment variables that you set.
+The clients read no environment variables by themselves.
+
+<Divider.Divider x />
+
+## Log in once with sy login
+
+The `sy login` command saves your credentials, so Python scripts can connect with no
+arguments. It is part of the Python client. Run it in a terminal:
+
+```bash
+sy login
+```
+
+Answer the prompts. Press **Enter** to keep the default in parentheses:
+
+```
+Enter your Synnax connection parameters:
+Host (localhost): core.example.com
+Port (9090):
+Username (synnax): operator
+Password:
+Secure Connection? [y/n] (n):
+```
+
+When you answer `y` to the secure prompt, the command also asks for the "CA certificate
+path". Enter the path to the `ca.crt` file of the Core. Leave it empty when the Core has
+a certificate from a public authority.
+
+The command connects to the Core, then prints "Connection successful!". In your scripts,
+create the client with no arguments:
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+```
+
+The command stores the host, port, username, TLS setting, and CA certificate path in
+`~/.synnax/config.json`. It stores the password in the keychain of your operating
+system, under the name `synnax`. When the login fails, the command saves nothing. Run
+`sy login` again to change the values.
+
+With no saved login, `sy.Synnax()` raises `sy.ValidationError`. When you give no host,
+the client ignores the other arguments and uses the saved login.
+
+<Divider.Divider x />
+
+## Connect with TLS
+
+When the Core serves TLS, set `secure` to true. For how to give the Core a certificate,
+see [Set up TLS](/reference/enterprise/tls).
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+client = sy.Synnax(
+    host="core.example.com",
+    port=9090,
+    username="operator",
+    password="secret",
+    secure=True,
+)
+```
+
+The Python client checks the certificate of the Core, and checks that the certificate is
+for the host that you connect to. A certificate from a public authority, such as Let's
+Encrypt, needs no setup. When the Core uses a self-signed certificate, give the path to
+its CA certificate in `ca_cert`:
+
+```python
+client = sy.Synnax(
+    host="core.example.com",
+    port=9090,
+    username="operator",
+    password="secret",
+    secure=True,
+    ca_cert="/path/to/ca.crt",
+)
+```
+
+A Core that you start with `--auto-cert` makes its own CA certificate. Give its path in
+`ca_cert`, or save it with [`sy login`](#log-in-once-with-sy-login). To find the file,
+see
+[Copy the CA certificate](/reference/enterprise/certificates#copy-the-ca-certificate).
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const client = new Synnax({
+  host: "core.example.com",
+  port: 9090,
+  username: "operator",
+  password: "secret",
+  secure: true,
+});
+```
+
+The TypeScript client checks the certificate of the Core. When the Core uses a
+self-signed certificate, the computer must trust its CA certificate. The TypeScript
+client has no CA certificate option. In a browser,
+[install the CA certificate](/reference/enterprise/certificates) on the computer. For
+Node.js, see [Node.js](/reference/enterprise/certificates#nodejs).
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Close the client
+
+Close the client when your code is done with it:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+client.close()
+```
+
+When the script exits, the client closes by itself.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.close();
+```
+
+A Node.js script does not exit until you close the client.
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Client options
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+<Field.List>
+
+<Field.Item name="host" id="python-host" type="str">
+  The hostname or IP address of the Core. With no host, the client uses the values that
+  `sy login` saved.
+</Field.Item>
+
+<Field.Item name="port" id="python-port" type="int">
+  The port of the Core.
+</Field.Item>
+
+<Field.Item name="username" id="python-username" type="str">
+  The username to log in with.
+</Field.Item>
+
+<Field.Item name="password" id="python-password" type="str">
+  The password to log in with.
+</Field.Item>
+
+<Field.Item name="secure" id="python-secure" type="bool" default="False">
+  Connect with TLS.
+</Field.Item>
+
+<Field.Item name="ca_cert" id="python-ca-cert" type="str">
+  The path to the CA certificate that signs the certificate of the Core. With `ca_cert`
+  and no `secure`, the client raises `ValueError`. With no path, the client trusts the
+  CA certificates of the computer.
+</Field.Item>
+
+<Field.Item name="open_timeout" id="python-open-timeout" type="TimeSpan" default="5 s">
+  How long to wait to open a connection.
+</Field.Item>
+
+<Field.Item name="read_timeout" id="python-read-timeout" type="TimeSpan" default="5 s">
+  How long to wait for a response.
+</Field.Item>
+
+<Field.Item name="keep_alive" id="python-keep-alive" type="TimeSpan" default="30 s">
+  How often an async streamer checks its connection to the Core.
+</Field.Item>
+
+<Field.Item name="max_retries" id="python-max-retries" type="int" default="3">
+  How many times to retry a request that fails to reach the Core.
+</Field.Item>
+
+<Field.Item
+  name="clock_skew_threshold"
+  id="python-clock-skew-threshold"
+  type="TimeSpan"
+  default="1 s"
+>
+  The largest difference between the clocks of the computer and the Core before the
+  client prints a warning.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<Field.List>
+
+<Field.Item name="host" id="typescript-host" type="string">
+  The hostname or IP address of the Core.
+</Field.Item>
+
+<Field.Item name="port" id="typescript-port" type="number | string">
+  The port of the Core.
+</Field.Item>
+
+<Field.Item name="username" id="typescript-username" type="string">
+  The username to log in with.
+</Field.Item>
+
+<Field.Item name="password" id="typescript-password" type="string">
+  The password to log in with.
+</Field.Item>
+
+<Field.Item name="secure" id="typescript-secure" type="boolean" default="false">
+  Connect with TLS.
+</Field.Item>
+
+<Field.Item
+  name="connectivityPollFrequency"
+  id="typescript-connectivity-poll-frequency"
+  type="TimeSpan"
+  default="30 s"
+>
+  How often the client checks that it can reach the Core.
+</Field.Item>
+
+<Field.Item
+  name="clockSkewThreshold"
+  id="typescript-clock-skew-threshold"
+  type="TimeSpan"
+  default="1 s"
+>
+  The largest difference between the clocks of the computer and the Core before the
+  client prints a warning.
+</Field.Item>
+
+<Field.Item name="name" id="typescript-name" type="string">
+  A name for the Core, which the client shows in its connection status messages.
+</Field.Item>
+
+<Field.Item name="retry" id="typescript-retry" type="object">
+  How the client retries a request that fails to reach the Core: `baseInterval` (1 s),
+  `maxInterval`, `maxRetries` (5), `scale` (1), and `jitter` (0).
+</Field.Item>
+
+<Field.Item name="cache" id="typescript-cache" type="boolean" default="true">
+  Keep retrieved resources in memory and update them as they change on the Core.
+</Field.Item>
+
+<Field.Item name="onRetry" id="typescript-on-retry" type="function">
+  Called each time the client retries a failed request. By default, the client logs a
+  warning.
+</Field.Item>
+
+<Field.Item name="onInternalError" id="typescript-on-internal-error" type="function">
+  Called with cache errors that have no caller to throw to. By default, the client logs
+  the error.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+</Client.Tabs>
+
+When the client cannot connect, see
+[Troubleshooting](/reference/client/troubleshooting).

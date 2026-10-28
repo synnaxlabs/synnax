@@ -1,6 +1,23 @@
 {
   "installCommand": "npx --yes pnpm@12.14.0 install --frozen-lockfile",
   "buildCommand": "npx --yes pnpm@12.14.0 --dir ../.. build:docs",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://vercel.live https://us-assets.i.posthog.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://ywd9t0jxcs-dsn.algolia.net https://demo.synnaxlabs.com:9090 wss://demo.synnaxlabs.com:9090 https://us.i.posthog.com https://us-assets.i.posthog.com https://formspree.io https://vercel.live; img-src 'self' data: https://us-assets.i.posthog.com https://synnax.nyc3.cdn.digitaloceanspaces.com https://vercel.com https://*.vercel.app https://vercel.live; media-src 'self' https://synnax.nyc3.cdn.digitaloceanspaces.com; frame-src https://vercel.live https://www.youtube.com http://localhost:4321; object-src 'none';"
+        }
+      ]
+    }
+  ],
   "redirects": [
     {
       "source": "/guides/comparison/performance/one-billion-rows",
@@ -13,13 +30,63 @@
       "permanent": true
     },
     {
+      "source": "/reference/cluster/:slug(installation|quick-start)?",
+      "destination": "/reference/enterprise",
+      "permanent": true
+    },
+    {
+      "source": "/reference/cluster/installing-certificates",
+      "destination": "/reference/enterprise/certificates",
+      "permanent": true
+    },
+    {
+      "source": "/reference/cluster/production",
+      "destination": "/reference/enterprise/production-checklist",
+      "permanent": true
+    },
+    {
+      "source": "/reference/cluster/systemd-service",
+      "destination": "/reference/enterprise/service",
+      "permanent": true
+    },
+    {
       "source": "/reference/cluster/:slug*",
-      "destination": "/reference/core/:slug*",
+      "destination": "/reference/enterprise/:slug*",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:slug(get-started)?",
+      "destination": "/reference/hardware",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:slug(installation|standalone)",
+      "destination": "/reference/enterprise/driver/install",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:slug(task-basics|timing)",
+      "destination": "/reference/hardware/tasks",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:vendor(ethercat|labjack|ni)/get-started",
+      "destination": "/reference/hardware/:vendor/configure-device",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/:vendor(http|modbus|opc-ua)/get-started",
+      "destination": "/reference/hardware/:vendor/connect-server",
+      "permanent": true
+    },
+    {
+      "source": "/reference/device-drivers/pagerduty/:slug*",
+      "destination": "/reference/alarms/pagerduty",
       "permanent": true
     },
     {
       "source": "/reference/device-drivers/:slug*",
-      "destination": "/reference/driver/:slug*",
+      "destination": "/reference/hardware/:slug*",
       "permanent": true
     }
   ]

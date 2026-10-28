@@ -73,21 +73,13 @@ class NoDevice(HardwareCase, ConsoleCase):
         )
 
     def configure_without_channels(self, ni_ai: AnalogRead) -> None:
-        """Configure without defining channels"""
+        """Deploy without channels; the form blocks it at the channel list."""
         ni_ai.deploy(expect=None)
 
-        msg_expected = "Failed to start task"
-        assert self.console.notifications.wait_for(msg_expected), (
-            f"No <{msg_expected}> notification appeared"
-        )
-        notifications = self.console.notifications.check()
-        matches = [n for n in notifications if n.get("message") == msg_expected]
-        messages = [n.get("message") for n in notifications]
-        assert matches, f"Notifications {messages} should include <{msg_expected}>"
-        desc = matches[0].get("description")
-        desc_expected = "No devices selected"
-        assert desc_expected == desc, (
-            f"Notification description is <{desc}>, should be <{desc_expected}>"
+        msg_expected = "At least one enabled channel is required"
+        msg = ni_ai.channel_list_help_text()
+        assert msg_expected == msg, (
+            f"Channel list error <{msg}> should be <{msg_expected}>"
         )
 
         # Deploy rejects the config before it writes or starts anything, so the task

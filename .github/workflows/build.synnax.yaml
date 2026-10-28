@@ -162,6 +162,9 @@ on:
 env:
   RELEASE_TAG: ${{ inputs.release_tag }}
 
+permissions:
+  contents: read
+
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -208,23 +211,23 @@ jobs:
           if [ -n "${{ inputs.version }}" ]; then
             # Extract pure version by removing any suffix (-rc, -branch, etc.)
             PURE_VERSION=$(echo "${{ inputs.version }}" | sed 's/-.*$//')
-            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
-            echo "PURE_VERSION=${PURE_VERSION}" >> $GITHUB_OUTPUT
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "PURE_VERSION=${PURE_VERSION}" >> "$GITHUB_OUTPUT"
           else
             # A dev build stays 0.0 so clients pair with it, and names the newest
             # stable Core release behind it.
             BASE=$(git tag --list 'core/v*' --merged HEAD \
               | sed -nE 's#^core/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
               | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
-            echo "PURE_VERSION=0.0.0" >> $GITHUB_OUTPUT
-            echo "VERSION=0.0.0-dev${BASE:+.$BASE}.${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=0.0.0" >> "$GITHUB_OUTPUT"
+            echo "VERSION=0.0.0-dev${BASE:+.$BASE}.${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate OS matrix
         id: set-matrix
         run: |
           MATRIX=$(.github/scripts/generate_os_matrix.sh "${{ inputs.windows }}" "${{ inputs.macos }}" "${{ inputs.ubuntu }}" "${{ inputs.sign_binaries }}")
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
       - name: Generate Console Tauri matrix
         id: set-console-tauri-matrix
@@ -241,7 +244,7 @@ jobs:
             [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
             OS_LIST="${OS_LIST}\"windows-latest\""
           fi
-          echo "matrix=[${OS_LIST}]" >> $GITHUB_OUTPUT
+          echo "matrix=[${OS_LIST}]" >> "$GITHUB_OUTPUT"
 
       - name: Verify build configuration
         run: |
@@ -271,13 +274,14 @@ jobs:
             TAGS="${TAGS:+$TAGS,}driver"
           fi
           if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi
-          echo "GO_BUILD_TAGS=$TAGS" >> $GITHUB_OUTPUT
+          echo "GO_BUILD_TAGS=$TAGS" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build (${{ matrix.os }})
     needs: setup
     if: needs.setup.outputs.matrix != '[]'
-    timeout-minutes: 75
+    # Hosted macOS builds the Driver with no Bazel cache. One build ran past 75 minutes.
+    timeout-minutes: ${{ matrix.os == 'macos-latest' && 120 || 75 }}
     permissions:
       actions: read
       contents: write
@@ -347,6 +351,7 @@ jobs:
         shell: bash
         run: |
           export MSYS_NO_PATHCONV=1
+          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
           scripts/run_bazel.sh build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             ${{ !inputs.debug && '--config=opt-windows' || '--output_groups=+pdb_file' }} //driver
 
@@ -372,6 +377,7 @@ jobs:
           # The HTTP/2 client in Go stalls Bazelisk downloads on the Mac build bots.
           GODEBUG: http2client=0
         run: |
+          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix //driver
 
@@ -399,6 +405,7 @@ jobs:
       - name: Build Driver (NI Linux Real-Time)
         if: inputs.driver && inputs.nilinuxrt && matrix.os == 'ubuntu-build-bot'
         run: |
+          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             --config=opt-unix --define=platform=nilinuxrt //driver
           mv bazel-bin/driver/driver bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-nilinuxrt
@@ -467,6 +474,7 @@ jobs:
           inputs.driver && env.DRIVER_REF_RUN_ID == '' && matrix.os ==
           'ubuntu-build-bot'
         run: |
+          # shellcheck disable=SC2086 # Splits the flag lists into arguments.
           bazel build $BAZEL_BUILD_FLAGS $BAZEL_REMOTE_CACHE_FLAGS \
             --config=opt-unix //driver
 
@@ -1023,7 +1031,7 @@ jobs:
         if: inputs.driver
         run: |
           mkdir -p core/pkg/driver/assets
-          DRIVER_FILE=$(ls ./driver-artifact/synnax-driver-* 2>/dev/null | head -1)
+          DRIVER_FILE=$(find ./driver-artifact -name 'synnax-driver-*' | head -1)
           if [ -n "$DRIVER_FILE" ]; then
             mv "$DRIVER_FILE" core/pkg/driver/assets/driver
           else
@@ -1082,7 +1090,7 @@ jobs:
         id: go-version
         run:
           echo "GO_VERSION=$(grep '^go ' core/go.mod | awk '{print $2}')" >>
-          $GITHUB_OUTPUT
+          "$GITHUB_OUTPUT"
 
       - name: Build and push Docker images
         uses: docker/build-push-action@v7
@@ -1117,6 +1125,9 @@ jobs:
   build-console-tauri:
     name: Build Console app
     needs: [setup]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
     if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:
@@ -1132,6 +1143,9 @@ jobs:
   build-desktop-tauri:
     name: Build Synnax Desktop
     needs: [setup, build, republish]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
     if: inputs.desktop && needs.setup.outputs.console_tauri_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:

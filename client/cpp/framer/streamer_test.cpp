@@ -14,7 +14,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::framer {
 void test_downsample(
@@ -22,6 +22,27 @@ void test_downsample(
     std::vector<int> expected,
     std::uint32_t downsample_factor
 );
+
+/// @brief writes the frame until the streamer reads one. The Core does not acknowledge
+/// an updated key set, so a write can reach the relay before the update does and be
+/// dropped. Closes the send side to unblock the read once the deadline expires.
+std::pair<x::telem::Frame, x::errors::Error>
+read_while_writing(Streamer &streamer, Writer &writer, const x::telem::Frame &frame) {
+    auto read = std::async(std::launch::async, [&] { return streamer.read(); });
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (read.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
+        if (auto err = writer.write(frame)) {
+            streamer.close_send();
+            read.wait();
+            return {x::telem::Frame(), err};
+        }
+        if (std::chrono::steady_clock::now() > deadline) {
+            streamer.close_send();
+            break;
+        }
+    }
+    return read.get();
+}
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
 TEST(StreamerTests, testStreamBasic) {
@@ -86,25 +107,60 @@ TEST(StreamerTests, testStreamSetChannels) {
         )
     );
 
-    // The Core does not acknowledge an updated key set, so a write can reach the relay
-    // before the update does and be dropped. Write until the streamer receives a frame,
-    // closing the send side to unblock the read once the deadline expires.
-    auto read = std::async(std::launch::async, [&] { return streamer.read(); });
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-    x::errors::Error write_err;
-    while (read.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready) {
-        write_err = writer.write(frame);
-        if (write_err || std::chrono::steady_clock::now() > deadline) {
-            streamer.close_send();
-            break;
-        }
-    }
-    ASSERT_NIL(write_err);
-    auto res_frame = ASSERT_NIL_P(read.get());
+    auto res_frame = ASSERT_NIL_P(read_while_writing(streamer, writer, frame));
 
     ASSERT_EQ(res_frame.size(), 1);
     ASSERT_EQ(res_frame.series->at(0).values<float>()[0], 1.0);
 
+    ASSERT_NIL(writer.close());
+    ASSERT_NIL(streamer.close());
+}
+
+/// @brief it should read frames after setting the channels the streamer already has.
+TEST(StreamerTests, StreamSetSameChannels) {
+    auto client = new_test_client();
+    auto data = create_virtual_channel(client);
+    auto streamer = ASSERT_NIL_P(
+        client.telem.open_streamer(synnax::framer::StreamerConfig{{data.key}})
+    );
+    ASSERT_NIL(streamer.set_channels({data.key}));
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            {data.key},
+            x::telem::TimeStamp::now(),
+            {x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"}
+        }
+    ));
+    const auto frame = x::telem::Frame(data.key, x::telem::Series(1.0f));
+    auto res_frame = ASSERT_NIL_P(read_while_writing(streamer, writer, frame));
+    ASSERT_EQ(res_frame.size(), 1);
+    ASSERT_EQ(res_frame.series->at(0).values<float>()[0], 1.0);
+    ASSERT_NIL(writer.close());
+    ASSERT_NIL(streamer.close());
+}
+
+/// @brief it should read frames of the channels set after an empty set of channels.
+TEST(StreamerTests, StreamSetChannelsAfterNone) {
+    auto client = new_test_client();
+    auto data = create_virtual_channel(client);
+    auto streamer = ASSERT_NIL_P(
+        client.telem.open_streamer(synnax::framer::StreamerConfig{{data.key}})
+    );
+    ASSERT_NIL(streamer.set_channels({}));
+    ASSERT_NIL(streamer.set_channels({data.key}));
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(
+        synnax::framer::WriterConfig{
+            {data.key},
+            x::telem::TimeStamp::now(),
+            {x::control::AUTHORITY_ABSOLUTE},
+            x::control::Subject{"test_writer"}
+        }
+    ));
+    const auto frame = x::telem::Frame(data.key, x::telem::Series(1.0f));
+    auto res_frame = ASSERT_NIL_P(read_while_writing(streamer, writer, frame));
+    ASSERT_EQ(res_frame.size(), 1);
+    ASSERT_EQ(res_frame.series->at(0).values<float>()[0], 1.0);
     ASSERT_NIL(writer.close());
     ASSERT_NIL(streamer.close());
 }

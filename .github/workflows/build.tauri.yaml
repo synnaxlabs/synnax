@@ -45,9 +45,15 @@ on:
         type: string
         default: stable
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
+    # gh release upload adds the bundles to the draft release.
+    permissions:
+      contents: write
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -129,8 +135,8 @@ jobs:
             '$base | .version = $version | .plugins.updater.endpoints = [$endpoint]
               | .build.beforeBuildCommand = $build' \
             > src-tauri/release.tauri.conf.json
-          echo "release=${RELEASE}" >> $GITHUB_OUTPUT
-          echo "app_version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "release=${RELEASE}" >> "$GITHUB_OUTPUT"
+          echo "app_version=${APP_VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v2

@@ -16,7 +16,7 @@ from console.layout import LayoutClient
 from console.multiedit import Colors
 from console.page import ConsolePage
 
-DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
+_DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 
 
 class Table(ConsolePage):
@@ -207,14 +207,14 @@ class Table(ConsolePage):
 
     def get_row_count(self) -> int:
         """Get the number of data rows in the table (excludes the column resizer row)."""
-        self.page.locator(DATA_ROW_SELECTOR).first.wait_for(
+        self.page.locator(_DATA_ROW_SELECTOR).first.wait_for(
             state="visible", timeout=5000
         )
-        return self.page.locator(DATA_ROW_SELECTOR).count()
+        return self.page.locator(_DATA_ROW_SELECTOR).count()
 
     def get_column_count(self) -> int:
         """Get the number of data columns in the table (excludes the row resizer cell)."""
-        data_row = self.page.locator(DATA_ROW_SELECTOR).first
+        data_row = self.page.locator(_DATA_ROW_SELECTOR).first
         data_row.wait_for(state="visible", timeout=5000)
         return data_row.locator(".pluto-table__cell").count()
 

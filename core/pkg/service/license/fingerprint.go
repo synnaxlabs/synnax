@@ -12,7 +12,9 @@ package license
 import (
 	"encoding/hex"
 	"net"
+	"net/url"
 	"slices"
+	"strings"
 
 	"golang.org/x/crypto/argon2"
 )
@@ -22,6 +24,9 @@ const fingerprintScheme = 1
 
 // fingerprintSalt separates these hashes from any other hash of a hardware address.
 const fingerprintSalt = "synnax-license-fingerprint"
+
+// activateURL is the Synnax portal page that issues a license key for a machine.
+const activateURL = "https://portal.synnaxlabs.com/licenses/activate"
 
 // readFingerprint hashes the hardware addresses of the machine's interfaces, skipping
 // loopback and point-to-point interfaces and those without an address. The result is
@@ -69,4 +74,14 @@ func (f Fingerprint) Covers(scheme uint8, hashes []string) bool {
 		}
 	}
 	return false
+}
+
+// ActivationURL returns the portal page that activates the machine with this
+// fingerprint, suggesting name as the machine's name when name is not empty.
+func (f Fingerprint) ActivationURL(name string) string {
+	q := url.Values{"fingerprint": {strings.Join(f, ",")}}
+	if name != "" {
+		q.Set("name", name)
+	}
+	return activateURL + "?" + q.Encode()
 }

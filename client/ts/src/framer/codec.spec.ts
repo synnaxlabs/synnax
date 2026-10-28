@@ -14,13 +14,7 @@ import { describe, expect, it } from "vitest";
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { framer } from "@/framer";
-import {
-  Codec,
-  HIGH_PERF_SPECIAL_CHAR,
-  LOW_PERF_SPECIAL_CHAR,
-  WSIteratorCodec,
-  WSWriterCodec,
-} from "@/framer/codec";
+import { Codec, WSIteratorCodec, WSWriterCodec } from "@/framer/codec";
 import { Frame } from "@/framer/frame";
 import { type IteratorResponse } from "@/framer/iterator";
 import {
@@ -29,6 +23,10 @@ import {
   WriterCommand,
 } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
+
+// Wire bytes the Core uses to mark JSON and binary WebSocket messages.
+const LOW_PERF_SPECIAL_CHAR = 254;
+const HIGH_PERF_SPECIAL_CHAR = 255;
 
 describe("encoder", () => {
   describe("base codec", () => {
@@ -447,6 +445,21 @@ describe("encoder", () => {
       decoded = new Frame(decoder.decode(encoded));
       expect(decoded.keys[0]).toEqual(2);
       expect(decoded.series[0].data).toEqual(fr2.series[0].data);
+    });
+
+    it("should reject a frame encoded with keys older than the last frame decoded", () => {
+      const encoder = new Codec();
+      const decoder = new Codec();
+      encoder.update([1], [DataType.INT32]);
+      decoder.update([1], [DataType.INT32]);
+      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const stale = encoder.encode(fr);
+      encoder.update([1, 2], [DataType.INT32, DataType.INT64]);
+      decoder.update([1, 2], [DataType.INT32, DataType.INT64]);
+      decoder.decode(encoder.encode(fr));
+      expect(() => decoder.decode(stale)).toThrow(
+        new ValidationError("remote sent invalid sequence number 1"),
+      );
     });
   });
 

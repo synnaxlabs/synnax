@@ -13,6 +13,7 @@ export type { Role } from "@/access/role/types.gen";
 export { actions } from "@/actions";
 export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
+export { auth } from "@/auth";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export {
@@ -28,6 +29,7 @@ export {
   AccessDeniedError,
   AuthError,
   ContiguityError,
+  ControlError,
   DisconnectedError,
   ExpiredLicenseError,
   InvalidLicenseError,
@@ -38,9 +40,12 @@ export {
   MissingLicenseError,
   MultipleFoundError,
   NotFoundError,
+  PathError,
   QueryError,
   RouteError,
+  UnauthorizedError,
   UnexpectedError,
+  UnsupportedError,
   ValidationError,
 } from "@/errors";
 export { ethercat } from "@/ethercat";
