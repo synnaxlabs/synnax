@@ -238,7 +238,7 @@ var _ = Describe("Auth", func() {
 		It("Should round-trip an OIDC proof", func(ctx SpecContext) {
 			t := create.RequestTranslator
 			msg := auth.SessionCreateRequest{Proof: svcauth.Proof{
-				Variant: svcauth.OidcProof{
+				Variant: svcauth.OIDCProof{
 					OIDCCredentials: svcauth.OIDCCredentials{
 						Provider:    "idp",
 						Code:        "code",
@@ -248,7 +248,7 @@ var _ = Describe("Auth", func() {
 				},
 			}}
 			fwd := MustSucceed(t.Forward(ctx, msg))
-			Expect(fwd.Proof.Method).To(Equal(string(svcauth.MethodOidc)))
+			Expect(fwd.Proof.Method).To(Equal(string(svcauth.MethodOIDC)))
 			Expect(fwd.Proof.RedirectUri).To(Equal("http://127.0.0.1:4242/callback"))
 			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
 		})

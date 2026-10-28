@@ -53,7 +53,7 @@ func (s *Service) LinkOIDC(
 	tx gorp.Tx,
 	req OIDCLinkRequest,
 ) (OIDCLinkResponse, error) {
-	if err := s.auth.Accepts(auth.MethodOidc); err != nil {
+	if err := s.auth.Accepts(auth.MethodOIDC); err != nil {
 		return OIDCLinkResponse{}, err
 	}
 	caller := GetSubject(ctx)

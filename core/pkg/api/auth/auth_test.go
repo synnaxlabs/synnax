@@ -113,7 +113,7 @@ var _ = Describe("Methods", func() {
 		Expect(apiSvc.Methods(ctx, struct{}{})).To(Equal(apiauth.MethodsResponse{
 			Methods: []auth.Method{
 				auth.MethodAPIKey,
-				auth.MethodOidc,
+				auth.MethodOIDC,
 				auth.MethodPassword,
 			},
 			Providers: []apiauth.OIDCLogin{{
@@ -132,7 +132,7 @@ var _ = Describe("Disabled methods", func() {
 		authenticators := map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
 			auth.MethodAPIKey:   apiKeySvc,
-			auth.MethodOidc:     oidcSvc,
+			auth.MethodOIDC:     oidcSvc,
 		}
 		delete(authenticators, method)
 		svc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
@@ -159,14 +159,14 @@ var _ = Describe("Disabled methods", func() {
 	})
 	It("Should leave a disabled method out of the list", func(ctx SpecContext) {
 		Expect(disabled(ctx, auth.MethodPassword).Methods(ctx, struct{}{})).
-			To(HaveField("Methods", []auth.Method{auth.MethodAPIKey, auth.MethodOidc}))
+			To(HaveField("Methods", []auth.Method{auth.MethodAPIKey, auth.MethodOIDC}))
 	})
 	It("Should list no providers while oidc is off", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodOidc).Methods(ctx, struct{}{})).
+		Expect(disabled(ctx, auth.MethodOIDC).Methods(ctx, struct{}{})).
 			To(HaveField("Providers", BeEmpty()))
 	})
 	It("Should refuse to link a provider account", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodOidc).LinkOIDC(
+		Expect(disabled(ctx, auth.MethodOIDC).LinkOIDC(
 			requestCtx(ctx),
 			nil,
 			apiauth.OIDCLinkRequest{},

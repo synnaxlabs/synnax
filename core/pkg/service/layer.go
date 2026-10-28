@@ -521,11 +521,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		accepted = []auth.Method{
 			auth.MethodPassword,
 			auth.MethodAPIKey,
-			auth.MethodOidc,
+			auth.MethodOIDC,
 		}
 	}
 	if len(cfg.OIDCProviders) == 0 {
-		accepted = lo.Without(accepted, auth.MethodOidc)
+		accepted = lo.Without(accepted, auth.MethodOIDC)
 	}
 	if len(accepted) == 0 {
 		return nil, errors.Wrap(
@@ -539,7 +539,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: l.Password,
 			auth.MethodAPIKey:   l.APIKey,
-			auth.MethodOidc:     l.OIDC,
+			auth.MethodOIDC:     l.OIDC,
 		},
 		Accepted:    accepted,
 		IdleTimeout: cfg.SessionIdleTimeout,

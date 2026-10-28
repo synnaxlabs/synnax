@@ -106,7 +106,7 @@ func AddFlags(cmd *cobra.Command) {
 		[]string{
 			string(auth.MethodPassword),
 			string(auth.MethodAPIKey),
-			string(auth.MethodOidc),
+			string(auth.MethodOIDC),
 		},
 		"Login methods the Core accepts (password, api_key, oidc)",
 	)

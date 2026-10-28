@@ -232,7 +232,7 @@ type MethodsResponse struct {
 // Methods returns the login methods the Core accepts. It needs no session.
 func (s *Service) Methods(ctx context.Context, _ struct{}) (MethodsResponse, error) {
 	res := MethodsResponse{Methods: s.auth.Methods(), Providers: []OIDCLogin{}}
-	if s.auth.Accepts(auth.MethodOidc) != nil {
+	if s.auth.Accepts(auth.MethodOIDC) != nil {
 		return res, nil
 	}
 	for _, l := range s.oidc.Logins(ctx) {

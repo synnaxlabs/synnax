@@ -88,7 +88,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
 			auth.MethodAPIKey:   apiKeySvc,
-			auth.MethodOidc:     oidcSvc,
+			auth.MethodOIDC:     oidcSvc,
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
