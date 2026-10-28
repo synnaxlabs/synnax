@@ -856,20 +856,32 @@ describe("list", () => {
       );
     });
 
+    interface Answer {
+      resolve: (page: Page) => void;
+      reject: (error: Error) => void;
+    }
+
     /** A retrieve that answers each page, keyed by `searchTerm:offset`, on demand. */
     const answerOnDemand = () => {
-      const answers = new Map<string, (page: Page) => void>();
+      const answers = new Map<string, Answer>();
       const retrieve = vi.fn(
         ({ query: { searchTerm, offset } }: { query: List.PagerParams }) =>
-          new Promise<Page>((resolve) =>
-            answers.set(`${searchTerm}:${offset}`, resolve),
+          new Promise<Page>((resolve, reject) =>
+            answers.set(`${searchTerm}:${offset}`, { resolve, reject }),
           ),
       );
-      const answer = async (key: string, page: Page) => {
+      const settle = async (key: string, settle: (answer: Answer) => void) => {
         await waitFor(() => expect(answers.has(key)).toBe(true));
-        await act(async () => answers.get(key)?.(page));
+        await act(async () => {
+          const answer = answers.get(key);
+          if (answer != null) settle(answer);
+        });
       };
-      return { retrieve, answer };
+      const answer = (key: string, page: Page) =>
+        settle(key, ({ resolve }) => resolve(page));
+      const fail = (key: string) =>
+        settle(key, ({ reject }) => reject(new Error("unreachable")));
+      return { retrieve, answer, fail };
     };
 
     it("should keep the first page of a search when an append starts while it loads", async () => {
@@ -899,6 +911,20 @@ describe("list", () => {
       await answer("pu:0", [{ key: 2 }]);
       await answer("pu:20", [{ key: 3 }]);
       await waitFor(() => expect(result.current.data).toEqual([2, 3]));
+    });
+
+    it("should not fetch more after the search it waits for fails", async () => {
+      const { retrieve, fail } = answerOnDemand();
+      const { result } = renderPagedList(retrieve);
+      act(() => {
+        result.current.search("p");
+        result.current.fetchMore();
+      });
+      await fail("p:0");
+      await expectAlways(() => {
+        expect(retrieve).toHaveBeenCalledOnce();
+        expect(result.current.variant).toEqual("error");
+      });
     });
 
     it("should keep every query change made within the debounce", async () => {
@@ -2133,6 +2159,32 @@ describe("list", () => {
 
       act(() => domain.push("b", [{ key: "after", name: "After" }]));
       await waitFor(() => expect(result.current.data).toContain("after"));
+    });
+
+    it("should fetch more through the new client when it changes while a search loads", async () => {
+      const { wrapper, reconnect } = createReconnectSetup();
+      const answers: { client: string; resolve: (docs: Doc[]) => void }[] = [];
+      const useList = Flux.createList<{ offset?: number }, string, Doc>({
+        name: "Doc",
+        retrieve: ({ client }) =>
+          new Promise((resolve) => answers.push({ client: client.key, resolve })),
+        retrieveByKey: async ({ key }) => ({ key, name: key }),
+      });
+      const { result, rerender } = renderHook(() => useList(), { wrapper });
+      act(() => {
+        void result.current.retrieveAsync({ offset: 0 });
+        void result.current.retrieveAsync((p) => ({ ...p, offset: 1 }), {
+          mode: "append",
+        });
+      });
+      reconnect();
+      rerender();
+      await waitFor(() => expect(answers).toHaveLength(2));
+      await act(async () =>
+        answers.forEach(({ resolve }) => resolve([{ key: "k", name: "k" }])),
+      );
+      await waitFor(() => expect(answers).toHaveLength(3));
+      expect(answers.map(({ client }) => client)).toEqual(["a", "b", "b"]);
     });
 
     it("should re-subscribe item lookups without running a list retrieve when no query was issued", async () => {

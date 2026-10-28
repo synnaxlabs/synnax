@@ -63,7 +63,10 @@ export type UseListReturn<
     query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
   ) => void;
-  /** Retrieves now. An append waits until a replace that is still loading answers. */
+  /**
+   * Retrieves now. An append waits for the newest replace to answer, and does nothing
+   * when that replace fails.
+   */
   retrieveAsync: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
@@ -218,7 +221,8 @@ export const createList = <
     );
     const hasMoreRef = useRef(true);
     const pendingRef = useRef<PendingRetrieves<Query> | null>(null);
-    const activeReplaceRef = useRef<Promise<void> | null>(null);
+    /** The newest replace. It resolves to whether its answer reached the list. */
+    const latestReplaceRef = useInitializerRef(() => Promise.resolve(true));
 
     const recomputeKeys = () => {
       const seen = new Set<Key>();
@@ -350,15 +354,12 @@ export const createList = <
       pagesRef.current.push(page);
     };
 
-    const retrieveAsync = async (
+    /** @returns whether the answer reached the list. */
+    const retrievePage = async (
       paramsSetter: state.SetArg<Query, Query | {}>,
-      options: AsyncListOptions = {},
-    ) => {
+      options: AsyncListOptions,
+    ): Promise<boolean> => {
       const { signal, mode = "replace" } = options;
-      // An append pages from the answer to the replace before it. Started earlier, it
-      // would become the newest retrieve and discard that answer.
-      if (mode === "append")
-        while (activeReplaceRef.current != null) await activeReplaceRef.current;
 
       const query = normalized(
         state.executeSetter(paramsSetter, queryRef.current ?? {}),
@@ -366,22 +367,26 @@ export const createList = <
       queryRef.current = query;
 
       // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
-      const apply = async (): Promise<void> => {
-        if (client == null)
-          return setResult(nullClientResult<Key[]>(`retrieve ${name}`));
+      const apply = async (): Promise<boolean> => {
+        if (client == null) {
+          setResult(nullClientResult<Key[]>(`retrieve ${name}`));
+          return false;
+        }
         setResult((p) => loadingResult(`retrieving ${name}`, p.data));
 
         // If we're in replace mode, we're 'resetting' the infinite scroll position
         // of the query, so we start from the top again.
         if (mode === "replace") hasMoreRef.current = true;
-        else if (mode === "append" && !hasMoreRef.current)
-          return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
+        else if (mode === "append" && !hasMoreRef.current) {
+          setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
+          return true;
+        }
 
         let value = await retrieve({
           client,
           query,
         });
-        if (signal?.aborted || queryRef.current !== query) return;
+        if (signal?.aborted || queryRef.current !== query) return false;
         value = value.filter(filterRef.current);
         if (sortRef.current != null) value = [...value].sort(sortRef.current);
 
@@ -401,22 +406,39 @@ export const createList = <
           resultRef.current.data != null &&
           compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
         )
-          return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
+          setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
+        else setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
+        return true;
+      };
+      try {
+        return await apply();
+      } catch (error) {
+        if (signal?.aborted || queryRef.current !== query) return false;
+        setResult(errorResult(`retrieve ${name}`, error));
+        return false;
+      }
+    };
+    const retrievePageRef = useSyncedRef(retrievePage);
 
-        return setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
-      };
-      const run = async (): Promise<void> => {
-        try {
-          await apply();
-        } catch (error) {
-          if (signal?.aborted || queryRef.current !== query) return;
-          setResult(errorResult(`retrieve ${name}`, error));
-        }
-      };
-      const running = run();
-      if (mode === "replace") activeReplaceRef.current = running;
-      await running;
-      if (activeReplaceRef.current === running) activeReplaceRef.current = null;
+    const retrieveAsync = async (
+      paramsSetter: state.SetArg<Query, Query | {}>,
+      options: AsyncListOptions = {},
+    ): Promise<void> => {
+      if (options.mode !== "append") {
+        latestReplaceRef.current = retrievePage(paramsSetter, options);
+        await latestReplaceRef.current;
+        return;
+      }
+      // An append pages from the answer to the newest replace. Started earlier, it
+      // would become the newest retrieve and discard that answer.
+      let replace: Promise<boolean>;
+      let answered: boolean;
+      do {
+        replace = latestReplaceRef.current;
+        answered = await replace;
+      } while (replace !== latestReplaceRef.current);
+      // The wait can span a client change, so the append runs in the newest render.
+      if (answered) await retrievePageRef.current(paramsSetter, options);
     };
 
     /**
