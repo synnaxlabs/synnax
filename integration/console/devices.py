@@ -232,9 +232,9 @@ class DevicesClient(ResourceClient):
             status_icon = item.locator("svg.pluto-rack__heartbeat")
         status_icon.wait_for(state="visible", timeout=2000)
         status_icon.hover()
-        # A tooltip from a previously hovered item lingers with pluto--closing
+        # A tooltip from a previously hovered item lingers with lyra--closing
         # while it fades out, so exclude it to keep the lookup unambiguous.
-        tooltip = self.layout.page.locator(".pluto-tooltip:not(.pluto--closing)")
+        tooltip = self.layout.page.locator(".lyra-tooltip:not(.lyra--closing)")
         tooltip.wait_for(state="visible", timeout=5000)
         message = tooltip.inner_text().strip()
         if is_device:
@@ -348,7 +348,7 @@ class DevicesClient(ResourceClient):
     def get_icon(self, name: str) -> str | None:
         """Get the icon type rendered for a device in the tree.
 
-        The icon's class list contains ``pluto-icon--logo-{make}``.
+        The icon's class list contains ``lyra-icon--logo-{make}``.
 
         :param name: Name of the device.
         :returns: The make slug (e.g. ``"ni"``, ``"labjack"``), or ``None``
@@ -356,12 +356,12 @@ class DevicesClient(ResourceClient):
         """
         device_item = self.get(name)
         icon = device_item.locator(
-            "svg.pluto-icon:not(.pluto-tree__expansion-indicator)"
+            "svg.lyra-icon:not(.lyra-tree__expansion-indicator)"
         ).first
         if icon.count() == 0:
             return None
         classes = icon.get_attribute("class") or ""
-        prefix = "pluto-icon--logo-"
+        prefix = "lyra-icon--logo-"
         idx = classes.find(prefix)
         if idx == -1:
             return None
@@ -401,8 +401,8 @@ class DevicesClient(ResourceClient):
         """Open the connect picker from the "+" action of the toolbar."""
         self.show_toolbar()
         self.layout.page.locator(
-            ".console-nav__drawer.pluto--visible "
-            ".console-toolbar__action:has(.pluto-icon--add)"
+            ".console-nav__drawer.lyra--visible "
+            ".console-toolbar__action:has(.lyra-icon--add)"
         ).click(timeout=5000)
         self.modal.wait_for(state="visible", timeout=5000)
 
@@ -414,7 +414,7 @@ class DevicesClient(ResourceClient):
 
     def pick_integration(self, title: str) -> None:
         """Pick an integration, such as "NI hardware", in the open connect picker."""
-        self.modal.locator(".pluto-pane__button").filter(
+        self.modal.locator(".lyra-pane__button").filter(
             has_text=re.compile(f"^{re.escape(title)}")
         ).click(timeout=5000)
 
@@ -429,7 +429,7 @@ class DevicesClient(ResourceClient):
 
     def found(self, name: str) -> Locator:
         """The item of a device in the open find view."""
-        return self.modal.locator(".pluto-pane__item").filter(has_text=name)
+        return self.modal.locator(".lyra-pane__item").filter(has_text=name)
 
     def configure_found(
         self, name: str, *, device_name: str, identifier: str, action: str = "Save"

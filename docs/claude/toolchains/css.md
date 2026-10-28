@@ -7,12 +7,15 @@ the check that enforces it, or says that review enforces it.
 
 - A component imports its own stylesheet from the file next to it. A module entry never
   imports a stylesheet; the build rejects one.
-- Class names are BEM with a package prefix: a block (`pluto-btn`), an element
-  (`pluto-btn__icon`), and a modifier (`pluto-btn--outlined`, or a shared
-  `pluto--small`). Lyra and Pluto use `pluto`, and the Console uses `console`. TSX
-  builds them with `CSS.B`, `CSS.BE`, `CSS.BM`, `CSS.BEM`, and `CSS.M`.
+- Class names are BEM with a package prefix: a block (`lyra-btn`), an element
+  (`lyra-btn__icon`), and a modifier (`lyra-btn--outlined`, or a shared `lyra--small`).
+  Lyra uses `lyra`, Pluto uses `pluto`, and the Console uses `console`. TSX builds them
+  with `CSS.B`, `CSS.BE`, `CSS.BM`, `CSS.BEM`, and `CSS.M`. A Lyra helper such as
+  `CSS.selected` emits a Lyra modifier in every package.
+- Custom properties keep the `pluto` prefix in every package (`--pluto-gray-l8`).
 - `selector-class-pattern` rejects a name that breaks the pattern, and
-  `synnax/no-unknown-class` rejects a `pluto-` or `console-` class that no code emits.
+  `synnax/no-unknown-class` rejects a `lyra-`, `pluto-`, or `console-` class that no
+  code emits.
 - Style another package's markup through your own class, passed as `className`, and the
   custom properties that package documents. `synnax/no-foreign-class` rejects a class
   that only another package emits.

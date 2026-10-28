@@ -10,7 +10,7 @@
  */
 
 /* A button's display overrides the user agent's rule for the hidden attribute. */
-.pluto-list__item[hidden] {
+.lyra-list__item[hidden] {
     display: none;
 }
 
@@ -18,7 +18,7 @@
    inside the label, which stays a block for its fade. The content renders through a
    portal, so React bubbles its clicks to the item instead of the trigger. Pointer
    events pass through it to the trigger. */
-.pluto-select__fixed-label {
+.lyra-select__fixed-label {
     display: inline-flex;
     align-items: center;
     gap: 1rem;

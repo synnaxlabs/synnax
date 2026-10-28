@@ -60,8 +60,11 @@ export interface ExtensionProps
   /** Holds onClick until the button has been held this long, filling a progress bar
    * meanwhile. Use it to guard a destructive action. */
   onClickDelay?: number | TimeSpan;
-  /** Marks the button as a hidden action its pluto--reveals container shows. */
+  /** Marks the button as a hidden action its lyra--reveals container shows. */
   reveal?: boolean;
+  /** Drops the fill, so the icon alone shows hover and press. Use it for an action
+   * inside another control, such as a tab's close button. */
+  glyph?: boolean;
 }
 
 /** The props for the {@link Button} component. */
@@ -128,6 +131,7 @@ export const Button = <E extends ElementType = "button">(
     defaultEl = "button",
     el,
     reveal,
+    glyph,
     propagateClick = false,
     draggable,
     href,
@@ -245,6 +249,7 @@ export const Button = <E extends ElementType = "button">(
         preview === true && CSS.BM(MODULE_CLASS, "preview"),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         reveal === true && CSS.M("reveal"),
+        glyph === true && CSS.BM(MODULE_CLASS, "glyph"),
         hold.pressed && CSS.M("pressed"),
         className,
       )}

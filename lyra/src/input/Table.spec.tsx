@@ -74,8 +74,8 @@ describe("Input.Table", () => {
 
   it("should render every cell as a shadow input", () => {
     renderTable();
-    const chassis = cell("Raw", "1").closest(".pluto-input");
-    expect(chassis?.classList.contains("pluto--shadow")).toBe(true);
+    const chassis = cell("Raw", "1").closest(".lyra-input");
+    expect(chassis?.classList.contains("lyra--shadow")).toBe(true);
   });
 
   it("should render no row header until a labeler asks for one", () => {

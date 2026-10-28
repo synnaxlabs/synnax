@@ -119,6 +119,19 @@ describe("Button", () => {
     expect(computed(el, "outline-style")).toBe("solid");
   });
 
+  it("should paint a glyph button's icon from the glyph colors", async () => {
+    const { getByRole } = await renderThemed(
+      <Button.Button glyph variant="text" aria-label="close">
+        <Icon.Close />
+      </Button.Button>,
+    );
+    const el = getByRole("button").element();
+    const icon = el.querySelector("svg")!;
+    expect(computed(icon, "fill")).toBe(resolve("var(--pluto-gray-l9)"));
+    await userEvent.hover(el);
+    expect(computed(icon, "fill")).toBe(resolve("var(--pluto-gray-l11)"));
+  });
+
   it("should rise above its packed neighbor while hovered", async () => {
     const { getByRole } = await renderThemed(
       <Flex.Box x pack>

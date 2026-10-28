@@ -26,7 +26,10 @@ export const PACKAGES = [
 export type Package = (typeof PACKAGES)[number];
 
 /** Matches a class that a package's `CSS` helpers build. */
-export const BEM_CLASS = /^(?:pluto|console)(?:-|--|__)/;
+export const BEM_CLASS = /^(?:lyra|pluto|console)(?:-|--|__)/;
+
+// Custom properties keep the prefix of the theme tokens in every package.
+const PROPERTY_PREFIX = "pluto";
 
 /** The class names and custom properties that the code of every package emits. */
 export interface Source {
@@ -58,9 +61,12 @@ const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", ".astro", ".turbo"]
 
 const HELPER = /(?<![\w.])(?:CSS\.)?(BEM|BE|BM|B|E|M|variable)\(/g;
 const QUALIFIED_HELPER = /\bCSS\.(BEM|BE|BM|B|E|M|variable)\(/g;
-const CLASS_LITERAL = /(?<![\w-])((?:pluto|console)(?:-|--|__)[a-z0-9][\w-]*)(\$\{)?/g;
+const CLASS_LITERAL =
+  /(?<![\w-])((?:lyra|pluto|console)(?:-|--|__)[a-z0-9][\w-]*)(\$\{)?/g;
 const PROPERTY_LITERAL = /["'`](--[a-z][\w-]*)(\$\{)?/g;
 const STRING_LITERAL = /(["'`])([\w-]+)\1/g;
+const NAMED_EXPORT = /^\s*export (?:const|function) (\w+)/gm;
+const MEMBER = /\bCSS\.(\w+)/g;
 const PROPERTY_DECLARATION = /(?<![\w-])(--[\w-]+)\s*:/g;
 const PROPERTY_REGISTRATION = /@property\s+(--[\w-]+)/g;
 const DEFINE_VARS = /define:vars=\{(\{[^}]*\}|\w+)\}/g;
@@ -192,7 +198,12 @@ const helperName = (
       break;
     }
     case "variable":
-      name = join([literal("--"), literal(prefix), literal("-"), join(parts, "-")]);
+      name = join([
+        literal("--"),
+        literal(PROPERTY_PREFIX),
+        literal("-"),
+        join(parts, "-"),
+      ]);
       break;
     default:
       throw new Error(`unknown BEM helper ${helper}`);
@@ -203,7 +214,8 @@ const helperName = (
 /** @returns the prefix of the `CSS` helpers that a file of the package calls. */
 const helperPrefix = (pkg: Package, text: string): string | undefined => {
   if (pkg === "console" && text.includes('from "@/platform/css"')) return "console";
-  if (/\bCSS\b/.test(text)) return "pluto";
+  if (pkg === "pluto" && text.includes('from "@/css"')) return "pluto";
+  if (/\bCSS\b/.test(text)) return "lyra";
   return undefined;
 };
 
@@ -232,20 +244,50 @@ interface Emitted {
   literals: Set<string>;
 }
 
-const scanCode = (pkg: Package, text: string, out: Emitted): void => {
+const scanHelpers = (
+  prefix: string,
+  calls: RegExp,
+  text: string,
+  out: Emitted,
+): void => {
+  for (const m of text.matchAll(calls)) {
+    const args = span(text, m.index + m[0].length - 1);
+    if (args == null) continue;
+    const name = helperName(prefix, m[1], splitTopLevel(args));
+    if (name == null) continue;
+    if (m[1] === "variable") out.properties.push(name);
+    else out.classes.push(name);
+  }
+};
+
+/**
+ * @returns the classes that each named export of a file that calls newBEM builds, such
+ * as Lyra's `CSS.selected`. A file that calls the export emits those classes too.
+ */
+const namedHelpers = (text: string): Array<[string, Name[]]> => {
+  const prefix = ownPrefix(text);
+  if (prefix == null) return [];
+  const exports = [...text.matchAll(NAMED_EXPORT)];
+  return exports.map((m, i) => {
+    const out: Emitted = { classes: [], properties: [], literals: new Set() };
+    scanHelpers(prefix, HELPER, text.slice(m.index, exports[i + 1]?.index), out);
+    return [m[1], out.classes];
+  });
+};
+
+const scanCode = (
+  pkg: Package,
+  text: string,
+  helpers: Map<string, Name[]>,
+  out: Emitted,
+): void => {
   const own = ownPrefix(text);
   const prefix = own ?? helperPrefix(pkg, text);
   if (prefix != null)
-    for (const m of text.matchAll(own != null ? HELPER : QUALIFIED_HELPER)) {
-      const args = span(text, m.index + m[0].length - 1);
-      if (args == null) continue;
-      const name = helperName(prefix, m[1], splitTopLevel(args));
-      if (name == null) continue;
-      if (m[1] === "variable") out.properties.push(name);
-      else out.classes.push(name);
-    }
+    scanHelpers(prefix, own != null ? HELPER : QUALIFIED_HELPER, text, out);
+  for (const m of text.matchAll(MEMBER)) out.classes.push(...(helpers.get(m[1]) ?? []));
   for (const m of text.matchAll(CLASS_LITERAL)) {
-    // A literal that ends in a separator, such as "pluto-theme-", names a family.
+    // A literal that ends in a separator, such as "lyra-theme-", names a family.
     const family = m[2] == null && /[-_]$/.test(m[1]);
     const tail = m[2] != null ? DYNAMIC : family ? "[\\w-]+" : "";
     out.classes.push(toName(escape(m[1]) + tail, tail === ""));
@@ -266,13 +308,39 @@ const scanStyle = (text: string, out: Emitted): void => {
   }
 };
 
-const files = (dir: string): string[] => {
+const walk = (dir: string): string[] => {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     if (SKIPPED_DIRECTORIES.has(entry.name)) return [];
     const full = path.join(dir, entry.name);
-    return entry.isDirectory() ? files(full) : [full];
+    return entry.isDirectory() ? walk(full) : [full];
   });
+};
+
+/** A file of a package, with its text as code, as a stylesheet, or as both. */
+interface File {
+  pkg: Package;
+  code?: string;
+  style?: string;
+}
+
+const packageFiles = (root: string, pkg: Package): File[] => {
+  const dir = path.join(root, pkg);
+  return [...walk(path.join(dir, "src")), path.join(dir, "index.html")].flatMap(
+    (file) => {
+      const isCode = CODE.test(file) && !TEST.test(file);
+      const isStyle = STYLE.test(file);
+      if ((!isCode && !isStyle) || !fs.existsSync(file)) return [];
+      const text = fs.readFileSync(file, "utf-8");
+      return [
+        {
+          pkg,
+          code: isCode ? text.replace(STYLE_BLOCK, "") : undefined,
+          style: isStyle ? text : undefined,
+        },
+      ];
+    },
+  );
 };
 
 /** The names one package emits. */
@@ -291,23 +359,20 @@ const toNames = (names: Name[]): Names => ({
  * files at the time of the call.
  */
 export const read = (root: string): Source => {
+  const files = PACKAGES.flatMap((pkg) => packageFiles(root, pkg));
+  const helpers = new Map(
+    files.flatMap((f) => (f.code != null ? namedHelpers(f.code) : [])),
+  );
   const classes = new Map<Package, Names>();
   const properties: Name[] = [];
   // Values cross packages: Lyra's Field builds a class from a path the Console passes.
   const literals = new Set<string>();
   for (const pkg of PACKAGES) {
-    const dir = path.join(root, pkg);
     const emitted: Emitted = { classes: [], properties, literals };
-    for (const file of [
-      ...files(path.join(dir, "src")),
-      path.join(dir, "index.html"),
-    ]) {
-      const isCode = CODE.test(file) && !TEST.test(file);
-      const isStyle = STYLE.test(file);
-      if ((!isCode && !isStyle) || !fs.existsSync(file)) continue;
-      const text = fs.readFileSync(file, "utf-8");
-      if (isCode) scanCode(pkg, text.replace(STYLE_BLOCK, ""), emitted);
-      if (isStyle) scanStyle(text, emitted);
+    for (const file of files) {
+      if (file.pkg !== pkg) continue;
+      if (file.code != null) scanCode(pkg, file.code, helpers, emitted);
+      if (file.style != null) scanStyle(file.style, emitted);
     }
     classes.set(pkg, toNames(emitted.classes));
   }

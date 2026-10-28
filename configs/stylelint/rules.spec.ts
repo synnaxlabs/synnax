@@ -59,13 +59,13 @@ describe("plugins", () => {
     const RULE = "synnax/no-unknown-class";
 
     it("should report a class that no code emits", async () => {
-      expect(await lint("lyra/src/a.css", ".pluto-btnn { color: red; }", RULE)).toEqual(
-        [`Unexpected class "pluto-btnn" that no code emits (${RULE})`],
-      );
+      expect(await lint("lyra/src/a.css", ".lyra-btnn { color: red; }", RULE)).toEqual([
+        `Unexpected class "lyra-btnn" that no code emits (${RULE})`,
+      ]);
     });
 
     it("should accept an emitted class and a class outside the BEM prefixes", async () => {
-      const code = ".pluto-btn .header { color: red; }";
+      const code = ".lyra-btn .header { color: red; }";
       expect(await lint("lyra/src/a.css", code, RULE)).toEqual([]);
     });
   });
@@ -86,25 +86,21 @@ describe("plugins", () => {
     const FILE = "console/src/nav/Nav.css";
 
     it("should report a class that only another package emits", async () => {
-      expect(await lint(FILE, ".console-nav .pluto-btn { color: red; }", RULE)).toEqual(
-        [
-          `Unexpected class "pluto-btn" that lyra owns. Pass your own class through ` +
-            `className, or set a custom property that lyra documents. (${RULE})`,
-        ],
-      );
+      expect(await lint(FILE, ".console-nav .lyra-btn { color: red; }", RULE)).toEqual([
+        `Unexpected class "lyra-btn" that lyra owns. Pass your own class through ` +
+          `className, or set a custom property that lyra documents. (${RULE})`,
+      ]);
     });
 
     it("should accept a class that the baseline lists for the file", async () => {
-      const baseline = { foreignClasses: { [FILE]: ["pluto-btn"] } };
-      expect(await lint(FILE, ".pluto-btn { color: red; }", RULE, baseline)).toEqual(
-        [],
-      );
+      const baseline = { foreignClasses: { [FILE]: ["lyra-btn"] } };
+      expect(await lint(FILE, ".lyra-btn { color: red; }", RULE, baseline)).toEqual([]);
     });
 
     it("should report a baseline entry that the file no longer uses", async () => {
-      const baseline = { foreignClasses: { [FILE]: ["pluto-btn"] } };
+      const baseline = { foreignClasses: { [FILE]: ["lyra-btn"] } };
       expect(await lint(FILE, ".console-nav { color: red; }", RULE, baseline)).toEqual([
-        `Unexpected baseline entry "pluto-btn" that this file no longer styles. Delete ` +
+        `Unexpected baseline entry "lyra-btn" that this file no longer styles. Delete ` +
           `it from configs/stylelint/baseline.json. (${RULE})`,
       ]);
     });
@@ -112,8 +108,8 @@ describe("plugins", () => {
     it("should judge an Astro file once across its style blocks", async () => {
       const file = "site/docs/src/Page.astro";
       const code = `<div style="--x: 1"></div>
-<style>.pluto-btn { color: red; }</style>`;
-      const baseline = { foreignClasses: { [file]: ["pluto-btn"] } };
+<style>.lyra-btn { color: red; }</style>`;
+      const baseline = { foreignClasses: { [file]: ["lyra-btn"] } };
       expect(await lint(file, code, RULE, baseline)).toEqual([]);
     });
   });

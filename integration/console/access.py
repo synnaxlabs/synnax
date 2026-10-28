@@ -111,7 +111,7 @@ class AccessClient(ResourceClient):
         for _ in range(20):
             sy.sleep(0.5)
 
-            error_status = self.layout.page.locator(".pluto--status-error")
+            error_status = self.layout.page.locator(".lyra--status-error")
             if error_status.count() > 0 and error_status.is_visible():
                 error_text = error_status.inner_text().strip()
                 raise RuntimeError(f"Login failed: {error_text}")
@@ -177,9 +177,7 @@ class AccessClient(ResourceClient):
 
         :returns: The role name, or None if the badge shows none.
         """
-        badge = self.layout.page.locator(
-            ".pluto-dialog__trigger:has(.pluto-icon--user)"
-        )
+        badge = self.layout.page.locator(".lyra-dialog__trigger:has(.lyra-icon--user)")
         if badge.count() == 0 or not badge.is_visible():
             return None
         badge.click()
@@ -322,7 +320,7 @@ class AccessClient(ResourceClient):
 
         self.ctx_menu.action(user_item, "Change username")
 
-        name_element = user_item.locator("p.pluto-text--editable")
+        name_element = user_item.locator("p.lyra-text--editable")
         name_element.click()
         name_element.fill(new_username)
         self.layout.press_enter()
@@ -384,7 +382,7 @@ class AccessClient(ResourceClient):
 
         self.ctx_menu.action(role_item, "Rename")
 
-        role_name_element = role_item.locator("p.pluto-text--editable")
+        role_name_element = role_item.locator("p.lyra-text--editable")
         role_name_element.click()
         role_name_element.fill(new_name)
         self.layout.press_enter()

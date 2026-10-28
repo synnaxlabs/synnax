@@ -88,7 +88,7 @@ describe("Mosaic", () => {
 
   it("should fill each leaf with its tabs", async () => {
     await renderMosaic();
-    const tabs = leaf(2).querySelector(".pluto-tabs");
+    const tabs = leaf(2).querySelector(".lyra-tabs");
     if (tabs == null) throw new Error("tabs not found");
     const outer = leaf(2).getBoundingClientRect();
     const inner = tabs.getBoundingClientRect();

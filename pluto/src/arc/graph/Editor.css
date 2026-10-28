@@ -36,7 +36,7 @@
         border-color: var(--pluto-primary-z);
     }
 
-    &.pluto--editable {
+    &.lyra--editable {
         .react-flow__handle {
             &::after {
                 content: "";
