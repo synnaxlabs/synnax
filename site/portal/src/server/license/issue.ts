@@ -286,6 +286,25 @@ export const restore = async (
     return row;
   });
 
+/**
+ * remove deletes a license with its seats and its history. A Core checks its license
+ * offline, so a Core that already holds it keeps running as its terms allow.
+ * @throws {HTTPError} 404 when the license does not exist.
+ */
+export const remove = async (store: Store, licenseKey: string): Promise<void> =>
+  await store.transact(async (tx) => {
+    // Holds the lock activate takes, so no machine takes a seat during the delete.
+    const [row] = await tx
+      .select({ key: license.key })
+      .from(license)
+      .where(eq(license.key, licenseKey))
+      .for("update");
+    if (row == null) throw notFound("License");
+    await tx.delete(event).where(eq(event.license, licenseKey));
+    await tx.delete(activation).where(eq(activation.license, licenseKey));
+    await tx.delete(license).where(eq(license.key, licenseKey));
+  });
+
 export interface FloatingArgs {
   licenseKey: string;
   actor: string;

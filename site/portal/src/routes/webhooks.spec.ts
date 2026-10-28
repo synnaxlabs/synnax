@@ -12,12 +12,17 @@ import { createHmac } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/pages/api/webhooks/clerk";
-import { organization } from "@/server/db/schema";
+import { activation, event, license, organization, referral } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
+import { HASH_A, NOW } from "@/server/license/testutil";
 import { joined } from "@/server/slack";
 import {
+  createActivation,
   createAPIContext,
   createHarness,
+  createLicense,
+  createOrganization,
+  createReferral,
   type Harness,
   WEBHOOK_SECRET,
 } from "@/testutil";
@@ -184,8 +189,62 @@ describe("POST /api/webhooks/clerk", () => {
     });
   });
 
+  describe("user.deleted", () => {
+    const userDeleted = {
+      type: "user.deleted",
+      data: { id: "user_ada", deleted: true },
+    };
+
+    it("should delete the user's personal organization with its machines", async () => {
+      const personal = await createOrganization(store, {
+        kind: "personal",
+        ownerUserID: "user_ada",
+      });
+      const lic = await createLicense(store, {
+        organization: personal.key,
+        edition: "desktop",
+      });
+      const act = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await store.query.insert(event).values({
+        at: NOW,
+        kind: "link",
+        actor: "user_ada",
+        organization: personal.key,
+        license: lic.key,
+        activation: act.key,
+      });
+      expect((await post(userDeleted)).status).toBe(204);
+      expect(await organizations()).toEqual([]);
+      expect(await store.query.select().from(license)).toEqual([]);
+      expect(await store.query.select().from(activation)).toEqual([]);
+      expect(await store.query.select().from(event)).toEqual([]);
+    });
+
+    it("should delete the referral the user claimed", async () => {
+      await createReferral(store, { userID: "user_ada", claimedAt: NOW });
+      await post(userDeleted);
+      expect(await store.query.select().from(referral)).toEqual([]);
+    });
+
+    it("should keep the personal organizations of other users", async () => {
+      await createOrganization(store, { kind: "personal", ownerUserID: "user_bob" });
+      await post(userDeleted);
+      expect(await organizations()).toEqual([
+        expect.objectContaining({ ownerUserID: "user_bob" }),
+      ]);
+    });
+
+    it("should acknowledge a user the portal never saw", async () => {
+      expect((await post(userDeleted)).status).toBe(204);
+    });
+  });
+
   describe("organization events", () => {
     it("should mirror a created Clerk organization as a team", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_acme", name: "Acme" });
       const res = await post({
         type: "organization.created",
         data: { id: "org_acme", name: "Acme" },
@@ -202,10 +261,12 @@ describe("POST /api/webhooks/clerk", () => {
     });
 
     it("should rename the team when the Clerk organization is updated", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_acme", name: "Acme" });
       await post({
         type: "organization.created",
         data: { id: "org_acme", name: "Acme" },
       });
+      await h.directory.rename("org_acme", "Acme Rockets");
       await post({
         type: "organization.updated",
         data: { id: "org_acme", name: "Acme Rockets" },
@@ -216,6 +277,7 @@ describe("POST /api/webhooks/clerk", () => {
     });
 
     it("should mirror an updated organization it has not seen", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_new", name: "Newco" });
       await post({
         type: "organization.updated",
         data: { id: "org_new", name: "Newco" },
@@ -223,6 +285,26 @@ describe("POST /api/webhooks/clerk", () => {
       expect(await organizations()).toEqual([
         expect.objectContaining({ kind: "team", clerkOrgID: "org_new", name: "Newco" }),
       ]);
+    });
+
+    it("should mirror the name Clerk holds over a late event's", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_acme", name: "Acme Rockets" });
+      await post({
+        type: "organization.updated",
+        data: { id: "org_acme", name: "Acme" },
+      });
+      expect(await organizations()).toEqual([
+        expect.objectContaining({ clerkOrgID: "org_acme", name: "Acme Rockets" }),
+      ]);
+    });
+
+    it("should not mirror a late event for a deleted organization", async () => {
+      const res = await post({
+        type: "organization.updated",
+        data: { id: "org_gone", name: "Gone" },
+      });
+      expect(res.status).toBe(204);
+      expect(await organizations()).toEqual([]);
     });
   });
 

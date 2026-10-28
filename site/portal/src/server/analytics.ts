@@ -17,6 +17,14 @@ const PROJECT = 621680;
 const HOST = "https://us.posthog.com";
 
 /**
+ * TOKEN is the key of the Desktop project. It is public: every Desktop install carries
+ * it, and it grants nothing but writing events into that one project.
+ */
+const TOKEN = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
+
+const INGEST = "https://us.i.posthog.com/i/v0/e/";
+
+/**
  * personURL opens a user's person in PostHog. Synnax Desktop identifies the person by
  * the user's Clerk user ID.
  */
@@ -72,7 +80,18 @@ export interface Session extends Omit<Visit, "replay"> {
   id: string;
 }
 
-/** Analytics reads what users did in Synnax Desktop, for users who allow analytics. */
+/** Capture is one event that the portal sends to PostHog about a user. */
+export interface Capture {
+  /** userID is the Clerk user ID, which Synnax Desktop identifies the person by. */
+  userID: string;
+  event: string;
+  at: Date;
+  properties: Record<string, string>;
+  /** once are person properties that PostHog sets only when the person has none. */
+  once: Record<string, string>;
+}
+
+/** Analytics reads and records what users do, for users who allow analytics. */
 export interface Analytics {
   /**
    * visits returns the production visits whose last event falls in [from, to), oldest
@@ -80,6 +99,11 @@ export interface Analytics {
    * be at least that far in the past.
    */
   visits: (from: Date, to: Date) => Promise<Visit[]>;
+  /**
+   * capture sends an event to the Desktop project. Send one only for a user who lets
+   * Synnax Desktop send usage data. It never throws, so it cannot fail a request.
+   */
+  capture: (capture: Capture) => Promise<void>;
 }
 
 /**
@@ -202,11 +226,21 @@ const responseZ = z.object({ results: z.array(rowZ) });
 
 const TIMEOUT_MS = 30_000;
 
+const CAPTURE_TIMEOUT_MS = 5000;
+
+export interface PostHogConfig {
+  /** apiKey is a personal API key that can read the Desktop project. */
+  apiKey: string;
+  /** environment tags each captured event, as Synnax Desktop tags its own. */
+  environment: "production" | "development";
+}
+
 /**
  * posthog reads visits through PostHog's query API with a personal API key. It reads a
- * day of sessions, and twice as far back while a visit may have begun before them.
+ * day of sessions, and twice as far back while a visit may have begun before them. It
+ * captures events with the project key and logs a capture that fails.
  */
-export const posthog = (apiKey: string): Analytics => {
+export const posthog = ({ apiKey, environment }: PostHogConfig): Analytics => {
   const read = async (since: Date): Promise<Session[]> => {
     const res = await fetch(`${HOST}/api/projects/${PROJECT}/query/`, {
       method: "POST",
@@ -231,21 +265,55 @@ export const posthog = (apiKey: string): Analytics => {
         if (!cut || back >= MAX_LOOKBACK_MS) return visits;
       }
     },
+    capture: async ({ userID, event, at, properties, once }) => {
+      try {
+        const res = await fetch(INGEST, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            api_key: TOKEN,
+            event,
+            distinct_id: userID,
+            timestamp: at.toISOString(),
+            properties: { ...properties, environment, $set_once: once },
+          }),
+          signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
+        });
+        if (!res.ok)
+          console.error("posthog capture failed", {
+            event,
+            status: res.status,
+            body: await res.text(),
+          });
+      } catch (err) {
+        console.error("posthog capture failed", { event }, err);
+      }
+    },
   };
 };
 
-/** unconfigured is the analytics of a portal with no PostHog key. Every read throws. */
+/**
+ * unconfigured is the analytics of a portal with no PostHog key. Every read throws, and
+ * each capture is logged instead of sent.
+ */
 export const unconfigured = (): Analytics => ({
   visits: async () => {
     throw new Error("POSTHOG_API_KEY is not set");
   },
+  capture: async ({ event }) => console.info("analytics event not sent", { event }),
 });
 
-/** memory serves visits of the sessions in `recorded` instead of PostHog. For tests. */
-export const memory = (): Analytics & { recorded: Session[] } => {
+/**
+ * memory serves visits of the sessions in `recorded` instead of PostHog, and collects
+ * captures in `captured`. For tests.
+ */
+export const memory = (): Analytics & { recorded: Session[]; captured: Capture[] } => {
   const recorded: Session[] = [];
+  const captured: Capture[] = [];
   return {
     recorded,
+    captured,
     visits: async (from, to) => visitsIn(recorded, from, to),
+    capture: async (c) => void captured.push(c),
   };
 };
