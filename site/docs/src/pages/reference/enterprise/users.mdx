@@ -121,10 +121,11 @@ await client.access.roles.assign({ user: jane.key, role: engineer.key });
 
 </Client.Tabs>
 
-A user created from code cannot log in until it has a password. It has no role and no
-permissions until you assign one. A user can hold more than one role and gets the
-permissions of all of them. To take a role away, call `unassign` with the same
-arguments. To delete users, call `client.users.delete` with their keys.
+A user created from code cannot log in until it has a password, an API key, or a
+provider link. It has no role and no permissions until you assign one. A user can hold
+more than one role and gets the permissions of all of them. To take a role away, call
+`unassign` with the same arguments. To delete users, call `client.users.delete` with
+their keys.
 
 <Divider.Divider x />
 
