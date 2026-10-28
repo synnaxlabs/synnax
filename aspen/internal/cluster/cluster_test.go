@@ -16,9 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/cluster/testutil"
 	"github.com/synnaxlabs/aspen/internal/node"
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Cluster", func() {
 	var (
-		builder    *clustermock.Builder
+		builder    *testutil.Builder
 		clusterCtx signal.Context
 		shutdown   context.CancelFunc
 	)
@@ -36,7 +36,7 @@ var _ = Describe("Cluster", func() {
 	// in a shared var and used by It blocks, so it must outlive BeforeEach.
 	BeforeEach(func() {
 		clusterCtx, shutdown = signal.WithCancel(context.Background())
-		builder = clustermock.NewBuilder(cluster.Config{
+		builder = testutil.NewBuilder(cluster.Config{
 			Gossip: gossip.Config{Interval: 5 * time.Millisecond},
 			Pledge: pledge.Config{RetryInterval: 1 * time.Millisecond},
 		})

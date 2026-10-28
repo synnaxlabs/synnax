@@ -69,6 +69,7 @@ export const deployReadConfigZ = opcua.readConfigZ
     channels: opcua.readChannelZ
       .array()
       .check(Task.validateReadChannels)
+      .check(Task.validateEnabledChannel)
       .check(validateNodeIDs)
       .check(validateIndexChannels),
   })
@@ -119,6 +120,7 @@ export const deployWriteConfigZ = opcua.writeConfigZ.extend({
   channels: opcua.writeChannelZ
     .array()
     .check(Task.validateChannels)
+    .check(Task.validateEnabledChannel)
     .check(({ value: channels, issues }) => {
       const channelsToIndexMap = new Map<channel.Key, number>();
       channels.forEach(({ cmdChannel }, i) => {

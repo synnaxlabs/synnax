@@ -12,7 +12,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/opcua/opcua.h"
