@@ -41,7 +41,7 @@ class Subscription:
             self.channels = channels
             self.close()
 
-    def read(self, timeout: sy.TimeSpan) -> sy.Frame | None:
+    def read(self, *, timeout: sy.TimeSpan) -> sy.Frame | None:
         try:
             if self.streamer is None:
                 self.streamer = self.client.open_streamer(self.channels)

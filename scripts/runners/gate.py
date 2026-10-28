@@ -91,7 +91,7 @@ class Gate:
 
     def follow(self, now: sy.TimeStamp) -> None:
         """Takes in every gh_cmd write since the last step."""
-        while (frame := self.writes.read(DRAIN_TIMEOUT)) is not None:
+        while (frame := self.writes.read(timeout=DRAIN_TIMEOUT)) is not None:
             for r in self.known:
                 series = frame.get(self.commander.channel(r))
                 if series is not None and len(series):

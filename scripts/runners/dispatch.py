@@ -132,7 +132,7 @@ def main() -> None:
             try:
                 if streamer is None:
                     streamer = client.open_streamer(names)
-                frame = streamer.read(READ_TIMEOUT)
+                frame = streamer.read(timeout=READ_TIMEOUT)
                 if frame is not None:
                     dispatch(frame, lookup=lookup, commands=commands, log=log)
             except Exception as e:

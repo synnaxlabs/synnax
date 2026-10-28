@@ -333,8 +333,8 @@ class Writer:
             writer.set_authority(Authority.ABSOLUTE)
 
         2. Set authority for a single channel by key or name:
-            writer.set_authority("my_channel", Authority.ABSOLUTE)
-            writer.set_authority(channel_key, 200)
+            writer.set_authority("my_channel", authority=Authority.ABSOLUTE)
+            writer.set_authority(channel_key, authority=200)
 
         3. Set authority for multiple channels via dictionary:
             writer.set_authority({

@@ -328,7 +328,7 @@ def wait_for_cmds(
     timer = sy.Timer()
     while True:
         left = remaining - timer.elapsed()
-        frame = commands.read(max(min(left, sy.TimeSpan.SECOND), DRAIN_TIMEOUT))
+        frame = commands.read(timeout=max(min(left, sy.TimeSpan.SECOND), DRAIN_TIMEOUT))
         if frame is None:
             if left <= DRAIN_TIMEOUT:
                 return
