@@ -161,7 +161,7 @@ const scannedNodeZ = z
 
 export interface ScannedNode extends z.infer<typeof scannedNodeZ> {}
 
-export const certificateInfoZ = z.object({
+const certificateInfoZ = z.object({
   pem: z.string(),
   thumbprint: z.string(),
   subject: z.string(),

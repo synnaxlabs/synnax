@@ -442,6 +442,43 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(sink->stop());
 }
 
+/// @brief it should retrieve the device again when its connection breaks, so a changed
+/// endpoint takes effect without configuring the task again.
+TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
+    auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
+    ASSERT_NIL(sink->start());
+    auto moved_server_cfg = testutil::ServerConfig::create_default();
+    moved_server_cfg.port = 4858;
+    testutil::Server moved_server(moved_server_cfg);
+    moved_server.start();
+    ASSERT_TRUE(moved_server.wait_until_ready());
+    auto moved_cfg = conn_cfg;
+    moved_cfg.endpoint = "opc.tcp://localhost:4858";
+    auto dev = ASSERT_NIL_P(ctx->client->devices.retrieve("abc123"));
+    dev.properties["connection"] = testutil::connection_json(moved_cfg);
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    server->stop();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    auto fr = ::x::telem::Frame(1);
+    fr.emplace(
+        this->uint32_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(22222), x::telem::UINT32_T)
+    );
+    ASSERT_NIL(sink->write(fr));
+
+    auto client = ASSERT_NIL_P(connection::connect(moved_cfg, {}, "[test.moved] "));
+    const auto result = ASSERT_NIL_P(
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
+    EXPECT_EQ(result.at<uint32_t>(0), 22222);
+    ASSERT_NIL(sink->stop());
+}
+
 TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     auto sink = std::make_unique<WriteTaskSink>(
         ctx->client,

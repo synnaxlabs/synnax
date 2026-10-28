@@ -204,6 +204,10 @@ void Scanner::renew_certificate(const std::vector<synnax::device::Device> &devic
         };
         const auto err = connection::connect(props.connection, sec, SCAN_LOG_PREFIX)
                              .second;
+        if (err && !err.matches(errors::CLIENT_CERTIFICATE_REJECTED)) {
+            all_accepted = false;
+            continue;
+        }
         this->renewal.accepted[dev.key] = !err;
         all_accepted = all_accepted && !err;
     }
@@ -216,7 +220,10 @@ void Scanner::renew_certificate(const std::vector<synnax::device::Device> &devic
     this->renewal = Renewal{};
 }
 
-void Scanner::certificates(const synnax::task::Command &cmd, const bool regenerate) {
+void Scanner::certificates(
+    const synnax::task::Command &cmd,
+    const bool regenerate
+) const {
     synnax::task::Status status{
         .key = synnax::task::status_key(this->task),
         .name = this->task.name,
@@ -229,10 +236,7 @@ void Scanner::certificates(const synnax::task::Command &cmd, const bool regenera
         }
     };
     x::errors::Error err = x::errors::NIL;
-    if (regenerate) {
-        err = this->store->regenerate().second;
-        this->renewal = Renewal{};
-    }
+    if (regenerate) err = this->store->regenerate().second;
     auto [current, current_err] = this->store->current();
     auto [next, next_err] = this->store->next();
     if (!err) err = current_err ? current_err : next_err;

@@ -678,4 +678,26 @@ TEST_F(TestScanTask, testRenewalWaitsForServers) {
             ", when the current certificate expires."
     );
 }
+
+/// @brief it should not report that a server distrusts the next Driver certificate
+/// when the renewal attempt could not reach the server.
+TEST_F(TestScanTask, testRenewalIgnoresUnreachableServer) {
+    use_short_lived_store();
+    const auto old = ASSERT_NIL_P(store->current());
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto conn_cfg = secured_config();
+    conn_cfg.server_certificate = server_id.certificate;
+    const auto dev = secured_device(conn_cfg);
+    const auto unreachable = scan(scanner, dev);
+    ASSERT_EQ(unreachable.size(), 1);
+    EXPECT_EQ(unreachable[0].status.value().message, "Failed to reach server");
+    start_secured_server(server_id);
+    const auto scanned = scan(scanner, dev);
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(scanned[0].status.value().message, "Server connected");
+    const auto current = ASSERT_NIL_P(store->current());
+    EXPECT_EQ(current.certificate, old.certificate);
+}
 }

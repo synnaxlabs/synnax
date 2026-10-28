@@ -94,7 +94,8 @@ private:
         std::string thumbprint;
         x::telem::TimeStamp last_attempt;
         /// @brief whether each secured device's server accepted the next certificate
-        /// on the last attempt, by device key.
+        /// on the last attempt, by device key. A device that failed for another reason,
+        /// such as an unreachable server, has no entry.
         std::unordered_map<std::string, bool> accepted;
     };
 
@@ -103,6 +104,7 @@ private:
     std::shared_ptr<connection::Pool> conn_pool;
     std::shared_ptr<certificate::Store> store;
     ScanTaskConfig cfg;
+    /// @brief only scan() reads or writes it, since commands run on another thread.
     Renewal renewal;
 
     /// @brief Browse child nodes of a given OPC UA node.
@@ -114,7 +116,7 @@ private:
 
     /// @brief replies with the current and next Driver certificates, replacing both
     /// first when regenerate is true.
-    void certificates(const synnax::task::Command &cmd, bool regenerate);
+    void certificates(const synnax::task::Command &cmd, bool regenerate) const;
 
     /// @brief Check health of a single device by testing its connection. Pins the
     /// server certificate of a secured device that has none.

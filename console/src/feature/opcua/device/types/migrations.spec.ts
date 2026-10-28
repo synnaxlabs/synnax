@@ -79,7 +79,7 @@ const TEST_RECORD: TestCase[] = [
     output: {
       ...v2.ZERO_PROPERTIES,
       connection: {
-        ...v2.ZERO_CONNECTION_CONFIG,
+        ...v2.ZERO_PROPERTIES.connection,
         clientCertificate: "/etc/opcua/client.der",
         clientPrivateKey: "/etc/opcua/client.key",
       },
@@ -97,7 +97,7 @@ const TEST_RECORD: TestCase[] = [
     output: {
       ...v2.ZERO_PROPERTIES,
       connection: {
-        ...v2.ZERO_CONNECTION_CONFIG,
+        ...v2.ZERO_PROPERTIES.connection,
         serverCertificate: SERVER_CERTIFICATE.pem,
       },
     },

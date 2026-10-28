@@ -561,6 +561,30 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
     EXPECT_EQ(conn_pool->available_count(endpoint), 1);
 }
 
+/// @brief it should retrieve the device on each start, so a changed endpoint takes
+/// effect without configuring the task again.
+TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
+    const std::string endpoint = "opc.tcp://localhost:4859";
+    auto moved_server_cfg = testutil::ServerConfig::create_default();
+    moved_server_cfg.port = 4859;
+    testutil::Server moved_server(moved_server_cfg);
+    moved_server.start();
+    ASSERT_TRUE(moved_server.wait_until_ready());
+    const auto rt = create_task();
+    auto dev = ASSERT_NIL_P(
+        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
+    );
+    connection::Config moved_cfg;
+    moved_cfg.endpoint = endpoint;
+    dev.properties["connection"] = testutil::connection_json(moved_cfg);
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    rt->start("start");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    rt->stop("stop", true);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 1);
+    EXPECT_EQ(conn_pool->available_count("opc.tcp://localhost:4840"), 0);
+}
+
 /// @brief it should create separate connections for concurrent tasks.
 TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     const std::string endpoint = "opc.tcp://localhost:4840";

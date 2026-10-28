@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device } from "@synnaxlabs/client";
+import { channel } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   connectionConfigZ,
-  type makeZ,
   type Properties as BaseProperties,
   ZERO_CONNECTION_CONFIG,
   ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
@@ -55,5 +54,3 @@ export const propertiesMigration = migrate.createMigration<BaseProperties, Prope
     };
   },
 });
-
-export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}

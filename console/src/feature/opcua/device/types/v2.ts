@@ -23,7 +23,7 @@ import {
   ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types/v1";
 
-export const VERSION = "2.0.0";
+const VERSION = "2.0.0";
 
 const PEM_CERTIFICATE_HEADER = "-----BEGIN CERTIFICATE-----";
 
@@ -31,7 +31,7 @@ export const connectionConfigZ = baseConnectionConfigZ.extend({
   certificateValidationDisabled: z.boolean().default(false),
 });
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
-export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
+const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   ...BASE_ZERO_CONNECTION_CONFIG,
   certificateValidationDisabled: false,
 };

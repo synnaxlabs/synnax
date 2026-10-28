@@ -150,6 +150,7 @@ verify_certificate(const UA_CertificateVerification *cv, const UA_ByteString *da
     return UA_STATUSCODE_GOOD;
 }
 
+// The client calls this only to log a warning about its own certificate.
 UA_StatusCode verify_application_uri(
     const UA_CertificateVerification *,
     const UA_ByteString *,
