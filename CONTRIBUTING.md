@@ -51,6 +51,12 @@ gate script is `.github/scripts/check_review.sh`, the rulesets
 changed ruleset file by hand; the `Check - Rulesets` workflow fails each day until
 GitHub matches the files.
 
+A pull request into `main` also cannot merge while CodeQL finds a new alert in its
+changes with a security severity of medium or higher, or a severity of error. Alerts
+already on `main` do not block. The rule waits for the CodeQL scan of each language, so
+every pull request scans all of them. GitHub does not apply the rule to a merge queue
+group.
+
 ## Size
 
 A reviewer finishes a PR in one sitting; a couple hundred lines is the target. The
