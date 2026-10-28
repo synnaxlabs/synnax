@@ -13,14 +13,12 @@ import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { framer } from "@/framer";
-import {
-  Codec,
-  HIGH_PERF_SPECIAL_CHAR,
-  LOW_PERF_SPECIAL_CHAR,
-  WSIteratorCodec,
-  WSWriterCodec,
-} from "@/framer/codec";
+import { Codec, WSIteratorCodec, WSWriterCodec } from "@/framer/codec";
 import { ValidationError } from "@/index";
+
+// Wire bytes the Core uses to mark JSON and binary WebSocket messages.
+const LOW_PERF_SPECIAL_CHAR = 254;
+const HIGH_PERF_SPECIAL_CHAR = 255;
 
 describe("encoder", () => {
   describe("base codec", () => {

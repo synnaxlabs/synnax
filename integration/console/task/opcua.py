@@ -68,7 +68,7 @@ class OPCUATask(TaskPage):
         for name in node_names:
             node = self._node(name)
             node.wait_for(state="visible", timeout=15000)
-            node.drag_to(channel_list)
+            self.layout.drag(node, channel_list)
             self._channel_row(name).first.wait_for(state="visible", timeout=5000)
 
     def disable_channel(self, node_name: str) -> None:

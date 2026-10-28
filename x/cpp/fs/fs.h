@@ -22,7 +22,8 @@ const errors::Error READ_ERROR = FS_ERROR.sub("read_error");
 /// into a string.
 inline std::pair<std::string, errors::Error> read_file(const std::string &path) {
     std::string data;
-    FILE *f = fopen(path.c_str(), "r");
+    // Binary mode, so Windows returns the bytes of a DER certificate unchanged.
+    FILE *f = fopen(path.c_str(), "rb");
     if (f == nullptr) return {data, errors::Error(NOT_FOUND, "failed to open " + path)};
     char buf[1024];
     for (;;) {
@@ -30,8 +31,9 @@ inline std::pair<std::string, errors::Error> read_file(const std::string &path) 
         if (n <= 0) break;
         data.append(buf, n);
     }
-    if (ferror(f)) return {"", errors::Error(READ_ERROR, "failed to read " + path)};
+    const bool failed = ferror(f) != 0;
     fclose(f);
+    if (failed) return {"", errors::Error(READ_ERROR, "failed to read " + path)};
     return {data, errors::NIL};
 }
 }

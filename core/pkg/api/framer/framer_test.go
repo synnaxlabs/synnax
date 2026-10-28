@@ -15,7 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	fmock "github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -59,7 +59,7 @@ var _ = Describe("Framer", func() {
 				Expression: fmt.Sprintf("return %s * 2", data.Name),
 			}
 			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-			client, server := fmock.NewStreams[
+			client, server := freightertestutil.NewStreams[
 				apiframer.IteratorRequest,
 				apiframer.IteratorResponse,
 			](ctx)

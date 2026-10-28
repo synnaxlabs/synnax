@@ -90,13 +90,13 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End>
           <Button.Button
             onClick={() => save()}
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
             trigger={Triggers.SAVE}
+            triggerIndicator
             variant="filled"
           >
             Register
