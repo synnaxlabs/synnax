@@ -39,14 +39,14 @@ Timer::ImplPtr Timer::make_impl() {
     };
 }
 
-void Timer::step() {
+void Timer::sleep(const telem::TimeSpan &dur) {
     // A negative due time is relative, in 100 ns units.
     LARGE_INTEGER due;
-    due.QuadPart = -RESOLUTION.nanoseconds() / 100;
+    due.QuadPart = -dur.nanoseconds() / 100;
     const HANDLE timer = this->impl_->timer;
     if (timer == nullptr ||
         !SetWaitableTimerEx(timer, &due, 0, nullptr, nullptr, nullptr, 0)) {
-        std::this_thread::sleep_for(RESOLUTION.chrono());
+        std::this_thread::sleep_for(dur.chrono());
         return;
     }
     WaitForSingleObject(timer, INFINITE);
