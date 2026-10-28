@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { page } from "vitest/browser";
 
 import { Button } from "@/button";
+import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Modal } from "@/modal";
 import { Nav } from "@/nav";
@@ -40,17 +41,20 @@ const renderModal = async (body: ReactNode = "Body"): Promise<Element> => {
 const px = (el: Element, property: string): number =>
   parseFloat(computed(el, property));
 
+const part = (parent: Element, block: string, element: string): Element =>
+  parent.querySelector(`.${CSS.BE(block, element)}`)!;
+
 describe("Modal", () => {
   it("should inset the header and footer by one shared amount", async () => {
     const modal = await renderModal();
-    const header = modal.firstElementChild!;
-    const footer = modal.lastElementChild!;
+    const header = part(modal, "modal", "header");
+    const footer = part(modal, "modal", "footer");
     const inset = px(header, "padding-top");
     expect(inset).toBeGreaterThan(0);
     expect(px(header, "padding-bottom")).toBe(inset);
-    expect(px(header.firstElementChild!, "padding-left")).toBe(inset);
+    expect(px(part(header, "navbar", "content"), "padding-left")).toBe(inset);
     expect(px(footer, "padding-bottom")).toBe(inset);
-    expect(px(footer.lastElementChild!, "padding-right")).toBe(inset);
+    expect(px(part(footer, "navbar", "content"), "padding-right")).toBe(inset);
   });
 
   it("should fit the window and scroll a tall body", async () => {
@@ -60,7 +64,7 @@ describe("Modal", () => {
     await expect
       .poll(() => modal.getBoundingClientRect().bottom)
       .toBeLessThanOrEqual(window.innerHeight);
-    const body = modal.children[1];
+    const body = part(modal, "modal", "body");
     expect(body.scrollHeight).toBeGreaterThan(body.clientHeight);
     expect(computed(body, "overflow-y")).toBe("auto");
   });
