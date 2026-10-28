@@ -46,6 +46,90 @@ export const nextAddress = (channel: ReadChannel | WriteChannel): number => {
 
 export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
 
+const REGISTER_DATA_TYPES = [
+  DataType.INT8,
+  DataType.INT16,
+  DataType.INT32,
+  DataType.INT64,
+  DataType.UINT8,
+  DataType.UINT16,
+  DataType.UINT32,
+  DataType.UINT64,
+  DataType.FLOAT32,
+  DataType.FLOAT64,
+];
+
+/** Data types the Driver cannot decode from registers. */
+export const UNSUPPORTED_REGISTER_DATA_TYPES = DataType.ALL.filter(
+  (d) => !d.matches(...REGISTER_DATA_TYPES),
+);
+
+const ADDRESS_LIMIT = 65536;
+
+const addressRangeIssue = (
+  channels: (ReadChannel | WriteChannel)[],
+  ch: ReadChannel | WriteChannel,
+  i: number,
+): z.core.$ZodRawIssue | null => {
+  if (nextAddress(ch) <= ADDRESS_LIMIT) return null;
+  return {
+    code: "custom",
+    message: `Channel ends past address ${ADDRESS_LIMIT - 1}`,
+    path: [i, "address"],
+    input: channels,
+  };
+};
+
+const validateReadChannels = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<ReadChannel[]>) => {
+  const bindings = new Set<string>();
+  channels.forEach((ch, i) => {
+    if (ch.disabled) return;
+    const rangeIssue = addressRangeIssue(channels, ch, i);
+    if (rangeIssue != null) issues.push(rangeIssue);
+    const dataType = "dataType" in ch ? ch.dataType : "";
+    const binding = `${ch.type}-${ch.address}-${dataType}`;
+    if (!bindings.has(binding)) {
+      bindings.add(binding);
+      return;
+    }
+    issues.push({
+      code: "custom",
+      message: "Another channel reads the same address and data type",
+      path: [i, "address"],
+      input: channels,
+    });
+  });
+};
+
+const validateWriteChannels = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<WriteChannel[]>) => {
+  const enabled: WriteChannel[] = [];
+  channels.forEach((ch, i) => {
+    if (ch.disabled) return;
+    const rangeIssue = addressRangeIssue(channels, ch, i);
+    if (rangeIssue != null) issues.push(rangeIssue);
+    const overlap = enabled.find(
+      (other) =>
+        other.type === ch.type &&
+        ch.address < nextAddress(other) &&
+        other.address < nextAddress(ch),
+    );
+    enabled.push(ch);
+    if (overlap == null) return;
+    issues.push({
+      code: "custom",
+      message: `Overlaps the ${ch.type.replace("_", " ")} at address ${overlap.address}`,
+      path: [i, "address"],
+      input: channels,
+    });
+  });
+};
+
 export const READ_TYPE = `${PREFIX}_read`;
 
 const readConfigZ = modbus.readConfigZ;
@@ -53,6 +137,7 @@ const readConfigZ = modbus.readConfigZ;
 export const deployReadConfigZ = modbus.readConfigZ
   .extend({
     device: Task.deviceKeyZ,
+    channels: modbus.readConfigZ.shape.channels.check(validateReadChannels),
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
@@ -81,6 +166,7 @@ const writeConfigZ = modbus.writeConfigZ;
 
 export const deployWriteConfigZ = modbus.writeConfigZ.extend({
   device: Task.deviceKeyZ,
+  channels: modbus.writeConfigZ.shape.channels.check(validateWriteChannels),
 });
 
 const writeStatusDataZ = z

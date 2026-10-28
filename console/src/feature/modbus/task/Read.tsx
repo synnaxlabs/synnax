@@ -35,6 +35,7 @@ import {
   type ReadChannelType,
   type ReadSchemas,
   type TypedReadChannel,
+  UNSUPPORTED_REGISTER_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -114,7 +115,11 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const renderTelemSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideVariableDensity location="bottom" />
+    <Telem.SelectDataType
+      {...props}
+      hideDataTypes={UNSUPPORTED_REGISTER_DATA_TYPES}
+      location="bottom"
+    />
   ),
 );
 

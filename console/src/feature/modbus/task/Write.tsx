@@ -18,7 +18,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Telem } from "@synnaxlabs/pluto";
-import { deep, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
@@ -29,6 +29,7 @@ import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteCh
 import {
   deployWriteConfigZ,
   nextAddress,
+  UNSUPPORTED_REGISTER_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -107,7 +108,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const renderTelemSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideVariableDensity />
+    <Telem.SelectDataType {...props} hideDataTypes={UNSUPPORTED_REGISTER_DATA_TYPES} />
   ),
 );
 
@@ -173,6 +174,9 @@ const NAME_TYPES: Record<WriteChannelType, string> = {
 const writeMapKey = (channel: WriteChannel) =>
   `${NAME_TYPES[channel.type]}-${channel.address.toString()}`.replace("_", "-");
 
+const commandDataType = (channel: WriteChannel): string =>
+  channel.type === "holding_register" ? channel.dataType : DataType.UINT8.toString();
+
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => {
   const config = WRITE_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
@@ -196,7 +200,9 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       continue;
     }
     try {
-      await client.channels.retrieve(existing);
+      const cmd = await client.channels.retrieve(existing);
+      if (!cmd.dataType.equals(commandDataType(channel)))
+        commandsToCreate.push(channel);
     } catch (e) {
       if (NotFoundError.matches(e)) commandsToCreate.push(channel);
       else throw errors.fromUnknown(e);
@@ -219,7 +225,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         name: primitive.isNonZero(c.name)
           ? c.name
           : `${safeName}_${NAME_TYPES[c.type]}_${c.address}_cmd`,
-        dataType: c.type === "holding_register" ? c.dataType : "uint8",
+        dataType: commandDataType(c),
         index: commandIndexes[i].key,
       })),
     );
