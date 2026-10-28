@@ -157,11 +157,8 @@ public:
         // the server is down: writes arrive faster than the Core should be asked.
         if (this->connection) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
-            if (const auto retrieve_err = this->retrieve_connection()) {
-                LOG(ERROR) << "[opc.write_task] failed to retrieve device: "
-                           << retrieve_err;
+            if (const auto retrieve_err = this->retrieve_connection())
                 return retrieve_err;
-            }
         }
         if (const auto conn_err = this->acquire()) {
             LOG(ERROR) << "[opc.write_task] failed to reconnect: " << conn_err;
