@@ -13,6 +13,7 @@ from common import Channels, channel_name
 from conftest import Client, core
 from gate import Gate
 from log import Log
+from publisher import OPEN_LEEWAY
 
 RUNNER = "ubuntu-build-bot-i-0f44"
 CHANNEL = channel_name("gh_cmd", RUNNER)
@@ -44,6 +45,11 @@ class TestGate:
         client.failing = False
         g.step({RUNNER})
         assert client.written(CHANNEL) == [True, False]
+
+    def test_should_publish_the_state_after_a_slow_step(self, client: Client) -> None:
+        client.latency = 2 * OPEN_LEEWAY.seconds
+        gate(client).step({RUNNER})
+        assert client.written(channel_name("gh_state", RUNNER)) == [True]
 
     def test_should_apply_the_start_state_over_saved_states(
         self, client: Client
