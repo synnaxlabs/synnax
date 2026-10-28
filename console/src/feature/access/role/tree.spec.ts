@@ -10,7 +10,7 @@
 import { access, NotFoundError, user } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { Tree } from "@synnaxlabs/lyra/tree";
 import { User as PUser } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -105,10 +105,10 @@ describe("role ontology service", () => {
 
   describe("drop", () => {
     const { canDrop } = RoleItem;
-    const source: Haul.Item = { key: "tree", type: PTree.HAUL_TYPE };
+    const source: Haul.Item = { key: "tree", type: Tree.HAUL_TYPE };
     // A tree drag carries a tree item for each resource and the resource's own items.
     const dragUser = (rootUser: boolean): Haul.Item[] => [
-      PTree.createHaulItem("user:u1"),
+      Tree.createHaulItem("user:u1"),
       PUser.createHaulItem({
         key: "u1",
         username: "u",
@@ -127,7 +127,7 @@ describe("role ontology service", () => {
     });
 
     it("should refuse a resource that is not a user", () => {
-      const items = [PTree.createHaulItem("channel:1")];
+      const items = [Tree.createHaulItem("channel:1")];
       expect(canDrop({ source, items })).toBe(false);
       expect(canDrop({ source, items: [...dragUser(false), ...items] })).toBe(false);
     });
