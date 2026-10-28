@@ -21,11 +21,11 @@ import {
 } from "drizzle-orm";
 
 import { type Reader, type Store } from "@/server/db/db";
-import { event, type Organization, organization } from "@/server/db/schema";
+import { event, invitation, type Organization, organization } from "@/server/db/schema";
 import { type Account, type Directory } from "@/server/directory";
 import { notFound } from "@/server/errors";
 import { type Machine, machinesFor } from "@/server/license/desktop";
-import { mirrorTeams } from "@/server/organization";
+import { mirrorTeams, purge } from "@/server/organization";
 import {
   DAY_MS,
   dayOf,
@@ -140,6 +140,28 @@ export const retrieve = async (
     machines,
     teams: teams.map((org, i) => ({ organization: org, role: memberships[i].role })),
   };
+};
+
+/**
+ * remove deletes a user from Clerk, which takes them off their teams, and deletes their
+ * personal organization and the invitations sent to their addresses. Their events on a
+ * team stay. Clerk goes last, so a failed Clerk delete can be tried again.
+ */
+export const remove = async (
+  store: Store,
+  directory: Directory,
+  userID: string,
+): Promise<void> => {
+  const addresses = await directory.addresses(userID);
+  await store.transact(async (tx) => {
+    const [personal] = await tx
+      .select({ key: organization.key })
+      .from(organization)
+      .where(eq(organization.ownerUserID, userID));
+    if (personal != null) await purge(tx, personal.key);
+    await tx.delete(invitation).where(inArray(invitation.email, addresses));
+  });
+  await directory.deleteAccount(userID);
 };
 
 export interface ArrivalArgs {
