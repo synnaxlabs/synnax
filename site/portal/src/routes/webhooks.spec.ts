@@ -12,12 +12,16 @@ import { createHmac } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/pages/api/webhooks/clerk";
-import { organization } from "@/server/db/schema";
+import { activation, event, license, organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
+import { HASH_A, NOW } from "@/server/license/testutil";
 import { joined } from "@/server/slack";
 import {
+  createActivation,
   createAPIContext,
   createHarness,
+  createLicense,
+  createOrganization,
   type Harness,
   WEBHOOK_SECRET,
 } from "@/testutil";
@@ -181,6 +185,53 @@ describe("POST /api/webhooks/clerk", () => {
       await post(userCreated({ first_name: "Ada" }));
       await post(userCreated({ first_name: "Ada" }));
       expect(await organizations()).toHaveLength(1);
+    });
+  });
+
+  describe("user.deleted", () => {
+    const userDeleted = {
+      type: "user.deleted",
+      data: { id: "user_ada", deleted: true },
+    };
+
+    it("should delete the user's personal organization with its machines", async () => {
+      const personal = await createOrganization(store, {
+        kind: "personal",
+        ownerUserID: "user_ada",
+      });
+      const lic = await createLicense(store, {
+        organization: personal.key,
+        edition: "desktop",
+      });
+      const act = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await store.query.insert(event).values({
+        at: NOW,
+        kind: "link",
+        actor: "user_ada",
+        organization: personal.key,
+        license: lic.key,
+        activation: act.key,
+      });
+      expect((await post(userDeleted)).status).toBe(204);
+      expect(await organizations()).toEqual([]);
+      expect(await store.query.select().from(license)).toEqual([]);
+      expect(await store.query.select().from(activation)).toEqual([]);
+      expect(await store.query.select().from(event)).toEqual([]);
+    });
+
+    it("should keep the personal organizations of other users", async () => {
+      await createOrganization(store, { kind: "personal", ownerUserID: "user_bob" });
+      await post(userDeleted);
+      expect(await organizations()).toEqual([
+        expect.objectContaining({ ownerUserID: "user_bob" }),
+      ]);
+    });
+
+    it("should acknowledge a user the portal never saw", async () => {
+      expect((await post(userDeleted)).status).toBe(204);
     });
   });
 

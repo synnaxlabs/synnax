@@ -112,9 +112,6 @@ jobs:
       - uses: dorny/paths-filter@v4
         id: filter
         with:
-          # A merge group's base is the entry ahead of it in the queue. A green group
-          # merges every entry ahead of it, so it must test their changes too.
-          base: ${{ github.event.merge_group.base_ref }}
           filters: .github/filters.yaml
 
       - name: Install uv
@@ -201,7 +198,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'arc-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
@@ -277,7 +274,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'client-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
@@ -446,7 +443,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
@@ -554,6 +551,16 @@ jobs:
       macos: *full
       package: foundation
       windows: *full
+    secrets: inherit
+
+  foundation-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.foundation == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: foundation
     secrets: inherit
 
   freighter-cpp:
@@ -792,6 +799,16 @@ jobs:
       windows: *full
     secrets: inherit
 
+  portal-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.portal == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: portal
+    secrets: inherit
+
   protobuf:
     needs: changes
     if:
@@ -882,6 +899,16 @@ jobs:
       macos: *full
       package: www
       windows: *full
+    secrets: inherit
+
+  www-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.www == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: www
     secrets: inherit
 
   x-cpp:
@@ -1022,6 +1049,7 @@ jobs:
       - exports-py
       - format
       - foundation
+      - foundation-site
       - freighter-cpp
       - freighter-go
       - freighter-image
@@ -1039,6 +1067,7 @@ jobs:
       - oracle-language
       - pluto
       - portal
+      - portal-site
       - protobuf
       - py-packages
       - scripts
@@ -1048,6 +1077,7 @@ jobs:
       - versions
       - vite-plugin
       - www
+      - www-site
       - x-cpp
       - x-go
       - x-py

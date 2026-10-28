@@ -44,20 +44,17 @@ go: &go
   - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
-  - codecov.yaml
   - scripts/check_go_generate.sh
 
 py: &py
   - .github/workflows/test.py.yaml
   - .python-version
-  - codecov.yaml
   - pyproject.toml
   - uv.lock
 
 ts: &ts
   - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
-  - codecov.yaml
   - configs/**
   - knip.json
   - package.json
@@ -195,6 +192,7 @@ portal:
   - *lyra
   - *ts
   - *x_ts
+  - .github/workflows/build.site.yaml
   - site/portal/**
 
 console: &console
@@ -226,6 +224,7 @@ foundation:
   - *lyra
   - *site_common
   - *ts
+  - .github/workflows/build.site.yaml
   - site/foundation/**
 
 www:
@@ -233,6 +232,7 @@ www:
   - *lyra
   - *site_common
   - *ts
+  - .github/workflows/build.site.yaml
   - site/www/**
 
 knip:
@@ -295,6 +295,8 @@ x_cpp: &x_cpp
   - *cpp
   - x/cpp/**
   - x/go/**/*.pb.go
+  - x/go/**/*.proto
+  - x/go/**/BUILD.bazel
 
 freighter_cpp: &freighter_cpp
   - *cpp
@@ -305,8 +307,12 @@ arc_cpp: &arc_cpp
   - *cpp
   - *freighter_cpp
   - *x_cpp
-  - arc/**
+  - arc/cpp/**
+  - arc/go/**/*.proto
+  - arc/go/**/BUILD.bazel
   - client/cpp/**
+  - core/**/*.proto
+  - core/**/BUILD.bazel
   - vendor/wasmtime/**
 
 client_cpp: &client_cpp
@@ -316,6 +322,8 @@ client_cpp: &client_cpp
   - arc/cpp/**
   - client/clib/**
   - client/cpp/**
+  - core/**/*.proto
+  - core/**/BUILD.bazel
   - vendor/wasmtime/**
 
 driver: &driver

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -15,15 +16,17 @@ import { type ReactElement } from "react";
 
 import { type Activity } from "@/page";
 import { personURL } from "@/server/analytics";
-import { roleName } from "@/server/directory";
+import { type Account, roleName } from "@/server/directory";
 import { type Machine } from "@/server/license/desktop";
 import { isActive, MONTH } from "@/server/usage";
 import { type Detail, type Membership } from "@/server/user";
 import { ActiveTag } from "@/ui/admin/ActiveTag";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
+import { navigate, post } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import { date, dateTime, machineName, statusOf } from "@/ui/format";
 import { Licenses } from "@/ui/licenses";
+import { Modal } from "@/ui/modal";
 import { Empty, Page, Section } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
@@ -57,15 +60,18 @@ export const User = ({
       </Flex.Box>
     }
     actions={
-      <Button.Button
-        variant="outlined"
-        href={personURL(account.userID)}
-        target="_blank"
-        rel="noreferrer"
-      >
-        <Icon.OpenExternal />
-        Open in PostHog
-      </Button.Button>
+      <>
+        <Button.Button
+          variant="outlined"
+          href={personURL(account.userID)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Icon.OpenExternal />
+          Open in PostHog
+        </Button.Button>
+        <DeleteDialog account={account} />
+      </>
     }
   >
     <Facts>
@@ -143,3 +149,32 @@ const Teams = ({ teams }: { teams: Membership[] }): ReactElement =>
       ))}
     </Table>
   );
+
+const DeleteDialog = ({ account }: { account: Account }): ReactElement => (
+  <Modal.Frame
+    name={`${account.name}.Delete`}
+    icon={<Icon.Delete />}
+    trigger={
+      <Dialog.Trigger variant="outlined" status="error" hideCaret>
+        <Icon.Delete />
+        Delete
+      </Dialog.Trigger>
+    }
+  >
+    <Modal.Confirm
+      question={`Delete "${account.name}"?`}
+      confirm="Delete"
+      delay={1500}
+      onConfirm={async () => {
+        await post(`/api/users/${account.userID}/delete`);
+        navigate("/admin/users");
+      }}
+    >
+      This deletes the account from Clerk, so they cannot log in and they leave their
+      teams. It also deletes their Desktop licenses, their machines, their activity, and
+      the invitations sent to them. You cannot undo it. Their machines log out at their
+      next renewal, and a machine that stays offline keeps its license key until it
+      expires. PostHog keeps their Desktop events and replays.
+    </Modal.Confirm>
+  </Modal.Frame>
+);

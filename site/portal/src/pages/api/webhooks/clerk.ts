@@ -12,11 +12,12 @@ import { type APIRoute } from "astro";
 
 import { ensurePersonal, mirrorTeams } from "@/server/organization";
 import { joined } from "@/server/slack";
+import { forget } from "@/server/user";
 
 /**
  * POST mirrors Clerk's user and organization creation into the portal: a personal
  * organization per user and a team organization per Clerk organization. A new user is
- * also posted to Slack.
+ * also posted to Slack, and a deleted user's personal organization is deleted.
  */
 export const POST: APIRoute = async (context) => {
   const { store, slack, directory, webhookSecret } = context.locals.portal;
@@ -48,6 +49,12 @@ export const POST: APIRoute = async (context) => {
         id;
       await ensurePersonal(store, { userID: id, name });
       await slack.post(joined({ userID: id, name, email }));
+      break;
+    }
+    case "user.deleted": {
+      const { id } = evt.data;
+      if (id == null) throw new Error("clerk sent user.deleted without a user id");
+      await forget(store, id);
       break;
     }
     case "organization.created":
