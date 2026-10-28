@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import postcssHtml from "postcss-html";
 import type { Config } from "stylelint";
 
 const config: Config = {
@@ -34,7 +35,7 @@ const config: Config = {
   overrides: [
     {
       files: ["**/*.astro"],
-      customSyntax: "postcss-html",
+      customSyntax: postcssHtml,
       rules: {
         "selector-pseudo-class-no-unknown": [true, { ignorePseudoClasses: ["global"] }],
         // postcss-html parses inline style attributes as bare declarations.
