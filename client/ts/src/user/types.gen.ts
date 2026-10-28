@@ -24,7 +24,7 @@ export const userZ = z.object({
   /** key is the unique identifier for this user. */
   key: keyZ,
   /** name is the user's display name. */
-  name: z.string(),
+  name: z.string().min(1),
   /**
    * rootUser is true if this is a root/admin user with full system access. Root users
    * cannot be deleted.

@@ -18,7 +18,8 @@ import (
 )
 
 // Migration joins each user's first and last name into its name, falling back to the
-// username when both are empty. The username stays only on the user's password.
+// username when both are empty, then to "Unnamed user". The username stays only on the
+// user's password.
 var Migration = migrate.NewEntry(
 	"user_name",
 	func(ctx context.Context, old v0.User) (User, error) {
@@ -29,6 +30,9 @@ var Migration = migrate.NewEntry(
 		u.Name = strings.TrimSpace(old.FirstName + " " + old.LastName)
 		if u.Name == "" {
 			u.Name = old.Username
+		}
+		if u.Name == "" {
+			u.Name = "Unnamed user"
 		}
 		return u, nil
 	},

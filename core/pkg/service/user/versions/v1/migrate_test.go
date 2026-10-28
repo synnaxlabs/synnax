@@ -55,6 +55,10 @@ var _ = Describe("v0 -> v1 User migration", func() {
 		Entry("from the last name alone", "", "Doe", "Doe"),
 		Entry("from the username when both names are empty", "", "", "jdoe"),
 	)
+	It("Should name a user with no names or username", func(ctx SpecContext) {
+		Expect(migrateUser(ctx, v0.User{Key: uuid.New()}).Name).
+			To(Equal("Unnamed user"))
+	})
 	It("Should keep the key and root flag", func(ctx SpecContext) {
 		key := uuid.New()
 		u := migrateUser(ctx, v0.User{Key: key, Username: "root", RootUser: true})

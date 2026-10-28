@@ -35,15 +35,8 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-/**
- * The logged-in user's name, "Unnamed user" for a user with an empty name, or an empty
- * string until the user loads.
- */
-export const useDisplayName = (): string => {
-  const { data: name } = User.useResultName({});
-  if (name == null) return "";
-  return name !== "" ? name : "Unnamed user";
-};
+/** The logged-in user's name, or an empty string until the user loads. */
+export const useDisplayName = (): string => User.useResultName({}).data ?? "";
 
 /** The logged-in user's name and roles, for embedding in a dialog. */
 export const Info = (): ReactElement => {

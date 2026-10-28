@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
 
@@ -33,7 +33,7 @@ class User(BaseModel):
     """
 
     key: Key
-    name: str
+    name: str = Field(min_length=1)
     root_user: bool = False
 
     def __hash__(self) -> int:

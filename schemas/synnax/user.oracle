@@ -21,8 +21,9 @@ User struct {
         @key
     }
     name      string {
-        @doc value "is the user's display name."
+        @doc value           "is the user's display name."
         @search
+        @validate min_length 1
     }
     root_user bool = false {
         @doc value """
