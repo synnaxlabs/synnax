@@ -23,7 +23,7 @@ Windows), and linkopts (`ws2_32.lib`, `Iphlpapi.lib`).
 
 clang-format (repo-root `.clang-format`: LLVM base, 88-char lines, 4-space indent).
 Format with `scripts/clang_format.sh <path>`, check with
-`scripts/check_clang_format.sh <path>` (see `scripts/CLAUDE.md`); install the pinned
+`scripts/check_clang_format.sh <path>` (see `scripts/AGENTS.md`); install the pinned
 version via `scripts/install_clang_format.sh`, never a plain package-manager install.
 Include order: system `<...>`, then vendor, then internal `"..."`. Naming: `PascalCase`
 types, `camelCase`/`snake_case` functions (consistent within a component), `snake_case`
@@ -36,7 +36,7 @@ that has them.
 Docs: Doxygen `///` with `@brief`/`@param`/`@returns` on public functions (`@` tags,
 never `\brief`); `/// @brief` above each public struct/class member. A private member
 gets one only when its name cannot carry the meaning. The universal body-comment and
-doc-comment rules in the root CLAUDE.md apply.
+doc-comment rules in the root AGENTS.md apply.
 
 ```cpp
 /// @brief computes the number of days from the civil date to the Unix epoch.
@@ -82,10 +82,10 @@ auto [result, err] = operation();
 if (err) return {nullptr, err.wrap("failed to perform operation")};
 ```
 
-## Testing (Google Test + xtest)
+## Testing (Google Test + testutil)
 
 `*_test.cpp` co-located with source. `TEST` / `TEST_F` with `SetUp`/`TearDown` fixtures;
-mock via interface implementations. xtest utilities from `x/cpp/xtest/xtest.h`:
+mock via interface implementations. Utilities from `x/cpp/testutil/testutil.h`:
 
 - Async assertions: `ASSERT_EVENTUALLY_EQ/GE/LE/TRUE/FALSE/NIL`.
 - `pair<T, Error>` success path: `const auto val = ASSERT_NIL_P(fn());`

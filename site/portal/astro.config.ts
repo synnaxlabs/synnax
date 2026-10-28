@@ -55,6 +55,16 @@ export default defineConfig({
         default: "Synnax Labs <licenses@synnaxlabs.com>",
       }),
       CRON_SECRET: secret,
+      POSTHOG_API_KEY: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+      SLACK_WEBHOOK_URL: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
       VERCEL_ENV: envField.enum({
         context: "server",
         access: "secret",

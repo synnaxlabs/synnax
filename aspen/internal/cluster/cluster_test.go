@@ -16,11 +16,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/cluster/testutil"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("Cluster", func() {
 	var (
-		builder    *clustermock.Builder
+		builder    *testutil.Builder
 		clusterCtx signal.Context
 		shutdown   context.CancelFunc
 	)
@@ -36,7 +36,7 @@ var _ = Describe("Cluster", func() {
 	// in a shared var and used by It blocks, so it must outlive BeforeEach.
 	BeforeEach(func() {
 		clusterCtx, shutdown = signal.WithCancel(context.Background())
-		builder = clustermock.NewBuilder(cluster.Config{
+		builder = testutil.NewBuilder(cluster.Config{
 			Gossip: gossip.Config{Interval: 5 * time.Millisecond},
 			Pledge: pledge.Config{RetryInterval: 1 * time.Millisecond},
 		})
@@ -54,18 +54,21 @@ var _ = Describe("Cluster", func() {
 		// isolatedConfig puts both transports on their own in-memory networks, so the
 		// host has no reachable peer.
 		isolatedConfig := func() cluster.Config {
-			gossipNet := mock.NewNetwork[gossip.Message, gossip.Message]()
-			pledgeNet := mock.NewNetwork[pledge.Request, pledge.Response]()
+			gossipNet := freightertestutil.NewNetwork[gossip.Message, gossip.Message]()
+			pledgeNet := freightertestutil.NewNetwork[pledge.Request, pledge.Response]()
 			gossipServer := gossipNet.UnaryServer("")
 			return cluster.Config{
 				HostAddress: gossipServer.Address(),
 				Gossip: gossip.Config{
 					TransportClient: gossipNet.UnaryClient(),
 					TransportServer: gossipServer,
+					Interval:        50 * time.Millisecond,
 				},
 				Pledge: pledge.Config{
 					TransportClient: pledgeNet.UnaryClient(),
 					TransportServer: pledgeNet.UnaryServer(gossipServer.Address()),
+					RequestTimeout:  50 * time.Millisecond,
+					RetryInterval:   10 * time.Millisecond,
 				},
 			}
 		}
@@ -77,7 +80,7 @@ var _ = Describe("Cluster", func() {
 			cfg.Pledge.Peers = []address.Address{"unreachable"}
 			openCtx, cancel := context.WithTimeout(ctx, 20*time.Millisecond)
 			defer cancel()
-			Expect(cluster.Open(openCtx, cluster.FastConfig, cfg)).Error().
+			Expect(cluster.Open(openCtx, cfg)).Error().
 				To(MatchError(context.DeadlineExceeded))
 		})
 
@@ -86,7 +89,7 @@ var _ = Describe("Cluster", func() {
 		) {
 			cfg := isolatedConfig()
 			cfg.Pledge.RetryScale = 0.5
-			Expect(cluster.Open(ctx, cluster.FastConfig, cfg)).Error().To(MatchError(
+			Expect(cluster.Open(ctx, cfg)).Error().To(MatchError(
 				ContainSubstring("retry_scale: must be greater than or equal to 1"),
 			))
 		})

@@ -52,6 +52,7 @@ type (
 	StreamerRequest         = streamer.Request
 	StreamerResponse        = streamer.Response
 	Streamer                = streamer.Streamer
+	HistoryChange           = framer.HistoryChange
 )
 
 const (

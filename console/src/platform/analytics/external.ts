@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/analytics/Context";
-export { type Name } from "@/platform/analytics/events";
 export { createSink, NOOP, type Sink, type Transport } from "@/platform/analytics/sink";

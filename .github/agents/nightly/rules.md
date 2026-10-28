@@ -5,12 +5,13 @@ rules. Nobody watches this session, so do not ask questions.
 
 ## Rules for every theme
 
-1. Read `CLAUDE.md`, `CONTRIBUTING.md`, and the guides they name for the code you touch.
+1. Read `AGENTS.md`, `CONTRIBUTING.md`, and the guides they name for the code you touch.
    Follow them.
 2. Fix only what you can prove. A finding you are not sure of goes in the report, not in
    a PR.
-3. Each PR holds one idea, branches from `main`, and merges alone. Aim for under 200
-   changed lines. Never stack PRs. There is no limit on the number of PRs.
+3. Each PR holds one idea and branches from `main`, or stacks on an open PR the change
+   needs (root `AGENTS.md`, Rule 3). Aim for under 200 changed lines. There is no limit
+   on the number of PRs.
 4. Keep each change mechanical. Change behavior only to remove the fault the theme
    names, such as a race. Never change stored shapes or wire formats, never bump
    versions, and never hand-edit generated code.
@@ -18,6 +19,16 @@ rules. Nobody watches this session, so do not ask questions.
    (`gh pr list --search "<words>"`). Skip a finding that already has one.
 6. Before you push, run the format check, the lint, and the tests of each package you
    touched. Push only when they pass.
+
+## Security issues
+
+This repository is public. Never write about a possible security issue in a public
+place: no branch, commit, PR, comment, or issue text. This covers injection, cross-site
+scripting, a way past authentication or access control, unsafe deserialization, path
+traversal, an exposed secret, weak or missing TLS verification, and any other fault an
+attacker can use. When you suspect one, stop work on it and push nothing for it. Never
+change such code as a side effect of a cleanup. In your report, write only
+`Possible security issue in <area>, see the private security audit`, with no details.
 
 ## Opening a PR
 
@@ -31,7 +42,8 @@ rules. Nobody watches this session, so do not ask questions.
   interface: CLI commands or flags, a client API, how the Console looks or behaves, or
   anything under `schemas/`.
 - Never add a co-author line or a "Generated with" footer.
-- Open it with `gh pr create --base main --title ... --body ... --label ...`.
+- Open it with `gh pr create --base <base> --title ... --body ... --label ...`. The base
+  is `main`, or the parent's branch for a stacked PR.
 
 ## When you find nothing
 

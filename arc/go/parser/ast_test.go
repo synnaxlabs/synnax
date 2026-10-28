@@ -352,20 +352,20 @@ var _ = Describe("AST Utilities", func() {
 		}
 
 		It("Should return the bare name with an empty tail", func() {
-			head, tail := parser.FunctionNameParts(functionOf("x -> calc{}"))
+			head, tail := parser.FunctionNameParts(functionOf("x -> calc()"))
 			Expect(head).To(Equal("calc"))
 			Expect(tail).To(Equal(""))
 		})
 
 		It("Should split a qualified function name", func() {
-			head, tail := parser.FunctionNameParts(functionOf("x -> math.avg{}"))
+			head, tail := parser.FunctionNameParts(functionOf("x -> math.avg()"))
 			Expect(head).To(Equal("math"))
 			Expect(tail).To(Equal("avg"))
 		})
 
 		It("Should join names only when a tail is present", func() {
-			Expect(parser.FunctionName(functionOf("x -> calc{}"))).To(Equal("calc"))
-			Expect(parser.FunctionName(functionOf("x -> math.avg{}"))).
+			Expect(parser.FunctionName(functionOf("x -> calc()"))).To(Equal("calc"))
+			Expect(parser.FunctionName(functionOf("x -> math.avg()"))).
 				To(Equal("math.avg"))
 		})
 	})

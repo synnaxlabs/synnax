@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -19,18 +20,17 @@ import {
   type Organization,
 } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
+import { channels, term } from "@/server/license/limits";
+import { activatePath } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
 import {
-  channels,
   date,
   dateTime,
   describeEvent,
   edition,
   machineName,
   statusOf,
-  term,
 } from "@/ui/format";
-import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { MachineMenu } from "@/ui/licenses/MachineMenu";
 import { StaffActions } from "@/ui/licenses/StaffActions";
 import { StatusTag } from "@/ui/licenses/StatusTag";
@@ -48,9 +48,9 @@ export interface LicenseProps {
   now: Date;
 }
 
-const MACHINE_COLUMNS = "minmax(0, 2fr) 12rem 12rem 6rem";
+const MACHINE_COLUMNS = "minmax(0, 2fr) 14rem 14rem 6rem";
 
-/** License shows one license: its terms, the machines holding seats, and its history. */
+/** License shows a license: its terms, the machines holding seats, and its history. */
 export const License = ({
   license: lic,
   organization,
@@ -64,22 +64,38 @@ export const License = ({
   const held = activations.filter((a) => a.releasedAt == null);
   const released = activations.filter((a) => a.releasedAt != null);
   const machines = Object.fromEntries(activations.map((a) => [a.key, machineName(a)]));
+  const parent =
+    staff && organization.kind === "team"
+      ? { label: organization.name, href: `/admin/organizations/${organization.key}` }
+      : undefined;
   return (
     <Page
       title={lic.label}
+      parent={parent}
       subtitle={
         <Flex.Box x align="center" gap="small">
           <StatusTag status={status} />
-          <Text.Text level="p" color={9}>
-            {organization.name}
-          </Text.Text>
+          {parent == null && (
+            <Text.Text level="p" color={9}>
+              {organization.name}
+            </Text.Text>
+          )}
         </Flex.Box>
       }
       actions={
         <>
-          {staff && <StaffActions license={lic} now={now} />}
+          {staff && (
+            <StaffActions
+              license={lic}
+              now={now}
+              back={parent?.href ?? "/admin/licenses"}
+            />
+          )}
           {deny(lic, now) == null && (
-            <ActivateDialog licenseKey={lic.key} label={lic.label} />
+            <Button.Button variant="filled" href={activatePath(lic.key)}>
+              <Icon.Add />
+              Activate a machine
+            </Button.Button>
           )}
         </>
       }
