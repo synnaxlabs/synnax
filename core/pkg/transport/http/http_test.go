@@ -333,7 +333,7 @@ var _ = Describe("HTTP", func() {
 			var parsed apiauth.SessionRenewResponse
 			Expect(json.Unmarshal(body, &parsed)).To(Succeed())
 			Expect(parsed.User).ToNot(BeNil())
-			Expect(parsed.User.Username).To(Equal(creds.Username))
+			Expect(parsed.User.Name).To(Equal(creds.Username))
 		})
 		It("Should give the cookie a fresh lifetime on any request", func() {
 			cookie := loginWithCookie("localhost:9090")
