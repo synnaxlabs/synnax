@@ -398,6 +398,12 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
 
       - name: Create an empty frontend
         # The Tauri context embeds the frontend directory, so it must exist.
@@ -405,7 +411,16 @@ jobs:
 
       - name: Test
         working-directory: console/src-tauri
-        run: cargo test --features desktop
+        run: cargo llvm-cov --features desktop --lcov --output-path lcov.info
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v7
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: console/src-tauri/lcov.info
+          flags: desktop-shell
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   docs:
     needs: changes
