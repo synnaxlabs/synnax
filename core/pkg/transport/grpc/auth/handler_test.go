@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -62,6 +64,18 @@ type (
 
 const errInvalidUUID = "invalid uuid"
 
+func matchSession(s svcauth.Session) types.GomegaMatcher {
+	return PointTo(MatchFields(IgnoreExtras, Fields{
+		"Key": Equal(s.Key.String()),
+		"Subject": PointTo(MatchFields(IgnoreExtras, Fields{
+			"Type": Equal(string(s.Subject.Type)),
+			"Key":  Equal(s.Subject.Key),
+		})),
+		"Credential": Equal(s.Credential.String()),
+		"LastActive": Equal(int64(s.LastActive)),
+	}))
+}
+
 var (
 	bob     = user.User{Key: uuid.New()}
 	session = svcauth.Session{
@@ -102,21 +116,19 @@ var _ = Describe("Auth", func() {
 	})
 
 	Describe("LoginRequest", func() {
-		It("Should round-trip the credentials", func(ctx SpecContext) {
-			t := login.RequestTranslator
-			msg := auth.LoginRequest{Username: "bob", Password: "p"}
-			fwd := MustSucceed(t.Forward(ctx, msg))
-			Expect(fwd.Username).To(Equal("bob"))
-			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
+		It("Should translate the credentials", func(ctx SpecContext) {
+			Expect(MustSucceed(login.RequestTranslator.Backward(
+				ctx,
+				&grpcauth.LoginRequest{Username: "bob", Password: "p"},
+			))).To(Equal(auth.LoginRequest{Username: "bob", Password: "p"}))
 		})
 	})
 
 	Describe("LoginResponse", func() {
-		It("Should round-trip the token, user, and cluster info", func(
+		It("Should translate the token, user, and cluster info", func(
 			ctx SpecContext,
 		) {
-			t := login.ResponseTranslator
-			msg := auth.LoginResponse{
+			pb := MustSucceed(login.ResponseTranslator.Forward(ctx, auth.LoginResponse{
 				Token: "tk",
 				User:  bob,
 				ClusterInfo: auth.ClusterInfo{
@@ -125,36 +137,32 @@ var _ = Describe("Auth", func() {
 					NodeKey:     1,
 					NodeTime:    telem.TimeStamp(7),
 				},
-			}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
-		})
-		It("Should reject a malformed user key", func(ctx SpecContext) {
-			Expect(login.ResponseTranslator.Backward(ctx, &grpcauth.LoginResponse{
-				User:        &grpcauth.User{Key: "bad"},
-				ClusterInfo: &grpcauth.ClusterInfo{},
-			})).Error().To(MatchError(errInvalidUUID))
+			}))
+			Expect(pb.Token).To(Equal("tk"))
+			Expect(pb.User.Key).To(Equal(bob.Key.String()))
+			Expect(pb.ClusterInfo.ClusterKey).To(Equal("cluster"))
+			Expect(pb.ClusterInfo.NodeVersion).To(Equal("0.1.0"))
+			Expect(pb.ClusterInfo.NodeKey).To(Equal(uint32(1)))
+			Expect(pb.ClusterInfo.NodeTime).To(Equal(int64(7)))
 		})
 	})
 
 	Describe("SessionCreateRequest", func() {
-		It("Should round-trip a password proof", func(ctx SpecContext) {
-			t := create.RequestTranslator
-			msg := auth.SessionCreateRequest{Proof: svcauth.Proof{
+		It("Should translate a password proof", func(ctx SpecContext) {
+			Expect(
+				MustSucceed(create.RequestTranslator.Backward(
+					ctx,
+					&grpcauth.SessionCreateRequest{Proof: &grpcauth.Proof{
+						Method:   string(svcauth.MethodPassword),
+						Username: "bob",
+						Password: "p",
+					}},
+				)),
+			).To(Equal(auth.SessionCreateRequest{Proof: svcauth.Proof{
 				Variant: svcauth.PasswordProof{
 					Credentials: svcauth.Credentials{Username: "bob", Password: "p"},
 				},
-			}}
-			fwd := MustSucceed(t.Forward(ctx, msg))
-			Expect(fwd.Proof.Method).To(Equal(string(svcauth.MethodPassword)))
-			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
-		})
-		It("Should reject a proof with no variant", func(ctx SpecContext) {
-			Expect(create.RequestTranslator.Forward(
-				ctx,
-				auth.SessionCreateRequest{},
-			)).Error().To(MatchError(validate.ErrValidation))
+			}}))
 		})
 		It("Should reject a missing proof", func(ctx SpecContext) {
 			Expect(create.RequestTranslator.Backward(
@@ -173,56 +181,33 @@ var _ = Describe("Auth", func() {
 	})
 
 	Describe("SessionCreateResponse", func() {
-		It("Should round-trip the token, session, and user", func(ctx SpecContext) {
-			t := create.ResponseTranslator
-			msg := auth.SessionCreateResponse{
-				Token:   "tk",
-				Session: session,
-				User:    &bob,
-			}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
+		It("Should translate the token, session, and user", func(ctx SpecContext) {
+			pb := MustSucceed(create.ResponseTranslator.Forward(
+				ctx,
+				auth.SessionCreateResponse{Token: "tk", Session: session, User: &bob},
+			))
+			Expect(pb.Token).To(Equal("tk"))
+			Expect(pb.Session).To(matchSession(session))
+			Expect(pb.User.Key).To(Equal(bob.Key.String()))
 		})
-		It("Should round-trip a subject that is not a user", func(ctx SpecContext) {
-			t := create.ResponseTranslator
-			msg := auth.SessionCreateResponse{Token: "tk", Session: session}
-			fwd := MustSucceed(t.Forward(ctx, msg))
-			Expect(fwd.User).To(BeNil())
-			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
+		It("Should translate a subject that is not a user", func(ctx SpecContext) {
+			pb := MustSucceed(create.ResponseTranslator.Forward(
+				ctx,
+				auth.SessionCreateResponse{Token: "tk", Session: session},
+			))
+			Expect(pb.User).To(BeNil())
 		})
-		DescribeTable("Should reject a malformed key", func(
-			ctx SpecContext,
-			res *grpcauth.SessionCreateResponse,
-		) {
-			Expect(create.ResponseTranslator.Backward(ctx, res)).Error().
-				To(MatchError(errInvalidUUID))
-		},
-			Entry("session", &grpcauth.SessionCreateResponse{
-				Session: &grpcauth.Session{Key: "bad"},
-			}),
-			Entry("credential", &grpcauth.SessionCreateResponse{
-				Session: &grpcauth.Session{Key: uuid.New().String(), Credential: "bad"},
-			}),
-			Entry("user", &grpcauth.SessionCreateResponse{
-				Session: &grpcauth.Session{
-					Key:        uuid.New().String(),
-					Credential: uuid.New().String(),
-				},
-				User: &grpcauth.User{Key: "bad"},
-			}),
-		)
 	})
 
 	Describe("SessionRetrieveRequest", func() {
-		It("Should round-trip the subjects", func(ctx SpecContext) {
-			t := retrieve.RequestTranslator
-			msg := auth.SessionRetrieveRequest{
-				Subjects: []ontology.ID{bob.OntologyID()},
-			}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
+		It("Should translate the subjects", func(ctx SpecContext) {
+			id := bob.OntologyID()
+			Expect(MustSucceed(retrieve.RequestTranslator.Backward(
+				ctx,
+				&grpcauth.SessionRetrieveRequest{Subjects: []*grpcauth.Subject{
+					{Type: string(id.Type), Key: id.Key},
+				}},
+			)).Subjects).To(Equal([]ontology.ID{id}))
 		})
 		It("Should read a missing subject as the zero ID", func(ctx SpecContext) {
 			res := MustSucceed(retrieve.RequestTranslator.Backward(
@@ -234,30 +219,22 @@ var _ = Describe("Auth", func() {
 	})
 
 	Describe("SessionRetrieveResponse", func() {
-		It("Should round-trip the sessions", func(ctx SpecContext) {
-			t := retrieve.ResponseTranslator
-			msg := auth.SessionRetrieveResponse{Sessions: []svcauth.Session{session}}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
-		})
-		It("Should reject a malformed session key", func(ctx SpecContext) {
-			Expect(retrieve.ResponseTranslator.Backward(
+		It("Should translate the sessions", func(ctx SpecContext) {
+			pb := MustSucceed(retrieve.ResponseTranslator.Forward(
 				ctx,
-				&grpcauth.SessionRetrieveResponse{
-					Sessions: []*grpcauth.Session{{Key: "bad"}},
-				},
-			)).Error().To(MatchError(errInvalidUUID))
+				auth.SessionRetrieveResponse{Sessions: []svcauth.Session{session}},
+			))
+			Expect(pb.Sessions).To(ConsistOf(matchSession(session)))
 		})
 	})
 
 	Describe("SessionDeleteRequest", func() {
-		It("Should round-trip the keys", func(ctx SpecContext) {
-			t := del.RequestTranslator
-			msg := auth.SessionDeleteRequest{Keys: []svcauth.SessionKey{uuid.New()}}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
+		It("Should translate the keys", func(ctx SpecContext) {
+			key := uuid.New()
+			Expect(MustSucceed(del.RequestTranslator.Backward(
+				ctx,
+				&grpcauth.SessionDeleteRequest{Keys: []string{key.String()}},
+			))).To(Equal(auth.SessionDeleteRequest{Keys: []svcauth.SessionKey{key}}))
 		})
 		It("Should reject a malformed key", func(ctx SpecContext) {
 			Expect(del.RequestTranslator.Backward(

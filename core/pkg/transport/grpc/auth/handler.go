@@ -18,11 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -42,20 +40,13 @@ type (
 )
 
 var (
-	_ grpc.Translator[auth.LoginRequest, *LoginRequest] = (*loginRequestTranslator)(
+	_ grpc.BackwardTranslator[auth.LoginRequest, *LoginRequest] = (*loginRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[auth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(
+	_ grpc.ForwardTranslator[auth.LoginResponse, *LoginResponse] = (*loginResponseTranslator)(
 		nil,
 	)
 )
-
-func (loginRequestTranslator) Forward(
-	_ context.Context,
-	req auth.LoginRequest,
-) (*LoginRequest, error) {
-	return &LoginRequest{Username: req.Username, Password: string(req.Password)}, nil
-}
 
 func (loginRequestTranslator) Backward(
 	_ context.Context,
@@ -77,26 +68,6 @@ func (loginResponseTranslator) Forward(
 			NodeVersion: r.ClusterInfo.NodeVersion,
 			NodeKey:     uint32(r.ClusterInfo.NodeKey),
 			NodeTime:    int64(r.ClusterInfo.NodeTime),
-		},
-	}, nil
-}
-
-func (loginResponseTranslator) Backward(
-	_ context.Context,
-	r *LoginResponse,
-) (auth.LoginResponse, error) {
-	key, err := uuid.Parse(r.User.Key)
-	if err != nil {
-		return auth.LoginResponse{}, err
-	}
-	return auth.LoginResponse{
-		Token: r.Token,
-		User:  user.User{Key: key},
-		ClusterInfo: auth.ClusterInfo{
-			ClusterKey:  r.ClusterInfo.ClusterKey,
-			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     node.Key(r.ClusterInfo.NodeKey),
-			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
 		},
 	}, nil
 }
@@ -137,35 +108,22 @@ type (
 )
 
 var (
-	_ grpc.Translator[auth.SessionCreateRequest, *SessionCreateRequest] = (*sessionCreateRequestTranslator)(
+	_ grpc.BackwardTranslator[auth.SessionCreateRequest, *SessionCreateRequest] = (*sessionCreateRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[auth.SessionCreateResponse, *SessionCreateResponse] = (*sessionCreateResponseTranslator)(
+	_ grpc.ForwardTranslator[auth.SessionCreateResponse, *SessionCreateResponse] = (*sessionCreateResponseTranslator)(
 		nil,
 	)
-	_ grpc.Translator[auth.SessionRetrieveRequest, *SessionRetrieveRequest] = (*sessionRetrieveRequestTranslator)(
+	_ grpc.BackwardTranslator[auth.SessionRetrieveRequest, *SessionRetrieveRequest] = (*sessionRetrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[auth.SessionRetrieveResponse, *SessionRetrieveResponse] = (*sessionRetrieveResponseTranslator)(
+	_ grpc.ForwardTranslator[auth.SessionRetrieveResponse, *SessionRetrieveResponse] = (*sessionRetrieveResponseTranslator)(
 		nil,
 	)
-	_ grpc.Translator[auth.SessionDeleteRequest, *SessionDeleteRequest] = (*sessionDeleteRequestTranslator)(
+	_ grpc.BackwardTranslator[auth.SessionDeleteRequest, *SessionDeleteRequest] = (*sessionDeleteRequestTranslator)(
 		nil,
 	)
 )
-
-func proofForward(p svcauth.Proof) (*Proof, error) {
-	switch v := p.Variant.(type) {
-	case svcauth.PasswordProof:
-		return &Proof{
-			Method:   string(svcauth.MethodPassword),
-			Username: v.Username,
-			Password: v.Password,
-		}, nil
-	default:
-		return nil, errors.Wrapf(validate.ErrValidation, "unknown proof %T", v)
-	}
-}
 
 func proofBackward(p *Proof) (svcauth.Proof, error) {
 	if p == nil {
@@ -208,50 +166,11 @@ func sessionForward(s svcauth.Session) *Session {
 	}
 }
 
-func sessionBackward(s *Session) (svcauth.Session, error) {
-	key, err := uuid.Parse(s.Key)
-	if err != nil {
-		return svcauth.Session{}, err
-	}
-	credential, err := uuid.Parse(s.Credential)
-	if err != nil {
-		return svcauth.Session{}, err
-	}
-	return svcauth.Session{
-		Key:        key,
-		Subject:    subjectBackward(s.Subject),
-		Credential: credential,
-		LastActive: telem.TimeStamp(s.LastActive),
-	}, nil
-}
-
 func userForward(u *user.User) *User {
 	if u == nil {
 		return nil
 	}
 	return &User{Key: u.Key.String()}
-}
-
-func userBackward(u *User) (*user.User, error) {
-	if u == nil {
-		return nil, nil
-	}
-	key, err := uuid.Parse(u.Key)
-	if err != nil {
-		return nil, err
-	}
-	return &user.User{Key: key}, nil
-}
-
-func (sessionCreateRequestTranslator) Forward(
-	_ context.Context,
-	r auth.SessionCreateRequest,
-) (*SessionCreateRequest, error) {
-	p, err := proofForward(r.Proof)
-	if err != nil {
-		return nil, err
-	}
-	return &SessionCreateRequest{Proof: p}, nil
 }
 
 func (sessionCreateRequestTranslator) Backward(
@@ -276,36 +195,6 @@ func (sessionCreateResponseTranslator) Forward(
 	}, nil
 }
 
-func (sessionCreateResponseTranslator) Backward(
-	_ context.Context,
-	r *SessionCreateResponse,
-) (auth.SessionCreateResponse, error) {
-	session, err := sessionBackward(r.Session)
-	if err != nil {
-		return auth.SessionCreateResponse{}, err
-	}
-	u, err := userBackward(r.User)
-	if err != nil {
-		return auth.SessionCreateResponse{}, err
-	}
-	return auth.SessionCreateResponse{
-		Token:   r.Token,
-		Session: session,
-		User:    u,
-	}, nil
-}
-
-func (sessionRetrieveRequestTranslator) Forward(
-	_ context.Context,
-	r auth.SessionRetrieveRequest,
-) (*SessionRetrieveRequest, error) {
-	return &SessionRetrieveRequest{
-		Subjects: lo.Map(r.Subjects, func(id ontology.ID, _ int) *Subject {
-			return subjectForward(id)
-		}),
-	}, nil
-}
-
 func (sessionRetrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *SessionRetrieveRequest,
@@ -324,32 +213,6 @@ func (sessionRetrieveResponseTranslator) Forward(
 	return &SessionRetrieveResponse{
 		Sessions: lo.Map(r.Sessions, func(s svcauth.Session, _ int) *Session {
 			return sessionForward(s)
-		}),
-	}, nil
-}
-
-func (sessionRetrieveResponseTranslator) Backward(
-	_ context.Context,
-	r *SessionRetrieveResponse,
-) (auth.SessionRetrieveResponse, error) {
-	sessions := make([]svcauth.Session, 0, len(r.Sessions))
-	for _, s := range r.Sessions {
-		session, err := sessionBackward(s)
-		if err != nil {
-			return auth.SessionRetrieveResponse{}, err
-		}
-		sessions = append(sessions, session)
-	}
-	return auth.SessionRetrieveResponse{Sessions: sessions}, nil
-}
-
-func (sessionDeleteRequestTranslator) Forward(
-	_ context.Context,
-	r auth.SessionDeleteRequest,
-) (*SessionDeleteRequest, error) {
-	return &SessionDeleteRequest{
-		Keys: lo.Map(r.Keys, func(k svcauth.SessionKey, _ int) string {
-			return k.String()
 		}),
 	}, nil
 }
