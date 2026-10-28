@@ -62,6 +62,32 @@ var _ = Describe("Signal", func() {
 				Expect(ctx.Wait()).To(Succeed())
 				Expect(c).To(Equal(0))
 			})
+
+			It("Should run the deferrals of a routine it does not start", func() {
+				ctx, cancel := signal.Isolated()
+				cancel()
+				var order []int
+				ctx.Go(
+					immediatelyReturnNil,
+					signal.Defer(func() { order = append(order, 1) }),
+					signal.Defer(func() { order = append(order, 2) }),
+				)
+				Expect(order).To(Equal([]int{2, 1}))
+				Expect(ctx.Wait()).To(Succeed())
+			})
+
+			It(
+				"Should return the error of a deferral of a routine it does not start",
+				func() {
+					ctx, cancel := signal.Isolated()
+					cancel()
+					ctx.Go(
+						immediatelyReturnNil,
+						signal.DeferErr(func() error { return errRoutineFailed }),
+					)
+					Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
+				},
+			)
 		})
 
 		// Regression: when a routine fails with a genuine (non-context) error and
