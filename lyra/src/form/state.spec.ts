@@ -739,6 +739,43 @@ describe("use", () => {
       expect(state.get("optionalField").required).toBe(false);
     });
 
+    describe("required", () => {
+      const schema = z.object({
+        free: z.string(),
+        count: z.number(),
+        on: z.boolean(),
+        tags: z.array(z.string()).min(1),
+        open: z.array(z.string()),
+      });
+      const values = { free: "a", count: 1, on: true, tags: ["t"], open: [] };
+
+      it("should not require a string the schema accepts empty", () => {
+        expect(create(values, schema).get("free").required).toBe(false);
+      });
+
+      it("should not require a value no input can empty", () => {
+        const state = create(values, schema);
+        expect(state.get("count").required).toBe(false);
+        expect(state.get("on").required).toBe(false);
+      });
+
+      it("should require a list the schema refuses empty", () => {
+        expect(create(values, schema).get("tags").required).toBe(true);
+      });
+
+      it("should not require a list the schema accepts empty", () => {
+        expect(create(values, schema).get("open").required).toBe(false);
+      });
+
+      it("should not require a field whose schema checks asynchronously", () => {
+        const asyncSchema = z.object({
+          name: z.string().refine(async (v) => v !== "taken"),
+        });
+        const state = create({ name: "a" }, asyncSchema);
+        expect(state.get("name").required).toBe(false);
+      });
+    });
+
     it("should return cached reference for performance", () => {
       const state = create(initialValues, basicSchema);
       const fieldState1 = state.get("name");
@@ -750,20 +787,20 @@ describe("use", () => {
       const build = () => {
         let checks = 0;
         const schema = z.object({
-          tracked: z.unknown().check(() => {
+          tracked: z.string().check(() => {
             checks++;
           }),
           other: z.string(),
           config: z.discriminatedUnion("type", [
-            z.object({ type: z.literal("a"), value: z.number() }),
+            z.object({ type: z.literal("a"), value: z.string().min(1) }),
             z.object({ type: z.literal("b"), value: z.string().optional() }),
           ]),
           nested: z.object({ leaf: z.string() }),
         });
         const values: z.infer<typeof schema> = {
-          tracked: 1,
+          tracked: "a",
           other: "x",
-          config: { type: "a", value: 1 },
+          config: { type: "a", value: "v" },
           nested: { leaf: "l" },
         };
         return { state: create(values, schema), checks: () => checks };
@@ -779,9 +816,9 @@ describe("use", () => {
       it("should consult the schema again after the field changes", () => {
         const { state, checks } = build();
         state.get("tracked");
-        state.set("tracked", 2);
+        state.set("tracked", "b");
         const before = checks();
-        expect(state.get("tracked").value).toBe(2);
+        expect(state.get("tracked").value).toBe("b");
         expect(checks()).toBe(before + 1);
       });
 

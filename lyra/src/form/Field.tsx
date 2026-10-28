@@ -30,6 +30,11 @@ export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
     padHelpText?: boolean;
     /** Hides the field when false. */
     visible?: boolean;
+    /**
+     * Whether a person can empty the input. Only an emptiable field shows a required
+     * mark. Defaults to true for the default text input and false for `children`.
+     */
+    emptiable?: boolean;
   };
 
 const defaultInput = Component.renderProp((p: Input.TextProps) => (
@@ -47,7 +52,8 @@ export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
  */
 export const Field = <I = string | number, O = I>({
   path,
-  children = defaultInput as unknown as Component.RenderProp<FieldChild<I, O>>,
+  children,
+  emptiable,
   label,
   padHelpText = true,
   visible = true,
@@ -57,6 +63,7 @@ export const Field = <I = string | number, O = I>({
 }: FieldProps<I, O>): ReactElement | null => {
   // A hidden field may bind a path its config lacks.
   const field = useField<I, O>(path, { onChange, optional: !visible });
+  const markable = emptiable ?? children == null;
   if (field == null || !visible) return null;
   if (label == null) label = caseconv.toSentence(deep.element(path, -1));
   const helpText = field.status.message;
@@ -69,7 +76,7 @@ export const Field = <I = string | number, O = I>({
       helpText={helpText}
       status={field.status.variant}
       label={label}
-      required={field.required && field.preview !== true}
+      required={markable && field.required && field.preview !== true}
       className={CSS.cls(
         className,
         CSS.BE("field", path.split(".").join("-")),
@@ -77,7 +84,9 @@ export const Field = <I = string | number, O = I>({
       )}
       {...rest}
     >
-      {children(childrenProps)}
+      {(
+        children ?? (defaultInput as unknown as Component.RenderProp<FieldChild<I, O>>)
+      )(childrenProps)}
     </Input.Item>
   );
 };
@@ -115,6 +124,7 @@ export const fieldBuilder =
     OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
   >(
     Component: FC<P & Input.Control<I, O>>,
+    defaults: Partial<FieldProps<I, O>> = {},
   ) =>
   ({
     fieldKey: baseFieldKey,
@@ -128,6 +138,7 @@ export const fieldBuilder =
       ...rest
     }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
+        {...defaults}
         {...fieldProps}
         {...rest}
         path={fieldKey ? `${path}.${fieldKey}` : path}
@@ -146,7 +157,10 @@ export const buildNumericField = fieldBuilder<number, number, Input.NumericProps
 export const NumericField = buildNumericField({ inputProps: {} });
 
 export type TextFieldProps = BuiltFieldProps<string, string, Input.TextProps>;
-export const buildTextField = fieldBuilder<string, string, Input.TextProps>(Input.Text);
+export const buildTextField = fieldBuilder<string, string, Input.TextProps>(
+  Input.Text,
+  { emptiable: true },
+);
 export const TextField = buildTextField({ inputProps: {} });
 
 export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchProps>;

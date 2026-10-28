@@ -44,12 +44,12 @@ const createHandlers = (add: Adder, log: Log): Handlers => ({
   async: createAsyncErrorHandler(add, log),
 });
 
+// Reads console.error at call time, so a test's replacement or a session recorder's
+// wrapper applies without new handlers.
+const printError: Log = (message) => console.error(message);
+
 const [HandlersContext, useHandlers] = context.create<Handlers>({
-  // Reads console.error at call time, so a test's replacement applies.
-  defaultValue: createHandlers(
-    () => {},
-    (message) => console.error(message),
-  ),
+  defaultValue: createHandlers(() => {}, printError),
   displayName: "Status.HandlersContext",
 });
 
@@ -70,7 +70,7 @@ const TRUNCATE_FACTOR = 0.9;
 export const Aggregator = ({
   children,
   maxHistory = 500,
-  log = console.error,
+  log = printError,
 }: AggregatorProps) => {
   const [statuses, setStatuses] = useState<Status[]>([]);
   if (statuses.length > maxHistory)
