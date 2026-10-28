@@ -40,7 +40,8 @@ jobs:
       macos: &full ${{ inputs.full == true }}
   client-py:
     needs: [changes, core-image]
-    if: needs.changes.outputs.client_py == 'true' || needs.changes.outputs.core == 'true'
+    if: needs.changes.outputs.client_py == 'true' ||
+      needs.changes.outputs.core == 'true'
     with:
       macos: *full
   # A comment.
@@ -113,7 +114,8 @@ class TestWorkflowEdits:
 
     def test_should_select_nothing_for_a_job_removed_from_ok(self) -> None:
         ci = CI.replace(
-            "  docs:\n    needs: changes\n    if: needs.changes.outputs.docs == 'true'\n"
+            "  docs:\n    needs: changes\n"
+            "    if: needs.changes.outputs.docs == 'true'\n"
             "    runs-on: ubuntu-latest\n",
             "",
         ).replace(", docs]", "]")

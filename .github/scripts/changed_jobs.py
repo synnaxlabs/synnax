@@ -15,7 +15,8 @@ Compares the workflow and the change map at the base commit with the working tre
 prints a JSON list of job IDs. A job runs when its block changed or when a filter its
 condition reads changed. A job that a selected job needs runs too. An edit to a shared
 part runs every job: a top-level key other than jobs, a shared job, or an anchor. A job
-added to the needs of the OK job runs, and that edit is not shared. An empty base selects no job.
+added to the needs of OK runs, and that edit is not shared. An empty base selects no
+job.
 """
 
 import json
