@@ -708,6 +708,17 @@ describe("license routes", () => {
       ]);
     });
 
+    it("should not post a refusal of a Synnax Labs user to Slack", async () => {
+      h.directory.people[STAFF].email = "em@synnaxlabs.com";
+      h.signIn(STAFF);
+      await store.query
+        .update(license)
+        .set({ revokedAt: NOW })
+        .where(eq(license.key, lic.key));
+      expect((await post(MACHINE)).status).toBe(400);
+      expect(h.slack.posted).toEqual([]);
+    });
+
     it("should refuse a revoked license", async () => {
       h.signIn(MEMBER);
       await store.query

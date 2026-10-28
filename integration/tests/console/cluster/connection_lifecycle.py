@@ -103,7 +103,7 @@ class ConnectionLifecycle(ConsoleCase):
         console = self.console
         self.proxy.restore()
 
-        console.cluster.retry_now()
+        # The retry loop checks the Core again within 5 s.
         console.cluster.wait_for_status("Connected", timeout=20000)
         console.cluster.close_badge()
 
