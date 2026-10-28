@@ -38,6 +38,10 @@ export interface Link {
 /** invitationPath is the page an invitation's email links to. */
 export const invitationPath = (key: string): string => `/invitations/${key}`;
 
+/** userPath is the staff page about a user. */
+export const userPath = (userID: string): string =>
+  `/admin/users/${encodeURIComponent(userID)}`;
+
 /** activatePath is the page that activates a machine, open on `license` if given. */
 export const activatePath = (license?: string): string =>
   license == null ? "/licenses/activate" : `/licenses/activate?license=${license}`;
@@ -66,7 +70,7 @@ export const tabs = (scope: Organization, staff: boolean): Link[] => {
   return sections;
 };
 
-export type AdminSection = "organizations" | "licenses" | "activity";
+export type AdminSection = "organizations" | "users" | "licenses" | "activity";
 
 export interface AdminLink {
   section: AdminSection;
@@ -77,6 +81,7 @@ export interface AdminLink {
 /** ADMIN_LINKS are the sections of the staff console, in the order they show. */
 export const ADMIN_LINKS: AdminLink[] = [
   { section: "organizations", label: "Organizations", href: "/admin" },
+  { section: "users", label: "Users", href: "/admin/users" },
   { section: "licenses", label: "Licenses", href: "/admin/licenses" },
   { section: "activity", label: "Activity", href: "/admin/activity" },
 ];

@@ -200,6 +200,8 @@ export class Store {
   // Evicts least recently used blocks that are not held, other than the kept one, until
   // the store fits its budget.
   private evict(kept: string | null): void {
+    // A Map iterator walks past the holes that deletes leave, so the check comes first.
+    if (this.bytes <= this.budget) return;
     let visits = this.entries.size;
     for (const [k, entry] of this.entries) {
       if (this.bytes <= this.budget || visits-- === 0) break;

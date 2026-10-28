@@ -246,7 +246,7 @@ different setup or assertions.
 `HaveOccurred()`, `Not(Succeed())`, `Not(BeNil())` on errors are forbidden — they pass
 when the code fails for the wrong reason. Always identify the error:
 `MatchError(sentinel)`, `MatchError(ContainSubstring("..."))`, or both via
-`SatisfyAll(...)`.
+`SatisfyAll(...)`. The `errmatch` linter enforces it.
 
 ### Rule 9: No export_test.go
 
