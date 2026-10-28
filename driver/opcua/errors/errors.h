@@ -23,9 +23,27 @@ const x::errors::Error NO_CONNECTION = UNREACHABLE.sub("no_connection");
 
 /// @brief security-related errors for certificate and encryption issues
 const x::errors::Error SECURITY = CRITICAL.sub("security");
-const x::errors::Error MISSING_CERTIFICATE = SECURITY.sub("missing_certificate");
-const x::errors::Error INVALID_SECURITY_POLICY = SECURITY.sub("invalid_policy");
 const x::errors::Error ENCRYPTION_CONFIG_FAILED = SECURITY.sub("encryption_config");
+/// @brief data that holds no X.509 certificate.
+const x::errors::Error INVALID_CERTIFICATE = SECURITY.sub("invalid_certificate");
+/// @brief client certificate files that cannot be read, or that do not match.
+const x::errors::Error CLIENT_CERTIFICATE_INVALID = SECURITY.sub(
+    "client_certificate_invalid"
+);
+/// @brief the Driver certificate cannot be loaded, made, or saved.
+const x::errors::Error DRIVER_CERTIFICATE_FAILED = SECURITY.sub("driver_certificate");
+/// @brief the server rejected the certificate that the client presented.
+const x::errors::Error CLIENT_CERTIFICATE_REJECTED = SECURITY.sub(
+    "client_certificate_rejected"
+);
+/// @brief the server presented a certificate other than the trusted one.
+const x::errors::Error SERVER_CERTIFICATE_UNTRUSTED = SECURITY.sub(
+    "server_certificate_untrusted"
+);
+/// @brief the server certificate is outside its validity period.
+const x::errors::Error SERVER_CERTIFICATE_TIME_INVALID = SECURITY.sub(
+    "server_certificate_time_invalid"
+);
 
 /// @brief specific OPC UA error codes mapped to error types
 const x::errors::Error INVALID_ENDPOINT = CRITICAL.sub("BadTcpEndpointUrlInvalid");

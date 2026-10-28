@@ -7,9 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# A pool of stopped EC2 instances that run coding agents as GitHub Actions runners. A
-# job starts one instance through GitHub OIDC, and an idle instance stops itself, so
-# its disk keeps the Go, Bazel, and pnpm caches warm between jobs.
+# One EC2 instance per agent CLI login (a seat), each with several GitHub Actions
+# runners that share the login. A job starts a stopped instance through GitHub OIDC,
+# and an idle instance stops itself, so its disk keeps the build caches warm.
 
 terraform {
   required_version = ">= 1.10"
@@ -66,9 +66,6 @@ data "aws_subnets" "default" {
 locals {
   account = data.aws_caller_identity.current.account_id
   subnets = data.aws_subnets.default.ids
-  runner_subnets = [
-    for i in range(var.instances) : local.subnets[i % length(local.subnets)]
-  ]
 }
 
 resource "aws_security_group" "runner" {
@@ -131,16 +128,22 @@ resource "aws_iam_instance_profile" "runner" {
   role = aws_iam_role.runner.name
 }
 
-resource "aws_instance" "runner" {
-  count                                = var.instances
-  ami                                  = data.aws_ssm_parameter.ubuntu.value
+resource "aws_instance" "seat" {
+  for_each = var.seats
+  ami      = data.aws_ssm_parameter.ubuntu.value
+  # A hash of the name keeps each seat in its subnet when seats are added or removed.
+  subnet_id = local.subnets[
+    parseint(substr(md5(each.key), 0, 6), 16) % length(local.subnets)
+  ]
   instance_type                        = var.instance_type
-  subnet_id                            = local.runner_subnets[count.index]
   vpc_security_group_ids               = [aws_security_group.runner.id]
   iam_instance_profile                 = aws_iam_instance_profile.runner.name
   instance_initiated_shutdown_behavior = "stop"
   user_data = templatefile("${path.module}/provision.sh", {
     idle_minutes = var.idle_minutes
+    seat         = each.key
+    agent        = each.value.agent
+    runners      = each.value.runners
   })
   root_block_device {
     volume_type = "gp3"
@@ -151,11 +154,13 @@ resource "aws_instance" "runner" {
     http_tokens = "required"
   }
   tags = {
-    Name = "synnax-agent-runner-${count.index}"
-    pool = "agent"
+    Name  = "synnax-agent-${each.key}"
+    pool  = "agent"
+    agent = each.value.agent
+    seat  = each.key
   }
-  # A new AMI or bootstrap script must not wipe the warm caches. Replace an instance
-  # on purpose with `terraform apply -replace`.
+  # A new AMI or bootstrap script must not wipe the warm caches or the login. Replace
+  # an instance on purpose with `terraform apply -replace`.
   lifecycle {
     ignore_changes = [ami, user_data]
   }

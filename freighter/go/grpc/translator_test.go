@@ -14,16 +14,16 @@ import (
 
 	"github.com/synnaxlabs/freighter/grpc"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 )
 
 type requestTranslator struct{}
 
-var _ grpc.Translator[test.Request, *v1.Request] = requestTranslator{}
+var _ grpc.Translator[testutil.Request, *v1.Request] = requestTranslator{}
 
 func (requestTranslator) Forward(
 	_ context.Context,
-	req test.Request,
+	req testutil.Request,
 ) (*v1.Request, error) {
 	return &v1.Request{Id: int32(req.ID), Message: req.Message}, nil
 }
@@ -31,17 +31,17 @@ func (requestTranslator) Forward(
 func (requestTranslator) Backward(
 	_ context.Context,
 	req *v1.Request,
-) (test.Request, error) {
-	return test.Request{ID: int(req.Id), Message: req.Message}, nil
+) (testutil.Request, error) {
+	return testutil.Request{ID: int(req.Id), Message: req.Message}, nil
 }
 
 type responseTranslator struct{}
 
-var _ grpc.Translator[test.Response, *v1.Response] = responseTranslator{}
+var _ grpc.Translator[testutil.Response, *v1.Response] = responseTranslator{}
 
 func (responseTranslator) Forward(
 	_ context.Context,
-	res test.Response,
+	res testutil.Response,
 ) (*v1.Response, error) {
 	return &v1.Response{Id: int32(res.ID), Message: res.Message}, nil
 }
@@ -49,6 +49,6 @@ func (responseTranslator) Forward(
 func (responseTranslator) Backward(
 	_ context.Context,
 	res *v1.Response,
-) (test.Response, error) {
-	return test.Response{ID: int(res.Id), Message: res.Message}, nil
+) (testutil.Response, error) {
+	return testutil.Response{ID: int(res.Id), Message: res.Message}, nil
 }

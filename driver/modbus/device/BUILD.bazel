@@ -29,8 +29,8 @@ cc_test(
     visibility = ["//visibility:public"],
     deps = [
         ":device",
-        "//driver/modbus/mock",
-        "//x/cpp/test",
+        "//driver/modbus/testutil",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
