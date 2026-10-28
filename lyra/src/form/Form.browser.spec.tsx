@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { computed, renderThemed, resolve } from "@/testutil/style";
@@ -33,9 +34,11 @@ const renderSections = async (
   return {
     inputs: getByRole("textbox")
       .elements()
-      .map((input) => input.parentElement!),
-    sections: ["General", "Timing"].map(
-      (title) => getByText(title).element().parentElement!.parentElement!,
+      .map((input) => input.closest(`.${CSS.B("input")}`)!),
+    sections: ["General", "Timing"].map((title) =>
+      getByText(title)
+        .element()
+        .closest(`.${CSS.B("form-section")}`)!,
     ),
   };
 };
@@ -54,7 +57,7 @@ describe("Form", () => {
 
     it("should rule a hairline after each section title", async () => {
       const { sections } = await renderSections(false);
-      const header = sections[0].firstElementChild!;
+      const header = sections[0].querySelector(`.${CSS.BE("form-section", "header")}`)!;
       expect(getComputedStyle(header, "::after").backgroundColor).toBe(
         resolve("var(--pluto-gray-l6)"),
       );
