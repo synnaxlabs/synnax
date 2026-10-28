@@ -42,14 +42,16 @@ answering the comments. The gate does not wait for a human approval on either ti
 Greptile skips Dependabot, so a pull request Dependabot opened and wrote every commit of
 passes the gate without a review. `OK` is the CI workflow's last job: it fails when any
 check the PR's paths select failed. A merge into `main` goes through a merge queue,
-which reruns CI on the merged result with the integration suite added before the branch
-moves. GitHub refuses a queue on a wildcard branch pattern, so a `release/**` merge goes
-in directly, and CI runs again on the pushed commit. The queue also runs the gate again.
-A release runs the integration suite itself. Admins bypass when Greptile is down. The
-gate script is `.github/scripts/check_review.sh`, the rulesets
-`.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin applies a
-changed ruleset file by hand; the `Check - Rulesets` workflow fails each day until
-GitHub matches the files.
+which reruns CI with the integration suite added before the branch moves. A queue
+entry's CI builds `main` with the entries ahead of it and the entry itself, but selects
+checks from the entry's own changes. Each entry merges only when its own CI passes: an
+entry that fails leaves the queue, and GitHub rebuilds the entries behind it. GitHub
+refuses a queue on a wildcard branch pattern, so a `release/**` merge goes in directly,
+and CI runs again on the pushed commit. The queue also runs the gate again. A release
+runs the integration suite itself. Admins bypass when Greptile is down. The gate script
+is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
 
 ## Size
 
