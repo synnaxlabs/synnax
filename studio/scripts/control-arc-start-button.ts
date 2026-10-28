@@ -24,7 +24,7 @@ sequence press {
     }
     2 -> press_stage
     0 -> press_vlv_cmd
-    time.wait{duration=10s}
+    time.wait(duration=10s)
     stage vent {
         3 -> press_stage
         1 -> vent_vlv_cmd

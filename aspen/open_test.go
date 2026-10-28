@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
-	transportmock "github.com/synnaxlabs/aspen/transport/mock"
+	"github.com/synnaxlabs/aspen/transport/testutil"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -146,7 +146,7 @@ var _ = Describe("WithListener", func() {
 			[]address.Address{},
 			aspen.Bootstrap(),
 			aspen.InMemory(),
-			aspen.WithTransport(transportmock.NewNetwork().NewTransport("localhost:0")),
+			aspen.WithTransport(testutil.NewNetwork().NewTransport("localhost:0")),
 			aspen.WithListener(lis),
 		)).Error().To(MatchError(validate.ErrValidation))
 		Expect(lis.Close()).To(Succeed())

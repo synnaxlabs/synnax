@@ -12,6 +12,8 @@
 Designed for multiple inheritance with TestCase subclasses.
 """
 
+from typing import Any
+
 import synnax as sy
 from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.test_case import TestCase
@@ -30,7 +32,7 @@ class HardwareCase(TestCase):
         synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
-        **params: object,
+        **params: Any,
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
         self._test_rack_keys: list[int] = []

@@ -178,7 +178,7 @@ var _ = Describe("Authority Analyzer", func() {
 			"Should reject authority block after function declaration",
 			func(specCtx SpecContext) {
 				prog := MustSucceed(parser.Parse(`
-				func test{} () {}
+				func test() {}
 				authority 200
 			`))
 				ctx := acontext.NewRoot(specCtx, prog, root)
@@ -224,7 +224,7 @@ var _ = Describe("Authority Analyzer", func() {
 			func(specCtx SpecContext) {
 				prog := MustSucceed(parser.Parse(`
 				import time
-				func test{} () {}
+				func test() {}
 				authority 200
 			`))
 				ctx := acontext.NewRoot(specCtx, prog, root)
@@ -250,7 +250,7 @@ var _ = Describe("Authority Analyzer", func() {
 		It(
 			"Should return zero config when no authority blocks exist",
 			func(specCtx SpecContext) {
-				prog := MustSucceed(parser.Parse(`func test{} () {}`))
+				prog := MustSucceed(parser.Parse(`func test() {}`))
 				ctx := acontext.NewRoot(specCtx, prog, root)
 				config := authority.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
