@@ -12,6 +12,7 @@ import {
   DataType,
   framer,
   type status as cstatus,
+  UnsupportedError,
 } from "@synnaxlabs/client";
 import { SyntheticCore, type SyntheticCoreProps } from "@synnaxlabs/client/testutil";
 import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -694,6 +695,77 @@ describe("StreamMultiChannelLog", () => {
       await settle(log, PAGE);
       await page(log, STORED);
       expect(valuesOf(entriesOf(log), a)).toEqual(all);
+    });
+
+    it("should show no older samples of one channel past another's held oldest time", async () => {
+      const core = createCore({ derived: true });
+      const [a] = core.data.map((c) => c.key);
+      const b = core.calculated!.key;
+      // Samples 1,000 to 3,999 of a share one time, and the open read holds 1,500 of
+      // them. The older page of b reaches before that time.
+      const times: Record<channel.Key, (i: number) => bigint> = {
+        [a]: (i) =>
+          START.valueOf() + BigInt(i < 1_000 ? i : i < 4_000 ? 1_000 : i - 3_000),
+        [b]: (i) => START.valueOf() + BigInt(i - 1_500),
+      };
+      const indexes: Record<channel.Key, channel.Key> = {
+        [a]: core.index.key,
+        [b]: core.calculatedIndex!.key,
+      };
+      const paged = new Set<channel.Key>();
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (tr.end.valueOf() !== TimeStamp.MAX.valueOf())
+            keys.forEach((k) => paged.add(k));
+          const frame = new framer.Frame();
+          for (const key of [a, b]) {
+            if (!keys.includes(key) && !keys.includes(indexes[key])) continue;
+            const time = times[key];
+            let hi = STORED;
+            while (hi > 0 && time(hi - 1) >= tr.end.valueOf()) hi--;
+            let lo = Math.max(0, hi - count);
+            while (lo < hi && time(lo) < tr.start.valueOf()) lo++;
+            if (hi <= lo) continue;
+            const alignment = (1n << 32n) + BigInt(lo);
+            const indices = Array.from({ length: hi - lo }, (_, j) => lo + j);
+            frame.push(key, new Series({ data: new Float32Array(indices), alignment }));
+            frame.push(indexes[key], indexSeries(alignment, indices.map(time)));
+          }
+          return frame;
+        },
+      });
+      const log = open(core, client, { channels: [a, b] });
+      await settle(log, 2 * PAGE);
+      log.loadOlder();
+      await expect.poll(() => paged.has(a) && paged.has(b), POLL).toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const oldest = (key: channel.Key): bigint =>
+        entriesOf(log)
+          .find((e) => e.channelKey === key)!
+          .timestamp.valueOf();
+      expect(oldest(b)).toBeGreaterThanOrEqual(oldest(a));
+    });
+
+    it("should page stored channels beside a calculated channel with no history", async () => {
+      const core = createCore({
+        derived: true,
+        now: START.add(TimeSpan.seconds(STORED / 10)),
+      });
+      const [a] = core.data.map((c) => c.key);
+      const calculated = [core.calculated!.key, core.calculatedIndex!.key];
+      const client = connect(core, {
+        readLatest: async (keys, count, tr) => {
+          if (keys.some((k) => calculated.includes(k)))
+            throw new UnsupportedError("cannot open iterator on virtual channel");
+          return core.readLatest(keys, count, tr);
+        },
+      });
+      const log = open(core, client, { channels: [a, calculated[0]] });
+      await settle(log, PAGE);
+      await expect.poll(() => core.streams(calculated[0]), POLL).toBe(true);
+      core.advance(TimeSpan.seconds(1));
+      await settle(log, PAGE + 20);
+      await page(log, STORED + 20);
     });
 
     it("should drop a page that an eviction made stale", async () => {

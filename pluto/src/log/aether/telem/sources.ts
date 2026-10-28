@@ -203,10 +203,11 @@ export class StreamMultiChannelLog
     const abort = new AbortController();
     [this.abort, this.paging] = [abort, true];
     const { signal } = abort;
+    const oldests = metas.map(([, { oldest }]) => oldest!);
     const read = await Promise.all(
       metas.map(
-        async ([key, { index, oldest, pageSize }]) =>
-          await readPage(client, key, index!, oldest!, pageSize, signal),
+        async ([key, { index, pageSize }], i) =>
+          await readPage(client, key, index!, oldests[i], pageSize, signal),
       ),
     );
     if (signal.aborted) return;
@@ -220,14 +221,14 @@ export class StreamMultiChannelLog
     }
     [this.paging, this.pageFailure] = [false, undefined];
     this.pageBreaker.reset();
-    // A full page reaches back only to its own oldest sample, so the entries keep only
-    // the times that every full page covers.
+    // A full page reaches back only to its oldest sample, or to the oldest time held if
+    // it has none, so the entries keep only the times that every full page covers.
     let boundary: bigint | null = null;
-    for (const { samples, full } of read) {
-      const first = samples[0]?.time.valueOf();
-      if (full && first != null && (boundary == null || first > boundary))
-        boundary = first;
-    }
+    read.forEach(({ samples, full }, i) => {
+      if (!full) return;
+      const first = samples[0]?.time.valueOf() ?? oldests[i].time;
+      if (boundary == null || first > boundary) boundary = first;
+    });
     const items: Array<{ meta: Meta; p: Page["samples"][number]; group: LogEntry[] }> =
       [];
     metas.forEach(([key, meta], i) => {
@@ -570,8 +571,9 @@ const before = (p: { time: TimeStamp; alignment: bigint }, oldest: Oldest): bool
   );
 };
 
-// Resolves with the snapshots of the keys once each read lands or fails. A snapshot
-// reports a warning, such as a dropped stream, before its read lands.
+// Resolves with the snapshots of the keys once each read lands, fails, or finds no
+// history. A snapshot reports other warnings, such as a dropped stream, before its read
+// lands.
 const settled = async (
   subscription: framer.Subscription,
   keys: channel.Key[],
@@ -583,7 +585,10 @@ const settled = async (
       const snapshots = keys.map((k) => subscription.value(k));
       if (
         snapshots.some(
-          ({ status }) => status.variant !== "success" && status.variant !== "error",
+          ({ status }) =>
+            status.variant !== "success" &&
+            status.variant !== "error" &&
+            status.message !== framer.NO_HISTORY.message,
         )
       )
         return;
