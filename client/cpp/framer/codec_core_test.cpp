@@ -15,7 +15,7 @@
 
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::framer {
 /// @brief it should allow the caller to dynamically update the keys fo the codec.

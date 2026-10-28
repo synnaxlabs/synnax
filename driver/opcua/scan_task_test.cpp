@@ -12,12 +12,12 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/scan_task.h"
-#include "driver/opcua/mock/server.h"
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/scan_task.h"
+#include "driver/opcua/testutil/server.h"
 
 namespace driver::opcua {
 class TestScanTask : public ::testing::Test {
@@ -25,7 +25,7 @@ protected:
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
     std::shared_ptr<connection::Pool> conn_pool;
-    std::unique_ptr<mock::Server> server;
+    std::unique_ptr<testutil::Server> server;
     synnax::task::Task task;
     synnax::rack::Rack rack;
 
@@ -42,8 +42,8 @@ protected:
             .type = "opc_scan",
         };
 
-        auto server_cfg = mock::ServerConfig::create_default();
-        server = std::make_unique<mock::Server>(server_cfg);
+        auto server_cfg = testutil::ServerConfig::create_default();
+        server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
@@ -355,8 +355,8 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     }
 
     // Step 3: Restart the server - health should be good again
-    auto server_cfg = mock::ServerConfig::create_default();
-    server = std::make_unique<mock::Server>(server_cfg);
+    auto server_cfg = testutil::ServerConfig::create_default();
+    server = std::make_unique<testutil::Server>(server_cfg);
     server->start();
 
     // Wait for server to be ready

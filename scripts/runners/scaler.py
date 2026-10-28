@@ -96,8 +96,9 @@ class Scaler:
         found: dict[str, dict],
         running: set[str],
     ) -> None:
-        now = sy.TimeStamp.now()
         self.refresh_writer(known)
+        # After the command writer opens, so commands land after its start.
+        now = sy.TimeStamp.now()
 
         def idle_on(r: str) -> bool:
             iid = instance_for(r, found)

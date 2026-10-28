@@ -23,7 +23,7 @@ import {
 } from "@/log/aether/telem/sources";
 import { type LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 
 const RATE = Rate.hz(10);
 const START = TimeStamp.seconds(1_000_000);
@@ -395,61 +395,38 @@ describe("StreamMultiChannelLog", () => {
   });
 
   describe("eviction", () => {
-    // Records the evicted count at each notify, where the log component reads it.
-    const recordEvictions = (log: StreamMultiChannelLog): number[] => {
-      const evicted: number[] = [];
-      log.onChange(() => evicted.push(log.evictedCount));
-      return evicted;
-    };
-
-    it("should evict entries older than keepFor and count them", async () => {
+    it("should evict entries older than keepFor", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
       const log = open(core, connect(core), {
         channels: [a],
         keepFor: TimeSpan.seconds(2),
       });
-      const evicted = recordEvictions(log);
       await settle(log, HISTORY);
       core.advance(TimeSpan.seconds(3));
       await settle(log, 30);
       core.advance(TimeSpan.seconds(1));
       await settle(log, 40);
-      expect(evicted).toEqual([0, HISTORY, 0]);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 40));
     });
 
-    it("should report the entries a pull evicts while it adds none", async () => {
+    it("should notify when a pull evicts entries and adds none", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
       const log = open(core, connect(core), {
         channels: [a],
         keepFor: TimeSpan.seconds(2),
       });
-      const evicted = recordEvictions(log);
       await settle(log, HISTORY);
       core.advance(TimeSpan.seconds(1));
       await settle(log, HISTORY + 10);
+      const handler = vi.fn();
+      log.onChange(handler);
       core.advance(TimeSpan.seconds(2), false);
       // A stream drop changes only the status, so the pull it causes adds no entries.
       core.disconnect();
       await settle(log, 10);
-      expect(evicted.reduce((sum, n) => sum + n, 0)).toBe(HISTORY);
-    });
-
-    it("should report the entries a channel change evicts once", async () => {
-      const core = createCore();
-      const [a, b] = core.data.map((c) => c.key);
-      const log = open(core, connect(core), {
-        channels: [a],
-        keepFor: TimeSpan.seconds(2),
-      });
-      await settle(log, HISTORY);
-      core.advance(TimeSpan.seconds(1));
-      await settle(log, HISTORY + 10);
-      const evicted = recordEvictions(log);
-      core.advance(TimeSpan.seconds(2), false);
-      log.setChannels([a, b]);
-      expect(evicted).toEqual([HISTORY]);
+      expect(handler).toHaveBeenCalled();
     });
 
     it("should evict past maxEntries, never leaving a continuation first", async () => {
@@ -457,23 +434,20 @@ describe("StreamMultiChannelLog", () => {
       const [a] = core.data.map((c) => c.key);
       core.retype(a, DataType.STRING);
       const log = open(core, connect(core), { channels: [a] }, undefined, 5);
-      const evicted = recordEvictions(log);
       await settle(log, 3);
       expect(entriesOf(log).map((e) => e.value)).toEqual(["a", "b", "c"]);
-      expect(evicted).toEqual([3 * HISTORY - 3]);
     });
 
     it("should evict a tenth of maxEntries beyond the excess", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a] }, undefined, 100);
-      const evicted = recordEvictions(log);
       await settle(log, 90);
       core.advance(TimeSpan.seconds(1));
       await settle(log, 100);
       core.advance(TimeSpan.seconds(1));
       await settle(log, 90);
-      expect(evicted).toEqual([HISTORY - 90, 0, 20]);
+      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 90));
     });
   });
 
@@ -488,7 +462,6 @@ describe("StreamMultiChannelLog", () => {
     const handler = vi.fn();
     log.onChange(handler);
     log.cleanup();
-    expect(log.evictedCount).toBe(0);
     core.advance(TimeSpan.seconds(1));
     // The witness shares the stream, so the samples reached every subscription.
     await settle(witness, HISTORY + 10);

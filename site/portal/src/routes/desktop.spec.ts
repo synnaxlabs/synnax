@@ -8,16 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
 import { OPTIONS, POST as renewRoute } from "@/pages/api/desktop/renew";
+import { POST as desktopUnlinkRoute } from "@/pages/api/desktop/unlink";
 import { activation, event, license } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { hashSecret } from "@/server/license/desktop";
-import { HASH_A, HASH_B } from "@/server/license/testutil";
+import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR } from "@/server/ratelimit";
+import { active, firstLogin } from "@/server/slack";
+import { DAY_MS } from "@/server/usage";
 import {
   body,
   createActivation,
@@ -28,6 +31,15 @@ import {
   type Harness,
   readKey,
 } from "@/testutil";
+
+const TOMORROW = new Date(NOW.getTime() + DAY_MS);
+
+const ADA = {
+  userID: "user_a",
+  name: "Ada Lovelace",
+  email: "ada@example.com",
+  joinedAt: new Date(0),
+};
 
 interface Linked {
   key: string;
@@ -53,6 +65,20 @@ describe("desktop routes", () => {
     harness.directory.people.user_b = { email: "bob@example.com", name: "Bob" };
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const CLERK_DOWN = new Error("Clerk is down");
+
+  /** breakNotes makes every Clerk account lookup fail, and catches what is logged. */
+  const breakNotes = () => {
+    harness.directory.account = async () => {
+      throw CLERK_DOWN;
+    };
+    return vi.spyOn(console, "error").mockImplementation(() => {});
+  };
+
   const postLink = async (fields: Record<string, string>) =>
     await linkRoute(createAPIContext(harness.portal, { body: fields }));
 
@@ -72,6 +98,13 @@ describe("desktop routes", () => {
 
   const postUnlink = async (key: string) =>
     await unlinkRoute(createAPIContext(harness.portal, { params: { key } }));
+
+  const postDesktopUnlink = async (authorization?: string) =>
+    await desktopUnlinkRoute(
+      createAPIContext(harness.portal, {
+        headers: authorization == null ? {} : { authorization },
+      }),
+    );
 
   describe("POST /api/desktop/link", () => {
     it("should refuse a visitor who is not logged in", async () => {
@@ -96,18 +129,18 @@ describe("desktop routes", () => {
       });
     });
 
-    it("should refuse a fingerprint that is not a host hash", async () => {
+    it("should refuse a fingerprint with a value that is not a hash", async () => {
       harness.signIn("user_a");
       const res = await postLink({ fingerprint: "nope", name: "stand-1" });
       expect(res.status).toBe(400);
-      expect(await body(res)).toEqual({ error: '"nope" is not a host hash' });
+      expect(await body(res)).toEqual({ error: '"nope" is not part of a fingerprint' });
     });
 
     it("should refuse an empty fingerprint", async () => {
       harness.signIn("user_a");
       const res = await postLink({ fingerprint: "", name: "stand-1" });
       expect(res.status).toBe(400);
-      expect(await body(res)).toEqual({ error: "Paste at least one host hash" });
+      expect(await body(res)).toEqual({ error: "Enter the machine's fingerprint" });
     });
 
     it("should refuse a machine without a name", async () => {
@@ -128,6 +161,55 @@ describe("desktop routes", () => {
       expect(await body(res)).toEqual({
         error: "Too many activations. Try again later.",
       });
+    });
+
+    it("should post only the first Desktop login of each user to Slack", async () => {
+      await linkAs("user_a");
+      await linkAs("user_a", HASH_B);
+      await linkAs("user_b");
+      expect(harness.slack.posted).toEqual([
+        firstLogin(
+          { userID: "user_a", name: "Ada Lovelace", email: "ada@example.com" },
+          "stand-1",
+        ),
+        firstLogin(
+          { userID: "user_b", name: "Bob", email: "bob@example.com" },
+          "stand-1",
+        ),
+      ]);
+    });
+
+    it("should not post a login after the user logged out", async () => {
+      const linked = await linkAs("user_a");
+      expect((await postDesktopUnlink(`Bearer ${linked.secret}`)).status).toBe(204);
+      await linkAs("user_a");
+      expect(harness.slack.posted).toHaveLength(1);
+    });
+
+    it("should post a returning user's first use of a day to Slack", async () => {
+      await linkAs("user_a");
+      harness.portal.now = () => TOMORROW;
+      await linkAs("user_a", HASH_B);
+      expect(harness.slack.posted.at(-1)).toEqual(
+        active({
+          account: ADA,
+          machine: "stand-1",
+          previous: NOW,
+          at: TOMORROW,
+          days: 2,
+        }),
+      );
+    });
+
+    it("should answer the new secret when the note about the login fails", async () => {
+      const first = await linkAs("user_a");
+      harness.portal.now = () => TOMORROW;
+      const error = breakNotes();
+      const again = await linkAs("user_a");
+      expect(again.secret).not.toBe(first.secret);
+      expect((await postRenew(`Bearer ${again.secret}`)).status).toBe(200);
+      expect(error).toHaveBeenCalledWith("slack note failed", CLERK_DOWN);
+      expect(harness.slack.posted).toHaveLength(1);
     });
   });
 
@@ -160,6 +242,42 @@ describe("desktop routes", () => {
       expect(renewals).toHaveLength(1);
     });
 
+    it("should post the owner's first use of a day to Slack", async () => {
+      const linked = await linkAs("user_a");
+      harness.signIn(null);
+      harness.portal.now = () => TOMORROW;
+      expect((await postRenew(`Bearer ${linked.secret}`)).status).toBe(200);
+      expect(harness.slack.posted).toEqual([
+        firstLogin(ADA, "stand-1"),
+        active({
+          account: ADA,
+          machine: "stand-1",
+          previous: NOW,
+          at: TOMORROW,
+          days: 2,
+        }),
+      ]);
+    });
+
+    it("should answer the key when the note about the renewal fails", async () => {
+      const linked = await linkAs("user_a");
+      harness.portal.now = () => TOMORROW;
+      const error = breakNotes();
+      const res = await postRenew(`Bearer ${linked.secret}`);
+      expect(res.status).toBe(200);
+      const { key } = await body<{ key: string }>(res);
+      expect(readKey(key)).toMatchObject({ fingerprints: [HASH_A] });
+      expect(error).toHaveBeenCalledWith("slack note failed", CLERK_DOWN);
+      expect(harness.slack.posted).toHaveLength(1);
+    });
+
+    it("should not post a later use on the same day", async () => {
+      const linked = await linkAs("user_a");
+      harness.portal.now = () => new Date(NOW.getTime() + 6 * 60 * 60 * 1000);
+      expect((await postRenew(`Bearer ${linked.secret}`)).status).toBe(200);
+      expect(harness.slack.posted).toHaveLength(1);
+    });
+
     it("should refuse a request without a bearer secret", async () => {
       const res = await postRenew();
       expect(res.status).toBe(401);
@@ -181,6 +299,44 @@ describe("desktop routes", () => {
       const linked = await linkAs("user_a");
       expect((await postUnlink(linked.activation)).status).toBe(204);
       const res = await postRenew(`Bearer ${linked.secret}`);
+      expect(res.status).toBe(403);
+      expect(await body(res)).toEqual({
+        error: "This machine is not logged in",
+        code: "unlinked",
+      });
+    });
+  });
+
+  describe("POST /api/desktop/unlink", () => {
+    it("should log out the machine the bearer secret belongs to", async () => {
+      const linked = await linkAs("user_a");
+      harness.signIn(null);
+      const res = await postDesktopUnlink(`Bearer ${linked.secret}`);
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      const [act] = await store.query
+        .select()
+        .from(activation)
+        .where(eq(activation.key, linked.activation));
+      expect(act.releasedAt).not.toBeNull();
+      const unlinks = (await store.query.select().from(event)).filter(
+        (e) => e.kind === "unlink",
+      );
+      expect(unlinks).toEqual([expect.objectContaining({ actor: linked.activation })]);
+      expect((await postRenew(`Bearer ${linked.secret}`)).status).toBe(403);
+    });
+
+    it("should refuse a request without a bearer secret", async () => {
+      const res = await postDesktopUnlink();
+      expect(res.status).toBe(401);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      expect(await body(res)).toEqual({ error: "Log in first" });
+    });
+
+    it("should refuse a machine that was logged out", async () => {
+      const linked = await linkAs("user_a");
+      expect((await postDesktopUnlink(`Bearer ${linked.secret}`)).status).toBe(204);
+      const res = await postDesktopUnlink(`Bearer ${linked.secret}`);
       expect(res.status).toBe(403);
       expect(await body(res)).toEqual({
         error: "This machine is not logged in",

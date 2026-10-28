@@ -54,11 +54,10 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/opcua",
-        "//driver/opcua/mock",
         "//driver/opcua/testutil",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/json",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
