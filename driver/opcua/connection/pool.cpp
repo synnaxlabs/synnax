@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
 #include "open62541/client_highlevel.h"
@@ -23,17 +25,23 @@ const x::errors::Error BREAKER_OPEN_ERROR(
 );
 
 namespace {
-/// @brief identifies the connections that one configuration and client identity can
-/// share. The endpoint comes first for available_count. The trusted server
-/// certificate is not part of the key, so a connection that trusted the first
-/// certificate serves the same device after the Driver pins that certificate.
-std::string pool_key(const Config &cfg, const Security &sec) {
+/// @brief identifies the configurations whose connections differ only in the client
+/// certificate. The endpoint comes first for available_count.
+std::string settings_key(const Config &cfg) {
     std::string key = cfg.endpoint + "|" + cfg.username + "|" + cfg.security_mode +
                       "|" + cfg.security_policy;
-    if (!sec.identity.has_value()) return key;
+    if (!cfg.secured()) return key;
     return key + "|" + cfg.client_cert + "|" + cfg.client_private_key + "|" +
-           sec.identity->certificate.thumbprint() + "|" +
            (cfg.certificate_validation_disabled ? "unvalidated" : "validated");
+}
+
+/// @brief identifies the connections that one configuration and client certificate
+/// can share. The trusted server certificate is not part of the key, so a connection
+/// that trusted the first certificate serves the same device after the Driver pins
+/// that certificate.
+std::string pool_key(const std::string &settings, const Security &sec) {
+    if (!sec.identity.has_value()) return settings;
+    return settings + "|" + sec.identity->certificate.thumbprint();
 }
 
 /// @returns true if the client's server presented the certificate that the
@@ -58,13 +66,16 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     auto [sec, sec_err] = resolve_security(cfg, *this->store);
     if (sec_err) return {Connection(nullptr, nullptr, ""), sec_err};
     sec.first_certificate_trusted = true;
-    const std::string key = pool_key(cfg, sec);
+    const std::string settings = settings_key(cfg);
+    const std::string key = pool_key(settings, sec);
 
     // Try to find a cached connection. We mark it in_use under the lock,
     // then release the lock before running the blocking health probe.
     std::shared_ptr<UA_Client> candidate;
+    std::vector<std::shared_ptr<UA_Client>> retired;
     {
         std::lock_guard<std::mutex> lock(mutex_);
+        retired = this->retire(settings, key);
         auto it = connections_.find(key);
         if (it != connections_.end()) {
             for (auto &entry: it->second) {
@@ -99,6 +110,12 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                 it->second.end()
             );
         }
+    }
+    // Some servers allow few sessions, so retired ones close before a new one opens.
+    if (!retired.empty()) {
+        VLOG(1) << log_prefix
+                << "Closing connections with a replaced client certificate";
+        retired.clear();
     }
 
     // Health probe runs outside the lock so other threads can acquire
@@ -250,7 +267,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     // Success — add to pool, reset breaker, notify waiters.
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        connections_[key].push_back({client, true});
+        connections_[key].push_back({client, true, settings});
         auto &breaker = breakers[key];
         breaker.connecting = false;
         breaker.consecutive_failures = 0;
@@ -265,7 +282,7 @@ std::pair<bool, x::errors::Error>
 Pool::refresh(Connection &conn, const Config &cfg, const std::string &log_prefix) {
     auto [sec, sec_err] = resolve_security(cfg, *this->store);
     if (sec_err) return {false, sec_err};
-    if (pool_key(cfg, sec) == conn.key_) return {false, x::errors::NIL};
+    if (pool_key(settings_key(cfg), sec) == conn.key_) return {false, x::errors::NIL};
     auto replacement = cfg;
     if (const auto trusted = trusted_certificate(conn.get()))
         replacement.server_certificate = trusted;
@@ -287,12 +304,13 @@ void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &cli
             UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
             UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
             UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
-            if (session_state == UA_SESSIONSTATE_ACTIVATED) {
+            if (session_state == UA_SESSIONSTATE_ACTIVATED &&
+                this->current_keys.at(entry.settings) == key) {
                 entry.in_use = false;
                 VLOG(1) << "[conn_pool] Returned connection to pool";
             } else {
                 entry.client.reset();
-                VLOG(1) << "[conn_pool] Discarding disconnected connection";
+                VLOG(1) << "[conn_pool] Discarding connection";
             }
             break;
         }
@@ -308,6 +326,21 @@ void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &cli
     );
 
     if (it->second.empty()) connections_.erase(it);
+}
+
+std::vector<std::shared_ptr<UA_Client>>
+Pool::retire(const std::string &settings, const std::string &key) {
+    auto &current = this->current_keys[settings];
+    if (current == key) return {};
+    const auto replaced = std::exchange(current, key);
+    std::vector<std::shared_ptr<UA_Client>> retired;
+    const auto it = connections_.find(replaced);
+    if (it == connections_.end()) return retired;
+    for (auto &entry: it->second)
+        if (!entry.in_use) retired.push_back(std::move(entry.client));
+    std::erase_if(it->second, [](const Entry &e) { return !e.client; });
+    if (it->second.empty()) connections_.erase(it);
+    return retired;
 }
 
 void Pool::cleanup_stale_entries(

@@ -216,6 +216,8 @@ private:
     struct Entry {
         std::shared_ptr<UA_Client> client;
         bool in_use;
+        /// @brief the settings of the connection, without its client certificate.
+        std::string settings;
     };
 
     /// @brief Per-endpoint circuit breaker state. Tracks consecutive
@@ -248,8 +250,17 @@ private:
     std::condition_variable connect_cv;
     std::unordered_map<std::string, std::vector<Entry>> connections_;
     std::unordered_map<std::string, BreakerState> breakers;
+    /// @brief the key of the client certificate that each group of settings uses now.
+    /// A connection under another key is closed when it is idle.
+    std::unordered_map<std::string, std::string> current_keys;
 
     void release(const std::string &key, const std::shared_ptr<UA_Client> &client);
+
+    /// @brief records key as the client certificate that settings uses now, and
+    /// removes the idle connections of the certificate it replaces. The caller holds
+    /// mutex_ and closes the returned connections outside it.
+    std::vector<std::shared_ptr<UA_Client>>
+    retire(const std::string &settings, const std::string &key);
 
     /// @brief collects stale (non-activated) connections under the lock,
     /// then sends CloseSession outside the lock to free server-side

@@ -91,13 +91,15 @@ protected:
 
     void start_server(
         const certificate::Identity &id,
-        std::vector<certificate::Certificate> trusted_clients = {}
+        std::vector<certificate::Certificate> trusted_clients = {},
+        const std::uint16_t max_sessions = 0
     ) {
         if (this->server) this->server->stop();
         auto cfg = testutil::ServerConfig::create_default();
         cfg.port = PORT;
         cfg.identity = id;
         cfg.trusted_clients = std::move(trusted_clients);
+        cfg.max_sessions = max_sessions;
         this->server = std::make_unique<testutil::Server>(cfg);
         this->server->start();
         ASSERT_TRUE(this->server->wait_until_ready());
@@ -365,6 +367,22 @@ TEST_F(SecurityTest, PoolBreakerResetsOnNewTrustedCertificate) {
     ASSERT_EQ(pool.size(), 1);
 }
 
+/// @brief it should close an idle connection with the old Driver certificate before it
+/// connects with the new one.
+TEST_F(SecurityTest, PoolClosesIdleConnectionAfterCertificateChange) {
+    this->start_server(server_id, {}, 1);
+    const auto store = this->store();
+    Pool pool(store);
+    auto cfg = config();
+    cfg.server_certificate = server_id.certificate;
+    { auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX)); }
+    ASSERT_EQ(pool.available_count(ENDPOINT), 1);
+    ASSERT_NIL(store->regenerate().second);
+    const auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
+    ASSERT_TRUE(activated(conn.get()));
+    ASSERT_EQ(pool.size(), 1);
+}
+
 /// @brief it should keep a connection whose client certificate has not changed.
 TEST_F(SecurityTest, PoolRefreshKeepsCurrentCertificate) {
     this->start_server(server_id);
@@ -392,6 +410,21 @@ TEST_F(SecurityTest, PoolRefreshUsesNewDriverCertificate) {
     this->start_server(server_id, {next.certificate});
     ASSERT_TRUE(ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX)));
     ASSERT_NIL_P(testutil::simple_read(conn.shared(), "NS=1;S=TestUInt32"));
+}
+
+/// @brief it should close the old connection instead of keeping it idle after a
+/// refresh.
+TEST_F(SecurityTest, PoolRefreshClosesOldConnection) {
+    this->start_server(server_id);
+    const auto store = this->store();
+    Pool pool(store);
+    auto cfg = config();
+    cfg.server_certificate = server_id.certificate;
+    auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
+    ASSERT_NIL(store->regenerate().second);
+    ASSERT_TRUE(ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX)));
+    ASSERT_EQ(pool.size(), 1);
+    ASSERT_EQ(pool.available_count(ENDPOINT), 0);
 }
 
 /// @brief it should keep the old connection when the server does not trust the new
