@@ -35,6 +35,19 @@ const DUMMY_CTX: Context = {
   params: {},
 };
 
+// a login-only client: it opens no streams, so a user with no role can use it
+const createLoginClient = (credentials: auth.Credentials): auth.Client => {
+  const transport = new Transport(
+    new url.URL({
+      host: TEST_CLIENT_PARAMS.host,
+      port: Number(TEST_CLIENT_PARAMS.port),
+    }),
+  );
+  const client = new auth.Client(transport.unary, { credentials });
+  transport.use(client.middleware());
+  return client;
+};
+
 describe("auth", () => {
   test("valid credentials", async () => {
     const transport = new Transport(
@@ -738,17 +751,6 @@ describe("auth", () => {
   });
 
   describe("setPassword", () => {
-    const makeClient = (credentials: auth.Credentials) => {
-      const transport = new Transport(
-        new url.URL({
-          host: TEST_CLIENT_PARAMS.host,
-          port: Number(TEST_CLIENT_PARAMS.port),
-        }),
-      );
-      const client = new auth.Client(transport.unary, { credentials });
-      transport.use(client.middleware());
-      return client;
-    };
     const createUser = async () => {
       const username = `set-password-${id.create()}`;
       const u = await createTestUser(createTestClient(), { username, password: "old" });
@@ -757,17 +759,17 @@ describe("auth", () => {
 
     it("should let an owner set another user's password", async () => {
       const { username, subject } = await createUser();
-      const owner = makeClient(TEST_CREDENTIALS);
+      const owner = createLoginClient(TEST_CREDENTIALS);
       await owner.setPassword({ subject, password: "new" });
-      await makeClient({ username, password: "new" }).retrieveSessions();
+      await createLoginClient({ username, password: "new" }).retrieveSessions();
       await expect(
-        makeClient({ username, password: "old" }).retrieveSessions(),
+        createLoginClient({ username, password: "old" }).retrieveSessions(),
       ).rejects.toThrow(AuthError);
     });
 
     it("should set the caller's own password given the current one", async () => {
       const { username } = await createUser();
-      const self = makeClient({ username, password: "old" });
+      const self = createLoginClient({ username, password: "old" });
       await expect(self.setPassword({ password: "new" })).rejects.toThrow();
       await self.retrieveSessions();
       await self.setPassword({
@@ -780,7 +782,7 @@ describe("auth", () => {
       await self.deleteSessions(key);
       await self.retrieveSessions();
       expect(self.session?.key).not.toEqual(key);
-      await makeClient({ username, password: "new" }).retrieveSessions();
+      await createLoginClient({ username, password: "new" }).retrieveSessions();
     });
   });
 
@@ -801,9 +803,9 @@ describe("auth", () => {
         username,
         password: "first",
       });
-      const client = createTestClient({ username, password: "first" });
-      const current = await client.users.current.retrieve();
-      expect(current.key).toEqual(u.key);
+      const client = createLoginClient({ username, password: "first" });
+      await client.retrieveSessions();
+      expect(client.subject?.key).toEqual(u.key);
     });
 
     it("should refuse a username another user holds", async () => {
