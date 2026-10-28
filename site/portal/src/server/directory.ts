@@ -102,7 +102,7 @@ export interface Directory {
   remove: (clerkOrgID: string, userID: string) => Promise<void>;
   /** create makes a team with no members. */
   create: (name: string) => Promise<Listed>;
-  /** delete removes a team and its memberships. */
+  /** delete removes a team and its memberships. It does nothing for an unknown team. */
   delete: (clerkOrgID: string) => Promise<void>;
   /**
    * rename changes a team's name.
@@ -312,7 +312,9 @@ export const clerk = (client: Client): Directory => ({
     return { clerkOrgID: org.id, name: org.name };
   },
   delete: async (clerkOrgID) => {
-    await client.organizations.deleteOrganization(clerkOrgID);
+    await client.organizations.deleteOrganization(clerkOrgID).catch((e: unknown) => {
+      if (!isNotFound(e)) throw errors.fromUnknown(e);
+    });
   },
   rename: async (clerkOrgID, name) => {
     await client.organizations
@@ -404,8 +406,7 @@ export const memory = ({
   },
   delete: async (clerkOrgID) => {
     const i = organizations.findIndex((o) => o.clerkOrgID === clerkOrgID);
-    if (i === -1) throw new Error(`no Clerk organization ${clerkOrgID}`);
-    organizations.splice(i, 1);
+    if (i !== -1) organizations.splice(i, 1);
     for (const [userID, teams] of Object.entries(members))
       members[userID] = teams.filter((t) => t.clerkOrgID !== clerkOrgID);
   },

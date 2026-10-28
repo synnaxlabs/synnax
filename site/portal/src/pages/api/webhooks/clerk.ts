@@ -19,7 +19,7 @@ import { joined } from "@/server/slack";
  * also posted to Slack.
  */
 export const POST: APIRoute = async (context) => {
-  const { store, slack, webhookSecret } = context.locals.portal;
+  const { store, slack, directory, webhookSecret } = context.locals.portal;
   let evt: Awaited<ReturnType<typeof verifyWebhook>>;
   try {
     evt = await verifyWebhook(context.request, { signingSecret: webhookSecret });
@@ -51,11 +51,13 @@ export const POST: APIRoute = async (context) => {
       break;
     }
     case "organization.created":
-    case "organization.updated":
-      await mirrorTeams(store.query, [
-        { clerkOrgID: evt.data.id, name: evt.data.name },
-      ]);
+    case "organization.updated": {
+      // An event can arrive late, even after its team is deleted, so mirror the team as
+      // Clerk holds it now.
+      const team = await directory.team(evt.data.id);
+      if (team != null) await mirrorTeams(store.query, [team]);
       break;
+    }
     default:
       break;
   }
