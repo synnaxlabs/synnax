@@ -42,70 +42,6 @@ const VENT_VLV_CMD = "sample_vent_vlv_cmd";
 const START_CMD = "sample_start_cmd";
 const ABORT_CMD = "sample_abort_cmd";
 
-const SIMULATOR = `import time
-
-// Simulates a tank that fills from a 500 psi nitrogen supply through the press valve
-// and empties through the vent valve.
-func step() {
-    pressure f64 $= 0
-    if ${PRESS_VLV_CMD} == 1 {
-        pressure += (500 - pressure) * 0.02
-    }
-    if ${VENT_VLV_CMD} == 1 {
-        pressure -= pressure * 0.05
-    }
-    pressure -= pressure * 0.0002
-    ${TANK_PT} = pressure
-    ${PRESS_VLV_STATE} = ${PRESS_VLV_CMD}
-    ${VENT_VLV_STATE} = ${VENT_VLV_CMD}
-}
-
-time.interval(period=100ms) -> step()
-`;
-
-const SEQUENCE = `import control
-import time
-
-// The sequence outranks the schematic, so a Start click does not take the valves. An
-// operator takes a valve with its control chip.
-authority 100
-
-sequence press {
-    stage idle {
-        0 -> ${PRESS_VLV_CMD}
-        0 -> ${VENT_VLV_CMD}
-        ${START_CMD} == 1 => pressurize
-    }
-    stage pressurize {
-        control.set_authority(value=100)
-        1 -> ${PRESS_VLV_CMD}
-        0 -> ${VENT_VLV_CMD}
-        ${TANK_PT} > 450 => abort
-        ${ABORT_CMD} == 1 => abort
-        ${TANK_PT} > 300 => hold
-    }
-    stage hold {
-        0 -> ${PRESS_VLV_CMD}
-        ${ABORT_CMD} == 1 => abort
-        time.wait(duration=10s) => vent
-    }
-    stage vent {
-        1 -> ${VENT_VLV_CMD}
-        ${TANK_PT} < 5 => idle
-    }
-    // Abort raises the sequence to the authority of a control chip, so its commands
-    // reach a valve an operator holds.
-    stage abort {
-        control.set_authority(value=255)
-        0 -> ${PRESS_VLV_CMD}
-        1 -> ${VENT_VLV_CMD}
-        ${START_CMD} == 1 => pressurize
-    }
-}
-
-true => press
-`;
-
 type Channels = Record<
   | typeof INDEX
   | typeof TANK_PT
@@ -262,10 +198,23 @@ export const exists = async (client: Synnax): Promise<boolean> => {
 };
 
 /**
+ * The text of the sample's Arc programs, from `sampleSimulator.arc` and
+ * `sampleSequence.arc`.
+ */
+export interface Programs {
+  simulator: string;
+  sequence: string;
+}
+
+/**
  * Creates the sample project and starts its Arc programs, replacing any old sample. The
  * line plot shows the range with key `range`.
  */
-export const create = async (client: Synnax, range: string): Promise<void> => {
+export const create = async (
+  client: Synnax,
+  range: string,
+  programs: Programs,
+): Promise<void> => {
   const ch = await createChannels(client);
   await client.projects.create({ key: KEYS.project, name: NAME });
   await client.schematics.create(KEYS.project, createSchematic(ch));
@@ -282,13 +231,13 @@ export const create = async (client: Synnax, range: string): Promise<void> => {
       key: KEYS.simulator,
       name: "Tank simulator",
       mode: "text",
-      text: { raw: SIMULATOR },
+      text: { raw: programs.simulator },
     },
     {
       key: KEYS.sequence,
       name: "Press sequence",
       mode: "text",
-      text: { raw: SEQUENCE },
+      text: { raw: programs.sequence },
     },
   ]);
   await deploy(client, KEYS.simulator);
