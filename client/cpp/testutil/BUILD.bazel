@@ -16,6 +16,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
     ],
 )

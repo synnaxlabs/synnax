@@ -16,7 +16,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::arc {
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
@@ -178,11 +178,11 @@ TEST(TestArc, testRetrieveWithCompile) {
 
     auto arc = Arc{.name = random_arc_name("compile_test"), .mode = MODE_TEXT};
     std::string calc_arc_text = R"(
-func calc(val f32) f32 {
+func calc() {val f32} f32 {
     return val * 2
 }
 
-)" + ox_pt_1.name + " -> calc{} -> " +
+)" + ox_pt_1.name + " -> calc() -> " +
                                 ox_pt_doubled.name + R"(
 )";
     arc.text.raw = calc_arc_text;
@@ -234,7 +234,7 @@ TEST(TestArc, testIntervalNodeCompiles) {
     arc.text.raw = R"(
 sequence main {
     stage initial {
-        interval{period=5s} => next
+        interval(period=5s) => next
     }
     stage end {
     }

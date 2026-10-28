@@ -112,25 +112,25 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("rejects an invalid --format value", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			Expect(executeCommand(cmd, "check", "--format=yaml")).Error().
 				To(MatchError(ContainSubstring(`invalid --format "yaml"`)))
 		})
 
 		It("runs only the requested gates", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			MustSucceed(executeCommand(cmd, "check", "--gates=format,analyze"))
 		})
 
 		It("renders a JSON report without error", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			MustSucceed(executeCommand(
 				cmd, "check", "--gates=format,analyze", "--format=json",
 			))
 		})
 
 		It("renders a verbose report without error", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			MustSucceed(executeCommand(cmd, "check", "-v"))
 		})
 	})
@@ -143,13 +143,13 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("returns the gate-failure exit error", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			Expect(executeCommand(cmd, "check", "--gates=format")).Error().
 				To(MatchError(ContainSubstring("1 gate(s) failed")))
 		})
 
 		It("includes diffs without error when --diff is set", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			Expect(executeCommand(cmd, "check", "--gates=format", "--diff")).Error().
 				To(MatchError(ContainSubstring("1 gate(s) failed")))
 		})
@@ -164,10 +164,10 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("escalates warnings with --warnings-as-errors", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			MustSucceed(executeCommand(cmd, "check", "--gates=analyze"))
 
-			cmd = NewRootCmd()
+			cmd = newRootCmd()
 			Expect(executeCommand(
 				cmd, "check", "--gates=analyze", "--warnings-as-errors",
 			)).Error().To(MatchError(ContainSubstring("1 gate(s) failed")))

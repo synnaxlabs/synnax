@@ -7,7 +7,6 @@ platforms: ["Linux", "Windows", "macOS", "Docker"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@/components/note";
 
 import { Platform } from "@/components/platform";
@@ -237,16 +236,14 @@ The Console is also a desktop application for Windows and macOS. To use it, see
 
 ## <Step step={4} level="h2">Activate the license</Step>
 
-1. On the activation screen, click **Copy fingerprint**, then click **Get a key**. Log
-   in to the portal.
-2. Select the license, enter a **Machine name**, and paste the fingerprint into **Host
-   hashes**.
-3. Click **Activate and download license key**. Your browser downloads a `.lic` file.
-4. In the Console, click <Icon.Attachment /> and select the `.lic` file.
-5. Click **Activate**. The Console shows **Projects**.
+1. On the activation screen, click **Activate on the portal**. Log in to the portal.
+2. Select the license, enter a **Machine name**, and click **Activate**.
+3. Go back to the Console. It gets the license key from the portal and shows
+   **Projects**.
 
 The Core stores the key in its data folder, so it stays active after a restart. To give
-the key at start instead, pass the file with `--license-file`:
+the key at start instead, click **Download key file** on the portal, and pass the file
+with `--license-file`:
 
 ```bash
 synnax start --listen=localhost:9090 --insecure --license-file=synnax.lic

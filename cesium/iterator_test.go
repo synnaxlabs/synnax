@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -1472,7 +1473,10 @@ var _ = Describe("Iterator Behavior", func() {
 								Channels: []cesium.ChannelKey{key},
 							},
 						)
-						Expect(err).To(MatchError(ContainSubstring("virtual")))
+						Expect(err).To(MatchError(query.ErrUnsupported))
+						Expect(err).To(MatchError(ContainSubstring(
+							"cannot open iterator on virtual channel",
+						)))
 					},
 				)
 				It("Should reject a negative auto chunk size", func(ctx SpecContext) {

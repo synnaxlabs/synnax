@@ -16,7 +16,6 @@ import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
 from console.page import ConsolePage
-from framework.run_dir import resolve_results_path
 
 Axis = Literal["Y1", "Y2", "X1"]
 
@@ -109,7 +108,7 @@ class Plot(ConsolePage):
             download_button.click()
 
         download = download_info.value
-        save_path = resolve_results_path(f"{self.page_name}.csv")
+        save_path = str(self.layout.results_dir / f"{self.page_name}.csv")
         download.save_as(save_path)
         with open(save_path, encoding="utf-8") as f:
             return f.read()
@@ -295,7 +294,7 @@ class Plot(ConsolePage):
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
 
-        channel_item.drag_to(self.pane_locator)
+        self.layout.drag(channel_item, self.pane_locator)
         channels.hide_channels()
 
         self.data["Y1"].append(channel_name)
@@ -324,7 +323,7 @@ class Plot(ConsolePage):
         axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
         axis_section.wait_for(state="visible", timeout=5000)
 
-        channel_item.drag_to(axis_section)
+        self.layout.drag(channel_item, axis_section)
         channels.hide_channels()
 
         self.data[axis].append(channel_name)
