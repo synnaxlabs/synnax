@@ -77,7 +77,9 @@ Driver too.
 using the current one. Once a day, it connects with the next certificate to each server
 that a secured device uses. A server that does not trust it yet puts it in its rejected
 list, where its admin can approve it. The Driver switches when every server accepts the
-next certificate, or at expiry.
+next certificate, or at expiry. A running task keeps its connection after a switch or a
+regenerate. When a read or write on that connection fails, the task connects once with
+the new certificate and tries again.
 
 Two new scan task commands join `browse` and `test_connection`
 (`driver/opcua/scan_task.h:55`). `get_certificate` replies with the current and next
@@ -145,8 +147,8 @@ Trust saves the rejected certificate to the form and connects again. A changed s
 certificate fails the same way and offers Trust for the new one. Download saves DER
 through `Runtime.useDownload` (`console/src/platform/runtime/useDownload.ts:42`), so it
 works in the browser. For a pinned certificate, the Console computes the SHA-1
-thumbprint over the DER bytes itself: Web Crypto exists only in a secure context, and a
-browser Console can use plain HTTP.
+thumbprint over the DER bytes with `@noble/hashes`: Web Crypto exists only in a secure
+context, and a browser Console can use plain HTTP.
 
 ### 3.4 Statuses
 
