@@ -289,7 +289,7 @@ func (w *Writer) write(
 	}
 	err := w.control.Authorize(func(dw *controlledWriter) error {
 		if w.Channel.IsIndex {
-			if err := dw.advanceHighWaterMark(series); err != nil {
+			if err := dw.advanceHighWaterMark(series, w.cfg.Start); err != nil {
 				return err
 			}
 		}
@@ -328,10 +328,13 @@ func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 }
 
 // advanceHighWaterMark moves the high-water mark to the last timestamp in series. It
-// returns ErrOutOfOrder and keeps the mark if any timestamp is before the one that
-// precedes it.
-func (w *controlledWriter) advanceHighWaterMark(series telem.Series) error {
-	prev := w.highWaterMark
+// returns ErrOutOfOrder and keeps the mark if any timestamp is before start or before
+// the one that precedes it.
+func (w *controlledWriter) advanceHighWaterMark(
+	series telem.Series,
+	start telem.TimeStamp,
+) error {
+	prev := max(w.highWaterMark, start)
 	for i, ts := range series.Unmarshal[telem.TimeStamp]() {
 		if ts < prev {
 			return errors.Wrapf(

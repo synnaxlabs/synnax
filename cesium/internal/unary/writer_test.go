@@ -933,6 +933,35 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 					})
 					It(
+						"Should reject an index write before the start of a joining writer",
+						func(ctx SpecContext) {
+							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute - 1,
+								Subject:   control.Subject{Key: "first"},
+							}))
+							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(w1.Commit(ctx))
+							w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     100 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute,
+								Subject:   control.Subject{Key: "second"},
+							}))
+							Expect(
+								w2.Write(telem.NewSeriesSecondsTSV(50, 51)),
+							).Error().To(MatchError(unary.ErrOutOfOrder))
+							MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(100)))
+							Expect(MustSucceed(w2.Commit(ctx))).
+								To(Equal(100*telem.SecondTS + 1))
+							MustSucceed(w2.Close())
+							MustSucceed(w1.Close())
+							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax))
+							Expect(f.SeriesAt(0).Data).To(Equal(
+								telem.NewSeriesSecondsTSV(10, 11, 100).Data,
+							))
+						},
+					)
+					It(
 						"Should reject an index write behind the data of another writer",
 						func(ctx SpecContext) {
 							live, _ := MustSucceed2(
