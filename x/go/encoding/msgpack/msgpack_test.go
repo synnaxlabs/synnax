@@ -12,6 +12,9 @@ package msgpack_test
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -249,9 +252,10 @@ var _ = Describe("EncodedJSON", func() {
 			type config struct {
 				Count int `json:"count"`
 			}
-			Expect(m.Unmarshal(&config{})).To(MatchError(
-				ContainSubstring("cannot unmarshal JSON string into Go int"),
-			))
+			var semErr *json.SemanticError
+			Expect(errors.As(m.Unmarshal(&config{}), &semErr)).To(BeTrue())
+			Expect(semErr.JSONPointer).To(Equal(jsontext.Pointer("/count")))
+			Expect(semErr.GoType).To(Equal(reflect.TypeFor[int]()))
 		})
 	})
 	It("Should work with Codec", func(ctx SpecContext) {
