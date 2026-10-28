@@ -1740,6 +1740,37 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 				})
 
+			DescribeTable("Should bind a hand-written type apart from a generated import",
+				func(ctx SpecContext, name, imported, field string) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+							@py name "` + name + `"
+						}
+
+						Band struct {
+							key   uuid
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						imported,
+						`from x.color.color import `+name+` as `+name+`_`,
+						field,
+						`color: `+name+`_`,
+					)
+				},
+				Entry("named like the uuid import", "UUID",
+					`from uuid import UUID`, `key: UUID`),
+				Entry("named like the pydantic base class", "BaseModel",
+					`from pydantic import BaseModel`, `class Band(BaseModel):`),
+			)
+
 			It("Should import the variant a hand-written union default names",
 				func(ctx SpecContext) {
 					source := `
