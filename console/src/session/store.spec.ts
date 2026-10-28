@@ -100,6 +100,20 @@ describe("createStore", () => {
     );
   });
 
+  it("should hold every dispatched change in storage once a flush resolves", async () => {
+    const store = await createStore();
+    store.dispatch(
+      Session.Account.link({
+        secret: "shh",
+        email: "ada@example.com",
+        user: "user_a",
+        analyticsAllowed: false,
+      }),
+    );
+    await Session.Persist.flush(store.dispatch);
+    expect(readPersisted(db).some((p) => p.account?.link?.secret === "shh")).toBe(true);
+  });
+
   it("persists state and reloads it into a fresh store", async () => {
     const store = await createStore();
     store.dispatch(Session.Core.select(Session.Core.DEMO_KEY));

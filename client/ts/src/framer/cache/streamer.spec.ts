@@ -482,6 +482,24 @@ describe("MultiplexedStreamer", () => {
       expect(ms1.closeVi).toHaveBeenCalled();
     });
 
+    it("should release a subscription closed twice", async () => {
+      const ms1 = pendingStreamer([1]);
+      const streamer = new MultiplexedStreamer({
+        cache: new Cache(),
+        openStreamer: createStreamOpener([ms1]),
+        removalDelay: TimeSpan.milliseconds(50),
+      });
+
+      const sub = streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      sub.close();
+      sub.close();
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(ms1.closeVi).toHaveBeenCalled();
+      await streamer.close();
+    });
+
     it("should throw when stream() is called after close()", async () => {
       const streamer = new MultiplexedStreamer({
         cache: new Cache(),
