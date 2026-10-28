@@ -10,6 +10,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import postcssHtml from "postcss-html";
 import stylelint from "stylelint";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -42,7 +43,7 @@ describe("plugins", () => {
       code,
       codeFilename: path.join(root, file),
       config: {
-        customSyntax: file.endsWith(".astro") ? "postcss-html" : undefined,
+        customSyntax: file.endsWith(".astro") ? postcssHtml : undefined,
         plugins: plugins({
           root,
           source: read(root),
