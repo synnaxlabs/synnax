@@ -790,8 +790,13 @@ describe("list", () => {
   });
 
   describe("debounced retrieves", () => {
-    const renderPagedList = () => {
-      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
+    type Page = record.Keyed<number>[];
+
+    const renderPagedList = (
+      retrieve = vi.fn(async (_: { query: List.PagerParams }): Promise<Page> => [
+        { key: 1 },
+      ]),
+    ) => {
       const useList = Flux.createList<List.PagerParams, number, record.Keyed<number>>({
         name: "Resource",
         retrieve,
@@ -849,6 +854,51 @@ describe("list", () => {
       expect(retrieve).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ query: { searchTerm: "", offset: 0, limit: 20 } }),
       );
+    });
+
+    /** A retrieve that answers each page, keyed by `searchTerm:offset`, on demand. */
+    const answerOnDemand = () => {
+      const answers = new Map<string, (page: Page) => void>();
+      const retrieve = vi.fn(
+        ({ query: { searchTerm, offset } }: { query: List.PagerParams }) =>
+          new Promise<Page>((resolve) =>
+            answers.set(`${searchTerm}:${offset}`, resolve),
+          ),
+      );
+      const answer = async (key: string, page: Page) => {
+        await waitFor(() => expect(answers.has(key)).toBe(true));
+        await act(async () => answers.get(key)?.(page));
+      };
+      return { retrieve, answer };
+    };
+
+    it("should keep the first page of a search when an append starts while it loads", async () => {
+      const { retrieve, answer } = answerOnDemand();
+      const { result } = renderPagedList(retrieve);
+      act(() => result.current.search("p"));
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      act(() => {
+        void result.current.retrieveAsync((p) => List.page(p, 20), { mode: "append" });
+      });
+      await answer("p:0", [{ key: 1 }]);
+      await answer("p:20", [{ key: 2 }]);
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+    });
+
+    it("should page from the newest search when an older search's fetch for more runs", async () => {
+      const { retrieve, answer } = answerOnDemand();
+      const { result } = renderPagedList(retrieve);
+      act(() => {
+        result.current.search("p");
+        result.current.fetchMore();
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      act(() => result.current.search("pu"));
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      await answer("p:0", [{ key: 1 }]);
+      await answer("pu:0", [{ key: 2 }]);
+      await answer("pu:20", [{ key: 3 }]);
+      await waitFor(() => expect(result.current.data).toEqual([2, 3]));
     });
 
     it("should keep every query change made within the debounce", async () => {

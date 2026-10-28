@@ -63,6 +63,7 @@ export type UseListReturn<
     query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
   ) => void;
+  /** Retrieves now. An append waits until a replace that is still loading answers. */
   retrieveAsync: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
@@ -217,6 +218,7 @@ export const createList = <
     );
     const hasMoreRef = useRef(true);
     const pendingRef = useRef<PendingRetrieves<Query> | null>(null);
+    const activeReplaceRef = useRef<Promise<void> | null>(null);
 
     const recomputeKeys = () => {
       const seen = new Set<Key>();
@@ -353,6 +355,10 @@ export const createList = <
       options: AsyncListOptions = {},
     ) => {
       const { signal, mode = "replace" } = options;
+      // An append pages from the answer to the replace before it. Started earlier, it
+      // would become the newest retrieve and discard that answer.
+      if (mode === "append")
+        while (activeReplaceRef.current != null) await activeReplaceRef.current;
 
       const query = normalized(
         state.executeSetter(paramsSetter, queryRef.current ?? {}),
@@ -399,12 +405,18 @@ export const createList = <
 
         return setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
       };
-      try {
-        await apply();
-      } catch (error) {
-        if (signal?.aborted || queryRef.current !== query) return;
-        setResult(errorResult(`retrieve ${name}`, error));
-      }
+      const run = async (): Promise<void> => {
+        try {
+          await apply();
+        } catch (error) {
+          if (signal?.aborted || queryRef.current !== query) return;
+          setResult(errorResult(`retrieve ${name}`, error));
+        }
+      };
+      const running = run();
+      if (mode === "replace") activeReplaceRef.current = running;
+      await running;
+      if (activeReplaceRef.current === running) activeReplaceRef.current = null;
     };
 
     /**
@@ -520,12 +532,9 @@ export const createList = <
         if (pending == null) return;
         pendingRef.current = null;
         const { replace, append } = pending;
-        void (async () => {
-          if (replace != null)
-            await retrieveAsyncRef.current(replace.query, replace.options);
-          if (append != null)
-            await retrieveAsyncRef.current(append.query, append.options);
-        })();
+        if (replace != null)
+          void retrieveAsyncRef.current(replace.query, replace.options);
+        if (append != null) void retrieveAsyncRef.current(append.query, append.options);
       },
       retrieveDebounce,
       [],
