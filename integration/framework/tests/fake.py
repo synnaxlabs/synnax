@@ -54,6 +54,7 @@ class Client:
     def __init__(self) -> None:
         self.stream = Stream()
         self.open_error: Exception | None = None
+        self.opened = False
         self._channels = Channels()
 
     @property
@@ -63,4 +64,5 @@ class Client:
     def open_streamer(self, channels: list[str]) -> Stream:
         if self.open_error is not None:
             raise self.open_error
+        self.opened = True
         return self.stream
