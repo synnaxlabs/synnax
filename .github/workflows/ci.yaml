@@ -110,9 +110,6 @@ jobs:
       - uses: dorny/paths-filter@v4
         id: filter
         with:
-          # A merge group's base is the entry ahead of it in the queue. A green group
-          # merges every entry ahead of it, so it must test their changes too.
-          base: ${{ github.event.merge_group.base_ref }}
           filters: .github/filters.yaml
 
   actionlint:
