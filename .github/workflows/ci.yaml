@@ -45,10 +45,20 @@ concurrency:
     format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# The test jobs pull the Core and Freighter images from GHCR.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
-  # group touched one of its paths.
+  # group touched one of its paths. The ci output is a JSON list of the jobs that an
+  # edit to this file or the change map selects.
   changes:
+    # paths-filter lists the changed files of a pull request through the API.
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     outputs:
       actionlint: ${{ steps.filter.outputs.actionlint }}
@@ -60,6 +70,7 @@ jobs:
       aspen: ${{ steps.filter.outputs.aspen }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
+      ci: ${{ steps.ci.outputs.jobs }}
       ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
       client_cpp: ${{ steps.filter.outputs.client_cpp }}
       client_py: ${{ steps.filter.outputs.client_py }}
@@ -75,6 +86,7 @@ jobs:
       driver_build: ${{ steps.filter.outputs.driver_build }}
       eslint_config: ${{ steps.filter.outputs.eslint_config }}
       exports_go: ${{ steps.filter.outputs.exports_go }}
+      exports_py: ${{ steps.filter.outputs.exports_py }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
@@ -111,14 +123,35 @@ jobs:
         with:
           filters: .github/filters.yaml
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
+      # Compares against the same base as the filter.
+      - name: Find the jobs a CI edit selects
+        id: ci
+        env:
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          jobs=$(uv run --locked --project .github/scripts \
+            python .github/scripts/changed_jobs.py "${PR_BASE:-$GROUP_BASE}")
+          echo "$jobs"
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
   actionlint:
     needs: changes
-    if: inputs.full || needs.changes.outputs.actionlint == 'true'
+    if:
+      inputs.full || needs.changes.outputs.actionlint == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'actionlint')
     uses: ./.github/workflows/lint.actionlint.yaml
 
   alamos-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.alamos_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.alamos_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'alamos-go')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: alamos-go
@@ -129,7 +162,9 @@ jobs:
 
   alamos-py:
     needs: changes
-    if: inputs.full || needs.changes.outputs.alamos_py == 'true'
+    if:
+      inputs.full || needs.changes.outputs.alamos_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'alamos-py')
     uses: ./.github/workflows/test.py.yaml
     with:
       coverage_flag: alamos-py
@@ -141,7 +176,9 @@ jobs:
 
   alamos-py-lowest:
     needs: changes
-    if: inputs.full || needs.changes.outputs.alamos_py == 'true'
+    if:
+      inputs.full || needs.changes.outputs.alamos_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'alamos-py-lowest')
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: alamos/py
@@ -150,7 +187,9 @@ jobs:
 
   alamos-ts:
     needs: changes
-    if: inputs.full || needs.changes.outputs.alamos_ts == 'true'
+    if:
+      inputs.full || needs.changes.outputs.alamos_ts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'alamos-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: alamos-ts
@@ -164,10 +203,11 @@ jobs:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.arc_cpp == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'arc-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
@@ -179,7 +219,9 @@ jobs:
 
   arc-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.arc_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.arc_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'arc-go')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: arc-go
@@ -191,7 +233,9 @@ jobs:
 
   aspen:
     needs: changes
-    if: inputs.full || needs.changes.outputs.aspen == 'true'
+    if:
+      inputs.full || needs.changes.outputs.aspen == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'aspen')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: aspen
@@ -202,13 +246,17 @@ jobs:
 
   buildifier:
     needs: changes
-    if: inputs.full || needs.changes.outputs.buildifier == 'true'
+    if:
+      inputs.full || needs.changes.outputs.buildifier == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'buildifier')
     uses: ./.github/workflows/lint.buildifier.yaml
     secrets: inherit
 
   cesium:
     needs: changes
-    if: inputs.full || needs.changes.outputs.cesium == 'true'
+    if:
+      inputs.full || needs.changes.outputs.cesium == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'cesium')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: cesium
@@ -219,7 +267,9 @@ jobs:
 
   ci-scripts:
     needs: changes
-    if: inputs.full || needs.changes.outputs.ci_scripts == 'true'
+    if:
+      inputs.full || needs.changes.outputs.ci_scripts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'ci-scripts')
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: .github/scripts
@@ -229,10 +279,11 @@ jobs:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.client_cpp == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'client-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
@@ -245,7 +296,8 @@ jobs:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.client_py == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'client-py')
     uses: ./.github/workflows/test.py.yaml
     with:
       core_image: ${{ needs.core-image.outputs.image }}
@@ -259,7 +311,8 @@ jobs:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.client_py == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'client-py-lowest')
     uses: ./.github/workflows/test.py.yaml
     with:
       core_image: ${{ needs.core-image.outputs.image }}
@@ -272,7 +325,8 @@ jobs:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.client_ts == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'client-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
       core_image: ${{ needs.core-image.outputs.image }}
@@ -285,7 +339,8 @@ jobs:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.console == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'console')
     uses: ./.github/workflows/test.ts.yaml
     with:
       core_image: ${{ needs.core-image.outputs.image }}
@@ -300,7 +355,9 @@ jobs:
 
   core:
     needs: changes
-    if: inputs.full || needs.changes.outputs.core == 'true'
+    if:
+      inputs.full || needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'core')
     uses: ./.github/workflows/test.go.yaml
     with:
       cached: ${{ github.event_name == 'pull_request' }}
@@ -313,7 +370,9 @@ jobs:
 
   core-image:
     needs: changes
-    if: inputs.full || needs.changes.outputs.core_image == 'true'
+    if:
+      inputs.full || needs.changes.outputs.core_image == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'core-image')
     permissions:
       contents: read
       packages: write
@@ -325,7 +384,9 @@ jobs:
 
   desktop-shell:
     needs: changes
-    if: inputs.full || needs.changes.outputs.console == 'true'
+    if:
+      inputs.full || needs.changes.outputs.console == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell')
     # macOS compiles the Tauri shell with no extra system packages.
     runs-on: macos-latest
     steps:
@@ -363,7 +424,9 @@ jobs:
 
   docs:
     needs: changes
-    if: inputs.full || needs.changes.outputs.docs == 'true'
+    if:
+      inputs.full || needs.changes.outputs.docs == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'docs')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: docs
@@ -375,13 +438,17 @@ jobs:
 
   docs-site:
     needs: changes
-    if: inputs.full || needs.changes.outputs.docs == 'true'
+    if:
+      inputs.full || needs.changes.outputs.docs == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'docs-site')
     uses: ./.github/workflows/test.docs.yaml
     secrets: inherit
 
   drift:
     needs: changes
-    if: inputs.full || needs.changes.outputs.drift == 'true'
+    if:
+      inputs.full || needs.changes.outputs.drift == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'drift')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: drift
@@ -395,11 +462,12 @@ jobs:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.driver == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'driver')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
@@ -416,7 +484,9 @@ jobs:
   # off.
   driver-tsan:
     needs: [changes, core-image]
-    if: inputs.full || needs.changes.outputs.driver == 'true'
+    if:
+      inputs.full || needs.changes.outputs.driver == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'driver-tsan')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
@@ -429,7 +499,9 @@ jobs:
 
   eslint-config:
     needs: changes
-    if: inputs.full || needs.changes.outputs.eslint_config == 'true'
+    if:
+      inputs.full || needs.changes.outputs.eslint_config == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'eslint-config')
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: configs/eslint
@@ -438,7 +510,9 @@ jobs:
 
   exports-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.exports_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.exports_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'exports-go')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -467,12 +541,34 @@ jobs:
           "$RUNNER_TEMP/exports" alamos/go arc/go aspen cesium core freighter/go \
             freighter/integration gorp oracle x/go
 
+  exports-py:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.exports_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'exports-py')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
+      - name: Check names that are public without need
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: uv run --project scripts scripts/check_exports_py.py
+
   format:
     uses: ./.github/workflows/test.format.yaml
 
   foundation:
     needs: changes
-    if: inputs.full || needs.changes.outputs.foundation == 'true'
+    if:
+      inputs.full || needs.changes.outputs.foundation == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'foundation')
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: site/foundation
@@ -481,9 +577,23 @@ jobs:
       windows: *full
     secrets: inherit
 
+  foundation-site:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.foundation == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'foundation-site')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: foundation
+    secrets: inherit
+
   freighter-cpp:
     needs: changes
-    if: inputs.full || needs.changes.outputs.freighter_cpp == 'true'
+    if:
+      inputs.full || needs.changes.outputs.freighter_cpp == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
@@ -495,7 +605,9 @@ jobs:
 
   freighter-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.freighter_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.freighter_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-go')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: freighter-go
@@ -506,7 +618,9 @@ jobs:
 
   freighter-image:
     needs: changes
-    if: inputs.full || needs.changes.outputs.freighter_image == 'true'
+    if:
+      inputs.full || needs.changes.outputs.freighter_image == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-image')
     permissions:
       contents: read
       packages: write
@@ -518,7 +632,9 @@ jobs:
 
   freighter-integration:
     needs: changes
-    if: inputs.full || needs.changes.outputs.freighter_integration == 'true'
+    if:
+      inputs.full || needs.changes.outputs.freighter_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-integration')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: freighter-integration
@@ -531,7 +647,8 @@ jobs:
     needs: [changes, freighter-image]
     if:
       inputs.full || needs.changes.outputs.freighter_py == 'true' ||
-      needs.changes.outputs.freighter_integration == 'true'
+      needs.changes.outputs.freighter_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-py')
     uses: ./.github/workflows/test.py.yaml
     with:
       coverage_flag: freighter-py
@@ -544,7 +661,8 @@ jobs:
     needs: [changes, freighter-image]
     if:
       inputs.full || needs.changes.outputs.freighter_py == 'true' ||
-      needs.changes.outputs.freighter_integration == 'true'
+      needs.changes.outputs.freighter_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-py-lowest')
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: freighter/py
@@ -556,7 +674,8 @@ jobs:
     needs: [changes, freighter-image]
     if:
       inputs.full || needs.changes.outputs.freighter_ts == 'true' ||
-      needs.changes.outputs.freighter_integration == 'true'
+      needs.changes.outputs.freighter_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: freighter-ts
@@ -567,7 +686,9 @@ jobs:
 
   gorp:
     needs: changes
-    if: inputs.full || needs.changes.outputs.gorp == 'true'
+    if:
+      inputs.full || needs.changes.outputs.gorp == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'gorp')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: gorp
@@ -580,7 +701,8 @@ jobs:
     needs: changes
     if:
       inputs.full || (github.event_name == 'merge_group' || inputs.integration) &&
-      needs.changes.outputs.integration == 'true'
+      (needs.changes.outputs.integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'integration'))
     permissions:
       actions: read
       contents: write
@@ -592,7 +714,9 @@ jobs:
 
   knip:
     needs: changes
-    if: inputs.full || needs.changes.outputs.knip == 'true'
+    if:
+      inputs.full || needs.changes.outputs.knip == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'knip')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -615,7 +739,9 @@ jobs:
 
   lint-integration:
     needs: changes
-    if: inputs.full || needs.changes.outputs.lint_integration == 'true'
+    if:
+      inputs.full || needs.changes.outputs.lint_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'lint-integration')
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: integration
@@ -623,7 +749,9 @@ jobs:
 
   lyra:
     needs: changes
-    if: inputs.full || needs.changes.outputs.lyra == 'true'
+    if:
+      inputs.full || needs.changes.outputs.lyra == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'lyra')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: lyra
@@ -635,7 +763,9 @@ jobs:
 
   oracle:
     needs: changes
-    if: inputs.full || needs.changes.outputs.oracle == 'true'
+    if:
+      inputs.full || needs.changes.outputs.oracle == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'oracle')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: oracle
@@ -647,13 +777,17 @@ jobs:
 
   oracle-check:
     needs: changes
-    if: inputs.full || needs.changes.outputs.oracle_check == 'true'
+    if:
+      inputs.full || needs.changes.outputs.oracle_check == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'oracle-check')
     uses: ./.github/workflows/check.oracle.yaml
     secrets: inherit
 
   oracle-language:
     needs: changes
-    if: inputs.full || needs.changes.outputs.oracle_language == 'true'
+    if:
+      inputs.full || needs.changes.outputs.oracle_language == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'oracle-language')
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: oracle/lsp/extensions/vscode
@@ -667,7 +801,7 @@ jobs:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core
-      == 'true'
+      == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'pluto')
     uses: ./.github/workflows/test.ts.yaml
     with:
       core_image: ${{ needs.core-image.outputs.image }}
@@ -679,7 +813,9 @@ jobs:
 
   portal:
     needs: changes
-    if: inputs.full || needs.changes.outputs.portal == 'true'
+    if:
+      inputs.full || needs.changes.outputs.portal == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'portal')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: portal
@@ -689,20 +825,38 @@ jobs:
       windows: *full
     secrets: inherit
 
+  portal-site:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.portal == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'portal-site')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: portal
+    secrets: inherit
+
   protobuf:
     needs: changes
-    if: inputs.full || needs.changes.outputs.protobuf == 'true'
+    if:
+      inputs.full || needs.changes.outputs.protobuf == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'protobuf')
     uses: ./.github/workflows/test.protobuf.yaml
     secrets: inherit
 
   py-packages:
     needs: changes
-    if: inputs.full || needs.changes.outputs.py_packages == 'true'
+    if:
+      inputs.full || needs.changes.outputs.py_packages == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'py-packages')
     uses: ./.github/workflows/test.py.packages.yaml
 
   scripts:
     needs: changes
-    if: inputs.full || needs.changes.outputs.scripts == 'true'
+    if:
+      inputs.full || needs.changes.outputs.scripts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'scripts')
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: scripts
@@ -710,7 +864,9 @@ jobs:
 
   runners:
     needs: changes
-    if: inputs.full || needs.changes.outputs.runners == 'true'
+    if:
+      inputs.full || needs.changes.outputs.runners == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'runners')
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: scripts/runners
@@ -718,7 +874,9 @@ jobs:
 
   site-common:
     needs: changes
-    if: inputs.full || needs.changes.outputs.site_common == 'true'
+    if:
+      inputs.full || needs.changes.outputs.site_common == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'site-common')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: site-common
@@ -730,7 +888,9 @@ jobs:
 
   soem:
     needs: changes
-    if: inputs.full || needs.changes.outputs.soem == 'true'
+    if:
+      inputs.full || needs.changes.outputs.soem == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'soem')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       macos: true
@@ -744,7 +904,9 @@ jobs:
 
   vite-plugin:
     needs: changes
-    if: inputs.full || needs.changes.outputs.vite_plugin == 'true'
+    if:
+      inputs.full || needs.changes.outputs.vite_plugin == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'vite-plugin')
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: configs/vite
@@ -755,7 +917,9 @@ jobs:
 
   www:
     needs: changes
-    if: inputs.full || needs.changes.outputs.www == 'true'
+    if:
+      inputs.full || needs.changes.outputs.www == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'www')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: www
@@ -765,9 +929,23 @@ jobs:
       windows: *full
     secrets: inherit
 
+  www-site:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.www == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'www-site')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: www
+    secrets: inherit
+
   x-cpp:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_cpp == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_cpp == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
@@ -779,7 +957,9 @@ jobs:
 
   x-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-go')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: x-go
@@ -790,7 +970,9 @@ jobs:
 
   x-py:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_py == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-py')
     uses: ./.github/workflows/test.py.yaml
     with:
       coverage_flag: x-py
@@ -802,7 +984,9 @@ jobs:
 
   x-py-lowest:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_py == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-py-lowest')
     uses: ./.github/workflows/test.py.yaml
     with:
       directory: x/py
@@ -811,7 +995,9 @@ jobs:
 
   x-ts:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_ts == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_ts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: x-ts
@@ -890,8 +1076,10 @@ jobs:
       - driver-tsan
       - eslint-config
       - exports-go
+      - exports-py
       - format
       - foundation
+      - foundation-site
       - freighter-cpp
       - freighter-go
       - freighter-image
@@ -909,6 +1097,7 @@ jobs:
       - oracle-language
       - pluto
       - portal
+      - portal-site
       - protobuf
       - py-packages
       - scripts
@@ -918,6 +1107,7 @@ jobs:
       - versions
       - vite-plugin
       - www
+      - www-site
       - x-cpp
       - x-go
       - x-py
