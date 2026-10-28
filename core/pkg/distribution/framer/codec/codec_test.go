@@ -1594,11 +1594,13 @@ var _ = Describe("Codec", func() {
 })
 
 var _ = Describe("Bool Bit Packing", func() {
+	newCodec := func() *codec.Codec {
+		return codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.BooleanT})
+	}
 	encodeBools := func(ctx SpecContext, samples ...bool) []byte {
 		GinkgoHelper()
-		cdc := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.BooleanT})
 		return MustSucceed(
-			cdc.Encode(ctx, frame.NewUnary(1, telem.NewSeriesV(samples...))),
+			newCodec().Encode(ctx, frame.NewUnary(1, telem.NewSeriesV(samples...))),
 		)
 	}
 
@@ -1618,8 +1620,7 @@ var _ = Describe("Bool Bit Packing", func() {
 		It("Should unpack samples LSB-first", func(ctx SpecContext) {
 			encoded := encodeBools(ctx, make([]bool, len(samples))...)
 			copy(encoded[len(encoded)-len(packed):], packed)
-			cdc := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.BooleanT})
-			decoded := MustSucceed(cdc.Decode(encoded))
+			decoded := MustSucceed(newCodec().Decode(encoded))
 			Expect(decoded.SeriesAt(0)).To(
 				telem.MatchSeriesData(telem.NewSeriesV(samples...)),
 			)
@@ -1627,13 +1628,17 @@ var _ = Describe("Bool Bit Packing", func() {
 	})
 
 	DescribeTable(
-		"Should use one bit per sample on the wire",
+		"Should round-trip samples at one bit per sample",
 		func(ctx SpecContext, samples []bool) {
 			header := len(encodeBools(ctx))
-			Expect(
-				encodeBools(ctx, samples...),
-			).To(HaveLen(header + (len(samples)+7)/8))
+			encoded := encodeBools(ctx, samples...)
+			Expect(encoded).To(HaveLen(header + (len(samples)+7)/8))
+			decoded := MustSucceed(newCodec().Decode(encoded))
+			Expect(decoded.SeriesAt(0)).To(
+				telem.MatchSeriesData(telem.NewSeriesV(samples...)),
+			)
 		},
+		Entry("empty", []bool{}),
 		Entry("one bit", []bool{true}),
 		Entry("seven bits", []bool{true, false, true, true, false, false, true}),
 		Entry(
