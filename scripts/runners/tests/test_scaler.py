@@ -136,3 +136,46 @@ class TestScaler:
         monkeypatch.setattr(Writer, "close", close)
         s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found, set())
         assert started(client) == [A]
+
+
+WIN = "windows-build-bot-i-0aaa"
+WIN_LABELS = {"self-hosted", "windows-build-bot"}
+RUNNING = {"i-0aaa": instance("running")}
+
+
+def windows_scaler(client: Client) -> Scaler:
+    log = Log(core(client), Channels(core(client), False), "log")
+    return Scaler(
+        core(client),
+        sy.TimeSpan(0),
+        sy.TimeSpan.MINUTE * 2,
+        log,
+        pool_cooldowns={"windows-build-bot": sy.TimeSpan.MINUTE * 15},
+    )
+
+
+class TestPoolCooldowns:
+    """Tests for the idle cooldown a pool sets over the default."""
+
+    def test_should_keep_a_runner_idle_less_than_its_pool_cooldown(
+        self, client: Client
+    ) -> None:
+        s = windows_scaler(client)
+        s.idle_since[WIN] = sy.TimeStamp.now() - sy.TimeSpan.MINUTE * 14
+        s.step({WIN}, {WIN: IDLE}, {WIN: WIN_LABELS}, {}, RUNNING, set())
+        assert client.written(channel_name("ec2_cmd", WIN)) == []
+
+    def test_should_stop_a_runner_idle_past_its_pool_cooldown(
+        self, client: Client
+    ) -> None:
+        s = windows_scaler(client)
+        s.idle_since[WIN] = sy.TimeStamp.now() - sy.TimeSpan.MINUTE * 16
+        s.step({WIN}, {WIN: IDLE}, {WIN: WIN_LABELS}, {}, RUNNING, set())
+        assert client.written(channel_name("ec2_cmd", WIN)) == [False]
+
+    def test_should_use_the_default_cooldown_for_other_pools(
+        self, client: Client
+    ) -> None:
+        s = windows_scaler(client)
+        s.step({A}, {A: IDLE}, {A: LABELS}, {}, RUNNING, set())
+        assert client.written(channel_name("ec2_cmd", A)) == [False]
