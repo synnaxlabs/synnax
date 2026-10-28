@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, map, observe, type record, shallow, zod } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { deep, errors, map, observe, type record, shallow, zod } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type Status } from "@/status";
 
@@ -24,6 +24,19 @@ export interface FieldState<V = unknown> {
 // no input can clear it.
 const emptyValue = (value: unknown): unknown =>
   typeof value === "string" ? "" : Array.isArray(value) ? [] : undefined;
+
+// An asynchronous check cannot run while a field renders, so a schema with one never
+// marks its field.
+const refusesEmpty = (schema: z.ZodType, value: unknown): boolean => {
+  const empty = emptyValue(value);
+  if (empty === undefined) return false;
+  try {
+    return !schema.safeParse(empty).success;
+  } catch (e) {
+    if (e instanceof z.core.$ZodAsyncError) return false;
+    throw errors.fromUnknown(e);
+  }
+};
 
 export interface RequiredGetOptions {
   optional?: false;
@@ -386,8 +399,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
         }
         value = verdict.data as V;
       }
-      const empty = emptyValue(value);
-      required = empty !== undefined && !fieldSchema.safeParse(empty).success;
+      required = refusesEmpty(fieldSchema, value);
     } else if (value == null) {
       if (optional) return null;
       throw new Error(`Field ${path} is not in the form`);

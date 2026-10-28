@@ -827,6 +827,14 @@ describe("State", () => {
       it("should not require a list the schema accepts empty", () => {
         expect(new State(values, schema).getState("open").required).toBe(false);
       });
+
+      it("should not require a field whose schema checks asynchronously", () => {
+        const asyncSchema = z.object({
+          name: z.string().refine(async (v) => v !== "taken"),
+        });
+        const state = new State({ name: "a" }, asyncSchema);
+        expect(state.getState("name").required).toBe(false);
+      });
     });
 
     it("should return cached reference for performance", () => {
