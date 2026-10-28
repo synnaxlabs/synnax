@@ -15,7 +15,7 @@ Compares the workflow and the change map at the base commit with the working tre
 prints a JSON list of job IDs. A job runs when its block changed or when a filter its
 condition reads changed. A job that a selected job needs runs too. An edit to a shared
 part runs every job: a top-level key other than jobs, a shared job, or an anchor. An
-empty base selects no job.
+edit to the needs of the OK job is not shared. An empty base selects no job.
 """
 
 import json
@@ -75,6 +75,12 @@ def changed_filters(old: str, new: str) -> set[str]:
     }
 
 
+def _shared(jobs: dict[str, Any], job: str) -> Any:
+    """Returns the shared part of a job. OK's needs only list the other jobs."""
+    block = jobs.get(job) or {}
+    return {k: v for k, v in block.items() if not (job == "ok" and k == "needs")}
+
+
 def select(old_ci: str, new_ci: str, old_filters: str, new_filters: str) -> list[str]:
     """Returns the sorted IDs of the jobs in new_ci that the edit selects."""
     (old, old_anchors), (new, new_anchors) = load(old_ci), load(new_ci)
@@ -83,7 +89,7 @@ def select(old_ci: str, new_ci: str, old_filters: str, new_filters: str) -> list
         old_anchors != new_anchors
         or {k: v for k, v in old.items() if k != "jobs"}
         != {k: v for k, v in new.items() if k != "jobs"}
-        or any(old_jobs.get(j) != new_jobs.get(j) for j in SHARED_JOBS)
+        or any(_shared(old_jobs, j) != _shared(new_jobs, j) for j in SHARED_JOBS)
     )
     if shared:
         return sorted(new_jobs)
@@ -91,8 +97,11 @@ def select(old_ci: str, new_ci: str, old_filters: str, new_filters: str) -> list
     selected = {
         j
         for j, block in new_jobs.items()
-        if block != old_jobs.get(j)
-        or filters & set(FILTER_REF.findall(str(block.get("if", ""))))
+        if j not in SHARED_JOBS
+        and (
+            block != old_jobs.get(j)
+            or filters & set(FILTER_REF.findall(str(block.get("if", ""))))
+        )
     }
     pending = list(selected)
     while pending:

@@ -97,6 +97,21 @@ class TestWorkflowEdits:
         ci = CI.replace("macos: *full", "macos: false")
         assert run(ci) == ["client-py", "core-image"]
 
+    def test_selects_a_job_added_to_ok(self) -> None:
+        ci = CI.replace(
+            "  fail-fast:",
+            "  lint:\n    needs: [changes, core-image]\n  fail-fast:",
+        ).replace("needs: [alamos-go,", "needs: [lint, alamos-go,")
+        assert run(ci) == ["core-image", "lint"]
+
+    def test_selects_nothing_for_a_job_removed_from_ok(self) -> None:
+        ci = CI.replace(
+            "  docs:\n    needs: changes\n    if: needs.changes.outputs.docs == 'true'\n"
+            "    runs-on: ubuntu-latest\n",
+            "",
+        ).replace(", docs]", "]")
+        assert run(ci) == []
+
     def test_selects_an_added_job(self) -> None:
         ci = CI.replace("  fail-fast:", "  lint:\n    needs: changes\n  fail-fast:")
         assert run(ci) == ["lint"]
@@ -113,7 +128,7 @@ class TestSharedEdits:
             ("group: ci", "group: ci-2"),
             ("contents: read", "contents: write"),
             ("      go: x", "      go: y"),
-            ("needs: [alamos-go, changes,", "needs: [changes,"),
+            ("  ok:\n", "  ok:\n    if: always()\n"),
             (
                 "  fail-fast:\n    runs-on: ubuntu-latest",
                 "  fail-fast:\n    runs-on: x",
