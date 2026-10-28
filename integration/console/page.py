@@ -17,7 +17,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.layout import LayoutClient
-from framework.run_dir import resolve_results_path
 from framework.utils import read_latest_value
 
 PageType = Literal[
@@ -328,7 +327,7 @@ class ConsolePage:
                 export_button.dispatch_event("click")
 
         download = download_info.value
-        save_path = resolve_results_path(f"{self.page_name}.json")
+        save_path = str(self.layout.results_dir / f"{self.page_name}.json")
         download.save_as(save_path)
         with open(save_path, encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)

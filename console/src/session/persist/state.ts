@@ -23,7 +23,7 @@ import { Runtime } from "@/session/runtime";
 // On desktop this names session.json inside the tauri local app data directory: on
 // macOS ~/Library/Application Support/com.synnaxlabs.dev, on Windows
 // %LOCALAPPDATA%/com.synnaxlabs.dev. In the browser it names an IndexedDB database.
-export const STORE_NAME = "session";
+const STORE_NAME = "session";
 
 /**
  * The scope state is persisted under. State partitions into three scopes:

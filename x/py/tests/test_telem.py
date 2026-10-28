@@ -691,7 +691,7 @@ class TestRate:
     def test_invalid_init(self) -> None:
         """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
-            sy.Rate(timedelta(seconds=1))  # type: ignore
+            sy.Rate(timedelta(seconds=1))  # type: ignore[arg-type]
 
     def test_sample_count(self) -> None:
         """Should return the number of samples"""

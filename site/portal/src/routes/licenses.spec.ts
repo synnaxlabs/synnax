@@ -11,7 +11,9 @@ import { type APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { OPTIONS as handoffPreflight, POST as handoffRoute } from "@/pages/api/handoff";
 import { POST as activateRoute } from "@/pages/api/licenses/[key]/activate";
+import { POST as deleteRoute } from "@/pages/api/licenses/[key]/delete";
 import { POST as floatingRoute } from "@/pages/api/licenses/[key]/floating";
 import { POST as amendRoute } from "@/pages/api/licenses/[key]/index";
 import { POST as restoreRoute } from "@/pages/api/licenses/[key]/restore";
@@ -30,6 +32,7 @@ import { ADMIN_ROLE, type Team } from "@/server/directory";
 import { issued, restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
+import { refused } from "@/server/slack";
 import {
   body,
   type ContextArgs,
@@ -85,6 +88,9 @@ describe("license routes", () => {
 
   const call = async (route: APIRoute, args: ContextArgs = {}): Promise<Response> =>
     await route(createAPIContext(h.portal, args));
+
+  const collect = async (code: string): Promise<Response> =>
+    await call(handoffRoute, { headers: { authorization: `Bearer ${code}` } });
 
   const expectError = async (
     res: Response,
@@ -558,21 +564,21 @@ describe("license routes", () => {
       );
     });
 
-    it("should require at least one host hash", async () => {
+    it("should require a fingerprint", async () => {
       h.signIn(MEMBER);
       await expectError(
         await post({ ...MACHINE, fingerprint: " " }),
         400,
-        "Paste at least one host hash",
+        "Enter the machine's fingerprint",
       );
     });
 
-    it("should reject text that is not a host hash", async () => {
+    it("should reject text that is not a fingerprint", async () => {
       h.signIn(MEMBER);
       await expectError(
         await post({ ...MACHINE, fingerprint: "xyz" }),
         400,
-        '"xyz" is not a host hash',
+        '"xyz" is not part of a fingerprint',
       );
     });
 
@@ -594,7 +600,7 @@ describe("license routes", () => {
       );
       const [act] = await store.query.select().from(activation);
       expect(answer.activation).toBe(act.key);
-      expect(answer.filename).toBe("Test-rig.lic");
+      expect(answer.filename).toBe("Test-rig-Test-stand.lic");
       expect(readKey(answer.key)).toEqual({
         jti: lic.key,
         iat: seconds(NOW),
@@ -634,6 +640,27 @@ describe("license routes", () => {
       ]);
     });
 
+    it("should hold the key for the Console that made the handoff code", async () => {
+      h.signIn(MEMBER);
+      const code = crypto.randomUUID();
+      const answer = await body<{ key: string }>(
+        await post({ ...MACHINE, handoff: code }),
+      );
+      const res = await collect(code);
+      expect(res.status).toBe(200);
+      expect(await body(res)).toEqual({ key: answer.key });
+    });
+
+    it("should reject a damaged handoff code", async () => {
+      h.signIn(MEMBER);
+      await expectError(
+        await post({ ...MACHINE, handoff: "short" }),
+        400,
+        "The link from the Console is damaged. Open it again.",
+      );
+      expect(await store.query.select().from(activation)).toEqual([]);
+    });
+
     it("should let staff activate a license of any organization", async () => {
       h.signIn(STAFF);
       expect((await post(MACHINE)).status).toBe(200);
@@ -669,6 +696,14 @@ describe("license routes", () => {
           actor: MEMBER,
           license: lic.key,
           detail: { reason: "no_seats", fingerprint: [HASH_A] },
+        }),
+      ]);
+      expect(h.slack.posted).toEqual([
+        refused({
+          organization: acme,
+          license: lic,
+          reason: "no_seats",
+          actor: { name: MEMBER, email: `${MEMBER}@example.com` },
         }),
       ]);
     });
@@ -724,6 +759,56 @@ describe("license routes", () => {
         429,
         "Too many activations. Try again later.",
       );
+    });
+  });
+
+  describe("POST /api/handoff", () => {
+    const activateWith = async (code: string): Promise<string> => {
+      const lic = await createLicense(store, { organization: acme.key });
+      h.signIn(MEMBER);
+      const res = await call(activateRoute, {
+        params: { key: lic.key },
+        body: { fingerprint: HASH_A, name: "Test stand", handoff: code },
+      });
+      expect(res.status).toBe(200);
+      h.signIn(null);
+      return (await body<{ key: string }>(res)).key;
+    };
+
+    it("should hand the key over once, with no portal session", async () => {
+      const code = crypto.randomUUID();
+      const key = await activateWith(code);
+      const res = await collect(code);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      expect(await body(res)).toEqual({ key });
+      expect((await collect(code)).status).toBe(204);
+    });
+
+    it("should answer 204 while it holds no key for the code", async () => {
+      await activateWith(crypto.randomUUID());
+      const res = await collect(crypto.randomUUID());
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    });
+
+    it("should drop a key that nobody collects within an hour", async () => {
+      const code = crypto.randomUUID();
+      await activateWith(code);
+      h.portal.now = () => new Date(NOW.getTime() + 60 * 60 * 1000);
+      expect((await collect(code)).status).toBe(204);
+    });
+
+    it("should refuse a request without a bearer code", async () => {
+      const res = await call(handoffRoute);
+      expect(res.status).toBe(401);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    });
+
+    it("should answer the preflight for any origin", async () => {
+      const res = await call(handoffPreflight, { method: "OPTIONS" });
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-headers")).toBe("authorization");
     });
   });
 
@@ -859,6 +944,74 @@ describe("license routes", () => {
       expect((await post()).status).toBe(204);
       await expectError(await post(), 400, "This license is already revoked");
       expect(h.mail.sent).toHaveLength(1);
+    });
+  });
+
+  describe("POST /api/licenses/[key]/delete", () => {
+    let lic: License;
+
+    beforeEach(async () => {
+      lic = await createLicense(store, { organization: acme.key });
+    });
+
+    const post = async (key: string = lic.key): Promise<Response> =>
+      await call(deleteRoute, { params: { key } });
+
+    const createEvent = async (licenseKey: string, activationKey?: string) =>
+      await store.query.insert(event).values({
+        at: NOW,
+        kind: "activate",
+        actor: MEMBER,
+        organization: acme.key,
+        license: licenseKey,
+        activation: activationKey,
+      });
+
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(), 401, "Log in first");
+    });
+
+    it("should reject a member who is not staff", async () => {
+      h.signIn(MEMBER);
+      await expectError(await post(), 403, "Staff only");
+      expect(await licenses()).toHaveLength(1);
+    });
+
+    it("should answer 404 for an unknown license", async () => {
+      h.signIn(STAFF);
+      await expectError(await post(crypto.randomUUID()), 404, "License not found");
+    });
+
+    it("should delete the license, its machines, and its history", async () => {
+      const act = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await createEvent(lic.key, act.key);
+      h.signIn(STAFF);
+      expect((await post()).status).toBe(204);
+      expect(await licenses()).toEqual([]);
+      expect(await store.query.select().from(activation)).toEqual([]);
+      expect(await events()).toEqual([]);
+    });
+
+    it("should keep the organization's other licenses and their history", async () => {
+      const other = await createLicense(store, { organization: acme.key });
+      await createActivation(store, { license: other.key, fingerprint: [HASH_B] });
+      await createEvent(other.key);
+      h.signIn(STAFF);
+      await post();
+      expect((await licenses()).map((l) => l.key)).toEqual([other.key]);
+      expect(await store.query.select().from(activation)).toHaveLength(1);
+      expect(await events()).toEqual([expect.objectContaining({ license: other.key })]);
+      expect(await store.query.select().from(organization)).toHaveLength(1);
+    });
+
+    it("should mail nobody", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.signIn(STAFF);
+      await post();
+      expect(h.mail.sent).toEqual([]);
     });
   });
 
