@@ -1334,6 +1334,52 @@ describe("list", () => {
       });
     });
 
+    it("should drop a list answer that arrives after unmount", async () => {
+      const subscribe = vi.fn().mockReturnValue(() => {});
+      const answer = Promise.withResolvers<record.Keyed<number>[]>();
+      const { result, unmount } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve: () => answer.promise,
+            retrieveByKey: async ({ key }) => ({ key }),
+            onChange: subscribe,
+          })(),
+        { wrapper },
+      );
+      const retrieved = result.current.retrieveAsync({});
+      unmount();
+      answer.resolve([{ key: 1 }]);
+      await retrieved;
+      expect(subscribe).not.toHaveBeenCalled();
+    });
+
+    it("should drop an item answer that arrives after unmount", async () => {
+      const onChangeByKey = vi.fn().mockReturnValue(() => {});
+      const answer = Promise.withResolvers<record.Keyed<number>>();
+      const retrieveByKey = vi.fn().mockReturnValue(answer.promise);
+      const { result, unmount } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey,
+            onChangeByKey,
+          })(),
+        { wrapper },
+      );
+      act(() => {
+        result.current.getItem(1);
+      });
+      await waitFor(() => expect(retrieveByKey).toHaveBeenCalled());
+      unmount();
+      await act(async () => {
+        answer.resolve({ key: 1 });
+        await answer.promise;
+      });
+      expect(onChangeByKey).not.toHaveBeenCalled();
+    });
+
     it("should subscribe to an item when retrieving it before any list", async () => {
       const onChangeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
