@@ -16,7 +16,6 @@ from enum import Enum, auto
 from typing import Protocol
 
 import synnax as sy
-from x import is_ci
 
 
 class LogMode(Enum):
@@ -107,18 +106,6 @@ class SynnaxChannelSink:
         self._writer.close()
 
 
-_ci_configured = False
-
-
-def _ensure_ci_stdout() -> None:
-    global _ci_configured
-    if _ci_configured:
-        return
-    _ci_configured = True
-    if is_ci() and hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(line_buffering=True)
-
-
 class LogClient:
     """Logging client with real-time or buffered emission modes.
 
@@ -134,7 +121,6 @@ class LogClient:
         sinks: list[LogSink] | None = None,
         persistent_sinks: list[LogSink] | None = None,
     ) -> None:
-        _ensure_ci_stdout()
         self._name = name
         self._mode = mode
         self._sinks: list[LogSink] = sinks or [StdoutSink(name)]

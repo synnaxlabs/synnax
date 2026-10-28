@@ -82,10 +82,10 @@ auto [result, err] = operation();
 if (err) return {nullptr, err.wrap("failed to perform operation")};
 ```
 
-## Testing (Google Test + xtest)
+## Testing (Google Test + testutil)
 
 `*_test.cpp` co-located with source. `TEST` / `TEST_F` with `SetUp`/`TearDown` fixtures;
-mock via interface implementations. xtest utilities from `x/cpp/xtest/xtest.h`:
+mock via interface implementations. Utilities from `x/cpp/testutil/testutil.h`:
 
 - Async assertions: `ASSERT_EVENTUALLY_EQ/GE/LE/TRUE/FALSE/NIL`.
 - `pair<T, Error>` success path: `const auto val = ASSERT_NIL_P(fn());`
