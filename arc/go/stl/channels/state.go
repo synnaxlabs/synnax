@@ -501,3 +501,8 @@ func (cs *ProgramState) appendWriteSeries(
 	acc.Data = append(acc.Data, source.Data...)
 	buf[key] = acc
 }
+
+// WriteValue appends value to the writes of the channel for this cycle.
+func (cs *ProgramState) WriteValue(key uint32, value telem.Series) {
+	cs.writeValue(key, value)
+}
