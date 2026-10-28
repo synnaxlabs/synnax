@@ -19,22 +19,30 @@ import {
   LICENSE_KID,
   LICENSE_KMS_KEY_ARN,
   MAIL_FROM,
+  POSTHOG_API_KEY,
   RESEND_API_KEY,
+  SLACK_WEBHOOK_URL,
   STAFF_ORG_ID,
   VERCEL_ENV,
 } from "astro:env/server";
 
+import { type Analytics, posthog, unconfigured } from "@/server/analytics";
 import { open as openStore, type Store } from "@/server/db/db";
 import { clerk, type Directory } from "@/server/directory";
 import { kms, type Signer } from "@/server/license/sign";
 import { log, type Mailer, resend } from "@/server/mail";
 import { resolve, type Session } from "@/server/session";
+import { log as logNotes, type Slack, webhook } from "@/server/slack";
 
 /** Portal is the set of services a portal page or route works with. */
 export interface Portal {
   store: Store;
   signer: Signer;
   mail: Mailer;
+  /** slack posts notable events to the staff channel. */
+  slack: Slack;
+  /** analytics reads Synnax Desktop sessions from PostHog. */
+  analytics: Analytics;
   directory: Directory;
   staffOrgID: string;
   /** cronSecret is the bearer token Vercel Cron calls the sweep with. */
@@ -56,6 +64,15 @@ const mailer = (): Mailer => {
     origin: import.meta.env.SITE,
   });
 };
+
+/**
+ * slack posts only from production, and only once its webhook is set. Previews and
+ * local development log each note.
+ */
+const slack = (): Slack =>
+  VERCEL_ENV === "production" && SLACK_WEBHOOK_URL != null
+    ? webhook({ url: SLACK_WEBHOOK_URL, origin: import.meta.env.SITE })
+    : logNotes();
 
 /**
  * open wires the portal for one request from the runtime environment. Nothing
@@ -80,6 +97,8 @@ export const open = (context: APIContext): Portal => {
       kid: LICENSE_KID,
     }),
     mail: mailer(),
+    slack: slack(),
+    analytics: POSTHOG_API_KEY == null ? unconfigured() : posthog(POSTHOG_API_KEY),
     staffOrgID: STAFF_ORG_ID,
     cronSecret: CRON_SECRET,
     webhookSecret: CLERK_WEBHOOK_SIGNING_SECRET,

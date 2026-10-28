@@ -82,7 +82,7 @@ func (p *Plugin) frozenCodecFiles(
 		}
 		merged[entry.QualifiedName] = entry
 	}
-	var flex []FlexCodec
+	var flex []flexCodec
 	for _, dt := range table.DistinctTypes() {
 		if dt.Namespace != ns {
 			continue
@@ -95,9 +95,9 @@ func (p *Plugin) frozenCodecFiles(
 		}
 		form := dt.Form.(resolution.DistinctForm)
 		goName := naming.GetGoName(dt)
-		flex = append(flex, FlexCodec{
+		flex = append(flex, flexCodec{
 			GoName:   goName,
-			Receiver: ReceiverName(goName),
+			Receiver: receiverName(goName),
 			BaseType: form.Base.Name,
 		})
 	}

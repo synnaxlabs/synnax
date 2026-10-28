@@ -38,6 +38,17 @@ func nonRootCtx(ctx SpecContext) (freighter.Context, user.User) {
 	return fctx, u
 }
 
+// createUser creates a user and a password holding username.
+func createUser(ctx SpecContext, username string) user.User {
+	GinkgoHelper()
+	u := MustSucceed(writer.Create(ctx, user.User{Username: username}))
+	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
+		Username: username,
+		Password: "p",
+	})).To(Succeed())
+	return u
+}
+
 var _ = Describe("Service", func() {
 	Describe("Create", func() {
 		It(
@@ -124,9 +135,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should retrieve users by key when the subject has retrieve access",
 			func(ctx SpecContext) {
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: "retrieve-by-key-" + uuid.New().String(),
-				}))
+				u := createUser(ctx, "retrieve-by-key-"+uuid.New().String())
 				res := MustSucceed(
 					apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 						Keys: []user.Key{u.Key},
@@ -135,22 +144,60 @@ var _ = Describe("Service", func() {
 				Expect(res.Users).To(ConsistOf(u))
 			},
 		)
-		It("Should retrieve users by username", func(ctx SpecContext) {
+		It("Should retrieve users by the username of their password", func(
+			ctx SpecContext,
+		) {
 			username := "retrieve-by-username-" + uuid.New().String()
-			u := MustSucceed(writer.Create(ctx, user.User{
-				Username: username,
-			}))
+			u := createUser(ctx, username)
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Usernames: []string{username},
 			}))
 			Expect(res.Users).To(ConsistOf(u))
 		})
+		It("Should match and return the username of the password", func(
+			ctx SpecContext,
+		) {
+			password := "password-name-" + uuid.New().String()
+			u := MustSucceed(writer.Create(ctx, user.User{
+				Username: "record-name-" + uuid.New().String(),
+			}))
+			Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
+				Username: password,
+				Password: "p",
+			})).To(Succeed())
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+				Usernames: []string{password},
+			}))
+			Expect(res.Users).To(HaveLen(1))
+			Expect(res.Users[0].Key).To(Equal(u.Key))
+			Expect(res.Users[0].Username).To(Equal(password))
+			res = MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+				Usernames: []string{u.Username},
+			}))
+			Expect(res.Users).To(BeEmpty())
+		})
+		It("Should return no users for an unknown username", func(ctx SpecContext) {
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+				Usernames: []string{"unknown-" + uuid.New().String()},
+			}))
+			Expect(res.Users).To(BeEmpty())
+		})
+		It("Should leave the username empty for a user with no password", func(
+			ctx SpecContext,
+		) {
+			u := MustSucceed(writer.Create(ctx, user.User{
+				Username: "no-password-" + uuid.New().String(),
+			}))
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
+				Keys: []user.Key{u.Key},
+			}))
+			Expect(res.Users).To(HaveLen(1))
+			Expect(res.Users[0].Username).To(BeEmpty())
+		})
 		It(
 			"Should deny access when the subject lacks retrieve permission on any user",
 			func(ctx SpecContext) {
-				u := MustSucceed(writer.Create(ctx, user.User{
-					Username: "retrieve-denied-" + uuid.New().String(),
-				}))
+				u := createUser(ctx, "retrieve-denied-"+uuid.New().String())
 				fctx, _ := nonRootCtx(ctx)
 				Expect(apiSvc.Retrieve(fctx, apiuser.RetrieveRequest{
 					Keys: []user.Key{u.Key},
