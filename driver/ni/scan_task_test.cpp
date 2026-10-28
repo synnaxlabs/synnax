@@ -274,7 +274,7 @@ std::vector<synnax::device::Device> scan_once(
     x::json::json j = {{"disabled", false}}
 ) {
     auto api = std::make_shared<FakeAPI>(std::move(resources));
-    auto p = x::json::Parser(j);
+    auto p = x::json::Parser(std::move(j));
     Scanner scanner(
         std::make_shared<syscfg::SugaredAPI>(api),
         ScanTaskConfig(p),
@@ -312,6 +312,7 @@ TEST(ScannerTest, testKeepsOtherModels) {
         {"01000004", "Regular-Device"},
     });
     std::vector<std::string> models;
+    models.reserve(devices.size());
     for (const auto &dev: devices)
         models.push_back(dev.model);
     EXPECT_EQ(
@@ -332,6 +333,7 @@ TEST(ScannerTest, testIgnoresSavedPatterns) {
         {{"ignored_models", x::json::json::array({"^Test.*", "^Mock.*", "PXI-.*"})}}
     );
     std::vector<std::string> models;
+    models.reserve(devices.size());
     for (const auto &dev: devices)
         models.push_back(dev.model);
     EXPECT_EQ(

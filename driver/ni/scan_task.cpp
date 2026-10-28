@@ -32,7 +32,7 @@ Scanner::Scanner(
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):
-    cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
+    cfg(cfg), task(std::move(task)), syscfg(syscfg) {}
 
 const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
