@@ -11,3 +11,5 @@ export * from "@/ui/admin/Activity";
 export * from "@/ui/admin/Licenses";
 export * from "@/ui/admin/Organization";
 export * from "@/ui/admin/Organizations";
+export * from "@/ui/admin/User";
+export * from "@/ui/admin/Users";

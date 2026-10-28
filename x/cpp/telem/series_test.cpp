@@ -15,7 +15,7 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "x/go/telem/pb/telem.pb.h"
