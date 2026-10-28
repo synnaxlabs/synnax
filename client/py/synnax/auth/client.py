@@ -115,6 +115,12 @@ class _KeyDeleteRequest(BaseModel):
     keys: list[UUID] = []
 
 
+class _PasswordCreateRequest(BaseModel):
+    subject: ontology.ID | None = None
+    username: str
+    password: str
+
+
 _METHODS_ENDPOINT = "/auth/methods"
 _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
@@ -123,6 +129,7 @@ _SESSION_DELETE_ENDPOINT = "/auth/session/delete"
 _KEY_CREATE_ENDPOINT = "/auth/key/create"
 _KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve"
 _KEY_DELETE_ENDPOINT = "/auth/key/delete"
+_PASSWORD_CREATE_ENDPOINT = "/auth/password/create"
 
 _AUTHORIZATION_HEADER = "Authorization"
 _RETRY_ON_ERRORS = (InvalidToken, ExpiredToken, SessionEnded)
@@ -249,6 +256,26 @@ class Client:
         """Deletes API keys and ends their sessions. Unknown keys are ignored."""
         send_required(
             self.client, _KEY_DELETE_ENDPOINT, _KeyDeleteRequest(keys=list(keys)), Empty
+        )
+
+    def create_password(
+        self, username: str, password: str, subject: ontology.ID | None = None
+    ) -> None:
+        """Gives the subject, or the caller when none is given, its first password.
+
+        :raises AuthError: if another user holds the username.
+        :raises AccessDenied: if the caller may not create the subject.
+        :raises NotFoundError: if the subject does not exist.
+        :raises ValidationError: if the username or password is empty, or the subject
+            already has a password.
+        """
+        send_required(
+            self.client,
+            _PASSWORD_CREATE_ENDPOINT,
+            _PasswordCreateRequest(
+                subject=subject, username=username, password=password
+            ),
+            Empty,
         )
 
     def logout(self) -> None:

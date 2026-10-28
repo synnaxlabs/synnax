@@ -530,6 +530,18 @@ var _ = Describe("HTTP", func() {
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
 		})
+		It("Should refuse a first password for a caller that has one", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			Expect(call(
+				"/api/v1/auth/password/create",
+				token,
+				apiauth.PasswordCreateRequest{Credentials: auth.Credentials{
+					Username: "other",
+					Password: "new",
+				}},
+				nil,
+			)).To(Equal(http.StatusBadRequest))
+		})
 		It("Should set the caller's own password", func() {
 			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
 			Expect(call(

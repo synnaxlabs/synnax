@@ -102,6 +102,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/oidc/unlink",
 		),
+		AuthPasswordCreate: unary[auth.PasswordCreateRequest, struct{}](
+			router,
+			"/api/v1/auth/password/create",
+		),
 		AuthPasswordSet: unary[auth.PasswordSetRequest, struct{}](
 			router,
 			"/api/v1/auth/password/set",

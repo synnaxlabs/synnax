@@ -19,8 +19,68 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// PasswordCreateRequest gives a user its first password.
+type PasswordCreateRequest struct {
+	// Subject is the user to give the password. Empty means the caller.
+	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	Credentials
+}
+
+// CreatePassword gives the caller, or another user when the caller may create that
+// user, its first password. It returns [auth.ErrRepeatedUsername] when another user
+// holds the username, a validation error when the password method is off, the subject
+// is not a user, or the user already has a password, and an error wrapping
+// query.ErrNotFound when the user does not exist.
+func (s *Service) CreatePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req PasswordCreateRequest,
+) (struct{}, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return struct{}{}, err
+	}
+	caller := GetSubject(ctx)
+	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
+	if subject.Type != ontology.ResourceTypeUser {
+		return struct{}{}, errors.Wrapf(
+			validate.ErrValidation,
+			"a %s has no password",
+			subject.Type,
+		)
+	}
+	if err := s.enforceOthers(
+		ctx,
+		caller,
+		access.ActionCreate,
+		[]ontology.ID{subject},
+	); err != nil {
+		return struct{}{}, err
+	}
+	exists, err := s.ontology.NewRetrieve().WhereIDs(subject).Exists(ctx, tx)
+	if err != nil {
+		return struct{}{}, err
+	}
+	if !exists {
+		return struct{}{}, errors.Wrapf(query.ErrNotFound, "%s", subject)
+	}
+	if exists, err = s.password.NewRetrieve().
+		Where(password.MatchSubjects(subject)).
+		Exists(ctx, tx); err != nil {
+		return struct{}{}, err
+	}
+	if exists {
+		return struct{}{}, errors.Wrapf(
+			validate.ErrValidation,
+			"%s already has a password",
+			subject,
+		)
+	}
+	return struct{}{}, s.password.NewWriter(tx).Set(ctx, subject, req.Credentials)
+}
 
 // PasswordSetRequest sets a user's password.
 type PasswordSetRequest struct {

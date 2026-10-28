@@ -76,6 +76,8 @@ type Transport struct {
 	AuthOIDCRetrieve freighter.UnaryServer[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse]
 	// AuthOIDCUnlink removes provider links and ends their sessions.
 	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
+	// AuthPasswordCreate gives the caller or another user its first password.
+	AuthPasswordCreate freighter.UnaryServer[auth.PasswordCreateRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, struct{}]
 	// USER
@@ -315,6 +317,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthOIDCLink,
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
+		t.AuthPasswordCreate,
 		t.AuthPasswordSet,
 
 		// USER
@@ -501,6 +504,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthOIDCLink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.LinkOIDC))
 	t.AuthOIDCRetrieve.BindHandler(l.Auth.RetrieveOIDCLinks)
 	t.AuthOIDCUnlink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.UnlinkOIDC))
+	t.AuthPasswordCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Auth.CreatePassword),
+	)
 	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
 
 	// LICENSE
