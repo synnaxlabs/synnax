@@ -8,26 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { installers } from "@/components/desktop/installers";
 import Buttons from "@/components/download/Buttons.astro";
-import { appVersion } from "@/util/releases";
 
 const version = await Astro.locals.releases.latest("desktop");
-const app = appVersion(version);
 ---
 
-<Buttons
-    product="desktop"
-    version={version}
-    platforms={[
-        {
-            name: "macOS",
-            asset: `Synnax-Desktop_${app}_aarch64.dmg`,
-            agent: /Macintosh/,
-        },
-        {
-            name: "Windows",
-            asset: `Synnax-Desktop_${app}_x64-setup.exe`,
-            agent: /Windows NT/,
-        },
-    ]}
-/>
+<Buttons product="desktop" version={version} platforms={installers(version)} />

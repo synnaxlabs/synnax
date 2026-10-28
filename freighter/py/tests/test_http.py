@@ -27,24 +27,29 @@ from freighter.http import HTTPClient
 from freighter.transport import Next
 from x.codec import JSONCodec
 
-from .interface import Error, Message
+from .interface import Error, Message, create_registry
 
 
 @pytest.fixture
 def client(endpoint: URL) -> HTTPClient:
-    return HTTPClient(endpoint.child("unary"), JSONCodec())
+    return HTTPClient(endpoint.child("unary"), JSONCodec(), create_registry())
 
 
 class TestConstruction:
     def test_url_unchanged(self, endpoint: URL) -> None:
         """Should not change the protocol of the URL passed by the caller."""
-        HTTPClient(endpoint, JSONCodec(), ssl_context=ssl.create_default_context())
+        HTTPClient(
+            endpoint,
+            JSONCodec(),
+            create_registry(),
+            ssl_context=ssl.create_default_context(),
+        )
         assert endpoint.protocol == ""
 
     def test_warning_filters_unchanged(self, endpoint: URL) -> None:
         """Should not change the process warning filters."""
         before = list(warnings.filters)
-        HTTPClient(endpoint, JSONCodec())
+        HTTPClient(endpoint, JSONCodec(), create_registry())
         assert warnings.filters == before
 
 
@@ -54,7 +59,7 @@ def unreachable_client() -> HTTPClient:
     with socket.socket() as sock:
         sock.bind(("localhost", 0))
         port = sock.getsockname()[1]
-    return HTTPClient(URL("localhost", port), JSONCodec())
+    return HTTPClient(URL("localhost", port), JSONCodec(), create_registry())
 
 
 class TestUnreachable:
@@ -192,6 +197,7 @@ class TestRetries:
         return HTTPClient(
             endpoint.child("unary"),
             JSONCodec(),
+            create_registry(),
             retries=Retry(total=2, status_forcelist=[503], allowed_methods=None),
         )
 
@@ -333,7 +339,13 @@ class TestStream:
     ) -> None:
         """Should release the connection when the caller leaves the context, however
         much of the body it read."""
-        client = HTTPClient(endpoint.child("unary"), JSONCodec(), maxsize=1, block=True)
+        client = HTTPClient(
+            endpoint.child("unary"),
+            JSONCodec(),
+            create_registry(),
+            maxsize=1,
+            block=True,
+        )
         with client.stream(
             "/echo", Message(id=1, message="a" * (1 << 20)), "application/json"
         ) as body:
@@ -343,7 +355,13 @@ class TestStream:
 
     def test_middleware_failure_releases_the_connection(self, endpoint: URL) -> None:
         """Should release the connection when a middleware fails after the request."""
-        client = HTTPClient(endpoint.child("unary"), JSONCodec(), maxsize=1, block=True)
+        client = HTTPClient(
+            endpoint.child("unary"),
+            JSONCodec(),
+            create_registry(),
+            maxsize=1,
+            block=True,
+        )
         failures = [RuntimeError("stop")]
 
         def mw(ctx: Context, next: Next) -> Context:
@@ -364,7 +382,7 @@ class TestStream:
 class TestContext:
     def test_protocol_and_target(self, endpoint: URL) -> None:
         """Should give middleware the protocol and the full request URL as target."""
-        client = HTTPClient(endpoint.child("unary"), JSONCodec())
+        client = HTTPClient(endpoint.child("unary"), JSONCodec(), create_registry())
         contexts: list[Context] = []
 
         def mw(ctx: Context, _: Next) -> Context:

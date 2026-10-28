@@ -12,7 +12,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/mem/indirect.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -634,7 +634,7 @@ TEST(WaitTest, MeasuresDurationFromFirstNextCall) {
 }
 
 /// @brief Test that Wait starts timing from a channel input that activates the stage.
-/// Regression: wait{duration=3s} took ~6s because startTime was only set on the first
+/// Regression: wait(duration=3s) took ~6s because startTime was only set on the first
 /// TimerTick, not when the stage was activated via channel input.
 TEST(WaitTest, StartsTimingFromChannelInputThatActivatesStage) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
@@ -1393,8 +1393,8 @@ INSTANTIATE_TEST_SUITE_P(
         ShortestCase{
             "two_literal_intervals",
             R"(
-time.interval{period=100ms} -> %a%
-time.interval{period=60ms} -> %b%
+time.interval(period=100ms) -> %a%
+time.interval(period=60ms) -> %b%
 )",
             60
         },
@@ -1405,8 +1405,8 @@ sequence main {
     p := i64 ns(100ms)
     q := i64 ns(60ms)
     stage run {
-        time.interval{period=p} -> %a%
-        time.interval{period=q} -> %b%
+        time.interval(period=p) -> %a%
+        time.interval(period=q) -> %b%
     }
 }
 )",
@@ -1419,8 +1419,8 @@ sequence main {
     p := i64 ns(100ms)
     q := i64 ns(60ms)
     stage run {
-        time.interval{period=p} -> %a%
-        time.interval{period=q} -> %b%
+        time.interval(period=p) -> %a%
+        time.interval(period=q) -> %b%
         1 => faster
     }
     stage faster {
@@ -1438,8 +1438,8 @@ sequence main {
     p := i64 ns(100ms)
     q := i64 ns(60ms)
     stage run {
-        time.interval{period=p} -> %a%
-        time.interval{period=q} -> %b%
+        time.interval(period=p) -> %a%
+        time.interval(period=q) -> %b%
         1 => faster
     }
     stage faster {
@@ -1453,8 +1453,8 @@ sequence main {
         ShortestCase{
             "two_literal_waits",
             R"(
-time.wait{duration=75ms} -> %a%
-time.wait{duration=50ms} -> %b%
+time.wait(duration=75ms) -> %a%
+time.wait(duration=50ms) -> %b%
 )",
             50
         },
@@ -1465,8 +1465,8 @@ sequence main {
     d := i64 ns(80ms)
     e := i64 ns(50ms)
     stage run {
-        time.wait{duration=d} -> %a%
-        time.wait{duration=e} -> %b%
+        time.wait(duration=d) -> %a%
+        time.wait(duration=e) -> %b%
         1 => faster
     }
     stage faster {
@@ -1484,8 +1484,8 @@ sequence main {
     p := i64 ns(100ms)
     d := i64 ns(75ms)
     stage run {
-        time.interval{period=p} -> %a%
-        time.wait{duration=d} -> %b%
+        time.interval(period=p) -> %a%
+        time.wait(duration=d) -> %b%
     }
 }
 )",
@@ -1498,8 +1498,8 @@ sequence main {
     p := i64 ns(100ms)
     d := i64 ns(80ms)
     stage run {
-        time.interval{period=p} -> %a%
-        time.wait{duration=d} -> %b%
+        time.interval(period=p) -> %a%
+        time.wait(duration=d) -> %b%
         1 => faster
     }
     stage faster {
@@ -1517,8 +1517,8 @@ sequence main {
     p := i64 ns(100ms)
     d := i64 ns(75ms)
     stage run {
-        time.interval{period=p} -> %a%
-        time.wait{duration=d} -> %b%
+        time.interval(period=p) -> %a%
+        time.wait(duration=d) -> %b%
         1 => faster
     }
     stage faster {
@@ -1535,8 +1535,8 @@ sequence main {
 sequence main {
     d := i64 ns(60ms)
     stage run {
-        time.interval{period=100ms} -> %a%
-        time.wait{duration=d} -> %b%
+        time.interval(period=100ms) -> %a%
+        time.wait(duration=d) -> %b%
         1 => faster
     }
     stage faster {
@@ -1552,7 +1552,7 @@ sequence main {
 sequence main {
     p := i64 ns(100ms)
     stage run {
-        time.interval{period=p} -> %a%
+        time.interval(period=p) -> %a%
         1 => mid
     }
     stage mid {
@@ -1572,8 +1572,8 @@ sequence main {
 sequence main {
     p := i64 ns(40ms)
     stage run {
-        time.interval{period=p} -> %a%
-        time.wait{duration=p} -> %b%
+        time.interval(period=p) -> %a%
+        time.wait(duration=p) -> %b%
         1 => faster
     }
     stage faster {
@@ -1589,7 +1589,7 @@ sequence main {
 sequence main {
     p := i64 ns(100ms)
     stage run {
-        time.interval{period=p} -> %a%
+        time.interval(period=p) -> %a%
     }
     stage never {
         p = i64 ns(30ms)
