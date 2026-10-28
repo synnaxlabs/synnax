@@ -13,12 +13,15 @@ import { preflight, readSecret, withCORS } from "@/bearer";
 import { handle } from "@/respond";
 import { renew, resolve } from "@/server/license/desktop";
 import { check } from "@/server/ratelimit";
+import { active } from "@/server/slack";
+import { arrival } from "@/server/user";
 
 export const OPTIONS = preflight;
 
 /**
  * POST renews the desktop license of the machine whose renewal secret is the bearer
- * token, and answers `{ key }`. No portal session is involved.
+ * token, and answers `{ key }`. No portal session is involved. The user's first Desktop
+ * use of a day is posted to Slack.
  */
 export const POST: APIRoute = async (context) =>
   withCORS(
@@ -31,7 +34,17 @@ export const POST: APIRoute = async (context) =>
         organization: machine.license.organization,
         now,
       });
-      const { key } = await renew(portal.store, portal.signer, { machine, now });
+      const { key, owner, previous } = await renew(portal.store, portal.signer, {
+        machine,
+        now,
+      });
+      const arrived = await arrival(portal.store, portal.directory, {
+        userID: owner,
+        machine: machine.activation.name ?? "Unnamed machine",
+        previous,
+        now,
+      });
+      if (arrived != null) await portal.slack.post(active(arrived));
       return Response.json({ key });
     }),
   );

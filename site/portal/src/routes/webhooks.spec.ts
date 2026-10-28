@@ -14,6 +14,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { POST } from "@/pages/api/webhooks/clerk";
 import { organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
+import { joined } from "@/server/slack";
 import {
   createAPIContext,
   createHarness,
@@ -157,6 +158,23 @@ describe("POST /api/webhooks/clerk", () => {
     it("should fall back to the user id", async () => {
       await post(userCreated({}));
       expect((await organizations())[0].name).toBe("user_ada");
+    });
+
+    it("should post the new account to Slack", async () => {
+      await post(
+        userCreated({
+          first_name: "Ada",
+          last_name: "Lovelace",
+          primary_email_address_id: "email_2",
+          email_addresses: [
+            { id: "email_1", email_address: "old@example.com" },
+            { id: "email_2", email_address: "ada@example.com" },
+          ],
+        }),
+      );
+      expect(h.slack.posted).toEqual([
+        joined({ userID: "user_ada", name: "Ada Lovelace", email: "ada@example.com" }),
+      ]);
     });
 
     it("should create the organization only once", async () => {

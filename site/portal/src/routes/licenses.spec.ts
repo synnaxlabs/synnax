@@ -31,6 +31,7 @@ import { ADMIN_ROLE, type Team } from "@/server/directory";
 import { issued, restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
+import { refused } from "@/server/slack";
 import {
   body,
   type ContextArgs,
@@ -694,6 +695,14 @@ describe("license routes", () => {
           actor: MEMBER,
           license: lic.key,
           detail: { reason: "no_seats", fingerprint: [HASH_A] },
+        }),
+      ]);
+      expect(h.slack.posted).toEqual([
+        refused({
+          organization: acme,
+          license: lic,
+          reason: "no_seats",
+          actor: { name: MEMBER, email: `${MEMBER}@example.com` },
         }),
       ]);
     });

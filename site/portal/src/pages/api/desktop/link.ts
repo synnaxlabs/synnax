@@ -16,6 +16,8 @@ import { parse } from "@/server/license/fingerprint";
 import { readName } from "@/server/license/machine";
 import { ensurePersonal } from "@/server/organization";
 import { check } from "@/server/ratelimit";
+import { active, firstLogin } from "@/server/slack";
+import { arrival } from "@/server/user";
 
 /**
  * POST links the logged-in user's machine: issues a desktop license bound to the
@@ -51,6 +53,17 @@ export const POST: APIRoute = async (context) =>
       machineName,
       now,
     });
+    const { previous } = linked;
+    if (previous == null) await portal.slack.post(firstLogin(session, machineName));
+    else {
+      const arrived = await arrival(portal.store, portal.directory, {
+        userID: session.userID,
+        machine: machineName,
+        previous,
+        now,
+      });
+      if (arrived != null) await portal.slack.post(active(arrived));
+    }
     return Response.json({
       key: linked.key,
       secret: linked.secret,

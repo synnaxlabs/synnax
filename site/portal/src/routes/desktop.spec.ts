@@ -17,8 +17,10 @@ import { POST as desktopUnlinkRoute } from "@/pages/api/desktop/unlink";
 import { activation, event, license } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { hashSecret } from "@/server/license/desktop";
-import { HASH_A, HASH_B } from "@/server/license/testutil";
+import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR } from "@/server/ratelimit";
+import { active, firstLogin } from "@/server/slack";
+import { DAY_MS } from "@/server/usage";
 import {
   body,
   createActivation,
@@ -29,6 +31,15 @@ import {
   type Harness,
   readKey,
 } from "@/testutil";
+
+const TOMORROW = new Date(NOW.getTime() + DAY_MS);
+
+const ADA = {
+  userID: "user_a",
+  name: "Ada Lovelace",
+  email: "ada@example.com",
+  joinedAt: new Date(0),
+};
 
 interface Linked {
   key: string;
@@ -137,6 +148,44 @@ describe("desktop routes", () => {
         error: "Too many activations. Try again later.",
       });
     });
+
+    it("should post only the first Desktop login of each user to Slack", async () => {
+      await linkAs("user_a");
+      await linkAs("user_a", HASH_B);
+      await linkAs("user_b");
+      expect(harness.slack.posted).toEqual([
+        firstLogin(
+          { userID: "user_a", name: "Ada Lovelace", email: "ada@example.com" },
+          "stand-1",
+        ),
+        firstLogin(
+          { userID: "user_b", name: "Bob", email: "bob@example.com" },
+          "stand-1",
+        ),
+      ]);
+    });
+
+    it("should not post a login after the user logged out", async () => {
+      const linked = await linkAs("user_a");
+      expect((await postDesktopUnlink(`Bearer ${linked.secret}`)).status).toBe(204);
+      await linkAs("user_a");
+      expect(harness.slack.posted).toHaveLength(1);
+    });
+
+    it("should post a returning user's first use of a day to Slack", async () => {
+      await linkAs("user_a");
+      harness.portal.now = () => TOMORROW;
+      await linkAs("user_a", HASH_B);
+      expect(harness.slack.posted.at(-1)).toEqual(
+        active({
+          account: ADA,
+          machine: "stand-1",
+          previous: NOW,
+          at: TOMORROW,
+          days: 2,
+        }),
+      );
+    });
   });
 
   describe("OPTIONS /api/desktop/renew", () => {
@@ -166,6 +215,30 @@ describe("desktop routes", () => {
         (e) => e.kind === "renew",
       );
       expect(renewals).toHaveLength(1);
+    });
+
+    it("should post the owner's first use of a day to Slack", async () => {
+      const linked = await linkAs("user_a");
+      harness.signIn(null);
+      harness.portal.now = () => TOMORROW;
+      expect((await postRenew(`Bearer ${linked.secret}`)).status).toBe(200);
+      expect(harness.slack.posted).toEqual([
+        firstLogin(ADA, "stand-1"),
+        active({
+          account: ADA,
+          machine: "stand-1",
+          previous: NOW,
+          at: TOMORROW,
+          days: 2,
+        }),
+      ]);
+    });
+
+    it("should not post a later use on the same day", async () => {
+      const linked = await linkAs("user_a");
+      harness.portal.now = () => new Date(NOW.getTime() + 6 * 60 * 60 * 1000);
+      expect((await postRenew(`Bearer ${linked.secret}`)).status).toBe(200);
+      expect(harness.slack.posted).toHaveLength(1);
     });
 
     it("should refuse a request without a bearer secret", async () => {
