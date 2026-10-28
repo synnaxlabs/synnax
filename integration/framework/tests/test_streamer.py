@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import threading
+
 import pytest
 
 import synnax as sy
@@ -76,7 +78,7 @@ class TestStreamer:
     ) -> None:
         """Should open the stream before start returns, so no later write is missed."""
         streamer.start()
-        assert client.opened
+        assert client.opened_by is threading.current_thread()
         stop(streamer)
 
     def test_raises_open_error(self, client: Client, streamer: Streamer) -> None:
