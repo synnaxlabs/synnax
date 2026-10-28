@@ -863,26 +863,26 @@ describe("auth", () => {
       const { user: u, password } = await createTestUser(owner);
       const username = id.create();
       await owner.auth.renamePassword({ subject: user.ontologyID(u.key), username });
-      const client = createTestClient({ username, password });
-      const current = await client.users.current.retrieve();
-      expect(current.key).toEqual(u.key);
+      const client = createLoginClient({ username, password });
+      await client.retrieveSessions();
+      expect(client.subject?.key).toEqual(u.key);
     });
 
     it("should let a user rename its own password and log in again", async () => {
       const owner = createTestClient();
       const { user: u, username: old, password } = await createTestUser(owner);
-      const client = createTestClient({ username: old, password });
+      const client = createLoginClient({ username: old, password });
       const username = id.create();
-      await client.auth.renamePassword({ username });
+      await client.renamePassword({ username });
       const [p] = await owner.auth.retrievePasswords({
         subjects: [user.ontologyID(u.key)],
       });
       expect(p.username).toEqual(username);
-      const key = client.auth.session?.key;
+      const key = client.session?.key;
       if (key == null) throw new Error("no session");
-      await client.auth.deleteSessions(key);
-      await client.auth.retrieveSessions();
-      expect(client.auth.session?.key).not.toEqual(key);
+      await client.deleteSessions(key);
+      await client.retrieveSessions();
+      expect(client.session?.key).not.toEqual(key);
     });
 
     it("should refuse a username another user holds", async () => {
