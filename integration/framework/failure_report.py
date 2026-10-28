@@ -140,7 +140,10 @@ def _parse_teardown_calls(z: zipfile.ZipFile) -> set[str]:
     except KeyError:
         return set()
     with z.open(info) as f:
-        stacks = json.load(f).get("stacks", [])
+        try:
+            stacks = json.load(f).get("stacks", [])
+        except json.JSONDecodeError:
+            return set()
     # A frame is [file index, line, column, "Class.method"].
     return {
         call_id

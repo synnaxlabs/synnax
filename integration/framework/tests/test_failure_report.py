@@ -14,10 +14,11 @@ from pathlib import Path
 from framework import failure_report, models
 
 
-def _write_trace(path: Path, clicks: list[tuple[str, str]]) -> None:
-    """Write a trace.zip with one click per (selector, calling method)."""
+def _render(tmp_path: Path, clicks: list[tuple[str, str]], stacks: str = "") -> str:
+    """Render the report for a failed test whose trace has one click per (selector,
+    calling method). A non-empty ``stacks`` replaces the generated trace.stacks."""
     events: list[dict[str, object]] = []
-    stacks: list[list[object]] = []
+    frames: list[list[object]] = []
     for i, (selector, caller) in enumerate(clicks):
         call_id = f"call@{i}"
         events.append(
@@ -31,29 +32,40 @@ def _write_trace(path: Path, clicks: list[tuple[str, str]]) -> None:
             }
         )
         events.append({"type": "after", "callId": call_id, "endTime": i + 0.5})
-        stacks.append([call_id, [[0, 1, 0, caller]]])
-    with zipfile.ZipFile(path, "w") as z:
+        frames.append([call_id, [[0, 1, 0, caller]]])
+    bundle = tmp_path / "tests" / "case"
+    bundle.mkdir(parents=True)
+    with zipfile.ZipFile(bundle / "trace.zip", "w") as z:
         z.writestr("trace.trace", "\n".join(json.dumps(e) for e in events))
-        z.writestr("trace.stacks", json.dumps({"files": ["case.py"], "stacks": stacks}))
+        z.writestr(
+            "trace.stacks",
+            stacks or json.dumps({"files": ["case.py"], "stacks": frames}),
+        )
+    test = models.Test(
+        test_name="console/case",
+        status=models.STATUS.FAILED,
+        bundle_dir=str(bundle),
+    )
+    report = failure_report.safe_render(tmp_path, [test])
+    assert report is not None
+    return report.read_text(encoding="utf-8")
 
 
 class TestFailureReport:
     def test_should_leave_teardown_actions_out_of_the_last_actions(
         self, tmp_path: Path
     ) -> None:
-        bundle = tmp_path / "tests" / "case"
-        bundle.mkdir(parents=True)
-        _write_trace(
-            bundle / "trace.zip",
-            [("#run", "Case.run"), ("#cleanup", "Case.teardown")],
-        )
-        test = models.Test(
-            test_name="console/case",
-            status=models.STATUS.FAILED,
-            bundle_dir=str(bundle),
-        )
-        report = failure_report.safe_render(tmp_path, [test])
-        assert report is not None
-        text = report.read_text(encoding="utf-8")
+        text = _render(tmp_path, [("#run", "Case.run"), ("#cleanup", "Case.teardown")])
         assert "selector=#run" in text
         assert "selector=#cleanup" not in text
+
+    def test_should_list_every_action_when_the_stacks_are_unreadable(
+        self, tmp_path: Path
+    ) -> None:
+        text = _render(
+            tmp_path,
+            [("#run", "Case.run"), ("#cleanup", "Case.teardown")],
+            stacks="{",
+        )
+        assert "selector=#run" in text
+        assert "selector=#cleanup" in text
