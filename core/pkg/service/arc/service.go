@@ -262,9 +262,12 @@ func OpenService(
 		return nil, err
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:              cfg.DB,
-		Indexes:         s.indexes.all(),
-		Migrations:      versions.Migrations,
+		DB:      cfg.DB,
+		Indexes: s.indexes.all(),
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Ontology: cfg.Ontology,
+			Group:    s.group,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
