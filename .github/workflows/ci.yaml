@@ -435,6 +435,9 @@ jobs:
     needs: changes
     if: inputs.full || needs.changes.outputs.exports_go == 'true'
     runs-on: ubuntu-latest
+    # The proxy drops streams at times, so a failed fetch falls back to the source.
+    env:
+      GOPROXY: https://proxy.golang.org|direct
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -450,6 +453,11 @@ jobs:
         with:
           go-version-file: x/go/go.mod
           cache-dependency-path: "**/go.sum"
+
+      - name: Download the Go modules
+        run: |
+          .github/scripts/go_mod_download.sh alamos/go arc/go aspen cesium core \
+            freighter/go freighter/integration gorp oracle x/go
 
       - name: Build the check
         working-directory: x/go
