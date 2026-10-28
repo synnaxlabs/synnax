@@ -71,7 +71,7 @@ cc_test(
         "//driver/ethercat",
         "//driver/ethercat/testutil",
         "//driver/pipeline/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -89,7 +89,7 @@ cc_test(
         "//driver/ethercat",
         "//driver/ethercat/soem",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

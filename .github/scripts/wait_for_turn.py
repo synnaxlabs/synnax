@@ -150,8 +150,8 @@ class GitHub:
 
 def through(jobs: dict[str, dict[str, Any]]) -> bool:
     """True when a group that runs the integration suite queued its test bot jobs or
-    never will. A gate that failed or was cancelled counts, because a failed group can
-    stay in the queue while a later group runs."""
+    never will. A gate that failed or was cancelled counts, because a failed group
+    stays in the queue until GitHub removes it."""
     gate = jobs.get(GATE, {})
     if gate.get("status") != "completed":
         return False

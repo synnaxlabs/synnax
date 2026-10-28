@@ -49,18 +49,17 @@ const createHarness = (send: SendFn): Harness => {
     onError,
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
+    send: async (_, actions) => await send(actions),
   });
-  const sendDispatch: actions.SendDispatch<schematic.Action> = async (actions) =>
-    await send(actions);
   const domain: Domain = {
     dispatch: async (key, actions, opts) =>
-      await controller.dispatch(key, array.toArray(actions), sendDispatch, opts),
-    undo: async (key) => await controller.undo(key, sendDispatch),
-    redo: async (key) => await controller.redo(key, sendDispatch),
+      await controller.dispatch(key, array.toArray(actions), opts),
+    undo: async (key) => await controller.undo(key),
+    redo: async (key) => await controller.redo(key),
     hasUndo: (key) => controller.hasUndo(key),
     hasRedo: (key) => controller.hasRedo(key),
     onUndoStateChange: (callback, key) => controller.onUndoStateChange(callback, key),
-    beginTransaction: (key, kind) => controller.transaction(key, sendDispatch, kind),
+    beginTransaction: (key, kind) => controller.transaction(key, kind),
   };
   return { domain, docs, controller };
 };

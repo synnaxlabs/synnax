@@ -13,7 +13,7 @@
 
 #include "client/cpp/auth/auth.h"
 #include "freighter/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
