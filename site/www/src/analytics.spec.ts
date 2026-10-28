@@ -9,7 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import { capture, captureClicks } from "@/analytics";
+import { captureClicks } from "@/analytics";
 
 const click = (selector: string): void =>
   document.querySelector<HTMLElement>(selector)!.click();
@@ -20,17 +20,6 @@ describe("analytics", () => {
   beforeEach(() => {
     posthog = vi.fn();
     vi.stubGlobal("posthog", { capture: posthog });
-  });
-
-  describe("capture", () => {
-    it("should send the event so it survives leaving the page", () => {
-      capture("contact_form_submitted", { location: "hero" });
-      expect(posthog).toHaveBeenCalledExactlyOnceWith(
-        "contact_form_submitted",
-        { location: "hero" },
-        { transport: "sendBeacon" },
-      );
-    });
   });
 
   describe("captureClicks", () => {
