@@ -655,6 +655,12 @@ describe("directory", () => {
         expect(calls.deleted).toEqual(["org_acme"]);
       });
 
+      it("should treat a team Clerk does not know as deleted", async () => {
+        const refusal = Object.assign(new Error("Not Found"), { status: 404 });
+        const { directory } = createClient({ refusal });
+        await expect(directory.delete("org_acme")).resolves.toBeUndefined();
+      });
+
       it("should rename a team", async () => {
         const { directory, calls } = createClient();
         await directory.rename("org_acme", "Acme Rockets");

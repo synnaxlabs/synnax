@@ -186,6 +186,7 @@ describe("POST /api/webhooks/clerk", () => {
 
   describe("organization events", () => {
     it("should mirror a created Clerk organization as a team", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_acme", name: "Acme" });
       const res = await post({
         type: "organization.created",
         data: { id: "org_acme", name: "Acme" },
@@ -202,10 +203,12 @@ describe("POST /api/webhooks/clerk", () => {
     });
 
     it("should rename the team when the Clerk organization is updated", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_acme", name: "Acme" });
       await post({
         type: "organization.created",
         data: { id: "org_acme", name: "Acme" },
       });
+      await h.directory.rename("org_acme", "Acme Rockets");
       await post({
         type: "organization.updated",
         data: { id: "org_acme", name: "Acme Rockets" },
@@ -216,6 +219,7 @@ describe("POST /api/webhooks/clerk", () => {
     });
 
     it("should mirror an updated organization it has not seen", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_new", name: "Newco" });
       await post({
         type: "organization.updated",
         data: { id: "org_new", name: "Newco" },
@@ -223,6 +227,26 @@ describe("POST /api/webhooks/clerk", () => {
       expect(await organizations()).toEqual([
         expect.objectContaining({ kind: "team", clerkOrgID: "org_new", name: "Newco" }),
       ]);
+    });
+
+    it("should mirror the name Clerk holds over a late event's", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_acme", name: "Acme Rockets" });
+      await post({
+        type: "organization.updated",
+        data: { id: "org_acme", name: "Acme" },
+      });
+      expect(await organizations()).toEqual([
+        expect.objectContaining({ clerkOrgID: "org_acme", name: "Acme Rockets" }),
+      ]);
+    });
+
+    it("should not mirror a late event for a deleted organization", async () => {
+      const res = await post({
+        type: "organization.updated",
+        data: { id: "org_gone", name: "Gone" },
+      });
+      expect(res.status).toBe(204);
+      expect(await organizations()).toEqual([]);
     });
   });
 

@@ -766,6 +766,20 @@ describe("organization routes", () => {
       expect(await h.directory.team("org_globex")).not.toBeNull();
     });
 
+    it("should delete the records of a team Clerk already deleted", async () => {
+      await createRecords(acme);
+      await h.directory.delete(ACME);
+      h.signIn(STAFF);
+      expect((await remove()).status).toBe(204);
+      expect(await counts()).toEqual({
+        organizations: 0,
+        licenses: 0,
+        activations: 0,
+        invitations: 0,
+        events: 0,
+      });
+    });
+
     it("should delete a team with no records", async () => {
       h.signIn(STAFF);
       expect((await remove()).status).toBe(204);

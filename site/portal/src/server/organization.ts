@@ -220,11 +220,17 @@ export const remove = async (
   team: Team,
 ): Promise<void> =>
   await store.transact(async (tx) => {
-    // Holds the lock activate takes, so no machine takes a seat during the delete.
+    // Locks the licenses, then the team, in the order activate takes them, so no record
+    // joins the team during the delete.
     const licenses = await tx
       .select({ key: license.key })
       .from(license)
       .where(eq(license.organization, team.key))
+      .for("update");
+    await tx
+      .select({ key: organization.key })
+      .from(organization)
+      .where(eq(organization.key, team.key))
       .for("update");
     await tx.delete(event).where(eq(event.organization, team.key));
     await tx.delete(activation).where(
