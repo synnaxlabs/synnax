@@ -34,6 +34,7 @@ NO_OPTIONS_MSG = """No options provided and no configuration file was found. Ple
 
 
 def try_load_options_if_none_provided(
+    *,
     host: str = "",
     port: int = 0,
     username: str = "",

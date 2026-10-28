@@ -90,6 +90,7 @@ class Synnax(framer.Client):
 
     def __init__(
         self,
+        *,
         host: str = "",
         port: int = 0,
         username: str = "",
@@ -125,7 +126,12 @@ class Synnax(framer.Client):
             certificate, such as the ca.crt that the Core generates.
         """
         opts = try_load_options_if_none_provided(
-            host, port, username, password, secure, ca_cert
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            secure=secure,
+            ca_cert=ca_cert,
         )
         registry = exceptions.create_registry()
         self._transport = _configure_transport(
@@ -220,6 +226,7 @@ class Synnax(framer.Client):
 
 
 def _configure_transport(
+    *,
     opts: Options,
     open_timeout: TimeSpan,
     read_timeout: TimeSpan,
