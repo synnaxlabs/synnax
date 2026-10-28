@@ -1021,6 +1021,8 @@ class LayoutClient:
         source.hover()
         self.page.mouse.down()
         target.wait_for(state="visible")
+        # A row scrolled out of its list still counts as visible.
+        target.scroll_into_view_if_needed()
         box = target.bounding_box()
         if box is None:
             raise AssertionError("drag target has no bounding box")
