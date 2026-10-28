@@ -16,12 +16,12 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
-#include "driver/opcua/mock/server.h"
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/read_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/opcua/testutil/server.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::opcua {
 /// @brief Allowed relative error of a task's achieved sample rate.
@@ -43,8 +43,8 @@ protected:
     synnax::task::Task task;
     x::json::json task_cfg_json;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
-    std::unique_ptr<mock::Server> server;
+    std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
+    std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
     synnax::channel::Channel index_channel;
     synnax::channel::Channel bool_channel;
@@ -146,7 +146,7 @@ protected:
         ASSERT_NIL(client->devices.create(dev));
 
         // Use the comprehensive default server configuration
-        auto server_cfg = mock::ServerConfig::create_default();
+        auto server_cfg = testutil::ServerConfig::create_default();
 
         x::json::json task_cfg{
             {"data_saving_disabled", false},
@@ -248,10 +248,10 @@ protected:
         task_cfg_json = task_cfg;
 
         ctx = std::make_shared<task::MockContext>(client);
-        mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
         conn_pool = std::make_shared<connection::Pool>();
 
-        server = std::make_unique<mock::Server>(server_cfg);
+        server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
@@ -916,9 +916,9 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
 TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     // Test that UnaryReadTaskSource skips samples when boolean data is invalid
     // Uses a separate mock server on different port with invalid data
-    auto invalid_server_cfg = mock::ServerConfig::create_with_invalid_data();
+    auto invalid_server_cfg = testutil::ServerConfig::create_with_invalid_data();
     invalid_server_cfg.port = 4841; // Different port from main server
-    auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
+    auto invalid_server = std::make_unique<testutil::Server>(invalid_server_cfg);
     invalid_server->start();
     ASSERT_TRUE(invalid_server->wait_until_ready());
 
@@ -998,9 +998,9 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
 /// @brief it should skip samples with invalid float data.
 TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     // Test that UnaryReadTaskSource skips samples when float data has null pointer
-    auto invalid_server_cfg = mock::ServerConfig::create_with_invalid_data();
+    auto invalid_server_cfg = testutil::ServerConfig::create_with_invalid_data();
     invalid_server_cfg.port = 4842; // Different port
-    auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
+    auto invalid_server = std::make_unique<testutil::Server>(invalid_server_cfg);
     invalid_server->start();
     ASSERT_TRUE(invalid_server->wait_until_ready());
 
@@ -1079,9 +1079,9 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
 /// @brief it should clear frame with invalid double array data.
 TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     // Test that ArrayReadTaskSource clears frames with zero-length arrays
-    auto invalid_server_cfg = mock::ServerConfig::create_with_invalid_data();
+    auto invalid_server_cfg = testutil::ServerConfig::create_with_invalid_data();
     invalid_server_cfg.port = 4843;
-    auto invalid_server = std::make_unique<mock::Server>(invalid_server_cfg);
+    auto invalid_server = std::make_unique<testutil::Server>(invalid_server_cfg);
     invalid_server->start();
     ASSERT_TRUE(invalid_server->wait_until_ready());
 
@@ -1238,7 +1238,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
          )},
         {"sample_rate", SAMPLE_RATE},
         {"array_mode", true},
-        {"array_size", mock::DOUBLE_ARRAY_SIZE},
+        {"array_size", testutil::DOUBLE_ARRAY_SIZE},
         {"stream_rate", SAMPLE_RATE}
     };
 
@@ -1272,12 +1272,12 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
                 fr.at<x::telem::TimeStamp>(this->index_channel.key, static_cast<int>(i))
             );
     }
-    ASSERT_GE(stamps.size(), 3 * mock::DOUBLE_ARRAY_SIZE);
+    ASSERT_GE(stamps.size(), 3 * testutil::DOUBLE_ARRAY_SIZE);
     EXPECT_LE(stamps.back(), stopped_at);
     // A block that tiles the acquisition window holds its samples one period apart,
     // including across the boundary into the next block. The stop cuts the block
     // timer short, so the last block spans only the read that followed it.
-    const auto complete = stamps.size() - mock::DOUBLE_ARRAY_SIZE;
+    const auto complete = stamps.size() - testutil::DOUBLE_ARRAY_SIZE;
     const auto min_spacing = x::telem::Rate(SAMPLE_RATE).period() / 4;
     for (size_t i = 1; i < complete; i++)
         EXPECT_GE(stamps[i] - stamps[i - 1], min_spacing)
@@ -1289,7 +1289,7 @@ TEST_F(TestReadTask, testHoldsSampleRate) {
     for (const int rate_hz: {25, 50, 100}) {
         this->task_cfg_json["sample_rate"] = rate_hz;
         this->task_cfg_json["stream_rate"] = rate_hz;
-        this->mock_factory = std::make_shared<pipeline::mock::WriterFactory>();
+        this->mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
 
         const auto rt = create_task();
         rt->start("start_cmd");
@@ -1298,7 +1298,7 @@ TEST_F(TestReadTask, testHoldsSampleRate) {
         rt->stop("stop_cmd", true);
 
         expect_rate(
-            pipeline::mock::measured_rate(
+            pipeline::testutil::measured_rate(
                 *this->mock_factory->writes,
                 this->index_channel.key
             ),

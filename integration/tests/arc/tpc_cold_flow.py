@@ -15,7 +15,7 @@ from tests.arc.arc import ArcCase
 
 ARC_SEQUENCE_SOURCE = """
 // Multi-output function that classifies pressure into three categories
-func classify_pressure{safe_threshold f32, warning_threshold f32} (pressure f32) (safe_out f32, warning_out f32, critical_out f32) {
+func classify_pressure(safe_threshold f32, warning_threshold f32) {pressure f32} (safe_out f32, warning_out f32, critical_out f32) {
     if (pressure < safe_threshold) {
         safe_out = pressure
     } else if (pressure < warning_threshold) {
@@ -25,14 +25,14 @@ func classify_pressure{safe_threshold f32, warning_threshold f32} (pressure f32)
     }
 }
 // Helper function triggered via dataflow - closes all pressurization valves
-func close_press{} (trigger f32) {
+func close_press() {trigger f32} {
     gas_booster_iso_cmd = 0
     press_iso_cmd = 0
     ox_press_cmd = 0
     fuel_press_cmd = 0
 }
 // Vent control - state > 0 closes vents (1=closed, 0=open)
-func vent_control{} (state f32) {
+func vent_control() {state f32} {
     if (state > 0) {
         ox_vent_cmd = 1
         fuel_vent_cmd = 1
@@ -42,7 +42,7 @@ func vent_control{} (state f32) {
     }
 }
 // MPV control - state > 0 opens MPVs (1=open, 0=closed)
-func mpv_control{} (state f32) {
+func mpv_control() {state f32} {
     if (state > 0) {
         ox_mpv_cmd = 1
         fuel_mpv_cmd = 1
@@ -52,26 +52,26 @@ func mpv_control{} (state f32) {
     }
 }
 // Dataflows: trigger channels activate helper functions
-tpc_press_trigger -> close_press{}
-tpc_vent_trigger -> vent_control{}
-tpc_mpv_trigger -> mpv_control{}
+tpc_press_trigger -> close_press()
+tpc_vent_trigger -> vent_control()
+tpc_mpv_trigger -> mpv_control()
 // Status handlers - write strings to pressure_status channel via dataflow
-func on_safe{} (value f32) {
+func on_safe() {value f32} {
     pressure_status = "Safe"
 }
 
-func on_warning{} (value f32) {
+func on_warning() {value f32} {
     pressure_status = "Warning"
 }
 
-func on_critical{} (value f32) {
+func on_critical() {value f32} {
     pressure_status = "Critical"
 }
 // Dataflow: OX pressure -> classifier -> status handlers
-ox_pt_1 -> classify_pressure{15, 40} -> {
-    safe_out: 1 -> on_safe{},
-    warning_out: 1 -> on_warning{},
-    critical_out: 1 -> on_critical{}
+ox_pt_1 -> classify_pressure(15, 40) -> {
+    safe_out: 1 -> on_safe(),
+    warning_out: 1 -> on_warning(),
+    critical_out: 1 -> on_critical()
 }
 
 start_tpc_cmd => main
@@ -82,7 +82,7 @@ sequence main {
         1 -> tpc_vent_trigger
         0 -> tpc_mpv_trigger
         1 -> tpc_stage
-        wait{500ms} => press_charge
+        wait(500ms) => press_charge
     }
 
     stage press_charge {
@@ -123,7 +123,7 @@ sequence main {
         1 -> tpc_vent_trigger
         0 -> tpc_mpv_trigger
         5 -> tpc_stage
-        wait{1s} => fire
+        wait(1s) => fire
     }
 
     stage fire {
@@ -131,7 +131,7 @@ sequence main {
         1 -> tpc_vent_trigger
         1 -> tpc_mpv_trigger
         6 -> tpc_stage
-        wait{500ms} => shutdown
+        wait(500ms) => shutdown
     }
 
     stage shutdown {
@@ -199,8 +199,8 @@ class TPCColdFlow(ArcCase):
     5. Reusable sequence with idle/start loop
 
     Architecture:
-    - tpc_*_trigger -> close_press{}, vent_control{}, mpv_control{}
-    - ox_pt_1 -> classify_pressure{} -> on_safe{}, on_warning{}, on_critical{}
+    - tpc_*_trigger -> close_press(), vent_control(), mpv_control()
+    - ox_pt_1 -> classify_pressure() -> on_safe(), on_warning(), on_critical()
     """
 
     arc_source = ARC_SEQUENCE_SOURCE
@@ -252,7 +252,7 @@ class TPCColdFlow(ArcCase):
                 current_status = str(new_status)
                 observed_statuses.add(current_status)
                 ox_pt = self.read_tlm("ox_pt_1")
-                self.log(f"Pressure status: {current_status} (ox_pt_1={ox_pt:.1f})")
+                self.log(f"Pressure status: {current_status} (ox_pt_1={ox_pt})")
 
         if not sequence_complete:
             self.fail(f"Test stopped unexpectedly in phase {current_phase}")

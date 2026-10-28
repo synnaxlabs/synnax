@@ -15,7 +15,6 @@ ReadTaskCase: Read-specific lifecycle (sample counting, data saving, rate change
 WriteTaskCase: Write-specific lifecycle (command sending).
 """
 
-import os
 import sys
 from abc import abstractmethod
 from collections.abc import Callable
@@ -512,7 +511,6 @@ class TaskCase(TestCase, Generic[TaskT]):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
-    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
     @abstractmethod
     def create(
@@ -717,7 +715,7 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             self.client,
             channel_keys=channel_keys,
             start=start,
-            sample_rate=config.sample_rate,
+            sample_rate=float(config.sample_rate),
             strict=strict,
             log=self.log,
         )

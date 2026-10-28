@@ -3,11 +3,11 @@ title: "Version 0.56 release notes"
 ---
 
 import { Fragment } from "react";
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
-import { Video } from "@/components/media/Media";
 
 export const components = mdxOverrides;
 
@@ -17,7 +17,13 @@ export const components = mdxOverrides;
     title="Schematic, table, and Arc improvements"
 >
 
-<Video id="releases/0-56-0/schematic-collaborative-editing" themed={false} />
+<Hero.Hero
+  video="releases/0-56-0/schematic-collaborative-editing"
+  themed={false}
+  layout="framed"
+  tone="soft"
+  palette="violet-pink"
+/>
 
 Synnax v0.56 brings real-time collaborative editing to schematics and tables, a set of
 improvements to the Arc programming language, and a collection of bug fixes and
@@ -29,10 +35,10 @@ performance improvements across the platform.
 
 #### Modules
 
-[Modules](/reference/control/arc/reference/standard-library) have now been introduced to
-Arc to better organize the Arc standard library. Modules are now self-contained,
-composable units that can be [imported](/reference/control/arc/reference/syntax#imports)
-and used in other modules. This reduces the number of names in the global namespace.
+[Modules](/reference/control/arc/standard-library) have now been introduced to Arc to
+better organize the Arc standard library. Modules are now self-contained, composable
+units that can be [imported](/reference/control/arc/reference/syntax#imports) and used
+in other modules. This reduces the number of names in the global namespace.
 
 ```arc
 // previously
@@ -62,9 +68,9 @@ f"The time is {time.now()}"
 
 #### Statuses
 
-The [`status` module](/reference/control/arc/reference/standard-library/status) has been
-added to Arc (previously, the `set_status` function). This module now allows for setting
-a status by name instead of just by key:
+The [`status` module](/reference/control/arc/standard-library/status) has been added to
+Arc (previously, the `set_status` function). This module now allows for setting a status
+by name instead of just by key:
 
 ```arc
 status.set("Engine 1 Health", "Low inlet pressure", "warning")
@@ -138,7 +144,7 @@ that are not included in a write call. This is useful if you do not care about t
 precise timestamp of each sample, or you want a single-source-of-truth when several
 clients are writing to the same channel (e.g., actuating valves on a schematic).
 
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 

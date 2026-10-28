@@ -13,12 +13,12 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
-#include "driver/opcua/mock/server.h"
+#include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 #include "driver/opcua/write_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::opcua {
 class TestWriteTask : public ::testing::Test {
@@ -26,8 +26,8 @@ protected:
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::StreamerFactory> mock_factory;
-    std::unique_ptr<mock::Server> server;
+    std::shared_ptr<pipeline::testutil::StreamerFactory> mock_factory;
+    std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
 
     // Command channels for different data types
@@ -203,7 +203,7 @@ protected:
         this->cfg = std::make_unique<WriteTaskConfig>(client, p);
 
         // Use the comprehensive default server configuration
-        auto server_cfg = mock::ServerConfig::create_default();
+        auto server_cfg = testutil::ServerConfig::create_default();
 
         ctx = std::make_shared<task::MockContext>(client);
         auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
@@ -254,7 +254,7 @@ protected:
         );
         reads->push_back(std::move(fr));
 
-        mock_factory = driver::pipeline::mock::simple_streamer_factory(
+        mock_factory = driver::pipeline::testutil::simple_streamer_factory(
             {this->bool_cmd_channel.key,
              this->uint16_cmd_channel.key,
              this->uint32_cmd_channel.key,
@@ -270,7 +270,7 @@ protected:
 
         conn_pool = std::make_shared<connection::Pool>();
 
-        server = std::make_unique<mock::Server>(server_cfg);
+        server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect

@@ -13,11 +13,11 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
 TEST(MergeDeviceProperties, ScannedOverridesRemote) {
@@ -132,7 +132,7 @@ public:
     std::shared_ptr<std::vector<synnax::device::Device>> created;
     std::shared_ptr<std::vector<synnax::ontology::ID>> created_parents;
     std::vector<std::vector<synnax::device::Status>> propagated_statuses;
-    std::shared_ptr<pipeline::mock::StreamerFactory> streamer_factory;
+    std::shared_ptr<pipeline::testutil::StreamerFactory> streamer_factory;
     std::vector<synnax::channel::Channel> signal_channels;
 
     MockClusterAPI(
@@ -901,10 +901,11 @@ inline std::unique_ptr<ScanTask> new_test_task(
     );
     // The signal thread dereferences the streamer, and the mock hands back a null
     // one unless it has a factory.
-    cluster_api->streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    cluster_api
+        ->streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
         std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
-            std::vector{pipeline::mock::StreamerConfig{
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(
+            std::vector{pipeline::testutil::StreamerConfig{
                 std::make_shared<std::vector<x::telem::Frame>>(),
                 nullptr,
                 x::errors::NIL
@@ -1349,11 +1350,11 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     signal_frame.emplace(device_set_ch.key, x::telem::Series(dev_json.dump()));
     reads->push_back(std::move(signal_frame));
 
-    auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
         std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
-            std::vector{pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}}
-        )
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(std::vector{
+            pipeline::testutil::StreamerConfig{reads, nullptr, x::errors::NIL}
+        })
     );
 
     auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
@@ -1415,11 +1416,11 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     );
     reads->push_back(std::move(signal_frame));
 
-    auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
         std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
-            std::vector{pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}}
-        )
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(std::vector{
+            pipeline::testutil::StreamerConfig{reads, nullptr, x::errors::NIL}
+        })
     );
 
     // Pre-populate remote devices so init() loads them into dev_states
@@ -1491,11 +1492,11 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     signal_frame.emplace(device_set_ch.key, x::telem::Series(dev_json.dump()));
     reads->push_back(std::move(signal_frame));
 
-    auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
         std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
-            std::vector{pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}}
-        )
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>(std::vector{
+            pipeline::testutil::StreamerConfig{reads, nullptr, x::errors::NIL}
+        })
     );
 
     auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();

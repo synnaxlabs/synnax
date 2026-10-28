@@ -20,6 +20,7 @@ import traceback
 from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import Enum, auto
+from pathlib import Path
 from typing import Any
 
 import synnax as sy
@@ -27,15 +28,15 @@ from framework import failure_report, run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import SynnaxConnection, Test
+from framework.models import DEFAULT_OPTIONS, RunOptions, SynnaxConnection, Test
 from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target, split_csv
 from framework.telemetry import TelemetryClient
 from framework.test_case import TestCase
-from x import validate_and_sanitize_name
+from x import is_ci, validate_and_sanitize_name
 
 
-class STATE(Enum):
+class _STATE(Enum):
     """Test conductor execution states."""
 
     INITIALIZING = auto()
@@ -47,11 +48,13 @@ class STATE(Enum):
     COMPLETED = auto()
 
 
-class TestConductor:
+class _TestConductor:
     """Manages execution of test sequences with timeout monitoring and result collection."""
 
     def __init__(
         self,
+        options: RunOptions,
+        server_log_path: Path,
         name: str | None = None,
         synnax_connection: SynnaxConnection | None = None,
     ) -> None:
@@ -71,9 +74,10 @@ class TestConductor:
         # Establish the run directory before anything else writes artifacts.
         # Capture the server log's current size so that the run-scoped slice
         # at exit doesn't include lines from prior server sessions.
-        self.run_dir = run_dir.init_run_dir(self.name)
+        self.run_dir = run_dir.create(self.name)
         self.started_at = time.time()
-        self._server_log_start_offset = server_log.current_offset()
+        self._server_log_path = server_log_path
+        self._server_log_start_offset = server_log.current_offset(server_log_path)
 
         # Use provided connection or create default
         if synnax_connection is None:
@@ -107,7 +111,7 @@ class TestConductor:
 
         self.config_client = ConfigClient(log=self.log)
 
-        self.state = STATE.INITIALIZING
+        self.state = _STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
         self.sequences: list[Sequence] = []
         self.should_stop = False
@@ -129,6 +133,9 @@ class TestConductor:
         self.execution_client = ExecutionClient(
             config_client=self.config_client,
             synnax_connection=self.synnax_connection,
+            options=options,
+            server_log_path=server_log_path,
+            run_dir=self.run_dir,
             client=self.client,
             conductor_range=self.range,
             tests=self.tests,
@@ -164,7 +171,7 @@ class TestConductor:
 
     def load(self, target_filter: TargetFilter) -> None:
         """Load test sequences using the config client."""
-        self.state = STATE.LOADING
+        self.state = _STATE.LOADING
         sequences, new_defs = self.config_client.load(target_filter)
         self.sequences = sequences
         self.test_definitions.clear()
@@ -176,7 +183,7 @@ class TestConductor:
         if not self.test_definitions:
             raise ValueError("No test sequence loaded. Call load() first.")
 
-        self.state = STATE.RUNNING
+        self.state = _STATE.RUNNING
         self.tests.clear()
         self.execution_client.run(self.sequences)
         self._print_summary()
@@ -184,7 +191,7 @@ class TestConductor:
 
     def wait_for_completion(self) -> None:
         """Wait for all async processes to complete."""
-        self.state = STATE.COMPLETED
+        self.state = _STATE.COMPLETED
         self.execution_client.should_stop = True
         self.should_stop = True
 
@@ -194,7 +201,7 @@ class TestConductor:
     def shutdown(self) -> None:
         """Gracefully shutdown the test conductor and all its processes."""
         self.log("\nShut down initiated...")
-        self.state = STATE.SHUTDOWN
+        self.state = _STATE.SHUTDOWN
         self.should_stop = True
 
         self.execution_client.stop()
@@ -248,6 +255,7 @@ class TestConductor:
         """
         try:
             server_log.copy_range(
+                self._server_log_path,
                 self.run_dir / "server.log",
                 self._server_log_start_offset,
             )
@@ -277,6 +285,7 @@ class TestConductor:
                 "ended_at": _iso(t.ended_at),
                 "duration_s": _duration(t.started_at, t.ended_at),
                 "error_message": t.error_message,
+                "skip_reason": t.skip_reason,
                 "bundle_dir": (
                     os.path.relpath(t.bundle_dir, str(self.run_dir))
                     if t.bundle_dir
@@ -302,6 +311,7 @@ class TestConductor:
                         "passed",
                         "failed",
                         "flaky",
+                        "skipped",
                         "timeout",
                         "killed",
                     )
@@ -341,7 +351,7 @@ The layout and inspection workflow are identical between local dev and CI.
    This is the LLM-friendly entry point. Read it first.
 2. **Cross-reference `summary.json`** for run-level stats and per-test paths.
    ```bash
-   jq '.tests[] | select(.status != "PASSED" and .status != "FLAKY")' summary.json
+   jq '.tests[] | select(.status | IN("FAILED", "TIMEOUT", "KILLED"))' summary.json
    ```
 3. **Drill into `tests/<name>/`** for the raw artifacts behind a section:
    - `trace.zip` -> full Playwright trace (only on FAILED/TIMEOUT/KILLED)
@@ -358,7 +368,7 @@ The layout and inspection workflow are identical between local dev and CI.
 
 ## Detailed workflow
 
-See the `synnax-integration-debug` skill (`.claude/skills/synnax-integration-debug/SKILL.md`
+See the `synnax-integration-debug` skill (`.agents/skills/synnax-integration-debug/SKILL.md`
 in the repo) for the full command cheatsheet, common gotchas, and triage heuristics.
 
 ## Bundle was generated by
@@ -368,7 +378,7 @@ in the repo) for the full command cheatsheet, common gotchas, and triage heurist
 """
 
 
-def monitor_test_execution(conductor: TestConductor) -> None:
+def _monitor_test_execution(conductor: _TestConductor) -> None:
     """Monitor test execution and provide status updates."""
     while conductor.is_running:
         status = conductor.get_current_status()
@@ -405,13 +415,11 @@ def main() -> None:
 -f flag — case filter (global or combined with a target):
   uv run tc -f modbus               all *_tests.json, cases matching "modbus"
   uv run tc -f channel              all *_tests.json, cases matching "channel"
-  uv run tc migration -f setup      migration_tests.json, cases matching "setup"
   uv run tc driver -f modbus        driver_tests.json, cases matching "modbus"
 
   -f matches against both the case path and the class name, so
   you can filter into individual test classes within a file:
   uv run tc driver/ni -f Scaled     only NIAnalogReadScaled from ni_read.py
-  uv run tc migration -f verify     only Verify classes across migration tests
 
 ... wildcard — means "no filter" at that position:
   uv run tc console/...             same as just "console"
@@ -447,39 +455,37 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--headed",
         action="store_true",
-        help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
+        help="Run Playwright Console tests in headed mode",
     )
     parser.add_argument(
         "--slow-mo",
         type=int,
         default=0,
         metavar="MS",
-        help=(
-            "Delay each Playwright action by MS milliseconds "
-            "(sets PLAYWRIGHT_CONSOLE_SLOW_MO environment variable)"
-        ),
+        help="Delay each Playwright action by MS milliseconds",
     )
     parser.add_argument(
         "--driver",
         "-d",
-        help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
+        help="Driver rack name to use for driver tests",
     )
     parser.add_argument(
         "--logs",
         action="store_true",
-        help=(
-            "Stream test case logs as they happen instead of only after a failure "
-            "(sets TC_LOGS environment variable)"
-        ),
+        help=("Stream test case logs as they happen instead of only after a failure"),
     )
 
     args = parser.parse_args()
 
-    os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
-    os.environ["PLAYWRIGHT_CONSOLE_SLOW_MO"] = str(args.slow_mo)
-    os.environ["TC_LOGS"] = "1" if args.logs else "0"
-    if args.driver:
-        os.environ["SYNNAX_DRIVER_RACK"] = args.driver
+    if is_ci() and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    options = RunOptions(
+        logs_streamed=args.logs,
+        headed=args.headed,
+        slow_mo=args.slow_mo,
+        driver_rack=args.driver or DEFAULT_OPTIONS.driver_rack,
+    )
+    server_log_path = Path(os.environ.get("SYNNAX_SERVER_LOG", server_log.DEFAULT_PATH))
 
     # Create connection object
     connection = SynnaxConnection(
@@ -492,7 +498,9 @@ All matching is case-insensitive substring.
     )
 
     # Create and run test conductor
-    conductor = TestConductor(
+    conductor = _TestConductor(
+        options=options,
+        server_log_path=server_log_path,
         name=args.name,
         synnax_connection=connection,
     )
