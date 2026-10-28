@@ -10,7 +10,7 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
 
@@ -393,6 +393,30 @@ describe("Aggregator", () => {
       expect(log).toHaveBeenCalledExactlyOnceWith(
         expect.stringContaining("ERROR: Failed to save range"),
       );
+    });
+    describe("console.error", () => {
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+      it("should print through the current console.error by default", () => {
+        const { result } = renderHook(Status.useErrorHandler, {
+          wrapper: Status.Aggregator,
+        });
+        const error = vi.spyOn(console, "error").mockImplementation(() => {});
+        act(() => result.current(new Error("Test"), "Failed to save range"));
+        expect(error).toHaveBeenCalledExactlyOnceWith(
+          expect.stringContaining("ERROR: Failed to save range"),
+        );
+      });
+      it("should keep the handler when console.error changes", () => {
+        const { result, rerender } = renderHook(Status.useErrorHandler, {
+          wrapper: Status.Aggregator,
+        });
+        const before = result.current;
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        rerender();
+        expect(result.current).toBe(before);
+      });
     });
     it("should neither add nor print a skipped error", () => {
       const log = vi.fn<Status.Log>();

@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { type AxisProps, axisStateZ } from "@/vis/axis/axis";
 import { newCanvas } from "@/vis/axis/canvas";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const LOCATIONS: location.Outer[] = ["bottom", "top", "left", "right"];
 

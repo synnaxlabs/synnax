@@ -13,16 +13,23 @@ import warnings
 warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
-import os
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Literal, NoReturn, overload
 
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import DEFAULT_CONNECTION, STATUS, SYMBOLS, SynnaxConnection
+from framework.models import (
+    DEFAULT_CONNECTION,
+    DEFAULT_OPTIONS,
+    STATUS,
+    SYMBOLS,
+    RunOptions,
+    SynnaxConnection,
+)
 from framework.recorder import Notifications, TaskStatus
 from framework.streamer import Streamer
 from framework.telemetry import TelemetryWriter
@@ -34,6 +41,11 @@ from framework.utils import (
 from framework.websocket import is_websocket_error, suppress_websocket_errors
 from framework.writer import Writer
 from x import validate_and_sanitize_name
+
+
+class Skip(BaseException):
+    """Raised by TestCase.skip. It is not an Exception, so a test's own `except
+    Exception` cannot swallow it."""
 
 
 def _numeric(value: int | float | str) -> float:
@@ -83,10 +95,14 @@ class TestCase(ABC):
         synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
+        options: RunOptions = DEFAULT_OPTIONS,
+        results_dir: Path,
         **params: Any,
     ) -> None:
         """Initialize test case with Synnax server connection."""
         self.synnax_connection = synnax_connection
+        self.options = options
+        self.results_dir = results_dir
         self.params = params
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
         self._manual_timeout: sy.CrudeTimeSpan | None = self.DEFAULT_MANUAL_TIMEOUT
@@ -96,6 +112,7 @@ class TestCase(ABC):
         self._status: STATUS = STATUS.INITIALIZING
         self._error_message: str | None = None
         self._error_traceback: str | None = None
+        self.skip_reason: str | None = None
 
         # Cache channel name strings
         self._ch_time = f"{self.name}_time"
@@ -106,10 +123,9 @@ class TestCase(ABC):
         self.client = synnax_connection.create_client()
         self.writer = Writer(self.client)
 
-        stream_logs = os.environ.get("TC_LOGS", "0") == "1"
         self.log_client = LogClient(
             name=self.name,
-            mode=LogMode.REALTIME if stream_logs else LogMode.BUFFERED,
+            mode=LogMode.REALTIME if options.logs_streamed else LogMode.BUFFERED,
             persistent_sinks=[
                 SynnaxChannelSink(self.client, self._ch_log),
             ],
@@ -123,9 +139,7 @@ class TestCase(ABC):
             client=self.client,
             read_timeout=self.read_timeout,
             log=self.log,
-            set_failed=lambda: setattr(self, "STATUS", STATUS.FAILED),
         )
-        self._auto_pass: bool = False
         self._should_stop = False
         self.is_running = True
 
@@ -211,6 +225,8 @@ class TestCase(ABC):
 
         if self._status == STATUS.PASSED:
             self.log(f"PASSED ({status_symbol})")
+        elif self._status == STATUS.SKIPPED:
+            self.log(f"SKIPPED ({status_symbol}): {self.skip_reason}")
         elif self._status == STATUS.FAILED:
             self.log(f"FAILED ({status_symbol})")
         elif self._status == STATUS.KILLED:
@@ -258,10 +274,13 @@ class TestCase(ABC):
     def setup(self) -> None:
         """Load configs, add channels, subscribe to channels, etc."""
 
-    def auto_pass(self, msg: str) -> None:
-        """Set the auto pass flag. Include reason for passing."""
-        self.log(f"AUTO PASS Enabled: {msg}")
-        self._auto_pass = True
+    def skip(self, reason: str) -> NoReturn:
+        """Stop the test and mark it SKIPPED, such as when the host lacks the
+        platform or hardware the test needs. Teardown still runs.
+
+        :param reason: Why the test cannot run here. The summary shows it.
+        """
+        raise Skip(reason)
 
     @abstractmethod
     def run(self) -> None:
@@ -282,6 +301,7 @@ class TestCase(ABC):
             failure = f"Failed to {action}: {e}"
             if self._error_message is None:
                 self._error_message = failure
+                self._error_traceback = traceback.format_exc()
             else:
                 self._error_message += f"\n{failure}"
             self.STATUS = STATUS.FAILED
@@ -600,8 +620,7 @@ class TestCase(ABC):
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
-            if not self._auto_pass:
-                self.run()
+            self.run()
             log_phase("run")
 
             # Set to PENDING only if not in final state
@@ -610,6 +629,9 @@ class TestCase(ABC):
 
             # PASSED set in _check_expectation()
 
+        except Skip as e:
+            self.skip_reason = str(e)
+            self.STATUS = STATUS.SKIPPED
         except Exception as e:
             tb = traceback.format_exc()
             self.STATUS = STATUS.FAILED
@@ -631,6 +653,14 @@ class TestCase(ABC):
                     self._notifications.close()
                 if self._task_status is not None:
                     self._task_status.close()
+                self.streamer.stop()
+                self.streamer.join()
+                with self._try_to("stream telemetry"):
+                    self.streamer.check()
+                    if self._notifications is not None:
+                        self._notifications.check()
+                    if self._task_status is not None:
+                        self._task_status.check()
                 self._check_expectation()
             finally:
                 self._stop_client()

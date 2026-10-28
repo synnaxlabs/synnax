@@ -92,6 +92,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         procs = run_scripts(
             self.synnax_connection,
             [f"examples.opcua.{t.script}" for t in TASKS],
+            self.log,
         )
         for t in TASKS:
             self.console.tasks.wait_for(t.name)

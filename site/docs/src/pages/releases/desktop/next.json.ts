@@ -11,5 +11,7 @@ import { type APIRoute } from "astro";
 
 import { manifest } from "@/pages/releases/_manifest";
 
+export const prerender = false;
+
 export const GET: APIRoute = async ({ locals }) =>
   await manifest(locals.releases, "desktop", "next");

@@ -161,7 +161,9 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCertHost(src, "other-host")).ToNot(Succeed())
+				Expect(
+					prov.VerifyCertHost(src, "other-host"),
+				).To(MatchError(ContainSubstring("not other-host")))
 			})
 			It("Should accept a certificate an unrelated CA signed", func() {
 				fs := xfs.NewMem()
@@ -245,7 +247,11 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCertCoreCA(foreign)).ToNot(Succeed())
+				Expect(
+					prov.VerifyCertCoreCA(foreign),
+				).To(MatchError(ContainSubstring(
+					"certificate signed by unknown authority",
+				)))
 			})
 			It("Should verify a chain through a presented intermediate", func() {
 				fs := xfs.NewMem()
@@ -315,7 +321,11 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCertTrustAnchors(foreign)).ToNot(Succeed())
+				Expect(
+					prov.VerifyCertTrustAnchors(foreign),
+				).To(MatchError(ContainSubstring(
+					"certificate signed by unknown authority",
+				)))
 			})
 			It("Should verify a chain through a presented intermediate", func() {
 				fs := xfs.NewMem()
