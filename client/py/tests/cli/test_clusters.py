@@ -167,8 +167,8 @@ class TestClustersConfig:
 
 
 def delete_new_keys(client: sy.Synnax, before: set[UUID]) -> None:
-    client.auth.delete_keys(
-        *[k.key for k in client.auth.retrieve_keys() if k.key not in before]
+    client.auth.delete_api_keys(
+        *[k.key for k in client.auth.retrieve_api_keys() if k.key not in before]
     )
 
 
@@ -183,7 +183,7 @@ class TestLogin:
     ) -> None:
         """Should save an API key in place of the password it logged in with."""
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         mock = console.Mock(responses=[host, port, username, password, False])
         login(Context(console=mock), clusters)
         saved = clusters.get()
@@ -201,7 +201,7 @@ class TestLogin:
     ) -> None:
         """Should delete the key an earlier login saved once the new one is saved."""
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         responses = [host, port, username, password, False]
         login(Context(console=console.Mock(responses=list(responses))), clusters)
         first = clusters.get()
@@ -210,7 +210,7 @@ class TestLogin:
         second = clusters.get()
         assert second is not None
         assert second.options.api_key != first.options.api_key
-        remaining = {k.key for k in client.auth.retrieve_keys()} - before
+        remaining = {k.key for k in client.auth.retrieve_api_keys()} - before
         assert remaining == {sy.auth.api_key_id(second.options.api_key)}
         delete_new_keys(client, before)
 
@@ -222,7 +222,7 @@ class TestLogin:
     ) -> None:
         """Should log in as a second account and keep the key the first one saved."""
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         login(
             Context(
                 console=console.Mock(responses=[host, port, username, password, False])
@@ -242,7 +242,7 @@ class TestLogin:
             clusters,
         )
         first_key = sy.auth.api_key_id(first.options.api_key)
-        assert first_key in {k.key for k in client.auth.retrieve_keys()}
+        assert first_key in {k.key for k in client.auth.retrieve_api_keys()}
         client.users.delete(other.key)
         delete_new_keys(client, before)
 
@@ -267,7 +267,7 @@ class TestFromClusters:
     ) -> None:
         """Should replace a saved password with an API key after connecting."""
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         save_legacy_password(
             clusters,
             keyring,
@@ -282,7 +282,7 @@ class TestFromClusters:
         keyed = connect.from_clusters(Context(console=console.Mock()), clusters)
         assert keyed is not None
         assert keyed.auth.session is not None
-        created = {k.key for k in client.auth.retrieve_keys()} - before
+        created = {k.key for k in client.auth.retrieve_api_keys()} - before
         assert keyed.auth.session.credential in created
         delete_new_keys(client, before)
 
@@ -297,7 +297,7 @@ class TestFromClusters:
         config write fails.
         """
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         save_legacy_password(
             clusters,
             keyring,
@@ -307,7 +307,7 @@ class TestFromClusters:
         connected = connect.from_clusters(Context(console=console.Mock()), clusters)
         assert connected is not None
         assert keyring.values == {("synnax", "default"): password}
-        assert {k.key for k in client.auth.retrieve_keys()} == before
+        assert {k.key for k in client.auth.retrieve_api_keys()} == before
 
     def test_keeps_saved_key_when_cleanup_fails(
         self,
@@ -319,7 +319,7 @@ class TestFromClusters:
         deleted.
         """
         host, port, username, password = login_info
-        before = {k.key for k in client.auth.retrieve_keys()}
+        before = {k.key for k in client.auth.retrieve_api_keys()}
         keyring = UndeletableKeyring()
         clusters = Clusters(File(tmp_path), keyring)
         save_legacy_password(

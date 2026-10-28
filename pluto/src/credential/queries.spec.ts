@@ -18,9 +18,9 @@ import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import {
-  useCreateKey,
-  useDeleteKey,
-  useResultKeys,
+  useCreateAPIKey,
+  useDeleteAPIKey,
+  useResultAPIKeys,
   useResultSessions,
   useSetPassword,
 } from "@/credential/queries";
@@ -46,19 +46,19 @@ describe("Credential queries", () => {
   it("should create a key, list it, and delete it", async () => {
     const u = await client.users.create({ name: `credential-${id.create()}` });
     const subject = user.ontologyID(u.key);
-    const create = renderHook(() => useCreateKey(), { wrapper });
+    const create = renderHook(() => useCreateAPIKey(), { wrapper });
     await act(async () => {
       await create.result.current.updateAsync({ subject, name: "ci" });
     });
-    const keys = renderHook(() => useResultKeys({ subject }), { wrapper });
+    const keys = renderHook(() => useResultAPIKeys({ subject }), { wrapper });
     await waitFor(() => expect(keys.result.current.data).toHaveLength(1));
     const [key] = keys.result.current.data ?? [];
     expect(key.name).toEqual("ci");
-    const del = renderHook(() => useDeleteKey(), { wrapper });
+    const del = renderHook(() => useDeleteAPIKey(), { wrapper });
     await act(async () => {
       await del.result.current.updateAsync(key.key);
     });
-    expect(await client.auth.retrieveKeys([subject])).toHaveLength(0);
+    expect(await client.auth.retrieveAPIKeys([subject])).toHaveLength(0);
   });
 
   it("should list a subject's sessions", async () => {

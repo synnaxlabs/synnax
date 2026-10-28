@@ -93,25 +93,25 @@ class APIKey(BaseModel):
     """When the key was created."""
 
 
-class _KeyCreateRequest(BaseModel):
+class _APIKeyCreateRequest(BaseModel):
     subject: ontology.ID | None = None
     name: str
 
 
-class _KeyCreateResponse(BaseModel):
+class _APIKeyCreateResponse(BaseModel):
     token: str
     key: APIKey
 
 
-class _KeyRetrieveRequest(BaseModel):
+class _APIKeyRetrieveRequest(BaseModel):
     subjects: list[ontology.ID] = []
 
 
-class _KeyRetrieveResponse(BaseModel):
+class _APIKeyRetrieveResponse(BaseModel):
     keys: list[APIKey] = []
 
 
-class _KeyDeleteRequest(BaseModel):
+class _APIKeyDeleteRequest(BaseModel):
     keys: list[UUID] = []
 
 
@@ -151,9 +151,9 @@ _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
 _SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
 _SESSION_DELETE_ENDPOINT = "/auth/session/delete"
-_KEY_CREATE_ENDPOINT = "/auth/api-key/create"
-_KEY_RETRIEVE_ENDPOINT = "/auth/api-key/retrieve"
-_KEY_DELETE_ENDPOINT = "/auth/api-key/delete"
+_API_KEY_CREATE_ENDPOINT = "/auth/api-key/create"
+_API_KEY_RETRIEVE_ENDPOINT = "/auth/api-key/retrieve"
+_API_KEY_DELETE_ENDPOINT = "/auth/api-key/delete"
 _PASSWORD_CREATE_ENDPOINT = "/auth/password/create"
 _PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve"
 _PASSWORD_RENAME_ENDPOINT = "/auth/password/rename"
@@ -250,7 +250,7 @@ class Client:
             Empty,
         )
 
-    def create_key(
+    def create_api_key(
         self, name: str, subject: ontology.ID | None = None
     ) -> tuple[str, APIKey]:
         """Creates an API key for the subject, or for the caller when none is given.
@@ -261,28 +261,33 @@ class Client:
         """
         res = send_required(
             self.client,
-            _KEY_CREATE_ENDPOINT,
-            _KeyCreateRequest(subject=subject, name=name),
-            _KeyCreateResponse,
+            _API_KEY_CREATE_ENDPOINT,
+            _APIKeyCreateRequest(subject=subject, name=name),
+            _APIKeyCreateResponse,
         )
         return res.token, res.key
 
-    def retrieve_keys(self, subjects: list[ontology.ID] | None = None) -> list[APIKey]:
+    def retrieve_api_keys(
+        self, subjects: list[ontology.ID] | None = None
+    ) -> list[APIKey]:
         """Lists the caller's API keys, or those of the given subjects when the caller
         may retrieve them.
         """
         res = send_required(
             self.client,
-            _KEY_RETRIEVE_ENDPOINT,
-            _KeyRetrieveRequest(subjects=subjects or []),
-            _KeyRetrieveResponse,
+            _API_KEY_RETRIEVE_ENDPOINT,
+            _APIKeyRetrieveRequest(subjects=subjects or []),
+            _APIKeyRetrieveResponse,
         )
         return res.keys
 
-    def delete_keys(self, *keys: UUID) -> None:
+    def delete_api_keys(self, *keys: UUID) -> None:
         """Deletes API keys and ends their sessions. Unknown keys are ignored."""
         send_required(
-            self.client, _KEY_DELETE_ENDPOINT, _KeyDeleteRequest(keys=list(keys)), Empty
+            self.client,
+            _API_KEY_DELETE_ENDPOINT,
+            _APIKeyDeleteRequest(keys=list(keys)),
+            Empty,
         )
 
     def create_password(

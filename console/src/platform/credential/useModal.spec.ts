@@ -43,13 +43,13 @@ describe("useModal", () => {
     await type("Key name", name);
     fireEvent.click(findButton("Create key"));
     await screen.findByText(name);
-    const [created] = await client.auth.retrieveKeys([id]);
+    const [created] = await client.auth.retrieveAPIKeys([id]);
     expect(created.name).toEqual(name);
     expect(screen.getByDisplayValue(/^syk_/)).toBeTruthy();
     fireEvent.click(getIconButton(document.body, "delete"));
     await screen.findByText("No API keys");
     expect(screen.queryByDisplayValue(/^syk_/)).toBeNull();
-    expect(await client.auth.retrieveKeys([id])).toHaveLength(0);
+    expect(await client.auth.retrieveAPIKeys([id])).toHaveLength(0);
   });
 
   it("should manage a rack's keys and offer no password", async () => {
@@ -63,7 +63,7 @@ describe("useModal", () => {
     await type("Key name", name);
     fireEvent.click(findButton("Create key"));
     await screen.findByText(name);
-    expect(await client.auth.retrieveKeys([id])).toHaveLength(1);
+    expect(await client.auth.retrieveAPIKeys([id])).toHaveLength(1);
   });
 
   it("should hide key actions the caller has no permission for", async () => {
@@ -71,7 +71,7 @@ describe("useModal", () => {
     const r = await owner.racks.create({ name: uniqueName("rack") });
     const id = rack.ontologyID(r.key);
     const name = uniqueName("key");
-    await owner.auth.createKey({ subject: id, name });
+    await owner.auth.createAPIKey({ subject: id, name });
     const viewer = await createTestClientWithRole(owner, "Viewer");
     await openModal(useModal, { client: viewer, params: { subject: id } });
     await screen.findByText(name);

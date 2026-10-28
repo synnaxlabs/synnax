@@ -29,7 +29,7 @@ bool holds(const std::vector<APIKey> &keys, const std::string &key) {
 }
 
 /// @brief it should create a key, log in with it, list it, and delete it.
-TEST(TestKeys, Lifecycle) {
+TEST(TestAPIKeys, Lifecycle) {
     auto client = new_test_client();
     const auto created = ASSERT_NIL_P(client.api_keys.create("cpp"));
     ASSERT_TRUE(created.token.starts_with("syk_"));
@@ -46,7 +46,7 @@ TEST(TestKeys, Lifecycle) {
 }
 
 /// @brief it should fail the next request of a client whose key was deleted.
-TEST(TestKeys, DeletedKey) {
+TEST(TestAPIKeys, DeletedKey) {
     auto client = new_test_client();
     const auto created = ASSERT_NIL_P(client.api_keys.create("deleted"));
     const auto keyed = keyed_client(created.token);
@@ -56,7 +56,7 @@ TEST(TestKeys, DeletedKey) {
 }
 
 /// @brief it should reject a key the Core never issued.
-TEST(TestKeys, UnknownKey) {
+TEST(TestAPIKeys, UnknownKey) {
     const auto keyed = keyed_client("syk_00000000-0000-0000-0000-000000000000secret");
     ASSERT_OCCURRED_AS(keyed.auth->authenticate(), ERR);
 }

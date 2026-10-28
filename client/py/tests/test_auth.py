@@ -280,7 +280,7 @@ class TestAPIKeys:
         owner = sy.Synnax(
             host=host, port=port, username=new_username, password="seldon"
         )
-        token, key = owner.auth.create_key("script")
+        token, key = owner.auth.create_api_key("script")
         assert token.startswith("syk_")
         assert key.name == "script"
         assert key.subject == owner.auth.subject
@@ -288,9 +288,9 @@ class TestAPIKeys:
         assert keyed.auth.subject == owner.auth.subject
         assert keyed.auth.session is not None
         assert keyed.auth.session.credential == key.key
-        assert [k.key for k in owner.auth.retrieve_keys()] == [key.key]
-        owner.auth.delete_keys(key.key)
-        assert owner.auth.retrieve_keys() == []
+        assert [k.key for k in owner.auth.retrieve_api_keys()] == [key.key]
+        owner.auth.delete_api_keys(key.key)
+        assert owner.auth.retrieve_api_keys() == []
         keyed.close()
         owner.close()
         admin.close()
@@ -299,9 +299,9 @@ class TestAPIKeys:
         """Should fail the next request of a client whose key was deleted."""
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        token, key = admin.auth.create_key("deleted")
+        token, key = admin.auth.create_api_key("deleted")
         keyed = sy.Synnax(host=host, port=port, api_key=token)
-        admin.auth.delete_keys(key.key)
+        admin.auth.delete_api_keys(key.key)
         with pytest.raises(sy.AuthError):
             keyed.auth.retrieve_sessions()
         keyed.close()

@@ -114,7 +114,7 @@ struct APIKey {
 };
 
 /// @brief an API key just created, with the token that holds its secret.
-struct NewKey {
+struct NewAPIKey {
     /// @brief the token to log in with. It is the only copy of the key's secret.
     std::string token;
     /// @brief the stored key.
@@ -122,13 +122,13 @@ struct NewKey {
 };
 
 /// @brief creates, lists, and deletes API keys.
-class KeyClient {
+class APIKeyClient {
     std::unique_ptr<APIKeyCreateClient> create_client;
     std::unique_ptr<APIKeyRetrieveClient> retrieve_client;
     std::unique_ptr<APIKeyDeleteClient> delete_client;
 
 public:
-    KeyClient(
+    APIKeyClient(
         std::unique_ptr<APIKeyCreateClient> create_client,
         std::unique_ptr<APIKeyRetrieveClient> retrieve_client,
         std::unique_ptr<APIKeyDeleteClient> delete_client
@@ -139,7 +139,7 @@ public:
 
     /// @brief creates an API key for the subject, or for the caller when the subject
     /// is empty.
-    [[nodiscard]] std::pair<NewKey, x::errors::Error>
+    [[nodiscard]] std::pair<NewAPIKey, x::errors::Error>
     create(const std::string &name, const Subject &subject = {}) const {
         grpc::auth::APIKeyCreateRequest req;
         req.set_name(name);
@@ -149,7 +149,7 @@ public:
         }
         auto [res, err] = this->create_client->send("/auth/api-key/create", req);
         if (err) return {{}, err};
-        return {NewKey{res.token(), APIKey(res.key())}, x::errors::NIL};
+        return {NewAPIKey{res.token(), APIKey(res.key())}, x::errors::NIL};
     }
 
     /// @brief lists the caller's API keys, or those of the given subjects when the

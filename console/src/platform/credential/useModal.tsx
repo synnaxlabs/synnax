@@ -32,14 +32,14 @@ const sessionsLabel = (sessions: number | null): string => {
   return `${sessions} live ${sessions === 1 ? "session" : "sessions"}`;
 };
 
-interface KeyRowProps {
+interface APIKeyRowProps {
   apiKey: auth.APIKey;
   /** The key's live sessions, or null when they could not be retrieved. */
   sessions: number | null;
   onDelete?: (key: auth.APIKeyKey) => void;
 }
 
-const KeyRow = ({ apiKey, sessions, onDelete }: KeyRowProps): ReactElement => (
+const APIKeyRow = ({ apiKey, sessions, onDelete }: APIKeyRowProps): ReactElement => (
   <Flex.Box x align="center" justify="between">
     <Flex.Box y gap="tiny">
       <Text.Text weight={500}>
@@ -61,12 +61,12 @@ const KeyRow = ({ apiKey, sessions, onDelete }: KeyRowProps): ReactElement => (
   </Flex.Box>
 );
 
-interface KeyListProps extends Pick<ModalParams, "subject"> {
+interface APIKeyListProps extends Pick<ModalParams, "subject"> {
   onDelete?: (key: auth.APIKeyKey) => void;
 }
 
-const KeyList = ({ subject, onDelete }: KeyListProps): ReactElement => {
-  const keys = Credential.useResultKeys({ subject });
+const APIKeyList = ({ subject, onDelete }: APIKeyListProps): ReactElement => {
+  const keys = Credential.useResultAPIKeys({ subject });
   const sessions = Credential.useResultSessions({ subject });
   const sessionCount = (key: auth.APIKeyKey): number | null =>
     sessions.variant === "success"
@@ -78,7 +78,7 @@ const KeyList = ({ subject, onDelete }: KeyListProps): ReactElement => {
         <Text.Text status="error">{keys.status.message}</Text.Text>
       )}
       {keys.data?.map((k) => (
-        <KeyRow
+        <APIKeyRow
           key={k.key}
           apiKey={k}
           sessions={sessionCount(k.key)}
@@ -94,32 +94,32 @@ const KeyList = ({ subject, onDelete }: KeyListProps): ReactElement => {
   );
 };
 
-const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
+const APIKeys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
   const client = Synnax.use();
   // The Core checks permissions only for another subject's keys.
   const own = client?.auth.subject?.key === subject.key;
   const canCreate = Access.useUpdateGranted(subject) || own;
   const canDelete = Access.useDeleteGranted(subject) || own;
   const query = { subject };
-  const invalidateKeys = Credential.useInvalidateKeys();
+  const invalidateAPIKeys = Credential.useInvalidateAPIKeys();
   const invalidateSessions = Credential.useInvalidateSessions();
   const [name, setName] = useState("");
-  const [created, setCreated] = useState<Credential.CreateKeyResult | null>(null);
+  const [created, setCreated] = useState<Credential.CreateAPIKeyResult | null>(null);
   // These reads have no live updates, so a remount is what fetches them again.
   const [generation, setGeneration] = useState(0);
   const refresh = () => {
-    invalidateKeys(query);
+    invalidateAPIKeys(query);
     invalidateSessions(query);
     setGeneration((g) => g + 1);
   };
   const handleError = Status.useErrorHandler();
   const mounted = useRef(true);
-  const create = Credential.useCreateKey({
+  const create = Credential.useCreateAPIKey({
     afterSuccess: ({ data }) => {
       // a closed dialog can never show the token, so the key is of no use
       if (!mounted.current) {
         handleError(
-          async () => await client?.auth.deleteKeys(data.key.key),
+          async () => await client?.auth.deleteAPIKeys(data.key.key),
           "Failed to delete an unused API key",
         );
         return;
@@ -129,7 +129,7 @@ const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
       refresh();
     },
   });
-  const del = Credential.useDeleteKey({
+  const del = Credential.useDeleteAPIKey({
     afterSuccess: ({ data }) => {
       setCreated((c) => (c?.key.key === data ? null : c));
       refresh();
@@ -140,14 +140,14 @@ const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      invalidateKeys(query);
+      invalidateAPIKeys(query);
       invalidateSessions(query);
     };
   }, []);
   return (
     <Flex.Box y>
       <Text.Text level="h5">API keys</Text.Text>
-      <KeyList
+      <APIKeyList
         key={generation}
         subject={subject}
         onDelete={canDelete ? (k) => del.update(k) : undefined}
@@ -224,7 +224,7 @@ const Credentials = ({
     <Modal.Header icon={<Icon.Lock />}>{title ?? "Credentials"}</Modal.Header>
     <Modal.Body>
       <Flex.Box y gap="large">
-        <Keys subject={subject} />
+        <APIKeys subject={subject} />
         {subject.type === "user" && <Password subject={subject} />}
       </Flex.Box>
     </Modal.Body>

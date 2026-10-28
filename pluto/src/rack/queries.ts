@@ -110,7 +110,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateRe
   update: async ({ client, data: { name } }) => {
     const created = await client.racks.create({ name });
     try {
-      const { key, token } = await client.auth.createKey({
+      const { key, token } = await client.auth.createAPIKey({
         subject: rack.ontologyID(created.key),
         name,
       });

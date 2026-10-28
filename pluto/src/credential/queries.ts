@@ -16,11 +16,11 @@ export type SubjectQuery = {
   subject: ontology.ID;
 };
 
-export const { useResult: useResultKeys, useInvalidate: useInvalidateKeys } =
+export const { useResult: useResultAPIKeys, useInvalidate: useInvalidateAPIKeys } =
   Flux.createRetrieve<SubjectQuery, auth.APIKey[]>({
     name: "API keys",
     retrieve: async ({ client, query: { subject } }) =>
-      await client.auth.retrieveKeys([subject]),
+      await client.auth.retrieveAPIKeys([subject]),
   });
 
 export const { useResult: useResultSessions, useInvalidate: useInvalidateSessions } =
@@ -30,31 +30,31 @@ export const { useResult: useResultSessions, useInvalidate: useInvalidateSession
       await client.auth.retrieveSessions([subject]),
   });
 
-export interface CreateKeyParams {
+export interface CreateAPIKeyParams {
   subject: ontology.ID;
   name: string;
 }
 
-export interface CreateKeyResult {
+export interface CreateAPIKeyResult {
   /** The only copy of the key's secret. */
   token: string;
   key: auth.APIKey;
 }
 
-export const { useUpdate: useCreateKey } = Flux.createUpdate<
-  CreateKeyParams,
-  CreateKeyResult
+export const { useUpdate: useCreateAPIKey } = Flux.createUpdate<
+  CreateAPIKeyParams,
+  CreateAPIKeyResult
 >({
   name: "API key",
   verbs: verbs.CREATE,
-  update: async ({ client, data }) => await client.auth.createKey(data),
+  update: async ({ client, data }) => await client.auth.createAPIKey(data),
 });
 
-export const { useUpdate: useDeleteKey } = Flux.createUpdate<auth.APIKeyKey>({
+export const { useUpdate: useDeleteAPIKey } = Flux.createUpdate<auth.APIKeyKey>({
   name: "API key",
   verbs: verbs.DELETE,
   update: async ({ client, data }) => {
-    await client.auth.deleteKeys(data);
+    await client.auth.deleteAPIKeys(data);
     return data;
   },
 });

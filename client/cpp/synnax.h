@@ -121,7 +121,7 @@ public:
     channel::Client channels;
     std::shared_ptr<auth::Middleware> auth;
     /// @brief Client for creating, listing, and deleting API keys.
-    auth::KeyClient api_keys;
+    auth::APIKeyClient api_keys;
     /// @brief Connectivity checker that polls the Core for health and clock skew.
     std::shared_ptr<connection::Checker> connectivity;
     /// @brief Client for creating, retrieving, and performing operations on ranges from
