@@ -810,7 +810,6 @@ jobs:
       coverage_flag: pluto
       directory: pluto
       package: pluto
-      test_args: --no-file-parallelism
     secrets: inherit
 
   portal:
