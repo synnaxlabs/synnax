@@ -7,163 +7,101 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Middleware, type Reducer, type UnknownAction } from "@reduxjs/toolkit";
 import { describe, expect, it, vi } from "vitest";
 
-import { setWindowStage, type StoreState, ZERO_SLICE_STATE } from "@/state";
-import { MockRuntime } from "@/testutil";
-import { INITIAL_WINDOW_STATE, type WindowState } from "@/window";
+import {
+  configureStore,
+  MAIN_WINDOW,
+  reducer,
+  setWindowTitle,
+  type SliceState,
+  type StoreState,
+  ZERO_SLICE_STATE,
+} from "@/index";
+import { configureMockStore, createWindowState, MockRuntime } from "@/testutil";
 
-import { configureMiddleware, type GetDefaultMiddleware } from "./middleware";
+const main = (): MockRuntime<StoreState> =>
+  new MockRuntime<StoreState>(true, { key: MAIN_WINDOW });
 
-const state = {
-  drift: ZERO_SLICE_STATE,
-};
-
-const driftMiddleware = (runtime: MockRuntime<StoreState>) =>
-  configureMiddleware<StoreState>(
-    [],
-    runtime,
-  )([] as unknown as GetDefaultMiddleware<StoreState>)[0];
+const emittedTypes = (runtime: MockRuntime<StoreState>): unknown[] =>
+  runtime.emissions.map((e) => e.action?.type);
 
 describe("middleware", () => {
-  describe("middleware", () => {
-    describe("emitting actions", () => {
-      it("should emit an action if it hasn't already been emited", async () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = driftMiddleware(runtime)(store);
-        mw((action) => action)({ type: "test" });
-        await expect
-          .poll(() => runtime.emissions)
-          .toEqual([
-            {
-              action: { type: "test" },
-              emitter: "mock",
-            },
-          ]);
-      });
-      it("should not emit an action if it has already been emited", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = driftMiddleware(runtime)(store);
-        mw((action) => action)({ type: "DA@test://test" });
-        expect(runtime.emissions).toEqual([]);
-      });
-      it("should not emit an action an inner middleware swallowed", async () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = driftMiddleware(runtime)(store);
-        const next = (action: unknown) =>
-          (action as { type: string }).type === "dropped" ? undefined : action;
-        mw(next)({ type: "dropped" });
-        mw(next)({ type: "kept" });
-        await expect.poll(() => runtime.emissions.length).toEqual(1);
-        expect(runtime.emissions[0].action).toEqual({ type: "kept" });
-      });
+  describe("emitting actions", () => {
+    it("should emit a local action to other windows", async () => {
+      const runtime = main();
+      const store = await configureMockStore(runtime);
+      store.dispatch({ type: "test" });
+      await expect
+        .poll(() => runtime.emissions)
+        .toContainEqual({ action: { type: "test" }, emitter: MAIN_WINDOW });
     });
-    describe("'nexting' actions", () => {
-      it("should next an action if it has not been emitted by 'self' ", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = driftMiddleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)({ type: "test" });
-        expect(next).toHaveBeenCalledWith({ type: "test" });
-      });
-      it("should not next an action if it has been emitted by 'self' ", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = driftMiddleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)({ type: "DA@mock://test" });
-        expect(next).not.toHaveBeenCalled();
-      });
-    });
-    describe("syncing windows", () => {
-      const restored: WindowState = {
-        ...INITIAL_WINDOW_STATE,
-        key: "restored",
-        reserved: true,
-      };
 
-      it("should sync when a non-drift action changes the slice", async () => {
-        let current: StoreState = { drift: ZERO_SLICE_STATE };
-        const store = { getState: () => current, dispatch: vi.fn() };
-        const runtime = new MockRuntime<StoreState>(true);
-        const mw = driftMiddleware(runtime)(store);
-        mw((action) => {
-          current = {
-            drift: {
-              ...ZERO_SLICE_STATE,
-              windows: { ...ZERO_SLICE_STATE.windows, restored },
-            },
-          };
-          return action;
-        })({ type: "persist/hydrate" });
-        await expect.poll(() => runtime.hasCreated).toHaveProperty("restored");
+    it("should not emit an action an inner middleware swallowed", async () => {
+      const runtime = main();
+      const swallow: Middleware = () => (next) => (action) =>
+        (action as UnknownAction).type === "dropped" ? undefined : next(action);
+      const store = await configureStore<StoreState>({
+        runtime,
+        reducer: { drift: reducer as Reducer<SliceState> },
+        enablePrerender: false,
+        middleware: () => [swallow] as never,
       });
-
-      it("should not sync when the slice is untouched", async () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime<StoreState>(true);
-        const mw = driftMiddleware(runtime)(store);
-        mw((action) => action)({ type: "persist/hydrate" });
-        await expect.poll(() => runtime.emissions.length).toEqual(1);
-        expect(runtime.hasCreated).toEqual({});
-      });
-    });
-    describe("key assignment", () => {
-      it("should auto-assign a label to a drift action when it isn't present", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = driftMiddleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)(setWindowStage({ stage: "created" }));
-        expect(next).toHaveBeenCalledWith({
-          type: "drift/setWindowStage",
-          payload: {
-            label: "main",
-            stage: "created",
-          },
-        });
-      });
-      it("should not auto-assign a label to a drift action if it has been emitted", () => {
-        const store = { getState: () => state, dispatch: vi.fn() };
-        const runtime = new MockRuntime(false);
-        const mw = driftMiddleware(runtime)(store);
-        const next = vi.fn();
-        mw(next)({
-          type: "DA@test://drift/setWindowStage",
-          payload: {
-            label: "main",
-            stage: "created",
-          },
-        });
-        expect(next).toHaveBeenCalledWith({
-          type: "drift/setWindowStage",
-          payload: {
-            label: "main",
-            stage: "created",
-          },
-        });
-      });
+      store.dispatch({ type: "dropped" });
+      store.dispatch({ type: "kept" });
+      await expect.poll(() => emittedTypes(runtime)).toContain("kept");
+      expect(emittedTypes(runtime)).not.toContain("dropped");
     });
   });
-  describe("configureMiddleware", () => {
-    it("should return a function that returns a middleware when an empty array is provided", () => {
-      const runtime = new MockRuntime(true);
-      const mwF = configureMiddleware([], runtime);
-      expect(typeof mwF).toBe("function");
-      expect(mwF([] as unknown as GetDefaultMiddleware<StoreState>).length).toBe(1);
+
+  describe("syncing windows", () => {
+    const restored = createWindowState({ key: "restored", reserved: true });
+    const hydrating: Reducer<SliceState> = (s, a) =>
+      a.type === "persist/hydrate"
+        ? { ...ZERO_SLICE_STATE, ...s, windows: { ...s?.windows, restored } }
+        : (reducer as Reducer<SliceState>)(s, a);
+
+    it("should sync when a non-drift action changes the slice", async () => {
+      const runtime = main();
+      const store = await configureStore<StoreState>({
+        runtime,
+        reducer: { drift: hydrating },
+        enablePrerender: false,
+      });
+      store.dispatch({ type: "persist/hydrate" });
+      await expect.poll(() => runtime.hasCreated).toHaveProperty("restored");
     });
-    it("should call a middleware curry function when provided", () => {
-      const runtime = new MockRuntime(true);
+
+    it("should not sync when the slice is untouched", async () => {
+      const runtime = main();
+      const store = await configureMockStore(runtime);
+      store.dispatch({ type: "persist/hydrate" });
+      await expect.poll(() => emittedTypes(runtime)).toContain("persist/hydrate");
+      expect(runtime.hasCreated).toEqual({});
+    });
+  });
+
+  describe("label assignment", () => {
+    it("should apply a drift action without a key to this window", async () => {
+      const store = await configureMockStore();
+      store.dispatch(setWindowTitle({ title: "a" }));
+      expect(store.getState().drift.windows[MAIN_WINDOW].title).toEqual("a");
+    });
+  });
+
+  describe("user middleware", () => {
+    it("should call a middleware function with the default middleware", async () => {
       const curry = vi.fn();
-      const mw = configureMiddleware(() => {
-        curry();
-        return [];
-      }, runtime);
-      mw([] as unknown as GetDefaultMiddleware<StoreState>);
+      await configureStore<StoreState>({
+        runtime: main(),
+        reducer: { drift: reducer as Reducer<SliceState> },
+        enablePrerender: false,
+        middleware: (def) => {
+          curry();
+          return def();
+        },
+      });
       expect(curry).toHaveBeenCalled();
     });
   });

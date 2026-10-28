@@ -14,16 +14,6 @@ export default [
   ...cfg,
   reactCompiled,
   { ignores: ["examples"] },
-  // Off until these specs test through configureStore instead of internal files.
-  {
-    files: [
-      "src/middleware.spec.ts",
-      "src/state.spec.ts",
-      "src/sugar.spec.ts",
-      "src/sync.spec.ts",
-      "src/tauri/index.spec.ts",
-      "src/validate.spec.ts",
-    ],
-    rules: { "synnax/barrel-imports": "off" },
-  },
+  // Off until this spec tests through configureStore instead of internal files.
+  { files: ["src/state.spec.ts"], rules: { "synnax/barrel-imports": "off" } },
 ] as Linter.Config[];
