@@ -168,7 +168,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
@@ -233,7 +233,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
@@ -385,7 +385,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
