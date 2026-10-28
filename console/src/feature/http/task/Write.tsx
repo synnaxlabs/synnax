@@ -119,6 +119,7 @@ const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
   <PForm.Section title="Enum mapping">
     <PlatformForm.KeyValueEditor
       path={`${channelPath}.enumValues`}
+      resourceName="mapping"
       keyField="label"
       keyPlaceholder="String (e.g. ON)"
       valueType="number"
@@ -415,6 +416,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.queryParams`}
+            resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
             keyPlaceholder="limit"
@@ -422,6 +424,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.headers`}
+            resourceName="header"
             label="Headers"
             keyField="name"
             keyPlaceholder="Content-Type"

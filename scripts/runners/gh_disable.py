@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "synnax>=0.59"]
+# dependencies = ["boto3", "synnax>=0.59,<0.60"]
 # ///
 
 """Stops the runner service on an instance over SSM. Cancels a job in progress.
@@ -31,7 +31,7 @@ WINDOWS = [
 ]
 
 
-def run(runner: str, aws: AWS) -> str:
+def run(runner: str, *, aws: AWS) -> str:
     iid, info = aws.instance(runner)
     if not info["running"]:
         return f"{iid} is {info['state']}, nothing to disable"
@@ -41,7 +41,7 @@ def run(runner: str, aws: AWS) -> str:
 def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     p.add_argument("runner", help="runner name, e.g. windows-build-bot-i-0f44")
-    print(run(p.parse_args().runner, AWS()))
+    print(run(p.parse_args().runner, aws=AWS()))
 
 
 if __name__ == "__main__":

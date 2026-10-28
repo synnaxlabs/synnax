@@ -75,6 +75,7 @@ class TestScaler:
             labels=labels,
             queued={POOL: 1},
             found=found,
+            running=set(),
         )
         assert started(client) == [A]
 
@@ -86,10 +87,20 @@ class TestScaler:
         labels = {A: LABELS, B: LABELS}
         status = {A: OFFLINE, B: OFFLINE}
         s.step(
-            known={A, B}, status=status, labels=labels, queued={POOL: 1}, found=found
+            known={A, B},
+            status=status,
+            labels=labels,
+            queued={POOL: 1},
+            found=found,
+            running=set(),
         )
         s.step(
-            known={A, B}, status=status, labels=labels, queued={POOL: 1}, found=found
+            known={A, B},
+            status=status,
+            labels=labels,
+            queued={POOL: 1},
+            found=found,
+            running=set(),
         )
         assert started(client) == [A]
 
@@ -104,6 +115,7 @@ class TestScaler:
             labels=labels,
             queued={POOL: 1},
             found=found,
+            running=set(),
         )
         assert started(client) == []
 
@@ -112,8 +124,31 @@ class TestScaler:
     ) -> None:
         s = scaler(client)
         found = {"i-0aaa": instance("running")}
-        s.step(known={A}, status={A: IDLE}, labels={A: LABELS}, queued={}, found=found)
+        s.step(
+            known={A},
+            status={A: IDLE},
+            labels={A: LABELS},
+            queued={},
+            found=found,
+            running=set(),
+        )
         assert client.written(channel_name("ec2_cmd", runner=A)) == [False]
+
+    def test_should_keep_idle_runners_while_stops_are_held(
+        self, client: Client
+    ) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("running")}
+        s.step(
+            known={A},
+            status={A: IDLE},
+            labels={A: LABELS},
+            queued={},
+            found=found,
+            running=set(),
+            stops=False,
+        )
+        assert client.written(channel_name("ec2_cmd", runner=A)) == []
 
     def test_should_keep_idle_runners_while_their_pool_has_jobs(
         self, client: Client
@@ -126,8 +161,77 @@ class TestScaler:
             labels={A: LABELS},
             queued={POOL: 1},
             found=found,
+            running=set(),
         )
         assert client.written(channel_name("ec2_cmd", runner=A)) == []
+
+    def test_should_keep_runners_with_a_job_in_progress(self, client: Client) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("running")}
+        s.step(
+            known={A},
+            status={A: OFFLINE},
+            labels={A: LABELS},
+            queued={},
+            found=found,
+            running={A},
+        )
+        assert client.written(channel_name("ec2_cmd", runner=A)) == []
+
+    def test_should_clear_the_idle_timer_when_a_job_starts(
+        self, client: Client
+    ) -> None:
+        log = Log(
+            client=core(client),
+            channels=Channels(client=core(client), enabled=False),
+            channel="log",
+        )
+        s = Scaler(
+            client=core(client),
+            cooldown=sy.TimeSpan.HOUR,
+            boot_grace=sy.TimeSpan.MINUTE * 2,
+            log=log,
+        )
+        found = {"i-0aaa": instance("running")}
+        s.step(
+            known={A},
+            status={A: IDLE},
+            labels={A: LABELS},
+            queued={},
+            found=found,
+            running=set(),
+        )
+        assert A in s.idle_since
+        s.step(
+            known={A},
+            status={A: OFFLINE},
+            labels={A: LABELS},
+            queued={},
+            found=found,
+            running={A},
+        )
+        assert A not in s.idle_since
+
+    def test_should_stop_a_runner_once_its_job_completes(self, client: Client) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("running")}
+        s.step(
+            known={A},
+            status={A: OFFLINE},
+            labels={A: LABELS},
+            queued={},
+            found=found,
+            running={A},
+        )
+        s.step(
+            known={A},
+            status={A: OFFLINE},
+            labels={A: LABELS},
+            queued={},
+            found=found,
+            running=set(),
+        )
+        assert client.written(channel_name("ec2_cmd", runner=A)) == [False]
 
     def test_should_start_an_instance_after_a_slow_writer_close(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
@@ -135,7 +239,14 @@ class TestScaler:
         s = scaler(client)
         found = {"i-0aaa": instance("stopped"), "i-0bbb": instance("stopped")}
         labels = {A: LABELS, B: LABELS}
-        s.step(known={A}, status={A: OFFLINE}, labels=labels, queued={}, found=found)
+        s.step(
+            known={A},
+            status={A: OFFLINE},
+            labels=labels,
+            queued={},
+            found=found,
+            running=set(),
+        )
 
         def close(_: Writer) -> None:
             client.elapsed += 2 * OPEN_LEEWAY
@@ -147,5 +258,74 @@ class TestScaler:
             labels=labels,
             queued={POOL: 1},
             found=found,
+            running=set(),
         )
         assert started(client) == [A]
+
+
+WIN = "windows-build-bot-i-0aaa"
+WIN_LABELS = {"self-hosted", "windows-build-bot"}
+RUNNING = {"i-0aaa": instance("running")}
+
+
+def windows_scaler(client: Client) -> Scaler:
+    log = Log(
+        client=core(client),
+        channels=Channels(client=core(client), enabled=False),
+        channel="log",
+    )
+    return Scaler(
+        client=core(client),
+        cooldown=sy.TimeSpan(0),
+        boot_grace=sy.TimeSpan.MINUTE * 2,
+        log=log,
+        pool_cooldowns={"windows-build-bot": sy.TimeSpan.MINUTE * 15},
+    )
+
+
+class TestPoolCooldowns:
+    """Tests for the idle cooldown a pool sets over the default."""
+
+    def test_should_keep_a_runner_idle_less_than_its_pool_cooldown(
+        self, client: Client
+    ) -> None:
+        s = windows_scaler(client)
+        s.idle_since[WIN] = sy.TimeStamp.now() - sy.TimeSpan.MINUTE * 14
+        s.step(
+            known={WIN},
+            status={WIN: IDLE},
+            labels={WIN: WIN_LABELS},
+            queued={},
+            found=RUNNING,
+            running=set(),
+        )
+        assert client.written(channel_name("ec2_cmd", runner=WIN)) == []
+
+    def test_should_stop_a_runner_idle_past_its_pool_cooldown(
+        self, client: Client
+    ) -> None:
+        s = windows_scaler(client)
+        s.idle_since[WIN] = sy.TimeStamp.now() - sy.TimeSpan.MINUTE * 16
+        s.step(
+            known={WIN},
+            status={WIN: IDLE},
+            labels={WIN: WIN_LABELS},
+            queued={},
+            found=RUNNING,
+            running=set(),
+        )
+        assert client.written(channel_name("ec2_cmd", runner=WIN)) == [False]
+
+    def test_should_use_the_default_cooldown_for_other_pools(
+        self, client: Client
+    ) -> None:
+        s = windows_scaler(client)
+        s.step(
+            known={A},
+            status={A: IDLE},
+            labels={A: LABELS},
+            queued={},
+            found=RUNNING,
+            running=set(),
+        )
+        assert client.written(channel_name("ec2_cmd", runner=A)) == [False]

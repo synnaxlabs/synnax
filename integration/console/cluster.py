@@ -70,10 +70,6 @@ class ClusterClient:
         """The host:port shown in the open badge dialog."""
         return self.badge_dialog.locator(".console-core-badge__address").inner_text()
 
-    def retry_now(self) -> None:
-        """Click "Retry now" in the open badge dialog."""
-        self.badge_dialog.get_by_role("button", name="Retry now").click(timeout=5000)
-
     # ----------------------------------------------------- connect modal
 
     @property

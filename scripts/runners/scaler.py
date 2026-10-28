@@ -34,6 +34,7 @@ POOLS: dict[Pool, str] = {
     "windows-test-bot": "Windows Test",
     "ubuntu-test-bot": "Ubuntu Test",
 }
+WINDOWS_POOLS = ("windows-build-bot", "windows-test-bot")
 # These name a self-hosted pool outright. The rest are shared with GitHub-hosted
 # runners, so a job only counts as ours when it also carries "self-hosted".
 DEDICATED_LABELS = {
@@ -57,11 +58,12 @@ def job_pool(labels: set[str]) -> Pool | None:
 
 
 class Scaler:
-    """Busy runners and instances up less than boot_grace whose runner is offline
-    are never touched. Instances still booting, and runners just commanded to start,
-    count toward a pool's demand. While disabled, the writer is closed and nothing
-    is written, but idle time keeps accruing and each decision is logged once,
-    marked [DISABLED], so enabling clears whatever backlog built up."""
+    """Busy runners, runners with a job in progress, and instances up less than
+    boot_grace whose runner is offline are never touched. Instances still booting,
+    and runners just commanded to start, count toward a pool's demand. While
+    disabled, the writer is closed and nothing is written, but idle time keeps
+    accruing and each decision is logged once, marked [DISABLED], so enabling clears
+    whatever backlog built up."""
 
     def __init__(
         self,
@@ -71,6 +73,7 @@ class Scaler:
         boot_grace: sy.TimeSpan,
         log: Log,
         enabled: bool = True,
+        pool_cooldowns: dict[Pool, sy.TimeSpan] | None = None,
     ) -> None:
         self.commander = Commander(
             client=client,
@@ -81,6 +84,7 @@ class Scaler:
         )
         self.log = log
         self.cooldown = cooldown
+        self.pool_cooldowns = pool_cooldowns or {}
         self.boot_grace = boot_grace
         self.enabled = enabled
         self.idle_since: dict[str, sy.TimeStamp] = {}
@@ -101,14 +105,19 @@ class Scaler:
         labels: dict[str, set[str]],
         queued: dict[Pool, int],
         found: dict[str, dict],
+        running: set[str],
+        stops: bool = True,
     ) -> None:
+        """Starts instances for queued jobs and, when stops is set, stops idle
+        runners past their cooldown."""
         self.refresh_writer(known)
         # After the command writer opens, so commands land after its start.
         now = sy.TimeStamp.now()
 
         def idle_on(r: str) -> bool:
             iid = instance_for(r, found=found)
-            if iid is None or not found[iid]["running"]:
+            # A job in progress outranks a runner status that says offline.
+            if iid is None or not found[iid]["running"] or r in running:
                 return False
             if status.get(r) == IDLE:
                 return True
@@ -145,7 +154,7 @@ class Scaler:
                 if status.get(r) == IDLE:
                     idle.setdefault(pool, []).append(r)
             elif state in ("stopped", "pending") or (
-                state == "running" and status.get(r) == OFFLINE
+                state == "running" and status.get(r) == OFFLINE and r not in running
             ):
                 booting[pool] = booting.get(pool, 0) + 1
         commands: dict[str, bool] = {}
@@ -162,10 +171,11 @@ class Scaler:
         for pool in [p for p in self.announced if p not in queued]:
             del self.announced[pool]
         for pool, runners in stoppable.items():
-            if queued.get(pool, 0):
+            if not stops or queued.get(pool, 0):
                 continue
+            cooldown = self.pool_cooldowns.get(pool, self.cooldown)
             for r in runners:
-                if r in ready and now.span(self.idle_since[r]) >= self.cooldown:
+                if r in ready and now.span(self.idle_since[r]) >= cooldown:
                     commands[r] = False
         if commands:
             self.command(commands, now=now)

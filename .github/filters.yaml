@@ -14,10 +14,6 @@
 # that needs a running Core also keys on core in ci.yaml rather than here, which keeps
 # the *_build keys free of server dependencies.
 
-ci: &ci
-  - .github/filters.yaml
-  - .github/workflows/ci.yaml
-
 actionlint:
   - .github/actionlint.yaml
   - .github/actions/**
@@ -33,7 +29,6 @@ bazel: &bazel
 
 cpp: &cpp
   - *bazel
-  - *ci
   - .clang-format
   - .clang-format-ignore
   - .clang-tidy
@@ -46,21 +41,18 @@ cpp: &cpp
   - scripts/sanitizers/**
 
 go: &go
-  - *ci
   - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
   - scripts/check_go_generate.sh
 
 py: &py
-  - *ci
   - .github/workflows/test.py.yaml
   - .python-version
   - pyproject.toml
   - uv.lock
 
 ts: &ts
-  - *ci
   - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
   - configs/**
@@ -357,7 +349,6 @@ buildifier:
   - "**/BUILD"
   - "**/BUILD.bazel"
   - *bazel
-  - *ci
   - .github/workflows/lint.buildifier.yaml
   - WORKSPACE
   - WORKSPACE.bazel
@@ -386,7 +377,6 @@ oracle_check:
 
 protobuf:
   - "**/*.proto"
-  - *ci
   - .github/workflows/test.protobuf.yaml
   - buf.gen.yaml
   - buf.yaml
@@ -394,6 +384,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
+  - .github/workflows/ci.yaml
   - deploy/preview/**
 
 scripts:

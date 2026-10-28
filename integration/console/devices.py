@@ -327,9 +327,7 @@ class DevicesClient(ResourceClient):
             parent = self.get(parent_name)
             if not self.tree.is_expanded(parent):
                 self.tree.expand(parent)
-            names = self.tree.get_children_names(
-                parent, prefix=self.DEVICE_PREFIX, parent_name=parent_name
-            )
+            names = self.tree.list_nested_names(parent, prefix=self.DEVICE_PREFIX)
             if names:
                 return names
             self.layout.page.wait_for_timeout(200)
