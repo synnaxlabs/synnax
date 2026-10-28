@@ -34,6 +34,7 @@
 #include "driver/common/sample_clock.h"
 #include "driver/errors/errors.h"
 #include "driver/opcua/connection/connection.h"
+#include "driver/opcua/device/device.h"
 #include "driver/opcua/errors/errors.h"
 #include "driver/opcua/telem/telem.h"
 #include "driver/opcua/types/types.h"
@@ -76,9 +77,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     const bool array_mode;
     /// @brief the number of samples in each array when array_mode is true.
     const size_t array_size;
-    /// @brief the config for connecting to the OPC UA server.
-    /// Dynamically populated from device properties.
-    connection::Config connection;
     /// @brief keys of the index channels for the input channels.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> index_keys;
@@ -93,7 +91,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         device_key(other.device_key),
         array_mode(other.array_mode),
         array_size(other.array_size),
-        connection(std::move(other.connection)),
         index_keys(std::move(other.index_keys)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan) {}
@@ -127,18 +124,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->devices.retrieve(this->device_key);
-        if (err) {
-            parser.field_err("device", "failed to retrieve device: " + err.data);
-            return;
-        }
-        const auto properties = x::json::Parser(dev.properties);
-        this->connection = connection::Config(properties.child("connection"));
-        if (properties.error()) {
-            parser.field_err(
-                "device",
-                common::config_err_description(properties.error())
-            );
+        if (const auto err = device::retrieve_connection(*client, this->device_key)
+                                 .second) {
+            parser.field_err("device", common::config_err_description(err));
             return;
         }
         std::vector<synnax::channel::Key> keys;
@@ -203,12 +191,18 @@ static types::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) 
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
+    std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<connection::Pool> pool;
     connection::Pool::Connection connection;
     types::ReadRequestBuilder request_builder;
 
-    BaseReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
+    BaseReadTaskSource(
+        std::shared_ptr<synnax::Synnax> client,
+        std::shared_ptr<connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
         cfg(std::move(cfg)),
+        client(std::move(client)),
         pool(std::move(pool)),
         connection(nullptr, nullptr, ""),
         request_builder(create_read_request(this->cfg)) {}
@@ -218,8 +212,15 @@ public:
         return this->cfg.writer_config();
     }
 
+    /// @brief retrieves the device again, so a changed endpoint or trusted server
+    /// certificate takes effect on restart.
     x::errors::Error start() override {
-        auto [c, err] = pool->acquire(cfg.connection, "[opc.read] ");
+        auto [conn_cfg, conn_err] = device::retrieve_connection(
+            *this->client,
+            this->cfg.device_key
+        );
+        if (conn_err) return conn_err;
+        auto [c, err] = this->pool->acquire(conn_cfg, "[opc.read] ");
         if (err) return err;
         connection = std::move(c);
         return x::errors::NIL;
@@ -236,8 +237,12 @@ class ArrayReadTaskSource final : public BaseReadTaskSource {
     common::SoftwareTimedSampleClock sample_clock;
 
 public:
-    ArrayReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
-        BaseReadTaskSource(std::move(pool), std::move(cfg)),
+    ArrayReadTaskSource(
+        std::shared_ptr<synnax::Synnax> client,
+        std::shared_ptr<connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
+        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
         sample_clock(this->cfg.sample_rate / this->cfg.array_size) {}
 
     /// @brief re-arms the block timer. Without it, the first block after a restart
@@ -324,8 +329,12 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
     x::loop::Timer timer;
 
 public:
-    UnaryReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
-        BaseReadTaskSource(std::move(pool), std::move(cfg)),
+    UnaryReadTaskSource(
+        std::shared_ptr<synnax::Synnax> client,
+        std::shared_ptr<connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
+        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
         timer(this->cfg.sample_rate) {}
 
     common::ReadResult

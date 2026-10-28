@@ -11,7 +11,9 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -21,6 +23,11 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/mono_clock.h"
+#include "x/cpp/telem/telem.h"
+
+#include "driver/opcua/certificate/certificate.h"
+#include "driver/opcua/certificate/store.h"
 
 namespace driver::opcua::connection {
 /// @brief the configuration for an OPC UA connection.
@@ -35,15 +42,16 @@ struct Config {
     std::string security_mode = "None";
     /// @brief the security policy.
     std::string security_policy = "None";
-    /// @brief the client certificate used to sign and encrypt messages. Only required
-    /// if the security policy is not "None".
+    /// @brief the path of a client certificate on the Driver's computer. Empty, with
+    /// an empty client_private_key, selects the Driver certificate.
     std::string client_cert;
-    /// @brief the client private key used to sign and encrypt messages. Only required
-    /// if the security policy is not "None".
+    /// @brief the path of the private key for client_cert on the Driver's computer.
     std::string client_private_key;
-    /// @brief a trusted server certificate. Only required if the security policy is
-    /// not "None".
-    std::string server_cert;
+    /// @brief the trusted server certificate. Empty trusts no certificate, unless
+    /// the connection trusts the first one it receives.
+    std::optional<certificate::Certificate> server_certificate;
+    /// @brief whether the connection accepts any server certificate.
+    bool certificate_validation_disabled = false;
     /// @brief SecureChannel lifetime in milliseconds. 0 = use default (2 hours).
     /// For testing, can be set to short values like 10000 (10 seconds).
     uint32_t secure_channel_lifetime_ms = 0;
@@ -63,31 +71,73 @@ struct Config {
         security_policy(parser.field<std::string>("security_policy", "None")),
         client_cert(parser.field<std::string>("client_certificate", "")),
         client_private_key(parser.field<std::string>("client_private_key", "")),
-        server_cert(parser.field<std::string>("server_certificate", "")),
+        certificate_validation_disabled(
+            parser.field<bool>("certificate_validation_disabled", false)
+        ),
         secure_channel_lifetime_ms(
             parser.field<uint32_t>("secure_channel_lifetime_ms", 0)
         ),
         session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
-        client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {}
+        client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {
+        const auto server = parser.field<std::string>("server_certificate", "");
+        // A value that is not PEM is a path from an earlier release, which had no
+        // effect.
+        if (!certificate::Certificate::is_pem(server)) return;
+        auto [cert, err] = certificate::Certificate::parse(server);
+        if (err) {
+            parser.field_err("server_certificate", err.data);
+            return;
+        }
+        this->server_certificate = std::move(cert);
+    }
 
-    [[nodiscard]] x::json::json to_json() const {
-        return {
-            {"endpoint", endpoint},
-            {"username", username},
-            {"password", password},
-            {"security_mode", security_mode},
-            {"security_policy", security_policy},
-            {"client_certificate", client_cert},
-            {"client_private_key", client_private_key}
-        };
+    /// @returns true if the connection signs or encrypts its messages.
+    [[nodiscard]] bool secured() const { return this->security_policy != "None"; }
+
+    /// @returns true if the connection presents certificate files instead of the
+    /// Driver certificate.
+    [[nodiscard]] bool uses_files() const {
+        return !this->client_cert.empty() || !this->client_private_key.empty();
     }
 };
 
-std::pair<std::shared_ptr<UA_Client>, x::errors::Error>
-connect(const Config &cfg, std::string log_prefix);
+/// @brief the security inputs of a connection that do not come from its Config.
+struct Security {
+    /// @brief the certificate and private key that the client presents. Required
+    /// when the connection is secured.
+    std::optional<certificate::Identity> identity;
+    /// @brief whether a Config with no server certificate trusts the first one that
+    /// the server presents. When false, such a connection rejects every server
+    /// certificate.
+    bool first_certificate_trusted = false;
+    /// @brief returns the time to check the server certificate's validity against.
+    x::telem::NowFunc now = x::telem::TimeStamp::now;
+};
 
+/// @brief resolves the client identity for the configuration: its certificate files,
+/// or the current Driver certificate. Leaves the identity empty for an unsecured
+/// configuration.
+/// @returns errors::CLIENT_CERTIFICATE_INVALID if the files cannot be read, or
+/// errors::DRIVER_CERTIFICATE_FAILED if the Driver certificate cannot be loaded.
+std::pair<Security, x::errors::Error>
+resolve_security(const Config &cfg, certificate::Store &store);
+
+/// @brief connects a new client to the server.
+/// @returns the client even on failure, so that server_certificate can read the
+/// certificate that the server presented. On failure, the error is
+/// errors::SERVER_CERTIFICATE_UNTRUSTED or errors::SERVER_CERTIFICATE_TIME_INVALID if
+/// the client rejected the server certificate, or errors::CLIENT_CERTIFICATE_REJECTED
+/// if the server rejected the client certificate.
+std::pair<std::shared_ptr<UA_Client>, x::errors::Error>
+connect(const Config &cfg, const Security &sec, std::string log_prefix);
+
+/// @brief connects the client again with the security it was created with.
 x::errors::Error
 reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint);
+
+/// @returns the certificate that the server presented on the client's last
+/// connection attempt, or nothing if the connection is not secured.
+std::optional<certificate::Certificate> server_certificate(UA_Client *client);
 
 class Pool {
 public:
@@ -131,12 +181,16 @@ public:
         std::string key_;
     };
 
-    Pool() = default;
+    /// @param store the source of the Driver certificate for secured connections.
+    explicit Pool(std::shared_ptr<certificate::Store> store);
     ~Pool() = default;
 
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;
 
+    /// @brief returns a connection to the server, reusing an idle one with the same
+    /// configuration and client identity. A new connection with no server
+    /// certificate in its Config trusts the first one that the server presents.
     std::pair<Connection, x::errors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
 
@@ -159,11 +213,20 @@ private:
         /// threads wait on connect_cv instead of creating parallel
         /// connections that could exhaust the server's session table.
         bool connecting = false;
+        /// @brief the trusted server certificate of the counted failures. A new
+        /// one resets the count.
+        std::optional<certificate::Certificate> trusted;
+        x::errors::Error last_error = x::errors::NIL;
+
+        /// @returns the error for an acquire that the open breaker refuses. A
+        /// security error repeats, since waiting does not fix it.
+        [[nodiscard]] x::errors::Error open_error() const;
     };
 
     static constexpr int BREAKER_THRESHOLD = 3;
     static constexpr std::chrono::milliseconds BREAKER_COOLDOWN{5000};
 
+    std::shared_ptr<certificate::Store> store;
     mutable std::mutex mutex_;
     /// @brief notified when a connecting thread finishes, waking threads
     /// that are waiting for a reusable connection.

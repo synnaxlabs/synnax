@@ -19,7 +19,7 @@ import {
   ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types/v0";
 
-const VERSION = "1.0.0";
+export const VERSION = "1.0.0";
 
 export const propertiesZ = z.object({
   version: z.literal(VERSION),

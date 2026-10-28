@@ -15,10 +15,12 @@
 #include "open62541/client_highlevel.h"
 
 #include "client/cpp/opcua/json.gen.h"
+#include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
 
 #include "driver/common/write_task.h"
 #include "driver/opcua/connection/connection.h"
+#include "driver/opcua/device/device.h"
 #include "driver/opcua/errors/errors.h"
 #include "driver/opcua/types/types.h"
 
@@ -43,9 +45,6 @@ struct OutputChan {
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
     /// @brief the enabled channels to write to the server.
     std::unordered_map<synnax::channel::Key, std::unique_ptr<OutputChan>> channels;
-    /// @brief the config for connecting to the OPC UA server.
-    /// Dynamically populated from device properties.
-    connection::Config connection;
 
     explicit WriteTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
@@ -75,18 +74,8 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             auto it = this->channels.find(sy_ch.key);
             if (it != this->channels.end()) it->second->ch = sy_ch;
         }
-        auto [dev, err] = client->devices.retrieve(this->device);
-        if (err) {
-            parser.field_err("device", "failed to retrieve device: " + err.data);
-            return;
-        }
-        const auto properties = x::json::Parser(dev.properties);
-        this->connection = connection::Config(properties.child("connection"));
-        if (properties.error())
-            parser.field_err(
-                "device",
-                common::config_err_description(properties.error())
-            );
+        if (const auto err = device::retrieve_connection(*client, this->device).second)
+            parser.field_err("device", common::config_err_description(err));
     }
 
     [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const {
@@ -108,23 +97,48 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
+    std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<connection::Pool> pool;
+    /// @brief the device's connection settings as of the last retrieve.
+    connection::Config conn_cfg;
     connection::Pool::Connection connection;
     types::WriteRequestBuilder builder;
     std::vector<synnax::channel::Key> written_keys;
 
+    /// @brief retrieves the device again, so a changed endpoint or trusted server
+    /// certificate takes effect on the next connection.
+    x::errors::Error retrieve_connection() {
+        auto [conn_cfg, err] = device::retrieve_connection(
+            *this->client,
+            this->cfg.device
+        );
+        if (err) return err;
+        this->conn_cfg = std::move(conn_cfg);
+        return x::errors::NIL;
+    }
+
+    x::errors::Error acquire() {
+        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
+        if (err) return err;
+        this->connection = std::move(c);
+        return x::errors::NIL;
+    }
+
 public:
-    WriteTaskSink(std::shared_ptr<connection::Pool> pool, WriteTaskConfig cfg):
+    WriteTaskSink(
+        std::shared_ptr<synnax::Synnax> client,
+        std::shared_ptr<connection::Pool> pool,
+        WriteTaskConfig cfg
+    ):
         Sink(cfg.cmd_keys()),
         cfg(std::move(cfg)),
+        client(std::move(client)),
         pool(std::move(pool)),
         connection(nullptr, nullptr, "") {}
 
     x::errors::Error start() override {
-        auto [c, err] = pool->acquire(cfg.connection, "[opc.write] ");
-        if (err) return err;
-        connection = std::move(c);
-        return x::errors::NIL;
+        if (const auto err = this->retrieve_connection()) return err;
+        return this->acquire();
     }
 
     x::errors::Error stop() override {
@@ -139,13 +153,20 @@ public:
             WARNING
         ) << "[opc.write_task] connection error detected, attempting reconnect: "
           << err;
-        this->connection = connection::Pool::Connection(nullptr, nullptr, "");
-        auto [c, conn_err] = this->pool->acquire(this->cfg.connection, "[opc.write] ");
-        if (conn_err) {
+        // Retrieve once when an open connection breaks, not on every retry while
+        // the server is down: writes arrive faster than the Core should be asked.
+        if (this->connection) {
+            this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+            if (const auto retrieve_err = this->retrieve_connection()) {
+                LOG(ERROR) << "[opc.write_task] failed to retrieve device: "
+                           << retrieve_err;
+                return retrieve_err;
+            }
+        }
+        if (const auto conn_err = this->acquire()) {
             LOG(ERROR) << "[opc.write_task] failed to reconnect: " << conn_err;
             return conn_err;
         }
-        this->connection = std::move(c);
         LOG(INFO) << "[opc.write_task] reconnected successfully, retrying write";
         return this->perform_write(frame);
     }

@@ -29,6 +29,7 @@ protected:
     std::shared_ptr<pipeline::testutil::StreamerFactory> mock_factory;
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
+    connection::Config conn_cfg;
 
     // Command channels for different data types
     synnax::channel::Channel bool_cmd_channel;
@@ -99,7 +100,6 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
@@ -111,7 +111,9 @@ protected:
             .make = "ni",
             .model = "PXI-6255",
             .name = "my_device",
-            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+            .properties = x::json::json::object(
+                {{"connection", testutil::connection_json(conn_cfg)}}
+            ),
         };
         ASSERT_NIL(client->devices.create(dev));
 
@@ -268,14 +270,14 @@ protected:
             reads
         );
 
-        conn_pool = std::make_shared<connection::Pool>();
+        conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(conn_cfg, "test"),
+            connection::connect(conn_cfg, {}, "test"),
             (5 * x::telem::SECOND).chrono(),
             (250 * x::telem::MILLISECOND).chrono()
         );
@@ -287,7 +289,7 @@ protected:
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg)),
+            std::make_unique<WriteTaskSink>(ctx->client, conn_pool, std::move(*cfg)),
             nullptr,
             mock_factory
         );
@@ -320,9 +322,6 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
 }
 
 TEST_F(TestWriteTask, testWriteValuesArePersisted) {
-    // Save connection config before moving cfg
-    auto conn_cfg = cfg->connection;
-
     auto wt = create_task();
     wt->start("start_cmd");
     x::defer::defer stop_task([&wt]() { wt->stop("defer_stop", true); });
@@ -336,7 +335,7 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
 
     // Connect and read back the values to verify they were written
     auto client = ASSERT_NIL_P(
-        connection::connect(conn_cfg, "[test.write_verification] ")
+        connection::connect(conn_cfg, {}, "[test.write_verification] ")
     );
 
     // Verify boolean value (should be 1)
@@ -361,9 +360,11 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
 /// @brief when a frame contains multiple samples for a channel, only the last
 /// sample should be written to hardware.
 TEST_F(TestWriteTask, testLastWriteWins) {
-    auto conn_cfg = cfg->connection;
-
-    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
+    auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
     ASSERT_NIL(sink->start());
 
     auto fr = ::x::telem::Frame(1);
@@ -376,7 +377,7 @@ TEST_F(TestWriteTask, testLastWriteWins) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     auto client = ASSERT_NIL_P(
-        connection::connect(conn_cfg, "[test.last_write_wins] ")
+        connection::connect(conn_cfg, {}, "[test.last_write_wins] ")
     );
     const auto result = ASSERT_NIL_P(
         testutil::simple_read(client, "NS=1;S=TestUInt32")
@@ -387,10 +388,11 @@ TEST_F(TestWriteTask, testLastWriteWins) {
 }
 
 TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
-    // Save connection config before moving cfg
-    auto conn_cfg = cfg->connection;
-
-    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
+    auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // First write should succeed
@@ -416,7 +418,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     // Restart the server and wait for it to be ready
     server->start();
     auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connection::connect(conn_cfg, "test"),
+        connection::connect(conn_cfg, {}, "test"),
         (5 * x::telem::SECOND).chrono(),
         (250 * x::telem::MILLISECOND).chrono()
     );
@@ -431,7 +433,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(sink->write(fr3));
 
     // Verify the third value was written
-    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, "[test.reconnect] "));
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.reconnect] "));
     const auto result = ASSERT_NIL_P(
         testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
@@ -441,10 +443,11 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
 }
 
 TEST_F(TestWriteTask, testMultipleSequentialWrites) {
-    // Save connection config before moving cfg
-    auto conn_cfg = cfg->connection;
-
-    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
+    auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // Perform multiple writes with different values
@@ -459,7 +462,9 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     }
 
     // Verify the final value
-    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, "[test.multi_write] "));
+    auto client = ASSERT_NIL_P(
+        connection::connect(conn_cfg, {}, "[test.multi_write] ")
+    );
     const auto result = ASSERT_NIL_P(
         testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
@@ -479,10 +484,10 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
 
     auto rack = ASSERT_NIL_P(client->racks.create("invalid_node_test_rack"));
 
-    connection::Config conn_cfg;
-    conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
-    conn_cfg.security_mode = "None";
-    conn_cfg.security_policy = "None";
+    connection::Config invalid_conn_cfg;
+    invalid_conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
+    invalid_conn_cfg.security_mode = "None";
+    invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device dev{
         .key = "invalid_node_dev",
@@ -491,7 +496,9 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
         .make = "ni",
         .model = "PXI-6255",
         .name = "invalid_node_device",
-        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+        .properties = x::json::json::object(
+            {{"connection", testutil::connection_json(invalid_conn_cfg)}}
+        ),
     };
     ASSERT_NIL(client->devices.create(dev));
 
@@ -511,7 +518,11 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     auto invalid_cfg = WriteTaskConfig(client, p);
     ASSERT_FALSE(p.error()) << p.error().message();
 
-    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(invalid_cfg));
+    auto sink = std::make_unique<WriteTaskSink>(
+        client,
+        conn_pool,
+        std::move(invalid_cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // Attempt to write to the invalid node

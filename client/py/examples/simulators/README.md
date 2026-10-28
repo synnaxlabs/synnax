@@ -82,6 +82,11 @@ Runs a TLS-encrypted OPC UA server on port 4842 with `Basic256Sha256_SignAndEncr
 security. Exposes the same variables as `OPCUASim`. Self-signed server and client
 certificates are generated automatically under `examples/opcua/certificates/`.
 
+### OPCUATLSDriverCertificateSim (`examples/opcua/sim.py`)
+
+Runs the same TLS server as `OPCUATLSSim` on port 4844. Its device uses the Driver
+certificate instead of the generated client certificate files.
+
 ### OPCUATLSAuthSim (`examples/opcua/server.py`)
 
 Runs a TLS-encrypted OPC UA server on port 4843 with `Basic256Sha256_SignAndEncrypt`

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.opcua import OPCUATLSAuthSim, OPCUATLSSim
+from examples.opcua import OPCUATLSAuthSim, OPCUATLSDriverCertificateSim, OPCUATLSSim
 
 import synnax as sy
 from tests.driver.opcua_task import OPCUAReadTaskCase
@@ -159,6 +159,30 @@ class OPCUATLSReadFloat(OPCUAReadTaskCase):
                 channel=create_channel(
                     client,
                     name=f"encrypted_my_float_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                node_id=f"NS=2;I={8 + i}",
+                data_type=sy.DataType.FLOAT32,
+            )
+            for i in range(2)
+        ]
+
+
+class OPCUATLSDriverCertificateReadFloat(OPCUAReadTaskCase):
+    """Reads over TLS with the certificate the Driver generates for itself."""
+
+    task_name = "OPCUA TLS Driver Certificate Read Float"
+    sim_classes = [OPCUATLSDriverCertificateSim]
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
+        idx = create_index(client, "opcua_driver_certificate_float_index")
+        return [
+            sy.opcua.ReadChannel(
+                channel=create_channel(
+                    client,
+                    name=f"driver_certificate_my_float_{i}",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),

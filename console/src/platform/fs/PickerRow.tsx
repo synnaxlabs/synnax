@@ -26,7 +26,7 @@ export interface PickerRowProps extends Omit<
   onClick: () => void;
 }
 
-/** The single-button pick-and-display row InputPath and InputFile share. */
+/** The single-button pick-and-display row of InputFile. */
 export const PickerRow = ({
   value,
   onClick,

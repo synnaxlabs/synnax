@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -22,6 +23,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/opcua/certificate/store.h"
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/types/types.h"
@@ -54,15 +56,21 @@ struct ScanCommandArgs {
 
 const std::string BROWSE_CMD_TYPE = "browse";
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
+const std::string GET_CERTIFICATE_CMD_TYPE = "get_certificate";
+const std::string REGENERATE_CERTIFICATE_CMD_TYPE = "regenerate_certificate";
+/// @brief how often the Scanner offers the next Driver certificate to each server.
+inline const x::telem::TimeSpan RENEWAL_ATTEMPT_INTERVAL = x::telem::DAY;
 
 /// @brief OPC UA scanner implementing the common::Scanner interface.
-/// Handles device health monitoring and node browsing for OPC UA servers.
+/// Handles device health monitoring, node browsing, server certificate pinning, and
+/// renewal of the Driver certificate.
 class Scanner final : public common::Scanner {
 public:
     Scanner(
         std::shared_ptr<task::Context> ctx,
         synnax::task::Task task,
-        std::shared_ptr<connection::Pool> conn_pool
+        std::shared_ptr<connection::Pool> conn_pool,
+        std::shared_ptr<certificate::Store> store
     );
 
     /// @brief Returns scanner configuration for common::ScanTask.
@@ -80,18 +88,40 @@ public:
     ) override;
 
 private:
+    /// @brief the progress of offering one next Driver certificate to the servers.
+    struct Renewal {
+        /// @brief the thumbprint of the next certificate.
+        std::string thumbprint;
+        x::telem::TimeStamp last_attempt;
+        /// @brief whether each secured device's server accepted the next certificate
+        /// on the last attempt, by device key.
+        std::unordered_map<std::string, bool> accepted;
+    };
+
     std::shared_ptr<task::Context> ctx;
     synnax::task::Task task;
     std::shared_ptr<connection::Pool> conn_pool;
+    std::shared_ptr<certificate::Store> store;
     ScanTaskConfig cfg;
+    Renewal renewal;
 
     /// @brief Browse child nodes of a given OPC UA node.
     void browse_nodes(const synnax::task::Command &cmd) const;
 
-    /// @brief Test connection to an OPC UA server.
+    /// @brief Test connection to an OPC UA server. Never trusts a server certificate
+    /// that the configuration does not name.
     void test_connection(const synnax::task::Command &cmd) const;
 
-    /// @brief Check health of a single device by testing its connection.
+    /// @brief replies with the current and next Driver certificates, replacing both
+    /// first when regenerate is true.
+    void certificates(const synnax::task::Command &cmd, bool regenerate);
+
+    /// @brief Check health of a single device by testing its connection. Pins the
+    /// server certificate of a secured device that has none.
     [[nodiscard]] x::errors::Error check_device_health(synnax::device::Device &dev);
+
+    /// @brief issues the next Driver certificate when renewal is due, offers it to
+    /// each server once a day, and switches to it when every server accepts it.
+    void renew_certificate(const std::vector<synnax::device::Device> &devices);
 };
 }

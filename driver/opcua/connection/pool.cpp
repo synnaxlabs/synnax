@@ -22,10 +22,43 @@ const x::errors::Error BREAKER_OPEN_ERROR(
     "in a row."
 );
 
+namespace {
+/// @brief identifies the connections that one configuration and client identity can
+/// share. The endpoint comes first for available_count. The trusted server
+/// certificate is not part of the key, so a connection that trusted the first
+/// certificate serves the same device after the Driver pins that certificate.
+std::string pool_key(const Config &cfg, const Security &sec) {
+    std::string key = cfg.endpoint + "|" + cfg.username + "|" + cfg.security_mode +
+                      "|" + cfg.security_policy;
+    if (!sec.identity.has_value()) return key;
+    return key + "|" + cfg.client_cert + "|" + cfg.client_private_key + "|" +
+           sec.identity->certificate.thumbprint() + "|" +
+           (cfg.certificate_validation_disabled ? "unvalidated" : "validated");
+}
+
+/// @returns true if the client's server presented the certificate that the
+/// configuration trusts, or the configuration trusts any certificate.
+bool trusts(UA_Client *client, const Config &cfg) {
+    if (!cfg.secured() || cfg.certificate_validation_disabled ||
+        !cfg.server_certificate.has_value())
+        return true;
+    return server_certificate(client) == cfg.server_certificate;
+}
+}
+
+Pool::Pool(std::shared_ptr<certificate::Store> store): store(std::move(store)) {}
+
+x::errors::Error Pool::BreakerState::open_error() const {
+    return this->last_error.matches(errors::SECURITY) ? this->last_error
+                                                      : BREAKER_OPEN_ERROR;
+}
+
 std::pair<Pool::Connection, x::errors::Error>
 Pool::acquire(const Config &cfg, const std::string &log_prefix) {
-    const std::string key = cfg.endpoint + "|" + cfg.username + "|" +
-                            cfg.security_mode + "|" + cfg.security_policy;
+    auto [sec, sec_err] = resolve_security(cfg, *this->store);
+    if (sec_err) return {Connection(nullptr, nullptr, ""), sec_err};
+    sec.first_certificate_trusted = true;
+    const std::string key = pool_key(cfg, sec);
 
     // Try to find a cached connection. We mark it in_use under the lock,
     // then release the lock before running the blocking health probe.
@@ -45,6 +78,9 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                         nullptr
                     );
                     if (session_state == UA_SESSIONSTATE_ACTIVATED) {
+                        // Left open, since a caller with another trusted
+                        // certificate may still use it.
+                        if (!trusts(entry.client.get(), cfg)) continue;
                         entry.in_use = true;
                         candidate = entry.client;
                         break;
@@ -106,13 +142,17 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     {
         std::unique_lock<std::mutex> lock(mutex_);
         auto &breaker = breakers[key];
+        if (breaker.trusted != cfg.server_certificate) {
+            breaker.trusted = cfg.server_certificate;
+            breaker.consecutive_failures = 0;
+        }
 
         // Check circuit breaker before cleanup_stale_entries: if tripped,
         // fail fast without blocking on UA_Client_disconnect network calls.
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
             if (std::chrono::steady_clock::now() < breaker.cooldown_until) {
                 VLOG(1) << log_prefix << "Circuit breaker open, rejecting connection";
-                return {Connection(nullptr, nullptr, ""), BREAKER_OPEN_ERROR};
+                return {Connection(nullptr, nullptr, ""), breaker.open_error()};
             }
             // Cooldown expired — allow one probe attempt (half-open).
             VLOG(1) << log_prefix << "Circuit breaker half-open, allowing probe";
@@ -129,7 +169,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD &&
             std::chrono::steady_clock::now() < breaker.cooldown_until) {
             VLOG(1) << log_prefix << "Circuit breaker open after cleanup, rejecting";
-            return {Connection(nullptr, nullptr, ""), BREAKER_OPEN_ERROR};
+            return {Connection(nullptr, nullptr, ""), breaker.open_error()};
         }
 
         // If another thread is already connecting, wait for it to finish.
@@ -146,7 +186,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
                         UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
                         UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
                         UA_Client_getState(entry.client.get(), &cs, &ss, nullptr);
-                        if (ss == UA_SESSIONSTATE_ACTIVATED) {
+                        if (ss == UA_SESSIONSTATE_ACTIVATED &&
+                            trusts(entry.client.get(), cfg)) {
                             entry.in_use = true;
                             VLOG(1) << log_prefix
                                     << "Reusing connection created by "
@@ -163,7 +204,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
             // No reusable connection available. If breaker is still tripped,
             // fail fast. Otherwise fall through to connect ourselves.
             if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
-                return {Connection(nullptr, nullptr, ""), BREAKER_OPEN_ERROR};
+                return {Connection(nullptr, nullptr, ""), breaker.open_error()};
             }
         }
 
@@ -171,14 +212,14 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     // Connect outside the lock. Only one thread reaches here per endpoint.
-    auto [client, err] = connect(cfg, log_prefix);
+    auto [client, err] = connect(cfg, sec, log_prefix);
 
     if (err) {
         std::lock_guard<std::mutex> lock(mutex_);
         auto &breaker = breakers[key];
         breaker.connecting = false;
-        breaker.consecutive_failures++;
-        if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
+        breaker.last_error = err;
+        if (++breaker.consecutive_failures >= BREAKER_THRESHOLD) {
             breaker.cooldown_until = std::chrono::steady_clock::now() +
                                      BREAKER_COOLDOWN;
             LOG(WARNING) << log_prefix << "Circuit breaker tripped after "
@@ -194,6 +235,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         std::lock_guard<std::mutex> lock(mutex_);
         auto &breaker = breakers[key];
         breaker.connecting = false;
+        breaker.last_error = iterate_err;
         breaker.consecutive_failures++;
         if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
             breaker.cooldown_until = std::chrono::steady_clock::now() +
