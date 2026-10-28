@@ -200,6 +200,7 @@ portal:
   - *lyra
   - *ts
   - *x_ts
+  - .github/workflows/build.site.yaml
   - site/portal/**
 
 console: &console
@@ -231,6 +232,7 @@ foundation:
   - *lyra
   - *site_common
   - *ts
+  - .github/workflows/build.site.yaml
   - site/foundation/**
 
 www:
@@ -238,6 +240,7 @@ www:
   - *lyra
   - *site_common
   - *ts
+  - .github/workflows/build.site.yaml
   - site/www/**
 
 knip:
