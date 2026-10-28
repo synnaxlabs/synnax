@@ -237,6 +237,10 @@
       "types": "./dist/store/index.d.ts",
       "default": "./dist/store/index.js"
     },
+    "./styletest": {
+      "types": "./dist/styletest/index.d.ts",
+      "default": "./dist/styletest/index.js"
+    },
     "./tabs": {
       "types": "./dist/tabs/index.d.ts",
       "default": "./dist/tabs/index.js"

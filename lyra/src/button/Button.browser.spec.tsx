@@ -15,7 +15,7 @@ import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { computed, height, renderThemed, resolve } from "@/testutil/style";
+import { computed, height, renderThemed, resolve } from "@/styletest";
 
 const renderButton = async (
   props: Partial<Button.ButtonProps> = {},

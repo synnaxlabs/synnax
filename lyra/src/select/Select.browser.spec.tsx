@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { Select } from "@/select";
-import { computed, renderThemed, resolve } from "@/testutil/style";
+import { computed, renderThemed, resolve } from "@/styletest";
 
 const renderButtons = async (
   variant: Select.ButtonsProps["variant"],

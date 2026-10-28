@@ -79,8 +79,8 @@ the check that enforces it, or says that review enforces it.
 
 - A `*.browser.spec.tsx` next to a Lyra or Pluto component renders it in Chromium and
   WebKit, under the production layers, and pins its look. It compares computed styles
-  with tokens resolved at run time (`resolve` in `lyra/src/testutil/style.tsx`) and with
-  size relations, never with literal values. Run `pnpm install-browsers:lyra` or
+  with tokens resolved at run time (`resolve` in `lyra/src/styletest/styletest.tsx`) and
+  with size relations, never with literal values. Run `pnpm install-browsers:lyra` or
   `pnpm install-browsers:pluto` once before the first run.
 - Every CSS bug fix ships a browser spec that fails without the fix.
 - Check a CSS fix in the built app (`pnpm build:console-vite`), not only on the dev

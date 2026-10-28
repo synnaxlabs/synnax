@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Dialog } from "@/dialog";
-import { computed, renderThemed, resolve } from "@/testutil/style";
+import { computed, renderThemed, resolve } from "@/styletest";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 

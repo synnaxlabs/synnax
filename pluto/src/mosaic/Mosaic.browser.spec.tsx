@@ -8,12 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { CSS } from "@synnaxlabs/lyra/css";
-import {
-  computed,
-  renderThemed,
-  resolve,
-} from "@synnaxlabs/lyra/dist/testutil/style.js";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";

@@ -10,7 +10,7 @@
 import "zod/compile";
 import "@synnaxlabs/lyra/dist/base.css";
 
-import { setupBrowser } from "@synnaxlabs/lyra/dist/testutil/style.js";
+import { setupBrowser } from "@synnaxlabs/lyra/styletest";
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
 failOnConsoleOutput();

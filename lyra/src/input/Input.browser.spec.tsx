@@ -13,7 +13,7 @@ import { userEvent } from "vitest/browser";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Input } from "@/input";
-import { computed, height, renderThemed, resolve } from "@/testutil/style";
+import { computed, height, renderThemed, resolve } from "@/styletest";
 
 const renderInput = async (
   props: Partial<Input.TextProps> = {},
