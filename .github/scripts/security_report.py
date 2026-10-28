@@ -14,10 +14,10 @@ Usage: security_report.py <out> [--agents] [--publish]
 
 --agents reads AGENT_REPORTS, the JSON of the agent jobs' results and outputs, and
 decrypts each report with the GPG private key in REPORT_PRIVATE_KEY. Writes the report
-to <out>/report.md. --publish also files it as a Linear issue in the
-SY team, when it holds a finding or a failed scan, and posts the count and the issue
-link to Slack. Prints no finding, because logs on a public repository are public.
-Exits non-zero when a scan or an agent failed.
+to <out>/report.md. --publish also files it as a Linear issue in the SY team, when it
+holds a finding or a failed scan, and posts the count and the issue link to Slack.
+Prints no finding, because logs on a public repository are public. Exits non-zero when a
+scan or an agent failed.
 
 Environment for --publish: LINEAR_API_KEY, SLACK_WEBHOOK_URL, and RUN_URL.
 """
@@ -43,6 +43,8 @@ TEAM = "SY"
 COUNTED = {"error", "warning"}
 # Findings listed per rule, which keeps the report within a Linear description.
 LISTED = 25
+# Characters in the whole report, which keeps it within a Linear description.
+LIMIT = 60_000
 SEVERITY = re.compile(r"^### (Critical|High|Medium|Low): (.+)$", re.MULTILINE)
 
 # Sends a JSON payload to a URL with headers and returns the response body.
@@ -169,7 +171,15 @@ def render(scans: list[Scan], run_url: str) -> str:
         lines += [f"Run: {run_url}", ""]
     for scan in scans:
         lines += render_scan(scan)
-    return "\n".join(lines)
+    report = "\n".join(lines)
+    if len(report) <= LIMIT:
+        return report
+    cut = report.rfind("\n", 0, LIMIT - 200)
+    omitted = report[cut:].count("\n- ")
+    return (
+        f"{report[:cut]}\n\nThe report stops at the size limit of a Linear issue. "
+        f"It omits {len(report) - cut} characters and {omitted} listed findings."
+    )
 
 
 def post(url: str, payload: dict[str, Any], headers: dict[str, str]) -> bytes:

@@ -87,6 +87,17 @@ class TestMain:
         assert "- `x.yaml:26`" not in report
         assert "- And 5 more." in report
 
+    def test_should_cut_a_report_at_the_size_limit(self, tmp_path: Path) -> None:
+        """Should keep the report within the limit and count what it omits."""
+        for n in range(200):
+            results = [result(f"r{n}", "error", f"{n}.go", m) for m in range(1, 26)]
+            write_scan(tmp_path, f"scan{n:03}", 0, *results)
+        assert main([str(tmp_path)]) == 0
+        report = (tmp_path / "report.md").read_text()
+        assert report.startswith("Findings: 5000.")
+        assert "## scan199" not in report
+        assert report.endswith("listed findings.")
+
     def test_should_reject_a_directory_with_no_scan(self, tmp_path: Path) -> None:
         """Should not report a clean audit when no scan ran."""
         with pytest.raises(SystemExit, match="holds no scan"):
