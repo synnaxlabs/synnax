@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import fs from "fs";
 import path from "path";
 import { type Document, type Root, type Rule as Node } from "postcss";
 import selectorParser from "postcss-selector-parser";
@@ -218,10 +219,23 @@ const globalStyle = ({ root: repo, baseline }: PluginsConfig): Rule => {
  * package: a class must have an emitter, a custom property must have a definition, a
  * package must not style a class that only other packages emit, and an Astro component
  * must scope its styles.
+ *
+ * @throws if the baseline lists a file that does not exist.
  */
-export const plugins = (config: PluginsConfig): Plugin[] => [
-  createPlugin(UNKNOWN_CLASS, unknownClass(config.source)),
-  createPlugin(UNKNOWN_PROPERTY, unknownProperty(config.source)),
-  createPlugin(FOREIGN_CLASS, foreignClass(config)),
-  createPlugin(GLOBAL_STYLE, globalStyle(config)),
-];
+export const plugins = (config: PluginsConfig): Plugin[] => {
+  const { root, baseline } = config;
+  const missing = [...Object.keys(baseline.foreignClasses), ...baseline.globalStyles]
+    .filter((file) => !fs.existsSync(path.join(root, file)))
+    .sort();
+  if (missing.length > 0)
+    throw new Error(
+      `configs/stylelint/baseline.json lists files that do not exist: ` +
+        `${missing.join(", ")}. Delete their entries.`,
+    );
+  return [
+    createPlugin(UNKNOWN_CLASS, unknownClass(config.source)),
+    createPlugin(UNKNOWN_PROPERTY, unknownProperty(config.source)),
+    createPlugin(FOREIGN_CLASS, foreignClass(config)),
+    createPlugin(GLOBAL_STYLE, globalStyle(config)),
+  ];
+};
