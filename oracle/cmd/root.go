@@ -11,7 +11,6 @@
 package cmd
 
 import (
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -53,18 +52,20 @@ func newRootCmd() *cobra.Command {
 	return rootCmd
 }
 
-// Execute runs the root command. Commands that fail with an exitCodeError are routed to
-// that specific exit code so CI consumers can attribute failures (e.g. `oracle check`
-// returns 12 on generated drift). Every other failure exits with 1.
-func Execute() {
-	err := newRootCmd().Execute()
+// Execute runs the root command with args and returns the process exit code. A command
+// that fails with a gate failure returns that gate's code (e.g. 12 for generated drift
+// in `oracle check`). Every other failure returns 1.
+func Execute(args []string) int {
+	root := newRootCmd()
+	root.SetArgs(args)
+	err := root.Execute()
 	if err == nil {
-		return
+		return 0
 	}
 	if ec, ok := err.(*exitCodeError); ok {
-		os.Exit(ec.code)
+		return ec.code
 	}
-	os.Exit(1)
+	return 1
 }
 
 func initConfig() {
