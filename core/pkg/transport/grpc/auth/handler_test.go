@@ -190,7 +190,7 @@ var _ = Describe("Auth", func() {
 		It("Should round-trip an API key proof", func(ctx SpecContext) {
 			t := create.RequestTranslator
 			msg := auth.SessionCreateRequest{Proof: svcauth.Proof{
-				Variant: svcauth.ApiKeyProof{
+				Variant: svcauth.APIKeyProof{
 					APIKeyCredentials: svcauth.APIKeyCredentials{Key: "syk_secret"},
 				},
 			}}
