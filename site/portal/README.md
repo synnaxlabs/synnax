@@ -112,8 +112,8 @@ restoration notices go out from `MAIL_FROM`.
 Create a Slack app with an incoming webhook for the staff channel. Set the webhook URL
 as `SLACK_WEBHOOK_URL` on production only. The portal posts each new account, each first
 Desktop login, each user's first Desktop use of a day, each refused activation, a recap
-of each Desktop session, and a daily digest of Desktop use. Previews and local
-development log each post instead.
+of each Desktop visit (a user's sessions in all windows, until 30 minutes idle), and a
+daily digest of Desktop use. Previews and local development log each post instead.
 
 ### PostHog
 

@@ -19,9 +19,9 @@ const PERIOD_MS = 15 * 60 * 1000;
 const CLERK_USER = "user_";
 
 /**
- * GET posts a recap of each Synnax Desktop session that ended in the last period to
- * Slack. A session ends once it has been idle for {@link IDLE_MS}, so the period is
- * that long behind the call. Vercel calls it with the cron secret as a bearer token;
+ * GET posts a recap of each Synnax Desktop visit that ended in the last period to
+ * Slack. A visit ends once it has been idle for {@link IDLE_MS}, so the period is that
+ * long behind the call. Vercel calls it with the cron secret as a bearer token;
  * anything else is refused.
  */
 export const GET: APIRoute = async (context) => {
@@ -31,12 +31,12 @@ export const GET: APIRoute = async (context) => {
   const slot = Math.floor(portal.now().getTime() / PERIOD_MS) * PERIOD_MS;
   const to = new Date(slot - IDLE_MS);
   const from = new Date(to.getTime() - PERIOD_MS);
-  const sessions = await portal.analytics.sessions(from, to);
-  for (const session of sessions) {
-    const account = session.distinctID.startsWith(CLERK_USER)
-      ? await portal.directory.account(session.distinctID)
+  const visits = await portal.analytics.visits(from, to);
+  for (const visit of visits) {
+    const account = visit.distinctID.startsWith(CLERK_USER)
+      ? await portal.directory.account(visit.distinctID)
       : null;
-    await portal.slack.post(recap(session, account));
+    await portal.slack.post(recap(visit, account));
   }
-  return Response.json({ sessions: sessions.length });
+  return Response.json({ visits: visits.length });
 };

@@ -12,7 +12,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { GET as digestRoute } from "@/pages/api/cron/digest";
 import { GET } from "@/pages/api/cron/expiry";
 import { GET as sessionsRoute } from "@/pages/api/cron/sessions";
-import { type Session } from "@/server/analytics";
+import { type Session, type Visit } from "@/server/analytics";
 import { event, type License, type Organization } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE } from "@/server/directory";
@@ -221,6 +221,8 @@ describe("GET /api/cron/sessions", () => {
     actions: {},
   });
 
+  const visitOf = ({ id, ...session }: Session): Visit => ({ ...session, replay: id });
+
   it("should refuse a call without the cron secret", async () => {
     h.analytics.recorded.push(sessionEnding("2026-09-17T11:20:00Z"));
     const res = await get();
@@ -228,26 +230,50 @@ describe("GET /api/cron/sessions", () => {
     expect(h.slack.posted).toEqual([]);
   });
 
-  it("should recap the sessions that ended a quarter hour before the idle wait", async () => {
-    const ada = { email: "ada@example.com", name: "Ada", joinedAt: new Date(0) };
+  const ada = { email: "ada@example.com", name: "Ada", joinedAt: new Date(0) };
+
+  it("should recap the visits that ended a quarter hour before the idle wait", async () => {
     h.directory.people.user_a = ada;
     const inside = sessionEnding("2026-09-17T11:15:00Z");
     h.analytics.recorded.push(
-      sessionEnding("2026-09-17T11:14:59Z"),
+      sessionEnding("2026-09-17T11:14:59Z", "user_early"),
       inside,
-      sessionEnding("2026-09-17T11:30:00Z"),
+      sessionEnding("2026-09-17T11:30:00Z", "user_late"),
     );
     const res = await get(`Bearer ${CRON_SECRET}`);
     expect(res.status).toBe(200);
-    expect(await body(res)).toEqual({ sessions: 1 });
-    expect(h.slack.posted).toEqual([recap(inside, { userID: "user_a", ...ada })]);
+    expect(await body(res)).toEqual({ visits: 1 });
+    expect(h.slack.posted).toEqual([
+      recap(visitOf(inside), { userID: "user_a", ...ada }),
+    ]);
   });
 
-  it("should recap a session without a Clerk user as anonymous", async () => {
+  it("should post one recap for the sessions of each window", async () => {
+    h.directory.people.user_a = ada;
+    h.analytics.recorded.push(
+      sessionEnding("2026-09-17T11:20:00Z"),
+      {
+        ...sessionEnding("2026-09-17T11:21:00Z"),
+        start: new Date("2026-09-17T11:20:00Z"),
+      },
+      {
+        ...sessionEnding("2026-09-17T11:21:00Z"),
+        id: "reset",
+        start: new Date("2026-09-17T11:21:00Z"),
+      },
+    );
+    await get(`Bearer ${CRON_SECRET}`);
+    expect(h.slack.posted).toHaveLength(1);
+  });
+
+  it("should recap a visit without a Clerk user as anonymous", async () => {
     const anonymous = sessionEnding("2026-09-17T11:20:00Z", "install-1");
     const unknown = sessionEnding("2026-09-17T11:25:00Z", "user_gone");
     h.analytics.recorded.push(anonymous, unknown);
     await get(`Bearer ${CRON_SECRET}`);
-    expect(h.slack.posted).toEqual([recap(anonymous, null), recap(unknown, null)]);
+    expect(h.slack.posted).toEqual([
+      recap(visitOf(anonymous), null),
+      recap(visitOf(unknown), null),
+    ]);
   });
 });
