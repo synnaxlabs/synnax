@@ -31,4 +31,31 @@ describe("Channel select", () => {
     });
     expect(c.container.querySelector(`.${TRIGGER_CLASS}`)).not.toBeNull();
   });
+
+  it("should keep the single select's trigger mark beside the caller's trigger props", () => {
+    const c = render(
+      <Channel.SelectSingle
+        value={0}
+        onChange={vi.fn()}
+        triggerProps={{ variant: "shadow", className: "custom" }}
+      />,
+      { wrapper: Wrapper },
+    );
+    const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
+    expect(trigger?.classList.contains("custom")).toBe(true);
+    expect(trigger?.classList.contains("pluto--shadow")).toBe(true);
+  });
+
+  it("should keep the multiple select's trigger mark beside the caller's trigger props", () => {
+    const c = render(
+      <Channel.SelectMultiple
+        value={[]}
+        onChange={vi.fn()}
+        triggerProps={{ className: "custom" }}
+      />,
+      { wrapper: Wrapper },
+    );
+    const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
+    expect(trigger?.classList.contains("custom")).toBe(true);
+  });
 });

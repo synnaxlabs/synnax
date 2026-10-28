@@ -12,7 +12,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/mem/indirect.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"

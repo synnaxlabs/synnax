@@ -38,7 +38,7 @@ var _ = Describe("sync command", func() {
 		It("writes schema sources and generated outputs before buf fails", func() {
 			// The mini repo has no buf configuration, so the run stops at the
 			// buf-generate step; everything before it must have completed.
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			Expect(executeCommand(cmd, "sync", "-v")).Error().
 				To(MatchError(ContainSubstring("buf generate")))
 
@@ -60,7 +60,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("prints diagnostics and fails generation", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			Expect(executeCommand(cmd, "sync")).Error().
 				To(MatchError(ContainSubstring("generation failed")))
 		})
@@ -72,7 +72,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("errors when no schema files exist", func() {
-			cmd := NewRootCmd()
+			cmd := newRootCmd()
 			Expect(executeCommand(cmd, "sync")).Error().
 				To(MatchError(ContainSubstring("no schema files found")))
 		})

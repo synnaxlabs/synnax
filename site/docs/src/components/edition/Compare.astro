@@ -113,7 +113,11 @@ const GROUPS: Group[] = [
     {
         name: "Data and visualization",
         capabilities: [
-            { name: "Channels and calculated channels", values: BOTH },
+            {
+                name: "Channels",
+                values: { desktop: "Up to 50", enterprise: "Set by your license" },
+            },
+            { name: "Calculated channels", values: BOTH },
             { name: "Ranges", values: BOTH },
             { name: "Projects and visualizations", values: BOTH },
             { name: "Import and export", values: BOTH },
