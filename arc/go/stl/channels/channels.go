@@ -206,7 +206,7 @@ func (s *source) rebindTo(key uint32) {
 
 // raiseWaterMark advances the mark past all buffered data on the bound channel.
 func (s *source) raiseWaterMark() {
-	data, _, ok := s.state.readSeries(s.currKey)
+	data, _, ok := s.state.ReadSeries(s.currKey)
 	if !ok || len(data.Series) == 0 {
 		return
 	}
@@ -232,7 +232,7 @@ func (s *source) Next(ctx node.Context) {
 		s.rebindTo(key)
 		return
 	}
-	data, indexData, ok := s.state.readSeries(s.currKey)
+	data, indexData, ok := s.state.ReadSeries(s.currKey)
 	if !ok {
 		return
 	}
@@ -306,7 +306,7 @@ func (s *sink) Next(ctx node.Context) {
 		))
 		return
 	}
-	s.state.writeChannel(key, data, time)
+	s.state.WriteChannel(key, data, time)
 	lastTS := time.ValueAt[telem.TimeStamp](-1)
 	out := s.Output(0)
 	out.Resize(1)
@@ -452,7 +452,7 @@ func bindStr(
 			if !ok {
 				return
 			}
-			cs.writeValue(chID, telem.NewSeriesV(str))
+			cs.WriteValue(chID, telem.NewSeriesV(str))
 		}).Export("write_str")
 	return builder
 }

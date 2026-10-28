@@ -327,8 +327,9 @@ func (cs *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
 	return ms.Series[len(ms.Series)-1], ok
 }
 
-// writeValue writes a single value to a channel (for WASM runtime bindings).
-func (cs *ProgramState) writeValue(key uint32, value telem.Series) {
+// WriteValue appends value to the channel's writes for this cycle. Flush gives the
+// samples of an indexed channel their timestamps.
+func (cs *ProgramState) WriteValue(key uint32, value telem.Series) {
 	cs.appendWriteSeries(cs.bodyWrites(key), key, value)
 }
 
@@ -417,8 +418,9 @@ func appendFixedWriteSample[T telem.FixedSample](
 	buf[key] = acc
 }
 
-// readSeries reads buffered data and time series from a channel.
-func (cs *ProgramState) readSeries(
+// ReadSeries returns the buffered data of a channel and of its index. ok is false when
+// the channel, or the index of an indexed channel, has no buffered data.
+func (cs *ProgramState) ReadSeries(
 	key uint32,
 ) (data, time telem.MultiSeries, ok bool) {
 	data, ok = cs.reads[key]
@@ -436,7 +438,9 @@ func (cs *ProgramState) readSeries(
 	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
-func (cs *ProgramState) writeChannel(key uint32, data, time telem.Series) {
+// WriteChannel appends data to the channel's writes for this cycle and time to the
+// writes of its index. It ignores time for a channel without an index.
+func (cs *ProgramState) WriteChannel(key uint32, data, time telem.Series) {
 	idx := cs.indexes[key]
 	if idx != 0 {
 		cs.markPosition(key, idx)
