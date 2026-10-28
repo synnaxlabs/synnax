@@ -808,32 +808,35 @@ describe("list", () => {
       return { retrieve, result };
     };
 
-    it("should keep a search when a fetch for more follows it", async () => {
+    const SEARCH_PAGES = [
+      { searchTerm: "pump", offset: 0, limit: 20 },
+      { searchTerm: "pump", offset: 20, limit: 20 },
+    ];
+
+    it("should fetch the next page of a search when a fetch for more follows it", async () => {
       const { retrieve, result } = renderPagedList();
       act(() => {
         result.current.search("pump");
         result.current.fetchMore();
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({
-          query: { searchTerm: "pump", offset: 0, limit: 20 },
-        }),
-      );
+      await waitFor(() => {
+        expect(retrieve).toHaveBeenCalledTimes(2);
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(retrieve.mock.calls.map(([{ query }]) => query)).toEqual(SEARCH_PAGES);
     });
 
-    it("should run a search that follows a fetch for more", async () => {
+    it("should fetch the next page of a search that follows a fetch for more", async () => {
       const { retrieve, result } = renderPagedList();
       act(() => {
         result.current.fetchMore();
         result.current.search("pump");
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
-        expect.objectContaining({
-          query: { searchTerm: "pump", offset: 0, limit: 20 },
-        }),
-      );
+      await waitFor(() => {
+        expect(retrieve).toHaveBeenCalledTimes(2);
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(retrieve.mock.calls.map(([{ query }]) => query)).toEqual(SEARCH_PAGES);
     });
 
     it("should fetch one page for repeated fetches for more", async () => {

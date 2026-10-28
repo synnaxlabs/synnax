@@ -56,8 +56,8 @@ export type UseListReturn<
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
   /**
-   * Retrieves once the debounce ends. Query changes made while it waits apply in order.
-   * An append made while a retrieve waits does nothing.
+   * Retrieves once the debounce ends. Query changes made while it waits apply in order,
+   * then one append runs after them. A second append made while one waits does nothing.
    */
   retrieve: (
     query: state.SetArg<Query, Partial<Query>>,
@@ -126,10 +126,16 @@ export interface UseList<
 const defaultFilter = () => true;
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
-/** The retrieve a list runs when its debounce ends. */
-interface PendingRetrieve<Query extends query.Params> {
+/** A retrieve that waits for the debounce to end. */
+interface Retrieve<Query extends query.Params> {
   query: state.SetArg<Query, Query | {}>;
   options: AsyncListOptions;
+}
+
+/** The retrieves a list runs when its debounce ends: the replace, then the append. */
+interface PendingRetrieves<Query extends query.Params> {
+  replace?: Retrieve<Query>;
+  append?: Retrieve<Query>;
 }
 
 /** @returns a setter that applies first, then second. */
@@ -210,7 +216,7 @@ export const createList = <
       ),
     );
     const hasMoreRef = useRef(true);
-    const pendingRef = useRef<PendingRetrieve<Query> | null>(null);
+    const pendingRef = useRef<PendingRetrieves<Query> | null>(null);
 
     const recomputeKeys = () => {
       const seen = new Set<Key>();
@@ -513,7 +519,13 @@ export const createList = <
         const pending = pendingRef.current;
         if (pending == null) return;
         pendingRef.current = null;
-        void retrieveAsyncRef.current(pending.query, pending.options);
+        const { replace, append } = pending;
+        void (async () => {
+          if (replace != null)
+            await retrieveAsyncRef.current(replace.query, replace.options);
+          if (append != null)
+            await retrieveAsyncRef.current(append.query, append.options);
+        })();
       },
       retrieveDebounce,
       [],
@@ -523,20 +535,24 @@ export const createList = <
       query: state.SetArg<Query, Query | {}>,
       options: AsyncListOptions = {},
     ) => {
-      const pending = pendingRef.current;
-      // A pending replace restarts paging, and a pending append already fetches the
-      // next page. The list asks for more once the pending answer renders.
-      if (pending != null && options.mode === "append") return;
-      const next =
-        pending == null || pending.options.mode === "append"
-          ? query
-          : chainSetters(pending.query, query);
-      pendingRef.current = { query: next, options };
+      const { replace, append } = pendingRef.current ?? {};
+      // A frame waits for the answer to each fetch for more, so an append made while a
+      // replace waits must still run.
+      if (options.mode === "append") {
+        if (append != null) return;
+        pendingRef.current = { replace, append: { query, options } };
+      } else {
+        const next = replace == null ? query : chainSetters(replace.query, query);
+        pendingRef.current = { replace: { query: next, options }, append };
+      }
       // A cold list fills from the cached answer to the exact query the debounced
-      // retrieve will fetch, so a remount paints before the network round trip. Setters
-      // must be pure: the debounced retrieve executes the setter again.
+      // retrieve will fetch first, so a remount paints before the network round trip.
+      // Setters must be pure: the debounced retrieve executes the setter again.
+      const first = pendingRef.current.replace?.query ?? query;
       if (resultRef.current.data == null)
-        createCachedPage(normalized(state.executeSetter(next, queryRef.current ?? {})));
+        createCachedPage(
+          normalized(state.executeSetter(first, queryRef.current ?? {})),
+        );
       debouncedRetrieve();
     };
 
