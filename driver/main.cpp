@@ -12,3 +12,5 @@
 int main(const int argc, char *argv[]) {
     return driver::cmd::exec(argc, argv);
 }
+
+// Test a real C++ CodeQL scan.
