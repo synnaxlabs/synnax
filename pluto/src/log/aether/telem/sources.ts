@@ -71,12 +71,7 @@ export class StreamMultiChannelLog
   // status is the worst status of the channels' snapshots at the last pull.
   private status = telem.SUCCESS_STATUS;
   private valid = false;
-  private _evictedCount: number = 0;
   private _channels: channel.Key[] = [];
-
-  get evictedCount(): number {
-    return this._evictedCount;
-  }
 
   constructor(
     client: telem.Client | null,
@@ -117,7 +112,6 @@ export class StreamMultiChannelLog
       this.subscription = null;
       this.status = telem.SUCCESS_STATUS;
       this.valid = false;
-      this._evictedCount = 0;
     } else if (subscription != null) {
       subscription.update(this.request());
       this.pull(subscription);
@@ -163,8 +157,8 @@ export class StreamMultiChannelLog
     }
     this.status = worst;
     this.failures.observe(worst);
-    this._evictedCount = this.gcEntries();
-    return pushed > 0 || this._evictedCount > 0;
+    const evicted = this.gcEntries();
+    return pushed > 0 || evicted > 0;
   }
 
   // Appends the samples the channel appended since the key's cursor, which are the
@@ -203,8 +197,7 @@ export class StreamMultiChannelLog
     return lines.length;
   }
 
-  // Evicts stale entries from the front of the array. Returns the count so
-  // the caller can adjust scroll offset and selection indices.
+  // Evicts stale entries from the front of the array, and returns how many.
   private gcEntries(): number {
     const keepFor = this.props.keepFor ?? this.props.timeSpan;
     const threshold = this.now().sub(keepFor);
