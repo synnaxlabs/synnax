@@ -515,9 +515,8 @@ var _ = Describe("Passwords", func() {
 			ctx context.Context,
 			token string,
 			req apiauth.PasswordRenameRequest,
-		) error {
-			_, err := apiSvc.RenamePassword(authed(ctx, token), nil, req)
-			return err
+		) (struct{}, error) {
+			return apiSvc.RenamePassword(authed(ctx, token), nil, req)
 		}
 		It("Should let the owner rename another user's password", func(
 			ctx SpecContext,
@@ -526,7 +525,7 @@ var _ = Describe("Passwords", func() {
 			Expect(rename(ctx, rootToken, apiauth.PasswordRenameRequest{
 				Subject:  bob.OntologyID(),
 				Username: username,
-			})).To(Succeed())
+			})).Error().ToNot(HaveOccurred())
 			tokenFor(ctx, username, "p")
 			MustSucceed(authSvc.Authenticate(ctx, bobToken))
 			Expect(apiSvc.CreateSession(
@@ -538,19 +537,19 @@ var _ = Describe("Passwords", func() {
 			username := "self-" + uuid.New().String()
 			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
 				Username: username,
-			})).To(Succeed())
+			})).Error().ToNot(HaveOccurred())
 			tokenFor(ctx, username, "p")
 		})
 		It("Should keep the username when it does not change", func(ctx SpecContext) {
 			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
 				Username: bob.Name,
-			})).To(Succeed())
+			})).Error().ToNot(HaveOccurred())
 			tokenFor(ctx, bob.Name, "p")
 		})
 		It("Should refuse a username another user holds", func(ctx SpecContext) {
 			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
 				Username: creds.Username,
-			})).To(MatchError(auth.ErrRepeatedUsername))
+			})).Error().To(MatchError(auth.ErrRepeatedUsername))
 		})
 		It("Should deny a user renaming another user's password", func(
 			ctx SpecContext,
@@ -558,7 +557,7 @@ var _ = Describe("Passwords", func() {
 			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
 				Subject:  root.OntologyID(),
 				Username: "taken-" + uuid.New().String(),
-			})).To(MatchError(access.ErrDenied))
+			})).Error().To(MatchError(access.ErrDenied))
 		})
 		It("Should report a user with no password as not found", func(
 			ctx SpecContext,
@@ -569,10 +568,10 @@ var _ = Describe("Passwords", func() {
 			Expect(rename(ctx, rootToken, apiauth.PasswordRenameRequest{
 				Subject:  u.OntologyID(),
 				Username: "nopass-" + uuid.New().String(),
-			})).To(MatchError(query.ErrNotFound))
+			})).Error().To(MatchError(query.ErrNotFound))
 		})
 		It("Should reject an empty username", func(ctx SpecContext) {
-			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{})).
+			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{})).Error().
 				To(MatchError(validate.ErrValidation))
 		})
 	})
