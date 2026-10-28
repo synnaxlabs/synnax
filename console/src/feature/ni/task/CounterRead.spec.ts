@@ -213,10 +213,12 @@ describe("CounterRead", () => {
     });
   });
 
-  it("should surface an error when the task has no channels", async () => {
-    const { statuses, container } = await renderCounterRead(createConfig([]));
+  it("should mark the channel list instead of deploying when the task has no channels", async () => {
+    const { container } = await renderCounterRead(createConfig([]));
     await clickDeploy(container);
-    await awaitStatusDescription(statuses, /No device selected/);
+    expect(
+      await screen.findByText("At least one enabled channel is required"),
+    ).toBeTruthy();
   });
 
   it("should surface an error when channels span devices on different racks", async () => {

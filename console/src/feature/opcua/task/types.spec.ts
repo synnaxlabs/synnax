@@ -105,11 +105,9 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject an array size larger than the sample rate", () => {
     const config = {
-      device: "dev",
+      ...(createConfig([{}]) as object),
       arrayMode: true,
-      sampleRate: 50,
       arraySize: 100,
-      channels: [],
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
@@ -122,11 +120,9 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject a non-positive array size", () => {
     const config = {
-      device: "dev",
+      ...(createConfig([{}]) as object),
       arrayMode: true,
-      sampleRate: 50,
       arraySize: 0,
-      channels: [],
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
@@ -209,5 +205,20 @@ describe("draft configs", () => {
         OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
       ),
     ).toBe(true);
+  });
+});
+
+describe("deploy configs", () => {
+  it.each<[string, z.ZodType, z.ZodType]>([
+    ["read", OPCUA.Task.READ_SCHEMAS.config, OPCUA.Task.deployReadConfigZ],
+    ["write", OPCUA.Task.WRITE_SCHEMAS.config, OPCUA.Task.deployWriteConfigZ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
   });
 });

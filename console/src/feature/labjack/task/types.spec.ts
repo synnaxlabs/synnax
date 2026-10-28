@@ -442,3 +442,18 @@ describe("draft configs", () => {
     ).toBe(true);
   });
 });
+
+describe("deploy configs", () => {
+  it.each<[string, z.ZodType, z.ZodType]>([
+    ["read", LabJack.Task.READ_SCHEMAS.config, LabJack.Task.deployReadConfigZ],
+    ["write", LabJack.Task.WRITE_SCHEMAS.config, LabJack.Task.deployWriteConfigZ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
+  });
+});
