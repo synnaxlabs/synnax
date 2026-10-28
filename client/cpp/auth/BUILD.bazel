@@ -29,7 +29,7 @@ cc_test(
     deps = [
         "//client/cpp/auth",
         "//freighter/cpp/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

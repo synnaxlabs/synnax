@@ -28,6 +28,8 @@ Usage with ConsoleCase:
         sim_daq_class = PressSimDAQ
 """
 
+from typing import Any
+
 from examples.simulators.simdaq import SimDAQ
 
 from framework.models import DEFAULT_CONNECTION, SynnaxConnection
@@ -49,7 +51,7 @@ class SimDaqCase(TestCase):
         synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
-        **params: object,
+        **params: Any,
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
         # Not all test cases need a simulator (e.g. edge_cases).

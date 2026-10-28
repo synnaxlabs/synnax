@@ -57,7 +57,7 @@ cc_test(
         "//driver/opcua/testutil",
         "//driver/pipeline/testutil",
         "//x/cpp/json",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package kvmock
+package testutil
 
 import (
 	"context"
 
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
+	clustertestutil "github.com/synnaxlabs/aspen/internal/cluster/testutil"
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
@@ -23,7 +23,7 @@ import (
 )
 
 type Builder struct {
-	clustermock.Builder
+	clustertestutil.Builder
 	OpNet       *freightertestutil.Network[kv.TxRequest, kv.TxRequest]
 	FeedbackNet *freightertestutil.Network[kv.FeedbackMessage, struct{}]
 	LeaseNet    *freightertestutil.Network[kv.TxRequest, struct{}]
@@ -39,7 +39,7 @@ type Builder struct {
 func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 	return &Builder{
 		BaseCfg:     baseKVCfg,
-		Builder:     *clustermock.NewBuilder(baseClusterCfg),
+		Builder:     *clustertestutil.NewBuilder(baseClusterCfg),
 		OpNet:       freightertestutil.NewNetwork[kv.TxRequest, kv.TxRequest](),
 		FeedbackNet: freightertestutil.NewNetwork[kv.FeedbackMessage, struct{}](),
 		LeaseNet:    freightertestutil.NewNetwork[kv.TxRequest, struct{}](),

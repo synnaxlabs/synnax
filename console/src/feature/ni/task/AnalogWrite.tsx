@@ -17,7 +17,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import * as Device from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -124,7 +124,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -217,7 +217,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair = dev.properties.analogOutput.channels[c.port.toString()];

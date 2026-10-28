@@ -15,7 +15,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/write_task.h"
