@@ -22,7 +22,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func fixedOffset(offset telem.Size) domain.OffsetResolver {
+func fixedOffset(offset telem.Size) func(
+	context.Context,
+	telem.TimeStamp,
+	telem.TimeStamp,
+) (telem.Size, telem.TimeStamp, error) {
 	return func(
 		ctx context.Context,
 		_ telem.TimeStamp,
@@ -35,7 +39,11 @@ func fixedOffset(offset telem.Size) domain.OffsetResolver {
 func fixedOffsetAndTimeStamp(
 	offset telem.Size,
 	ts telem.TimeStamp,
-) domain.OffsetResolver {
+) func(
+	context.Context,
+	telem.TimeStamp,
+	telem.TimeStamp,
+) (telem.Size, telem.TimeStamp, error) {
 	return func(
 		_ context.Context,
 		_ telem.TimeStamp,

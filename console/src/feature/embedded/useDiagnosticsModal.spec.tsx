@@ -31,6 +31,7 @@ import {
   type Status,
 } from "@/feature/embedded/testutil";
 import { License } from "@/platform/license";
+import { stubHub } from "@/platform/license/testutil";
 import { Session } from "@/session";
 import { CaptureStatuses } from "@/testutil";
 
@@ -124,12 +125,6 @@ const holdErase = async (): Promise<void> => {
 };
 
 /** Answers every request to the hub with `answer` until the test ends. */
-const stubHub = (answer: () => Promise<Response>) => {
-  const hub = vi.spyOn(globalThis, "fetch").mockImplementation(answer);
-  onTestFinished(() => hub.mockRestore());
-  return hub;
-};
-
 describe("Embedded diagnostics", () => {
   beforeEach(() => {
     vi.mocked(save).mockReset();
