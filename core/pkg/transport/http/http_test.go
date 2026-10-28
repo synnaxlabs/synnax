@@ -535,10 +535,7 @@ var _ = Describe("HTTP", func() {
 			Expect(call(
 				"/api/v1/auth/password/create",
 				token,
-				apiauth.PasswordCreateRequest{Credentials: auth.Credentials{
-					Username: "other",
-					Password: "new",
-				}},
+				apiauth.PasswordCreateRequest{Username: "other", Password: "new"},
 				nil,
 			)).To(Equal(http.StatusBadRequest))
 		})
