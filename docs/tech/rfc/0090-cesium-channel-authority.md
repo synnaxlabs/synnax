@@ -4,9 +4,9 @@
 - **Date**: 2026-10-28
 - **Related**: [RFC 0014 - Control](0014-control.md),
   [RFC 0019 - Cesium race conditions](0019-cesium-race-conditions.md),
-  [RFC 0057 - Control state service](0057-control-state-service.md),
-  [PR #3920 - [cesium] Serialize resource use across a control transfer](https://github.com/synnaxlabs/synnax/pull/3920),
-  [PR #3516 - SY-4209: Add RFC 0086 for domains that start at their first timestamp](https://github.com/synnaxlabs/synnax/pull/3516)
+  [RFC 0057 - Control state service](0057-control-state-service.md), [PR #3920 -
+  [cesium] Serialize resource use across a control transfer][pr3920], [PR #3516 -
+  SY-4209: Add RFC 0086 for domains that start at their first timestamp][pr3516]
 
 ## 0 Summary
 
@@ -75,8 +75,11 @@ on one index and one data channel:
 | Backfill     | Higher        | The live writer takes control. Later backfill writes are not authorized. |
 
 In the second row, the stored index is `100, 101, 10, 11, 102, 103`. That is a data
-corruption bug, and it is in the domain writer: a write that fails its commit check
-leaves its bytes (`cesium/internal/domain/writer.go:223-231`). In the other rows, a
+corruption bug. The unary writer accepts index samples behind the data stored and only
+moves its high-water mark (`cesium/internal/unary/writer.go:322-326`). The domain writer
+keeps the bytes when the commit check fails
+(`cesium/internal/domain/writer.go:223-231`), and that check reads only the last
+timestamp, so a batch such as `150, 201` after `200` passes it. In the other rows, a
 writer with `ErrOnUnauthorized` off gets no error. That includes the CLI ingest.
 
 ### 2.3 Control is reported per channel
@@ -125,22 +128,22 @@ a validation error. It cannot write there, so it does not join and lose data. A 
 handoff opens at now, so it is not affected.
 
 A writer that starts inside the shared domain joins and competes by authority, as any
-writer does. If it has control and writes behind the data stored, its commit check
-fails, and after Phase 1 it leaves no bytes. If it does not have control, its writes are
-skipped, and it gets an error only with `ErrOnUnauthorized` on.
+writer does. If it has control and writes an index sample behind the data stored, the
+write fails before it reaches the domain writer (Phase 1). If it does not have control,
+its writes are skipped, and it gets an error only with `ErrOnUnauthorized` on.
 
 ## 5 Compatibility
 
 No stable release can write two disjoint ranges of one channel at the same time (§2.0).
 The wire, the stored shape, and the client APIs do not change. A backfill that starts
 before the shared domain of a live channel now fails at open. A backfill that starts
-inside it keeps the behavior of §4.2, without the corruption.
+inside it keeps the behavior of §4.2, and its out-of-order index samples fail.
 
 ## 6 Implementation phases
 
 | Phase | Scope                                           | Touches                                          | Depends on |
 | ----- | ----------------------------------------------- | ------------------------------------------------ | ---------- |
-| 1     | Drop the bytes of a write that fails its commit | `cesium/internal/domain`                         | -          |
+| 1     | Reject index samples behind the stored data     | `cesium/internal/unary`                          | -          |
 | 2     | Fail a writer that starts before its domain     | `cesium/writer_open.go`, `cesium/internal/unary` | -          |
 | 3     | Move delete and has-data checks to a range lock | `cesium/internal/unary`, `cesium/delete.go`      | -          |
 | 4     | Hold one gate set per channel in the controller | `cesium/internal/control`                        | 3          |
@@ -159,3 +162,6 @@ inside it keeps the behavior of §4.2, without the corruption.
 
 1. Whether Phase 2 fails a Python CLI ingest at open, or the CLI checks for live control
    first and asks the operator.
+
+[pr3920]: https://github.com/synnaxlabs/synnax/pull/3920
+[pr3516]: https://github.com/synnaxlabs/synnax/pull/3516
