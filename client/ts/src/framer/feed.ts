@@ -211,6 +211,8 @@ export class Feed {
    * Subscribes to the channels of the request. The subscription reads and streams in
    * the background, and reports failures as statuses of its snapshots.
    * @throws {UnexpectedError} if the feed has been closed.
+   * @throws {ValidationError} if the count of a points limit is not finite or is
+   * negative.
    */
   subscribe(request: SubscribeRequest): Subscription {
     if (this.closed) throw new UnexpectedError("telemetry feed is closed");
