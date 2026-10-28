@@ -35,6 +35,10 @@ var _ = Describe("Writer", func() {
 		return MustSucceed(svc.NewRetrieve().Where(user.MatchKeys(key)).Exists(ctx, tx))
 	}
 	Describe("Create", func() {
+		It("Should refuse an empty name", func(ctx SpecContext) {
+			Expect(w.Create(ctx, user.User{})).Error().
+				To(MatchError(ContainSubstring("name: required")))
+		})
 		It("Should create a new user with the given key", func(ctx SpecContext) {
 			key := uuid.New()
 			u := MustSucceed(w.Create(ctx, user.User{Name: "Patrick Star", Key: key}))
@@ -71,6 +75,11 @@ var _ = Describe("Writer", func() {
 		)
 	})
 	Describe("ChangeName", func() {
+		It("Should refuse an empty name", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, user.User{Name: "Patrick"}))
+			Expect(w.ChangeName(ctx, created.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
+		})
 		It("Should change the name of a user", func(ctx SpecContext) {
 			created := MustSucceed(w.Create(ctx, user.User{Name: "Patrick"}))
 			Expect(w.ChangeName(ctx, created.Key, "Patrick Star")).To(Succeed())

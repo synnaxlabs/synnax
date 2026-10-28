@@ -359,7 +359,9 @@ func (s *Service) createUser(
 	tx gorp.Tx,
 	account Account,
 ) (Link, error) {
-	u, err := s.cfg.User.NewWriter(tx).Create(ctx, user.User{Name: account.Name})
+	// a provider need not send a name claim
+	name := lo.Ternary(account.Name != "", account.Name, "Unnamed user")
+	u, err := s.cfg.User.NewWriter(tx).Create(ctx, user.User{Name: name})
 	if err != nil {
 		return Link{}, err
 	}

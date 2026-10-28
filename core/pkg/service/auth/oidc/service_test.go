@@ -342,6 +342,23 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Authenticate", func() {
+		It("Should name a user whose provider sends no name", func(ctx SpecContext) {
+			code := uuid.New().String()
+			provider.Grant(code, testutil.Grant{
+				Subject:     uuid.New().String(),
+				Verifier:    "v",
+				RedirectURI: redirect,
+			})
+			identity := MustSucceed(
+				svc.Authenticate(ctx, proof(credentials("idp", code, "v"))),
+			)
+			var u user.User
+			Expect(userSvc.NewRetrieve().
+				Where(user.MatchKeys(uuid.MustParse(identity.Subject.Key))).
+				Entry(&u).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(u.Name).To(Equal("Unnamed user"))
+		})
 		It(
 			"Should create a viewer user at an account's first login",
 			func(ctx SpecContext) {

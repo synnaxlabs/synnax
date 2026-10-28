@@ -32,7 +32,7 @@ type Writer struct {
 
 // Create persists a new user record from u. If u.Key is the zero UUID, a new key is
 // assigned. The returned User has Key populated. Returns a validation error if
-// u.RootUser is true or a user with u.Key already exists.
+// u.RootUser is true, u.Name is empty, or a user with u.Key already exists.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
 		return User{}, errors.Wrap(
@@ -44,6 +44,9 @@ func (w Writer) Create(ctx context.Context, u User) (User, error) {
 }
 
 func (w Writer) create(ctx context.Context, u User) (User, error) {
+	if err := u.Validate(); err != nil {
+		return User{}, err
+	}
 	if u.Key == uuid.Nil() {
 		u.Key = uuid.New()
 	} else if exists, err := w.svc.NewRetrieve().
@@ -66,8 +69,12 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	return u, nil
 }
 
-// ChangeName sets the name of the user with the given key.
+// ChangeName sets the name of the user with the given key. It returns a validation
+// error when name is empty.
 func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
+	if err := (User{Name: name}).Validate(); err != nil {
+		return err
+	}
 	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).
 		Change(func(_ gorp.Context, u User) User {
 			u.Name = name

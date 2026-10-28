@@ -17,7 +17,6 @@ import { Access, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
 
 const Roles = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
@@ -36,18 +35,12 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-/** The logged-in user's name, falling back to their username. */
-export const useDisplayName = (): string => {
-  const { data: name } = User.useResultName({});
-  const username = Session.Core.useSelectSelected()?.username ?? "";
-  return name != null && name !== "" ? name : username;
-};
+/** The logged-in user's name, or an empty string until the user loads. */
+export const useDisplayName = (): string => User.useResultName({}).data ?? "";
 
-/** The logged-in user's name, roles, and username, for embedding in a dialog. */
+/** The logged-in user's name and roles, for embedding in a dialog. */
 export const Info = (): ReactElement => {
-  const { data: fullName = "" } = User.useResultName({});
-  const username = Session.Core.useSelectSelected()?.username ?? "";
-  const name = fullName !== "" ? fullName : username;
+  const name = useDisplayName();
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>
       <Flex.Box x align="center" gap="small">
@@ -56,11 +49,6 @@ export const Info = (): ReactElement => {
         </Text.Text>
         <Roles />
       </Flex.Box>
-      {fullName !== "" && fullName !== username && (
-        <Text.Text level="small" color={9} overflow="ellipsis">
-          {username}
-        </Text.Text>
-      )}
     </Flex.Box>
   );
 };
