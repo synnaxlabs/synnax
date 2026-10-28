@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/thread/rt/rt.h"
 
 namespace x::thread::rt {

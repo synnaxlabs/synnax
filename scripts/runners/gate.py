@@ -52,9 +52,10 @@ class Gate:
         return channel_name("gh_state", runner)
 
     def step(self, known: set[str]) -> None:
-        now = sy.TimeStamp.now()
         self.commander.refresh_writer(known)
         self.refresh(known)
+        # After the command writer opens, so commands land after its start.
+        now = sy.TimeStamp.now()
         self.follow(now)
         changed = self.enabled != self.sent
         commanded = self.commander.commanded
@@ -66,7 +67,7 @@ class Gate:
         }
         if not commands or self.commander.command(commands, now):
             self.sent = self.enabled
-        self.publish(now)
+        self.publish()
 
     def refresh(self, known: set[str]) -> None:
         runners = {r for r in known if instance_prefix(r) is not None}
@@ -98,12 +99,15 @@ class Gate:
             if (v := found.get(self.state_channel(r))) is not None:
                 self.commander.commanded[r] = (now, bool(v))
 
-    def publish(self, now: sy.TimeStamp) -> None:
+    def publish(self) -> None:
         current = {
             self.state_channel(r): last[1]
             for r in sorted(self.known)
             if (last := self.commander.commanded.get(r)) is not None
         }
+        # Stamped after every blocking call of the step, since the write may open the
+        # writer. The Core rejects a sample before the writer's start.
+        now = sy.TimeStamp.now()
         frame = on_change(GATE_STATE_INDEX, self.published, current, now)
         if frame is not None and self.state.write(frame):
             self.published = current

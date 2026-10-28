@@ -28,7 +28,7 @@ cc_test(
     srcs = ["uuid_test.cpp"],
     deps = [
         ":uuid",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
