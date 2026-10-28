@@ -109,15 +109,20 @@ func chainFile(
 			}
 		}
 	}
+	mapping := chainMapping{
+		resolver: req.Versions, ctx: ctx, livePath: livePath, newFile: newFile,
+	}
+	// An entry the incoming version aliases keeps its Go type, so no migration runs.
+	roots = slices.DeleteFunc(roots, func(t resolution.Type) bool {
+		same, _ := mapping.sameGoType(t.QualifiedName)
+		return same
+	})
 	if len(roots) == 0 {
 		return plugin.File{}, false, nil
 	}
 	slices.SortFunc(roots, func(a, b resolution.Type) int {
 		return cmpStrings(a.Name, b.Name)
 	})
-	mapping := chainMapping{
-		resolver: req.Versions, ctx: ctx, livePath: livePath, newFile: newFile,
-	}
 	counterpart := mapping.counterpart
 	diff := make(map[string]schemadiff.TypeDiff)
 	for _, oe := range roots {

@@ -1888,6 +1888,136 @@ Controller struct {
 			},
 			nil,
 		),
+		Entry("emits nothing for an entry the incoming version aliases",
+			"ni",
+			`Channel struct {
+	port uint8
+
+	@go marshal
+}
+
+Read struct {
+	key uuid @key
+	channels Channel[]
+
+	@go marshal
+	@go migrate
+}
+
+Scan struct {
+	key uuid @key
+	models string[]
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Channel = v0.Channel
+
+Read = v0.Read
+
+Scan struct {
+	key uuid @key
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Channel struct {
+	port uint8
+}
+
+Read struct {
+	key uuid @key
+	channels Channel[]
+}
+
+Scan struct {
+	key uuid @key
+}
+`,
+			true,
+			[]string{"func autoMigrateScan"},
+			[]string{"autoMigrateRead", "autoMigrateChannel"},
+		),
+		Entry("migrates a nested type whose own fields did not change",
+			"ni",
+			`Leaf struct {
+	value uint8
+
+	@go marshal
+}
+
+Inner struct {
+	leaf Leaf
+
+	@go marshal
+}
+
+Read struct {
+	key uuid @key
+	inner Inner
+
+	@go marshal
+	@go migrate
+}
+
+Scan struct {
+	key uuid @key
+
+	@go marshal
+	@go migrate
+}
+`,
+			`Leaf struct {
+	value uint8
+	unit string
+
+	@go marshal
+}
+
+Inner struct {
+	leaf Leaf
+
+	@go marshal
+}
+
+Read struct {
+	key uuid @key
+	inner Inner
+
+	@go marshal
+	@go migrate
+}
+
+Scan = v0.Scan
+`,
+			`Leaf struct {
+	value uint8
+	unit string
+}
+
+Inner struct {
+	leaf Leaf
+}
+
+Read struct {
+	key uuid @key
+	inner Inner
+}
+
+Scan struct {
+	key uuid @key
+}
+`,
+			true,
+			[]string{
+				"func autoMigrateRead",
+				"func autoMigrateInner",
+				"func autoMigrateLeaf",
+			},
+			[]string{"autoMigrateScan"},
+		),
 		Entry("substitutes defaulted type params before classification",
 			"status",
 			`Status struct<Data? = record> {
