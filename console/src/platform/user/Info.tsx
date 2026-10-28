@@ -35,12 +35,9 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-/** The logged-in user's name, or an empty string until the user loads. */
-export const useDisplayName = (): string => User.useResultName({}).data ?? "";
-
 /** The logged-in user's name and roles, for embedding in a dialog. */
 export const Info = (): ReactElement => {
-  const name = useDisplayName();
+  const { data: name } = User.useResultName({});
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>
       <Flex.Box x align="center" gap="small">

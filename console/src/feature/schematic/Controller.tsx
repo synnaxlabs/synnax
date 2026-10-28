@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Control, Schematic } from "@synnaxlabs/pluto";
+import { Control, Schematic, User } from "@synnaxlabs/pluto";
 import { memo, type PropsWithChildren, type ReactElement } from "react";
 
-import { User } from "@/platform/user";
 import { Session } from "@/session";
 
 export interface ControllerProps extends PropsWithChildren {}
@@ -21,8 +20,8 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
   const { isCurrentlyEditable } = Session.Schematic.useSelectEditable();
   const name = Schematic.useName();
   const dispatch = Session.useDispatch();
-  const userName = User.useDisplayName();
-  const controlName = userName.length > 0 ? `${name} (${userName})` : name;
+  const { data: userName } = User.useResultName({});
+  const controlName = userName != null ? `${name} (${userName})` : name;
   const handleStatusChange = (status: Control.Status) =>
     dispatch(Session.Schematic.setControlStatus({ key, status }));
   return (
