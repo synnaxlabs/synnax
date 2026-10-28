@@ -46,7 +46,7 @@ func isScreamingCase(s string) bool {
 // identifiers (e.g., "Xy" → "XY", "Id" → "ID").
 var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
-	"Https", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
+	"Https", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Oidc", "Qps", "Ram", "Rhs",
 	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
 	"Ui", "Uid", "Uri", "Url", "Utc", "Utf8", "Uuid", "Vm", "Xml", "Xmpp",
 	"Xss", "Xy",

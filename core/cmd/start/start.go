@@ -86,7 +86,7 @@ var DefaultCoreConfig = CoreConfig{
 	authMethods: []auth.Method{
 		auth.MethodPassword,
 		auth.MethodAPIKey,
-		auth.MethodOidc,
+		auth.MethodOIDC,
 	},
 }
 

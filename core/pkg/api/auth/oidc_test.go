@@ -85,7 +85,7 @@ var _ = Describe("OIDC links", func() {
 				res := MustSucceed(apiSvc.CreateSession(
 					requestCtx(ctx),
 					apiauth.SessionCreateRequest{Proof: auth.Proof{
-						Variant: auth.OidcProof{OIDCCredentials: grantAccount(sub)},
+						Variant: auth.OIDCProof{OIDCCredentials: grantAccount(sub)},
 					}},
 				))
 				Expect(res.Session.Subject).To(Equal(bob.OntologyID()))
@@ -149,7 +149,7 @@ var _ = Describe("OIDC links", func() {
 			sub := uuid.New().String()
 			link := linkAccount(ctx, bobToken, sub)
 			linkedToken := login(ctx, auth.Proof{
-				Variant: auth.OidcProof{OIDCCredentials: grantAccount(sub)},
+				Variant: auth.OIDCProof{OIDCCredentials: grantAccount(sub)},
 			})
 			Expect(apiSvc.UnlinkOIDC(
 				authed(ctx, bobToken),

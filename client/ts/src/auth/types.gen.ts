@@ -65,11 +65,11 @@ export const apiKeyProofZ = apiKeyCredentialsZ.extend({
 });
 export interface APIKeyProof extends z.infer<typeof apiKeyProofZ> {}
 
-/** OidcProof proves an OpenID Connect provider account. */
+/** OIDCProof proves an OpenID Connect provider account. */
 export const oidcProofZ = oidcCredentialsZ.extend({
   method: z.literal("oidc"),
 });
-export interface OidcProof extends z.infer<typeof oidcProofZ> {}
+export interface OIDCProof extends z.infer<typeof oidcProofZ> {}
 
 /**
  * Proof is what a subject presents to log in. The method selects the authenticator that
@@ -80,7 +80,7 @@ export const proofZ = z.discriminatedUnion("method", [
   apiKeyProofZ,
   oidcProofZ,
 ]);
-export type Proof = PasswordProof | APIKeyProof | OidcProof;
+export type Proof = PasswordProof | APIKeyProof | OIDCProof;
 
 export const PROOF_SCHEMAS: {
   [K in Method]: z.ZodType<Extract<Proof, { method: K }>>;
