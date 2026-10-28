@@ -273,7 +273,7 @@ class SymbolToolbar:
         """Drag a symbol onto the schematic canvas."""
         symbol = self.get_symbol(name)
         canvas = self.page.locator(".react-flow__pane").first
-        symbol.drag_to(canvas)
+        self.layout.drag(symbol, canvas)
 
     def add_symbol(self, symbol_type: str, group: str | None = None) -> str:
         """Add any symbol to the schematic and return its ID.

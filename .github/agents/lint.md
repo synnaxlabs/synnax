@@ -76,8 +76,9 @@ rule on as blocking. Update the prose rule to name the linter that now enforces 
 
 ## PR rules
 
-- One idea per PR. Branch from `main`; never stack. Mechanical fixes ship alone. There
-  is no limit on the number of PRs.
+- One idea per PR. Branch from `main`. Stack only on an open PR the fix needs (root
+  `AGENTS.md`, Rule 3). Mechanical fixes ship alone. There is no limit on the number of
+  PRs.
 - Branch: `agent/lint-<rule>-<short-slug>`.
 - Title: `SY-####: Sentence case description` when a Linear issue covers the work, else
   `[<package>] Sentence case description`. Put code in backticks.

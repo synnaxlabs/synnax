@@ -13,7 +13,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
 // printed so that a failing run can be replayed.
