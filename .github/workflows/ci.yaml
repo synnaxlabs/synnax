@@ -887,7 +887,9 @@ jobs:
 
   stylelint-config:
     needs: changes
-    if: inputs.full || needs.changes.outputs.stylelint_config == 'true'
+    if:
+      inputs.full || needs.changes.outputs.stylelint_config == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'stylelint-config')
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: configs/stylelint
