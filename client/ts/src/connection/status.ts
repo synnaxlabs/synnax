@@ -485,8 +485,7 @@ const comparable = ({ time: _, ...rest }: Status): unknown => ({
   details: { ...rest.details, clockSkew: undefined },
 });
 
-/** Whether the change is worth notifying observers about. */
-export const materialChange = (prev: Status, next: Status): boolean =>
+const materialChange = (prev: Status, next: Status): boolean =>
   !deep.equal(comparable(prev), comparable(next));
 
 /**

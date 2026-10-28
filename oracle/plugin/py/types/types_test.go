@@ -2430,6 +2430,48 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 			)
 		},
 	)
+
+	It(
+		"Should default a union-typed field from a struct literal to its variant",
+		func(ctx SpecContext) {
+			withDefault := source + `
+			Item struct { scale Scale = { type = "linear", slope = 2 } }
+		`
+			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`default_factory=lambda: LinearScale(type="linear", slope=2)`,
+			)
+		},
+	)
+
+	It(
+		"Should alias a module import that an inline variant field shadows",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
+				@py output "client/py/synnax/status"
+
+				Info struct {
+					key uuid
+				}
+			`)
+			source := `
+				import "schemas/status"
+
+				@py output "client/py/synnax/task"
+
+				Config union on variant {
+					tracked {
+						status status.Info
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			ExpectContent(resp, "task/types_gen.py").ToContain(
+				`from synnax import status as status_`,
+				`status: status_.Info`,
+			)
+		},
+	)
 })
 
 var _ = Describe("Collection type aliases and maps", func() {

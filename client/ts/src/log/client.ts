@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -87,6 +87,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
       store,
       onError: cache.onError,
       reduce: reduceAll,
+      send: async (key, actions, dispatchKey) => {
+        await cfg.unary.send(
+          "/log/dispatch",
+          { key, dispatchKey, actions },
+          dispatchReqZ,
+          emptyResZ,
+        );
+      },
       kindOf,
       createOf,
     });
@@ -140,14 +148,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
+    // Restores only the name, so the rollback cannot undo edits made after it.
+    const rename = (): destructor.Destructor => {
+      const prev = this.store.get(key)?.name ?? name;
+      query.partialUpdate(this.store, key, { name });
+      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
+      return () => {
+        query.partialUpdate(this.store, key, { name: prev });
+        resource();
+      };
+    };
+    const rollback = rename();
+    try {
+      await opts.onOptimistic?.();
+    } catch (e) {
+      rollback();
+      throw errors.fromUnknown(e);
+    }
+    await this.dispatcher.send(key, [renameAction({ name })], {
+      rollback,
+      reapply: rename,
     });
     rename();
   }
@@ -162,12 +182,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     actions: Action | Action[],
     opts: actions.Options<Log, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-      opts,
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions), opts);
   }
 
   /**
@@ -175,7 +190,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key);
   }
 
   /**
@@ -183,7 +198,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key);
   }
 
   /** Whether the log has a live undo entry. */
@@ -206,25 +221,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
 
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
-  }
-
-  private dispatchSender(key: Key): actions.SendDispatch<Action> {
-    return async (actions, dispatchKey) =>
-      await this.sendDispatch(key, dispatchKey, actions);
-  }
-
-  private async sendDispatch(
-    key: Key,
-    dispatchKey: string,
-    actions: Action[],
-  ): Promise<void> {
-    await this.cfg.unary.send(
-      "/log/dispatch",
-      { key, dispatchKey, actions },
-      dispatchReqZ,
-      emptyResZ,
-    );
+    return this.dispatcher.transaction(key, kind);
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
