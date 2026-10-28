@@ -297,6 +297,9 @@ var _ = Describe("Service", func() {
 			},
 		)
 	})
+	It("Should return the configured idle timeout", func() {
+		Expect(svc.IdleTimeout()).To(Equal(idle))
+	})
 	Describe("Logout", func() {
 		It("Should ignore unknown keys", func(ctx SpecContext) {
 			Expect(svc.Logout(ctx, uuid.New())).To(Succeed())

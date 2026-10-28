@@ -102,7 +102,7 @@ func (s *Service) Authenticate(
 	ctx context.Context,
 	proof auth.Proof,
 ) (auth.Identity, error) {
-	creds, ok := proof.Variant.(auth.ApiKeyProof)
+	creds, ok := proof.Variant.(auth.APIKeyProof)
 	if !ok {
 		return auth.Identity{}, errors.Wrapf(
 			validate.ErrValidation,
