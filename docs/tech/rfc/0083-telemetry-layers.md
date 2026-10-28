@@ -134,7 +134,7 @@ const { series, status, time: newest } = sub.value(pressure);
   `settling` limit draws the `view` from the blocks held and reads none, so a fast zoom
   reads no level it passes. The `Feed` picks the tiles from the range and the count.
   `extremesKept` keeps minimum and maximum blocks for the axis bounds when the line
-  draws another aggregation. A `count` of `Infinity` reads raw samples only.
+  draws another aggregation.
 - **`latest` limit**: The newest `count` raw samples in the window, or across all time
   when the request has no window. A value asks for 1, and a log asks for its page size.
 - **Snapshot**: `value(key)` returns exact series over the drawn range, a status, and

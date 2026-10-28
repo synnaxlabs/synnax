@@ -13,6 +13,9 @@ import { type numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
 import { toString } from "@/testutil";
 
+// More items than a call takes as arguments.
+const MANY = 200_000;
+
 describe("Bounds", () => {
   describe("construction", () => {
     type T = [string, bounds.Crude];
@@ -154,6 +157,10 @@ describe("Bounds", () => {
       const bound = bounds.max([{ lower: 20, upper: 10 }]);
       expect(bound).toStrictEqual({ lower: 20, upper: 10 });
     });
+    it("should take more bounds than a call takes arguments", () => {
+      const many = Array.from({ length: MANY }, (_, i): bounds.Crude => [i, i + MANY]);
+      expect(bounds.max(many)).toStrictEqual({ lower: 0, upper: 2 * MANY - 1 });
+    });
   });
   describe("min", () => {
     it("should return the bound with the minimum possible span", () => {
@@ -175,6 +182,10 @@ describe("Bounds", () => {
         [20, 30],
       ]);
       expect(bound).toStrictEqual({ lower: 20, upper: 10 });
+    });
+    it("should take more bounds than a call takes arguments", () => {
+      const many = Array.from({ length: MANY }, (_, i): bounds.Crude => [i, i + MANY]);
+      expect(bounds.min(many)).toStrictEqual({ lower: MANY - 1, upper: MANY });
     });
   });
   describe("isFinite", () => {
