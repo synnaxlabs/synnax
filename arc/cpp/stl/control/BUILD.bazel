@@ -36,7 +36,7 @@ cc_test(
         "//arc/cpp/stl/testutil",
         "//x/cpp/json",
         "//x/cpp/mem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

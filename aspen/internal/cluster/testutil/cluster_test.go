@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package clustermock_test
+package testutil_test
 
 import (
 	"context"
@@ -16,21 +16,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	"github.com/synnaxlabs/aspen/internal/cluster/clustermock"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
+	"github.com/synnaxlabs/aspen/internal/cluster/testutil"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Cluster Mock", func() {
+var _ = Describe("Cluster", func() {
 	Describe("Builder", func() {
 		It("Should provision a set of cluster ClusterAPIs correctly", func() {
 			cfg := cluster.Config{
 				Gossip: gossip.Config{Interval: 50 * time.Millisecond},
 			}
 			ctx, cancel := signal.Isolated()
-			builder := clustermock.NewBuilder(cfg)
+			builder := testutil.NewBuilder(cfg)
 			DeferCleanup(func() {
 				Expect(builder.Close()).To(Succeed())
 				cancel()

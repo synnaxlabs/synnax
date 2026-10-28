@@ -19,54 +19,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("ParseModuleName", func() {
-	var tmpDir string
-
-	BeforeEach(func() {
-		tmpDir = MustSucceed(os.MkdirTemp("", "gomod-test"))
-		DeferCleanup(func() {
-			Expect(os.RemoveAll(tmpDir)).To(Succeed())
-		})
-	})
-
-	It("should extract the module name from a go.mod file", func() {
-		modPath := filepath.Join(tmpDir, "go.mod")
-		Expect(
-			os.WriteFile(
-				modPath,
-				[]byte("module github.com/example/pkg\n\ngo 1.21\n"),
-				0o644,
-			),
-		).To(Succeed())
-		Expect(
-			MustSucceed(gomod.ParseModuleName(modPath)),
-		).To(Equal("github.com/example/pkg"))
-	})
-
-	It("should handle go.mod with require blocks", func() {
-		modPath := filepath.Join(tmpDir, "go.mod")
-		content := "module github.com/myorg/mymod\n\ngo 1.21\n\nrequire (\n\tgithub.com/foo/bar v1.0.0\n)\n"
-		Expect(os.WriteFile(modPath, []byte(content), 0o644)).To(Succeed())
-		Expect(
-			MustSucceed(gomod.ParseModuleName(modPath)),
-		).To(Equal("github.com/myorg/mymod"))
-	})
-
-	It("should return an error for a nonexistent file", func() {
-		Expect(
-			gomod.ParseModuleName(filepath.Join(tmpDir, "nonexistent")),
-		).Error().
-			To(MatchError(os.ErrNotExist))
-	})
-
-	It("should return an error for a go.mod without module directive", func() {
-		modPath := filepath.Join(tmpDir, "go.mod")
-		Expect(os.WriteFile(modPath, []byte("go 1.21\n"), 0o644)).To(Succeed())
-		Expect(gomod.ParseModuleName(modPath)).
-			Error().To(MatchError(ContainSubstring("no module directive")))
-	})
-})
-
 var _ = Describe("ResolveImportPath", func() {
 	var tmpDir string
 
@@ -109,6 +61,28 @@ var _ = Describe("ResolveImportPath", func() {
 
 		result := gomod.ResolveImportPath("", tmpDir, "github.com/fallback/")
 		Expect(result).To(Equal("github.com/synnaxlabs/x"))
+	})
+
+	It("should read the module name from a go.mod with require blocks", func() {
+		content := "module github.com/myorg/mymod\n\ngo 1.21\n\n" +
+			"require (\n\tgithub.com/foo/bar v1.0.0\n)\n"
+		Expect(os.WriteFile(
+			filepath.Join(tmpDir, "go.mod"),
+			[]byte(content),
+			0o644,
+		)).To(Succeed())
+		result := gomod.ResolveImportPath("", tmpDir, "github.com/fallback/")
+		Expect(result).To(Equal("github.com/myorg/mymod"))
+	})
+
+	It("should fall back to prefix when go.mod has no module directive", func() {
+		Expect(os.WriteFile(
+			filepath.Join(tmpDir, "go.mod"),
+			[]byte("go 1.21\n"),
+			0o644,
+		)).To(Succeed())
+		result := gomod.ResolveImportPath("some/path", tmpDir, "github.com/fallback/")
+		Expect(result).To(Equal("github.com/fallback/some/path"))
 	})
 
 	It("should fall back to prefix when no go.mod found", func() {

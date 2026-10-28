@@ -102,13 +102,11 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
         </Modal.Body>
       </Form.Form>
       <Modal.Footer>
-        <Nav.Bar.Start gap="small">
-          <Triggers.SaveHelpText action={isEdit ? "Save" : "Connect"} noBar />
-        </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
             onClick={handleSubmit}
             trigger={Triggers.SAVE}
+            triggerIndicator
             variant="filled"
           >
             {isEdit ? "Save" : "Connect"}

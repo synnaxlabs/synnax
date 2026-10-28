@@ -16,7 +16,7 @@
 
 #include "client/clib/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::clib {
 constexpr int32_t OK = 0;

@@ -32,7 +32,7 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
     def setup(self) -> None:
         super().setup()
         suffix = random.randint(1000, 9999)
-        rack = self.client.racks.retrieve(name=self.RACK_NAME)
+        rack = self.client.racks.retrieve(name=self.options.driver_rack)
         self.legacy = self.client.devices.create(
             sy.Device(
                 key=f"http-legacy-{suffix}",
