@@ -193,6 +193,7 @@ th,
         0 0 0 var(--pluto-focus-ring-offset) var(--pluto-gray-l1),
         0 0 0 calc(var(--pluto-focus-ring-offset) + 1.5px)
             var(--pluto-selected-subtle-color);
+
     /* Shows behind a translucent color. */
     --pluto-checkerboard: repeating-conic-gradient(
             var(--pluto-gray-l2) 0% 25%,
@@ -379,7 +380,6 @@ html {
 
 .pluto--no-select {
     -webkit-user-select: none;
-    -ms-user-select: none;
     user-select: none;
 }
 

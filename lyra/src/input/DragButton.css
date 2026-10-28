@@ -11,12 +11,15 @@
 
 .pluto-input__drag-btn {
     cursor: move !important;
+
     &.pluto-input__drag-btn--direction-x {
         cursor: col-resize;
+
         & > svg {
             transform: rotate(90deg);
         }
     }
+
     &.pluto-input__drag-btn--direction-y {
         cursor: row-resize;
     }

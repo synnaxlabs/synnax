@@ -22,6 +22,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+
     /* Container units clamp against both axes at once, so the figure stays
        square and fits a region that is short, narrow, or both. */
     width: min(var(--pluto-orbital-size, 18rem), 100cqw, 100cqh);
@@ -67,6 +68,7 @@
     from {
         transform: rotateZ(var(--orbital-rz)) rotateX(var(--orbital-rx));
     }
+
     to {
         transform: rotateZ(var(--orbital-rz)) rotateX(calc(var(--orbital-rx) + 360deg));
     }
@@ -74,6 +76,7 @@
 
 .pluto-orbital__ring {
     --orbital-ring-width: var(--pluto-orbital-ring-width, 2px);
+
     position: absolute;
     inset: 0;
     border-radius: 50%;
@@ -91,6 +94,7 @@
     from {
         transform: rotateZ(0deg);
     }
+
     to {
         transform: rotateZ(360deg);
     }

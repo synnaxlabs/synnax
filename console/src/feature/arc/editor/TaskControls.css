@@ -23,6 +23,7 @@
             right: 0;
             height: 5rem;
             background: linear-gradient(to bottom, transparent, var(--pluto-gray-l0));
+
             /* The fade covers Monaco's horizontal scrollbar. */
             pointer-events: none;
         }

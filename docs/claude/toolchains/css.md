@@ -13,6 +13,7 @@ the check that enforces it, or says that review enforces it.
   builds them with `CSS.B`, `CSS.BE`, `CSS.BM`, `CSS.BEM`, and `CSS.M`.
 - `selector-class-pattern` rejects a name that breaks the pattern. It cannot see a name
   that no code emits, such as `pluto-height-small` for `pluto--height-small`.
+- Style classes, never IDs. `selector-max-id` rejects an ID selector.
 
 ## Cascade layers
 

@@ -9,4 +9,5 @@
 
 import cfg from "@synnaxlabs/stylelint-config";
 
-export default cfg;
+// generate.ts writes the static theme files.
+export default { ...cfg, ignoreFiles: ["src/theming/static/**"] };

@@ -13,7 +13,6 @@
     width: 100%;
     table-layout: fixed;
     border-collapse: collapse;
-
     position: relative;
 
     /* The rail marks the rows as the field's own block and brightens while a

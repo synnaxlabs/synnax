@@ -177,16 +177,16 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         position: absolute;
         top: calc(100% + 1.5rem);
         left: 50%;
-        transform: translateX(-50%);
         width: 680px;
         padding: 2rem;
         box-shadow:
-            0 4px 12px rgba(0, 0, 0, 0.15),
-            0 16px 40px rgba(0, 0, 0, 0.2);
+            0 4px 12px rgb(0 0 0 / 15%),
+            0 16px 40px rgb(0 0 0 / 20%);
         z-index: 20;
         visibility: hidden;
         opacity: 0;
         transform: translateX(-50%) translateY(-6px) scale(0.98);
+
         /* Stays open briefly after the pointer leaves. */
         transition:
             visibility 0s 0.15s,
@@ -295,7 +295,7 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         margin: 0.5rem var(--mobile-drawer-inset);
     }
 
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         .header {
             .header-nav {
                 display: none;

@@ -88,12 +88,12 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
         background:
             radial-gradient(
                 ellipse 60% 50% at 15% 75%,
-                rgba(40, 90, 180, 0.12) 0%,
+                rgb(40 90 180 / 12%) 0%,
                 transparent 60%
             ),
             radial-gradient(
                 ellipse 50% 45% at 80% 20%,
-                rgba(70, 130, 220, 0.09) 0%,
+                rgb(70 130 220 / 9%) 0%,
                 transparent 55%
             );
     }
@@ -129,15 +129,9 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             padding: 6px;
             border-radius: 1.8rem;
             border: var(--pluto-border);
-            background: rgba(255, 255, 255, 0.03);
+            background: rgb(255 255 255 / 3%);
             animation: screenshot-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
             mask-image: linear-gradient(to bottom, #000 0%, #000 65%, transparent 100%);
-            -webkit-mask-image: linear-gradient(
-                to bottom,
-                #000 0%,
-                #000 65%,
-                transparent 100%
-            );
         }
 
         /* Gradient behind both rings */
@@ -149,11 +143,11 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             border-radius: 2.4rem;
             background: conic-gradient(
                 from 45deg at 50% 50%,
-                rgba(55, 116, 208, 0.15) 0%,
-                rgba(80, 160, 240, 0.1) 25%,
-                rgba(55, 116, 208, 0.05) 50%,
-                rgba(100, 140, 220, 0.1) 75%,
-                rgba(55, 116, 208, 0.15) 100%
+                rgb(55 116 208 / 15%) 0%,
+                rgb(80 160 240 / 10%) 25%,
+                rgb(55 116 208 / 5%) 50%,
+                rgb(100 140 220 / 10%) 75%,
+                rgb(55 116 208 / 15%) 100%
             );
             pointer-events: none;
         }
@@ -164,7 +158,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             padding: 6px;
             border-radius: 1.4rem;
             border: var(--pluto-border);
-            background: rgba(255, 255, 255, 0.04);
+            background: rgb(255 255 255 / 4%);
         }
 
         .hero-screenshot {
@@ -177,11 +171,11 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             outline: var(--pluto-border);
             outline-offset: -1px;
             box-shadow:
-                0 1px 1px rgba(0, 0, 0, 0.08),
-                0 2px 4px rgba(0, 0, 0, 0.08),
-                0 8px 16px rgba(0, 0, 0, 0.08),
-                0 24px 48px rgba(0, 0, 0, 0.12),
-                0 48px 96px rgba(0, 0, 0, 0.16);
+                0 1px 1px rgb(0 0 0 / 8%),
+                0 2px 4px rgb(0 0 0 / 8%),
+                0 8px 16px rgb(0 0 0 / 8%),
+                0 24px 48px rgb(0 0 0 / 12%),
+                0 48px 96px rgb(0 0 0 / 16%);
         }
     }
 
@@ -205,6 +199,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             filter: blur(8px);
             transform: translateY(12px);
         }
+
         to {
             opacity: 1;
             filter: blur(0);
@@ -218,6 +213,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             filter: blur(12px);
             transform: scale(0.96) translateY(20px);
         }
+
         to {
             opacity: 1;
             filter: blur(0);
