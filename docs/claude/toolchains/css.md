@@ -22,12 +22,16 @@ the check that enforces it, or says that review enforces it.
 
 ## Cascade layers
 
-- The Console declares `@layer lyra, vendor, pluto` (`console/vite.config.ts`) and
-  leaves its own CSS unlayered. A later layer wins, and unlayered CSS beats every layer,
-  whatever the specificity.
+- `configs/vite/src/layers.ts` holds the layer order. The Console and the Pluto specs
+  use `plutoLayers`: `lyra.base`, `lyra.components`, `vendor`, `pluto`. The sites and
+  the Lyra specs use `lyraLayers`. App CSS stays unlayered. A later layer wins, and
+  unlayered CSS beats every layer, whatever the specificity.
+- `lyra.base` holds `lyra/src/theming/base.css` and the theme files: element defaults
+  and tokens only. Any component rule beats them. A modifier rule goes in the stylesheet
+  of the component that emits it, never in `base.css`.
 - `!important` reverses the layer order: an important declaration in `lyra` beats one in
-  the Console.
-- The sites put Lyra in a layer named `pluto` (`site/docs/astro.config.ts`).
+  the Console. So `declaration-no-important` is on in Lyra and Pluto, and each use sits
+  under a disable comment that states its reason.
 
 ## Precedence
 
@@ -70,10 +74,11 @@ the check that enforces it, or says that review enforces it.
 
 ## Verify
 
-- A `*.browser.spec.tsx` next to a Lyra component renders it in Chromium and pins its
-  look. It compares computed styles with tokens resolved at run time (`resolve` in
-  `lyra/src/testutil/style.tsx`) and with size relations, never with literal values.
-  Run `pnpm install-chromium:lyra` once before the first run.
+- A `*.browser.spec.tsx` next to a Lyra or Pluto component renders it in Chromium and
+  WebKit, under the production layers, and pins its look. It compares computed styles
+  with tokens resolved at run time (`resolve` in `lyra/src/testutil/style.tsx`) and with
+  size relations, never with literal values. Run `pnpm install-browsers:lyra` or
+  `pnpm install-browsers:pluto` once before the first run.
 - Every CSS bug fix ships a browser spec that fails without the fix.
 - Check a CSS fix in the built app (`pnpm build:console-vite`), not only on the dev
   server.

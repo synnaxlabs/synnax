@@ -17,6 +17,8 @@
 
     &:focus {
         outline: none;
+        /* stylelint-disable-next-line declaration-no-important -- a focused field shows
+           all its text whatever overflow its host sets */
         overflow: unset !important;
 
         &.pluto--outline::after {
@@ -33,6 +35,8 @@
        editing scrolls to the caret rather than spilling past the container. The clip
        would eat the ring above, so the ring moves inside the box. */
     &.pluto-text--overflow-ellipsis:focus {
+        /* stylelint-disable-next-line declaration-no-important -- outranks the focused
+           rule above */
         overflow: hidden !important;
         text-overflow: clip;
         border-radius: var(--pluto-border-radius);

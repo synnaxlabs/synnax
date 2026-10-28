@@ -18,6 +18,8 @@
         align-items: center;
 
         &:focus {
+            /* stylelint-disable-next-line declaration-no-important -- a focused cell's
+               text draws no border whatever its host sets */
             border: none !important;
         }
     }

@@ -12,12 +12,14 @@ import { userEvent } from "vitest/browser";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
+import { CSS } from "@/css";
+import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { computed, height, renderThemed, resolve } from "@/testutil/style";
 
 const renderButton = async (
   props: Partial<Button.ButtonProps> = {},
-): Promise<Element> =>
+): Promise<HTMLElement | SVGElement> =>
   (await renderThemed(<Button.Button {...props}>Save</Button.Button>))
     .getByRole("button")
     .element();
@@ -109,9 +111,38 @@ describe("Button", () => {
 
   it("should draw its focus ring in the primary color", async () => {
     const el = await renderButton();
-    await userEvent.tab();
+    // Safari's Tab key skips buttons, so a key press marks the focus as keyboard focus.
+    await userEvent.keyboard("{Shift}");
+    el.focus();
     expect(document.activeElement).toBe(el);
     expect(computed(el, "outline-color")).toBe(resolve("var(--pluto-primary-z)"));
     expect(computed(el, "outline-style")).toBe("solid");
+  });
+
+  it("should rise above its packed neighbor while hovered", async () => {
+    const { getByRole } = await renderThemed(
+      <Flex.Box x pack>
+        <Button.Button>First</Button.Button>
+        <Button.Button>Second</Button.Button>
+      </Flex.Box>,
+    );
+    const first = getByRole("button", { name: "First" }).element();
+    const second = getByRole("button", { name: "Second" }).element();
+    await userEvent.hover(first);
+    expect(Number(computed(first, "z-index"))).toBeGreaterThan(
+      Number(computed(second, "z-index")),
+    );
+  });
+
+  it("should hide a reveal button until its container is hovered", async () => {
+    const { getByRole, getByTestId } = await renderThemed(
+      <Flex.Box className={CSS.M("reveals")} data-testid="host">
+        <Button.Button reveal>Remove</Button.Button>
+      </Flex.Box>,
+    );
+    const el = getByRole("button").element();
+    expect(computed(el, "opacity")).toBe("0");
+    await userEvent.hover(getByTestId("host"));
+    expect(computed(el, "opacity")).toBe("1");
   });
 });

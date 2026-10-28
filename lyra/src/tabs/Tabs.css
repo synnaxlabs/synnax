@@ -25,6 +25,8 @@
 
     /* Find in page can still reach the text of a panel hidden until found. */
     &[hidden]:not([hidden="until-found"]) {
+        /* stylelint-disable-next-line declaration-no-important -- a hidden panel stays
+           hidden whatever display a rule sets */
         display: none !important;
     }
 }
@@ -46,6 +48,8 @@
     }
 
     &.pluto--direction-x:not(.pluto--wrap) {
+        /* stylelint-disable-next-line declaration-no-important -- the strip's height is
+           its min-height whatever Box modifiers it carries */
         height: 0 !important;
     }
 }
@@ -439,11 +443,12 @@
     }
 }
 
-/* A warning-status name (a deleted resource's corpse) escalates to the whole tab.
-   !important outranks the selected and focused text tiers above. */
+/* A warning-status name (a deleted resource's corpse) escalates to the whole tab. */
 .pluto-tabs__selector > .pluto-tabs__tab:has(.pluto-text.pluto--status-warning) {
     .pluto-text,
     > .pluto-icon {
+        /* stylelint-disable-next-line declaration-no-important -- outranks the selected
+           and focused text tiers above */
         color: var(--pluto-warning-z) !important;
     }
 

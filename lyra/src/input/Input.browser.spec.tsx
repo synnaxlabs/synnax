@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
+import { Button } from "@/button";
 import { Input } from "@/input";
 import { computed, height, renderThemed, resolve } from "@/testutil/style";
 
@@ -70,6 +71,19 @@ describe("Input", () => {
     const { input } = await renderInput({ disabled: true });
     expect(getComputedStyle(input, "::placeholder").color).toBe(
       resolve("var(--pluto-text-disabled)"),
+    );
+  });
+
+  it("should stack above the packed button beside it", async () => {
+    const { getByRole } = await renderThemed(
+      <Input.Text value="" onChange={() => {}} placeholder="Name">
+        <Button.Button>Go</Button.Button>
+      </Input.Text>,
+    );
+    const box = getByRole("textbox").element().parentElement!;
+    const button = getByRole("button", { name: "Go" }).element();
+    expect(Number(computed(box, "z-index"))).toBeGreaterThan(
+      Number(computed(button, "z-index")),
     );
   });
 });

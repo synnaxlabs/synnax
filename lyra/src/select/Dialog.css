@@ -27,7 +27,10 @@
 
     &.pluto--modal {
         max-height: var(--pluto-dialog-max-height);
+        /* stylelint-disable declaration-no-important -- outranks the dialog's own
+           border and clip */
         border: none !important;
         overflow: visible !important;
+        /* stylelint-enable declaration-no-important */
     }
 }

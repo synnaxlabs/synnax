@@ -8,9 +8,38 @@
 // included in the file licenses/APL.txt.
 
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
+import { afterEach } from "vitest";
+import { userEvent } from "vitest/browser";
 import { render, type RenderResult } from "vitest-browser-react";
 
 import { Theming } from "@/theming";
+
+// Every host sets border-box on every element (console/src/app/App.css), and Lyra's
+// layout depends on it. A spec reads a computed style at once, so a transition would
+// leave it mid-way.
+const HOST_RULES = `
+  * { box-sizing: border-box; }
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+`;
+
+/**
+ * Prepares the document for style specs. Call it once from a Vitest browser setup file.
+ */
+export const setupBrowser = (): void => {
+  const host = document.createElement("style");
+  host.textContent = HOST_RULES;
+  document.head.appendChild(host);
+  // The pointer stays where a spec left it, so the next spec's element would render
+  // hovered.
+  afterEach(async () => {
+    const corner = document.createElement("div");
+    corner.style.cssText =
+      "position: fixed; right: 0; bottom: 0; width: 1px; height: 1px";
+    document.body.appendChild(corner);
+    await userEvent.hover(corner, { force: true });
+    corner.remove();
+  });
+};
 
 const Themed = ({ children }: PropsWithChildren): ReactElement => (
   <Theming.Provider theme={Theming.SYNNAX_LIGHT}>{children}</Theming.Provider>

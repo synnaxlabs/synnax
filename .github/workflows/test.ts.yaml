@@ -12,8 +12,8 @@ name: Test - TypeScript
 on:
   workflow_call:
     inputs: &inputs
-      chromium:
-        description: Whether the tests run in Playwright's Chromium
+      browsers:
+        description: Whether the tests run in Playwright's Chromium and WebKit
         required: false
         type: boolean
         default: false
@@ -153,10 +153,10 @@ jobs:
         if: matrix.lint && inputs.lint
         run: pnpm lint:${{ inputs.package }}
 
-      - name: Install Chromium
-        if: inputs.test && inputs.chromium
+      - name: Install browsers
+        if: inputs.test && inputs.browsers
         run: >-
-          pnpm install-chromium:${{ inputs.package }} ${{ runner.os == 'Linux' &&
+          pnpm install-browsers:${{ inputs.package }} ${{ runner.os == 'Linux' &&
           '--with-deps' || '' }}
 
       - name: Test

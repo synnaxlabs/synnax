@@ -631,7 +631,7 @@ jobs:
     if: inputs.full || needs.changes.outputs.lyra == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
-      chromium: true
+      browsers: true
       coverage_flag: lyra
       directory: lyra
       macos: *full
@@ -676,6 +676,7 @@ jobs:
       == 'true'
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: pluto
       directory: pluto
