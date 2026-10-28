@@ -11,7 +11,7 @@
 import Legal from "./Legal.astro";
 ---
 
-<Legal title="Privacy policy" effective="October 27, 2026">
+<Legal title="Privacy policy" effective="October 28, 2026">
     <p>
         This privacy policy tells how Synnax Labs, Inc. ("Synnax Labs", "we", "us")
         collects, uses, shares, and protects personal information. It applies when you:
@@ -87,44 +87,73 @@ import Legal from "./Legal.astro";
         </li>
     </ul>
 
-    <h3>Synnax Desktop usage data</h3>
+    <h3 id="desktop-usage-data">Synnax Desktop usage data</h3>
     <p>
-        After you log in, Synnax Desktop can send usage data: launches, the type of each
-        screen, clicks, actions such as creating a channel, how long the built-in Core
-        takes to start and how long it runs, why it stops, the size of the data that a
-        reset erases, crash reports, and survey answers. Crash reports include the error
-        message, which can name a channel or a device. Usage data is linked to the email
-        address and ID of your account. Synnax Desktop does not send recorded data,
-        channel values, or files. For the full list, see{" "}
-        <a href="https://docs.synnaxlabs.com/reference/desktop/usage-data">
-            Synnax Desktop usage data
-        </a>
-        .
+        After you log in, Synnax Desktop can send usage data. It sends none before you
+        log in. Usage data is linked to the email address and ID of your account, and
+        holds:
     </p>
+    <ul>
+        <li>
+            <strong>Launches</strong>: a random ID for the install, the app version, the
+            operating system, the processor type, and the time since the last launch.
+        </li>
+        <li>
+            <strong>Screens</strong>: the type of each tab that you look at, such as a
+            line plot or a schematic. Not its name.
+        </li>
+        <li>
+            <strong>Clicks</strong>: the parts of the app that you click, with all text
+            masked.
+        </li>
+        <li>
+            <strong>Screen recordings</strong>: recordings of the app window, which show
+            what you click and how the screen changes. They show the text in the app,
+            such as channel names, and what you type, but not passwords. Plots, logs,
+            and values show blank.
+        </li>
+        <li>
+            <strong>Actions</strong>: when you create a channel, plot, schematic, or
+            range, connect or configure a device, start a task, or deploy an automation.
+            Types only, not names.
+        </li>
+        <li>
+            <strong>The built-in Core</strong>: how long it takes to start, how long it
+            ran, why it stopped, and the size of the data that a reset erased.
+        </li>
+        <li>
+            <strong>Crash reports</strong>: the error message and where in the app it
+            occurred. An error message can name a channel or a device.
+        </li>
+        <li>
+            <strong>Survey answers</strong>: your answers, if you answer a survey in the
+            app.
+        </li>
+    </ul>
     <p>
-        Usage data also includes recordings of the app window, which show what you click
-        and how the screen changes. A recording hides all text and inputs, and shows
-        plots, logs, and values as blank. We use recordings to find bugs and to make the
-        app better.
+        PostHog, which stores usage data for us, also receives the IP address of the
+        computer. Synnax Desktop does not send recorded data, channel values, or files.
+        We use usage data to find bugs and to learn which features people use.
     </p>
     <p>
         We use the country of your IP address to choose how the login page asks about
         usage data. In the EU, the EEA, the UK, Switzerland, and countries that we
         cannot identify, it asks for your consent, and Synnax Desktop sends usage data
-        only if you agree. Everywhere else, it shows a notice, and usage data is on. You
-        can turn usage data off at any time with the "Share usage data" switch in the
-        app.
+        only if you agree. Everywhere else, it shows a notice, and usage data is on. To
+        turn usage data off at any time, run the "Change usage data settings" command in
+        the app, and turn off "Share usage data".
     </p>
 
     <h3>Information we collect automatically</h3>
     <ul>
         <li>
-            <strong>Website analytics</strong>: on docs.synnaxlabs.com, the pages that
-            you visit, your clicks, the page that sent you, and your browser and device
-            type. We do not store an analytics cookie or identifier in your browser. To
-            count visitors, PostHog makes a code from your IP address and browser type,
-            with a random value that changes each day. PostHog does not keep your IP
-            address, and it cannot connect the code to you.
+            <strong>Website analytics</strong>: on www.synnaxlabs.com and
+            docs.synnaxlabs.com, the pages that you visit, your clicks, the page that
+            sent you, and your browser and device type. We do not store an analytics
+            cookie or identifier in your browser. To count visitors, PostHog makes a
+            code from your IP address and browser type, with a random value that changes
+            each day. PostHog does not keep your IP address, and it cannot connect the
+            code to you.
         </li>
         <li>
             <strong>Search</strong>: the words that you search for in the documentation.

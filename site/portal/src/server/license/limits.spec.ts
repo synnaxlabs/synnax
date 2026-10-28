@@ -26,6 +26,14 @@ describe("limits", () => {
       expect(filename("")).toBe("synnax.lic");
       expect(filename("///")).toBe("synnax.lic");
     });
+
+    it("should add the name of the machine the key is for", () => {
+      expect(filename("Test rig", "Stand #3")).toBe("Test-rig-Stand-3.lic");
+    });
+
+    it("should leave out a machine with no name", () => {
+      expect(filename("Test rig", null)).toBe("Test-rig.lic");
+    });
   });
 
   describe("term", () => {

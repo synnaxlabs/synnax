@@ -22,7 +22,6 @@ from console.range.surface import (
     Surface,
 )
 from console.range.toolbar import Toolbar
-from framework.run_dir import resolve_results_path
 
 
 class Overview(Surface):
@@ -294,7 +293,7 @@ class Overview(Surface):
             download_button.click()
 
         download = download_info.value
-        save_path = resolve_results_path(f"{range_name}.csv")
+        save_path = str(self.layout.results_dir / f"{range_name}.csv")
         download.save_as(save_path)
         with open(save_path, encoding="utf-8") as f:
             return f.read()
