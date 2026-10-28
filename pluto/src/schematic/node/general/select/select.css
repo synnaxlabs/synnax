@@ -30,7 +30,6 @@
     }
 
     svg.pluto-caret-animated {
-        color: var(--pluto-gray-l9);
         fill: currentcolor;
     }
 

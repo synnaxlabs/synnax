@@ -120,6 +120,7 @@ class TimeStamp(int):
     * timedelta - Treats the timedelta as a duration since the Unix epoch in UTC.
     * np.datetime64 - Treats the datetime64 as a duration since the Unix epoch in UTC.
     * int - Treats the int as a nanosecond duration since the Unix epoch in UTC.
+    * str - Parses a decimal string of nanoseconds since the Unix epoch in UTC.
     """
 
     def __new__(cls, value: CrudeTimeStamp) -> TimeStamp:
@@ -302,6 +303,7 @@ class TimeSpan(int):
     * timedelta - The duration of the timedelta.
     * pands.timedelta - The duration of the timedelta.
     * np.timedelta64 - The duration of the timedelta64.
+    * str - Parses a decimal string of nanoseconds.
     """
 
     def __new__(cls, value: CrudeTimeSpan) -> TimeSpan:
@@ -1324,10 +1326,10 @@ DataType.ALL = (
 )
 
 CrudeTimeStamp: TypeAlias = (
-    int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64
+    int | TimeStamp | TimeSpan | datetime | timedelta | np.datetime64 | np.int64 | str
 )
 CrudeTimeSpan: TypeAlias = (
-    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64
+    int | float | TimeSpan | TimeStamp | timedelta | np.timedelta64 | str
 )
 _ComparableTimeSpan: TypeAlias = int | float | timedelta
 CrudeRate: TypeAlias = int | float | TimeSpan | Rate

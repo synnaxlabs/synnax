@@ -16,7 +16,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import * as Device from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
@@ -94,7 +94,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -148,7 +148,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);
