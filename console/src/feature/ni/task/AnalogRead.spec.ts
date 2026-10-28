@@ -411,6 +411,14 @@ describe("AnalogRead", () => {
     ).toBeTruthy();
   });
 
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogRead,
+      NI.Task.ANALOG_READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
+  });
+
   it("should create the task with one channel on the given device", async () => {
     const dev = await createNIDevice(client);
     const tsk = await createWithHook(
