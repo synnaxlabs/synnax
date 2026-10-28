@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
+import { List } from "@/list";
 import { Select } from "@/select";
 import { createRenderCounter } from "@/testutil/renders";
 import { Triggers } from "@/triggers";
@@ -271,5 +273,105 @@ describe("Select render isolation", () => {
     changed.push("key-2", ...Array.from({ length: 10 }, (_, i) => `key-2${i}`));
     expect([...counts.keys()].sort()).toEqual(changed.sort());
     counts.forEach((count) => expect(count).toBe(1));
+  });
+
+  describe("checkable", () => {
+    interface CheckableProps {
+      onActivate?: () => void;
+      onChange?: (keys: string[]) => void;
+      disabled?: boolean;
+    }
+
+    const Checkable = ({
+      onActivate,
+      onChange,
+      disabled,
+    }: CheckableProps): ReactElement => {
+      const [value, setValue] = useState<string[]>([]);
+      const handleChange = (next: string[]): void => {
+        setValue(next);
+        onChange?.(next);
+      };
+      return (
+        <Triggers.Provider>
+          <Select.Frame<string, undefined>
+            multiple
+            data={["alpha", "bravo"]}
+            value={value}
+            onChange={handleChange}
+          >
+            <List.Scroll>
+              <List.Items<string>>
+                {({ key, ...p }): ReactElement => (
+                  <Select.Item
+                    key={key}
+                    {...p}
+                    checkable
+                    onActivate={onActivate}
+                    disabled={disabled}
+                  >
+                    {p.itemKey}
+                  </Select.Item>
+                )}
+              </List.Items>
+            </List.Scroll>
+          </Select.Frame>
+        </Triggers.Provider>
+      );
+    };
+
+    const item = (c: RenderResult, key: string): HTMLElement =>
+      c.baseElement.querySelector<HTMLElement>(`#${key}`)!;
+
+    const checkbox = (c: RenderResult, key: string): HTMLInputElement =>
+      item(c, key).querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+
+    it("should call onActivate on a plain click without selecting", () => {
+      const onActivate = vi.fn();
+      const c = render(<Checkable onActivate={onActivate} />);
+      fireEvent.click(item(c, "alpha"));
+      expect(onActivate).toHaveBeenCalledTimes(1);
+      expect(checkbox(c, "alpha").checked).toBe(false);
+    });
+
+    it("should select on a click with Command held without activating", () => {
+      const onActivate = vi.fn();
+      const c = render(<Checkable onActivate={onActivate} />);
+      fireEvent.click(item(c, "alpha"), { metaKey: true });
+      expect(onActivate).not.toHaveBeenCalled();
+      expect(checkbox(c, "alpha").checked).toBe(true);
+    });
+
+    it("should add to the selection through each checkbox", () => {
+      const onChange = vi.fn();
+      const c = render(<Checkable onChange={onChange} />);
+      fireEvent.click(checkbox(c, "alpha"));
+      fireEvent.click(checkbox(c, "bravo"));
+      expect(onChange).toHaveBeenLastCalledWith(["alpha", "bravo"]);
+    });
+
+    it("should empty the selection when the last checkbox clears", () => {
+      const onChange = vi.fn();
+      const c = render(<Checkable onChange={onChange} />);
+      fireEvent.click(checkbox(c, "alpha"));
+      fireEvent.click(checkbox(c, "alpha"));
+      expect(onChange).toHaveBeenLastCalledWith([]);
+      expect(checkbox(c, "alpha").checked).toBe(false);
+    });
+
+    it("should not activate when the checkbox is clicked", () => {
+      const onActivate = vi.fn();
+      const c = render(<Checkable onActivate={onActivate} />);
+      fireEvent.click(checkbox(c, "alpha"));
+      expect(onActivate).not.toHaveBeenCalled();
+    });
+
+    it("should not select a disabled item through its checkbox", async () => {
+      const onChange = vi.fn();
+      const c = render(<Checkable onChange={onChange} disabled />);
+      await userEvent.click(checkbox(c, "alpha"));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(checkbox(c, "alpha").checked).toBe(false);
+    });
   });
 });

@@ -57,7 +57,6 @@ and load when an interactive section approaches the viewport.
 ```sh
 pnpm check-types:foundation
 pnpm lint:foundation
-pnpm stylelint:foundation
 pnpm knip:foundation
 pnpm --filter @synnaxlabs/foundation test --run
 pnpm exec prettier --check site/foundation
