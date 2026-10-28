@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
@@ -94,10 +95,18 @@ func (s *Service) validateEntry(
 	parent, id ontology.ID,
 	name string,
 ) error {
-	if id.Type == ontology.ResourceTypeGroup && !validate.IsIdentifier(name) {
+	identifier := id.Type == ontology.ResourceTypeGroup
+	if id.Type == ontology.ResourceTypeArc {
+		module, err := s.isModule(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		identifier = module
+	}
+	if identifier && !validate.IsIdentifier(name) {
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"group name %q must contain only letters, digits, and underscores",
+			"name %q must contain only letters, digits, and underscores",
 			name,
 		)
 	}
@@ -126,6 +135,25 @@ func (s *Service) validateEntry(
 		}
 	}
 	return nil
+}
+
+func (s *Service) isModule(
+	ctx context.Context,
+	tx gorp.Tx,
+	id ontology.ID,
+) (bool, error) {
+	key, err := uuid.Parse(id.Key)
+	if err != nil {
+		return false, err
+	}
+	var a Arc
+	if err = s.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](key)).
+		Entry(&a).
+		Exec(ctx, tx); err != nil {
+		return false, err
+	}
+	return a.Type == TypeModule, nil
 }
 
 // isDirectory reports whether id is the Arcs group or a group below it.

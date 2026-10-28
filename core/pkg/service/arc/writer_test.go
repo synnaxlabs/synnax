@@ -60,6 +60,20 @@ var _ = Describe("Writer", func() {
 			Expect(parents[0].Name).To(Equal("Arcs"))
 		})
 
+		It("Should default the type to automation", func(ctx SpecContext) {
+			a := arc.Arc{Name: "defaulted", Mode: arc.ModeText}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			Expect(a.Type).To(Equal(arc.TypeAutomation))
+		})
+
+		It("Should reject a change of type", func(ctx SpecContext) {
+			a := arc.Arc{Name: "typed", Type: arc.TypeModule, Mode: arc.ModeText}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			a.Type = arc.TypeAutomation
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).
+				To(MatchError(ContainSubstring("type cannot change")))
+		})
+
 		It("Should handle multiple Arc creations", func(ctx SpecContext) {
 			a1 := arc.Arc{Name: "arc-1", Mode: arc.ModeText}
 			a2 := arc.Arc{Name: "arc-2", Mode: arc.ModeText}

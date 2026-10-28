@@ -53,7 +53,7 @@ var _ = Describe("Policy", func() {
 		)
 	}
 
-	Describe("Group names", func() {
+	Describe("Names", func() {
 		It(
 			"Should reject a group under Arcs whose name is not an identifier",
 			func(ctx SpecContext) {
@@ -66,6 +66,16 @@ var _ = Describe("Policy", func() {
 			func(ctx SpecContext) {
 				MustSucceed(groups.Create(ctx, "sy_lib", arcs))
 				MustSucceed(groups.Create(ctx, "sy lib", ontology.RootID))
+			},
+		)
+		It(
+			"Should reject a module whose name is not an identifier",
+			func(ctx SpecContext) {
+				m := arc.Arc{Name: "my lib", Type: arc.TypeModule, Mode: arc.ModeText}
+				Expect(svc.NewWriter(tx).Create(ctx, &m)).
+					To(MatchError(ContainSubstring("letters, digits, and underscores")))
+				a := arc.Arc{Name: "my automation", Mode: arc.ModeText}
+				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			},
 		)
 	})

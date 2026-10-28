@@ -73,8 +73,17 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
 		a.Text.Doc = text.Create(a.Text.Raw)
 	}
+	a.ApplyDefaults()
 	if err = a.Validate(); err != nil {
 		return err
+	}
+	if exists && existing.Type != a.Type {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"type cannot change from %s to %s",
+			existing.Type,
+			a.Type,
+		)
 	}
 	if exists && existing.Name != a.Name {
 		if err = w.otgWriter.ValidateName(ctx, a.OntologyID(), a.Name); err != nil {
@@ -212,6 +221,11 @@ func (w Writer) UpdateTask(
 		Entry(&a).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
+	}
+	if a.Type == TypeModule {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "a module cannot be bound to a rack",
+		)
 	}
 	if len(existing) > 0 {
 		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {

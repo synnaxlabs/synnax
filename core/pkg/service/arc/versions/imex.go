@@ -15,9 +15,13 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions/legacy"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
+
+// FileType returns the type header of a file that holds an Arc of type t.
+func FileType(t Type) string { return v4.FileType(t) }
 
 // DecodeImExEnvelope materializes env's body as a current-version Arc, keyless and
 // named after the envelope. An unknown version is a path-scoped validation error.
@@ -52,6 +56,10 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
 	a.Name = env.Name
+	// From v4 on the type header names the Arc's type.
+	if t, ok := v4.TypeFromFileType(env.Type); ok {
+		a.Type = t
+	}
 	return a, nil
 }
 

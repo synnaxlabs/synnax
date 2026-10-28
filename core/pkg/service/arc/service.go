@@ -281,6 +281,11 @@ func OpenService(
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
+	for _, t := range []Type{TypeAutomation, TypeModule} {
+		if err = cfg.ImEx.RegisterImporter(versions.FileType(t), s); !ok(err, nil) {
+			return nil, err
+		}
+	}
 	if cfg.Signals != nil {
 		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{

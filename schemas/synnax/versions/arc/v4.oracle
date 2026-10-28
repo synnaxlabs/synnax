@@ -1,0 +1,61 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/arc/program"
+import "schemas/arc/versions/graph/v1"
+import "schemas/arc/versions/text/v1"
+
+Key = v0.Key
+
+Mode = v0.Mode
+
+Type enum {
+    automation = "automation"
+    module     = "module"
+
+    @doc value """
+        specifies whether an Arc runs on a rack as an automation or holds code for other
+        Arcs to import as a module.
+    """
+}
+
+Arc struct {
+    key     Key = create {
+        @doc value "is the unique identifier for this module."
+        @key
+    }
+    name    string           {
+        @doc value "is a human-readable name for the module."
+    }
+    mode    Mode             {
+        @doc value """
+            specifies the representation mode for this module. Either "text" for
+            text-based Arc code or "graph" for visual dataflow.
+        """
+    }
+    graph   graph.Graph = {} {
+        @doc value "is the visual dataflow graph representation of the module."
+    }
+    text    text.Text = {} {
+        @doc value "is the text-based Arc source code."
+    }
+    program program.Program? {
+        @doc value  """
+            is the compiled module output including IR and WebAssembly bytecode.
+        """
+        @go marshal omit
+    }
+    type    Type = automation {
+        @doc value "specifies whether this Arc is an automation or a module."
+    }
+
+    @go imex
+    @go marshal
+    @go migrate
+}

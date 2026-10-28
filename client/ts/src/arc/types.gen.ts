@@ -21,6 +21,10 @@ export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
 export type Mode = z.infer<typeof modeZ>;
 
+export const TYPES = ["automation", "module"] as const;
+export const typeZ = z.enum(TYPES);
+export type Type = z.infer<typeof typeZ>;
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -44,6 +48,8 @@ export const arcZ = z.object({
   text: text.textZ.prefault({}),
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
+  /** type specifies whether this Arc is an automation or a module. */
+  type: typeZ.default("automation"),
 });
 export interface Arc extends z.infer<typeof arcZ> {}
 export interface New extends z.input<typeof arcZ> {}

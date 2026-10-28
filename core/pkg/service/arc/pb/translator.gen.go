@@ -35,12 +35,17 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 	if err != nil {
 		return nil, err
 	}
+	typeVal, err := TypeToPB(r.Type)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Arc{
 		Name:  r.Name,
 		Key:   r.Key.String(),
 		Mode:  modeVal,
 		Graph: graphVal,
 		Text:  textVal,
+		Type:  typeVal,
 	}
 	if r.Program != nil {
 		var err error
@@ -72,6 +77,10 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 		return arc.Arc{}, err
 	}
 	r.Text, err = textpb.TextFromPB(pb.Text)
+	if err != nil {
+		return arc.Arc{}, err
+	}
+	r.Type, err = TypeFromPB(pb.Type)
 	if err != nil {
 		return arc.Arc{}, err
 	}
@@ -133,5 +142,29 @@ func ModeFromPB(v Mode) (arc.Mode, error) {
 		return arc.ModeGraph, nil
 	default:
 		return arc.Mode(""), errors.Newf("unrecognized Mode value: %v", v)
+	}
+}
+
+// TypeToPB converts arc.Type to Type.
+func TypeToPB(v arc.Type) (Type, error) {
+	switch v {
+	case arc.TypeAutomation:
+		return Type_TYPE_AUTOMATION, nil
+	case arc.TypeModule:
+		return Type_TYPE_MODULE, nil
+	default:
+		return 0, errors.Newf("unrecognized arc.Type value: %v", v)
+	}
+}
+
+// TypeFromPB converts Type to arc.Type.
+func TypeFromPB(v Type) (arc.Type, error) {
+	switch v {
+	case Type_TYPE_AUTOMATION:
+		return arc.TypeAutomation, nil
+	case Type_TYPE_MODULE:
+		return arc.TypeModule, nil
+	default:
+		return arc.Type(""), errors.Newf("unrecognized Type value: %v", v)
 	}
 }

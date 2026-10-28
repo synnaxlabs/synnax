@@ -264,7 +264,7 @@ var _ = Describe("Export", func() {
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Startup.json"))
 		Expect(decode(files["Startup.json"])).To(SatisfyAll(
-			HaveKeyWithValue("type", "arc"),
+			HaveKeyWithValue("type", "arc-automation"),
 			HaveKeyWithValue("text", map[string]any{"raw": "x := 1"}),
 		))
 		root := decode(files["Controls.json"])["root"].(map[string]any)

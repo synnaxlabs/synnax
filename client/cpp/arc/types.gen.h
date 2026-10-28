@@ -32,6 +32,9 @@ struct Arc;
 constexpr const char *MODE_TEXT = "text";
 constexpr const char *MODE_GRAPH = "graph";
 
+constexpr const char *TYPE_AUTOMATION = "automation";
+constexpr const char *TYPE_MODULE = "module";
+
 using Key = x::uuid::UUID;
 
 /// @brief Arc is an Arc module combining visual graph representation and text-based
@@ -52,6 +55,8 @@ struct Arc {
     /// @brief program is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::program::Program> program;
+    /// @brief type specifies whether this Arc is an automation or a module.
+    std::string type = TYPE_AUTOMATION;
 
     static Arc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
