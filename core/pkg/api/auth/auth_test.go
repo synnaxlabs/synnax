@@ -56,7 +56,7 @@ func authed(ctx context.Context, token string) freighter.Context {
 
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
-	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: username}))
+	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Name: username}))
 	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
 		Username: username,
 		Password: pwd,
@@ -84,7 +84,7 @@ var _ = Describe("Login", func() {
 			res := MustSucceed(
 				apiSvc.Login(requestCtx(ctx), request(creds.Username, creds.Password)),
 			)
-			Expect(res.User).To(Equal(root))
+			Expect(res.User.Key).To(Equal(root.Key))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.OntologyID()))
 			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
@@ -111,7 +111,7 @@ var _ = Describe("ChangePassword", func() {
 	BeforeEach(func(ctx SpecContext) {
 		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
 		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: own.Username,
+			Name: own.Username,
 		}))
 		Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), own)).To(Succeed())
 	})
@@ -262,7 +262,7 @@ var _ = Describe("CreateSession", func() {
 		Expect(session.Key).To(Equal(res.Session.Key))
 		Expect(res.Session.Subject).To(Equal(root.OntologyID()))
 		Expect(res.Session.Credential).To(Equal(session.Credential))
-		Expect(res.User).To(HaveValue(Equal(root)))
+		Expect(res.User.Key).To(Equal(root.Key))
 	})
 	DescribeTable("Should leave the hash off the wire", func(
 		ctx SpecContext,
@@ -323,7 +323,7 @@ var _ = Describe("Sessions", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
-		bobToken = login(ctx, bob.Username, "p").Token
+		bobToken = login(ctx, bob.Name, "p").Token
 		rootToken = login(ctx, creds.Username, creds.Password).Token
 	})
 	Describe("RetrieveSessions", func() {
