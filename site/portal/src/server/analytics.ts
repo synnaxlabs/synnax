@@ -82,10 +82,11 @@ export interface Analytics {
   visits: (from: Date, to: Date) => Promise<Visit[]>;
 }
 
-/** LOOKBACK_MS is how long before a visit ends that its sessions are read from. */
-const LOOKBACK_MS = DAY_MS;
-
-const lookback = (from: Date): Date => new Date(from.getTime() - LOOKBACK_MS);
+/**
+ * MAX_LOOKBACK_MS is how far back the sessions of a visit are read. A visit that began
+ * before it is cut to start there.
+ */
+const MAX_LOOKBACK_MS = 8 * DAY_MS;
 
 const span = ({ start, end }: Session): number => end.getTime() - start.getTime();
 
@@ -201,25 +202,37 @@ const responseZ = z.object({ results: z.array(rowZ) });
 
 const TIMEOUT_MS = 30_000;
 
-/** posthog reads visits through PostHog's query API with a personal API key. */
-export const posthog = (apiKey: string): Analytics => ({
-  visits: async (from, to) => {
+/**
+ * posthog reads visits through PostHog's query API with a personal API key. It reads a
+ * day of sessions, and twice as far back while a visit may have begun before them.
+ */
+export const posthog = (apiKey: string): Analytics => {
+  const read = async (since: Date): Promise<Session[]> => {
     const res = await fetch(`${HOST}/api/projects/${PROJECT}/query/`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${apiKey}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        query: { kind: "HogQLQuery", query: query(lookback(from)) },
-      }),
+      body: JSON.stringify({ query: { kind: "HogQLQuery", query: query(since) } }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok)
       throw new Error(`posthog: query failed with ${res.status}: ${await res.text()}`);
-    return visitsIn(responseZ.parse(await res.json()).results, from, to);
-  },
-});
+    return responseZ.parse(await res.json()).results;
+  };
+  return {
+    visits: async (from, to) => {
+      for (let back = DAY_MS; ; back *= 2) {
+        const since = from.getTime() - back;
+        const visits = visitsIn(await read(new Date(since)), from, to);
+        // A visit that starts within the idle wait of `since` can join older sessions.
+        const cut = visits.some((v) => v.start.getTime() < since + IDLE_MS);
+        if (!cut || back >= MAX_LOOKBACK_MS) return visits;
+      }
+    },
+  };
+};
 
 /** unconfigured is the analytics of a portal with no PostHog key. Every read throws. */
 export const unconfigured = (): Analytics => ({
@@ -233,11 +246,6 @@ export const memory = (): Analytics & { recorded: Session[] } => {
   const recorded: Session[] = [];
   return {
     recorded,
-    visits: async (from, to) =>
-      visitsIn(
-        recorded.filter((s) => s.end >= lookback(from)),
-        from,
-        to,
-      ),
+    visits: async (from, to) => visitsIn(recorded, from, to),
   };
 };

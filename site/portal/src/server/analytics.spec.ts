@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 
 import {
@@ -66,10 +66,12 @@ describe("analytics", () => {
   });
 
   describe("posthog", () => {
-    let fetch: ReturnType<typeof vi.fn>;
+    let fetch: Mock<typeof globalThis.fetch>;
 
     beforeEach(() => {
-      fetch = vi.fn(async () => Response.json({ results: [row()] }));
+      fetch = vi.fn<typeof globalThis.fetch>(async () =>
+        Response.json({ results: [row()] }),
+      );
       vi.stubGlobal("fetch", fetch);
     });
 
@@ -199,6 +201,45 @@ describe("analytics", () => {
         { id: "late", start: "2026-09-17T13:25:00Z", end: "2026-09-17T13:40:00Z" },
       );
       expect(await visits()).toEqual([]);
+    });
+
+    /** sinceOf reads the start of the events that a query reads. */
+    const sinceOf = (init?: RequestInit): string => {
+      const body = JSON.parse(init?.body as string) as { query: { query: string } };
+      const since = /timestamp >= toDateTime\('([^']+)'/.exec(body.query.query);
+      expect(since).not.toBeNull();
+      return since?.[1] ?? "";
+    };
+
+    const readFrom = (): string[] => fetch.mock.calls.map(([, init]) => sinceOf(init));
+
+    it("should read back further for a visit that began before the day it read", async () => {
+      fetch.mockImplementation(async (_, init) => {
+        const start =
+          sinceOf(init) === "2026-09-16 13:15:00"
+            ? "2026-09-16T13:16:00Z"
+            : "2026-09-16T10:00:00Z";
+        return Response.json({ results: [row({ start })] });
+      });
+      const [visit] = await visits();
+      expect(visit.start).toEqual(new Date("2026-09-16T10:00:00Z"));
+      expect(readFrom()).toEqual(["2026-09-16 13:15:00", "2026-09-15 13:15:00"]);
+    });
+
+    it("should read back at most 8 days", async () => {
+      fetch.mockImplementation(async (_, init) => {
+        const since = Date.parse(`${sinceOf(init).replace(" ", "T")}Z`);
+        const start = new Date(since + 60_000).toISOString();
+        return Response.json({ results: [row({ start })] });
+      });
+      const [visit] = await visits();
+      expect(readFrom()).toEqual([
+        "2026-09-16 13:15:00",
+        "2026-09-15 13:15:00",
+        "2026-09-13 13:15:00",
+        "2026-09-09 13:15:00",
+      ]);
+      expect(visit.start).toEqual(new Date("2026-09-09T13:16:00Z"));
     });
 
     it("should throw when PostHog refuses the query", async () => {
