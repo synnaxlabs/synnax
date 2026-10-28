@@ -555,7 +555,9 @@ jobs:
 
   foundation-site:
     needs: changes
-    if: inputs.full || needs.changes.outputs.foundation == 'true'
+    if:
+      inputs.full || needs.changes.outputs.foundation == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'foundation-site')
     permissions:
       contents: read
     uses: ./.github/workflows/build.site.yaml
@@ -801,7 +803,9 @@ jobs:
 
   portal-site:
     needs: changes
-    if: inputs.full || needs.changes.outputs.portal == 'true'
+    if:
+      inputs.full || needs.changes.outputs.portal == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'portal-site')
     permissions:
       contents: read
     uses: ./.github/workflows/build.site.yaml
@@ -903,7 +907,9 @@ jobs:
 
   www-site:
     needs: changes
-    if: inputs.full || needs.changes.outputs.www == 'true'
+    if:
+      inputs.full || needs.changes.outputs.www == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'www-site')
     permissions:
       contents: read
     uses: ./.github/workflows/build.site.yaml
