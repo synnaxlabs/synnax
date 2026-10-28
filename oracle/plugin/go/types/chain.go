@@ -362,11 +362,10 @@ func withLiveMethods(
 				if !has {
 					continue
 				}
-				fields[j].Domains = maps.Clone(fields[j].Domains)
-				if fields[j].Domains == nil {
-					fields[j].Domains = make(map[string]resolution.Domain, 1)
-				}
-				fields[j].Domains[name] = d
+				domains := make(map[string]resolution.Domain, len(fields[j].Domains)+1)
+				maps.Copy(domains, fields[j].Domains)
+				domains[name] = d
+				fields[j].Domains = domains
 			}
 		}
 		form.Fields = fields
