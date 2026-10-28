@@ -504,6 +504,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'eslint-config')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: eslint-config
       directory: configs/eslint
       package: eslint-config
     secrets: inherit
@@ -571,6 +572,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'foundation')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: foundation
       directory: site/foundation
       macos: *full
       package: foundation
@@ -913,6 +915,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'vite-plugin')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: vite-plugin
       directory: configs/vite
       macos: *full
       package: vite-plugin
