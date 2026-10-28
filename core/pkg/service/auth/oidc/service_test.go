@@ -422,7 +422,7 @@ var _ = Describe("Service", func() {
 			Expect(session.Credential).To(Equal(link.Key))
 		})
 		It("Should reject a proof of another method", func(ctx SpecContext) {
-			Expect(svc.Authenticate(ctx, auth.Proof{Variant: auth.ApiKeyProof{}})).
+			Expect(svc.Authenticate(ctx, auth.Proof{Variant: auth.APIKeyProof{}})).
 				Error().To(MatchError(validate.ErrValidation))
 		})
 		It("Should return the provider's rejection", func(ctx SpecContext) {

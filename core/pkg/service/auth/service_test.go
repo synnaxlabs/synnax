@@ -244,7 +244,7 @@ var _ = Describe("Service", func() {
 		It("Should refuse a login with a method that is not accepted", func(
 			ctx SpecContext,
 		) {
-			Expect(narrowed.Login(ctx, auth.Proof{Variant: auth.ApiKeyProof{
+			Expect(narrowed.Login(ctx, auth.Proof{Variant: auth.APIKeyProof{
 				APIKeyCredentials: auth.APIKeyCredentials{Key: "syk_key"},
 			}})).Error().To(MatchError(ContainSubstring("not accepted")))
 		})
@@ -369,6 +369,9 @@ var _ = Describe("Service", func() {
 				}
 			},
 		)
+	})
+	It("Should return the configured idle timeout", func() {
+		Expect(svc.IdleTimeout()).To(Equal(idle))
 	})
 	Describe("Logout", func() {
 		It("Should ignore unknown keys", func(ctx SpecContext) {
