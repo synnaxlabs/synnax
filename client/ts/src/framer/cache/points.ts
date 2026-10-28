@@ -29,6 +29,7 @@ import { type ChannelRetriever } from "@/framer/adapter";
 import { type Block, RAW_LEVEL, type RawBlock, rawIndex } from "@/framer/cache/block";
 import {
   choose,
+  cover,
   index as tileIndex,
   indexes,
   level as tileLevel,
@@ -173,10 +174,6 @@ export class Points {
     return this.home().end.after(this.props.now().sub(COMMIT_MARGIN));
   }
 
-  private get rawOnly(): boolean {
-    return this.limit.count === Infinity;
-  }
-
   /**
    * Replaces the window and limit. Held tiles stand in until the new ones land. Tiles a
    * definitive failure stopped read again only under a new aggregation or point count.
@@ -202,7 +199,7 @@ export class Points {
     }
     if (this.index == null) return;
     this.stream(this.index);
-    if (moved || this.rawOnly) this.boundary = this.rawFrom(this.home());
+    if (moved) this.boundary = this.rawFrom(this.home());
   }
 
   /**
@@ -288,12 +285,11 @@ export class Points {
       return home.end.after(committed) && end < until ? end : until;
     }
     const span = home.span.valueOf();
-    const level = this.rawOnly ? RAW_LEVEL : tileLevel(home);
-    const start = nextEdge(home.start, level) + span;
+    const start = nextEdge(home.start, tileLevel(home)) + span;
     if (start < until) until = start;
-    // A raw window drops its first series once the window starts after it.
+    // A window drops its first raw series once the window starts after it.
     const first = this.raw[0]?.timeRange.end.valueOf();
-    if (this.rawOnly && first != null && first + span < until) until = first + span;
+    if (first != null && first + span < until) until = first + span;
     return until;
   }
 
@@ -401,27 +397,24 @@ export class Points {
     this.live = { demand, leave, keys };
   }
 
-  // rawFrom is where raw samples start. In a dynamic window, it sits on a tile edge of
-  // the window's level, so no tile of that level or finer crosses it. In a static
-  // window, it sits on the raw block edge before the commit point, and at the window's
-  // end once the end commits.
+  // rawFrom is where raw samples start. A dynamic window no wider than two raw blocks
+  // draws only raw samples, from the edge of its level's tile before its start. Other
+  // windows draw them from the raw block edge before the commit point, or from the end
+  // of a static window once the end commits.
   private rawFrom(home: TimeRange): TimeStamp {
-    if (this.rawOnly) return home.start;
-    if (this.dynamic) {
-      const level = tileLevel(home);
+    const level = tileLevel(home);
+    if (this.dynamic && level <= RAW_LEVEL)
       return tileRange({ level, index: tileIndex(home.start, level) }).start;
-    }
     const committed = this.props.now().sub(COMMIT_MARGIN);
-    if (!home.end.after(committed)) return home.end;
+    if (!this.dynamic && !home.end.after(committed)) return home.end;
     const edge = tileRange({ level: RAW_LEVEL, index: rawIndex(committed) }).start;
     return TimeStamp.max(home.start, edge);
   }
 
-  // Moves the boundary to at most one span of rawFrom's grid behind rawFrom, so a
-  // window that never draws stops growing.
+  // Moves the boundary to at most one raw block behind rawFrom, so a window that never
+  // draws stops growing.
   private cutoff(home: TimeRange): void {
-    const level = this.dynamic ? tileLevel(home) : RAW_LEVEL;
-    const floor = this.rawOnly ? home.start : this.rawFrom(home).sub(tileSpan(level));
+    const floor = this.rawFrom(home).sub(tileSpan(RAW_LEVEL));
     this.boundary = TimeStamp.max(this.boundary, floor);
   }
 
@@ -434,7 +427,14 @@ export class Points {
   // tilesEnd is where tiles stop for the boundary: the boundary, or the start of a raw
   // series that crosses it, so no span draws twice.
   private tilesEnd(boundary: TimeStamp): TimeStamp {
-    const first = this.raw.find((s) => s.timeRange.end.after(boundary));
+    // A raw series ends within its block, though an open one's range ends at MAX.
+    const first = this.raw.find((s) => {
+      const { end } = tileRange({
+        level: RAW_LEVEL,
+        index: rawIndex(s.timeRange.start),
+      });
+      return TimeStamp.min(s.timeRange.end, end).after(boundary);
+    });
     return first == null ? boundary : TimeStamp.min(boundary, first.timeRange.start);
   }
 
@@ -444,11 +444,12 @@ export class Points {
     extremesKept: boolean,
     boundary: TimeStamp = this.boundary,
   ): TileSpec[] {
-    if (this.rawOnly) return [];
     const aggregation: Aggregation = extremesKept ? "min_max" : this.limit.aggregation;
     // Tiles are cut to [start, end): from the start of a static window to the start of
     // raw samples. A view may reach past a static window, as on a zoom out, so it cuts
-    // tiles only where raw samples start.
+    // tiles only where raw samples start. End moves while the window streams, so the
+    // tile it cuts splits into whole finer tiles, which each read once. When end passes
+    // the edge of a coarser tile, that tile reads once and replaces them.
     const viewed = this.limit.view != null;
     const start = this.dynamic || viewed ? undefined : home.start;
     const raw = this.rawRange(home, boundary);
@@ -460,20 +461,28 @@ export class Points {
     );
     if (!tiled.start.before(tiled.end)) return [];
     const level = tileLevel(view);
-    const pointLimit = tilePointLimit({
-      level,
-      view,
-      points: this.limit.count,
-      drawn: this.limit.aggregation,
-      aggregation,
-    });
-    return indexes(tiled, level).map((index) => {
-      const spec: TileSpec = { key: this.key, level, index, pointLimit, aggregation };
-      const tr = tileRange(spec);
-      if (start != null && tr.start.before(start)) spec.start = start;
-      if (end != null && tr.end.after(end)) spec.end = end;
-      return spec;
-    });
+    const floor = this.streaming ? RAW_LEVEL : level;
+    return indexes(tiled, level)
+      .flatMap((index) =>
+        end == null ? [{ level, index }] : cover({ level, index }, end, floor),
+      )
+      .filter((p) => start == null || tileRange(p).end.after(start))
+      .map((p) => {
+        const spec: TileSpec = {
+          ...p,
+          key: this.key,
+          pointLimit: tilePointLimit({
+            level: p.level,
+            view,
+            points: this.limit.count,
+            drawn: this.limit.aggregation,
+            aggregation,
+          }),
+          aggregation,
+        };
+        if (start != null && tileRange(p).start.before(start)) spec.start = start;
+        return spec;
+      });
   }
 
   // Moves the boundary to rawFrom once the tiles that replace the raw samples before
@@ -524,8 +533,7 @@ export class Points {
       ({ spec }) => end == null || !tileRange(spec).end.after(end),
     );
     return choose(
-      targets[0].level,
-      targets.map((t) => t.index),
+      targets,
       drawable.map((t) => t.spec),
     ).map((p) => this.find(p, preferred, targets[0].aggregation, drawable)!);
   }

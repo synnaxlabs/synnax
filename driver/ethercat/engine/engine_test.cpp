@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/engine/pool.h"
