@@ -984,14 +984,20 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 										close(started)
 									}
 									ts := 10*telem.SecondTS + i
-									_, err := w1.Write(telem.NewSeriesV(ts))
-									if err == nil {
-										_, err = w1.Commit(ctx)
-									}
+									a, err := w1.Write(telem.NewSeriesV(ts))
 									if err != nil {
 										Expect(
 											err,
 										).To(MatchError(control.ErrUnauthorized))
+										Expect(a).To(Equal(telem.Alignment(0)))
+										return
+									}
+									end, err := w1.Commit(ctx)
+									if err != nil {
+										Expect(
+											err,
+										).To(MatchError(control.ErrUnauthorized))
+										Expect(end).To(Equal(telem.TimeStamp(0)))
 										return
 									}
 								}

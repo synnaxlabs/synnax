@@ -100,6 +100,10 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 		wg   sync.WaitGroup
 		done = make(chan struct{})
 	)
+	stop := sync.OnceFunc(func() {
+		close(done)
+		wg.Wait()
+	})
 	if contended {
 		lw := open(control.AuthorityAbsolute - 1)
 		wg.Go(func() {
@@ -122,6 +126,9 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 			}
 		}()
 	}
+	// Runs before the deferred close above, so a failed iteration stops the retry
+	// goroutine before its writer closes.
+	defer stop()
 	b.ReportAllocs()
 	start := telem.SecondTS
 	for b.Loop() {
@@ -131,8 +138,7 @@ func benchmarkWrite(b *testing.B, mem, contended bool) {
 		start += samples
 	}
 	b.StopTimer()
-	close(done)
-	wg.Wait()
+	stop()
 	if err := w.Close(); err != nil {
 		b.Error(err)
 	}
