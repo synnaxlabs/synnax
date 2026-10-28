@@ -224,6 +224,24 @@ class TestModbusReadTask:
                 data_type=sy.DataType.FLOAT32,
             )
 
+    def test_register_bit_bounds(self) -> None:
+        """Test that a register bit channel takes bits 0 to 15."""
+        ch = sy.modbus.InputRegisterBitReadChannel(
+            type="input_register_bit", address=3, channel=1234, bit=15
+        )
+        assert ch.bit == 15
+        with pytest.raises(ValidationError):
+            sy.modbus.InputRegisterBitReadChannel(
+                type="input_register_bit", address=3, channel=1234, bit=16
+            )
+
+    def test_register_channels_default_to_uint16(self) -> None:
+        """Test that a register channel without a data type reads uint16."""
+        ch = sy.modbus.HoldingRegisterReadChannel(
+            type="holding_register", address=0, channel=1234
+        )
+        assert ch.data_type == "uint16"
+
     def test_to_payload_serializes_config(self) -> None:
         """Test that to_payload() correctly serializes the config into the payload.
 
@@ -901,3 +919,58 @@ class TestModbusDevicePropertyUpdates:
         expected_key3 = "coil-output-15"
         key3 = f"{_WRITE_NAME_TYPES[ch3.type]}-{ch3.address}".replace("_", "-")
         assert key3 == expected_key3
+
+    def test_bit_channels_update_device_properties(self, client: sy.Synnax) -> None:
+        """Test that register bit channels map by register and bit, so two bits of
+        one register bind to two channels."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.modbus.Device(
+            host="127.0.0.1",
+            port=502,
+            name="Test Modbus Bit Device",
+            location="127.0.0.1:502",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+        suffix = random_name()
+        index = client.channels.create(
+            name=f"bit_time_{suffix}", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        chs = [
+            client.channels.create(
+                name=f"bit_{i}_{suffix}",
+                data_type=sy.DataType.UINT8,
+                index=index.key,
+            )
+            for i in range(3)
+        ]
+        read = sy.modbus.ReadTask(
+            name="Bit read task",
+            device=device.key,
+            channels=[
+                sy.modbus.HoldingRegisterBitReadChannel(
+                    type="holding_register_bit", channel=chs[0].key, address=4, bit=0
+                ),
+                sy.modbus.InputRegisterBitReadChannel(
+                    type="input_register_bit", channel=chs[1].key, address=4, bit=9
+                ),
+            ],
+        )
+        read.update_device_properties(client.devices)
+        write = sy.modbus.WriteTask(
+            name="Bit write task",
+            device=device.key,
+            channels=[
+                sy.modbus.HoldingRegisterBitWriteChannel(
+                    type="holding_register_bit", channel=chs[2].key, address=4, bit=3
+                ),
+            ],
+        )
+        write.update_device_properties(client.devices)
+
+        updated = client.devices.retrieve(key=device.key)
+        read_channels = obj(updated.properties, "read", "channels")
+        assert read_channels["holding-register-bit-input-4-0"] == chs[0].key
+        assert read_channels["register-bit-input-4-9"] == chs[1].key
+        write_channels = obj(updated.properties, "write", "channels")
+        assert write_channels["holding-register-bit-output-4-3"] == chs[2].key
