@@ -41,7 +41,7 @@ var _ = Describe("Proof MessagePack", func() {
 		Expect(decoded.Variant).To(Equal(auth.PasswordProof{Credentials: creds}))
 	})
 	It("Should round trip an API key proof", func(ctx SpecContext) {
-		proof := auth.Proof{Variant: auth.ApiKeyProof{
+		proof := auth.Proof{Variant: auth.APIKeyProof{
 			APIKeyCredentials: auth.APIKeyCredentials{Key: "syk_abc"},
 		}}
 		b := MustSucceed(msgpack.Codec.Encode(ctx, proof))
