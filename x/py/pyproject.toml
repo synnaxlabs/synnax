@@ -102,9 +102,9 @@ markers = [
     "timing: mark test as a timing test",
 ]
 
+[tool.coverage.run]
+omit = ["*/types_gen.py"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.coverage.run]
-omit = ["*/types_gen.py"]
