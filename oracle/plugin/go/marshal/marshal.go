@@ -119,7 +119,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	// Collect DistinctForm types with @go marshal flex.
-	flexByPkg := make(map[string][]FlexCodec)
+	flexByPkg := make(map[string][]flexCodec)
 	for _, dt := range req.Resolutions.DistinctTypes() {
 		if aliased.Contains(dt.QualifiedName) {
 			continue
@@ -134,9 +134,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		form := dt.Form.(resolution.DistinctForm)
 		goName := naming.GetGoName(dt)
-		flexByPkg[goPath] = append(flexByPkg[goPath], FlexCodec{
+		flexByPkg[goPath] = append(flexByPkg[goPath], flexCodec{
 			GoName:   goName,
-			Receiver: ReceiverName(goName),
+			Receiver: receiverName(goName),
 			BaseType: form.Base.Name,
 		})
 	}
@@ -253,25 +253,24 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// CodecEntry describes a type for which a codec should be generated.
-type CodecEntry struct {
+type codecEntry struct {
 	GoName string
 	Type   resolution.Type
 }
 
 func buildCodecEntries(
 	typeMap map[string]resolution.Type,
-) []CodecEntry {
+) []codecEntry {
 	keys := make([]string, 0, len(typeMap))
 	for k := range typeMap {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	entries := make([]CodecEntry, 0, len(keys))
+	entries := make([]codecEntry, 0, len(keys))
 	for _, k := range keys {
 		t := typeMap[k]
 		goName := naming.GetGoName(t)
-		entries = append(entries, CodecEntry{GoName: goName, Type: t})
+		entries = append(entries, codecEntry{GoName: goName, Type: t})
 	}
 	return entries
 }
