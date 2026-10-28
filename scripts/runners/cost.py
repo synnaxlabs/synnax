@@ -7,11 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Fleet spend, fetched and written once every INTERVAL. Cost Explorer gives the
-account, region, service, and instance type totals, usage only and with credits
-(_net), plus the month forecast. List prices and CloudWatch hours give each runner's
-estimate. Sums are calculated channels. Data Exports to S3 is the path to
-per-instance actuals."""
+"""Fleet spend, fetched once every INTERVAL and written every LIVE_INTERVAL. Cost
+Explorer gives the account, region, service, and instance type totals, usage only and
+with credits (_net), plus the month forecast. List prices and CloudWatch hours give
+each runner's estimate. Between fetches, each runner's rate follows its instance's
+state from cached list prices, so no billed call runs per write. Sums are calculated
+channels. Data Exports to S3 is the path to per-instance actuals."""
 
 import datetime as dt
 import json
@@ -28,6 +29,9 @@ from common import channel_name, instance_for, instance_prefix, latest
 from log import Log
 
 QUERY_TIME = "cost_query_time"
+# When the last full fetch ran. Every write advances QUERY_TIME, so a restart reads
+# the fetch cadence from here.
+FETCHED = "cost_fetched_at"
 MONTH_REMAINING_FORECAST = "cost_month_remaining_forecast"
 HOURS_REMAINING = "month_hours_remaining"
 # Per-runner suffixes.
@@ -42,6 +46,8 @@ HOURS_PER_MONTH = 730
 # EC2 reports one CPUUtilization sample a minute while running.
 SAMPLES_PER_HOUR = 60
 INTERVAL = 6 * sy.TimeSpan.HOUR
+LIVE_INTERVAL = sy.TimeSpan.MINUTE
+PRICE_TTL = dt.timedelta(days=1)
 DAYS = 365
 GLOBAL = "global"
 SERVICES = {
@@ -65,6 +71,8 @@ OUR_REGIONS = {"Dimensions": {"Key": "REGION", "Values": list(REGIONS)}}
 USAGE_ONLY: Any = {"Dimensions": {"Key": "RECORD_TYPE", "Values": [USAGE_RECORD]}}
 
 Group = tuple[str, ...]
+# Runner to its instance, list price per hour, and volume share per hour.
+Priced = dict[str, tuple[str, float, float]]
 # Maps a row's keys to its group, None drops the row.
 Key = Callable[[list[str]], Group | None]
 
@@ -223,7 +231,14 @@ class Cost:
         self.attempted: sy.TimeStamp | None = None
         # The fetch runs off the controller cycle; step() takes its result.
         self.pool = ThreadPoolExecutor(1)
-        self.pending: Future[dict[str, float]] | None = None
+        # A fetch returns values and prices, a reprice prices only.
+        self.pending: Future[tuple[dict[str, float] | None, Priced]] | None = None
+        self.repriced = False
+        self.prices_since: dt.datetime | None = None
+        # The last fetch's values, every live write's base.
+        self.latest: dict[str, float] = {}
+        self.priced: Priced = {}
+        self.written: sy.TimeStamp | None = None
 
     def channels(self) -> dict[str, sy.DataType]:
         """Every data channel, all on the QUERY_TIME index."""
@@ -235,7 +250,9 @@ class Cost:
             MONTH_REMAINING_FORECAST,
             HOURS_REMAINING,
         ]
-        return dict.fromkeys(names, sy.DataType.FLOAT32)
+        return dict.fromkeys(names, sy.DataType.FLOAT32) | {
+            FETCHED: sy.DataType.TIMESTAMP
+        }
 
     def calculated(self, found: dict[str, dict]) -> dict[str, str]:
         """Name to expression. Regions sum their runners, the fleet sums regions."""
@@ -267,19 +284,20 @@ class Cost:
         return out
 
     def create_state(self, client: sy.Synnax, known: set[str]) -> None:
-        """The types on the Core and the last fetch time, so the cadence holds across
-        a restart."""
+        """The types, the last values, and the last fetch time on the Core, so the
+        fetch cadence and the live writes hold across a restart."""
         self.known = sorted(r for r in known if instance_prefix(r) is not None)
         try:
             for ch in client.channels.retrieve(["^cost_.*_365d$"]):
                 if m := TYPE_CHANNEL.match(ch.name):
                     self.types.add(m.group(1))
-            found = latest(client, [QUERY_TIME])
+            found = latest(client, list(self.channels()))
         except Exception as e:
             self.log.error("cost state", e)
             return
-        if QUERY_TIME in found:
-            self.attempted = sy.TimeStamp(int(found[QUERY_TIME]))
+        if FETCHED in found:
+            self.attempted = sy.TimeStamp(int(found[FETCHED]))
+            self.latest = {n: v.item() for n, v in found.items()}
 
     def due(self, now: sy.TimeStamp) -> bool:
         return self.attempted is None or now.span(self.attempted) >= INTERVAL
@@ -339,8 +357,11 @@ class Cost:
                 params["NextToken"] = token
         return ran
 
-    def estimate(self, moment: dt.datetime, found: dict[str, dict]) -> dict[str, float]:
-        """Rates and the estimated spend of each runner, from list prices."""
+    def estimate(
+        self, moment: dt.datetime, found: dict[str, dict], priced: Priced
+    ) -> dict[str, float]:
+        """Rates and the estimated spend of each runner, from list prices. Fills
+        priced with what the live rates need."""
         today = moment.date()
         midnight = dt.datetime(today.year, today.month, today.day, tzinfo=dt.UTC)
         first = midnight.replace(day=1)
@@ -365,6 +386,7 @@ class Cost:
                 for s in PER_RUNNER:
                     values[channel_name(s, r)] = math.nan
                 continue
+            priced[r] = (iid, price, ebs)
             values[channel_name(RATE, r)] = ebs + (price if info["running"] else 0.0)
             values[channel_name(EBS, r)] = ebs
             values[channel_name(EST_1D, r)] = price * yesterday[iid] + ebs * 24
@@ -462,7 +484,33 @@ class Cost:
             self.log.error(f"cost {what}", e)
             return dict.fromkeys(names, math.nan)
 
-    def fetch(self, moment: dt.datetime, found: dict[str, dict]) -> dict[str, float]:
+    def price_table(self, found: dict[str, dict]) -> Priced:
+        """List prices and volume shares, from free API calls, for the live rates
+        after a restart until the next fetch."""
+        volumes = self.aws.volumes()
+        priced: Priced = {}
+        for r in self.known:
+            if (iid := instance_for(r, found)) is None:
+                continue
+            info = found[iid]
+            try:
+                price = self.prices.instance(
+                    info["type"], info["region"], info["windows"]
+                )
+                ebs = volumes.get(iid, 0) * self.prices.volume(info["region"])
+            except Exception as e:
+                self.log.error(f"price {info['type']} {info['region']}", e)
+                continue
+            priced[r] = (iid, price, ebs)
+        return priced
+
+    def fetch(
+        self, moment: dt.datetime, found: dict[str, dict]
+    ) -> tuple[dict[str, float], Priced]:
+        # List prices change rarely; a day's cache saves a lookup per fetch.
+        if self.prices_since is None or moment - self.prices_since >= PRICE_TTL:
+            self.prices.cache.clear()
+            self.prices_since = moment
         today = moment.date()
         values = self.part(
             "spend", spend_names(False), lambda: self.spend(today, False)
@@ -476,31 +524,71 @@ class Cost:
             [MONTH_REMAINING_FORECAST],
             lambda: {MONTH_REMAINING_FORECAST: self.forecast(today)},
         )
+        priced: Priced = {}
         values |= self.part(
-            "estimate", runner_names(self.known), lambda: self.estimate(moment, found)
+            "estimate",
+            runner_names(self.known),
+            lambda: self.estimate(moment, found, priced),
         )
-        values[HOURS_REMAINING] = (month_end(today) - moment).total_seconds() / 3600
-        return values
+        values[FETCHED] = int(sy.TimeStamp(moment))
+        return values, priced
 
     def step(
         self, now: sy.TimeStamp, known: set[str], found: dict[str, dict]
     ) -> dict[str, float]:
-        """The values on the cycle a fetch lands, else nothing."""
+        """Every cost channel when a fetch lands or LIVE_INTERVAL passes, with each
+        runner's rate from its instance's current state. Nothing before the first
+        values exist."""
         self.known = sorted(r for r in known if instance_prefix(r) is not None)
         if self.pending is None and self.due(now):
             self.attempted = now
             self.pending = self.pool.submit(self.fetch, self.moment(), found)
-        if self.pending is None or not self.pending.done():
+        landed = False
+        if self.pending is not None and self.pending.done():
+            pending, self.pending = self.pending, None
+            try:
+                values, priced = pending.result()
+            except Exception as e:
+                self.log.error("cost fetch", e)
+            else:
+                self.priced = priced
+                if values is not None:
+                    landed = True
+                    self.repriced = True
+                    self.latest = values
+                    self.types |= {
+                        m.group(1) for n in values if (m := TYPE_CHANNEL.match(n))
+                    }
+                    self.log(f"cost fetched, mtd ${values.get(name('mtd'), 0):.2f}")
+        if self.latest and not self.repriced and self.pending is None:
+            # Once after a restart, so the live rates need not wait for the next fetch.
+            self.repriced = True
+            self.pending = self.pool.submit(self.reprice, found)
+        if not self.latest:
             return {}
-        try:
-            values = self.pending.result()
-        except Exception as e:
-            self.log.error("cost fetch", e)
+        if (
+            not landed
+            and self.written is not None
+            and now.span(self.written) < LIVE_INTERVAL
+        ):
             return {}
-        finally:
-            self.pending = None
-        self.types |= {m.group(1) for n in values if (m := TYPE_CHANNEL.match(n))}
-        self.log(f"cost fetched, mtd ${values[name('mtd')]:.2f}")
+        self.written = now
+        return self.frame(now, found)
+
+    def reprice(self, found: dict[str, dict]) -> tuple[None, Priced]:
+        return None, self.price_table(found)
+
+    def frame(self, now: sy.TimeStamp, found: dict[str, dict]) -> dict[str, float]:
+        """Every cost channel, so the Core accepts the frame: the last values, NaN
+        where none exist yet, then the live rates and hours remaining."""
+        values = {n: self.latest.get(n, math.nan) for n in self.channels()}
+        for r, (iid, price, ebs) in self.priced.items():
+            if r in self.known and (info := found.get(iid)) is not None:
+                running = price if info["running"] else 0.0
+                values[channel_name(RATE, r)] = ebs + running
+        moment = now.datetime().astimezone(dt.UTC)
+        hours_left = (month_end(moment.date()) - moment).total_seconds() / 3600
+        values[HOURS_REMAINING] = hours_left
         return values
 
     def close(self) -> None:

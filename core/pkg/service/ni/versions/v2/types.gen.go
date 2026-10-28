@@ -88,6 +88,27 @@ func (a AccelSensitivityUnits) IsValid() bool {
 	}
 }
 
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits string
+
+const (
+	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = "PicoCoulombsPerG"
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerMetersPerSecondSquared"
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerInchesPerSecondSquared"
+)
+
+// IsValid reports whether a is one of the defined AccelChargeSensitivityUnits
+// values.
+func (a AccelChargeSensitivityUnits) IsValid() bool {
+	switch a {
+	case AccelChargeSensitivityUnitsPicoCoulombsPerG, AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared, AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared:
+		return true
+	default:
+		return false
+	}
+}
+
 // AccelUnits are the engineering units for an acceleration measurement.
 type AccelUnits string
 
@@ -4256,25 +4277,4 @@ func (s *ScanConfig) ApplyDefaults() {
 		s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
 	}
 	s.ScanConfig.ApplyDefaults()
-}
-
-// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
-// sensitivity rating.
-type AccelChargeSensitivityUnits string
-
-const (
-	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = "PicoCoulombsPerG"
-	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerMetersPerSecondSquared"
-	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerInchesPerSecondSquared"
-)
-
-// IsValid reports whether a is one of the defined AccelChargeSensitivityUnits
-// values.
-func (a AccelChargeSensitivityUnits) IsValid() bool {
-	switch a {
-	case AccelChargeSensitivityUnitsPicoCoulombsPerG, AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared, AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared:
-		return true
-	default:
-		return false
-	}
 }
