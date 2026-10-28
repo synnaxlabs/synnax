@@ -34,7 +34,11 @@ const openDialog = async (
   const trigger = getByText("Toggle").element();
   await userEvent.click(trigger);
   await expect.element(page.getByRole("dialog")).toBeVisible();
-  return { trigger, dialog: page.getByRole("dialog").element(), unmount };
+  const dialog = page.getByRole("dialog").element();
+  // toBeVisible accepts zero opacity, and the frame shows a floating dialog only once
+  // it has placed it.
+  await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+  return { trigger, dialog, unmount };
 };
 
 /** @returns the height of a floating dialog of the size, holding tall content. */
