@@ -28,6 +28,10 @@ The Driver then writes each register on its own, so the two halves of a 32-bit v
 reach the device at different times. A write goes before reads that wait for the same
 connection.
 
+To write one bit of a holding register, the Driver reads the register, changes the bit,
+and writes the register back. If the device changes another bit of the register between
+the read and the write, the write removes that change.
+
 Before you start, you need a
 [connected server](/reference/hardware/modbus/connect-server).
 
@@ -43,8 +47,8 @@ every frame.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click the server and select **Create write task**.
-2. Click **Add channel**. Select **Coil** or **Holding register**, then enter the
-   address. For a holding register, select the **Data type**.
+2. Click **Add channel**. Select the type, then enter the address. For a holding
+   register, select the **Data type**. For a holding register bit, enter the **Bit**.
 3. Click <Icon.Play /> (**Start**).
 
 The Console creates a command channel and an index channel for each output. For the
@@ -126,6 +130,10 @@ The task has the options **Data saving** and **Auto start**. See
 Each channel has an `address`, from 0 to 65535, and a `channel`, the command channel.
 Each table shows the Console label of a setting, with its Python field under it.
 
+The Console also accepts a six-digit Modicon address, such as 400001 for holding
+register 0. The first digit is the table: 0 for coils and 4 for holding registers. The
+Console shows the Modicon form next to each address.
+
 <Channel.Types>
 
 <Channel.Type
@@ -146,11 +154,27 @@ Writes a coil. A command of 0 turns the coil off. Any other value turns it on.
 
 Writes a number to one or more holding registers.
 
-| Setting                              | Default | Notes                                                                                                                             |
-| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                                   |
-| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two bytes in each register. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
-| Words <small>`words_swapped`</small> | device  | `True` writes the high word first. Only for 32-bit and 64-bit data types.                                                         |
+| Setting                              | Default  | Notes                                                                                                                             |
+| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                                   |
+| Bytes <small>`bytes_swapped`</small> | device   | `True` swaps the two bytes in each register. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
+| Words <small>`words_swapped`</small> | device   | `True` writes the high word first. Only for 32-bit and 64-bit data types.                                                         |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Holding register bit"
+  type="holding_register_bit"
+  python="HoldingRegisterBitWriteChannel"
+>
+
+Writes one bit of a holding register. A command of 0 clears the bit. Any other value
+sets it. Channels can write different bits of one register, but a bit channel cannot use
+a register that a holding register channel writes.
+
+| Setting                  | Default | Notes                             |
+| ------------------------ | ------- | --------------------------------- |
+| Bit <small>`bit`</small> | `0`     | From 0 (least significant) to 15. |
 
 </Channel.Type>
 
