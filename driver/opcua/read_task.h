@@ -263,8 +263,9 @@ public:
 class ArrayReadTaskSource final : public BaseReadTaskSource {
     /// @brief regulates the rate blocks of samples are read at.
     x::loop::Timer timer;
-    /// @brief the timestamp after the last sample of the previous block.
-    x::telem::TimeStamp prev_end;
+    /// @brief where the next block may start at the earliest: the end of the
+    /// previous block, or the start of the run.
+    x::telem::TimeStamp prev_end = x::telem::TimeStamp(0);
 
 public:
     ArrayReadTaskSource(
@@ -279,7 +280,7 @@ public:
     /// full block.
     x::errors::Error start() override {
         this->timer = x::loop::Timer(this->cfg.sample_rate / this->cfg.array_size);
-        this->prev_end = x::telem::TimeStamp(0);
+        this->prev_end = x::telem::TimeStamp::now();
         return BaseReadTaskSource::start();
     }
 
@@ -336,8 +337,8 @@ public:
             return res;
         }
         // The array holds the samples taken at the sample rate up to the read, so a
-        // late read does not compress them. A read sooner than one block after the
-        // previous one starts at the previous block's end to keep stamps in order.
+        // late read does not compress them. A block never starts before the previous
+        // block's end or the start of the run, so stamps stay in order.
         const auto start = std::max(
             this->prev_end,
             end - this->cfg.sample_rate.period() * this->cfg.array_size

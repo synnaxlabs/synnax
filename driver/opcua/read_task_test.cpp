@@ -1356,10 +1356,26 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
     EXPECT_LE(stamps.back(), stopped_at);
     for (size_t i = 1; i < stamps.size(); i++) {
         EXPECT_GT(stamps[i], stamps[i - 1]) << "samples " << i - 1 << " and " << i;
-        if (i % testutil::DOUBLE_ARRAY_SIZE != 0)
+        if (i % testutil::DOUBLE_ARRAY_SIZE != 0) {
             EXPECT_LE(stamps[i] - stamps[i - 1], ARRAY_SAMPLE_RATE.period())
                 << "samples " << i - 1 << " and " << i;
+        }
     }
+}
+
+/// @brief it should not stamp a block that ends early before the start of the run.
+TEST_F(TestReadTask, testEarlyArrayBlockStartsAfterRunStart) {
+    auto p = x::json::Parser(create_array_cfg());
+    ArrayReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
+    ASSERT_NIL(p.error());
+    const auto started_at = x::telem::TimeStamp::now();
+    ASSERT_NIL(source.start());
+    // A stopped breaker ends the block wait at once.
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source.read(breaker, fr).error);
+    ASSERT_NIL(source.stop());
+    EXPECT_GE(fr.at<x::telem::TimeStamp>(this->index_channel.key, 0), started_at);
 }
 
 /// @brief it should space the samples of a late block one sample period apart.
@@ -1382,10 +1398,13 @@ TEST_F(TestReadTask, testLateArrayBlockKeepsSamplePeriod) {
     ASSERT_NIL(source.read(breaker, fr).error);
     ASSERT_NIL(source.stop());
     EXPECT_GT(fr.at<x::telem::TimeStamp>(this->index_channel.key, 0), prev_last);
-    for (int i = 1; i < static_cast<int>(testutil::DOUBLE_ARRAY_SIZE); i++)
+    for (size_t i = 1; i < testutil::DOUBLE_ARRAY_SIZE; i++)
         EXPECT_EQ(
-            fr.at<x::telem::TimeStamp>(this->index_channel.key, i) -
-                fr.at<x::telem::TimeStamp>(this->index_channel.key, i - 1),
+            fr.at<x::telem::TimeStamp>(this->index_channel.key, static_cast<int>(i)) -
+                fr.at<x::telem::TimeStamp>(
+                    this->index_channel.key,
+                    static_cast<int>(i - 1)
+                ),
             ARRAY_SAMPLE_RATE.period()
         );
 }
