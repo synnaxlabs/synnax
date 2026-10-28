@@ -50,11 +50,10 @@ jobs:
     if:
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.head_repository.full_name == github.repository &&
-      github.event.workflow_run.pull_requests[0] && ((github.event.workflow_run.name ==
-      'CI' && github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'failure') ||
-      (github.event.workflow_run.name == 'Agent - Review submitted' &&
-      github.event.workflow_run.conclusion == 'success')))
+      ((github.event.workflow_run.name == 'CI' && github.event.workflow_run.event ==
+      'pull_request' && github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.pull_requests[0]) || (github.event.workflow_run.name ==
+      'Agent - Review submitted' && github.event.workflow_run.conclusion == 'success')))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -73,15 +72,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           AGENT_LOGINS: ${{ vars.AGENT_LOGINS }}
-          EVENT_PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+          # A review run can list no pull requests, so its run name holds the number.
+          EVENT_PR:
+            ${{ github.event.workflow_run.name == 'CI' &&
+            github.event.workflow_run.pull_requests[0].number ||
+            github.event.workflow_run.display_title }}
           INPUT_PR: ${{ inputs.pr }}
         run: |
+          PR=${EVENT_PR:-$INPUT_PR}
           # shellcheck disable=SC2016 # The GraphQL query uses GraphQL variables.
-          if [ -n "$EVENT_PR" ]; then
-            PRS="[$EVENT_PR]"
-          elif [ -n "$INPUT_PR" ]; then
-            [[ "$INPUT_PR" =~ ^[0-9]+$ ]] || { echo "pr must be a number" >&2; exit 1; }
-            PRS="[$INPUT_PR]"
+          if [ -n "$PR" ]; then
+            [[ "$PR" =~ ^[0-9]+$ ]] || { echo "pr must be a number" >&2; exit 1; }
+            PRS="[$PR]"
           else
             PRS=$(gh api graphql --paginate -f o="$GITHUB_REPOSITORY_OWNER" \
               -f r="${GITHUB_REPOSITORY#*/}" \

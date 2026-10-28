@@ -9,9 +9,11 @@
 
 # Wakes Agent - Shepherd through workflow_run. A review event runs this file from the
 # pull request branch, so it holds no permissions and does nothing but succeed. It skips
-# reviews from bots other than Greptile, so an agent's own replies never wake it.
+# reviews from bots other than Greptile, so an agent's own replies never wake it. The
+# run name carries the pull request number.
 
 name: Agent - Review submitted
+run-name: ${{ github.event.pull_request.number }}
 
 on:
   pull_request_review:
