@@ -448,3 +448,41 @@ describe("draft configs", () => {
     ).toBe(true);
   });
 });
+
+describe("deploy configs", () => {
+  it.each([
+    [
+      "analog read",
+      NI.Task.ANALOG_READ_SCHEMAS.config,
+      NI.Task.deployAnalogReadConfigZ,
+    ],
+    [
+      "analog write",
+      NI.Task.ANALOG_WRITE_SCHEMAS.config,
+      NI.Task.deployAnalogWriteConfigZ,
+    ],
+    [
+      "counter read",
+      NI.Task.COUNTER_READ_SCHEMAS.config,
+      NI.Task.deployCounterReadConfigZ,
+    ],
+    [
+      "digital read",
+      NI.Task.DIGITAL_READ_SCHEMAS.config,
+      NI.Task.deployDigitalReadConfigZ,
+    ],
+    [
+      "digital write",
+      NI.Task.DIGITAL_WRITE_SCHEMAS.config,
+      NI.Task.deployDigitalWriteConfigZ,
+    ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
+  });
+});

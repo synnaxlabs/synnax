@@ -13,7 +13,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/pipeline/control.h"
 #include "driver/pipeline/testutil/pipeline.h"

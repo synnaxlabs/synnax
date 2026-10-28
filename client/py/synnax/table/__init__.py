@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.table.client import Client
 from synnax.table.types_gen import (
     ONTOLOGY_TYPE,
     Cell,
@@ -25,6 +26,7 @@ __all__ = [
     "ONTOLOGY_TYPE",
     "Cell",
     "CellConfig",
+    "Client",
     "Column",
     "FlexAlignment",
     "Key",

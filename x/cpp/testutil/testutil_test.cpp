@@ -13,9 +13,9 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
-namespace x::test {
+namespace x::testutil {
 class XTestTest : public ::testing::Test {
 protected:
     std::atomic<int> counter{0};

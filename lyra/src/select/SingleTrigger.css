@@ -93,3 +93,28 @@
     > .pluto-icon {
     visibility: hidden;
 }
+
+/* A shadow trigger reads as its value. An open menu keeps its box, so the menu points at
+   the field. The caret keeps its space while hidden, so the label never moves. */
+.pluto-btn.pluto-dialog__trigger.pluto--shadow {
+    --pluto-bg: transparent;
+    --pluto-border-color: transparent;
+    --pluto-hover-bg: var(--pluto-fill-hover);
+    --pluto-active-bg: var(--pluto-fill-press);
+    --pluto-hover-border-color: var(--pluto-gray-l7);
+    --pluto-active-border-color: var(--pluto-gray-l8);
+
+    &[aria-expanded="true"] {
+        --pluto-bg: var(--pluto-fill-hover);
+        --pluto-border-color: var(--pluto-gray-l7);
+    }
+
+    & .pluto-caret-animated {
+        color: var(--pluto-gray-l7);
+        opacity: 0;
+    }
+
+    &:is(:hover, :focus-visible, [aria-expanded="true"]) .pluto-caret-animated {
+        opacity: 1;
+    }
+}

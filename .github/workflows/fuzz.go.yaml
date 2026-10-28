@@ -15,6 +15,9 @@ on:
   workflow_call:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   fuzz:
     name: Fuzz (${{ matrix.module }} ${{ matrix.shard }}/${{ matrix.shards }})

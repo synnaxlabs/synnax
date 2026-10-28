@@ -22,11 +22,15 @@ from synnax import (
     exceptions,
     framer,
     group,
+    lineplot,
+    panel,
+    log,
     project,
     rack,
     ranger,
     schematic,
     status,
+    table,
     task,
     user,
     view,
@@ -86,6 +90,10 @@ class Synnax(framer.Client):
     views: view.Client
     imex: ImexClient
     projects: project.Client
+    tables: table.Client
+    lineplots: lineplot.Client
+    panels: panel.Client
+    logs: log.Client
     schematics: schematic.Client
 
     _transport: Transport
@@ -184,6 +192,10 @@ class Synnax(framer.Client):
             client=self._transport.unary,
             file_transport=self._transport.file_transport,
         )
+        self.tables = table.Client(client=self._transport.unary)
+        self.lineplots = lineplot.Client(client=self._transport.unary)
+        self.panels = panel.Client(client=self._transport.unary, ontology=self.ontology)
+        self.logs = log.Client(self._transport.unary)
         self.schematics = schematic.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
