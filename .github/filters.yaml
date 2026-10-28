@@ -282,6 +282,12 @@ exports_go:
   - *freighter_integration
   - *oracle
 
+exports_py:
+  - *client_py
+  - *py
+  - integration/**
+  - scripts/check_exports_py.py
+
 py_packages:
   - *client_py
   - .github/scripts/pin_internal_deps.sh

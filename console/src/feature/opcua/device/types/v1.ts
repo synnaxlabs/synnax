@@ -11,13 +11,19 @@ import { channel, type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import * as v0 from "@/feature/opcua/device/types/v0";
+import {
+  connectionConfigZ,
+  type makeZ,
+  type Properties as BaseProperties,
+  ZERO_CONNECTION_CONFIG,
+  ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
+} from "@/feature/opcua/device/types/v0";
 
 const VERSION = "1.0.0";
 
 export const propertiesZ = z.object({
   version: z.literal(VERSION),
-  connection: v0.connectionConfigZ.default(() => ({ ...v0.ZERO_CONNECTION_CONFIG })),
+  connection: connectionConfigZ.default(() => ({ ...ZERO_CONNECTION_CONFIG })),
   read: z
     .object({
       indexes: z.array(channel.keyZ).default(() => []),
@@ -31,14 +37,14 @@ export const propertiesZ = z.object({
 export type Properties = z.infer<typeof propertiesZ>;
 
 export const ZERO_PROPERTIES: Properties = {
-  ...v0.ZERO_PROPERTIES,
+  ...BASE_ZERO_PROPERTIES,
   read: { indexes: [], channels: {} },
   version: VERSION,
 };
 
 export const PROPERTIES_MIGRATION_NAME = "hardware.opc.device.properties";
 
-export const propertiesMigration = migrate.createMigration<v0.Properties, Properties>({
+export const propertiesMigration = migrate.createMigration<BaseProperties, Properties>({
   name: PROPERTIES_MIGRATION_NAME,
   migrate: (p) => {
     const read = p.read;
@@ -50,4 +56,4 @@ export const propertiesMigration = migrate.createMigration<v0.Properties, Proper
   },
 });
 
-export interface Device extends device.Device<typeof propertiesZ, typeof v0.makeZ> {}
+export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}

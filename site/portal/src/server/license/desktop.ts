@@ -31,6 +31,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** TERM_MS is how long a desktop license runs before it needs a renewal. */
 export const TERM_MS = 30 * DAY_MS;
 
+const CHANNEL_LIMIT = 50;
+
 export const mintSecret = (): string => randomBytes(32).toString("base64url");
 
 /** hashSecret is what the activation row stores in place of the secret. */
@@ -147,7 +149,7 @@ export const link = async (
         edition: "desktop",
         term: "subscription",
         nodes: 1,
-        channels: 0,
+        channels: CHANNEL_LIMIT,
         label: machineName,
         expiresAt: expiryFrom(now),
         issuedBy: userID,
