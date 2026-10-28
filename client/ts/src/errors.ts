@@ -16,7 +16,7 @@ export class SynnaxError extends errors.createTyped("sy") {}
 /** Raised when a validation error occurs. */
 export class ValidationError extends SynnaxError.sub("validation") {}
 
-class PathError extends ValidationError.sub("path") {
+export class PathError extends ValidationError.sub("path") {
   readonly path: string[];
   readonly error: Error;
   static readonly encodedSchema = z.object({
@@ -103,7 +103,7 @@ export class RouteError extends SynnaxError.sub("route") {
   }
 }
 
-class ControlError extends SynnaxError.sub("control") {}
+export class ControlError extends SynnaxError.sub("control") {}
 
 export class UnauthorizedError extends ControlError.sub("unauthorized") {}
 

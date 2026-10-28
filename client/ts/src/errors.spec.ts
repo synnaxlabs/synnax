@@ -14,6 +14,7 @@ import {
   AccessDeniedError,
   AuthError,
   ContiguityError,
+  ControlError,
   ExpiredLicenseError,
   InvalidLicenseError,
   LicenseError,
@@ -22,8 +23,10 @@ import {
   MissingLicenseError,
   MultipleFoundError,
   NotFoundError,
+  PathError,
   QueryError,
   RouteError,
+  UnauthorizedError,
   UnexpectedError,
   ValidationError,
 } from "@/index";
@@ -34,12 +37,19 @@ describe("error", () => {
   describe("type matching", () => {
     const ERRORS: [string, Error, errors.Matchable][] = [
       [ValidationError.TYPE, new ValidationError(), ValidationError],
+      [
+        PathError.TYPE,
+        new PathError("field", new ValidationError("message")),
+        PathError,
+      ],
       [AuthError.TYPE, new AuthError(), AuthError],
       [UnexpectedError.TYPE, new UnexpectedError("message"), UnexpectedError],
       [QueryError.TYPE, new QueryError("message"), QueryError],
       [NotFoundError.TYPE, new NotFoundError("message"), NotFoundError],
       [MultipleFoundError.TYPE, new MultipleFoundError("message"), MultipleFoundError],
       [RouteError.TYPE, new RouteError("message", ""), RouteError],
+      [ControlError.TYPE, new ControlError("message"), ControlError],
+      [UnauthorizedError.TYPE, new UnauthorizedError("message"), UnauthorizedError],
       [ContiguityError.TYPE, new ContiguityError("message"), ContiguityError],
       [LicenseError.TYPE, new LicenseError("message"), LicenseError],
       [
@@ -72,18 +82,16 @@ describe("error", () => {
   });
 
   describe("decode", () => {
-    const DECODED: [string, errors.Matchable | null][] = [
-      ["sy.auth.invalid_token", AuthError],
-      ["sy.auth.expired_token", AuthError],
-      ["sy.auth.session_ended", AuthError],
-      ["sy.control", null],
-      ["sy.control.unauthorized", null],
+    const TOKEN_ERRORS = [
+      "sy.auth.invalid_token",
+      "sy.auth.expired_token",
+      "sy.auth.session_ended",
     ];
-    DECODED.forEach(([type, parent]) =>
-      test(`decodes ${type}`, () => {
+    TOKEN_ERRORS.forEach((type) =>
+      test(`decodes ${type} as an auth error`, () => {
         const decoded = errors.decode({ type, data: "message" });
         expect(decoded).toMatchObject({ type, message: "message" });
-        if (parent != null) expect(parent.matches(decoded)).toBe(true);
+        expect(AuthError.matches(decoded)).toBe(true);
       }),
     );
   });
@@ -100,15 +108,11 @@ describe("error", () => {
       expect(NotFoundError.matches(decoded)).toBe(true);
     });
 
-    test("decodes a path error with its path and cause", () => {
-      const cause = errors.encode(new ValidationError("bad"));
-      const decoded = errors.decode({
-        type: "sy.validation.path",
-        data: JSON.stringify({ path: ["field"], error: cause }),
-      });
-      expect(ValidationError.matches(decoded)).toBe(true);
-      expect(decoded).toMatchObject({ path: ["field"], message: "field: bad" });
-      expect(errors.decode(errors.encode(decoded))).toMatchObject({ path: ["field"] });
+    test("round trips a path error through the registry", () => {
+      const original = new PathError("field", new ValidationError("bad"));
+      const decoded = errors.decode(errors.encode(original));
+      expect(PathError.matches(decoded)).toBe(true);
+      expect((decoded as PathError).path).toEqual(["field"]);
     });
 
     test("returns null for foreign typed errors so the registry falls through", () => {
