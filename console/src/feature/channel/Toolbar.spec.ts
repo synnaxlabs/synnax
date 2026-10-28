@@ -55,7 +55,7 @@ describe("channel/Toolbar", () => {
       return btn;
     });
     fireEvent.click(create);
-    expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
     expect(getSwitch("Is index")).toBeTruthy();
   });
 
@@ -64,7 +64,7 @@ describe("channel/Toolbar", () => {
     await renderChannelToolbar(() => {});
     const button = await waitFor(() => getIconButton(document.body, "calculation"));
     await act(async () => fireEvent.click(button));
-    expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
+    expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
     expect(await screen.findByText("Derivative")).toBeTruthy();
   });
 });

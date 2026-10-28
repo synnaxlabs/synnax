@@ -18,10 +18,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-// NewRootCmd creates a fresh command tree. This is the primary entry point for both
+// newRootCmd creates a fresh command tree. This is the primary entry point for both
 // production use and testing. Each call returns an isolated tree with its own flag
 // state, so tests can run in parallel without interference.
-func NewRootCmd() *cobra.Command {
+func newRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "oracle",
 		Short: "Schema-first code generation for Synnax",
@@ -57,7 +57,7 @@ func NewRootCmd() *cobra.Command {
 // that specific exit code so CI consumers can attribute failures (e.g. `oracle check`
 // returns 12 on generated drift). Every other failure exits with 1.
 func Execute() {
-	err := NewRootCmd().Execute()
+	err := newRootCmd().Execute()
 	if err == nil {
 		return
 	}

@@ -11,7 +11,7 @@
 
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/sync/list.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/bypass/pipeline/writer.h"
 #include "driver/pipeline/testutil/pipeline.h"

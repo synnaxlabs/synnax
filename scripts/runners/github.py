@@ -7,13 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Read-only GitHub Actions API access: the credentials, runner status, and the two
-job reads jobs.py builds on."""
+"""Read-only GitHub Actions API access: runner status and the two job reads jobs.py
+builds on."""
 
 import json
-import os
 import ssl
-import subprocess
 import urllib.request
 
 import certifi
@@ -22,27 +20,6 @@ from common import BUSY, IDLE, OFFLINE
 
 REPO = "synnaxlabs/synnax"
 SSL_CONTEXT = ssl.create_default_context(cafile=certifi.where())
-
-
-def github_token() -> str:
-    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-    if token:
-        return token
-    res = subprocess.run(
-        ["gh", "auth", "token"], capture_output=True, text=True, check=False
-    )
-    if res.returncode != 0:
-        raise RuntimeError(f"gh auth token failed: {res.stderr.strip()}")
-    return res.stdout.strip()
-
-
-def webhook_secret() -> str:
-    """Required, so a misconfigured deploy fails at startup rather than serving a
-    listener that accepts unsigned posts."""
-    secret = os.environ.get("GH_WEBHOOK_SECRET")
-    if not secret:
-        raise RuntimeError("GH_WEBHOOK_SECRET is not set")
-    return secret
 
 
 class GitHub:
@@ -74,6 +51,12 @@ class GitHub:
             if len(batch) < 100:
                 return items
             page += 1
+
+    def busy(self, runner: str) -> bool:
+        """Whether GitHub has a job assigned to the runner now. GitHub sets this at
+        assignment, seconds before the runner status poll or a webhook shows it."""
+        listed = self.get(f"/actions/runners?name={runner}")["runners"]
+        return any(r["busy"] for r in listed)
 
     def runner_status(self) -> tuple[dict[str, int], dict[str, set[str]]]:
         """Maps each runner to its status value, and to the labels it registered
