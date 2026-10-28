@@ -213,7 +213,7 @@ describe("CounterRead", () => {
     });
   });
 
-  it("should mark the channel list instead of deploying when the task has no channels", async () => {
+  it("should mark the channel list when the task has no channels", async () => {
     const { container } = await renderCounterRead(createConfig([]));
     await clickDeploy(container);
     expect(

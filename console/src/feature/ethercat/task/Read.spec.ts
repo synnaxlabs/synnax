@@ -540,7 +540,7 @@ describe("Read", () => {
     expect(updated.properties.read.channels).toEqual({});
   });
 
-  it("should mark the channel list instead of deploying when the task has no channels", async () => {
+  it("should mark the channel list when the task has no channels", async () => {
     const { container } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [],

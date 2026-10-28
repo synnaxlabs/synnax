@@ -444,7 +444,7 @@ describe("draft configs", () => {
 });
 
 describe("deploy configs", () => {
-  it.each<[string, z.ZodType, z.ZodType]>([
+  it.each([
     ["read", LabJack.Task.READ_SCHEMAS.config, LabJack.Task.deployReadConfigZ],
     ["write", LabJack.Task.WRITE_SCHEMAS.config, LabJack.Task.deployWriteConfigZ],
   ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {

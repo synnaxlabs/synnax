@@ -57,7 +57,7 @@ describe("OPC UA Write Task Types", () => {
 });
 
 describe("OPC UA Read Task Config Validation", () => {
-  const createConfig = (channels: Partial<OPCUA.Task.ReadChannel>[]): unknown => ({
+  const createConfig = (channels: Partial<OPCUA.Task.ReadChannel>[]) => ({
     device: "dev",
     arrayMode: false,
     sampleRate: 50,
@@ -105,7 +105,7 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject an array size larger than the sample rate", () => {
     const config = {
-      ...(createConfig([{}]) as object),
+      ...createConfig([{}]),
       arrayMode: true,
       arraySize: 100,
     };
@@ -120,7 +120,7 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject a non-positive array size", () => {
     const config = {
-      ...(createConfig([{}]) as object),
+      ...createConfig([{}]),
       arrayMode: true,
       arraySize: 0,
     };
@@ -135,7 +135,7 @@ describe("OPC UA Read Task Config Validation", () => {
 
   it("should reject a stream rate outside of (0, 10000]", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse({
-      ...(createConfig([{}]) as object),
+      ...createConfig([{}]),
       streamRate: 20000,
     });
     expect(result.success).toBe(false);
@@ -209,7 +209,7 @@ describe("draft configs", () => {
 });
 
 describe("deploy configs", () => {
-  it.each<[string, z.ZodType, z.ZodType]>([
+  it.each([
     ["read", OPCUA.Task.READ_SCHEMAS.config, OPCUA.Task.deployReadConfigZ],
     ["write", OPCUA.Task.WRITE_SCHEMAS.config, OPCUA.Task.deployWriteConfigZ],
   ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {

@@ -346,7 +346,7 @@ describe("legacy shapes", () => {
 });
 
 describe("deploy configs", () => {
-  it.each<[string, z.ZodType, z.ZodType]>([
+  it.each([
     ["read", EtherCAT.Task.READ_SCHEMAS.config, EtherCAT.Task.deployReadConfigZ],
     ["write", EtherCAT.Task.WRITE_SCHEMAS.config, EtherCAT.Task.deployWriteConfigZ],
   ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {

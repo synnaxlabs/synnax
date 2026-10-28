@@ -450,7 +450,7 @@ describe("draft configs", () => {
 });
 
 describe("deploy configs", () => {
-  it.each<[string, z.ZodType, z.ZodType]>([
+  it.each([
     [
       "analog read",
       NI.Task.ANALOG_READ_SCHEMAS.config,
