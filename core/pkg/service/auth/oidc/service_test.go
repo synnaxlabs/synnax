@@ -36,7 +36,7 @@ func credentials(providerName, code, verifier string) auth.OIDCCredentials {
 }
 
 func proof(creds auth.OIDCCredentials) auth.Proof {
-	return auth.Proof{Variant: auth.OidcProof{OIDCCredentials: creds}}
+	return auth.Proof{Variant: auth.OIDCProof{OIDCCredentials: creds}}
 }
 
 // login registers a code for sub at the fake provider and proves it.
@@ -261,7 +261,7 @@ var _ = Describe("Service", func() {
 			authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 				DB: db,
 				Authenticators: map[auth.Method]auth.Authenticator{
-					auth.MethodOidc: svc,
+					auth.MethodOIDC: svc,
 				},
 			}))
 			sub := uuid.New().String()

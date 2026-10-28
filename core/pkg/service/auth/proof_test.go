@@ -50,7 +50,7 @@ var _ = Describe("Proof MessagePack", func() {
 		Expect(decoded).To(Equal(proof))
 	})
 	It("Should round trip an OIDC proof", func(ctx SpecContext) {
-		proof := auth.Proof{Variant: auth.OidcProof{
+		proof := auth.Proof{Variant: auth.OIDCProof{
 			OIDCCredentials: auth.OIDCCredentials{
 				Provider:    "idp",
 				Code:        "code",

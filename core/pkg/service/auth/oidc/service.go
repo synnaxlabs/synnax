@@ -9,7 +9,7 @@
 
 // Package oidc authenticates users through OpenID Connect providers. A user holds one
 // [Link] per provider, and the package implements [auth.Authenticator] for
-// [auth.MethodOidc].
+// [auth.MethodOIDC].
 package oidc
 
 import (
@@ -251,7 +251,7 @@ func (s *Service) Authenticate(
 	ctx context.Context,
 	proof auth.Proof,
 ) (auth.Identity, error) {
-	creds, ok := proof.Variant.(auth.OidcProof)
+	creds, ok := proof.Variant.(auth.OIDCProof)
 	if !ok {
 		return auth.Identity{}, errors.Wrapf(
 			validate.ErrValidation,
