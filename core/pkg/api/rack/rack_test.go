@@ -125,7 +125,7 @@ var _ = Describe("Delete", func() {
 			svc.APIKey.NewWriter(nil).Create(ctx, r.OntologyID(), "driver"),
 		)
 		_, token := MustSucceed2(svc.Auth.Login(ctx, auth.Proof{
-			Variant: auth.ApiKeyProof{
+			Variant: auth.APIKeyProof{
 				APIKeyCredentials: auth.APIKeyCredentials{Key: key},
 			},
 		}))
