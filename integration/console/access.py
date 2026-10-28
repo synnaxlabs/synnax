@@ -221,17 +221,16 @@ class AccessClient(ResourceClient):
         *,
         username: str,
         password: str,
-        first_name: str,
-        last_name: str,
         role_name: str,
+        name: str | None = None,
     ) -> None:
         """Register a new user via Console UI command palette.
 
         :param username: The username for the new user.
         :param password: The password for the new user.
-        :param first_name: First name of the user.
-        :param last_name: Last name of the user.
         :param role_name: Role to assign to the user (required).
+        :param name: Name of the user, which the users panel shows. Defaults to the
+            username.
         :raises AssertionError: If registration surfaces an error notification.
         """
         self.notifications.close_all()
@@ -240,8 +239,7 @@ class AccessClient(ResourceClient):
 
         sy.sleep(0.3)
 
-        self.layout.fill_input_field("First", first_name)
-        self.layout.fill_input_field("Last", last_name)
+        self.layout.fill_input_field("Name", name if name is not None else username)
         self.layout.fill_input_field("Username", username)
         self.layout.fill_input_field("Password", password)
 
@@ -310,21 +308,21 @@ class AccessClient(ResourceClient):
     # User Rename/Delete
     # -------------------------------------------------------------------------
 
-    def rename_user(self, *, username: str, new_username: str) -> None:
-        """Rename a user via the "Change username" context menu action.
+    def rename_user(self, *, name: str, new_name: str) -> None:
+        """Rename a user via the "Rename" context menu action.
 
-        :param username: The current username.
-        :param new_username: The new username.
+        :param name: The current name of the user.
+        :param new_name: The new name of the user.
         """
-        user_item = self._find_user_item(username)
+        user_item = self._find_user_item(name)
         if user_item is None:
-            raise ValueError(f"User '{username}' not found in users panel")
+            raise ValueError(f"User '{name}' not found in users panel")
 
-        self.ctx_menu.action(user_item, "Change username")
+        self.ctx_menu.action(user_item, "Rename")
 
         name_element = user_item.locator("p.pluto-text--editable")
         name_element.click()
-        name_element.fill(new_username)
+        name_element.fill(new_name)
         self.layout.press_enter()
         sy.sleep(1)
 

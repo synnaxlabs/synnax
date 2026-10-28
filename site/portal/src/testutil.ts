@@ -13,7 +13,12 @@ import { type APIContext } from "astro";
 import { expect } from "vitest";
 
 import { type Portal } from "@/portal";
-import { type Analytics, memory as analytics, type Session } from "@/server/analytics";
+import {
+  type Analytics,
+  type Capture,
+  memory as analytics,
+  type Session,
+} from "@/server/analytics";
 import {
   type Activation,
   activation,
@@ -23,6 +28,8 @@ import {
   license,
   type Organization,
   organization,
+  type Referral,
+  referral,
 } from "@/server/db/schema";
 import { type Memory } from "@/server/db/testutil";
 import { type Directory, memory as directory, type Records } from "@/server/directory";
@@ -45,7 +52,7 @@ export interface Harness {
   directory: Directory & Records;
   mail: Mailer & { sent: Message[] };
   slack: Slack & { posted: Note[] };
-  analytics: Analytics & { recorded: Session[] };
+  analytics: Analytics & { recorded: Session[]; captured: Capture[] };
   /** signIn makes later sessions resolve as the user, or as nobody for null. */
   signIn: (userID: string | null) => void;
 }
@@ -77,6 +84,8 @@ export const createHarness = (store: Memory): Harness => {
       cronSecret: CRON_SECRET,
       webhookSecret: WEBHOOK_SECRET,
       session: async () => await resolve(dir, userID, STAFF_ORG_ID),
+      viewer: async () =>
+        userID == null ? null : await resolve(dir, userID, STAFF_ORG_ID),
       now: () => NOW,
     },
   };
@@ -201,6 +210,24 @@ export const createInvitation = async (
       role: "org:member",
       sentAt: NOW,
       expiresAt: new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
+      ...values,
+    })
+    .returning();
+  return row;
+};
+
+/** createReferral saves a referral that `user_staff` made at {@link NOW}. */
+export const createReferral = async (
+  store: Memory,
+  values: Partial<Referral> = {},
+): Promise<Referral> => {
+  const [row] = await store.query
+    .insert(referral)
+    .values({
+      key: "Ada-link-001",
+      recipient: "Ada",
+      createdBy: "user_staff",
+      createdAt: NOW,
       ...values,
     })
     .returning();

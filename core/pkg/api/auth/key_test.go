@@ -76,8 +76,8 @@ var _ = Describe("API keys", func() {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
 		eng = createUser(ctx, "eng-"+uuid.New().String(), "p")
 		assignBuiltin(ctx, eng.OntologyID(), "Engineer")
-		bobToken = login(ctx, passwordProof(bob.Username, "p"))
-		engToken = login(ctx, passwordProof(eng.Username, "p"))
+		bobToken = login(ctx, passwordProof(bob.Name, "p"))
+		engToken = login(ctx, passwordProof(eng.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
 		rack = ontology.ID{Type: ontology.ResourceTypeRack, Key: uuid.New().String()}
 		Expect(otg.NewWriter(nil).DefineResources(ctx, rack)).To(Succeed())

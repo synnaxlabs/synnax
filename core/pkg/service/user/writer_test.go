@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,122 +30,59 @@ var _ = Describe("Writer", func() {
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
 	})
+	exists := func(ctx SpecContext, key user.Key) bool {
+		GinkgoHelper()
+		return MustSucceed(svc.NewRetrieve().Where(user.MatchKeys(key)).Exists(ctx, tx))
+	}
 	Describe("Create", func() {
+		It("Should refuse an empty name", func(ctx SpecContext) {
+			Expect(w.Create(ctx, user.User{})).Error().
+				To(MatchError(ContainSubstring("name: required")))
+		})
 		It("Should create a new user with the given key", func(ctx SpecContext) {
 			key := uuid.New()
-			name := uuid.New().String()
-			u := MustSucceed(w.Create(ctx, user.User{
-				Username: name,
-				Key:      key,
-			}))
+			u := MustSucceed(w.Create(ctx, user.User{Name: "Patrick Star", Key: key}))
 			Expect(u.Key).To(Equal(key))
-			Expect(u.Username).To(Equal(name))
-			Expect(u.FirstName).To(Equal(""))
-			Expect(u.LastName).To(Equal(""))
+			Expect(u.Name).To(Equal("Patrick Star"))
 			Expect(u.RootUser).To(BeFalse())
 		})
 		It(
 			"Should assign a new key when none is provided on create",
 			func(ctx SpecContext) {
-				name := uuid.New().String()
-				u := MustSucceed(w.Create(ctx, user.User{Username: name}))
+				u := MustSucceed(w.Create(ctx, user.User{Name: "Patrick Star"}))
 				Expect(u.Key).ToNot(Equal(uuid.Nil()))
-				Expect(u.Username).To(Equal(name))
-				Expect(u.RootUser).To(BeFalse())
+				Expect(exists(ctx, u.Key)).To(BeTrue())
 			},
 		)
-		It("Should create a user with profile metadata", func(ctx SpecContext) {
-			name := uuid.New().String()
-			u := MustSucceed(w.Create(ctx, user.User{
-				Username:  name,
-				FirstName: "Patrick",
-				LastName:  "Star",
-			}))
-			Expect(u.FirstName).To(Equal("Patrick"))
-			Expect(u.LastName).To(Equal("Star"))
-			Expect(u.Username).To(Equal(name))
-		})
 		It("Should reject a key that another user holds", func(ctx SpecContext) {
-			u := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
-			Expect(w.Create(ctx, user.User{Key: u.Key, Username: "b"})).Error().
+			u := MustSucceed(w.Create(ctx, user.User{Name: "a"}))
+			Expect(w.Create(ctx, user.User{Key: u.Key, Name: "b"})).Error().
 				To(MatchError(validate.ErrValidation))
 		})
-		It("Should allow two user records with the same username", func(
-			ctx SpecContext,
-		) {
-			name := uuid.New().String()
-			a := MustSucceed(w.Create(ctx, user.User{Username: name}))
-			b := MustSucceed(w.Create(ctx, user.User{Username: name}))
+		It("Should allow two users with the same name", func(ctx SpecContext) {
+			a := MustSucceed(w.Create(ctx, user.User{Name: "Twin"}))
+			b := MustSucceed(w.Create(ctx, user.User{Name: "Twin"}))
 			Expect(a.Key).ToNot(Equal(b.Key))
 		})
-		It(
-			"Should return a validation error when the username is empty",
-			func(ctx SpecContext) {
-				Expect(w.Create(ctx, user.User{})).Error().
-					To(MatchError(ContainSubstring("username: required")))
-			},
-		)
 		It(
 			"Should reject RootUser=true so the root-user invariant cannot be bypassed",
 			func(ctx SpecContext) {
 				Expect(w.Create(ctx, user.User{
-					Username: uuid.New().String(),
+					Name:     "root",
 					RootUser: true,
 				})).Error().To(MatchError(ContainSubstring("cannot create a root user; root users are provisioned at startup")))
 			},
 		)
 	})
-	Describe("ChangeUsername", func() {
-		It("Should change the username of a user", func(ctx SpecContext) {
-			original := uuid.New().String()
-			updated := uuid.New().String()
-			created := MustSucceed(w.Create(ctx, user.User{Username: original}))
-			Expect(w.ChangeUsername(ctx, created.Key, updated)).To(Succeed())
-			Expect(
-				svc.NewRetrieve().Where(user.MatchUsernames(updated)).Exists(ctx, tx),
-			).To(BeTrue())
-			Expect(
-				svc.NewRetrieve().Where(user.MatchUsernames(original)).Exists(ctx, tx),
-			).To(BeFalse())
-		})
-		It(
-			"Should return ErrRepeatedUsername if the username already exists",
-			func(ctx SpecContext) {
-				a := MustSucceed(
-					w.Create(ctx, user.User{Username: uuid.New().String()}),
-				)
-				b := MustSucceed(
-					w.Create(ctx, user.User{Username: uuid.New().String()}),
-				)
-				Expect(
-					w.ChangeUsername(ctx, a.Key, b.Username),
-				).To(MatchError(auth.ErrRepeatedUsername))
-			},
-		)
-	})
 	Describe("ChangeName", func() {
-		It("Should change the names of a user", func(ctx SpecContext) {
-			created := MustSucceed(
-				w.Create(ctx, user.User{Username: uuid.New().String()}),
-			)
-			Expect(w.ChangeName(ctx, created.Key, "Patrick", "Star")).To(Succeed())
-			var u user.User
-			Expect(
-				svc.NewRetrieve().
-					Where(user.MatchKeys(created.Key)).
-					Entry(&u).
-					Exec(ctx, tx),
-			).To(Succeed())
-			Expect(u.FirstName).To(Equal("Patrick"))
-			Expect(u.LastName).To(Equal("Star"))
+		It("Should refuse an empty name", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, user.User{Name: "Patrick"}))
+			Expect(w.ChangeName(ctx, created.Key, "")).
+				To(MatchError(ContainSubstring("name: required")))
 		})
-		It("Should only change one name if the other is blank", func(ctx SpecContext) {
-			created := MustSucceed(w.Create(ctx, user.User{
-				Username:  uuid.New().String(),
-				FirstName: "Original",
-				LastName:  "Surname",
-			}))
-			Expect(w.ChangeName(ctx, created.Key, "Patrick", "")).To(Succeed())
+		It("Should change the name of a user", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, user.User{Name: "Patrick"}))
+			Expect(w.ChangeName(ctx, created.Key, "Patrick Star")).To(Succeed())
 			var u user.User
 			Expect(
 				svc.NewRetrieve().
@@ -154,21 +90,13 @@ var _ = Describe("Writer", func() {
 					Entry(&u).
 					Exec(ctx, tx),
 			).To(Succeed())
-			Expect(u.FirstName).To(Equal("Patrick"))
-			Expect(u.LastName).To(Equal("Surname"))
+			Expect(u.Name).To(Equal("Patrick Star"))
 		})
 	})
 	Describe("Delete", func() {
 		It("Should delete a single user", func(ctx SpecContext) {
-			created := MustSucceed(
-				w.Create(ctx, user.User{Username: uuid.New().String()}),
-			)
+			created := MustSucceed(w.Create(ctx, user.User{Name: "a"}))
 			Expect(w.Delete(ctx, created.Key)).To(Succeed())
-			Expect(
-				svc.NewRetrieve().
-					Where(user.MatchUsernames(created.Username)).
-					Exists(ctx, tx),
-			).To(BeFalse())
 			var u user.User
 			Expect(
 				svc.NewRetrieve().
@@ -179,28 +107,16 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 		})
 		It("Should delete multiple users", func(ctx SpecContext) {
-			a := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
-			b := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
+			a := MustSucceed(w.Create(ctx, user.User{Name: "a"}))
+			b := MustSucceed(w.Create(ctx, user.User{Name: "b"}))
 			Expect(w.Delete(ctx, a.Key, b.Key)).To(Succeed())
-			Expect(
-				svc.NewRetrieve().
-					Where(user.MatchUsernames(a.Username)).
-					Exists(ctx, nil),
-			).To(BeFalse())
-			Expect(
-				svc.NewRetrieve().
-					Where(user.MatchUsernames(b.Username)).
-					Exists(ctx, nil),
-			).To(BeFalse())
+			Expect(exists(ctx, a.Key)).To(BeFalse())
+			Expect(exists(ctx, b.Key)).To(BeFalse())
 		})
 		It("Should not delete a root user", func(ctx SpecContext) {
 			// Insert a root user directly via the raw gorp writer because
 			// Writer.Create rejects RootUser=true.
-			rootUser := user.User{
-				Key:      uuid.New(),
-				Username: uuid.New().String(),
-				RootUser: true,
-			}
+			rootUser := user.User{Key: uuid.New(), Name: "root", RootUser: true}
 			Expect(
 				gorp.WrapWriter[user.Key, user.User](tx).Set(ctx, rootUser),
 			).To(Succeed())
@@ -214,15 +130,9 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should delete existing users and ignore unknown keys in the same call",
 			func(ctx SpecContext) {
-				existing := MustSucceed(
-					w.Create(ctx, user.User{Username: uuid.New().String()}),
-				)
+				existing := MustSucceed(w.Create(ctx, user.User{Name: "a"}))
 				Expect(w.Delete(ctx, existing.Key, uuid.New())).To(Succeed())
-				Expect(
-					svc.NewRetrieve().
-						Where(user.MatchKeys(existing.Key)).
-						Exists(ctx, tx),
-				).To(BeFalse())
+				Expect(exists(ctx, existing.Key)).To(BeFalse())
 			},
 		)
 	})
