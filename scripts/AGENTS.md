@@ -30,6 +30,11 @@ easy to get wrong by hand.
 
 Prettier (TS) and Ruff (Python) run via each toolchain's own CLI, not a repo script.
 
+- `uv run --project scripts scripts/check_exports_py.py` — reports top-level Python
+  names without a leading underscore that only their own module or test code imports.
+  Tests may import names from a test utility (`testutil`, `test`, or `mock`). Fix a
+  finding with a leading underscore, or move the helper into a test utility. The package
+  list is `PACKAGES` in the script.
 - `python3 scripts/check_exports_ts.py` — reports TypeScript exports that only their own
   module or test code use. It runs Knip in production mode, then traces each finding. An
   export that only other modules' tests use is allowed only in a test utility directory
@@ -106,3 +111,7 @@ that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC
 and stops. Its own uv project and CI job. A pool in `scaler.py` must use the label the
 workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
 instance.
+
+Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
+Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start
+the scripts by hand on the box.

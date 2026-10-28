@@ -15,9 +15,10 @@ file at the run-dir root. The format is shaped for autonomous LLM triage: stable
 headings, code fences, and concise sections so an agent reading the file once can decide
 what to drill into.
 
-Trace parsing reads ``trace.trace`` and ``trace.network`` JSONL streams from the zip
-directly. The ``pnpm dlx playwright trace`` CLI is the *interactive* fallback documented
-in the skill; this module is the *batch* path that runs at exit.
+Trace parsing reads the ``trace.trace`` and ``trace.network`` JSONL streams and the
+``trace.stacks`` JSON from the zip directly. The ``pnpm dlx playwright trace`` CLI is
+the *interactive* fallback documented in the skill; this module is the *batch* path that
+runs at exit.
 """
 
 import json
@@ -74,12 +75,13 @@ def _parse_trace(trace_zip: Path) -> _TraceSummary | None:
         with zipfile.ZipFile(trace_zip) as z:
             _parse_trace_events(z, paired, summary)
             _parse_network_events(z, summary)
+            teardown_calls = _parse_teardown_calls(z)
     except (zipfile.BadZipFile, KeyError, OSError):
         return None
 
     for call_id, pair in paired.items():
         before = pair.get("before")
-        if before is None:
+        if before is None or call_id in teardown_calls:
             continue
         after = pair.get("after", {})
         err = _extract_action_error(after)
@@ -128,6 +130,25 @@ def _parse_trace_events(
                         "url": evt.get("location", {}).get("url", ""),
                     }
                 )
+
+
+def _parse_teardown_calls(z: zipfile.ZipFile) -> set[str]:
+    """Return the call IDs of actions made from a ``teardown`` method. The report leaves
+    them out so its last actions end at the failure, not at cleanup."""
+    try:
+        info = z.getinfo("trace.stacks")
+    except KeyError:
+        return set()
+    with z.open(info) as f:
+        try:
+            stacks = json.load(f).get("stacks", [])
+        except json.JSONDecodeError:
+            return set()
+    return {
+        call_id
+        for call_id, frames in stacks
+        if any(caller.endswith(".teardown") for *_, caller in frames)
+    }
 
 
 def _parse_network_events(z: zipfile.ZipFile, summary: _TraceSummary) -> None:
