@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package cmd_test
 
 import (
 	"io"
@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,7 +25,7 @@ var _ = Describe("surface command", func() {
 			"widget.oracle": "Valve struct {\n    name string\n}\n",
 		})
 		DeferCleanup(cleanup)
-		Expect(MustSucceed(executeCommand(newRootCmd(), "surface"))).
+		Expect(MustSucceed(executeCommand(cmd.New(), "surface"))).
 			To(Equal("widget.Valve struct\nwidget.Valve.name string\n"))
 	})
 
@@ -34,7 +35,7 @@ var _ = Describe("surface command", func() {
 		})
 		DeferCleanup(cleanup)
 		var stderr strings.Builder
-		root := newRootCmd()
+		root := cmd.New()
 		root.SetOut(io.Discard)
 		root.SetErr(&stderr)
 		root.SetArgs([]string{"surface"})

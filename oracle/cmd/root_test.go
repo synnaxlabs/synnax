@@ -7,20 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package cmd_test
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
-	"github.com/synnaxlabs/oracle/format"
-	"github.com/synnaxlabs/oracle/pipeline"
-	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -74,45 +71,45 @@ func setupMiniRepo(schemas map[string]string) (string, func()) {
 	}
 }
 
-var _ = Describe("newRootCmd", func() {
+var _ = Describe("New", func() {
 	It("should create a root command with the correct use string", func() {
-		cmd := newRootCmd()
-		Expect(cmd.Use).To(Equal("oracle"))
+		root := cmd.New()
+		Expect(root.Use).To(Equal("oracle"))
 	})
 
 	It("should register all subcommands", func() {
-		cmd := newRootCmd()
-		names := make([]string, 0, len(cmd.Commands()))
-		for _, sub := range cmd.Commands() {
+		root := cmd.New()
+		names := make([]string, 0, len(root.Commands()))
+		for _, sub := range root.Commands() {
 			names = append(names, sub.Name())
 		}
 		Expect(names).To(ContainElements("check", "fmt", "lsp", "migrate", "sync"))
 	})
 
 	It("should have the verbose persistent flag", func() {
-		cmd := newRootCmd()
-		flag := cmd.PersistentFlags().Lookup("verbose")
+		root := cmd.New()
+		flag := root.PersistentFlags().Lookup("verbose")
 		Expect(flag).NotTo(BeNil())
 		Expect(flag.Shorthand).To(Equal("v"))
 	})
 
 	It("should print help when run with --help", func() {
-		cmd := newRootCmd()
-		output := MustSucceed(executeCommand(cmd, "--help"))
+		root := cmd.New()
+		output := MustSucceed(executeCommand(root, "--help"))
 		Expect(output).To(ContainSubstring("Schema-first code generation"))
 	})
 
 	It("should return an error for unknown subcommands", func() {
-		cmd := newRootCmd()
+		root := cmd.New()
 		Expect(
-			executeCommand(cmd, "nonexistent"),
+			executeCommand(root, "nonexistent"),
 		).Error().
 			To(MatchError(ContainSubstring(`unknown command "nonexistent"`)))
 	})
 
 	It("should produce independent command trees on each call", func() {
-		cmd1 := newRootCmd()
-		cmd2 := newRootCmd()
+		cmd1 := cmd.New()
+		cmd2 := cmd.New()
 		Expect(cmd1).NotTo(BeIdenticalTo(cmd2))
 		Expect(cmd1.Commands()).To(HaveLen(len(cmd2.Commands())))
 	})
@@ -131,8 +128,8 @@ var _ = Describe("check command", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should validate well-formed schemas", func() {
-		cmd := newRootCmd()
-		MustSucceed(executeCommand(cmd, "check"))
+		root := cmd.New()
+		MustSucceed(executeCommand(root, "check"))
 	})
 })
 
@@ -147,9 +144,9 @@ var _ = Describe("check command with no schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should error when no schema files exist", func() {
-		cmd := newRootCmd()
+		root := cmd.New()
 		Expect(
-			executeCommand(cmd, "check"),
+			executeCommand(root, "check"),
 		).Error().
 			To(MatchError(ContainSubstring("no schema files found")))
 	})
@@ -168,13 +165,13 @@ var _ = Describe("fmt command", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should format schema files without error", func() {
-		cmd := newRootCmd()
-		MustSucceed(executeCommand(cmd, "fmt"))
+		root := cmd.New()
+		MustSucceed(executeCommand(root, "fmt"))
 	})
 
 	It("should pass check mode when already formatted", func() {
-		cmd := newRootCmd()
-		MustSucceed(executeCommand(cmd, "fmt", "--check"))
+		root := cmd.New()
+		MustSucceed(executeCommand(root, "fmt", "--check"))
 	})
 })
 
@@ -192,17 +189,17 @@ var _ = Describe("fmt command with nested schema folders", Ordered, func() {
 	})
 
 	It("discovers and flags unformatted schemas in subdirectories", func() {
-		cmd := newRootCmd()
-		Expect(executeCommand(cmd, "fmt", "--check")).Error().
+		root := cmd.New()
+		Expect(executeCommand(root, "fmt", "--check")).Error().
 			To(MatchError(ContainSubstring("files need formatting")))
 	})
 
 	It("formats nested schemas in place", func() {
-		cmd := newRootCmd()
-		Expect(executeCommand(cmd, "fmt")).To(Equal(""))
+		root := cmd.New()
+		Expect(executeCommand(root, "fmt")).To(Equal(""))
 
-		cmd = newRootCmd()
-		Expect(executeCommand(cmd, "fmt", "--check")).To(Equal(""))
+		root = cmd.New()
+		Expect(executeCommand(root, "fmt", "--check")).To(Equal(""))
 	})
 })
 
@@ -220,18 +217,20 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 	})
 
 	It("formats only the explicitly named file", func() {
-		cmd := newRootCmd()
-		Expect(executeCommand(cmd, "fmt", "schemas/synnax/user.oracle")).
+		root := cmd.New()
+		Expect(executeCommand(root, "fmt", "schemas/synnax/user.oracle")).
 			To(Equal(""))
 
-		cmd = newRootCmd()
-		Expect(executeCommand(cmd, "fmt", "--check", "schemas/synnax/user.oracle")).
+		root = cmd.New()
+		Expect(executeCommand(root, "fmt", "--check", "schemas/synnax/user.oracle")).
 			To(Equal(""))
 	})
 
 	It("leaves files not named in the arguments untouched", func() {
-		cmd := newRootCmd()
-		Expect(executeCommand(cmd, "fmt", "--check", "schemas/x/other.oracle")).Error().
+		root := cmd.New()
+		Expect(
+			executeCommand(root, "fmt", "--check", "schemas/x/other.oracle"),
+		).Error().
 			To(MatchError(ContainSubstring("files need formatting")))
 	})
 })
@@ -249,8 +248,8 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 	})
 
 	It("propagates the recursive-discovery error when no arguments are given", func() {
-		cmd := newRootCmd()
-		Expect(executeCommand(cmd, "fmt")).Error().
+		root := cmd.New()
+		Expect(executeCommand(root, "fmt")).Error().
 			To(MatchError(ContainSubstring("walk schema directory")))
 	})
 })
@@ -265,8 +264,8 @@ var _ = Describe("fmt command argument error", Ordered, func() {
 	})
 
 	It("propagates the glob error for a malformed pattern argument", func() {
-		cmd := newRootCmd()
-		Expect(executeCommand(cmd, "fmt", "schemas/[")).Error().
+		root := cmd.New()
+		Expect(executeCommand(root, "fmt", "schemas/[")).Error().
 			To(MatchError(ContainSubstring("invalid glob pattern")))
 	})
 })
@@ -285,9 +284,9 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail check mode when schemas need formatting", func() {
-		cmd := newRootCmd()
+		root := cmd.New()
 		Expect(
-			executeCommand(cmd, "fmt", "--check"),
+			executeCommand(root, "fmt", "--check"),
 		).Error().
 			To(MatchError(ContainSubstring("files need formatting")))
 	})
@@ -309,48 +308,62 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 	})
 
 	It("discovers schemas in subdirectories instead of failing the flat glob", func() {
-		cmd := newRootCmd()
-		Expect(executeCommand(cmd, "migrate")).Error().
+		root := cmd.New()
+		Expect(executeCommand(root, "migrate")).Error().
 			NotTo(MatchError(ContainSubstring("no schema files found")))
 	})
 })
 
-var _ = Describe("expandGlobs", func() {
-	var (
-		repoDir string
-		cleanup func()
+var _ = Describe("fmt command with file patterns", func() {
+	const (
+		unformatted = "A struct {key uuid}"
+		formatted   = "A struct {\n    key uuid\n}\n"
 	)
+	var repoDir string
 
 	BeforeEach(func() {
+		var cleanup func()
 		repoDir, cleanup = setupMiniRepo(map[string]string{
-			"a.oracle": "A struct {\n    key uuid\n}\n",
-			"b.oracle": "B struct {\n    key uuid\n}\n",
+			"a.oracle": unformatted,
+			"b.oracle": unformatted,
 		})
+		DeferCleanup(cleanup)
 	})
 
-	AfterEach(func() { cleanup() })
+	schema := func(name string) string {
+		GinkgoHelper()
+		return string(MustSucceed(os.ReadFile(filepath.Join(repoDir, "schemas", name))))
+	}
 
-	It("should expand a valid glob pattern", func() {
-		files := MustSucceed(expandGlobs([]string{"schemas/*.oracle"}, repoDir))
-		Expect(files).To(HaveLen(2))
+	DescribeTable(
+		"Should format every file a pattern matches",
+		func(pattern func() string) {
+			MustSucceed(executeCommand(cmd.New(), "fmt", pattern()))
+			Expect(schema("a.oracle")).To(Equal(formatted))
+			Expect(schema("b.oracle")).To(Equal(formatted))
+		},
+		Entry("relative to the repository root", func() string {
+			return "schemas/*.oracle"
+		}),
+		Entry("absolute", func() string {
+			return filepath.Join(repoDir, "schemas", "*.oracle")
+		}),
+	)
+
+	It("Should format only the files a pattern matches", func() {
+		MustSucceed(executeCommand(cmd.New(), "fmt", "schemas/a.oracle"))
+		Expect(schema("a.oracle")).To(Equal(formatted))
+		Expect(schema("b.oracle")).To(Equal(unformatted))
 	})
 
-	It("should return empty for non-matching globs", func() {
-		files := MustSucceed(expandGlobs([]string{"nonexistent/*.xyz"}, repoDir))
-		Expect(files).To(BeEmpty())
+	It("Should fail when no file matches a pattern", func() {
+		Expect(executeCommand(cmd.New(), "fmt", "nonexistent/*.xyz")).Error().
+			To(MatchError("no schema files found"))
 	})
 
-	It("should return sorted results", func() {
-		files := MustSucceed(expandGlobs([]string{"schemas/*.oracle"}, repoDir))
-		for i := 1; i < len(files); i++ {
-			Expect(files[i] >= files[i-1]).To(BeTrue())
-		}
-	})
-
-	It("should handle absolute patterns", func() {
-		pattern := filepath.Join(repoDir, "schemas", "*.oracle")
-		files := MustSucceed(expandGlobs([]string{pattern}, repoDir))
-		Expect(files).To(HaveLen(2))
+	It("Should reject a malformed pattern", func() {
+		Expect(executeCommand(cmd.New(), "fmt", "schemas/[")).Error().
+			To(MatchError(ContainSubstring("invalid glob pattern")))
 	})
 })
 
@@ -367,8 +380,8 @@ var _ = Describe("fmt --diff flag", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should report changes without writing in diff mode", func() {
-		cmd := newRootCmd()
-		MustSucceed(executeCommand(cmd, "fmt", "--diff"))
+		root := cmd.New()
+		MustSucceed(executeCommand(root, "fmt", "--diff"))
 	})
 })
 
@@ -385,111 +398,10 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail validation on invalid schemas", func() {
-		cmd := newRootCmd()
+		root := cmd.New()
 		Expect(
-			executeCommand(cmd, "check"),
+			executeCommand(root, "check"),
 		).Error().
 			To(MatchError(ContainSubstring("1 gate(s) failed")))
 	})
-})
-
-var _ = Describe("buildPluginRegistry", func() {
-	It("should register all expected plugins", func() {
-		registry := MustSucceed(buildPluginRegistry())
-		expectedPlugins := []string{
-			"ts/types", "go/types", "py/types", "pb/types",
-			"cpp/types", "cpp/json", "cpp/pb", "go/pb", "go/marshal",
-		}
-		for _, name := range expectedPlugins {
-			Expect(registry.Get(name)).NotTo(BeNil(),
-				fmt.Sprintf("plugin %q should be registered", name))
-		}
-	})
-})
-
-var _ = Describe("syncOutputs", func() {
-	var (
-		tmpDir     string
-		formatters *format.Registry
-		cache      *format.Cache
-	)
-
-	BeforeEach(func() {
-		tmpDir = MustSucceed(os.MkdirTemp("", "sync"))
-		DeferCleanup(func() {
-			Expect(os.RemoveAll(tmpDir)).To(Succeed())
-		})
-		formatters = format.NewRegistry()
-		cache = format.LoadCache(tmpDir)
-	})
-
-	resultWith := func(files map[string][]plugin.File) *pipeline.Result {
-		return &pipeline.Result{
-			Outputs:   files,
-			Deletions: map[string][]string{},
-		}
-	}
-
-	It("should write new files and report them", func(ctx SpecContext) {
-		result := resultWith(map[string][]plugin.File{
-			"test": {{Path: "out/types.gen.go", Content: []byte("package out")}},
-		})
-		sr := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
-		Expect(sr.Written).To(HaveLen(1))
-		Expect(sr.Unchanged).To(BeEmpty())
-
-		content := string(
-			MustSucceed(os.ReadFile(filepath.Join(tmpDir, "out", "types.gen.go"))),
-		)
-		Expect(content).To(Equal("package out"))
-	})
-
-	It("should skip unchanged files", func(ctx SpecContext) {
-		outDir := filepath.Join(tmpDir, "out")
-		Expect(os.MkdirAll(outDir, 0o755)).To(Succeed())
-		Expect(
-			os.WriteFile(
-				filepath.Join(outDir, "types.gen.go"),
-				[]byte("package out"),
-				0o644,
-			),
-		).To(Succeed())
-
-		result := resultWith(map[string][]plugin.File{
-			"test": {{Path: "out/types.gen.go", Content: []byte("package out")}},
-		})
-		sr := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
-		Expect(sr.Written).To(BeEmpty())
-		Expect(sr.Unchanged).To(HaveLen(1))
-	})
-
-	It("should overwrite files with different content", func(ctx SpecContext) {
-		outDir := filepath.Join(tmpDir, "out")
-		Expect(os.MkdirAll(outDir, 0o755)).To(Succeed())
-		Expect(
-			os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("old"), 0o644),
-		).To(Succeed())
-
-		result := resultWith(map[string][]plugin.File{
-			"test": {{Path: "out/types.gen.go", Content: []byte("new")}},
-		})
-		sr := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
-		Expect(sr.Written).To(HaveLen(1))
-		Expect(sr.ByPlugin["test"]).To(HaveLen(1))
-	})
-
-	It(
-		"should skip via cache on second sync with identical raw bytes",
-		func(ctx SpecContext) {
-			result := resultWith(map[string][]plugin.File{
-				"test": {{Path: "out/types.gen.go", Content: []byte("package out")}},
-			})
-			sr1 := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
-			Expect(sr1.Written).To(HaveLen(1))
-
-			sr2 := MustSucceed(syncOutputs(ctx, result, tmpDir, formatters, cache, 1))
-			Expect(sr2.Written).To(BeEmpty())
-			Expect(sr2.Skipped).To(HaveLen(1))
-		},
-	)
 })

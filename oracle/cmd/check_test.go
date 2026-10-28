@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package cmd_test
 
 import (
 	"os"
@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/check"
+	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -43,10 +44,10 @@ var _ = Describe("oracle check end-to-end", func() {
 	runOracleCheck := func(args ...string) (string, int) {
 		GinkgoHelper()
 		bin := buildOracleBinary()
-		cmd := exec.Command(bin, append([]string{"check"}, args...)...)
-		cmd.Dir = repoRoot
-		out, _ := cmd.CombinedOutput()
-		return string(out), cmd.ProcessState.ExitCode()
+		proc := exec.Command(bin, append([]string{"check"}, args...)...)
+		proc.Dir = repoRoot
+		out, _ := proc.CombinedOutput()
+		return string(out), proc.ProcessState.ExitCode()
 	}
 
 	It("returns exit 11 (analyzer errors) for an invalid schema", func() {
@@ -112,26 +113,26 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("rejects an invalid --format value", func() {
-			cmd := newRootCmd()
-			Expect(executeCommand(cmd, "check", "--format=yaml")).Error().
+			root := cmd.New()
+			Expect(executeCommand(root, "check", "--format=yaml")).Error().
 				To(MatchError(ContainSubstring(`invalid --format "yaml"`)))
 		})
 
 		It("runs only the requested gates", func() {
-			cmd := newRootCmd()
-			MustSucceed(executeCommand(cmd, "check", "--gates=format,analyze"))
+			root := cmd.New()
+			MustSucceed(executeCommand(root, "check", "--gates=format,analyze"))
 		})
 
 		It("renders a JSON report without error", func() {
-			cmd := newRootCmd()
+			root := cmd.New()
 			MustSucceed(executeCommand(
-				cmd, "check", "--gates=format,analyze", "--format=json",
+				root, "check", "--gates=format,analyze", "--format=json",
 			))
 		})
 
 		It("renders a verbose report without error", func() {
-			cmd := newRootCmd()
-			MustSucceed(executeCommand(cmd, "check", "-v"))
+			root := cmd.New()
+			MustSucceed(executeCommand(root, "check", "-v"))
 		})
 	})
 
@@ -143,14 +144,14 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("returns the gate-failure exit error", func() {
-			cmd := newRootCmd()
-			Expect(executeCommand(cmd, "check", "--gates=format")).Error().
+			root := cmd.New()
+			Expect(executeCommand(root, "check", "--gates=format")).Error().
 				To(MatchError(ContainSubstring("1 gate(s) failed")))
 		})
 
 		It("includes diffs without error when --diff is set", func() {
-			cmd := newRootCmd()
-			Expect(executeCommand(cmd, "check", "--gates=format", "--diff")).Error().
+			root := cmd.New()
+			Expect(executeCommand(root, "check", "--gates=format", "--diff")).Error().
 				To(MatchError(ContainSubstring("1 gate(s) failed")))
 		})
 	})
@@ -164,12 +165,12 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("escalates warnings with --warnings-as-errors", func() {
-			cmd := newRootCmd()
-			MustSucceed(executeCommand(cmd, "check", "--gates=analyze"))
+			root := cmd.New()
+			MustSucceed(executeCommand(root, "check", "--gates=analyze"))
 
-			cmd = newRootCmd()
+			root = cmd.New()
 			Expect(executeCommand(
-				cmd, "check", "--gates=analyze", "--warnings-as-errors",
+				root, "check", "--gates=analyze", "--warnings-as-errors",
 			)).Error().To(MatchError(ContainSubstring("1 gate(s) failed")))
 		})
 	})
@@ -192,9 +193,9 @@ func buildOracleBinary() string {
 	}
 	// -buildvcs=false keeps the build working inside a Git worktree, where VCS stamping
 	// fails ("error obtaining VCS status: exit status 128").
-	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", bin, ".")
-	cmd.Dir = MustSucceed(findOracleModuleRoot())
-	Expect(cmd.CombinedOutput()).ToNot(BeNil())
+	proc := exec.Command("go", "build", "-buildvcs=false", "-o", bin, ".")
+	proc.Dir = MustSucceed(findOracleModuleRoot())
+	Expect(proc.CombinedOutput()).ToNot(BeNil())
 	oracleBinaryPath = bin
 	DeferCleanup(func() {
 		Expect(os.RemoveAll(dir)).To(Succeed())
