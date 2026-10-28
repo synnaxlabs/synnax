@@ -505,7 +505,7 @@ var _ = Describe("HTTP", func() {
 				&listed,
 			)).To(Equal(http.StatusOK))
 			Expect(listed.Keys).To(ConsistOf(created.Key))
-			keyToken := login(auth.Proof{Variant: auth.ApiKeyProof{
+			keyToken := login(auth.Proof{Variant: auth.APIKeyProof{
 				APIKeyCredentials: auth.APIKeyCredentials{Key: created.Token},
 			}})
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
@@ -568,7 +568,7 @@ var _ = Describe("HTTP", func() {
 				return created.Token
 			}
 			keyProof := func(key string) auth.Proof {
-				return auth.Proof{Variant: auth.ApiKeyProof{
+				return auth.Proof{Variant: auth.APIKeyProof{
 					APIKeyCredentials: auth.APIKeyCredentials{Key: key},
 				}}
 			}

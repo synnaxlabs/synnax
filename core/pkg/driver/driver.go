@@ -477,7 +477,7 @@ func (d *Driver) resolveKey(ctx context.Context) (string, error) {
 	}
 	if saved != "" {
 		id, err := d.cfg.Keys.Authenticate(ctx, auth.Proof{
-			Variant: auth.ApiKeyProof{
+			Variant: auth.APIKeyProof{
 				APIKeyCredentials: auth.APIKeyCredentials{Key: saved},
 			},
 		})
