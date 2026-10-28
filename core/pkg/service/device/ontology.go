@@ -11,17 +11,16 @@ package device
 
 import (
 	"context"
-	"io"
 	"iter"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/change"
-	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 )
 
 // entry is the smallest resource shape, used only to assert the service's
@@ -36,17 +35,10 @@ func (e entry) GorpKey() uuid.UUID { return e.Key }
 
 func (e entry) SetOptions() []any { return nil }
 
-var (
-	_ ontology.Service      = (*Service[entry])(nil)
-	_ search.Service        = (*Service[entry])(nil)
-	_ search.FieldsProvider = (*Service[entry])(nil)
-)
+var _ ontology.Service = (*Service[entry])(nil)
 
 // Type implements ontology.Service.
 func (s *Service[D]) Type() ontology.ResourceType { return s.cfg.Type }
-
-// SearchableFields implements search.FieldsProvider.
-func (s *Service[D]) SearchableFields() []string { return s.cfg.SearchableFields }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service[D]) RetrieveResource(
@@ -79,15 +71,14 @@ func (s *Service[D]) OnChange(
 	)
 }
 
-// OpenNexter implements search.Service.
-func (s *Service[D]) OpenNexter(
+// Search implements ontology.Service.
+func (s *Service[D]) Search(
 	ctx context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	n, closer, err := s.table.OpenNexter(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xiter.Map(n, s.newResource), closer, nil
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.cfg.Search, term, limit, s.OntologyID)
 }
 
 func (s *Service[D]) newResource(d D) ontology.Resource {

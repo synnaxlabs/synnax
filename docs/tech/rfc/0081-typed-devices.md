@@ -156,10 +156,10 @@ references it, so it has no identifier and no channel maps.
 
 Each resource is a struct in its integration's `.oracle` file, with the file's existing
 `@go`, `@ts`, `@py`, and `@cpp` outputs. Every struct carries `@create`, `@retrieve`,
-`@search`, `@go marshal`, `@go migrate`, and `@ontology type`, and declares
-`key uuid = create` with `@key`, `rack rack.Key` with `@filter`, `name string` with
-`@filter`, and a `status` of its own `Status` type with `@go marshal omit`. A base
-struct would carry nothing else, so the three fields repeat.
+`@go marshal`, `@go migrate`, and `@ontology type`, and declares `key uuid = create`
+with `@key`, `rack rack.Key` with `@filter`, `name string` with `@filter` and `@search`,
+and a `status` of its own `Status` type with `@go marshal omit`. A base struct would
+carry nothing else, so the three fields repeat.
 
 The NI resources are the pattern for every discovered make:
 
@@ -167,7 +167,7 @@ The NI resources are the pattern for every discovered make:
 Chassis struct {
     key       Key = create        { @key }
     rack      rack.Key            { @filter }
-    name      string              { @filter }
+    name      string              { @filter @search }
     serial    string              { @index lookup }
     model     string              { @filter }
     alias     string
@@ -179,13 +179,12 @@ Chassis struct {
     @go migrate
     @ontology type "ni_chassis"
     @retrieve
-    @search
 }
 
 Device struct {
     key        Key = create       { @key }
     rack       rack.Key           { @filter }
-    name       string             { @filter }
+    name       string             { @filter @search }
     serial     string             { @index lookup }
     model      string             { @filter }
     alias      string
@@ -242,36 +241,36 @@ service has moved out. Its config mirrors `config.ServiceConfig[E]`:
 
 ```go
 type ServiceConfig[D gorp.Entry[uuid.UUID]] struct {
-    DB               *gorp.DB
-    Ontology         *ontology.Ontology
-    Search           *search.Index
-    Status           *status.Service
-    Signals          *signals.Provider
-    Type             ontology.ResourceType
-    Schema           zyn.Schema
-    SearchableFields []string
-    Migrations       []migrate.Migration
-    SetEntryKey      func(*D, uuid.UUID)
-    NameOf           func(D) string
-    RackOf           func(D) rack.Key
-    ParentOf         func(D) (ontology.ID, bool)
-    StatusDetails    func(D) any
-    ValidateEntry    func(*D) error
-    Referenced       func(context.Context, gorp.Tx, uuid.UUID) (bool, error)
-    DeleteChildren   func(context.Context, gorp.Tx, uuid.UUID) error
+    DB             *gorp.DB
+    Ontology       *ontology.Ontology
+    Status         *status.Service
+    Signals        *signals.Provider
+    Type           ontology.ResourceType
+    Schema         zyn.Schema
+    Indexes        []gorp.Index[uuid.UUID, D]
+    Search         *gorp.SearchIndex[uuid.UUID, D]
+    Migrations     []gorp.Migration
+    SetEntryKey    func(*D, uuid.UUID)
+    NameOf         func(D) string
+    RackOf         func(D) rack.Key
+    ParentOf       func(D) (ontology.ID, bool)
+    StatusDetails  func(D) any
+    ValidateEntry  func(*D) error
+    Referenced     func(context.Context, gorp.Tx, uuid.UUID) (bool, error)
+    DeleteChildren func(context.Context, gorp.Tx, uuid.UUID) error
     alamos.Instrumentation
 }
 ```
 
-The service opens the Gorp table with its migration chain, registers ontology and search
-services for `Type`, publishes `sy_<type>_set` and `sy_<type>_delete` through
-`signals.PublishFromGorp`, and exposes `Create`, `Update`, `Retrieve`, and `Delete`.
-`Create` writes the row, an initial unknown status, the ontology resource, and the
-`parent_of` edge from `ParentOf`, or from the rack when there is no parent. `Update`
-takes a function over the stored row, so a caller changes one field group and leaves the
-other as stored. `Delete` refuses with a `validate.ErrValidation` wrap while
-`Referenced` returns true, then runs `DeleteChildren` and deletes status, resource, and
-row in one transaction.
+The service opens the Gorp table with its migration chain and the Oracle-generated
+indexes, answers ontology searches for `Type` through `Search`, publishes
+`sy_<type>_set` and `sy_<type>_delete` through `signals.PublishFromGorp`, and exposes
+`Create`, `Update`, `Retrieve`, and `Delete`. `Create` writes the row, an initial
+unknown status, the ontology resource, and the `parent_of` edge from `ParentOf`, or from
+the rack when there is no parent. `Update` takes a function over the stored row, so a
+caller changes one field group and leaves the other as stored. `Delete` refuses with a
+`validate.ErrValidation` wrap while `Referenced` returns true, then runs
+`DeleteChildren` and deletes status, resource, and row in one transaction.
 
 Each integration service opens one `device.Service[D]` per resource beside its config
 stores: the NI service gains `Chassis` and `Devices`, the EtherCAT service `Masters` and

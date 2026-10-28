@@ -16,16 +16,14 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
@@ -43,9 +41,6 @@ type ServiceConfig[D gorp.Entry[uuid.UUID]] struct {
 	// Ontology registers the resource type and holds each resource's parent edge.
 	// [REQUIRED]
 	Ontology *ontology.Ontology
-	// Search indexes resources for fuzzy search.
-	// [REQUIRED]
-	Search *search.Index
 	// Status stores each resource's status.
 	// [REQUIRED]
 	Status *status.Service
@@ -59,12 +54,15 @@ type ServiceConfig[D gorp.Entry[uuid.UUID]] struct {
 	// Schema dumps a resource into its ontology resource data.
 	// [REQUIRED]
 	Schema zyn.Schema
-	// SearchableFields are the resource fields the search index matches on.
-	// [OPTIONAL]
-	SearchableFields []string
+	// Indexes are the secondary indexes on the resource table, Search among them.
+	// [REQUIRED]
+	Indexes []gorp.Index[uuid.UUID, D]
+	// Search is the index that ontology searches match resources through.
+	// [REQUIRED]
+	Search *gorp.SearchIndex[uuid.UUID, D]
 	// Migrations is the stored-shape migration chain for the resource type. Empty
 	// for a type whose stored shape has never changed.
-	Migrations []migrate.Migration
+	Migrations []gorp.Migration
 	// SetEntryKey stamps key onto a resource.
 	// [REQUIRED]
 	SetEntryKey func(d *D, key uuid.UUID)
@@ -100,12 +98,12 @@ var _ config.Config[ServiceConfig[entry]] = ServiceConfig[entry]{}
 func (c ServiceConfig[D]) Override(other ServiceConfig[D]) ServiceConfig[D] {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Type = override.String(c.Type, other.Type)
 	c.Schema = override.Nil(c.Schema, other.Schema)
-	c.SearchableFields = override.Slice(c.SearchableFields, other.SearchableFields)
+	c.Indexes = override.Slice(c.Indexes, other.Indexes)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
 	c.SetEntryKey = override.Nil(c.SetEntryKey, other.SetEntryKey)
 	c.NameOf = override.Nil(c.NameOf, other.NameOf)
@@ -124,10 +122,11 @@ func (c ServiceConfig[D]) Validate() error {
 	v := validate.New("device")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
-	v.NotNil("search", c.Search)
 	v.NotNil("status", c.Status)
 	v.NotEmptyString("type", c.Type)
 	v.NotNil("schema", c.Schema)
+	v.NotEmptySlice("indexes", c.Indexes)
+	v.NotNil("search", c.Search)
 	v.NotNil("set_entry_key", c.SetEntryKey)
 	v.NotNil("name_of", c.NameOf)
 	v.NotNil("rack_of", c.RackOf)
@@ -157,13 +156,13 @@ func OpenService[D gorp.Entry[uuid.UUID]](
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, D]{
 		DB:              cfg.DB,
+		Indexes:         cfg.Indexes,
 		Migrations:      cfg.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
 		pub := signals.GorpPublisherConfigUUID(s.table.Observe())
 		pub.SetName = fmt.Sprintf("sy_%s_set", cfg.Type)
@@ -354,7 +353,7 @@ func (s *Service[D]) unknownStatus(d D) status.Status[any] {
 		Name:    name,
 		Time:    telem.Now(),
 		Variant: status.VariantWarning,
-		Message: fmt.Sprintf("%s state unknown", name),
+		Message: "Status unknown",
 		Details: details,
 	}
 }

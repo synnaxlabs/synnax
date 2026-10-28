@@ -16,18 +16,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -98,11 +97,15 @@ var _ = Describe("Service", func() {
 		tx         gorp.Tx
 	)
 	newConfig := func() device.ServiceConfig[module] {
-		GinkgoHelper()
+		search := gorp.NewSearchIndex[uuid.UUID, module](
+			"search",
+			func(m *module) []string { return []string{m.Name} },
+		)
 		return device.ServiceConfig[module]{
 			DB:          db,
 			Ontology:    otg,
-			Search:      MustOpen(search.OpenIndex()),
+			Indexes:     []gorp.Index[uuid.UUID, module]{search},
+			Search:      search,
 			Status:      stat,
 			Type:        resourceType,
 			Schema:      schema,
@@ -113,24 +116,20 @@ var _ = Describe("Service", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
@@ -138,12 +137,10 @@ var _ = Describe("Service", func() {
 			Group:        groupSvc,
 			HostProvider: mock.NewStaticHostProvider(1),
 			Status:       stat,
-			Search:       searchIdx,
 		}))
 		referenced = set.New[uuid.UUID]()
 		deleted = nil
 		cfg := newConfig()
-		cfg.Search = searchIdx
 		cfg.ValidateEntry = (*module).Validate
 		cfg.ParentOf = func(m module) (ontology.ID, bool) {
 			return ontology.ID{Type: resourceType, Key: m.Chassis.String()},
@@ -205,6 +202,12 @@ var _ = Describe("Service", func() {
 			Expect(device.OpenService(ctx, cfg)).Error().
 				To(MatchError(ContainSubstring("name_of: must be non-nil")))
 		})
+		It("Should reject a config missing the search index", func(ctx SpecContext) {
+			cfg := newConfig()
+			cfg.Search = nil
+			Expect(device.OpenService(ctx, cfg)).Error().
+				To(MatchError(ContainSubstring("search: must be non-nil")))
+		})
 		It("Should reject a config missing the type", func(ctx SpecContext) {
 			cfg := newConfig()
 			cfg.Type = ""
@@ -264,7 +267,7 @@ var _ = Describe("Service", func() {
 			s := retrieveStatus(ctx, m.Key)
 			Expect(s.Name).To(Equal("Module"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
-			Expect(s.Message).To(Equal("Module state unknown"))
+			Expect(s.Message).To(Equal("Status unknown"))
 			Expect(s.Details).To(HaveKeyWithValue("rack", BeNumerically("==", m.Rack)))
 		})
 		It("Should keep an existing status on a second create", func(ctx SpecContext) {
@@ -415,18 +418,12 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("OpenNexter", func() {
-		It("Should iterate the stored resources", func(ctx SpecContext) {
-			m := module{Rack: rackSvc.EmbeddedKey, Name: "Module"}
+	Describe("Search", func() {
+		It("Should find a resource by name", func(ctx SpecContext) {
+			m := module{Rack: rackSvc.EmbeddedKey, Name: "Thermocouple module"}
 			Expect(svc.Create(ctx, tx, &m)).To(Succeed())
-			Expect(tx.Commit(ctx)).To(Succeed())
-			next, closer := MustSucceed2(svc.OpenNexter(ctx))
-			var ids []ontology.ID
-			for r := range next {
-				ids = append(ids, r.ID)
-			}
-			Expect(closer.Close()).To(Succeed())
-			Expect(ids).To(ContainElement(svc.OntologyID(m.Key)))
+			res := MustSucceed(svc.Search(ctx, tx, "thermocouple", 10))
+			Expect(res.Keys).To(ConsistOf(svc.OntologyID(m.Key)))
 		})
 	})
 })
