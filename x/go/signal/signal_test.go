@@ -119,6 +119,26 @@ var _ = Describe("Signal", func() {
 			)
 
 			It(
+				"Should report the deferral failure of a routine it does not start",
+				func() {
+					ctx, cancel := signal.Isolated()
+					siblingReturned := make(chan struct{})
+					ctx.Go(func(ctx context.Context) error {
+						<-ctx.Done()
+						close(siblingReturned)
+						return ctx.Err()
+					})
+					cancel()
+					Eventually(siblingReturned).Should(BeClosed())
+					ctx.Go(
+						immediatelyReturnNil,
+						signal.DeferErr(func() error { return errRoutineFailed }),
+					)
+					Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
+				},
+			)
+
+			It(
 				"Should let NewHardShutdown surface the genuine failure instead of skipping it as a cancellation",
 				func() {
 					ctx, cancel := signal.Isolated()

@@ -401,6 +401,9 @@ func (r *routine) goRun(f func(context.Context) error) {
 	if !proceed {
 		// A routine that never starts still releases the resources its deferrals hold.
 		if err := r.runDeferrals(); err != nil {
+			r.ctx.mu.Lock()
+			r.state.err = err
+			r.ctx.mu.Unlock()
 			r.ctx.internal.Go(func() error { return err })
 		}
 		return
