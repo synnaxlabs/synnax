@@ -585,6 +585,46 @@ TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
     EXPECT_EQ(conn_pool->available_count("opc.tcp://localhost:4840"), 0);
 }
 
+/// @brief it should keep reading after the Driver certificate changes and the server
+/// trusts only the new certificate.
+TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
+    const auto store = testutil::create_store();
+    conn_pool = std::make_shared<connection::Pool>(store);
+    const auto old = ASSERT_NIL_P(store->current());
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto secured_cfg = testutil::ServerConfig::create_default();
+    secured_cfg.port = 4861;
+    secured_cfg.identity = server_id;
+    secured_cfg.trusted_clients = {old.certificate};
+    auto secured = std::make_unique<testutil::Server>(secured_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    auto dev = ASSERT_NIL_P(
+        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
+    );
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://localhost:4861";
+    conn_cfg.security_mode = "SignAndEncrypt";
+    conn_cfg.security_policy = "Basic256Sha256";
+    conn_cfg.server_certificate = server_id.certificate;
+    dev.properties["connection"] = testutil::connection_json(conn_cfg);
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    auto p = x::json::Parser(task_cfg_json);
+    UnaryReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
+    ASSERT_NIL(source.start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source.read(breaker, fr).error);
+    const auto next = ASSERT_NIL_P(store->regenerate());
+    secured->stop();
+    secured_cfg.trusted_clients = {next.certificate};
+    secured = std::make_unique<testutil::Server>(secured_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    ASSERT_NIL(source.read(breaker, fr).error);
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should create separate connections for concurrent tasks.
 TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     const std::string endpoint = "opc.tcp://localhost:4840";

@@ -193,8 +193,34 @@ protected:
     const ReadTaskConfig cfg;
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<connection::Pool> pool;
+    /// @brief the device's connection settings as of the last start.
+    connection::Config conn_cfg;
     connection::Pool::Connection connection;
     types::ReadRequestBuilder request_builder;
+
+    /// @brief reads the value of every channel. When the read fails after the client
+    /// certificate changed, connects again with the new certificate and reads again.
+    std::pair<types::ReadResponse, x::errors::Error> read_values() {
+        types::ReadResponse res(UA_Client_Service_read(
+            this->connection.get(),
+            this->request_builder.build()
+        ));
+        auto err = errors::parse(res.get().responseHeader.serviceResult);
+        if (!err) return {std::move(res), x::errors::NIL};
+        auto [refreshed, refresh_err] = this->pool->refresh(
+            this->connection,
+            this->conn_cfg,
+            "[opc.read] "
+        );
+        if (refresh_err) return {std::move(res), refresh_err};
+        if (!refreshed) return {std::move(res), err};
+        types::ReadResponse retry(UA_Client_Service_read(
+            this->connection.get(),
+            this->request_builder.build()
+        ));
+        err = errors::parse(retry.get().responseHeader.serviceResult);
+        return {std::move(retry), err};
+    }
 
     BaseReadTaskSource(
         std::shared_ptr<synnax::Synnax> client,
@@ -220,7 +246,8 @@ public:
             this->cfg.device_key
         );
         if (conn_err) return conn_err;
-        auto [c, err] = this->pool->acquire(conn_cfg, "[opc.read] ");
+        this->conn_cfg = std::move(conn_cfg);
+        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.read] ");
         if (err) return err;
         connection = std::move(c);
         return x::errors::NIL;
@@ -262,13 +289,8 @@ public:
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
         common::ReadResult res;
         const auto start = this->sample_clock.wait(breaker);
-        types::ReadResponse ua_res(UA_Client_Service_read(
-            this->connection.get(),
-            this->request_builder.build()
-        ));
-        if (res.error = errors::parse(ua_res.get().responseHeader.serviceResult);
-            res.error)
-            return res;
+        auto [ua_res, read_err] = this->read_values();
+        if (res.error = read_err; res.error) return res;
         common::initialize_frame(
             fr,
             this->cfg.channels,
@@ -350,13 +372,8 @@ public:
             s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::x::telem::TimeStamp::now();
-            types::ReadResponse ua_res(UA_Client_Service_read(
-                this->connection.get(),
-                this->request_builder.build()
-            ));
-            if (res.error = errors::parse(ua_res.get().responseHeader.serviceResult);
-                res.error)
-                return res;
+            auto [ua_res, read_err] = this->read_values();
+            if (res.error = read_err; res.error) return res;
             bool skip_sample = false;
             for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
                 UA_DataValue &result = ua_res.get().results[j];

@@ -581,6 +581,69 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     ASSERT_NIL(sink->stop());
 }
 
+/// @brief it should connect again once with the new Driver certificate after a failed
+/// write, and not again while the certificate stays the same.
+TEST_F(TestWriteTask, testFailedWriteConnectsAgainOnceWithNewCertificate) {
+    const auto store = testutil::create_store();
+    conn_pool = std::make_shared<connection::Pool>(store);
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto secured_cfg = testutil::ServerConfig::create_default();
+    secured_cfg.port = 4862;
+    secured_cfg.identity = server_id;
+    testutil::Server secured(secured_cfg);
+    secured.start();
+    ASSERT_TRUE(secured.wait_until_ready());
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("refresh_cmd"),
+        x::telem::UINT32_T,
+        true
+    ));
+    const auto rack = ASSERT_NIL_P(ctx->client->racks.create("refresh_test_rack"));
+    connection::Config secured_conn_cfg;
+    secured_conn_cfg.endpoint = "opc.tcp://localhost:4862";
+    secured_conn_cfg.security_mode = "SignAndEncrypt";
+    secured_conn_cfg.security_policy = "Basic256Sha256";
+    secured_conn_cfg.server_certificate = server_id.certificate;
+    synnax::device::Device dev{
+        .key = "refresh_test_dev",
+        .rack = rack.key,
+        .location = "opc.tcp://localhost:4862",
+        .make = "opc",
+        .model = "OPC UA Server",
+        .name = "refresh_test_device",
+        .properties = x::json::json::object(
+            {{"connection", testutil::connection_json(secured_conn_cfg)}}
+        ),
+    };
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    x::json::json task_cfg = {
+        {"data_saving_disabled", false},
+        {"device", dev.key},
+        {"channels",
+         x::json::json::array(
+             {{{"node_id", "NS=99;I=99999"},
+               {"cmd_channel", cmd.key},
+               {"disabled", false}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    auto write_cfg = WriteTaskConfig(ctx->client, p);
+    ASSERT_FALSE(p.error()) << p.error().message();
+    WriteTaskSink sink(ctx->client, conn_pool, std::move(write_cfg));
+    ASSERT_NIL(sink.start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T));
+    const auto node_err = errors::CRITICAL.sub("BadNodeIdUnknown");
+    ASSERT_MATCHES(sink.write(fr), node_err);
+    ASSERT_EQ(conn_pool->size(), 1);
+    ASSERT_NIL(store->regenerate().second);
+    ASSERT_MATCHES(sink.write(fr), node_err);
+    ASSERT_EQ(conn_pool->size(), 2);
+    ASSERT_MATCHES(sink.write(fr), node_err);
+    ASSERT_EQ(conn_pool->size(), 2);
+    ASSERT_NIL(sink.stop());
+}
+
 /// @brief it should configure when a disabled channel has no node id or Synnax
 /// channel bound to it.
 TEST_F(TestWriteTask, testUnboundDisabledChannel) {

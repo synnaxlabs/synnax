@@ -179,6 +179,8 @@ public:
         std::shared_ptr<UA_Client> client_;
         Pool *pool_;
         std::string key_;
+
+        friend class Pool;
     };
 
     /// @param store the source of the Driver certificate for secured connections.
@@ -193,6 +195,14 @@ public:
     /// certificate in its Config trusts the first one that the server presents.
     std::pair<Connection, x::errors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
+
+    /// @brief replaces conn with a new connection when the configuration now resolves
+    /// to another client certificate, such as after the Driver certificate changes.
+    /// Leaves conn unchanged when the certificate is the same or the new connection
+    /// fails.
+    /// @returns true if it replaced conn.
+    std::pair<bool, x::errors::Error>
+    refresh(Connection &conn, const Config &cfg, const std::string &log_prefix);
 
     size_t size() const;
     size_t available_count(const std::string &endpoint) const;

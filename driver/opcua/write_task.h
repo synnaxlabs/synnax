@@ -148,7 +148,17 @@ public:
 
     x::errors::Error write(::x::telem::Frame &frame) override {
         auto err = this->perform_write(frame);
-        if (!err.matches(errors::UNREACHABLE)) return err;
+        if (!err) return err;
+        if (!err.matches(errors::UNREACHABLE)) {
+            auto [refreshed, refresh_err] = this->pool->refresh(
+                this->connection,
+                this->conn_cfg,
+                "[opc.write] "
+            );
+            if (refresh_err) return refresh_err;
+            if (!refreshed) return err;
+            return this->perform_write(frame);
+        }
         LOG(
             WARNING
         ) << "[opc.write_task] connection error detected, attempting reconnect: "

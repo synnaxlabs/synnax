@@ -261,6 +261,18 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     return {Connection(client, this, key), x::errors::NIL};
 }
 
+std::pair<bool, x::errors::Error>
+Pool::refresh(Connection &conn, const Config &cfg, const std::string &log_prefix) {
+    auto [sec, sec_err] = resolve_security(cfg, *this->store);
+    if (sec_err) return {false, sec_err};
+    if (pool_key(cfg, sec) == conn.key_) return {false, x::errors::NIL};
+    LOG(INFO) << log_prefix << "Connecting again with the new client certificate";
+    auto [next, err] = this->acquire(cfg, log_prefix);
+    if (err) return {false, err};
+    conn = std::move(next);
+    return {true, x::errors::NIL};
+}
+
 void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {
     std::lock_guard<std::mutex> lock(mutex_);
 
