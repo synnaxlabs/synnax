@@ -11,7 +11,10 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
+#include <map>
 #include <mutex>
+#include <set>
 #include <thread>
 #include <unordered_map>
 
@@ -46,6 +49,8 @@ struct SlaveConfig {
     std::unordered_map<int, x::telem::SampleValue> input_registers;
     std::string host = "127.0.0.1";
     int port = 1502;
+    /// @brief function codes the slave answers with an illegal function exception.
+    std::set<int> reject_function_codes;
 };
 
 /// @brief A simple mock Modbus slave server using libmodbus
@@ -59,6 +64,10 @@ class Slave {
     mutable std::mutex mutex_;
     SlaveConfig config_;
     modbus_mapping_t *mb_mapping_; // Add as member
+    /// @brief the number of requests received, by function code. Guarded by mutex_.
+    std::map<int, std::size_t> requests_;
+    /// @brief set to ask the server loop to close every client connection.
+    std::atomic<bool> drop_requested_{false};
 
     /// @brief closes a socket. A Winsock socket is not a CRT file descriptor, so
     /// close() aborts on Windows.
@@ -192,6 +201,15 @@ class Slave {
         int fd_max = socket_;
 
         while (running_) {
+            if (drop_requested_) {
+                for (int fd = 0; fd <= fd_max; fd++)
+                    if (fd != socket_ && FD_ISSET(fd, &ref_set)) {
+                        close_socket(fd);
+                        FD_CLR(fd, &ref_set);
+                    }
+                fd_max = socket_;
+                drop_requested_ = false;
+            }
             rd_set = ref_set;
 
             // Add timeout to allow checking running_ flag
@@ -250,7 +268,15 @@ class Slave {
                                 << std::hex << static_cast<int>(function_code);
 
                         std::lock_guard lock(mutex_);
-                        modbus_reply(ctx_, query, rc, mb_mapping_);
+                        requests_[function_code]++;
+                        if (config_.reject_function_codes.contains(function_code))
+                            modbus_reply_exception(
+                                ctx_,
+                                query,
+                                MODBUS_EXCEPTION_ILLEGAL_FUNCTION
+                            );
+                        else
+                            modbus_reply(ctx_, query, rc, mb_mapping_);
                         VLOG(1) << "Replied to request on socket " << master_socket;
 
                         VLOG(1) << "Response data:";
@@ -320,6 +346,7 @@ public:
     void stop() {
         if (!running_) return;
 
+        this->drop_connections();
         running_ = false;
         if (server_thread_.joinable()) { server_thread_.join(); }
 
@@ -344,6 +371,33 @@ public:
     uint16_t get_holding_register(int addr) const {
         std::lock_guard lock(mutex_);
         return mb_mapping_->tab_registers[addr];
+    }
+
+    /// @brief sets a coil as if the device changed it.
+    void set_coil(const int addr, const uint8_t value) {
+        std::lock_guard lock(mutex_);
+        mb_mapping_->tab_bits[addr] = value;
+    }
+
+    /// @brief sets a holding register as if the device changed it.
+    void set_holding_register(const int addr, const uint16_t value) {
+        std::lock_guard lock(mutex_);
+        mb_mapping_->tab_registers[addr] = value;
+    }
+
+    /// @returns the number of requests received with the function code.
+    std::size_t requests(const int function_code) const {
+        std::lock_guard lock(mutex_);
+        const auto it = requests_.find(function_code);
+        return it == requests_.end() ? 0 : it->second;
+    }
+
+    /// @brief closes every client connection, as a server restart or a network fault
+    /// would, and blocks until the server loop has closed them. Keeps listening.
+    void drop_connections() {
+        drop_requested_ = true;
+        while (drop_requested_ && running_)
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
 };
 }

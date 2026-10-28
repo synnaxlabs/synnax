@@ -9,11 +9,14 @@
 
 #pragma once
 
+#include <string>
+#include <unordered_map>
 #include <variant>
 
 #include "client/cpp/modbus/json.gen.h"
 
 #include "driver/common/write_task.h"
+#include "driver/modbus/block.h"
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/util/util.h"
@@ -24,12 +27,11 @@ class Writer {
 public:
     virtual ~Writer() = default;
 
-    /// @brief write to the device from the given frame.
+    /// @brief writes the commands in the frame to the device. Addresses with no
+    /// command in the frame are left untouched.
     /// @param dev the device to write to.
-    /// @param fr the frame to write from. The frame is not guaranteed to have values
-    /// for all channels in the writer. The writer should only write values for values
-    /// contained in the frame. The frame may also have keys for channels that are not
-    /// in the writer, which should be ignored.
+    /// @param fr the frame of commands. It may hold only some of the writer's
+    /// channels, and channels of other writers, which are ignored.
     virtual x::errors::Error
     write(const std::shared_ptr<device::Device> &dev, const x::telem::Frame &fr) = 0;
 
@@ -40,6 +42,7 @@ public:
 /// @brief base class for all writer types.
 template<typename Channel>
 struct BaseWriter : Writer {
+    /// @brief the channels of the writer, sorted by address.
     std::vector<Channel> channels;
 
     explicit BaseWriter(const std::vector<Channel> &channels): channels(channels) {
@@ -53,93 +56,95 @@ struct BaseWriter : Writer {
             keys.push_back(ch.channel);
         return keys;
     }
+
+protected:
+    /// @returns the channels with a command in the frame, sorted by address.
+    [[nodiscard]] std::vector<Channel> commanded(const x::telem::Frame &fr) const {
+        std::vector<Channel> result;
+        for (const auto &ch: this->channels)
+            if (fr.contains(ch.channel)) result.push_back(ch);
+        return result;
+    }
+
+    /// @brief names the channels and addresses of a failed block write. A lost
+    /// connection is about the device, not the block, so it passes through.
+    static x::errors::Error wrap(
+        const x::errors::Error &err,
+        const std::string &table,
+        const block::Block &b,
+        const std::vector<Channel> &chs
+    ) {
+        if (err.matches(device::UNREACHABLE)) return err;
+        std::vector<std::string> names;
+        for (std::size_t i = b.first; i < b.last; i++)
+            names.push_back(chs[i].name);
+        return block::wrap(err, table, b, names);
+    }
 };
 
 /// @brief writes to coils.
 class CoilWriter final : public BaseWriter<channel::OutputCoil> {
-    /// @brief the current state of the coils for all channels in the writer.
-    std::vector<uint8_t> state;
-
 public:
     explicit CoilWriter(const std::vector<channel::OutputCoil> &chs): BaseWriter(chs) {}
-
-    /// @brief initializes state if not already initialized, reading the current state
-    /// of coils from the device.
-    x::errors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
-        if (!this->state.empty()) return x::errors::NIL;
-        state.resize(channels.back().address - channels.front().address + 1);
-        return dev->read_bits(
-            device::Coil,
-            channels.front().address,
-            state.size(),
-            state.data()
-        );
-    }
 
     x::errors::Error write(
         const std::shared_ptr<device::Device> &dev,
         const x::telem::Frame &fr
     ) override {
-        if (channels.empty()) return x::errors::NIL;
-        this->initialize_state(dev);
-        const int start_addr = channels.front().address;
-        for (const auto &ch: channels)
-            if (fr.contains(ch.channel))
-                state[ch.address - start_addr] = fr.at<uint8_t>(ch.channel, -1);
-        return dev->write_bits(start_addr, state.size(), state.data());
+        const auto cmds = this->commanded(fr);
+        for (const auto &b: block::plan(cmds, MODBUS_MAX_WRITE_BITS, false)) {
+            std::vector<uint8_t> bits(b.count);
+            for (std::size_t i = b.first; i < b.last; i++) {
+                const auto value = fr.at(cmds[i].channel, -1);
+                bits[cmds[i].address - b.start] = x::telem::cast<double>(value) != 0;
+            }
+            if (auto err = dev->write_bits(b.start, b.count, bits.data()))
+                return wrap(err, "coils", b, cmds);
+        }
+        return x::errors::NIL;
     }
 };
 
 /// @brief writes to holding registers.
 class RegisterWriter final : public BaseWriter<channel::OutputHoldingRegister> {
-    /// @brief the current state of all registers in the writer.
-    std::vector<uint16_t> state;
-
 public:
     explicit RegisterWriter(const std::vector<channel::OutputHoldingRegister> &chs):
         BaseWriter(chs) {}
-
-    /// @brief initializes state if not already initialized, reading the current state
-    /// of holding registers from the device.
-    x::errors::Error initialize_state(const std::shared_ptr<device::Device> &dev) {
-        if (!this->state.empty()) return x::errors::NIL;
-        const auto &last_ch = channels.back();
-        // Use ceiling division to convert bytes to 16-bit registers
-        state.resize(
-            last_ch.address - channels.front().address +
-            (last_ch.value_type.density() + 1) / 2
-        );
-        return dev->read_registers(
-            device::HoldingRegister,
-            channels.front().address,
-            state.size(),
-            state.data()
-        );
-    }
 
     x::errors::Error write(
         const std::shared_ptr<device::Device> &dev,
         const x::telem::Frame &fr
     ) override {
-        if (channels.empty()) return x::errors::NIL;
-        this->initialize_state(dev);
-        const int start_addr = channels.front().address;
-        for (const auto &channel: channels) {
-            if (!fr.contains(channel.channel)) continue;
-            const int offset = channel.address - start_addr;
-            auto err = util::format_register(
-                fr.at(channel.channel, -1),
-                state.data() + offset,
-                channel.value_type,
-                channel.bytes_swapped,
-                channel.words_swapped
-            );
-            if (err) return err;
+        const auto cmds = this->commanded(fr);
+        for (const auto &b: block::plan(cmds, MODBUS_MAX_WRITE_REGISTERS, false)) {
+            std::vector<uint16_t> registers(b.count);
+            for (std::size_t i = b.first; i < b.last; i++) {
+                const auto &ch = cmds[i];
+                if (auto err = util::format_register(
+                        fr.at(ch.channel, -1),
+                        registers.data() + (ch.address - b.start),
+                        ch.value_type,
+                        ch.bytes_swapped,
+                        ch.words_swapped
+                    ))
+                    return err;
+            }
+            if (auto err = dev->write_registers(b.start, b.count, registers.data()))
+                return wrap(err, "holding registers", b, cmds);
         }
-
-        return dev->write_registers(start_addr, state.size(), state.data());
+        return x::errors::NIL;
     }
 };
+
+/// @returns the first channel whose addresses overlap those of ch, or nullptr.
+template<typename Channel>
+const Channel *find_overlap(const std::vector<Channel> &channels, const Channel &ch) {
+    for (const auto &other: channels)
+        if (ch.address < other.address + other.width() &&
+            other.address < ch.address + ch.width())
+            return &other;
+    return nullptr;
+}
 
 /// @brief configuration for a modbus write task.
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
@@ -181,13 +186,56 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                 return;
             }
             if (const auto *c = std::get_if<
-                    ::synnax::modbus::HoldingRegisterWriteChannel>(&parsed))
-                registers.emplace_back(*c, this->conn);
-            else
-                coils.emplace_back(
-                    std::get<::synnax::modbus::CoilWriteChannel>(parsed)
+                    ::synnax::modbus::HoldingRegisterWriteChannel>(&parsed)) {
+                if (!channel::is_register_type(c->data_type)) {
+                    ch.field_err(
+                        "data_type",
+                        "unsupported data type: " + c->data_type.name()
+                    );
+                    return;
+                }
+                const channel::OutputHoldingRegister reg(*c, this->conn);
+                if (const auto *other = find_overlap(registers, reg)) {
+                    ch.field_err(
+                        "address",
+                        "overlaps the holding register at address " +
+                            std::to_string(other->address)
+                    );
+                    return;
+                }
+                registers.push_back(reg);
+                return;
+            }
+            const channel::OutputCoil coil(
+                std::get<::synnax::modbus::CoilWriteChannel>(parsed)
+            );
+            if (const auto *other = find_overlap(coils, coil)) {
+                ch.field_err(
+                    "address",
+                    "overlaps the coil at address " + std::to_string(other->address)
                 );
+                return;
+            }
+            coils.push_back(coil);
         });
+        std::vector<synnax::channel::Key> keys;
+        keys.reserve(coils.size() + registers.size());
+        for (const auto &ch: coils)
+            keys.push_back(ch.channel);
+        for (const auto &ch: registers)
+            keys.push_back(ch.channel);
+        auto [chs, chs_err] = client->channels.retrieve(keys);
+        if (chs_err) {
+            cfg.field_err("channels", chs_err);
+            return;
+        }
+        std::unordered_map<synnax::channel::Key, std::string> names;
+        for (const auto &ch: chs)
+            names.emplace(ch.key, ch.name);
+        for (auto &ch: coils)
+            ch.name = names.at(ch.channel);
+        for (auto &ch: registers)
+            ch.name = names.at(ch.channel);
         if (!coils.empty())
             writers.push_back(std::make_unique<CoilWriter>(std::move(coils)));
         if (!registers.empty())
@@ -246,9 +294,18 @@ public:
         return x::errors::NIL;
     }
 
+    /// @brief writes the commands in the frame. The first request after the server
+    /// drops the connection fails, so a command is retried once on a new one.
     x::errors::Error write(x::telem::Frame &frame) override {
-        for (const auto &writer: config.writers)
-            if (auto err = writer->write(dev, frame)) return err;
+        auto err = this->write_once(frame);
+        if (err.matches(device::UNREACHABLE)) err = this->write_once(frame);
+        return err;
+    }
+
+private:
+    [[nodiscard]] x::errors::Error write_once(const x::telem::Frame &frame) const {
+        for (const auto &writer: this->config.writers)
+            if (auto err = writer->write(this->dev, frame)) return err;
         return x::errors::NIL;
     }
 };

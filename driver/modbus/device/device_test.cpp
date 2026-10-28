@@ -310,6 +310,145 @@ TEST(DeviceTest, ReconnectAfterServerRestart) {
     }
 }
 
+struct ClassifyCase {
+    int errnum;
+    x::errors::Error expected;
+};
+
+class ClassifyTest : public ::testing::TestWithParam<ClassifyCase> {};
+
+/// @brief it should classify each libmodbus and system error and keep its message.
+TEST_P(ClassifyTest, Classifies) {
+    const auto [errnum, expected] = GetParam();
+    const auto err = classify(errnum);
+    ASSERT_OCCURRED_AS(err, expected);
+    EXPECT_EQ(err.data, modbus_strerror(errnum));
+    EXPECT_EQ(err.matches(UNREACHABLE), expected.matches(UNREACHABLE));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Errors,
+    ClassifyTest,
+    ::testing::Values(
+        ClassifyCase{EMBXILFUN, CRITICAL_ERROR},
+        ClassifyCase{EMBXILADD, CRITICAL_ERROR},
+        ClassifyCase{EMBXILVAL, CRITICAL_ERROR},
+        ClassifyCase{EMBMDATA, CRITICAL_ERROR},
+        ClassifyCase{EINVAL, CRITICAL_ERROR},
+        ClassifyCase{EMBXSFAIL, TEMPORARY_ERROR},
+        ClassifyCase{EMBXACK, TEMPORARY_ERROR},
+        ClassifyCase{EMBXSBUSY, TEMPORARY_ERROR},
+        ClassifyCase{EMBXGPATH, TEMPORARY_ERROR},
+        ClassifyCase{EMBXGTAR, TEMPORARY_ERROR},
+        ClassifyCase{EMBBADCRC, TEMPORARY_ERROR},
+        ClassifyCase{ETIMEDOUT, UNREACHABLE},
+        ClassifyCase{ECONNRESET, UNREACHABLE},
+        ClassifyCase{ECONNREFUSED, UNREACHABLE},
+        ClassifyCase{EPIPE, UNREACHABLE},
+        ClassifyCase{EBADF, UNREACHABLE},
+        ClassifyCase{EMBBADDATA, UNREACHABLE}
+    )
+);
+
+/// @brief it should reconnect on the next request after the server drops the
+/// connection, without a new acquire.
+TEST(DeviceTest, ReconnectsAfterDroppedConnection) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1620;
+    slave_config.coils[0] = 1;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto dev = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1620}));
+    uint8_t bit = 0;
+    ASSERT_NIL(dev->read_bits(Coil, 0, 1, &bit));
+
+    slave.drop_connections();
+    ASSERT_OCCURRED_AS(dev->read_bits(Coil, 0, 1, &bit), UNREACHABLE);
+    bit = 0;
+    ASSERT_NIL(dev->read_bits(Coil, 0, 1, &bit));
+    EXPECT_EQ(bit, 1);
+    slave.stop();
+}
+
+/// @brief it should report an unreachable server when the server is gone, and
+/// connect once it is back.
+TEST(DeviceTest, ReusesDeviceAcrossServerRestart) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1621;
+    slave_config.coils[0] = 1;
+    auto slave = std::make_unique<testutil::Slave>(slave_config);
+    ASSERT_NIL(slave->start());
+    Manager manager;
+    auto dev = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1621}));
+    slave->stop();
+    slave.reset();
+
+    uint8_t bit = 0;
+    ASSERT_OCCURRED_AS(dev->read_bits(Coil, 0, 1, &bit), UNREACHABLE);
+    ASSERT_OCCURRED_AS(dev->read_bits(Coil, 0, 1, &bit), UNREACHABLE);
+
+    slave = std::make_unique<testutil::Slave>(slave_config);
+    ASSERT_NIL(slave->start());
+    ASSERT_NIL(dev->read_bits(Coil, 0, 1, &bit));
+    EXPECT_EQ(bit, 1);
+    slave->stop();
+}
+
+/// @brief it should return a critical error for an address the server does not
+/// have, and keep the connection.
+TEST(DeviceTest, IllegalAddressIsCritical) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1622;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto dev = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1622}));
+    uint16_t reg = 0;
+    const auto err = dev->read_registers(HoldingRegister, 500, 1, &reg);
+    ASSERT_OCCURRED_AS(err, CRITICAL_ERROR);
+    EXPECT_EQ(err.data, "Illegal data address");
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
+    slave.stop();
+}
+
+/// @brief it should return a critical error for a function the server rejects.
+TEST(DeviceTest, RejectedFunctionIsCritical) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1623;
+    slave_config.reject_function_codes = {MODBUS_FC_READ_COILS};
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto dev = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1623}));
+    uint8_t bit = 0;
+    const auto err = dev->read_bits(Coil, 0, 1, &bit);
+    ASSERT_OCCURRED_AS(err, CRITICAL_ERROR);
+    EXPECT_EQ(err.data, "Illegal function");
+    slave.stop();
+}
+
+/// @brief it should connect to a server by host name.
+TEST(ManagerTest, AcquiresByHostName) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1624;
+    slave_config.coils[0] = 1;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto dev = ASSERT_NIL_P(manager.acquire({"localhost", 1624}));
+    uint8_t bit = 0;
+    ASSERT_NIL(dev->read_bits(Coil, 0, 1, &bit));
+    EXPECT_EQ(bit, 1);
+    slave.stop();
+}
+
+/// @brief it should return an unreachable error when no server listens.
+TEST(ManagerTest, AcquireUnreachable) {
+    Manager manager;
+    ASSERT_OCCURRED_AS_P(manager.acquire({"127.0.0.1", 1625}), UNREACHABLE);
+}
+
 TEST(ConnectionConfigTest, ToJsonWorks) {
     const ConnectionConfig config{"192.168.1.100", 502, true, false};
     x::json::json j = config.to_json();
