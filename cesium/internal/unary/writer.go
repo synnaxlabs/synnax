@@ -284,35 +284,38 @@ func (w *Writer) write(
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	dw, err := w.control.Authorize()
+	err := w.control.Authorize(func(dw *controlledWriter) error {
+		if w.Channel.IsIndex {
+			w.updateHwm(series)
+		}
+		if derive {
+			// The tracker is only fed when persisting, so in stream-only mode the
+			// published cursor is the sole record of where the next write lands.
+			if *w.cfg.Persist {
+				a = telem.NewAlignment(
+					dw.loadAlignment().DomainIndex(),
+					uint32(dw.tracker.count(dw.Writer)),
+				)
+			} else {
+				a = dw.loadAlignment()
+			}
+		}
+		// Publish where the next write lands before this one is on disk, so a channel
+		// resolving its alignment against this one reserves the slot after this write
+		// instead of colliding with it.
+		dw.storeAlignment(a.AddSamples(uint32(series.Len())))
+		if !*w.cfg.Persist {
+			return nil
+		}
+		baseOffset := uint32(dw.tracker.domainBytes)
+		dw.tracker.record(series.Data, baseOffset)
+		_, err := dw.Write(series.Data)
+		return err
+	})
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
-	if w.Channel.IsIndex {
-		w.updateHwm(series)
-	}
-	if derive {
-		// The tracker is only fed when persisting, so in stream-only mode the published
-		// cursor is the sole record of where the next write lands.
-		if *w.cfg.Persist {
-			a = telem.NewAlignment(
-				dw.loadAlignment().DomainIndex(),
-				uint32(dw.tracker.count(dw.Writer)),
-			)
-		} else {
-			a = dw.loadAlignment()
-		}
-	}
-	// Publish where the next write lands before this one is on disk, so a channel
-	// resolving its alignment against this one reserves the slot after this write
-	// instead of colliding with it.
-	dw.storeAlignment(a.AddSamples(uint32(series.Len())))
-	if *w.cfg.Persist {
-		baseOffset := uint32(dw.tracker.domainBytes)
-		dw.tracker.record(series.Data, baseOffset)
-		_, err = dw.Write(series.Data)
-	}
-	return a, w.wrapError(err)
+	return a, nil
 }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
@@ -357,37 +360,37 @@ func (w *Writer) commitWithEnd(
 	ctx context.Context,
 	end telem.TimeStamp,
 ) (telem.TimeStamp, error) {
-	dw, err := w.control.Authorize()
+	err := w.control.Authorize(func(dw *controlledWriter) error {
+		if end.IsZero() {
+			// Subtract 1 because we want the timestamp of the last written sample.
+			// Anchor on cfg.Start (the writer's session start, always a real index
+			// timestamp) and use the cumulative session sample count, since after a
+			// rollover the per-domain start is "previous commit end + 1ns" which is
+			// not a sample boundary in the index.
+			approx, err := w.idx.Stamp(
+				ctx,
+				w.cfg.Start,
+				dw.tracker.count(dw.Writer)-1,
+				index.MustBeContinuous,
+			)
+			if err != nil {
+				return err
+			}
+			if !approx.Exact() {
+				return index.NewDiscontinuousStampError(w.cfg.Start)
+			}
+			// Add 1 to the end timestamp because the end timestamp is exclusive.
+			end = approx.Lower + 1
+		}
+		if err := dw.Commit(ctx, end); err != nil {
+			return err
+		}
+		dw.tracker.publish(end)
+		return nil
+	})
 	if err != nil {
 		return 0, err
 	}
-
-	if end.IsZero() {
-		// Subtract 1 because we want the timestamp of the last written sample.
-		// Anchor on cfg.Start (the writer's session start, always a real index
-		// timestamp) and use the cumulative session sample count, since after a
-		// rollover the per-domain start is "previous commit end + 1ns" which is
-		// not a sample boundary in the index.
-		approx, err := w.idx.Stamp(
-			ctx,
-			w.cfg.Start,
-			dw.tracker.count(dw.Writer)-1,
-			index.MustBeContinuous,
-		)
-		if err != nil {
-			return 0, err
-		}
-		if !approx.Exact() {
-			return 0, index.NewDiscontinuousStampError(w.cfg.Start)
-		}
-		// Add 1 to the end timestamp because the end timestamp is exclusive.
-		end = approx.Lower + 1
-	}
-
-	if err := dw.Commit(ctx, end); err != nil {
-		return 0, err
-	}
-	dw.tracker.publish(end)
 	return end, nil
 }
 
