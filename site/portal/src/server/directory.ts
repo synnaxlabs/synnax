@@ -77,6 +77,11 @@ export interface Directory {
   users: () => Promise<Account[]>;
   /** account returns null when Clerk does not know the user. */
   account: (userID: string) => Promise<Account | null>;
+  /**
+   * deleteAccount removes a user and their memberships. It does nothing for an unknown
+   * user.
+   */
+  deleteAccount: (userID: string) => Promise<void>;
   /** teams returns every organization in Clerk, newest first. */
   teams: () => Promise<Listing[]>;
   /** team returns null when Clerk does not know the organization. */
@@ -233,6 +238,11 @@ export const clerk = (client: Client): Directory => ({
     });
     return user == null ? null : toAccount(user);
   },
+  deleteAccount: async (userID) => {
+    await client.users.deleteUser(userID).catch((e: unknown) => {
+      if (!isNotFound(e)) throw errors.fromUnknown(e);
+    });
+  },
   teams: async () =>
     await paged(
       async (offset) =>
@@ -367,6 +377,10 @@ export const memory = ({
       .sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime()),
   account: async (userID) =>
     people[userID] == null ? null : accountOf(people, userID),
+  deleteAccount: async (userID) => {
+    delete people[userID];
+    delete members[userID];
+  },
   teams: async () =>
     organizations.map((o) => ({
       ...o,
