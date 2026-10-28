@@ -111,6 +111,12 @@ public:
         statuses.push_back(status);
         mu.unlock();
     }
+
+    /// @brief returns a copy of the statuses, safe to read while tasks send more.
+    std::vector<synnax::task::Status> snapshot() {
+        std::lock_guard lock(this->mu);
+        return this->statuses;
+    }
 };
 
 class SynnaxContext final : public Context {

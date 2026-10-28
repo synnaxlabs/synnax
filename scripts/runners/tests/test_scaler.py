@@ -7,11 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import pytest
 import synnax as sy
 
 from common import IDLE, OFFLINE, Channels, channel_name
-from conftest import Client, core
+from conftest import Client, Writer, core
 from log import Log
+from publisher import OPEN_LEEWAY
 from scaler import Scaler, job_pool, pool_of
 
 POOL = "ubuntu-build-bot"
@@ -127,6 +129,21 @@ class TestScaler:
         s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, {A})
         s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, set())
         assert client.written(channel_name("ec2_cmd", A)) == [False]
+
+    def test_should_start_an_instance_after_a_slow_writer_close(
+        self, client: Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("stopped"), "i-0bbb": instance("stopped")}
+        labels = {A: LABELS, B: LABELS}
+        s.step({A}, {A: OFFLINE}, labels, {}, found, set())
+
+        def close(_: Writer) -> None:
+            client.elapsed += 2 * OPEN_LEEWAY
+
+        monkeypatch.setattr(Writer, "close", close)
+        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found, set())
+        assert started(client) == [A]
 
 
 WIN = "windows-build-bot-i-0aaa"

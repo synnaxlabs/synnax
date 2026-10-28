@@ -45,12 +45,22 @@ concurrency:
     format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# The test jobs pull the Core and Freighter images from GHCR.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
   # group touched one of its paths.
   changes:
+    # paths-filter lists the changed files of a pull request through the API.
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     outputs:
+      actionlint: ${{ steps.filter.outputs.actionlint }}
       alamos_go: ${{ steps.filter.outputs.alamos_go }}
       alamos_py: ${{ steps.filter.outputs.alamos_py }}
       alamos_ts: ${{ steps.filter.outputs.alamos_ts }}
@@ -73,6 +83,8 @@ jobs:
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
       eslint_config: ${{ steps.filter.outputs.eslint_config }}
+      exports_go: ${{ steps.filter.outputs.exports_go }}
+      exports_py: ${{ steps.filter.outputs.exports_py }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
@@ -109,6 +121,11 @@ jobs:
         with:
           filters: .github/filters.yaml
 
+  actionlint:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.actionlint == 'true'
+    uses: ./.github/workflows/lint.actionlint.yaml
+
   alamos-go:
     needs: changes
     if: inputs.full || needs.changes.outputs.alamos_go == 'true'
@@ -132,6 +149,15 @@ jobs:
       windows: *full
     secrets: inherit
 
+  alamos-py-lowest:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.alamos_py == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: alamos/py
+      lowest: true
+    secrets: inherit
+
   alamos-ts:
     needs: changes
     if: inputs.full || needs.changes.outputs.alamos_ts == 'true'
@@ -151,7 +177,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
@@ -216,7 +242,7 @@ jobs:
       needs.changes.outputs.core == 'true'
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
@@ -236,6 +262,19 @@ jobs:
       coverage_flag: client-py
       coverage_module: synnax
       directory: client/py
+      type_check_dir: ./synnax ./examples ./tests
+    secrets: inherit
+
+  client-py-lowest:
+    needs: [changes, core-image]
+    if:
+      inputs.full || needs.changes.outputs.client_py == 'true' ||
+      needs.changes.outputs.core == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      core_image: ${{ needs.core-image.outputs.image }}
+      directory: client/py
+      lowest: true
       type_check_dir: ./synnax ./examples ./tests
     secrets: inherit
 
@@ -355,7 +394,7 @@ jobs:
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
@@ -392,6 +431,55 @@ jobs:
       package: eslint-config
     secrets: inherit
 
+  exports-go:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.exports_go == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Type checking every module for three GOOS values fills the default disk.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: x/go/go.mod
+          cache-dependency-path: "**/go.sum"
+
+      - name: Build the check
+        working-directory: x/go
+        run: go build -o "$RUNNER_TEMP/exports" ./cmd/exports
+
+      - name: Check exported identifiers no other package uses
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/exports" alamos/go arc/go aspen cesium core freighter/go \
+            freighter/integration gorp oracle x/go
+
+  exports-py:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.exports_py == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
+      - name: Check names that are public without need
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: uv run --project scripts scripts/check_exports_py.py
+
   format:
     uses: ./.github/workflows/test.format.yaml
 
@@ -404,6 +492,16 @@ jobs:
       macos: *full
       package: foundation
       windows: *full
+    secrets: inherit
+
+  foundation-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.foundation == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: foundation
     secrets: inherit
 
   freighter-cpp:
@@ -465,6 +563,18 @@ jobs:
       freighter_image: ${{ needs.freighter-image.outputs.image }}
     secrets: inherit
 
+  freighter-py-lowest:
+    needs: [changes, freighter-image]
+    if:
+      inputs.full || needs.changes.outputs.freighter_py == 'true' ||
+      needs.changes.outputs.freighter_integration == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: freighter/py
+      freighter_image: ${{ needs.freighter-image.outputs.image }}
+      lowest: true
+    secrets: inherit
+
   freighter-ts:
     needs: [changes, freighter-image]
     if:
@@ -521,10 +631,10 @@ jobs:
       - name: Check unused code
         run: pnpm knip
 
-      - name: Check exports that only tests use
+      - name: Check exports that only their own module's specs use
         # Report-only until the current findings are fixed.
         continue-on-error: true
-        run: pnpm knip --production --include exports,types
+        run: python3 scripts/check_exports_ts.py
 
   lint-integration:
     needs: changes
@@ -600,6 +710,16 @@ jobs:
       macos: *full
       package: portal
       windows: *full
+    secrets: inherit
+
+  portal-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.portal == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: portal
     secrets: inherit
 
   protobuf:
@@ -678,6 +798,16 @@ jobs:
       windows: *full
     secrets: inherit
 
+  www-site:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.www == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: www
+    secrets: inherit
+
   x-cpp:
     needs: changes
     if: inputs.full || needs.changes.outputs.x_cpp == 'true'
@@ -711,6 +841,15 @@ jobs:
       directory: x/py
       macos: *full
       windows: *full
+    secrets: inherit
+
+  x-py-lowest:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.x_py == 'true'
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: x/py
+      lowest: true
     secrets: inherit
 
   x-ts:
@@ -766,8 +905,10 @@ jobs:
     name: OK
     if: always()
     needs:
+      - actionlint
       - alamos-go
       - alamos-py
+      - alamos-py-lowest
       - alamos-ts
       - arc-cpp
       - arc-go
@@ -778,6 +919,7 @@ jobs:
       - ci-scripts
       - client-cpp
       - client-py
+      - client-py-lowest
       - client-ts
       - console
       - copyright
@@ -790,13 +932,17 @@ jobs:
       - driver
       - driver-tsan
       - eslint-config
+      - exports-go
+      - exports-py
       - format
       - foundation
+      - foundation-site
       - freighter-cpp
       - freighter-go
       - freighter-image
       - freighter-integration
       - freighter-py
+      - freighter-py-lowest
       - freighter-ts
       - gorp
       - integration
@@ -808,6 +954,7 @@ jobs:
       - oracle-language
       - pluto
       - portal
+      - portal-site
       - protobuf
       - py-packages
       - scripts
@@ -817,9 +964,11 @@ jobs:
       - versions
       - vite-plugin
       - www
+      - www-site
       - x-cpp
       - x-go
       - x-py
+      - x-py-lowest
       - x-ts
     runs-on: ubuntu-latest
     steps:

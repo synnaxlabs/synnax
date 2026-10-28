@@ -23,7 +23,7 @@ import { type Status } from "@/status";
 import { Text as BaseText } from "@/text";
 import { type Tooltip } from "@/tooltip";
 
-const DATE_INPUT_TYPES = new Set(["date", "time", "datetime-local"]);
+const NATIVE_PREVIEW_TYPES = new Set(["date", "time", "datetime-local", "password"]);
 
 export interface TextProps
   extends
@@ -178,11 +178,12 @@ export const Text = ({
 
   if (tabIndex == null && preview) tabIndex = -1;
 
-  // A native date input formats its value for display, so a preview keeps the
-  // element. Every other type renders static text: an input cannot shrink to its
-  // content, which strands end content far from the value.
+  // A native date input formats its value for display, and a password input hides it,
+  // so a preview keeps the element. Every other type renders static text: an input
+  // cannot shrink to its content, which strands end content far from the value.
   const staticPreview =
-    preview === true && !DATE_INPUT_TYPES.has((rest as { type?: string }).type ?? "");
+    preview === true &&
+    !NATIVE_PREVIEW_TYPES.has((rest as { type?: string }).type ?? "");
 
   const outerProps: Flex.BoxProps = {
     style,

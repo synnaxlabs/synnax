@@ -102,8 +102,9 @@ class Scaler:
     ) -> None:
         """Starts instances for queued jobs and, when stops is set, stops idle
         runners past their cooldown."""
-        now = sy.TimeStamp.now()
         self.refresh_writer(known)
+        # After the command writer opens, so commands land after its start.
+        now = sy.TimeStamp.now()
 
         def idle_on(r: str) -> bool:
             iid = instance_for(r, found)

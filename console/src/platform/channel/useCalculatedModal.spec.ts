@@ -34,7 +34,7 @@ const openModal = async (
     // Monaco cannot run in jsdom, so the expression editor's boundary catches.
     onCaughtError: () => {},
   });
-  await screen.findByPlaceholderText("Name");
+  await screen.findByPlaceholderText("Channel name");
   return handle;
 };
 
@@ -105,7 +105,7 @@ describe("useCalculatedModal", () => {
       expect(
         screen.getByText("Expression must contain a return statement"),
       ).toBeTruthy();
-      expect(screen.getByPlaceholderText("Name")).toBeTruthy();
+      expect(screen.getByPlaceholderText("Channel name")).toBeTruthy();
     });
   });
 
@@ -120,10 +120,12 @@ describe("useCalculatedModal", () => {
       });
       await openModal({ channelKey: ch.key });
       await waitFor(() =>
-        expect(screen.getByPlaceholderText<HTMLInputElement>("Name").value).toBe(name),
+        expect(
+          screen.getByPlaceholderText<HTMLInputElement>("Channel name").value,
+        ).toBe(name),
       );
       const next = uniqueChannelName("calc_renamed");
-      fireEvent.change(screen.getByPlaceholderText("Name"), {
+      fireEvent.change(screen.getByPlaceholderText("Channel name"), {
         target: { value: next },
       });
       await act(async () => {
@@ -134,7 +136,9 @@ describe("useCalculatedModal", () => {
         expect(updated.name).toBe(next);
         expect(updated.expression).toBe("return 2");
       });
-      await waitFor(() => expect(screen.queryByPlaceholderText("Name")).toBeNull());
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Channel name")).toBeNull(),
+      );
     });
 
     it("should not report an edited channel as created", async () => {
@@ -147,17 +151,19 @@ describe("useCalculatedModal", () => {
       const analytics = createTestSink();
       await openModal({ channelKey: ch.key }, analytics);
       await waitFor(() =>
-        expect(screen.getByPlaceholderText<HTMLInputElement>("Name").value).toBe(
-          ch.name,
-        ),
+        expect(
+          screen.getByPlaceholderText<HTMLInputElement>("Channel name").value,
+        ).toBe(ch.name),
       );
-      fireEvent.change(screen.getByPlaceholderText("Name"), {
+      fireEvent.change(screen.getByPlaceholderText("Channel name"), {
         target: { value: uniqueChannelName("calc_renamed") },
       });
       await act(async () => {
         fireEvent.click(findButton("Save"));
       });
-      await waitFor(() => expect(screen.queryByPlaceholderText("Name")).toBeNull());
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Channel name")).toBeNull(),
+      );
       expect(analytics.capture).not.toHaveBeenCalled();
     });
   });

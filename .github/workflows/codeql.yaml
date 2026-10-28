@@ -7,10 +7,9 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# A pull request scans only the languages it changes. Its CodeQL check is then neutral,
-# because main has analyses that the pull request does not, and the check is not
-# required. Every other run scans all languages, so main always has a full baseline. A
-# changed category orphans the alerts filed under the old one.
+# Every run scans all languages. The code scanning rule on main blocks a pull request
+# until it has an analysis for each category main has. A changed category orphans the
+# alerts filed under the old one.
 
 name: CodeQL
 
@@ -32,48 +31,8 @@ permissions:
   contents: read
 
 jobs:
-  changes:
-    name: Changes
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    outputs:
-      languages:
-        ${{ github.event_name == 'pull_request' && steps.filter.outputs.changes ||
-        '["actions", "c-cpp", "go", "javascript-typescript", "python", "rust"]' }}
-    steps:
-      # Each language also keys on this workflow, so a change to it scans all of them.
-      - uses: dorny/paths-filter@v4
-        id: filter
-        if: github.event_name == 'pull_request'
-        with:
-          filters: |
-            actions:
-              - &workflow .github/workflows/codeql.yaml
-              - .github/actions/**
-              - .github/workflows/**
-            c-cpp:
-              - *workflow
-              - "**/*.{c,cc,cpp,cxx,h,hh,hpp,hxx}"
-            go:
-              - *workflow
-              - "**/*.go"
-              - "**/go.{mod,sum}"
-            javascript-typescript:
-              - *workflow
-              - "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,html,htm,vue}"
-            python:
-              - *workflow
-              - "**/*.{py,pyi}"
-            rust:
-              - *workflow
-              - "**/*.rs"
-              - "**/Cargo.{toml,lock}"
-
   analyze:
     name: Analyze (${{ matrix.language }})
-    needs: changes
-    if: needs.changes.outputs.languages != '[]'
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -82,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ${{ fromJSON(needs.changes.outputs.languages) }}
+        language: [actions, c-cpp, go, javascript-typescript, python, rust]
     steps:
       - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v4
