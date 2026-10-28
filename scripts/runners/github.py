@@ -52,6 +52,12 @@ class GitHub:
                 return items
             page += 1
 
+    def busy(self, runner: str) -> bool:
+        """Whether GitHub has a job assigned to the runner now. GitHub sets this at
+        assignment, seconds before the runner status poll or a webhook shows it."""
+        listed = self.get(f"/actions/runners?name={runner}")["runners"]
+        return any(r["busy"] for r in listed)
+
     def runner_status(self) -> tuple[dict[str, int], dict[str, set[str]]]:
         """Maps each runner to its status value, and to the labels it registered
         with, which are what the scaler matches queued jobs against."""
