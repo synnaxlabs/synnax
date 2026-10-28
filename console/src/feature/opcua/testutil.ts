@@ -17,7 +17,26 @@ import {
   SCHEMAS,
   ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types";
+import { type CertificateInfo } from "@/feature/opcua/task/types";
 import { uniqueName } from "@/testutil";
+
+/** A real self-signed certificate, with the details a Driver reports for it. */
+export const SERVER_CERTIFICATE: CertificateInfo = {
+  pem: `-----BEGIN CERTIFICATE-----
+MIIBbjCCARSgAwIBAgIUbAC1w3Ys7iTmtmRuMq9Yc9mWGIYwCgYIKoZIzj0EAwIw
+HTEbMBkGA1UEAwwSVGVzdCBPUEMgVUEgU2VydmVyMB4XDTI2MTAyODAzMjYwNFoX
+DTI5MTAyNzAzMjYwNFowHTEbMBkGA1UEAwwSVGVzdCBPUEMgVUEgU2VydmVyMFkw
+EwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdYv3TM93q9WM57JxVZXJrPZo/ZbJhbTL
+G1+3vlX0+Pegd7JQU3IUR1xGqU/Ru61WW2wvZ4+udIzz18RUlh3VI6MyMDAwHQYD
+VR0OBBYEFNp4E77F1OoaPcOBxy4GgjjSHCTfMA8GA1UdEwEB/wQFMAMBAf8wCgYI
+KoZIzj0EAwIDSAAwRQIgLX31Bclin170gZ3T2k2Qs7vbnbzDTBnjS4LJ7Cu84TAC
+IQDyvwdbi7qXLS7bkjYtMlxZ94PTGKApVOsBgqdDntq6EA==
+-----END CERTIFICATE-----
+`,
+  thumbprint: "FF6516FCE022F97F23B6F679179DB7FE68CB2D9C",
+  subject: "CN=Test OPC UA Server",
+  notAfter: "2029-10-27T03:26:04Z",
+};
 
 export interface CreateOPCDeviceOptions {
   configured?: boolean;

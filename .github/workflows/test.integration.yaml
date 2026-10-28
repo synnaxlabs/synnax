@@ -68,6 +68,9 @@ concurrency:
   group: integration-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   setup:
     runs-on: ubuntu-latest
@@ -188,6 +191,9 @@ jobs:
   test-windows:
     name: Test (windows)
     needs: [setup, build, turn]
+    permissions:
+      actions: read
+      contents: read
     if:
       ${{ inputs.windows && !cancelled() && needs.setup.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
@@ -204,6 +210,9 @@ jobs:
   test-ubuntu:
     name: Test (ubuntu)
     needs: [setup, build]
+    permissions:
+      actions: read
+      contents: read
     if:
       ${{ inputs.ubuntu && !cancelled() && needs.setup.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') }}
@@ -224,6 +233,9 @@ jobs:
       needs.setup.outputs.BINARY_CHECK_MATRIX != '[]' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
     strategy:
       fail-fast: false
       matrix:
