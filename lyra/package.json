@@ -14,7 +14,7 @@
     "lint": "eslint && stylelint \"src/**/*.css\"",
     "fix": "eslint --fix && stylelint --fix \"src/**/*.css\"",
     "exports": "tsx scripts/exports.ts",
-    "generate-theme": "tsx src/theming/static/generate.ts"
+    "generate-theme": "tsx src/theming/static/generate.ts && prettier --write src/theming/static"
   },
   "dependencies": {
     "@fontsource-variable/inter": "catalog:",

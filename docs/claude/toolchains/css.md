@@ -11,8 +11,13 @@ the check that enforces it, or says that review enforces it.
   (`pluto-btn__icon`), and a modifier (`pluto-btn--outlined`, or a shared
   `pluto--small`). Lyra and Pluto use `pluto`, and the Console uses `console`. TSX
   builds them with `CSS.B`, `CSS.BE`, `CSS.BM`, `CSS.BEM`, and `CSS.M`.
-- `selector-class-pattern` rejects a name that breaks the pattern. It cannot see a name
-  that no code emits, such as `pluto-height-small` for `pluto--height-small`.
+- `selector-class-pattern` rejects a name that breaks the pattern, and
+  `synnax/no-unknown-class` rejects a `pluto-` or `console-` class that no code emits.
+- Style another package's markup through your own class, passed as `className`, and the
+  custom properties that package documents. `synnax/no-foreign-class` rejects a class
+  that only another package emits.
+- An Astro component scopes its styles. Only a layout uses `is:global`
+  (`synnax/no-global-astro-style`).
 - Style classes, never IDs. `selector-max-id` rejects an ID selector.
 
 ## Cascade layers
@@ -38,8 +43,12 @@ the check that enforces it, or says that review enforces it.
 ## Tokens and values
 
 - Use theme tokens (`var(--pluto-*)`) for colors, sizes, and type, not raw values.
-- `lyra/src/theming/static/*.css` is generated. Run `pnpm generate-theme` in `lyra/`
-  after a theme change.
+- `lyra/src/theme/theme.ts` defines every theme token, shadows included. The Console
+  gets them inline from `toCSSVars`, and the sites get the generated
+  `lyra/src/theming/static/*.css`. Run `pnpm generate-theme` in `lyra/` after a theme
+  change; a Lyra spec fails while the files are stale.
+- `synnax/no-unknown-custom-property` rejects a `var()` that nothing defines, fallbacks
+  included.
 - Put static styles in CSS, never in a `style={{...}}` object. Pass only a truly dynamic
   value inline, as a custom property.
 
@@ -53,6 +62,8 @@ the check that enforces it, or says that review enforces it.
   /* stylelint-disable-next-line declaration-no-important -- Monaco styles inline */
   ```
 
+- `configs/stylelint/baseline.json` lists the foreign classes and global Astro styles
+  from before their rules. Entries only leave it; never add one.
 - Hand-written vendor prefixes are allowed only for `user-select` and `backdrop-filter`,
   which Safari needs. Write the prefixed form first. When the standard form comes first,
   the build minifier keeps only the prefixed one (SY-4726).

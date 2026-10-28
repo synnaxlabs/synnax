@@ -99,6 +99,7 @@ jobs:
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
+      stylelint_config: ${{ steps.filter.outputs.stylelint_config }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
       www: ${{ steps.filter.outputs.www }}
       x_cpp: ${{ steps.filter.outputs.x_cpp }}
@@ -743,6 +744,15 @@ jobs:
       ubuntu: false
     secrets: inherit
 
+  stylelint-config:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.stylelint_config == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: configs/stylelint
+      package: stylelint-config
+    secrets: inherit
+
   versions:
     uses: ./.github/workflows/test.updates.yaml
 
@@ -920,6 +930,7 @@ jobs:
       - runners
       - site-common
       - soem
+      - stylelint-config
       - versions
       - vite-plugin
       - www

@@ -69,7 +69,7 @@
             .pluto-menu-item,
             .pluto-tabs__tab,
             .pluto-dialog__trigger,
-            :is(.pluto-tabs-selector, .pluto-select-btns) *
+            .pluto-select-btns *
         )
     ) {
     font-weight: 450;

@@ -180,6 +180,7 @@ catalog:
   pluralize: ^8.0.0
   postcss: ^8.5.30
   postcss-html: ^1.8.1
+  postcss-selector-parser: ^7.1.6
   # Pinned exactly. posthog-js publishes several times a day, so a range resolves to a
   # release minutes old and trips the minimum release age gate.
   posthog-js: 1.438.12

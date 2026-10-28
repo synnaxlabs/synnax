@@ -92,7 +92,7 @@
     },
     "configs/stylelint": {
       "project": ["*.ts!"],
-      "ignoreDependencies": ["stylelint-config-standard"]
+      "ignoreDependencies": ["postcss-html", "stylelint-config-standard"]
     }
   },
   "ignoreExportsUsedInFile": {

@@ -120,11 +120,11 @@
 
     /* Nested so the clipped states outrank the two-class base rule above. */
     &.pluto-tabs__selector--clipped-start {
-        --pluto-tabs-fade-start: var(--pluto-tabs-fade-width, 6rem);
+        --pluto-tabs-fade-start: 6rem;
     }
 
     &.pluto-tabs__selector--clipped-end {
-        --pluto-tabs-fade-end: var(--pluto-tabs-fade-width, 6rem);
+        --pluto-tabs-fade-end: 6rem;
     }
 }
 
@@ -241,13 +241,13 @@
     user-select: none;
 }
 
-/* Contexts re-point these vars; a focused tab re-points its own selected color to
-   primary, which wins over any inherited value. */
+/* Contexts re-point the selected color; a focused tab re-points its own to primary,
+   which wins over any inherited value. */
 .pluto-tabs__selector > .pluto-tabs__tab {
-    color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+    color: var(--pluto-gray-l9);
 
     .pluto-text {
-        color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+        color: var(--pluto-gray-l9);
     }
 
     &.pluto--selected {
@@ -300,7 +300,7 @@
             flex-shrink: 0;
             margin-left: 1.5rem;
             margin-right: 1rem;
-            color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+            color: var(--pluto-gray-l9);
             transition: opacity 0.1s ease-in-out;
         }
 
@@ -395,7 +395,7 @@
     & > .pluto-icon {
         flex-shrink: 0;
         margin-right: 1rem;
-        color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+        color: var(--pluto-gray-l9);
     }
 
     &.pluto--selected > .pluto-icon {
@@ -439,13 +439,6 @@
     }
 }
 
-.pluto-tabs__tab .pluto-tabs__unsaved {
-    flex-shrink: 0;
-    height: round(0.9em, 1px);
-    width: round(0.9em, 1px);
-    fill: var(--pluto-gray-l9);
-}
-
 /* A warning-status name (a deleted resource's corpse) escalates to the whole tab.
    !important outranks the selected and focused text tiers above. */
 .pluto-tabs__selector > .pluto-tabs__tab:has(.pluto-text.pluto--status-warning) {
@@ -470,21 +463,5 @@
 
         box-shadow: inset 0 0 0 var(--pluto-border-width)
             color-mix(in srgb, var(--pluto-warning-z) 65%, var(--pluto-gray-l1));
-    }
-}
-
-.pluto-tabs__tab:has(.pluto-tabs__unsaved):has(.pluto-tabs__close) {
-    .pluto-tabs__close {
-        display: none;
-    }
-
-    &:hover {
-        .pluto-tabs__unsaved {
-            display: none;
-        }
-
-        .pluto-tabs__close {
-            display: flex;
-        }
     }
 }

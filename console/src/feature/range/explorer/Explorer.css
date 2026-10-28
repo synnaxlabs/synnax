@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-explorer {
-    container-type: size;
-}
-
 .console-range__explorer-list {
     & > .pluto-list__virtualizer {
         display: grid;

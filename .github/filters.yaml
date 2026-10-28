@@ -76,6 +76,9 @@ ts: &ts
 eslint_config:
   - *ts
 
+stylelint_config:
+  - *ts
+
 vite_plugin:
   - *ts
 
