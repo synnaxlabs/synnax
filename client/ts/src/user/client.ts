@@ -12,16 +12,12 @@ import { array, type observe, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type connection } from "@/connection";
-import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { Current } from "@/user/current";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  usernames: z.string().array().optional(),
-});
+const retrieveRequestZ = z.object({ keys: keyZ.array().optional() });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
 
 const keyRetrieveRequestZ = z
@@ -30,21 +26,9 @@ const keyRetrieveRequestZ = z
   })
   .transform(({ key }) => ({ keys: [key] }));
 
-const usernameRetrieveRequestZ = z
-  .object({
-    username: z.string(),
-  })
-  .transform(({ username }) => ({ usernames: [username] }));
-
 export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
-export type UsernameRetrieveRequest = z.input<typeof usernameRetrieveRequestZ>;
-export type UsernamesRetrieveRequest = { usernames: string[] };
 
-const retrieveParamsZ = z.union([
-  keyRetrieveRequestZ,
-  usernameRetrieveRequestZ,
-  retrieveRequestZ,
-]);
+const retrieveParamsZ = z.union([keyRetrieveRequestZ, retrieveRequestZ]);
 
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
@@ -54,8 +38,6 @@ const retrieveResZ = z.object({ users: userZ.array().default(() => []) });
 
 const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
-const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
-const changeUsernameResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -64,24 +46,10 @@ const deleteResZ = z.object({});
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
-type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
-
-const singleParamsZ = z.union([
-  z.strictObject({ key: keyZ }),
-  z.strictObject({ username: z.string() }),
-  keyZ.transform((key) => ({ key })),
-]);
-
-const singleIdentifier = (params: SingleParams): string =>
-  "key" in params ? `key ${params.key}` : `username ${params.username}`;
-
 const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
   return (u) => keySet == null || keySet.has(u.key);
 };
-
-// The username lives on the user's password, so only the Core can match it.
-const SERVER_FIELDS = ["searchTerm", "limit", "offset", "usernames"] as const;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -92,14 +60,7 @@ export interface ClientConfig {
   identity: observe.Observable<User | undefined>;
 }
 
-export class Client extends query.Retriever<
-  typeof retrieveMultiParamsZ,
-  Key,
-  User,
-  User,
-  SingleParams,
-  SingleParams
-> {
+export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, User> {
   /** The signed-in user. */
   readonly current: Current;
   private readonly cfg: ClientConfig;
@@ -115,19 +76,6 @@ export class Client extends query.Retriever<
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
       ],
     });
-    const single = cache.queries<SingleParams, User, Key, User>({
-      name: "user",
-      table: store,
-      fetch: async (params) => {
-        const users = await this.execRetrieve(params);
-        checkSingle(params, users);
-        store.ingest(users);
-        return users.map((u) => u.key);
-      },
-      compose: (records) => records[0],
-      keyOf: (params) => ("key" in params ? params.key : null),
-      single: true,
-    });
     super(cache, {
       name: "user",
       table: store,
@@ -135,9 +83,7 @@ export class Client extends query.Retriever<
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (u, req) => requestFilter(req)(u),
-        serverFields: SERVER_FIELDS,
       },
-      single: { schema: singleParamsZ, space: single },
     });
     this.cfg = cfg;
     this.store = store;
@@ -161,15 +107,6 @@ export class Client extends query.Retriever<
     );
     this.store.set(res.users);
     return isMany ? res.users : res.users[0];
-  }
-
-  async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await this.cfg.unary.send(
-      "/user/change-username",
-      { key, username: newUsername },
-      changeUsernameReqZ,
-      changeUsernameResZ,
-    );
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -219,15 +156,6 @@ export class Client extends query.Retriever<
     return res.users;
   }
 }
-
-const checkSingle = (params: SingleParams, users: User[]): void => {
-  if (users.length === 0)
-    throw new NotFoundError(`No user with ${singleIdentifier(params)} found`);
-  if (users.length > 1)
-    throw new MultipleFoundError(
-      `Multiple users found with ${singleIdentifier(params)}`,
-    );
-};
 
 export const ontologyID = ontology.createIDFactory<Key>("user");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

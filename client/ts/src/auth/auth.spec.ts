@@ -16,6 +16,7 @@ import {
   AuthError,
   ExpiredTokenError,
   InvalidTokenError,
+  NotFoundError,
   SessionEndedError,
   ValidationError,
 } from "@/errors";
@@ -817,6 +818,89 @@ describe("auth", () => {
           password: "test",
         }),
       ).rejects.toThrow(AuthError);
+    });
+  });
+
+  describe("retrievePasswords", () => {
+    it("should retrieve the caller's own password by default", async () => {
+      const owner = createTestClient();
+      const { user: u, username, password } = await createTestUser(owner);
+      const client = createTestClient({ username, password });
+      const passwords = await client.auth.retrievePasswords();
+      expect(passwords).toEqual([{ subject: user.ontologyID(u.key), username }]);
+    });
+
+    it("should retrieve a password by its username", async () => {
+      const client = createTestClient();
+      const { user: u, username } = await createTestUser(client);
+      const passwords = await client.auth.retrievePasswords({ usernames: [username] });
+      expect(passwords).toEqual([{ subject: user.ontologyID(u.key), username }]);
+    });
+
+    it("should retrieve a password by its subject", async () => {
+      const client = createTestClient();
+      const { user: u, username } = await createTestUser(client);
+      const subject = user.ontologyID(u.key);
+      const passwords = await client.auth.retrievePasswords({ subjects: [subject] });
+      expect(passwords).toEqual([{ subject, username }]);
+    });
+
+    it("should ignore an unknown username", async () => {
+      const client = createTestClient();
+      const { user: u, username } = await createTestUser(client);
+      const passwords = await client.auth.retrievePasswords({
+        usernames: [username, id.create()],
+      });
+      expect(passwords).toEqual([{ subject: user.ontologyID(u.key), username }]);
+    });
+  });
+
+  describe("renamePassword", () => {
+    it("should let an owner rename another user's password", async () => {
+      const owner = createTestClient();
+      const { user: u, password } = await createTestUser(owner);
+      const username = id.create();
+      await owner.auth.renamePassword({ subject: user.ontologyID(u.key), username });
+      const client = createTestClient({ username, password });
+      const current = await client.users.current.retrieve();
+      expect(current.key).toEqual(u.key);
+    });
+
+    it("should let a user rename its own password and log in again", async () => {
+      const owner = createTestClient();
+      const { user: u, username: old, password } = await createTestUser(owner);
+      const client = createTestClient({ username: old, password });
+      const username = id.create();
+      await client.auth.renamePassword({ username });
+      const [p] = await owner.auth.retrievePasswords({
+        subjects: [user.ontologyID(u.key)],
+      });
+      expect(p.username).toEqual(username);
+      const key = client.auth.session?.key;
+      if (key == null) throw new Error("no session");
+      await client.auth.deleteSessions(key);
+      await client.auth.retrieveSessions();
+      expect(client.auth.session?.key).not.toEqual(key);
+    });
+
+    it("should refuse a username another user holds", async () => {
+      const owner = createTestClient();
+      const { username } = await createTestUser(owner);
+      const { user: u } = await createTestUser(owner);
+      await expect(
+        owner.auth.renamePassword({ subject: user.ontologyID(u.key), username }),
+      ).rejects.toThrow(AuthError);
+    });
+
+    it("should refuse a user with no password", async () => {
+      const owner = createTestClient();
+      const u = await owner.users.create({ name: "no password" });
+      await expect(
+        owner.auth.renamePassword({
+          subject: user.ontologyID(u.key),
+          username: id.create(),
+        }),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 

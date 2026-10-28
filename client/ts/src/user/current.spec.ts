@@ -20,7 +20,10 @@ const client = createTestClient();
 
 const { username, password } = TEST_CREDENTIALS;
 
-const signedInKey = async () => (await client.users.retrieve({ username })).key;
+const signedInKey = async () => {
+  const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+  return p.subject.key;
+};
 
 describe("current", () => {
   it("should retrieve the user before the client connects", async () => {

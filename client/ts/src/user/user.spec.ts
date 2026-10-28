@@ -7,48 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
-import { AuthError, NotFoundError, ValidationError } from "@/errors";
+import { NotFoundError, ValidationError } from "@/errors";
 import { query } from "@/query";
 import { createTestClient, expectDeleted } from "@/testutil";
-import { user } from "@/user";
+import { type user } from "@/user";
 
 const client = createTestClient();
 
-interface Fixture extends user.New {
-  username: string;
-}
+const userOne: user.New = { name: "George Washington" };
 
-const userOne: Fixture = { username: id.create(), name: "George Washington" };
+const userTwo: user.New = { name: "John Hancock" };
 
-const userTwo: Fixture = { username: id.create(), name: "John Hancock" };
+const userThree: user.New = { name: "John Adams" };
 
-const userThree: Fixture = { username: id.create(), name: "John Adams" };
+const userArray: user.New[] = [{ name: "Steve" }, { name: "Martha" }];
 
-const userArray: Fixture[] = [
-  { username: id.create(), name: "Steve" },
-  { username: id.create(), name: "Martha" },
-];
-
-/** Creates the users, then gives each its username and a password. */
-const createUsers = async (fixtures: Fixture[]): Promise<user.User[]> => {
-  const users = await client.users.create(
-    fixtures.map(({ key, name }) => ({ key, name })),
-  );
-  await Promise.all(
-    users.map(
-      async (u, i) =>
-        await client.auth.createPassword({
-          subject: user.ontologyID(u.key),
-          username: fixtures[i].username,
-          password: "test",
-        }),
-    ),
-  );
-  return users;
-};
+const createUsers = async (fixtures: user.New[]): Promise<user.User[]> =>
+  await client.users.create(fixtures.map(({ key, name }) => ({ key, name })));
 
 /** Expects users to hold exactly the keys and names of the created users. */
 const expectUsers = (users: user.User[], created: user.New[]) =>
@@ -99,43 +76,6 @@ describe("User", () => {
     });
   });
   describe("Retrieve", () => {
-    describe("by name", () => {
-      describe("one", () => {
-        test("found", async () => {
-          const res = await client.users.retrieve({ username: userOne.username });
-          expect(res.key).toEqual(userOne.key);
-          expect(res.name).toEqual(userOne.name);
-        });
-        test("not found", async () =>
-          await expect(
-            client.users.retrieve({ username: id.create() }),
-          ).rejects.toThrow(NotFoundError));
-      });
-      describe("many", () => {
-        test("found", async () => {
-          const res = await client.users.retrieve({
-            usernames: userArray.map((u) => u.username),
-          });
-          expect(res).toHaveLength(2);
-          expectUsers(res, userArray);
-        });
-        test("not found", async () => {
-          const res = await client.users.retrieve({ usernames: [id.create()] });
-          expect(res).toEqual([]);
-        });
-        test("extra names getting deleted", async () => {
-          const res = await client.users.retrieve({
-            usernames: [...userArray.map((u) => u.username), id.create()],
-          });
-          expect(res).toHaveLength(2);
-          expectUsers(res, userArray);
-        });
-        test("calling with no names", async () => {
-          const res = await client.users.retrieve({ usernames: [] });
-          expectUsers(res, [userOne, userTwo, userThree, ...userArray]);
-        });
-      });
-    });
     describe("by key", () => {
       describe("one", () => {
         test("found", async () => {
@@ -176,35 +116,6 @@ describe("User", () => {
           expectUsers(res, [userOne, userTwo, userThree, ...userArray]);
         });
       });
-    });
-  });
-  describe("Change Username", () => {
-    test("Successful", async () => {
-      const newUsername = id.create();
-      await expect(
-        client.users.changeUsername(userOne.key as string, newUsername),
-      ).resolves.toBeUndefined();
-      const res = await client.users.retrieve({ username: newUsername });
-      expect(res.key).toEqual(userOne.key);
-      expect(res.name).toEqual(userOne.name);
-      userOne.username = newUsername;
-    });
-    test("Unsuccessful", async () =>
-      await expect(
-        client.users.changeUsername(userTwo.key as string, userOne.username),
-      ).rejects.toThrow(AuthError));
-    test("Repeated usernames fail", async () => {
-      const [u] = await createUsers([{ username: id.create(), name: "test" }]);
-      const newUsername = id.create();
-      await client.users.changeUsername(u.key, newUsername);
-      const other = await client.users.create({ name: "test" });
-      await expect(
-        client.auth.createPassword({
-          subject: user.ontologyID(other.key),
-          username: newUsername,
-          password: "test",
-        }),
-      ).rejects.toThrow(AuthError);
     });
   });
   describe("Change Name", () => {
