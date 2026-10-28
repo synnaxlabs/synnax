@@ -213,19 +213,31 @@ export const rename = async (
  * purge deletes an organization with everything the portal holds for it: its licenses
  * and their seats, its invitations, and its history.
  */
-export const purge = async (tx: Tx, key: string): Promise<void> => {
-  // Locks the licenses, then the organization, in the order activate takes them, so no
-  // record joins the organization during the delete.
-  const licenses = await tx
-    .select({ key: license.key })
-    .from(license)
-    .where(eq(license.organization, key))
-    .for("update");
-  await tx
-    .select({ key: organization.key })
-    .from(organization)
-    .where(eq(organization.key, key))
-    .for("update");
+export const purge = async (tx: Tx, org: Organization): Promise<void> => {
+  const { key } = org;
+  const lockOrganization = async () =>
+    await tx
+      .select({ key: organization.key })
+      .from(organization)
+      .where(eq(organization.key, key))
+      .for("update");
+  const lockLicenses = async () =>
+    await tx
+      .select({ key: license.key })
+      .from(license)
+      .where(eq(license.organization, key))
+      .for("update");
+  // Locks in the order the organization's writers do, so no record joins it during the
+  // delete and no writer deadlocks with it. Desktop writes lock a personal organization
+  // before its licenses, and activate locks a team's license before the team.
+  let licenses: { key: string }[];
+  if (org.kind === "personal") {
+    await lockOrganization();
+    licenses = await lockLicenses();
+  } else {
+    licenses = await lockLicenses();
+    await lockOrganization();
+  }
   await tx.delete(event).where(eq(event.organization, key));
   await tx.delete(activation).where(
     inArray(
@@ -248,7 +260,7 @@ export const remove = async (
   team: Team,
 ): Promise<void> =>
   await store.transact(async (tx) => {
-    await purge(tx, team.key);
+    await purge(tx, team);
     await directory.delete(team.clerkOrgID);
   });
 

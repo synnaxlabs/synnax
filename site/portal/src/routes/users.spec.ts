@@ -218,19 +218,20 @@ describe("user routes", () => {
       expect(await h.directory.account(ADA)).not.toBeNull();
     });
 
-    it("should leave the account to delete again when Clerk fails", async () => {
+    it("should delete nothing when Clerk fails", async () => {
       const personal = await createDesktop(ADA);
-      const { deleteAccount } = h.directory;
+      await createInvitation(store, {
+        organization: acme.key,
+        email: `${ADA}@example.com`,
+      });
       h.directory.deleteAccount = async () => {
         throw new Error("clerk: down");
       };
       h.signIn(STAFF);
       await expectError(await remove(), 500, "Internal error");
-      expect((await owned(personal)).organizations).toEqual([]);
+      expect((await owned(personal)).licenses).toHaveLength(1);
+      expect(await store.query.select().from(invitation)).toHaveLength(1);
       expect(await h.directory.account(ADA)).not.toBeNull();
-      h.directory.deleteAccount = deleteAccount;
-      expect((await remove()).status).toBe(204);
-      expect(await h.directory.account(ADA)).toBeNull();
     });
   });
 });
