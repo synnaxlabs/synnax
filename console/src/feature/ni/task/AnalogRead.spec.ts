@@ -399,12 +399,14 @@ describe("AnalogRead", () => {
     await awaitStatusDescription(statuses, /are on different racks/);
   });
 
-  it("should surface an error when the task has no channels", async () => {
-    const { statuses, container } = await renderAnalogRead({
+  it("should mark the channel list when the task has no channels", async () => {
+    const { container } = await renderAnalogRead({
       ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
       channels: [],
     });
     await clickDeploy(container);
-    await awaitStatusDescription(statuses, /No devices selected/);
+    expect(
+      await screen.findByText("At least one enabled channel is required"),
+    ).toBeTruthy();
   });
 });

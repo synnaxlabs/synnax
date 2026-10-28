@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access } from "@synnaxlabs/client";
+import { access, ontology, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -70,8 +71,14 @@ const TreeItem = Tree.createItem({
   ContextMenu: TreeContextMenu,
   hasChildren: true,
   canDrop: ({ items }) => {
-    const users = User.filterHaulItems(items);
-    return users.length === items.length && users.every(({ data }) => !data.rootUser);
+    const resources = PTree.filterHaulItems(items);
+    return (
+      resources.length > 0 &&
+      resources.every(
+        ({ key }) => ontology.parseID(key).type === user.TYPE_ONTOLOGY_ID.type,
+      ) &&
+      User.filterHaulItems(items).every(({ data }) => !data.rootUser)
+    );
   },
 });
 
