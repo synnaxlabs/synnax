@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, ACTIONS, replayURL, type Session } from "@/server/analytics";
+import { type Action, ACTIONS, replayURL, type Visit } from "@/server/analytics";
 import { type License, type Organization } from "@/server/db/schema";
 import { type Account } from "@/server/directory";
 import { type Denial } from "@/server/license/deny";
@@ -229,7 +229,7 @@ const ACTION_LABELS: Record<Action, { noun: string; verb: string }> = {
   range_created: { noun: "range", verb: "created" },
 };
 
-const actionsOf = ({ actions }: Session): string => {
+const actionsOf = ({ actions }: Visit): string => {
   const done = ACTIONS.flatMap((a) => {
     const n = actions[a];
     if (n == null) return [];
@@ -240,31 +240,30 @@ const actionsOf = ({ actions }: Session): string => {
 };
 
 /**
- * recap tells staff what a user did in one Synnax Desktop session. `account` is null
- * when the session has no logged-in user that Clerk knows.
+ * recap tells staff what a user did in one Synnax Desktop visit. `account` is null
+ * when the visit has no logged-in user that Clerk knows.
  */
-export const recap = (session: Session, account: Account | null): Note => {
-  const who = account?.name ?? session.email ?? "Someone who is not logged in";
-  const duration = session.end.getTime() - session.start.getTime();
-  const email = account?.email ?? session.email;
+export const recap = (visit: Visit, account: Account | null): Note => {
+  const who = account?.name ?? visit.email ?? "Someone who is not logged in";
+  const duration = visit.end.getTime() - visit.start.getTime();
+  const email = account?.email ?? visit.email;
   const facts: Fact[] = [];
   if (email != null && email !== who) facts.push({ label: "Email", value: email });
   facts.push({
     label: "Time",
-    value: `${clock(session.start)} to ${clock(session.end)} UTC`,
+    value: `${clock(visit.start)} to ${clock(visit.end)} UTC`,
   });
-  if (session.version != null)
+  if (visit.version != null)
     facts.push({
       label: "App",
-      value:
-        session.os == null ? session.version : `${session.version} on ${session.os}`,
+      value: visit.os == null ? visit.version : `${visit.version} on ${visit.os}`,
     });
-  facts.push({ label: "Actions", value: actionsOf(session) });
+  facts.push({ label: "Actions", value: actionsOf(visit) });
   facts.push({
     label: "Screens",
-    value: session.screens.length === 0 ? "None" : session.screens.join(", "),
+    value: visit.screens.length === 0 ? "None" : visit.screens.join(", "),
   });
-  const links = [{ label: "Watch the replay", href: replayURL(session.id) }];
+  const links = [{ label: "Watch the replay", href: replayURL(visit.replay) }];
   if (account != null) links.unshift(openUser(account.userID));
   return {
     title: `${who} used Synnax Desktop for ${span(duration)}`,

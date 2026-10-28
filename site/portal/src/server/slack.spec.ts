@@ -9,7 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type Session } from "@/server/analytics";
+import { type Visit } from "@/server/analytics";
 import { type Organization } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
 import {
@@ -238,8 +238,7 @@ describe("slack", () => {
     });
 
     describe("recap", () => {
-      const SESSION: Session = {
-        id: "0192-session",
+      const VISIT: Visit = {
         distinctID: "user_a",
         email: "ada@example.com",
         start: new Date("2026-09-17T14:02:00Z"),
@@ -248,10 +247,11 @@ describe("slack", () => {
         os: "macos",
         screens: ["schematic", "lineplot"],
         actions: { channel_created: 2, schematic_created: 1, task_started: 1 },
+        replay: "0192-session",
       };
 
       it("should report the time, the app, the actions, and the screens", () => {
-        expect(recap(SESSION, { ...ADA, joinedAt: NOW })).toEqual({
+        expect(recap(VISIT, { ...ADA, joinedAt: NOW })).toEqual({
           title: "Ada Lovelace used Synnax Desktop for 1 h 38 min",
           facts: [
             { label: "Email", value: "ada@example.com" },
@@ -276,7 +276,7 @@ describe("slack", () => {
       it("should report a session with no user, app, actions, or screens", () => {
         const note = recap(
           {
-            ...SESSION,
+            ...VISIT,
             distinctID: "install-1",
             email: null,
             end: new Date("2026-09-17T14:02:40Z"),
@@ -298,14 +298,14 @@ describe("slack", () => {
       });
 
       it("should name a user Clerk does not know by their email", () => {
-        const note = recap(SESSION, null);
+        const note = recap(VISIT, null);
         expect(note.title).toBe("ada@example.com used Synnax Desktop for 1 h 38 min");
         expect(note.facts[0]).toEqual({ label: "Time", value: "14:02 to 15:40 UTC" });
       });
 
       it("should read whole hours without minutes", () => {
         const end = new Date("2026-09-17T16:02:00Z");
-        expect(recap({ ...SESSION, end }, null).title).toMatch(/for 2 h$/);
+        expect(recap({ ...VISIT, end }, null).title).toMatch(/for 2 h$/);
       });
     });
   });

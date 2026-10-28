@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { z } from "zod";
 
 import {
@@ -21,16 +21,36 @@ import {
 const FROM = new Date("2026-09-17T13:15:00Z");
 const TO = new Date("2026-09-17T13:30:00Z");
 
-const row = (counts: number[] = ACTIONS.map(() => 0)): unknown[] => [
-  "0192-session",
-  "user_a",
-  "ada@example.com",
-  Date.parse("2026-09-17T12:02:00Z") / 1000,
-  Date.parse("2026-09-17T13:20:00Z") / 1000,
-  "1.0.0",
+interface Row {
+  id?: string;
+  distinctID?: string;
+  email?: string | null;
+  start?: string;
+  end?: string;
+  version?: string | null;
+  paths?: (string | null)[];
+  actions?: Partial<Record<(typeof ACTIONS)[number], number>>;
+}
+
+const row = ({
+  id = "0192-session",
+  distinctID = "user_a",
+  email = "ada@example.com",
+  start = "2026-09-17T12:02:00Z",
+  end = "2026-09-17T13:20:00Z",
+  version = "1.0.0",
+  paths = ["/schematic", null, "/lineplot", ""],
+  actions = {},
+}: Row = {}): unknown[] => [
+  id,
+  distinctID,
+  email,
+  Date.parse(start) / 1000,
+  Date.parse(end) / 1000,
+  version,
   "macos",
-  ["/schematic", null, "/lineplot", ""],
-  ...counts,
+  paths,
+  ...ACTIONS.map((a) => actions[a] ?? 0),
 ];
 
 describe("analytics", () => {
@@ -46,16 +66,24 @@ describe("analytics", () => {
   });
 
   describe("posthog", () => {
-    let fetch: ReturnType<typeof vi.fn>;
+    let fetch: Mock<typeof globalThis.fetch>;
 
     beforeEach(() => {
-      fetch = vi.fn(async () => Response.json({ results: [row()] }));
+      fetch = vi.fn<typeof globalThis.fetch>(async () =>
+        Response.json({ results: [row()] }),
+      );
       vi.stubGlobal("fetch", fetch);
     });
 
     afterEach(() => {
       vi.unstubAllGlobals();
     });
+
+    const respond = (...rows: Row[]): void => {
+      fetch.mockResolvedValue(Response.json({ results: rows.map(row) }));
+    };
+
+    const visits = async () => await posthog("phx_key").visits(FROM, TO);
 
     const sent = (): { url: string; init: RequestInit; query: string } => {
       const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
@@ -67,31 +95,27 @@ describe("analytics", () => {
     };
 
     it("should query the Desktop project with the API key", async () => {
-      await posthog("phx_key").sessions(FROM, TO);
+      await visits();
       const { url, init } = sent();
       expect(url).toBe("https://us.posthog.com/api/projects/621680/query/");
       expect(init.method).toBe("POST");
       expect(init.headers).toMatchObject({ authorization: "Bearer phx_key" });
     });
 
-    it("should select production sessions that end in the range", async () => {
-      await posthog("phx_key").sessions(FROM, TO);
+    it("should read the production sessions of the day before the range", async () => {
+      await visits();
       const q = sent().query;
       expect(q).toContain(
-        "HAVING max(timestamp) >= toDateTime('2026-09-17 13:15:00', 'UTC') " +
-          "AND max(timestamp) < toDateTime('2026-09-17 13:30:00', 'UTC')",
-      );
-      expect(q).toContain(
-        "WHERE timestamp >= toDateTime('2026-09-17 13:15:00', 'UTC') - INTERVAL 1 DAY",
+        "WHERE timestamp >= toDateTime('2026-09-16 13:15:00', 'UTC')",
       );
       expect(q).toContain("properties.environment = 'production'");
+      expect(q).toContain("GROUP BY $session_id");
       for (const a of ACTIONS) expect(q).toContain(`countIf(event = '${a}')`);
     });
 
-    it("should read each row as a session", async () => {
-      expect(await posthog("phx_key").sessions(FROM, TO)).toEqual([
+    it("should read a session that ended in the range as a visit", async () => {
+      expect(await visits()).toEqual([
         {
-          id: "0192-session",
           distinctID: "user_a",
           email: "ada@example.com",
           start: new Date("2026-09-17T12:02:00Z"),
@@ -100,45 +124,138 @@ describe("analytics", () => {
           os: "macos",
           screens: ["schematic", "lineplot"],
           actions: {},
+          replay: "0192-session",
         },
       ]);
     });
 
     it("should keep only the key actions that happened", async () => {
-      const counts = ACTIONS.map((a) => (a === "task_started" ? 3 : 0));
-      fetch.mockResolvedValue(Response.json({ results: [row(counts)] }));
-      const [session] = await posthog("phx_key").sessions(FROM, TO);
-      expect(session.actions).toEqual({ task_started: 3 });
+      respond({ actions: { task_started: 3 } });
+      const [visit] = await visits();
+      expect(visit.actions).toEqual({ task_started: 3 });
     });
 
     it("should read an empty version or email as none", async () => {
-      const r = row();
-      r[2] = null;
-      r[5] = "";
-      fetch.mockResolvedValue(Response.json({ results: [r] }));
-      const [session] = await posthog("phx_key").sessions(FROM, TO);
-      expect(session.email).toBeNull();
-      expect(session.version).toBeNull();
+      respond({ email: null, version: "" });
+      const [visit] = await visits();
+      expect(visit.email).toBeNull();
+      expect(visit.version).toBeNull();
+    });
+
+    it("should join the sessions of each window of one person", async () => {
+      respond(
+        { id: "main", actions: { plot_created: 1 }, paths: ["/lineplot"] },
+        {
+          id: "task-window",
+          start: "2026-09-17T13:19:00Z",
+          version: null,
+          paths: ["/task"],
+          actions: { plot_created: 2, task_started: 1 },
+        },
+        { id: "reset", start: "2026-09-17T13:20:00Z", email: null, paths: [] },
+      );
+      expect(await visits()).toEqual([
+        {
+          distinctID: "user_a",
+          email: "ada@example.com",
+          start: new Date("2026-09-17T12:02:00Z"),
+          end: new Date("2026-09-17T13:20:00Z"),
+          version: "1.0.0",
+          os: "macos",
+          screens: ["lineplot", "task"],
+          actions: { plot_created: 3, task_started: 1 },
+          replay: "main",
+        },
+      ]);
+    });
+
+    it("should join a session that starts before the idle wait ends", async () => {
+      respond(
+        { id: "morning", start: "2026-09-17T11:00:00Z", end: "2026-09-17T12:00:00Z" },
+        { id: "noon", start: "2026-09-17T12:29:00Z" },
+      );
+      const [visit] = await visits();
+      expect(visit.start).toEqual(new Date("2026-09-17T11:00:00Z"));
+      expect(visit.replay).toBe("morning");
+    });
+
+    it("should keep apart sessions more than the idle wait apart", async () => {
+      respond(
+        { id: "morning", start: "2026-09-17T11:00:00Z", end: "2026-09-17T12:00:00Z" },
+        { id: "noon", start: "2026-09-17T12:30:00Z" },
+      );
+      expect((await visits()).map((v) => v.replay)).toEqual(["noon"]);
+    });
+
+    it("should keep the visits of different people apart, oldest first", async () => {
+      respond(
+        { id: "bob", distinctID: "user_b", start: "2026-09-17T12:10:00Z" },
+        { id: "ada" },
+      );
+      expect((await visits()).map((v) => v.replay)).toEqual(["ada", "bob"]);
+    });
+
+    it("should leave out a visit that goes on past the range", async () => {
+      respond(
+        { id: "main" },
+        { id: "late", start: "2026-09-17T13:25:00Z", end: "2026-09-17T13:40:00Z" },
+      );
+      expect(await visits()).toEqual([]);
+    });
+
+    /** sinceOf reads the start of the events that a query reads. */
+    const sinceOf = (init?: RequestInit): string => {
+      const body = JSON.parse(init?.body as string) as { query: { query: string } };
+      const since = /timestamp >= toDateTime\('([^']+)'/.exec(body.query.query);
+      expect(since).not.toBeNull();
+      return since?.[1] ?? "";
+    };
+
+    const readFrom = (): string[] => fetch.mock.calls.map(([, init]) => sinceOf(init));
+
+    it("should read back further for a visit that began before the day it read", async () => {
+      fetch.mockImplementation(async (_, init) => {
+        const start =
+          sinceOf(init) === "2026-09-16 13:15:00"
+            ? "2026-09-16T13:16:00Z"
+            : "2026-09-16T10:00:00Z";
+        return Response.json({ results: [row({ start })] });
+      });
+      const [visit] = await visits();
+      expect(visit.start).toEqual(new Date("2026-09-16T10:00:00Z"));
+      expect(readFrom()).toEqual(["2026-09-16 13:15:00", "2026-09-15 13:15:00"]);
+    });
+
+    it("should read back at most 8 days", async () => {
+      fetch.mockImplementation(async (_, init) => {
+        const since = Date.parse(`${sinceOf(init).replace(" ", "T")}Z`);
+        const start = new Date(since + 60_000).toISOString();
+        return Response.json({ results: [row({ start })] });
+      });
+      const [visit] = await visits();
+      expect(readFrom()).toEqual([
+        "2026-09-16 13:15:00",
+        "2026-09-15 13:15:00",
+        "2026-09-13 13:15:00",
+        "2026-09-09 13:15:00",
+      ]);
+      expect(visit.start).toEqual(new Date("2026-09-09T13:16:00Z"));
     });
 
     it("should throw when PostHog refuses the query", async () => {
       fetch.mockResolvedValue(new Response("bad key", { status: 401 }));
-      await expect(posthog("phx_key").sessions(FROM, TO)).rejects.toThrow(
-        "posthog: query failed with 401: bad key",
-      );
+      await expect(visits()).rejects.toThrow("posthog: query failed with 401: bad key");
     });
 
     it("should throw on a row of the wrong shape", async () => {
       fetch.mockResolvedValue(Response.json({ results: [["only-an-id"]] }));
-      await expect(posthog("phx_key").sessions(FROM, TO)).rejects.toBeInstanceOf(
-        z.ZodError,
-      );
+      await expect(visits()).rejects.toBeInstanceOf(z.ZodError);
     });
   });
 
   describe("unconfigured", () => {
     it("should throw on every read", async () => {
-      await expect(unconfigured().sessions(FROM, TO)).rejects.toThrow(
+      await expect(unconfigured().visits(FROM, TO)).rejects.toThrow(
         "POSTHOG_API_KEY is not set",
       );
     });
