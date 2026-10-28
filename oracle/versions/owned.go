@@ -16,11 +16,11 @@ import "github.com/synnaxlabs/x/set"
 // that dates a resource's export history.
 var versionOwnedGo = set.New("marshal", "wire", "hand", "migrate", "imex")
 
-// VersionOwned reports whether a domain expression belongs to the version files: the
+// versionOwned reports whether a domain expression belongs to the version files: the
 // live file must match chain resolution on it exactly. Everything else (outputs,
 // language bindings, validation, indexing) is live-owned and authored directly in the
 // live file.
-func VersionOwned(domain, exprName string) bool {
+func versionOwned(domain, exprName string) bool {
 	switch domain {
 	case "key", "doc":
 		return true

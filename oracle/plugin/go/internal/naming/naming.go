@@ -24,9 +24,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// IsScreamingCase returns true if s is all uppercase letters (possibly with
-// underscores).
-func IsScreamingCase(s string) bool {
+func isScreamingCase(s string) bool {
 	if s == "" {
 		return false
 	}
@@ -59,7 +57,7 @@ var goAcronyms = []string{
 // PascalCase inputs with adjacent capitals (SetXChannel, URLValue) keep their
 // boundaries instead of collapsing to SetXchannel / Urlvalue.
 func ToPascalCase(s string) string {
-	if IsScreamingCase(s) {
+	if isScreamingCase(s) {
 		return s
 	}
 	result := casing.TypePascal(s)
