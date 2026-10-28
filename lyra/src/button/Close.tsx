@@ -33,11 +33,10 @@ export const Close = ({
 }: CloseProps): ReactElement => (
   <Button<ElementType>
     aria-label="Close"
-    variant="text"
+    variant="glyph"
     sharp
     tabIndex={-1}
     reveal
-    glyph
     className={CSS.cls(CSS.BM("btn", "close"), CSS.M("destructive"), className)}
     {...rest}
   >

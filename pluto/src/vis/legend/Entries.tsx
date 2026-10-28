@@ -112,11 +112,10 @@ const Entry = ({
       {allowVisibleChange && onVisibleChange != null && (
         <Button.Button
           className={CSS.B("visible-toggle")}
-          glyph
           onClick={() => onVisibleChange(key, !visible)}
           onDoubleClick={stopPropagation}
           size="tiny"
-          variant="text"
+          variant="glyph"
         >
           {visible ? <Icon.Visible /> : <Icon.Hidden />}
         </Button.Button>

@@ -31,8 +31,12 @@ import { Triggers } from "@/triggers";
 /** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
-/** The rest-state emphasis of the button chassis. */
-export type Variant = "filled" | "outlined" | "text";
+/**
+ * The rest-state emphasis of the button chassis. A glyph button never fills, so its
+ * icon alone shows hover and press. Use it for an action inside another control, such
+ * as a tab's close button.
+ */
+export type Variant = "filled" | "outlined" | "text" | "glyph";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
@@ -62,9 +66,6 @@ export interface ExtensionProps
   onClickDelay?: number | TimeSpan;
   /** Marks the button as a hidden action its lyra--reveals container shows. */
   reveal?: boolean;
-  /** Drops the fill, so the icon alone shows hover and press. Use it for an action
-   * inside another control, such as a tab's close button. */
-  glyph?: boolean;
 }
 
 /** The props for the {@link Button} component. */
@@ -131,7 +132,6 @@ export const Button = <E extends ElementType = "button">(
     defaultEl = "button",
     el,
     reveal,
-    glyph,
     propagateClick = false,
     draggable,
     href,
@@ -249,7 +249,6 @@ export const Button = <E extends ElementType = "button">(
         preview === true && CSS.BM(MODULE_CLASS, "preview"),
         hasCustomColor && CSS.BM(MODULE_CLASS, "custom-color"),
         reveal === true && CSS.M("reveal"),
-        glyph === true && CSS.BM(MODULE_CLASS, "glyph"),
         hold.pressed && CSS.M("pressed"),
         className,
       )}
@@ -263,7 +262,7 @@ export const Button = <E extends ElementType = "button">(
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
-      bordered={variant !== "text"}
+      bordered={variant === "filled" || variant === "outlined"}
       level={level}
       variant={textVariant}
       square={square}
