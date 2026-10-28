@@ -52,7 +52,7 @@ cc_test(
         "//driver/http/errors",
         "//driver/http/testutil",
         "//x/cpp/base64",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

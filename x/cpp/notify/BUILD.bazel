@@ -38,7 +38,7 @@ cc_test(
     srcs = ["notify_test.cpp"],
     deps = [
         ":notify",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
