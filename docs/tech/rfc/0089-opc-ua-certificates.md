@@ -192,11 +192,15 @@ the breaker on repeated rejections. The integration tests `opcua_read.py` and
 `opcua_write.py` pass the simulator's certificate as PEM, and one case uses the Driver
 certificate.
 
-## 4 Implementation
+## 4 Implementation phases
 
 One pull request, after this RFC merges, changes the Driver, the Console, the Python
 client, the docs page, and the integration tests together. The pin on first connect and
 the trust check must ship in one release, or secured devices stop on upgrade.
+
+| Phase | Scope                                                       | Touches                                                                                                                       | Depends on |
+| ----- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Pin OPC UA server certificates and add a Driver certificate | `driver/opcua`, `driver/rack`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`, `integration/tests/driver` | -          |
 
 ## 5 Resolved decisions
 
