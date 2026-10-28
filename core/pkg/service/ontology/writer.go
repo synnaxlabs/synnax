@@ -28,6 +28,27 @@ type Writer struct {
 	tx                gorp.Tx
 	resourceTable     *gorp.Table[string, Resource]
 	relationshipTable *gorp.Table[string, Relationship]
+	policies          []Policy
+}
+
+// ValidateName returns the error of the first registered Policy that refuses name for
+// the resource with id. A service calls it before it renames a resource.
+func (w Writer) ValidateName(ctx context.Context, id ID, name string) error {
+	for _, p := range w.policies {
+		if err := p.ValidateName(ctx, w.tx, id, name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w Writer) validateParent(ctx context.Context, parent, child ID) error {
+	for _, p := range w.policies {
+		if err := p.ValidateParent(ctx, w.tx, parent, child); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DefineResources defines one or more new resources with the given [ID]s. If any of the
@@ -71,7 +92,8 @@ func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
 // with the given from [ID] to one or more to [ID]s. Already-existing relationships are
 // silently skipped. Returns [graph.ErrCyclicDependency] if any of the new relationships
 // would create a cycle (including the case where the reverse-direction relationship
-// already exists).
+// already exists), and the error of a registered [Policy] that refuses a new parent_of
+// relationship. Nothing is written when any relationship is rejected.
 func (w Writer) DefineRelationships(
 	ctx context.Context,
 	from ID,
@@ -101,6 +123,11 @@ func (w Writer) DefineRelationships(
 		}
 		if _, cyclic := descendants[from]; cyclic {
 			return graph.ErrCyclicDependency
+		}
+		if relationshipType == RelationshipTypeParentOf {
+			if err = w.validateParent(ctx, from, id); err != nil {
+				return err
+			}
 		}
 		rels = append(rels, rel)
 	}

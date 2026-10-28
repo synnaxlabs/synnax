@@ -94,6 +94,36 @@ var _ = Describe("Writer", func() {
 				Expect(w.DeleteResources(ctx, idTwo)).To(Succeed())
 			})
 		})
+		Describe("Policy", func() {
+			It("Should reject a parent_of relationship a policy refuses",
+				func(ctx SpecContext) {
+					rejected := newSampleType("rejected")
+					Expect(w.DefineResources(ctx, rejected)).To(Succeed())
+					DeferCleanup(func(ctx SpecContext) {
+						Expect(w.DeleteResources(ctx, rejected)).To(Succeed())
+					})
+					Expect(w.DefineRelationships(
+						ctx,
+						idOne,
+						ontology.RelationshipTypeParentOf,
+						rejected,
+					)).To(MatchError(errRejected))
+					var res []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(idOne).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(BeEmpty())
+				},
+			)
+			It("Should reject a name a policy refuses", func(ctx SpecContext) {
+				Expect(
+					w.ValidateName(ctx, idOne, "rejected"),
+				).To(MatchError(errRejected))
+				Expect(w.ValidateName(ctx, idOne, "accepted")).To(Succeed())
+			})
+		})
 		Describe("Defining a Relationship", func() {
 			It("Should define a relationship by its ID", func(ctx SpecContext) {
 				Expect(w.DefineRelationships(

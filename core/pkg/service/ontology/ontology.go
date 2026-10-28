@@ -80,6 +80,7 @@ type Ontology struct {
 	// services holds every registered Service in registration order, so Search ranks
 	// equal matches the same way on every call.
 	services            []Service
+	policies            []Policy
 	disconnectObservers []observe.Disconnect
 	closer              io.MultiCloser
 	resourceTable       *gorp.Table[string, Resource]
@@ -136,8 +137,13 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 		tx:                o.cfg.DB.OverrideTx(tx),
 		resourceTable:     o.resourceTable,
 		relationshipTable: o.relationshipTable,
+		policies:          o.policies,
 	}
 }
+
+// RegisterPolicy registers a Policy that every Writer consults before it defines a
+// parent_of relationship and whenever a service calls [Writer.ValidateName].
+func (o *Ontology) RegisterPolicy(p Policy) { o.policies = append(o.policies, p) }
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read
 // resources from the underlying ontology.

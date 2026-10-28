@@ -25,6 +25,34 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+var errRejected = errors.New("rejected by policy")
+
+// renamePolicy refuses the name "rejected" and accepts every placement.
+type renamePolicy struct{}
+
+var _ ontology.Policy = renamePolicy{}
+
+func (renamePolicy) ValidateParent(
+	context.Context,
+	gorp.Tx,
+	ontology.ID,
+	ontology.ID,
+) error {
+	return nil
+}
+
+func (renamePolicy) ValidateName(
+	_ context.Context,
+	_ gorp.Tx,
+	_ ontology.ID,
+	name string,
+) error {
+	if name == "rejected" {
+		return errRejected
+	}
+	return nil
+}
+
 var _ = Describe("Group", Ordered, func() {
 	var (
 		db  *gorp.DB
@@ -37,6 +65,7 @@ var _ = Describe("Group", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		otg.RegisterPolicy(renamePolicy{})
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -135,6 +164,11 @@ var _ = Describe("Group", Ordered, func() {
 			created := MustSucceed(w.Create(ctx, "keep-name", ontology.RootID))
 			Expect(w.Rename(ctx, created.Key, "")).
 				To(MatchError(ContainSubstring("name: required")))
+		})
+
+		It("Should reject a name an ontology policy refuses", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, "policed", ontology.RootID))
+			Expect(w.Rename(ctx, created.Key, "rejected")).To(MatchError(errRejected))
 		})
 	})
 
