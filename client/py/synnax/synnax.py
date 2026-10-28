@@ -152,7 +152,7 @@ class Synnax(framer.Client):
         self.auth = auth.Client(
             transport=self._transport.unary,
             proof=(
-                auth.ApiKeyProof(key=opts.api_key)
+                auth.APIKeyProof(key=opts.api_key)
                 if opts.api_key
                 else auth.PasswordProof(username=opts.username, password=opts.password)
             ),
