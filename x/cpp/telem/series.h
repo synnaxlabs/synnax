@@ -116,6 +116,15 @@ class Series {
         }
     }
 
+    /// @brief moves the data into a buffer of byte_cap bytes.
+    void reserve_bytes(const size_t byte_cap) {
+        auto data = alloc(byte_cap);
+        if (this->byte_size() > 0)
+            memcpy(data.get(), this->data_.get(), this->byte_size());
+        this->data_ = std::move(data);
+        this->cached_byte_cap = byte_cap;
+    }
+
 public:
     /// @brief an optional property that defines the time range occupied by the
     /// Series' data_. This property is guaranteed to be defined when reading data
@@ -915,9 +924,10 @@ public:
         return std::visit([this](const auto &v) { return this->write(v); }, value);
     }
 
-    /// @brief writes a single number to the series.
-    /// @param d the number to be written.
-    /// @returns 1 if the number was written, 0 if the series is at capacity and the
+    /// @brief writes a single number or string to the series. A string or JSON series
+    /// grows its buffer to fit the string.
+    /// @param d the number or string to be written.
+    /// @returns 1 if the sample was written, 0 if the series is at capacity and the
     /// sample was not written.
     template<typename T>
     size_t write(const T &d) {
@@ -930,7 +940,6 @@ public:
                 throw std::runtime_error(
                     "cannot write string to non-string/JSON series"
                 );
-            if (this->size() >= this->cap()) return 0;
 
             const char *str_data = nullptr;
             size_t str_len = 0;
@@ -942,6 +951,10 @@ public:
                 str_len = strlen(d);
             }
 
+            const auto needed = this->cached_byte_size + VARIABLE_LENGTH_PREFIX_SIZE +
+                                str_len;
+            if (needed > this->byte_cap())
+                this->reserve_bytes(std::max(needed, 2 * this->byte_cap()));
             write_u32_le(
                 this->data_.get() + this->cached_byte_size,
                 static_cast<uint32_t>(str_len)
@@ -949,6 +962,7 @@ public:
             memcpy(this->data_.get() + this->cached_byte_size + 4, str_data, str_len);
             this->cached_byte_size += str_len + VARIABLE_LENGTH_PREFIX_SIZE;
             this->size_++;
+            this->cap_ = this->size_;
             return 1;
         } else if constexpr (std::is_same_v<T, TimeStamp>) {
             if (this->size() >= this->cap()) return 0;

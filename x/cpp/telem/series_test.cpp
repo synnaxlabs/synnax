@@ -1979,6 +1979,34 @@ TEST(SeriesClear, ClearedStringSeriesCanBeRebuilt) {
     ASSERT_EQ(merged[0], "new");
 }
 
+/// @brief it should write strings past the byte capacity of a pre-allocated series.
+TEST(SeriesWrite, StringGrowsPreallocatedSeries) {
+    auto s = Series(STRING_T, 4);
+    ASSERT_EQ(s.write(std::string("hello")), 1);
+    ASSERT_EQ(s.write(std::string("world!")), 1);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"hello", "world!"}));
+}
+
+/// @brief it should write strings again after a clear, reusing the buffer.
+TEST(SeriesWrite, StringAfterClear) {
+    auto s = Series(STRING_T, 64);
+    s.write(std::string("first"));
+    s.clear();
+    ASSERT_EQ(s.write(SampleValue(std::string("second"))), 1);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"second"}));
+    ASSERT_EQ(s.byte_cap(), 64);
+}
+
+/// @brief it should not change the source of a shallow copy when writing a string.
+TEST(SeriesWrite, StringLeavesShallowCopyIntact) {
+    auto s = Series(std::vector<std::string>{"a"}, STRING_T);
+    const auto copy = s.shallow_copy();
+    s.write(std::string("b"));
+    ASSERT_EQ(copy.strings(), (std::vector<std::string>{"a"}));
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"a", "b"}));
+}
+
 /// @brief shallow_copy should produce a series with identical data.
 TEST(SeriesShallowCopy, ReadsMatchOriginal) {
     auto original = Series(std::vector<float>{1.0f, 2.0f, 3.0f});
