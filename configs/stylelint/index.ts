@@ -9,6 +9,7 @@
 
 import fs from "fs";
 import path from "path";
+import postcssHtml from "postcss-html";
 import type { Config } from "stylelint";
 
 import { type Baseline, plugins } from "./rules.ts";
@@ -50,7 +51,7 @@ const config: Config = {
   overrides: [
     {
       files: ["**/*.astro"],
-      customSyntax: "postcss-html",
+      customSyntax: postcssHtml,
       rules: {
         "selector-pseudo-class-no-unknown": [true, { ignorePseudoClasses: ["global"] }],
         // postcss-html parses inline style attributes as bare declarations.
