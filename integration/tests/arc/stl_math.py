@@ -22,89 +22,89 @@ func pow_cc_f64() f64 {
 func pow_cc_int() f64 {
     return 5 ^ 2
 }
-pow_cc_trigger -> pow_cc_f64{} -> pow_cc_f64_out
-pow_cc_trigger -> pow_cc_int{} -> pow_cc_int_out
+pow_cc_trigger -> pow_cc_f64() -> pow_cc_f64_out
+pow_cc_trigger -> pow_cc_int() -> pow_cc_int_out
 // ─────────────────────── pow operator (chan, const) ─────────────────
-func pow_xc_f64(base f64) f64 {
+func pow_xc_f64() {base f64} f64 {
     return base ^ 2.0
 }
-func pow_xc_i64(base i64) i64 {
+func pow_xc_i64() {base i64} i64 {
     return base ^ 2
 }
-pow_xc_f64_in -> pow_xc_f64{} -> pow_xc_f64_out
-pow_xc_i64_in -> pow_xc_i64{} -> pow_xc_i64_out
+pow_xc_f64_in -> pow_xc_f64() -> pow_xc_f64_out
+pow_xc_i64_in -> pow_xc_i64() -> pow_xc_i64_out
 // ─────────────────────── pow operator (const, chan) ─────────────────
-func pow_cx_f64(exp f64) f64 {
+func pow_cx_f64() {exp f64} f64 {
     return 2.0 ^ exp
 }
-func pow_cx_i64(exp i64) i64 {
+func pow_cx_i64() {exp i64} i64 {
     return 2 ^ exp
 }
-pow_cx_f64_in -> pow_cx_f64{} -> pow_cx_f64_out
-pow_cx_i64_in -> pow_cx_i64{} -> pow_cx_i64_out
+pow_cx_f64_in -> pow_cx_f64() -> pow_cx_f64_out
+pow_cx_i64_in -> pow_cx_i64() -> pow_cx_i64_out
 // ─────────────────────── pow operator (chan, chan) ──────────────────
-func pow_xx_f64(base f64) {
+func pow_xx_f64() {base f64} {
     pow_xx_f64_out = base ^ pow_xx_f64_exp
 }
-func pow_xx_i64(base i64) {
+func pow_xx_i64() {base i64} {
     pow_xx_i64_out = base ^ pow_xx_i64_exp
 }
-pow_xx_f64_in -> pow_xx_f64{}
-pow_xx_i64_in -> pow_xx_i64{}
+pow_xx_f64_in -> pow_xx_f64()
+pow_xx_i64_in -> pow_xx_i64()
 
 // ─────────────────────── arithmetic operators (WASM) ────────────────
 
-func do_add(a f64) { op_add_out = a + op_add_b }
-op_add_a -> do_add{}
+func do_add() {a f64} { op_add_out = a + op_add_b }
+op_add_a -> do_add()
 
-func do_sub(a f64) { op_sub_out = a - op_sub_b }
-op_sub_a -> do_sub{}
+func do_sub() {a f64} { op_sub_out = a - op_sub_b }
+op_sub_a -> do_sub()
 
-func do_mul(a f64) { op_mul_out = a * op_mul_b }
-op_mul_a -> do_mul{}
+func do_mul() {a f64} { op_mul_out = a * op_mul_b }
+op_mul_a -> do_mul()
 
-func do_div(a f64) { op_div_out = a / op_div_b }
-op_div_a -> do_div{}
+func do_div() {a f64} { op_div_out = a / op_div_b }
+op_div_a -> do_div()
 
-func do_mod(a i64) { op_mod_out = a % op_mod_b }
-op_mod_a -> do_mod{}
+func do_mod() {a i64} { op_mod_out = a % op_mod_b }
+op_mod_a -> do_mod()
 
-func do_neg(a f64) { op_neg_out = -a }
-op_neg_a -> do_neg{}
+func do_neg() {a f64} { op_neg_out = -a }
+op_neg_a -> do_neg()
 
 // ─────────────────────── math.avg / math.min / math.max ─────────────
 
-stat_in -> math.avg{} -> stat_avg_out
-stat_in -> math.min{} -> stat_min_out
-stat_in -> math.max{} -> stat_max_out
+stat_in -> math.avg() -> stat_avg_out
+stat_in -> math.min() -> stat_min_out
+stat_in -> math.max() -> stat_max_out
 
 // ─────────────────────── math.avg/min/max (count window) ────────────
 
-stat_count_in -> math.avg{count=5} -> stat_avg_count_out
-stat_count_in -> math.min{count=5} -> stat_min_count_out
-stat_count_in -> math.max{count=5} -> stat_max_count_out
+stat_count_in -> math.avg(count=5) -> stat_avg_count_out
+stat_count_in -> math.min(count=5) -> stat_min_count_out
+stat_count_in -> math.max(count=5) -> stat_max_count_out
 
 // ─────────────────────── math.avg/min/max (duration window) ─────────
 
-stat_dur_in -> math.avg{duration=500ms} -> stat_avg_dur_out
-stat_dur_in -> math.min{duration=500ms} -> stat_min_dur_out
-stat_dur_in -> math.max{duration=500ms} -> stat_max_dur_out
+stat_dur_in -> math.avg(duration=500ms) -> stat_avg_dur_out
+stat_dur_in -> math.min(duration=500ms) -> stat_min_dur_out
+stat_dur_in -> math.max(duration=500ms) -> stat_max_dur_out
 
 // ─────────────────────── math.avg/min/max (negative values) ─────────
 
-stat_neg_in -> math.avg{} -> stat_neg_avg_out
-stat_neg_in -> math.min{} -> stat_neg_min_out
-stat_neg_in -> math.max{} -> stat_neg_max_out
+stat_neg_in -> math.avg() -> stat_neg_avg_out
+stat_neg_in -> math.min() -> stat_neg_min_out
+stat_neg_in -> math.max() -> stat_neg_max_out
 
 // ─────────────────────── math.avg/min/max (edge cases) ──────────────
 
-stat_edge_in -> math.avg{} -> stat_edge_avg_out
-stat_edge_in -> math.min{} -> stat_edge_min_out
-stat_edge_in -> math.max{} -> stat_edge_max_out
+stat_edge_in -> math.avg() -> stat_edge_avg_out
+stat_edge_in -> math.min() -> stat_edge_min_out
+stat_edge_in -> math.max() -> stat_edge_max_out
 
 // ─────────────────────── math.derivative ────────────────────────────
 
-stat_deriv_in -> math.derivative{} -> stat_deriv_out
+stat_deriv_in -> math.derivative() -> stat_deriv_out
 
 """
 

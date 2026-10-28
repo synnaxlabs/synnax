@@ -10,13 +10,13 @@
 import { errors } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { EOF, FreighterError, StreamClosed, Unreachable } from "@/errors";
+import { EOF, StreamClosed, Unreachable } from "@/index";
 
 describe("errors", () => {
   test("encoding and decoding freighter errors", () => {
     [new EOF(), new StreamClosed(), new Unreachable()].forEach((error) => {
       const encoded = errors.encode(error);
-      expect(encoded.type.startsWith(FreighterError.TYPE)).toBeTruthy();
+      expect(encoded.type.startsWith("freighter")).toBeTruthy();
       expect(encoded.data).toEqual(error.message);
       const decoded = errors.decode(encoded);
       expect(error.matches(decoded)).toBeTruthy();

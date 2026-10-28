@@ -29,9 +29,15 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build - Docker
+    permissions:
+      contents: read
+      packages: write
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.tag.outputs.image }}

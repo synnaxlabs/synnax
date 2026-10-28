@@ -10,7 +10,7 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
 )
@@ -20,17 +20,17 @@ import (
 // Transport can be provisioned per node, mirroring the gRPC channel.Transport that
 // bundles the same operations.
 type Network struct {
-	create *mock.Network[channel.CreateMessage, channel.CreateMessage]
-	delete *mock.Network[channel.DeleteRequest, struct{}]
-	rename *mock.Network[channel.RenameRequest, struct{}]
+	create *freightertestutil.Network[channel.CreateMessage, channel.CreateMessage]
+	delete *freightertestutil.Network[channel.DeleteRequest, struct{}]
+	rename *freightertestutil.Network[channel.RenameRequest, struct{}]
 }
 
 // NewNetwork constructs a Network with freshly initialized per-operation networks.
 func NewNetwork() *Network {
 	return &Network{
-		create: mock.NewNetwork[channel.CreateMessage, channel.CreateMessage](),
-		delete: mock.NewNetwork[channel.DeleteRequest, struct{}](),
-		rename: mock.NewNetwork[channel.RenameRequest, struct{}](),
+		create: freightertestutil.NewNetwork[channel.CreateMessage, channel.CreateMessage](),
+		delete: freightertestutil.NewNetwork[channel.DeleteRequest, struct{}](),
+		rename: freightertestutil.NewNetwork[channel.RenameRequest, struct{}](),
 	}
 }
 

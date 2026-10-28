@@ -10,19 +10,19 @@
 package relay
 
 import (
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/address"
 )
 
 // Network backs the in-memory relay transport for a cluster of nodes.
 type Network struct {
-	net *mock.Network[relay.Request, relay.Response]
+	net *freightertestutil.Network[relay.Request, relay.Response]
 }
 
 // NewNetwork constructs a Network with a freshly initialized relay network.
 func NewNetwork() *Network {
-	return &Network{net: mock.NewNetwork[relay.Request, relay.Response]()}
+	return &Network{net: freightertestutil.NewNetwork[relay.Request, relay.Response]()}
 }
 
 // New provisions an in-memory relay.Transport whose server is hosted at addr. buffers
