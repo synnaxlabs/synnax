@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "synnax>=0.59"]
+# dependencies = ["boto3", "synnax>=0.59,<0.60"]
 # ///
 
 """Dispatches each write to a runner's command channel to the matching script.

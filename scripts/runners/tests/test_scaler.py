@@ -90,6 +90,14 @@ class TestScaler:
         s.step({A}, {A: IDLE}, {A: LABELS}, {}, found, set())
         assert client.written(channel_name("ec2_cmd", A)) == [False]
 
+    def test_should_keep_idle_runners_while_stops_are_held(
+        self, client: Client
+    ) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("running")}
+        s.step({A}, {A: IDLE}, {A: LABELS}, {}, found, set(), stops=False)
+        assert client.written(channel_name("ec2_cmd", A)) == []
+
     def test_should_keep_idle_runners_while_their_pool_has_jobs(
         self, client: Client
     ) -> None:

@@ -9,12 +9,12 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59"]
+# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
 # ///
 
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
 Also runs the scaler, the gate, and the cost fetch, and creates every channel below
-plus the agents' channels when started with --create-channels.
+plus the agents' channels, for each new runner too, unless --no-create-channels.
 
 Per-runner channels, written on change:
 
@@ -32,8 +32,8 @@ Per-runner channels, written on change:
     <runner>_gh_cmd        same
     <runner>_gh_state      bool on gh_state_time: the last gh_cmd sent
 
-Cost channels (cost.py), float32 on the cost_query_time index, written once per
-fetch, every 6 h:
+Cost channels (cost.py), float32 on the cost_query_time index. The totals come
+from a fetch every 6 h; every channel is written each minute, with live runner rates:
 
     cost_<window>                     the account, <window> one of 1d, 7d, mtd, 30d,
                                       90d, lm (last month), ytd, 365d
@@ -44,8 +44,9 @@ fetch, every 6 h:
     <any of the above>_net            the same with credits applied
     hours_<region>_<window>           EC2 instance hours
     cost_month_remaining_forecast     AWS's forecast, today to month end
-    month_hours_remaining             hours from the fetch to month end
-    <runner>_cost_per_hour            list price plus volumes, 0 while stopped
+    month_hours_remaining             hours from the write to month end
+    cost_fetched_at                   timestamp of the last fetch
+    <runner>_cost_per_hour            list price plus volumes, 0 while stopped, live
     <runner>_ebs_cost_per_hour        the volume share
     <runner>_cost_1d_est              price times hours ran yesterday
     <runner>_cost_mtd_est             the same for the month through yesterday
@@ -238,6 +239,8 @@ class Controller:
             queued if self.gate.enabled else {},
             found,
             set(self.jobs.active),
+            # An unread queue looks empty, which would stop runners jobs wait for.
+            stops=self.jobs.ready,
         )
         self.log(
             f"busy={counts.get(BUSY, 0)} "
@@ -427,13 +430,14 @@ def main() -> None:
     runners.add(set(github.runner_status()[0]))
     cost = Cost(log, aws)
     cost.create_state(client, runners.snapshot())
+    resync_pool = ThreadPoolExecutor(1)
     controller = Controller(
         client,
         channels,
         github,
         aws,
         runners,
-        Jobs(github, log),
+        Jobs(github, log, resync_pool),
         cost,
         scaler,
         gate,
@@ -453,6 +457,7 @@ def main() -> None:
             wait_for_cmds(controller.commands, args.interval - timer.elapsed(), toggles)
     finally:
         shield()
+        resync_pool.shutdown(wait=False)
         controller.close()
         for _, enabled, _ in toggles.values():
             enabled.stop()

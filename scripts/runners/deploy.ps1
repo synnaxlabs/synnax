@@ -15,8 +15,15 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
+# Held until this process exits, so a retried deploy fails here instead of sharing
+# the staging folder with one still running.
+$Lock = [IO.File]::Open(
+    (Join-Path $env:TEMP 'runners-deploy.lock'), 'OpenOrCreate', 'ReadWrite', 'None'
+)
+
 $Dir = 'C:\Users\Administrator\Desktop\runner_telemetry'
 $Uv = 'C:\Program Files\Python313\Scripts\uv.exe'
+$UvCache = 'C:\Windows\system32\config\systemprofile\AppData\Local\uv'
 $Base = "https://raw.githubusercontent.com/synnaxlabs/synnax/$Sha/scripts/runners"
 $Tasks = [ordered]@{
     'Runner controller' = @{
@@ -29,8 +36,13 @@ $Tasks = [ordered]@{
     }
 }
 
-# Downloads everything before touching the running scripts.
-$Staging = Join-Path $env:TEMP "runners-$Sha"
+# Defender scanning every file uv writes made a deploy take both CPUs for minutes.
+Add-MpPreference -ExclusionPath $Dir, $UvCache
+
+# Downloads everything before touching the running scripts. uv keys a script's
+# environment on its path, so one staging path lets each deploy reuse the last one's.
+$Staging = Join-Path $env:TEMP 'runners-staging'
+Remove-Item $Staging -Recurse -Force -ErrorAction Ignore
 New-Item -ItemType Directory -Force $Staging | Out-Null
 foreach ($f in $Files) {
     Invoke-WebRequest "$Base/$f" -OutFile (Join-Path $Staging $f) -UseBasicParsing
@@ -57,23 +69,32 @@ Get-CimInstance Win32_Process |
 
 Copy-Item (Join-Path $Staging '*.py') $Dir -Force
 Remove-Item (Join-Path $Dir 'gh_token.txt') -ErrorAction SilentlyContinue
-Remove-Item $Staging -Recurse -Force
 
 foreach ($name in $Tasks.Keys) {
     $task = $Tasks[$name]
-    $launcher = Join-Path $Dir ('run_' + ($name -split ' ')[1] + '.cmd')
-    Remove-Item ($launcher -replace '\.cmd$', '.launches') -ErrorAction Ignore
-    # ping is the sleep: timeout.exe fails without a console, as under SYSTEM.
-    Set-Content -Path $launcher -Encoding ascii -Value @(
+    $base = Join-Path $Dir ('run_' + ($name -split ' ')[1])
+    Remove-Item "$base.cmd", "$base.launches" -ErrorAction Ignore
+    # cmd runs the script once, so stdout and stderr share one log.
+    Set-Content -Path "$base.once.cmd" -Encoding ascii -Value @(
         '@echo off'
-        'cd /d "%~dp0"'
-        ':loop'
-        'echo launch>> "%~n0.launches"'
+        "cd /d `"$Dir`""
         "`"$Uv`" run $($task.Args) > $($task.Log) 2>&1"
-        'ping -n 11 127.0.0.1 > nul'
-        'goto loop'
     )
-    $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/c `"$launcher`"" `
+    # Relaunches a script that exits, waiting 10 s and doubling to 5 min while it keeps
+    # crashing. A run that outlasts the longest wait resets the backoff.
+    Set-Content -Path "$base.ps1" -Encoding ascii -Value @(
+        '$delay = 10'
+        'while ($true) {'
+        "    Add-Content '$base.launches' 'launch'"
+        '    $start = Get-Date'
+        "    cmd.exe /c '$base.once.cmd'"
+        '    if (((Get-Date) - $start).TotalSeconds -gt 300) { $delay = 10 }'
+        '    Start-Sleep -Seconds $delay'
+        '    $delay = [Math]::Min($delay * 2, 300)'
+        '}'
+    )
+    $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$base.ps1`"" `
         -WorkingDirectory $Dir
     $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) `
         -StartWhenAvailable
