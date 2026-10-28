@@ -14,7 +14,6 @@ import pytest
 import freighter
 import synnax as sy
 from synnax.exceptions import create_registry
-from synnax.framer.writer import WriterClosed
 from x.exceptions import ExceptionPayload
 from x.params import RequiresNamedParams
 
@@ -101,7 +100,7 @@ class TestError:
             freighter.EOF,
             freighter.StreamClosed,
             freighter.Unreachable,
-            WriterClosed,
+            sy.WriterClosed,
             RequiresNamedParams,
         ],
     )

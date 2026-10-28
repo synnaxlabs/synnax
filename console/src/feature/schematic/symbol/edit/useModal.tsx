@@ -260,12 +260,12 @@ const Editor = ({
         </Modal.Body>
         {hasSVG && (
           <Modal.Footer background={0}>
-            <Triggers.SaveHelpText action={createSaveText} />
             <Nav.Bar.End>
               <Button.Button
                 variant="filled"
                 onClick={() => save()}
                 trigger={Triggers.SAVE}
+                triggerIndicator
               >
                 {createSaveText}
               </Button.Button>

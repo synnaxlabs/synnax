@@ -106,9 +106,9 @@ const nextRange = await client.ranges.create({
 
   <Fragment slot="arc">
 
-An [Arc automation](/reference/control/arc/introduction) creates a range when a test
-starts and ends it when the test ends. The range starts when `ranges.create` runs, and
-ends when `ranges.end` runs:
+An [Arc automation](/reference/control/arc) creates a range when a test starts and ends
+it when the test ends. The range starts when `ranges.create` runs, and ends when
+`ranges.end` runs:
 
 ```arc channels="start_cmd, stop_cmd" bodies="test, idle, run, done"
 import ranges
