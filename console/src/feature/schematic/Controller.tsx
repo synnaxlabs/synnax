@@ -10,6 +10,7 @@
 import { Control, Schematic } from "@synnaxlabs/pluto";
 import { memo, type PropsWithChildren, type ReactElement } from "react";
 
+import { User } from "@/platform/user";
 import { Session } from "@/session";
 
 export interface ControllerProps extends PropsWithChildren {}
@@ -20,8 +21,8 @@ export const Controller = memo(({ children }: ControllerProps): ReactElement => 
   const { isCurrentlyEditable } = Session.Schematic.useSelectEditable();
   const name = Schematic.useName();
   const dispatch = Session.useDispatch();
-  const username = Session.Core.useSelectSelected()?.username ?? "";
-  const controlName = username.length > 0 ? `${name} (${username})` : name;
+  const userName = User.useDisplayName();
+  const controlName = userName.length > 0 ? `${name} (${userName})` : name;
   const handleStatusChange = (status: Control.Status) =>
     dispatch(Session.Schematic.setControlStatus({ key, status }));
   return (

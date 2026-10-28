@@ -17,7 +17,6 @@ import { Access, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
 
 const Roles = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
@@ -36,23 +35,19 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-const UNNAMED = "Unnamed user";
-
 /**
- * The logged-in user's name, falling back to their username, then to "Unnamed user"
- * for a user that has neither.
+ * The logged-in user's name, "Unnamed user" for a user with an empty name, or an empty
+ * string until the user loads.
  */
 export const useDisplayName = (): string => {
   const { data: name } = User.useResultName({});
-  const username = Session.Core.useSelectSelected()?.username ?? "";
-  if (name != null && name !== "") return name;
-  return username !== "" ? username : UNNAMED;
+  if (name == null) return "";
+  return name !== "" ? name : "Unnamed user";
 };
 
-/** The logged-in user's name, roles, and username, for embedding in a dialog. */
+/** The logged-in user's name and roles, for embedding in a dialog. */
 export const Info = (): ReactElement => {
   const name = useDisplayName();
-  const username = Session.Core.useSelectSelected()?.username ?? "";
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>
       <Flex.Box x align="center" gap="small">
@@ -61,11 +56,6 @@ export const Info = (): ReactElement => {
         </Text.Text>
         <Roles />
       </Flex.Box>
-      {username !== "" && username !== name && (
-        <Text.Text level="small" color={9} overflow="ellipsis">
-          {username}
-        </Text.Text>
-      )}
     </Flex.Box>
   );
 };
