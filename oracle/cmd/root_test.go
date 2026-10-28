@@ -13,9 +13,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -56,6 +58,14 @@ func fail(code int, args ...string) string {
 	out, actual := run(args...)
 	Expect(actual).To(Equal(code), out)
 	return out
+}
+
+// printOnce matches output that contains msg exactly once.
+func printOnce(msg string) types.GomegaMatcher {
+	return WithTransform(
+		func(out string) int { return strings.Count(out, msg) },
+		Equal(1),
+	)
 }
 
 // setupMiniRepo creates a temp directory that looks like a minimal oracle repo:
@@ -111,10 +121,18 @@ var _ = Describe("help", func() {
 		))
 	})
 
-	It("Should exit with 1 for an unknown subcommand", func() {
-		_, code := run("nonexistent")
-		Expect(code).To(Equal(1))
-	})
+	DescribeTable(
+		"Should print one error and exit with 1 for a usage error",
+		func(msg string, args ...string) {
+			Expect(fail(1, args...)).To(SatisfyAll(printOnce(msg), printOnce("✗")))
+		},
+		Entry("an unknown subcommand",
+			`unknown command "nonexistent" for "oracle"`, "nonexistent"),
+		Entry("a misspelled subcommand", "Did you mean this?\n\tsync", "sinc"),
+		Entry("an unknown flag", "unknown flag: --bogus", "sync", "--bogus"),
+		Entry("an extra argument",
+			`unknown command "extra" for "oracle surface"`, "surface", "extra"),
+	)
 })
 
 var _ = Describe("check command", Ordered, func() {
@@ -134,7 +152,7 @@ var _ = Describe("check command", Ordered, func() {
 	})
 })
 
-var _ = Describe("check command with no schemas", Ordered, func() {
+var _ = Describe("commands with no schemas", Ordered, func() {
 	var cleanup func()
 
 	BeforeAll(func() {
@@ -144,9 +162,14 @@ var _ = Describe("check command with no schemas", Ordered, func() {
 
 	AfterAll(func() { cleanup() })
 
-	It("should error when no schema files exist", func() {
-		Expect(fail(1, "check")).To(ContainSubstring("no schema files found"))
-	})
+	DescribeTable("Should print one error when no schema files exist",
+		func(command string) {
+			Expect(fail(1, command)).To(printOnce("no schema files found"))
+		},
+		Entry("check", "check"),
+		Entry("fmt", "fmt"),
+		Entry("sync", "sync"),
+	)
 })
 
 var _ = Describe("fmt command", Ordered, func() {
@@ -267,9 +290,7 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail check mode when schemas need formatting", func() {
-		Expect(
-			fail(1, "fmt", "--check"),
-		).To(ContainSubstring("file(s) need formatting"))
+		Expect(fail(1, "fmt", "--check")).To(printOnce("1 file(s) need formatting"))
 	})
 })
 
@@ -290,7 +311,7 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 
 	It("discovers schemas in subdirectories instead of failing the flat glob", func() {
 		Expect(fail(1, "migrate")).To(SatisfyAll(
-			ContainSubstring("name the resources to bump"),
+			printOnce("name the resources to bump"),
 			Not(ContainSubstring("no schema files found")),
 		))
 	})
@@ -369,6 +390,10 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 
 	It("should fail validation on invalid schemas", func() {
 		Expect(fail(check.FailureCodes["analyze"], "check")).
-			To(ContainSubstring("1 gate(s) failed"))
+			To(printOnce("1 gate(s) failed"))
+	})
+
+	It("should print one error when surface cannot analyze the schemas", func() {
+		Expect(fail(1, "surface")).To(printOnce("analysis failed"))
 	})
 })
