@@ -64,6 +64,9 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+permissions:
+  contents: read
+
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
   # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to

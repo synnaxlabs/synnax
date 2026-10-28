@@ -45,10 +45,19 @@ concurrency:
     format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# The test jobs pull the Core and Freighter images from GHCR.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
   # group touched one of its paths.
   changes:
+    # paths-filter lists the changed files of a pull request through the API.
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     outputs:
       actionlint: ${{ steps.filter.outputs.actionlint }}
