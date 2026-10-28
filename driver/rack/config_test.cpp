@@ -16,7 +16,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/env/env.h"
 #include "x/cpp/kv/kv.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/rack/rack.h"
 

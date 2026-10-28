@@ -234,7 +234,7 @@ class HTTPClient(MiddlewareCollector):
                 preload_content=True,
                 retries=retries,
             )
-            if http_res.data is None or len(http_res.data) == 0:
+            if len(http_res.data) == 0:
                 raise ValueError(f"expected a non-empty response body from {url!r}")
             res_container[0] = self._codec.decode(http_res.data, res_t)
             return out_ctx
