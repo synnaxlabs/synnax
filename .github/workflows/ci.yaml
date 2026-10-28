@@ -491,6 +491,8 @@ jobs:
   foundation-site:
     needs: changes
     if: inputs.full || needs.changes.outputs.foundation == 'true'
+    permissions:
+      contents: read
     uses: ./.github/workflows/build.site.yaml
     with:
       site: foundation
@@ -707,6 +709,8 @@ jobs:
   portal-site:
     needs: changes
     if: inputs.full || needs.changes.outputs.portal == 'true'
+    permissions:
+      contents: read
     uses: ./.github/workflows/build.site.yaml
     with:
       site: portal
@@ -791,6 +795,8 @@ jobs:
   www-site:
     needs: changes
     if: inputs.full || needs.changes.outputs.www == 'true'
+    permissions:
+      contents: read
     uses: ./.github/workflows/build.site.yaml
     with:
       site: www
