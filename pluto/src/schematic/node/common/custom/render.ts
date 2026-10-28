@@ -13,6 +13,7 @@ import { color, dimensions, direction, type location } from "@synnaxlabs/x";
 import { type RefCallback, useLayoutEffect, useRef } from "react";
 
 import { Primitive } from "@/schematic/node/common/primitive";
+import { Region } from "@/schematic/node/common/region";
 
 const ORIGINAL_STROKE_ATTRIBUTE = "data-original-stroke";
 const ORIGINAL_FILL_ATTRIBUTE = "data-original-fill";
@@ -109,20 +110,9 @@ const selectState = ({
 };
 
 /**
- * @returns the root element of svg, or null when the markup is empty, malformed, or
- * not rooted in an svg element. Nothing can mount for a null result, so callers show a
- * warning in its place.
+ * @returns whether svg is markup the renderer can mount. See {@link Region.parseSVG}.
  */
-export const parseSVG = (svg: string): SVGSVGElement | null => {
-  if (svg.length === 0) return null;
-  const root = new DOMParser().parseFromString(svg, "image/svg+xml").documentElement;
-  if (root.tagName.toLowerCase() !== "svg" || root.querySelector("parsererror") != null)
-    return null;
-  return root as unknown as SVGSVGElement;
-};
-
-/** @returns whether svg is markup the renderer can mount. See {@link parseSVG}. */
-export const isValidSVG = (svg: string): boolean => parseSVG(svg) != null;
+export const isValidSVG = (svg: string): boolean => Region.parseSVG(svg) != null;
 
 // buildSVG records the parsed element's base dimensions, ensures its contents are
 // wrapped in a single <g>, mounts it into the container, and notifies onMount. The
@@ -210,7 +200,7 @@ const runRender = (
   if (state.prevSvg !== spec.svg) {
     state.prevSvg = spec.svg;
     state.prevState = undefined;
-    const root = parseSVG(spec.svg);
+    const root = Region.parseSVG(spec.svg);
     if (root == null) {
       state.svgElement?.remove();
       state.svgElement = null;

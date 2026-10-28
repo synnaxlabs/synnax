@@ -25,24 +25,31 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from typing import TYPE_CHECKING
+import threading
+from collections.abc import Callable
+from typing import IO
 
-if TYPE_CHECKING:
-    from framework.models import SynnaxConnection
+from framework.models import SynnaxConnection
+from synnax.options import Options
+
+
+def _forward(stream: IO[str], module: str, log: Callable[[str], None]) -> None:
+    for line in stream:
+        log(f"{module}: {line.rstrip()}")
 
 
 def run_scripts(
     conn: SynnaxConnection,
     modules: list[str],
-) -> list[subprocess.Popen[bytes]]:
-    """Launch each module as a subprocess with Synnax connection injected.
+    log: Callable[[str], None],
+) -> list[subprocess.Popen[str]]:
+    """Launches each module as a subprocess with the Synnax connection injected.
 
-    Args:
-        conn: Connection parameters to pass to the subprocesses.
-        modules: Fully-qualified module names (e.g. ``examples.opcua.read_task``).
-
-    Returns:
-        A list of ``Popen`` handles. The caller is responsible for terminating them.
+    :param conn: Connection parameters to pass to the subprocesses.
+    :param modules: Fully-qualified module names, such as
+        ``examples.opcua.read_task``.
+    :param log: Receives each line the subprocesses write to stdout or stderr.
+    :returns: The ``Popen`` handles. The caller must terminate them.
     """
     env = {
         **os.environ,
@@ -50,30 +57,49 @@ def run_scripts(
         "SYNNAX_PORT": str(conn.port),
         "SYNNAX_USERNAME": conn.username,
         "SYNNAX_PASSWORD": conn.password,
+        "SYNNAX_SECURE": "1" if conn.secure else "0",
     }
-    return [
-        subprocess.Popen(
-            [sys.executable, "-m", "framework.run_with_connection", module],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
+    env.pop("SYNNAX_CA_CERT", None)
+    if conn.ca_cert is not None:
+        env["SYNNAX_CA_CERT"] = conn.ca_cert
+    procs = []
+    for module in modules:
+        proc = subprocess.Popen(
+            [sys.executable, "-u", "-m", "framework.run_with_connection", module],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
             env=env,
         )
-        for module in modules
-    ]
+        assert proc.stdout is not None
+        threading.Thread(
+            target=_forward, args=(proc.stdout, module, log), daemon=True
+        ).start()
+        procs.append(proc)
+    return procs
+
+
+def options_from_env() -> Options:
+    """Reads the connection parameters that ``run_scripts`` injects.
+
+    :raises KeyError: If a required variable is not set.
+    """
+    return Options(
+        host=os.environ["SYNNAX_HOST"],
+        port=int(os.environ["SYNNAX_PORT"]),
+        username=os.environ["SYNNAX_USERNAME"],
+        password=os.environ["SYNNAX_PASSWORD"],
+        secure=os.environ["SYNNAX_SECURE"] == "1",
+        ca_cert=os.environ.get("SYNNAX_CA_CERT"),
+    )
 
 
 if __name__ == "__main__":
     import importlib
 
     import synnax.synnax as _syn
-    from synnax.options import Options
 
-    _opts = Options(
-        host=os.environ["SYNNAX_HOST"],
-        port=int(os.environ["SYNNAX_PORT"]),
-        username=os.environ["SYNNAX_USERNAME"],
-        password=os.environ["SYNNAX_PASSWORD"],
-    )
+    _opts = options_from_env()
     vars(_syn)["try_load_options_if_none_provided"] = lambda *a, **k: _opts
 
     _module = sys.argv[1]

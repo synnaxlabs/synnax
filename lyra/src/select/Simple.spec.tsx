@@ -14,6 +14,7 @@ import { renderToString } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Icon } from "@/icon";
+import { type Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { disableActEnvironment, mockBoundingClientRect } from "@/testutil";
@@ -281,6 +282,40 @@ describe("Select.Simple", () => {
       const options = c.getAllByRole("option");
       expect(options.filter((o) => o.closest("[hidden]") == null)).toHaveLength(1);
       expect(c.getByText("High").closest("[hidden]")).not.toBeNull();
+    });
+  });
+
+  describe("variant", () => {
+    const trigger = (variant?: Input.Variant): HTMLElement => {
+      const c = render(
+        <Select.Simple<string>
+          value="high"
+          onChange={vi.fn()}
+          resourceName="Level"
+          triggerProps={{ variant }}
+        >
+          <Select.Item itemKey="high">High</Select.Item>
+        </Select.Simple>,
+      );
+      return c.getByRole("button", { name: "Level High" });
+    };
+
+    it("should draw an outlined trigger by default", () => {
+      const { classList } = trigger();
+      expect(classList.contains("pluto-btn--outlined")).toBe(true);
+      expect(classList.contains("pluto--shadow")).toBe(false);
+    });
+
+    it("should draw a shadow trigger on the outlined chassis", () => {
+      const { classList } = trigger("shadow");
+      expect(classList.contains("pluto-btn--outlined")).toBe(true);
+      expect(classList.contains("pluto--shadow")).toBe(true);
+    });
+
+    it("should draw a text trigger without the shadow modifier", () => {
+      const { classList } = trigger("text");
+      expect(classList.contains("pluto-btn--text")).toBe(true);
+      expect(classList.contains("pluto--shadow")).toBe(false);
     });
   });
 
