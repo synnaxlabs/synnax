@@ -359,10 +359,7 @@ func (s *Service) createUser(
 	tx gorp.Tx,
 	account Account,
 ) (Link, error) {
-	u, err := s.cfg.User.NewWriter(tx).Create(ctx, user.User{
-		Username:  "oidc-" + uuid.New().String(),
-		FirstName: account.Name,
-	})
+	u, err := s.cfg.User.NewWriter(tx).Create(ctx, user.User{Name: account.Name})
 	if err != nil {
 		return Link{}, err
 	}

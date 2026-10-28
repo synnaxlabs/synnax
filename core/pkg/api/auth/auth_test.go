@@ -58,7 +58,7 @@ func authed(ctx context.Context, token string) freighter.Context {
 
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
-	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: username}))
+	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Name: username}))
 	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), auth.Credentials{
 		Username: username,
 		Password: pwd,
@@ -86,7 +86,7 @@ var _ = Describe("Login", func() {
 			res := MustSucceed(
 				apiSvc.Login(requestCtx(ctx), request(creds.Username, creds.Password)),
 			)
-			Expect(res.User).To(Equal(root))
+			Expect(res.User.Key).To(Equal(root.Key))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.OntologyID()))
 			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
@@ -153,7 +153,7 @@ var _ = Describe("Disabled methods", func() {
 	BeforeEach(func(ctx SpecContext) {
 		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
 		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: own.Username,
+			Name: own.Username,
 		}))
 		Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), own)).To(Succeed())
 	})
@@ -198,14 +198,14 @@ var _ = Describe("Disabled methods", func() {
 	})
 	It("Should refuse to create a password", func(ctx SpecContext) {
 		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "nopass-" + uuid.New().String(),
+			Name: "nopass-" + uuid.New().String(),
 		}))
 		Expect(disabled(ctx, auth.MethodPassword).CreatePassword(
 			requestCtx(ctx),
 			nil,
 			apiauth.PasswordCreateRequest{
 				Subject:     u.OntologyID(),
-				Credentials: auth.Credentials{Username: u.Username, Password: "p"},
+				Credentials: auth.Credentials{Username: u.Name, Password: "p"},
 			},
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
@@ -223,7 +223,7 @@ var _ = Describe("ChangePassword", func() {
 	BeforeEach(func(ctx SpecContext) {
 		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
 		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: own.Username,
+			Name: own.Username,
 		}))
 		Expect(passwordSvc.NewWriter(nil).Set(ctx, u.OntologyID(), own)).To(Succeed())
 	})
@@ -305,18 +305,18 @@ var _ = Describe("SetPassword", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
-		bobToken = login(ctx, bob.Username, "old")
+		bobToken = login(ctx, bob.Name, "old")
 		rootToken = login(ctx, creds.Username, creds.Password)
 	})
 	It("Should set the caller's own password given the current one", func(
 		ctx SpecContext,
 	) {
-		other := login(ctx, bob.Username, "old")
+		other := login(ctx, bob.Name, "old")
 		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
 			Password:        "new",
 			CurrentPassword: "old",
 		})).Error().ToNot(HaveOccurred())
-		login(ctx, bob.Username, "new")
+		login(ctx, bob.Name, "new")
 		MustSucceed(authSvc.Authenticate(ctx, bobToken))
 		Expect(authSvc.Authenticate(ctx, other)).Error().
 			To(MatchError(auth.ErrInvalidToken))
@@ -328,21 +328,21 @@ var _ = Describe("SetPassword", func() {
 			Password:        "new",
 			CurrentPassword: "wrong",
 		})).Error().To(MatchError(auth.ErrInvalidCredentials))
-		login(ctx, bob.Username, "old")
+		login(ctx, bob.Name, "old")
 	})
 	It("Should refuse the caller's own password without the current one", func(
 		ctx SpecContext,
 	) {
 		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{Password: "new"})).
 			Error().To(MatchError(ContainSubstring("password: required")))
-		login(ctx, bob.Username, "old")
+		login(ctx, bob.Name, "old")
 	})
 	It("Should let the owner set another user's password", func(ctx SpecContext) {
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
 			Subject:  bob.OntologyID(),
 			Password: "new",
 		})).Error().ToNot(HaveOccurred())
-		login(ctx, bob.Username, "new")
+		login(ctx, bob.Name, "new")
 		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
 			To(MatchError(auth.ErrInvalidToken))
 	})
@@ -360,7 +360,7 @@ var _ = Describe("SetPassword", func() {
 	})
 	It("Should report a user with no password as not found", func(ctx SpecContext) {
 		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "nopass-" + uuid.New().String(),
+			Name: "nopass-" + uuid.New().String(),
 		}))
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
 			Subject:  u.OntologyID(),
@@ -396,23 +396,23 @@ var _ = Describe("CreatePassword", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		bob := createUser(ctx, "bob-"+uuid.New().String(), "old")
-		bobToken = login(ctx, bob.Username, "old")
+		bobToken = login(ctx, bob.Name, "old")
 		rootToken = login(ctx, creds.Username, creds.Password)
 		nopass = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "nopass-" + uuid.New().String(),
+			Name: "nopass-" + uuid.New().String(),
 		}))
 	})
 	It("Should let the owner give a user its first password", func(ctx SpecContext) {
 		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
 			Subject:     nopass.OntologyID(),
-			Credentials: auth.Credentials{Username: nopass.Username, Password: "p"},
+			Credentials: auth.Credentials{Username: nopass.Name, Password: "p"},
 		})).Error().ToNot(HaveOccurred())
-		login(ctx, nopass.Username, "p")
+		login(ctx, nopass.Name, "p")
 	})
 	It("Should deny a user giving another user a password", func(ctx SpecContext) {
 		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
 			Subject:     nopass.OntologyID(),
-			Credentials: auth.Credentials{Username: nopass.Username, Password: "p"},
+			Credentials: auth.Credentials{Username: nopass.Name, Password: "p"},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 	It("Should refuse a user that already has a password", func(ctx SpecContext) {
@@ -443,7 +443,7 @@ var _ = Describe("CreatePassword", func() {
 	It("Should reject an empty password", func(ctx SpecContext) {
 		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
 			Subject:     nopass.OntologyID(),
-			Credentials: auth.Credentials{Username: nopass.Username},
+			Credentials: auth.Credentials{Username: nopass.Name},
 		})).Error().To(MatchError(ContainSubstring("password: required")))
 	})
 })
@@ -539,7 +539,7 @@ var _ = Describe("CreateSession", func() {
 		Expect(session.Key).To(Equal(res.Session.Key))
 		Expect(res.Session.Subject).To(Equal(root.OntologyID()))
 		Expect(res.Session.Credential).To(Equal(session.Credential))
-		Expect(res.User).To(HaveValue(Equal(root)))
+		Expect(res.User.Key).To(Equal(root.Key))
 	})
 	DescribeTable("Should leave the hash off the wire", func(
 		ctx SpecContext,
@@ -679,7 +679,7 @@ var _ = Describe("Sessions", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
-		bobToken = login(ctx, bob.Username, "p").Token
+		bobToken = login(ctx, bob.Name, "p").Token
 		rootToken = login(ctx, creds.Username, creds.Password).Token
 	})
 	Describe("RetrieveSessions", func() {

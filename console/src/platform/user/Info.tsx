@@ -36,23 +36,17 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-/** The logged-in user's first name, falling back to their username. */
+/** The logged-in user's name, falling back to their username. */
 export const useDisplayName = (): string => {
-  const { data: remoteUsername } = User.useResultUsername({});
-  const { data: firstName } = User.useResultFirstName({});
-  const core = Session.Core.useSelectSelected();
-  const username = remoteUsername ?? core?.username ?? "";
-  return firstName != null && firstName !== "" ? firstName : username;
+  const { data: name } = User.useResultName({});
+  const username = Session.Core.useSelectSelected()?.username ?? "";
+  return name != null && name !== "" ? name : username;
 };
 
 /** The logged-in user's name, roles, and username, for embedding in a dialog. */
 export const Info = (): ReactElement => {
-  const { data: remoteUsername } = User.useResultUsername({});
-  const { data: firstName } = User.useResultFirstName({});
-  const { data: lastName } = User.useResultLastName({});
-  const core = Session.Core.useSelectSelected();
-  const username = remoteUsername ?? core?.username ?? "";
-  const fullName = [firstName, lastName].filter((part) => part).join(" ");
+  const { data: fullName = "" } = User.useResultName({});
+  const username = Session.Core.useSelectSelected()?.username ?? "";
   const name = fullName !== "" ? fullName : username;
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>
@@ -62,7 +56,7 @@ export const Info = (): ReactElement => {
         </Text.Text>
         <Roles />
       </Flex.Box>
-      {fullName !== "" && (
+      {fullName !== "" && fullName !== username && (
         <Text.Text level="small" color={9} overflow="ellipsis">
           {username}
         </Text.Text>
