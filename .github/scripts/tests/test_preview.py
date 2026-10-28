@@ -25,6 +25,7 @@ case "$1 $2" in
     "pull "*) [[ ! -f "$FAKE_DIR/pull_fails" ]] || exit 1 ;;
     "inspect "*) cat "$FAKE_DIR/caddy_mounts" 2> /dev/null || exit 1 ;;
     "ps "*)
+        [[ ! -f "$FAKE_DIR/ps_fails" ]] || exit 1
         if [[ $* == *--quiet* ]]; then
             awk '{ print "synnax-pr-" $1 }' "$FAKE_DIR/containers"
         else
@@ -245,6 +246,16 @@ class TestCap:
         assert result.returncode != 0
         assert self.evicted(result) == []
         assert not [c for c in host.docker() if c.startswith("docker rm")]
+
+    def test_should_start_nothing_when_listing_previews_fails(self, host: Host) -> None:
+        host.ready()
+        host.containers((12, 100), (13, 200))
+        (host.path / "ps_fails").touch()
+        result = host.run("up", "14", "image")
+        assert result.returncode != 0
+        assert self.evicted(result) == []
+        docker = host.docker()
+        assert not [c for c in docker if c.startswith(("docker rm", "docker run"))]
 
     def test_should_remove_nothing_when_replacing_a_preview(self, host: Host) -> None:
         host.ready()

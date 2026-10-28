@@ -101,8 +101,12 @@ up() {
         --query Parameter.Value --output text)
     export SYNNAX_LICENSE_KEY
     docker pull --quiet "$image"
-    local others=() other i
-    while read -r other; do others+=("$other"); done < <(eviction_order "$pr")
+    local order others=() other i
+    # A plain assignment, so a failed listing stops the deploy before the cap.
+    order=$(eviction_order "$pr")
+    if [[ -n $order ]]; then
+        while read -r other; do others+=("$other"); done <<< "$order"
+    fi
     for ((i = 0; i <= ${#others[@]} - PREVIEW_MAX; i++)); do
         down "${others[i]}"
         echo "evicted ${others[i]}"
