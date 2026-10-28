@@ -293,6 +293,18 @@ describe("Input.Table", () => {
       expect(document.activeElement).not.toBe(input);
     });
 
+    it("should put back a cell pasted into after an earlier Esc", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      fireEvent.input(input, { target: { value: "pasted" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("a");
+      expect(document.activeElement).toBe(input);
+    });
+
     it("should leave an unchanged cell on the first Esc", () => {
       render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
       const input = cell("Name", "1");

@@ -226,6 +226,7 @@ export const Table = ({
     );
     if (block == null) return;
     e.preventDefault();
+    restored.current = false;
     const plan = grid.plan(dims, anchor.current, block);
     const next = value.map((row) => [...row]);
     for (let row = dims.height; row < plan.dimensions.height; row++)
@@ -272,11 +273,8 @@ export const Table = ({
   // Runs before the cell, which blurs on an Esc that is not prevented and discards
   // any text it has not committed.
   const handleKeyDownCapture = (e: KeyboardEvent) => {
+    if (e.key !== "Escape") return;
     if (!(e.target instanceof HTMLInputElement) || initial.current == null) return;
-    if (e.key !== "Escape") {
-      restored.current = false;
-      return;
-    }
     const { value: was, text } = initial.current;
     const at = anchor.current;
     const committed = value[at.y]?.[at.x];
@@ -308,6 +306,8 @@ export const Table = ({
       onPaste={handlePaste}
       onKeyDown={handleKeyDown}
       onKeyDownCapture={handleKeyDownCapture}
+      // Any edit after a restore lets the next Esc restore again.
+      onInput={() => (restored.current = false)}
       {...rest}
     >
       {hasHeader && value.length > 0 && (
