@@ -140,6 +140,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
 - An open select marks the current value and opens scrolled to it.
+- A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
+  and a box while open. Fields in forms and detail panes keep their box.
 
 ### Table input
 
