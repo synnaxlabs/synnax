@@ -195,9 +195,9 @@ export const SESSION_ENDPOINTS = [
   SESSION_RETRIEVE_ENDPOINT,
   SESSION_DELETE_ENDPOINT,
 ] as const;
-const KEY_CREATE_ENDPOINT = "/auth/key/create";
-const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
-const KEY_DELETE_ENDPOINT = "/auth/key/delete";
+const KEY_CREATE_ENDPOINT = "/auth/api-key/create";
+const KEY_RETRIEVE_ENDPOINT = "/auth/api-key/retrieve";
+const KEY_DELETE_ENDPOINT = "/auth/api-key/delete";
 const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
 const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
 const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";

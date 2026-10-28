@@ -45,12 +45,12 @@ using SessionRetrieveClient = freighter::UnaryClient<
 /// @brief transport that ends sessions.
 using SessionDeleteClient = freighter::
     UnaryClient<grpc::auth::SessionDeleteRequest, google::protobuf::Empty>;
-using KeyCreateClient = freighter::
-    UnaryClient<grpc::auth::KeyCreateRequest, grpc::auth::KeyCreateResponse>;
-using KeyRetrieveClient = freighter::
-    UnaryClient<grpc::auth::KeyRetrieveRequest, grpc::auth::KeyRetrieveResponse>;
-using KeyDeleteClient = freighter::
-    UnaryClient<grpc::auth::KeyDeleteRequest, google::protobuf::Empty>;
+using APIKeyCreateClient = freighter::
+    UnaryClient<grpc::auth::APIKeyCreateRequest, grpc::auth::APIKeyCreateResponse>;
+using APIKeyRetrieveClient = freighter::
+    UnaryClient<grpc::auth::APIKeyRetrieveRequest, grpc::auth::APIKeyRetrieveResponse>;
+using APIKeyDeleteClient = freighter::
+    UnaryClient<grpc::auth::APIKeyDeleteRequest, google::protobuf::Empty>;
 
 const x::errors::Error ERR = x::errors::SY.sub("auth");
 const x::errors::Error ERR_INVALID_TOKEN = ERR.sub("invalid_token");
@@ -123,15 +123,15 @@ struct NewKey {
 
 /// @brief creates, lists, and deletes API keys.
 class KeyClient {
-    std::unique_ptr<KeyCreateClient> create_client;
-    std::unique_ptr<KeyRetrieveClient> retrieve_client;
-    std::unique_ptr<KeyDeleteClient> delete_client;
+    std::unique_ptr<APIKeyCreateClient> create_client;
+    std::unique_ptr<APIKeyRetrieveClient> retrieve_client;
+    std::unique_ptr<APIKeyDeleteClient> delete_client;
 
 public:
     KeyClient(
-        std::unique_ptr<KeyCreateClient> create_client,
-        std::unique_ptr<KeyRetrieveClient> retrieve_client,
-        std::unique_ptr<KeyDeleteClient> delete_client
+        std::unique_ptr<APIKeyCreateClient> create_client,
+        std::unique_ptr<APIKeyRetrieveClient> retrieve_client,
+        std::unique_ptr<APIKeyDeleteClient> delete_client
     ):
         create_client(std::move(create_client)),
         retrieve_client(std::move(retrieve_client)),
@@ -141,13 +141,13 @@ public:
     /// is empty.
     [[nodiscard]] std::pair<NewKey, x::errors::Error>
     create(const std::string &name, const Subject &subject = {}) const {
-        grpc::auth::KeyCreateRequest req;
+        grpc::auth::APIKeyCreateRequest req;
         req.set_name(name);
         if (!subject.type.empty()) {
             req.mutable_subject()->set_type(subject.type);
             req.mutable_subject()->set_key(subject.key);
         }
-        auto [res, err] = this->create_client->send("/auth/key/create", req);
+        auto [res, err] = this->create_client->send("/auth/api-key/create", req);
         if (err) return {{}, err};
         return {NewKey{res.token(), APIKey(res.key())}, x::errors::NIL};
     }
@@ -156,13 +156,13 @@ public:
     /// caller may retrieve them.
     [[nodiscard]] std::pair<std::vector<APIKey>, x::errors::Error>
     retrieve(const std::vector<Subject> &subjects = {}) const {
-        grpc::auth::KeyRetrieveRequest req;
+        grpc::auth::APIKeyRetrieveRequest req;
         for (const auto &s: subjects) {
             auto *id = req.add_subjects();
             id->set_type(s.type);
             id->set_key(s.key);
         }
-        auto [res, err] = this->retrieve_client->send("/auth/key/retrieve", req);
+        auto [res, err] = this->retrieve_client->send("/auth/api-key/retrieve", req);
         if (err) return {{}, err};
         std::vector<APIKey> keys;
         keys.reserve(res.keys_size());
@@ -173,10 +173,10 @@ public:
 
     /// @brief deletes API keys and ends their sessions. Unknown keys are ignored.
     [[nodiscard]] x::errors::Error del(const std::vector<std::string> &keys) const {
-        grpc::auth::KeyDeleteRequest req;
+        grpc::auth::APIKeyDeleteRequest req;
         for (const auto &k: keys)
             req.add_keys(k);
-        return this->delete_client->send("/auth/key/delete", req).second;
+        return this->delete_client->send("/auth/api-key/delete", req).second;
     }
 };
 

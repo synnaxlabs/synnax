@@ -217,10 +217,10 @@ var _ = Describe("Disabled methods", func() {
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should refuse a new API key", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodAPIKey).CreateKey(
+		Expect(disabled(ctx, auth.MethodAPIKey).CreateAPIKey(
 			requestCtx(ctx),
 			nil,
-			apiauth.KeyCreateRequest{Name: "ci"},
+			apiauth.APIKeyCreateRequest{Name: "ci"},
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
 })

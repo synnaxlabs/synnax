@@ -67,9 +67,9 @@ type Transport struct {
 	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
 	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
 	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
-	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
-	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
-	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	AuthAPIKeyCreate    freighter.UnaryServer[auth.APIKeyCreateRequest, auth.APIKeyCreateResponse]
+	AuthAPIKeyRetrieve  freighter.UnaryServer[auth.APIKeyRetrieveRequest, auth.APIKeyRetrieveResponse]
+	AuthAPIKeyDelete    freighter.UnaryServer[auth.APIKeyDeleteRequest, struct{}]
 	// AuthOIDCLink links a provider account to the caller.
 	AuthOIDCLink freighter.UnaryServer[auth.OIDCLinkRequest, auth.OIDCLinkResponse]
 	// AuthOIDCRetrieve lists provider links.
@@ -314,9 +314,9 @@ func (l *Layer) BindTo(t Transport) {
 
 		// AUTH
 		t.AuthChangePassword,
-		t.AuthKeyCreate,
-		t.AuthKeyRetrieve,
-		t.AuthKeyDelete,
+		t.AuthAPIKeyCreate,
+		t.AuthAPIKeyRetrieve,
+		t.AuthAPIKeyDelete,
 		t.AuthOIDCLink,
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
@@ -502,9 +502,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
 	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
 	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
-	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
-	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
-	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
+	t.AuthAPIKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateAPIKey))
+	t.AuthAPIKeyRetrieve.BindHandler(l.Auth.RetrieveAPIKeys)
+	t.AuthAPIKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteAPIKeys))
 	t.AuthOIDCLink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.LinkOIDC))
 	t.AuthOIDCRetrieve.BindHandler(l.Auth.RetrieveOIDCLinks)
 	t.AuthOIDCUnlink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.UnlinkOIDC))

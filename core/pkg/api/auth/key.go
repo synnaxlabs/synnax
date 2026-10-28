@@ -40,38 +40,38 @@ func apiKey(k apikey.APIKey) APIKey {
 	return APIKey{Key: k.Key, Subject: k.Subject, Name: k.Name, Created: k.Created}
 }
 
-// KeyCreateRequest creates an API key.
-type KeyCreateRequest struct {
+// APIKeyCreateRequest creates an API key.
+type APIKeyCreateRequest struct {
 	// Subject is the user or rack the key logs in as. Empty means the caller.
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
 	// Name is a label that tells the subject's keys apart.
 	Name string `json:"name" msgpack:"name"`
 }
 
-// KeyCreateResponse is a new API key.
-type KeyCreateResponse struct {
+// APIKeyCreateResponse is a new API key.
+type APIKeyCreateResponse struct {
 	// Token is the API key to log in with. It is the only copy of its secret.
 	Token string `json:"token" msgpack:"token"`
 	// Key is the stored key.
 	Key APIKey `json:"key" msgpack:"key"`
 }
 
-// CreateKey creates an API key for the caller, or for another user or rack when the
+// CreateAPIKey creates an API key for the caller, or for another user or rack when the
 // caller may create that subject. It returns a validation error when the subject is not
 // a user or rack, and an error wrapping query.ErrNotFound when it does not exist.
-func (s *Service) CreateKey(
+func (s *Service) CreateAPIKey(
 	ctx context.Context,
 	tx gorp.Tx,
-	req KeyCreateRequest,
-) (KeyCreateResponse, error) {
+	req APIKeyCreateRequest,
+) (APIKeyCreateResponse, error) {
 	if err := s.auth.Accepts(auth.MethodAPIKey); err != nil {
-		return KeyCreateResponse{}, err
+		return APIKeyCreateResponse{}, err
 	}
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
 	if subject.Type != ontology.ResourceTypeUser &&
 		subject.Type != ontology.ResourceTypeRack {
-		return KeyCreateResponse{}, errors.Wrapf(
+		return APIKeyCreateResponse{}, errors.Wrapf(
 			validate.ErrValidation,
 			"an API key cannot log in as a %s",
 			subject.Type,
@@ -83,40 +83,40 @@ func (s *Service) CreateKey(
 		access.ActionCreate,
 		[]ontology.ID{subject},
 	); err != nil {
-		return KeyCreateResponse{}, err
+		return APIKeyCreateResponse{}, err
 	}
 	exists, err := s.ontology.NewRetrieve().WhereIDs(subject).Exists(ctx, tx)
 	if err != nil {
-		return KeyCreateResponse{}, err
+		return APIKeyCreateResponse{}, err
 	}
 	if !exists {
-		return KeyCreateResponse{}, errors.Wrapf(query.ErrNotFound, "%s", subject)
+		return APIKeyCreateResponse{}, errors.Wrapf(query.ErrNotFound, "%s", subject)
 	}
 	k, token, err := s.apiKey.NewWriter(tx).Create(ctx, subject, req.Name)
 	if err != nil {
-		return KeyCreateResponse{}, err
+		return APIKeyCreateResponse{}, err
 	}
-	return KeyCreateResponse{Token: token, Key: apiKey(k)}, nil
+	return APIKeyCreateResponse{Token: token, Key: apiKey(k)}, nil
 }
 
-// KeyRetrieveRequest selects API keys to list.
-type KeyRetrieveRequest struct {
+// APIKeyRetrieveRequest selects API keys to list.
+type APIKeyRetrieveRequest struct {
 	// Subjects limits the result to these subjects' keys. Empty means the caller.
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
 }
 
-// KeyRetrieveResponse lists API keys without their hashes.
-type KeyRetrieveResponse struct {
+// APIKeyRetrieveResponse lists API keys without their hashes.
+type APIKeyRetrieveResponse struct {
 	// Keys are the keys that matched.
 	Keys []APIKey `json:"keys" msgpack:"keys"`
 }
 
-// RetrieveKeys lists the caller's API keys, or the keys of the given subjects when the
+// RetrieveAPIKeys lists the caller's API keys, or the keys of the given subjects when the
 // caller may retrieve those subjects.
-func (s *Service) RetrieveKeys(
+func (s *Service) RetrieveAPIKeys(
 	ctx context.Context,
-	req KeyRetrieveRequest,
-) (KeyRetrieveResponse, error) {
+	req APIKeyRetrieveRequest,
+) (APIKeyRetrieveResponse, error) {
 	caller := GetSubject(ctx)
 	subjects := req.Subjects
 	if len(subjects) == 0 {
@@ -128,33 +128,33 @@ func (s *Service) RetrieveKeys(
 		access.ActionRetrieve,
 		subjects,
 	); err != nil {
-		return KeyRetrieveResponse{}, err
+		return APIKeyRetrieveResponse{}, err
 	}
 	var keys []apikey.APIKey
 	if err := s.apiKey.NewRetrieve().
 		Where(apikey.MatchSubjects(subjects...)).
 		Entries(&keys).
 		Exec(ctx, nil); err != nil {
-		return KeyRetrieveResponse{}, err
+		return APIKeyRetrieveResponse{}, err
 	}
-	return KeyRetrieveResponse{Keys: lo.Map(keys, func(k apikey.APIKey, _ int) APIKey {
+	return APIKeyRetrieveResponse{Keys: lo.Map(keys, func(k apikey.APIKey, _ int) APIKey {
 		return apiKey(k)
 	})}, nil
 }
 
-// KeyDeleteRequest names API keys to delete.
-type KeyDeleteRequest struct {
+// APIKeyDeleteRequest names API keys to delete.
+type APIKeyDeleteRequest struct {
 	// Keys are the API keys to delete.
 	Keys []apikey.Key `json:"keys" msgpack:"keys"`
 }
 
-// DeleteKeys deletes the given API keys and ends the sessions they opened. A caller may
+// DeleteAPIKeys deletes the given API keys and ends the sessions they opened. A caller may
 // delete its own keys; deleting another subject's needs permission to delete that
 // subject. Unknown keys are ignored.
-func (s *Service) DeleteKeys(
+func (s *Service) DeleteAPIKeys(
 	ctx context.Context,
 	tx gorp.Tx,
-	req KeyDeleteRequest,
+	req APIKeyDeleteRequest,
 ) (struct{}, error) {
 	var keys []apikey.APIKey
 	if err := s.apiKey.NewRetrieve().

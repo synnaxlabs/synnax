@@ -59,16 +59,16 @@ type (
 		*emptypb.Empty,
 	]
 	keyCreateServer = grpc.UnaryServer[
-		auth.KeyCreateRequest,
-		*grpcauth.KeyCreateRequest,
-		auth.KeyCreateResponse,
-		*grpcauth.KeyCreateResponse,
+		auth.APIKeyCreateRequest,
+		*grpcauth.APIKeyCreateRequest,
+		auth.APIKeyCreateResponse,
+		*grpcauth.APIKeyCreateResponse,
 	]
 	keyRetrieveServer = grpc.UnaryServer[
-		auth.KeyRetrieveRequest,
-		*grpcauth.KeyRetrieveRequest,
-		auth.KeyRetrieveResponse,
-		*grpcauth.KeyRetrieveResponse,
+		auth.APIKeyRetrieveRequest,
+		*grpcauth.APIKeyRetrieveRequest,
+		auth.APIKeyRetrieveResponse,
+		*grpcauth.APIKeyRetrieveResponse,
 	]
 	methodsServer = grpc.UnaryServer[
 		struct{},
@@ -77,8 +77,8 @@ type (
 		*grpcauth.MethodsResponse,
 	]
 	keyDeleteServer = grpc.UnaryServer[
-		auth.KeyDeleteRequest,
-		*grpcauth.KeyDeleteRequest,
+		auth.APIKeyDeleteRequest,
+		*grpcauth.APIKeyDeleteRequest,
 		struct{},
 		*emptypb.Empty,
 	]
@@ -112,9 +112,9 @@ var _ = Describe("Auth", func() {
 		renew       = transport.AuthSessionRenew.(*sessionRenewServer)
 		retrieve    = transport.AuthSessionRetrieve.(*sessionRetrieveServer)
 		del         = transport.AuthSessionDelete.(*sessionDeleteServer)
-		keyCreate   = transport.AuthKeyCreate.(*keyCreateServer)
-		keyRetrieve = transport.AuthKeyRetrieve.(*keyRetrieveServer)
-		keyDelete   = transport.AuthKeyDelete.(*keyDeleteServer)
+		keyCreate   = transport.AuthAPIKeyCreate.(*keyCreateServer)
+		keyRetrieve = transport.AuthAPIKeyRetrieve.(*keyRetrieveServer)
+		keyDelete   = transport.AuthAPIKeyDelete.(*keyDeleteServer)
 	)
 
 	Describe("New", func() {
@@ -134,13 +134,13 @@ var _ = Describe("Auth", func() {
 				transport.AuthSessionDelete,
 			).To(BeIdenticalTo(bindable[4].(*sessionDeleteServer)))
 			Expect(
-				transport.AuthKeyCreate,
+				transport.AuthAPIKeyCreate,
 			).To(BeIdenticalTo(bindable[5].(*keyCreateServer)))
 			Expect(
-				transport.AuthKeyRetrieve,
+				transport.AuthAPIKeyRetrieve,
 			).To(BeIdenticalTo(bindable[6].(*keyRetrieveServer)))
 			Expect(
-				transport.AuthKeyDelete,
+				transport.AuthAPIKeyDelete,
 			).To(BeIdenticalTo(bindable[7].(*keyDeleteServer)))
 			Expect(
 				transport.AuthMethods,
@@ -404,20 +404,20 @@ var _ = Describe("Auth", func() {
 		})
 	})
 
-	Describe("KeyCreateRequest", func() {
+	Describe("APIKeyCreateRequest", func() {
 		It("Should round-trip the subject and name", func(ctx SpecContext) {
 			t := keyCreate.RequestTranslator
-			msg := auth.KeyCreateRequest{Subject: bob.OntologyID(), Name: "ci"}
+			msg := auth.APIKeyCreateRequest{Subject: bob.OntologyID(), Name: "ci"}
 			Expect(
 				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
 			).To(Equal(msg))
 		})
 	})
 
-	Describe("KeyCreateResponse", func() {
+	Describe("APIKeyCreateResponse", func() {
 		It("Should round-trip the token and key", func(ctx SpecContext) {
 			t := keyCreate.ResponseTranslator
-			msg := auth.KeyCreateResponse{Token: "syk_secret", Key: apiKey}
+			msg := auth.APIKeyCreateResponse{Token: "syk_secret", Key: apiKey}
 			Expect(
 				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
 			).To(Equal(msg))
@@ -425,32 +425,32 @@ var _ = Describe("Auth", func() {
 		It("Should read a missing key as the zero key", func(ctx SpecContext) {
 			res := MustSucceed(keyCreate.ResponseTranslator.Backward(
 				ctx,
-				&grpcauth.KeyCreateResponse{Token: "syk_secret"},
+				&grpcauth.APIKeyCreateResponse{Token: "syk_secret"},
 			))
 			Expect(res.Key).To(BeZero())
 		})
 		It("Should reject a malformed key", func(ctx SpecContext) {
 			Expect(keyCreate.ResponseTranslator.Backward(
 				ctx,
-				&grpcauth.KeyCreateResponse{Key: &grpcauth.APIKey{Key: "bad"}},
+				&grpcauth.APIKeyCreateResponse{Key: &grpcauth.APIKey{Key: "bad"}},
 			)).Error().To(MatchError(errInvalidUUID))
 		})
 	})
 
-	Describe("KeyRetrieveRequest", func() {
+	Describe("APIKeyRetrieveRequest", func() {
 		It("Should round-trip the subjects", func(ctx SpecContext) {
 			t := keyRetrieve.RequestTranslator
-			msg := auth.KeyRetrieveRequest{Subjects: []ontology.ID{bob.OntologyID()}}
+			msg := auth.APIKeyRetrieveRequest{Subjects: []ontology.ID{bob.OntologyID()}}
 			Expect(
 				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
 			).To(Equal(msg))
 		})
 	})
 
-	Describe("KeyRetrieveResponse", func() {
+	Describe("APIKeyRetrieveResponse", func() {
 		It("Should round-trip the keys", func(ctx SpecContext) {
 			t := keyRetrieve.ResponseTranslator
-			msg := auth.KeyRetrieveResponse{Keys: []auth.APIKey{apiKey}}
+			msg := auth.APIKeyRetrieveResponse{Keys: []auth.APIKey{apiKey}}
 			Expect(
 				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
 			).To(Equal(msg))
@@ -458,15 +458,15 @@ var _ = Describe("Auth", func() {
 		It("Should reject a malformed key", func(ctx SpecContext) {
 			Expect(keyRetrieve.ResponseTranslator.Backward(
 				ctx,
-				&grpcauth.KeyRetrieveResponse{Keys: []*grpcauth.APIKey{{Key: "bad"}}},
+				&grpcauth.APIKeyRetrieveResponse{Keys: []*grpcauth.APIKey{{Key: "bad"}}},
 			)).Error().To(MatchError(errInvalidUUID))
 		})
 	})
 
-	Describe("KeyDeleteRequest", func() {
+	Describe("APIKeyDeleteRequest", func() {
 		It("Should round-trip the keys", func(ctx SpecContext) {
 			t := keyDelete.RequestTranslator
-			msg := auth.KeyDeleteRequest{Keys: []uuid.UUID{uuid.New()}}
+			msg := auth.APIKeyDeleteRequest{Keys: []uuid.UUID{uuid.New()}}
 			Expect(
 				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
 			).To(Equal(msg))
@@ -474,7 +474,7 @@ var _ = Describe("Auth", func() {
 		It("Should reject a malformed key", func(ctx SpecContext) {
 			Expect(keyDelete.RequestTranslator.Backward(
 				ctx,
-				&grpcauth.KeyDeleteRequest{Keys: []string{"bad"}},
+				&grpcauth.APIKeyDeleteRequest{Keys: []string{"bad"}},
 			)).Error().To(MatchError(errInvalidUUID))
 		})
 	})

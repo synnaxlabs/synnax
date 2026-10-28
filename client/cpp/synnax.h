@@ -158,9 +158,9 @@ public:
             return mw;
         }()),
         api_keys(
-            std::move(this->t.auth_key_create),
-            std::move(this->t.auth_key_retrieve),
-            std::move(this->t.auth_key_delete)
+            std::move(this->t.auth_api_key_create),
+            std::move(this->t.auth_api_key_retrieve),
+            std::move(this->t.auth_api_key_delete)
         ),
         connectivity(
             std::make_shared<connection::Checker>(
