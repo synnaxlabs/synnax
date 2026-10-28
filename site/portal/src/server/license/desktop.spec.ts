@@ -192,6 +192,15 @@ describe("desktop ledger", () => {
       expect(await eventsOf("unlink")).toHaveLength(0);
     });
 
+    it("should report no previous use for a first login", async () => {
+      expect((await linkMachine()).previous).toBeNull();
+    });
+
+    it("should report the user's last Desktop use before the login", async () => {
+      await linkMachine([HASH_A]);
+      expect((await linkMachine([HASH_C], LATER)).previous).toEqual(NOW);
+    });
+
     it("should mint a different secret for every link", async () => {
       const first = await linkMachine([HASH_A]);
       const second = await linkMachine([HASH_C]);
@@ -279,6 +288,7 @@ describe("desktop ledger", () => {
 
   describe("renew", () => {
     const RENEWED = new Date(NOW.getTime() + 20 * 24 * 60 * 60 * 1000);
+    const LATER_STILL = new Date(RENEWED.getTime() + 60_000);
 
     it("should slide the expiry one term past now and sign a fresh key", async () => {
       const linked = await linkMachine();
@@ -311,6 +321,38 @@ describe("desktop ledger", () => {
           detail: {},
         }),
       ]);
+    });
+
+    it("should report the owner and their last Desktop use", async () => {
+      const linked = await linkMachine();
+      const machine = await resolve(store, linked.secret);
+      const renewed = await renew(store, signer(), { machine, now: RENEWED });
+      expect(renewed.owner).toBe("user_a");
+      expect(renewed.previous).toEqual(NOW);
+      const again = await renew(store, signer(), { machine, now: LATER_STILL });
+      expect(again.previous).toEqual(RENEWED);
+    });
+
+    it("should refuse a license with no personal owner", async () => {
+      const team = await createOrganization(store, {
+        kind: "team",
+        clerkOrgID: "org_acme",
+      });
+      const lic = await createLicense(store, {
+        organization: team.key,
+        edition: "desktop",
+      });
+      const act = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await expect(
+        renew(store, signer(), {
+          machine: { activation: act, license: lic },
+          now: RENEWED,
+        }),
+      ).rejects.toThrow(`desktop license ${lic.key} has no personal owner`);
+      expect(await eventsOf("renew")).toHaveLength(0);
     });
 
     it("should record nothing when signing fails", async () => {

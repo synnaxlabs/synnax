@@ -11,13 +11,15 @@ import { verifyWebhook } from "@clerk/astro/webhooks";
 import { type APIRoute } from "astro";
 
 import { ensurePersonal, mirrorTeams } from "@/server/organization";
+import { joined } from "@/server/slack";
 
 /**
  * POST mirrors Clerk's user and organization creation into the portal: a personal
- * organization per user and a team organization per Clerk organization.
+ * organization per user and a team organization per Clerk organization. A new user is
+ * also posted to Slack.
  */
 export const POST: APIRoute = async (context) => {
-  const { store, webhookSecret } = context.locals.portal;
+  const { store, slack, webhookSecret } = context.locals.portal;
   let evt: Awaited<ReturnType<typeof verifyWebhook>>;
   try {
     evt = await verifyWebhook(context.request, { signingSecret: webhookSecret });
@@ -27,13 +29,25 @@ export const POST: APIRoute = async (context) => {
   }
   switch (evt.type) {
     case "user.created": {
-      const { id, first_name, last_name, username, email_addresses } = evt.data;
+      const {
+        id,
+        first_name,
+        last_name,
+        username,
+        email_addresses,
+        primary_email_address_id,
+      } = evt.data;
+      const email =
+        email_addresses.find((e) => e.id === primary_email_address_id)?.email_address ??
+        email_addresses[0]?.email_address ??
+        "";
       const name =
         [first_name, last_name].filter((p) => p != null && p !== "").join(" ") ||
         username ||
-        email_addresses[0]?.email_address ||
+        email ||
         id;
       await ensurePersonal(store, { userID: id, name });
+      await slack.post(joined({ userID: id, name, email }));
       break;
     }
     case "organization.created":

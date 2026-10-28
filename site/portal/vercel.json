@@ -11,6 +11,14 @@
     {
       "path": "/api/cron/expiry",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/digest",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/sessions",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
