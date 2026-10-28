@@ -565,7 +565,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{name=\"r\", color=\"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(name=\"r\", color=\"not-a-color\")",
 			)).To(BeTrue())
 		},
 	)
@@ -575,7 +575,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{\"r\", \"\", \"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(\"r\", \"\", \"not-a-color\")",
 			)).To(BeTrue())
 		},
 	)
@@ -585,7 +585,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{\"r\", \"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(\"r\", \"not-a-color\")",
 			)).To(BeFalse())
 		},
 	)
@@ -593,13 +593,13 @@ var _ = Describe("Analyzer hooks", func() {
 	It("Should accept a valid color literal", func(ctx SpecContext) {
 		Expect(hasColorError(
 			ctx,
-			"import ranges\nsensor -> ranges.create{name=\"r\", color=\"#DF6D38\"}",
+			"import ranges\nsensor -> ranges.create(name=\"r\", color=\"#DF6D38\")",
 		)).To(BeFalse())
 	})
 
 	It("Should not flag a missing color argument", func(ctx SpecContext) {
 		Expect(hasColorError(ctx,
-			"import ranges\nsensor -> ranges.create{name=\"r\"}")).To(BeFalse())
+			"import ranges\nsensor -> ranges.create(name=\"r\")")).To(BeFalse())
 	})
 
 	It(
@@ -610,7 +610,7 @@ var _ = Describe("Analyzer hooks", func() {
 				"    bad := \"not-a-\" + \"color\"\n" +
 				"    ranges.create(\"r\", \"\", bad)\n" +
 				"}\n" +
-				"sensor -> f{}"
+				"sensor -> f()"
 			parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 			_, diags := text.Analyze(ctx, parsed, buildRoot())
 			Expect(diags.Ok()).To(BeTrue())

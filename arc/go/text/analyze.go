@@ -418,7 +418,7 @@ func analyzeFlowNode(
 		)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
-		r, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell)
+		r, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell, !isFirst)
 		return flowNodeResult{node: r}, ok
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
@@ -1183,26 +1183,26 @@ func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
+	triggered bool,
 ) (nodeResult, bool) {
 	head, tail := parser.FunctionNameParts(ctx.AST)
 	name := head
 	if tail != "" {
 		name = head + "." + tail
 	}
-	key := kg.generate(name, "")
 	sym, err := ctx.ResolveQualified(head, tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
 	}
+	// A WASM-only callee was registered as a synthetic expression function.
 	if sym.Exec == symbol.ExecWASM {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			ctx.AST,
-			"function '%s' cannot be used as a flow statement. Call it inside a func block instead: %s()",
-			name,
-			name,
-		))
-		return nodeResult{}, false
+		synth, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST)
+		if err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return nodeResult{}, false
+		}
+		return lowerSynthNode(ctx, synth, kg, shell, triggered)
 	}
 	if sym.Type.Kind != types.KindFunction {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -1212,6 +1212,7 @@ func analyzeFunctionNode(
 		))
 		return nodeResult{}, false
 	}
+	key := kg.generate(name, "")
 	// Node.Type is the canonical module path so factories find it. After
 	// alias indirection in Resolve, sym's tree position already points at
 	// the canonical module member; QualifiedName joins the parts.
@@ -1338,15 +1339,25 @@ func analyzeExpression(
 		return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 	}
 
+	return lowerSynthNode(ctx, sym, kg, shell, triggered)
+}
+
+// lowerSynthNode builds the node for a synthetic expression function.
+func lowerSynthNode[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	sym *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+	triggered bool,
+) (nodeResult, bool) {
 	key := kg.generate(sym.Name, "")
 	freshType := types.Freshen(sym.Type, key)
 	if len(freshType.Outputs) == 0 || !freshType.Outputs[0].Type.IsValid() {
-		exprText := strings.TrimSuffix(ctx.AST.GetText(), "()")
-		d := diagnostics.Errorf(
+		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
-			"functions in flow statements use {} not ()",
-		).WithNote(fmt.Sprintf("did you mean: %s{}?", exprText))
-		ctx.Diagnostics.Add(d)
+			"%s has no output value",
+			ctx.AST.GetText(),
+		))
 		return nodeResult{}, false
 	}
 	outputType := ctx.Constraints.ApplySubstitutions(freshType.Outputs[0].Type)
@@ -1364,8 +1375,8 @@ func analyzeExpression(
 // wireVarEdges feeds each lifted variable-read param from its variable node.
 // On a triggered node a register-backed value variable binds as a VarRef
 // instead of an edge: sampled per fire, and writes never wake the node.
-func wireVarEdges(
-	ctx acontext.Context[parser.IExpressionContext],
+func wireVarEdges[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
 	shell *shellBuilder,
 	kg *keyGenerator,
 	n *ir.Node,
@@ -1445,14 +1456,9 @@ func Analyze(
 		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
 			continue
 		}
-		fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
-		var bodyAst antlr.ParserRuleContext = fnDecl
-		if ok {
+		bodyAst := c.AST
+		if fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext); ok {
 			bodyAst = fnDecl.Block()
-		}
-		exprDecl, ok := c.AST.(parser.IExpressionContext)
-		if ok {
-			bodyAst = exprDecl
 		}
 		i.Functions = append(i.Functions, ir.Function{
 			Key:      c.Name,
@@ -1665,12 +1671,12 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 
 // injectImplicitTriggers creates channel read nodes for all channels referenced
 // in an expression when that expression is the first node in a flow statement.
-// This enables the shorthand syntax: `ox_pt_1 > 20 => do_something{}`
-// which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something{}`
+// This enables the shorthand syntax: `ox_pt_1 > 20 => do_something()`
+// which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something()`
 func (p *flowChainProcessor) injectImplicitTriggers(
-	expr parser.IExpressionContext,
+	head antlr.ParserRuleContext,
 ) bool {
-	sym, err := p.ctx.Scope.Root().GetChildByParserRule(expr)
+	sym, err := p.ctx.Scope.Root().GetChildByParserRule(head)
 	if err != nil || sym.Kind == symbol.KindConstant {
 		return true // Constants don't need triggers
 	}
@@ -1709,12 +1715,17 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 	isLast := p.currentIndex == p.totalFlowNodes
 	isSink := isLast && flowNode.Identifier() != nil
 
-	// Inject implicit triggers for expression as first node
+	// Inject implicit triggers for an expression as the first node. A function
+	// node only has a synthetic when its callee is WASM-only.
 	if p.currentIndex == 1 && p.prevNode == nil {
+		var head antlr.ParserRuleContext
 		if expr := flowNode.Expression(); expr != nil {
-			if !p.injectImplicitTriggers(expr) {
-				return false
-			}
+			head = expr
+		} else if fn := flowNode.Function(); fn != nil {
+			head = fn
+		}
+		if head != nil && !p.injectImplicitTriggers(head) {
+			return false
 		}
 	}
 
@@ -2588,7 +2599,7 @@ func analyzeSingleInvocation(
 	shell *shellBuilder,
 ) (ir.Node, bool) {
 	if fn := ctx.AST.Function(); fn != nil {
-		result, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell)
+		result, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell, false)
 		if !ok {
 			return ir.Node{}, false
 		}
