@@ -74,6 +74,11 @@ on:
   workflow_dispatch:
     inputs: *inputs
 
+# The test services pull their images from GHCR.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   test:
     name:
