@@ -24,11 +24,13 @@ QA_DIR=${QA_DIR:-/tmp/console-qa}
 QA_PORT=${QA_PORT:-9090}
 QA_CDP_PORT=${QA_CDP_PORT:-9222}
 ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
-mkdir -p -m 700 "$QA_DIR"
+mkdir -p "$QA_DIR"
+QA_DIR=$(cd "$QA_DIR" && pwd)
 if [ ! -O "$QA_DIR" ]; then
     echo "$QA_DIR belongs to another user" >&2
     exit 1
 fi
+chmod 700 "$QA_DIR"
 mkdir -p "$QA_DIR/images"
 # Stops the processes of an earlier run, skipping PIDs the OS has since reused.
 if [ -f "$QA_DIR/pids" ]; then
