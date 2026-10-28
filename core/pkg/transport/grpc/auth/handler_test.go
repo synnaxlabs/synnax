@@ -458,7 +458,9 @@ var _ = Describe("Auth", func() {
 		It("Should reject a malformed key", func(ctx SpecContext) {
 			Expect(keyRetrieve.ResponseTranslator.Backward(
 				ctx,
-				&grpcauth.APIKeyRetrieveResponse{Keys: []*grpcauth.APIKey{{Key: "bad"}}},
+				&grpcauth.APIKeyRetrieveResponse{
+					Keys: []*grpcauth.APIKey{{Key: "bad"}},
+				},
 			)).Error().To(MatchError(errInvalidUUID))
 		})
 	})

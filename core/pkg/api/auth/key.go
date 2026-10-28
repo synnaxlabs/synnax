@@ -111,7 +111,8 @@ type APIKeyRetrieveResponse struct {
 	Keys []APIKey `json:"keys" msgpack:"keys"`
 }
 
-// RetrieveAPIKeys lists the caller's API keys, or the keys of the given subjects when the
+// RetrieveAPIKeys lists the caller's API keys, or the keys of the given subjects when
+// the
 // caller may retrieve those subjects.
 func (s *Service) RetrieveAPIKeys(
 	ctx context.Context,
@@ -137,9 +138,11 @@ func (s *Service) RetrieveAPIKeys(
 		Exec(ctx, nil); err != nil {
 		return APIKeyRetrieveResponse{}, err
 	}
-	return APIKeyRetrieveResponse{Keys: lo.Map(keys, func(k apikey.APIKey, _ int) APIKey {
-		return apiKey(k)
-	})}, nil
+	return APIKeyRetrieveResponse{
+		Keys: lo.Map(keys, func(k apikey.APIKey, _ int) APIKey {
+			return apiKey(k)
+		}),
+	}, nil
 }
 
 // APIKeyDeleteRequest names API keys to delete.
@@ -148,7 +151,8 @@ type APIKeyDeleteRequest struct {
 	Keys []apikey.Key `json:"keys" msgpack:"keys"`
 }
 
-// DeleteAPIKeys deletes the given API keys and ends the sessions they opened. A caller may
+// DeleteAPIKeys deletes the given API keys and ends the sessions they opened. A caller
+// may
 // delete its own keys; deleting another subject's needs permission to delete that
 // subject. Unknown keys are ignored.
 func (s *Service) DeleteAPIKeys(

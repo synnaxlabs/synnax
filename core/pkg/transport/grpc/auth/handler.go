@@ -504,7 +504,10 @@ func (keyCreateRequestTranslator) Backward(
 	_ context.Context,
 	r *APIKeyCreateRequest,
 ) (auth.APIKeyCreateRequest, error) {
-	return auth.APIKeyCreateRequest{Subject: subjectBackward(r.Subject), Name: r.Name}, nil
+	return auth.APIKeyCreateRequest{
+		Subject: subjectBackward(r.Subject),
+		Name:    r.Name,
+	}, nil
 }
 
 func (keyCreateResponseTranslator) Forward(

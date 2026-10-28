@@ -502,9 +502,13 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
 	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
 	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
-	t.AuthAPIKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateAPIKey))
+	t.AuthAPIKeyCreate.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateAPIKey),
+	)
 	t.AuthAPIKeyRetrieve.BindHandler(l.Auth.RetrieveAPIKeys)
-	t.AuthAPIKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteAPIKeys))
+	t.AuthAPIKeyDelete.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteAPIKeys),
+	)
 	t.AuthOIDCLink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.LinkOIDC))
 	t.AuthOIDCRetrieve.BindHandler(l.Auth.RetrieveOIDCLinks)
 	t.AuthOIDCUnlink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.UnlinkOIDC))

@@ -183,7 +183,9 @@ var _ = Describe("API keys", func() {
 		It("Should deny a user listing another subject's keys", func(ctx SpecContext) {
 			Expect(apiSvc.RetrieveAPIKeys(
 				authed(ctx, bobToken),
-				apiauth.APIKeyRetrieveRequest{Subjects: []ontology.ID{root.OntologyID()}},
+				apiauth.APIKeyRetrieveRequest{
+					Subjects: []ontology.ID{root.OntologyID()},
+				},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
