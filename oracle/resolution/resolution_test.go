@@ -531,36 +531,6 @@ var _ = Describe("Type Forms", func() {
 			form := resolution.StructForm{}
 			Expect(form.IsGeneric()).To(BeFalse())
 		})
-
-		It("finds type parameter by name", func() {
-			form := resolution.StructForm{
-				TypeParams: []resolution.TypeParam{
-					{Name: "T"},
-					{Name: "U", Constraint: &resolution.TypeRef{Name: "Comparable"}},
-				},
-			}
-			tp, ok := form.TypeParam("U")
-			Expect(ok).To(BeTrue())
-			Expect(tp.Name).To(Equal("U"))
-			Expect(tp.Constraint).NotTo(BeNil())
-		})
-
-		It("returns false for non-existent type parameter", func() {
-			form := resolution.StructForm{
-				TypeParams: []resolution.TypeParam{{Name: "T"}},
-			}
-			_, ok := form.TypeParam("V")
-			Expect(ok).To(BeFalse())
-		})
-
-		It("checks if field is omitted", func() {
-			form := resolution.StructForm{
-				OmittedFields: []string{"internal", "private"},
-			}
-			Expect(form.IsFieldOmitted("internal")).To(BeTrue())
-			Expect(form.IsFieldOmitted("private")).To(BeTrue())
-			Expect(form.IsFieldOmitted("public")).To(BeFalse())
-		})
 	})
 
 	Describe("AliasForm", func() {
@@ -574,15 +544,24 @@ var _ = Describe("Type Forms", func() {
 			}
 			Expect(form.IsGeneric()).To(BeTrue())
 		})
+	})
 
-		It("finds type parameter by name", func() {
-			form := resolution.AliasForm{
-				TypeParams: []resolution.TypeParam{{Name: "K"}, {Name: "V"}},
-			}
-			tp, ok := form.TypeParam("V")
-			Expect(ok).To(BeTrue())
-			Expect(tp.Name).To(Equal("V"))
-		})
+	Describe("TypeParams", func() {
+		params := []resolution.TypeParam{{Name: "T"}}
+		DescribeTable(
+			"Should return the type parameters a form declares",
+			func(form resolution.TypeForm, expected []resolution.TypeParam) {
+				Expect(resolution.TypeParams(form)).To(Equal(expected))
+			},
+			Entry("a struct", resolution.StructForm{TypeParams: params}, params),
+			Entry("an alias", resolution.AliasForm{TypeParams: params}, params),
+			Entry(
+				"a distinct type",
+				resolution.DistinctForm{TypeParams: params},
+				params,
+			),
+			Entry("an enum", resolution.EnumForm{}, nil),
+		)
 	})
 
 	Describe("NonDefaultedTypeParams", func() {

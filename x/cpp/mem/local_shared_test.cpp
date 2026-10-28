@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/mem/local_shared.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::mem {
 TEST(LocalShared, DefaultConstruction) {
@@ -32,6 +32,7 @@ TEST(LocalShared, CopyConstruction) {
     auto ptr1 = make_local_shared<int>(42);
     EXPECT_EQ(ptr1.use_count(), 1);
 
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization): tests the copy.
     auto ptr2 = ptr1;
     EXPECT_EQ(ptr1.use_count(), 2);
     EXPECT_EQ(ptr2.use_count(), 2);
@@ -40,6 +41,7 @@ TEST(LocalShared, CopyConstruction) {
     EXPECT_EQ(ptr1, ptr2);
 }
 
+// NOLINTBEGIN(bugprone-use-after-move): the tests check the moved-from state.
 TEST(LocalShared, MoveConstruction) {
     auto ptr1 = make_local_shared<int>(42);
     EXPECT_EQ(ptr1.use_count(), 1);
@@ -76,6 +78,7 @@ TEST(LocalShared, MoveAssignment) {
     EXPECT_EQ(ptr2.use_count(), 1);
     EXPECT_EQ(*ptr2, 42);
 }
+// NOLINTEND(bugprone-use-after-move)
 
 TEST(LocalShared, Reset) {
     auto ptr = make_local_shared<int>(42);
@@ -128,6 +131,7 @@ TEST(LocalShared, StructWithMembers) {
     EXPECT_EQ(ptr->y, 3.14);
     EXPECT_EQ(ptr->z, "test");
 
+    // NOLINTNEXTLINE(performance-unnecessary-copy-initialization): tests the copy.
     auto ptr2 = ptr;
     EXPECT_EQ(ptr2->x, 42);
     EXPECT_EQ(ptr.use_count(), 2);
@@ -160,10 +164,12 @@ TEST(LocalShared, DestructorCalled) {
         auto ptr1 = make_local_shared<DestructorCounter>(&counter);
         EXPECT_EQ(counter, 0);
 
+        // NOLINTBEGIN(performance-unnecessary-copy-initialization): tests the copy.
         {
             auto ptr2 = ptr1;
             EXPECT_EQ(counter, 0);
         }
+        // NOLINTEND(performance-unnecessary-copy-initialization)
 
         EXPECT_EQ(counter, 0); // Still one reference
     }

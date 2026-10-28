@@ -79,15 +79,20 @@ TEST(MapEthercatToSynnax, FloatingPoint) {
     EXPECT_EQ(map_ethercat_to_synnax(DataType::EC_REAL64, 64), x::telem::FLOAT64_T);
 }
 
-TEST(MapEthercatToSynnax, StringTypes) {
+/// @brief it should map a string type to the unsigned integer type that matches its bit
+/// length.
+TEST(MapEthercatToSynnax, StringTypesUseBitLength) {
     EXPECT_EQ(
-        map_ethercat_to_synnax(DataType::EC_VISIBLE_STRING, 0),
-        x::telem::STRING_T
+        map_ethercat_to_synnax(DataType::EC_VISIBLE_STRING, 8),
+        x::telem::UINT8_T
     );
-    EXPECT_EQ(map_ethercat_to_synnax(DataType::EC_OCTET_STRING, 0), x::telem::STRING_T);
     EXPECT_EQ(
-        map_ethercat_to_synnax(DataType::EC_UNICODE_STRING, 0),
-        x::telem::STRING_T
+        map_ethercat_to_synnax(DataType::EC_OCTET_STRING, 16),
+        x::telem::UINT16_T
+    );
+    EXPECT_EQ(
+        map_ethercat_to_synnax(DataType::EC_UNICODE_STRING, 32),
+        x::telem::UINT32_T
     );
 }
 
@@ -236,6 +241,31 @@ TEST(ReadPdoToSeries, TwentyFourBitWithBitOffset) {
     EXPECT_EQ(series.at<uint32_t>(0), 0x00123456);
 }
 
+/// @brief it should sign extend a negative 40-bit input without reading the bytes of
+/// the next entry.
+TEST(ReadPdoToSeries, Signed40BitNegativeIgnoresNextEntry) {
+    uint8_t buffer[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00};
+    x::telem::Series series(x::telem::INT64_T, 1);
+    read_pdo_to_series(buffer, 0, 40, x::telem::INT64_T, series);
+    EXPECT_EQ(series.at<int64_t>(0), -1);
+}
+
+/// @brief it should drop the bytes of the next entry from an unsigned 48-bit input.
+TEST(ReadPdoToSeries, Unsigned48BitIgnoresNextEntry) {
+    uint8_t buffer[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x80, 0xAA, 0xBB};
+    x::telem::Series series(x::telem::UINT64_T, 1);
+    read_pdo_to_series(buffer, 0, 48, x::telem::UINT64_T, series);
+    EXPECT_EQ(series.at<uint64_t>(0), 0x800000000001);
+}
+
+/// @brief it should read a negative 56-bit input that starts mid byte.
+TEST(ReadPdoToSeries, Signed56BitWithBitOffset) {
+    uint8_t buffer[] = {0xF0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0F, 0xAA};
+    x::telem::Series series(x::telem::INT64_T, 1);
+    read_pdo_to_series(buffer, 4, 56, x::telem::INT64_T, series);
+    EXPECT_EQ(series.at<int64_t>(0), -1);
+}
+
 TEST(WritePdoFromValue, SingleBitAtOffset0Set) {
     uint8_t buffer[] = {0x00};
     write_pdo_from_value(buffer, 0, 1, x::telem::UINT8_T, uint8_t{1});
@@ -355,6 +385,29 @@ TEST(PdoRequiredBytes, TwentyFourBitWithBitOffset) {
     EXPECT_EQ(pdo_required_bytes(1, 24), 4u);
     EXPECT_EQ(pdo_required_bytes(4, 24), 4u);
     EXPECT_EQ(pdo_required_bytes(7, 24), 4u);
+}
+
+/// @brief it should count the extra byte a wide entry that starts mid byte spans.
+TEST(PdoRequiredBytes, WideEntryWithBitOffset) {
+    EXPECT_EQ(pdo_required_bytes(0, 40), 5u);
+    EXPECT_EQ(pdo_required_bytes(3, 40), 6u);
+    EXPECT_EQ(pdo_required_bytes(4, 56), 8u);
+    EXPECT_EQ(pdo_required_bytes(7, 58), 9u);
+}
+
+/// @brief it should accept a fractional rate that divides another, despite the float
+/// precision of a rate.
+TEST(WholeRatio, FractionalRateDivides) {
+    EXPECT_EQ(whole_ratio(x::telem::Rate(100), x::telem::Rate(0.1)), 1000u);
+    EXPECT_EQ(whole_ratio(x::telem::Rate(10), x::telem::Rate(0.1)), 100u);
+    EXPECT_EQ(whole_ratio(x::telem::Rate(1000), x::telem::Rate(0.3)), std::nullopt);
+}
+
+/// @brief it should reject a rate that does not divide another, or is faster than it.
+TEST(WholeRatio, RejectsRatesThatDoNotDivide) {
+    EXPECT_EQ(whole_ratio(x::telem::Rate(1000), x::telem::Rate(3)), std::nullopt);
+    EXPECT_EQ(whole_ratio(x::telem::Rate(1), x::telem::Rate(10)), std::nullopt);
+    EXPECT_EQ(whole_ratio(x::telem::Rate(1000), x::telem::Rate(1000)), 1u);
 }
 
 TEST(ReadWriteRoundTrip, SingleBit) {

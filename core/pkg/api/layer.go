@@ -60,8 +60,12 @@ var DefaultLayerConfig = config.DefaultLayerConfig
 
 type Transport struct {
 	// AUTH
-	AuthLogin          freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
-	AuthChangePassword freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
+	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
+	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
+	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
+	AuthSessionRenew    freighter.UnaryServer[struct{}, struct{}]
+	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
+	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
@@ -85,6 +89,7 @@ type Transport struct {
 	FrameIterator freighter.StreamServer[framer.IteratorRequest, framer.IteratorResponse]
 	FrameStreamer freighter.StreamServer[framer.StreamerRequest, framer.StreamerResponse]
 	FrameDelete   freighter.UnaryServer[framer.DeleteRequest, struct{}]
+	FrameRead     freighter.UnaryServer[framer.ReadRequest, framer.ReadResponse]
 	// CONTROL
 	ControlRetrieve freighter.UnaryServer[control.RetrieveRequest, control.RetrieveResponse]
 	// RANGE
@@ -251,7 +256,7 @@ type Layer struct {
 // BindTo binds the API layer to the provided Transport implementation.
 func (l *Layer) BindTo(t Transport) {
 	var (
-		tk              = auth.TokenMiddleware(l.config.Service.Token)
+		tk              = auth.Middleware(l.config.Service.Auth)
 		instrumentation = lo.Must(
 			alamos.Middleware(alamos.Config{Instrumentation: l.config.Instrumentation}),
 		)
@@ -265,7 +270,17 @@ func (l *Layer) BindTo(t Transport) {
 	freighter.UseOnAll(
 		insecureMiddleware,
 		t.AuthLogin,
+		t.AuthSessionCreate,
 		t.ConnectivityCheck,
+	)
+
+	// Session upkeep skips the gate so a client can renew and log out of an unlicensed
+	// Core.
+	freighter.UseOnAll(
+		secureMiddleware,
+		t.AuthSessionRenew,
+		t.AuthSessionRetrieve,
+		t.AuthSessionDelete,
 	)
 
 	// The license endpoints skip the gate so an unlicensed Core can be activated.
@@ -301,6 +316,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.FrameIterator,
 		t.FrameStreamer,
 		t.FrameDelete,
+		t.FrameRead,
 
 		// CONTROL
 		t.ControlRetrieve,
@@ -454,6 +470,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)
+	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
+	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
+	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
+	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
@@ -482,6 +502,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
 	t.FrameDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Framer.Delete))
+	t.FrameRead.BindHandler(l.Framer.Read)
 
 	// CONTROL
 	t.ControlRetrieve.BindHandler(l.Control.Retrieve)
@@ -670,88 +691,191 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	l := &Layer{config: cfg}
-	if l.Auth, err = auth.NewService(cfg); err != nil {
+	if l.Auth, err = auth.NewService(auth.ServiceConfig{
+		Auth:     cfg.Service.Auth,
+		Password: cfg.Service.Password,
+		User:     cfg.Service.User,
+		RBAC:     cfg.Service.RBAC,
+		Cluster:  cfg.Distribution.Cluster,
+	}); err != nil {
 		return nil, err
 	}
-	if l.User, err = user.NewService(cfg); err != nil {
+	if l.User, err = user.NewService(user.ServiceConfig{
+		RBAC:     cfg.Service.RBAC,
+		User:     cfg.Service.User,
+		Password: cfg.Service.Password,
+		Auth:     cfg.Service.Auth,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Access, err = access.NewService(cfg); err != nil {
+	if l.Access, err = access.NewService(access.ServiceConfig{
+		RBAC: cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Framer, err = framer.NewService(cfg); err != nil {
+	if l.Framer, err = framer.NewService(framer.ServiceConfig{
+		Instrumentation: cfg.Instrumentation,
+		Framer:          cfg.Service.Framer,
+		Channel:         cfg.Service.Channel,
+		RBAC:            cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Channel, err = channel.NewService(cfg); err != nil {
+	if l.Channel, err = channel.NewService(channel.ServiceConfig{
+		RBAC:    cfg.Service.RBAC,
+		Channel: cfg.Service.Channel,
+		Ranger:  cfg.Service.Ranger,
+		Alias:   cfg.Service.Alias,
+		Status:  cfg.Service.Status,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Control, err = control.NewService(cfg); err != nil {
+	if l.Control, err = control.NewService(control.ServiceConfig{
+		Control: cfg.Service.Control,
+		RBAC:    cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Connectivity, err = connectivity.NewService(cfg); err != nil {
+	if l.Connectivity, err = connectivity.NewService(connectivity.ServiceConfig{
+		Cluster: cfg.Distribution.Cluster,
+		License: cfg.Service.License,
+	}); err != nil {
 		return nil, err
 	}
-	if l.License, err = license.NewService(cfg); err != nil {
+	if l.License, err = license.NewService(license.ServiceConfig{
+		RBAC:    cfg.Service.RBAC,
+		License: cfg.Service.License,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Ontology, err = ontology.NewService(cfg); err != nil {
+	if l.Ontology, err = ontology.NewService(ontology.ServiceConfig{
+		Ontology: cfg.Service.Ontology,
+		RBAC:     cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Range, err = ranger.NewService(cfg); err != nil {
+	if l.Range, err = ranger.NewService(ranger.ServiceConfig{
+		RBAC:   cfg.Service.RBAC,
+		Ranger: cfg.Service.Ranger,
+		Label:  cfg.Service.Label,
+	}); err != nil {
 		return nil, err
 	}
-	if l.KV, err = kv.NewService(cfg); err != nil {
+	if l.KV, err = kv.NewService(kv.ServiceConfig{
+		RBAC: cfg.Service.RBAC,
+		KV:   cfg.Service.KV,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Alias, err = alias.NewService(cfg); err != nil {
+	if l.Alias, err = alias.NewService(alias.ServiceConfig{
+		RBAC:  cfg.Service.RBAC,
+		Alias: cfg.Service.Alias,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Group, err = group.NewService(cfg); err != nil {
+	if l.Group, err = group.NewService(group.ServiceConfig{
+		RBAC:  cfg.Service.RBAC,
+		Group: cfg.Service.Group,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Project, err = project.NewService(cfg); err != nil {
+	if l.Project, err = project.NewService(project.ServiceConfig{
+		RBAC:    cfg.Service.RBAC,
+		Project: cfg.Service.Project,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Schematic, err = schematic.NewService(cfg); err != nil {
+	if l.Schematic, err = schematic.NewService(schematic.ServiceConfig{
+		RBAC:      cfg.Service.RBAC,
+		Schematic: cfg.Service.Schematic,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Symbol, err = symbol.NewService(cfg); err != nil {
+	if l.Symbol, err = symbol.NewService(symbol.ServiceConfig{
+		Symbol: cfg.Service.Schematic.Symbol,
+		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.LinePlot, err = lineplot.NewService(cfg); err != nil {
+	if l.LinePlot, err = lineplot.NewService(lineplot.ServiceConfig{
+		LinePlot: cfg.Service.LinePlot,
+		RBAC:     cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Panel, err = panel.NewService(cfg); err != nil {
+	if l.Panel, err = panel.NewService(panel.ServiceConfig{
+		RBAC:  cfg.Service.RBAC,
+		Panel: cfg.Service.Panel,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Label, err = label.NewService(cfg); err != nil {
+	if l.Label, err = label.NewService(label.ServiceConfig{
+		Label: cfg.Service.Label,
+		RBAC:  cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Rack, err = rack.NewService(cfg); err != nil {
+	if l.Rack, err = rack.NewService(rack.ServiceConfig{
+		Rack:   cfg.Service.Rack,
+		Device: cfg.Service.Device,
+		Task:   cfg.Service.Task,
+		Status: cfg.Service.Status,
+		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Task, err = task.NewService(cfg); err != nil {
+	if l.Task, err = task.NewService(task.ServiceConfig{
+		Task:   cfg.Service.Task,
+		Status: cfg.Service.Status,
+		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Device, err = device.NewService(cfg); err != nil {
+	if l.Device, err = device.NewService(device.ServiceConfig{
+		Device:   cfg.Service.Device,
+		Status:   cfg.Service.Status,
+		RBAC:     cfg.Service.RBAC,
+		Ontology: cfg.Service.Ontology,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Log, err = log.NewService(cfg); err != nil {
+	if l.Log, err = log.NewService(log.ServiceConfig{
+		Log:  cfg.Service.Log,
+		RBAC: cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Table, err = table.NewService(cfg); err != nil {
+	if l.Table, err = table.NewService(table.ServiceConfig{
+		Table: cfg.Service.Table,
+		RBAC:  cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Status, err = status.NewService(cfg); err != nil {
+	if l.Status, err = status.NewService(status.ServiceConfig{
+		Status: cfg.Service.Status,
+		Label:  cfg.Service.Label,
+		RBAC:   cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.Arc, err = arc.NewService(cfg); err != nil {
+	if l.Arc, err = arc.NewService(arc.ServiceConfig{
+		Instrumentation: cfg.Instrumentation,
+		RBAC:            cfg.Service.RBAC,
+		Arc:             cfg.Service.Arc,
+		Status:          cfg.Service.Status,
+	}); err != nil {
 		return nil, err
 	}
-	if l.View, err = view.NewService(cfg); err != nil {
+	if l.View, err = view.NewService(view.ServiceConfig{
+		View: cfg.Service.View,
+		RBAC: cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
-	if l.ImEx, err = imex.NewService(cfg); err != nil {
+	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
+		ImEx: cfg.Service.ImEx,
+		RBAC: cfg.Service.RBAC,
+	}); err != nil {
 		return nil, err
 	}
 	return l, nil

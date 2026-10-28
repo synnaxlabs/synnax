@@ -8,16 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { caseconv, type record } from "@synnaxlabs/x";
-import pluralize from "pluralize";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
-import { DefaultEmptyContent } from "@/select/Body";
+import { EmptyContent } from "@/select/Body";
 import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps, type SingleFrameProps } from "@/select/Frame";
 import { List } from "@/select/List";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
-import { usePlaceholder } from "@/select/placeholder";
+import { plural, searchPlaceholder, usePlaceholder } from "@/select/placeholder";
 import { useVisibleCount } from "@/select/registry";
 import { useClosed } from "@/select/scope";
 import { Search } from "@/select/Search";
@@ -41,6 +40,8 @@ interface BaseSimpleProps
   /** Singular name of the thing being selected. It builds the placeholder and the
    * empty content. */
   resourceName: string;
+  /** Singular name for the search field. It defaults to `resourceName`. */
+  searchName?: string;
   /** The options, as {@link Item}s. */
   children: ReactNode;
   /** Shown when the search hides every option. */
@@ -76,7 +77,7 @@ type EmptyProps = Pick<BaseSimpleProps, "resourceName" | "emptyContent">;
 const OpenEmpty = ({ resourceName, emptyContent }: EmptyProps): ReactNode => {
   const count = useVisibleCount();
   if (count > 0) return null;
-  return emptyContent ?? <DefaultEmptyContent resourceName={resourceName} />;
+  return <EmptyContent resourceName={resourceName} emptyContent={emptyContent} />;
 };
 
 const Empty = (props: EmptyProps): ReactNode =>
@@ -95,6 +96,7 @@ const Empty = (props: EmptyProps): ReactNode =>
  */
 export const Simple = <K extends record.Key>({
   resourceName,
+  searchName = resourceName,
   value,
   onChange,
   multiple,
@@ -102,7 +104,7 @@ export const Simple = <K extends record.Key>({
   autoSelectOnNone,
   initialHover,
   enableTriggers,
-  closeDialogOnSelect = multiple !== true,
+  closeDialogOnSelect,
   children,
   emptyContent,
   haulType,
@@ -115,7 +117,7 @@ export const Simple = <K extends record.Key>({
   ...rest
 }: SimpleProps<K>): ReactElement => {
   const placeholder = usePlaceholder(
-    multiple === true ? pluralize.plural(resourceName) : resourceName,
+    multiple === true ? plural(resourceName) : resourceName,
   );
   const triggerBase = {
     haulType,
@@ -124,7 +126,7 @@ export const Simple = <K extends record.Key>({
     disabled,
     preview,
     "aria-label": caseconv.capitalize(
-      multiple === true ? pluralize.plural(resourceName) : resourceName,
+      multiple === true ? plural(resourceName) : resourceName,
     ),
   };
   const selection = {
@@ -132,11 +134,11 @@ export const Simple = <K extends record.Key>({
     autoSelectOnNone,
     initialHover,
     enableTriggers,
-    closeDialogOnSelect,
+    closeDialogOnSelect: closeDialogOnSelect ?? multiple !== true,
   };
   const dialog = (
     <SelectDialog {...dialogProps}>
-      <Search placeholder={`Search ${pluralize.plural(resourceName)}...`} />
+      <Search placeholder={searchPlaceholder(searchName)} />
       <List bordered borderColor={6} grow rounded full="x">
         {children}
         <Empty resourceName={resourceName} emptyContent={emptyContent} />
@@ -152,7 +154,7 @@ export const Simple = <K extends record.Key>({
         </Frame>
       ) : (
         <Frame<K, undefined> value={value} onChange={onChange} {...selection}>
-          <SingleTrigger {...triggerBase} {...triggerProps} />
+          <SingleTrigger {...triggerBase} clearable={allowNone} {...triggerProps} />
           {dialog}
         </Frame>
       )}

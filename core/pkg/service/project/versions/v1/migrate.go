@@ -14,12 +14,12 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // LegacyLayoutKVPrefix is the KV key prefix under which the layout staging migration
@@ -243,20 +243,20 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 
 // workspaceToProjectMigration lifts stored workspaces into projects. It runs after the
 // codec migration so it always reads Orc-encoded entries.
-var workspaceToProjectMigration = gorp.NewMigration(
+var workspaceToProjectMigration = migrate.New(
 	"v56_migrate_workspace_to_project", migrateWorkspaceToProject,
 )
 
 // layoutsToStagingMigration stages each project's legacy layout blob for the panel
 // service to adopt.
-var layoutsToStagingMigration = gorp.NewMigration(
+var layoutsToStagingMigration = migrate.New(
 	"v56_stage_project_layouts", migrateLayoutsToStaging,
 )
 
 // removeAuthorRelationshipsMigration drops the legacy author relationships projects
 // held in the ontology.
-func removeAuthorRelationshipsMigration(otg *ontology.Ontology) migrate.Migration {
-	return gorp.NewMigration(
+func removeAuthorRelationshipsMigration(otg *ontology.Ontology) gorp.Migration {
+	return migrate.New(
 		"v56_remove_project_author_relationships",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			return removeAuthorRelationships(ctx, tx, otg)
@@ -272,8 +272,8 @@ type MigrationsConfig struct {
 }
 
 // NewMigrations returns the ordered migration chain for stored projects.
-func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
-	return []migrate.Migration{
+func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
+	return []gorp.Migration{
 		workspaceToProjectMigration,
 		layoutsToStagingMigration,
 		removeAuthorRelationshipsMigration(cfg.Ontology),

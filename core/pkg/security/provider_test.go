@@ -10,7 +10,6 @@
 package security_test
 
 import (
-	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -24,10 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
-	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -109,7 +106,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
@@ -135,60 +131,9 @@ var _ = Describe("OtelProvider", func() {
 				fs := xfs.NewMem()
 				_, err := security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				})
 				Expect(err).To(MatchError(os.ErrNotExist))
-			})
-		})
-		Describe("Token Private", func() {
-			It("Should reuse the node key when it can sign tokens", func() {
-				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
-				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					FS:       fs,
-					KeySize:  mock.SmallKeySize,
-					Insecure: new(false),
-				}))
-				Expect(prov.TokenPrivate()).To(BeAssignableToTypeOf(&rsa.PrivateKey{}))
-			})
-			It("Should use the dedicated key when the node key is ML-DSA", func() {
-				fs := xfs.NewMem()
-				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-					FS:           fs,
-					Hosts:        []address.Address{"localhost:26260"},
-					KeySize:      mock.SmallKeySize,
-					KeyAlgorithm: cert.KeyAlgorithmMLDSA65,
-				}))
-				Expect(f.CreateCAPair()).To(Succeed())
-				Expect(f.CreateNodePair()).To(Succeed())
-				Expect(f.CreateTokenKeyIfMissing()).To(Succeed())
-				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					FS:       fs,
-					KeySize:  mock.SmallKeySize,
-					Insecure: new(false),
-				}))
-				Expect(prov.TokenPrivate()).
-					To(BeAssignableToTypeOf(ed25519.PrivateKey{}))
-			})
-			It("Should fail when an ML-DSA node key has no token key", func() {
-				fs := xfs.NewMem()
-				f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
-					FS:           fs,
-					Hosts:        []address.Address{"localhost:26260"},
-					KeySize:      mock.SmallKeySize,
-					KeyAlgorithm: cert.KeyAlgorithmMLDSA65,
-				}))
-				Expect(f.CreateCAPair()).To(Succeed())
-				Expect(f.CreateNodePair()).To(Succeed())
-				Expect(security.NewProvider(security.ProviderConfig{
-					FS:       fs,
-					KeySize:  mock.SmallKeySize,
-					Insecure: new(false),
-				})).Error().To(SatisfyAll(
-					MatchError(os.ErrNotExist),
-					MatchError(ContainSubstring("cannot sign authentication tokens")),
-				))
 			})
 		})
 		Describe("VerifyCertHost", func() {
@@ -197,7 +142,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
@@ -211,21 +155,21 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCertHost(src, "other-host")).ToNot(Succeed())
+				Expect(
+					prov.VerifyCertHost(src, "other-host"),
+				).To(MatchError(ContainSubstring("not other-host")))
 			})
 			It("Should accept a certificate an unrelated CA signed", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				foreignFS := xfs.NewMem()
@@ -241,7 +185,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				Expect(prov.VerifyCertHost(errSource{}, "localhost")).
@@ -252,7 +195,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := staticSource{c: tls.Certificate{Certificate: [][]byte{{0x01}}}}
@@ -266,7 +208,6 @@ var _ = Describe("OtelProvider", func() {
 					mock.GenerateCerts(fs)
 					prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 						FS:       fs,
-						KeySize:  mock.SmallKeySize,
 						Insecure: new(false),
 					}))
 					rootPEM, _, _ := generateChain("localhost")
@@ -285,7 +226,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
@@ -299,7 +239,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				foreignFS := xfs.NewMem()
@@ -308,7 +247,11 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCertCoreCA(foreign)).ToNot(Succeed())
+				Expect(
+					prov.VerifyCertCoreCA(foreign),
+				).To(MatchError(ContainSubstring(
+					"certificate signed by unknown authority",
+				)))
 			})
 			It("Should verify a chain through a presented intermediate", func() {
 				fs := xfs.NewMem()
@@ -319,7 +262,6 @@ var _ = Describe("OtelProvider", func() {
 				writeFile(fs, "/usr/local/synnax/certs/chain.key", keyPEM)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS: fs, CACertPath: "root.crt",
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
@@ -333,7 +275,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				Expect(prov.VerifyCertCoreCA(errSource{})).
@@ -346,7 +287,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
@@ -360,7 +300,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS: fs, CACertPath: "absent.crt",
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
@@ -374,7 +313,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				foreignFS := xfs.NewMem()
@@ -383,7 +321,11 @@ var _ = Describe("OtelProvider", func() {
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
 				))
-				Expect(prov.VerifyCertTrustAnchors(foreign)).ToNot(Succeed())
+				Expect(
+					prov.VerifyCertTrustAnchors(foreign),
+				).To(MatchError(ContainSubstring(
+					"certificate signed by unknown authority",
+				)))
 			})
 			It("Should verify a chain through a presented intermediate", func() {
 				fs := xfs.NewMem()
@@ -394,7 +336,6 @@ var _ = Describe("OtelProvider", func() {
 				writeFile(fs, "/usr/local/synnax/certs/chain.key", keyPEM)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS: fs, CACertPath: "root.crt",
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				src := MustSucceed(file.NewSource(fs,
@@ -408,7 +349,6 @@ var _ = Describe("OtelProvider", func() {
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
-					KeySize:  mock.SmallKeySize,
 					Insecure: new(false),
 				}))
 				Expect(prov.VerifyCertTrustAnchors(errSource{})).
@@ -421,25 +361,14 @@ var _ = Describe("OtelProvider", func() {
 			It("Should return an empty TLS configuration", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					Insecure: new(true),
-					KeySize:  mock.SmallKeySize,
 				}))
 				Expect(prov.TLSConfigFor(nil)).To(BeNil())
-			})
-		})
-		Describe("Node Private", func() {
-			It("Should return the randomly generated private key", func() {
-				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
-					Insecure: new(true),
-					KeySize:  mock.SmallKeySize,
-				}))
-				Expect(prov.TokenPrivate()).ToNot(BeNil())
 			})
 		})
 		Describe("Certificate Verification", func() {
 			It("Should be a no-op", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					Insecure: new(true),
-					KeySize:  mock.SmallKeySize,
 				}))
 				Expect(prov.VerifyCertHost(nil, "")).To(Succeed())
 				Expect(prov.VerifyCertCoreCA(nil)).To(Succeed())

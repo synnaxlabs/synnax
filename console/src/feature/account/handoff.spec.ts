@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Account } from "@/feature/account";
 import { License } from "@/platform/license";
 
-const LINKED: Account.Linked = {
+const FIELDS = {
   state: "s",
   key: "a.b.c",
   secret: "shh",
@@ -21,8 +21,8 @@ const LINKED: Account.Linked = {
   user: "user_a",
 };
 
-const linkOf = (linked: Partial<Account.Linked>): string =>
-  `${Account.SCHEME}://activate?${new URLSearchParams(linked).toString()}`;
+const linkOf = (params: Record<string, string>): string =>
+  `synnax-desktop://activate?${new URLSearchParams(params).toString()}`;
 
 describe("account handoff", () => {
   describe("mintState", () => {
@@ -58,7 +58,24 @@ describe("account handoff", () => {
 
   describe("parseLink", () => {
     it("should read every field of a login link", () => {
-      expect(Account.parseLink(linkOf(LINKED))).toEqual(LINKED);
+      expect(Account.parseLink(linkOf({ ...FIELDS, analytics: "on" }))).toEqual({
+        ...FIELDS,
+        analyticsAllowed: true,
+      });
+    });
+
+    it("should refuse analytics when the person said no", () => {
+      const linked = Account.parseLink(linkOf({ ...FIELDS, analytics: "off" }));
+      expect(linked.analyticsAllowed).toBe(false);
+    });
+
+    it("should refuse analytics when the link does not say", () => {
+      expect(Account.parseLink(linkOf(FIELDS)).analyticsAllowed).toBe(false);
+    });
+
+    it("should refuse analytics for any value other than on", () => {
+      const linked = Account.parseLink(linkOf({ ...FIELDS, analytics: "true" }));
+      expect(linked.analyticsAllowed).toBe(false);
     });
 
     it("should refuse a link with another form", () => {
@@ -68,49 +85,9 @@ describe("account handoff", () => {
     });
 
     it("should refuse a link that misses a field", () => {
-      const { secret: _, ...rest } = LINKED;
+      const { secret: _, ...rest } = FIELDS;
       expect(() => Account.parseLink(linkOf(rest))).toThrow(
         "The login link is missing its secret",
-      );
-    });
-  });
-
-  describe("renew", () => {
-    afterEach(() => vi.unstubAllGlobals());
-
-    const answer = (status: number, body: unknown): void => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => Response.json(body, { status })),
-      );
-    };
-
-    it("should post the secret as a bearer token and return the new token", async () => {
-      answer(200, { key: "x.y.z" });
-      const result = await Account.renew("shh");
-      expect(result).toEqual({ variant: "renewed", key: "x.y.z" });
-      const fetchMock = vi.mocked(fetch);
-      expect(fetchMock).toHaveBeenCalledWith(
-        License.RENEW_URL,
-        expect.objectContaining({
-          method: "POST",
-          headers: { authorization: "Bearer shh" },
-        }),
-      );
-    });
-
-    it("should report a machine the hub logged out as unlinked", async () => {
-      answer(403, { error: "This machine was logged out. Log in again." });
-      expect(await Account.renew("shh")).toEqual({
-        variant: "unlinked",
-        message: "This machine was logged out. Log in again.",
-      });
-    });
-
-    it("should throw on any other refusal", async () => {
-      answer(429, { error: "Too many requests" });
-      await expect(Account.renew("shh")).rejects.toThrow(
-        "Could not renew the license: Too many requests",
       );
     });
   });

@@ -10,7 +10,9 @@
 import json
 import os
 import pathlib
-from collections.abc import Iterable
+import ssl
+from collections.abc import Generator, Iterable, Iterator
+from contextlib import contextmanager
 from typing import IO, Any
 from urllib.parse import urlencode
 
@@ -23,10 +25,15 @@ from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS, MiddlewareCollector
 from freighter.url import URL
 from x.codec import Codec
-from x.exceptions import ExceptionPayload, decode_exception
+from x.exceptions import ExceptionPayload, Registry
 from x.fs import FilePath, stream_to_file
 
-_FILE_CONTENT_TYPES: dict[str, str] = {"json": "application/json"}
+_FILE_CONTENT_TYPES: dict[str, str] = {
+    "json": "application/json",
+    "csv": "text/csv",
+    "tdms": "application/x-tdms",
+    "zip": "application/zip",
+}
 
 
 def _file_content_type(path: FilePath) -> str:
@@ -61,30 +68,38 @@ class HTTPClient(MiddlewareCollector):
     - download: a typed request encoded via the codec, with the response streamed
       directly into a destination file path whose extension drives the Accept header
       (FileTransport).
+    - stream: the same request, with the response body handed back in chunks instead of
+      written to disk, and the Accept header given by the caller (FileTransport).
     """
 
     _pool: PoolManager
     _endpoint: URL
     _codec: Codec
+    _registry: Registry
 
     def __init__(
         self,
         url: URL,
         codec: Codec,
-        secure: bool = False,
+        registry: Registry,
+        ssl_context: ssl.SSLContext | None = None,
         **kwargs: Any,
     ) -> None:
         """
         :param url: The base URL for the client.
         :param codec: The codec used to encode and decode typed request and response
             payloads.
-        :param secure: Whether to use HTTPS.
+        :param registry: Decodes the errors that the server returns.
+        :param ssl_context: The TLS context that verifies the server. The client uses
+            HTTPS when set and plain HTTP when None.
         """
         super().__init__()
-        self._endpoint = url
-        self._endpoint.protocol = "https" if secure else "http"
+        self._endpoint = url.replace(
+            protocol="http" if ssl_context is None else "https"
+        )
         self._codec = codec
-        self._pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
+        self._registry = registry
+        self._pool = PoolManager(ssl_context=ssl_context, **kwargs)
 
     def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """Implements the UnaryClient protocol — typed request, typed response."""
@@ -129,7 +144,7 @@ class HTTPClient(MiddlewareCollector):
                 body=f,
                 content_type=_file_content_type(req),
                 res_t=res_t,
-                retries=False,
+                retries=Retry(total=0),
                 params={"params": json.dumps(all_params)},
             )
 
@@ -146,25 +161,48 @@ class HTTPClient(MiddlewareCollector):
         An empty response body is rejected as an error rather than written as a
         zero-byte file, so dest is left untouched in that case too.
         """
+        with self.stream(target, req, _file_content_type(dest)) as body:
+            stream_to_file(body, dest, allow_empty=False)
+
+    @contextmanager
+    def stream(
+        self, target: str, req: RQ, accept: str
+    ) -> Generator[Iterator[bytes], None, None]:
+        """
+        Sends req to target and returns a context manager over the response body, in
+        chunks as they arrive. accept drives the encoding the server picks for the body.
+
+        The request is issued on entering the context, so a transport failure or a
+        server error raises from the with statement rather than from the iterator.
+        Leaving the context releases the connection, whether or not the body was read.
+        """
         url = self._build_url(target)
+        res_container: list[BaseHTTPResponse | None] = [None]
 
         def finalizer(ctx: Context) -> Context:
             http_res, out_ctx = self._request(
                 ctx,
                 url=url,
                 content_type=self._codec.content_type(),
-                accept=_file_content_type(dest),
+                accept=accept,
                 body=self._codec.encode(req),
                 preload_content=False,
             )
-            try:
-                stream_to_file(http_res.stream(), dest, allow_empty=False)
-                return out_ctx
-            finally:
-                http_res.release_conn()
+            res_container[0] = http_res
+            return out_ctx
 
         in_ctx = Context(self._endpoint.protocol, url, "client")
-        self.exec(in_ctx, finalizer)
+        try:
+            self.exec(in_ctx, finalizer)
+            http_res = res_container[0]
+            assert http_res is not None
+            yield http_res.stream()
+        finally:
+            if (res := res_container[0]) is not None:
+                # Closing drops a connection that still holds unread body bytes. A read
+                # to the end has already returned the connection to the pool.
+                res.close()
+                res.release_conn()
 
     def _build_url(self, target: str, params: dict[str, str] | None = None) -> str:
         url = self._endpoint.child(target).stringify()
@@ -179,7 +217,7 @@ class HTTPClient(MiddlewareCollector):
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         content_type: str,
         res_t: type[RS],
-        retries: Retry | bool | None = None,
+        retries: Retry | None = None,
         params: dict[str, str] | None = None,
     ) -> RS:
         url = self._build_url(target, params)
@@ -196,7 +234,7 @@ class HTTPClient(MiddlewareCollector):
                 preload_content=True,
                 retries=retries,
             )
-            if http_res.data is None or len(http_res.data) == 0:
+            if len(http_res.data) == 0:
                 raise ValueError(f"expected a non-empty response body from {url!r}")
             res_container[0] = self._codec.decode(http_res.data, res_t)
             return out_ctx
@@ -214,15 +252,15 @@ class HTTPClient(MiddlewareCollector):
         accept: str,
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         preload_content: bool,
-        retries: Retry | bool | None = None,
+        retries: Retry | None = None,
     ) -> tuple[BaseHTTPResponse, Context]:
         """Issues a POST to url and returns the response alongside an outgoing context.
 
         Raises Unreachable on a transport failure and the decoded server error on a
         non-2xx status. On success the response body has not been consumed; when
         preload_content is False the caller owns release_conn. A retries value of None
-        defers to the pool default; pass False to disable retries (e.g. for an
-        unreplayable streaming body).
+        defers to the pool default; pass Retry(total=0) to disable retries. Never pass
+        False: urllib3 then raises the raw connection error instead of MaxRetryError.
         """
         out_ctx = Context(self._endpoint.protocol, url, "client")
         headers = {"Content-Type": content_type, "Accept": accept, **ctx.params}
@@ -246,7 +284,7 @@ class HTTPClient(MiddlewareCollector):
                     raise ValueError(
                         f"failed to decode error response: {http_res.data!r}"
                     ) from e
-                decoded = decode_exception(payload)
+                decoded = self._registry.decode(payload)
                 if decoded is None:
                     raise ValueError(f"undecodable error response: {http_res.data!r}")
                 raise decoded

@@ -15,8 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
@@ -25,7 +27,6 @@ import (
 	panelversions "github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -64,6 +65,33 @@ var _ = Describe("Layer", func() {
 			MatchError(ContainSubstring("limit is 50 channels")),
 		))
 	})
+
+	It(
+		"Should end root sessions only when the root password changes",
+		func(ctx SpecContext) {
+			node := mock.NewNode(ctx)
+			open := func(pwd string) *service.Layer {
+				GinkgoHelper()
+				return MustSucceed(svcmock.OpenLayer(ctx, node, service.LayerConfig{
+					RootCredentials: auth.Credentials{Username: "root", Password: pwd},
+				}))
+			}
+			first := open("p1")
+			_, token := MustSucceed2(first.Auth.Login(ctx, auth.Proof{
+				Variant: auth.PasswordProof{
+					Credentials: auth.Credentials{Username: "root", Password: "p1"},
+				},
+			}))
+			Expect(first.Close()).To(Succeed())
+			second := open("p1")
+			MustSucceed(second.Auth.Authenticate(ctx, token))
+			Expect(second.Close()).To(Succeed())
+			third := open("p2")
+			Expect(third.Auth.Authenticate(ctx, token)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+			Expect(third.Close()).To(Succeed())
+		},
+	)
 
 	// Regression: the composition pass converts data staged by services that open
 	// after the panel table (project layouts, task re-key mapping). Running the

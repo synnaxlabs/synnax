@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include "absl/log/log.h"
 
 #include "client/cpp/status/status.h"
@@ -38,7 +40,7 @@ class Source final : public driver::pipeline::Base {
 public:
     Source(
         const synnax::rack::Rack &rack,
-        const synnax::task::Task &task,
+        synnax::task::Task task,
         const std::shared_ptr<task::Context> &ctx
     ):
         Base(
@@ -52,7 +54,7 @@ public:
             TASK_NAME
         ),
         rack_key(rack.key),
-        task(task),
+        task(std::move(task)),
         loop(x::loop::Timer(EMISSION_RATE)),
         ctx(ctx) {}
 
@@ -129,7 +131,7 @@ public:
                 .name = TASK_NAME,
                 .variant = ::synnax::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",
-                .description = rack_err.message(),
+                .description = rack_err.data,
                 .details = synnax::task::StatusDetails{
                     .task = task.key,
                 }

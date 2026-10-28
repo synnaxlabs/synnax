@@ -12,14 +12,14 @@ package kv_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -36,24 +36,20 @@ var _ = Describe("KV", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		lab := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Label:    lab,
-			Search:   searchIdx,
 		}))
 		kvSvc = MustOpen(kv.OpenService(ctx, kv.ServiceConfig{
 			DB: db,
@@ -106,8 +102,10 @@ var _ = Describe("KV", Ordered, func() {
 		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 		Expect(kvSvc.NewWriter(tx).Set(ctx, r.Key, "key", "value")).To(Succeed())
 		Expect(kvSvc.NewWriter(tx).Delete(ctx, r.Key, "key")).To(Succeed())
-		_, err := kvSvc.NewReader(tx).Get(ctx, r.Key, "key")
-		Expect(err).To(HaveOccurred())
+		Expect(
+			kvSvc.NewReader(tx).Get(ctx, r.Key, "key"),
+		).Error().
+			To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should set many key-value pairs on the range", func(ctx SpecContext) {

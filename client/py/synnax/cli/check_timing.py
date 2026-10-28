@@ -14,14 +14,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
-from synnax.cli import channel, default
-from synnax.cli.connect import connect_client
+from synnax.cli import channel, connect, default
+from x.telem import to_int
 
 
 @click.command()
 def check_timing() -> None:
     """Check the timing characteristics of a time channel."""
-    client = connect_client(default.context())
+    client = connect.from_context(default.context())
     if client is None:
         return
 
@@ -48,15 +48,15 @@ def check_timing() -> None:
     span = sy.TimeSpan.SECOND * duration
 
     # Collect samples
-    offsets, diffs, times, local_start, local_end = collect_samples(
+    offsets, diffs, times, local_start, local_end = _collect_samples(
         client, time_channel.key, span
     )
 
     # Replace the individual report calls with the combined report
-    create_timing_report(times, offsets, diffs, local_start, local_end)
+    _create_timing_report(times, offsets, diffs, local_start, local_end)
 
 
-def collect_samples(
+def _collect_samples(
     client: sy.Synnax,
     time_channel: sy.channel.Key,
     span: sy.TimeSpan,
@@ -84,13 +84,13 @@ def collect_samples(
             offsets.append(offset)
             diff = sy.TimeSpan(last - second_last)
             diffs.append(diff)
-            times.extend(data)  # type: ignore[arg-type]
+            times.extend(sy.TimeStamp(to_int(t)) for t in data)
 
     local_end = sy.TimeStamp.now()
     return offsets, diffs, times, local_start, local_end
 
 
-def create_timing_report(
+def _create_timing_report(
     times: list[sy.TimeStamp],
     offsets: list[sy.TimeSpan],
     diffs: list[sy.TimeSpan],

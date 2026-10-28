@@ -34,7 +34,7 @@ import (
 
 func TestGoTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Types Suite")
+	RunSpecs(t, "Plugin Go Types Suite", SuiteConfig())
 }
 
 // chainGenerate writes files into a temp repo, analyzes the schema at mainRel
@@ -94,6 +94,30 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should keep a wire-omitted field out of JSON and msgpack", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+
+					Session struct {
+						key     uuid
+						hash    bytes { @go wire omit }
+						subject string?
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"Hash []byte `json:\"-\" msgpack:\"-\"`",
+						"`json:\"subject,omitzero\" msgpack:\"subject,omitempty\"`",
+						"`json:\"key\" msgpack:\"key\"`",
+					)
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It("Should generate struct for simple types", func(ctx SpecContext) {
 				source := `
@@ -838,6 +862,152 @@ var _ = Describe("Go Types Plugin", func() {
 					).To(ContainSubstring(`type Container[K comparable] struct {`))
 					Expect(content).To(ContainSubstring(`Key K`))
 				},
+			)
+		})
+
+		Context("to_any", func() {
+			It(
+				"Should convert every field to the any instantiation",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/pair"
+
+				Kind enum {
+					small = "small"
+				}
+
+				Pair struct<A, B extends record, K extends Kind = Kind> {
+					first  A
+					second B
+					kind   K
+					label  string?
+					tags   string[]
+
+					@go to_any
+				}
+			`
+					resp := MustGenerate(ctx, source, "pair", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").ToContain(`
+// ToAny converts p to a Pair[any, any].
+func (p Pair[A, B]) ToAny() Pair[any, any] {
+	return Pair[any, any]{
+		First: p.First,
+		Second: p.Second,
+		Kind: p.Kind,
+		Label: p.Label,
+		Tags: p.Tags,
+	}
+}`)
+				},
+			)
+
+			It("Should not convert an unmarked struct", func(ctx SpecContext) {
+				source := `
+				@go output "core/box"
+
+				Box struct<T> {
+					value T
+				}
+			`
+				resp := MustGenerate(ctx, source, "box", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToNotContain("ToAny")
+			})
+
+			DescribeTable(
+				"Should reject a type that ToAny cannot convert",
+				func(ctx SpecContext, source, msg string) {
+					table, diag := analyzer.AnalyzeSource(ctx, source, "box", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					req := &plugin.Request{Resolutions: table}
+					Expect(goPlugin.Generate(req)).Error().To(MatchError(
+						"failed to generate core/box: " + msg,
+					))
+				},
+				Entry("that is not a struct", `
+				@go output "core/box"
+
+				Kind enum {
+					small = "small"
+
+					@go to_any
+				}
+			`, "box.Kind: @go to_any goes on a struct"),
+				Entry("without a type parameter", `
+				@go output "core/box"
+
+				Box struct {
+					value string
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any needs a type parameter"),
+				Entry("with a constrained type parameter", `
+				@go output "core/box"
+
+				Box struct<K extends comparable> {
+					key K
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any needs type parameter K to be unconstrained, "+
+					"not comparable"),
+				Entry("with extends", `
+				@go output "core/box"
+
+				Base struct<T> {
+					value T
+				}
+
+				Box struct<T> extends Base<T> {
+					name string
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any does not support extends"),
+				Entry("with hand-written fields", `
+				@go output "core/box"
+
+				Box struct<T> {
+					value T
+
+					@go fields "Extra int"
+					@go to_any
+				}
+			`, "box.Box: @go to_any cannot copy hand-written @go fields"),
+				Entry("with an optional type parameter field", `
+				@go output "core/box"
+
+				Box struct<T> {
+					value T?
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any cannot convert field value; a type parameter "+
+					"must be the whole type of a required field"),
+				Entry("with an array of a type parameter", `
+				@go output "core/box"
+
+				Box struct<T> {
+					values T[]
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any cannot convert field values; a type parameter "+
+					"must be the whole type of a required field"),
+				Entry("with a type parameter as a type argument", `
+				@go output "core/box"
+
+				Inner struct<T> {
+					value T
+				}
+
+				Box struct<T> {
+					inner Inner<T>
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any cannot convert field inner; a type parameter "+
+					"must be the whole type of a required field"),
 			)
 		})
 

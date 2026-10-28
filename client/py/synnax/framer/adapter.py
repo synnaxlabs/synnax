@@ -18,19 +18,23 @@ from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.channel.retrieve import retrieve_required as retrieve_required_channel
 from synnax.exceptions import PathError, ValidationError
 from synnax.framer.codec import Codec
-from synnax.framer.frame import CrudeFrame, Frame, K
+from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
 from synnax.telem import CrudeSeries, DataType, Series
 
 
 class ReadFrameAdapter:
-    _adapter: dict[channel.Key, str] | None
+    _by_name: bool
+    _names: dict[channel.Key, str]
+    _rank: dict[channel.Key | str, int]
     retriever: ChannelRetriever
     keys: list[channel.Key]
     codec: Codec
 
     def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
-        self._adapter = None
+        self._by_name = False
+        self._names = {}
+        self._rank = {}
         self.keys = []
         self.codec = Codec()
 
@@ -38,46 +42,42 @@ class ReadFrameAdapter:
         normal = channel.normalize_params(channels)
         fetched = self.retriever.retrieve(normal.channels)
         new_keys = [ch.key for ch in fetched]
-        if set(new_keys) != set(self.keys):
+        # The Core counts every update that carries keys, and both sides must agree on
+        # the sequence number of each codec state.
+        if len(new_keys) > 0:
             self.codec.update(new_keys, [ch.data_type for ch in fetched])
-
+        self._names = {ch.key: ch.name for ch in fetched}
+        self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
-            self._adapter = None
             self.keys = list(normal.channels)
-            return
-
-        self._adapter = dict[int, str]()
-        for name in normal.channels:
-            ch = next((c for c in fetched if c.name == name), None)
-            if ch is None:
-                raise KeyError(f"Channel {name} not found.")
-            self._adapter[ch.key] = ch.name
-        self.keys = list(self._adapter.keys())
+        else:
+            keys_by_name = {name: key for key, name in self._names.items()}
+            for name in normal.channels:
+                if name not in keys_by_name:
+                    raise KeyError(f"Channel {name} not found.")
+            self.keys = [keys_by_name[name] for name in normal.channels]
+        self._rank = {}
+        for i, key in enumerate(self.keys):
+            self._rank.setdefault(key, i)
+            if key in self._names:
+                self._rank.setdefault(self._names[key], i)
 
     def adapt(self, fr: Frame) -> Frame:
-        if self._adapter is None:
-            return fr
-
-        # In certain cases there can be a slight desync between the channels being sent
-        # by the server and the channels being received by the client. To handle this,
-        # we purge any channels that are not in the adapter.
-        to_purge: list[int] | None = None
-        for i, k in enumerate(fr.channels):
-            try:
-                if isinstance(k, channel.Key):
-                    fr.channels[i] = self._adapter[k]  # type: ignore[call-overload]
-            except KeyError:
-                if to_purge is None:
-                    to_purge = [i]
-                else:
-                    to_purge.append(i)
-        if to_purge is not None:
-            fr.channels = cast(
-                list[channel.Key] | list[str],
-                [k for i, k in enumerate(fr.channels) if i not in to_purge],
-            )
-            fr.series = [s for i, s in enumerate(fr.series) if i not in to_purge]
-
+        """Sorts the frame's series into the order of the requested channels and
+        records the channel names in the frame. When the channels were requested by
+        name, the frame is keyed by name.
+        """
+        # The Core can send channels the client has not adapted yet, so purge them.
+        items = sorted(
+            ((k, s) for k, s in fr.items() if k in self._rank),
+            key=lambda item: self._rank[item[0]],
+        )
+        fr.channels = [
+            self._names[k] if self._by_name and isinstance(k, channel.Key) else k
+            for k, _ in items
+        ]
+        fr.series = [s for _, s in items]
+        fr.names.update(self._names)
         return fr
 
 
@@ -206,7 +206,7 @@ class WriteFrameAdapter:
             key = self._adapt_to_key(channels_or_data)
             return Frame([key], [Series(cast(CrudeSeries, series))])
 
-        if isinstance(channels_or_data, list):
+        if isinstance(channels_or_data, (list, tuple)):
             if series is None:
                 raise ValidationError(
                     f"""
@@ -233,11 +233,14 @@ class WriteFrameAdapter:
 
             return Frame(channels, o_series)
 
+        if isinstance(channels_or_data, FramePayload):
+            channels_or_data = Frame(channels_or_data)
+
         if isinstance(channels_or_data, (Frame, DataFrame)):
             if isinstance(channels_or_data, Frame):
-                cols: list[channel.Key] | list[str] = channels_or_data.channels
+                cols: list[channel.Key | str] = channels_or_data.channels
             else:
-                cols = cast(list[str], list(channels_or_data.columns))
+                cols = list(channels_or_data.columns)
             if self._adapter is None:
                 return (
                     Frame(channels_or_data)

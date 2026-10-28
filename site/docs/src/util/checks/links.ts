@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import fs from "fs";
-import path from "path";
-
 import { type Check, type Context } from "@/util/checks/check";
-import { locate, pageFiles, PAGES_DIR } from "@/util/checks/crawl";
+import { locate, navRefs, type Ref } from "@/util/checks/crawl";
 import { attrValues, idValues } from "@/util/checks/html";
 import { normalizeRoute } from "@/util/route";
 
@@ -22,6 +19,10 @@ const IGNORED_HOSTS: string[] = ["automation.omron.com"];
 
 // Sentinel origin for resolving relative hrefs; any other host is external.
 const INTERNAL = "http://internal.invalid";
+
+// The site's own absolute links resolve against this build. The live site serves the
+// last deploy, so a page this build adds would 404 there.
+const SELF_HOST = "docs.synnaxlabs.com";
 
 // npm's website blocks non-browser requests, so package links are validated against the
 // registry API instead: 200 = the package/version exists, 404 = dead.
@@ -39,26 +40,6 @@ const externalURL = (url: URL): string => {
   return url.toString();
 };
 
-interface Ref {
-  source: string;
-  base: string;
-  href: string;
-}
-
-// Deep nav entries only render after hydration, so the crawl can't see them; pull every
-// href straight from the nav definitions.
-const navRefs = (): Ref[] =>
-  pageFiles()
-    .filter((f) => f.endsWith("_nav.ts"))
-    .flatMap((f) => {
-      const text = fs.readFileSync(path.join(PAGES_DIR, f), "utf8");
-      return [...text.matchAll(/href:\s*"([^"]+)"/g)].map((m) => ({
-        source: `src/pages/${f}:${text.slice(0, m.index).split("\n").length}`,
-        base: "/",
-        href: m[1],
-      }));
-    });
-
 const checkRef = async (
   ctx: Context,
   ids: Map<string, Set<string>>,
@@ -71,6 +52,8 @@ const checkRef = async (
     return `unparseable href "${href}"`;
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  if (url.host === SELF_HOST)
+    url = new URL(`${url.pathname}${url.search}${url.hash}`, INTERNAL);
   if (url.host !== "internal.invalid") {
     if (IGNORED_HOSTS.includes(url.host)) return null;
     return await ctx.fetchOk(externalURL(url));

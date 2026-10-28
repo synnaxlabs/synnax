@@ -21,7 +21,7 @@ import (
 
 func TestNaming(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "CPP Naming Suite")
+	RunSpecs(t, "CPP Naming Suite", SuiteConfig())
 }
 
 var _ = Describe("VariantTypeName", func() {
@@ -85,20 +85,87 @@ var _ = Describe("Namespace", func() {
 
 var _ = Describe("PBNamespace", func() {
 	DescribeTable(
-		"should derive the C++ namespace from the pb output path",
-		func(pbOutputPath, expected string) {
-			Expect(naming.PBNamespace(pbOutputPath)).To(Equal(expected))
+		"should derive the C++ namespace from the pb output path and namespace",
+		func(pbOutputPath, namespace, expected string) {
+			Expect(naming.PBNamespace(pbOutputPath, namespace)).To(Equal(expected))
 		},
-		Entry("empty path", "", "pb"),
+		Entry("empty path", "", "channel", "pb"),
 		Entry(
 			"core layer path",
 			"core/pkg/distribution/channel/pb",
+			"channel",
 			"::distribution::channel::pb",
 		),
-		Entry("x/go path", "x/go/telem/pb", "::x::telem::pb"),
-		Entry("two-segment path", "freighter/pb", "::freighter::freighter::pb"),
-		Entry("path not ending in pb", "x/go/telem", "::x::telem::pb"),
-		Entry("leading slash falls back to synnax", "/foo/pb", "::synnax::foo::pb"),
+		Entry(
+			"nested core path keeps the namespace",
+			"core/pkg/service/legacy/device/pb",
+			"device",
+			"::service::device::pb",
+		),
+		Entry(
+			"namespace differs from the output directory",
+			"core/pkg/service/legacy/pb",
+			"device",
+			"::service::device::pb",
+		),
+		Entry("x/go path", "x/go/telem/pb", "telem", "::x::telem::pb"),
+		Entry(
+			"two-segment path",
+			"freighter/pb",
+			"freighter",
+			"::freighter::freighter::pb",
+		),
+		Entry(
+			"leading slash falls back to synnax",
+			"/foo/pb",
+			"foo",
+			"::synnax::foo::pb",
+		),
+	)
+})
+
+var _ = Describe("VariantPBNamespace", func() {
+	pbType := func(name, namespace, goOutput string) resolution.Type {
+		return resolution.Type{
+			Name:      name,
+			Namespace: namespace,
+			Domains: map[string]resolution.Domain{
+				"go": {
+					Name: "go",
+					Expressions: resolution.Expressions{{
+						Name:   "output",
+						Values: []resolution.ExpressionValue{{StringValue: goOutput}},
+					}},
+				},
+				"pb": {Name: "pb"},
+			},
+		}
+	}
+	union := pbType("Node", "graph", "core/pkg/service/graph")
+	payload := pbType("Valve", "base", "core/pkg/service/base")
+
+	DescribeTable("should derive the message owner from the variant",
+		func(inline bool, expectedNamespace, expectedHeader string) {
+			namespace, header := naming.VariantPBNamespace(
+				union,
+				resolution.UnionVariant{Name: "valve", Inline: inline},
+				payload,
+			)
+			Expect(namespace).To(Equal(expectedNamespace))
+			Expect(header).To(Equal(expectedHeader))
+		},
+		Entry(
+			"an inline variant belongs to its union",
+			true,
+			"::service::graph::pb",
+			"core/pkg/service/graph/pb/graph.pb.h",
+		),
+		Entry(
+			"a referenced variant belongs to its payload",
+			false,
+			"::service::base::pb",
+			"core/pkg/service/base/pb/base.pb.h",
+		),
 	)
 })
 

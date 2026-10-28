@@ -14,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
+import { type Invited } from "@/server/invitation";
 import { Card } from "@/ui/auth/Card";
 import { OAuth } from "@/ui/auth/OAuth";
 import { withTarget } from "@/ui/auth/redirect";
@@ -25,7 +26,7 @@ import {
   prompt,
 } from "@/ui/auth/secondFactor";
 import { start } from "@/ui/auth/session";
-import { useClerk } from "@/ui/clerk";
+import { type Clerk, useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
 
 const schema = z.object({
@@ -35,27 +36,35 @@ const schema = z.object({
 
 const codeSchema = z.object({ code: z.string().trim().min(1, "Enter the code") });
 
+type SignIn = NonNullable<Clerk["client"]>["signIn"];
+
 export interface LoginProps {
   /** target is where to land after logging in. */
   target: string;
+  /**
+   * invited is the team invitation the visitor came to accept, or null for none. Its
+   * address fills the email field and cannot change.
+   */
+  invited: Invited | null;
 }
 
 /** Login logs a user in with email and password, Google, or Microsoft. */
-export const Login = ({ target }: LoginProps): ReactElement => {
+export const Login = ({ target, invited }: LoginProps): ReactElement => {
   const clerk = useClerk();
   // factor is the second step Clerk asked for, or null while on the password step.
   const [factor, setFactor] = useState<CodeFactor | null>(null);
   const [backup, setBackup] = useState<CodeFactor | null>(null);
   const [oauthError, setOAuthError] = useState<string | null>(null);
-  const methods = Form.use({ values: { email: "", password: "" }, schema });
+  const methods = Form.use({
+    values: { email: invited?.invitation.email ?? "", password: "" },
+    schema,
+  });
   const codeMethods = Form.use({ values: { code: "" }, schema: codeSchema });
 
-  const login = useAction(async () => {
-    if (clerk?.client == null || !methods.validate()) return;
-    const { email, password } = methods.value();
-    const res = await clerk.client.signIn.create({ identifier: email, password });
+  // proceed finishes a sign-in, or moves to the second step Clerk asks for.
+  const proceed = async (loaded: Clerk, res: SignIn): Promise<void> => {
     if (res.status === "complete")
-      return await start(clerk, res.createdSessionId, target);
+      return await start(loaded, res.createdSessionId, target);
     if (res.status === "needs_second_factor" || res.status === "needs_client_trust") {
       const next = choose(res.supportedSecondFactors);
       if (next == null)
@@ -66,6 +75,13 @@ export const Login = ({ target }: LoginProps): ReactElement => {
       return;
     }
     throw new Error(`Login needs ${res.status ?? "another step"}`);
+  };
+
+  const login = useAction(async () => {
+    if (clerk?.client == null || !methods.validate()) return;
+    const { email, password } = methods.value();
+    const res = await clerk.client.signIn.create({ identifier: email, password });
+    await proceed(clerk, res);
   });
 
   const verify = useAction(async () => {
@@ -125,7 +141,11 @@ export const Login = ({ target }: LoginProps): ReactElement => {
   return (
     <Card
       title="Log in"
-      description="Manage your Synnax licenses"
+      description={
+        invited == null
+          ? "Manage your Synnax licenses"
+          : `Join ${invited.team.name} on Synnax`
+      }
       error={login.error ?? oauthError}
       footer={
         <Text.Text level="small" color={9}>
@@ -148,14 +168,23 @@ export const Login = ({ target }: LoginProps): ReactElement => {
           label="Email"
           required={false}
           padHelpText={false}
-          inputProps={{ type: "email", autoComplete: "email", autoFocus: true }}
+          inputProps={{
+            type: "email",
+            autoComplete: "email",
+            autoFocus: invited == null,
+            disabled: invited != null,
+          }}
         />
         <Form.TextField
           path="password"
           label="Password"
           required={false}
           padHelpText={false}
-          inputProps={{ type: "password", autoComplete: "current-password" }}
+          inputProps={{
+            type: "password",
+            autoComplete: "current-password",
+            autoFocus: invited != null,
+          }}
         />
         <Button.Button
           variant="filled"

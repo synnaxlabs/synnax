@@ -694,8 +694,9 @@ A nested sequence is one step of its parent: when it completes, the parent advan
 exits in turn. A sequence declared inside a stage does not advance anything when it
 completes. The stage leaves only through its own transition.
 
-A flow step completes when its final node fires. Stages do not complete; they leave only
-through an explicit `=>` or `->` transition.
+A flow step completes when its final node emits a truthy output, or when that node runs
+without error if it has no outputs. Stages do not complete; they leave only through an
+explicit `=>` or `->` transition.
 
 ### Reactive vs one-shot semantics
 

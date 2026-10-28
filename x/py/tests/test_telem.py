@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import operator
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from fractions import Fraction
 
@@ -19,6 +20,7 @@ import pandas as pd
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
+from pydantic import ValidationError
 
 import x.telem as sy
 from x.exceptions import ContiguityError
@@ -26,6 +28,21 @@ from x.exceptions import ContiguityError
 _now = sy.TimeStamp.now()
 
 EST = dateutil.tz.gettz("EST")
+
+_INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
+_SPAN = st.integers(min_value=-(2**62), max_value=2**62)
+_NONZERO = _SPAN.filter(lambda v: v != 0)
+_STAMP = st.integers(min_value=0, max_value=2**62)
+_OUT_OF_INT64 = st.integers(min_value=2**63) | st.integers(max_value=-(2**63) - 1)
+_SMALL_SPAN = st.integers(min_value=-(2**61), max_value=2**61)
+_SMALL_STAMP = st.integers(min_value=0, max_value=2**61)
+_FACTOR = st.floats(min_value=-1000, max_value=1000, allow_nan=False)
+_BARE_NUMBERS = [
+    pytest.param(5, id="int"),
+    pytest.param(5.0, id="float"),
+    pytest.param(np.int64(5), id="int64"),
+    pytest.param(np.float64(5), id="float64"),
+]
 
 
 @pytest.mark.telem
@@ -513,6 +530,153 @@ class TestTimeSpanPrecision:
 
 
 @pytest.mark.telem
+class TestTimeArithmetic:
+    @given(_SMALL_STAMP, _SMALL_STAMP)
+    def test_stamp_minus_stamp(self, a: int, b: int) -> None:
+        """Should return the span between two timestamps"""
+        diff = sy.TimeStamp(a) - sy.TimeStamp(b)
+        assert type(diff) is sy.TimeSpan
+        assert int(diff) == a - b
+
+    @given(_SMALL_STAMP, _SMALL_SPAN)
+    def test_stamp_and_span(self, stamp: int, span: int) -> None:
+        """Should return a timestamp when adding or subtracting a span"""
+        ts, sp = sy.TimeStamp(stamp), sy.TimeSpan(span)
+        for result, expected in (
+            (ts + sp, stamp + span),
+            (sp + ts, stamp + span),
+            (ts - sp, stamp - span),
+        ):
+            assert type(result) is sy.TimeStamp
+            assert int(result) == expected
+
+    @given(_SMALL_SPAN, _SMALL_SPAN)
+    def test_span_and_span(self, a: int, b: int) -> None:
+        """Should return a span when adding or subtracting spans"""
+        for result, expected in (
+            (sy.TimeSpan(a) + sy.TimeSpan(b), a + b),
+            (sy.TimeSpan(a) - sy.TimeSpan(b), a - b),
+        ):
+            assert type(result) is sy.TimeSpan
+            assert int(result) == expected
+
+    @given(_SMALL_SPAN)
+    def test_neg_and_abs(self, value: int) -> None:
+        """Should return a span from negation and abs"""
+        for result, expected in (
+            (-sy.TimeSpan(value), -value),
+            (abs(sy.TimeSpan(value)), abs(value)),
+        ):
+            assert type(result) is sy.TimeSpan
+            assert int(result) == expected
+
+    @given(st.integers(min_value=-(2**40), max_value=2**40), st.integers(-1000, 1000))
+    def test_scale_by_int(self, value: int, factor: int) -> None:
+        """Should return a span when multiplying by an integer on either side"""
+        for result in (sy.TimeSpan(value) * factor, factor * sy.TimeSpan(value)):
+            assert type(result) is sy.TimeSpan
+            assert int(result) == value * factor
+
+    @given(st.integers(min_value=-(2**40), max_value=2**40), _FACTOR)
+    def test_scale_by_float(self, value: int, factor: float) -> None:
+        """Should return a span when multiplying by a float"""
+        result = sy.TimeSpan(value) * factor
+        assert type(result) is sy.TimeSpan
+        assert int(result) == int(value * factor)
+
+    @given(_SPAN, _NONZERO)
+    def test_div_by_int(self, a: int, b: int) -> None:
+        """Should return a span truncated toward zero when dividing by an integer"""
+        result = sy.TimeSpan(a) / b
+        assert type(result) is sy.TimeSpan
+        assert int(result) == int(Fraction(a, b))
+
+    @given(
+        st.integers(min_value=-(2**52), max_value=2**52),
+        _FACTOR.filter(lambda v: abs(v) >= 1e-3),
+    )
+    def test_div_by_float(self, a: int, b: float) -> None:
+        """Should return a span truncated toward zero when dividing by a float"""
+        result = sy.TimeSpan(a) / b
+        assert type(result) is sy.TimeSpan
+        assert int(result) == int(Fraction(a) / Fraction(b))
+
+    @given(_SPAN, _NONZERO)
+    def test_floordiv_by_int(self, a: int, b: int) -> None:
+        """Should return a floored span when floor dividing by an integer"""
+        result = sy.TimeSpan(a) // b
+        assert type(result) is sy.TimeSpan
+        assert int(result) == a // b
+
+    @given(_SPAN, _NONZERO)
+    def test_div_by_span(self, a: int, b: int) -> None:
+        """Should return a float ratio when dividing a span by a span"""
+        result = sy.TimeSpan(a) / sy.TimeSpan(b)
+        assert type(result) is float
+        assert result == float(Fraction(a, b))
+
+    @given(_SPAN, _NONZERO)
+    def test_floordiv_by_span(self, a: int, b: int) -> None:
+        """Should return an int count when floor dividing a span by a span"""
+        result = sy.TimeSpan(a) // sy.TimeSpan(b)
+        assert type(result) is int
+        assert result == a // b
+
+    @given(_SPAN, _NONZERO)
+    def test_mod_by_span(self, a: int, b: int) -> None:
+        """Should return a span remainder"""
+        result = sy.TimeSpan(a) % sy.TimeSpan(b)
+        assert type(result) is sy.TimeSpan
+        assert int(result) == a % b
+
+    def test_ratio_of_units(self) -> None:
+        """Should count the seconds in a minute"""
+        assert sy.TimeSpan.MINUTE / sy.TimeSpan.SECOND == 60.0
+        assert sy.TimeSpan.MINUTE // sy.TimeSpan.SECOND == 60
+
+    @pytest.mark.parametrize(
+        "operation",
+        [
+            lambda: sy.TimeStamp(1) + sy.TimeStamp(1),
+            lambda: sy.TimeStamp(1) * 2,
+            lambda: 2 * sy.TimeStamp(1),
+            lambda: -sy.TimeStamp(1),
+            lambda: sy.TimeSpan(1) - sy.TimeStamp(1),
+        ],
+        ids=["stamp + stamp", "stamp * 2", "2 * stamp", "-stamp", "span - stamp"],
+    )
+    def test_invalid_stamp_operations(self, operation: Callable[[], object]) -> None:
+        """Should reject operations that have no meaning for a timestamp"""
+        with pytest.raises(TypeError):
+            operation()
+
+    @pytest.mark.parametrize("op", [operator.add, operator.sub])
+    @pytest.mark.parametrize("number", _BARE_NUMBERS)
+    @pytest.mark.parametrize("value", [sy.TimeStamp(10), sy.TimeSpan(10)])
+    def test_bare_number_rejected(
+        self, op: Callable[[object, object], object], value: int, number: object
+    ) -> None:
+        """Should reject a bare number after a time value"""
+        with pytest.raises(TypeError):
+            op(value, number)
+
+    @pytest.mark.parametrize("op", [operator.add, operator.sub])
+    @pytest.mark.parametrize("value", [sy.TimeStamp(10), sy.TimeSpan(10)])
+    def test_bare_int_before_rejected(
+        self, op: Callable[[object, object], object], value: int
+    ) -> None:
+        """Should reject a bare int before a time value"""
+        with pytest.raises(TypeError):
+            op(5, value)
+
+    @pytest.mark.parametrize("number", _BARE_NUMBERS)
+    def test_bare_number_mod_rejected(self, number: object) -> None:
+        """Should reject a bare number as the modulus of a span"""
+        with pytest.raises(TypeError):
+            operator.mod(sy.TimeSpan(10), number)
+
+
+@pytest.mark.telem
 class TestRate:
     @pytest.mark.parametrize(
         ("crude", "expected"),
@@ -527,7 +691,7 @@ class TestRate:
     def test_invalid_init(self) -> None:
         """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
-            sy.Rate(timedelta(seconds=1))  # type: ignore
+            sy.Rate(timedelta(seconds=1))  # type: ignore[arg-type]
 
     def test_sample_count(self) -> None:
         """Should return the number of samples"""
@@ -569,6 +733,47 @@ class TestRate:
         with pytest.raises(ContiguityError):
             sy.Rate(1.0).size_span(sy.Size(41), sy.Density.BIT64)
 
+    @given(st.floats(0, 1e9), st.floats(0, 1e9))
+    def test_rate_and_rate(self, a: float, b: float) -> None:
+        """Should return a rate when adding or subtracting rates"""
+        for result, expected in (
+            (sy.Rate(a) + sy.Rate(b), a + b),
+            (sy.Rate(a) - sy.Rate(b), a - b),
+        ):
+            assert type(result) is sy.Rate
+            assert float(result) == expected
+
+    @given(st.floats(0, 1e9), _FACTOR)
+    def test_scale(self, rate: float, factor: float) -> None:
+        """Should return a rate when multiplying by a number on either side"""
+        for result in (sy.Rate(rate) * factor, factor * sy.Rate(rate)):
+            assert type(result) is sy.Rate
+            assert float(result) == rate * factor
+
+    def test_ratio(self) -> None:
+        """Should return a float when dividing a rate by a rate"""
+        result = sy.Rate.KHZ / sy.Rate(10)
+        assert type(result) is float
+        assert result == 100.0
+
+    @pytest.mark.parametrize("op", [operator.add, operator.sub])
+    @pytest.mark.parametrize("number", _BARE_NUMBERS)
+    def test_bare_number_rejected(
+        self, op: Callable[[object, object], object], number: object
+    ) -> None:
+        """Should reject a bare number after a rate"""
+        with pytest.raises(TypeError):
+            op(sy.Rate(10), number)
+
+    @pytest.mark.parametrize("op", [operator.add, operator.sub])
+    @pytest.mark.parametrize("number", [5, 5.0])
+    def test_bare_number_before_rejected(
+        self, op: Callable[[object, object], object], number: float
+    ) -> None:
+        """Should reject a bare int or float before a rate"""
+        with pytest.raises(TypeError):
+            op(number, sy.Rate(10))
+
 
 @pytest.mark.telem
 class TestDataType:
@@ -583,6 +788,8 @@ class TestDataType:
             ({"a": 1}, sy.DataType.JSON),
             (["a"], sy.DataType.STRING),
             (uuid.uuid4(), sy.DataType.UUID),
+            (np.dtype("datetime64[ns]"), sy.DataType.TIMESTAMP),
+            (np.datetime64, sy.DataType.TIMESTAMP),
         ],
     )
     def test_construction(self, crude: sy.CrudeDataType, expected: sy.DataType) -> None:
@@ -655,6 +862,28 @@ class TestDataType:
             sy.DataType.BYTES,
         }
         assert len(sy.DataType.ALL) == len(set(sy.DataType.ALL))
+
+    @pytest.mark.parametrize("name", ["float65", "datetime", "f8", "FLOAT64"])
+    def test_unknown_name(self, name: str) -> None:
+        """Should raise a ValueError for a name that is not a data type."""
+        with pytest.raises(ValueError, match="not a valid data type"):
+            sy.DataType(name)
+
+    @pytest.mark.parametrize("data_type", sy.DataType.ALL)
+    def test_known_name(self, data_type: sy.DataType) -> None:
+        """Should construct every data type from its name."""
+        assert sy.DataType(str(data_type)) == data_type
+
+
+@pytest.mark.telem
+class TestBounds:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [(-1, False), (0, True), (5, True), (9.5, True), (10, False), (11, False)],
+    )
+    def test_contains(self, value: float, expected: bool) -> None:
+        """Should include the lower bound and exclude the upper bound."""
+        assert sy.Bounds(0, 10).contains(value) is expected
 
 
 @pytest.mark.telem
@@ -907,12 +1136,6 @@ class TestStringEncodedInts:
         assert int(validated.model_dump()["v"]) == big
 
 
-_INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
-_SPAN = st.integers(min_value=-(2**62), max_value=2**62)
-_NONZERO = _SPAN.filter(lambda v: v != 0)
-_STAMP = st.integers(min_value=0, max_value=2**62)
-
-
 @pytest.mark.telem
 class TestTimeProperties:
     @given(_INT64)
@@ -922,13 +1145,18 @@ class TestTimeProperties:
 
     @given(_SPAN, st.integers(min_value=-1000, max_value=1000))
     def test_mul_exact(self, value: int, factor: int) -> None:
-        """Should multiply a span by an integer exactly"""
-        assert int(sy.TimeSpan(value) * factor) == value * factor
+        """Should multiply a span by an integer exactly, or reject overflow"""
+        product = value * factor
+        if -(2**63) <= product < 2**63:
+            assert int(sy.TimeSpan(value) * factor) == product
+        else:
+            with pytest.raises(ValueError, match="64-bit"):
+                sy.TimeSpan(value) * factor
 
     @given(_SPAN, _NONZERO)
     def test_div_truncates(self, a: int, b: int) -> None:
-        """Should divide spans exactly, truncating toward zero"""
-        assert int(sy.TimeSpan(a) / sy.TimeSpan(b)) == int(Fraction(a, b))
+        """Should divide a span by an integer exactly, truncating toward zero"""
+        assert int(sy.TimeSpan(a) / b) == int(Fraction(a, b))
 
     @given(_SPAN, st.integers(min_value=1, max_value=2**40))
     def test_trunc_bounds(self, value: int, step: int) -> None:
@@ -972,3 +1200,45 @@ class TestTimeProperties:
         if r1.overlaps_with(r2, delta=delta):
             assert r1.overlaps_with(r2)
             assert shared >= delta
+
+    @given(_OUT_OF_INT64)
+    def test_out_of_range_rejected(self, value: int) -> None:
+        """Should reject a value that does not fit in 64 bits at construction"""
+        with pytest.raises(ValueError, match="64-bit TimeStamp"):
+            sy.TimeStamp(value)
+        with pytest.raises(ValueError, match="64-bit TimeSpan"):
+            sy.TimeSpan(value)
+
+    @given(_INT64)
+    def test_hash_matches_int(self, value: int) -> None:
+        """Should hash a timestamp and a span like the equal int"""
+        assert hash(sy.TimeStamp(value)) == hash(value)
+        assert hash(sy.TimeSpan(value)) == hash(value)
+        assert len({sy.TimeStamp(value), sy.TimeSpan(value), value}) == 1
+
+    @given(_SPAN, st.floats(allow_nan=False, allow_infinity=False))
+    def test_span_float_eq_matches_hash(self, value: int, other: float) -> None:
+        """Should only equal a float whose hash matches"""
+        span = sy.TimeSpan(value)
+        assert (span == other) == (value == other)
+        if span == other:
+            assert hash(span) == hash(other)
+
+    @given(_STAMP, st.integers(min_value=2**63))
+    def test_compare_with_out_of_range_int(self, value: int, big: int) -> None:
+        """Should compare against an int that does not fit in 64 bits"""
+        assert sy.TimeStamp(value) < big
+        assert sy.TimeSpan(value) < big
+        assert sy.TimeStamp(value) != big
+
+    @given(_STAMP, _STAMP)
+    def test_time_range_hash_matches_eq(self, start: int, end: int) -> None:
+        """Should hash equal time ranges to the same value"""
+        assert hash(sy.TimeRange(start, end)) == hash(sy.TimeRange(start, end))
+        assert len({sy.TimeRange(start, end), sy.TimeRange(start, end)}) == 1
+
+    def test_time_range_frozen(self) -> None:
+        """Should reject a change to a hashable time range"""
+        tr = sy.TimeRange(0, 10)
+        with pytest.raises(ValidationError):
+            sy.TimeRange.__setattr__(tr, "end", sy.TimeStamp(20))

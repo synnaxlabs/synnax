@@ -7,12 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.exceptions import ExceptionPayload, register_exception
+from x.exceptions import Error, ExceptionPayload, Provider
 
 _FREIGHTER_EXCEPTION_TYPE = "freighter."
 
 
-class Unreachable(Exception):
+class Unreachable(Error):
     """Raised when a target is unreachable."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "unreachable"
@@ -29,7 +29,7 @@ class Unreachable(Exception):
         return self.message
 
 
-class StreamClosed(Exception):
+class StreamClosed(Error):
     """Raised when a stream is closed."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "stream_closed"
@@ -38,7 +38,7 @@ class StreamClosed(Exception):
         return "StreamClosed"
 
 
-class EOF(Exception):
+class EOF(Error):
     """Raised when a stream reaches end-of-file."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "eof"
@@ -58,15 +58,14 @@ def _freighter_encode(exc: Exception) -> ExceptionPayload | None:
 
 
 def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
-    if exc.type is None or not exc.type.startswith(_FREIGHTER_EXCEPTION_TYPE):
-        return None
     if exc.type == Unreachable.TYPE:
         return Unreachable(message=exc.data) if exc.data is not None else Unreachable()
     if exc.type == StreamClosed.TYPE:
         return StreamClosed()
     if exc.type == EOF.TYPE:
         return EOF()
-    raise ValueError(f"Unknown error type: {exc.type}")
+    return None
 
 
-register_exception(_freighter_encode, _freighter_decode)
+EXCEPTION_PROVIDER = Provider(encode=_freighter_encode, decode=_freighter_decode)
+"""Encodes and decodes the exceptions that Freighter raises."""

@@ -64,6 +64,17 @@ var _ = Describe("StructurallyEqual", func() {
 		)).To(BeFalse())
 	})
 
+	It("Should distinguish declarations by @go wire omit", func() {
+		a := analyze("Session struct {\n\tkey uuid @key\n\thash bytes\n}\n")
+		b := analyze(
+			"Session struct {\n\tkey uuid @key\n\thash bytes {\n" +
+				"\t\t@go wire omit\n\t}\n}\n",
+		)
+		Expect(schemadiff.StructurallyEqual(
+			typeOf(a, "Session"), typeOf(b, "Session"), a, b,
+		)).To(BeFalse())
+	})
+
 	It("Should distinguish declarations by field default", func() {
 		a := analyze("Row struct {\n\tsize float64\n}\n")
 		b := analyze("Row struct {\n\tsize float64 = 36\n}\n")

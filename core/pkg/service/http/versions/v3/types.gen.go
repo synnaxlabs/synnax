@@ -14,8 +14,8 @@ package v3
 import (
 	"strconv"
 
-	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"

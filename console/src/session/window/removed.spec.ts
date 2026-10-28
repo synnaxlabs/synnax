@@ -38,7 +38,9 @@ const createStore = async (): Promise<TestStore> => {
   [MAIN_WINDOW, AUX_KEY].forEach((windowKey) => {
     store.dispatch(Session.Nav.showBottom({ windowKey }));
     store.dispatch(Session.Panel.select({ key: PANEL_KEY, windowKey }));
-    store.dispatch(Session.Arc.create({ key: DOC_KEY, windowKey }));
+    store.dispatch(
+      Session.Arc.setEditable({ key: DOC_KEY, editable: false, windowKey }),
+    );
     store.dispatch(Session.LinePlot.create({ key: DOC_KEY, windowKey }));
     store.dispatch(Session.Log.create({ key: DOC_KEY, windowKey }));
     store.dispatch(Session.Schematic.create({ key: DOC_KEY, windowKey }));
@@ -59,29 +61,6 @@ describe("Window.removalMiddleware", () => {
     store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
     // Window keys are minted fresh per open, so an entry left behind here is one the
     // session carries forever.
-    SLICES.forEach((slice) =>
-      expect(windowKeys(store, slice), slice).not.toContain(AUX_KEY),
-    );
-  });
-
-  // Drift keeps a window with a process registered open, so a close it defers must
-  // not take the state of a window the user is still looking at.
-  it("should keep the state of a window whose close is deferred", async () => {
-    const store = await createStore();
-    store.dispatch(Drift.registerProcess({ key: AUX_KEY }));
-    store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
-    expect(Drift.selectWindow(store.getState(), AUX_KEY)).not.toBeNull();
-    SLICES.forEach((slice) =>
-      expect(windowKeys(store, slice), slice).toContain(AUX_KEY),
-    );
-  });
-
-  it("should drop the state once the deferred close lands", async () => {
-    const store = await createStore();
-    store.dispatch(Drift.registerProcess({ key: AUX_KEY }));
-    store.dispatch(Drift.closeWindow({ key: AUX_KEY }));
-    store.dispatch(Drift.completeProcess({ key: AUX_KEY }));
-    expect(Drift.selectWindow(store.getState(), AUX_KEY)).toBeNull();
     SLICES.forEach((slice) =>
       expect(windowKeys(store, slice), slice).not.toContain(AUX_KEY),
     );

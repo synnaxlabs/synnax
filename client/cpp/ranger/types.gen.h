@@ -41,20 +41,16 @@ struct Range {
     /// @brief name is a human-readable name for the range.
     std::string name;
     /// @brief time_range is the temporal extent of the range, defining its start and
-    /// end
-    /// timestamps.
+    /// end timestamps.
     ::x::telem::TimeRange time_range = x::telem::TimeRange{};
     /// @brief color is an optional display color for visual identification of the range
-    /// in
-    /// user interfaces.
+    /// in user interfaces.
     std::optional<::x::color::Color> color;
     /// @brief labels contains optional labels attached to this range for categorization
-    /// and
-    /// filtering.
+    /// and filtering.
     std::optional<std::vector<::synnax::label::Label>> labels;
     /// @brief parent is an optional parent range for hierarchical organization. Ranges
-    /// can
-    /// be nested within other ranges.
+    /// can be nested within other ranges.
     x::mem::indirect<Range> parent;
 
     static Range parse(x::json::Parser parser);

@@ -36,8 +36,9 @@ import (
 )
 
 type reportCall struct {
-	variant status.Variant
-	message string
+	variant     status.Variant
+	message     string
+	description string
 }
 
 type recordingReporter struct {
@@ -45,10 +46,15 @@ type recordingReporter struct {
 	calls []reportCall
 }
 
-func (r *recordingReporter) report(_ context.Context, v status.Variant, m string) {
+func (r *recordingReporter) report(
+	_ context.Context,
+	v status.Variant,
+	m string,
+	d string,
+) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.calls = append(r.calls, reportCall{variant: v, message: m})
+	r.calls = append(r.calls, reportCall{variant: v, message: m, description: d})
 }
 
 func (r *recordingReporter) get() []reportCall {
@@ -394,9 +400,9 @@ var _ = Describe("createNode.Next", func() {
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].variant).To(Equal(status.VariantWarning))
-			Expect(
-				calls[0].message,
-			).To(ContainSubstring("ranges.create: invalid color"))
+			Expect(calls[0].message).To(Equal("Failed to create range"))
+			Expect(calls[0].description).To(HavePrefix("The color "))
+			Expect(calls[0].description).To(ContainSubstring(" is not valid: "))
 		},
 	)
 
@@ -431,9 +437,10 @@ var _ = Describe("createNode.Next", func() {
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].variant).To(Equal(status.VariantWarning))
-			Expect(
-				calls[0].message,
-			).To(ContainSubstring("ranges.create: invalid parent key"))
+			Expect(calls[0].message).To(Equal("Failed to create range"))
+			Expect(calls[0].description).To(Equal(
+				`The parent key "not-a-uuid" is not a valid range key.`,
+			))
 		},
 	)
 
@@ -449,9 +456,10 @@ var _ = Describe("createNode.Next", func() {
 		).To(Equal([]string{""}))
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(
-			calls[0].message,
-		).To(ContainSubstring("ranges.create: invalid parent key"))
+		Expect(calls[0].message).To(Equal("Failed to create range"))
+		Expect(calls[0].description).To(Equal(
+			`The parent key "not-a-uuid" is not a valid range key.`,
+		))
 	})
 })
 
@@ -509,9 +517,10 @@ var _ = Describe("endNode.Next", func() {
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
 			Expect(calls[0].variant).To(Equal(status.VariantWarning))
-			Expect(
-				calls[0].message,
-			).To(ContainSubstring("ranges.end: invalid range key"))
+			Expect(calls[0].message).To(Equal("Failed to end range"))
+			Expect(calls[0].description).To(Equal(
+				`The key "not-a-uuid" is not a valid range key.`,
+			))
 		},
 	)
 
@@ -523,7 +532,8 @@ var _ = Describe("endNode.Next", func() {
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
 		Expect(calls[0].variant).To(Equal(status.VariantWarning))
-		Expect(calls[0].message).To(HavePrefix("ranges.end:"))
+		Expect(calls[0].message).To(Equal("Failed to end range"))
+		Expect(calls[0].description).ToNot(BeEmpty())
 	})
 })
 
@@ -555,7 +565,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{name=\"r\", color=\"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(name=\"r\", color=\"not-a-color\")",
 			)).To(BeTrue())
 		},
 	)
@@ -565,7 +575,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{\"r\", \"\", \"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(\"r\", \"\", \"not-a-color\")",
 			)).To(BeTrue())
 		},
 	)
@@ -575,7 +585,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{\"r\", \"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(\"r\", \"not-a-color\")",
 			)).To(BeFalse())
 		},
 	)
@@ -583,13 +593,13 @@ var _ = Describe("Analyzer hooks", func() {
 	It("Should accept a valid color literal", func(ctx SpecContext) {
 		Expect(hasColorError(
 			ctx,
-			"import ranges\nsensor -> ranges.create{name=\"r\", color=\"#DF6D38\"}",
+			"import ranges\nsensor -> ranges.create(name=\"r\", color=\"#DF6D38\")",
 		)).To(BeFalse())
 	})
 
 	It("Should not flag a missing color argument", func(ctx SpecContext) {
 		Expect(hasColorError(ctx,
-			"import ranges\nsensor -> ranges.create{name=\"r\"}")).To(BeFalse())
+			"import ranges\nsensor -> ranges.create(name=\"r\")")).To(BeFalse())
 	})
 
 	It(
@@ -600,7 +610,7 @@ var _ = Describe("Analyzer hooks", func() {
 				"    bad := \"not-a-\" + \"color\"\n" +
 				"    ranges.create(\"r\", \"\", bad)\n" +
 				"}\n" +
-				"sensor -> f{}"
+				"sensor -> f()"
 			parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 			_, diags := text.Analyze(ctx, parsed, buildRoot())
 			Expect(diags.Ok()).To(BeTrue())
@@ -661,9 +671,10 @@ var _ = Describe("WASM host functions", func() {
 			Expect(AsU32(res[0])).To(Equal(uint32(0)))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].message).To(Equal("Failed to create range"))
 			Expect(
-				calls[0].message,
-			).To(ContainSubstring("ranges.create: invalid string handle"))
+				calls[0].description,
+			).To(Equal("The Arc runtime passed an invalid string handle."))
 		})
 	})
 
@@ -697,9 +708,10 @@ var _ = Describe("WASM host functions", func() {
 			Expect(AsU32(res[0])).To(Equal(uint32(0)))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].message).To(Equal("Failed to end range"))
 			Expect(
-				calls[0].message,
-			).To(ContainSubstring("ranges.end: invalid string handle"))
+				calls[0].description,
+			).To(Equal("The Arc runtime passed an invalid string handle."))
 		})
 	})
 })

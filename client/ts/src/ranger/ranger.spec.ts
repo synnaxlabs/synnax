@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
+import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import {
   binary,
   DataType,
@@ -28,7 +28,13 @@ import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
-import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
+import {
+  createTestClient,
+  expectDeleted,
+  expectLive,
+  spyOnSend,
+  TEST_CORE_ADDRESS,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -1056,12 +1062,11 @@ describe("write-through", () => {
     const cache = new query.Cache({ openStreamer: null, onError: () => {} });
     const ontologyClient = new ontology.Client({ unary, cache });
     const labels = new label.Client({ unary, cache, ontology: ontologyClient });
+    const coreURL = new url.URL(TEST_CORE_ADDRESS);
     const frameClient = new framer.Client({
-      stream: new WebSocketClient(
-        new url.URL({ host: "localhost", port: 9090 }),
-        binary.JSON_CODEC,
-      ),
+      stream: new WebSocketClient(coreURL, binary.JSON_CODEC),
       unary,
+      file: new HTTPClient(coreURL, binary.JSON_CODEC),
       retrieveChannels: async () => [],
     });
     const ranges = new ranger.Client({

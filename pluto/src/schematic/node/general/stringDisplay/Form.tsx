@@ -43,6 +43,7 @@ const TelemForm = (): ReactElement => {
       <Base.Section title="Source">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.channel ?? 0}
             onChange={handleSourceChange}
             // Only variable density channels (STRING, JSON, UUID) read as text.
@@ -69,7 +70,6 @@ const StyleForm = (): ReactElement => (
       <Base.NumericField
         path="inlineSize"
         label="Width"
-        hideIfNull
         padHelpText={false}
         inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
       />

@@ -37,7 +37,7 @@ OperationType = Literal["min", "max", "avg", "none", "derivative"]
 
 Name: TypeAlias = str
 
-Status: TypeAlias = status_.Status[None]
+Status: TypeAlias = status_.Status
 
 
 class Operation(BaseModel):

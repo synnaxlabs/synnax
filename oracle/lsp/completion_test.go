@@ -124,7 +124,9 @@ var _ = Describe("Completion", func() {
 		It("should return output expressions inside go domain", func(ctx SpecContext) {
 			openDoc(ctx, "file:///go-domain.oracle", "  @go \n")
 			list := completionFor(ctx, "file:///go-domain.oracle", 0, 6)
-			Expect(labels(list.Items)).To(ContainElements("output", "omit"))
+			Expect(labels(list.Items)).To(ContainElements(
+				"output", "omit", "marshal", "wire", "to_any",
+			))
 		})
 	})
 
@@ -133,7 +135,7 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///ts-domain.oracle", "  @ts \n")
 			list := completionFor(ctx, "file:///ts-domain.oracle", 0, 6)
 			Expect(labels(list.Items)).To(ContainElements(
-				"output", "use_input", "name",
+				"output", "omit", "use_input", "name",
 			))
 		})
 	})
@@ -405,10 +407,17 @@ var _ = Describe("SemanticTokensFull", func() {
 		Expect(tokensFor(ctx, "file:///enum.oracle").Data).ToNot(BeEmpty())
 	})
 
-	// tokenTypeAt decodes the delta-encoded token stream and returns the type index of
-	// the token starting at line and char.
-	tokenTypeAt := func(data []uint32, line, char uint32) uint32 {
+	// tokenTypeAt decodes the delta-encoded token stream and returns the legend name of
+	// the type of the token starting at line and char.
+	tokenTypeAt := func(
+		ctx context.Context,
+		data []uint32,
+		line, char uint32,
+	) string {
 		GinkgoHelper()
+		res := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
+		opts := res.Capabilities.SemanticTokensProvider.(*protocol.SemanticTokensOptions)
+		legend := opts.Legend.TokenTypes
 		var l, c uint32
 		for i := 0; i+4 < len(data); i += 5 {
 			if data[i] > 0 {
@@ -417,11 +426,11 @@ var _ = Describe("SemanticTokensFull", func() {
 			l += data[i]
 			c += data[i+1]
 			if l == line && c == char {
-				return data[i+3]
+				return legend[data[i+3]]
 			}
 		}
 		Fail("no token starts at the given position")
-		return 0
+		return ""
 	}
 
 	DescribeTable(
@@ -429,8 +438,7 @@ var _ = Describe("SemanticTokensFull", func() {
 		func(ctx SpecContext, text string, line, char uint32) {
 			openDoc(ctx, "file:///names.oracle", text)
 			data := tokensFor(ctx, "file:///names.oracle").Data
-			Expect(tokenTypeAt(data, line, char)).
-				To(Equal(uint32(lsp.SemanticTokenTypeProperty)))
+			Expect(tokenTypeAt(ctx, data, line, char)).To(Equal("property"))
 		},
 		Entry(
 			"field",
@@ -458,8 +466,7 @@ var _ = Describe("SemanticTokensFull", func() {
 		func(ctx SpecContext, text string, line, char uint32) {
 			openDoc(ctx, "file:///types.oracle", text)
 			data := tokensFor(ctx, "file:///types.oracle").Data
-			Expect(tokenTypeAt(data, line, char)).
-				To(Equal(uint32(lsp.SemanticTokenTypeType)))
+			Expect(tokenTypeAt(ctx, data, line, char)).To(Equal("type"))
 		},
 		Entry(
 			"field",

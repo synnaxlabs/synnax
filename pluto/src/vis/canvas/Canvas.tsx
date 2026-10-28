@@ -22,7 +22,6 @@ import {
   type DetailedHTMLProps,
   type ReactElement,
   type RefCallback,
-  useCallback,
   useEffect,
   useRef,
 } from "react";
@@ -73,20 +72,17 @@ export const Canvas = ({
 
   const initialResizeComplete = useRef(false);
 
-  const handleResize = useCallback(
-    (region: box.Box) => {
-      if (canvases.current.bootstrapped) {
-        setState(() => ({
-          bootstrapped: true,
-          region,
-          dpr: window.devicePixelRatio,
-          os: runtime.getOS({ default: "Windows" }),
-        }));
-        initialResizeComplete.current = true;
-      }
-    },
-    [setState],
-  );
+  const handleResize = (region: box.Box) => {
+    if (canvases.current.bootstrapped) {
+      setState(() => ({
+        bootstrapped: true,
+        region,
+        dpr: window.devicePixelRatio,
+        os: runtime.getOS({ default: "Windows" }),
+      }));
+      initialResizeComplete.current = true;
+    }
+  };
 
   const elRef = useRef<HTMLDivElement | null>(null);
   const resizeRef = useResize(handleResize, { debounce });
@@ -111,9 +107,9 @@ export const Canvas = ({
         dpr: window.devicePixelRatio,
       }));
     };
-    window
-      .matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
-      .addEventListener("change", handleChange, { once: true });
+    const query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    query.addEventListener("change", handleChange, { once: true });
+    return () => query.removeEventListener("change", handleChange);
   }, [dpr]);
 
   // We want to trigger a re-render when the window is focused or blurred to ensure
@@ -134,39 +130,40 @@ export const Canvas = ({
     };
     window.addEventListener("focus", handler);
     window.addEventListener("blur", handler);
+    return () => {
+      window.removeEventListener("focus", handler);
+      window.removeEventListener("blur", handler);
+    };
   }, [setState]);
 
-  const refCallback = useCallback(
-    (el: HTMLCanvasElement | null) => {
-      if (el == null) return;
+  const refCallback = (el: HTMLCanvasElement | null) => {
+    if (el == null) return;
 
-      if (el.className.includes("gl")) canvases.current.gl = el;
-      else if (el.className.includes("upper2d")) canvases.current.upper2d = el;
-      else canvases.current.lower2d = el;
-      const { gl, lower2d, upper2d, bootstrapped } = canvases.current;
+    if (el.className.includes("gl")) canvases.current.gl = el;
+    else if (el.className.includes("upper2d")) canvases.current.upper2d = el;
+    else canvases.current.lower2d = el;
+    const { gl, lower2d, upper2d, bootstrapped } = canvases.current;
 
-      if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
+    if (gl == null || lower2d == null || upper2d == null || bootstrapped) return;
 
-      canvases.current.bootstrapped = true;
-      const glCanvas = gl.transferControlToOffscreen();
-      const upper2dCanvas = upper2d.transferControlToOffscreen();
-      const lower2dCanvas = lower2d.transferControlToOffscreen();
-      setState(
-        {
-          glCanvas,
-          upper2dCanvas,
-          lower2dCanvas,
-          bootstrap: true,
-          bootstrapped: false,
-          region: box.construct(gl),
-          dpr: window.devicePixelRatio,
-          os: runtime.getOS({ default: "Windows" }),
-        },
-        [glCanvas, upper2dCanvas, lower2dCanvas],
-      );
-    },
-    [setState],
-  );
+    canvases.current.bootstrapped = true;
+    const glCanvas = gl.transferControlToOffscreen();
+    const upper2dCanvas = upper2d.transferControlToOffscreen();
+    const lower2dCanvas = lower2d.transferControlToOffscreen();
+    setState(
+      {
+        glCanvas,
+        upper2dCanvas,
+        lower2dCanvas,
+        bootstrap: true,
+        bootstrapped: false,
+        region: box.construct(gl),
+        dpr: window.devicePixelRatio,
+        os: runtime.getOS({ default: "Windows" }),
+      },
+      [glCanvas, upper2dCanvas, lower2dCanvas],
+    );
+  };
 
   return (
     <div
@@ -195,14 +192,8 @@ export const useRegion = (
   handler: UseResizeHandler,
   opts?: UseResizeOpts,
 ): RefCallback<HTMLDivElement> =>
-  useResize(
-    useCallback(
-      (b, el) => {
-        const canvas = document.querySelector(".pluto-canvas--lower2d");
-        if (canvas == null) return;
-        handler(scale.XY.translate(xy.scale(box.topLeft(canvas), -1)).box(b), el);
-      },
-      [handler],
-    ),
-    opts,
-  );
+  useResize((b, el) => {
+    const canvas = document.querySelector(".pluto-canvas--lower2d");
+    if (canvas == null) return;
+    handler(scale.XY.translate(xy.scale(box.topLeft(canvas), -1)).box(b), el);
+  }, opts);

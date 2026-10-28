@@ -18,7 +18,7 @@ from synnax.cli.console.protocol import (
     R,
     assign_default_ask_type,
 )
-from synnax.cli.console.rich import RichConsole
+from synnax.cli.console.rich import Rich
 
 
 class Entry(BaseModel, Generic[R]):
@@ -28,7 +28,7 @@ class Entry(BaseModel, Generic[R]):
     choices: list[R] | None = None
     default: R | None = None
     response: R | None = None
-    type_: type[R] | None = None
+    type_: type[str | int | float | bool] | None = None
     password: bool | None = None
 
 
@@ -57,7 +57,7 @@ class MockPrint:
         :param output: The output list to append entries to.
         """
         self.output = output
-        self.verbose = None if not verbose else RichConsole()
+        self.verbose = None if not verbose else Rich()
 
     def _(self) -> Print:
         return self
@@ -136,7 +136,7 @@ class MockPrompt:
         return response
 
 
-class MockConsole(MockPrint, MockPrompt):
+class Mock(MockPrint, MockPrompt):
     """A mock implementation of the Console protocol for testing purposes."""
 
     def __init__(

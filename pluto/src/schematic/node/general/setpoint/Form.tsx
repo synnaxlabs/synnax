@@ -14,12 +14,12 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
+import { Staleness } from "@/vis/staleness";
 
 export const colorFallbacks = {
   fillColor: Form.primaryFallback,
@@ -31,26 +31,30 @@ const SetpointTelemForm = ({ path }: { path: string }): ReactElement => {
       Pick<schematic.SetpointNodeConfig, "commandChannel" | "control" | "disabled">
     >(path);
   const handleSinkChange = (v: channel.Key | null): void => {
-    v ??= 0;
+    const commandChannel = v ?? 0;
     onChange({
       ...value,
-      commandChannel: v,
-      control: Control.reveal(value.control),
-      disabled: v == 0,
+      commandChannel,
+      disabled: commandChannel === 0,
     });
   };
 
   return (
     <Base.Sections x>
+      <Form.StateSection />
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />
         </Input.Item>
         <Form.ActivationDelayField />
         <Form.ControlChipField />
+      </Base.Section>
+      <Base.Section title="Staleness">
+        <Staleness.Fields />
       </Base.Section>
     </Base.Sections>
   );
@@ -66,6 +70,12 @@ export const SetpointForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />
           <Form.SizeField />
+          <Base.NumericField
+            path="inlineSize"
+            label="Width"
+            padHelpText={false}
+            inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+          />
           <Form.UnitsField />
         </Base.Section>
         <Orientation.Section path="" hideInner />

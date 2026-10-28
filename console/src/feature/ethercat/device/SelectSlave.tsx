@@ -9,15 +9,15 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
+import { HARDWARE } from "@/feature/ethercat/device/hardware";
 import { useCommonNetwork } from "@/feature/ethercat/device/queries";
 import {
   MAKE,
   SLAVE_MODEL,
   type SlaveProperties,
 } from "@/feature/ethercat/device/types";
-import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { type Channel } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 
@@ -37,20 +37,22 @@ export const SelectSlave = ({
 }: SelectSlaveProps): ReactElement => {
   const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
   const network = useCommonNetwork(channels);
-  const configure = useConfigureModal();
-  const filter = useCallback(
-    (d: device.Device) => filterByNetwork(d, network),
-    [network],
-  );
+  const configure = Device.useConfigureModal();
+  const find = Device.useFindModal();
+  const filter = (d: device.Device) => filterByNetwork(d, network);
   return (
     <Device.Select
       path={path}
       label="Slave device"
-      onConfigure={(deviceKey) => configure({ deviceKey })}
+      onConfigure={(deviceKey) => configure({ deviceKey, hardware: HARDWARE })}
       emptyContent="No EtherCAT slaves discovered"
       make={MAKE}
       model={SLAVE_MODEL}
       filter={filter}
+      connect={{
+        title: HARDWARE.title,
+        open: () => find({ hardware: HARDWARE, filter }),
+      }}
     />
   );
 };

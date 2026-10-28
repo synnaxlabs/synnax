@@ -1,65 +1,98 @@
 ---
 layout: "@/layouts/Reference.astro"
-title: "Writing data"
+title: "Write data"
 description:
-  "Learn how to write data to channels in Synnax, including real-time streaming and
-  historical writes."
-next: "Auto-commit"
-nextURL: "/reference/client/advanced/auto-commit"
-prev: "Reading data"
-prevURL: "/reference/client/read-data"
+  "Write samples to channels with the Python and TypeScript clients: one-call writes,
+  writers, auto-commit, writer modes, auto-index, and the rules of writes."
 clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Fragment } from "react";
 import { Client } from "@/components/client";
+import { Diagram } from "@/components/diagram";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-This guide covers writing data to Synnax channels. For live data acquisition, using a
-Writer is the recommended approach. Historical writes are useful for backfilling data or
-ingesting data from files.
+Write samples that you already have in one call. To write samples as they arrive, open a
+writer. Every write must obey [the rules of writes](#the-rules-of-writes).
 
-If you'd like a conceptual overview of how writes work in Synnax, check out the
-[writes concepts guide](/reference/concepts/writes). The
-[rules of writes](/reference/concepts/writes#rules-of-writes) are especially important
-to understand.
+The examples on this page use an index channel `time` and a data channel `temperature`
+that `time` indexes. To create channels like these, see
+[Create channels](/reference/channels/create).
 
 <Divider.Divider x />
 
-## Writing with writers
+## Write samples in one call
 
-Writers are designed for streaming data as it's acquired. This is the recommended
-approach for live data acquisition, control sequences, and real-time data processing.
-Writers maintain a file-like interface governed by transactions. To learn more about
-transactions and how writes work in Synnax, see the
-[concepts](/reference/concepts/writes) page.
+`write` stores samples that you already have, such as data from a file:
 
-### Opening a writer
-
-To open a writer, use the <Client.Var py="open_writer" ts="openWriter" /> method with a
-starting timestamp and a list of channels to write to.
-
-<Client.Tabs exclude={["cpp","console"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```python
-# Python's context manager is recommended
+import synnax as sy
+
+start = sy.TimeStamp.now()
+client.write(
+    start,
+    {
+        "time": [start + sy.TimeSpan.SECOND * i for i in range(5)],
+        "temperature": [22.5, 22.6, 22.8, 23.1, 23.0],
+    },
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
+
+const start = TimeStamp.now();
+await client.write(start, {
+  time: [0, 1, 2, 3, 4].map((i) => start.add(TimeSpan.seconds(i))),
+  temperature: [22.5, 22.6, 22.8, 23.1, 23.0],
+});
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+`start` is the timestamp of the first sample. The write fails when any of the channels
+already has data in the time range of the samples.
+
+Each call opens a writer, writes, and closes the writer. Streamers do not get these
+samples. Do not call `write` in a loop to send live data: each call is a full round trip
+to the Core. Use a writer instead.
+
+<Divider.Divider x />
+
+## Write with a writer
+
+A writer stays open and writes many frames to its channels. Open it with a start
+timestamp and the channels it writes to:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
 with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
 ) as writer:
     for i in range(100):
-        writer.write({
-            "time": sy.TimeStamp.now(),
-            "temperature": i * 0.1,
-        })
+        writer.write({"time": sy.TimeStamp.now(), "temperature": 20 + i * 0.1})
         sy.sleep(0.1)
-    writer.commit()
 ```
+
+The `with` block closes the writer, also when the code raises an error.
 
   </Fragment>
 
@@ -70,45 +103,220 @@ const writer = await client.openWriter({
   start: TimeStamp.now(),
   channels: ["time", "temperature"],
 });
-
 try {
-  for (let i = 0; i < 100; i++)
-    await writer.write({ time: TimeStamp.now(), temperature: i * 0.1 });
-  await writer.commit();
+  for (let i = 0; i < 100; i++) {
+    await writer.write({ time: TimeStamp.now(), temperature: 20 + i * 0.1 });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+} finally {
+  await writer.close();
+}
+```
+
+The `finally` block closes the writer, also when the code throws an error.
+
+  </Fragment>
+
+</Client.Tabs>
+
+This writer sends one sample to each channel every 100 milliseconds. A writer can stay
+open for days.
+
+The writer sends samples to the Core, which stores them and sends them to streamers. The
+writer mode sets which of the two the Core does:
+
+<Diagram.Block
+  title="A writer sends samples to the Core. In persist mode, the Core stores them for reads. In stream mode, the Core sends them to streamers. The default mode does both."
+  nodes={[
+    {
+      key: "writer",
+      label: "Writer",
+      caption: "your code",
+      icon: Icon.Edit,
+      column: 0,
+    },
+    { key: "core", label: "Core", icon: Icon.Core, column: 1 },
+    {
+      key: "stored",
+      label: "Stored data",
+      caption: "persist",
+      icon: Icon.Range,
+      column: 2,
+    },
+    {
+      key: "streamers",
+      label: "Streamers",
+      caption: "stream",
+      icon: Icon.LinePlot,
+      column: 2,
+    },
+  ]}
+  edges={[
+    { from: "writer", to: "core" },
+    { from: "core", to: "stored" },
+    { from: "core", to: "streamers" },
+  ]}
+/>
+
+### Write formats
+
+`write` takes the samples in several shapes. When a write holds samples for one channel
+of an index, it must hold samples for all the channels of the writer that share that
+index, as [Rule 1](#rule-1) says.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+import numpy as np
+import pandas as pd
+
+now = sy.TimeStamp.now()
+
+# One sample for each channel.
+writer.write({"time": now, "temperature": 22.5})
+
+# Many samples, as lists or NumPy arrays.
+writer.write({
+    "time": [now, now + sy.TimeSpan.SECOND],
+    "temperature": np.array([22.5, 22.6], dtype=np.float32),
+})
+
+# A list of channels and a list of samples.
+writer.write(["time", "temperature"], [[now], [22.5]])
+
+# A DataFrame, with one column for each channel.
+writer.write(pd.DataFrame({"time": [now], "temperature": [22.5]}))
+
+# A frame.
+writer.write(sy.Frame({"time": [now], "temperature": [22.5]}))
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { Frame, Series } from "@synnaxlabs/client";
+
+const now = TimeStamp.now();
+
+// One sample for each channel.
+await writer.write({ time: now, temperature: 22.5 });
+
+// Many samples.
+await writer.write({
+  time: [now, now.add(TimeSpan.SECOND)],
+  temperature: [22.5, 22.6],
+});
+
+// A list of channels and a list of samples.
+await writer.write(["time", "temperature"], [[now], [22.5]]);
+
+// A frame. Typed arrays are the fastest way to write many samples. Their type
+// must match the data type of the channel.
+await writer.write(
+  new Frame({
+    time: new Series({
+      data: new BigInt64Array([now.valueOf()]),
+      dataType: "timestamp",
+    }),
+    temperature: new Series(new Float32Array([22.5])),
+  }),
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+Channels with the `string` or `json` data type take strings and objects in the same
+writes. For more about frames, see
+[Series and frames](/reference/client/series-and-frames).
+
+### Errors
+
+`write` does not wait for the Core. When the Core rejects a write, the next call to
+`write`, `commit`, or `close` raises the error. After an error, the writer accepts no
+more writes: close it, and open a new writer.
+
+<Divider.Divider x />
+
+## Auto-commit
+
+A commit makes written samples available to reads. By default, a writer commits after
+each write.
+
+To make a group of writes available together, turn auto-commit off and call `commit`
+after the group. `commit` waits for the Core and returns the end of the committed time
+range. Samples that you did not commit are lost when the writer closes.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    enable_auto_commit=False,
+) as writer:
+    for path in files:
+        for frame in read_chunks(path):
+            writer.write(frame)
+        writer.commit()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  enableAutoCommit: false,
+});
+try {
+  for (const path of files) {
+    for await (const frame of readChunks(path)) await writer.write(frame);
+    await writer.commit();
+  }
 } finally {
   await writer.close();
 }
 ```
 
   </Fragment>
+
 </Client.Tabs>
 
-These examples write 100 samples to the `temperature` channel, each spaced roughly 100ms
-apart, and commit all writes when finished. It's typical to write and commit millions of
-samples over the course of hours or days, intermittently calling commit to persist data
-to the cluster.
+Here, `files` and <Client.Var py="read_chunks" ts="readChunks" /> stand for your own
+code. Each file becomes available to reads when its commit returns.
 
-<Note.Note variant="info" className="compact">
-  For advanced writer configuration, see
-  [Auto-Commit](/reference/client/advanced/auto-commit),
-  [Auto-Index](/reference/client/advanced/auto-index), and [Write
-  Authorities](/reference/client/advanced/write-authorities).
-</Note.Note>
+Do not commit after each small write: each `commit` waits for a round trip to the Core.
+Commit every few seconds, or keep auto-commit on.
 
-### Persistence/streaming mode
+With auto-commit on, the Core saves its index of the samples to disk at most once per
+interval. The <Client.Var py="auto_index_persist_interval" ts="autoIndexPersistInterval"
+/> option sets the interval, which is one second by default. When the Core stops without
+warning, it can lose the samples of the last interval.
 
-By default, writers are opened in stream and persist
-[mode](/reference/concepts/writes#writer-modes). To change the mode of a writer, specify
-the `mode` argument when opening the writer. The available modes are:
+<Divider.Divider x />
 
-- `persist` - Only persist data to the database (no streaming to subscribers)
-- `stream` - Only stream data to subscribers (no persistence)
-- <Client.Var py="persist_stream" ts="persistStream" /> - Both persist and stream
-  (default)
+## Writer modes
 
-For example, to open a writer that only persists data:
+Set <Client.Var py="mode" ts="mode" /> when you open the writer:
 
-<Client.Tabs exclude={["cpp","console"]}>
+- `persist` -> the Core stores the samples, but does not send them to streamers. Use it
+  for historical data.
+- `stream` -> the Core sends the samples to streamers, but does not store them. `commit`
+  has no effect. Use it for data that you need only live.
+- <Client.Var py="persist_stream" ts="persistStream" /> -> the Core stores the samples
+and sends them to streamers. This is the default.
+
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
@@ -133,522 +341,32 @@ const writer = await client.openWriter({
 ```
 
   </Fragment>
-</Client.Tabs>
 
-### Writing data
-
-The `write` method accepts several argument formats. Use the one that best fits your use
-case.
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-# Write a single sample for a channel
-writer.write("temperature", 25.5)
-
-# Write multiple samples for a channel
-writer.write("temperature", [25.5, 26.0, 26.5])
-
-# Write a single sample for several channels
-writer.write({
-    "time": sy.TimeStamp.now(),
-    "temperature": 25.5,
-})
-
-# Write multiple samples using lists or numpy arrays
-import numpy as np
-start = sy.TimeStamp.now()
-writer.write({
-    "time": [start, start + sy.TimeSpan.SECOND],
-    "temperature": np.array([25.5, 26.0], dtype=np.float32),
-})
-
-# Write using a list of channels and corresponding series
-writer.write(
-    ["time", "temperature"],
-    [timestamps, temperatures],
-)
-
-# Write a pandas DataFrame
-import pandas as pd
-df = pd.DataFrame({
-    "time": [sy.TimeStamp.now(), sy.TimeStamp.now() + sy.TimeSpan.SECOND],
-    "temperature": [25.5, 26.0],
-})
-writer.write(df)
-
-# Write a Synnax Frame
-frame = sy.Frame({ "time": timestamps, "temperature": temperatures })
-writer.write(frame)
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-import { Frame, Series, TimeSpan, TimeStamp } from "@synnaxlabs/client";
-
-// Write a single sample for a channel
-await writer.write("temperature", 25.5);
-
-// Write multiple samples for a channel
-await writer.write("temperature", [25.5, 26.0, 26.5]);
-
-// Write a single sample for several channels
-await writer.write({
-  time: TimeStamp.now(),
-  temperature: 25.5,
-});
-
-// Write multiple samples using arrays
-const start = TimeStamp.now();
-await writer.write({
-  time: [start, start.add(TimeSpan.seconds(1))],
-  temperature: [25.5, 26.0],
-});
-
-// Write using a list of channels and corresponding series
-await writer.write(["time", "temperature"], [timestamps, temperatures]);
-
-// Write a Frame with typed arrays (high-performance)
-const now = TimeStamp.now();
-await writer.write(
-  new Frame({
-    [timeChannel.key]: new Series({
-      data: new BigInt64Array([now.valueOf(), now.add(TimeSpan.seconds(1)).valueOf()]),
-    }),
-    [tempChannel.key]: new Series({
-      data: new Float32Array([25.5, 26.0]),
-    }),
-  }),
-);
-```
-
-  </Fragment>
-</Client.Tabs>
-
-### Writing variable-length data
-
-Strings, JSON, and bytes are written through the same writer API as fixed-width samples.
-The channel's data type determines how the writer encodes each value.
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["event_time", "event_log"],
-) as writer:
-    writer.write({
-        "event_time": [sy.TimeStamp.now(), sy.TimeStamp.now() + sy.TimeSpan.SECOND],
-        "event_log": ["startup complete", "tank pressurized"],
-    })
-    writer.commit()
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-const writer = await client.openWriter({
-  start: TimeStamp.now(),
-  channels: ["event_time", "event_log"],
-});
-try {
-  await writer.write({
-    event_time: [TimeStamp.now(), TimeStamp.now().add(TimeSpan.seconds(1))],
-    event_log: ["startup complete", "tank pressurized"],
-  });
-  await writer.commit();
-} finally {
-  await writer.close();
-}
-```
-
-  </Fragment>
-</Client.Tabs>
-
-JSON channels accept and return native objects. Bytes channels accept any Python `bytes`
-value or TypeScript `Uint8Array`. Variable-length channels can share a writer with
-fixed-width channels and a common index, so a single `write` call can commit timestamps,
-numeric samples, and string or JSON annotations together.
-
-### Closing a writer
-
-After you're done writing, it's essential to close the writer to release network
-connections and other resources. If a writer is not closed, other writers may not be
-able to write to the same channels.
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-writer.close()
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-await writer.close();
-```
-
-  </Fragment>
-</Client.Tabs>
-
-Using structured cleanup patterns ensures the writer is always closed, even if an
-exception is thrown.
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-# Python's context manager is the recommended approach
-with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["time", "temperature"],
-) as writer:
-    # Write data here
-
-# Alternatively, use a try/finally block
-writer = client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["time", "temperature"],
-)
-try:
-    # Write data here
-finally:
-    writer.close()
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-// TypeScript's try/finally block is the recommended approach
-
-const writer = await client.openWriter({
-  start: TimeStamp.now(),
-  channels: ["time", "temperature"],
-});
-
-try {
-  for (let i = 0; i < 100; i++)
-    await writer.write({ time: TimeStamp.now(), temperature: i * 0.1 });
-
-  await writer.commit();
-} finally {
-  await writer.close();
-}
-```
-
-  </Fragment>
 </Client.Tabs>
 
 <Divider.Divider x />
 
-## Historical writes
+## Write without timestamps
 
-Historical writes are useful for backfilling data, ingesting data from files, or writing
-data at specific timestamps that have already passed.
+With <Client.Var py="auto_index" ts="autoIndex" /> on, the Core makes the timestamps.
+Each write that leaves out the index channel gets the time at which the Core receives
+it. The samples in one write are 1 nanosecond apart. When the writer is also open on the
+index channel, a write that includes it uses your timestamps.
 
-<Note.Note variant="warning" className="compact">
-  These patterns should NOT be used for live writing to Synnax. Opening and closing
-  transactions for each sample has severe performance implications. For live data
-  writing, always use a Writer as described above.
-</Note.Note>
-
-### Writing to a channel
-
-<Client.Tabs exclude={["console", "cpp"]}>
+<Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```python
-start = sy.TimeStamp.now()
-times = [
-    start,
-    start + 1 * sy.TimeSpan.MINUTE,
-    start + 2 * sy.TimeSpan.MINUTE,
-    start + 3 * sy.TimeSpan.MINUTE,
-    start + 4 * sy.TimeSpan.MINUTE,
-]
-temperatures = [55, 55.1, 55.7, 57.2, 58.1]
-
-# Write the timestamps to the index
-time_channel.write(start, times)
-
-# Write the data to the channel
-temp_channel.write(start, temperatures)
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-const start = TimeStamp.now();
-const timestamps = new BigInt64Array([
-  start.valueOf(),
-  start.add(TimeSpan.seconds(1)).valueOf(),
-  start.add(TimeSpan.seconds(2)).valueOf(),
-  start.add(TimeSpan.seconds(3)).valueOf(),
-  start.add(TimeSpan.seconds(4)).valueOf(),
-]);
-const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
-
-// Write the timestamps to the index first
-await timeChannel.write(start, timestamps);
-
-// Then write the data
-await tempChannel.write(start, temperatures);
-```
-
-  </Fragment>
-
-</Client.Tabs>
-
-#### Index and data alignment
-
-Notice how the two arrays are aligned using the common `start` timestamp. This tells
-Synnax that the first sample in the `temperatures` array is associated with the first
-timestamp in the `timestamps` array.
-
-Synnax will raise a `ValidationError` if the index channel does not contain a
-corresponding timestamp for every sample in the data channel. After all, it wouldn't
-make sense to have a temperature reading without an associated timestamp.
-
-### Writing multiple data channels
-
-It's common to have multiple data channels that share the same index. For example, a
-weather station might record temperature, humidity, and pressure all at the same
-timestamps.
-
-#### Single time index
-
-When writing a single sample to multiple channels at the same instant, use a dictionary
-with scalar values.
-
-<Client.Tabs exclude={["console", "cpp"]}>
-
-  <Fragment slot="python">
-
-```python
-now = sy.TimeStamp.now()
-
-# Write a single sample to multiple channels
-client.write(now, {
-    "time": now,
-    "temperature": 22.5,
-    "humidity": 45.0,
-    "pressure": 1013.2,
-})
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-const now = TimeStamp.now();
-
-// Write a single sample to multiple channels
-await client.write(now, {
-  time: now,
-  temperature: 22.5,
-  humidity: 45.0,
-  pressure: 1013.2,
-});
-```
-
-  </Fragment>
-
-</Client.Tabs>
-
-#### Multiple time indices
-
-When writing multiple samples over time, use arrays for both the timestamps and data
-values.
-
-<Client.Tabs exclude={["console", "cpp"]}>
-
-  <Fragment slot="python">
-
-```python
-start = sy.TimeStamp.now()
-timestamps = [
-    start,
-    start + 1 * sy.TimeSpan.SECOND,
-    start + 2 * sy.TimeSpan.SECOND,
-    start + 3 * sy.TimeSpan.SECOND,
-    start + 4 * sy.TimeSpan.SECOND,
-]
-temperatures = [22.5, 22.6, 22.8, 23.1, 23.0]
-humidities = [45.0, 45.2, 45.1, 44.8, 44.9]
-pressures = [1013.2, 1013.3, 1013.1, 1013.0, 1012.9]
-
-# Write all channels in a single call
-client.write(start, {
-    "time": timestamps,
-    "temperature": temperatures,
-    "humidity": humidities,
-    "pressure": pressures,
-})
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-const start = TimeStamp.now();
-const timestamps = new BigInt64Array([
-  start.valueOf(),
-  start.add(TimeSpan.seconds(1)).valueOf(),
-  start.add(TimeSpan.seconds(2)).valueOf(),
-  start.add(TimeSpan.seconds(3)).valueOf(),
-  start.add(TimeSpan.seconds(4)).valueOf(),
-]);
-const temperatures = new Float32Array([22.5, 22.6, 22.8, 23.1, 23.0]);
-const humidities = new Float32Array([45.0, 45.2, 45.1, 44.8, 44.9]);
-const pressures = new Float32Array([1013.2, 1013.3, 1013.1, 1013.0, 1012.9]);
-
-// Write all channels in a single call
-await client.write(start, {
-  time: timestamps,
-  temperature: temperatures,
-  humidity: humidities,
-  pressure: pressures,
-});
-```
-
-  </Fragment>
-
-</Client.Tabs>
-
-All data channels use the same `start` timestamp for alignment, which tells Synnax they
-share the same index. The arrays must all have the same length as the timestamps array.
-
-<Divider.Divider x />
-
-## Common pitfalls
-
-There are several common pitfalls to avoid when writing data to Synnax. These can lead
-to performance degradation and/or control issues.
-
-### Using many individual write calls instead of a writer
-
-When writing large volumes of data in a streaming fashion (or in batches), use a writer
-instead of making individual write calls to a channel. Calls to `write` on a channel use
-an entirely new transaction for each call - constantly creating, committing, and closing
-transactions has a dramatic impact on performance.
-
-<span style={{ color: "red" }}>**Avoid this pattern**</span> - Writing directly to
-channels in a loop:
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-time = client.channels.retrieve("time")
-temperature = client.channels.retrieve("temperature")
-
-for i in range(100):
-    ts = sy.TimeStamp.now()
-    time.write(ts, ts)
-    temperature.write(ts, i * 0.1)
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-const time = await client.channels.retrieve("time");
-const temperature = await client.channels.retrieve("temperature");
-for (let i = 0; i < 100; i++) {
-  const ts = TimeStamp.now();
-  await time.write(ts, ts);
-  await temperature.write(ts, i * 0.1);
-}
-```
-
-  </Fragment>
-</Client.Tabs>
-
-<span style={{ color: "red" }}>**Also avoid this pattern**</span> - Opening and closing
-a writer for every write:
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-for i in range(100):
-    # Open/close writer each iteration
-    with client.open_writer(
-        start=sy.TimeStamp.now(),
-        channels=["time", "temperature"],
-    ) as writer:
-        sy.sleep(0.1)
-        writer.write({
-            "time": sy.TimeStamp.now(),
-            "temperature": i * 0.1,
-        })
-```
-
-  </Fragment>
-
-  <Fragment slot="typescript">
-
-```typescript
-for (let i = 0; i < 100; i++) {
-  const writer = await client.openWriter({
-    start: TimeStamp.now(),
-    channels: ["time", "temperature"],
-  });
-  await writer.write({
-    time: TimeStamp.now(),
-    temperature: i * 0.1,
-  });
-  await writer.close();
-}
-```
-
-  </Fragment>
-</Client.Tabs>
-
-<span style={{ color: "green" }}>**Recommended approach**</span> - Repeatedly call
-`write` on a single writer:
-
-<Client.Tabs exclude={["cpp","console"]}>
-
-  <Fragment slot="python">
-
-```python
-# Open/close the writer once
 with client.open_writer(
-    start=sy.TimeStamp.now(),
-    channels=["time", "temperature"],
+    start=0,
+    channels=["temperature"],
+    auto_index=True,
 ) as writer:
-    sy.sleep(0.1)
-    for i in range(100):
-        writer.write({
-            "time": sy.TimeStamp.now(),
-            "temperature": i * 0.1,
-        })
+    writer.write({"temperature": 22.5})
 ```
+
+`start` is required. With `start=0`, the Core uses the current time.
 
   </Fragment>
 
@@ -656,19 +374,235 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
-  channels: ["time", "temperature"],
+  channels: ["temperature"],
+  autoIndex: true,
 });
 try {
-  for (let i = 0; i < 100; i++)
-    await writer.write({
-      time: TimeStamp.now(),
-      temperature: i * 0.1,
-    });
+  await writer.write("temperature", 22.5);
 } finally {
   await writer.close();
 }
 ```
 
+With no `start`, the Core uses the current time.
+
   </Fragment>
+
 </Client.Tabs>
+
+The writer adds the index channel of `temperature` by itself. The timestamps include the
+time that a sample takes to reach the Core. For sensor data, send the time at which you
+read each sample.
+
+<Divider.Divider x />
+
+## Writer options
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+<Field.List>
+
+<Field.Item name="start" id="python-start" type="TimeStamp">
+  The timestamp of the first sample. The writer fails when a channel already has data in
+  the time range that it writes.
+</Field.Item>
+
+<Field.Item name="channels" id="python-channels" type="list[str] | list[int]">
+  The names or keys of the channels to write to.
+</Field.Item>
+
+<Field.Item name="mode" id="python-mode" type="str" default="persist_stream">
+  `persist`, `stream`, or `persist_stream`. See [writer modes](#writer-modes).
+</Field.Item>
+
+<Field.Item
+  name="enable_auto_commit"
+  id="python-enable-auto-commit"
+  type="bool"
+  default="True"
+>
+  Commit after each write. See [auto-commit](#auto-commit).
+</Field.Item>
+
+<Field.Item
+  name="auto_index_persist_interval"
+  id="python-auto-index-persist-interval"
+  type="TimeSpan"
+  default="1 s"
+>
+  With auto-commit on, how often the Core saves its index of the samples to disk.
+</Field.Item>
+
+<Field.Item name="auto_index" id="python-auto-index" type="bool" default="False">
+  The Core makes the timestamps. See [write without
+  timestamps](#write-without-timestamps).
+</Field.Item>
+
+<Field.Item
+  name="authorities"
+  id="python-authorities"
+  type="int | list[int]"
+  default="255"
+>
+  The [control authority](/reference/control/authority) of the writer, for all channels
+  or one value for each channel.
+</Field.Item>
+
+<Field.Item name="name" id="python-name" type="str">
+  The name of the writer in the control state of its channels. The Console shows it.
+</Field.Item>
+
+<Field.Item
+  name="err_on_unauthorized"
+  id="python-err-on-unauthorized"
+  type="bool"
+  default="False"
+>
+  Fail to open when another writer controls one of the channels. When false, the writer
+  opens, and the Core drops its writes to channels that it does not control, with no
+  error.
+</Field.Item>
+
+<Field.Item name="strict" id="python-strict" type="bool" default="False">
+  Fail when the data type of the samples does not match the channel. When false, the
+  writer converts the samples.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<Field.List>
+
+<Field.Item name="start" id="typescript-start" type="TimeStamp">
+  The timestamp of the first sample. The writer fails when a channel already has data in
+  the time range that it writes. Required unless `autoIndex` is on.
+</Field.Item>
+
+<Field.Item name="channels" id="typescript-channels" type="string[] | number[]">
+  The names or keys of the channels to write to.
+</Field.Item>
+
+<Field.Item name="mode" id="typescript-mode" type="string" default="persistStream">
+  `persist`, `stream`, or `persistStream`. See [writer modes](#writer-modes).
+</Field.Item>
+
+<Field.Item
+  name="enableAutoCommit"
+  id="typescript-enable-auto-commit"
+  type="boolean"
+  default="true"
+>
+  Commit after each write. See [auto-commit](#auto-commit).
+</Field.Item>
+
+<Field.Item
+  name="autoIndexPersistInterval"
+  id="typescript-auto-index-persist-interval"
+  type="TimeSpan"
+  default="1 s"
+>
+  With auto-commit on, how often the Core saves its index of the samples to disk.
+</Field.Item>
+
+<Field.Item name="autoIndex" id="typescript-auto-index" type="boolean" default="false">
+  The Core makes the timestamps. See [write without
+  timestamps](#write-without-timestamps).
+</Field.Item>
+
+<Field.Item
+  name="authorities"
+  id="typescript-authorities"
+  type="number | number[]"
+  default="255"
+>
+  The [control authority](/reference/control/authority) of the writer, for all channels
+  or one value for each channel.
+</Field.Item>
+
+<Field.Item name="controlSubject" id="typescript-control-subject" type="object">
+  The `name` and `key` of the writer in the control state of its channels. The Console
+  shows the name.
+</Field.Item>
+
+<Field.Item
+  name="errOnUnauthorized"
+  id="typescript-err-on-unauthorized"
+  type="boolean"
+  default="false"
+>
+  Fail to open when another writer controls one of the channels. When false, the writer
+  opens, and the Core drops its writes to channels that it does not control, with no
+  error.
+</Field.Item>
+
+</Field.List>
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## The rules of writes
+
+The Core rejects a write that breaks one of these rules. Rules 1 and 2 do not apply to
+[virtual channels](/reference/channels#virtual-channels), which store no data.
+
+### Rule 1
+
+In one write, an index channel and each of its data channels must have the same number
+of samples, and each channel of the writer that shares the index must be in the write.
+
+Here, `temperature` and `pressure` are data channels that `time` indexes, and a writer
+is open on all three. This write is valid:
+
+```jsonc
+{
+  "time": [1791028800000000000, 1791028800100000000, 1791028800200000000],
+  "temperature": [19.17, 19.18, 19.19],
+  "pressure": [16.22, 17.22, 18.22],
+}
+```
+
+These writes are not valid:
+
+```jsonc
+{
+  "time": [1791028800000000000, 1791028800100000000, 1791028800200000000],
+  "temperature": [19.17, 19.18, 19.19],
+  // One sample is missing.
+  "pressure": [16.22, 17.22],
+}
+```
+
+```jsonc
+{
+  "time": [1791028800000000000, 1791028800100000000, 1791028800200000000],
+  "temperature": [19.17, 19.18, 19.19],
+  // The pressure channel is missing.
+}
+```
+
+### Rule 2
+
+Write to an index channel before or together with its data channels.
+
+A writer that is open on `time` and `temperature` must write `time` in each write,
+unless auto-index is on. To write only `temperature`, open a writer on `temperature`
+alone after the timestamps are in `time`, with `start` at the first of those timestamps.
+Use this to calculate a new channel from stored data with the same index.
+
+### What the rules mean for your channels
+
+All data channels that share an index must have samples at the same times, so they must
+have the same sample rate. Give a channel with a different rate its own index.
+
+[Command channels](/reference/hardware/tasks#command-channels) usually need their own
+index too. You often write one command at a time, such as to open one valve, wait, and
+open a second valve. Commands that do not have the same timestamps cannot share an
+index.

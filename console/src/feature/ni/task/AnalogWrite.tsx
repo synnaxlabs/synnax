@@ -13,11 +13,11 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import * as Device from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -90,16 +90,13 @@ const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (ch: AOChannel) => {
-      if (dev == null) return null;
-      const pair =
-        dev.properties.analogOutput.channels[ch.port.toString()] ??
-        PlatformDevice.ZERO_COMMAND_STATE_PAIR;
-      return { cmdChannel: pair.command, stateChannel: pair.state };
-    },
-    [dev],
-  );
+  const resolve = (ch: AOChannel) => {
+    if (dev == null) return null;
+    const pair =
+      dev.properties.analogOutput.channels[ch.port.toString()] ??
+      PlatformDevice.ZERO_COMMAND_STATE_PAIR;
+    return { cmdChannel: pair.command, stateChannel: pair.state };
+  };
   return (
     <Task.Views.ListAndDetails<AOChannel>
       listItem={channelListItem}
@@ -127,7 +124,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -220,7 +217,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair = dev.properties.analogOutput.channels[c.port.toString()];

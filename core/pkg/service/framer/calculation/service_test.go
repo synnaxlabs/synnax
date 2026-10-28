@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -112,24 +111,20 @@ var _ = Describe("Calculation", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		dist = mock.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    groupSvc,
 			Ontology: otg,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      dist.Channel,
@@ -137,7 +132,6 @@ var _ = Describe("Calculation", Ordered, func() {
 			HostProvider: dist.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
@@ -766,6 +760,53 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 	})
 
+	Describe("Requests", func() {
+		It(
+			"Should calculate a source write issued right after the request",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				calc := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", base.Name),
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  channel.Keys{base.Key()},
+				}))
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				s := MustSucceed(dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        channel.Keys{calc.Key()},
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				defer cancel()
+				_, outlet := confluence.Attach(s, 1, 1)
+				s.Flow(sCtx)
+				Eventually(outlet.Outlet()).Should(Receive())
+				rm := c.OpenRequestManager()
+				Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+				defer func() { Expect(rm.Close(ctx)).To(Succeed()) }()
+				Expect(
+					w.Write(frame.NewUnary(base.Key(), telem.NewSeriesV[int64](1, 2))),
+				).To(BeTrue())
+				var res framer.StreamerResponse
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(
+					res.Frame.Get(calc.Key()).Series[0],
+				).To(telem.MatchSeriesDataV[int64](2, 4))
+			},
+		)
+	})
+
 	Describe("Calculation Status", func() {
 		Specify(
 			"Should persist error status on invalid expression request",
@@ -799,6 +840,9 @@ var _ = Describe("Calculation", Ordered, func() {
 					Entry(&st).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(st.Variant).To(Equal(status.VariantError))
+				Expect(st.Name).To(Equal(calc.Name))
+				Expect(st.Message).To(Equal("Failed to request calculation"))
+				Expect(st.Description).To(ContainSubstring(base.Name))
 				Expect(rm.Close(ctx)).To(Succeed())
 			},
 		)
@@ -840,6 +884,8 @@ var _ = Describe("Calculation", Ordered, func() {
 						Entry(&st).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(st.Variant).To(Equal(status.VariantError))
+					g.Expect(st.Message).To(Equal("Failed to compile calculation"))
+					g.Expect(st.Description).To(ContainSubstring(base.Name))
 				}).Should(Succeed())
 				Expect(rm.Close(ctx)).To(Succeed())
 			},

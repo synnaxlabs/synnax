@@ -14,7 +14,6 @@
 #include <string>
 
 #include "client/cpp/arc/types.gen.h"
-#include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
 
 #include "arc/cpp/graph/json.gen.h"
@@ -22,18 +21,6 @@
 #include "arc/cpp/text/json.gen.h"
 
 namespace synnax::arc {
-
-inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
-    return StatusDetails{
-        .running = parser.field<bool>("running"),
-    };
-}
-
-inline x::json::json StatusDetails::to_json() const {
-    x::json::json j;
-    j["running"] = this->running;
-    return j;
-}
 
 inline Arc Arc::parse(x::json::Parser parser) {
     return Arc{
@@ -43,7 +30,6 @@ inline Arc Arc::parse(x::json::Parser parser) {
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
         .program = parser.field<std::optional<::arc::program::Program>>("program"),
-        .status = parser.field<std::optional<Status>>("status"),
     };
 }
 
@@ -55,7 +41,6 @@ inline x::json::json Arc::to_json() const {
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
     if (this->program.has_value()) j["program"] = this->program->to_json();
-    if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
 

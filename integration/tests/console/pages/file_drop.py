@@ -25,7 +25,6 @@ from console.log import Log
 from console.page import ConsolePage
 from console.schematic.schematic import Schematic
 from console.table import Table
-from framework.run_dir import resolve_results_path
 from framework.utils import get_core_fixture_path, named_envelope_copy
 from x import random_name
 
@@ -104,11 +103,11 @@ class FileDrop(ConsoleCase):
         """Drop a non-JSON file and assert the failure surfaces."""
         self.log("Dropping a non-JSON file")
         file_name = f"drop_notes_{self.suffix}.txt"
-        path = resolve_results_path(file_name)
+        path = str(self.results_dir / file_name)
         with open(path, "w", encoding="utf-8") as f:
             f.write("not an envelope")
         self.console.layout.drop_files([path])
-        if not self.console.notifications.wait_for(f"Failed to import {file_name}"):
+        if not self.console.notifications.wait_for("Failed to import", name=file_name):
             raise AssertionError(
                 "Dropping a non-JSON file did not surface a failure notification"
             )

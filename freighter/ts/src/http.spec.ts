@@ -11,8 +11,7 @@ import { binary, url, zod } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { Unreachable } from "@/errors";
-import { HTTPClient } from "@/http";
+import { HTTPClient, Unreachable } from "@/index";
 
 const ENDPOINT = new url.URL({
   host: "127.0.0.1",
@@ -200,6 +199,25 @@ describe("http", () => {
       expect(decoded).toEqual({ id: 2, message: "hello" });
     });
 
+    test("sends a contentType encoding verbatim as the Accept header", async () => {
+      const stream = await client.download(
+        "/echo",
+        { id: 1, message: "hello" },
+        messageZ,
+        { encoding: { contentType: "application/json" } },
+      );
+      const decoded = await new Response(stream).json();
+      expect(decoded).toEqual({ id: 2, message: "hello" });
+    });
+
+    test("rejects a contentType the server cannot produce", async () => {
+      await expect(
+        client.download("/echo", {}, messageZ, {
+          encoding: { contentType: "application/vnd.unknown" },
+        }),
+      ).rejects.toThrow("Not Acceptable");
+    });
+
     test("params reach the server as a single JSON request param", async () => {
       const stream = await client.download(
         "/paramEcho",
@@ -233,6 +251,33 @@ describe("http", () => {
       await expect(
         client.download("/not-found", {}, messageZ, { encoding: "JSON" }),
       ).rejects.toThrow("Not Found");
+    });
+
+    const TRUNCATED = { encoding: { contentType: "application/x-truncated" } };
+
+    test("rejects with the error of an encoder that fails before it writes", async () => {
+      await expect(
+        client.download("/truncated", { id: 0, message: "ab" }, messageZ, TRUNCATED),
+      ).rejects.toThrow("truncating encoder failed partway");
+    });
+
+    test("rejects a body the server cuts short", async () => {
+      const read = async (): Promise<ArrayBuffer> => {
+        const stream = await client.download(
+          "/truncated",
+          { id: 1 << 14, message: "ab" },
+          messageZ,
+          TRUNCATED,
+        );
+        return await new Response(stream).arrayBuffer();
+      };
+      // The cut can land before fetch resolves the response or while the body is
+      // read, depending on how the bytes arrive.
+      await expect(read()).rejects.toSatisfy(
+        (e) =>
+          e instanceof Unreachable ||
+          (e instanceof TypeError && e.message === "terminated"),
+      );
     });
 
     test("unreachable", async () => {

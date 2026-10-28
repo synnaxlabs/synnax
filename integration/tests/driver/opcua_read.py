@@ -91,7 +91,7 @@ class OPCUAReadTimestamp(OPCUAReadTaskCase):
             sy.opcua.ReadChannel(
                 channel=idx.key,
                 node_id="NS=2;I=7",
-                data_type=sy.DataType("datetime"),
+                data_type=sy.DataType.TIMESTAMP,
                 is_index=True,
             ),
         ] + [

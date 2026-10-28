@@ -19,7 +19,6 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
@@ -42,92 +41,71 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   selectOnFocus: true,
 };
 
-const MODE_CLASS = CSS.BE("arc-create-modal", "mode-select-button");
+const Create = ({
+  initialValues,
+  close,
+}: Modals.ContentProps<CreateModalParams, CreateModalResult>) => {
+  const { form, save, variant } = Arc.useForm({
+    query: null,
+    initialValues: { ...Arc.ZERO_FORM_VALUES, ...initialValues },
+    afterSave: ({
+      value,
+    }: Flux.AfterSaveParams<Arc.FormQuery, typeof Arc.formSchema>) => {
+      const { key } = value();
+      if (key == null) throw new UnexpectedError("Arc key is null");
+      close({ key });
+    },
+  });
+
+  return (
+    <Modal.Frame className={CSS.B("arc-create-modal")}>
+      <Modal.Header icon={<Icon.Arc />}>Arc.Create</Modal.Header>
+      <Modal.Body>
+        <Form.Form<typeof Arc.formSchema> {...form}>
+          <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
+          <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
+            {({ value, onChange }) => (
+              <Select.Buttons value={value} onChange={onChange} variant="card" full="x">
+                <Select.Item itemKey="text">
+                  <Icon.Tile>
+                    <Icon.Text />
+                  </Icon.Tile>
+                  <Text.Text weight={500}>Text</Text.Text>
+                  <Text.Text color={9} level="small">
+                    Best for complex automations such as control sequences
+                  </Text.Text>
+                </Select.Item>
+                <Select.Item itemKey="graph">
+                  <Icon.Tile>
+                    <Icon.Schematic />
+                  </Icon.Tile>
+                  <Text.Text weight={500}>Graph</Text.Text>
+                  <Text.Text color={9} level="small">
+                    Best for simple automations such as alarms
+                  </Text.Text>
+                </Select.Item>
+              </Select.Buttons>
+            )}
+          </Form.Field>
+        </Form.Form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Nav.Bar.End align="center">
+          <Button.Button
+            status={status.keepVariants(variant, "loading")}
+            variant="filled"
+            onClick={() => save()}
+            trigger={Triggers.SAVE}
+            triggerIndicator
+          >
+            Create
+          </Button.Button>
+        </Nav.Bar.End>
+      </Modal.Footer>
+    </Modal.Frame>
+  );
+};
 
 export const useCreateModal = Modals.createPrompt<CreateModalResult, CreateModalParams>(
-  ({ initialValues, close }) => {
-    const { form, save, variant } = Arc.useForm({
-      query: null,
-      initialValues: useMemo(
-        () => ({ ...Arc.ZERO_FORM_VALUES, ...initialValues }),
-        [initialValues],
-      ),
-      afterSave: useCallback(
-        ({ value }: Flux.AfterSaveParams<Arc.FormQuery, typeof Arc.formSchema>) => {
-          const { key } = value();
-          if (key == null) throw new UnexpectedError("Arc key is null");
-          close({ key });
-        },
-        [close],
-      ),
-    });
-
-    return (
-      <Modal.Frame className={CSS.B("arc-create-modal")}>
-        <Modal.Header icon={<Icon.Arc />}>Arc.Create</Modal.Header>
-        <Modal.Body>
-          <Form.Form<typeof Arc.formSchema> {...form}>
-            <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
-            <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
-              {({ value, onChange }) => (
-                <Select.Buttons
-                  value={value}
-                  onChange={onChange}
-                  variant="outlined"
-                  pack={false}
-                  gap="tiny"
-                  x
-                  full="x"
-                >
-                  <Select.Item
-                    itemKey="text"
-                    className={MODE_CLASS}
-                    y
-                    grow
-                    alignSelf="stretch"
-                    justify="start"
-                  >
-                    <Text.Text>
-                      <Icon.Text /> Text
-                    </Text.Text>
-                    <Text.Text color={9} level="small" wrap overflow="wrap">
-                      Best for complex automations such as control sequences
-                    </Text.Text>
-                  </Select.Item>
-                  <Select.Item
-                    itemKey="graph"
-                    className={MODE_CLASS}
-                    y
-                    grow
-                    alignSelf="stretch"
-                    justify="start"
-                  >
-                    <Text.Text>
-                      <Icon.Schematic /> Graph
-                    </Text.Text>
-                    <Text.Text color={9} level="small" wrap overflow="wrap">
-                      Best for simple automations such as alarms
-                    </Text.Text>
-                  </Select.Item>
-                </Select.Buttons>
-              )}
-            </Form.Field>
-          </Form.Form>
-        </Modal.Body>
-        <Modal.Footer>
-          <Triggers.SaveHelpText action="Create" trigger={Triggers.SAVE} />
-          <Nav.Bar.End align="center">
-            <Button.Button
-              status={status.keepVariants(variant, "loading")}
-              variant="filled"
-              onClick={() => save()}
-              trigger={Triggers.SAVE}
-            >
-              Create
-            </Button.Button>
-          </Nav.Bar.End>
-        </Modal.Footer>
-      </Modal.Frame>
-    );
-  },
+  Create,
 );

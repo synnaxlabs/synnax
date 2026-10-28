@@ -83,6 +83,57 @@ var _ = Describe("Color", func() {
 				"  rgb(1,2,3)  ",
 				color.Color{R: 1, G: 2, B: 3, A: 1},
 			),
+			Entry(
+				"hsl red",
+				"hsl(0, 100%, 50%)",
+				color.Color{R: 255, G: 0, B: 0, A: 1},
+			),
+			Entry(
+				"hsl green",
+				"hsl(120,100%,50%)",
+				color.Color{R: 0, G: 255, B: 0, A: 1},
+			),
+			Entry(
+				"hsl yellow",
+				"hsl(60,100%,50%)",
+				color.Color{R: 255, G: 255, B: 0, A: 1},
+			),
+			Entry(
+				"hsl cyan",
+				"hsl(180,100%,50%)",
+				color.Color{R: 0, G: 255, B: 255, A: 1},
+			),
+			Entry(
+				"hsl blue",
+				"hsl(240,100%,50%)",
+				color.Color{R: 0, G: 0, B: 255, A: 1},
+			),
+			Entry(
+				"hsl magenta",
+				"hsl(300,100%,50%)",
+				color.Color{R: 255, G: 0, B: 255, A: 1},
+			),
+			Entry("hsl black", "hsl(0, 0%, 0%)", color.Color{R: 0, G: 0, B: 0, A: 1}),
+			Entry(
+				"hsl white",
+				"hsl(0, 0%, 100%)",
+				color.Color{R: 255, G: 255, B: 255, A: 1},
+			),
+			Entry(
+				"hsl wraps hue",
+				"hsl(480, 100%, 50%)",
+				color.Color{R: 0, G: 255, B: 0, A: 1},
+			),
+			Entry(
+				"hsl wraps negative hue",
+				"hsl(-120, 100%, 50%)",
+				color.Color{R: 0, G: 0, B: 255, A: 1},
+			),
+			Entry(
+				"hsla",
+				"hsla(0, 55%, 43%, 0)",
+				color.Color{R: 170, G: 49, B: 49, A: 0},
+			),
 		)
 
 		DescribeTable(
@@ -109,6 +160,19 @@ var _ = Describe("Color", func() {
 			Entry("too few channels", "rgb(1,2)", "must be a hex value"),
 			Entry("empty string", "", "must be a hex value"),
 			Entry("invalid hex", "#xyz", "invalid hex color"),
+			Entry(
+				"hsl with a 4th alpha channel",
+				"hsl(0,0%,0%,0.5)",
+				"hsl() takes 3 channels",
+			),
+			Entry("hsla missing alpha", "hsla(0,0%,0%)", "hsla() requires"),
+			Entry("hsla alpha above 1", "hsla(0,0%,0%,1.5)", "hsla alpha must be 0-1"),
+			Entry("hsla malformed alpha", "hsla(0,0%,0%,1.2.3)", "invalid hsl alpha"),
+			Entry("hsl malformed hue", "hsl(1.2.3,0%,0%)", "invalid hsl hue"),
+			Entry("hsl malformed saturation", "hsl(0,1.2.3%,0%)", "saturation must be"),
+			Entry("hsl saturation above 100", "hsl(0,101%,0%)", "saturation must be"),
+			Entry("hsl lightness above 100", "hsl(0,0%,101%)", "lightness must be"),
+			Entry("hsl without percent signs", "hsl(0,0,0)", "must be a hex value"),
 		)
 	})
 })

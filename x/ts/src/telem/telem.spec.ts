@@ -7,17 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, beforeEach, describe, expect, it, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
 
 import { binary } from "@/binary";
+import { math } from "@/math";
 import { primitive } from "@/primitive";
 import {
   convertDataType,
   type CrudeDataType,
   DataType,
   Density,
+  dynamicWindow,
   Rate,
+  resolveWindow,
   Size,
+  staticWindow,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -73,6 +77,29 @@ describe("TimeStamp", () => {
   test("construct from local TimeZone", () => {
     const ts = new TimeStamp(TimeSpan.microseconds(10), "local");
     expect(ts.equals(TimeSpan.microseconds(10).add(TimeStamp.utcOffset))).toBe(true);
+  });
+
+  test("construct from a bigint", () => {
+    expect(new TimeStamp(42n).valueOf()).toBe(42n);
+    expect(new TimeStamp(-5n).valueOf()).toBe(-5n);
+    expect(new TimeStamp(math.MAX_INT64 + 1n).valueOf()).toBe(math.MAX_INT64 + 1n);
+  });
+
+  describe("construct in the local time zone", () => {
+    beforeEach(() => {
+      vi.spyOn(TimeStamp, "utcOffset", "get").mockReturnValue(TimeSpan.hours(-6));
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    test("from a bigint", () => {
+      const ts = new TimeStamp(42n, "local");
+      expect(ts.valueOf()).toBe(42n - TimeSpan.hours(6).valueOf());
+    });
+
+    test("from a TimeStamp", () => {
+      const ts = new TimeStamp(new TimeStamp(42n), "local");
+      expect(ts.valueOf()).toBe(42n - TimeSpan.hours(6).valueOf());
+    });
   });
 
   test("constructing from MIN and MAX as numbers", () => {
@@ -1787,6 +1814,96 @@ describe("TimeRange", () => {
       );
     });
   });
+  describe("comparisons", () => {
+    // The allocating forms of equals, overlapsWith, and contains that the bigint forms
+    // replace.
+    const reference = {
+      equals: (a: TimeRange, b: TimeRange, delta: TimeSpan): boolean => {
+        if (delta.isZero) return a.start.equals(b.start) && a.end.equals(b.end);
+        let startDist = a.start.sub(b.start).valueOf();
+        let endDist = a.end.sub(b.end).valueOf();
+        if (startDist < 0) startDist = -startDist;
+        if (endDist < 0) endDist = -endDist;
+        return startDist <= delta.valueOf() && endDist <= delta.valueOf();
+      },
+      overlapsWith: (a: TimeRange, b: TimeRange, delta: TimeSpan): boolean => {
+        const other = b.makeValid();
+        const rng = a.makeValid();
+        if (rng.equals(other)) return rng.span.greaterThanOrEqual(delta);
+        if (other.end.equals(rng.start) || rng.end.equals(other.start)) return false;
+        const startOverlap = TimeStamp.max(rng.start, other.start);
+        const endOverlap = TimeStamp.min(rng.end, other.end);
+        if (endOverlap.before(startOverlap)) return false;
+        return new TimeSpan(endOverlap.sub(startOverlap)).greaterThanOrEqual(delta);
+      },
+      contains: (r: TimeRange, ts: TimeStamp): boolean =>
+        r.start.beforeEq(ts) && r.end.after(ts),
+    };
+    const MAX = math.MAX_INT64;
+    const stamps = [-10n, -1n, 0n, 1n, 5n, 10n, MAX - 1n, MAX, MAX + 3n].map(
+      (v) => new TimeStamp(v),
+    );
+    const ranges = stamps.flatMap((start) =>
+      stamps.map((end) => new TimeRange(start, end)),
+    );
+    const deltas = [-1n, 0n, 1n, 5n, 11n, MAX].map((v) => new TimeSpan(v));
+
+    it("should match the allocating forms for every edge value", () => {
+      const mismatches: string[] = [];
+      const check = (name: string, got: boolean, want: boolean): void => {
+        if (got !== want) mismatches.push(`${name}: got ${got}`);
+      };
+      for (const a of ranges) {
+        for (const ts of stamps)
+          check(
+            `${a.hash()} contains ${ts.hash()}`,
+            a.contains(ts),
+            reference.contains(a, ts),
+          );
+        for (const b of ranges) {
+          check(
+            `${a.hash()} contains ${b.hash()}`,
+            a.contains(b),
+            reference.contains(a, b.start) && reference.contains(a, b.end),
+          );
+          for (const delta of deltas) {
+            const suffix = `${b.hash()} by ${delta.valueOf()}`;
+            check(
+              `${a.hash()} overlaps ${suffix}`,
+              a.overlapsWith(b, delta),
+              reference.overlapsWith(a, b, delta),
+            );
+            check(
+              `${a.hash()} equals ${suffix}`,
+              a.equals(b, delta),
+              reference.equals(a, b, delta),
+            );
+          }
+        }
+      }
+      expect(mismatches).toEqual([]);
+    });
+
+    it("should contain a crude timestamp", () => {
+      const tr = new TimeRange(new TimeStamp(0n), new TimeStamp(10n));
+      expect(tr.contains(0)).toBe(true);
+      expect(tr.contains(9n)).toBe(true);
+      expect(tr.contains(10)).toBe(false);
+      expect(tr.contains({ value: -1n })).toBe(false);
+    });
+
+    it("should count shared time only from TimeStamp.MIN to TimeStamp.MAX", () => {
+      const early = new TimeRange(new TimeStamp(-10n), new TimeStamp(10n));
+      const inner = new TimeRange(new TimeStamp(-5n), new TimeStamp(5n));
+      expect(early.overlapsWith(inner, new TimeSpan(5n))).toBe(true);
+      expect(early.overlapsWith(inner, new TimeSpan(6n))).toBe(false);
+      const late = new TimeRange(new TimeStamp(MAX - 5n), new TimeStamp(MAX + 10n));
+      const past = new TimeRange(new TimeStamp(MAX - 2n), new TimeStamp(MAX + 5n));
+      expect(late.overlapsWith(past, new TimeSpan(2n))).toBe(true);
+      expect(late.overlapsWith(past, new TimeSpan(3n))).toBe(false);
+    });
+  });
+
   describe("overlapsWith", () => {
     it("should return true if the end of one time range is after the start of the next time range", () => {
       const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
@@ -1819,6 +1936,52 @@ describe("TimeRange", () => {
       const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
       const one = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
       expect(tr.overlapsWith(one)).toBe(true);
+    });
+    it("should overlap a range that contains it, in either direction", () => {
+      const outer = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const inner = new TimeRange(TimeStamp.seconds(2), TimeStamp.seconds(3));
+      expect(outer.overlapsWith(inner)).toBe(true);
+      expect(inner.overlapsWith(outer)).toBe(true);
+      expect(outer.overlapsWith(inner, TimeSpan.seconds(1))).toBe(true);
+      expect(inner.overlapsWith(outer, TimeSpan.seconds(2))).toBe(false);
+    });
+    it("should not overlap an equal range sharing less than delta", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const same = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      expect(tr.overlapsWith(same, TimeSpan.seconds(10))).toBe(true);
+      expect(tr.overlapsWith(same, TimeSpan.seconds(11))).toBe(false);
+    });
+    it("should be symmetric when one range is inverted", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.seconds(10));
+      const swapped = tr.swap();
+      const delta = TimeSpan.seconds(20);
+      expect(tr.overlapsWith(swapped, delta)).toBe(false);
+      expect(swapped.overlapsWith(tr, delta)).toBe(false);
+      expect(tr.overlapsWith(swapped)).toBe(true);
+      expect(swapped.overlapsWith(tr)).toBe(true);
+    });
+    it("should be symmetric and match shared time for any two ranges", () => {
+      const stamps = [0, 1, 5, 10, 15, 20].map((s) => TimeStamp.seconds(s));
+      const ranges = stamps.flatMap((start) =>
+        stamps.map((end) => new TimeRange(start, end)),
+      );
+      const deltas = [0, 1, 5, 10, 25].map((s) => TimeSpan.seconds(s));
+      for (const a of ranges)
+        for (const b of ranges) {
+          const r1 = a.makeValid();
+          const r2 = b.makeValid();
+          const shared = TimeStamp.min(r1.end, r2.end).sub(
+            TimeStamp.max(r1.start, r2.start),
+          );
+          for (const delta of deltas) {
+            const overlaps = a.overlapsWith(b, delta);
+            expect(overlaps).toBe(b.overlapsWith(a, delta));
+            if (overlaps)
+              expect(shared.valueOf()).toBeGreaterThanOrEqual(delta.valueOf());
+          }
+          if (!r1.span.isZero && !r2.span.isZero)
+            expect(a.overlapsWith(b)).toBe(shared.valueOf() > 0n);
+        }
     });
   });
 
@@ -2556,5 +2719,39 @@ describe("windowZ", () => {
 
   it("should reject a static window without a time range", () => {
     expect(() => windowZ.parse({ variant: "static", start: "0", end: "1" })).toThrow();
+  });
+});
+
+describe("staticWindow", () => {
+  it("should keep int64 bounds exact", () => {
+    const end = 2n ** 62n + 1n;
+    expect(staticWindow(new TimeRange(5n, end))).toEqual({
+      variant: "static",
+      timeRange: { start: "5", end: String(end) },
+    });
+  });
+});
+
+describe("dynamicWindow", () => {
+  it("should hold the span in nanoseconds", () => {
+    expect(dynamicWindow(TimeSpan.minutes(2))).toEqual({
+      variant: "dynamic",
+      timeSpan: 120e9,
+    });
+  });
+});
+
+describe("resolveWindow", () => {
+  const now = new TimeStamp(10_000n);
+
+  it("should end a dynamic window now", () => {
+    const tr = resolveWindow(dynamicWindow(4_000), now);
+    expect([tr.start.valueOf(), tr.end.valueOf()]).toEqual([6_000n, 10_000n]);
+  });
+
+  it("should return the exact range of a static window", () => {
+    const end = 2n ** 62n + 1n;
+    const tr = resolveWindow(staticWindow(new TimeRange(5n, end)), now);
+    expect([tr.start.valueOf(), tr.end.valueOf()]).toEqual([5n, end]);
   });
 });

@@ -19,7 +19,7 @@ import (
 
 func TestCert(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Security Cert Suite")
+	RunSpecs(t, "Security Cert Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -42,8 +42,12 @@ type Config struct {
 	// SendOpenAck sets whether an empty readiness response is sent once the relay has
 	// applied the streamer's demands.
 	SendOpenAck bool `json:"send_open_ack" msgpack:"send_open_ack"`
-	// DownsampleFactor keeps every n-th sample of each delivered series. Values below
-	// 2 keep every sample.
+	// AckRequested asks for a response with Ack set once the relay applies this
+	// request's Keys. A write issued after the ack is delivered, except on channels
+	// leased to another node. Ignored on the open request; see SendOpenAck.
+	AckRequested bool `json:"ack_requested" msgpack:"ack_requested"`
+	// DownsampleFactor keeps the samples whose alignment is a multiple of n, and drops
+	// a frame left with no samples. Values below 2 keep every sample.
 	DownsampleFactor uint32 `json:"downsample_factor" msgpack:"downsample_factor"`
 	// ThrottleRate caps the rate at which frames are delivered. Zero disables
 	// throttling.

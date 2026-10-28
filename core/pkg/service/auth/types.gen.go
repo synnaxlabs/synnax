@@ -14,10 +14,17 @@ package auth
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-
+	"github.com/synnaxlabs/synnax/pkg/service/auth/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// SessionKey is a unique identifier for a session.
+type SessionKey = versions.SessionKey
+
+// Session is a logged-in subject. It ends when it is revoked or when no request has
+// used it for the idle timeout.
+type Session = versions.Session
 
 // Method names an authentication method.
 type Method string

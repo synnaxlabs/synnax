@@ -11,7 +11,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/status.h"
 
@@ -34,9 +34,12 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.details.running, true);
-    EXPECT_EQ(first.message, "Task started successfully");
+    EXPECT_EQ(first.message, "Started task");
 
-    handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
+    handler.error(
+        x::errors::Error(x::errors::VALIDATION, "task validation error"),
+        "Failed to start task"
+    );
     handler.send_start("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
@@ -46,7 +49,8 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(second.details.running, false);
-    EXPECT_EQ(second.message, "task validation error");
+    EXPECT_EQ(second.message, "Failed to start task");
+    EXPECT_EQ(second.description, "task validation error");
 }
 
 /// @brief it should echo the config hash the instance was built from.
@@ -77,7 +81,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     };
     auto handler = StatusHandler(ctx, task);
 
-    handler.send_warning("Test warning message");
+    handler.send_warning("Test warning message", "");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
     EXPECT_EQ(first.name, "task1");
@@ -85,13 +89,17 @@ TEST(TestTaskStateHandler, testSendWarning) {
     EXPECT_EQ(first.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(first.message, "Test warning message");
 
-    handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
-    handler.send_warning("This warning should not be sent");
+    handler.error(
+        x::errors::Error(x::errors::VALIDATION, "task validation error"),
+        "Failed to start task"
+    );
+    handler.send_warning("This warning should not be sent", "");
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
     EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(second.message, "task validation error");
+    EXPECT_EQ(second.message, "Failed to start task");
+    EXPECT_EQ(second.description, "task validation error");
 }
 
 /// @brief it should correctly move the task back to a nominal running state.
@@ -104,7 +112,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     auto handler = StatusHandler(ctx, task);
 
     // First send a warning
-    handler.send_warning("Test warning message");
+    handler.send_warning("Test warning message", "");
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
     EXPECT_EQ(first.details.task, task.key);
@@ -120,8 +128,11 @@ TEST(TestTaskStateHandle, testClearWarning) {
     EXPECT_EQ(second.message, "Task running");
 
     // Test that clear_warning doesn't do anything if not in warning state
-    handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
-    handler.send_warning("This is an error");
+    handler.error(
+        x::errors::Error(x::errors::VALIDATION, "task validation error"),
+        "Failed to start task"
+    );
+    handler.send_warning("This is an error", "");
     ASSERT_GE(ctx->statuses.size(), 3);
     const auto third = ctx->statuses[2];
     EXPECT_EQ(third.variant, synnax::status::VARIANT_ERROR);
@@ -141,7 +152,10 @@ TEST(TestTaskStateHandler, testSendError) {
     };
     auto handler = StatusHandler(ctx, task);
 
-    handler.send_error(x::errors::Error(x::errors::VALIDATION, "fatal runtime error"));
+    handler.send_error(
+        x::errors::Error(x::errors::VALIDATION, "fatal runtime error"),
+        "Failed to run Arc program"
+    );
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
     EXPECT_EQ(first.key, synnax::task::status_key(task));
@@ -149,11 +163,12 @@ TEST(TestTaskStateHandler, testSendError) {
     EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(first.details.running, false);
-    EXPECT_EQ(first.message, "fatal runtime error");
+    EXPECT_EQ(first.message, "Failed to run Arc program");
+    EXPECT_EQ(first.description, "fatal runtime error");
 
     // Verify nil errors are ignored
     const size_t count = ctx->statuses.size();
-    handler.send_error(x::errors::NIL);
+    handler.send_error(x::errors::NIL, "Failed to run Arc program");
     EXPECT_EQ(ctx->statuses.size(), count);
 }
 
@@ -174,9 +189,12 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     EXPECT_EQ(first.details.task, task.key);
     EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.details.running, false);
-    EXPECT_EQ(first.message, "Task stopped successfully");
+    EXPECT_EQ(first.message, "Stopped task");
 
-    handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
+    handler.error(
+        x::errors::Error(x::errors::VALIDATION, "task validation error"),
+        "Failed to stop task"
+    );
     handler.send_stop("cmd_key");
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
@@ -185,7 +203,8 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     EXPECT_EQ(second.details.task, task.key);
     EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(second.details.running, false);
-    EXPECT_EQ(second.message, "task validation error");
+    EXPECT_EQ(second.message, "Failed to stop task");
+    EXPECT_EQ(second.description, "task validation error");
 }
 
 /// @brief ack should re-send the current status unchanged, stamping the command.
@@ -198,7 +217,7 @@ TEST(TestTaskStateHandler, testAckReSendsCurrentStatus) {
     auto handler = StatusHandler(ctx, task);
 
     handler.send_start("cmd_key");
-    handler.send_warning("Task degraded");
+    handler.send_warning("Task degraded", "");
     handler.ack("cmd_key_2", true);
     ASSERT_GE(ctx->statuses.size(), 3);
     const auto third = ctx->statuses[2];
@@ -236,9 +255,9 @@ TEST(TestStatusRateLimit, testSuppressesIdenticalWarnings) {
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
-    handler.send_warning("skew too high");
-    handler.send_warning("skew too high");
-    handler.send_warning("skew too high");
+    handler.send_warning("skew too high", "");
+    handler.send_warning("skew too high", "");
+    handler.send_warning("skew too high", "");
     EXPECT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].message, "skew too high");
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_WARNING);
@@ -251,8 +270,8 @@ TEST(TestStatusRateLimit, testAllowsDifferentWarningMessages) {
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
-    handler.send_warning("skew too high");
-    handler.send_warning("array mismatch");
+    handler.send_warning("skew too high", "");
+    handler.send_warning("array mismatch", "");
     EXPECT_EQ(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[0].message, "skew too high");
     EXPECT_EQ(ctx->statuses[1].message, "array mismatch");
@@ -266,9 +285,35 @@ TEST(TestStatusRateLimit, testSuppressesAlternatingSpam) {
     auto handler = StatusHandler(ctx, task);
 
     for (int i = 0; i < 100; ++i) {
-        handler.send_warning(i % 2 == 0 ? "warning A" : "warning B");
+        handler.send_warning(i % 2 == 0 ? "warning A" : "warning B", "");
     }
     EXPECT_EQ(ctx->statuses.size(), 2);
+}
+
+/// @brief warnings with the same message but different causes should both go through.
+TEST(TestStatusRateLimit, AllowsDifferentWarningDescriptions) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task);
+
+    handler.send_warning("Failed to read data", "The device is unreachable.");
+    handler.send_warning("Failed to read data", "The channel no longer exists.");
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[0].description, "The device is unreachable.");
+    EXPECT_EQ(ctx->statuses[1].description, "The channel no longer exists.");
+}
+
+/// @brief clearing a warning should drop the description that explained it.
+TEST(TestTaskStateHandler, ClearWarningDropsDescription) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    auto handler = StatusHandler(ctx, task);
+
+    handler.send_warning("Failed to read data", "The device is unreachable.");
+    handler.clear_warning();
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].message, "Task running");
+    EXPECT_EQ(ctx->statuses[1].description, "");
 }
 
 /// @brief identical repeated errors should be suppressed within the rate limit
@@ -279,12 +324,13 @@ TEST(TestStatusRateLimit, testSuppressesIdenticalErrors) {
     auto handler = StatusHandler(ctx, task);
 
     const auto err = x::errors::Error(x::errors::VALIDATION, "device disconnected");
-    handler.send_error(err);
-    handler.send_error(err);
-    handler.send_error(err);
+    handler.send_error(err, "Failed to run Arc program");
+    handler.send_error(err, "Failed to run Arc program");
+    handler.send_error(err, "Failed to run Arc program");
     EXPECT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses[0].message, "device disconnected");
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to run Arc program");
+    EXPECT_EQ(ctx->statuses[0].description, "device disconnected");
 }
 
 /// @brief start messages should always go through (bypasses rate limiter)
@@ -322,7 +368,7 @@ TEST(TestStatusRateLimit, testClearWarningThenSuppressRepeatedClears) {
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
-    handler.send_warning("skew too high");
+    handler.send_warning("skew too high", "");
     EXPECT_EQ(ctx->statuses.size(), 1);
 
     handler.clear_warning();
@@ -330,7 +376,7 @@ TEST(TestStatusRateLimit, testClearWarningThenSuppressRepeatedClears) {
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
 
     // Sending the same warning again should be suppressed (it was sent <5s ago).
-    handler.send_warning("skew too high");
+    handler.send_warning("skew too high", "");
     EXPECT_EQ(ctx->statuses.size(), 2);
 }
 
@@ -341,14 +387,14 @@ TEST(TestStatusRateLimit, testResetClearsRateLimitState) {
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
-    handler.send_warning("skew too high");
+    handler.send_warning("skew too high", "");
     EXPECT_EQ(ctx->statuses.size(), 1);
 
-    handler.send_warning("skew too high");
+    handler.send_warning("skew too high", "");
     EXPECT_EQ(ctx->statuses.size(), 1);
 
     handler.reset();
-    handler.send_warning("skew too high");
+    handler.send_warning("skew too high", "");
     EXPECT_EQ(ctx->statuses.size(), 2);
 }
 
@@ -361,20 +407,20 @@ TEST(TestStatusRateLimit, testEvictsOldestOnOverflow) {
 
     // Fill the map to capacity with unique warnings (0 is the oldest).
     for (size_t i = 0; i < StatusHandler::MAX_RECENT_STATUSES; ++i)
-        handler.send_warning("warning " + std::to_string(i));
+        handler.send_warning("warning " + std::to_string(i), "");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES);
 
     // One overflow: evicts "warning 0" (oldest), inserts the new message.
-    handler.send_warning("overflow warning");
+    handler.send_warning("overflow warning", "");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 1);
 
     // "warning 0" was the evicted entry — it should go through again.
-    handler.send_warning("warning 0");
+    handler.send_warning("warning 0", "");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 2);
 
     // "warning 49" is the newest original entry and was never evicted — still
     // suppressed.
-    handler.send_warning("warning 49");
+    handler.send_warning("warning 49", "");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 2);
 }
 
@@ -387,22 +433,22 @@ TEST(TestStatusRateLimit, testEvictsNOldestOnNOverflows) {
 
     // Fill to capacity.
     for (size_t i = 0; i < StatusHandler::MAX_RECENT_STATUSES; ++i)
-        handler.send_warning("warning " + std::to_string(i));
+        handler.send_warning("warning " + std::to_string(i), "");
 
     // 3 overflows evict the 3 oldest entries: "warning 0", "warning 1", "warning 2".
-    handler.send_warning("overflow 0");
-    handler.send_warning("overflow 1");
-    handler.send_warning("overflow 2");
+    handler.send_warning("overflow 0", "");
+    handler.send_warning("overflow 1", "");
+    handler.send_warning("overflow 2", "");
 
     // The 3 evicted entries should now go through.
-    handler.send_warning("warning 0");
-    handler.send_warning("warning 1");
-    handler.send_warning("warning 2");
+    handler.send_warning("warning 0", "");
+    handler.send_warning("warning 1", "");
+    handler.send_warning("warning 2", "");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 6);
 
     // "warning 49" is the newest original entry and was never evicted — still
     // suppressed.
-    handler.send_warning("warning 49");
+    handler.send_warning("warning 49", "");
     EXPECT_EQ(ctx->statuses.size(), StatusHandler::MAX_RECENT_STATUSES + 6);
 }
 
@@ -415,16 +461,16 @@ TEST(TestStatusRateLimit, testWindowExpires) {
     // Use a 1 ms window so the test completes quickly.
     auto handler = StatusHandler(ctx, task, 1 * x::telem::MILLISECOND);
 
-    handler.send_warning("array mismatch");
+    handler.send_warning("array mismatch", "");
     EXPECT_EQ(ctx->statuses.size(), 1);
 
     // Still within the window — should be suppressed.
-    handler.send_warning("array mismatch");
+    handler.send_warning("array mismatch", "");
     EXPECT_EQ(ctx->statuses.size(), 1);
 
     // Wait for the window to expire, then re-send.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    handler.send_warning("array mismatch");
+    handler.send_warning("array mismatch", "");
     EXPECT_EQ(ctx->statuses.size(), 2);
 }
 
@@ -435,11 +481,14 @@ TEST(TestStatusRateLimit, testDifferentVariantSameMessage) {
     const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
     auto handler = StatusHandler(ctx, task);
 
-    handler.send_warning("device issue");
+    handler.send_warning("device issue", "");
     EXPECT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_WARNING);
 
-    handler.send_error(x::errors::Error(x::errors::VALIDATION, "device issue"));
+    handler.send_error(
+        x::errors::Error(x::errors::VALIDATION, "device issue"),
+        "Failed to run Arc program"
+    );
     EXPECT_EQ(ctx->statuses.size(), 2);
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_ERROR);
 }
@@ -470,9 +519,26 @@ TEST(TestHandleConfigErr, testErrorWithPendingStart) {
     EXPECT_EQ(tsk, nullptr);
     ASSERT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
-    EXPECT_EQ(ctx->statuses[0].message, "[sy.validation] bad config");
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
+    EXPECT_EQ(ctx->statuses[0].description, "bad config");
     EXPECT_EQ(ctx->statuses[0].details.cmd, "start_cmd");
     EXPECT_EQ(ctx->statuses[0].details.config_hash, "hash1");
+}
+
+/// @brief a config error should list each field error on its own line.
+TEST(TestHandleConfigErr, ListsFieldErrors) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    x::json::Parser parser(x::json::json::object());
+    parser.field_err("device", "this field is required");
+    parser.field_err("channels.0.port", "must be positive");
+    handle_config_err(ctx, task, {ConfigureResult{}, parser.error()}, "start_cmd");
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to configure task");
+    EXPECT_EQ(
+        ctx->statuses[0].description,
+        "device: this field is required\nchannels.0.port: must be positive"
+    );
 }
 
 /// @brief a config error at boot with no auto-start should not write a status.

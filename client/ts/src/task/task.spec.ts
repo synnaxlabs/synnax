@@ -11,7 +11,9 @@ import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
-import { NotFoundError } from "@/errors";
+import { channel } from "@/channel";
+import { AccessDeniedError, NotFoundError } from "@/errors";
+import { framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -19,7 +21,9 @@ import { type status } from "@/status";
 import { task } from "@/task";
 import {
   createTestClient,
+  createTestClientWithPolicy,
   holdResponses,
+  recordResponses,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -688,8 +692,28 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      await expect(t.executeCommandSync({ type: "test", timeout: 0 })).rejects.toThrow(
-        "timed out",
+      await expect(
+        t.executeCommandSync({ type: "test", timeout: TimeSpan.milliseconds(1) }),
+      ).rejects.toThrow(new Error("Command to test timed out after 1ms"));
+    });
+    it("should name the task by key when its name lookup fails", async () => {
+      const t = await testRack.createTask({
+        name: "test",
+        config: {},
+        type: "pagerduty_alert",
+      });
+      await client.tasks.delete(t.key);
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      onTestFinished(() => consoleError.mockRestore());
+      await expect(
+        client.tasks.executeCommandSync({
+          task: t.key,
+          type: "test",
+          timeout: TimeSpan.milliseconds(1),
+          statusDataZ: z.unknown(),
+        }),
+      ).rejects.toThrow(
+        new Error(`Command to task with key ${t.key} timed out after 1ms`),
       );
     });
   });
@@ -951,6 +975,8 @@ describe("Task", async () => {
         await setRackStatus(testRack.key, "success", "Driver is running");
         await client.tasks.executeCommand({ task: t.key, type: "stop" });
         await expect.poll(() => loading.length).toBeGreaterThan(0);
+        expect(loading[0].name).toBe(t.name);
+        expect(loading[0].message).toBe("Sending stop command");
         expect(loading[0].details.configHash).toBe("deadbeef");
         expect(loading[0].details.rack).toBe(testRack.key);
       } finally {
@@ -1117,7 +1143,7 @@ describe("Task", async () => {
           key,
           name: "Task Status",
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           description: "",
           time: TimeStamp.now().sub(TimeSpan.minutes(1)),
           details: {
@@ -1133,7 +1159,7 @@ describe("Task", async () => {
         await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
         expect(client.statuses.store.get(key)).toMatchObject({
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           details: { running: true, cmd: cmdKey },
         });
       } finally {
@@ -1179,7 +1205,7 @@ describe("Task", async () => {
           key,
           name: "Task Status",
           variant: "success",
-          message: "Task started successfully",
+          message: "Started task",
           description: "",
           time: TimeStamp.now(),
           details,
@@ -1226,7 +1252,7 @@ describe("Task", async () => {
         key,
         name: "Task Status",
         variant: "success",
-        message: "Task started successfully",
+        message: "Started task",
         description: "",
         time: TimeStamp.now().sub(TimeSpan.minutes(1)),
         details: {
@@ -1246,7 +1272,7 @@ describe("Task", async () => {
       await fetching;
       expect(local.statuses.store.get(key)).toMatchObject({
         variant: "success",
-        message: "Task started successfully",
+        message: "Started task",
       });
     });
 
@@ -1334,6 +1360,74 @@ describe("Task", async () => {
       } finally {
         off();
       }
+    });
+
+    it("fetches only the uncached tasks the user can read", async () => {
+      const readable = await testRack.createTask({
+        name: `set-readable-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const denied = await testRack.createTask({
+        name: `set-denied-${id.create()}`,
+        config: { routingKey: "cat" },
+        type: "pagerduty_alert",
+      });
+      const remote = await createTestClientWithPolicy(client, {
+        name: "set-readable",
+        objects: [
+          channel.TYPE_ONTOLOGY_ID,
+          framer.TYPE_ONTOLOGY_ID,
+          task.ontologyID(readable.key),
+        ],
+        actions: ["retrieve"],
+      });
+      await waitForStreamLive(remote.connection);
+      const params = { key: readable.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        const name = `set-readable-renamed-${id.create()}`;
+        await Promise.all([
+          client.tasks.create({ ...denied.payload, name: `${denied.name}-renamed` }),
+          client.tasks.create({ ...readable.payload, name }),
+        ]);
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toBe(name);
+        expect(remote.tasks.store.get(denied.key)).toBeUndefined();
+      } finally {
+        off();
+      }
+    });
+
+    it("reports no error for a set signal of a task the user cannot read", async () => {
+      const denied = await testRack.createTask({
+        name: `set-denied-${id.create()}`,
+        config: { routingKey: "cat" },
+        type: "pagerduty_alert",
+      });
+      const onError = vi.fn();
+      const remote = await createTestClientWithPolicy(
+        client,
+        {
+          name: "set-denied",
+          objects: [channel.TYPE_ONTOLOGY_ID, framer.TYPE_ONTOLOGY_ID],
+          actions: ["retrieve"],
+        },
+        onError,
+      );
+      await waitForStreamLive(remote.connection);
+      const fetches = recordResponses(remote, "/task/retrieve");
+      await client.tasks.create({ ...denied.payload, name: `${denied.name}-renamed` });
+      await expect.poll(() => fetches.length).toBe(1);
+      await expect(fetches[0]).rejects.toSatisfy(AccessDeniedError.matches);
+      // Lets the listener's rejection reach the error handler.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(onError).not.toHaveBeenCalled();
+      expect(remote.tasks.store.get(denied.key)).toBeUndefined();
     });
   });
 });

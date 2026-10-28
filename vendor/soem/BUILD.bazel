@@ -36,11 +36,11 @@ SOEM_HDRS = glob(
     allow_empty = True,
 )
 
-# Linux OSAL + OSHW
+# Linux OSAL + OSHW (custom nicdrv.c that needs only CAP_NET_RAW)
 LINUX_OSAL_SRCS = ["SOEM/osal/linux/osal.c"]
 
 LINUX_OSHW_SRCS = [
-    "SOEM/oshw/linux/nicdrv.c",
+    "linux/oshw/nicdrv.c",
     "SOEM/oshw/linux/oshw.c",
 ]
 

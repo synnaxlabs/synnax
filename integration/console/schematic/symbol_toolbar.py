@@ -17,7 +17,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.layout import LayoutClient
 from console.schematic.symbol_editor import SymbolEditor
-from framework.run_dir import resolve_results_path
 
 
 class SymbolToolbar:
@@ -250,7 +249,7 @@ class SymbolToolbar:
         self.ctx_menu.open_on(group_btn)
         with self.page.expect_download(timeout=10000) as download_info:
             self.ctx_menu.click_option("Export")
-        zip_path = resolve_results_path(f"{name}_export.zip")
+        zip_path = str(self.layout.results_dir / f"{name}_export.zip")
         download_info.value.save_as(zip_path)
         return zip_path
 
@@ -263,7 +262,7 @@ class SymbolToolbar:
             self.ctx_menu.click_option("Export")
 
         download = download_info.value
-        save_path = resolve_results_path(f"{name}_export.json")
+        save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
 
         with open(save_path, encoding="utf-8") as f:
@@ -274,7 +273,7 @@ class SymbolToolbar:
         """Drag a symbol onto the schematic canvas."""
         symbol = self.get_symbol(name)
         canvas = self.page.locator(".react-flow__pane").first
-        symbol.drag_to(canvas)
+        self.layout.drag(symbol, canvas)
 
     def add_symbol(self, symbol_type: str, group: str | None = None) -> str:
         """Add any symbol to the schematic and return its ID.
@@ -311,4 +310,8 @@ class SymbolToolbar:
         search_input.wait_for(state="attached", timeout=5000)
         search_input.fill(symbol_type)
 
-        self.layout.click(symbol_type)
+        # The toolbar header also shows the name of the selected symbol.
+        item = self.toolbar.locator(".console-schematic-symbols__button").filter(
+            has=self.page.locator("small").get_by_text(symbol_type, exact=True)
+        )
+        item.first.click(timeout=5000)

@@ -17,12 +17,11 @@ import (
 	graph "github.com/synnaxlabs/arc/graph/versions/v0"
 	ir "github.com/synnaxlabs/arc/ir/versions/v0"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -37,7 +36,7 @@ func migrateSeed(ctx SpecContext, seed v0.Arc) v1.Arc {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Arc",
-		Migrations: append([]migrate.Migration{v0.Migration}, v1.Migrations...),
+		Migrations: append([]gorp.Migration{v0.Migration}, v1.Migrations...),
 	})).To(Succeed())
 	var got v1.Arc
 	Expect(gorp.NewRetrieve[v1.Key, v1.Arc]().

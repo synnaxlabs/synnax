@@ -45,9 +45,8 @@ from x.lists import normalize
 
 class Channel(Payload):
     """A channel is a logical collection of samples emitted by or representing the
-    values of a single source. See
-    https://docs.synnaxlabs.com/reference/concepts/channels for an introduction to
-    channels and how they work.
+    values of a single source. See https://docs.synnaxlabs.com/reference/channels for an
+    introduction to channels and how they work.
     """
 
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
@@ -350,6 +349,7 @@ class Client:
         node_key: int | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        include_status: bool = False,
     ) -> Channel: ...
 
     @overload
@@ -367,6 +367,7 @@ class Client:
         node_key: int | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        include_status: bool = False,
     ) -> list[Channel]: ...
 
     def retrieve(
@@ -383,6 +384,7 @@ class Client:
         node_key: int | None = None,
         limit: int | None = None,
         offset: int | None = None,
+        include_status: bool = False,
     ) -> Channel | list[Channel]:
         """Retrieves a channel or set of channels from the Core. A filter left as None
         does not filter.
@@ -400,6 +402,8 @@ class Client:
         :param node_key: Keeps channels whose leaseholder is this node.
         :param limit: The maximum number of channels to return.
         :param offset: The number of matching channels to skip.
+        :param include_status: Attaches each channel's status. A channel with no
+            status gets None.
         :returns: The retrieved channel, or a list of the retrieved channels.
         :raises NotFoundError: If a single channel is requested and not found.
         :raises MultipleFoundError: If a single name matches more than one channel.
@@ -415,11 +419,12 @@ class Client:
             node_key=node_key,
             limit=limit,
             offset=offset,
+            status_included=include_status,
         )
         if channel is None:
             return self._sugar(self._retriever.filter(req))
         normal = normalize_params(channel)
-        if len(req.model_dump(exclude_none=True)) == 0:
+        if len(req.model_dump(exclude_defaults=True)) == 0:
             res = self._retriever.retrieve(channel)
         elif len(normal.channels) == 0:
             res = []

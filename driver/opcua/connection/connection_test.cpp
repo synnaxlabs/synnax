@@ -10,11 +10,11 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/errors/errors.h"
-#include "driver/opcua/mock/server.h"
+#include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 
 namespace driver::opcua::connection {
@@ -25,14 +25,14 @@ TEST(ConnectionTest, testBasicConn) {
     UA_Float float_data = 5.0f;
     UA_Variant_setScalarCopy(&float_val, &float_data, &UA_TYPES[UA_TYPES_FLOAT]);
 
-    mock::TestNode
+    testutil::TestNode
         node(1, "test", &UA_TYPES[UA_TYPES_FLOAT], float_val, "Test Float Node");
 
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.test_nodes = {node};
     server_cfg.port = 4840;
 
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
 
     Config cfg;
@@ -98,9 +98,9 @@ TEST(ConnectionTest, invalidHostname) {
 
 /// @brief it should reconnect successfully after disconnect.
 TEST(ConnectionTest, disconnectAndReconnect) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4841;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -111,8 +111,8 @@ TEST(ConnectionTest, disconnectAndReconnect) {
 
     auto client = ASSERT_NIL_P(connect(cfg, "test"));
 
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
+    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
 
@@ -131,9 +131,9 @@ TEST(ConnectionTest, disconnectAndReconnect) {
 
 /// @brief it should handle server stop during active connection.
 TEST(ConnectionTest, serverStopDuringConnection) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4842;
-    auto server = std::make_unique<mock::Server>(server_cfg);
+    auto server = std::make_unique<testutil::Server>(server_cfg);
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
@@ -167,10 +167,10 @@ TEST(ConnectionTest, serverStopDuringConnection) {
 
 /// @brief it should connect successfully after server restart.
 TEST(ConnectionTest, connectionAfterServerRestart) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4844;
 
-    auto server = std::make_unique<mock::Server>(server_cfg);
+    auto server = std::make_unique<testutil::Server>(server_cfg);
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
@@ -184,7 +184,7 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
     server->stop();
     server.reset();
 
-    server = std::make_unique<mock::Server>(server_cfg);
+    server = std::make_unique<testutil::Server>(server_cfg);
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
@@ -195,9 +195,9 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
 
 /// @brief it should read successfully before disconnect changes session state.
 TEST(ConnectionTest, readAfterDisconnect) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4845;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -212,8 +212,8 @@ TEST(ConnectionTest, readAfterDisconnect) {
 
     UA_Client_disconnect(client.get());
 
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
+    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
     EXPECT_NE(session_state, UA_SESSIONSTATE_ACTIVATED);
 
@@ -222,9 +222,9 @@ TEST(ConnectionTest, readAfterDisconnect) {
 
 /// @brief it should handle multiple consecutive disconnects gracefully.
 TEST(ConnectionTest, multipleDisconnects) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4846;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -246,9 +246,9 @@ TEST(ConnectionTest, multipleDisconnects) {
 TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
     // Mock server rejects username/password without encryption to prevent
     // credential leaks over the network
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4847;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -269,9 +269,9 @@ TEST(ConnectionTest, signModeWithMissingCertificates) {
     // When security mode requires encryption but certificates are missing,
     // the connection fails with identity token rejected because the server
     // won't accept the connection without proper security
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4848;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -291,9 +291,9 @@ TEST(ConnectionTest, signModeWithMissingCertificates) {
 TEST(ConnectionTest, signAndEncryptModeWithMissingCertificates) {
     // When security mode requires encryption but certificates are missing,
     // the connection fails with identity token rejected
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4849;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -313,9 +313,9 @@ TEST(ConnectionTest, signAndEncryptModeWithMissingCertificates) {
 TEST(ConnectionTest, missingClientCertificate) {
     // Missing certificate files cause connection to fail with identity token
     // rejected because the server won't accept unencrypted identity tokens
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4850;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -335,9 +335,9 @@ TEST(ConnectionTest, missingClientCertificate) {
 TEST(ConnectionTest, emptyUsernameWithPassword) {
     // When password is provided without encryption, the server rejects the
     // identity token to prevent credential leaks
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4851;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -357,9 +357,9 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
 TEST(ConnectionTest, usernameWithEmptyPassword) {
     // When username is provided without encryption, the server rejects the
     // identity token to prevent credential leaks
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4852;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -377,9 +377,9 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
 
 /// @brief it should apply default timeout of 5 seconds when client_timeout_ms is 0.
 TEST(ConnectionTest, DefaultClientTimeout) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4854;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -398,9 +398,9 @@ TEST(ConnectionTest, DefaultClientTimeout) {
 
 /// @brief it should apply custom client timeout when specified.
 TEST(ConnectionTest, CustomClientTimeout) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4855;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -420,9 +420,9 @@ TEST(ConnectionTest, CustomClientTimeout) {
 /// @brief it should apply default secure channel (10 min) and session (20 min)
 /// timeouts when not specified.
 TEST(ConnectionTest, DefaultSessionAndChannelTimeouts) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4856;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -443,9 +443,9 @@ TEST(ConnectionTest, DefaultSessionAndChannelTimeouts) {
 
 /// @brief it should apply custom secure channel and session timeouts.
 TEST(ConnectionTest, CustomSessionAndChannelTimeouts) {
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4857;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
@@ -468,9 +468,9 @@ TEST(ConnectionTest, CustomSessionAndChannelTimeouts) {
 TEST(ConnectionTest, invalidSecurityPolicy) {
     // Invalid security policy with missing certificates causes the server
     // to reject the identity token
-    mock::ServerConfig server_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4853;
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 

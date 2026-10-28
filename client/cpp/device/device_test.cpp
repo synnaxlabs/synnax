@@ -7,13 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand_device = random_generator("Device Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 namespace synnax::device {
 /// @brief it should correctly create a device.
@@ -87,16 +92,14 @@ TEST(DeviceTests, testRetrieveDevices) {
 
     ASSERT_EQ(devices.size(), 2);
 
-    const auto it1 = std::find_if(
-        devices.begin(),
-        devices.end(),
-        [&d1](const Device &d) { return d.key == d1.key; }
-    );
+    const auto it1 = std::ranges::find_if(devices, [&d1](const Device &d) {
+        return d.key == d1.key;
+    });
     ASSERT_NE(it1, devices.end());
     ASSERT_EQ(it1->name, "test_device_1");
     ASSERT_EQ(it1->location, "location_1");
 
-    auto it2 = std::find_if(devices.begin(), devices.end(), [&d2](const Device &d) {
+    auto it2 = std::ranges::find_if(devices, [&d2](const Device &d) {
         return d.key == d2.key;
     });
     ASSERT_NE(it2, devices.end());
@@ -164,7 +167,7 @@ TEST(DeviceTests, testCreateDevices) {
     auto device_map = map_device_keys(retrieved_devices);
 
     for (const auto &device: devices) {
-        ASSERT_TRUE(device_map.find(device.key) != device_map.end());
+        ASSERT_TRUE(device_map.contains(device.key));
         const auto &retrieved = device_map[device.key];
         ASSERT_EQ(retrieved.name, device.name);
         ASSERT_EQ(retrieved.rack, r.key);
@@ -349,8 +352,8 @@ TEST(DeviceTests, testRetrieveWithRequest) {
     const auto devices_keys = ASSERT_NIL_P(client.devices.retrieve(req_keys));
     ASSERT_EQ(devices_keys.size(), 2);
     auto dm = map_device_keys(devices_keys);
-    ASSERT_TRUE(dm.find(d1.key) != dm.end());
-    ASSERT_TRUE(dm.find(d3.key) != dm.end());
+    ASSERT_TRUE(dm.contains(d1.key));
+    ASSERT_TRUE(dm.contains(d3.key));
     device::RetrieveRequest req_names{};
     req_names.names = {d1.name, d2.name};
     const auto devices_names = ASSERT_NIL_P(client.devices.retrieve(req_names));
@@ -422,9 +425,9 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
     );
     ASSERT_EQ(d2.name, "device_with_status");
     ASSERT_TRUE(d.status.has_value());
-    ASSERT_EQ(d2.status->variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(d2.status->message, "Device is connected");
-    ASSERT_EQ(d2.status->details.rack, r.key);
+    ASSERT_EQ(d2.status.value().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EQ(d2.status.value().message, "Device is connected");
+    ASSERT_EQ(d2.status.value().details.rack, r.key);
 }
 
 /// @brief it should correctly retrieve multiple devices with statuses.
@@ -469,10 +472,10 @@ TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     );
     ASSERT_EQ(devices.size(), 2);
     auto dm = map_device_keys(devices);
-    ASSERT_EQ(dm[d1.key].status->variant, synnax::status::VARIANT_SUCCESS);
-    ASSERT_EQ(dm[d1.key].status->message, "Device 1 OK");
-    ASSERT_EQ(dm[d2.key].status->variant, synnax::status::VARIANT_WARNING);
-    ASSERT_EQ(dm[d2.key].status->message, "Device 2 Warning");
+    ASSERT_EQ(dm[d1.key].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EQ(dm[d1.key].status.value().message, "Device 1 OK");
+    ASSERT_EQ(dm[d2.key].status.value().variant, synnax::status::VARIANT_WARNING);
+    ASSERT_EQ(dm[d2.key].status.value().message, "Device 2 Warning");
 }
 
 /// @brief it should correctly parse device::StatusDetails from JSON.

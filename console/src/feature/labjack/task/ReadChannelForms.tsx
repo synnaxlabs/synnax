@@ -13,7 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import * as Device from "@/feature/labjack/device/types";
+import { AI_PORT_TYPE, type Model, PORTS } from "@/feature/labjack/device/types";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,
@@ -107,6 +107,7 @@ const ThermocoupleTypeField = PForm.buildSelectField<ThermocoupleType>({
   fieldProps: { label: "Thermocouple type" },
   inputProps: {
     resourceName: "thermocouple type",
+    searchName: "type",
     children: (
       <>
         <Select.Item itemKey="B">B</Select.Item>
@@ -128,6 +129,7 @@ const TemperatureUnitsField = PForm.buildSelectField<TemperatureUnits>({
   fieldProps: { label: "Temperature units" },
   inputProps: {
     resourceName: "temperature units",
+    searchName: "unit",
     children: (
       <>
         <Select.Item itemKey="C">Celsius</Select.Item>
@@ -142,11 +144,11 @@ interface SelectCJCSourceFieldProps extends Omit<
   Select.SingleSimpleProps<string>,
   "children" | "resourceName"
 > {
-  model: Device.Model;
+  model: Model;
 }
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const ports: record.KeyedNamed[] = Device.PORTS[model][Device.AI_PORT_TYPE];
+  const ports: record.KeyedNamed[] = PORTS[model][AI_PORT_TYPE];
   return (
     <Select.Simple<string> allowNone={false} {...rest} resourceName="CJC source">
       <Select.Item itemKey={DEVICE_CJC_SOURCE}>Device</Select.Item>
@@ -162,7 +164,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
 
 interface FormProps {
   path: string;
-  deviceModel: Device.Model;
+  deviceModel: Model;
 }
 
 /** The signal fields for each channel type, or null for a type that has none. */
@@ -174,7 +176,7 @@ export const FORMS: Record<ReadChannelType, FC<FormProps> | null> = {
       <ThermocoupleTypeField path={path} />
       <TemperatureUnitsField path={path} />
       <PForm.NumericField fieldKey="negChan" path={path} label="Negative channel" />
-      <PForm.Field<string> path={`${path}.cjcSource`} hideIfNull label="CJC source">
+      <PForm.Field<string> path={`${path}.cjcSource`} label="CJC source">
         {({ value, onChange, preview }) => (
           <SelectCJCSourceField
             value={value}

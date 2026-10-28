@@ -25,7 +25,7 @@ import {
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -58,43 +58,26 @@ const ChannelRow = ({
   const showNumeric = showsNumericFields(dataType);
   const showTimestamp = isTimestamp(dataType);
 
-  const handleAliasChange = useCallback(
-    (alias: string) => dispatch(log.setChannelAlias({ channel, alias })),
-    [channel, dispatch],
-  );
-  const handleNotationChange = useCallback(
-    (notation: notation.Notation) =>
-      dispatch(log.setChannelNotation({ channel, notation })),
-    [channel, dispatch],
-  );
-  const handlePrecisionChange = useCallback(
-    (precision: number) => dispatch(log.setChannelPrecision({ channel, precision })),
-    [channel, dispatch],
-  );
-  const handleFormatChange = useCallback(
-    (format: TimestampFormat) =>
-      dispatch(log.setChannelTimestampFormat({ channel, format })),
-    [channel, dispatch],
-  );
-  const handleTzChange = useCallback(
-    (tz: TimeZone) => dispatch(log.setChannelTimestampTz({ channel, tz })),
-    [channel, dispatch],
-  );
+  const handleAliasChange = (alias: string) =>
+    dispatch(log.setChannelAlias({ channel, alias }));
+  const handleNotationChange = (notation: notation.Notation) =>
+    dispatch(log.setChannelNotation({ channel, notation }));
+  const handlePrecisionChange = (precision: number) =>
+    dispatch(log.setChannelPrecision({ channel, precision }));
+  const handleFormatChange = (format: TimestampFormat) =>
+    dispatch(log.setChannelTimestampFormat({ channel, format }));
+  const handleTzChange = (tz: TimeZone) =>
+    dispatch(log.setChannelTimestampTz({ channel, tz }));
   // The log stores a zero color for a channel that follows the theme.
-  const handleColorChange = useCallback(
-    (c?: color.Color) =>
-      dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO })),
-    [channel, dispatch],
-  );
-  const handleChannelChange = useCallback(
-    (to: channel.Key) => dispatch(log.swapChannel({ from: channel, to })),
-    [dispatch],
-  );
-
-  const handleRemove = useCallback(
-    () => dispatch(log.removeChannel({ channel })),
-    [dispatch],
-  );
+  const handleColorChange = (c?: color.Color) =>
+    dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
+  // Clearing the row's channel removes the row.
+  const handleChannelChange = (to: channel.Key | null) =>
+    dispatch(
+      to == null
+        ? log.removeChannel({ channel })
+        : log.swapChannel({ from: channel, to }),
+    );
   if (config == null) return null;
   const { alias, timestamp, precision, notation } = config;
   const hasCustomColor = !color.isZero(config.color);
@@ -108,12 +91,14 @@ const ChannelRow = ({
       justify="between"
       gap="large"
       className={CSS.BE("log", "channel-row")}
+      role="listitem"
       preventClick
     >
       <Flex.Box x align="center" grow>
         <Channel.SelectSingle
           value={channel}
           onChange={handleChannelChange}
+          allowNone
           initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
           disabled={disabled}
           className={CSS.BE("log", "channel-select")}
@@ -183,15 +168,6 @@ const ChannelRow = ({
           onChange={handleColorChange}
           size="small"
         />
-        <Button.Button
-          onClick={handleRemove}
-          size="small"
-          variant="text"
-          reveal
-          tooltip="Remove channel"
-        >
-          <Icon.Close />
-        </Button.Button>
       </Flex.Box>
     </List.Item>
   );
@@ -211,10 +187,7 @@ interface AddChannelRowProps {
 
 const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
   const dispatch = Log.useSingleDispatch();
-  const handleAdd = useCallback(
-    (channel: channel.Key) => dispatch(log.addChannel({ channel })),
-    [dispatch],
-  );
+  const handleAdd = (channel: channel.Key) => dispatch(log.addChannel({ channel }));
   return (
     <Flex.Box x align="center" gap="large" className={CSS.BE("log", "channel-row")}>
       <Channel.SelectSingle
@@ -234,7 +207,13 @@ export const Channels = (): ReactElement => {
   const key = Log.useKey();
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
   return (
-    <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
+    <Flex.Box
+      y
+      full="y"
+      role="list"
+      aria-label="Log channels"
+      className={CSS.BE("log", "toolbar", "channels")}
+    >
       {channelKeys.map((ch, i) =>
         primitive.isZero(ch) ? null : (
           <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />

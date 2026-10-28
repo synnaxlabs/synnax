@@ -17,7 +17,7 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	device "github.com/synnaxlabs/synnax/pkg/service/device/versions/v0"
+	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -82,6 +82,27 @@ const (
 func (a AccelSensitivityUnits) IsValid() bool {
 	switch a {
 	case AccelSensitivityUnitsMVoltsPerG, AccelSensitivityUnitsVoltsPerG:
+		return true
+	default:
+		return false
+	}
+}
+
+// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
+// sensitivity rating.
+type AccelChargeSensitivityUnits string
+
+const (
+	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = "PicoCoulombsPerG"
+	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerMetersPerSecondSquared"
+	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerInchesPerSecondSquared"
+)
+
+// IsValid reports whether a is one of the defined AccelChargeSensitivityUnits
+// values.
+func (a AccelChargeSensitivityUnits) IsValid() bool {
+	switch a {
+	case AccelChargeSensitivityUnitsPicoCoulombsPerG, AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared, AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared:
 		return true
 	default:
 		return false
@@ -4256,25 +4277,4 @@ func (s *ScanConfig) ApplyDefaults() {
 		s.IgnoredModels = []string{"^cRIO.*", "^nown.*"}
 	}
 	s.ScanConfig.ApplyDefaults()
-}
-
-// AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
-// sensitivity rating.
-type AccelChargeSensitivityUnits string
-
-const (
-	AccelChargeSensitivityUnitsPicoCoulombsPerG                      AccelChargeSensitivityUnits = "PicoCoulombsPerG"
-	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerMetersPerSecondSquared"
-	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = "PicoCoulombsPerInchesPerSecondSquared"
-)
-
-// IsValid reports whether a is one of the defined AccelChargeSensitivityUnits
-// values.
-func (a AccelChargeSensitivityUnits) IsValid() bool {
-	switch a {
-	case AccelChargeSensitivityUnitsPicoCoulombsPerG, AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared, AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared:
-		return true
-	default:
-		return false
-	}
 }

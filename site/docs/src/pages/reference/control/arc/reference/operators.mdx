@@ -2,68 +2,48 @@
 layout: "@/layouts/Reference.astro"
 title: "Operators"
 description:
-  "Arc operator reference for arithmetic, comparison, logical, assignment, and flow
-  operators"
-prev: "Variables"
-prevURL: "/reference/control/arc/reference/variables"
-next: "Flow"
-nextURL: "/reference/control/arc/reference/flow"
+  "Look up the Arc arithmetic, comparison, and logical operators, their precedence, and
+  their type rules."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@synnaxlabs/lyra/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
 
-## Arithmetic operators
-
-| Operator    | Name           | Example  | Result                              |
-| ----------- | -------------- | -------- | ----------------------------------- |
-| `+`         | Addition       | `3 + 2`  | `5`                                 |
-| `-`         | Subtraction    | `5 - 2`  | `3`                                 |
-| `-` (unary) | Negation       | `-5`     | `-5`                                |
-| `*`         | Multiplication | `3 * 4`  | `12`                                |
-| `/`         | Division       | `10 / 3` | `3` (integer) or `3.333...` (float) |
-| `%`         | Modulo         | `10 % 3` | `1`                                 |
-| `^`         | Exponentiation | `2 ^ 8`  | `256`                               |
-
-### Division behavior
-
-Integer division truncates toward zero:
-
-```arc
-positive := 10 / 3 // 3 (not 3.333)
-negative := -10 / 3 // -3
-```
-
-Float division produces a float:
-
-```arc
-result := 10.0 / 3.0 // 3.333...
-```
-
-### Exponentiation
-
-```arc
-power := 2 ^ 8 // 256
-square := 5 ^ 2 // 25
-cube := 2.0 ^ 3 // 8.0
-```
-
-Exponentiation is right-associative:
-
-```arc
-result := 2 ^ 3 ^ 2 // 2 ^ (3 ^ 2) = 2 ^ 9 = 512
-```
+This page lists the operators of Arc expressions. For `:=` and `$=`, see
+[variables](/reference/control/arc/reference/variables). For `->` and `=>`, see
+[flow](/reference/control/arc/reference/flow).
 
 <Divider.Divider x />
 
-## Comparison operators
+## Arithmetic
 
-All comparisons return `bool` (`true` or `false`).
+| Operator | Operation | Example  | Result |
+| -------- | --------- | -------- | ------ |
+| `+`      | Add       | `3 + 2`  | `5`    |
+| `-`      | Subtract  | `5 - 2`  | `3`    |
+| `-`      | Negate    | `-x`     |        |
+| `*`      | Multiply  | `3 * 4`  | `12`   |
+| `/`      | Divide    | `10 / 4` | `2`    |
+| `%`      | Remainder | `10 % 3` | `1`    |
+| `^`      | Power     | `2 ^ 8`  | `256`  |
 
-| Operator | Name                  | Example  | Result  |
+- Integer `/` truncates toward zero: `-10 / 3` is `-3`. `10.0 / 4.0` is `2.5`.
+- `%` takes integers only. A float `%` fails with `float modulo not yet implemented`.
+- `^` is right-associative: `2 ^ 3 ^ 2` is `2 ^ 9`.
+- Arc has no bitwise operators. `&` fails with `token recognition error at: '&'`.
+
+### Division by zero
+
+A float division by zero gives `+Inf`, `-Inf`, or `NaN`. An integer `/` or `%` by zero
+is a runtime error, and the compiler does not check for it. See
+[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
+
+<Divider.Divider x />
+
+## Comparison
+
+| Operator | Operation             | Example  | Result  |
 | -------- | --------------------- | -------- | ------- |
 | `==`     | Equal                 | `3 == 5` | `false` |
 | `!=`     | Not equal             | `3 != 5` | `true`  |
@@ -72,134 +52,102 @@ All comparisons return `bool` (`true` or `false`).
 | `<=`     | Less than or equal    | `3 <= 5` | `true`  |
 | `>=`     | Greater than or equal | `3 >= 5` | `false` |
 
-```arc
-in_range := pressure >= 100 and pressure <= 500
+A comparison gives a `bool`. `<`, `>`, `<=`, and `>=` take numbers only. `==` and `!=`
+also take `str` and `bool`.
+
+Comparisons do not chain. Arc uses only the first two operands of a chain of `<`, `>`,
+`<=`, and `>=`, or of `==` and `!=`. `1.0 < x < 3.0` compiles, but it tests only
+`1.0 < x`. With `a` equal to `1`, `a == 1 == 5` is `true`. Write `x > 1.0 and x < 3.0`.
+
+<Divider.Divider x />
+
+## Logical
+
+| Operator | Operation | Example          | Result  |
+| -------- | --------- | ---------------- | ------- |
+| `and`    | And       | `true and false` | `false` |
+| `or`     | Or        | `false or true`  | `true`  |
+| `not`    | Not       | `not true`       | `false` |
+
+Logical operators take `bool` only. `x and true` with an `f64` `x` fails with
+`cannot use f64 in and operation`. On single values, `and` and `or` stop when the left
+side gives the result, so the right side does not run:
+
+```arc bodies="ratio_high"
+func ratio_high(a i64, b i64) bool {
+    return b != 0 and a / b > 10
+}
 ```
 
 <Divider.Divider x />
 
-## Logical operators
+## Strings
 
-Logical operators require `bool` operands, use short-circuit evaluation, and return
-`bool`.
-
-| Operator | Name        | Example          | Result  |
-| -------- | ----------- | ---------------- | ------- |
-| `and`    | Logical AND | `true and false` | `false` |
-| `or`     | Logical OR  | `false or true`  | `true`  |
-| `not`    | Logical NOT | `not true`       | `false` |
-
-### Short-circuit evaluation
-
-- `and`: If the left operand is `false`, the right operand is not evaluated
-- `or`: If the left operand is `true`, the right operand is not evaluated
-
-```arc
-// Safe: division only happens if b != 0
-safe := b != 0 and (a / b) > 10
-```
+`+` joins two strings. `==` and `!=` compare them. Other operators fail, for example
+`cannot use str in - operation`. To join a number and a string, cast the number with
+`str(x)` or use a
+[format string](/reference/control/arc/reference/syntax#format-strings).
 
 <Divider.Divider x />
 
-## Assignment operators
+## Series
 
-| Operator | Name                | Example  | Equivalent  |
-| -------- | ------------------- | -------- | ----------- |
-| `=`      | Assignment          | `x = 5`  |             |
-| `+=`     | Add and assign      | `x += 5` | `x = x + 5` |
-| `-=`     | Subtract and assign | `x -= 5` | `x = x - 5` |
-| `*=`     | Multiply and assign | `x *= 2` | `x = x * 2` |
-| `/=`     | Divide and assign   | `x /= 2` | `x = x / 2` |
-| `%=`     | Modulo and assign   | `x %= 3` | `x = x % 3` |
-
-### Variable declaration operators
-
-| Operator | Name                          | Example      |
-| -------- | ----------------------------- | ------------ |
-| `:=`     | Local variable declaration    | `x := 5`     |
-| `$=`     | Stateful variable declaration | `count $= 0` |
+Arithmetic, comparison, and logical operators work on a series one element at a time.
+The other operand is a series of the same length or a single value. On a series, `and`
+and `or` evaluate both sides. See
+[series](/reference/control/arc/reference/types#series).
 
 <Divider.Divider x />
 
-## Precedence table
+## Precedence
 
-Operators listed from highest to lowest precedence.
+From highest to lowest:
 
-| Precedence  | Operators            | Associativity |
-| ----------- | -------------------- | ------------- |
-| 1 (highest) | `^`                  | Right         |
-| 2           | `-` (unary), `not`   | Right         |
-| 3           | `*`, `/`, `%`        | Left          |
-| 4           | `+`, `-`             | Left          |
-| 5           | `<`, `>`, `<=`, `>=` | Left          |
-| 6           | `==`, `!=`           | Left          |
-| 7           | `and`                | Left          |
-| 8 (lowest)  | `or`                 | Left          |
+| Level | Operators                | Associativity |
+| ----- | ------------------------ | ------------- |
+| 1     | `x[i]`, `x[a:b]`, `f(x)` | Left          |
+| 2     | `^`                      | Right         |
+| 3     | `-` (negate), `not`      | Right         |
+| 4     | `*`, `/`, `%`            | Left          |
+| 5     | `+`, `-`                 | Left          |
+| 6     | `<`, `>`, `<=`, `>=`     | Left          |
+| 7     | `==`, `!=`               | Left          |
+| 8     | `and`                    | Left          |
+| 9     | `or`                     | Left          |
 
-### Precedence examples
-
-```arc
-// Exponentiation binds tighter than unary minus
--2 ^ 2 // -(2 ^ 2) = -4; write (-2) ^ 2 for 4
-
-// Multiplication before addition
-2 + 3 * 4 // 2 + (3 * 4) = 14
-
-// Comparison before logical
-a > 5 and b < 10 // (a > 5) and (b < 10)
-
-// Use parentheses for clarity
-(a + b) * c
-```
+`^` binds tighter than a `-` on its left: `-2 ^ 2` is `-(2 ^ 2)`, which is `-4`. Write
+`(-2) ^ 2` for `4`. Use parentheses to change the order.
 
 <Divider.Divider x />
 
-## Series operators
+## Operand types
 
-Arithmetic, comparison, and logical operators work element-wise on series.
+Both sides of an operator must have the same type. Arc does not convert one type to
+another:
 
-```arc
-data := [1.0, 2.0, 3.0]
+| Expression                   | Result                                                                             |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| `x + y`, `x i32` and `y f64` | `type mismatch: cannot use i32 and f64 in + operation`                             |
+| `a + b`, `a u8` and `b i32`  | `type mismatch: cannot use u8 and i32 in + operation`                              |
+| `f64(x) + y`                 | `f64`                                                                              |
+| `x * 2`, `x f32`             | `f32`. The literal takes the type of `x`.                                          |
+| `x * 2.5`, `x i32`           | `type mismatch in * operands must be compatible: float is not compatible with i32` |
 
-// Series with scalar
-scaled := data * 2.0 // [2.0, 4.0, 6.0]
-
-// Series with series (must be equal length)
-sum := data + [4.0, 5.0, 6.0] // [5.0, 7.0, 9.0]
-
-// Comparison returns series bool
-mask := data > 2.0 // [false, false, true]
-
-// Logical operators apply element-wise to series bool
-inverted := not mask // [true, true, false]
-```
-
-<Divider.Divider x />
-
-## String operators
-
-| Operator | Operation     | Example              |
-| -------- | ------------- | -------------------- |
-| `+`      | Concatenation | `"Hello" + " World"` |
-| `==`     | Equality      | `name == "test"`     |
-| `!=`     | Inequality    | `name != ""`         |
-
-```arc
-msg := "Hello"
-greeting := msg + " World" // "Hello World"
-is_empty := msg == "" // false
-```
+To mix types, cast one side. See [casts](/reference/control/arc/reference/types#casts).
 
 <Divider.Divider x />
 
 ## Truthiness
 
-Contexts that test a value accept more than `bool`: the
-[`=>` conditional flow operator](/reference/control/arc/reference/flow), `if`
-conditions, and `for` conditions.
+Before `=>`, a number is true when it is not zero. A `str` is true when it is not empty.
+A number before `=>` or in an `if` condition gives a warning:
 
-| Type    | Truthy when |
-| ------- | ----------- |
-| `bool`  | `true`      |
-| numeric | Non-zero    |
-| `str`   | Non-empty   |
+```text
+numeric conditions are deprecated; use an explicit comparison like x != 0
+```
+
+In an `if`, a number works only when its type has 32 bits or less. An `i64`, `u64`,
+`f32`, or `f64` condition compiles with the warning, then fails to load with
+`cannot pop the operand for 'if': type mismatch: expected i32, but was f64`. A bare
+`x := 5` is an `i64`, so `if x` fails too. This is a known bug. Always compare
+explicitly: `if x != 0`, `start_cmd == 1 => fill`.

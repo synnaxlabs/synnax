@@ -17,11 +17,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -155,8 +155,12 @@ func (s *Service) Authenticate(
 }
 
 // DeleteFor implements [auth.Authenticator].
-func (s *Service) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
-	return s.NewWriter(nil).DeleteFor(ctx, subjects...)
+func (s *Service) DeleteFor(
+	ctx context.Context,
+	tx gorp.Tx,
+	subjects ...ontology.ID,
+) error {
+	return s.NewWriter(tx).DeleteFor(ctx, subjects...)
 }
 
 func (s *Service) verifierFor(hash []byte) (verifier, bool) {

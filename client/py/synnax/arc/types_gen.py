@@ -16,7 +16,6 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import status as status_
 from synnax.arc import graph as graph_
 from synnax.arc import program as program_
 from synnax.arc import text as text_
@@ -32,19 +31,6 @@ Mode = Literal["text", "graph"]
 Key: TypeAlias = UUID
 
 
-class StatusDetails(BaseModel):
-    """Contains Arc-specific status details for execution state.
-
-    Attributes:
-        running: Indicates whether the Arc module is currently executing.
-    """
-
-    running: bool
-
-
-Status: TypeAlias = status_.Status[StatusDetails]
-
-
 class Payload(BaseModel):
     """Is an Arc module combining visual graph representation and text-based source code
     for reactive control systems. Compiles to WebAssembly for sandboxed execution.
@@ -57,7 +43,6 @@ class Payload(BaseModel):
         graph: Is the visual dataflow graph representation of the module.
         text: Is the text-based Arc source code.
         program: Is the compiled module output including IR and WebAssembly bytecode.
-        status: Is the current execution status of the module.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -66,7 +51,6 @@ class Payload(BaseModel):
     graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
     text: text_.Text = Field(default_factory=lambda: text_.Text())
     program: program_.Program | None = None
-    status: Status | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)

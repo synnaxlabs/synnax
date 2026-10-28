@@ -2,8 +2,8 @@
 
 Per-language frameworks, rules, and examples live in the toolchain docs
 (`docs/claude/toolchains/*.md`): Vitest (TS), Ginkgo/Gomega (Go), pytest (Python),
-Google Test + xtest (C++). All BDD-style; tests co-located with source (TS/Go/C++) or in
-`tests/` (Python).
+Google Test + testutil (C++). All BDD-style; tests co-located with source (TS/Go/C++) or
+in `tests/` (Python).
 
 ## Universal practices
 
@@ -67,7 +67,8 @@ The `-tags=console` build tag activates `core/pkg/console/enabled.go`
 
 JSON sequence files in `/integration/tests/`: `console_tests.json`, `driver_tests.json`,
 `arc_tests.json`, `client_tests.json`. Each defines sequences of cases running
-sequentially or async with configurable pool sizes.
+sequentially or async with configurable pool sizes. A case runs for at most its
+`timeout` seconds (default 300), then the conductor marks it TIMEOUT and moves on.
 
 Console test helpers in `/integration/console/`: `layout.py` (navigation, toolbars,
 keyboard), `context_menu.py`, `ranges.py` / `tasks.py` / `statuses.py` (resource
@@ -89,7 +90,7 @@ dirs with `trace.zip` (on failure), a sliced `server.log`, and screenshots/expor
 uploads the directory as a `test-results-<os>-<name>` artifact.
 
 For triage workflow (including pulling CI bundles via `gh run download`), use the
-`synnax-integration-debug` skill (`.claude/skills/synnax-integration-debug/SKILL.md`).
+`synnax-integration-debug` skill (`.agents/skills/synnax-integration-debug/SKILL.md`).
 
 For writing integration tests — especially Arc reactive-runtime gotchas — see
 `docs/claude/integration-test.md`.

@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
-import { type ReactNode, useCallback, useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 
 import { Button } from "@/platform/button";
 import { Empty } from "@/platform/empty";
@@ -28,6 +28,8 @@ const Header = () => (
     </PHeader.Title>
   </PHeader.Header>
 );
+
+const HEADER = <Header />;
 
 const EMPTY_CONTENT = <Empty.Action message="No channels in task" />;
 
@@ -61,7 +63,7 @@ export const ChannelList = <C extends Channel>({
   createChannel,
   createChannels,
   path = "config.channels",
-  header = <Header />,
+  header = HEADER,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = Form.useContext();
@@ -85,22 +87,19 @@ export const ChannelList = <C extends Channel>({
 
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
   const { onSelect } = rest;
-  const handleAdd = useCallback(() => {
+  const handleAdd = () => {
     const channels = ctx.get<C[]>(path).value;
     const channel = createChannel(channels);
     if (channel == null) return;
     push(channel);
     onSelect([channel.key]);
-  }, [push, createChannel, onSelect]);
-  const handleDuplicate = useCallback(
-    (chs: C[], keys: string[]) => {
-      if (createChannels == null) return;
-      const duplicated = createChannels(chs, keys);
-      push(duplicated);
-      return duplicated.map(({ key }) => key);
-    },
-    [createChannels, onSelect, push],
-  );
+  };
+  const handleDuplicate = (chs: C[], keys: string[]) => {
+    if (createChannels == null) return;
+    const duplicated = createChannels(chs, keys);
+    push(duplicated);
+    return duplicated.map(({ key }) => key);
+  };
   return (
     <Base
       {...rest}

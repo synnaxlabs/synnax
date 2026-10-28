@@ -11,7 +11,7 @@ import { box, xy } from "@synnaxlabs/x";
 import { type RefObject, useEffect } from "react";
 
 import { type UseDragProps } from "@/cursor/drag";
-import { useStateRef } from "@/hooks/ref";
+import { useStateRef, useSyncedRef } from "@/hooks/ref";
 import { Triggers } from "@/triggers";
 
 export interface UseVirtualDragProps extends UseDragProps {
@@ -44,6 +44,8 @@ export const useVirtualDrag = ({
   onEnd,
 }: UseVirtualDragProps): void => {
   const [stateRef, setRef] = useStateRef<RefState>(INITIAL_STATE);
+  // A new callback must not drop the pointerup listener of an active gesture.
+  const callbacksRef = useSyncedRef({ onMove, onStart, onEnd });
   useEffect(() => {
     if (ref.current == null) return;
     const { current: el } = ref;
@@ -51,7 +53,7 @@ export const useVirtualDrag = ({
     const handleMove = (e: PointerEvent): void => {
       const { mouseKey, start, pointerId } = stateRef.current;
       if (e.pointerId !== pointerId) return;
-      onMove?.(box.construct(start, xy.construct(e)), mouseKey, e);
+      callbacksRef.current.onMove?.(box.construct(start, xy.construct(e)), mouseKey, e);
     };
 
     const handleDown = (e: PointerEvent): void => {
@@ -61,7 +63,7 @@ export const useVirtualDrag = ({
       const start = xy.construct(e);
       const mouseKey = Triggers.mouseKey(e.button);
       setRef({ start, mouseKey, pointerId: e.pointerId });
-      onStart?.(start, mouseKey, el);
+      callbacksRef.current.onStart?.(start, mouseKey, el);
       el.addEventListener("pointerup", handleUp);
     };
     el.addEventListener("pointerdown", handleDown);
@@ -73,9 +75,12 @@ export const useVirtualDrag = ({
       el.releasePointerCapture(e.pointerId);
       const { start, mouseKey } = stateRef.current;
       setRef((prev) => ({ ...prev, pointerId: null }));
-      onEnd?.(box.construct(start, xy.construct(e)), mouseKey, e);
+      callbacksRef.current.onEnd?.(box.construct(start, xy.construct(e)), mouseKey, e);
     };
 
-    return () => el.removeEventListener("pointerdown", handleDown);
-  }, [onMove, onStart, onEnd]);
+    return () => {
+      el.removeEventListener("pointerdown", handleDown);
+      el.removeEventListener("pointerup", handleUp);
+    };
+  }, [ref]);
 };

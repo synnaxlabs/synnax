@@ -14,11 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -65,17 +66,19 @@ var _ = Describe("Writer", func() {
 			Expect(u.LastName).To(Equal("Star"))
 			Expect(u.Username).To(Equal(name))
 		})
-		It(
-			"Should return ErrRepeatedUsername when the username already exists",
-			func(ctx SpecContext) {
-				name := uuid.New().String()
-				u := MustSucceed(w.Create(ctx, user.User{Username: name}))
-				Expect(u.Key).ToNot(Equal(uuid.Nil()))
-				Expect(u.Username).To(Equal(name))
-				Expect(w.Create(ctx, user.User{Username: name})).
-					Error().To(MatchError(auth.ErrRepeatedUsername))
-			},
-		)
+		It("Should reject a key that another user holds", func(ctx SpecContext) {
+			u := MustSucceed(w.Create(ctx, user.User{Username: uuid.New().String()}))
+			Expect(w.Create(ctx, user.User{Key: u.Key, Username: "b"})).Error().
+				To(MatchError(validate.ErrValidation))
+		})
+		It("Should allow two user records with the same username", func(
+			ctx SpecContext,
+		) {
+			name := uuid.New().String()
+			a := MustSucceed(w.Create(ctx, user.User{Username: name}))
+			b := MustSucceed(w.Create(ctx, user.User{Username: name}))
+			Expect(a.Key).ToNot(Equal(b.Key))
+		})
 		It(
 			"Should return a validation error when the username is empty",
 			func(ctx SpecContext) {

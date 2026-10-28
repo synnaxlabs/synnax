@@ -16,7 +16,6 @@ package service.arc.pb;
 import "arc/go/graph/pb/graph.proto";
 import "arc/go/program/pb/program.proto";
 import "arc/go/text/pb/text.proto";
-import "core/pkg/service/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
 
@@ -24,12 +23,6 @@ option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
 enum Mode {
   MODE_TEXT = 0;
   MODE_GRAPH = 1;
-}
-
-// StatusDetails contains Arc-specific status details for execution state.
-message StatusDetails {
-  // running indicates whether the Arc module is currently executing.
-  bool running = 1;
 }
 
 // Arc is an Arc module combining visual graph representation and text-based source code
@@ -48,6 +41,4 @@ message Arc {
   .arc.text.pb.Text text = 5;
   // program is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.program.pb.Program program = 6;
-  // status is the current execution status of the module.
-  optional .service.status.pb.Status status = 7;
 }

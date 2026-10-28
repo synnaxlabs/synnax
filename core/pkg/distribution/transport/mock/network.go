@@ -48,6 +48,9 @@ func (n *Network) New(addr address.Address, buffers ...int) distribution.Transpo
 	}
 }
 
+// Control returns the network that carries control transports.
+func (n *Network) Control() *control.Network { return n.control }
+
 type transport struct {
 	channel distchannel.Transport
 	framer  distframer.Transport

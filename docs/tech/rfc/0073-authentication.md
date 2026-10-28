@@ -165,9 +165,9 @@ first piece of a FIPS mode for the whole Core.
 **API keys.** A key is `syk_`, the record key, and 32 random bytes. The Core finds the
 record by its key and compares the hash. The key is shown once, never expires, and acts
 as its subject with no permissions of its own. A subject creates its own keys. A key for
-a rack takes the permission to create racks, which Engineer and Driver hold. A key for a
-user takes a permission only Owner holds, because the holder can then act as that user.
-The Console shows whether a key is in use by listing its live sessions.
+a rack takes the permission to create racks, which Engineer holds. A key for a user
+takes a permission only Owner holds, because the holder can then act as that user. The
+Console shows whether a key is in use by listing its live sessions.
 
 **OIDC links.** `provider` is the `name` of an entry in `oidc-providers`, a string
 because providers are site configuration. `account` is the `sub` claim, the permanent
@@ -218,8 +218,8 @@ on every request. Neither names a subject type or a method. Each method implemen
 type Authenticator interface {
     // Authenticate checks the proof and returns the subject and the credential used.
     Authenticate(ctx context.Context, proof Proof) (Identity, error)
-    // DeleteFor removes every credential of the given subjects.
-    DeleteFor(ctx context.Context, subjects ...ontology.ID) error
+    // DeleteFor removes every credential of the given subjects within tx.
+    DeleteFor(ctx context.Context, tx gorp.Tx, subjects ...ontology.ID) error
 }
 ```
 
@@ -245,19 +245,15 @@ Session struct {
     key         Key
     hash        bytes        // SHA-256 of the token's secret
     subject     ontology.ID
-    method      Method
     credential  uuid
-    address     string
-    created     timestamp
     last_active timestamp
 }
 ```
 
 A session is a Gorp record, so it survives a restart and every node sees it. It replaces
 the JWT, which cannot be revoked, gives a stream nothing to watch, and needs a signing
-key on every node. The cost is one replicated write per login. `method` and `credential`
-let a deleted credential end its sessions. `address` and `created` let an administrator
-tell sessions apart before revoking one.
+key on every node. The cost is one replicated write per login. `credential` lets a
+deleted credential end its sessions.
 
 A token is `sys_`, the session key, and 32 random bytes, the same layout as an API key.
 That exceeds the [64 bit minimum](https://pages.nist.gov/800-63-4/sp800-63b.html) for a
@@ -330,9 +326,8 @@ it no longer stores a rack key.
   them once to log in, create the rack, and create its key. It saves only the key.
 - **The Console** can create a rack and its key, for automated installs.
 - **The embedded Driver** has one standing key. The Core creates it with the embedded
-  rack, saves it in the config file it already writes for the embedded Driver, and
-  reuses it at every start, making a new one only when the saved key is missing or
-  refused.
+  rack, saves it in an owner-only file in its data directory, and reuses it at every
+  start, making a new one only when the saved key is missing or refused.
 
 A Driver that loses its key needs a person to run the login command again.
 
@@ -419,7 +414,7 @@ record only when the subject is a user.
 | Core             | Hashes of passwords, keys, and tokens                                    | Database                                         |
 | Core             | Root password, plain text                                                | Start flag, environment variable, or config file |
 | Core             | Provider client secret, plain text, when required                        | Config file                                      |
-| Core             | API key of the embedded Driver                                           | Owner-only Driver config file                    |
+| Core             | API key of the embedded Driver                                           | Owner-only file in the Core data directory       |
 | Driver           | API key of its rack                                                      | Owner-only state file                            |
 | Console, desktop | Session token                                                            | Operating system keychain                        |
 | Console, browser | Session token                                                            | A cookie scripts cannot read                     |

@@ -22,7 +22,7 @@ import (
 
 func TestGoPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go PB Suite")
+	RunSpecs(t, "Plugin Go PB Suite", SuiteConfig())
 }
 
 var _ = Describe("Go PB Plugin", func() {
@@ -51,6 +51,25 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should not translate a field omitted in pb", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@pb
+
+					Session struct {
+						key     string
+						hash    bytes { @pb omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("Subject").
+					ToNotContain("Hash")
+			})
+		})
+
 		Context("union translation", func() {
 			It(
 				"Should generate oneof translators for a discriminated union",
@@ -1240,8 +1259,8 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "x/go/telem"
 					@pb
 
-					TimeStamp = uint64
-					TimeSpan = int64
+					TimeStamp uint64
+					TimeSpan int64
 				`)
 			})
 
@@ -1288,7 +1307,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/test"
 					@pb
 
-					Key = uint32
+					Key uint32
 
 					Test struct {
 						rack Key
@@ -1306,7 +1325,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/test"
 					@pb
 
-					ResourceKey = uuid
+					ResourceKey uuid
 
 					Test struct {
 						resource_key ResourceKey
@@ -1315,10 +1334,95 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
-					ToContain("r.ResourceKey.String()").
+					ToContain("uuid.UUID(r.ResourceKey).String()").
 					ToContain("uuid.Parse(pb.ResourceKey)").
 					ToContain("r.ResourceKey = test.ResourceKey(parsedResourceKey)")
 			})
+
+			DescribeTable(
+				"Should convert a field of a primitive or a distinct type over one",
+				func(ctx SpecContext, field string, expected ...string) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Ident uuid
+					Doc record
+					Blob bytes
+					Thing any
+
+					Test struct {
+						` + field + `
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").ToContain(expected...)
+				},
+				Entry("a distinct record", "doc Doc",
+					"docVal, err := structpb.NewStruct(r.Doc)",
+					"r.Doc = test.Doc(pb.Doc.AsMap())",
+				),
+				Entry("distinct bytes", "blob Blob",
+					"Blob: r.Blob,",
+					"r.Blob = test.Blob(pb.Blob)",
+				),
+				Entry("a distinct any", "thing Thing",
+					"thingVal, err := json.Marshal(r.Thing)",
+					"r.Thing = test.Thing(func() any {",
+				),
+				Entry("an optional uuid", "key uuid?",
+					"v := r.Key.String()",
+					"pb.Key = &v",
+					"v, err := uuid.Parse(*pb.Key)",
+					"r.Key = &v",
+				),
+				Entry("an optional distinct uuid", "owner Ident?",
+					"v := uuid.UUID(*r.Owner).String()",
+					"v, err := uuid.Parse(*pb.Owner)",
+					"r.Owner = new(test.Ident(v))",
+				),
+				Entry("an optional any", "thing any?",
+					"v, err := json.Marshal(*r.Thing)",
+					"pb.Thing = v\n",
+					"r.Thing = &v",
+				),
+				Entry("an optional distinct any", "thing Thing?",
+					"v, err := json.Marshal(*r.Thing)",
+					"v := test.Thing(func() any {",
+				),
+				Entry("an optional distinct record", "doc Doc?",
+					"pb.Doc, err = structpb.NewStruct(r.Doc)",
+					"r.Doc = test.Doc(pb.Doc.AsMap())",
+				),
+				Entry("optional distinct bytes", "blob Blob?",
+					"pb.Blob = r.Blob\n",
+					"r.Blob = test.Blob(pb.Blob)",
+				),
+			)
+
+			It("Should convert an optional field of a generic struct through its value",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/test"
+					@pb
+
+					Ident uuid
+
+					Container struct<T> {
+						item  T
+						owner Ident?
+						thing any?
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").ToContain(
+						"translateT func(T) (*anypb.Any, error)",
+						"v, err := json.Marshal(*r.Thing)",
+						"pb.Thing = v\n",
+						"r.Owner = new(test.Ident(v))",
+					)
+				},
+			)
 		})
 
 		Context("key domain with numeric types", func() {
@@ -1329,7 +1433,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/test"
 					@pb
 
-					Key = uint32
+					Key uint32
 
 					Test struct {
 						@key
@@ -1671,7 +1775,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "core/ids"
 					@pb
 
-					NodeID = uint32
+					NodeID uint32
 				`)
 			})
 
@@ -2062,9 +2166,9 @@ var _ = Describe("Go PB Plugin", func() {
 
 					ExpectContent(resp, "translator.gen.go").
 						ToContain(
-							// Forward calls .String(); backward parses and casts to the
-							// distinct wrapper.
-							"r.ID.String()",
+							// A defined type has none of uuid.UUID's methods, so the
+							// forward converts to uuid.UUID first.
+							"uuid.UUID(r.ID).String()",
 							"uuid.Parse(pb.Id)",
 							"task.TaskID",
 						)
@@ -2312,6 +2416,47 @@ var _ = Describe("Go PB Plugin", func() {
 							// the argument and converters pin the instantiation.
 							"StatusToPB(r.Status, DetailsToPBAny)",
 							"StatusFromPB(pb.Status, DetailsFromPBAny)",
+						)
+				},
+			)
+
+			It(
+				"Should translate an imported struct type argument in its own package",
+				func(ctx SpecContext) {
+					loader.Add("schemas/common", `
+					@go output "core/common"
+					@pb
+
+					Details struct {
+						label string
+					}
+				`)
+					source := `
+					import "schemas/common"
+
+					@go output "core/control"
+					@pb
+
+					Pair struct<A, B?> {
+						first  A
+						second B
+					}
+
+					Channel struct {
+						pair Pair<common.Details, nil>
+					}
+				`
+					resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							"func DetailsToPBAny(v common.Details) "+
+								"(*anypb.Any, error) {",
+							"pb, err := commonpb.DetailsToPB(v)",
+							"var pb commonpb.Details",
+							"return commonpb.DetailsFromPB(&pb)",
+							"PairFromPB[common.Details, struct{}]"+
+								"(pb.Pair, DetailsFromPBAny, nil)",
 						)
 				},
 			)

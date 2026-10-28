@@ -186,6 +186,10 @@
       "types": "./dist/note/index.d.ts",
       "default": "./dist/note/index.js"
     },
+    "./pane": {
+      "types": "./dist/pane/index.d.ts",
+      "default": "./dist/pane/index.js"
+    },
     "./portal": {
       "types": "./dist/portal/index.d.ts",
       "default": "./dist/portal/index.js"
@@ -206,6 +210,10 @@
       "types": "./dist/select/index.d.ts",
       "default": "./dist/select/index.js"
     },
+    "./skeleton": {
+      "types": "./dist/skeleton/index.d.ts",
+      "default": "./dist/skeleton/index.js"
+    },
     "./state": {
       "types": "./dist/state/index.d.ts",
       "default": "./dist/state/index.js"
@@ -213,6 +221,10 @@
     "./status": {
       "types": "./dist/status/index.d.ts",
       "default": "./dist/status/index.js"
+    },
+    "./steps": {
+      "types": "./dist/steps/index.d.ts",
+      "default": "./dist/steps/index.js"
     },
     "./store": {
       "types": "./dist/store/index.d.ts",

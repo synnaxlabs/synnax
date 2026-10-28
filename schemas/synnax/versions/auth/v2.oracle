@@ -7,6 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Tombstone: stored credentials moved to the password resource at v2, so nothing
-// persists this resource at v2 or later. The live schema is hand-owned and holds the
-// wire-only login types. v0 and v1 stay frozen for the move migration.
+import "schemas/synnax/versions/ontology/v0"
+import "schemas/x/versions/telem/v0"
+
+SessionKey = uuid {
+    @doc value "is a unique identifier for a session."
+}
+
+Session struct {
+    key         SessionKey = create {
+        @doc value "is the unique identifier for this session."
+        @key
+    }
+    hash        bytes           {
+        @doc value "is the SHA-256 hash of the secret in the session's token."
+        @go wire   omit
+    }
+    subject     ontology.ID     {
+        @doc value "is the user or rack that logged in."
+    }
+    credential  uuid            {
+        @doc value "is the key of the credential record the login matched."
+    }
+    last_active telem.TimeStamp {
+        @doc value """
+            is the last time a request used the session, to the nearest quarter of the
+            idle timeout.
+        """
+    }
+
+    @doc value  """
+        is a logged-in subject. It ends when it is revoked or when no request has used
+        it for the idle timeout.
+    """
+    @go marshal
+    @go migrate
+}

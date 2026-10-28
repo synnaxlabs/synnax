@@ -16,7 +16,7 @@
 package device
 
 import (
-	pb "github.com/synnaxlabs/synnax/pkg/service/device/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -344,7 +344,7 @@ var File_core_pkg_transport_grpc_device_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_device_device_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/device/device.proto\x12\vgrpc.device\x1a'core/pkg/service/device/pb/device.proto\x1a\x1bgoogle/protobuf/empty.proto\"D\n" +
+	"+core/pkg/transport/grpc/device/device.proto\x12\vgrpc.device\x1a.core/pkg/service/legacy/device/pb/device.proto\x1a\x1bgoogle/protobuf/empty.proto\"D\n" +
 	"\rCreateRequest\x123\n" +
 	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"E\n" +
 	"\x0eCreateResponse\x123\n" +

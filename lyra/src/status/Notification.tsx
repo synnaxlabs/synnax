@@ -26,12 +26,11 @@ interface ActionProps {
   action: ReactElement | Button.ButtonProps;
 }
 
-const Action = ({ action }: ActionProps): ReactElement =>
-  isValidElement(action) ? (
-    action
-  ) : (
-    <Button.Button {...action} key={action.key} size="tiny" />
-  );
+const Action = ({ action }: ActionProps): ReactElement => {
+  if (isValidElement(action)) return action;
+  const { key: _, ...props } = action;
+  return <Button.Button {...props} size="tiny" />;
+};
 
 export interface NotificationProps extends ComponentPropsWithRef<"div"> {
   status: NotificationSpec;

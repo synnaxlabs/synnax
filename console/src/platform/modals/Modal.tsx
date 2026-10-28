@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { memo, type ReactElement, useCallback } from "react";
+import { memo, type ReactElement } from "react";
 
 import { Errors } from "@/platform/errors";
 import { type Session } from "@/session";
@@ -16,7 +16,7 @@ import { type Session } from "@/session";
 interface ModalProps extends Session.Modals.Entry {}
 
 export const Modal = memo(({ dismiss, render }: ModalProps): ReactElement => {
-  const handleDismiss = useCallback(() => dismiss(), [dismiss]);
+  const handleDismiss = () => dismiss();
   return (
     <Dialog.Frame
       variant="modal"

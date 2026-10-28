@@ -2,10 +2,10 @@
 
 ## Modules
 
-`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB),
-`/freighter/go/` + `/freighter/integration/` (transport + its test server), `/arc/go/`
-(Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema codegen CLI),
-`/x/go/` (shared utilities).
+`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB), `/gorp/`
+(typed KV tables), `/freighter/go/` + `/freighter/integration/` (transport + its test
+server), `/arc/go/` (Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema
+codegen CLI), `/x/go/` (shared utilities).
 
 Modules reference siblings via relative-path `replace` directives in each `go.mod`.
 `go.work` is gitignored but fine for local convenience.
@@ -13,6 +13,10 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 ## Commands
 
 - Build: `cd <module> && go build ./...`
+- Exports: `cd x/go && go run ./cmd/exports ../../core ../../x/go ...` prints the
+  exported identifiers that no other package's non-test code uses. Unexport them, or
+  move a helper that other packages' tests need into a `testutil` package. Pass every
+  module that can import the package.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
 
@@ -57,7 +61,8 @@ defer func() {
 
 `fmt.Errorf` is forbidden in all cases (including `%w`), as are the std `errors` package
 and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)`,
-`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`.
+`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`. The `depguard` and
+`forbidigo` linters enforce it.
 
 ### Rule 3: Sentinel errors for matchable conditions
 
@@ -107,7 +112,7 @@ committing).
 Identified by `Code generated ... DO NOT EDIT.` headers and `.gen.` / `_gen` suffixes.
 Edit the source `.oracle` schema in `/schemas/` instead, then run `oracle sync` — always
 installing first via `./oracle/install.sh`, the only blessed install method (see
-`oracle/CLAUDE.md` Sync Workflow). If the schema language can't express the change,
+`oracle/AGENTS.md` Sync Workflow). If the schema language can't express the change,
 investigate the generator in `/oracle/` (`analyzer/`, `formatter/`, `resolution/`,
 `exec/`), describe the gap and blast radius, and wait for user approval before touching
 it.
@@ -142,7 +147,7 @@ an app-startup function) instead.
 
 ## Comments
 
-The universal body-comment and doc-comment rules in the root CLAUDE.md apply.
+The universal body-comment and doc-comment rules in the root AGENTS.md apply.
 Go-specific form:
 
 **Every exported identifier gets a doc comment.** Standard Go conventions: start with
@@ -241,7 +246,7 @@ different setup or assertions.
 `HaveOccurred()`, `Not(Succeed())`, `Not(BeNil())` on errors are forbidden — they pass
 when the code fails for the wrong reason. Always identify the error:
 `MatchError(sentinel)`, `MatchError(ContainSubstring("..."))`, or both via
-`SatisfyAll(...)`.
+`SatisfyAll(...)`. The `errmatch` linter enforces it.
 
 ### Rule 9: No export_test.go
 
@@ -265,11 +270,15 @@ Every `*_suite_test.go` must call one of the two leak checkers from
 ```go
 func TestChannel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Channel Suite")
+	RunSpecs(t, "Distribution Channel Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 ```
+
+Every `RunSpecs` call passes `SuiteConfig()` from `x/testutil`, which puts all specs in
+random order and fails the suite on a pending spec. These settings live in code because
+a Ginkgo flag disables the `go test` result cache. The `suiteconfig` linter enforces it.
 
 ### Rule 11: Every exported symbol gets its own specs
 

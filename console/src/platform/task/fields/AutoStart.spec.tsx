@@ -21,9 +21,10 @@ describe("fields.AutoStart", () => {
     expect(screen.getByText("Auto start")).toBeTruthy();
   });
 
-  it("should render nothing when the field is null (hideIfNull)", async () => {
-    await renderInTaskForm(<Task.Fields.AutoStart />, { values: { config: {} } });
-    expect(screen.queryByText("Auto start")).toBeNull();
+  it("should throw when the config does not carry the field", async () => {
+    await expect(
+      renderInTaskForm(<Task.Fields.AutoStart />, { values: { config: {} } }),
+    ).rejects.toThrow("Field config.autoStart is not in the form");
   });
 
   it("should write the toggled value back into the form", async () => {

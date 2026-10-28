@@ -10,8 +10,7 @@
 import { type channel, schematic } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { direction } from "@synnaxlabs/x";
-import { useMemo } from "react";
+import { direction, primitive } from "@synnaxlabs/x";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Telem } from "@/schematic/node/common/telem";
@@ -23,15 +22,7 @@ export type StateConfig = schematic.ControlStateConfig;
 
 export const STATE_CLASS = CSS.B("control-state");
 
-/** reveal clears every hidden flag, so the control state shows once a command channel
- * is chosen. */
-export const reveal = (config?: StateConfig): StateConfig =>
-  stateConfigZ.parse({
-    ...config,
-    hidden: false,
-    chipHidden: false,
-    indicatorHidden: false,
-  });
+const DEFAULT_CONFIG = stateConfigZ.parse({});
 
 export interface State {
   config?: StateConfig;
@@ -49,17 +40,11 @@ const Internal = ({
   channel = 0,
   ...rest
 }: InternalProps) => {
-  const chip = useMemo(
-    () => ({
-      source: control.authoritySource({ channel }),
-      sink: Telem.chipSink({ channel, authority }),
-    }),
-    [channel, authority],
-  );
-  const indicator = useMemo(
-    () => ({ statusSource: control.authoritySource({ channel }) }),
-    [channel],
-  );
+  const chip = {
+    source: control.authoritySource({ channel }),
+    sink: Telem.chipSink({ channel, authority }),
+  };
+  const indicator = { statusSource: control.authoritySource({ channel }) };
   return (
     <Flex.Box
       direction={direction.swap(orientation)}
@@ -75,7 +60,10 @@ const Internal = ({
 };
 
 export const State = Grid.createItem<State>(({ config, channel, onChange }) => {
-  if (config == null) return null;
+  // The chip and the indicator report control of the channel, so with no channel
+  // there is nothing to show.
+  if (!primitive.isNonZero(channel)) return null;
+  config ??= DEFAULT_CONFIG;
   const orientation = config.orientation ?? "bottom";
   return (
     <Grid.Item

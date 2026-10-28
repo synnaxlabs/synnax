@@ -10,6 +10,8 @@
 import multiprocessing
 import platform
 import subprocess
+from contextlib import suppress
+from pathlib import Path
 from typing import Literal
 
 Platform = Literal["linux", "macos", "windows"]
@@ -40,18 +42,7 @@ def get_machine_info() -> str:
         )
 
     if system == "Linux":
-        result = subprocess.run(
-            ["lsb_release", "-d"], capture_output=True, text=True, timeout=5
-        )
-        if result.returncode == 0:
-            return result.stdout.split("\t")[1].strip()
-        with open("/etc/os-release") as f:
-            for line in f:
-                if line.startswith("PRETTY_NAME="):
-                    return line.split("=")[1].strip().strip('"')
-        raise RuntimeError(
-            "Unable to determine Linux distribution from lsb_release or /etc/os-release"
-        )
+        return _get_linux_distribution()
 
     if system == "Windows":
         result = subprocess.run(
@@ -72,6 +63,32 @@ def get_machine_info() -> str:
         )
 
     return system
+
+
+def _get_linux_distribution(
+    lsb_release: str = "lsb_release", os_release: Path = Path("/etc/os-release")
+) -> str:
+    """Returns the Linux distribution name. Reads os_release when lsb_release fails
+    or is not installed.
+
+    :param lsb_release: The lsb_release command to run.
+    :param os_release: The os-release file to read on fallback.
+    :raises OSError: If lsb_release fails and os_release cannot be read.
+    :raises RuntimeError: If lsb_release fails and os_release has no PRETTY_NAME.
+    """
+    with suppress(FileNotFoundError):
+        result = subprocess.run(
+            [lsb_release, "-d"], capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return result.stdout.split("\t")[1].strip()
+    with os_release.open() as f:
+        for line in f:
+            if line.startswith("PRETTY_NAME="):
+                return line.split("=")[1].strip().strip('"')
+    raise RuntimeError(
+        f"Unable to determine Linux distribution from {lsb_release} or {os_release}"
+    )
 
 
 def get_memory_info() -> str:

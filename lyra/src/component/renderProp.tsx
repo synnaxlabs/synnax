@@ -23,7 +23,7 @@ export const renderProp =
     Component: React.ComponentType<P>,
   ): RenderProp<P, R> =>
   ({ key, ...rest }) =>
-    (<Component {...(rest as P)} key={key} />) as R;
+    (<Component key={key} {...(rest as P)} />) as R;
 
 /** @returns true if children is a {@link RenderProp} rather than a rendered node. */
 export const isRenderProp = <P extends Record<string, any>>(

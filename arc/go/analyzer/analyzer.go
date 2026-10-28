@@ -55,12 +55,17 @@ func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
 			continue
 		}
-		if expr, ok := c.AST.(parser.IExpressionContext); ok {
-			if parser.IsLiteral(expr) {
-				flow.LiftFmtStrVarReads(ctx, c, expr)
+		switch ast := c.AST.(type) {
+		case parser.IExpressionContext:
+			if parser.IsLiteral(ast) {
+				flow.LiftFmtStrVarReads(ctx, c, ast)
 				continue
 			}
-			flow.LiftVarReads(ctx, c, expr)
+			flow.LiftVarReads(ctx, c, ast)
+		case parser.IFunctionContext:
+			for _, arg := range symbol.FunctionArguments(ast) {
+				flow.LiftVarReads(ctx, c, arg.Expr)
+			}
 		}
 	}
 }

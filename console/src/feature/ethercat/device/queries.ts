@@ -10,13 +10,11 @@
 import { type device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, verbs } from "@synnaxlabs/x";
-import { useMemo } from "react";
 
 import { SLAVE_SCHEMAS, type SlaveDevice } from "@/feature/ethercat/device/types";
 import { type Channel } from "@/feature/ethercat/task/types";
 
-export const { use: useSlave, useResult: useResultSlave } =
-  Device.createRetrieve(SLAVE_SCHEMAS);
+export const { useResult: useResultSlave } = Device.createRetrieve(SLAVE_SCHEMAS);
 
 const { use: useSlaves, useResult: useResultSlaves } =
   Device.createRetrieveMultiple(SLAVE_SCHEMAS);
@@ -36,20 +34,16 @@ export interface EnabledStateParams {
 
 export const useEnabledState = ({ keys }: EnabledStateParams): EnabledState => {
   const slaves = useSlaves({ keys });
-  return useMemo(() => {
-    const disabledCount = slaves.filter((d) => !d.properties?.enabled).length;
-    return {
-      allDisabled: disabledCount === slaves.length,
-      allEnabled: disabledCount === 0,
-    };
-  }, [slaves]);
+  const disabledCount = slaves.filter((d) => !d.properties?.enabled).length;
+  return {
+    allDisabled: disabledCount === slaves.length,
+    allEnabled: disabledCount === 0,
+  };
 };
 
 export const useCommonNetwork = (channels: Channel[]) => {
-  const firstDeviceKey = useMemo(() => {
-    const keys = channels.map((ch) => ch.device).filter((c) => c != null);
-    return keys.length > 0 ? keys[0] : "";
-  }, [channels]);
+  const keys = channels.map((ch) => ch.device).filter((c) => c != null);
+  const firstDeviceKey = keys.length > 0 ? keys[0] : "";
   const { data: slave } = useResultSlave(
     primitive.isZero(firstDeviceKey) ? null : { key: firstDeviceKey },
   );

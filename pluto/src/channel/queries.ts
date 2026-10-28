@@ -56,9 +56,17 @@ export const calculatedFormSchema = formSchema.safeExtend({
     }),
 });
 
+const ZERO_OPERATION: channel.Operation = {
+  type: "none",
+  resetChannel: 0,
+  duration: TimeSpan.ZERO,
+};
+
+// The form edits operations[0], so a channel without operations loads as "none".
 const channelToFormValues = (ch: channel.Channel) => ({
   ...ch.payload,
   dataType: ch.dataType.toString(),
+  operations: ch.operations.length > 0 ? ch.operations : [ZERO_OPERATION],
 });
 
 export {
@@ -79,13 +87,7 @@ export const ZERO_FORM_VALUES: z.infer<
   virtual: false,
   expression: "",
   concurrency: control.Concurrency.exclusive,
-  operations: [
-    {
-      type: "none",
-      resetChannel: 0,
-      duration: TimeSpan.ZERO,
-    },
-  ],
+  operations: [ZERO_OPERATION],
 };
 
 export const { use, useResult, useEnsure, createSelector, createResultSelector } =
@@ -102,6 +104,8 @@ export const useResultAlias = createResultSelector(({ alias, name }) =>
 );
 
 export const useResultName = createResultSelector(({ name }) => name);
+
+export const useResultIsIndex = createResultSelector(({ isIndex }) => isIndex);
 
 /** Compared by variant and message: a heartbeat that changes neither is silenced. */
 export const useResultStatus: Flux.UseResult<

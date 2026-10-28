@@ -23,7 +23,6 @@ export const ActivationDelayField = (
     label="Delay"
     path="onClickDelay"
     inputProps={ACTIVATION_DELAY_INPUT_PROPS}
-    defaultValue={0}
     padHelpText={false}
     {...props}
   />

@@ -24,7 +24,7 @@ import (
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Py Types Suite")
+	RunSpecs(t, "Plugin Py Types Suite", SuiteConfig())
 }
 
 var _ = Describe("Python Types Plugin", func() {
@@ -53,6 +53,25 @@ var _ = Describe("Python Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in py", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@py output "out"
+
+					Session struct {
+						key     uuid
+						hash    bytes { @py omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`key: UUID`, `subject: str`).
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It(
 				"Should generate Pydantic model for simple struct",
@@ -910,6 +929,27 @@ var _ = Describe("Python Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`is_index: bool | None = None`))
 				Expect(content).To(ContainSubstring(`extra: str`))
 				Expect(content).NotTo(ContainSubstring(`type: ignore`))
+			},
+		)
+		It(
+			"Should substitute a generic parent's type arguments into inlined fields",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Box struct<T> {
+					item   T
+					hidden bool
+				}
+
+				Child struct extends Box<string> {
+					hidden bool?
+				}
+			`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					"class Child(BaseModel):\n    item: str\n",
+				)
 			},
 		)
 		It(
@@ -1844,7 +1884,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 		Context("generic alias with nil type argument", func() {
 			It(
-				"Should generate TypeAlias with None for nil type arg",
+				"Should drop a nil type arg so the generic uses its default",
 				func(ctx SpecContext) {
 					loader.Add("schemas/status", `
 @py output "client/py/synnax/status"
@@ -1866,8 +1906,9 @@ ChannelStatus = status.Status<nil>
 					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "channel/types_gen.py").
 						ToContain(
-							`ChannelStatus: TypeAlias = status.Status[None]`,
-						)
+							"ChannelStatus: TypeAlias = status.Status\n",
+						).
+						ToNotContain(`status.Status[None]`)
 				},
 			)
 		})
@@ -2386,6 +2427,48 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				`default_factory=lambda: NoneScale(type="none")`,
+			)
+		},
+	)
+
+	It(
+		"Should default a union-typed field from a struct literal to its variant",
+		func(ctx SpecContext) {
+			withDefault := source + `
+			Item struct { scale Scale = { type = "linear", slope = 2 } }
+		`
+			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`default_factory=lambda: LinearScale(type="linear", slope=2)`,
+			)
+		},
+	)
+
+	It(
+		"Should alias a module import that an inline variant field shadows",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
+				@py output "client/py/synnax/status"
+
+				Info struct {
+					key uuid
+				}
+			`)
+			source := `
+				import "schemas/status"
+
+				@py output "client/py/synnax/task"
+
+				Config union on variant {
+					tracked {
+						status status.Info
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			ExpectContent(resp, "task/types_gen.py").ToContain(
+				`from synnax import status as status_`,
+				`status: status_.Info`,
 			)
 		},
 	)

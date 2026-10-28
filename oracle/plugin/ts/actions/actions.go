@@ -57,6 +57,7 @@ func (*Plugin) Requires() []string { return []string{"ts/types"} }
 // Generate emits one actions.gen.ts per output package containing structs that declare
 // actions. Structs without actions are skipped.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("ts")
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	for _, typ := range req.Resolutions.StructTypes() {
 		form, ok := typ.Form.(resolution.StructForm)

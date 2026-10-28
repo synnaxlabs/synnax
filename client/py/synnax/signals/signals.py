@@ -10,16 +10,21 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from functools import wraps
+from dataclasses import dataclass
 
 from synnax import channel, framer
-from synnax.state import LatestState, State
+from synnax.state import Latest, State
 
-_InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
+
+@dataclass
+class _Handler:
+    channels: set[channel.Key]
+    filter: Callable[[Latest], bool]
+    f: Callable[[Latest], None]
 
 
 class Registry:
-    _handlers: list[_InternalHandler]
+    _handlers: list[_Handler]
     _channels: list[channel.Key]
     _frame_client: framer.Client
     _channel_retriever: channel.Retriever
@@ -33,64 +38,47 @@ class Registry:
     def on(
         self,
         channels: channel.Params,
-        filter_f: Callable[[LatestState], bool],
-    ) -> Callable[[Callable[[LatestState], None]], Callable[[LatestState], None]]:
+        filter_f: Callable[[Latest], bool],
+    ) -> Callable[[Callable[[Latest], None]], Callable[[Latest], None]]:
+        """Registers the decorated function to run when filter_f passes.
+
+        filter_f runs on each frame that holds one of the channels, once every channel
+        has a value.
+
+        :param channels: The channels the handler reads.
+        :param filter_f: Returns true when the handler should run.
+        :returns: A decorator that returns the function unchanged.
+        """
         normal = channel.normalize_params(channels)
         if isinstance(normal, channel.NormalizedKeyResult):
-            self._channels.extend(normal.channels)
+            keys = set(normal.channels)
         else:
-            resolved = self._channel_retriever.retrieve(channels)
-            self._channels.extend(ch.key for ch in resolved)
+            keys = {ch.key for ch in self._channel_retriever.retrieve(channels)}
+        self._channels.extend(keys)
 
         def decorator(
-            f: Callable[[LatestState], None],
-        ) -> Callable[[LatestState], None]:
-            @wraps(f)
-            def wrapper(state: State) -> Callable[[LatestState], None] | None:
-                if filter_f(LatestState(state)):
-                    return f
-                return None
-
-            self._handlers.append(wrapper)
+            f: Callable[[Latest], None],
+        ) -> Callable[[Latest], None]:
+            self._handlers.append(_Handler(channels=keys, filter=filter_f, f=f))
             return f
 
         return decorator
 
     async def process(self) -> None:
-        await Scheduler(
-            channels=self._channels,
-            handlers=self._handlers,
-            frame_client=self._frame_client,
-            channel_retriever=self._channel_retriever,
-        ).start()
-
-
-class Scheduler:
-    _streamer: framer.AsyncStreamer | None = None
-    _handlers: list[_InternalHandler]
-    _channels: list[channel.Key]
-    _state: State
-    _frame_client: framer.Client
-
-    def __init__(
-        self,
-        channels: list[channel.Key],
-        handlers: list[_InternalHandler],
-        frame_client: framer.Client,
-        channel_retriever: channel.Retriever,
-    ):
-        self._frame_client = frame_client
-        self._channels = channels
-        self._handlers = handlers
-        self._state = State(channel_retriever.retrieve(channels))
-
-    async def start(self) -> None:
-        self._streamer = await self._frame_client.open_async_streamer(self._channels)
-        async for frame in self._streamer:
-            self._state.update(frame)
-            for handler in self._handlers:
-                res = handler(self._state)
-                if res is not None:
-                    res(LatestState(self._state))
-
-    def stop(self) -> None: ...
+        """Streams the registered channels and runs handlers until cancelled. Closes the
+        streamer on exit.
+        """
+        state = State(self._channel_retriever.retrieve(self._channels))
+        async with await self._frame_client.open_async_streamer(
+            self._channels
+        ) as streamer:
+            async for frame in streamer:
+                state.update(frame)
+                latest = Latest(state)
+                for h in self._handlers:
+                    if (
+                        any(key in frame for key in h.channels)
+                        and h.channels.issubset(state.value)
+                        and h.filter(latest)
+                    ):
+                        h.f(latest)

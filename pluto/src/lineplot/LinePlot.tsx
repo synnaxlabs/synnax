@@ -10,7 +10,6 @@
 import { type channel, lineplot } from "@synnaxlabs/client";
 import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { usePrevious } from "@synnaxlabs/lyra/hooks";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
@@ -18,17 +17,12 @@ import {
   type direction,
   type location,
   primitive,
-  type TimeRange,
-  type TimeSpan,
+  resolveWindow,
+  TimeSpan,
+  TimeStamp,
+  type Window,
 } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { type ReactElement, type RefObject, useEffect, useRef } from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
@@ -66,12 +60,6 @@ import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
 import { type Viewport } from "@/viewport";
 
-// A resolved range descriptor supplied by the consumer. Range resolution lives
-// in the consumer (Console's range slice), so the connected component receives
-// the static/dynamic time window per range key rather than reading it itself.
-export type ResolvedRange =
-  { variant: "static"; timeRange: TimeRange } | { variant: "dynamic"; span: TimeSpan };
-
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 
 const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
@@ -102,62 +90,66 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
   Haul.useDrop({
     type: `channel_lineplot_${direction}_axis`,
     canDrop: canDropHaulItem,
-    onDrop: useCallback(
-      ({ items }) => {
-        const dropped = filterHaulItems(items);
-        const keys = dropped.map(({ key }) => key);
-        onDrop?.(axisKey, keys);
-        return dropped;
-      },
-      [axisKey, onDrop],
-    ),
+    onDrop: ({ items }) => {
+      const dropped = filterHaulItems(items);
+      const keys = dropped.map(({ key }) => key);
+      onDrop?.(axisKey, keys);
+      return dropped;
+    },
   });
 
 interface LineProps {
   pKey: lineplot.Key;
   lineKey: string;
-  resolved?: ResolvedRange;
+  window?: Window;
   visible?: boolean;
 }
+
+const GROUPS_PER_COLUMN: Record<lineplot.Detail, number> = {
+  low: 1 / 4,
+  medium: 1 / 2,
+  high: 1,
+};
+
+// A live window of a minute or less draws from the stream at once, so its lines report
+// no loading while they have no data.
+const LOADING_MIN_SPAN = Number(TimeSpan.minutes(1).valueOf());
+
+const createTelemetry = (
+  window: Window,
+  xChannel: channel.Key,
+  yChannel: channel.Key,
+  aggregation: lineplot.Aggregation,
+) => {
+  const hasX = primitive.isNonZero(xChannel);
+  const props = {
+    window,
+    xChannel,
+    aggregation,
+  };
+  return {
+    x: telem.channelData({
+      ...props,
+      channel: hasX ? xChannel : yChannel,
+      useIndexOfChannel: !hasX,
+    }),
+    y: telem.channelData({ ...props, channel: yChannel }),
+  };
+};
 
 const Line = ({
   pKey,
   lineKey,
-  resolved,
+  window,
   visible = true,
 }: LineProps): ReactElement | null => {
-  const { key, ...line } = useLine({ key: pKey, lineKey });
-  const telemetry = useMemo(() => {
-    if (resolved == null) return null;
-    const { xChannel, yChannel } = line;
-    const hasX = primitive.isNonZero(xChannel);
-    if (resolved.variant === "dynamic") {
-      const keepFor = Number(resolved.span.valueOf()) * 3;
-      const { span: timeSpan } = resolved;
-      return {
-        x: telem.streamChannelData({
-          timeSpan,
-          channel: hasX ? xChannel : yChannel,
-          useIndexOfChannel: !hasX,
-          keepFor,
-        }),
-        y: telem.streamChannelData({
-          timeSpan,
-          channel: yChannel,
-          keepFor,
-        }),
-      };
-    }
-    return {
-      x: telem.channelData({
-        timeRange: resolved.timeRange,
-        channel: hasX ? xChannel : yChannel,
-        useIndexOfChannel: !hasX,
-      }),
-      y: telem.channelData({ timeRange: resolved.timeRange, channel: yChannel }),
-    };
-  }, [resolved, line?.xChannel, line?.yChannel]);
-  if (line == null || telemetry == null) return null;
+  const spec = useLine({ key: pKey, lineKey });
+  const { key, aggregation, detail, ...line } = spec;
+  // JSX takes the rest object, so the compiler counts reads from it as changing later.
+  const { xChannel, yChannel } = spec;
+  const groupsPerColumn = GROUPS_PER_COLUMN[detail];
+  if (window == null) return null;
+  const telemetry = createTelemetry(window, xChannel, yChannel, aggregation);
   return (
     <BaseLine
       key={key}
@@ -165,6 +157,10 @@ const Line = ({
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}
+      groupsPerColumn={groupsPerColumn}
+      loadingHidden={
+        window.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
+      }
       legendGroup={line.yAxis.toUpperCase()}
       {...line}
     />
@@ -180,7 +176,7 @@ const Title = ({ pKey: key, editable }: TitleProps): ReactElement | null => {
   const { visible, level } = useTitle({ key });
   const name = useName({ key });
   const { update: rn } = useRename({});
-  const handleChange = useCallback((name: string) => rn({ key, name }), [rn, key]);
+  const handleChange = (name: string) => rn({ key, name });
   if (!visible) return null;
   return (
     <BaseTitle
@@ -207,24 +203,14 @@ const Legend = ({
 }: LegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
   const legend = useLegend({ key });
-  const handlePositionChange = useCallback(
-    (position: typeof legend.position) =>
-      editable &&
-      dispatch({ key, actions: [lineplot.setLegendPosition({ position })] }),
-    [dispatch, key, editable],
-  );
-  const handleLineColorChange = useCallback(
-    (lineKey: string, color: color.Color) =>
-      editable &&
-      dispatch({ key, actions: [lineplot.setLineColor({ key: lineKey, color })] }),
-    [dispatch, key, editable],
-  );
-  const handleLineLabelChange = useCallback(
-    (lineKey: string, label: string) =>
-      editable &&
-      dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] }),
-    [dispatch, key, editable],
-  );
+  const handlePositionChange = (position: typeof legend.position) =>
+    editable && dispatch({ key, actions: [lineplot.setLegendPosition({ position })] });
+  const handleLineColorChange = (lineKey: string, color: color.Color) =>
+    editable &&
+    dispatch({ key, actions: [lineplot.setLineColor({ key: lineKey, color })] });
+  const handleLineLabelChange = (lineKey: string, label: string) =>
+    editable &&
+    dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] });
   if (legend.hidden) return null;
   return (
     <BaseLegend
@@ -241,7 +227,7 @@ const Legend = ({
 interface AxisChildrenProps {
   pKey: lineplot.Key;
   editable: boolean;
-  resolvedRanges?: Map<string, ResolvedRange>;
+  windows?: Map<string, Window>;
   hiddenLines?: Set<string>;
   onSelectRule?: (key: string) => void;
 }
@@ -255,28 +241,16 @@ interface RuleProps {
 const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null => {
   const { dispatch } = useDispatch();
   const { key, ...rule } = useRule({ key: pKey, ruleKey });
-  const apply = useCallback(
-    (action: lineplot.Action): void => {
-      dispatch({ key: pKey, actions: [action] });
-    },
-    [dispatch, pKey],
-  );
-  const handleLabelChange = useCallback(
-    (label: string) => apply(lineplot.setRuleLabel({ key: ruleKey, label })),
-    [apply, ruleKey],
-  );
-  const handlePositionChange = useCallback(
-    (position: number) => apply(lineplot.setRulePosition({ key: ruleKey, position })),
-    [apply, ruleKey],
-  );
-  const handleUnitsChange = useCallback(
-    (units: string) => apply(lineplot.setRuleUnits({ key: ruleKey, units })),
-    [apply, ruleKey],
-  );
-  const handleClick = useCallback(
-    () => onSelectRule?.(ruleKey),
-    [onSelectRule, ruleKey],
-  );
+  const apply = (action: lineplot.Action): void => {
+    dispatch({ key: pKey, actions: [action] });
+  };
+  const handleLabelChange = (label: string) =>
+    apply(lineplot.setRuleLabel({ key: ruleKey, label }));
+  const handlePositionChange = (position: number) =>
+    apply(lineplot.setRulePosition({ key: ruleKey, position }));
+  const handleUnitsChange = (units: string) =>
+    apply(lineplot.setRuleUnits({ key: ruleKey, units }));
+  const handleClick = () => onSelectRule?.(ruleKey);
   return (
     <BaseRule.Rule
       key={key}
@@ -315,36 +289,28 @@ const YAxis = ({
   pKey: key,
   axisKey,
   editable,
-  resolvedRanges,
+  windows,
   hiddenLines,
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
   const { axis, lineKeys, channels } = useYAxis({ key, axisKey });
-  const handleDrop = useCallback(
-    (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
-      if (!editable) return;
-      const existing = new Set(channels);
-      const additions = dropped.filter((channel) => !existing.has(channel));
-      if (additions.length > 0)
-        dispatch({
-          key,
-          actions: additions.map((channel) =>
-            lineplot.addChannel({ axisKey, channel }),
-          ),
-        });
-    },
-    [channels, dispatch, key, editable],
-  );
-  const handleLabelChange = useCallback(
-    (label: string) =>
-      editable &&
+  const handleDrop = (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
+    if (!editable) return;
+    const existing = new Set(channels);
+    const additions = dropped.filter((channel) => !existing.has(channel));
+    if (additions.length > 0)
       dispatch({
         key,
-        actions: [lineplot.setAxisLabel({ key: axisKey, label })],
-      }),
-    [editable],
-  );
+        actions: additions.map((channel) => lineplot.addChannel({ axisKey, channel })),
+      });
+  };
+  const handleLabelChange = (label: string) =>
+    editable &&
+    dispatch({
+      key,
+      actions: [lineplot.setAxisLabel({ key: axisKey, label })],
+    });
   const dropProps = useAxisDrop(axisKey, "y", handleDrop);
   const dragging = Haul.useDraggingState();
   const { key: _axisKey, ...axisConfig } = axis;
@@ -363,7 +329,7 @@ const YAxis = ({
           key={lineKey}
           pKey={key}
           lineKey={lineKey}
-          resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
+          window={windows?.get(lineplot.parseLineKey(lineKey).range)}
           visible={hiddenLines == null || !hiddenLines.has(lineKey)}
         />
       ))}
@@ -381,34 +347,28 @@ const XAxis = ({
   pKey: key,
   axisKey,
   editable,
-  resolvedRanges,
+  windows,
   hiddenLines,
   onSelectRule,
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const handleDrop = useCallback(
-    (axisKey: lineplot.XAxisKey, [channel]: channel.Key[]): void => {
-      if (editable && channel != null)
-        dispatch({
-          key,
-          actions: [lineplot.setXChannel({ axisKey, channel })],
-        });
-    },
-    [dispatch, key, editable],
-  );
+  const handleDrop = (axisKey: lineplot.XAxisKey, [channel]: channel.Key[]): void => {
+    if (editable && channel != null)
+      dispatch({
+        key,
+        actions: [lineplot.setXChannel({ axisKey, channel })],
+      });
+  };
   const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
   const { key: _, ...axisConfig } = useXAxis({ key, axisKey });
   const yAxes = useYAxisKeys({ key });
-  const handleLabelChange = useCallback(
-    (label: string) =>
-      dispatch({
-        key,
-        actions: [lineplot.setAxisLabel({ key: axisKey, label })],
-      }),
-    [dispatch, key, axisKey],
-  );
+  const handleLabelChange = (label: string) =>
+    dispatch({
+      key,
+      actions: [lineplot.setAxisLabel({ key: axisKey, label })],
+    });
   return (
     <BaseXAxis
       {...axisConfig}
@@ -425,7 +385,7 @@ const XAxis = ({
           pKey={key}
           axisKey={yAxisKey}
           editable={editable}
-          resolvedRanges={resolvedRanges}
+          windows={windows}
           hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
         />
@@ -446,23 +406,24 @@ const useViewportReset = ({
   hold,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
   const lineCount = useLineCount({ key });
-  const prevLineCount = usePrevious(lineCount);
-  const prevHold = usePrevious(hold);
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
+  const prevLineCount = useRef(lineCount);
+  const prevHold = useRef(hold);
   useEffect(() => {
-    if (
-      (prevLineCount === 0 && lineCount !== 0) ||
-      (prevHold === true && hold === false)
-    )
-      viewportRef.current?.reset();
-  }, [lineCount, hold, prevLineCount, prevHold]);
+    const linesAppeared = prevLineCount.current === 0 && lineCount !== 0;
+    const holdReleased = prevHold.current === true && hold === false;
+    prevLineCount.current = lineCount;
+    prevHold.current = hold;
+    if (linesAppeared || holdReleased) viewportRef.current?.reset();
+  }, [lineCount, hold]);
   return viewportRef;
 };
 
 export interface LinePlotProps extends FrameProps {
   editable?: boolean;
   enableTriggers?: Triggers.Condition;
-  resolvedRanges?: Map<string, ResolvedRange>;
+  /** The window of each range key the plot's lines name. */
+  windows?: Map<string, Window>;
   legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
@@ -477,10 +438,20 @@ export interface LinePlotProps extends FrameProps {
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
+const fetchingMessage = (
+  windows: Map<string, Window> | undefined,
+): string | undefined => {
+  if (windows == null || windows.size === 0) return undefined;
+  const now = TimeStamp.now();
+  const spans = [...windows.values()].map((w) => resolveWindow(w, now).span);
+  const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
+  return `Fetching ${longest.toString()} of data`;
+};
+
 export const LinePlot = ({
   editable = true,
   enableTriggers = true,
-  resolvedRanges,
+  windows,
   legendVariant,
   enableTooltip = true,
   enableMeasure = false,
@@ -501,23 +472,15 @@ export const LinePlot = ({
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });
-  const loadingMessage = useMemo(() => {
-    if (resolvedRanges == null || resolvedRanges.size === 0) return undefined;
-    const spans = [...resolvedRanges.values()].map((r) =>
-      r.variant === "dynamic" ? r.span : r.timeRange.span,
-    );
-    const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
-    return `Fetching ${longest.toString()} of data`;
-  }, [resolvedRanges]);
   return (
-    <Frame ref={ref} loadingMessage={loadingMessage} {...rest}>
+    <Frame ref={ref} loadingMessage={fetchingMessage(windows)} {...rest}>
       {xAxisKeys.map((xAxisKey) => (
         <XAxis
           key={xAxisKey}
           pKey={key}
           axisKey={xAxisKey}
           editable={editable}
-          resolvedRanges={resolvedRanges}
+          windows={windows}
           hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
           rangeProviderProps={rangeProviderProps}

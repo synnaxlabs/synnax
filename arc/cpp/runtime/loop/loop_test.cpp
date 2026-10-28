@@ -18,7 +18,7 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/notify/notify.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 #if defined(__linux__)
@@ -451,7 +451,7 @@ TEST(ConfigOutputTest, OutputContainsCpuAffinityWhenSet) {
     std::ostringstream os;
     os << cfg;
     EXPECT_NE(os.str().find("cpu affinity"), std::string::npos);
-    EXPECT_NE(os.str().find("7"), std::string::npos);
+    EXPECT_NE(os.str().find('7'), std::string::npos);
 }
 
 TEST(ConfigOutputTest, OutputOmitsCpuAffinityWhenAuto) {
@@ -1065,6 +1065,7 @@ TEST(DeadlineTest, Hybrid_FiresOnADeadlineInsideTheInputSpin) {
     breaker.start();
     constexpr int COUNT = 20;
     std::vector<x::telem::TimeSpan> errors;
+    errors.reserve(COUNT);
     for (int i = 0; i < COUNT; i++)
         errors.push_back(measure_fire(
                              *loop,
@@ -1210,7 +1211,7 @@ void expect_timer_on_deadline(Loop &loop, x::breaker::Breaker &breaker) {
         );
         errors.push_back(sw.elapsed() - test_timing::DEADLINE_DURATION);
     }
-    std::sort(errors.begin(), errors.end());
+    std::ranges::sort(errors);
     EXPECT_GE(errors.front(), x::telem::TimeSpan(0));
     EXPECT_LE(errors[COUNT / 2], test_timing::FIRE_ERROR_BOUND);
 }
@@ -1340,7 +1341,7 @@ INSTANTIATE_TEST_SUITE_P(ArmedModes, FailedArmTest, testing::ValuesIn(ARMED_MODE
 struct RecordingArm {
     std::vector<struct kevent> *kevs;
 
-    int set(const int kq, const struct kevent &kev) const {
+    [[nodiscard]] int set(const int kq, const struct kevent &kev) const {
         this->kevs->push_back(kev);
         return KqueueArm::set(kq, kev);
     }
@@ -1389,8 +1390,8 @@ struct CountingEpollApi {
         const timespec &timeout
     ) const {
         if (this->timeouts != nullptr)
-            this->timeouts->push_back(
-                x::telem::TimeSpan(timeout.tv_sec * 1'000'000'000 + timeout.tv_nsec)
+            this->timeouts->emplace_back(
+                timeout.tv_sec * 1'000'000'000 + timeout.tv_nsec
             );
         if (!this->pwait2) {
             errno = ENOSYS;
@@ -1399,14 +1400,14 @@ struct CountingEpollApi {
         return EpollApi::wait(epfd, events, max, timeout);
     }
 
-    int set(const int fd, const itimerspec &ts) const {
+    [[nodiscard]] int set(const int fd, const itimerspec &ts) const {
         (*this->arms)++;
         return EpollApi::set(fd, ts);
     }
 
-    bool realtime() const { return this->realtime_thread; }
+    [[nodiscard]] bool realtime() const { return this->realtime_thread; }
 
-    int hold_latency() const {
+    [[nodiscard]] int hold_latency() const {
         if (this->holds != nullptr) (*this->holds)++;
         return open("/dev/null", O_WRONLY | O_CLOEXEC);
     }
@@ -1742,8 +1743,8 @@ TEST(FailedStartTest, FailsAgainOnASecondStart) {
     Windows<UncreatableTimerApi> loop(config);
     const std::string message = "Failed to create waitable timer: " +
                                 std::to_string(ERROR_NOT_ENOUGH_MEMORY);
-    EXPECT_EQ(loop.start().type, message);
-    EXPECT_EQ(loop.start().type, message);
+    EXPECT_EQ(loop.start().data, message);
+    EXPECT_EQ(loop.start().data, message);
 }
 
 /// @brief A high-resolution timer should never change the system tick.

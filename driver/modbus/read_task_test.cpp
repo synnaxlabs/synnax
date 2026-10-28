@@ -9,19 +9,20 @@
 
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <thread>
 
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/modbus/device/device.h"
-#include "driver/modbus/mock/slave.h"
 #include "driver/modbus/modbus.h"
 #include "driver/modbus/read_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/modbus/testutil/slave.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::modbus {
 /// @brief Allowed relative error of a task's achieved sample rate.
@@ -44,7 +45,7 @@ protected:
     std::shared_ptr<synnax::Synnax> client;
     synnax::task::Task task;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_factory;
+    std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
     synnax::channel::Channel index_channel;
     synnax::device::Device device;
     synnax::rack::Rack rack;
@@ -79,7 +80,7 @@ protected:
         ASSERT_NIL(client->devices.create(device));
 
         ctx = std::make_shared<driver::task::MockContext>(client);
-        mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+        mock_factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
     }
 
     // Helper to create a basic task configuration
@@ -176,8 +177,38 @@ TEST(ModbusChannels, testMissingDataTypeDefaultsToUint8) {
     );
     const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(parser);
     ASSERT_NIL(parser.error());
-    const channel::InputRegister ch(cfg);
+    const channel::InputRegister ch(cfg, device::ConnectionConfig{});
     EXPECT_EQ(ch.value_type, x::telem::UINT8_T);
+}
+
+/// @brief it should take the device's byte and word order when the channel has no
+/// override.
+TEST(ModbusChannels, RegisterInheritsDeviceOrder) {
+    auto parser = x::json::Parser(
+        x::json::json{{"type", "holding_register"}, {"data_type", "float32"}}
+    );
+    const auto cfg = ::synnax::modbus::HoldingRegisterReadChannel::parse(parser);
+    ASSERT_NIL(parser.error());
+    const channel::InputRegister ch(cfg, device::ConnectionConfig("h", 1, true, true));
+    EXPECT_TRUE(ch.bytes_swapped);
+    EXPECT_TRUE(ch.words_swapped);
+}
+
+/// @brief it should let a channel's override win over the device's order.
+TEST(ModbusChannels, RegisterOverrideBeatsDevice) {
+    auto parser = x::json::Parser(
+        x::json::json{
+            {"type", "input_register"},
+            {"data_type", "float32"},
+            {"bytes_swapped", false},
+            {"words_swapped", true}
+        }
+    );
+    const auto cfg = ::synnax::modbus::InputRegisterReadChannel::parse(parser);
+    ASSERT_NIL(parser.error());
+    const channel::InputRegister ch(cfg, device::ConnectionConfig("h", 1, true, false));
+    EXPECT_FALSE(ch.bytes_swapped);
+    EXPECT_TRUE(ch.words_swapped);
 }
 
 /// @brief it should parse configuration with multiple channel types.
@@ -238,14 +269,14 @@ TEST_F(ModbusReadTest, testUnboundDisabledChannel) {
 
 /// @brief it should read coil values from Modbus device.
 TEST(ReadTask, testBasicReadTask) {
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     // Set up coil at address 0 with value 1 and ensure we have at least 1 coil mapped
     slave_cfg.coils[0] = 1;
     slave_cfg.coils[1] = 0; // Add an extra coil to ensure proper mapping size
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -309,7 +340,7 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_NIL(p.error());
 
     auto ctx = std::make_shared<driver::task::MockContext>(client);
-    auto factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    auto factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
 
     auto devs = std::make_shared<device::Manager>();
 
@@ -328,7 +359,7 @@ TEST(ReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
@@ -337,10 +368,10 @@ TEST(ReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(factory->writes->size(), 1);
-    auto &fr = factory->writes->at(0);
+    const auto &fr = factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.contains(data_channel.key), true);
@@ -351,13 +382,13 @@ TEST(ReadTask, testBasicReadTask) {
 
 /// @brief it should reconnect to a restarted server on the next start.
 TEST(ReadTask, testReconnectAfterServerRestart) {
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.coils[0] = 1;
     slave_cfg.coils[1] = 0;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = std::make_unique<mock::Slave>(slave_cfg);
+    auto slave = std::make_unique<testutil::Slave>(slave_cfg);
     ASSERT_NIL(slave->start());
 
     auto index_channel = synnax::channel::Channel{
@@ -417,7 +448,7 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(p.error());
 
     auto ctx = std::make_shared<driver::task::MockContext>(client);
-    auto factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    auto factory = std::make_shared<driver::pipeline::testutil::WriterFactory>();
     auto devs = std::make_shared<device::Manager>();
 
     auto task = common::ReadTask(
@@ -436,14 +467,14 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
 
     slave->stop();
-    slave = std::make_unique<mock::Slave>(slave_cfg);
+    slave = std::make_unique<testutil::Slave>(slave_cfg);
     ASSERT_NIL(slave->start());
     x::defer::defer stop_slave([&slave] { slave->stop(); });
 
     task.start("start_cmd_2");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[2].message, "Task started successfully");
+    EXPECT_EQ(ctx->statuses[2].message, "Started task");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 2);
     task.stop("stop_cmd_2", true);
 }
@@ -451,13 +482,13 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
 /// @brief it should read discrete input values from Modbus device.
 TEST_F(ModbusReadTest, testDiscreteInputRead) {
     // Set up mock slave with discrete input values
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.discrete_inputs[1] = 1; // Set discrete input 1 to HIGH
     slave_cfg.discrete_inputs[2] = 0; // Set discrete input 2 to LOW
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -494,7 +525,7 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2); // Data channel + index channel
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint8_t>(data_channel.key, 0), 1);
@@ -503,12 +534,12 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
 /// @brief it should read holding register values from Modbus device.
 TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     // Set up mock slave with holding register values
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.holding_registers[0] = 12345; // Set holding register 0
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     x::defer::defer stop_slave([&slave] { slave.stop(); });
@@ -548,16 +579,120 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 2);
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint16_t>(data_channel.key, 0), 12345);
 }
 
+/// @brief reads one float32 holding register at address 0 from a device whose
+/// connection swaps words, and checks the task wrote pi.
+void expect_pi_from_word_swapped_device(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const std::shared_ptr<task::MockContext> &ctx,
+    const synnax::rack::Rack &rack,
+    const synnax::channel::Channel &index,
+    const uint16_t first_register,
+    const uint16_t second_register,
+    const std::optional<bool> words_swapped
+) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.holding_registers[0] = first_register;
+    slave_cfg.holding_registers[1] = second_register;
+    slave_cfg.host = "127.0.0.1";
+    slave_cfg.port = 1502;
+    auto slave = testutil::Slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    auto dev = synnax::device::Device{
+        .key = "modbus_word_swapped_device",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "modbus",
+        .model = "Modbus Device",
+        .name = "modbus_word_swapped_device",
+        .properties = x::json::json{
+            {"connection",
+             device::ConnectionConfig{"127.0.0.1", 1502, false, true}.to_json()}
+        }
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    auto data_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("float_register"),
+        x::telem::FLOAT32_T,
+        index.key,
+        false
+    ));
+    x::json::json ch = {
+        {"type", "holding_register"},
+        {"channel", data_channel.key},
+        {"address", 0},
+        {"data_type", "float32"}
+    };
+    if (words_swapped.has_value()) ch["words_swapped"] = *words_swapped;
+    x::json::json cfg = {
+        {"data_saving_disabled", true},
+        {"sample_rate", 25},
+        {"stream_rate", 25},
+        {"device", dev.key},
+        {"channels", x::json::json::array({ch})}
+    };
+    auto p = x::json::Parser(cfg);
+    auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+
+    auto factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    auto task = common::ReadTask(
+        synnax::task::Task{.rack = rack.key, .name = "swap", .type = "modbus_read"},
+        ctx,
+        x::breaker::default_config("swap"),
+        std::make_unique<ReadTaskSource>(
+            std::make_shared<device::Manager>(),
+            std::move(*task_cfg)
+        ),
+        factory
+    );
+    task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(factory->writes->size(), 1);
+    task.stop("stop_cmd", true);
+    ASSERT_FLOAT_EQ(factory->writes->at(0).at<float>(data_channel.key, 0), 3.14159274F);
+}
+
+/// @brief it should decode a channel with no override using the device's word swap.
+TEST_F(ModbusReadTest, ChannelInheritsDeviceWordSwap) {
+    // 0x40490FDB is pi as a float32. The device swaps words, so the high word comes
+    // first.
+    expect_pi_from_word_swapped_device(
+        client,
+        ctx,
+        rack,
+        index_channel,
+        0x4049,
+        0x0FDB,
+        std::nullopt
+    );
+}
+
+/// @brief it should decode a channel with an override using the channel's word order,
+/// not the device's.
+TEST_F(ModbusReadTest, ChannelOverridesDeviceWordSwap) {
+    expect_pi_from_word_swapped_device(
+        client,
+        ctx,
+        rack,
+        index_channel,
+        0x0FDB,
+        0x4049,
+        false
+    );
+}
+
 /// @brief it should read multiple channel types simultaneously.
 TEST_F(ModbusReadTest, testMultiChannelRead) {
     // Set up mock slave with various register values
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.coils[0] = 1;
     slave_cfg.discrete_inputs[1] = 1;
     slave_cfg.holding_registers[2] = 12345;
@@ -565,7 +700,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -619,7 +754,7 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 4 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     ASSERT_EQ(fr.at<uint8_t>(coil_ch.key, 0), 1);
@@ -657,14 +792,14 @@ TEST_F(ModbusReadTest, testModbusDriverSetsAutoCommitTrue) {
 /// error in the buffer size calculation (density / 2 should be ceiling division).
 TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     // Set up mock slave with multiple UINT8 input register values
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.input_registers[0] = static_cast<uint8_t>(100);
     slave_cfg.input_registers[1] = static_cast<uint8_t>(150);
     slave_cfg.input_registers[2] = static_cast<uint8_t>(200);
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -712,7 +847,7 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     // All three channels should have correct values, including the last one
@@ -725,14 +860,14 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
 /// Similar to testMultipleUint8InputRegisters but tests holding registers instead.
 TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     // Set up mock slave with multiple UINT8 holding register values
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.holding_registers[0] = static_cast<uint8_t>(50);
     slave_cfg.holding_registers[1] = static_cast<uint8_t>(75);
     slave_cfg.holding_registers[2] = static_cast<uint8_t>(125);
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -780,7 +915,7 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     task.stop("stop_cmd", true);
 
-    auto &fr = mock_factory->writes->at(0);
+    const auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 4); // 3 data channels + 1 index channel
     ASSERT_EQ(fr.length(), 1);
     // All three channels should have correct values, including the last one
@@ -795,12 +930,12 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
 /// Test that auto_start=true causes the task to start automatically
 TEST_F(ModbusReadTest, testAutoStartTrue) {
     // Set up mock slave
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.input_registers[0] = 42;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -862,12 +997,12 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
 /// Test that auto_start=false does NOT start the task automatically
 TEST_F(ModbusReadTest, testAutoStartFalse) {
     // Set up mock slave
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.input_registers[0] = 99;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -936,11 +1071,11 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
 
 /// @brief it should hold each configured sample rate over time.
 TEST_F(ModbusReadTest, testHoldsSampleRate) {
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.input_registers[0] = 42;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -962,7 +1097,7 @@ TEST_F(ModbusReadTest, testHoldsSampleRate) {
         auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
         ASSERT_NIL(p.error());
 
-        auto factory = std::make_shared<pipeline::mock::WriterFactory>();
+        auto factory = std::make_shared<pipeline::testutil::WriterFactory>();
         auto devs = std::make_shared<device::Manager>();
         auto task = common::ReadTask(
             synnax::task::Task{
@@ -982,7 +1117,7 @@ TEST_F(ModbusReadTest, testHoldsSampleRate) {
         task.stop("stop_cmd", true);
 
         expect_rate(
-            pipeline::mock::measured_rate(*factory->writes, index_channel.key),
+            pipeline::testutil::measured_rate(*factory->writes, index_channel.key),
             rate_hz
         );
     }

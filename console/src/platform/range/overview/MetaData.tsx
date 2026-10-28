@@ -22,7 +22,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type Flux, Ranger } from "@synnaxlabs/pluto";
 import { type kv, link } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -89,15 +89,12 @@ const MetaDataListItem = ({
       range: rangeKey,
     },
     sync: !isCreate,
-    afterSave: useCallback(
-      ({
-        reset,
-      }: Flux.AfterSaveParams<query.Params, typeof Ranger.kvPairFormSchema>) => {
-        onClose?.();
-        if (isCreate) reset({ key: "", value: "", range: rangeKey });
-      },
-      [isCreate, onClose],
-    ),
+    afterSave: ({
+      reset,
+    }: Flux.AfterSaveParams<query.Params, typeof Ranger.kvPairFormSchema>) => {
+      onClose?.();
+      if (isCreate) reset({ key: "", value: "", range: rangeKey });
+    },
   });
   useEffect(() => {
     if (isCreate) inputRef.current?.focus();
@@ -129,7 +126,6 @@ const MetaDataListItem = ({
               weight: 500,
             }}
             showLabel={false}
-            hideIfNull
           />
         ) : (
           <Text.Text className={CSS.BE("range-metadata", "key-cell")}>
@@ -137,7 +133,7 @@ const MetaDataListItem = ({
           </Text.Text>
         )}
         <Divider.Divider y />
-        <Form.Field<string> path="value" showLabel={false} hideIfNull>
+        <Form.Field<string> path="value" showLabel={false}>
           {(p) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
         </Form.Field>
         {isCreate ? (

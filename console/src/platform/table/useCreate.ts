@@ -9,7 +9,6 @@
 
 import { type panel, type project, table } from "@synnaxlabs/client";
 import { Table } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Panel } from "@/platform/panel";
@@ -30,15 +29,11 @@ export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   const dispatch = useDispatch();
   const { update } = Table.useCreate({
     afterOptimistic: ({ data: { key } }) => {
-      project ??= getActiveProject();
-      maybeChangeProject(project);
+      maybeChangeProject(project ?? getActiveProject());
       dispatch(Session.Table.create({ key, editable: true }));
       openTab({ variant: "resource", resource: table.ontologyID(key), key: tabKey });
     },
   });
-  return useCallback(
-    (params = {}) =>
-      update({ name: "Table", ...params, project: project ?? getActiveProject() }),
-    [update, project],
-  );
+  return (params = {}) =>
+    update({ name: "Table", ...params, project: project ?? getActiveProject() });
 };

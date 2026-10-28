@@ -19,6 +19,8 @@ export default defineConfig({
   integrations: [react(), clerk({ signInUrl: "/login", signUpUrl: "/sign-up" })],
   output: "server",
   adapter: vercel(),
+  // Astro's check refuses the Desktop renewal. src/pipeline.ts checks origins instead.
+  security: { checkOrigin: false },
   // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
   vite: {
     ssr: { noExternal: ["@synnaxlabs/lyra"] },
@@ -53,6 +55,16 @@ export default defineConfig({
         default: "Synnax Labs <licenses@synnaxlabs.com>",
       }),
       CRON_SECRET: secret,
+      POSTHOG_API_KEY: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+      SLACK_WEBHOOK_URL: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
       VERCEL_ENV: envField.enum({
         context: "server",
         access: "secret",

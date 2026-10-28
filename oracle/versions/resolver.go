@@ -212,7 +212,7 @@ func (r *Resolver) file(ctx context.Context, livePath string, n int) (*File, err
 	var live, livePaths []string
 	for _, imp := range ast.AllImportStmt() {
 		p := strings.Trim(imp.STRING_LIT().GetText(), `"`)
-		depLive, err := LiveFromFilePath(p)
+		depLive, err := liveFromFilePath(p)
 		if err != nil {
 			live = append(live, resourceOf(p))
 			livePaths = append(livePaths, p)

@@ -24,19 +24,21 @@ class State:
         self.value = {}
 
     def update(self, frame: Frame) -> None:
-        for key in frame.channels:
-            if isinstance(key, int):
-                self.value[key] = frame[key]
+        for ch in frame.channels:
+            self.value[self._keys[ch] if isinstance(ch, str) else ch] = frame[ch]
 
     def __getitem__(self, ch: channel.Key | str) -> MultiSeries:
         param = channel.normalize_params(ch).channels[0]
         return self.value[self._keys[param] if isinstance(param, str) else param]
 
     def __getattr__(self, name: str) -> MultiSeries:
-        return self.__getitem__(name)
+        try:
+            return self[name]
+        except KeyError as e:
+            raise AttributeError(name) from e
 
 
-class LatestState:
+class Latest:
     _state: State
 
     def __init__(self, state: State) -> None:
@@ -46,4 +48,7 @@ class LatestState:
         return self._state[ch][-1]
 
     def __getattr__(self, name: str) -> SampleValue:
-        return self.__getitem__(name)
+        try:
+            return self[name]
+        except KeyError as e:
+            raise AttributeError(name) from e

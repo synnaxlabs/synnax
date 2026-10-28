@@ -7,12 +7,58 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/ontology"
+import "schemas/x/telem"
+
 @go output "core/pkg/service/auth"
+@py output "client/py/synnax/auth"
+@ts output "client/ts/src/auth"
 
 Method enum {
     password = "password"
 
     @doc value "names an authentication method."
+}
+
+SessionKey = uuid {
+    @doc value "is a unique identifier for a session."
+}
+
+Session struct {
+    key         SessionKey = create {
+        @doc value "is the unique identifier for this session."
+        @key
+    }
+    hash        bytes           {
+        @doc value "is the SHA-256 hash of the secret in the session's token."
+        @go wire   omit
+        @py omit
+        @ts omit
+    }
+    subject     ontology.ID     {
+        @doc value    "is the user or rack that logged in."
+        @filter
+        @index lookup
+    }
+    credential  uuid            {
+        @doc value    "is the key of the credential record the login matched."
+        @filter
+        @index lookup
+    }
+    last_active telem.TimeStamp {
+        @doc value """
+            is the last time a request used the session, to the nearest quarter of the
+            idle timeout.
+        """
+    }
+
+    @doc value  """
+        is a logged-in subject. It ends when it is revoked or when no request has used
+        it for the idle timeout.
+    """
+    @go marshal
+    @go migrate
+    @retrieve
 }
 
 Credentials struct {

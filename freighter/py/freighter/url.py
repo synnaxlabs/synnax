@@ -10,7 +10,9 @@
 from __future__ import annotations
 
 from functools import reduce
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
+
+_DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443}
 
 
 class URL:
@@ -34,19 +36,25 @@ class URL:
         self.protocol = protocol
         self.host = host
         self.port = port
-        self.path = format_path(path)
+        self.path = _format_path(path)
 
     @staticmethod
     def parse(url: str) -> URL:
-        """Parses a URL string into a URL object."""
-        split = url.split("://")
-        protocol = split[0]
-        split = split[1].split(":")
-        host = split[0]
-        split = split[1].split("/")
-        port = int(split[0])
-        path = "/".join(split[1:])
-        return URL(host, port, path, protocol)
+        """Parses a URL string into a URL object. A URL without a port gets the default
+        port of its protocol.
+
+        :raises ValueError: If the URL has no host, or has no port and its protocol has
+            no default port.
+        """
+        parsed = urlsplit(url)
+        if parsed.hostname is None:
+            raise ValueError(f"URL {url!r} has no host")
+        port = parsed.port
+        if port is None:
+            if parsed.scheme not in _DEFAULT_PORTS:
+                raise ValueError(f"URL {url!r} has no port")
+            port = _DEFAULT_PORTS[parsed.scheme]
+        return URL(parsed.hostname, port, parsed.path, parsed.scheme)
 
     def replace(
         self,
@@ -57,10 +65,10 @@ class URL:
     ) -> URL:
         """Returns a new URL with the specified fields replaced."""
         return URL(
-            host or self.host,
-            port or self.port,
-            path or self.path,
-            protocol or self.protocol,
+            self.host if host is None else host,
+            self.port if port is None else port,
+            self.path if path is None else path,
+            self.protocol if protocol is None else protocol,
         )
 
     def child(self, path: str) -> URL:
@@ -72,12 +80,12 @@ class URL:
         return f"{self.protocol}://{self.host}:{self.port}/{self.path}"
 
     def _child_prefix(self, path: str) -> str:
-        return reduce(urljoin, [self.path, format_path(path)])
+        return reduce(urljoin, [self.path, _format_path(path)])
 
     def __str__(self) -> str:
         return self.stringify()
 
 
-def format_path(path: str) -> str:
+def _format_path(path: str) -> str:
     path = path if path.endswith("/") else f"{path}/"
     return path[1:] if path.startswith("/") else path

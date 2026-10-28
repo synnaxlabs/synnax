@@ -12,64 +12,14 @@
 package pb
 
 import (
-	"encoding/json/v2"
 	"uuid"
 
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/x/errors"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
 )
-
-// StatusDetailsToPB converts StatusDetails to StatusDetails.
-func StatusDetailsToPB(r arc.StatusDetails) (*StatusDetails, error) {
-	pb := &StatusDetails{
-		Running: r.Running,
-	}
-	return pb, nil
-}
-
-// StatusDetailsFromPB converts StatusDetails to StatusDetails.
-func StatusDetailsFromPB(pb *StatusDetails) (arc.StatusDetails, error) {
-	var r arc.StatusDetails
-	if pb == nil {
-		return r, nil
-	}
-	r.Running = pb.Running
-	return r, nil
-}
-
-// StatusDetailsListToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailsListToPB(rs []arc.StatusDetails) ([]*StatusDetails, error) {
-	result := make([]*StatusDetails, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StatusDetailsToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StatusDetailsListFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailsListFromPB(pbs []*StatusDetails) ([]arc.StatusDetails, error) {
-	result := make([]arc.StatusDetails, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StatusDetailsFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
 
 // ArcToPB converts Arc to Arc.
 func ArcToPB(r arc.Arc) (*Arc, error) {
@@ -99,13 +49,6 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 			return nil, err
 		}
 	}
-	if r.Status != nil {
-		var err error
-		pb.Status, err = statuspb.StatusToPB(*r.Status, StatusDetailsToPBAny)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return pb, nil
 }
 
@@ -116,11 +59,10 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 		return r, nil
 	}
 	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
+	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return arc.Arc{}, err
 	}
-	r.Key = arc.Key(parsedKey)
 	r.Mode, err = ModeFromPB(pb.Mode)
 	if err != nil {
 		return arc.Arc{}, err
@@ -140,13 +82,6 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 			return arc.Arc{}, err
 		}
 		r.Program = &val
-	}
-	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB(pb.Status, StatusDetailsFromPBAny)
-		if err != nil {
-			return arc.Arc{}, err
-		}
-		r.Status = &val
 	}
 	return r, nil
 }
@@ -199,61 +134,4 @@ func ModeFromPB(v Mode) (arc.Mode, error) {
 	default:
 		return arc.Mode(""), errors.Newf("unrecognized Mode value: %v", v)
 	}
-}
-
-// StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic
-// translators. It wraps the value in structpb.Struct (JSON) for cross-language
-// compatibility.
-func StatusDetailsToPBAny(v arc.StatusDetails) (*anypb.Any, error) {
-	pb, err := StatusDetailsToPB(v)
-	if err != nil {
-		return nil, err
-	}
-	// Convert proto to JSON bytes, then to Struct for cross-language compatibility
-	jsonBytes, err := protojson.Marshal(pb)
-	if err != nil {
-		return nil, err
-	}
-	s := &structpb.Struct{}
-	if err := protojson.Unmarshal(jsonBytes, s); err != nil {
-		return nil, err
-	}
-	return anypb.New(s)
-}
-
-// StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic
-// translators. It handles typed protos and JSON (google.protobuf.Value, or
-// google.protobuf.Struct from peers on releases before value packing) for
-// cross-language compatibility.
-func StatusDetailsFromPBAny(a *anypb.Any) (arc.StatusDetails, error) {
-	if a == nil {
-		return arc.StatusDetails{}, nil
-	}
-	// First try typed proto
-	var pb StatusDetails
-	if err := a.UnmarshalTo(&pb); err == nil {
-		return StatusDetailsFromPB(&pb)
-	}
-	// Fall back to JSON for cross-language compatibility
-	var (
-		msg proto.Message
-		v   structpb.Value
-		s   structpb.Struct
-	)
-	if err := a.UnmarshalTo(&v); err == nil {
-		msg = &v
-	} else if err := a.UnmarshalTo(&s); err != nil {
-		return arc.StatusDetails{}, err
-	} else {
-		msg = &s
-	}
-	jsonBytes, err := protojson.Marshal(msg)
-	if err != nil {
-		return arc.StatusDetails{}, err
-	}
-	var result arc.StatusDetails
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
-		return arc.StatusDetails{}, err
-	}
-	return result, nil
 }

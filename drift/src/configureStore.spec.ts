@@ -11,8 +11,7 @@ import { type Reducer } from "@reduxjs/toolkit";
 import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { configureStore, resetInitialState } from "@/configureStore";
-import { MockRuntime } from "@/mock";
+import { configureStore } from "@/configureStore";
 import {
   reducer,
   setWindowProps,
@@ -20,6 +19,7 @@ import {
   type StoreState,
   ZERO_SLICE_STATE,
 } from "@/state";
+import { MockRuntime } from "@/testutil";
 import {
   INITIAL_PRERENDER_WINDOW_STATE,
   INITIAL_WINDOW_STATE,
@@ -42,13 +42,6 @@ const stored = (props: Partial<WindowState> = {}): StoreState => ({
   },
 });
 
-const restored = (props: Partial<WindowState> = {}): WindowState => {
-  const state = resetInitialState(undefined, false, stored(props));
-  const win = state?.drift.windows[MAIN_WINDOW];
-  if (win == null) throw new Error("the main window did not survive the reset");
-  return win;
-};
-
 // The slice a close of the main window leaves: main gone, its pre-render kept.
 const storedWithoutMain = (): StoreState => ({
   drift: {
@@ -62,13 +55,18 @@ const storedWithoutMain = (): StoreState => ({
 const configure = async (
   state: StoreState,
   runtime = new MockRuntime<StoreState>(true, { key: MAIN_WINDOW }),
+  defaultWindowProps?: Partial<WindowState>,
 ) =>
   await configureStore<StoreState>({
     runtime,
     reducer: { drift: reducer as Reducer<SliceState> },
     preloadedState: state,
     enablePrerender: false,
+    defaultWindowProps,
   });
+
+const restored = async (props: Partial<WindowState> = {}): Promise<WindowState> =>
+  (await configure(stored(props))).getState().drift.windows[MAIN_WINDOW];
 
 describe("configureStore", () => {
   // Immer freezes the state on its own once a reducer runs, so this pins the contract
@@ -100,71 +98,60 @@ describe("configureStore", () => {
   });
 });
 
-describe("resetInitialState", () => {
+describe("preloaded state", () => {
   // A window comes back the way the user would open it fresh, not the way they left
   // it: launching is a request to see the app.
-  it("should show a window stored minimized", () => {
-    expect(restored({ minimized: true }).minimized).toBeUndefined();
+  it("should show a window stored minimized", async () => {
+    expect((await restored({ minimized: true })).minimized).toBeUndefined();
   });
 
-  it("should show a window stored fullscreen", () => {
-    expect(restored({ fullscreen: true }).fullscreen).toBeUndefined();
+  it("should show a window stored fullscreen", async () => {
+    expect((await restored({ fullscreen: true })).fullscreen).toBeUndefined();
   });
 
-  // Controls grey out the macOS traffic lights on a blurred window, so a stored blur
-  // leaves them dead until the runtime reports a focus.
-  it("should drop a stored blur", () => {
-    expect(restored({ focus: false }).focus).toBeUndefined();
+  it("should drop a stored blur", async () => {
+    expect((await restored({ focus: false })).focus).toBeUndefined();
   });
 
-  // completeProcess reloads a window it finds mid-reload, so the stage has to start
-  // over or the next process to finish reloads the fresh window.
-  it("should start the lifecycle over", () => {
-    expect(restored({ stage: "reloading" }).stage).toEqual("creating");
+  it("should drop a stored error", async () => {
+    expect((await restored({ error: "stale" })).error).toBeUndefined();
   });
 
-  it("should drop a stored error", () => {
-    expect(restored({ error: "stale" }).error).toBeUndefined();
-  });
-
-  it("should zero the counters", () => {
-    expect(restored({ focusCount: 3, centerCount: 2, processCount: 1 })).toMatchObject({
+  it("should zero the counters", async () => {
+    expect(await restored({ focusCount: 3, centerCount: 2 })).toMatchObject({
       focusCount: 0,
       centerCount: 0,
-      processCount: 0,
     });
   });
 
-  it("should keep the window's geometry", () => {
+  it("should keep the window's geometry", async () => {
     const geometry: Partial<WindowState> = {
       position: { x: 10, y: 20 },
       size: { width: 800, height: 600 },
       maximized: true,
     };
-    expect(restored({ ...geometry, minimized: true })).toMatchObject(geometry);
+    expect(await restored({ ...geometry, minimized: true })).toMatchObject(geometry);
   });
 
-  it("should take visibility from the default window props", () => {
-    const state = resetInitialState(
-      { visible: true },
-      false,
-      stored({ visible: false }),
-    );
-    expect(state?.drift.windows[MAIN_WINDOW].visible).toEqual(true);
+  it("should take visibility from the default window props", async () => {
+    const store = await configure(stored({ visible: false }), undefined, {
+      visible: true,
+    });
+    expect(store.getState().drift.windows[MAIN_WINDOW].visible).toEqual(true);
   });
 
-  it("should drop windows that were never reserved", () => {
-    const state = resetInitialState(undefined, false, storedWithoutMain());
-    expect(state?.drift.windows.prerender).toBeUndefined();
+  it("should drop windows that were never reserved", async () => {
+    const state = (await configure(storedWithoutMain())).getState();
+    expect(state.drift.windows.prerender).toBeUndefined();
   });
 
-  it("should restore a main window missing from the stored state", () => {
-    const state = resetInitialState(undefined, false, storedWithoutMain());
-    expect(state?.drift.windows[MAIN_WINDOW]).toMatchObject({
+  it("should restore a main window missing from the stored state", async () => {
+    const state = (await configure(storedWithoutMain())).getState();
+    expect(state.drift.windows[MAIN_WINDOW]).toMatchObject({
       key: MAIN_WINDOW,
       reserved: true,
     });
-    expect(state?.drift.labelKeys[MAIN_WINDOW]).toEqual(MAIN_WINDOW);
-    expect(state?.drift.keyLabels[MAIN_WINDOW]).toEqual(MAIN_WINDOW);
+    expect(state.drift.labelKeys[MAIN_WINDOW]).toEqual(MAIN_WINDOW);
+    expect(state.drift.keyLabels[MAIN_WINDOW]).toEqual(MAIN_WINDOW);
   });
 });

@@ -12,16 +12,36 @@ import importlib.util
 import inspect
 import itertools
 import json
+import math
 import os
 import sys
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 from framework.target_filter import TargetFilter
 from framework.test_case import TestCase
+
+_DEFAULT_TIMEOUT = 300.0
+"""Seconds a test may run before the conductor marks it TIMEOUT, unless its
+definition sets `timeout`."""
+
+
+def _timeout(case: str, value: Any) -> float:
+    """:raises ValueError: If value is not a finite, positive number of seconds."""
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value <= 0
+    ):
+        raise ValueError(
+            f"Test '{case}' has timeout {value!r}; it must be a positive number of "
+            "seconds"
+        )
+    return float(value)
 
 
 @dataclass
@@ -32,6 +52,8 @@ class TestDefinition:
     name: str | None = None
     parameters: dict[str, Any | list[Any]] = field(default_factory=dict)
     matrix: dict[str, list[Any]] | None = None
+    timeout: float = _DEFAULT_TIMEOUT
+    """Seconds the test may run before the conductor marks it TIMEOUT."""
 
     @property
     def display_name(self) -> str:
@@ -177,13 +199,14 @@ class ConfigClient:
                     name=test.get("name", None),
                     parameters=test.get("parameters", {}),
                     matrix=test.get("matrix", None),
+                    timeout=_timeout(case_path, test.get("timeout", _DEFAULT_TIMEOUT)),
                 )
 
                 class_defs = self._expand_test_classes(test_def)
                 for class_def in class_defs:
-                    # -f matches against both the file path (e.g. "migration/channels")
-                    # and the class name (e.g. "ChannelsSetup"), so you can filter into
-                    # individual classes: `tc migration -f setup` matches *Setup classes.
+                    # -f matches against both the file path (e.g. "driver/ni_read") and
+                    # the class name (e.g. "NIAnalogReadScaled"), so you can filter into
+                    # individual classes: `tc driver/ni -f Scaled` matches one class.
                     expanded = self._expand_parameters(class_def)
                     if target_filter.case_filter is not None:
                         matches_case = target_filter.matches_case(case_path)
@@ -283,10 +306,11 @@ class ConfigClient:
             generated_name = f"{base_name}_{matrix_suffix}"
 
             expanded.append(
-                TestDefinition(
-                    case=test_def.case,
+                replace(
+                    test_def,
                     name=generated_name,
                     parameters=merged_params,
+                    matrix=None,
                 )
             )
 
@@ -302,11 +326,10 @@ class ConfigClient:
                 return [test_def]
 
             return [
-                TestDefinition(
-                    case=test_def.case,
+                replace(
+                    test_def,
                     name=test_class.__name__,
                     parameters=test_def.parameters.copy(),
-                    matrix=test_def.matrix,
                 )
                 for test_class in test_classes
             ]
@@ -322,7 +345,7 @@ class ConfigClient:
         """Dynamically load TestCase subclass(es) from a case identifier."""
         try:
             case_path = f"tests/{test_def.case}"
-            module_name = case_path.split("/")[-1]
+            module_name = case_path.replace("/", ".")
 
             current_dir = os.getcwd()
             script_dir = str(Path(__file__).resolve().parent)
@@ -374,6 +397,9 @@ class ConfigClient:
                         f"Cannot create spec for module: {module_name} at {file_path}"
                     )
                 module = importlib.util.module_from_spec(spec)
+                # Pydantic reads sys.modules when a module parametrizes a generic model
+                # at import time.
+                sys.modules[module_name] = module
                 if spec.loader is not None:
                     spec.loader.exec_module(module)
 

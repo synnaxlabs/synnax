@@ -16,15 +16,15 @@ from playwright.sync_api import Locator, expect
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "OPC UA server"
-BROWSER_SELECTOR = ".console-opc-browser"
-BROWSER_LOADING_SELECTOR = ".console-opc-browser__loading-icon"
+_BROWSER_SELECTOR = ".console-opc-browser"
+_BROWSER_LOADING_SELECTOR = ".console-opc-browser__loading-icon"
 
 
 class OPCUATask(TaskPage):
     """Shared OPC UA task page. Channels are added by dragging Browser variables."""
 
     def _browser(self) -> Locator:
-        return self._pane().locator(BROWSER_SELECTOR).first
+        return self._pane().locator(_BROWSER_SELECTOR).first
 
     def _node(self, name: str) -> Locator:
         pattern = re.compile(rf"^{re.escape(name)}$")
@@ -42,7 +42,7 @@ class OPCUATask(TaskPage):
         self.select_device(SERVER_FIELD_LABEL, name)
         browser = self._browser()
         browser.wait_for(state="visible", timeout=10000)
-        browser.locator(BROWSER_LOADING_SELECTOR).wait_for(
+        browser.locator(_BROWSER_LOADING_SELECTOR).wait_for(
             state="hidden", timeout=15000
         )
 
@@ -68,7 +68,7 @@ class OPCUATask(TaskPage):
         for name in node_names:
             node = self._node(name)
             node.wait_for(state="visible", timeout=15000)
-            node.drag_to(channel_list)
+            self.layout.drag(node, channel_list)
             self._channel_row(name).first.wait_for(state="visible", timeout=5000)
 
     def disable_channel(self, node_name: str) -> None:

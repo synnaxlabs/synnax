@@ -69,6 +69,7 @@ export const deployReadConfigZ = opcua.readConfigZ
     channels: opcua.readChannelZ
       .array()
       .check(Task.validateReadChannels)
+      .check(Task.validateEnabledChannel)
       .check(validateNodeIDs)
       .check(validateIndexChannels),
   })
@@ -110,8 +111,6 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = opcua.writeConfigZ;
@@ -121,6 +120,7 @@ export const deployWriteConfigZ = opcua.writeConfigZ.extend({
   channels: opcua.writeChannelZ
     .array()
     .check(Task.validateChannels)
+    .check(Task.validateEnabledChannel)
     .check(({ value: channels, issues }) => {
       const channelsToIndexMap = new Map<channel.Key, number>();
       channels.forEach(({ cmdChannel }, i) => {
@@ -146,8 +146,6 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 

@@ -20,7 +20,6 @@ import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Arc", func() {
@@ -72,44 +71,13 @@ var _ = Describe("ExportBody", func() {
 		Expect(m).To(HaveKey("graph"))
 	})
 
-	It("Should leave off the key and the derived program and status", func() {
+	It("Should leave off the key and the derived program", func() {
 		a := v3.Arc{
 			Key:     uuid.New(),
 			Name:    "derived",
 			Mode:    v3.ModeText,
 			Program: &program.Program{},
-			Status:  &v3.Status{},
 		}
-		Expect(body(a)).To(SatisfyAll(
-			Not(HaveKey("key")),
-			Not(HaveKey("program")),
-			Not(HaveKey("status")),
-		))
-	})
-})
-
-var _ = Describe("StatusDetails", func() {
-	Describe("DecodeMsgpack", func() {
-		It("Should decode new lowercase msgpack fields", func() {
-			original := v3.StatusDetails{Running: true}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v3.StatusDetails
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Running).To(BeTrue())
-		})
-		It("Should decode legacy uppercase Go field name", func() {
-			legacy := struct{ Running bool }{Running: true}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v3.StatusDetails
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Running).To(BeTrue())
-		})
-		It("Should handle false value correctly for both formats", func() {
-			original := v3.StatusDetails{Running: false}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v3.StatusDetails
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Running).To(BeFalse())
-		})
+		Expect(body(a)).To(SatisfyAll(Not(HaveKey("key")), Not(HaveKey("program"))))
 	})
 })

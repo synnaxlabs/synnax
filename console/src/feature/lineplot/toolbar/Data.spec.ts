@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot } from "@synnaxlabs/client";
+import { DataType, type lineplot } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -15,8 +16,12 @@ import { describe, expect, it } from "vitest";
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { Range } from "@/platform/range";
+import { uniqueName } from "@/testutil";
 
 const PLACEHOLDER = "1h 30min";
+
+// A separate client reads what the Core saved, not the rendering client's cache.
+const reader = createTestClient();
 
 const renderData = async (ranges?: lineplot.New["ranges"]) => {
   const handle = await renderLinePlot(Toolbar, {
@@ -48,7 +53,7 @@ describe("lineplot/toolbar/Data", () => {
     fireEvent.change(input, { target: { value: "45m" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve(key);
+      const plot = await reader.lineplots.retrieve(key);
       expect(plot.ranges.custom).toEqual({
         variant: "dynamic",
         span: Number(TimeSpan.minutes(45)),
@@ -62,16 +67,33 @@ describe("lineplot/toolbar/Data", () => {
     fireEvent.change(input, { target: { value: "45m" } });
     fireEvent.blur(input);
     await waitFor(async () => {
-      const plot = await client.lineplots.retrieve(key);
+      const plot = await reader.lineplots.retrieve(key);
       expect(plot.ranges.custom).toBeDefined();
     });
     fireEvent.change(input, { target: { value: "banana" } });
     fireEvent.blur(input);
-    const plot = await client.lineplots.retrieve(key);
+    const plot = await reader.lineplots.retrieve(key);
     expect(plot.ranges.custom).toEqual({
       variant: "dynamic",
       span: Number(TimeSpan.minutes(45)),
     });
+  });
+
+  it("clears the X channel with the clear button on its icon", async () => {
+    const index = await client.channels.create({
+      name: uniqueName("x_index"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const { key } = await renderLinePlot(Toolbar, {
+      linePlot: { channels: { x1: index.key } },
+    });
+    fireEvent.click(await screen.findByLabelText(`Clear ${index.name}`));
+    await waitFor(async () => {
+      const plot = await reader.lineplots.retrieve(key);
+      expect(plot.channels.x1).toBe(0);
+    });
+    expect(screen.queryByLabelText(`Clear ${index.name}`)).toBeNull();
   });
 
   it("keeps the stored window when the input is zero", async () => {

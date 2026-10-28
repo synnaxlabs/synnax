@@ -15,10 +15,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -81,10 +82,17 @@ func createUser(ctx context.Context, username, pwd string, root bool) user.User 
 	return u
 }
 
+// findUser returns the user whose password holds username.
 func findUser(ctx context.Context, username string) user.User {
 	GinkgoHelper()
+	var p password.Password
+	Expect(passwordSvc.NewRetrieve().
+		Where(password.MatchUsernames(username)).
+		Entry(&p).
+		Exec(ctx, nil)).To(Succeed())
+	key := MustSucceed(user.KeyFromOntologyID(p.Subject))
 	var u user.User
-	Expect(svc.NewRetrieve().Where(user.MatchUsernames(username)).Entry(&u).
+	Expect(svc.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).
 		Exec(ctx, nil)).To(Succeed())
 	return u
 }
@@ -212,14 +220,50 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		Expect(findUser(ctx, "fresh").RootUser).To(BeTrue())
 		Expect(rootUsers(ctx)).To(HaveLen(1))
 	})
-	It("Should give a root record without a password one", func(ctx SpecContext) {
-		orphan := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+	It("Should promote the owner of the password, not a record with the name", func(
+		ctx SpecContext,
+	) {
+		provision(ctx, "old-root", "p")
+		decoy := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+			Username: "delta",
+		}))
+		owner := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+			Username: "stale-record-name",
+		}))
+		Expect(passwordSvc.NewWriter(nil).Set(ctx, owner.OntologyID(), auth.Credentials{
+			Username: "delta",
+			Password: "p",
+		})).To(Succeed())
+		root := provision(ctx, "delta", "p")
+		Expect(root.Key).To(Equal(owner.Key))
+		Expect(root.Key).ToNot(Equal(decoy.Key))
+	})
+	It("Should create a root user when no password holds the username", func(
+		ctx SpecContext,
+	) {
+		other := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
 			Username: "orphan",
 		}))
-		Expect(login(ctx, "orphan", "p")).Error().
-			To(MatchError(auth.ErrInvalidCredentials))
 		root := provision(ctx, "orphan", "p")
-		Expect(root.Key).To(Equal(orphan.Key))
-		MustSucceed(login(ctx, "orphan", "p"))
+		Expect(root.Key).ToNot(Equal(other.Key))
+		Expect(MustSucceed(login(ctx, "orphan", "p")).Subject).
+			To(Equal(root.OntologyID()))
+	})
+	It("Should reject a username whose password is not held by a user", func(
+		ctx SpecContext,
+	) {
+		rack := ontology.ID{Type: "rack", Key: "1"}
+		Expect(passwordSvc.NewWriter(nil).Set(
+			ctx,
+			rack,
+			auth.Credentials{Username: "rack-held", Password: "p"},
+		)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(passwordSvc.NewWriter(nil).DeleteFor(ctx, rack)).To(Succeed())
+		})
+		Expect(user.ProvisionRoot(ctx, svc, passwordSvc, auth.Credentials{
+			Username: "rack-held",
+			Password: "p",
+		})).Error().To(MatchError(ContainSubstring("not held by a user")))
 	})
 })

@@ -12,7 +12,7 @@
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::status {
 
@@ -265,6 +265,7 @@ TEST(StatusTest, CustomDetailsSetMultiple) {
     EXPECT_EQ(statuses.size(), 3);
 
     std::vector<std::string> keys;
+    keys.reserve(statuses.size());
     for (const auto &s: statuses)
         keys.push_back(s.key);
 

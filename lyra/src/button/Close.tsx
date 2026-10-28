@@ -9,12 +9,17 @@
 
 import { type ReactElement } from "react";
 
-import { Button, type ButtonProps } from "@/button/Button";
+import { Button, type ButtonProps, type ElementType } from "@/button/Button";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 
 /** Props for {@link Close}. */
-export interface CloseProps extends ButtonProps {}
+export interface CloseProps extends Omit<ButtonProps, "el"> {
+  /** Renders a `div` inside a host that is itself a button. */
+  el?: Extract<ElementType, "button" | "div">;
+}
+
+const CLOSE_ICON = <Icon.Close />;
 
 /**
  * A destructive glyph close that overlays its host's leading icon and reveals on
@@ -23,10 +28,10 @@ export interface CloseProps extends ButtonProps {}
  */
 export const Close = ({
   className,
-  children = <Icon.Close />,
+  children = CLOSE_ICON,
   ...rest
 }: CloseProps): ReactElement => (
-  <Button
+  <Button<ElementType>
     aria-label="Close"
     variant="text"
     sharp

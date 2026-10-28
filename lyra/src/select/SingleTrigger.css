@@ -40,14 +40,56 @@
    the caret when there is no icon. */
 @container (width < 16rem) {
     .pluto-select-single-trigger--collapsible {
-        > .pluto-select__label,
-        &:has(> .pluto-icon:first-child) > .pluto-caret-animated {
-            display: none;
-        }
-
         > .pluto-icon:first-child,
+        > .pluto-select-single-trigger__icon,
         > .pluto-caret-animated {
             margin-inline: auto;
         }
+
+        > .pluto-select__label,
+        &:has(
+                > .pluto-icon:first-child,
+                > .pluto-select-single-trigger__icon:first-child
+            )
+            > .pluto-caret-animated {
+            display: none;
+        }
     }
+}
+
+/* The icon or caret alone sizes this box. The clear button covers it at the same size
+   and takes its place while the trigger is hovered, so the trigger keeps its layout. */
+.pluto-select-single-trigger__icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    > .pluto-btn.pluto-btn--close {
+        position: absolute;
+        inset: 0;
+        transform: none;
+        width: 100%;
+        height: 100%;
+        min-width: 0;
+        min-height: 0;
+        padding: 0;
+
+        & svg {
+            width: 100%;
+            height: 100%;
+        }
+    }
+}
+
+/* The caret's box sits where the caret would. :where keeps it below a collapsed
+   trigger's centering. */
+.pluto-select-single-trigger__icon:where(:has(> .pluto-caret-animated)) {
+    margin-left: auto;
+}
+
+.pluto-select-single-trigger--clearable:hover
+    > .pluto-select-single-trigger__icon
+    > .pluto-icon {
+    visibility: hidden;
 }

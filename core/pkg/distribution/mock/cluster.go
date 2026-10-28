@@ -14,7 +14,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
-	aspentransportmock "github.com/synnaxlabs/aspen/transport/mock"
+	aspentransporttestutil "github.com/synnaxlabs/aspen/transport/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
@@ -32,7 +32,7 @@ type Cluster struct {
 	// Nodes maps each provisioned node's host key to its Node.
 	Nodes       map[node.Key]Node
 	distNet     *mock.Network
-	aspenNet    *aspentransportmock.Network
+	aspenNet    *aspentransporttestutil.Network
 	addrFactory *address.Factory
 }
 
@@ -55,7 +55,7 @@ func OpenCluster(ctx context.Context, n int) *Cluster {
 	c := &Cluster{
 		storage:     storagemock.NewCluster(),
 		distNet:     mock.NewNetwork(),
-		aspenNet:    aspentransportmock.NewNetwork(),
+		aspenNet:    aspentransporttestutil.NewNetwork(),
 		addrFactory: address.NewLocalFactory(0),
 		Nodes:       make(map[node.Key]Node),
 	}
@@ -96,6 +96,11 @@ func (c *Cluster) Provision(
 			return len(node.Cluster.Nodes())
 		}).Should(gomega.Equal(len(c.Nodes)))
 	}
+	// Each node subscribes to every peer's control state from an async membership
+	// observer. Waiting here keeps those subscriptions out of the caller's first spec.
+	gomega.Eventually(c.distNet.Control().Subscriptions).Should(
+		gomega.BeNumerically(">=", len(c.Nodes)*(len(c.Nodes)-1)),
+	)
 	return node
 }
 

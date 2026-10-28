@@ -14,7 +14,6 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { binary, primitive } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
@@ -27,26 +26,20 @@ export const UtilityButtons = () => {
   const getName = () => ctx.get<string>("name").value;
   const export_ = Export.useResource();
   const handleExport = () => taskKey != null && export_(task.ontologyID(taskKey));
-  const getTypeScriptCode = useCallback(
-    () =>
-      `
+  const getTypeScriptCode = () =>
+    `
       // Retrieve ${getName()}
       const task = client.tasks.retrieve("${taskKey}")
-      `,
-    [ctx, taskKey],
-  );
-  const getPythonCode = useCallback(
-    () =>
-      `
+      `;
+  const getPythonCode = () =>
+    `
       # Retrieve ${getName()}
       task = client.tasks.retrieve("${taskKey}")
-      `,
-    [ctx, taskKey],
-  );
-  const getJSONConfig = useCallback(() => {
+      `;
+  const getJSONConfig = () => {
     const config = ctx.get("config").value;
     return binary.JSON_CODEC.encodeString(config);
-  }, [ctx]);
+  };
   const copyLink = Core.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     if (taskKey == null) return;
@@ -62,9 +55,10 @@ export const UtilityButtons = () => {
             tooltip="Copy TypeScript code"
             tooltipLocation="left"
             variant="text"
-            successMessage={() =>
-              `Copied TypeScript code for ${getName()} to clipboard`
-            }
+            successMessage={() => ({
+              message: "Copied TypeScript code to clipboard",
+              name: getName(),
+            })}
             textColor={9}
           >
             <Icon.TypeScript />
@@ -74,7 +68,10 @@ export const UtilityButtons = () => {
             tooltip="Copy Python code"
             tooltipLocation="left"
             variant="text"
-            successMessage={() => `Copied Python code for ${getName()} to clipboard`}
+            successMessage={() => ({
+              message: "Copied Python code to clipboard",
+              name: getName(),
+            })}
             textColor={9}
           >
             <Icon.Python />
@@ -87,7 +84,10 @@ export const UtilityButtons = () => {
         tooltip="Copy JSON configuration"
         tooltipLocation="left"
         variant="text"
-        successMessage={() => `Copied JSON configuration for ${getName()} to clipboard`}
+        successMessage={() => ({
+          message: "Copied JSON configuration to clipboard",
+          name: getName(),
+        })}
         textColor={9}
       >
         <Icon.JSON />

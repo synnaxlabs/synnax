@@ -3,7 +3,7 @@
   "globalDependencies": [
     "configs/vite/src/index.ts",
     "configs/ts/*.json",
-    "configs/eslint/*.ts",
+    "configs/eslint/**/*.ts",
     "configs/eslint/package.json",
     "configs/stylelint/*.js",
     "configs/stylelint/package.json",
@@ -39,8 +39,17 @@
     "build-desktop": { "cache": false, "dependsOn": ["^build"] },
     "watch": { "cache": false },
     "fix": { "cache": false },
-    "test": { "cache": false, "dependsOn": ["^build"] },
-    "cov": { "cache": false, "dependsOn": ["^build"], "outputs": ["coverage/**"] },
+    "test": {
+      "cache": false,
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["SYNNAX_HOST", "SYNNAX_PORT"]
+    },
+    "cov": {
+      "cache": false,
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "passThroughEnv": ["SYNNAX_HOST", "SYNNAX_PORT"]
+    },
     "devtools": { "cache": false }
   }
 }

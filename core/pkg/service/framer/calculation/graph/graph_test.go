@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,24 +33,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := mock.NewNode(ctx)
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -58,7 +54,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)
@@ -498,6 +493,91 @@ var _ = Describe("Graph", func() {
 		})
 	})
 
+	Describe("BaseKeys", func() {
+		It("Should return the concrete channels of one calculation", func(
+			ctx SpecContext,
+		) {
+			bases := []channel.Channel{
+				{Name: "basekeys_a", DataType: telem.Int64T, Virtual: true},
+				{Name: "basekeys_b", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			calcs := []channel.Channel{
+				{
+					Name:       "basekeys_calc_a",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return basekeys_a",
+				},
+				{
+					Name:       "basekeys_calc_b",
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: "return basekeys_b",
+				},
+			}
+			Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+			Expect(g.Add(ctx, calcs[0])).To(Succeed())
+			Expect(g.Add(ctx, calcs[1])).To(Succeed())
+			Expect(MustSucceed(g.BaseKeys(calcs[0].Key())).Slice()).
+				To(ConsistOf(bases[0].Key()))
+			Expect(MustSucceed(g.BaseKeys(calcs[1].Key())).Slice()).
+				To(ConsistOf(bases[1].Key()))
+		})
+
+		It("Should resolve the channels read through a nested calculation", func(
+			ctx SpecContext,
+		) {
+			bases := []channel.Channel{
+				{Name: "basekeys_nested", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			inner := channel.Channel{
+				Name:       "basekeys_inner",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return basekeys_nested",
+			}
+			Expect(channelWriter.Create(ctx, &inner)).To(Succeed())
+			outer := channel.Channel{
+				Name:       "basekeys_outer",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return basekeys_inner * 2",
+			}
+			Expect(channelWriter.Create(ctx, &outer)).To(Succeed())
+			Expect(g.Add(ctx, outer)).To(Succeed())
+			Expect(MustSucceed(g.BaseKeys(outer.Key())).Slice()).
+				To(ConsistOf(bases[0].Key()))
+		})
+
+		It("Should follow an update to the expression", func(ctx SpecContext) {
+			bases := []channel.Channel{
+				{Name: "basekeys_old", DataType: telem.Int64T, Virtual: true},
+				{Name: "basekeys_new", DataType: telem.Int64T, Virtual: true},
+			}
+			Expect(channelWriter.CreateMany(ctx, &bases)).To(Succeed())
+			calc := channel.Channel{
+				Name:       "basekeys_updated",
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return basekeys_old",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Add(ctx, calc)).To(Succeed())
+			calc.Expression = "return basekeys_new"
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(g.Update(ctx, calc)).To(Succeed())
+			Expect(MustSucceed(g.BaseKeys(calc.Key())).Slice()).
+				To(ConsistOf(bases[1].Key()))
+		})
+
+		It("Should return an error for a channel the graph does not hold", func() {
+			Expect(g.BaseKeys(channel.Key(12345))).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
 	Describe("ConcreteBaseKeys", func() {
 		It("Should return all concrete base channel keys", func(ctx SpecContext) {
 			bases := []channel.Channel{
@@ -811,7 +891,7 @@ var _ = Describe("Graph", func() {
 				Expression: "return 1 + 1",
 			}
 			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-			Expect(g.Update(ctx, calc)).To(HaveOccurred())
+			Expect(g.Update(ctx, calc)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should detect circular dependency during update", func(ctx SpecContext) {
@@ -969,7 +1049,11 @@ var _ = Describe("Graph", func() {
 				calc1.DataType = telem.Float32T
 				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				err := g.Update(ctx, calc1)
-				Expect(err).To(HaveOccurred())
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 			},
 		)
 		It(
@@ -1016,7 +1100,11 @@ var _ = Describe("Graph", func() {
 				left.DataType = telem.Float32T
 				Expect(channelWriter.Create(ctx, &left)).To(Succeed())
 				err := g.Update(ctx, left)
-				Expect(err).To(HaveOccurred())
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 
 				// right should still be in the graph unchanged
 				Expect(g.CalculatedKeys().Contains(right.Key())).To(BeTrue())
@@ -1116,7 +1204,11 @@ var _ = Describe("Graph", func() {
 				calc1.DataType = telem.Int64T
 				Expect(channelWriter.Create(ctx, &calc1)).To(Succeed())
 				err := g.Update(ctx, calc1)
-				Expect(err).To(HaveOccurred())
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring(
+					"failed to recompile dependent channel",
+				)))
 
 				// calc2's module should be rolled back to its original state
 				// since the cascade failed partway through.

@@ -12,7 +12,6 @@ import "@/feature/arc/editor/TaskControls.css";
 import { type arc, type rack } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { SelectPerformance } from "@/feature/arc/editor/SelectPerformance";
 import { Arc as PlatformArc } from "@/platform/arc";
@@ -21,6 +20,7 @@ import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
+const RACK_TRIGGER_PROPS = { collapsible: true };
 
 export const TaskControls = () => {
   const key = Arc.useKey();
@@ -33,14 +33,9 @@ export const TaskControls = () => {
   const { update: updateTask } = Arc.useUpdateTask();
   const bound = primitive.isNonZero(taskRack);
 
-  const handleRackChange = useCallback(
-    (rackKey: rack.Key | undefined) => updateTask({ key, rack: rackKey ?? 0 }),
-    [updateTask, key],
-  );
-  const handlePerformanceChange = useCallback(
-    (performance: arc.task.Performance) => updateTask({ key, performance }),
-    [updateTask, key],
-  );
+  const handleRackChange = (rackKey: rack.Key) => updateTask({ key, rack: rackKey });
+  const handlePerformanceChange = (performance: arc.task.Performance) =>
+    updateTask({ key, performance });
 
   return (
     <Task.Controls.Bar
@@ -58,9 +53,9 @@ export const TaskControls = () => {
             className={CSS.B("rack-select")}
             value={bound ? taskRack : undefined}
             onChange={handleRackChange}
-            allowNone={!running}
             location="top"
             initialQuery={INITIAL_RACK_QUERY}
+            triggerProps={RACK_TRIGGER_PROPS}
           />
           <SelectPerformance
             value={taskPerformance}

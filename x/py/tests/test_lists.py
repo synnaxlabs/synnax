@@ -9,7 +9,7 @@
 
 from typing import Any
 
-from x.lists import check_for_none, normalize, override
+from x.lists import all_none, normalize, override
 
 
 class TestNormalize:
@@ -27,19 +27,22 @@ class TestNormalize:
     def test_none_returns_empty(self) -> None:
         assert normalize(None) == []
 
+    def test_leading_none_skipped(self) -> None:
+        assert normalize(None, 1, [2]) == [1, 2]
+
     def test_multiple_args(self) -> None:
         assert normalize(1, [2, 3], 4) == [1, 2, 3, 4]
 
 
-class TestCheckForNone:
+class TestAllNone:
     def test_all_none(self) -> None:
-        assert check_for_none(None, None) is True
+        assert all_none(None, None) is True
 
     def test_some_not_none(self) -> None:
-        assert check_for_none(None, 1) is False
+        assert all_none(None, 1) is False
 
     def test_none_not_present(self) -> None:
-        assert check_for_none(1, 2) is False
+        assert all_none(1, 2) is False
 
 
 class TestOverride:

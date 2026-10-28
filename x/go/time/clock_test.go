@@ -18,6 +18,16 @@ import (
 	xtime "github.com/synnaxlabs/x/time"
 )
 
+var _ = Describe("NewFake", func() {
+	It("Should start at the given time", func() {
+		start := time.Unix(1_700_000_000, 0)
+		clock := xtime.NewFake(start)
+		Expect(clock.Now()).To(Equal(start))
+		clock.Advance(time.Minute)
+		Expect(clock.Now()).To(Equal(start.Add(time.Minute)))
+	})
+})
+
 var _ = Describe("Clock", func() {
 	Describe("Real", func() {
 		It("Should return a value bracketed by time.Now", func() {

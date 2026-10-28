@@ -98,7 +98,7 @@ export const Boolean = ({
             className={CSS.BE("input", inputType, "input")}
             type="checkbox"
             ref={ref}
-            checked={value}
+            checked={value ?? false}
             onChange={(e) => {
               e.stopPropagation();
               onChange?.(e.target.checked);

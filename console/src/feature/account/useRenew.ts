@@ -13,7 +13,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { errors, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
-import { renew, type RenewResult } from "@/feature/account/handoff";
+import { License } from "@/platform/license";
 import { Session } from "@/session";
 
 /**
@@ -31,7 +31,7 @@ const lasting = (license: license.License | undefined): boolean =>
   TimeStamp.seconds(license.exp).after(TimeStamp.now().add(WARNING_WINDOW));
 
 export interface RenewDeps {
-  renew: (secret: string) => Promise<RenewResult>;
+  renew: (secret: string) => Promise<License.RenewResult>;
   interval: TimeSpan;
   /** The Core's license API. Defaults to the connected client's. */
   license: Pick<license.Client, "retrieve" | "activate" | "deactivate">;
@@ -46,7 +46,7 @@ export interface RenewDeps {
  * forgets its account.
  */
 export const useRenew = ({
-  renew: renewKey = renew,
+  renew: renewKey = License.renew,
   interval = CHECK_INTERVAL,
   license: injected,
   onError = console.error,
@@ -65,7 +65,7 @@ export const useRenew = ({
         const { license } = await api.retrieve();
         if (controller.signal.aborted || (license != null && license.exp == null))
           return;
-        let result: RenewResult;
+        let result: License.RenewResult;
         try {
           result = await renewKey(secret);
         } catch (e) {
@@ -87,7 +87,7 @@ export const useRenew = ({
           return;
         }
         await api.activate(result.key);
-      }, "Failed to renew the license");
+      }, "Failed to renew license");
     check();
     const timer = setInterval(check, interval.milliseconds);
     return () => {

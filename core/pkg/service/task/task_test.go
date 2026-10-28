@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
@@ -28,12 +29,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -59,24 +58,20 @@ var _ = Describe("Task", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
@@ -85,7 +80,6 @@ var _ = Describe("Task", Ordered, func() {
 			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -99,7 +93,6 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Rack:     rackService,
 			Status:   stat,
-			Search:   searchIdx,
 			ImEx:     imex.NewService(),
 			Configs:  configs,
 		}))
@@ -1085,7 +1078,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					taskStatus.Message,
-				).To(Equal("Status Test Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(taskStatus.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -1174,7 +1167,7 @@ var _ = Describe("Task", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(healed.Details.Task).To(Equal(t.Key))
 				Expect(healed.Variant).To(Equal(status.VariantWarning))
-				Expect(healed.Message).To(Equal("Self Heal Task status unknown"))
+				Expect(healed.Message).To(Equal("Task status unknown"))
 			},
 		)
 
@@ -1252,7 +1245,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(m.Status.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					m.Status.Message,
-				).To(Equal("Returned Status Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(m.Status.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -1302,7 +1295,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					copiedStatus.Message,
-				).To(Equal("Copied Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 			},
 		)
@@ -1329,7 +1322,7 @@ var _ = Describe("Task", Ordered, func() {
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
 					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
+					g.Expect(taskStatus.Message).To(Equal("Driver not running"))
 					g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
 				}).Should(Succeed())
 			},
@@ -1433,5 +1426,42 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())
 		})
+	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			t := task.Task{Type: testType, Rack: testRack.Key, Name: name}
+			Expect(w.Create(ctx, &t)).To(Succeed())
+			return task.OntologyID(t.Key)
+		}
+
+		It(
+			"Should return the matching tasks, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It("Should match a task by its type", func(ctx SpecContext) {
+			id := create(ctx, "igniter")
+			Expect(MustSucceed(svc.Search(ctx, tx, testType, 0)).Keys).
+				To(ContainElement(id))
+		})
+
+		It(
+			"Should not match a staged task outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
 	})
 })

@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { uuid } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { License } from "@/platform/license";
 
 /** The URL scheme the hub hands a login back through. */
-export const SCHEME = "synnax-desktop";
+const SCHEME = "synnax-desktop";
 
 const LINK_HOST = "activate";
 
@@ -53,6 +52,8 @@ export interface Linked {
   activation: string;
   email: string;
   user: string;
+  /** True only when the hub turned usage data on for this login. */
+  analyticsAllowed: boolean;
 }
 
 /**
@@ -68,7 +69,7 @@ export const parseLink = (url: string): Linked => {
   }
   if (parsed.protocol !== `${SCHEME}:` || parsed.host !== LINK_HOST)
     throw new Error(INCORRECT_FORMAT_ERROR_MESSAGE);
-  const read = (field: keyof Linked): string => {
+  const read = (field: Exclude<keyof Linked, "analyticsAllowed">): string => {
     const value = parsed.searchParams.get(field);
     if (value == null || value === "")
       throw new Error(`The login link is missing its ${field}`);
@@ -81,39 +82,6 @@ export const parseLink = (url: string): Linked => {
     activation: read("activation"),
     email: read("email"),
     user: read("user"),
+    analyticsAllowed: parsed.searchParams.get("analytics") === "on",
   };
-};
-
-export type RenewResult =
-  { variant: "renewed"; key: string } | { variant: "unlinked"; message: string };
-
-const errorZ = z.object({ error: z.string() });
-const renewedZ = z.object({ key: z.string() });
-
-const readMessage = async (res: Response): Promise<string> => {
-  try {
-    const body = errorZ.safeParse(await res.json());
-    if (body.success) return body.data.error;
-  } catch {
-    // A body that is not JSON carries no message.
-  }
-  return res.statusText;
-};
-
-/**
- * Asks the hub for a fresh license key for the machine the secret belongs to. Unlinked
- * means the hub no longer knows the machine, so the secret is spent.
- * @throws {Error} if the hub cannot be reached or refuses for another reason.
- */
-export const renew = async (secret: string): Promise<RenewResult> => {
-  const res = await fetch(License.RENEW_URL, {
-    method: "POST",
-    headers: { authorization: `Bearer ${secret}` },
-  });
-  if (res.status === 401 || res.status === 403)
-    return { variant: "unlinked", message: await readMessage(res) };
-  if (!res.ok)
-    throw new Error(`Could not renew the license: ${await readMessage(res)}`);
-  const { key } = renewedZ.parse(await res.json());
-  return { variant: "renewed", key };
 };

@@ -20,8 +20,6 @@ from synnax.arc.types_gen import (
     Key,
     Mode,
     Payload,
-    Status,
-    StatusDetails,
     ontology_id,
 )
 from x.spatial import XY as Position
@@ -39,8 +37,6 @@ __all__ = [
     "Mode",
     "Payload",
     "Position",
-    "Status",
-    "StatusDetails",
     "Task",
     "TaskConfig",
     "Text",

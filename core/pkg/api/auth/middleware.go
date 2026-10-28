@@ -17,33 +17,64 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
-func TokenMiddleware(svc *token.Service) freighter.Middleware {
+// Middleware authenticates the session token on every request and puts the session and
+// its subject on the request for handlers to read. A stream holds its
+// session open for as long as it runs, and its context is cancelled with
+// [auth.ErrSessionEnded] when the session ends, which the middleware then returns.
+func Middleware(svc *auth.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
 		next freighter.Next,
 	) (freighter.Context, error) {
 		tk, err := tryParseToken(ctx.Params)
 		if err != nil {
-			return ctx, err
+			return freighter.Context{}, err
 		}
-		userKey, newTK, err := svc.ValidateMaybeRefresh(tk)
+		session, err := svc.Authenticate(ctx, tk)
 		if err != nil {
-			return ctx, err
+			return freighter.Context{}, err
 		}
-		ctx.Set(subjectKey, user.OntologyID(userKey))
-		oCtx, err := next(ctx)
-		if newTK != "" {
-			oCtx.Set("Refresh-Token", newTK)
+		ctx.Set(subjectKey, session.Subject)
+		ctx.Set(sessionKey, session)
+		if ctx.Variant != freighter.VariantStream {
+			return next(ctx)
 		}
-		return oCtx, err
+		return holdSession(ctx, next, svc, session.Key)
 	})
+}
+
+func holdSession(
+	ctx freighter.Context,
+	next freighter.Next,
+	svc *auth.Service,
+	key auth.SessionKey,
+) (freighter.Context, error) {
+	ended, release, err := svc.Hold(ctx, key)
+	if err != nil {
+		return freighter.Context{}, err
+	}
+	defer release()
+	streamCtx, cancel := context.WithCancelCause(ctx.Context)
+	defer cancel(nil)
+	go func() {
+		select {
+		case <-ended:
+			cancel(auth.ErrSessionEnded)
+		case <-streamCtx.Done():
+		}
+	}()
+	ctx.Context = streamCtx
+	oCtx, err := next(ctx)
+	if cause := context.Cause(streamCtx); errors.Is(cause, auth.ErrSessionEnded) {
+		return freighter.Context{}, cause
+	}
+	return oCtx, err
 }
 
 const tokenParamPrefix = "Bearer "
@@ -80,8 +111,12 @@ func tryParseToken(params freighter.Params) (string, error) {
 	return strings.TrimPrefix(tkStr, tokenParamPrefix), nil
 }
 
-const subjectKey = "Subject"
+const (
+	subjectKey = "Subject"
+	sessionKey = "Session"
+)
 
+// GetSubject returns the subject of the request's session.
 func GetSubject(ctx context.Context) ontology.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {
@@ -89,4 +124,13 @@ func GetSubject(ctx context.Context) ontology.ID {
 		return user.OntologyID(uuid.Nil())
 	}
 	return s.(ontology.ID)
+}
+
+func getSession(ctx context.Context) auth.Session {
+	s, ok := freighter.MDFromContext(ctx).Get(sessionKey)
+	if !ok {
+		zap.S().DPanic("[api] - no session found in context")
+		return auth.Session{}
+	}
+	return s.(auth.Session)
 }

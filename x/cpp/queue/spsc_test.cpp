@@ -20,7 +20,7 @@ namespace x::queue {
 TEST(SPSCQueueTest, BasicPushPop) {
     SPSC<int> queue;
     EXPECT_TRUE(queue.push(42));
-    int value;
+    int value = 0;
     EXPECT_TRUE(queue.pop(value));
     EXPECT_EQ(value, 42);
 }
@@ -31,7 +31,7 @@ TEST(SPSCQueueTest, Empty) {
     EXPECT_TRUE(queue.empty());
     queue.push(1);
     EXPECT_FALSE(queue.empty());
-    int value;
+    int value = 0;
     queue.pop(value);
     EXPECT_TRUE(queue.empty());
 }
@@ -39,7 +39,7 @@ TEST(SPSCQueueTest, Empty) {
 /// @brief it should return false on try_pop when empty.
 TEST(SPSCQueueTest, TryPopEmpty) {
     SPSC<int> queue;
-    int value;
+    int value = 0;
     EXPECT_FALSE(queue.try_pop(value));
     queue.push(42);
     EXPECT_TRUE(queue.try_pop(value));
@@ -67,7 +67,7 @@ TEST(SPSCQueueTest, CloseQueue) {
     queue.close();
     EXPECT_TRUE(queue.closed());
     EXPECT_FALSE(queue.push(2));
-    int value;
+    int value = 0;
     EXPECT_TRUE(queue.pop(value));
     EXPECT_EQ(value, 1);
     EXPECT_FALSE(queue.pop(value));
@@ -78,7 +78,7 @@ TEST(SPSCQueueTest, CloseUnblocksWaitingPop) {
     SPSC<int> queue;
 
     std::thread consumer([&]() {
-        int value;
+        int value = 0;
         EXPECT_FALSE(queue.pop(value));
     });
 
@@ -96,7 +96,7 @@ TEST(SPSCQueueTest, MultipleRounds) {
             EXPECT_TRUE(queue.push(round * 100 + i));
         }
         for (int i = 0; i < 7; i++) {
-            int value;
+            int value = 0;
             EXPECT_TRUE(queue.pop(value));
             EXPECT_EQ(value, round * 100 + i);
         }
@@ -118,7 +118,7 @@ TEST(SPSCQueueTest, ProducerConsumerThreads) {
 
     std::thread consumer([&]() {
         for (int i = 0; i < num_items; i++) {
-            int value;
+            int value = 0;
             EXPECT_TRUE(queue.pop(value));
             EXPECT_EQ(value, i);
         }
@@ -136,7 +136,7 @@ TEST(SPSCQueueTest, ExplicitCapacity) {
     while (queue.push(static_cast<int>(pushed)))
         pushed++;
     EXPECT_GE(pushed, 16);
-    int value;
+    int value = 0;
     while (queue.try_pop(value)) {}
     EXPECT_TRUE(queue.empty());
 }
@@ -148,7 +148,7 @@ TEST(SPSCQueueTest, FullQueueReturnsFalse) {
     while (queue.push(static_cast<int>(pushed)))
         pushed++;
     EXPECT_FALSE(queue.push(999));
-    int value;
+    int value = 0;
     EXPECT_TRUE(queue.pop(value));
     EXPECT_TRUE(queue.push(999));
 }
@@ -170,7 +170,7 @@ TEST(SPSCQueueTest, SizeTracking) {
     queue.push(2);
     queue.push(3);
     EXPECT_EQ(queue.size(), 3);
-    int value;
+    int value = 0;
     queue.pop(value);
     EXPECT_EQ(queue.size(), 2);
     queue.pop(value);
@@ -194,7 +194,7 @@ TEST(SPSCQueueTest, LockFreeStressTest) {
     std::thread consumer([&]() {
         int expected = 0;
         while (expected < num_items) {
-            int value;
+            int value = 0;
             if (queue.try_pop(value)) {
                 EXPECT_EQ(value, expected);
                 expected++;
@@ -226,7 +226,7 @@ TEST(SPSCQueueTest, ResetDrainsAndReopens) {
     EXPECT_FALSE(queue.closed());
     EXPECT_TRUE(queue.empty());
     EXPECT_TRUE(queue.push(10));
-    int value;
+    int value = 0;
     EXPECT_TRUE(queue.pop(value));
     EXPECT_EQ(value, 10);
 }
@@ -245,7 +245,7 @@ TEST(SPSCQueueTest, MultipleResetCycles) {
     }
 
     EXPECT_TRUE(queue.push(100));
-    int value;
+    int value = 0;
     EXPECT_TRUE(queue.pop(value));
     EXPECT_EQ(value, 100);
 }

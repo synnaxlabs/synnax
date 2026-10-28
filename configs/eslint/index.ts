@@ -10,12 +10,102 @@
 import pluginJs from "@eslint/js";
 import pluginReact from "@eslint-react/eslint-plugin";
 import stylistic from "@stylistic/eslint-plugin";
-import type { Linter } from "eslint";
+import type { ESLint, Linter, Rule } from "eslint";
 import { includeIgnoreFile } from "eslint/config";
+import reactHooks from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import globals from "globals";
 import path from "path";
 import tseslint from "typescript-eslint";
+
+import { isWorker } from "./compiler";
+import { barrelImports } from "./rules/barrelImports";
+import { jsxFilenameExtension } from "./rules/jsxFilenameExtension";
+import { namedHookCallers } from "./rules/namedHookCallers";
+import { namedHookValues } from "./rules/namedHookValues";
+import { reactCompiler } from "./rules/reactCompiler";
+
+// ESLint matches files only by glob, so a rule skips Aether worker code itself.
+const skipWorkers = (rule: Rule.RuleModule): Rule.RuleModule => ({
+  ...rule,
+  create: (context) => (isWorker(context.filename) ? {} : rule.create(context)),
+});
+
+const synnax: ESLint.Plugin = {
+  rules: {
+    "barrel-imports": barrelImports,
+    "jsx-filename-extension": jsxFilenameExtension,
+    "named-hook-callers": skipWorkers(namedHookCallers),
+    "named-hook-values": skipWorkers(namedHookValues),
+    "react-compiler": skipWorkers(reactCompiler),
+  },
+};
+
+const COMPILER_RULES: Linter.RulesRecord = {
+  "react-hooks/rules-of-hooks": "error",
+  "synnax/react-compiler": [
+    "error",
+    {
+      rules: [
+        "hooks",
+        "use-memo",
+        "preserve-manual-memoization",
+        "incompatible-library",
+        "immutability",
+        "globals",
+        "refs",
+        "purity",
+        "set-state-in-render",
+        "component-hook-factories",
+        "unsupported-syntax",
+        "todo",
+        "syntax",
+        "invariant",
+        "config",
+        "gating",
+      ],
+    },
+  ],
+  "synnax/named-hook-callers": "error",
+  "synnax/named-hook-values": "error",
+};
+
+const NAMESPACE_IMPORT = {
+  selector: "ImportDeclaration[source.value=/^(@\\/|\\.)/] > ImportNamespaceSpecifier",
+  message:
+    "Import a local module's namespace from its barrel, which forms it with `export * as`.",
+};
+
+const RESTRICTED_SYNTAX = [
+  {
+    selector: "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
+    message: "Write a true boolean attribute without a value.",
+  },
+  NAMESPACE_IMPORT,
+];
+
+const MEMO_MESSAGE =
+  "The React Compiler caches values and functions. Write a plain value or function.";
+
+/** Bans manual useMemo and useCallback calls in a package built with the compiler. */
+export const reactCompiled: Linter.Config = {
+  rules: {
+    // A later config replaces the rule's whole selector list, so this one repeats it.
+    "no-restricted-syntax": [
+      "error",
+      ...RESTRICTED_SYNTAX,
+      {
+        selector: "CallExpression[callee.name=/^use(Memo|Callback)$/]",
+        message: MEMO_MESSAGE,
+      },
+      {
+        selector:
+          "CallExpression[callee.object.name='React'][callee.property.name=/^use(Memo|Callback)$/]",
+        message: MEMO_MESSAGE,
+      },
+    ],
+  },
+};
 
 const gitignorePath = path.join(import.meta.dirname, "../../.gitignore");
 
@@ -45,8 +135,20 @@ const config: Linter.Config[] = [
         tsconfigRootDir: import.meta.dirname,
       },
     },
-    plugins: { "simple-import-sort": simpleImportSort, "@stylistic": stylistic },
+    plugins: {
+      "simple-import-sort": simpleImportSort,
+      "@stylistic": stylistic,
+      "react-hooks": {
+        rules: {
+          ...reactHooks.rules,
+          "rules-of-hooks": skipWorkers(reactHooks.rules["rules-of-hooks"]),
+        },
+      },
+      synnax,
+    },
     rules: {
+      "synnax/barrel-imports": "error",
+      "synnax/jsx-filename-extension": "error",
       "new-cap": ["error", { capIsNew: false }],
       "no-constant-condition": ["error", { checkLoops: false }],
       "no-duplicate-imports": "error",
@@ -57,11 +159,8 @@ const config: Linter.Config[] = [
       "arrow-body-style": "error",
       curly: ["error", "multi"],
       "dot-notation": "error",
-      "logical-assignment-operators": [
-        "error",
-        "always",
-        { enforceForIfStatements: true },
-      ],
+      // Allows the if-statement form: the React Compiler cannot compile ??= or ||=.
+      "logical-assignment-operators": ["error", "always"],
       "no-array-constructor": "error",
       "no-else-return": ["error", { allowElseIf: false }],
       "no-extra-boolean-cast": ["error", { enforceForInnerExpressions: true }],
@@ -98,27 +197,21 @@ const config: Linter.Config[] = [
         "error",
         { props: "never", children: "never" },
       ],
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector:
-            "JSXAttribute > JSXExpressionContainer > Literal.expression[value=true]",
-          message: "Write a true boolean attribute without a value.",
-        },
-      ],
+      "no-restricted-syntax": ["error", ...RESTRICTED_SYNTAX],
       "@eslint-react/no-missing-component-display-name": "error",
       "@eslint-react/no-missing-context-display-name": "error",
       "@eslint-react/jsx-no-useless-fragment": "error",
       "@eslint-react/dom-no-unsafe-target-blank": "error",
-      // Off until a SY-5149 follow-up PR fixes their hits.
-      "@eslint-react/jsx-no-key-after-spread": "off",
-      "@eslint-react/web-api-no-leaked-event-listener": "off",
-      "@eslint-react/web-api-no-leaked-timeout": "off",
-      "@eslint-react/use-state": "off",
+      // Allows force-update hooks and acronym setters such as setOAuthError.
+      "@eslint-react/use-state": [
+        "error",
+        { enforceAssignment: false, enforceSetterName: false },
+      ],
       // Off until a SY-5149 hook audit: the fixes change render behavior.
       "@eslint-react/exhaustive-deps": "off",
-      "@eslint-react/rules-of-hooks": "off",
       "@eslint-react/set-state-in-effect": "off",
+      // Off: the rules below check these with the React Compiler.
+      "@eslint-react/rules-of-hooks": "off",
       "@eslint-react/purity": "off",
       // Off: matches our own useContext hooks from context.create by name.
       "@eslint-react/no-use-context": "off",
@@ -205,6 +298,22 @@ const config: Linter.Config[] = [
     },
   },
   {
+    // Oracle imports one generated module into another as a namespace.
+    files: ["**/*.gen.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...RESTRICTED_SYNTAX.filter((r) => r !== NAMESPACE_IMPORT),
+      ],
+    },
+  },
+  {
+    // The React Compiler skips a component or hook that breaks one of these rules.
+    // Specs do not ship, so their harnesses may break them.
+    ignores: ["**/*.spec.ts", "**/*.spec.tsx"],
+    rules: COMPILER_RULES,
+  },
+  {
     // Packages declare their JavaScript free of side effects, so a bundler skips a
     // barrel's own body and drops any stylesheet it imports.
     files: ["**/index.ts", "**/index.tsx", "**/external.ts", "**/external.tsx"],
@@ -231,6 +340,7 @@ const config: Linter.Config[] = [
       "**/*.d.ts",
       "examples",
       "vite.config.ts",
+      "vitest.bench.config.ts",
       "stylelint.config.js",
       "bazel-bin",
       "bazel-out",

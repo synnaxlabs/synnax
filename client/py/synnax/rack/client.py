@@ -15,7 +15,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Key, Rack
-from x.lists import check_for_none, override
+from x.lists import all_none, override
 
 
 class _CreateRequest(BaseModel):
@@ -155,10 +155,10 @@ class Client:
             combined with a list filter.
         :raises NotFoundError: If a single rack is requested and none matches.
         """
-        is_single = not check_for_none(key, name)
+        is_single = not all_none(key, name)
         if sum(v is not None for v in (key, name)) > 1:
             raise ValueError("only one of key and name can be given")
-        if is_single and not check_for_none(
+        if is_single and not all_none(
             keys,
             names,
             search_term,

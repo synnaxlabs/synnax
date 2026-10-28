@@ -10,12 +10,14 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useId, useState } from "react";
 
-import { post, reload, save } from "@/ui/api";
+import { type Mode } from "@/server/consent";
+import { post, save } from "@/ui/api";
 import { Auth } from "@/ui/auth";
-import { useClerk } from "@/ui/clerk";
+import { useLogOut } from "@/ui/clerk";
 import { activateURL, type Linked, type Query } from "@/ui/desktop/url";
 import { Panel } from "@/ui/Panel";
 import { Tile } from "@/ui/Tile";
@@ -24,8 +26,12 @@ import { useAction } from "@/ui/useAction";
 /** KEY_FILE is the license key's file name when the browser cannot open the app. */
 const KEY_FILE = "synnax-desktop.lic";
 
+const PRIVACY_URL = "https://www.synnaxlabs.com/privacy";
+
 export interface LinkProps extends Query {
   email: string;
+  /** consent is how the page asks about usage data, picked by the visitor's country. */
+  consent: Mode;
 }
 
 /**
@@ -38,21 +44,21 @@ export const Link = ({
   name,
   email,
   problem,
+  consent,
 }: LinkProps): ReactElement => {
-  const clerk = useClerk();
+  const logOut = useLogOut();
   const [linked, setLinked] = useState<Linked | null>(null);
+  const [shared, setShared] = useState(false);
+  const analyticsAllowed = consent === "notice" || shared;
   const action = useAction(async () => {
-    const res = await post<Linked>("/api/desktop/link", { fingerprint, name });
-    setLinked(res);
-    window.location.assign(activateURL(state, res));
-  });
-  // Reloading after the log out sends the visitor through the login page and back.
-  const logOut = (): void => {
-    void clerk?.signOut(() => {
-      reload();
-      return Promise.resolve();
+    const res = await post<Linked>("/api/desktop/link", {
+      fingerprint,
+      name,
+      analytics: analyticsAllowed,
     });
-  };
+    setLinked(res);
+    window.location.assign(activateURL(state, res, analyticsAllowed));
+  });
   if (problem != null)
     return (
       <Auth.Card
@@ -100,7 +106,9 @@ export const Link = ({
           size="large"
           full="x"
           justify="center"
-          onClick={() => window.location.assign(activateURL(state, linked))}
+          onClick={() =>
+            window.location.assign(activateURL(state, linked, analyticsAllowed))
+          }
         >
           Open Synnax Desktop
           <Icon.Arrow.Right />
@@ -124,6 +132,12 @@ export const Link = ({
       }
     >
       <Summary name={name} email={email} />
+      <Usage
+        consent={consent}
+        value={shared}
+        onChange={setShared}
+        disabled={action.loading}
+      />
       <Button.Button
         variant="filled"
         size="large"
@@ -142,13 +156,65 @@ export const Link = ({
         full="x"
         justify="center"
         onClick={logOut}
-        disabled={clerk == null}
+        disabled={logOut == null}
       >
         Not you? Log out
       </Button.Button>
     </Auth.Card>
   );
 };
+
+interface UsageProps {
+  consent: Mode;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  disabled: boolean;
+}
+
+/** Usage tells the user that the app sends usage data, or asks to send it. */
+const Usage = ({ consent, value, onChange, disabled }: UsageProps): ReactElement => {
+  const id = useId();
+  if (consent === "notice")
+    return (
+      <Flex.Box y gap={0.5} className="portal-usage">
+        <Text.Text level="small" color={9}>
+          Synnax Desktop sends usage data to help us improve it. You can turn it off in
+          the app.
+        </Text.Text>
+        <Privacy />
+      </Flex.Box>
+    );
+  return (
+    <Flex.Box x align="center" gap="medium" className="portal-usage">
+      <Input.Checkbox
+        id={id}
+        value={value}
+        onChange={onChange}
+        size="small"
+        disabled={disabled}
+      />
+      <Flex.Box y gap={0.5}>
+        <Text.Text el="label" htmlFor={id} level="small" color={10}>
+          Share usage data to improve Synnax Desktop
+        </Text.Text>
+        <Privacy />
+      </Flex.Box>
+    </Flex.Box>
+  );
+};
+
+const Privacy = (): ReactElement => (
+  <Text.Text
+    el="a"
+    level="small"
+    variant="link"
+    href={PRIVACY_URL}
+    target="_blank"
+    rel="noreferrer"
+  >
+    Privacy policy
+  </Text.Text>
+);
 
 interface SummaryProps {
   name: string;

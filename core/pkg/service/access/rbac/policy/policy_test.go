@@ -10,16 +10,15 @@
 package policy_test
 
 import (
-	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -603,34 +602,33 @@ var _ = Describe("Ontology Integration", func() {
 		})
 
 		It("Should return error for invalid UUID", func(ctx SpecContext) {
-			_, err := svc.RetrieveResource(ctx, "invalid-uuid", tx)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				svc.RetrieveResource(ctx, "invalid-uuid", tx),
+			).Error().
+				To(MatchError("invalid uuid"))
 		})
 
 		It("Should return error for non-existent policy", func(ctx SpecContext) {
-			_, err := svc.RetrieveResource(ctx, uuid.New().String(), tx)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				svc.RetrieveResource(ctx, uuid.New().String(), tx),
+			).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 
-	Describe("OpenNexter", func() {
-		It("Should iterate over all policies", func(ctx SpecContext) {
-			w := svc.NewWriter(tx, false)
-			for range 3 {
+	Describe("Search", func() {
+		It(
+			"Should return the policies whose name matches the term",
+			func(ctx SpecContext) {
 				p := &policy.Policy{
-					Name:    "nexter-test",
+					Name:    "turbopump readers",
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				}
-				Expect(w.Create(ctx, p)).To(Succeed())
-			}
-			Expect(tx.Commit(ctx)).To(Succeed())
-
-			nexter, closer := MustSucceed2(svc.OpenNexter(ctx))
-			defer func() { Expect(closer.Close()).To(Succeed()) }()
-
-			count := len(slices.Collect(nexter))
-			Expect(count).To(BeNumerically(">=", 3))
-		})
+				Expect(svc.NewWriter(tx, false).Create(ctx, p)).To(Succeed())
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 10)).Keys).
+					To(Equal([]ontology.ID{p.OntologyID()}))
+			},
+		)
 	})
 })

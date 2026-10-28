@@ -39,6 +39,34 @@ var _ = Describe("Domain", func() {
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
 			})
+			// openRolledOver opens a domain DB whose file size holds 3 timestamps, so a
+			// commit past it rolls over into an effectively contiguous domain. It holds
+			// [10 11 16 17], [18 19 20 22], and [25 26], then [30 32 33] after a gap.
+			openRolledOver := func(ctx SpecContext) *domain.DB {
+				GinkgoHelper()
+				db := MustOpen(domain.Open(domain.Config{
+					FS:              MustSucceed(fs.Sub("rolled_over")),
+					Instrumentation: PanicLogger(),
+					FileSize:        telem.TimestampT.Density().Size(3),
+				}))
+				w := MustSucceed(
+					db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}),
+				)
+				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 16, 17).Data))
+				Expect(w.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
+				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(18, 19, 20, 22).Data))
+				Expect(w.Commit(ctx, 22*telem.SecondTS+1)).To(Succeed())
+				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(25, 26).Data))
+				Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+				Expect(domain.Write(
+					ctx,
+					db,
+					(30 * telem.SecondTS).Range(33*telem.SecondTS+1),
+					telem.NewSeriesSecondsTSV(30, 32, 33).Data,
+				)).To(Succeed())
+				return db
+			}
 
 			Describe("Distance", func() {
 				Context("Continuous", func() {
@@ -67,7 +95,7 @@ var _ = Describe("Domain", func() {
 							expected index.Approximation[int64],
 							expectedErr error,
 						) {
-							actual, _, err := idx.Distance(ctx, tr /*continuous*/, true)
+							actual, err := idx.Distance(ctx, tr /*continuous*/, true)
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
@@ -185,13 +213,11 @@ var _ = Describe("Domain", func() {
 						func(ctx SpecContext,
 							tr telem.TimeRange,
 							expected index.Approximation[int64],
-							align telem.Alignment,
 							err error,
 						) {
-							actual, bounds, e := idx.Distance(ctx, tr, false)
+							actual, e := idx.Distance(ctx, tr, false)
 							if err == nil {
 								Expect(actual.Approximation).To(Equal(expected))
-								Expect(align).To(Equal(bounds))
 							} else {
 								Expect(e).To(MatchError(err))
 							}
@@ -199,45 +225,38 @@ var _ = Describe("Domain", func() {
 						Entry("Zero zero",
 							telem.TimeRangeZero,
 							index.Exactly[int64](0),
-							telem.NewAlignment(0, 0),
 							index.ErrDiscontinuous,
 						),
 						Entry("Exact, start and end equal",
 							(27*telem.SecondTS).SpanRange(0),
 							index.Exactly[int64](0),
-							telem.NewAlignment(1, 0),
 							nil,
 						),
 						Entry("Exact, start in domain, end not in domain",
 							(15*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Exactly[int64](3),
-							telem.NewAlignment(0, 9),
 							nil,
 						),
 						Entry("Inexact, start in domain, end not in domain",
 							(14*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Between[int64](3, 4),
-							telem.NewAlignment(0, 9),
 							nil,
 						),
 						Entry(
 							"Exact, start in domain, end not in domain (after a domain)",
 							(15*telem.SecondTS).Range(35*telem.SecondTS),
 							index.Exactly[int64](7),
-							telem.NewAlignment(1, 4),
 							nil,
 						),
 						Entry(
 							"Inexact, start in domain end not in domain (after a domain)",
 							(14*telem.SecondTS).Range(35*telem.SecondTS),
 							index.Between[int64](7, 8),
-							telem.NewAlignment(1, 4),
 							nil,
 						),
 						Entry("Exact, start in domain, end in domain",
 							(15*telem.SecondTS).Range(42*telem.SecondTS),
 							index.Exactly[int64](8),
-							telem.NewAlignment(2, 1),
 							nil,
 						),
 						Entry(
@@ -246,13 +265,11 @@ var _ = Describe("Domain", func() {
 								42*telem.SecondTS+500*telem.MillisecondTS,
 							),
 							index.Between[int64](8, 9),
-							telem.NewAlignment(2, 1),
 							nil,
 						),
 						Entry("Start inexact, start in domain, end in domain",
 							(14*telem.SecondTS).Range(42*telem.SecondTS),
 							index.Between[int64](8, 9),
-							telem.NewAlignment(2, 1),
 							nil,
 						),
 						Entry(
@@ -261,94 +278,45 @@ var _ = Describe("Domain", func() {
 								42*telem.SecondTS+500*telem.MillisecondTS,
 							),
 							index.Between[int64](8, 10),
-							telem.NewAlignment(2, 1),
 							nil,
 						),
 						Entry("End exact, start not in domain, end in first domain",
 							(-1*telem.SecondTS).Range(5*telem.SecondTS),
 							index.Between[int64](3, 4),
-							telem.NewAlignment(0, 3),
 							nil,
 						),
 						Entry("End inexact, start not in domain, end in first domain",
 							(-1*telem.SecondTS).Range(6*telem.SecondTS),
 							index.Between[int64](3, 5),
-							telem.NewAlignment(0, 4),
 							nil,
 						),
 						Entry("End exact, start not in domain, end not in first domain",
 							(-1*telem.SecondTS).Range(26*telem.SecondTS),
 							index.Between[int64](10, 11),
-							telem.NewAlignment(1, 1),
 							nil,
 						),
 						Entry(
 							"End inexact, start not in domain, end not in first domain",
 							(-1*telem.SecondTS).Range(27*telem.SecondTS),
 							index.Between[int64](10, 12),
-							telem.NewAlignment(1, 1),
 							nil,
 						),
 					)
 				})
 
 				Context("Quasi Continuous (Many Continuous Domains)", func() {
-					var (
-						db2  *domain.DB
-						idx2 *index.Domain
-					)
+					var idx2 *index.Domain
 					BeforeEach(func(ctx SpecContext) {
-						// Open a new domain DB with a file size that corresponds
-						// 3 timestamp samples, so that we trigger automatic rollovers.
-						db2 = MustSucceed(domain.Open(domain.Config{
-							FS:              fs,
-							Instrumentation: PanicLogger(),
-							FileSize:        telem.TimestampT.Density().Size(3),
-						}))
-
-						w := MustSucceed(
-							db2.OpenWriter(
-								ctx,
-								domain.WriterConfig{Start: 10 * telem.SecondTS},
-							),
-						)
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(10, 11, 16, 17).Data),
-						)
-						Expect(w.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
-						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(18, 19, 20, 22).Data),
-						)
-						Expect(w.Commit(ctx, 22*telem.SecondTS+1)).To(Succeed())
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(25, 26).Data))
-						Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
-						Expect(w.Close()).To(Succeed())
-
-						// Write an additional domain that starts several seconds after
-						// the previous one i.e. we have an extra domain that is not
-						// continuous.
-						Expect(domain.Write(
-							ctx,
-							db2,
-							(30 * telem.SecondTS).Range(33*telem.SecondTS+1),
-							telem.NewSeriesSecondsTSV(30, 32, 33).Data,
-						)).To(Succeed())
-
-						idx2 = &index.Domain{DB: db2}
-					})
-					AfterEach(func() {
-						Expect(db2.Close()).To(Succeed())
+						idx2 = &index.Domain{DB: openRolledOver(ctx)}
 					})
 					DescribeTable("effectively continuous", func(ctx SpecContext,
 						tr telem.TimeRange,
 						expected index.Approximation[int64],
-						db telem.Alignment,
 						err error,
 					) {
-						actual, bounds, e := idx2.Distance(ctx, tr, true)
+						actual, e := idx2.Distance(ctx, tr, true)
 						if err == nil {
 							Expect(actual.Approximation).To(Equal(expected))
-							Expect(db).To(Equal(bounds))
 						} else {
 							Expect(e).To(MatchError(err))
 						}
@@ -356,19 +324,16 @@ var _ = Describe("Domain", func() {
 						Entry("exact exact",
 							(19*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Exactly[int64](2),
-							telem.NewAlignment(1, 3),
 							nil,
 						),
 						Entry("exact exact - between effectively continuous domains",
 							(16*telem.SecondTS).Range(26*telem.SecondTS),
 							index.Exactly[int64](7),
-							telem.NewAlignment(2, 1),
 							nil,
 						),
 						Entry("exact exact - out of domain",
 							(16*telem.SecondTS).Range(32*telem.SecondTS),
 							index.Exactly[int64](0),
-							telem.NewAlignment(0, 0),
 							index.ErrDiscontinuous,
 						),
 						Entry(
@@ -377,11 +342,279 @@ var _ = Describe("Domain", func() {
 								25*telem.SecondTS+500*telem.MillisecondTS,
 							),
 							index.Between[int64](6, 8),
-							telem.NewAlignment(2, 0),
 							nil,
 						),
 					)
 				})
+			})
+
+			Describe("EndAfter", func() {
+				BeforeEach(func(ctx SpecContext) {
+					Expect(domain.Write(
+						ctx,
+						db,
+						(1 * telem.SecondTS).Range(5*telem.SecondTS+1),
+						telem.NewSeriesSecondsTSV(1, 2, 3, 5).Data,
+					)).To(Succeed())
+					Expect(domain.Write(
+						ctx,
+						db,
+						(10 * telem.SecondTS).Range(12*telem.SecondTS+1),
+						telem.NewSeriesSecondsTSV(10, 11, 12).Data,
+					)).To(Succeed())
+				})
+				DescribeTable(
+					"returns the end of the range holding n samples",
+					func(
+						ctx SpecContext,
+						ref telem.TimeStamp,
+						n int64,
+						expected telem.TimeStamp,
+					) {
+						Expect(idx.EndAfter(ctx, ref, n)).To(Equal(expected))
+					},
+					Entry(
+						"zero samples, after ref",
+						1*telem.SecondTS,
+						int64(0),
+						1*telem.SecondTS+1,
+					),
+					Entry(
+						"inside the first domain",
+						1*telem.SecondTS,
+						int64(2),
+						3*telem.SecondTS,
+					),
+					Entry(
+						"from a stamp between samples",
+						4*telem.SecondTS,
+						int64(1),
+						10*telem.SecondTS,
+					),
+					Entry(
+						"across the gap between domains",
+						2*telem.SecondTS,
+						int64(4),
+						11*telem.SecondTS,
+					),
+					Entry(
+						"from a stamp inside the gap",
+						7*telem.SecondTS,
+						int64(2),
+						12*telem.SecondTS,
+					),
+					Entry(
+						"before the first domain",
+						telem.TimeStamp(0),
+						int64(1),
+						2*telem.SecondTS,
+					),
+					Entry(
+						"past the last sample",
+						1*telem.SecondTS,
+						int64(7),
+						telem.TimeStampMax,
+					),
+					Entry(
+						"after every domain",
+						20*telem.SecondTS,
+						int64(1),
+						telem.TimeStampMax,
+					),
+				)
+				Context("Equal timestamps", func() {
+					BeforeEach(func(ctx SpecContext) {
+						Expect(domain.Write(
+							ctx,
+							db,
+							(19 * telem.SecondTS).Range(21*telem.SecondTS+1),
+							telem.NewSeriesSecondsTSV(19, 20, 20, 20, 21).Data,
+						)).To(Succeed())
+					})
+					DescribeTable(
+						"ends after the whole run of equal timestamps",
+						func(
+							ctx SpecContext,
+							ref telem.TimeStamp,
+							n int64,
+							expected telem.TimeStamp,
+						) {
+							Expect(idx.EndAfter(ctx, ref, n)).To(Equal(expected))
+						},
+						Entry(
+							"inside the run",
+							20*telem.SecondTS,
+							int64(1),
+							20*telem.SecondTS+1,
+						),
+						Entry(
+							"past the run",
+							20*telem.SecondTS,
+							int64(2),
+							21*telem.SecondTS,
+						),
+					)
+				})
+			})
+
+			Describe("AppendSegments", func() {
+				var rolledOver *index.Domain
+				BeforeEach(func(ctx SpecContext) {
+					rolledOver = &index.Domain{DB: openRolledOver(ctx)}
+				})
+				var (
+					first  = (10 * telem.SecondTS).Range(17*telem.SecondTS + 1)
+					second = (17*telem.SecondTS + 1).Range(22*telem.SecondTS + 1)
+					third  = (22*telem.SecondTS + 1).Range(26*telem.SecondTS + 1)
+				)
+				DescribeTable(
+					"Splitting a run",
+					func(
+						ctx SpecContext,
+						ts telem.TimeStamp,
+						start, end int64,
+						expected []index.Segment,
+					) {
+						Expect(
+							rolledOver.AppendSegments(ctx, nil, ts, start, end),
+						).To(Equal(expected))
+					},
+					Entry("Should return one segment for samples inside a domain",
+						10*telem.SecondTS, int64(0), int64(4),
+						[]index.Segment{
+							{
+								TimeRange: first,
+								Alignment: telem.NewAlignment(0, 0),
+								Len:       4,
+							},
+						},
+					),
+					Entry("Should split samples at every domain boundary",
+						10*telem.SecondTS, int64(0), int64(10),
+						[]index.Segment{
+							{
+								TimeRange: first,
+								Alignment: telem.NewAlignment(0, 0),
+								Len:       4,
+							},
+							{
+								TimeRange: second,
+								Alignment: telem.NewAlignment(1, 0),
+								Len:       4,
+							},
+							{
+								TimeRange: third,
+								Alignment: telem.NewAlignment(2, 0),
+								Len:       2,
+							},
+						},
+					),
+					Entry("Should start a run partway through a domain",
+						16*telem.SecondTS, int64(0), int64(3),
+						[]index.Segment{
+							{
+								TimeRange: first,
+								Alignment: telem.NewAlignment(0, 2),
+								Len:       2,
+							},
+							{
+								TimeRange: second,
+								Alignment: telem.NewAlignment(1, 0),
+								Len:       1,
+							},
+						},
+					),
+					Entry(
+						"Should start a run at the first sample after an inexact stamp",
+						12*telem.SecondTS,
+						int64(0),
+						int64(1),
+						[]index.Segment{
+							{
+								TimeRange: first,
+								Alignment: telem.NewAlignment(0, 2),
+								Len:       1,
+							},
+						},
+					),
+					Entry("Should start a run at a domain that begins at the stamp",
+						17*telem.SecondTS+1, int64(0), int64(2),
+						[]index.Segment{
+							{
+								TimeRange: second,
+								Alignment: telem.NewAlignment(1, 0),
+								Len:       2,
+							},
+						},
+					),
+					Entry("Should skip to the samples of a later domain",
+						10*telem.SecondTS, int64(5), int64(7),
+						[]index.Segment{
+							{
+								TimeRange: second,
+								Alignment: telem.NewAlignment(1, 1),
+								Len:       2,
+							},
+						},
+					),
+					Entry("Should split samples that straddle a boundary",
+						10*telem.SecondTS, int64(3), int64(5),
+						[]index.Segment{
+							{
+								TimeRange: first,
+								Alignment: telem.NewAlignment(0, 3),
+								Len:       1,
+							},
+							{
+								TimeRange: second,
+								Alignment: telem.NewAlignment(1, 0),
+								Len:       1,
+							},
+						},
+					),
+					Entry("Should return no segments for an empty range",
+						10*telem.SecondTS, int64(3), int64(3),
+						[]index.Segment(nil),
+					),
+				)
+				It("Should append to the given segments", func(ctx SpecContext) {
+					dst := []index.Segment{{Len: 7}}
+					Expect(
+						rolledOver.AppendSegments(ctx, dst, 26*telem.SecondTS, 0, 1),
+					).To(Equal(
+						[]index.Segment{
+							{Len: 7},
+							{
+								TimeRange: third,
+								Alignment: telem.NewAlignment(2, 1),
+								Len:       1,
+							},
+						},
+					))
+				})
+				DescribeTable(
+					"Discontinuous runs",
+					func(ctx SpecContext, ts telem.TimeStamp, end int64, msg string) {
+						Expect(
+							rolledOver.AppendSegments(ctx, nil, ts, 0, end),
+						).Error().To(SatisfyAll(
+							MatchError(index.ErrDiscontinuous),
+							MatchError(ContainSubstring(msg)),
+						))
+					},
+					Entry(
+						"Should fail when the run passes the effective domain",
+						10*telem.SecondTS,
+						int64(11),
+						"position 11 in continuous index of length 10",
+					),
+					Entry(
+						"Should fail when no domain holds the stamp",
+						40*telem.SecondTS,
+						int64(1),
+						"does not exist in the index",
+					),
+				)
 			})
 
 			Describe("Stamp", func() {

@@ -78,6 +78,19 @@ class TestTiming:
         )
         assert result is None
 
+    def test_poll_reads_numbers_as_seconds(self) -> None:
+        """Should read a numeric timeout and interval as seconds, like sleep"""
+        call_count = 0
+
+        def condition() -> str | None:
+            nonlocal call_count
+            call_count += 1
+            return "done" if call_count >= 3 else None
+
+        t = Timer()
+        assert poll(condition, timeout=5, interval=0.01) == "done"
+        assert t.elapsed() >= 20 * TimeSpan.MILLISECOND
+
     def test_poll_returns_immediately(self) -> None:
         """Should return immediately if the condition is already met."""
         t = Timer()
@@ -89,22 +102,80 @@ class TestTiming:
         assert result is True
         assert t.elapsed() < 100 * TimeSpan.MILLISECOND
 
-    def test_loop(self) -> None:
-        """Test that the loop holds timing consistent even when operations in the loop
-        take a long time.
+    def test_precise_sleep_never_returns_early(self) -> None:
+        """Should not return before the requested duration elapses."""
+        for _ in range(20):
+            start = time.perf_counter_ns()
+            sleep(TimeSpan.MILLISECOND * 3, precise=True)
+            assert time.perf_counter_ns() - start >= TimeSpan.MILLISECOND * 3
+
+    def test_precise_sleep_yields_cpu(self) -> None:
+        """Should sleep in the OS for most of a long duration instead of spinning."""
+        cpu_start = time.process_time()
+        sleep(TimeSpan.MILLISECOND * 200, precise=True)
+        assert time.process_time() - cpu_start < 0.1
+
+
+@pytest.mark.timing
+class TestLoop:
+    @pytest.mark.parametrize("precise", [False, True])
+    def test_no_drift(self, precise: bool) -> None:
+        """Should hold the average rate over many iterations when the block takes a
+        large part of the interval.
         """
-        loop = Loop(TimeSpan.MILLISECOND * 10, precise=True)
-        periods: list[int] = []
-        last = time.perf_counter_ns()
-        with loop:
+        interval = TimeSpan.MILLISECOND * 10
+        count = 200
+        stamps: list[int] = []
+        start = time.perf_counter_ns()
+        with Loop(interval, precise=precise) as loop:
             for _ in loop:
-                now = time.perf_counter_ns()
-                periods.append(now - last)
-                last = now
-                if len(periods) == 20:
+                stamps.append(time.perf_counter_ns() - start)
+                if len(stamps) == count:
                     break
-                sleep(TimeSpan.MILLISECOND * 5, precise=True)
-        median = TimeSpan(int(np.median(periods)))
-        # A loop that did not compensate for the 5ms body would settle at 15ms, so the
-        # upper bound sits between the two rather than tight against the 10ms period.
-        assert TimeSpan.MILLISECOND * 8 < median < TimeSpan.MILLISECOND * 13
+                sleep(TimeSpan.MILLISECOND * 4, precise=True)
+        for i, stamp in enumerate(stamps):
+            assert stamp >= interval * (i + 1)
+        # A loop that slept one interval after the block would take 40% longer. The
+        # slack leaves room for stalls on a loaded CI runner.
+        assert stamps[-1] < interval * count * 1.2
+
+    def test_catch_up_short_overrun(self) -> None:
+        """Should return at once after an overrun shorter than the interval and keep the
+        original schedule.
+        """
+        # A schedule restarted after the overrun would end half an interval later, so
+        # the interval is long enough that a CI stall stays inside that margin.
+        interval = TimeSpan.MILLISECOND * 200
+        start = time.perf_counter_ns()
+        with Loop(interval, precise=True) as loop:
+            loop.wait()
+            sleep(interval * 1.5, precise=True)
+            before = time.perf_counter_ns()
+            loop.wait()
+            caught_up = time.perf_counter_ns() - before
+            loop.wait()
+            elapsed = time.perf_counter_ns() - start
+        assert caught_up < interval * 0.5
+        assert interval * 3 <= elapsed < interval * 3.5
+
+    def test_skip_missed_iterations(self) -> None:
+        """Should drop the iterations missed by an overrun of more than one interval
+        instead of running them in a burst.
+        """
+        interval = TimeSpan.MILLISECOND * 20
+        with Loop(interval, precise=True) as loop:
+            loop.wait()
+            sleep(interval * 3, precise=True)
+            loop.wait()
+            before = time.perf_counter_ns()
+            loop.wait()
+            assert time.perf_counter_ns() - before >= interval * 0.9
+
+    def test_count_iterations(self) -> None:
+        """Should count each iteration and report the average time between them."""
+        interval = TimeSpan.MILLISECOND * 5
+        with Loop(interval) as loop:
+            for _ in range(3):
+                loop.wait()
+        assert loop.counter == 3
+        assert loop.average >= interval

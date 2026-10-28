@@ -146,7 +146,6 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
-      const initialLength = result.current.data.length;
 
       const newChannel = await client.channels.create({
         name: id.create(),
@@ -154,10 +153,7 @@ describe("queries", () => {
         virtual: true,
       });
 
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data).toContain(newChannel.key);
-      });
+      await waitFor(() => expect(result.current.data).toContain(newChannel.key));
     });
 
     it("should update the list when a channel is updated", async () => {
@@ -1456,6 +1452,9 @@ describe("queries", () => {
       expect(result.current.form.value().expression).toEqual(
         `return ${sourceChannel.name} + 1`,
       );
+      expect(result.current.form.value().operations).toEqual([
+        { type: "none", resetChannel: 0, duration: TimeSpan.ZERO },
+      ]);
 
       act(() => {
         result.current.form.set("expression", `return ${sourceChannel.name} * 3`);

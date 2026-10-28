@@ -21,7 +21,6 @@ import (
 	pb "github.com/synnaxlabs/arc/graph/pb"
 	pb2 "github.com/synnaxlabs/arc/program/pb"
 	pb1 "github.com/synnaxlabs/arc/text/pb"
-	pb3 "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -83,52 +82,6 @@ func (Mode) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{0}
 }
 
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// running indicates whether the Arc module is currently executing.
-	Running       bool `protobuf:"varint,1,opt,name=running,proto3" json:"running,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *StatusDetails) Reset() {
-	*x = StatusDetails{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[0]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *StatusDetails) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*StatusDetails) ProtoMessage() {}
-
-func (x *StatusDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[0]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use StatusDetails.ProtoReflect.Descriptor instead.
-func (*StatusDetails) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *StatusDetails) GetRunning() bool {
-	if x != nil {
-		return x.Running
-	}
-	return false
-}
-
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc struct {
@@ -145,16 +98,14 @@ type Arc struct {
 	// text is the text-based Arc source code.
 	Text *pb1.Text `protobuf:"bytes,5,opt,name=text,proto3" json:"text,omitempty"`
 	// program is the compiled module output including IR and WebAssembly bytecode.
-	Program *pb2.Program `protobuf:"bytes,6,opt,name=program,proto3,oneof" json:"program,omitempty"`
-	// status is the current execution status of the module.
-	Status        *pb3.Status `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Program       *pb2.Program `protobuf:"bytes,6,opt,name=program,proto3,oneof" json:"program,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Arc) Reset() {
 	*x = Arc{}
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[1]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -166,7 +117,7 @@ func (x *Arc) String() string {
 func (*Arc) ProtoMessage() {}
 
 func (x *Arc) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[1]
+	mi := &file_core_pkg_service_arc_pb_arc_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -179,7 +130,7 @@ func (x *Arc) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Arc.ProtoReflect.Descriptor instead.
 func (*Arc) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Arc) GetKey() string {
@@ -224,31 +175,20 @@ func (x *Arc) GetProgram() *pb2.Program {
 	return nil
 }
 
-func (x *Arc) GetStatus() *pb3.Status {
-	if x != nil {
-		return x.Status
-	}
-	return nil
-}
-
 var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\x1a'core/pkg/service/status/pb/status.proto\")\n" +
-	"\rStatusDetails\x12\x18\n" +
-	"\arunning\x18\x01 \x01(\bR\arunning\"\xae\x02\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1farc/go/program/pb/program.proto\x1a\x19arc/go/text/pb/text.proto\"\xeb\x01\n" +
 	"\x03Arc\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12(\n" +
 	"\x04mode\x18\x03 \x01(\x0e2\x14.service.arc.pb.ModeR\x04mode\x12)\n" +
 	"\x05graph\x18\x04 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\x12%\n" +
 	"\x04text\x18\x05 \x01(\v2\x11.arc.text.pb.TextR\x04text\x126\n" +
-	"\aprogram\x18\x06 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01\x126\n" +
-	"\x06status\x18\a \x01(\v2\x19.service.status.pb.StatusH\x01R\x06status\x88\x01\x01B\n" +
+	"\aprogram\x18\x06 \x01(\v2\x17.arc.program.pb.ProgramH\x00R\aprogram\x88\x01\x01B\n" +
 	"\n" +
-	"\b_programB\t\n" +
-	"\a_status*%\n" +
+	"\b_program*%\n" +
 	"\x04Mode\x12\r\n" +
 	"\tMODE_TEXT\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -268,27 +208,24 @@ func file_core_pkg_service_arc_pb_arc_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_arc_pb_arc_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_arc_pb_arc_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_arc_pb_arc_proto_goTypes = []any{
-	(Mode)(0),             // 0: service.arc.pb.Mode
-	(*StatusDetails)(nil), // 1: service.arc.pb.StatusDetails
-	(*Arc)(nil),           // 2: service.arc.pb.Arc
-	(*pb.Graph)(nil),      // 3: arc.graph.pb.Graph
-	(*pb1.Text)(nil),      // 4: arc.text.pb.Text
-	(*pb2.Program)(nil),   // 5: arc.program.pb.Program
-	(*pb3.Status)(nil),    // 6: service.status.pb.Status
+	(Mode)(0),           // 0: service.arc.pb.Mode
+	(*Arc)(nil),         // 1: service.arc.pb.Arc
+	(*pb.Graph)(nil),    // 2: arc.graph.pb.Graph
+	(*pb1.Text)(nil),    // 3: arc.text.pb.Text
+	(*pb2.Program)(nil), // 4: arc.program.pb.Program
 }
 var file_core_pkg_service_arc_pb_arc_proto_depIdxs = []int32{
 	0, // 0: service.arc.pb.Arc.mode:type_name -> service.arc.pb.Mode
-	3, // 1: service.arc.pb.Arc.graph:type_name -> arc.graph.pb.Graph
-	4, // 2: service.arc.pb.Arc.text:type_name -> arc.text.pb.Text
-	5, // 3: service.arc.pb.Arc.program:type_name -> arc.program.pb.Program
-	6, // 4: service.arc.pb.Arc.status:type_name -> service.status.pb.Status
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2, // 1: service.arc.pb.Arc.graph:type_name -> arc.graph.pb.Graph
+	3, // 2: service.arc.pb.Arc.text:type_name -> arc.text.pb.Text
+	4, // 3: service.arc.pb.Arc.program:type_name -> arc.program.pb.Program
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_arc_pb_arc_proto_init() }
@@ -296,14 +233,14 @@ func file_core_pkg_service_arc_pb_arc_proto_init() {
 	if File_core_pkg_service_arc_pb_arc_proto != nil {
 		return
 	}
-	file_core_pkg_service_arc_pb_arc_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_service_arc_pb_arc_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_arc_pb_arc_proto_rawDesc), len(file_core_pkg_service_arc_pb_arc_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

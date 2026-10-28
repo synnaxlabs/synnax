@@ -36,7 +36,7 @@ from synnax.ranger.types_gen import (
 )
 from synnax.ranger.writer import Writer
 from synnax.signals.signals import Registry
-from synnax.state import LatestState
+from synnax.state import Latest
 from synnax.task import Client as TaskClient
 from synnax.task import Task
 from synnax.telem import (
@@ -48,11 +48,11 @@ from synnax.telem import (
 )
 from x.color import Color
 from x.interop import ArrayOperators
-from x.lists import check_for_none, normalize, override
+from x.lists import all_none, normalize, override
 from x.params import require_named_params
 from x.uuid import NIL
 
-RANGE_SET_CHANNEL = "sy_range_set"
+_RANGE_SET_CHANNEL = "sy_range_set"
 
 # Pydantic declares BaseModel.__getattr__ only at runtime.
 _model_getattr: Callable[[BaseModel, str], object] = vars(BaseModel)["__getattr__"]
@@ -235,8 +235,8 @@ Please call client.ranges.create(range) before attempting to read from a range."
 class Range(Payload):
     """A range is a user-defined region of a cluster's data. It's identified by a name,
     time range, and uniquely generated key. See
-    https://docs.synnaxlabs.com/reference/concepts/ranges for an introduction to ranges
-    and how they work.
+    https://docs.synnaxlabs.com/reference/ranges for an introduction to ranges and how
+    they work.
     """
 
     _cached_frame_client: framer.Client | None = PrivateAttr(None)
@@ -718,7 +718,7 @@ class Client:
         is_single = key is not None or name is not None
         if key is not None and name is not None:
             raise ValueError("key and name cannot be combined; use keys or names")
-        if is_single and not check_for_none(
+        if is_single and not all_none(
             keys, names, search_term, overlaps_with, has_labels, limit, offset
         ):
             raise ValueError(
@@ -783,12 +783,12 @@ class Client:
             result.append(rng)
         return result
 
-    def on_create(self, f: Callable[[Range], None]) -> Callable[[LatestState], None]:
+    def on_create(self, f: Callable[[Range], None]) -> Callable[[Latest], None]:
         @functools.wraps(f)
-        def wrapper(state: LatestState) -> None:
-            d = state[RANGE_SET_CHANNEL]
+        def wrapper(state: Latest) -> None:
+            d = state[_RANGE_SET_CHANNEL]
             if not isinstance(d, dict):
-                raise TypeError(f"expected a JSON object on {RANGE_SET_CHANNEL}")
+                raise TypeError(f"expected a JSON object on {_RANGE_SET_CHANNEL}")
             f(
                 Range(
                     name=d["name"],
@@ -804,4 +804,4 @@ class Client:
                 )
             )
 
-        return self._signals.on([RANGE_SET_CHANNEL], lambda s: True)(wrapper)
+        return self._signals.on([_RANGE_SET_CHANNEL], lambda s: True)(wrapper)

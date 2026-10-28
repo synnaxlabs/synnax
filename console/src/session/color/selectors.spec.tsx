@@ -35,47 +35,24 @@ const withFrequent: PColor.ContextState = {
 };
 
 describe("color selectors", () => {
-  describe("useSelectContext", () => {
-    it("should return the zero context by default", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Color.useSelectContext(), {
-        wrapper: createWrapper(store),
-      });
-      expect(result.current).toEqual(PColor.ZERO_CONTEXT_STATE);
-    });
+  describe("useProviderProps", () => {
+    const renderProps = (store: ReturnType<typeof createStore>) =>
+      renderHook(() => Color.useProviderProps(), { wrapper: createWrapper(store) });
 
-    it("should reflect a dispatched context change", () => {
+    it("reflects the color context", () => {
       const store = createStore();
-      const { result } = renderHook(() => Color.useSelectContext(), {
-        wrapper: createWrapper(store),
-      });
+      const { result } = renderProps(store);
+      expect(result.current.value).toEqual(PColor.ZERO_CONTEXT_STATE);
       act(() => {
         store.dispatch(Color.setContext(withFrequent));
       });
-      expect(result.current).toEqual(withFrequent);
-    });
-  });
-
-  describe("PROVIDER_PROPS", () => {
-    const renderProviderState = (store: ReturnType<typeof createStore>) =>
-      renderHook(() => Color.PROVIDER_PROPS.useState?.(PColor.ZERO_CONTEXT_STATE), {
-        wrapper: createWrapper(store),
-      });
-
-    it("exposes a useState hook reflecting the color context", () => {
-      const store = createStore();
-      const { result } = renderProviderState(store);
-      expect(result.current?.[0]).toEqual(PColor.ZERO_CONTEXT_STATE);
-      act(() => {
-        store.dispatch(Color.setContext(withFrequent));
-      });
-      expect(result.current?.[0]).toEqual(withFrequent);
+      expect(result.current.value).toEqual(withFrequent);
     });
 
-    it("dispatches setContext when the setter is called", () => {
+    it("dispatches setContext on change", () => {
       const store = createStore();
-      const { result } = renderProviderState(store);
-      act(() => result.current?.[1](withFrequent));
+      const { result } = renderProps(store);
+      act(() => result.current.onChange?.(withFrequent));
       expect(store.getState()[Color.SLICE_NAME].context).toEqual(withFrequent);
     });
   });

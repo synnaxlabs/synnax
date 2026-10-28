@@ -222,6 +222,98 @@ describe("wrapForm", () => {
       await clickDeploy(container);
       await waitFor(() => expect(configured).toBe(true));
     });
+
+    it("should keep a deploy error after an edit to another field", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const Renderer = createRenderer({
+        Form: DeviceStatusProbe,
+        deployConfigZ: schemas.config.extend({
+          device: z.string().min(1, "Device is required"),
+        }),
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
+      );
+      const input = findNameInput();
+      fireEvent.change(input, { target: { value: "Renamed Test Task" } });
+      fireEvent.blur(input);
+      await waitFor(async () => {
+        const updated = await client.tasks.retrieve({ key: draft.key });
+        expect(updated.name).toBe("Renamed Test Task");
+      });
+      expect(screen.getByText("device-status:Device is required")).toBeTruthy();
+    });
+
+    it("should keep a deploy warning after the task deploys", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const Renderer = createRenderer({
+        Form: DeviceStatusProbe,
+        deployConfigZ: schemas.config.check(({ value, issues }) => {
+          issues.push({
+            code: "custom",
+            message: "device is suspicious",
+            path: ["device"],
+            params: { variant: "warning" },
+            input: value,
+          });
+        }),
+        onConfigure: async (_client, config) => [{ ...config }, 0],
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await clickDeploy(container);
+        await awaitCommand(streamer, draft.key);
+      } finally {
+        streamer.close();
+      }
+      expect(screen.getByText("device-status:device is suspicious")).toBeTruthy();
+    });
+
+    it("should clear a fixed deploy error on the next deploy", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      let offline = true;
+      let configured = false;
+      const Renderer = createRenderer({
+        Form: DeviceStatusProbe,
+        deployConfigZ: schemas.config.check(({ value, issues }) => {
+          if (!offline) return;
+          issues.push({
+            code: "custom",
+            message: "Device is offline",
+            path: ["device"],
+            input: value,
+          });
+        }),
+        onConfigure: async (_client, config) => {
+          configured = true;
+          return [config, 0];
+        },
+      });
+      const { container } = await renderTaskFormTab(Renderer, {
+        client,
+        taskKey: draft.key,
+      });
+      await clickDeploy(container);
+      await waitFor(() =>
+        expect(screen.getByText("device-status:Device is offline")).toBeTruthy(),
+      );
+      offline = false;
+      await clickDeploy(container);
+      await waitFor(() => expect(configured).toBe(true));
+      expect(screen.getByText("device-status:")).toBeTruthy();
+    });
   });
 
   describe("device rack sync", () => {
@@ -371,7 +463,7 @@ describe("useIsRunning", () => {
   it("should throw when the form carries no status", async () => {
     await expect(
       renderTaskFormHook({}, (ctx) => Task.useIsRunning(ctx)),
-    ).rejects.toThrow("Path status does not exist");
+    ).rejects.toThrow("Field status is not in the form");
   });
 });
 

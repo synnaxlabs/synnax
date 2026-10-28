@@ -69,7 +69,7 @@ describe("Range.useCreateModal", () => {
     });
     await clickWhenEnabled("Save locally");
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
-    const ranges = Session.Range.selectMultiple(store.getState());
+    const ranges = store.getState()[Session.Range.SLICE_NAME].ranges;
     const created = ranges.find(
       (r) => r.variant === "static" && r.name === "Local Range",
     );
@@ -78,10 +78,10 @@ describe("Range.useCreateModal", () => {
 
   it("should keep the modal open and add nothing when the name is empty", async () => {
     const { store } = await openModal({ timeRange: { start: 1000, end: 2000 } });
-    const before = Session.Range.selectMultiple(store.getState()).length;
+    const before = store.getState()[Session.Range.SLICE_NAME].ranges.length;
     await clickWhenEnabled("Save locally");
     expect(screen.getByText("Save locally")).toBeTruthy();
-    expect(Session.Range.selectMultiple(store.getState()).length).toBe(before);
+    expect(store.getState()[Session.Range.SLICE_NAME].ranges.length).toBe(before);
   });
 
   it("should persist the range to the Core and favorite it on Save to Core", async () => {
@@ -94,9 +94,8 @@ describe("Range.useCreateModal", () => {
     await waitFor(() => {
       // A Core range is stored by key alone, so the session cannot be searched by name:
       // the Core answers for it.
-      const created = Session.Range.selectMultiple(store.getState()).find(
-        (r) => r.variant === "persisted",
-      );
+      const { ranges } = store.getState()[Session.Range.SLICE_NAME];
+      const created = ranges.find((r) => r.variant === "persisted");
       expect(created).toBeDefined();
     });
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
@@ -154,28 +153,12 @@ describe("Range.useCreateModal", () => {
       },
       { client },
     );
-    // Clicking the selected range a second time in the list deselects it, but the list
-    // shows one page and this parent sorts past it, so only a search brings it in.
-    fireEvent.click(await screen.findByText(parent.name));
-    await screen.findByPlaceholderText("Search ranges...");
-    await waitFor(() =>
-      expect(screen.getAllByRole("option").length).toBeGreaterThan(0),
-    );
-    expect(screen.queryByRole("option", { name: new RegExp(parent.name) })).toBeNull();
-    fireEvent.change(screen.getByPlaceholderText("Search ranges..."), {
-      target: { value: parent.name },
-    });
-    fireEvent.click(
-      await screen.findByRole(
-        "option",
-        { name: new RegExp(parent.name) },
-        { timeout: 5000 },
-      ),
-    );
+    fireEvent.click(await screen.findByLabelText(`Clear ${parent.name}`));
     await waitFor(() => expect(screen.getByText("Parent range")).toBeTruthy());
     await clickWhenEnabled("Save locally");
     await waitFor(() => expect(screen.queryByText("Save locally")).toBeNull());
-    const created = Session.Range.selectMultiple(store.getState()).find(
+    const { ranges } = store.getState()[Session.Range.SLICE_NAME];
+    const created = ranges.find(
       (r) => r.variant === "static" && r.name === "Orphaned Range",
     );
     expect(created).toBeDefined();

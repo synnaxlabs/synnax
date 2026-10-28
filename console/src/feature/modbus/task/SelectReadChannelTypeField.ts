@@ -25,7 +25,6 @@ export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>
     label: "Channel type",
     showLabel: false,
     showHelpText: false,
-    hideIfNull: true,
   },
   inputProps: {
     allowNone: false,

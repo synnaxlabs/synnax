@@ -12,6 +12,7 @@ package plugin
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
@@ -34,6 +35,14 @@ type Request struct {
 	// Versions resolves the explicitly managed version chains under
 	// schemas/<domain>/versions/. Nil when the repository declares none.
 	Versions *versions.Resolver
+}
+
+// OmitFields returns a copy of r whose struct types drop the fields carrying a
+// field-level omit in any of langs.
+func (r *Request) OmitFields(langs ...string) *Request {
+	stripped := *r
+	stripped.Resolutions = omit.Fields(r.Resolutions, langs...)
+	return &stripped
 }
 
 // ValidateOutputPath validates that the output path is within the repository.
@@ -71,7 +80,7 @@ func NewRegistry() *Registry {
 func (r *Registry) Register(p Plugin) error {
 	name := p.Name()
 	if _, exists := r.plugins[name]; exists {
-		return &DuplicatePluginError{Name: name}
+		return &duplicatePluginError{Name: name}
 	}
 	r.plugins[name] = p
 	return nil
@@ -85,11 +94,9 @@ func (r *Registry) All() []Plugin {
 	return lo.MapToSlice(r.plugins, func(_ string, p Plugin) Plugin { return p })
 }
 
-// DuplicatePluginError is returned when attempting to register a plugin with a name
-// that is already registered.
-type DuplicatePluginError struct {
+type duplicatePluginError struct {
 	// Name is the duplicate plugin name.
 	Name string
 }
 
-func (e *DuplicatePluginError) Error() string { return "duplicate plugin: " + e.Name }
+func (e *duplicatePluginError) Error() string { return "duplicate plugin: " + e.Name }

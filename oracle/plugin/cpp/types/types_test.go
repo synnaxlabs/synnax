@@ -24,7 +24,7 @@ import (
 
 func TestCppTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Cpp Types Suite")
+	RunSpecs(t, "Plugin Cpp Types Suite", SuiteConfig())
 }
 
 var _ = Describe("C++ Types Plugin", func() {
@@ -88,6 +88,25 @@ var _ = Describe("C++ Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("field-level omit", func() {
+			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Session struct {
+						key     uint32
+						hash    bytes { @cpp omit }
+						subject string
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("std::string subject;").
+					ToNotContain("hash")
+			})
+		})
+
 		Context("basic struct generation", func() {
 			It("Should generate struct for simple types", func(ctx SpecContext) {
 				source := `
@@ -1168,6 +1187,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			func(ctx SpecContext) {
 				// First, set up the "status" namespace with an omitted type
 				statusSource := `
+				@cpp output "x/cpp/status"
 				@cpp hand
 				@cpp include "x/cpp/status/status.h"
 
@@ -1196,7 +1216,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, rackSource, "rack", loader)
-				Expect(diag.Ok()).To(BeTrue())
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1209,7 +1229,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`#include "x/cpp/status/status.h"`))
 				Expect(
 					content,
-				).To(ContainSubstring(`using RackStatus = ::status::Status<StatusDetails>;`))
+				).To(ContainSubstring(`using RackStatus = ::x::status::Status<StatusDetails>;`))
 				Expect(
 					content,
 				).To(ContainSubstring(`std::optional<RackStatus> status;`))
@@ -1896,6 +1916,31 @@ var _ = Describe("C++ Types Plugin", func() {
 			)
 
 			It(
+				"Should leave an optional telem-typed field without a value",
+				func(ctx SpecContext) {
+					loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp hand
+					}
+				`)
+					source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						start telem.TimeStamp?
+					}
+				`
+					resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+					ExpectContent(resp, "out/types.gen.h").
+						ToContain("std::optional<::x::telem::TimeStamp> start;")
+				},
+			)
+
+			It(
 				"Should wrap string defaults in the distinct type's constructor",
 				func(ctx SpecContext) {
 					loader.Add("schemas/telem", `
@@ -2521,6 +2566,36 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 						"target_from_proto(const ::arc::ir::pb::Target& pb);",
 					`#include "arc/go/ir/pb/ir.pb.h"`,
 				)
+		},
+	)
+	It(
+		"Should name a variant's proto message from its payload's package",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@cpp output "client/cpp/hw"
+			@go output "core/pkg/service/hw"
+			@pb
+
+			Valve struct { open bool }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@cpp output "arc/cpp/ir"
+			@go output "arc/go/ir"
+			@pb
+
+			Node union on variant {
+				valve hw.Valve
+			}
+
+			Graph struct { node Node }
+			`
+			resp := MustGenerate(ctx, source, "ir", loader, cppPlugin)
+			ExpectContent(resp, "ir/types.gen.h").ToContain(
+				"using proto_type = ::service::hw::pb::Valve;",
+				`#include "core/pkg/service/hw/pb/hw.pb.h"`,
+			)
 		},
 	)
 })

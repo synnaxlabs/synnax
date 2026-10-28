@@ -13,12 +13,12 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
-#include "driver/opcua/mock/server.h"
+#include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 #include "driver/opcua/write_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::opcua {
 class TestWriteTask : public ::testing::Test {
@@ -26,8 +26,8 @@ protected:
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::StreamerFactory> mock_factory;
-    std::unique_ptr<mock::Server> server;
+    std::shared_ptr<pipeline::testutil::StreamerFactory> mock_factory;
+    std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
 
     // Command channels for different data types
@@ -203,7 +203,7 @@ protected:
         this->cfg = std::make_unique<WriteTaskConfig>(client, p);
 
         // Use the comprehensive default server configuration
-        auto server_cfg = mock::ServerConfig::create_default();
+        auto server_cfg = testutil::ServerConfig::create_default();
 
         ctx = std::make_shared<task::MockContext>(client);
         auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
@@ -254,7 +254,7 @@ protected:
         );
         reads->push_back(std::move(fr));
 
-        mock_factory = driver::pipeline::mock::simple_streamer_factory(
+        mock_factory = driver::pipeline::testutil::simple_streamer_factory(
             {this->bool_cmd_channel.key,
              this->uint16_cmd_channel.key,
              this->uint32_cmd_channel.key,
@@ -270,7 +270,7 @@ protected:
 
         conn_pool = std::make_shared<connection::Pool>();
 
-        server = std::make_unique<mock::Server>(server_cfg);
+        server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
@@ -303,7 +303,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.message, "Task started successfully");
+    EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(
         mock_factory->streamer_opens.load(std::memory_order_acquire),
         1
@@ -316,7 +316,7 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.message, "Task stopped successfully");
+    EXPECT_EQ(second_state.message, "Stopped task");
 }
 
 TEST_F(TestWriteTask, testWriteValuesArePersisted) {
@@ -525,9 +525,9 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     ASSERT_TRUE(err) << "Expected error for invalid node ID";
 
     const std::string err_msg = err.data;
-    EXPECT_TRUE(err_msg.find(invalid_cmd_channel.name) != std::string::npos)
+    EXPECT_TRUE(err_msg.contains(invalid_cmd_channel.name))
         << "Error message should contain channel name. Got: " << err_msg;
-    EXPECT_TRUE(err_msg.find("NS=99;I=99999") != std::string::npos)
+    EXPECT_TRUE(err_msg.contains("NS=99;I=99999"))
         << "Error message should contain node ID. Got: " << err_msg;
 
     ASSERT_NIL(sink->stop());

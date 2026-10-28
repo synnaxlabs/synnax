@@ -1,0 +1,110 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package device
+
+import (
+	"context"
+	"iter"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	xchange "github.com/synnaxlabs/x/change"
+	xiter "github.com/synnaxlabs/x/iter"
+	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/zyn"
+)
+
+// OntologyID returns the unique ID for the device within the ontology.
+func OntologyID(key Key) ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeDevice, Key: key}
+}
+
+// OntologyIDsFromDevices returns the ontology IDs for the given devices.
+func OntologyIDsFromDevices(devices []Device) []ontology.ID {
+	return lo.Map(devices, func(d Device, _ int) ontology.ID { return d.OntologyID() })
+}
+
+// OntologyIDs returns the ontology IDs for the given keys.
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+}
+
+// KeysFromOntologyIDs returns the keys for the given ontology IDs.
+func KeysFromOntologyIDs(ids []ontology.ID) []Key {
+	return lo.Map(ids, func(id ontology.ID, _ int) Key { return id.Key })
+}
+
+var schema = zyn.Object(map[string]zyn.Schema{
+	"key":        zyn.String(),
+	"rack":       zyn.Uint32().Coerce(),
+	"location":   zyn.String(),
+	"name":       zyn.String(),
+	"make":       zyn.String(),
+	"model":      zyn.String(),
+	"configured": zyn.Bool(),
+})
+
+func newResource(d Device) ontology.Resource {
+	return ontology.NewResource(schema, d.OntologyID(), d.Name, d)
+}
+
+var _ ontology.Service = (*Service)(nil)
+
+type change = xchange.Change[Key, Device]
+
+// Type returns the type of the device ontology service.
+func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeDevice }
+
+// RetrieveResource allows for retrieving a device with a given key from the ontology.
+func (s *Service) RetrieveResource(
+	ctx context.Context,
+	key Key,
+	tx gorp.Tx,
+) (ontology.Resource, error) {
+	var d Device
+	if err := s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&d).
+		Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(d), nil
+}
+
+func translateChange(c change) ontology.Change {
+	return ontology.Change{
+		Variant: c.Variant,
+		Key:     OntologyID(c.Key).String(),
+		Value:   newResource(c.Value),
+	}
+}
+
+// OnChange implements determines what should happen in the ontology when a change is
+// made to a device.
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Device]) {
+		f(ctx, xiter.Map(reader, translateChange))
+	}
+	return s.table.Observe().OnChange(handleChange)
+}
+
+// Search implements ontology.Service.
+func (s *Service) Search(
+	ctx context.Context,
+	tx gorp.Tx,
+	term string,
+	limit int,
+) (search.Result[ontology.ID], error) {
+	return ontology.SearchIndex(ctx, tx, s.indexes.search, term, limit, OntologyID)
+}

@@ -14,7 +14,6 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
@@ -32,11 +31,10 @@ export const colorFallbacks = {
 
 const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
-  const handleSinkChange = (v: channel.Key): void =>
+  const handleSinkChange = (v: channel.Key | null): void =>
     onChange({
       ...value,
-      commandChannel: v,
-      control: Control.reveal(value.control),
+      commandChannel: v ?? undefined,
     });
 
   return (
@@ -44,6 +42,7 @@ const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
       <Base.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
+            allowNone
             value={value.commandChannel ?? 0}
             onChange={handleSinkChange}
           />
@@ -51,7 +50,7 @@ const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
         <Form.ControlChipField />
       </Base.Section>
       <Base.Section title="Actuation">
-        <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
+        <Base.Field<BaseButton.Mode> path="mode" label="Mode">
           {({ value, onChange }) => (
             <BaseButton.SelectMode value={value} onChange={onChange} />
           )}

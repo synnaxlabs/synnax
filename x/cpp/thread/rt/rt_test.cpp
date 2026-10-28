@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/thread/rt/rt.h"
 
 namespace x::thread::rt {
@@ -228,7 +228,7 @@ TEST(ManagerTest, ReleaseAndReallocate) {
     auto mgr = std::make_shared<Manager>();
     const auto total = mgr->total_cores();
     if (total == 0) { GTEST_SKIP() << "no RT cores available"; }
-    int core;
+    int core = 0;
     {
         Config cfg;
         cfg.enabled = true;

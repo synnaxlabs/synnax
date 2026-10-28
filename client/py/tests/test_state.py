@@ -10,7 +10,7 @@
 import pytest
 
 import synnax as sy
-from synnax.state import LatestState, State
+from synnax.state import Latest, State
 
 PRESSURE = sy.channel.Payload(key=12, name="pressure", data_type=sy.DataType.FLOAT32)
 TEMPERATURE = sy.channel.Payload(
@@ -70,15 +70,30 @@ class TestState:
         with pytest.raises(KeyError):
             self.state()["humidity"]
 
+    def test_missing_attribute(self) -> None:
+        """Should raise AttributeError for a name that is not a channel."""
+        state = self.state()
+        assert not hasattr(state, "humidity")
+        with pytest.raises(AttributeError):
+            _ = state.humidity
 
-class TestLatestState:
-    """Tests reading the latest sample of each channel from LatestState."""
+    def test_update_by_name(self) -> None:
+        """Should store a frame entry keyed by name under the channel's key."""
+        state = State([PRESSURE])
+        state.update(
+            sy.Frame([PRESSURE.name], [sy.Series([2.5], data_type=sy.DataType.FLOAT32)])
+        )
+        assert state[12].to_numpy().tolist() == [2.5]
+
+
+class TestLatest:
+    """Tests reading the latest sample of each channel from Latest."""
 
     @staticmethod
-    def latest() -> LatestState:
+    def latest() -> Latest:
         state = State([PRESSURE])
         state.update(frame(PRESSURE, [1.5, 2.5]))
-        return LatestState(state)
+        return Latest(state)
 
     def test_by_key(self) -> None:
         """Should return the last sample for a channel key."""
@@ -92,10 +107,17 @@ class TestLatestState:
         """Should return the last sample for a channel name read as an attribute."""
         assert self.latest().pressure == 2.5
 
+    def test_missing_attribute(self) -> None:
+        """Should raise AttributeError for a name that is not a channel."""
+        latest = self.latest()
+        assert not hasattr(latest, "humidity")
+        with pytest.raises(AttributeError):
+            _ = latest.humidity
+
     def test_follows_updates(self) -> None:
         """Should read from the state's latest frame."""
         state = State([PRESSURE])
-        latest = LatestState(state)
+        latest = Latest(state)
         state.update(frame(PRESSURE, [1.5]))
         state.update(frame(PRESSURE, [4.5]))
         assert latest["pressure"] == 4.5

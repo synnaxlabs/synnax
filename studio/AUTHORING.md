@@ -32,11 +32,12 @@ These come from user review and are not open for reinterpretation.
   itself.
 - **Create shots start from an empty panel.** `capture.clearPanel` in setup, then
   `capture.clickPanelCreate` on camera so the viewer sees the component selector open.
-- **Form dialogs frame the whole dialog.** `session.zoom(".console-modal")` before it
-  opens, `session.endZoom()` after it closes. Never zoom a button that the dialog
-  already covered.
-- **Context menus never zoom.** The menu and the row it came from must both stay in
-  frame.
+- **Form dialogs frame the whole dialog.**
+  `session.zoom(page.locator(capture.MODAL).first())` once it opens, `session.endZoom()`
+  at the click that closes it. Never zoom a button that the dialog already covered.
+- **Context menus go through `capture.contextMenu`.** It zooms on the target and its
+  menu together and leaves the zoom open after the pick. End it after a pick that swaps
+  the view. A shot that only browses a menu uses `session.zoom([target, menu])`.
 - **View-swapping clicks pass `{ zoom: false }`.** A click that replaces the panel
   contents leaves the camera nothing to punch into, and the receding zoom smears the
   next beat. Same for every `session.drag`.
@@ -52,6 +53,33 @@ These come from user review and are not open for reinterpretation.
   embedded driver status on every capture). Inspect the DOM in a throwaway file you
   delete, never in the shot.
 
+## Camera
+
+Captures are 1600x900 CSS px, so the Console reads at the scale of a desktop window.
+Every shot has the same four parts.
+
+1. **Open wide.** Hold the whole Console at 1x for 1.5 to 2 s before the first click or
+   zoom, so the viewer sees where the work happens. Park the cursor on empty space in
+   setup, with no control under it.
+2. **Zoom on the area of work, not on clicks.** Open one `session.zoom(region)` for each
+   area the next beats happen in: a dialog, a toolbar, a panel, a form. Never zoom on
+   one button, and never once per click. Let the rect set the depth. An amount on a
+   region only makes the zoom shallower: the camera never zooms past the depth at which
+   the region fits. A list of locators frames the box around them
+   (`session.zoom([tank, valve], 1.6)`). For a region wider than the zoomed frame, such
+   as a toolbar, zoom on its center with an amount from 1.4 to 1.6
+   (`capture.zoomCenter(session, region, 1.5)`), and the camera pans to keep each target
+   in frame. Above 1.67x a 1080p render upscales.
+3. **Let the camera pan.** Inside a zoom, the camera holds while the cursor's targets
+   stay in frame, and pans only as far as it must when one leaves. Do not open a new
+   zoom to follow a dropdown.
+4. **Close wide.** Call `session.endZoom()` at the click that commits the work (Save,
+   Create), then hold the whole Console for 2.5 to 3 s on the result. The last frame is
+   the page still. Before the hold, move the cursor to empty space with no control under
+   it: a hover shade on a button in the last frame reads as a mistake.
+
+The research behind these rules is in `docs/tech/video-automation/decisions.md`.
+
 ## Traps
 
 - The window panel bar renders `.pluto-tabs__tab` too. Scope mosaic tab locators to
@@ -61,13 +89,15 @@ These come from user review and are not open for reinterpretation.
 - The inline editable class is `pluto-text--editable`. `CSS.BM` is `block--modifier`,
   not `__`.
 - The range overview's own title input answers `getByPlaceholder("Name")`. Scope modal
-  locators to `.console-modal`.
+  locators to `capture.MODAL`.
 - The Axes tab opens on X1, the time axis. Click Y1 before setting bounds.
 - A line plot hold snapshots the axis the moment it turns on, and the empty default is
   an hour-wide window at page load. Wait for real samples (`settleWall`) before clicking
   pause.
 - Live data moves in wall time while the video runs in virtual time, so a point pinned
   early scrolls off before a later beat. Pause the plot, or place the interaction late.
+- An Arc automation runs on wall time, so its test runs ahead of the video. Wait on
+  streamed values with a `waitFor` condition, not on a fixed hold.
 - `session.hold` advances the virtual clock only. `session.settleWall` waits real time,
   which is what live telemetry buffers need.
 - The `console/workspaces/*` ids embed on the Projects page: workspaces are projects on
@@ -79,8 +109,8 @@ The Remotion ffmpeg needs its own directory as the working directory:
 
 ```bash
 cd node_modules/.pnpm/@remotion+compositor-darwin-arm64@*/node_modules/@remotion/compositor-darwin-arm64
-./ffmpeg -y -sseof -1 -i 1 -frames:v 1 /tmp/end.png < video > -update # last frame
-./ffmpeg -y -ss 4.0 -i 1 -frames:v 1 /tmp/mid.png < video > -update   # by time
+./ffmpeg -y -sseof -1 -i "$VIDEO" -frames:v 1 -update 1 /tmp/end.png # last frame
+./ffmpeg -y -ss 4.0 -i "$VIDEO" -frames:v 1 -update 1 /tmp/mid.png   # by time
 ```
 
 `-vf select=eq(n\,N)` with a `%d` output fails here; extract one frame per call with

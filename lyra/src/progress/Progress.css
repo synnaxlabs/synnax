@@ -9,6 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
+@keyframes pluto-progress-fill {
+    from {
+        transform: scaleX(0);
+    }
+}
+
+@keyframes pluto-progress-pulse {
+    to {
+        opacity: 0.4;
+    }
+}
+
 .pluto-progress {
     width: 100%;
     height: 1.5rem;
@@ -23,5 +35,29 @@
         background: var(--pluto-primary-z);
         position: relative;
         overflow: hidden;
+    }
+
+    &.pluto--indeterminate .pluto-progress-bar {
+        transform-origin: left;
+        animation:
+            pluto-progress-fill var(--pluto-progress-duration) linear,
+            pluto-progress-pulse 0.8s ease-in-out var(--pluto-progress-duration)
+                infinite alternate;
+    }
+
+    &.pluto--thin {
+        height: 2px;
+        background: none;
+        border-radius: 0;
+
+        & .pluto-progress-bar {
+            border-radius: 0;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pluto-progress.pluto--indeterminate .pluto-progress-bar {
+        animation: none;
     }
 }

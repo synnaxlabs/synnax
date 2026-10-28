@@ -10,9 +10,9 @@
 import { createAction, type Middleware, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type CrudeTimeSpan,
-  debounce,
   deep,
   type record,
+  scheduler,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -23,7 +23,7 @@ import { Runtime } from "@/session/runtime";
 // On desktop this names session.json inside the tauri local app data directory: on
 // macOS ~/Library/Application Support/com.synnaxlabs.dev, on Windows
 // %LOCALAPPDATA%/com.synnaxlabs.dev. In the browser it names an IndexedDB database.
-export const STORE_NAME = "session";
+const STORE_NAME = "session";
 
 /**
  * The scope state is persisted under. State partitions into three scopes:
@@ -181,6 +181,7 @@ export interface Config<S extends object> {
 
 export const revertState = createAction("persist/revertState");
 export const clearState = createAction("persist/clearState");
+const flushState = createAction("persist/flush");
 /**
  * Replaces the swapped slices wholesale when the session context changes.
  * Dispatched by the persistence middleware, applied by a root reducer wrapper.
@@ -216,6 +217,7 @@ export const storeUnavailable = createAction("persist/storeUnavailable");
 export type Action = ReturnType<
   | typeof revertState
   | typeof clearState
+  | typeof flushState
   | typeof hydrate
   | typeof beginSwap
   | typeof endSwap
@@ -707,6 +709,17 @@ class Engine<S extends object> {
 const PERSIST_DEBOUNCE = TimeSpan.milliseconds(250);
 
 /**
+ * Saves every change dispatched so far without waiting out the debounce, and resolves
+ * once storage holds them. Only the main window persists: elsewhere, and in a store
+ * without persistence, it resolves at once.
+ * @throws {Error} if the write fails.
+ */
+export const flush = async (dispatch: (action: Action) => unknown): Promise<void> => {
+  // The persisting middleware answers this action with its write.
+  await dispatch(flushState());
+};
+
+/**
  * Creates a middleware that persists the redux store state to the given engine after an
  * action is dispatched, and swaps the Core and project partitions when the (Core,
  * project) context changes: the outgoing context flushes under its own keys, the
@@ -729,20 +742,22 @@ const createMiddleware = <S extends object>(
     // Redux forbids dispatching while middleware is constructed, so an engine that
     // could not open its storage announces it on the first action instead.
     let announced = !engine.unreadable;
-    const debouncedPersist = debounce.debounce(() => {
-      // Captured when the write is queued: a swap may retarget `current` before the
-      // queue reaches this write, and it must land under the session it belongs to.
-      const state = store.getState() as S;
-      const context = current;
-      queue = queue.then(async () => {
-        try {
-          await engine.persist(state, context);
-        } catch (e) {
-          engine.onError(new Error("failed to persist state", { cause: e }));
-          store.dispatch(storeUnavailable());
-        }
+    // The context is captured when the write is queued: a swap may retarget `current`
+    // before the queue reaches this write, and it must land under the session it
+    // belongs to. The queue reports a failed write and goes on. The returned write
+    // still rejects, for a caller that waits on it.
+    const persist = (state: S, context: Context): Promise<void> => {
+      const write = queue.then(async () => await engine.persist(state, context));
+      queue = write.catch((e: unknown) => {
+        engine.onError(new Error("failed to persist state", { cause: e }));
+        store.dispatch(storeUnavailable());
       });
-    }, debounceInterval);
+      return write;
+    };
+    const debouncedPersist = scheduler.debounce(
+      () => void persist(store.getState() as S, current),
+      debounceInterval,
+    );
     return (next) => (action) => {
       const result = next(action);
       if (!announced) {
@@ -767,7 +782,10 @@ const createMiddleware = <S extends object>(
           .catch((err: unknown) => {
             engine.onError(new Error("failed to clear state", { cause: err }));
           });
-      else if (type === purge.type) {
+      else if (type === flushState.type) {
+        debouncedPersist.cancel();
+        return persist(state, current);
+      } else if (type === purge.type) {
         const { payload } = action as PayloadAction<string>;
         queue = queue
           .then(async () => await engine.purge(payload))

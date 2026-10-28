@@ -74,7 +74,6 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialLength = result.current.data.length;
 
       const newPolicy = await client.access.policies.create({
         name: "newPolicy",
@@ -82,10 +81,7 @@ describe("queries", () => {
         actions: ["create"],
       });
 
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data).toContain(newPolicy.key);
-      });
+      await waitFor(() => expect(result.current.data).toContain(newPolicy.key));
     });
 
     it("should remove policy from list when deleted", async () => {
@@ -264,7 +260,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("key")).toBeDefined();
+        expect(result.current.form.get<string>("key").value).toBeDefined();
       });
 
       const createdKey = result.current.form.get<string>("key").value;

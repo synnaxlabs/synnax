@@ -24,21 +24,17 @@ import {
 import { type lineplot as pLineplot } from "@synnaxlabs/pluto/ether";
 import {
   box,
+  dynamicWindow,
   location,
   scale,
+  staticWindow,
   TimeRange,
   TimeSpan,
   unique,
+  type Window,
   type xy,
 } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  type RefObject,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, type RefObject, useRef, useState } from "react";
 
 import { Controls } from "@/feature/lineplot/Controls";
 import {
@@ -113,12 +109,12 @@ const ContextMenuContent = ({
   const hasRangeCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const handleError = Status.useErrorHandler();
   const downloadAsCSV = useDownloadAsCSV();
-  const getTimeRange = useCallback(async (): Promise<TimeRange> => {
+  const getTimeRange = async (): Promise<TimeRange> => {
     const bounds = await linePlotRef.current?.getBounds();
     if (bounds == null) throw new Error("No bounds available");
     const s = scale.Scale.scale<number>(1).scale(bounds.x1);
     return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
-  }, [selection, linePlotRef]);
+  };
   const copyText = (fmt: (tr: TimeRange) => string) => async () =>
     fmt(await getTimeRange());
   const handleCreateRange = () =>
@@ -198,63 +194,44 @@ const Internal = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const ranges = Base.useRanges();
-  const rangeKeys = useMemo(
-    () => unique.unique([...ranges.x1, ...ranges.x2]),
-    [ranges.x1, ranges.x2],
-  );
+  const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
   const resolved = Range.useResolveMultiple(rangeKeys);
-  const resolvedRanges = useMemo(() => {
-    const m = new Map<string, Base.ResolvedRange>();
-    for (const r of resolved)
-      m.set(
-        r.key,
-        r.variant === "dynamic"
-          ? { variant: "dynamic", span: new TimeSpan(r.span) }
-          : { variant: "static", timeRange: new TimeRange(r.timeRange) },
-      );
-    const { custom } = ranges;
-    if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
-      m.set(
-        Range.CUSTOM_KEY,
-        custom.variant === "dynamic"
-          ? { variant: "dynamic", span: new TimeSpan(custom.span) }
-          : {
-              variant: "static",
-              // BigInt, not the constructor: TimeStamp parses a bare string as a
-              // date-time, not a decimal int64.
-              timeRange: new TimeRange(BigInt(custom.start), BigInt(custom.end)),
-            },
-      );
-    return m;
-  }, [resolved, ranges.custom, rangeKeys]);
+  const { custom } = ranges;
+  const windows = new Map<string, Window>();
+  for (const r of resolved)
+    windows.set(
+      r.key,
+      r.variant === "dynamic"
+        ? dynamicWindow(r.span)
+        : staticWindow(new TimeRange(r.timeRange)),
+    );
+  if (custom != null && rangeKeys.includes(Range.CUSTOM_KEY))
+    windows.set(
+      Range.CUSTOM_KEY,
+      custom.variant === "dynamic"
+        ? dynamicWindow(custom.span)
+        : { variant: "static", timeRange: { start: custom.start, end: custom.end } },
+    );
 
   const hiddenLineKeys = Session.LinePlot.useSelectHiddenLines();
-  const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);
-  const handleLineVisibleChange = useCallback(
-    (lineKey: string, lineVisible: boolean) =>
-      dispatch(Session.LinePlot.setLineVisible({ key, lineKey, visible: lineVisible })),
-    [dispatch, key],
-  );
+  const hiddenLines = new Set(hiddenLineKeys);
+  const handleLineVisibleChange = (lineKey: string, lineVisible: boolean) =>
+    dispatch(Session.LinePlot.setLineVisible({ key, lineKey, visible: lineVisible }));
 
   const derived = Base.useLines();
-  const csvLines = useMemo<DownloadLine[]>(
-    () =>
-      derived.map((d) => ({
-        channels: { x: d.xChannel, y: d.yChannel },
-      })),
-    [derived],
-  );
+  const csvLines: DownloadLine[] = derived.map((d) => ({
+    channels: { x: d.xChannel, y: d.yChannel },
+  }));
 
   const { enableTooltip, clickMode, hold } = Session.LinePlot.useSelectControlState();
   const mode = Session.LinePlot.useSelectViewportMode();
-  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
-  const initialViewport = useMemo(
-    () =>
-      box.reRoot(
-        box.construct(vis.viewport.pan, vis.viewport.zoom),
-        location.BOTTOM_LEFT,
-      ),
-    [vis.viewport.renderTrigger],
+  const triggers = Viewport.DEFAULT_TRIGGERS[mode];
+  // Only setViewport bumps the trigger. A stored viewport came from the plot itself.
+  const [applied, setApplied] = useState(vis.viewport);
+  if (applied.renderTrigger !== vis.viewport.renderTrigger) setApplied(vis.viewport);
+  const initialViewport = box.reRoot(
+    box.construct(applied.pan, applied.zoom),
+    location.BOTTOM_LEFT,
   );
 
   useTriggerHold({ key, enabled: hasUpdatePermission });
@@ -276,48 +253,35 @@ const Internal = (): ReactElement => {
     [dispatch, key],
   );
 
-  const handleSelectRule = useCallback(
-    (ruleKey: string) => dispatch(Session.LinePlot.setSelectedRule({ key, ruleKey })),
-    [dispatch, key],
-  );
-  const handleMeasureModeChange = useCallback(
-    (mode: pLineplot.measure.Mode) =>
-      dispatch(Session.LinePlot.setMeasureMode({ key, mode })),
-    [dispatch, key],
-  );
-  const handleHold = useCallback(
-    (hold: boolean) => dispatch(Session.LinePlot.setControlHold({ key, hold })),
-    [dispatch, key],
-  );
-  const handleDoubleClick = useCallback(() => {
+  const handleSelectRule = (ruleKey: string) =>
+    dispatch(Session.LinePlot.setSelectedRule({ key, ruleKey }));
+  const handleMeasureModeChange = (mode: pLineplot.measure.Mode) =>
+    dispatch(Session.LinePlot.setMeasureMode({ key, mode }));
+  const handleHold = (hold: boolean) =>
+    dispatch(Session.LinePlot.setControlHold({ key, hold }));
+  const handleDoubleClick = () => {
     dispatch(Session.Nav.showBottom({}));
     dispatch(Session.LinePlot.setActiveToolbarTab({ key, tab: "data" }));
-  }, [dispatch, key]);
+  };
 
   const menuProps = Menu.useContextMenu();
   const linePlotRef = useRef<Base.FrameRef | null>(null);
   const [hasAnnotations, setHasAnnotations] = useState(false);
 
-  const rangeProviderProps = useMemo(
-    () => ({
-      visible: vis.annotations.visible,
-      onHasAnnotationsChange: setHasAnnotations,
-      menu: (p: ranger.Payload) => (
-        <RangeAnnotationContextMenu lines={csvLines} range={p} />
-      ),
-    }),
-    [vis.annotations.visible, csvLines],
-  );
-
-  const menuRenderProp = useCallback(
-    () => (
-      <ContextMenuContent
-        csvLines={csvLines}
-        linePlotRef={linePlotRef}
-        editable={hasUpdatePermission}
-      />
+  const rangeProviderProps = {
+    visible: vis.annotations.visible,
+    onHasAnnotationsChange: setHasAnnotations,
+    menu: (p: ranger.Payload) => (
+      <RangeAnnotationContextMenu lines={csvLines} range={p} />
     ),
-    [csvLines, hasUpdatePermission],
+  };
+
+  const menuRenderProp = () => (
+    <ContextMenuContent
+      csvLines={csvLines}
+      linePlotRef={linePlotRef}
+      editable={hasUpdatePermission}
+    />
   );
 
   return (
@@ -328,7 +292,7 @@ const Internal = (): ReactElement => {
           aetherKey={key}
           editable={hasUpdatePermission}
           enableTriggers={hasUpdatePermission}
-          resolvedRanges={resolvedRanges}
+          windows={windows}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           measureMode={vis.measure.mode}

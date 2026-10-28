@@ -18,7 +18,7 @@ from synnax import rack as rack_
 from synnax.device.types_gen import Device, Key
 from synnax.exceptions import NotFoundError
 from synnax.ontology.payload import ID as OntologyID
-from x.lists import check_for_none, normalize, override
+from x.lists import all_none, normalize, override
 
 
 class _CreateRequest(BaseModel):
@@ -298,12 +298,12 @@ class Client:
             combined with a list filter.
         :raises NotFoundError: If a single device is requested and none matches.
         """
-        is_single = not check_for_none(key, name, make, model, location)
+        is_single = not all_none(key, name, make, model, location)
         if sum(v is not None for v in (key, name, make, model, location)) > 1:
             raise ValueError(
                 "only one of key, name, make, model, and location can be given"
             )
-        if is_single and not check_for_none(
+        if is_single and not all_none(
             keys, names, makes, models, locations, racks, search_term, limit, offset
         ):
             raise ValueError(

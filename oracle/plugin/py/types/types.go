@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
@@ -56,6 +57,7 @@ func (p *Plugin) Domains() []string { return nil }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("py")
 	gen := &framework.Generator{
 		Domain:          "py",
 		FilePattern:     p.Options.FileNamePattern,
@@ -140,6 +142,15 @@ func generatePyFile(
 			data.imports.registerFieldName(fieldName(field.Name))
 		}
 	}
+	for _, u := range unions {
+		for _, v := range u.Form.(resolution.UnionForm).Variants {
+			if payload, ok := v.Type.Resolve(table); ok {
+				for _, field := range resolution.UnifiedFields(payload, table) {
+					data.imports.registerFieldName(fieldName(field.Name))
+				}
+			}
+		}
+	}
 
 	// A TypeAlias assignment evaluates its right-hand side eagerly, so an alias
 	// whose target names a type defined in the SAME file (e.g. Nodes = list[Node])
@@ -159,7 +170,11 @@ func generatePyFile(
 		case isAlias:
 			aliasTypeDefs = append(aliasTypeDefs, td)
 		default:
-			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
+			tdd, err := processTypeDef(td, table, data)
+			if err != nil {
+				return nil, err
+			}
+			data.TypeDefs = append(data.TypeDefs, tdd)
 		}
 	}
 
@@ -191,9 +206,13 @@ func generatePyFile(
 	for i, typ := range sortedTypes {
 		switch typ.Form.(type) {
 		case resolution.AliasForm, resolution.DistinctForm:
+			tdd, err := processTypeDef(typ, table, data)
+			if err != nil {
+				return nil, err
+			}
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsTypeDef: true,
-				TypeDef:   processTypeDef(typ, table, data),
+				TypeDef:   tdd,
 			})
 		case resolution.StructForm:
 			sd, err := processStruct(typ, table, data, keyFields)
@@ -377,7 +396,7 @@ func processTypeDef(
 	typ resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-) typeDefData {
+) (typeDefData, error) {
 	switch form := typ.Form.(type) {
 	case resolution.DistinctForm:
 		data.imports.addTyping("TypeAlias")
@@ -385,21 +404,73 @@ func processTypeDef(
 			Name:       typ.Name,
 			BaseType:   typeDefBaseToPython(form.Base, typ.Namespace, table, data),
 			IsDistinct: false,
-		}
+		}, nil
 	case resolution.AliasForm:
 		// For alias types, use typeRefToPythonAlias to properly handle struct
 		// references with type arguments (e.g., status.Status<StatusDetails> ->
 		// status.Status[StatusDetails])
 		data.imports.addTyping("TypeAlias")
+		if _, err := declareTypeVars(
+			typ.Name,
+			form.TypeParams,
+			table,
+			data,
+		); err != nil {
+			return typeDefData{}, err
+		}
 		return typeDefData{
 			Name:       typ.Name,
 			BaseType:   typeRefToPythonAlias(form.Target, table, data),
 			IsDistinct: false,
-		}
+		}, nil
 	default:
 		data.imports.addTyping("TypeAlias")
-		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: false}
+		return typeDefData{Name: typ.Name, BaseType: "Any", IsDistinct: false}, nil
 	}
+}
+
+// declareTypeVars declares a module-level TypeVar for each non-defaulted type parameter
+// of the declaration named owner, and returns those parameters. It errors when another
+// declaration in the file declares a TypeVar of the same name differently.
+func declareTypeVars(
+	owner string,
+	params []resolution.TypeParam,
+	table *resolution.Table,
+	data *templateData,
+) ([]typeParamData, error) {
+	var declared []typeParamData
+	for _, tp := range resolution.NonDefaultedTypeParams(params) {
+		tpd := processTypeParam(tp, table, data)
+		declared = append(declared, tpd)
+		tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
+		// An omitted optional type argument means its bound, or arbitrary JSON when
+		// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
+		if tp.Optional {
+			data.imports.typeVarDefault = true
+			tvd.Default = tpd.Constraint
+			if tvd.Default == "" {
+				data.imports.addPydantic("JsonValue")
+				tvd.Default = "JsonValue"
+			}
+		}
+		// TypeVars are module-level, so declarations in one file share them by name.
+		existing, found := lo.Find(
+			data.TypeVars,
+			func(tv typeVarData) bool { return tv.Name == tp.Name },
+		)
+		if !found {
+			data.TypeVars = append(data.TypeVars, tvd)
+		} else if existing != tvd {
+			return nil, errors.Newf(
+				"type parameter %s of %s conflicts with another %s in the same "+
+					"Python file; rename one of them",
+				tp.Name,
+				owner,
+				tp.Name,
+			)
+		}
+	}
+	return declared, nil
 }
 
 func processTypeParam(
@@ -498,7 +569,8 @@ func typeDefBaseToPython(
 		data.imports.addTyping("Any")
 		return "Any"
 	}
-	if _, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+	switch resolved.Form.(type) {
+	case resolution.DistinctForm, resolution.AliasForm:
 		if resolved.Namespace != currentNamespace {
 			ns := resolved.Namespace
 			outputPath := output.GetPath(resolved, "py")
@@ -556,37 +628,11 @@ func processStruct(
 	if len(form.TypeParams) > 0 {
 		sd.IsGeneric = true
 		data.imports.addTyping("Generic")
-		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
-			tpd := processTypeParam(tp, table, data)
-			sd.TypeParams = append(sd.TypeParams, tpd)
-			tvd := typeVarData{Name: tp.Name, Constraint: tpd.Constraint}
-			// An omitted optional type argument means its bound, or arbitrary JSON when
-			// unbounded. TypeVar defaults need typing_extensions on Python 3.12.
-			if tp.Optional {
-				data.imports.typeVarDefault = true
-				tvd.Default = tpd.Constraint
-				if tvd.Default == "" {
-					data.imports.addPydantic("JsonValue")
-					tvd.Default = "JsonValue"
-				}
-			}
-			// TypeVars are module-level, so structs in one file share them by name.
-			existing, found := lo.Find(
-				data.TypeVars,
-				func(tv typeVarData) bool { return tv.Name == tp.Name },
-			)
-			if !found {
-				data.TypeVars = append(data.TypeVars, tvd)
-			} else if existing != tvd {
-				return structData{}, errors.Newf(
-					"type parameter %s of %s conflicts with another %s in the same "+
-						"Python file; rename one of them",
-					tp.Name,
-					entry.Name,
-					tp.Name,
-				)
-			}
+		params, err := declareTypeVars(entry.Name, form.TypeParams, table, data)
+		if err != nil {
+			return structData{}, err
 		}
+		sd.TypeParams = params
 	}
 
 	// Handle struct aliases (AliasForm)
@@ -635,10 +681,15 @@ func processStruct(
 			parentFields := make([]resolution.Field, 0)
 			seenFields := make(set.Set[string])
 			for _, extendsRef := range form.Extends {
-				parent, _ := extendsRef.Resolve(table)
+				parent, ext, _ := resolution.Dealias(extendsRef, table)
+				typeArgs := resolution.TypeArgMap(
+					resolution.TypeParams(parent.Form),
+					ext.TypeArgs,
+				)
 				for _, pf := range resolution.UnifiedFields(parent, table) {
 					if !seenFields.Contains(pf.Name) {
 						seenFields.Add(pf.Name)
+						pf.Type = resolution.SubstituteTypeRef(pf.Type, typeArgs)
 						parentFields = append(parentFields, pf)
 					}
 				}
@@ -826,16 +877,13 @@ func buildExtendsExpr(
 		)
 	}
 
-	// Check if parent is generic
-	parentForm, ok := parent.Form.(resolution.StructForm)
-	if !ok || !parentForm.IsGeneric() {
-		return baseName
-	}
+	// An alias re-exports its target class under its own name and type parameters.
+	params := resolution.TypeParams(parent.Form)
 
 	// Find which parent type params don't have defaults (those are the ones in
 	// Generic[])
 	var activeParamIndices []int
-	for i, tp := range parentForm.TypeParams {
+	for i, tp := range params {
 		if !tp.HasDefault() {
 			activeParamIndices = append(activeParamIndices, i)
 		}
@@ -1063,7 +1111,8 @@ func collectValidation(
 			}
 		case resolution.ValueKindInt:
 			// Type-aware: uuid with default 0 → UUID(int=0)
-			if isUUIDType(typeRef, table) && defaultVal.IntValue == 0 {
+			if resolution.PrimitiveBase(typeRef, table) == "uuid" &&
+				defaultVal.IntValue == 0 {
 				data.imports.addUUID("UUID")
 				constraints = append(constraints, "default=UUID(int=0)")
 			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
@@ -1105,8 +1154,13 @@ func collectValidation(
 			}
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if defaultVal.IdentValue == "now" && isTimestampType(typeRef, table) {
-				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
+			if defaultVal.IdentValue == "now" {
+				if ts, ok := telem.TimeStampRef(typeRef, table, "py"); ok {
+					constraints = append(
+						constraints,
+						"default_factory="+typeToPython(ts, table, data)+".now",
+					)
+				}
 			}
 			// Handle "create" for auto-generating keys. uuid keys generate a UUID
 			// object; string keys generate a stringified UUID. uuid is a string
@@ -1266,7 +1320,7 @@ func pyRecordLiteral(
 
 // pyStructLiteral renders a struct default as a Python model constructor call,
 // resolving each field's value against its declared type in the struct named by
-// typeRef.
+// typeRef. A union default constructs the variant its discriminator names.
 func pyStructLiteral(
 	typeRef resolution.TypeRef,
 	val resolution.ExpressionValue,
@@ -1276,6 +1330,11 @@ func pyStructLiteral(
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return "None"
+	}
+	if union, _, ok := resolution.Dealias(typeRef, table); ok {
+		if form, ok := union.Form.(resolution.UnionForm); ok {
+			return pyUnionLiteral(union, form, val, table, data)
+		}
 	}
 	className := getPyName(resolved)
 	if resolved.Namespace != data.Namespace {
@@ -1289,10 +1348,66 @@ func pyStructLiteral(
 			data,
 		)
 	}
-	fieldsByName := map[string]resolution.Field{}
-	for _, f := range resolution.UnifiedFields(resolved, table) {
-		fieldsByName[f.Name] = f
+	return pyConstructorCall(
+		className,
+		resolution.UnifiedFields(resolved, table),
+		val,
+		table,
+		data,
+	)
+}
+
+// pyUnionLiteral renders a union default as a constructor call on the variant class
+// its discriminator names.
+func pyUnionLiteral(
+	union resolution.Type,
+	form resolution.UnionForm,
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	disc, ok := lo.Find(val.Fields, func(fv resolution.StructFieldValue) bool {
+		return fv.Name == form.Discriminator
+	})
+	if !ok {
+		panic(fmt.Sprintf(
+			"default for union %s does not set its discriminator %s",
+			union.QualifiedName,
+			form.Discriminator,
+		))
 	}
+	variant, ok := form.Variant(disc.Value.StringValue)
+	if !ok {
+		panic(fmt.Sprintf(
+			"default for union %s names unknown variant %q",
+			union.QualifiedName,
+			disc.Value.StringValue,
+		))
+	}
+	className := unionVariantToPython(
+		validation.UnionVariant{Type: union, Union: form, Variant: variant},
+		table,
+		data,
+	)
+	return pyConstructorCall(
+		className,
+		resolution.UnifiedVariantFields(union, variant, table),
+		val,
+		table,
+		data,
+	)
+}
+
+// pyConstructorCall renders className called with one keyword argument per literal
+// field, resolving each value against its type in fields.
+func pyConstructorCall(
+	className string,
+	fields []resolution.Field,
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	fieldsByName := lo.KeyBy(fields, func(f resolution.Field) string { return f.Name })
 	parts := make([]string, 0, len(val.Fields))
 	for _, fv := range val.Fields {
 		parts = append(
@@ -1360,26 +1475,6 @@ func unionVariantToPython(
 	return addCrossNamespaceImport(toPythonModulePath(outputPath), variantName, data)
 }
 
-// isUUIDType checks if a type reference is or resolves to the uuid primitive type.
-func isUUIDType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	// Direct uuid primitive
-	if typeRef.Name == "uuid" {
-		return true
-	}
-	// Check if it's a distinct type or alias that resolves to uuid
-	typ, ok := table.Get(typeRef.Name)
-	if !ok {
-		return false
-	}
-	switch form := typ.Form.(type) {
-	case resolution.DistinctForm:
-		return form.Base.Name == "uuid"
-	case resolution.AliasForm:
-		return form.Target.Name == "uuid"
-	}
-	return false
-}
-
 // resolveDistinctWrapper returns the Python type name for a distinct type that wraps
 // a primitive, or empty string if the type is not a distinct wrapper. This is used to
 // wrap default values in the constructor (e.g., TimeSpan(0) instead of just 0).
@@ -1391,37 +1486,10 @@ func resolveDistinctWrapper(
 	if resolution.IsPrimitive(typeRef.Name) {
 		return ""
 	}
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return ""
-	}
-	if _, isDistinct := resolved.Form.(resolution.DistinctForm); !isDistinct {
+	if !resolution.IsDistinct(typeRef, table) {
 		return ""
 	}
 	return typeToPython(typeRef, table, data)
-}
-
-// isTimestampType checks if a type reference is or resolves to a TimeStamp type.
-func isTimestampType(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	name := typeRef.Name
-	// Check for direct TimeStamp reference (with or without namespace)
-	if name == "TimeStamp" || strings.HasSuffix(name, ".TimeStamp") {
-		return true
-	}
-	// Check if it resolves to a TimeStamp
-	typ, ok := table.Get(name)
-	if !ok {
-		return false
-	}
-	switch form := typ.Form.(type) {
-	case resolution.DistinctForm:
-		return form.Base.Name == "TimeStamp" ||
-			strings.HasSuffix(form.Base.Name, ".TimeStamp")
-	case resolution.AliasForm:
-		return form.Target.Name == "TimeStamp" ||
-			strings.HasSuffix(form.Target.Name, ".TimeStamp")
-	}
-	return false
 }
 
 type intBounds struct {
@@ -1521,7 +1589,7 @@ func typeToPython(
 	}
 
 	pyName := getPyName(resolved)
-	switch resolved.Form.(type) {
+	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
 		if resolved.Namespace != data.Namespace {
 			outputPath := output.GetPath(resolved, "py")
@@ -1531,21 +1599,7 @@ func typeToPython(
 			modulePath := toPythonModulePath(outputPath)
 			pyName = addCrossNamespaceImport(modulePath, pyName, data)
 		}
-		if len(typeRef.TypeArgs) > 0 {
-			structForm := resolved.Form.(resolution.StructForm)
-			var args []string
-			for i, arg := range typeRef.TypeArgs {
-				if i < len(structForm.TypeParams) &&
-					structForm.TypeParams[i].HasDefault() {
-					continue
-				}
-				args = append(args, typeToPython(arg, table, data))
-			}
-			if len(args) > 0 {
-				return fmt.Sprintf("%s[%s]", pyName, strings.Join(args, ", "))
-			}
-		}
-		return pyName
+		return pyName + typeArgsToPython(resolved, typeRef.TypeArgs, table, data)
 
 	case resolution.EnumForm:
 		if resolved.Namespace != data.Namespace {
@@ -1570,13 +1624,27 @@ func typeToPython(
 		return pyName
 
 	case resolution.AliasForm:
+		// A generic TypeAlias binds its arguments in the order its type variables first
+		// appear in the target, not in the declared order. A use that binds a type
+		// parameter without a default names the target instead.
+		args := trimNilTypeArgs(typeRef.TypeArgs)
+		if slices.ContainsFunc(
+			form.TypeParams[:min(len(args), len(form.TypeParams))],
+			func(tp resolution.TypeParam) bool { return !tp.HasDefault() },
+		) {
+			target := resolution.SubstituteTypeRef(
+				form.Target,
+				resolution.TypeArgMap(form.TypeParams, args),
+			)
+			return typeToPython(target, table, data)
+		}
 		if resolved.Namespace != data.Namespace {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
 				outputPath = resolved.Namespace
 			}
 			modulePath := toPythonModulePath(outputPath)
-			return addCrossNamespaceImport(modulePath, pyName, data)
+			pyName = addCrossNamespaceImport(modulePath, pyName, data)
 		}
 		return pyName
 
@@ -1642,16 +1710,49 @@ func typeRefToPythonAlias(
 	}
 
 	// If no type arguments, just return the base name
-	if len(typeRef.TypeArgs) == 0 {
+	args := trimNilTypeArgs(typeRef.TypeArgs)
+	if len(args) == 0 {
 		return baseName
 	}
 
 	// Build type arguments for generic: Status[Details] or Status[Details, Data]
 	var typeArgs []string
-	for _, arg := range typeRef.TypeArgs {
+	for _, arg := range args {
 		typeArgs = append(typeArgs, typeToPython(arg, table, data))
 	}
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
+}
+
+// typeArgsToPython renders the type argument list a reference to the generic struct or
+// alias resolved passes, or the empty string when it passes none. Arguments bound to a
+// defaulted type parameter are dropped, as Python declares only the others.
+func typeArgsToPython(
+	resolved resolution.Type,
+	typeArgs []resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	params := resolution.TypeParams(resolved.Form)
+	var args []string
+	for i, arg := range trimNilTypeArgs(typeArgs) {
+		if i < len(params) && params[i].HasDefault() {
+			continue
+		}
+		args = append(args, typeToPython(arg, table, data))
+	}
+	if len(args) == 0 {
+		return ""
+	}
+	return "[" + strings.Join(args, ", ") + "]"
+}
+
+// trimNilTypeArgs drops trailing nil type arguments, so the generic uses its type
+// parameter defaults. Go sends a nil argument as an empty struct, which None rejects.
+func trimNilTypeArgs(args []resolution.TypeRef) []resolution.TypeRef {
+	for len(args) > 0 && args[len(args)-1].Name == "nil" {
+		args = args[:len(args)-1]
+	}
+	return args
 }
 
 func toPythonModulePath(repoPath string) string {
