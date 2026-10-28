@@ -44,7 +44,7 @@ class ReadTask(
 ):
     """A read task for sampling data from Modbus TCP devices and writing the data to a
     Synnax cluster. For detailed information on configuring and operating a Modbus read
-    task, see https://docs.synnaxlabs.com/reference/driver/modbus/read-task
+    task, see https://docs.synnaxlabs.com/reference/hardware/modbus/read-task
 
     :param device: The key of the Synnax Modbus device to read from.
     :param name: A human-readable name for the task.
@@ -116,7 +116,7 @@ class WriteTask(
 ):
     """A write task for sending commands to Modbus TCP devices. For detailed
     information on configuring and operating a Modbus write task, see
-    https://docs.synnaxlabs.com/reference/driver/modbus/write-task
+    https://docs.synnaxlabs.com/reference/hardware/modbus/write-task
 
     :param device: The key of the Synnax Modbus device to write to.
     :param name: A human-readable name for the task.
@@ -171,8 +171,10 @@ class Device(device.Device):
 
     :param host: The IP address or hostname of the Modbus server.
     :param port: The TCP port number, typically 502.
-    :param swap_bytes: Whether to swap byte order within 16-bit words.
-    :param swap_words: Whether to swap word order for 32-bit and larger values.
+    :param swap_bytes: Whether register channels swap the byte order within each
+        16-bit word. A channel's bytes_swapped overrides it.
+    :param swap_words: Whether register channels swap the word order of 32-bit and
+        larger values. A channel's words_swapped overrides it.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.

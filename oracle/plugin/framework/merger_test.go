@@ -23,7 +23,7 @@ import (
 
 func TestFramework(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Framework Suite")
+	RunSpecs(t, "Plugin Framework Suite", SuiteConfig())
 }
 
 var _ = Describe("MergeTypes", func() {
@@ -432,7 +432,7 @@ var _ = Describe("Collector", func() {
 				},
 			}
 			err := c.AddAll(types)
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("contains path traversal")))
 		})
 	})
 

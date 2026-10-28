@@ -25,7 +25,7 @@ import {
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -43,6 +43,8 @@ interface ChannelRowProps {
   disabled: boolean;
 }
 
+const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = { variant: "shadow" };
+
 const ChannelRow = ({
   index,
   channel,
@@ -58,44 +60,26 @@ const ChannelRow = ({
   const showNumeric = showsNumericFields(dataType);
   const showTimestamp = isTimestamp(dataType);
 
-  const handleAliasChange = useCallback(
-    (alias: string) => dispatch(log.setChannelAlias({ channel, alias })),
-    [channel, dispatch],
-  );
-  const handleNotationChange = useCallback(
-    (notation: notation.Notation) =>
-      dispatch(log.setChannelNotation({ channel, notation })),
-    [channel, dispatch],
-  );
-  const handlePrecisionChange = useCallback(
-    (precision: number) => dispatch(log.setChannelPrecision({ channel, precision })),
-    [channel, dispatch],
-  );
-  const handleFormatChange = useCallback(
-    (format: TimestampFormat) =>
-      dispatch(log.setChannelTimestampFormat({ channel, format })),
-    [channel, dispatch],
-  );
-  const handleTzChange = useCallback(
-    (tz: TimeZone) => dispatch(log.setChannelTimestampTz({ channel, tz })),
-    [channel, dispatch],
-  );
+  const handleAliasChange = (alias: string) =>
+    dispatch(log.setChannelAlias({ channel, alias }));
+  const handleNotationChange = (notation: notation.Notation) =>
+    dispatch(log.setChannelNotation({ channel, notation }));
+  const handlePrecisionChange = (precision: number) =>
+    dispatch(log.setChannelPrecision({ channel, precision }));
+  const handleFormatChange = (format: TimestampFormat) =>
+    dispatch(log.setChannelTimestampFormat({ channel, format }));
+  const handleTzChange = (tz: TimeZone) =>
+    dispatch(log.setChannelTimestampTz({ channel, tz }));
   // The log stores a zero color for a channel that follows the theme.
-  const handleColorChange = useCallback(
-    (c?: color.Color) =>
-      dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO })),
-    [channel, dispatch],
-  );
+  const handleColorChange = (c?: color.Color) =>
+    dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
   // Clearing the row's channel removes the row.
-  const handleChannelChange = useCallback(
-    (to: channel.Key | null) =>
-      dispatch(
-        to == null
-          ? log.removeChannel({ channel })
-          : log.swapChannel({ from: channel, to }),
-      ),
-    [channel, dispatch],
-  );
+  const handleChannelChange = (to: channel.Key | null) =>
+    dispatch(
+      to == null
+        ? log.removeChannel({ channel })
+        : log.swapChannel({ from: channel, to }),
+    );
   if (config == null) return null;
   const { alias, timestamp, precision, notation } = config;
   const hasCustomColor = !color.isZero(config.color);
@@ -119,6 +103,7 @@ const ChannelRow = ({
           allowNone
           initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
           disabled={disabled}
+          triggerProps={SHADOW_TRIGGER_PROPS}
           className={CSS.BE("log", "channel-select")}
         />
         <Input.Text
@@ -172,6 +157,7 @@ const ChannelRow = ({
             <Telem.SelectTimestampFormat
               value={timestamp.format}
               onChange={handleFormatChange}
+              triggerProps={SHADOW_TRIGGER_PROPS}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
@@ -205,10 +191,7 @@ interface AddChannelRowProps {
 
 const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
   const dispatch = Log.useSingleDispatch();
-  const handleAdd = useCallback(
-    (channel: channel.Key) => dispatch(log.addChannel({ channel })),
-    [dispatch],
-  );
+  const handleAdd = (channel: channel.Key) => dispatch(log.addChannel({ channel }));
   return (
     <Flex.Box x align="center" gap="large" className={CSS.BE("log", "channel-row")}>
       <Channel.SelectSingle

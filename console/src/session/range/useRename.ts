@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Flux, Ranger } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { useGetState } from "@/session/range/selectors";
@@ -23,15 +22,12 @@ export const useRename = () => {
   const getState = useGetState();
   const dispatch = useDispatch();
   return Ranger.useRename({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
-        const { key, name } = data;
-        const rng = getState(key);
-        if (rng == null || rng.variant === "persisted") return data;
-        dispatch(rename({ key, name }));
-        return false;
-      },
-      [getState, dispatch],
-    ),
+    beforeUpdate: async ({ data }: Flux.BeforeUpdateParams<Ranger.RenameParams>) => {
+      const { key, name } = data;
+      const rng = getState(key);
+      if (rng == null || rng.variant === "persisted") return data;
+      dispatch(rename({ key, name }));
+      return false;
+    },
   });
 };

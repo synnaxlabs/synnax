@@ -74,14 +74,14 @@ func setupMiniRepo(schemas map[string]string) (string, func()) {
 	}
 }
 
-var _ = Describe("NewRootCmd", func() {
+var _ = Describe("newRootCmd", func() {
 	It("should create a root command with the correct use string", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		Expect(cmd.Use).To(Equal("oracle"))
 	})
 
 	It("should register all subcommands", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		names := make([]string, 0, len(cmd.Commands()))
 		for _, sub := range cmd.Commands() {
 			names = append(names, sub.Name())
@@ -90,27 +90,29 @@ var _ = Describe("NewRootCmd", func() {
 	})
 
 	It("should have the verbose persistent flag", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		flag := cmd.PersistentFlags().Lookup("verbose")
 		Expect(flag).NotTo(BeNil())
 		Expect(flag.Shorthand).To(Equal("v"))
 	})
 
 	It("should print help when run with --help", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		output := MustSucceed(executeCommand(cmd, "--help"))
 		Expect(output).To(ContainSubstring("Schema-first code generation"))
 	})
 
 	It("should return an error for unknown subcommands", func() {
-		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "nonexistent")
-		Expect(err).To(HaveOccurred())
+		cmd := newRootCmd()
+		Expect(
+			executeCommand(cmd, "nonexistent"),
+		).Error().
+			To(MatchError(ContainSubstring(`unknown command "nonexistent"`)))
 	})
 
 	It("should produce independent command trees on each call", func() {
-		cmd1 := NewRootCmd()
-		cmd2 := NewRootCmd()
+		cmd1 := newRootCmd()
+		cmd2 := newRootCmd()
 		Expect(cmd1).NotTo(BeIdenticalTo(cmd2))
 		Expect(cmd1.Commands()).To(HaveLen(len(cmd2.Commands())))
 	})
@@ -129,7 +131,7 @@ var _ = Describe("check command", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should validate well-formed schemas", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		MustSucceed(executeCommand(cmd, "check"))
 	})
 })
@@ -145,9 +147,11 @@ var _ = Describe("check command with no schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should error when no schema files exist", func() {
-		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "check")
-		Expect(err).To(HaveOccurred())
+		cmd := newRootCmd()
+		Expect(
+			executeCommand(cmd, "check"),
+		).Error().
+			To(MatchError(ContainSubstring("no schema files found")))
 	})
 })
 
@@ -164,12 +168,12 @@ var _ = Describe("fmt command", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should format schema files without error", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		MustSucceed(executeCommand(cmd, "fmt"))
 	})
 
 	It("should pass check mode when already formatted", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		MustSucceed(executeCommand(cmd, "fmt", "--check"))
 	})
 })
@@ -188,16 +192,16 @@ var _ = Describe("fmt command with nested schema folders", Ordered, func() {
 	})
 
 	It("discovers and flags unformatted schemas in subdirectories", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		Expect(executeCommand(cmd, "fmt", "--check")).Error().
 			To(MatchError(ContainSubstring("files need formatting")))
 	})
 
 	It("formats nested schemas in place", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		Expect(executeCommand(cmd, "fmt")).To(Equal(""))
 
-		cmd = NewRootCmd()
+		cmd = newRootCmd()
 		Expect(executeCommand(cmd, "fmt", "--check")).To(Equal(""))
 	})
 })
@@ -216,17 +220,17 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 	})
 
 	It("formats only the explicitly named file", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		Expect(executeCommand(cmd, "fmt", "schemas/synnax/user.oracle")).
 			To(Equal(""))
 
-		cmd = NewRootCmd()
+		cmd = newRootCmd()
 		Expect(executeCommand(cmd, "fmt", "--check", "schemas/synnax/user.oracle")).
 			To(Equal(""))
 	})
 
 	It("leaves files not named in the arguments untouched", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		Expect(executeCommand(cmd, "fmt", "--check", "schemas/x/other.oracle")).Error().
 			To(MatchError(ContainSubstring("files need formatting")))
 	})
@@ -245,7 +249,7 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 	})
 
 	It("propagates the recursive-discovery error when no arguments are given", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		Expect(executeCommand(cmd, "fmt")).Error().
 			To(MatchError(ContainSubstring("walk schema directory")))
 	})
@@ -261,7 +265,7 @@ var _ = Describe("fmt command argument error", Ordered, func() {
 	})
 
 	It("propagates the glob error for a malformed pattern argument", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		Expect(executeCommand(cmd, "fmt", "schemas/[")).Error().
 			To(MatchError(ContainSubstring("invalid glob pattern")))
 	})
@@ -281,9 +285,11 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail check mode when schemas need formatting", func() {
-		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "fmt", "--check")
-		Expect(err).To(HaveOccurred())
+		cmd := newRootCmd()
+		Expect(
+			executeCommand(cmd, "fmt", "--check"),
+		).Error().
+			To(MatchError(ContainSubstring("files need formatting")))
 	})
 })
 
@@ -303,7 +309,7 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 	})
 
 	It("discovers schemas in subdirectories instead of failing the flat glob", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		Expect(executeCommand(cmd, "migrate")).Error().
 			NotTo(MatchError(ContainSubstring("no schema files found")))
 	})
@@ -361,7 +367,7 @@ var _ = Describe("fmt --diff flag", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should report changes without writing in diff mode", func() {
-		cmd := NewRootCmd()
+		cmd := newRootCmd()
 		MustSucceed(executeCommand(cmd, "fmt", "--diff"))
 	})
 })
@@ -379,9 +385,11 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail validation on invalid schemas", func() {
-		cmd := NewRootCmd()
-		_, err := executeCommand(cmd, "check")
-		Expect(err).To(HaveOccurred())
+		cmd := newRootCmd()
+		Expect(
+			executeCommand(cmd, "check"),
+		).Error().
+			To(MatchError(ContainSubstring("1 gate(s) failed")))
 	})
 })
 

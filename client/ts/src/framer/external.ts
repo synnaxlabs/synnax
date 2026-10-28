@@ -8,19 +8,14 @@
 // included in the file licenses/APL.txt.
 
 export { type ChannelRetriever } from "@/framer/adapter";
-export { type RemoteReader } from "@/framer/cache/reader";
-export {
-  type StatusHandler,
-  type StreamHandler,
-  type Subscription,
-} from "@/framer/cache/streamer";
-export { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
 export * from "@/framer/client";
 export * from "@/framer/feed";
 export * from "@/framer/frame";
 export * from "@/framer/hardened";
 export * from "@/framer/iterator";
 export * from "@/framer/reader";
+export * as retry from "@/framer/retry";
 export * from "@/framer/streamer";
+export * from "@/framer/subscription";
 export * from "@/framer/types.gen";
 export * from "@/framer/writer";

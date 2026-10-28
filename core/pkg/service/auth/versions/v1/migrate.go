@@ -12,15 +12,15 @@ package v1
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp/migrate"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Migration re-encodes stored credentials from the untagged MessagePack v0 shape into
 // the current Orc format. A plain codec migration cannot do this: the current type's
 // snake_case MessagePack tags do not match the Go field names legacy rows were stored
 // under.
-var Migration = gorp.NewEntryMigration(
+var Migration = migrate.NewEntry(
 	"v1_orc_credentials",
 	func(_ context.Context, old v0.SecureCredentials) (SecureCredentials, error) {
 		return SecureCredentials{Username: old.Username, Password: old.Password}, nil

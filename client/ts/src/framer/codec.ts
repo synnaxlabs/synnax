@@ -71,6 +71,8 @@ const sortFramePayloadByKey = (framePayload: Payload): void => {
   }
 };
 
+const EXTENDED_FLAG_POS = 7;
+const MULTIPLES_PRESENT_FLAG_POS = 6;
 const ZERO_ALIGNMENTS_FLAG_POS = 5;
 const EQUAL_ALIGNMENTS_FLAG_POS = 4;
 const EQUAL_LENGTHS_FLAG_POS = 3;
@@ -80,6 +82,7 @@ const ALL_CHANNELS_PRESENT_FLAG_POS = 0;
 
 const TIMESTAMP_SIZE = DataType.TIMESTAMP.density.valueOf();
 const ALIGNMENT_SIZE = 8;
+const MULTIPLE_SIZE = 4;
 const DATA_LENGTH_SIZE = 4;
 const KEY_SIZE = 4;
 const SEQ_NUM_SIZE = 4;
@@ -96,6 +99,8 @@ export class Codec {
   private states: Map<number, CodecState> = new Map();
   private currState: CodecState | undefined;
   private seqNum: number = 0;
+  // oldest is the lowest sequence number that states can hold.
+  private oldest: number = 0;
 
   constructor(keys: channel.Key[] = [], dataTypes: DataType[] = []) {
     if (keys.length > 0 || dataTypes.length > 0) this.update(keys, dataTypes);
@@ -145,6 +150,7 @@ export class Codec {
     let channelFlag = true;
     let equalAlignmentsFlag = true;
     let zeroAlignmentsFlag = true;
+    let multiplesPresentFlag = false;
 
     if (src.keys.length !== this.currState?.keys.length) {
       channelFlag = false;
@@ -165,6 +171,7 @@ export class Codec {
         );
 
       byteArraySize += seriesWireByteLength(series);
+      if ((series.alignmentMultiple ?? 1n) > 1n) multiplesPresentFlag = true;
       if (currDataSize === -1) {
         currDataSize = pldLength;
         startTime = series.timeRange?.start;
@@ -197,10 +204,13 @@ export class Codec {
       if (equalAlignmentsFlag) byteArraySize += ALIGNMENT_SIZE;
       else byteArraySize += src.keys.length * ALIGNMENT_SIZE;
 
+    if (multiplesPresentFlag) byteArraySize += src.keys.length * MULTIPLE_SIZE;
+
     const buffer = new Uint8Array(byteArraySize);
     const view = new DataView(buffer.buffer);
     let offset = startOffset;
     buffer[offset] =
+      (Number(multiplesPresentFlag) << MULTIPLES_PRESENT_FLAG_POS) |
       (Number(zeroAlignmentsFlag) << ZERO_ALIGNMENTS_FLAG_POS) |
       (Number(equalAlignmentsFlag) << EQUAL_ALIGNMENTS_FLAG_POS) |
       (Number(equalLengthsFlag) << EQUAL_LENGTHS_FLAG_POS) |
@@ -254,6 +264,10 @@ export class Codec {
         view.setBigUint64(offset, series.alignment ?? 0n, true);
         offset += ALIGNMENT_SIZE;
       }
+      if (multiplesPresentFlag) {
+        view.setUint32(offset, Number(series.alignmentMultiple ?? 1n), true);
+        offset += MULTIPLE_SIZE;
+      }
     });
     return buffer;
   }
@@ -270,6 +284,13 @@ export class Codec {
     let currAlignment: bigint | undefined;
 
     const view = new DataView(src.buffer, src.byteOffset, src.byteLength);
+    if ((src[index] >> EXTENDED_FLAG_POS) & 1)
+      throw new ValidationError(
+        "remote sent an extended flags byte, which this codec does not support",
+      );
+    const multiplesPresentFlag = Boolean(
+      (src[index] >> MULTIPLES_PRESENT_FLAG_POS) & 1,
+    );
     const zeroAlignmentsFlag = Boolean((src[index] >> ZERO_ALIGNMENTS_FLAG_POS) & 1);
     const equalAlignmentsFlag = Boolean((src[index] >> EQUAL_ALIGNMENTS_FLAG_POS) & 1);
     const sizeFlag = Boolean((src[index] >> EQUAL_LENGTHS_FLAG_POS) & 1);
@@ -281,7 +302,10 @@ export class Codec {
     const seqNum = view.getUint32(index, true);
     index += SEQ_NUM_SIZE;
     const state = this.states.get(seqNum);
-    if (state == null) return returnFrame;
+    if (state == null)
+      throw new ValidationError(`remote sent invalid sequence number ${seqNum}`);
+    // The remote never encodes with an older state again.
+    for (; this.oldest < seqNum; this.oldest++) this.states.delete(this.oldest);
 
     if (sizeFlag) {
       if (index + DATA_LENGTH_SIZE > view.byteLength) return returnFrame;
@@ -346,6 +370,13 @@ export class Codec {
       } else if (!zeroAlignmentsFlag) currSeries.alignment = currAlignment;
       else currSeries.alignment = 0n;
 
+      if (multiplesPresentFlag) {
+        if (index + MULTIPLE_SIZE > view.byteLength) return false;
+        const multiple = view.getUint32(index, true);
+        index += MULTIPLE_SIZE;
+        if (multiple > 1) currSeries.alignmentMultiple = BigInt(multiple);
+      }
+
       returnFrame.series.push(currSeries);
       returnFrame.keys.push(k);
       return true;
@@ -363,9 +394,9 @@ export class Codec {
   }
 }
 
-export const LOW_PERF_SPECIAL_CHAR = 254;
+const LOW_PERF_SPECIAL_CHAR = 254;
 const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PERF_SPECIAL_CHAR]);
-export const HIGH_PERF_SPECIAL_CHAR = 255;
+const HIGH_PERF_SPECIAL_CHAR = 255;
 const HIGH_PERF_SPECIAL_CHAR_BUF = new Uint8Array([HIGH_PERF_SPECIAL_CHAR]);
 const CONTENT_TYPE = "application/vnd.synnax.frame";
 

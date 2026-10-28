@@ -34,7 +34,9 @@
     inherits: false;
 }
 
-.pluto-btn {
+/* :where adds no specificity, so a component built on a button overrides these defaults
+   even when a bundler loads a second copy of this file after it. */
+:where(.pluto-btn) {
     position: relative;
     cursor: pointer;
     width: fit-content;
@@ -49,17 +51,31 @@
     background: var(--pluto-btn-bg);
     border-radius: var(--pluto-border-radius);
     text-decoration: none;
-
-    /* Buttons are pluto-text too, so this outranks the link underline in Text.css. */
-    &.pluto-text:hover {
-        text-decoration: none;
-    }
+    padding: 0 2rem;
 
     /* We give the button a fixed z-index to ensure that we maintain a consistent
     stacking context even when increasing the z-index on hover. This prevents strange
     layout shifting of internal content (especially icons) */
     z-index: 1;
+}
 
+/* A button label sits a step heavier than body text. Inputs, switches, list items, menu
+   items, tabs, and select triggers reuse the button and keep their text's weight. */
+.pluto-btn:is(.pluto-text--p, .pluto-text--small):where(
+        :not(
+            .pluto-input,
+            .pluto-input__switch,
+            .pluto-list__item,
+            .pluto-menu-item,
+            .pluto-tabs__tab,
+            .pluto-dialog__trigger,
+            :is(.pluto-tabs-selector, .pluto-select-btns) *
+        )
+    ) {
+    font-weight: 450;
+}
+
+.pluto-btn {
     &:focus-visible {
         outline: 1px solid var(--pluto-primary-z);
         outline-offset: var(--pluto-focus-ring-offset);
@@ -73,8 +89,6 @@
     &.pluto--rounded {
         border-radius: var(--pluto-border-radius);
     }
-
-    padding: 0 2rem;
 
     &.pluto--height-huge {
         padding: 0 2.5rem;
@@ -259,8 +273,8 @@
         &.pluto--disabled {
             color: var(--pluto-text-disabled);
 
-            --pluto-bg: var(--pluto-gray-l3);
-            --pluto-border-color: var(--pluto-gray-l6);
+            --pluto-bg: var(--pluto-gray-l2);
+            --pluto-border-color: var(--pluto-gray-l4);
         }
     }
 

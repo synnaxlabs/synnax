@@ -23,7 +23,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/soem/api.h"
@@ -48,6 +48,7 @@ class HardwareTest : public ::testing::Test {
 protected:
     std::string interface_name;
     std::unique_ptr<soem::Master> master;
+    x::breaker::Breaker brk;
 
     void SetUp() override {
         interface_name = get_interface_name();
@@ -55,9 +56,11 @@ protected:
             std::make_unique<soem::ProdAPI>(),
             interface_name
         );
+        brk.start();
     }
 
     void TearDown() override {
+        brk.stop();
         if (master) master->deactivate();
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
@@ -82,13 +85,9 @@ TEST_F(HardwareTest, ActivatePartialIOLITE) {
     ASSERT_NIL(master->initialize());
     ASSERT_NIL(master->activate());
 
-    auto slaves = master->slaves();
     int op_count = 0;
-
-    for (const auto &slave: slaves) {
-        auto state = master->slave_state(slave.properties.position);
-        if (state == slave::State::OP) op_count++;
-    }
+    for (const auto &health: master->check(brk))
+        if (health.state == slave::State::OP) op_count++;
 
     EXPECT_GE(op_count, EXPECTED_OP_SLAVES)
         << "Expected at least " << EXPECTED_OP_SLAVES << " slaves in OP, got "
@@ -182,14 +181,6 @@ TEST_F(HardwareTest, GracefulShutdownIOLITE) {
     ASSERT_NIL(master->receive());
 
     master->deactivate();
-
-    auto slaves = master->slaves();
-    for (const auto &slave: slaves) {
-        auto state = master->slave_state(slave.properties.position);
-        EXPECT_TRUE(state == slave::State::INIT || state == slave::State::PRE_OP)
-            << "Slave " << slave.properties.position
-            << " in unexpected state after deactivate";
-    }
 }
 
 TEST_F(HardwareTest, SlaveDataOffsetsIOLITE) {

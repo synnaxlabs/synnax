@@ -10,7 +10,7 @@
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { caseconv } from "@synnaxlabs/x";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 
 export type Entry<K extends string, V extends string | number> = {
   [k in K]: string;
@@ -24,6 +24,8 @@ export interface KeyValueEditorProps<K extends string, V extends string | number
   valuePlaceholder?: string;
   valueType?: V extends number ? "number" : "string";
   valueFirst?: boolean;
+  /** Names one entry in the add and remove buttons ("header"). */
+  resourceName?: string;
 }
 
 export const KeyValueEditor = <K extends string, V extends string | number>({
@@ -33,6 +35,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   valuePlaceholder = "Value",
   valueType,
   valueFirst = false,
+  resourceName,
   ...rest
 }: KeyValueEditorProps<K, V>): React.ReactElement => {
   const vt = valueType ?? "string";
@@ -57,16 +60,12 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   const keyIndex = valueFirst ? 1 : 0;
   const valueIndex = valueFirst ? 0 : 1;
 
-  const rows = useMemo(
-    () =>
-      entries.map((entry) => {
-        const row: Input.TableCell[] = [];
-        row[keyIndex] = entry[keyField];
-        row[valueIndex] = entry.value;
-        return row;
-      }),
-    [entries, keyField, keyIndex, valueIndex],
-  );
+  const rows = entries.map((entry) => {
+    const row: Input.TableCell[] = [];
+    row[keyIndex] = entry[keyField];
+    row[valueIndex] = entry.value;
+    return row;
+  });
 
   const handleRowsChange = (next: Input.TableCell[][]) =>
     set(
@@ -99,7 +98,12 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
 
   return (
     <Input.Item padHelpText={false} {...rest}>
-      <Input.Table value={rows} onChange={handleRowsChange} preview={preview}>
+      <Input.Table
+        value={rows}
+        onChange={handleRowsChange}
+        preview={preview}
+        resourceName={resourceName}
+      >
         {columns}
       </Input.Table>
     </Input.Item>

@@ -63,8 +63,7 @@ func collectEnumsFromTypeRef(
 		return
 	}
 
-	// Try to resolve the type
-	resolved, ok := ref.Resolve(table)
+	resolved, _, ok := resolution.Dealias(ref, table)
 	if !ok {
 		return
 	}
@@ -107,8 +106,7 @@ func FindOutputPath(
 	return ""
 }
 
-// MakePathFunc creates a PathFunc for a given domain name.
-func MakePathFunc(domainName string) PathFunc {
+func makePathFunc(domainName string) PathFunc {
 	return func(typ resolution.Type, table *resolution.Table) string {
 		return FindOutputPath(typ, table, domainName)
 	}
@@ -170,7 +168,7 @@ func CollectNamespaceEnums(
 	pathFunc PathFunc,
 ) []resolution.Type {
 	if pathFunc == nil {
-		pathFunc = MakePathFunc(domainName)
+		pathFunc = makePathFunc(domainName)
 	}
 	var result []resolution.Type
 	seen := make(set.Set[string])

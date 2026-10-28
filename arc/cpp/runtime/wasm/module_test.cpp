@@ -16,7 +16,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -24,7 +24,10 @@
 namespace arc::runtime::wasm {
 
 namespace {
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand = random_generator("Module Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 std::string random_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);
@@ -60,10 +63,10 @@ TEST(ModuleOpenTest, SucceedsWithValidModule) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     const auto mod = testutil::compile_text(client, source);
     ASSERT_FALSE(mod.wasm.empty());
@@ -81,10 +84,10 @@ TEST(ModuleFuncTest, ReturnsNotFoundForMissingExport) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     const auto prog = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = prog};
@@ -102,10 +105,10 @@ TEST(ModuleFuncTest, ReturnsValidFunctionForExistingExport) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     const auto program = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = program};
@@ -121,10 +124,10 @@ TEST(FunctionCallTest, ExecutesFunctionAndReturnsResults) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     const auto program = testutil::compile_text(client, source);
     const ModuleConfig cfg{.program = program};
@@ -266,7 +269,7 @@ TEST(SampleFromBitsTest, ConvertsIntegerTypes) {
 /// @brief sample_from_bits converts float types correctly via bit reinterpretation.
 TEST(SampleFromBitsTest, ConvertsFloatTypes) {
     float f32_val = 3.14f;
-    uint32_t f32_bits;
+    uint32_t f32_bits = 0;
     memcpy(&f32_bits, &f32_val, sizeof(float));
     const auto f32_sample = sample_from_bits(
         f32_bits,
@@ -275,7 +278,7 @@ TEST(SampleFromBitsTest, ConvertsFloatTypes) {
     EXPECT_FLOAT_EQ(std::get<float>(f32_sample), 3.14f);
 
     double f64_val = 2.71828;
-    uint64_t f64_bits;
+    uint64_t f64_bits = 0;
     memcpy(&f64_bits, &f64_val, sizeof(double));
     const auto f64_sample = sample_from_bits(
         f64_bits,

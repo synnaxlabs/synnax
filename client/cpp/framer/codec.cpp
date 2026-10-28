@@ -23,6 +23,8 @@ uint8_t CodecFlags::encode() const {
     b = x::binary::set_bit(b, FlagPosition::AllChannelsPresent, all_channels_present);
     b = x::binary::set_bit(b, FlagPosition::EqualAlignments, equal_alignments);
     b = x::binary::set_bit(b, FlagPosition::ZeroAlignments, zero_alignments);
+    b = x::binary::set_bit(b, FlagPosition::MultiplesPresent, multiples_present);
+    b = x::binary::set_bit(b, FlagPosition::Extended, extended);
     return b;
 }
 
@@ -34,21 +36,15 @@ CodecFlags CodecFlags::decode(const uint8_t b) {
     f.all_channels_present = x::binary::get_bit(b, FlagPosition::AllChannelsPresent);
     f.equal_alignments = x::binary::get_bit(b, FlagPosition::EqualAlignments);
     f.zero_alignments = x::binary::get_bit(b, FlagPosition::ZeroAlignments);
+    f.multiples_present = x::binary::get_bit(b, FlagPosition::MultiplesPresent);
+    f.extended = x::binary::get_bit(b, FlagPosition::Extended);
     return f;
 }
 
 x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
-    if (this->seq_num >= 1) {
-        const auto &cur = this->states[this->seq_num].keys;
-        if (cur.size() == keys.size() &&
-            std::all_of(keys.begin(), keys.end(), [&](const channel::Key k) {
-                return cur.contains(k);
-            }))
-            return x::errors::NIL;
-    } else if (keys.empty())
-        return x::errors::NIL;
-
-    this->seq_num++;
+    // The Core counts every update that carries keys, and both sides must agree on the
+    // sequence number of each state.
+    if (keys.empty()) return x::errors::NIL;
     auto [channels, err] = this->channel_client.retrieve(keys);
     if (err) return err;
     Codec::State state;
@@ -57,7 +53,8 @@ x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
         state.key_data_types[ch.key] = ch.data_type;
         if (ch.data_type.is_variable()) state.has_variable_data_types = true;
     }
-    this->states[seq_num] = state;
+    std::lock_guard lock(*this->mu);
+    this->states[++this->seq_num] = std::move(state);
     return x::errors::NIL;
 }
 
@@ -120,11 +117,12 @@ unpack_bool_bits(const uint8_t *src, const size_t n_samples) {
 
 x::errors::Error
 Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
+    std::lock_guard lock(*this->mu);
     this->throw_if_uninitialized();
     CodecFlags flags;
     size_t byte_array_size = FLAGS_SIZE + SEQ_NUM_SIZE;
 
-    auto state = this->states[this->seq_num];
+    const auto &state = this->states.at(this->seq_num);
 
     if (frame.channels->size() != state.keys.size()) {
         flags.all_channels_present = false;
@@ -212,13 +210,8 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
             "failed to write sequence number"
         );
 
-    if (flags.equal_lens) {
-        if (buf.uint32(static_cast<uint32_t>(cur_data_size)) != 4)
-            return x::errors::Error(
-                x::errors::UNEXPECTED,
-                "failed to write data length"
-            );
-    }
+    if (flags.equal_lens && (buf.uint32(static_cast<uint32_t>(cur_data_size)) != 4))
+        return x::errors::Error(x::errors::UNEXPECTED, "failed to write data length");
 
     if (flags.equal_time_ranges && !flags.time_ranges_zero) {
         if (buf.int64(ref_tr.start.nanoseconds()) != 8)
@@ -233,22 +226,19 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
             );
     }
 
-    if (flags.equal_alignments && !flags.zero_alignments) {
-        if (buf.uint64(ref_alignment.uint64()) != 8)
-            return x::errors::Error(x::errors::UNEXPECTED, "failed to write alignment");
-    }
+    if ((flags.equal_alignments && !flags.zero_alignments) &&
+        (buf.uint64(ref_alignment.uint64()) != 8))
+        return x::errors::Error(x::errors::UNEXPECTED, "failed to write alignment");
 
     for (const auto &[key, idx]: sorting_indices) {
         const x::telem::Series &ser = frame.series->at(idx);
         const auto byte_size = ser.byte_size();
 
-        if (!flags.all_channels_present) {
-            if (buf.uint32(key) != 4)
-                return x::errors::Error(
-                    x::errors::UNEXPECTED,
-                    "failed to write channel key"
-                );
-        }
+        if ((!flags.all_channels_present) && (buf.uint32(key) != 4))
+            return x::errors::Error(
+                x::errors::UNEXPECTED,
+                "failed to write channel key"
+            );
 
         if (!flags.equal_lens) {
             const auto size = ser.data_type().is_variable() ? byte_size : ser.size();
@@ -289,25 +279,24 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                 );
         }
 
-        if (!flags.equal_alignments) {
-            if (buf.uint64(ser.alignment.uint64()) != 8)
-                return x::errors::Error(
-                    x::errors::UNEXPECTED,
-                    "failed to write series alignment"
-                );
-        }
+        if ((!flags.equal_alignments) && (buf.uint64(ser.alignment.uint64()) != 8))
+            return x::errors::Error(
+                x::errors::UNEXPECTED,
+                "failed to write series alignment"
+            );
     }
 
     return x::errors::NIL;
 }
 
 std::pair<x::telem::Frame, x::errors::Error>
-Codec::decode(const std::vector<uint8_t> &data) const {
+Codec::decode(const std::vector<uint8_t> &data) {
     return this->decode(data.data(), data.size());
 }
 
 std::pair<x::telem::Frame, x::errors::Error>
-Codec::decode(const uint8_t *data, const size_t size) const {
+Codec::decode(const uint8_t *data, const size_t size) {
+    std::lock_guard lock(*this->mu);
     this->throw_if_uninitialized();
     auto reader = x::binary::Reader(data, size);
     x::telem::Frame frame;
@@ -315,9 +304,37 @@ Codec::decode(const uint8_t *data, const size_t size) const {
     x::telem::TimeRange ref_tr = {};
     x::telem::Alignment ref_alignment;
     const auto flags = CodecFlags::decode(reader.uint8());
+    if (flags.extended)
+        return {
+            std::move(frame),
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "remote sent an extended flags byte, which this codec does not support"
+            )
+        };
+    if (flags.multiples_present)
+        return {
+            std::move(frame),
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "remote sent alignment multiples, which this codec does not support"
+            )
+        };
 
     const auto seq_n = reader.uint32();
-    auto state = this->states.at(seq_n);
+    const auto it = this->states.find(seq_n);
+    if (it == this->states.end())
+        return {
+            std::move(frame),
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "remote sent invalid sequence number " + std::to_string(seq_n)
+            )
+        };
+    // The remote never encodes with an older state again.
+    for (; this->oldest < seq_n; this->oldest++)
+        this->states.erase(this->oldest);
+    const auto &state = it->second;
 
     if (flags.equal_lens) data_len = reader.uint32();
 

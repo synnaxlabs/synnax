@@ -7,6 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
@@ -15,6 +16,7 @@ cc_library(
         "read.cpp",
     ],
     hdrs = [
+        "server.h",
         "testutil.h",
     ],
     visibility = ["//visibility:public"],
@@ -25,6 +27,16 @@ cc_library(
         "//vendor/open62541",
         "//x/cpp/errors",
         "//x/cpp/telem",
+        "@abseil-cpp//absl/log",
+    ],
+)
+
+cc_binary(
+    name = "server",
+    srcs = ["main.cpp"],
+    deps = [
+        ":testutil",
+        "//vendor/open62541",
         "@abseil-cpp//absl/log",
     ],
 )

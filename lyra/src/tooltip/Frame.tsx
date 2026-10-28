@@ -13,7 +13,6 @@ import { box, location } from "@synnaxlabs/x";
 import {
   type ReactElement,
   type ReactNode,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -58,7 +57,7 @@ export const Frame = ({
   const prevPlacementRef = useRef<position.Preference | null>(null);
   const locationRef = useSyncedRef(locationProp);
   const onAnchorLostRef = useSyncedRef(onAnchorLost);
-  const reposition = useCallback((): void => {
+  const reposition = (): void => {
     const el = ref.current;
     if (el == null) return;
     const target = box.construct(anchor);
@@ -81,7 +80,7 @@ export const Frame = ({
     el.style.left = CSS.px(box.left(rounded));
     el.style.top = CSS.px(box.top(rounded));
     el.style.transformOrigin = `${placement.dialogCorner.x} ${placement.dialogCorner.y}`;
-  }, [anchor]);
+  };
   useLayoutEffect(reposition);
   const observeAnchor = useResize(reposition);
   useEffect(() => observeAnchor(anchor), [anchor, observeAnchor]);

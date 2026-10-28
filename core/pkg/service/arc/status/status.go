@@ -50,7 +50,7 @@ var memberDoc = doc.New(
 	doc.Divider(),
 	doc.Code(
 		"arc",
-		"status_key := sensor -> status.set{key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}",
+		"status_key := sensor -> status.set(key_or_name=\"ox_alarm\", variant=\"error\", message=\"Overpressure\")",
 	),
 	doc.Divider(),
 	doc.Paragraph(
@@ -133,8 +133,12 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 			msg, mOK := strings.Get(msgH)
 			variant, vOK := strings.Get(variantH)
 			if !kOK || !mOK || !vOK {
-				m.report(ctx, status.VariantWarning,
-					"status.set: invalid string handle from WASM runtime")
+				m.report(
+					ctx,
+					status.VariantWarning,
+					setFailed,
+					"The Arc runtime passed an invalid string handle.",
+				)
 				return 0
 			}
 			return strings.Create(
@@ -182,6 +186,8 @@ func (s *setNode) Next(ctx node.Context) {
 	s.Emit(ctx, 0)
 }
 
+const setFailed = "Failed to set status"
+
 // dispatchSet upserts a status by key, by name, or creates a fresh row when neither
 // matches. Failures use VariantWarning so the task continues running.
 func dispatchSet(
@@ -192,14 +198,21 @@ func dispatchSet(
 ) status.Key {
 	key, multi, err := stat.SetByKeyOrName(ctx, keyOrName, message, variantStr)
 	if err != nil {
-		report(ctx, status.VariantWarning, fmt.Sprintf("status.set: %v", err))
+		report(ctx, status.VariantWarning, setFailed, err.Error())
 		return ""
 	}
 	if multi {
-		report(ctx, status.VariantWarning, fmt.Sprintf(
-			"status.set: multiple statuses named %q; updated first match (%s)",
-			keyOrName, key,
-		))
+		report(
+			ctx,
+			status.VariantWarning,
+			"Found duplicate status names",
+			fmt.Sprintf(
+				"Several statuses are named %q. Updated the first match, %s. Give "+
+					"each status a unique name, or set it by key.",
+				keyOrName,
+				key,
+			),
+		)
 	}
 	return key
 }

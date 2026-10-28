@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
@@ -76,7 +75,7 @@ var _ = Describe("Ontology", func() {
 			Expect(user.KeyFromOntologyID(ontology.ID{
 				Type: ontology.ResourceTypeUser,
 				Key:  "not-a-uuid",
-			})).Error().To(HaveOccurred())
+			})).Error().To(MatchError("invalid uuid"))
 		})
 	})
 	Describe("Type", func() {
@@ -84,47 +83,23 @@ var _ = Describe("Ontology", func() {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypeUser))
 		})
 	})
-	Describe("SearchableFields", func() {
-		It("Should return username, first_name, and last_name", func() {
-			Expect(
-				svc.SearchableFields(),
-			).To(ConsistOf("username", "first_name", "last_name"))
-		})
-		It(
-			"Should index first_name for fuzzy search via the suite's search index",
-			func(ctx SpecContext) {
+	Describe("Search", func() {
+		DescribeTable("Should search users by every name field",
+			func(ctx SpecContext, term string) {
 				created := MustSucceed(writer.Create(ctx, user.User{
-					Username:  uuid.New().String(),
+					Username:  "pquintarelli",
 					FirstName: "Persephone",
 					LastName:  "Quintarelli",
 				}))
-				Eventually(func(g Gomega) {
-					ids, err := searchIdx.Search(ctx, search.Request{
-						Type: ontology.ResourceTypeUser,
-						Term: "Persephone",
-					})
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(ids).To(ContainElement(created.OntologyID()))
-				}).Should(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(writer.Delete(ctx, created.Key)).To(Succeed())
+				})
+				Expect(MustSucceed(svc.Search(ctx, db, term, 10)).Keys).
+					To(ContainElement(created.OntologyID()))
 			},
-		)
-		It(
-			"Should index last_name for fuzzy search via the suite's search index",
-			func(ctx SpecContext) {
-				created := MustSucceed(writer.Create(ctx, user.User{
-					Username:  uuid.New().String(),
-					FirstName: "Marigold",
-					LastName:  "Ravenscroft",
-				}))
-				Eventually(func(g Gomega) {
-					ids, err := searchIdx.Search(ctx, search.Request{
-						Type: ontology.ResourceTypeUser,
-						Term: "Ravenscroft",
-					})
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(ids).To(ContainElement(created.OntologyID()))
-				}).Should(Succeed())
-			},
+			Entry("username", "pquintarelli"),
+			Entry("first name", "Persephone"),
+			Entry("last name", "Quintarelli"),
 		)
 	})
 	Describe("RetrieveResource", func() {
@@ -212,28 +187,5 @@ var _ = Describe("Ontology", func() {
 					)))
 				}).Should(Succeed())
 			})
-	})
-	Describe("OpenNexter", func() {
-		It(
-			"Should iterate over all users currently stored in the service",
-			func(ctx SpecContext) {
-				a := MustSucceed(writer.Create(ctx, user.User{
-					Username: uuid.New().String(),
-				}))
-				b := MustSucceed(writer.Create(ctx, user.User{
-					Username: uuid.New().String(),
-				}))
-
-				seq, closer := MustSucceed2(svc.OpenNexter(ctx))
-				DeferClose(closer)
-
-				seen := make(map[string]string)
-				for resource := range seq {
-					seen[resource.ID.String()] = resource.Name
-				}
-				Expect(seen).To(HaveKeyWithValue(a.OntologyID().String(), a.Username))
-				Expect(seen).To(HaveKeyWithValue(b.OntologyID().String(), b.Username))
-			},
-		)
 	})
 })

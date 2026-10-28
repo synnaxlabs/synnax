@@ -12,6 +12,17 @@ import { describe, expect, it, test } from "vitest";
 
 import { framer } from "@/framer";
 
+// More series than a call takes as arguments.
+const MANY = 200_000;
+
+// Returns a frame of MANY series of channel 12, each over the time range.
+const createMany = (tr: TimeRange): framer.Frame => {
+  const f = new framer.Frame();
+  const s = new Series({ data: new Float32Array([1]), timeRange: tr });
+  for (let i = 0; i < MANY; i++) f.push(12, s);
+  return f;
+};
+
 describe("framer.Frame", () => {
   describe("construction", () => {
     describe("valid", () => {
@@ -130,6 +141,24 @@ describe("framer.Frame", () => {
         ).toThrow();
       });
     });
+
+    it("should construct from a map of more series than a call takes", () => {
+      const s = new Series({ data: new Float32Array([1]) });
+      const f = new framer.Frame(
+        new Map([[12, Array.from({ length: MANY }, () => s)]]),
+      );
+      expect(f.series).toHaveLength(MANY);
+      expect(f.columns).toHaveLength(MANY);
+    });
+  });
+
+  describe("push", () => {
+    it("should push a frame of more series than a call takes", () => {
+      const f = new framer.Frame();
+      f.push(createMany(new TimeRange(40, 50)));
+      expect(f.series).toHaveLength(MANY);
+      expect(f.columns).toHaveLength(MANY);
+    });
   });
 
   describe("vertical", () => {
@@ -242,6 +271,11 @@ describe("framer.Frame", () => {
           ]),
         );
         expect(f.timeRange()).toEqual(new TimeRange(40, 50001));
+      });
+
+      it("should return the time range of more series than a call takes", () => {
+        const tr = new TimeRange(40, 50);
+        expect(createMany(tr).timeRange()).toEqual(tr);
       });
     });
 

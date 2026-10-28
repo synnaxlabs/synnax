@@ -14,7 +14,6 @@ import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "re
 
 import { Aether } from "@/aether";
 import { type aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
 import { Status } from "@/status";
@@ -23,8 +22,9 @@ import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
+import { createAetherProvider } from "@/testutil/Aether";
 import { theming } from "@/theming/aether";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { Staleness } from "@/vis/staleness";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -89,7 +89,7 @@ export const createSynnaxWrapper = ({
   connectionStatus,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
   if (client != null) disableActEnvironment();
-  const AetherProvider = aetherTest.createProvider({
+  const AetherProvider = createAetherProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
     ...alamos.REGISTRY,

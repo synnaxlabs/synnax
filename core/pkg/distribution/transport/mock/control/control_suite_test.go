@@ -19,7 +19,7 @@ import (
 
 func TestControl(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Transport Mock Control Suite")
+	RunSpecs(t, "Distribution Transport Mock Control Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

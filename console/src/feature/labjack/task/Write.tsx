@@ -16,13 +16,19 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
-import * as Device from "@/feature/labjack/device/types";
-import { useConfigureModal } from "@/feature/labjack/device/useConfigureModal";
+import {
+  AO_PORT_TYPE,
+  type Device,
+  DO_PORT_TYPE,
+  type Model,
+  PORTS,
+  SCHEMAS,
+} from "@/feature/labjack/device/types";
 import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
@@ -38,6 +44,7 @@ import {
   type WriteChannelType,
   type WriteSchemas,
 } from "@/feature/labjack/task/types";
+import { useConfigure } from "@/feature/labjack/task/useConfigure";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
@@ -54,7 +61,7 @@ const Properties = () => (
 );
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
-  deviceModel: Device.Model;
+  deviceModel: Model;
 }
 
 const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
@@ -91,7 +98,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
                 onChange={(value) => {
                   if (type === value) return;
                   const portType = convertWriteChannelTypeToPortType(value);
-                  const port = Device.PORTS[deviceModel][portType][0].key;
+                  const port = PORTS[deviceModel][portType][0].key;
                   set(path, { ...item, type: value, port });
                 }}
                 empty
@@ -118,15 +125,13 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
 
 const selectWriteChannelType = Component.renderProp(SelectWriteChannelType);
 
-const getOpenChannel = (channels: WriteChannel[], deviceModel: Device.Model) => {
+const getOpenChannel = (channels: WriteChannel[], deviceModel: Model) => {
   if (channels.length === 0)
     return { ...createWriteChannel("digital"), key: id.create() };
   const last = channels[channels.length - 1];
   const preferredPortType = convertWriteChannelTypeToPortType(last.type);
   const backupPortType =
-    preferredPortType === Device.DO_PORT_TYPE
-      ? Device.AO_PORT_TYPE
-      : Device.DO_PORT_TYPE;
+    preferredPortType === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;
   const port = getOpenPort(channels, deviceModel, [preferredPortType, backupPortType]);
   if (port == null) return null;
   return {
@@ -139,30 +144,21 @@ const getOpenChannel = (channels: WriteChannel[], deviceModel: Device.Model) => 
 };
 
 interface ChannelListProps {
-  device: Device.Device;
+  device: Device;
 }
 
 const ChannelList = ({ device }: ChannelListProps) => {
   const { model } = device;
-  const createChannel = useCallback(
-    (channels: WriteChannel[]) => getOpenChannel(channels, model),
-    [model],
+  const createChannel = (channels: WriteChannel[]) => getOpenChannel(channels, model);
+  const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
+    <ChannelListItem key={key} {...p} deviceModel={model} />
   );
-  const listItem = useCallback(
-    ({ key, ...p }: Task.ChannelListItemProps) => (
-      <ChannelListItem key={key} {...p} deviceModel={model} />
-    ),
-    [model],
-  );
-  const resolve = useCallback(
-    (c: WriteChannel) => {
-      const pair =
-        device.properties[convertWriteChannelTypeToPortType(c.type)].channels[c.port] ??
-        PlatformDevice.ZERO_COMMAND_STATE_PAIR;
-      return { cmdChannel: pair.command, stateChannel: pair.state };
-    },
-    [device],
-  );
+  const resolve = (c: WriteChannel) => {
+    const pair =
+      device.properties[convertWriteChannelTypeToPortType(c.type)].channels[c.port] ??
+      PlatformDevice.ZERO_COMMAND_STATE_PAIR;
+    return { cmdChannel: pair.command, stateChannel: pair.state };
+  };
   return (
     <Task.Views.List<WriteChannel>
       createChannel={createChannel}
@@ -175,7 +171,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
 
 const Form: FC = PlatformDevice.wrapTaskForm({
   use,
-  useConfigure: useConfigureModal,
+  useConfigure,
   Content: ChannelList,
 });
 
@@ -194,7 +190,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -319,7 +315,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair =

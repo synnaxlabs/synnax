@@ -19,6 +19,12 @@ orchestration.
 - `pnpm test` / `pnpm test:<pkg>`
 - `pnpm lint` / `pnpm fix` (also per-pkg variants)
 - `pnpm cycles` / `pnpm cycles:console` — circular dependency check (knip)
+- `python3 scripts/check_exports_ts.py` — exports that only their own module or test
+  code import. A module is the nearest directory with an index file. Drop the `export`
+  and make its specs test through the public API, or move a helper that other modules'
+  tests need into a `testutil` directory. When the package's users need the symbol,
+  export it from the package entry instead. A pattern in `knip.json` that ends in `!` is
+  production code.
 
 ### Console dev login
 
@@ -47,14 +53,18 @@ A module's `index.ts` re-exports its public surface:
 `export * as Channel from "@/channel/external"`. Never import-side
 `import * as X from "..."` — the barrel is the only namespace mechanism. (Exception: a
 dependency subpath that ships only named exports but is conceptually one namespace, e.g.
-`import * as Drift from "@synnaxlabs/drift/react"`.)
+`import * as Drift from "@synnaxlabs/drift/react"`.) ESLint rejects a namespace import
+of a local module.
 
 ### Rule 2: Cross-module imports go through the namespace
 
 `import { Range } from "@/range"` then `Range.FavoriteButton` — never
 `import { FavoriteButton } from "@/range/FavoriteButton"` from another module.
 Same-module sibling files import named members directly and use them unqualified (the
-barrel would be circular). Spec files follow the same rule — tests are not exempt.
+barrel would be circular). A module is a directory with an `index.ts`, and a child
+module is another module. A spec imports only barrels, its own module's included, and
+never a sibling file. A module's `testutil` file or directory is a barrel for other
+modules' tests. The `synnax/barrel-imports` lint rule enforces this.
 
 ### Rule 3: Package subpaths mirror `src/` layout
 
@@ -95,7 +105,7 @@ subject:
 
 ## Comments
 
-The universal body-comment and doc-comment rules in the root CLAUDE.md apply. TypeScript
+The universal body-comment and doc-comment rules in the root AGENTS.md apply. TypeScript
 form: JSDoc `/** */` directly above the declaration. Tags: `@param name - Description.`,
 `@returns`, `@throws {ErrType} if ...` (see Error Handling Rule 4), `{@link Symbol}` for
 cross-references. Never put types in JSDoc; the signature carries them.
@@ -108,6 +118,64 @@ cross-references. Never put types in JSDoc; the signature carries them.
  * @throws {ValidationError} if the value cannot be parsed.
  */
 ```
+
+## React Compiler
+
+The React Compiler compiles the Console, Pluto, Lyra, and Drift
+(`configs/vite/src/compiler.ts`), in builds and in specs. A build or spec run fails on a
+component or hook that the compiler cannot compile; spec files, test helpers, and the
+dev server skip it instead. The `synnax/react-compiler` lint rule runs the same compiler
+with the same passes (`configs/eslint/compiler.ts`), so the editor reports the same
+errors.
+
+- A hook can be a bare `use` (`Synnax.use`, `Form.use`). A pass gives each `use` that is
+  not React's a hook name before the compiler runs, so never name a value that is not a
+  hook `use`.
+- Keep a hook's name when you store it (`const useKey = Scope.use`, never
+  `const get = Scope.use`). The compiler knows a hook only by its name, so it caches a
+  call to `get()` like a plain function.
+- Give every component and hook a name, including one a factory returns or one passed to
+  `Component.renderProp` or `Modals.create`: `const useForm = ...; return useForm;`. The
+  compiler reads a name only from a function or variable declaration, so it skips a
+  named function expression passed as an argument too.
+- Keep render pure. The compiler caches each computation on its inputs, so a clock, a
+  ref, a module cache, or an object changed in place goes stale in render without an
+  error. Pass the current time in as state, and copy an object instead of changing it.
+- Render a component as an element, never pass it where a render function goes
+  (`{(p) => <Input.Numeric {...p} />}`, not `{Input.Numeric}`). A compiled component
+  calls a hook, so a cached call to it breaks the hook order.
+- Call `use` in the component or hook itself, never inside a plain helper. The compiler
+  caches a call to a plain function, so a later render skips the `use` in it.
+- Subscribe to any changing data a component reads in render: a store, a cache, or a
+  list's `getItem`. A compiled parent reuses a child whose props did not change, so a
+  child that reads without subscribing shows stale data.
+- Write `if (x == null) x = y;` in a component or hook. The compiler cannot compile
+  `??=`.
+- Await in a `try`/`catch` and put the cleanup after it, never in `finally` or a promise
+  chain. The compiler cannot compile `finally`, or `?.`, `??`, `?:`, and `&&` in a `try`
+  body, so assign the awaited value there and test it after the `catch`.
+- Give a computed object key a plain identifier. The compiler cannot compile a call as a
+  key, so move `[CSS.variable("x", "y")]` to a module constant.
+- Never give a parameter a JSX default (`icon = <Icon.Close />`). Put the element in a
+  module constant.
+- Never write `useMemo` or `useCallback`. Lint bans them in each package that the
+  compiler builds. The compiler caches each value and function on its inputs. A function
+  named like a hook, and a `memo` or `forwardRef` component, compiles even when it calls
+  no hook.
+- Declare a function above each function that calls it when a hook call comes between
+  them. If you do not, the compiler caches neither function, and no lint rule reports
+  it. Each value made from them, such as a callback that a hook returns, then changes on
+  every render, and an effect that depends on it runs on every render.
+- The compiler reads a call it cannot see into, such as a library method or a plain
+  helper, as a change to the values it receives. When a hook comes between the code that
+  makes a value and such a call, the compiler drops the value's cache. Call hooks first,
+  and put that call next to the code that makes the value. When the call must come after
+  a hook, as with a Fuse index searched later, keep a `useMemo` with a one-line reason
+  and disable `no-restricted-syntax` on it.
+- Use the `"use no memo"` directive only for an incompatible library, a fixed hook list,
+  or a memo hook that keeps its own cache, with a one-line reason. The lint rules still
+  check the function, so disable `synnax/react-compiler` on each flagged line and
+  `no-restricted-syntax` on each memo.
 
 ## Testing (Vitest — never Jest)
 
@@ -238,7 +306,7 @@ file the tarball omits. Pluto is the only opt-out; its maps are 17MB gzipped.
 - pnpm catalog: shared versions in `pnpm-workspace.yaml`; use `catalog:` prefix in
   package.json.
 - Turbo build cache issues: `pnpm exec turbo clean`.
-- React 19 (19.1.1) — check for React 18 breaking changes.
+- React 19 (19.3.1) — check for React 18 breaking changes.
 
 ## Visual verification (Playwright MCP)
 

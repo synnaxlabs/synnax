@@ -209,6 +209,22 @@ describe("Input", () => {
       });
     });
 
+    describe("preview", () => {
+      it("should show the value as text", () => {
+        const c = render(<Input.Text value="Hello" onChange={vi.fn()} preview />);
+        expect(c.getByText("Hello")).toBeTruthy();
+        expect(c.queryByRole("textbox")).toBeNull();
+      });
+
+      it("should keep a password hidden", () => {
+        const c = render(
+          <Input.Text value="hunter2" onChange={vi.fn()} preview type="password" />,
+        );
+        expect(c.queryByText("hunter2")).toBeNull();
+        expect(c.getByRole("textbox").getAttribute("type")).toBe("password");
+      });
+    });
+
     describe("status", () => {
       it("should add status class when status is provided", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} status="error" />);
@@ -445,6 +461,14 @@ describe("Input", () => {
       it("should render an empty string when the value equals emptyValue", () => {
         const c = render(
           <Input.Numeric value={-1} onChange={vi.fn()} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox") as HTMLInputElement;
+        expect(input.value).toBe("");
+      });
+
+      it("should render an empty string when the value and emptyValue are NaN", () => {
+        const c = render(
+          <Input.Numeric value={NaN} onChange={vi.fn()} emptyValue={NaN} />,
         );
         const input = c.getByRole("textbox") as HTMLInputElement;
         expect(input.value).toBe("");

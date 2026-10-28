@@ -14,9 +14,10 @@
 # that needs a running Core also keys on core in ci.yaml rather than here, which keeps
 # the *_build keys free of server dependencies.
 
-ci: &ci
-  - .github/filters.yaml
-  - .github/workflows/ci.yaml
+actionlint:
+  - .github/actionlint.yaml
+  - .github/actions/**
+  - .github/workflows/**
 
 bazel: &bazel
   - .bazelignore
@@ -28,34 +29,32 @@ bazel: &bazel
 
 cpp: &cpp
   - *bazel
-  - *ci
   - .clang-format
   - .clang-format-ignore
+  - .clang-tidy
   - .github/workflows/test.cpp.yaml
+  - BUILD.bazel
   - scripts/check_clang_format.sh
+  - scripts/clang_tidy_wrapper.sh
   - scripts/install_clang_format.sh
   - scripts/run_bazel.sh
   - scripts/sanitizers/**
 
 go: &go
-  - *ci
+  - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
-  - codecov.yaml
   - scripts/check_go_generate.sh
 
 py: &py
-  - *ci
   - .github/workflows/test.py.yaml
-  - codecov.yaml
+  - .python-version
   - pyproject.toml
   - uv.lock
 
 ts: &ts
-  - *ci
   - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
-  - codecov.yaml
   - configs/**
   - knip.json
   - package.json
@@ -85,9 +84,16 @@ cesium: &cesium
   - *x_go
   - cesium/**
 
+gorp: &gorp
+  - *alamos_go
+  - *go
+  - *x_go
+  - gorp/**
+
 freighter_go: &freighter_go
   - *alamos_go
   - *go
+  - *gorp
   - *x_go
   - freighter/go/**
 
@@ -127,6 +133,7 @@ core: &core
   - *cesium
   - *freighter_go
   - *go
+  - *gorp
   - *x_go
   - core/**
 
@@ -185,6 +192,7 @@ portal:
   - *lyra
   - *ts
   - *x_ts
+  - .github/workflows/build.site.yaml
   - site/portal/**
 
 console: &console
@@ -216,6 +224,7 @@ foundation:
   - *lyra
   - *site_common
   - *ts
+  - .github/workflows/build.site.yaml
   - site/foundation/**
 
 www:
@@ -223,6 +232,7 @@ www:
   - *lyra
   - *site_common
   - *ts
+  - .github/workflows/build.site.yaml
   - site/www/**
 
 knip:
@@ -230,6 +240,7 @@ knip:
   - *console
   - *ts
   - oracle/lsp/extensions/vscode/**
+  - scripts/check_exports_ts.py
   - site/common/**
   - site/docs/**
   - site/foundation/**
@@ -258,6 +269,22 @@ client_py: &client_py
   - *x_py
   - client/py/**
 
+exports_go:
+  - *core
+  - *freighter_integration
+  - *oracle
+
+exports_py:
+  - *client_py
+  - *py
+  - integration/**
+  - scripts/check_exports_py.py
+
+py_packages:
+  - *client_py
+  - .github/scripts/pin_internal_deps.sh
+  - .github/workflows/test.py.packages.yaml
+
 lint_integration:
   - *client_py
   - *py
@@ -268,6 +295,8 @@ x_cpp: &x_cpp
   - *cpp
   - x/cpp/**
   - x/go/**/*.pb.go
+  - x/go/**/*.proto
+  - x/go/**/BUILD.bazel
 
 freighter_cpp: &freighter_cpp
   - *cpp
@@ -278,8 +307,12 @@ arc_cpp: &arc_cpp
   - *cpp
   - *freighter_cpp
   - *x_cpp
-  - arc/**
+  - arc/cpp/**
+  - arc/go/**/*.proto
+  - arc/go/**/BUILD.bazel
   - client/cpp/**
+  - core/**/*.proto
+  - core/**/BUILD.bazel
   - vendor/wasmtime/**
 
 client_cpp: &client_cpp
@@ -289,6 +322,8 @@ client_cpp: &client_cpp
   - arc/cpp/**
   - client/clib/**
   - client/cpp/**
+  - core/**/*.proto
+  - core/**/BUILD.bazel
   - vendor/wasmtime/**
 
 driver: &driver
@@ -304,12 +339,16 @@ soem:
   - *cpp
   - vendor/soem/**
 
+# Every path that changes a C++ CodeQL analysis.
+codeql_cpp:
+  - *driver
+  - .github/workflows/codeql.yaml
+
 buildifier:
   - "**/*.bzl"
   - "**/BUILD"
   - "**/BUILD.bazel"
   - *bazel
-  - *ci
   - .github/workflows/lint.buildifier.yaml
   - WORKSPACE
   - WORKSPACE.bazel
@@ -338,7 +377,6 @@ oracle_check:
 
 protobuf:
   - "**/*.proto"
-  - *ci
   - .github/workflows/test.protobuf.yaml
   - buf.gen.yaml
   - buf.yaml
@@ -346,10 +384,16 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
+  - .github/workflows/ci.yaml
+  - deploy/preview/**
 
 scripts:
   - *py
   - scripts/**
+
+runners:
+  - *py
+  - scripts/runners/**
 
 console_build: &console_build
   - *console
@@ -372,7 +416,6 @@ integration:
   - .github/workflows/build.synnax.yaml
   - .github/workflows/test.integration.worker.yaml
   - .github/workflows/test.integration.yaml
-  - .github/workflows/test.migration.yaml
   - integration/**
 
 core_image:
@@ -391,3 +434,20 @@ freighter_image:
   - *freighter_py
   - *freighter_ts
   - .github/workflows/build.docker.yaml
+
+# Source that changes what a reviewer sees in a preview Core or Console: the Go that
+# builds the Core, and the TypeScript the Console bundles. Tests, docs, and CI or tool
+# config deploy no preview.
+preview:
+  - "{alamos/go,arc/go,aspen,cesium,core,freighter/go,gorp,x/go}/**/!(*_test).go"
+  - "{alamos/go,arc/go,aspen,cesium,core,freighter/go,gorp,x/go}/go.{mod,sum}"
+  - core/Dockerfile
+  - core/docker-entrypoint.sh
+  - core/pkg/console/fallback.html
+  - "{alamos/ts,arc/ts,client/ts,console,drift}/src/**/!(*.spec.ts|*.spec.tsx|*.md)"
+  - "{freighter/ts,lyra,pluto,x/ts}/src/**/!(*.spec.ts|*.spec.tsx|*.md)"
+  - "{alamos/ts,arc/ts,client/ts,console,drift}/{package.json,vite.config.ts}"
+  - "{freighter/ts,lyra,pluto,x/ts}/{package.json,vite.config.ts}"
+  - arc/ts/syntaxes/**
+  - console/index.html
+  - lyra/static/**

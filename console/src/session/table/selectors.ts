@@ -10,8 +10,6 @@
 import { type table } from "@synnaxlabs/client";
 import { type Properties, Table } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
-import { useStore } from "react-redux";
 
 import { Select } from "@/session/select";
 import {
@@ -23,53 +21,25 @@ import {
 } from "@/session/table/slice";
 import { Window } from "@/session/window";
 
-export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export interface KeyedSelectorParams extends record.Keyed<table.Key> {
   state: StoreState;
 }
 
-const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  Table.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
-    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
-  );
+const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useSelector = ({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]);
+  return Table.Scope.bindHook(useSelector);
+};
 
-const createGetter =
-  <R>(selector: (params: KeyedSelectorParams) => R) =>
-  (): ((args?: { key?: table.Key }) => R) => {
-    const store = useStore<StoreState>();
-    const scopeKey = Table.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: Table.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
-  };
+const selectState = ({ state, key }: KeyedSelectorParams): State =>
+  Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
-const selectOptional = ({ state, key }: KeyedSelectorParams): State | undefined =>
-  Window.selectDocument(state, selectSliceState(state), key);
-
-const selectState = (params: KeyedSelectorParams): State =>
-  selectOptional(params) ?? ZERO_STATE;
-
-export const useSelect = createSelector(selectState);
-export const useGet = createGetter(selectState);
-
-export const useSelectOptional = createSelector(selectOptional);
-
-const selectExists = (params: KeyedSelectorParams): boolean =>
-  selectOptional(params) != null;
-
-export const useSelectExists = createSelector(selectExists);
-
-export const selectEditable = (params: KeyedSelectorParams): boolean =>
+const selectEditable = (params: KeyedSelectorParams): boolean =>
   selectState(params).editable;
 
 export const useSelectEditable = createSelector(selectEditable);
-export const useGetEditable = createGetter(selectEditable);
 
 const selectHideIndicators = (params: KeyedSelectorParams): boolean =>
   selectState(params).hideIndicators;
@@ -91,8 +61,3 @@ const selectSelectedCellKeys = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedCells;
 
 export const useSelectSelectedCellKeys = createSelector(selectSelectedCellKeys);
-
-const selectLastSelected = (params: KeyedSelectorParams): string | null =>
-  selectState(params).lastSelected;
-
-export const useSelectLastSelected = createSelector(selectLastSelected);

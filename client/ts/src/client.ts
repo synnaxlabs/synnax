@@ -11,6 +11,8 @@ import {
   array,
   breaker,
   type CrudeTimeSpan,
+  observe,
+  sleep,
   TimeSpan,
   TimeStamp,
   url,
@@ -26,7 +28,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { errorsMiddleware } from "@/errors";
+import { errorsMiddleware, isConnectionError } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
@@ -167,8 +169,11 @@ export default class Synnax extends framer.Client {
     super({
       stream: transport.stream,
       unary: transport.unary,
+      file: transport.file,
       retrieveChannels,
       onRetry: parsedParams.onRetry,
+      // The arrow reads this.conn only when called, after construction completes.
+      node: () => this.conn.status.details.nodeKey,
     });
     const cache = new query.Cache({
       openStreamer: parsedParams.cache
@@ -199,12 +204,14 @@ export default class Synnax extends framer.Client {
     this.connection = this.conn;
     cache.onEpoch((epoch) => this.conn.notify({ type: "epoch.advanced", epoch }));
     transport.unary.use(this.conn.middleware());
+    const identity = new observe.Observer<user.User | undefined>();
     // The auth client fails fast: login retries belong to the request that triggered
     // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
     this.auth = new auth.Client(
       transport.unaryNoRetry,
       { username, password },
       {
+        onUser: (u) => identity.notify(u),
         onSuccess: () => this.conn.notify({ type: "auth.success" }),
         onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
       },
@@ -244,7 +251,13 @@ export default class Synnax extends framer.Client {
     });
     this.control = new control.Client({ unary, cache });
     this.access = new access.Client({ unary, cache, ontology: this.ontology });
-    this.users = new user.Client({ unary, cache, ontology: this.ontology });
+    this.users = new user.Client({
+      unary,
+      cache,
+      ontology: this.ontology,
+      connection: this.conn,
+      identity,
+    });
     this.projects = new project.Client({
       unary,
       file: this.transport.file,
@@ -323,20 +336,29 @@ export default class Synnax extends framer.Client {
   }
 
   /**
-   * Closes the client, stopping the connection check loop and tearing down the
-   * query cache and its change stream. Resolves once both are closed.
+   * Closes the client: stops the connection check loop, tears down the query cache and
+   * its change stream, then logs out. Resolves once all three are done, or once the
+   * logout has waited 3 seconds. When the Core cannot be reached or does not
+   * answer in time, the session is left to idle out.
    * @throws {AggregateError} carrying every underlying close failure.
    */
   async close(): Promise<void> {
     const results = await Promise.allSettled([this.conn.close(), this.cache.close()]);
-    const failures = results.filter((r) => r.status === "rejected");
+    const failures: unknown[] = results
+      .filter((r) => r.status === "rejected")
+      .map((r) => r.reason);
+    // Nothing sends requests any more, so no check can log in again during the logout.
+    try {
+      await Promise.race([this.auth.logout(), sleep.sleep(LOGOUT_DEADLINE)]);
+    } catch (err) {
+      if (!isConnectionError(err)) failures.push(err);
+    }
     if (failures.length > 0)
-      throw new AggregateError(
-        failures.map((f) => f.reason),
-        "failed to close the client",
-      );
+      throw new AggregateError(failures, "failed to close the client");
   }
 }
+
+const LOGOUT_DEADLINE = TimeSpan.seconds(3);
 
 export interface ConnectOptions {
   /**

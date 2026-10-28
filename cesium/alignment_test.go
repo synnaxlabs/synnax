@@ -261,8 +261,10 @@ var _ = Describe("Alignment", func() {
 									[]cesium.ChannelKey{idxKey},
 									dataKeys...,
 								),
-								AutoChunkSize:    r.chunk,
-								DownsampleFactor: r.factor,
+								AutoChunkSize: r.chunk,
+								Reduction: telem.Reduction{
+									Variant: telem.StrideReduction{Factor: r.factor},
+								},
 							}))
 							seek, step := i.SeekFirst, i.Next
 							if r.backward {
@@ -273,8 +275,11 @@ var _ = Describe("Alignment", func() {
 							collect := func() {
 								GinkgoHelper()
 								for key, s := range i.Value().Entries() {
+									Expect(s.Multiple()).To(Equal(factor))
 									for j, ts := range stampsOf(s) {
-										a := s.Alignment.AddSamples(uint32(j) * factor)
+										a := s.Alignment.AddSamples(
+											uint32(j) * s.Multiple(),
+										)
 										Expect(stampAt).To(
 											HaveKeyWithValue(a, ts),
 											"channel %d sample at %s has alignment %s",
@@ -459,4 +464,12 @@ var _ = Describe("Alignment", func() {
 			}
 		})
 	}
+})
+
+var _ = Describe("NewAlignmentCounter", func() {
+	It("Should hand out leading domains after ZeroLeadingAlignment", func() {
+		c := cesium.NewAlignmentCounter()
+		Expect(c.Next()).To(Equal(cesium.LeadingAlignment(1, 0)))
+		Expect(c.Next()).To(Equal(cesium.LeadingAlignment(2, 0)))
+	})
 })

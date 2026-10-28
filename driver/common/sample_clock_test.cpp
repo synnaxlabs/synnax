@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#define _USE_MATH_DEFINES
 #include <cmath>
+#include <numbers>
 #include <random>
 
 #include "gtest/gtest.h"
@@ -337,7 +337,7 @@ INSTANTIATE_TEST_SUITE_P(
                     // Sinusoidal jitter with 1ms amplitude and 100-cycle period
                     return x::telem::TimeSpan(
                         static_cast<int64_t>(
-                            std::sin(2 * M_PI * cycle / 100.0) *
+                            std::sin(2 * std::numbers::pi * cycle / 100.0) *
                             x::telem::MILLISECOND.nanoseconds()
                         )
                     );
@@ -395,14 +395,15 @@ INSTANTIATE_TEST_SUITE_P(
             .k_d = 0.05,
             .constant_offset = x::telem::MICROSECOND * 100,
             .jitter_func =
-                [gen = std::mt19937(42),
-                 dist = std::uniform_int_distribution<int64_t>(
-                     -80 * x::telem::MICROSECOND.nanoseconds(),
-                     80 * x::telem::MICROSECOND.nanoseconds()
-                 )](int cycle) mutable {
-                    if (cycle < 10000) return x::telem::TimeSpan(0);
-                    return x::telem::TimeSpan(dist(gen));
-                },
+                // NOLINTNEXTLINE(bugprone-random-generator-seed): a repeatable jitter.
+            [gen = std::mt19937(42),
+             dist = std::uniform_int_distribution<int64_t>(
+                 -80 * x::telem::MICROSECOND.nanoseconds(),
+                 80 * x::telem::MICROSECOND.nanoseconds()
+             )](int cycle) mutable {
+                if (cycle < 10000) return x::telem::TimeSpan(0);
+                return x::telem::TimeSpan(dist(gen));
+            },
             .n_cycles = 15000
         }
     )

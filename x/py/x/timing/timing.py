@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-import math
+import sys
 import time
 from collections.abc import Callable
 from typing import Literal, TypeVar
@@ -18,50 +18,41 @@ from x.telem import CrudeTimeSpan, Rate, TimeSpan, TimeStamp
 
 T = TypeVar("T")
 
-RESOLUTION = (TimeSpan.MICROSECOND * 100).seconds
+# How long before a precise deadline the OS sleep hands over to a spin. Windows timers
+# wake up to 0.5 ms late, so its margin is larger. A full spin is no more accurate, and
+# it holds the GIL, which stalls other Python threads by milliseconds.
+_SPIN_MARGIN = (
+    TimeSpan.MILLISECOND if sys.platform == "win32" else 500 * TimeSpan.MICROSECOND
+).nanoseconds
 
 
-def _precise_sleep(dur: float | int) -> None:
-    estimate = RESOLUTION * 10  # Initial overestimate
-    mean = RESOLUTION * 10
-    m2: float = 0
-    count = 1
-    end_time = time.perf_counter() + dur
-    nanoseconds = dur * 1e9
-    while nanoseconds > estimate * 1e9:
-        start_time = time.perf_counter()
-        time.sleep(RESOLUTION)
-        # Elapsed time in nanoseconds
-        elapsed = (time.perf_counter() - start_time) * 1e9
-        delta = elapsed - mean
-        mean += delta / count
-        m2 += delta * (elapsed - mean)
-        estimate = mean + 1 * math.sqrt(m2 / count)
-        count += 1
-
-    # Busy wait for the last bit to ensure we sleep for the correct duration
-    while time.perf_counter() < end_time:
+def _sleep_until(deadline: int, precise: bool) -> None:
+    remaining = deadline - time.perf_counter_ns()
+    if not precise:
+        if remaining > 0:
+            time.sleep(remaining / 1e9)
+        return
+    # macOS wakes up to 50% late, so each OS sleep covers only half of what is left.
+    while remaining > 2 * _SPIN_MARGIN:
+        time.sleep((remaining - _SPIN_MARGIN) / 2e9)
+        remaining = deadline - time.perf_counter_ns()
+    while time.perf_counter_ns() < deadline:
         pass
 
 
 def sleep(dur: Rate | TimeSpan | float | int, precise: bool = False) -> None:
-    """Sleeps for the given duration, with the option to use a high-precision sleep
-    that is more accurate than Python's default time.sleep implementation.
+    """Sleeps for the given duration.
 
-
-    :param dur: The duration to sleep for. The value can be a float or int representing
-    the number of seconds to sleep for, a Rate object representing the rate at
-    which to sleep (i.e. 1 Hz = 1 second), or a TimeSpan object representing the
-    duration to sleep for.
-    :param precise: Whether to use a more precise sleep implementation. This will
-    use more CPU than the default sleep implementation, but will provide significantly
-    higher precision. It uses Welford's algorithm to estimate the ideal time to sleep
-    for the given duration.
+    :param dur: The duration to sleep for. A float or int is a number of seconds, and a
+        Rate is one period of that rate (1 Hz = 1 second).
+    :param precise: Whether to wake within microseconds of the deadline. A precise sleep
+        sleeps in the OS until shortly before the deadline, then busy-waits the rest, so
+        it uses more CPU than the default sleep.
     """
-    dur = TimeSpan.from_seconds(dur).seconds
-    if precise:
-        return _precise_sleep(dur)
-    return time.sleep(dur)
+    span = TimeSpan.from_seconds(dur)
+    if not precise:
+        return time.sleep(span.seconds)
+    return _sleep_until(time.perf_counter_ns() + span.nanoseconds, True)
 
 
 class Timer:
@@ -78,7 +69,7 @@ class Timer:
 
     def elapsed(self) -> TimeSpan:
         """Returns the time elapsed since the timer was started."""
-        return TimeSpan(time.perf_counter_ns() - self._start)
+        return TimeStamp(time.perf_counter_ns()) - self._start
 
     def start(self) -> None:
         """Starts the timer."""
@@ -90,43 +81,52 @@ class Timer:
 
 
 class Loop:
-    """Loop is a class that implements a rate-limited loop. It is used to ensure that a
-    block of code is executed at a fixed rate. The loop will sleep for the remainder of
-    the interval if the block of code executes faster than the interval. If the block of
-    code takes longer than the interval, the loop will skip sleeping to ensure that the
-    block of code is executed as soon as possible. The loop keeps track of the average
-    execution time and uses this to correct for any drift in the interval.
+    """Loop runs a block of code at a fixed rate. Iteration n is due at start + n *
+    interval, so the time the block takes and late OS wake-ups do not accumulate into
+    drift. The schedule starts when the loop is created or entered as a context manager.
+
+    An iteration that starts late returns at once and keeps the schedule, so the loop
+    catches up on a short overrun. An overrun of one full interval or more drops the
+    missed iterations and restarts the schedule from the current time, so the block
+    never runs in a burst.
     """
 
-    _timer: Timer
     interval: TimeSpan
     """The interval at which to run the loop."""
-    counter: int = 0
+    precise: bool
+    """Whether the loop uses a precise sleep."""
+    counter: int
     """The number of iterations that have been run."""
-    average: TimeSpan = TimeSpan(0)
-    """The average execution time of the loop."""
-    _correction: TimeSpan = TimeSpan(0)
+    _start: int
+    _last: int
+    _deadline: int
 
     def __init__(self, interval: Rate | TimeSpan | float | int, precise: bool = False):
         """Creates a new Loop object with the given interval and precision.
 
-        :param interval: The interval at which to run the loop. This can be a float or
-                int representing the number of seconds between each iteration, a Rate
-                object representing the rate at which to run the loop (i.e. 1 Hz = 1
-                second per iteration), or a TimeSpan object representing the duration
-                between each iteration.
-        :param precise: Whether to use a more precise sleep implementation. This will
-                use more CPU than the default sleep implementation, but will provide
-                significantly higher precision. It uses Welford's algorithm to estimate
-                the ideal time to sleep for the given duration.
+        :param interval: The interval at which to run the loop. A float or int is a
+            number of seconds, and a Rate is one period of that rate (1 Hz = 1 second).
+        :param precise: Whether to wake within microseconds of each deadline. See
+            sleep for the CPU cost.
         """
-        self._timer = Timer()
         self.interval = TimeSpan.from_seconds(interval)
         self.precise = precise
-        self._last = time.perf_counter_ns()
+        self._restart()
+
+    def _restart(self) -> None:
+        self.counter = 0
+        self._start = self._last = time.perf_counter_ns()
+        self._deadline = self._start + self.interval.nanoseconds
+
+    @property
+    def average(self) -> TimeSpan:
+        """The average time between iterations since the schedule started."""
+        if self.counter == 0:
+            return TimeSpan(0)
+        return TimeSpan((self._last - self._start) // self.counter)
 
     def __enter__(self) -> Loop:
-        self._last = time.perf_counter_ns()
+        self._restart()
         return self
 
     def __exit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
@@ -136,26 +136,23 @@ class Loop:
         return self
 
     def __next__(self) -> None:
-        elapsed = self._timer.elapsed()
-        if elapsed < self.interval:
-            sleep_for = self.interval - elapsed - self._correction
-            if sleep_for < TimeSpan(0):
-                sleep_for = TimeSpan(0)
-            sleep(sleep_for, self.precise)
+        interval = self.interval.nanoseconds
+        if time.perf_counter_ns() < self._deadline:
+            _sleep_until(self._deadline, self.precise)
+        now = time.perf_counter_ns()
+        if now - self._deadline >= interval:
+            self._deadline = now
+        self._deadline += interval
         self.counter += 1
-        self.average = TimeSpan(
-            (self.average * (self.counter - 1) + self._timer.elapsed()) / self.counter
-        )
-        self._correction = self.average - self.interval
-        self._timer.reset()
+        self._last = now
 
     def __call__(self) -> None:
         return self.__next__()
 
     def wait(self) -> Literal[True]:
-        """Waits for the next iteration of the loop, automatically sleeping for the
-        remainder of the interval if the calling block of code executes faster than the
-        interval.
+        """Waits until the next iteration of the loop is due.
+
+        :returns: True, so the call can be a while condition.
         """
         self.__next__()
         return True

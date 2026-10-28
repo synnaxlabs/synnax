@@ -111,7 +111,7 @@ export class Frame {
     }
 
     if (columnsOrData instanceof Map) {
-      columnsOrData.forEach((v, k) => this.push(k, ...array.toArray(v)));
+      columnsOrData.forEach((v, k) => array.toArray(v).forEach((s) => this.push(k, s)));
       return;
     }
 
@@ -129,8 +129,8 @@ export class Frame {
       } else
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k, 10);
-          if (!isNaN(key)) return this.push(key, ...array.toArray(v));
-          this.push(k, ...array.toArray(v));
+          const col = isNaN(key) ? k : key;
+          array.toArray(v).forEach((s) => this.push(col, s));
         });
       return;
     }
@@ -251,8 +251,12 @@ export class Frame {
   timeRange(col?: channel.Key | channel.Name): TimeRange {
     if (col == null) {
       if (this.columns.length === 0) return TimeRange.ZERO;
-      const start = TimeStamp.min(...this.series.map((a) => a.timeRange.start));
-      const end = TimeStamp.max(...this.series.map((a) => a.timeRange.end));
+      let start = TimeStamp.MAX;
+      let end = TimeStamp.MIN;
+      for (const { timeRange } of this.series) {
+        if (timeRange.start.before(start)) start = timeRange.start;
+        if (timeRange.end.after(end)) end = timeRange.end;
+      }
       return new TimeRange(start, end);
     }
     const group = this.get(col);
@@ -300,18 +304,20 @@ export class Frame {
         keyOrFrame.colType !== this.colType
       )
         throw new ValidationError("keyVariant must match");
-      this.series.push(...keyOrFrame.series);
-      (this.columns as channel.Key[]).push(...(keyOrFrame.columns as channel.Key[]));
-    } else {
-      this.series.push(...v);
-      if (typeof keyOrFrame === "string" && this.colType === "key")
-        throw new ValidationError("keyVariant must match");
-      else if (typeof keyOrFrame !== "string" && this.colType === "name")
-        throw new ValidationError("keyVariant must match");
-      (this.columns as channel.Key[]).push(
-        ...(Array.from({ length: v.length }, () => keyOrFrame) as channel.Key[]),
-      );
+      keyOrFrame.series.forEach((s, i) => {
+        this.series.push(s);
+        (this.columns as channel.Key[]).push(keyOrFrame.columns[i] as channel.Key);
+      });
+      return;
     }
+    if (typeof keyOrFrame === "string" && this.colType === "key")
+      throw new ValidationError("keyVariant must match");
+    else if (typeof keyOrFrame !== "string" && this.colType === "name")
+      throw new ValidationError("keyVariant must match");
+    v.forEach((s) => {
+      this.series.push(s);
+      (this.columns as channel.Key[]).push(keyOrFrame as channel.Key);
+    });
   }
 
   /**
@@ -475,8 +481,15 @@ export interface CrudePayload extends z.input<typeof frameZ> {}
 
 /** Rebuilds a {@link Series} from its wire form. */
 export const seriesFromPayload = (series: SeriesPayload): Series => {
-  const { dataType, data, timeRange, alignment } = series;
-  return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
+  const { dataType, data, timeRange, alignment, alignmentMultiple } = series;
+  return new Series({
+    data,
+    dataType,
+    timeRange,
+    glBufferUsage: "static",
+    alignment,
+    alignmentMultiple,
+  });
 };
 
 /** Reduces a {@link Series} to its wire form. */
@@ -485,4 +498,5 @@ export const seriesToPayload = (series: Series): SeriesPayload => ({
   dataType: series.dataType,
   data: new Uint8Array(series.data.buffer),
   alignment: series.alignment,
+  alignmentMultiple: series.alignmentMultiple,
 });

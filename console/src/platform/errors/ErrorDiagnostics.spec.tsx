@@ -10,13 +10,11 @@
 import { NotFoundError, panel, status } from "@synnaxlabs/client";
 import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
 import { Unreachable } from "@synnaxlabs/freighter";
-import { Errors } from "@synnaxlabs/pluto";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Boundary } from "@/platform/errors/Boundary";
-import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
+import { Errors } from "@/platform/errors";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,
@@ -65,14 +63,11 @@ describe("ErrorDiagnostics", () => {
   });
 
   const renderBoundary = async (store: TestStore, child: ReactElement) =>
-    await renderWithConsole(
-      <Errors.Boundary FallbackComponent={ErrorDiagnostics}>{child}</Errors.Boundary>,
-      { store },
-    );
+    await renderWithConsole(<Errors.Boundary>{child}</Errors.Boundary>, { store });
 
   it("appends the connected Core to any error", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select("LOCAL")));
     await renderBoundary(store, <Throw error={new Error("boom")} />);
     expect(messageText()).toBe("boom\nCore: Local (localhost:9090)");
   });
@@ -96,7 +91,7 @@ describe("ErrorDiagnostics", () => {
   it("appends the crashed panel's name and key", async () => {
     const client = createTestClient();
     const { wrapper, store } = await createConsoleWrapper({ client });
-    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select("LOCAL")));
     const doc = panel.panelZ.parse({
       name: "fridge_schem",
       root: { variant: "leaf", tabs: [] },
@@ -105,9 +100,9 @@ describe("ErrorDiagnostics", () => {
     // Prime the query cache the way the mosaic's retrieve does.
     await client.panels.retrieve(doc.key);
     render(
-      <Boundary panelKey={doc.key}>
+      <Errors.Boundary panelKey={doc.key}>
         <Throw error={retrieveNotFoundError()} />
-      </Boundary>,
+      </Errors.Boundary>,
       { wrapper },
     );
     const expected = [
@@ -118,9 +113,31 @@ describe("ErrorDiagnostics", () => {
     expect(messageText()).toBe(expected);
   });
 
+  it("follows a rename of the crashed panel", async () => {
+    const client = createTestClient();
+    const { wrapper } = await createConsoleWrapper({ client });
+    const doc = panel.panelZ.parse({
+      name: "fridge_schem",
+      root: { variant: "leaf", tabs: [] },
+    });
+    await client.panels.create({ ...doc, parent: await createPanelParent(client) });
+    await client.panels.retrieve(doc.key);
+    render(
+      <Errors.Boundary panelKey={doc.key}>
+        <Throw error={new Error("boom")} />
+      </Errors.Boundary>,
+      { wrapper },
+    );
+    expect(messageText()).toBe(`boom\nCore: none\n"fridge_schem" (${doc.key})`);
+    await act(async () => await client.panels.rename(doc.key, "fridge_schem_2"));
+    await waitFor(() =>
+      expect(messageText()).toBe(`boom\nCore: none\n"fridge_schem_2" (${doc.key})`),
+    );
+  });
+
   it("replaces the crash page when a flux read failed on an unreachable Core", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select("LOCAL")));
     const error = new Error("Failed to retrieve channel group", {
       cause: new Unreachable(),
     });
@@ -132,7 +149,7 @@ describe("ErrorDiagnostics", () => {
 
   it("finds an unreachable Core nested under a status-shaped cause", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select("LOCAL")));
     const error = status.toError(
       status.fromException(new Unreachable(), "Failed to retrieve channel group"),
     );
@@ -143,7 +160,7 @@ describe("ErrorDiagnostics", () => {
 
   it("keeps the crash page for a failure the Core answered", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY)));
+    void act(() => store.dispatch(Session.Core.select("LOCAL")));
     await renderBoundary(store, <Throw error={retrieveNotFoundError()} />);
     expect(screen.queryByText("localhost:9090")).toBeNull();
     expect(messageText()).toBe(
@@ -154,9 +171,9 @@ describe("ErrorDiagnostics", () => {
   it("omits the name when the crashed panel isn't cached", async () => {
     const store = await createTestStore();
     await renderWithConsole(
-      <Boundary panelKey="uncached-key">
+      <Errors.Boundary panelKey="uncached-key">
         <Throw error={new Error("boom")} />
-      </Boundary>,
+      </Errors.Boundary>,
       { store },
     );
     expect(messageText()).toBe("boom\nCore: none\n(uncached-key)");

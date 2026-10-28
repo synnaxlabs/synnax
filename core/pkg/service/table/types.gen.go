@@ -48,10 +48,10 @@ type TextCellConfig = versions.TextCellConfig
 // ValueCellConfig is the configuration for live telemetry value cells.
 type ValueCellConfig = versions.ValueCellConfig
 
-// Row is a single row in a table, with height and ordered cell keys.
+// Row is a single row in a table, with a key, height, and ordered cell keys.
 type Row = versions.Row
 
-// Column is a single column in a table, with width.
+// Column is a single column in a table, with a key and width.
 type Column = versions.Column
 
 // Table is a tabular data display component for viewing structured telemetry data.

@@ -109,7 +109,7 @@ const MOVE_VERBS: verbs.Verbs = {
 };
 
 export const { useUpdate: useMoveChildren } = Flux.createUpdate<MoveChildrenParams>({
-  name: PLURAL_CHILDREN_RESOURCE_NAME,
+  name: PLURAL_RESOURCE_RESOURCE_NAME,
   verbs: MOVE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { source, destination, ids } = data;

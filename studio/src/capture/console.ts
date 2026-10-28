@@ -9,10 +9,7 @@
 
 import { type Locator, type Page } from "playwright";
 
-import { type CaptureSession } from "@/capture/rig";
-
-/** Credentials of the user every capture logs in as. */
-const CREDENTIALS = { username: "synnax", password: "seldon" };
+import { type CaptureSession, CREDENTIALS } from "@/capture/rig";
 
 /**
  * PROJECT names the project every capture works in. It is on screen in the
@@ -21,6 +18,15 @@ const CREDENTIALS = { username: "synnax", password: "seldon" };
  * uniquifier.
  */
 export const PROJECT = "Synnax";
+
+/**
+ * PARK is a point on the top bar with no control under it, where the cursor rests
+ * clear of the shot. Over a plot, the cursor raises a crosshair.
+ */
+export const PARK = { x: 900, y: 24 };
+
+/** MODAL selects an open modal dialog, such as a create form. */
+export const MODAL = ".pluto-dialog__dialog.pluto--modal";
 
 /**
  * login fills the Console login form, passes the projects screen (selecting or
@@ -72,25 +78,24 @@ export const login = async (
 };
 
 /**
- * contextMenu right-clicks the target and selects an option from the menu that
- * opens, all as recorded input.
+ * contextMenu right-clicks the target in the full frame, zooms on the target and its
+ * menu together, and picks `option`. Call it with no zoom open. The zoom stays open
+ * after the pick: the next zoom replaces it, and a pick that swaps the view ends it
+ * with `session.endZoom()`. A string matches the option's exact text; an option with a
+ * shortcut needs a RegExp.
  */
 export const contextMenu = async (
   session: CaptureSession,
-  target: Parameters<CaptureSession["rightClick"]>[0],
-  option: string,
+  target: Locator,
+  option: string | RegExp,
 ): Promise<void> => {
   const { page } = session;
-  // The menu opens at the click point, so framing the menu keeps its target in view.
-  await session.rightClick(target, { zoom: false });
+  await session.rightClick(target, { text: true, zoom: false });
   const menu = page.locator(".pluto-menu-context").first();
   await session.waitFor(menu);
-  await session.zoom(menu);
-  await session.hold(300);
-  await session.click(menu.getByText(option, { exact: true }).first(), {
-    zoom: false,
-  });
-  session.endZoom();
+  await session.zoom([target, menu]);
+  await session.hold(500);
+  await session.click(menu.getByText(option, { exact: true }).first(), { text: true });
 };
 
 /**
@@ -158,6 +163,15 @@ export const hideBottomToolbar = async (session: CaptureSession): Promise<void> 
   if (!(await drawer.isVisible().catch(() => false))) return;
   await session.click(page.locator(".console-main-nav__item").last(), { zoom: false });
   await session.waitForHidden(drawer);
+};
+
+/** closeToolbar closes the open side toolbar by clicking its selected nav icon. */
+export const closeToolbar = async (session: CaptureSession): Promise<void> => {
+  const selected = session.page
+    .locator("button.console-main-nav__item.pluto--selected")
+    .first();
+  if (!(await selected.isVisible().catch(() => false))) return;
+  await session.click(selected);
 };
 
 /**
@@ -254,19 +268,19 @@ export const searchPalette = async (
   session.setSpeed(1);
   await session.hold(PALETTE_READ_MS);
   await session.click(dialog.locator(".pluto-list__item").first(), { text: true });
-  session.endZoom();
 };
 
-/** Holds long enough for the camera to settle or a viewer to read the results. */
+/** Holds long enough for a viewer to read the palette. */
 const PALETTE_READ_MS = 700;
 
 /**
- * openPalette clicks the palette button, clears any stale query, and frames the
- * dialog, holding until the camera settles so typing starts on a steady shot.
+ * openPalette clicks the palette button, clears any stale query, and holds so the
+ * viewer sees it open. Returns the palette's dialog.
  */
-const openPalette = async (session: CaptureSession): Promise<Locator> => {
+export const openPalette = async (session: CaptureSession): Promise<Locator> => {
   const { page } = session;
-  // No zoom: the button is a corner target, and the dialog zoom follows at once.
+  // No zoom: the dialog spans most of the window, so any zoom deep enough to read as
+  // one crops its edges.
   await session.click(page.locator(".console-palette button").first(), {
     zoom: false,
   });
@@ -276,7 +290,6 @@ const openPalette = async (session: CaptureSession): Promise<Locator> => {
   const dialog = page
     .locator(".pluto-dialog__dialog:has(.console-palette__input)")
     .first();
-  await session.zoom(dialog);
   await session.hold(PALETTE_READ_MS);
   return dialog;
 };
@@ -287,6 +300,29 @@ const openPalette = async (session: CaptureSession): Promise<Locator> => {
  */
 export const field = (page: Page, label: string): Locator =>
   page.getByText(label, { exact: true }).locator("..").locator("input").first();
+
+/**
+ * pickChannel fills the search of the open channel dropdown with `channel` and clicks
+ * the match. It fills instead of typing, so it suits setup, not a recorded beat.
+ */
+export const pickChannel = async (
+  session: CaptureSession,
+  channel: string,
+): Promise<void> => {
+  const { page } = session;
+  const search = page.locator("input[placeholder*='Search']").first();
+  await session.waitFor(search);
+  await search.fill(channel);
+  const item = page
+    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .filter({ hasText: channel })
+    .first();
+  await session.waitFor(item);
+  await session.click(item.getByText(channel, { exact: true }).first(), {
+    text: true,
+    zoom: false,
+  });
+};
 
 /** clickButton clicks the button whose accessible name is exactly `label`. */
 export const clickButton = async (
@@ -346,5 +382,4 @@ export const commandPalette = async (
   await session.click(item.getByText(command, { exact: true }).first(), {
     text: true,
   });
-  session.endZoom();
 };

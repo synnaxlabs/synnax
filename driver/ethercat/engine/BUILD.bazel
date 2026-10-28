@@ -19,6 +19,7 @@ cc_library(
         "writer.cpp",
     ],
     hdrs = [
+        "clock.h",
         "engine.h",
         "pool.h",
     ],
@@ -39,13 +40,23 @@ cc_library(
 )
 
 cc_test(
+    name = "clock_test",
+    srcs = ["clock_test.cpp"],
+    deps = [
+        "//driver/ethercat/engine",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "engine_test",
     srcs = ["engine_test.cpp"],
     visibility = ["//visibility:public"],
     deps = [
         "//driver/ethercat/engine",
-        "//driver/ethercat/mock",
-        "//x/cpp/test",
+        "//driver/ethercat/testutil",
+        "//x/cpp/defer",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

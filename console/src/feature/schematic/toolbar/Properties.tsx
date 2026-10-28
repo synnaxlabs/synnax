@@ -35,14 +35,7 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import {
-  type FC,
-  memo,
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-  useMemo,
-} from "react";
+import { type FC, memo, type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
@@ -61,7 +54,13 @@ export const Properties = memo((): ReactElement => {
     );
   if (selected.length > 1) return <MultiConfig configByKey={configByKey} />;
   const elKey = selected[0];
-  return <IndividualConfig key={elKey} elKey={elKey} />;
+  const config = configByKey.get(elKey);
+  const symbolKey =
+    config != null && Schematic.Node.isConfig(config)
+      ? Schematic.Node.symbolKey(config)
+      : "";
+  // A symbol's form holds that symbol's config, so a change remounts it.
+  return <IndividualConfig key={`${elKey}:${symbolKey}`} elKey={elKey} />;
 });
 Properties.displayName = "PropertiesControls";
 
@@ -78,16 +77,13 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
   const tab = Session.Schematic.useSelectPropertiesTab({ key: schematicKey });
   const handleTabChange = (tab: PProperties.TabKey) =>
     sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
-  const initialValues = useMemo(() => deep.copy(config), [config]);
+  const initialValues = deep.copy(config);
   const formMethods = Form.use<typeof Schematic.elementConfigZ>({
     schema: Schematic.elementConfigZ,
     values: initialValues,
     sync: true,
-    onChange: useCallback(
-      ({ values }: Form.OnChangeParams<typeof Schematic.elementConfigZ>) =>
-        dispatch(schematic.setConfig({ key: elKey, config: deep.copy(values) })),
-      [dispatch, elKey],
-    ),
+    onChange: ({ values }: Form.OnChangeParams<typeof Schematic.elementConfigZ>) =>
+      dispatch(schematic.setConfig({ key: elKey, config: deep.copy(values) })),
   });
   const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(
     "specKey",
@@ -184,6 +180,21 @@ interface MultiElementPropertiesProps {
   configByKey: Map<string, Schematic.ElementConfig>;
 }
 
+const removeShielded = (
+  configs: Map<string, Schematic.ElementConfig>,
+  parentOf: Map<string, string>,
+): Map<string, Schematic.ElementConfig> => {
+  const shielded = Schematic.Group.shielded(
+    [...configs.keys()],
+    parentOf,
+    Object.fromEntries(configs),
+  );
+  if (shielded.size === 0) return configs;
+  const m = new Map(configs);
+  shielded.forEach((k) => m.delete(k));
+  return m;
+};
+
 const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement => {
   const schematicKey = Schematic.useKey();
   const handleError = Status.useErrorHandler();
@@ -192,29 +203,12 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const dispatch = Schematic.useSingleDispatch();
   const getViewport = Session.Schematic.useGetViewport();
   const parentOf = Schematic.useParentOf();
+  const theme = Theming.use();
   // Grouped symbols never move alone: boxes align, the dispatch fans out to members.
-  const movable = useMemo(
-    () => selected.filter((k) => !parentOf.has(k)),
-    [selected, parentOf],
-  );
+  const movable = selected.filter((k) => !parentOf.has(k));
   // The selection closure includes group configs, so shielding sees locked flags.
-  const editableByKey = useMemo(() => {
-    const shielded = Schematic.Group.shielded(
-      [...configByKey.keys()],
-      parentOf,
-      Object.fromEntries(configByKey),
-    );
-    if (shielded.size === 0) return configByKey;
-    const m = new Map(configByKey);
-    shielded.forEach((k) => m.delete(k));
-    return m;
-  }, [configByKey, parentOf]);
-
-  const nodesByKey = useMemo(() => {
-    const m = new Map<string, schematic.Node>();
-    selectedNodes.forEach((n) => m.set(n.key, n));
-    return m;
-  }, [selectedNodes]);
+  const editableByKey = removeShielded(configByKey, parentOf);
+  const nodesByKey = new Map(selectedNodes.map((n) => [n.key, n]));
 
   const configActions = (
     updates: Iterable<[string, Schematic.ElementConfig]>,
@@ -227,8 +221,6 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     firstNodeLabel = cfg.label;
     if (firstNodeLabel != null) break;
   }
-
-  const theme = Theming.use();
 
   const selection = MultiEdit.selection({
     configs: editableByKey,
@@ -250,17 +242,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
       const pos = box.center(box.construct(el));
       const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
       const match = el.className.match(/react-flow__handle-(\w+)/);
-      if (match == null)
-        throw new Error(`[schematic] - cannot find handle orientation`);
+      if (match == null) throw new Error("Cannot find the handle orientation.");
       const orientation = location.outerZ.parse(match[1]);
       return new Diagram.HandleLayout(dist, orientation);
     });
   };
 
-  const getZoom = useCallback(
-    () => getViewport({ key: schematicKey }).zoom,
-    [schematicKey, getViewport],
-  );
+  const getZoom = () => getViewport({ key: schematicKey }).zoom;
 
   const getLayoutsForAlignment = () => {
     const zoom = getZoom();
@@ -283,7 +271,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
         } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
+          handleError(e, "Failed to align symbols");
         }
         return null;
       })
@@ -333,7 +321,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
         } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
+          handleError(e, "Failed to distribute symbols");
         }
         return null;
       })

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access } from "@synnaxlabs/client";
+import { access, ontology, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -17,12 +18,12 @@ import { Tree } from "@/platform/tree";
 
 const useDelete = Tree.createUseDelete({
   type: "Role",
-  query: Access.Role.useDelete,
+  useUpdate: Access.Role.useDelete,
   convertKey: String,
 });
 
 const useRename = Tree.createUseRename({
-  query: Access.Role.useRename,
+  useUpdate: Access.Role.useRename,
   ontologyID: access.role.ontologyID,
   convertKey: String,
 });
@@ -37,7 +38,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
-  const resources = state.getResource(ids);
+  const resources = Tree.useResources(state, ids);
   const hasInternal = resources.some((r) => r.data?.internal === true);
   return (
     <ContextMenu.Menu>
@@ -70,8 +71,14 @@ const TreeItem = Tree.createItem({
   ContextMenu: TreeContextMenu,
   hasChildren: true,
   canDrop: ({ items }) => {
-    const users = User.filterHaulItems(items);
-    return users.length === items.length && users.every(({ data }) => !data.rootUser);
+    const resources = PTree.filterHaulItems(items);
+    return (
+      resources.length > 0 &&
+      resources.every(
+        ({ key }) => ontology.parseID(key).type === user.TYPE_ONTOLOGY_ID.type,
+      ) &&
+      User.filterHaulItems(items).every(({ data }) => !data.rootUser)
+    );
   },
 });
 

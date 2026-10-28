@@ -7,18 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type CrudeTimeSpan, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { type PropsWithChildren, useState } from "react";
 import type z from "zod";
 
 import { context } from "@/context";
-import { useSyncedRef } from "@/hooks";
+import { useNow, useSyncedRef } from "@/hooks";
 import {
   type Adder,
   type AsyncErrorHandler,
@@ -50,12 +44,12 @@ const createHandlers = (add: Adder, log: Log): Handlers => ({
   async: createAsyncErrorHandler(add, log),
 });
 
+// Reads console.error at call time, so a test's replacement or a session recorder's
+// wrapper applies without new handlers.
+const printError: Log = (message) => console.error(message);
+
 const [HandlersContext, useHandlers] = context.create<Handlers>({
-  // Reads console.error at call time, so a test's replacement applies.
-  defaultValue: createHandlers(
-    () => {},
-    (message) => console.error(message),
-  ),
+  defaultValue: createHandlers(() => {}, printError),
   displayName: "Status.HandlersContext",
 });
 
@@ -76,16 +70,16 @@ const TRUNCATE_FACTOR = 0.9;
 export const Aggregator = ({
   children,
   maxHistory = 500,
-  log = console.error,
+  log = printError,
 }: AggregatorProps) => {
   const [statuses, setStatuses] = useState<Status[]>([]);
   if (statuses.length > maxHistory)
     setStatuses(statuses.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
-  const handleAdd: Adder = useCallback((spec) => {
+  const handleAdd: Adder = (spec) => {
     const stat = create(spec);
     setStatuses((prev) => [stat, ...prev.filter((s) => s.key != stat.key)]);
-  }, []);
-  const handlers = useMemo(() => createHandlers(handleAdd, log), [handleAdd, log]);
+  };
+  const handlers = createHandlers(handleAdd, log);
   return (
     <Context value={statuses}>
       <AdderContext value={handleAdd}>
@@ -99,7 +93,7 @@ export const Aggregator = ({
  * @returns a handler that turns a caught error into an error status on the enclosing
  * {@link Aggregator}. Use it in place of `console.error` in a UI path.
  *
- * @example handleError(err, "failed to save the range");
+ * @example handleError(err, "Failed to save range");
  */
 export const useErrorHandler = (): ErrorHandler => useHandlers().error;
 
@@ -121,6 +115,9 @@ export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> 
   silenceAll: () => void;
 }
 
+const identity = ({ variant, name, message, description }: Status): string =>
+  JSON.stringify([variant, name, message, description]);
+
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
 
@@ -128,6 +125,35 @@ interface UseNotificationsProps {
   expiration?: CrudeTimeSpan;
   poll?: CrudeTimeSpan;
 }
+
+// A `{}` default makes a new object on each call, so the compiler cannot cache the
+// values read from it.
+const NO_PROPS: UseNotificationsProps = {};
+
+const group = (
+  statuses: Status[],
+  threshold: TimeStamp,
+  silencedKeys: Set<string>,
+): NotificationSpec[] => {
+  const active = statuses.filter(
+    ({ key, time }) => time.afterEq(threshold) && !silencedKeys.has(key),
+  );
+  const grouped = active.reduce((acc, status) => {
+    const key = identity(status);
+    if (!acc.has(key)) {
+      acc.set(key, { ...status, count: 1 });
+      return acc;
+    }
+    const existing = acc.get(key)!;
+    acc.set(key, {
+      ...existing,
+      count: existing.count + 1,
+      time: status.time.after(existing.time) ? status.time : existing.time,
+    });
+    return acc;
+  }, new Map<string, NotificationSpec>());
+  return Array.from(grouped.values());
+};
 
 /**
  * @returns the statuses recent enough to show as notifications, with identical ones
@@ -137,69 +163,37 @@ interface UseNotificationsProps {
 export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
   poll = DEFAULT_EXPIRATION_POLL,
-}: UseNotificationsProps = {}): UseNotificationsReturn => {
+}: UseNotificationsProps = NO_PROPS): UseNotificationsReturn => {
   const statuses = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
-  const [now, setNow] = useState(() => TimeStamp.now());
-  const pollMs = new TimeSpan(poll).milliseconds;
-
-  useEffect(() => {
-    const interval = setInterval(() => setNow(TimeStamp.now()), pollMs);
-    return () => clearInterval(interval);
-  }, [pollMs]);
-
-  const filtered = useMemo(() => {
-    const threshold = now.sub(expiration);
-
-    const active = statuses.filter(
-      ({ key, time }) => time.afterEq(threshold) && !silencedKeys.has(key),
-    );
-
-    const grouped = active.reduce((acc, status) => {
-      const key = `${status.variant}:${status.message}:${status.name}`;
-      if (!acc.has(key)) {
-        acc.set(key, { ...status, count: 1 });
-        return acc;
-      }
-      const existing = acc.get(key)!;
-      acc.set(key, {
-        ...existing,
-        count: existing.count + 1,
-        time: status.time.after(existing.time) ? status.time : existing.time,
-      });
-      return acc;
-    }, new Map<string, NotificationSpec>());
-    return Array.from(grouped.values());
-  }, [statuses, expiration, silencedKeys, now]);
-
+  const now = useNow((now) => now.add(poll));
   const statusesRef = useSyncedRef(statuses);
 
-  const silence = useCallback((key: string) => {
+  const filtered = group(statuses, now.sub(expiration), silencedKeys);
+
+  const silence = (key: string) => {
     setSilencedKeys((prev) => {
       const next = new Set<string>();
       const existing = statusesRef.current.find(({ key: k }) => k === key);
       if (!prev.has(key)) next.add(key);
       if (existing != null) {
-        const silenced = statusesRef.current.filter(
-          ({ message, variant, name }) =>
-            message === existing.message &&
-            variant === existing.variant &&
-            name === existing.name,
-        );
-        silenced.forEach((status) => next.add(status.key));
+        const id = identity(existing);
+        statusesRef.current
+          .filter((status) => identity(status) === id)
+          .forEach((status) => next.add(status.key));
       }
       if (next.size == 0) return prev;
       return new Set([...next, ...prev]);
     });
-  }, []);
+  };
 
-  const silenceAll = useCallback(() => {
+  const silenceAll = () => {
     setSilencedKeys((prev) => {
       const next = new Set(prev);
       statusesRef.current.forEach(({ key }) => next.add(key));
       return next;
     });
-  }, []);
+  };
 
   return { statuses: filtered, silence, silenceAll };
 };

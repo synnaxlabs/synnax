@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package observe
+package observe_test
 
 import (
 	"testing"
@@ -19,7 +19,7 @@ import (
 
 func TestObserve(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Observe Suite")
+	RunSpecs(t, "Observe Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func() {

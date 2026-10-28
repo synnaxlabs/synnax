@@ -10,7 +10,6 @@
 import { type device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { primitive, unique } from "@synnaxlabs/x";
-import { useMemo } from "react";
 
 interface DeviceEntry {
   device: device.Key;
@@ -19,12 +18,8 @@ interface DeviceEntry {
 /** The distinct device keys the form's channel entries name, sorted. */
 export const useChannelDeviceKeys = (path = "config.channels"): device.Key[] => {
   const state = Form.useFieldState<DeviceEntry[]>(path, { optional: true });
-  return useMemo(
-    () =>
-      unique
-        .unique((state?.value ?? []).map(({ device }) => device))
-        .filter(primitive.isNonZero)
-        .sort(),
-    [state],
-  );
+  return unique
+    .unique((state?.value ?? []).map(({ device }) => device))
+    .filter(primitive.isNonZero)
+    .sort();
 };

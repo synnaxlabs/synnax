@@ -14,13 +14,12 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -38,9 +37,6 @@ type ServiceConfig struct {
 	Group *group.Service
 	// Signals is used to publish signals when views are created, updated, or deleted.
 	Signals *signals.Provider
-	// Search is the search index for fuzzy searching views.
-	// [REQUIRED]
-	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -52,7 +48,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -63,7 +58,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -74,6 +68,7 @@ type Service struct {
 	cfg    ServiceConfig
 	group  group.Group
 	table  *gorp.Table[Key, View]
+	search *gorp.SearchIndex[Key, View]
 	closer xio.MultiCloser
 }
 
@@ -81,7 +76,7 @@ type Service struct {
 // service is ready for use and must be closed by calling Close to prevent resource
 // leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	s = &Service{}
+	s = &Service{search: newSearchIndex()}
 	if s.cfg, err = config.New(ServiceConfig{}, cfgs...); err != nil {
 		return nil, err
 	}
@@ -99,13 +94,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
+		Indexes:         []gorp.Index[Key, View]{s.search},
 		Migrations:      versions.NewMigrations(s.cfg.Ontology),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
 	s.cfg.Ontology.RegisterService(s)
-	s.cfg.Search.RegisterService(s)
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
@@ -142,6 +137,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
-		search: s.cfg.Search,
+		search: s.search,
 	}
 }

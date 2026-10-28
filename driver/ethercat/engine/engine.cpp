@@ -8,362 +8,585 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cmath>
+#include <format>
+#include <numeric>
+#include <utility>
 
-#include "absl/log/check.h"
 #include "absl/log/log.h"
 
 #include "x/cpp/loop/loop.h"
 
+#include "driver/ethercat/engine/clock.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/errors/errors.h"
+#include "driver/ethercat/telem/telem.h"
 
 namespace driver::ethercat::engine {
-void Engine::run() {
-    LOG(INFO) << "[ethercat] engine started on " << this->master->interface_name();
-    const auto cycle_time = x::telem::TimeSpan(
-        this->cycle_time_ns.load(std::memory_order_acquire)
+namespace {
+/// @brief the slowest rate the bus cycles at, well inside the 100 ms sync manager
+/// watchdog most slaves default to.
+const x::telem::Rate MIN_CYCLE_RATE(100);
+/// @brief the fastest rate the bus cycles at.
+const x::telem::Rate MAX_CYCLE_RATE(10000);
+/// @brief how often the supervisor reads slave states.
+const auto SUPERVISOR_INTERVAL = x::telem::MILLISECOND * 100;
+/// @brief the length of the sample buffer of each reader, in seconds of samples.
+constexpr double BUFFER_SECONDS = 2;
+constexpr size_t MIN_BUFFER_SAMPLES = 16;
+
+uint64_t millihertz(const x::telem::Rate rate) {
+    return static_cast<uint64_t>(std::llround(rate.hz() * 1000));
+}
+
+/// @brief returns the slowest bus rate that is a multiple of every read rate, at least
+/// every write rate, and at least MIN_CYCLE_RATE.
+std::pair<x::telem::Rate, x::errors::Error> bus_rate(
+    const std::vector<x::telem::Rate> &reads,
+    const std::vector<x::telem::Rate> &writes,
+    const std::string &interface_name
+) {
+    const uint64_t max = millihertz(MAX_CYCLE_RATE);
+    uint64_t floor = millihertz(MIN_CYCLE_RATE);
+    for (const auto &rate: writes)
+        floor = std::max(floor, millihertz(rate));
+    if (floor > max)
+        return {
+            x::telem::Rate(0),
+            x::errors::Error(
+                errors::RATE_MISMATCH,
+                std::format(
+                    "a write task on {} runs at {} Hz, above the maximum bus rate of "
+                    "{} Hz",
+                    interface_name,
+                    static_cast<double>(floor) / 1000,
+                    MAX_CYCLE_RATE.hz()
+                )
+            )
+        };
+    uint64_t base = 1;
+    for (const auto &rate: reads) {
+        const auto mhz = millihertz(rate);
+        // Allow the rounding error of the float a Rate holds.
+        const double error = std::abs(rate.hz() * 1000 - static_cast<double>(mhz));
+        if (mhz == 0 || error > static_cast<double>(mhz) * 1e-6)
+            return {
+                x::telem::Rate(0),
+                x::errors::Error(
+                    errors::RATE_MISMATCH,
+                    std::format(
+                        "a read task on {} samples at {} Hz, but sample rates must be "
+                        "a positive multiple of 0.001 Hz",
+                        interface_name,
+                        rate.hz()
+                    )
+                )
+            };
+        base = std::lcm(base, mhz);
+        if (base > max) break;
+    }
+    const uint64_t rate = (floor + base - 1) / base * base;
+    if (rate <= max) return {x::telem::Rate(static_cast<double>(rate) / 1000), {}};
+    std::string rates;
+    for (const auto &r: reads)
+        rates += (rates.empty() ? "" : ", ") + std::format("{} Hz", r.hz());
+    return {
+        x::telem::Rate(0),
+        x::errors::Error(
+            errors::RATE_MISMATCH,
+            std::format(
+                "no bus rate at or below {} Hz on {} is a multiple of every read task "
+                "sample rate ({}). Choose sample rates with a smaller common multiple.",
+                MAX_CYCLE_RATE.hz(),
+                interface_name,
+                rates
+            )
+        )
+    };
+}
+
+/// @brief looks up the offset of each entry in a process image of the given size.
+std::pair<std::vector<pdo::Offset>, x::errors::Error> resolve_offsets(
+    const master::Master &master,
+    const std::vector<pdo::Entry> &entries,
+    const size_t image_size
+) {
+    std::vector<pdo::Offset> offsets;
+    offsets.reserve(entries.size());
+    for (const auto &entry: entries) {
+        const auto [offset, err] = master.pdo_offset(entry);
+        if (err) return {{}, err};
+        if (offset.byte + telem::pdo_required_bytes(offset.bit, entry.bit_length) >
+            image_size)
+            return {
+                {},
+                x::errors::Error(
+                    errors::PDO_MAPPING_ERROR,
+                    std::format(
+                        "PDO {} on slave {} lies outside the process image",
+                        telem::format_index_sub_index(entry.index, entry.sub_index),
+                        entry.slave_position
+                    )
+                )
+            };
+        offsets.push_back(offset);
+    }
+    return {offsets, x::errors::NIL};
+}
+}
+
+Engine::Input::Input(
+    std::vector<pdo::Entry> entries,
+    std::vector<pdo::Offset> offsets,
+    const x::telem::Rate rate,
+    const size_t samples_per_read
+):
+    entries(std::move(entries)),
+    rate(rate),
+    samples_per_read(samples_per_read),
+    offsets(std::move(offsets)) {
+    for (size_t i = 0; i < this->entries.size(); ++i) {
+        const auto length = telem::pdo_required_bytes(
+            this->offsets[i].bit,
+            this->entries[i].bit_length
+        );
+        this->sample_offsets.push_back(this->sample_size);
+        this->lengths.push_back(length);
+        this->sample_size += length;
+    }
+    this->capacity = std::max(
+        {this->samples_per_read * 4,
+         static_cast<size_t>(std::ceil(this->rate.hz() * BUFFER_SECONDS)),
+         MIN_BUFFER_SAMPLES}
     );
+    this->samples = std::make_unique<uint8_t[]>(this->capacity * this->sample_size);
+    this->times = std::make_unique<x::telem::TimeStamp[]>(this->capacity);
+}
+
+void Engine::Input::push(const uint8_t *image, const x::telem::TimeStamp time) {
+    const uint64_t h = this->head.load(std::memory_order_relaxed);
+    if (h - this->tail.load(std::memory_order_acquire) >= this->capacity) {
+        this->overflowed_samples.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+    const size_t slot = h % this->capacity;
+    uint8_t *sample = this->samples.get() + slot * this->sample_size;
+    for (size_t i = 0; i < this->entries.size(); ++i)
+        std::memcpy(
+            sample + this->sample_offsets[i],
+            image + this->offsets[i].byte,
+            this->lengths[i]
+        );
+    this->times[slot] = time;
+    // Pairs with the reader's store of waiting, so one of the two sees the other.
+    this->head.store(h + 1, std::memory_order_seq_cst);
+    if (this->waiting.load(std::memory_order_seq_cst) &&
+        h + 1 - this->tail.load(std::memory_order_acquire) >= this->samples_per_read) {
+        std::lock_guard lock(this->mu);
+        this->cv.notify_one();
+    }
+}
+
+void Engine::apply_rt(const x::telem::TimeSpan period) const {
     if (this->config.rt_handle) {
         this->config.rt_handle->apply();
-    } else {
-        x::thread::rt::Config rt_cfg = this->config.rt;
-        if (rt_cfg.enabled && !rt_cfg.has_timing()) {
-            rt_cfg.period = cycle_time;
-            rt_cfg.computation = cycle_time * 0.2;
-            rt_cfg.deadline = cycle_time * 0.8;
-        }
-        x::thread::rt::apply_config(rt_cfg);
+        return;
     }
-    x::loop::Timer timer(cycle_time);
+    x::thread::rt::Config rt_cfg = this->config.rt;
+    if (rt_cfg.enabled && !rt_cfg.has_timing()) {
+        rt_cfg.period = period;
+        rt_cfg.computation = period * 0.2;
+        rt_cfg.deadline = period * 0.8;
+    }
+    x::thread::rt::apply_config(rt_cfg);
+}
 
-    // Track error state to avoid log spam - only log on state transitions
-    bool had_receive_error = false;
-    bool had_send_error = false;
-    uint64_t receive_error_count = 0;
-    uint64_t send_error_count = 0;
+void Engine::run() {
+    const auto iface = this->master->interface_name();
+    std::shared_ptr<const Schedule> sched;
+    uint64_t version = 0;
+    x::loop::Timer timer;
+    uint64_t receive_failures = 0;
+    uint64_t send_failures = 0;
+    x::telem::TimeStamp sent_at{};
+    Clock clock;
 
-    while (this->breaker.running()) {
-        if (auto err = this->master->receive(); err) {
-            receive_error_count++;
-            if (!had_receive_error) {
-                LOG(WARNING) << "[ethercat] receive error: " << err.message();
-                had_receive_error = true;
-            }
-        } else if (had_receive_error) {
-            LOG(INFO) << "[ethercat] receive recovered after " << receive_error_count
-                      << " errors";
-            had_receive_error = false;
-            receive_error_count = 0;
-        }
-
-        this->publish_inputs(this->master->input_data());
-        size_t output_len = 0;
-        const uint8_t *output_data = this->consume_outputs(output_len);
-        auto outputs = this->master->output_data();
-        if (!outputs.empty() && output_len > 0)
-            std::memcpy(
-                outputs.data(),
-                output_data,
-                std::min(output_len, outputs.size())
-            );
-
+    const auto send = [&] {
+        sent_at = x::telem::TimeStamp::now();
         if (auto err = this->master->send(); err) {
-            send_error_count++;
-            if (!had_send_error) {
-                LOG(WARNING) << "[ethercat] send error: " << err.message();
-                had_send_error = true;
-            }
-        } else if (had_send_error) {
-            LOG(INFO) << "[ethercat] send recovered after " << send_error_count
-                      << " errors";
-            had_send_error = false;
-            send_error_count = 0;
+            if (send_failures++ == 0)
+                LOG(WARNING) << "[ethercat] send failed on " << iface << ": "
+                             << err.message();
+        } else if (send_failures > 0) {
+            LOG(INFO) << "[ethercat] send recovered on " << iface << " after "
+                      << send_failures << " failures";
+            send_failures = 0;
         }
+    };
 
+    this->write_outputs();
+    send();
+    while (true) {
+        if (this->schedule_version.load(std::memory_order_acquire) != version) {
+            const auto prev = sched == nullptr ? x::telem::Rate(0) : sched->rate;
+            {
+                std::lock_guard lock(this->schedule_mu);
+                this->retired = std::move(sched);
+                sched = this->schedule;
+                version = this->schedule_version.load(std::memory_order_relaxed);
+            }
+            if (sched->rate != prev) {
+                LOG(INFO) << "[ethercat] bus on " << iface << " cycles at "
+                          << sched->rate;
+                this->apply_rt(sched->rate.period());
+                timer = x::loop::Timer(sched->rate.period());
+                // Moves each reader's next sample to the first cycle at or after the
+                // time it was due.
+                if (prev > x::telem::Rate(0))
+                    for (const auto &entry: sched->inputs) {
+                        auto &countdown = entry.first->countdown;
+                        countdown = (countdown * millihertz(sched->rate) +
+                                     millihertz(prev) - 1) /
+                                    millihertz(prev);
+                    }
+            }
+        }
         auto [elapsed, on_time] = timer.wait();
+        if (!this->bus.running()) break;
         if (!on_time && this->config.max_overrun.nanoseconds() > 0)
             VLOG(1) << "[ethercat] cycle overrun: " << elapsed;
+
+        // The slaves latched these inputs when the previous cycle's frame passed.
+        auto latched_at = sent_at;
+        const auto err = this->master->receive();
+        if (err) {
+            if (receive_failures++ == 0) {
+                LOG(WARNING) << "[ethercat] cycle failed on " << iface << ": "
+                             << err.message();
+                std::lock_guard lock(this->cycle_err_mu);
+                this->cycle_err = err;
+            }
+        } else {
+            if (const auto dc = this->master->dc_time())
+                latched_at = clock.map(*dc, sent_at);
+            if (receive_failures > 0) {
+                LOG(INFO) << "[ethercat] cycles recovered on " << iface << " after "
+                          << receive_failures << " failures";
+                receive_failures = 0;
+            }
+        }
+        const uint8_t *image = this->master->input_data().data();
+        for (const auto &[input, decimation]: sched->inputs) {
+            if (input->countdown > 0) {
+                input->countdown--;
+                continue;
+            }
+            input->countdown = decimation - 1;
+            if (err)
+                input->failed_samples.fetch_add(1, std::memory_order_relaxed);
+            else
+                input->push(image, latched_at);
+        }
+
+        this->write_outputs();
+        send();
     }
-
-    if (had_receive_error)
-        LOG(WARNING) << "[ethercat] engine stopped with " << receive_error_count
-                     << " consecutive receive errors";
-    if (had_send_error)
-        LOG(WARNING) << "[ethercat] engine stopped with " << send_error_count
-                     << " consecutive send errors";
-
-    LOG(INFO) << "[ethercat] engine stopped";
+    // Sends the zeroed outputs of the last writer to close before the slaves leave OP.
+    this->write_outputs();
+    send();
+    if (const auto err = this->master->receive())
+        LOG(WARNING) << "[ethercat] last cycle failed on " << iface << ": "
+                     << err.message();
+    LOG(INFO) << "[ethercat] bus stopped on " << iface;
 }
 
-void Engine::stop() {
-    if (!this->breaker.running()) return;
-    this->breaker.stop();
-    this->read_cv.notify_all();
-    if (this->run_thread.joinable()) this->run_thread.join();
-    this->master->deactivate();
+void Engine::supervise() {
+    const auto iface = this->master->interface_name();
+    std::vector<slave::Health> last;
+    while (this->bus.running()) {
+        auto health = this->master->check(this->bus);
+        for (const auto &h: health) {
+            const auto prev = std::ranges::find(
+                last,
+                h.position,
+                &slave::Health::position
+            );
+            const bool was_operational = prev == last.end() || prev->operational();
+            if (was_operational && !h.operational())
+                LOG(WARNING) << "[ethercat] slave " << h.position << " on " << iface
+                             << " left OP: " << h.to_string();
+            else if (!was_operational && h.operational())
+                LOG(INFO) << "[ethercat] slave " << h.position << " on " << iface
+                          << " returned to OP";
+            else if (!h.operational() && *prev != h)
+                LOG(WARNING) << "[ethercat] slave " << h.position << " on " << iface
+                             << ": " << h.to_string();
+        }
+        {
+            std::lock_guard health_lock(this->health_mu);
+            this->slave_health = health;
+        }
+        last = std::move(health);
+        this->bus.wait_for(SUPERVISOR_INTERVAL);
+    }
 }
 
-x::errors::Error Engine::reconfigure() {
-    std::scoped_lock lk(this->registration_mu, this->write_mu);
-
-    if (this->breaker.running()) {
-        LOG(INFO) << "[ethercat] restarting engine " + this->master->interface_name() +
-                         " for reconfiguration";
-        this->restarting = true;
-        this->read_cv.notify_all();
-        this->breaker.stop();
-        if (this->run_thread.joinable()) this->run_thread.join();
-        this->master->deactivate();
-    }
-
-    std::vector<pdo::Entry> all_entries;
-    for (const auto &reg: this->read_registrations)
-        all_entries.insert(all_entries.end(), reg->entries.begin(), reg->entries.end());
-    for (const auto &reg: this->write_registrations)
-        all_entries.insert(all_entries.end(), reg->entries.begin(), reg->entries.end());
-
-    this->breaker.start();
-    while (this->breaker.running()) {
-        if (auto err = this->master->initialize(); err) {
-            if (!this->breaker.wait(err)) {
-                this->restarting = false;
-                this->breaker.reset();
-                return err;
-            }
-            continue;
-        }
-        if (auto err = this->master->register_pdos(all_entries); err) {
+x::errors::Error Engine::start_locked(const x::telem::Rate rate) {
+    x::breaker::Breaker retry(this->config.start_retry);
+    retry.start();
+    while (true) {
+        auto err = this->master->initialize();
+        if (!err) {
+            err = this->master->activate();
+            if (!err) break;
             this->master->deactivate();
-            if (!this->breaker.wait(err)) {
-                this->restarting = false;
-                this->breaker.reset();
-                return err;
-            }
-            continue;
         }
-        if (auto err = this->master->activate(); err) {
-            this->master->deactivate();
-            if (!this->breaker.wait(err)) {
-                this->restarting = false;
-                this->breaker.reset();
-                return err;
-            }
-            continue;
+        if (!retry.wait(err)) {
+            retry.stop();
+            return err;
         }
-        break;
     }
-
-    this->breaker.reset();
-    this->config_gen.fetch_add(1, std::memory_order_release);
-    this->update_read_offsets_locked();
-    this->update_write_offsets_locked(this->master->output_data().size());
-    this->restarting = false;
-    this->breaker.start();
-    this->run_thread = std::thread(&Engine::run, this);
+    retry.stop();
+    {
+        std::lock_guard lock(this->write_mu);
+        const auto size = this->master->output_data().size();
+        this->write_staging.assign(size, 0);
+        this->write_active.assign(size, 0);
+    }
+    this->publish_schedule_locked(rate);
+    this->bus.start();
+    this->cycle_thread = std::thread(&Engine::run, this);
+    this->supervisor_thread = std::thread(&Engine::supervise, this);
     return x::errors::NIL;
 }
 
-bool Engine::should_be_running() const {
-    std::scoped_lock lk(this->registration_mu, this->write_mu);
-    return !this->read_registrations.empty() || !this->write_registrations.empty();
-}
-
-void Engine::update_cycle_time() {
-    x::telem::Rate max_rate(0);
+void Engine::stop_locked() {
+    if (!this->bus.stop()) return;
+    this->cycle_thread.join();
+    this->supervisor_thread.join();
+    this->master->deactivate();
+    this->cycle_hz.store(0, std::memory_order_release);
     {
-        std::lock_guard lock(this->registration_mu);
-        for (const auto &reg: this->read_registrations)
-            if (reg->rate > max_rate) max_rate = reg->rate;
+        std::lock_guard lock(this->schedule_mu);
+        this->schedule.reset();
+        this->retired.reset();
     }
+    std::lock_guard lock(this->health_mu);
+    this->slave_health.clear();
+}
+
+std::vector<x::telem::Rate> Engine::read_rates_locked() const {
+    std::vector<x::telem::Rate> rates;
+    rates.reserve(this->inputs.size());
+    for (const auto &input: this->inputs)
+        rates.push_back(input->rate);
+    return rates;
+}
+
+std::vector<x::telem::Rate> Engine::write_rates_locked() const {
+    std::vector<x::telem::Rate> rates;
+    rates.reserve(this->outputs.size());
+    for (const auto &output: this->outputs)
+        rates.push_back(output->rate);
+    return rates;
+}
+
+void Engine::publish_schedule_locked(const x::telem::Rate rate) {
+    auto next = std::make_shared<Schedule>();
+    next->rate = rate;
+    for (const auto &input: this->inputs)
+        next->inputs.emplace_back(input, millihertz(rate) / millihertz(input->rate));
+    std::shared_ptr<const Schedule> retired;
     {
-        std::lock_guard lock(this->write_mu);
-        for (const auto &reg: this->write_registrations)
-            if (reg->rate > max_rate) max_rate = reg->rate;
+        std::lock_guard lock(this->schedule_mu);
+        retired = std::move(this->retired);
+        this->schedule = std::move(next);
+        this->schedule_version.fetch_add(1, std::memory_order_release);
     }
-    if (max_rate.hz() > 0)
-        this->cycle_time_ns.store(
-            max_rate.period().nanoseconds(),
-            std::memory_order_release
-        );
+    this->cycle_hz.store(rate.hz(), std::memory_order_release);
 }
 
-x::telem::Rate Engine::cycle_rate() const {
-    const auto ns = this->cycle_time_ns.load(std::memory_order_acquire);
-    return x::telem::Rate(x::telem::TimeSpan(ns));
-}
-
-void Engine::publish_inputs(const std::span<const uint8_t> src) {
-    uint8_t *ptr = this->shared_input_ptr.load(std::memory_order_acquire);
-    const size_t sz = this->shared_input_size.load(std::memory_order_acquire);
-    DCHECK_EQ(src.size(), sz);
-    const size_t n = std::min(src.size(), sz);
-    this->read_seq.seq.fetch_add(1, std::memory_order_release);
-    std::memcpy(ptr, src.data(), n);
-    this->read_seq.seq.fetch_add(1, std::memory_order_release);
-    this->read_epoch.epoch.fetch_add(1, std::memory_order_release);
-    this->read_cv.notify_all();
-}
-
-const uint8_t *Engine::consume_outputs(size_t &out_len) {
-    std::unique_lock lock(this->write_mu, std::try_to_lock);
-    if (lock.owns_lock()) {
-        if (this->write_active.size() != this->write_staging.size())
-            this->write_active.resize(this->write_staging.size());
-        std::memcpy(
-            this->write_active.data(),
-            this->write_staging.data(),
-            this->write_staging.size()
-        );
+void Engine::reschedule_locked() {
+    if (this->inputs.empty() && this->outputs.empty()) {
+        this->stop_locked();
+        return;
     }
-    out_len = this->write_active.size();
-    return this->write_active.data();
+    // Rates that had a bus rate keep one when a task leaves.
+    const auto rate = bus_rate(
+        this->read_rates_locked(),
+        this->write_rates_locked(),
+        this->master->interface_name()
+    );
+    this->publish_schedule_locked(rate.first);
 }
 
-void Engine::update_read_offsets_locked() {
-    const auto input = this->master->input_data();
-    const size_t input_size = input.size();
-    auto new_buf = std::make_unique<uint8_t[]>(input_size);
-    if (input_size > 0) std::memcpy(new_buf.get(), input.data(), input_size);
-    this->read_seq.seq.fetch_add(1, std::memory_order_release);
-    this->shared_input_ptr.store(new_buf.get(), std::memory_order_release);
-    this->shared_input_size.store(input_size, std::memory_order_release);
-    this->read_seq.seq.fetch_add(1, std::memory_order_release);
-    this->shared_input_prev = std::move(this->shared_input_current);
-    this->shared_input_current = std::move(new_buf);
-    for (auto &reg: this->read_registrations) {
-        reg->offsets.clear();
-        for (const auto &entry: reg->entries)
-            reg->offsets.push_back(this->master->pdo_offset(entry));
-    }
-}
-
-void Engine::update_read_offsets() {
-    std::lock_guard lock(this->registration_mu);
-    this->update_read_offsets_locked();
-}
-
-void Engine::update_write_offsets_locked(const size_t total_size) {
-    for (auto &reg: this->write_registrations) {
-        reg->offsets.clear();
-        for (const auto &entry: reg->entries)
-            reg->offsets.push_back(this->master->pdo_offset(entry));
-    }
-    const std::vector<uint8_t> old_staging = std::move(this->write_staging);
-    this->write_staging.resize(total_size, 0);
-    this->write_active.resize(total_size, 0);
+void Engine::write_outputs() {
+    if (std::unique_lock lock(this->write_mu, std::try_to_lock); lock.owns_lock())
+        this->write_active = this->write_staging;
+    const auto outputs = this->master->output_data();
     std::memcpy(
-        this->write_staging.data(),
-        old_staging.data(),
-        std::min(old_staging.size(), this->write_staging.size())
+        outputs.data(),
+        this->write_active.data(),
+        std::min(outputs.size(), this->write_active.size())
     );
 }
 
-void Engine::update_write_offsets(const size_t total_size) {
-    std::lock_guard lock(this->write_mu);
-    this->update_write_offsets_locked(total_size);
-}
-
-void Engine::unregister_reader(const size_t id) {
-    {
-        std::lock_guard lock(this->registration_mu);
-        std::erase_if(
-            this->read_registrations,
-            [id](const std::shared_ptr<Registration> &r) { return r->id == id; }
+void Engine::rebuild_outputs_locked() {
+    struct Applied {
+        const pdo::Entry *entry;
+        pdo::Offset offset;
+        const Command *command;
+    };
+    std::vector<Applied> applied;
+    for (const auto &output: this->outputs)
+        for (size_t i = 0; i < output->entries.size(); ++i)
+            if (const auto &command = output->commands[i]; command.has_value())
+                applied.push_back({&output->entries[i], output->offsets[i], &*command});
+    // Two writers can command the same output, so the latest command must land last.
+    std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
+    std::ranges::fill(this->write_staging, 0);
+    for (const auto &[entry, offset, command]: applied)
+        telem::write_pdo_from_value(
+            this->write_staging.data() + offset.byte,
+            offset.bit,
+            entry->bit_length,
+            entry->data_type,
+            command->value
         );
-    }
-    this->update_cycle_time();
-    if (!this->should_be_running()) this->stop();
 }
 
-void Engine::unregister_writer(const size_t id) {
+x::errors::Error Engine::cycle_error() const {
+    std::lock_guard lock(this->cycle_err_mu);
+    return this->cycle_err;
+}
+
+void Engine::close_input(const std::shared_ptr<Input> &input) {
+    std::lock_guard lock(this->mu);
+    std::erase(this->inputs, input);
+    this->reschedule_locked();
+}
+
+void Engine::close_output(const std::shared_ptr<Output> &output) {
+    std::lock_guard lock(this->mu);
     {
-        std::lock_guard lock(this->write_mu);
-        std::erase_if(
-            this->write_registrations,
-            [id](const std::shared_ptr<Registration> &r) { return r->id == id; }
-        );
+        std::lock_guard write_lock(this->write_mu);
+        std::erase(this->outputs, output);
+        this->rebuild_outputs_locked();
     }
-    this->update_cycle_time();
-    if (!this->should_be_running()) this->stop();
+    this->reschedule_locked();
 }
 
-Engine::Engine(std::shared_ptr<master::Master> master, const Config &config):
-    config(config),
-    breaker(
-        x::breaker::Config{
-            .name = "ethercat_engine",
-            .base_interval = x::telem::MILLISECOND * 100,
-            .max_retries = 10,
-            .scale = 1.5f,
-            .max_interval = x::telem::SECOND * 5
-        }
-    ),
-    master(std::move(master)) {}
+Engine::Engine(std::shared_ptr<master::Master> master, Config config):
+    config(std::move(config)), master(std::move(master)) {}
 
 Engine::Engine(std::shared_ptr<master::Master> master):
     Engine(std::move(master), Config{}) {}
 
 Engine::~Engine() {
-    this->stop();
+    std::lock_guard lock(this->mu);
+    this->stop_locked();
 }
 
 std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader(
     const std::vector<pdo::Entry> &entries,
-    const x::telem::Rate sample_rate
+    const x::telem::Rate sample_rate,
+    const size_t samples_per_read
 ) {
-    size_t total_size = 0;
-    for (const auto &e: entries)
-        total_size += e.byte_length();
-
-    const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
-    auto reg = std::make_shared<Registration>(
-        Registration{reg_id, entries, {}, sample_rate}
+    std::lock_guard lock(this->mu);
+    auto reads = this->read_rates_locked();
+    reads.push_back(sample_rate);
+    const auto [rate, rate_err] = bus_rate(
+        reads,
+        this->write_rates_locked(),
+        this->master->interface_name()
     );
-    {
-        std::lock_guard lock(this->registration_mu);
-        this->read_registrations.push_back(reg);
-    }
-    this->update_cycle_time();
-
-    if (auto err = this->reconfigure(); err) {
-        this->unregister_reader(reg_id);
+    if (rate_err) return {nullptr, rate_err};
+    const bool started = !this->running();
+    if (started)
+        if (auto err = this->start_locked(rate); err) return {nullptr, err};
+    auto [offsets, err] = resolve_offsets(
+        *this->master,
+        entries,
+        this->master->input_data().size()
+    );
+    if (err) {
+        if (started) this->stop_locked();
         return {nullptr, err};
     }
-
-    return {
-        std::make_unique<Reader>(*this, reg_id, total_size, std::move(reg)),
-        x::errors::NIL
-    };
+    auto input = std::make_shared<Input>(
+        entries,
+        std::move(offsets),
+        sample_rate,
+        samples_per_read
+    );
+    this->inputs.push_back(input);
+    this->publish_schedule_locked(rate);
+    return {std::make_unique<Reader>(*this, std::move(input)), x::errors::NIL};
 }
 
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
     const std::vector<pdo::Entry> &entries,
     const x::telem::Rate execution_rate
 ) {
-    const size_t reg_id = this->next_id.fetch_add(1, std::memory_order_relaxed);
-    auto reg = std::make_shared<Registration>(
-        Registration{reg_id, entries, {}, execution_rate}
+    std::lock_guard lock(this->mu);
+    auto writes = this->write_rates_locked();
+    writes.push_back(execution_rate);
+    const auto [rate, rate_err] = bus_rate(
+        this->read_rates_locked(),
+        writes,
+        this->master->interface_name()
     );
-    {
-        std::lock_guard lock(this->write_mu);
-        this->write_registrations.push_back(reg);
-    }
-    this->update_cycle_time();
-
-    if (auto err = this->reconfigure(); err) {
-        this->unregister_writer(reg_id);
+    if (rate_err) return {nullptr, rate_err};
+    const bool started = !this->running();
+    if (started)
+        if (auto err = this->start_locked(rate); err) return {nullptr, err};
+    auto [offsets, err] = resolve_offsets(
+        *this->master,
+        entries,
+        this->master->output_data().size()
+    );
+    if (err) {
+        if (started) this->stop_locked();
         return {nullptr, err};
     }
-
-    return {std::make_unique<Writer>(*this, reg_id, std::move(reg)), x::errors::NIL};
+    auto output = std::make_shared<Output>(Output{
+        .entries = entries,
+        .rate = execution_rate,
+        .offsets = std::move(offsets),
+        .commands = std::vector<std::optional<Command>>(entries.size()),
+    });
+    this->outputs.push_back(output);
+    this->publish_schedule_locked(rate);
+    return {std::make_unique<Writer>(*this, std::move(output)), x::errors::NIL};
 }
 
-x::errors::Error Engine::ensure_initialized() const {
-    std::lock_guard lock(this->master_init_mu);
+x::telem::Rate Engine::cycle_rate() const {
+    return x::telem::Rate(this->cycle_hz.load(std::memory_order_acquire));
+}
+
+x::errors::Error Engine::ensure_initialized() {
+    std::lock_guard lock(this->mu);
+    if (this->running()) return x::errors::NIL;
+    if (auto err = this->master->initialize()) return err;
+    const auto [count, err] = this->master->count_slaves();
+    if (err) return err;
+    const auto discovered = this->master->slaves().size();
+    if (count == discovered) return x::errors::NIL;
+    LOG(INFO) << "[ethercat] " << count << " slaves answer on "
+              << this->master->interface_name() << " where " << discovered
+              << " were discovered, rediscovering";
+    this->master->deactivate();
     return this->master->initialize();
 }
 
 std::vector<slave::DiscoveryResult> Engine::slaves() const {
+    std::lock_guard lock(this->mu);
     return this->master->slaves();
+}
+
+std::vector<slave::Health> Engine::health() const {
+    std::lock_guard lock(this->health_mu);
+    return this->slave_health;
 }
 
 std::string Engine::interface_name() const {

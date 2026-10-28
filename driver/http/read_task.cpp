@@ -9,6 +9,7 @@
 
 #include <limits>
 #include <set>
+#include <utility>
 
 #include "client/cpp/http/json.gen.h"
 #include "x/cpp/strings/strings.h"
@@ -100,7 +101,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
     for (const auto &ch: sy_channels)
         cfg.channels[ch.key] = ch;
 
-    for (int ei = 0; ei < static_cast<int>(cfg.endpoints.size()); ei++) {
+    for (int ei = 0; std::cmp_less(ei, cfg.endpoints.size()); ei++) {
         for (const auto &field: cfg.endpoints[ei].fields) {
             if (field.disabled) continue;
             auto it = cfg.channels.find(field.channel);
@@ -128,7 +129,7 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
 
             if (ch.index == 0) continue;
             const auto idx_key = ch.index;
-            if (enabled_field_keys.count(idx_key)) continue;
+            if (enabled_field_keys.contains(idx_key)) continue;
             auto [existing, inserted] = cfg.software_timed_indexes.try_emplace(
                 idx_key,
                 ei
@@ -196,9 +197,9 @@ ReadTaskSource::ReadTaskSource(
             if (inserted)
                 this->groups.push_back({
                     .index_key = idx_key,
-                    .software_timed_index = this->cfg.software_timed_indexes.count(
-                                                idx_key
-                                            ) > 0,
+                    .software_timed_index = this->cfg.software_timed_indexes.contains(
+                        idx_key
+                    ),
                     .endpoint_index = ei,
                     .fields = {std::move(gf)},
                 });
@@ -272,8 +273,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             const auto &req = requests[ei];
             auto msg = std::string(to_string(req.method)) + " " + req.url +
                        " returned " + std::to_string(resp.status_code);
-            if (!resp.body.empty())
-                msg += ": " + x::strings::escape_line_breaks(resp.body);
+            if (!resp.body.empty()) msg += ": " + resp.body_excerpt();
             warnings.push_back(msg);
             continue;
         }
@@ -283,13 +283,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             ep_parsed[ei] = true;
         } catch (const x::json::json::parse_error &e) {
             warnings.push_back(
-                "failed to parse response from " + ep.path + ": " + e.what()
+                "Failed to parse response from " + ep.path + ": " + e.what()
             );
         }
     }
     if (skipped > 0)
         warnings.push_back(
-            std::to_string(skipped) + " requests not sent, the device was unreachable"
+            "The device was unreachable, so the Driver did not send " +
+            std::to_string(skipped) + " requests"
         );
     // An error, not a warning, so the pipeline breaker backs off from a device that
     // rejects every request. Always temporary: a 401 during a token refresh or a 404
@@ -303,15 +304,16 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         );
         return res;
     }
+    std::string overrun;
     if (failed == 0 && skipped == 0 && !this->requests.empty() &&
         this->requests.size() > this->requests.front().max_concurrent_requests &&
         tick > this->cfg.rate.period())
-        warnings.push_back(
-            std::to_string(this->requests.size()) + " endpoints (polled " +
-            std::to_string(this->requests.front().max_concurrent_requests) +
-            " at a time) overran the period. Lower the rate or raise the max "
-            "concurrent requests in the device properties."
-        );
+        overrun = "Polling " + std::to_string(this->requests.size()) + " endpoints " +
+                  std::to_string(this->requests.front().max_concurrent_requests) +
+                  " at a time takes longer than the " +
+                  this->cfg.rate.period().to_string() +
+                  " read period. Lower the rate or raise the max concurrent "
+                  "requests in the device properties.";
 
     // Process each sampling group atomically: either all fields in the group succeed
     // and are written to the frame, or the entire group is skipped.
@@ -332,7 +334,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             x::telem::SampleValue sample_val;
             std::string warning;
             if (!body.contains(field.pointer))
-                warning = "field " + field.pointer.to_string() +
+                warning = "Field " + field.pointer.to_string() +
                           " not found in response from " + ep.path;
             else {
                 auto tf = x::json::TimeFormat::ISO8601;
@@ -346,8 +348,8 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
                     enum_ptr
                 );
                 if (conv_err)
-                    warning = "failed to convert " + field.pointer.to_string() +
-                              " for channel " + ch.name + ": " + conv_err.message();
+                    warning = "Failed to convert " + field.pointer.to_string() +
+                              " for channel " + ch.name + ": " + conv_err.data;
                 else
                     sample_val = std::move(val);
             }
@@ -382,7 +384,14 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
     }
 
-    if (!warnings.empty()) res.warning = x::strings::join(warnings, "; ");
+    if (!warnings.empty()) {
+        if (!overrun.empty()) warnings.push_back(overrun);
+        res.warning = {
+            .message = "Failed to read some data",
+            .description = x::strings::join(warnings, "; "),
+        };
+    } else if (!overrun.empty())
+        res.warning = {.message = "Falling behind poll rate", .description = overrun};
     return res;
 }
 

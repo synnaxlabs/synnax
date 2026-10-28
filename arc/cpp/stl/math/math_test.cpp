@@ -12,7 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/mem/local_shared.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -127,7 +127,7 @@ private:
             reset_input.name = "reset";
             reset_input.type = types::Type{.kind = types::Kind::Bool};
             target_node.inputs.push_back(reset_input);
-            ir.nodes[1] = target_node;
+            ir.nodes[1] = std::move(target_node);
 
             ir::Edge reset_edge;
             reset_edge.source = ir::Handle("reset_signal", ir::default_output_param);

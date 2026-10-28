@@ -211,6 +211,8 @@ th,
     --pluto-height-small: 4rem;
     --pluto-height-huge: 8rem;
     --pluto-height-tiny: 3.5rem;
+    --pluto-field-gap: 3rem;
+    --pluto-section-gap: 4rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
         color 0.15s ease-in-out, fill 0.15s ease-in-out, opacity 0.15s ease-in-out,
@@ -241,6 +243,10 @@ th,
     /* low cutoff: only near-pure greys snap; muddy darks already read as near-black */
     --pluto-symbol-c-thresh: 0.05;
 
+    /* icons sit on fills up to gray-l5, so pale colors darken further to hold 3:1 */
+    --pluto-symbol-icon-l-min: 0;
+    --pluto-symbol-icon-l-max: 0.52;
+
     /* The elevation ladder: lift sits in the layout, overlay floats above it, modal
        covers it behind a scrim. Every rung is defined in both themes, since an
        undefined one computes to no shadow. Rings, inset fills, and glows are not
@@ -267,6 +273,10 @@ th,
 
     /* higher than light so muddy darks (invisible on the dark bg) also snap to white */
     --pluto-symbol-c-thresh: 0.09;
+
+    /* icons sit on fills up to gray-l5, so dark colors lift further to hold 3:1 */
+    --pluto-symbol-icon-l-min: 0.65;
+    --pluto-symbol-icon-l-max: 1;
 
     /* Restated at higher density: a shadow needs more weight to read against a dark
        surface. */
@@ -321,6 +331,11 @@ th,
 
     /* Inherited, so descendants pick up the display color per shape. */
     stroke: var(--pluto-symbol-display);
+}
+
+.pluto-symbol-colored--icon {
+    --pluto-symbol-l-min: var(--pluto-symbol-icon-l-min);
+    --pluto-symbol-l-max: var(--pluto-symbol-icon-l-max);
 }
 
 html {

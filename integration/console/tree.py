@@ -21,14 +21,14 @@ from console.context_menu import ContextMenu
 if TYPE_CHECKING:
     from console.layout import LayoutClient
 
-CONTAINER = ".pluto-tree"
-VIRTUALIZER = ".pluto-list__virtualizer"
-SCROLL_STEP = 200
+_CONTAINER = ".pluto-tree"
+_VIRTUALIZER = ".pluto-list__virtualizer"
+_SCROLL_STEP = 200
 # Rows for a new offset mount on a later frame, and a page the tree has not fetched
 # yet needs a round-trip.
-SCROLL_SETTLE_MS = 150
-POLL_MS = 100
-DEFAULT_TIMEOUT_MS = 5000
+_SCROLL_SETTLE_MS = 150
+_POLL_MS = 100
+_DEFAULT_TIMEOUT_MS = 5000
 
 
 class Tree:
@@ -94,10 +94,10 @@ class Tree:
         return None
 
     def _scroll_to(self, offset: int) -> None:
-        self.page.locator(CONTAINER).first.evaluate(
+        self.page.locator(_CONTAINER).first.evaluate(
             "(el, top) => { el.scrollTop = top; }", offset
         )
-        self.page.wait_for_timeout(SCROLL_SETTLE_MS)
+        self.page.wait_for_timeout(_SCROLL_SETTLE_MS)
 
     def _scroll_step(self) -> int:
         """Scroll distance that keeps every row inside some window of the sweep.
@@ -105,8 +105,8 @@ class Tree:
         The window mounts a viewport of rows plus an overscan on each side, so a step
         of one viewport never skips a row.
         """
-        height = self.page.locator(CONTAINER).first.evaluate("(el) => el.clientHeight")
-        return max(SCROLL_STEP, int(height))
+        height = self.page.locator(_CONTAINER).first.evaluate("(el) => el.clientHeight")
+        return max(_SCROLL_STEP, int(height))
 
     def find_by_name(
         self, prefix: str, name: str, *, exact: bool = True
@@ -124,7 +124,7 @@ class Tree:
         found = self._match(prefix, name, exact=exact)
         if found is not None:
             return found
-        virtualizer = self.page.locator(f"{CONTAINER} {VIRTUALIZER}").first
+        virtualizer = self.page.locator(f"{_CONTAINER} {_VIRTUALIZER}").first
         if virtualizer.count() == 0:
             return None
         total = virtualizer.evaluate("(el) => el.scrollHeight")
@@ -142,7 +142,7 @@ class Tree:
         name: str,
         *,
         exact: bool = True,
-        timeout: int = DEFAULT_TIMEOUT_MS,
+        timeout: int = _DEFAULT_TIMEOUT_MS,
     ) -> Locator:
         """Wait for a tree item to reach the DOM, sweeping the window on each attempt.
 
@@ -162,7 +162,7 @@ class Tree:
                 raise PlaywrightTimeoutError(
                     f"Tree item {prefix}{name} did not appear within {timeout}ms"
                 )
-            self.page.wait_for_timeout(POLL_MS)
+            self.page.wait_for_timeout(_POLL_MS)
 
     def wait_for_removal(
         self,
@@ -170,7 +170,7 @@ class Tree:
         name: str,
         *,
         exact: bool = True,
-        timeout: int = DEFAULT_TIMEOUT_MS,
+        timeout: int = _DEFAULT_TIMEOUT_MS,
     ) -> None:
         """Wait for a tree item to leave the tree.
 
@@ -191,7 +191,7 @@ class Tree:
                 raise PlaywrightTimeoutError(
                     f"Tree item {prefix}{name} was still present after {timeout}ms"
                 )
-            self.page.wait_for_timeout(POLL_MS)
+            self.page.wait_for_timeout(_POLL_MS)
 
     def list_names(self, prefix: str) -> list[str]:
         """List all visible item names with the given ID prefix.
@@ -406,7 +406,7 @@ class Tree:
         target = self.find_by_name("group:", group_name)
         if target is None:
             raise ValueError(f"Group '{group_name}' not found")
-        source.drag_to(target)
+        self.layout.drag(source, target)
         self.page.wait_for_timeout(300)
 
     def get_group(self, name: str) -> Locator:

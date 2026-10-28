@@ -50,232 +50,231 @@ const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 
 const DEFAULT_REGION_KEY = "default";
 
-export const useModal = Modals.create<ModalParams>(
-  ({ symbolKey, parent, createKey, close }): ReactElement => {
-    const isCreate = symbolKey == null;
-    const theme = Theming.use();
-    const { form, save } = Schematic.Symbol.useForm({
-      query: symbolKey == null ? null : { key: symbolKey },
-      initialValues: {
-        key: createKey,
-        name: "",
-        parent: parent ?? ontology.ROOT_ID,
-        data: {
-          svg: "",
-          previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
-          handles: [],
-          variant: "static",
-          strokeScaled: false,
-          states: [{ key: "base", name: "Base", regions: [] }],
-          scale: 1,
-        },
+const Editor = ({
+  symbolKey,
+  parent,
+  createKey,
+  close,
+}: Modals.ContentProps<ModalParams, void>): ReactElement => {
+  const isCreate = symbolKey == null;
+  const theme = Theming.use();
+  const { form, save } = Schematic.Symbol.useForm({
+    query: symbolKey == null ? null : { key: symbolKey },
+    initialValues: {
+      key: createKey,
+      name: "",
+      parent: parent ?? ontology.ROOT_ID,
+      data: {
+        svg: "",
+        previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
+        handles: [],
+        variant: "static",
+        strokeScaled: false,
+        states: [{ key: "base", name: "Base", regions: [] }],
+        scale: 1,
       },
-      afterSave: () => close(),
-    });
-    const [selectedState, setSelectedState, selectedStateRef] =
-      useCombinedStateAndRef<string>("base");
-    const [selectedRegion, setSelectedRegion, selectedRegionRef] =
-      useCombinedStateAndRef<string | undefined>(DEFAULT_REGION_KEY);
-    const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
+    },
+    afterSave: () => close(),
+  });
+  const [selectedState, setSelectedState, selectedStateRef] =
+    useCombinedStateAndRef<string>("base");
+  const [selectedRegion, setSelectedRegion, selectedRegionRef] = useCombinedStateAndRef<
+    string | undefined
+  >(DEFAULT_REGION_KEY);
+  const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
 
-    const addNewRegion = () => {
-      const currentState = form.get<schematic.symbol.State>(
-        `data.states.${selectedStateRef.current}`,
+  const addNewRegion = () => {
+    const currentState = form.get<schematic.symbol.State>(
+      `data.states.${selectedStateRef.current}`,
+    ).value;
+    const newRegion: schematic.symbol.Region = {
+      key: `reg-${id.create()}`,
+      name: `Region ${currentState.regions.length + 1}`,
+      selectors: [],
+      strokeColor: theme.colors.gray.l10,
+      fillColor: color.setAlpha(theme.colors.gray.l10, 0),
+    };
+
+    form.set(`data.states.${selectedStateRef.current}.regions`, [
+      ...currentState.regions,
+      newRegion,
+    ]);
+    setSelectedRegion(newRegion.key);
+  };
+
+  const addNewHandle = () => {
+    const currentHandles = form.get<schematic.symbol.Handle[]>("data.handles").value;
+    const newHandle: schematic.symbol.Handle = {
+      key: `handle-${id.create()}`,
+      position: { x: 0.5, y: 0.5 },
+      orientation: "left",
+    };
+    form.set("data.handles", [...currentHandles, newHandle]);
+    setSelectedHandle(newHandle.key);
+  };
+
+  const handleHandlePlace = (handleKey: string, position: xy.XY) => {
+    const currentHandles = form.get<schematic.symbol.Handle[]>("data.handles").value;
+    const handleIndex = currentHandles.findIndex((h) => h.key === handleKey);
+
+    if (handleIndex !== -1) {
+      const updatedHandles = [...currentHandles];
+      updatedHandles[handleIndex] = { ...updatedHandles[handleIndex], position };
+      form.set("data.handles", updatedHandles);
+    }
+  };
+
+  const handleElementClick = (selector: string) => {
+    const currentState = selectedStateRef.current;
+    const currentRegion = selectedRegionRef.current;
+    const regionPath = `data.states.${currentState}.regions.${currentRegion}`;
+    const region = form.get<schematic.symbol.Region>(regionPath).value;
+    const hasSelector = region.selectors.includes(selector);
+    if (hasSelector) {
+      const updatedSelectors = region.selectors.filter((s) => s !== selector);
+      form.set(regionPath, { ...region, selectors: updatedSelectors });
+    } else {
+      const allRegions = form.get<schematic.symbol.Region[]>(
+        `data.states.${currentState}.regions`,
       ).value;
-      const newRegion: schematic.symbol.Region = {
-        key: `reg-${id.create()}`,
-        name: `Region ${currentState.regions.length + 1}`,
-        selectors: [],
-        strokeColor: theme.colors.gray.l10,
-        fillColor: color.setAlpha(theme.colors.gray.l10, 0),
-      };
+      allRegions.forEach((r, index) => {
+        if (!r.selectors.includes(selector)) return;
+        const updatedRegion = {
+          ...r,
+          selectors: r.selectors.filter((s) => s !== selector),
+        };
+        form.set(`data.states.${currentState}.regions.${index}`, updatedRegion);
+      });
+      const updatedSelectors = [...region.selectors, selector];
+      form.set(regionPath, { ...region, selectors: updatedSelectors });
+    }
+  };
+  const hasSVG =
+    Form.useFieldValue<string, string, typeof Schematic.Symbol.formSchema>("data.svg", {
+      ctx: form,
+    }).length > 0;
+  const createSaveText = isCreate ? "Create" : "Save";
 
-      form.set(`data.states.${selectedStateRef.current}.regions`, [
-        ...currentState.regions,
-        newRegion,
-      ]);
-      setSelectedRegion(newRegion.key);
-    };
-
-    const addNewHandle = () => {
-      const currentHandles = form.get<schematic.symbol.Handle[]>("data.handles").value;
-      const newHandle: schematic.symbol.Handle = {
-        key: `handle-${id.create()}`,
-        position: { x: 0.5, y: 0.5 },
-        orientation: "left",
-      };
-      form.set("data.handles", [...currentHandles, newHandle]);
-      setSelectedHandle(newHandle.key);
-    };
-
-    const handleHandlePlace = (handleKey: string, position: xy.XY) => {
-      const currentHandles = form.get<schematic.symbol.Handle[]>("data.handles").value;
-      const handleIndex = currentHandles.findIndex((h) => h.key === handleKey);
-
-      if (handleIndex !== -1) {
-        const updatedHandles = [...currentHandles];
-        updatedHandles[handleIndex] = { ...updatedHandles[handleIndex], position };
-        form.set("data.handles", updatedHandles);
-      }
-    };
-
-    const handleElementClick = (selector: string) => {
-      const currentState = selectedStateRef.current;
-      const currentRegion = selectedRegionRef.current;
-      const regionPath = `data.states.${currentState}.regions.${currentRegion}`;
-      const region = form.get<schematic.symbol.Region>(regionPath).value;
-      const hasSelector = region.selectors.includes(selector);
-      if (hasSelector) {
-        const updatedSelectors = region.selectors.filter((s) => s !== selector);
-        form.set(regionPath, { ...region, selectors: updatedSelectors });
-      } else {
-        const allRegions = form.get<schematic.symbol.Region[]>(
-          `data.states.${currentState}.regions`,
-        ).value;
-        allRegions.forEach((r, index) => {
-          if (!r.selectors.includes(selector)) return;
-          const updatedRegion = {
-            ...r,
-            selectors: r.selectors.filter((s) => s !== selector),
-          };
-          form.set(`data.states.${currentState}.regions.${index}`, updatedRegion);
-        });
-        const updatedSelectors = [...region.selectors, selector];
-        form.set(regionPath, { ...region, selectors: updatedSelectors });
-      }
-    };
-    const hasSVG =
-      Form.useFieldValue<string, string, typeof Schematic.Symbol.formSchema>(
-        "data.svg",
-        {
-          ctx: form,
-        },
-      ).length > 0;
-    const createSaveText = isCreate ? "Create" : "Save";
-
-    return (
-      <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
-        <Modal.Frame
-          className={CSS.BE("schematic", "symbol-create-layout")}
-          background={1}
-        >
-          <Modal.Header icon={<Icon.Schematic />}>
-            {isCreate ? "Schematic.Symbol.Create" : "Schematic.Symbol.Edit"}
-          </Modal.Header>
-          <Modal.Body full>
-            <Flex.Box x grow>
-              {hasSVG && (
-                <Flex.Box
-                  className={CSS.BE("schematic", "sidebar")}
-                  y
-                  rounded="small"
-                  background={0}
-                  bordered
-                  borderColor={6}
-                >
-                  <Flex.Box className={CSS.BE("schematic", "name")}>
-                    <Form.TextField
-                      path="name"
-                      inputProps={{
-                        placeholder: "Symbol name",
-                        variant: "text",
-                        level: "h4",
-                      }}
-                    />
-                  </Flex.Box>
-                  <Divider.Divider x />
-                  <Flex.Box y>
-                    <Header.Header level="p" bordered={false}>
-                      <Header.Title level="p" weight={500}>
-                        States
-                      </Header.Title>
-                    </Header.Header>
-                    <Flex.Box className={CSS.BE("schematic", "states")}>
-                      <SelectVariantField onSelectState={setSelectedState} />
-                      <StateList value={selectedState} onChange={setSelectedState} />
-                    </Flex.Box>
-                  </Flex.Box>
-                  <Divider.Divider x />
-                  <RegionList
-                    value={selectedRegion}
-                    onChange={(value) => {
-                      setSelectedRegion(value);
-                      setSelectedHandle(undefined);
+  return (
+    <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
+      <Modal.Frame
+        className={CSS.BE("schematic", "symbol-create-layout")}
+        background={1}
+      >
+        <Modal.Header icon={<Icon.Schematic />}>
+          {isCreate ? "Schematic.Symbol.Create" : "Schematic.Symbol.Edit"}
+        </Modal.Header>
+        <Modal.Body full>
+          <Flex.Box x grow>
+            {hasSVG && (
+              <Flex.Box
+                className={CSS.BE("schematic", "sidebar")}
+                y
+                rounded="small"
+                background={0}
+                bordered
+                borderColor={6}
+              >
+                <Flex.Box className={CSS.BE("schematic", "name")}>
+                  <Form.TextField
+                    path="name"
+                    inputProps={{
+                      placeholder: "Symbol name",
+                      variant: "text",
+                      level: "h4",
                     }}
-                    selectedState={selectedState}
-                    onAddRegion={addNewRegion}
                   />
-                  <Divider.Divider x />
-                  <HandleList
-                    value={selectedHandle}
-                    onChange={setSelectedHandle}
-                    onAddHandle={addNewHandle}
-                  />
-                  <Divider.Divider x />
-                  <Flex.Box y>
-                    <Header.Header level="p" bordered={false}>
-                      <Header.Title level="p" weight={500}>
-                        Properties
-                      </Header.Title>
-                    </Header.Header>
-                    <Flex.Box className={CSS.BE("schematic", "properties")}>
-                      <Form.Field<number>
-                        path="data.scale"
-                        helpText="Sets the default scale when added to a schematic"
-                      >
-                        {({ onChange, value }) => (
-                          <Input.Numeric
-                            value={Math.round(value * 100)}
-                            onChange={(v) => onChange(v / 100)}
-                            bounds={SCALE_BOUNDS}
-                            dragScale={0.5}
-                            endContent="%"
-                          />
-                        )}
-                      </Form.Field>
-                      <Form.SwitchField
-                        path="data.strokeScaled"
-                        label="Scale stroke"
-                        align="start"
-                      />
-                    </Flex.Box>
+                </Flex.Box>
+                <Divider.Divider x />
+                <Flex.Box y>
+                  <Header.Header level="p" bordered={false}>
+                    <Header.Title level="p" weight={500}>
+                      States
+                    </Header.Title>
+                  </Header.Header>
+                  <Flex.Box className={CSS.BE("schematic", "states")}>
+                    <SelectVariantField onSelectState={setSelectedState} />
+                    <StateList value={selectedState} onChange={setSelectedState} />
                   </Flex.Box>
                 </Flex.Box>
+                <Divider.Divider x />
+                <RegionList
+                  value={selectedRegion}
+                  onChange={(value) => {
+                    setSelectedRegion(value);
+                    setSelectedHandle(undefined);
+                  }}
+                  selectedState={selectedState}
+                  onAddRegion={addNewRegion}
+                />
+                <Divider.Divider x />
+                <HandleList
+                  value={selectedHandle}
+                  onChange={setSelectedHandle}
+                  onAddHandle={addNewHandle}
+                />
+                <Divider.Divider x />
+                <Flex.Box y>
+                  <Header.Header level="p" bordered={false}>
+                    <Header.Title level="p" weight={500}>
+                      Properties
+                    </Header.Title>
+                  </Header.Header>
+                  <Flex.Box className={CSS.BE("schematic", "properties")}>
+                    <Form.Field<number>
+                      path="data.scale"
+                      helpText="Sets the default scale when added to a schematic"
+                    >
+                      {({ onChange, value }) => (
+                        <Input.Numeric
+                          value={Math.round(value * 100)}
+                          onChange={(v) => onChange(v / 100)}
+                          bounds={SCALE_BOUNDS}
+                          dragScale={0.5}
+                          endContent="%"
+                        />
+                      )}
+                    </Form.Field>
+                    <Form.SwitchField
+                      path="data.strokeScaled"
+                      label="Scale stroke"
+                      align="start"
+                    />
+                  </Flex.Box>
+                </Flex.Box>
+              </Flex.Box>
+            )}
+            <Form.Field<string> path="data.svg" showLabel={false} showHelpText={false}>
+              {({ onChange }) => (
+                <Preview
+                  selectedState={selectedState}
+                  selectedHandle={selectedHandle}
+                  onElementClick={handleElementClick}
+                  onContentsChange={onChange}
+                  onHandlePlace={handleHandlePlace}
+                  onHandleSelect={setSelectedHandle}
+                />
               )}
-              <Form.Field<string>
-                path="data.svg"
-                showLabel={false}
-                showHelpText={false}
+            </Form.Field>
+          </Flex.Box>
+        </Modal.Body>
+        {hasSVG && (
+          <Modal.Footer background={0}>
+            <Nav.Bar.End>
+              <Button.Button
+                variant="filled"
+                onClick={() => save()}
+                trigger={Triggers.SAVE}
+                triggerIndicator
               >
-                {({ onChange }) => (
-                  <Preview
-                    selectedState={selectedState}
-                    selectedHandle={selectedHandle}
-                    onElementClick={handleElementClick}
-                    onContentsChange={onChange}
-                    onHandlePlace={handleHandlePlace}
-                    onHandleSelect={setSelectedHandle}
-                  />
-                )}
-              </Form.Field>
-            </Flex.Box>
-          </Modal.Body>
-          {hasSVG && (
-            <Modal.Footer background={0}>
-              <Triggers.SaveHelpText action={createSaveText} />
-              <Nav.Bar.End>
-                <Button.Button
-                  variant="filled"
-                  onClick={() => save()}
-                  trigger={Triggers.SAVE}
-                >
-                  {createSaveText}
-                </Button.Button>
-              </Nav.Bar.End>
-            </Modal.Footer>
-          )}
-        </Modal.Frame>
-      </Form.Form>
-    );
-  },
-);
+                {createSaveText}
+              </Button.Button>
+            </Nav.Bar.End>
+          </Modal.Footer>
+        )}
+      </Modal.Frame>
+    </Form.Form>
+  );
+};
+
+export const useModal = Modals.create<ModalParams>(Editor);

@@ -7,19 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/client";
 import { TimeStamp, zod } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { telem } from "@/telem/aether";
 
 const SAMPLE_TIME = TimeStamp.seconds(5);
 
-const stampedSource = (at: TimeStamp | null): telem.Source<number> => ({
-  value: () => 1,
+const resultSource = <V>(result: telem.Result<V>): telem.Source<V> => ({
+  value: () => result,
   onChange: () => () => {},
-  sampleTime: () => at,
 });
+
+const ERROR_STATUS = status.create({ variant: "error", message: "failed" });
 
 class InvalidPropsSource extends telem.AbstractSource<z.ZodNumber> {
   schema = z.number();
@@ -34,7 +36,7 @@ describe("telem", () => {
     expect(() => source.props).toThrow(zod.ParseError);
   });
 
-  it("pipeline", async () => {
+  it("pipeline", () => {
     const s1 = telem.fixedNumber(20);
     const s2 = telem.fixedNumber(9);
     const avg = telem.mean({});
@@ -51,26 +53,72 @@ describe("telem", () => {
       },
       telem.createFactory(),
     );
-    expect(await p.value()).toBe(true);
+    expect(p.value().data).toBe(true);
   });
 
-  describe("sampleTime", () => {
+  describe("Result", () => {
     const stringifier = (): telem.StringifyNumber =>
       new telem.StringifyNumber({ precision: 2, notation: "standard" });
 
-    it("should forward through a unary transformer", () => {
+    it("should copy status, aggregation, time, and appended through a unary transformer", () => {
       const t = stringifier();
-      t.setSources({ s: stampedSource(SAMPLE_TIME) });
-      expect(t.sampleTime()).toBe(SAMPLE_TIME);
+      t.setSources({
+        s: resultSource({
+          data: 1,
+          status: telem.LOADING_STATUS,
+          aggregation: "average",
+          time: SAMPLE_TIME,
+          appended: 7,
+        }),
+      });
+      expect(t.value()).toEqual({
+        data: "1.00",
+        status: telem.LOADING_STATUS,
+        aggregation: "average",
+        time: SAMPLE_TIME,
+        appended: 7,
+      });
     });
 
-    it("should be null when the transformer's source lacks it", () => {
-      const t = stringifier();
-      t.setSources({ s: { value: () => 1, onChange: () => () => {} } });
-      expect(t.sampleTime()).toBeNull();
+    it("should report the worst status and the newest time of many sources", () => {
+      const m = new telem.Mean({});
+      m.setSources({
+        a: resultSource({ data: 2, status: ERROR_STATUS, time: TimeStamp.seconds(3) }),
+        b: resultSource({ data: 4, status: telem.LOADING_STATUS, time: SAMPLE_TIME }),
+        c: resultSource(telem.success(6)),
+      });
+      expect(m.value()).toEqual({ data: 4, status: ERROR_STATUS, time: SAMPLE_TIME });
     });
 
-    it("should forward through a pipeline to its outlet", () => {
+    it("should sum the appended counts of its sources", () => {
+      const m = new telem.Mean({});
+      m.setSources({
+        a: resultSource({ ...telem.success(2), appended: 3 }),
+        b: resultSource({ ...telem.success(4), appended: 4 }),
+      });
+      expect(m.value().appended).toBe(7);
+    });
+
+    it("should report no appended count when a source has none", () => {
+      const m = new telem.Mean({});
+      m.setSources({
+        a: resultSource({ ...telem.success(2), appended: 3 }),
+        b: resultSource(telem.success(6)),
+      });
+      expect(m.value().appended).toBeUndefined();
+    });
+
+    it("should report success and no time when no source has one", () => {
+      const m = new telem.Mean({});
+      m.setSources({ a: resultSource(telem.success(2)) });
+      expect(m.value()).toEqual({
+        data: 2,
+        status: telem.SUCCESS_STATUS,
+        time: undefined,
+      });
+    });
+
+    it("should forward a pipeline outlet's result", () => {
       const p = new telem.SourcePipeline<string>(
         {
           connections: [{ from: "s", to: "str" }],
@@ -83,59 +131,37 @@ describe("telem", () => {
         telem.createFactory(),
       );
       (p.sources.str as telem.StringifyNumber).setSources({
-        s: stampedSource(SAMPLE_TIME),
+        s: resultSource({ data: 1, status: telem.SUCCESS_STATUS, time: SAMPLE_TIME }),
       });
-      expect(p.sampleTime()).toBe(SAMPLE_TIME);
+      expect(p.value().time).toBe(SAMPLE_TIME);
     });
+  });
 
-    it("should be null when the pipeline outlet lacks it", () => {
+  describe("SourcePipeline forwarding", () => {
+    const pipeline = (outlet: telem.Source<number>): telem.SourcePipeline<number> => {
       const p = new telem.SourcePipeline<number>(
         { connections: [], outlet: "s", segments: { s: telem.fixedNumber(1) } },
         telem.createFactory(),
       );
-      expect(p.sampleTime()).toBeNull();
-    });
-  });
+      p.sources.s = outlet;
+      return p;
+    };
 
-  describe("AbstractSource loading", () => {
-    class LatchedSource extends telem.AbstractSource<z.ZodNumber> {
-      schema = z.number();
-
-      value(): number {
-        return this.props;
-      }
-
-      latch(): void {
-        this.loading_ = true;
-      }
-
-      settle(): void {
-        this.declareLoaded();
-      }
-    }
-
-    it("should not report loading by default", () => {
-      expect(new LatchedSource(1).loading()).toBe(false);
-    });
-
-    it("should notify exactly once when a latched source settles", () => {
-      const source = new LatchedSource(1);
-      const handleChange = vi.fn();
-      source.onChange(handleChange);
-      source.latch();
-      expect(source.loading()).toBe(true);
-      source.settle();
-      source.settle();
-      expect(source.loading()).toBe(false);
-      expect(handleChange).toHaveBeenCalledTimes(1);
-    });
-
-    it("should not notify when settling an unlatched source", () => {
-      const source = new LatchedSource(1);
-      const handleChange = vi.fn();
-      source.onChange(handleChange);
-      source.settle();
-      expect(handleChange).not.toHaveBeenCalled();
+    it("should forward the value props to its outlet", () => {
+      const received: (telem.ValueProps | undefined)[] = [];
+      const p = pipeline({
+        value: (props) => {
+          received.push(props);
+          return telem.success(1);
+        },
+        onChange: () => () => {},
+      });
+      const props: telem.ValueProps = {
+        bounds: { lower: 1, upper: 2 },
+        points: 100,
+      };
+      p.value(props);
+      expect(received).toEqual([props]);
     });
   });
 });

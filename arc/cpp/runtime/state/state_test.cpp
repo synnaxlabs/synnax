@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/series.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -1043,7 +1043,7 @@ TEST(StateTest, SetAuthority_BufferAndFlush) {
     auto changes = s.flush_authority_changes();
     ASSERT_EQ(changes.size(), 1);
     ASSERT_TRUE(changes[0].channel_key.has_value());
-    EXPECT_EQ(*changes[0].channel_key, 42);
+    EXPECT_EQ(changes[0].channel_key.value(), 42);
     EXPECT_EQ(changes[0].authority, 200);
     EXPECT_TRUE(s.flush_authority_changes().empty());
 }
@@ -1066,12 +1066,12 @@ TEST(StateTest, SetAuthority_MultipleChanges) {
     auto changes = s.flush_authority_changes();
     ASSERT_EQ(changes.size(), 3);
     ASSERT_TRUE(changes[0].channel_key.has_value());
-    EXPECT_EQ(*changes[0].channel_key, 1);
+    EXPECT_EQ(changes[0].channel_key.value(), 1);
     EXPECT_EQ(changes[0].authority, 100);
     ASSERT_FALSE(changes[1].channel_key.has_value());
     EXPECT_EQ(changes[1].authority, 200);
     ASSERT_TRUE(changes[2].channel_key.has_value());
-    EXPECT_EQ(*changes[2].channel_key, 2);
+    EXPECT_EQ(changes[2].channel_key.value(), 2);
     EXPECT_EQ(changes[2].authority, 50);
     EXPECT_TRUE(s.flush_authority_changes().empty());
 }

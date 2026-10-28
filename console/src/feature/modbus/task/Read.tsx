@@ -17,15 +17,17 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import * as Device from "@/feature/modbus/device/types";
+import { SCHEMAS } from "@/feature/modbus/device/types";
+import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
 import {
   deployReadConfigZ,
   isVariableDensityReadChannel,
+  nextAddress,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
@@ -53,7 +55,8 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const { type, channel } = PForm.useFieldValue<ReadChannel>(path);
+  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const { type, channel } = ch;
   return (
     <Select.Item
       {...props}
@@ -94,6 +97,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           </PForm.Field>
         )}
       </Flex.Box>
+      {isVariableDensityReadChannel(ch) && (
+        <OrderFields path={path} dataType={ch.dataType} />
+      )}
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={channel}
@@ -123,7 +129,7 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
     ...channelToCopy,
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
-    address: channelToCopy.address + 1,
+    address: nextAddress(channelToCopy),
   };
 };
 
@@ -131,13 +137,8 @@ const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (c: ReadChannel) =>
-      dev == null
-        ? null
-        : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 },
-    [dev],
-  );
+  const resolve = (c: ReadChannel) =>
+    dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
     <Task.Views.List<ReadChannel>
       createChannel={getOpenChannel}
@@ -179,7 +180,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   let shouldCreateIndex = false;
   if (dev.properties.read.index)
@@ -232,7 +233,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
 
   config.channels.forEach((c) => {

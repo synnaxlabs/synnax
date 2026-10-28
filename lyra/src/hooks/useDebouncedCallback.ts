@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, debounce, TimeSpan } from "@synnaxlabs/x";
-import { type DependencyList, useCallback } from "react";
+import { type CrudeTimeSpan, scheduler, TimeSpan } from "@synnaxlabs/x";
+import { type DependencyList } from "react";
+
+import { compareDeps, useMemoCompare } from "@/memo";
 
 /**
  * @returns a stable callback that defers `func` until `waitFor` passes with no further
@@ -19,9 +21,9 @@ export const useDebouncedCallback = <Args extends unknown[]>(
   func: (...args: Args) => void,
   waitFor: CrudeTimeSpan,
   deps: DependencyList,
-): debounce.DebouncedFn<Args> => {
+): scheduler.DebouncedFn<Args> => {
   const debouncePeriod = new TimeSpan(waitFor).valueOf();
-  return useCallback(debounce.debounce(func, debouncePeriod), [
+  return useMemoCompare(() => scheduler.debounce(func, debouncePeriod), compareDeps, [
     debouncePeriod,
     ...deps,
   ]);

@@ -19,14 +19,16 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Telem } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import * as Device from "@/feature/modbus/device/types";
+import { SCHEMAS } from "@/feature/modbus/device/types";
+import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
   deployWriteConfigZ,
+  nextAddress,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -52,7 +54,8 @@ const Properties = () => (
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
-  const { type, channel } = PForm.useFieldValue<WriteChannel>(path);
+  const ch = PForm.useFieldValue<WriteChannel>(path);
+  const { type, channel } = ch;
   return (
     <Select.Item {...props} justify="between" align="center" x full="x">
       <Flex.Box x pack className={CSS.B("channel-item")}>
@@ -87,6 +90,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           </PForm.Field>
         )}
       </Flex.Box>
+      {ch.type === "holding_register" && (
+        <OrderFields path={path} dataType={ch.dataType} />
+      )}
       <Flex.Box x align="center" grow justify="end">
         <Task.ChannelName
           channel={channel}
@@ -116,7 +122,7 @@ const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
     ...channelToCopy,
     key: id.create(),
     name: "",
-    address: channelToCopy.address + 1,
+    address: nextAddress(channelToCopy),
   };
 };
 
@@ -143,13 +149,10 @@ const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (c: WriteChannel) =>
-      dev == null
-        ? null
-        : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 },
-    [dev],
-  );
+  const resolve = (c: WriteChannel) =>
+    dev == null
+      ? null
+      : { channel: dev.properties.write.channels[writeMapKey(c)] ?? 0 };
   return (
     <Task.Views.List<WriteChannel>
       createChannel={getOpenChannel}
@@ -182,7 +185,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {
@@ -224,7 +227,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       const channel = commandsToCreate[i];
       dev.properties.write.channels[writeMapKey(channel)] = c.key;
     });
-    await client.devices.create(dev, Device.SCHEMAS);
+    await client.devices.create(dev, SCHEMAS);
   }
 
   config.channels = config.channels.map((c) => ({

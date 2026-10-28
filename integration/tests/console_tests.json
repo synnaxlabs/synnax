@@ -20,6 +20,7 @@
         { "case": "console/label/label_lifecycle" },
         { "case": "console/rack/rack_lifecycle" },
         { "case": "console/device/devices_toolbar" },
+        { "case": "console/device/connect_hardware" },
         { "case": "console/range/range_lifecycle" },
         { "case": "console/status/status_lifecycle" },
         { "case": "console/schematic/custom_symbols" }
@@ -31,6 +32,7 @@
       "pool_size": 3,
       "tests": [
         { "case": "console/arc/graph_toolbar" },
+        { "case": "console/arc/editor_scrollbar" },
         { "case": "console/log/log_lifecycle" },
         { "case": "console/pages/import_goldens" },
         { "case": "console/pages/open_close" },
@@ -44,6 +46,7 @@
         { "case": "console/schematic/hold_to_actuate" },
         { "case": "console/schematic/alignment" },
         { "case": "console/schematic/multi_edit" },
+        { "case": "console/schematic/change_symbol" },
         { "case": "console/schematic/edit_props" },
         { "case": "console/schematic/select_state_indicator" },
         { "case": "console/table/table_lifecycle" },

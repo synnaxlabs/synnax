@@ -12,8 +12,6 @@ import { type FC, type ReactElement } from "react";
 
 import { type RenderProp, renderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
-import { type ContextValue, useContext } from "@/form/Context";
-import { type FieldState } from "@/form/state";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { Input } from "@/input";
 import { Select } from "@/select";
@@ -30,8 +28,13 @@ export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
     children?: RenderProp<FieldChild<I, O>>;
     /** Whether to hold room for help text, so the layout does not jump. */
     padHelpText?: boolean;
-    /** Hides the field when false, or when the predicate rejects its state. */
-    visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
+    /** Hides the field when false. */
+    visible?: boolean;
+    /**
+     * Whether a person can empty the input. Only an emptiable field shows a required
+     * mark. Defaults to true for the default text input and false for `children`.
+     */
+    emptiable?: boolean;
   };
 
 const defaultInput = renderProp((p: Input.TextProps) => <Input.Text {...p} />);
@@ -47,7 +50,8 @@ export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
  */
 export const Field = <I = string | number, O = I>({
   path,
-  children = defaultInput as unknown as RenderProp<FieldChild<I, O>>,
+  children,
+  emptiable,
   label,
   padHelpText = true,
   visible = true,
@@ -55,13 +59,11 @@ export const Field = <I = string | number, O = I>({
   className,
   ...rest
 }: FieldProps<I, O>): ReactElement | null => {
-  // A field the caller has hidden outright may bind a path its config lacks.
-  const field = useField<I, O>(path, { onChange, optional: visible === false });
-  const ctx = useContext(undefined, `Field(${path})`);
-  if (field == null) return null;
-  label ??= caseconv.toSentence(deep.element(path, -1));
-  visible = typeof visible === "function" ? visible(field, ctx) : visible;
-  if (!visible) return null;
+  // A hidden field may bind a path its config lacks.
+  const field = useField<I, O>(path, { onChange, optional: !visible });
+  const markable = emptiable ?? children == null;
+  if (field == null || !visible) return null;
+  if (label == null) label = caseconv.toSentence(deep.element(path, -1));
   const helpText = field.status.message;
   const { onChange: fieldOnChange, value } = field;
   const childrenProps: FieldChild<I, O> = { onChange: fieldOnChange, value };
@@ -72,7 +74,7 @@ export const Field = <I = string | number, O = I>({
       helpText={helpText}
       status={field.status.variant}
       label={label}
-      required={field.required && field.preview !== true}
+      required={markable && field.required && field.preview !== true}
       className={CSS.cls(
         className,
         CSS.BE("field", path.split(".").join("-")),
@@ -80,7 +82,9 @@ export const Field = <I = string | number, O = I>({
       )}
       {...rest}
     >
-      {children(childrenProps)}
+      {(children ?? (defaultInput as unknown as RenderProp<FieldChild<I, O>>))(
+        childrenProps,
+      )}
     </Input.Item>
   );
 };
@@ -118,6 +122,7 @@ export const fieldBuilder =
     OptionalFields extends keyof Omit<P, "value" | "onChange"> = never,
   >(
     Component: FC<P & Input.Control<I, O>>,
+    defaults: Partial<FieldProps<I, O>> = {},
   ) =>
   ({
     fieldKey: baseFieldKey,
@@ -131,6 +136,7 @@ export const fieldBuilder =
       ...rest
     }: BuiltFieldProps<I, O, P>) => (
       <Field<I, O>
+        {...defaults}
         {...fieldProps}
         {...rest}
         path={fieldKey ? `${path}.${fieldKey}` : path}
@@ -149,7 +155,10 @@ export const buildNumericField = fieldBuilder<number, number, Input.NumericProps
 export const NumericField = buildNumericField({ inputProps: {} });
 
 export type TextFieldProps = BuiltFieldProps<string, string, Input.TextProps>;
-export const buildTextField = fieldBuilder<string, string, Input.TextProps>(Input.Text);
+export const buildTextField = fieldBuilder<string, string, Input.TextProps>(
+  Input.Text,
+  { emptiable: true },
+);
 export const TextField = buildTextField({ inputProps: {} });
 
 export type SwitchFieldProps = BuiltFieldProps<boolean, boolean, Input.SwitchProps>;

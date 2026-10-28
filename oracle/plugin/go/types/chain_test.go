@@ -453,6 +453,196 @@ Doc struct {
 	)
 })
 
+var _ = Describe("Live default group on a frozen definer", func() {
+	const liveSource = `
+@go output "core/doc"
+
+Range struct {
+	min_val float64 = 0 {
+		@default group "range"
+	}
+	max_val float64 = 1 {
+		@default group "range"
+	}
+}
+
+Doc struct {
+	key uuid @key
+	ranges Range[]
+	name string
+}
+`
+	generate := func(v1 string) map[string]string {
+		GinkgoHelper()
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/doc/v0.oracle", `
+Range struct {
+	min_val float64 = 0
+	max_val float64 = 1
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	ranges Range[]
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/doc/v1.oracle", v1)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(
+			GinkgoT().Context(), liveSource, "schemas/synnax/doc.oracle", "doc",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		byPath := make(map[string]string, len(resp.Files))
+		for _, f := range resp.Files {
+			byPath[f.Path] = string(f.Content)
+		}
+		return byPath
+	}
+
+	It(
+		"Should group the defaults of a type aliased from a frozen definer",
+		func() {
+			files := generate(`
+Range = v0.Range
+
+Doc struct {
+	key uuid @key
+	ranges Range[]
+	name string
+
+	@go marshal
+}
+`)
+			Expect(files["core/doc/versions/v0/types.gen.go"]).To(ContainSubstring(
+				"if r.MinVal == 0 && r.MaxVal == 0 {",
+			))
+			Expect(files["core/doc/versions/v1/types.gen.go"]).To(ContainSubstring(
+				"type Range = v0.Range",
+			))
+		},
+	)
+
+	It(
+		"Should leave a frozen definer ungrouped once a later version redeclares it",
+		func() {
+			files := generate(`
+Range struct {
+	min_val float64 = 0
+	max_val float64 = 1
+
+	@go marshal
+}
+
+Doc struct {
+	key uuid @key
+	ranges Range[]
+	name string
+
+	@go marshal
+}
+`)
+			Expect(files["core/doc/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				"r.MinVal == 0 && r.MaxVal == 0",
+			))
+			Expect(files["core/doc/versions/v1/types.gen.go"]).To(ContainSubstring(
+				"if r.MinVal == 0 && r.MaxVal == 0 {",
+			))
+		},
+	)
+})
+
+var _ = Describe("Live to_any on a frozen definer", func() {
+	const livePath = "schemas/synnax/box.oracle"
+	generate := func(ctx SpecContext, v1 string) map[string]string {
+		GinkgoHelper()
+		resp := chainGenerate(
+			ctx,
+			gotypes.New(gotypes.DefaultOptions()),
+			map[string]string{
+				livePath: `
+@go output "core/box"
+
+Box struct<T> {
+	key uuid @key
+	value T
+	name string
+
+	@go to_any
+}
+`,
+				"schemas/synnax/versions/box/v0.oracle": `
+Box struct<T> {
+	key uuid @key
+	value T
+	name string
+
+	@go marshal
+}
+`,
+				"schemas/synnax/versions/box/v1.oracle": v1,
+			},
+			livePath,
+			"box",
+		)
+		byPath := make(map[string]string, len(resp.Files))
+		for _, f := range resp.Files {
+			byPath[f.Path] = string(f.Content)
+		}
+		return byPath
+	}
+
+	It(
+		"Should convert a type the current version aliases from a frozen definer",
+		func(ctx SpecContext) {
+			files := generate(ctx, `
+Box = v0.Box
+`)
+			Expect(files["core/box/versions/v0/types.gen.go"]).To(ContainSubstring(
+				"func (b Box[T]) ToAny() Box[any] {",
+			))
+			current := files["core/box/versions/v1/types.gen.go"]
+			Expect(current).To(ContainSubstring("type Box[T any] = v0.Box[T]"))
+			Expect(current).ToNot(ContainSubstring("ToAny"))
+		},
+	)
+
+	It(
+		"Should leave a frozen definer unconverted once a later version redeclares it",
+		func(ctx SpecContext) {
+			files := generate(ctx, `
+Box struct<T> {
+	key uuid @key
+	value T
+	name string
+
+	@go marshal
+}
+`)
+			Expect(files["core/box/versions/v0/types.gen.go"]).ToNot(ContainSubstring(
+				"ToAny",
+			))
+			Expect(files["core/box/versions/v1/types.gen.go"]).To(ContainSubstring(
+				"func (b Box[T]) ToAny() Box[any] {",
+			))
+		},
+	)
+})
+
 var _ = Describe("Live validation on a frozen union", func() {
 	const v0Source = `
 Payload struct {

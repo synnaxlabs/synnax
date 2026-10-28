@@ -10,10 +10,8 @@
 import "@/text/Editable.css";
 
 import {
-  type CSSProperties,
   type KeyboardEvent,
   type ReactElement,
-  useCallback,
   useLayoutEffect,
   useRef,
   useState,
@@ -22,7 +20,6 @@ import {
 import { CSS as PCSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
-import { type state } from "@/state";
 import { Text, type TextProps } from "@/text/Text";
 import { triggerReflow } from "@/util/reflow";
 
@@ -32,8 +29,6 @@ export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
     /** Receives the committed text. Return false to reject it, reverting the field to
      * value; the field otherwise holds the committed text until value catches up. */
     onChange: (value: string) => void | boolean;
-    /** Lifts the editing flag out of the component so a parent can drive it. */
-    useEditableState?: state.PureUse<boolean>;
     /** Whether a double click starts editing. Defaults to true. */
     allowDoubleClick?: boolean;
     /** Whether an empty value commits. It reverts otherwise. Defaults to false. */
@@ -114,18 +109,6 @@ export const edit = (id: string, options?: AsyncEditOptions): void => {
 
 const getInnerText = (el: HTMLElement): string => el.innerText.trim();
 
-interface StylesToTriggerReflow {
-  maxInlineSize?: CSSProperties["maxInlineSize"];
-}
-
-const compareStylesToTriggerReflow = (
-  a: StylesToTriggerReflow | undefined,
-  b: StylesToTriggerReflow | undefined,
-): boolean => {
-  if (a == null || b == null) return false;
-  return a.maxInlineSize === b.maxInlineSize;
-};
-
 /**
  * Text that turns into a field in place. Commits on Enter or blur, reverts on Escape.
  * Give it an id to drive it from elsewhere with {@link edit}.
@@ -135,7 +118,6 @@ export const Editable = ({
   onChange,
   value,
   className,
-  useEditableState = useState,
   allowDoubleClick = true,
   onDoubleClick,
   allowEmpty = false,
@@ -143,7 +125,7 @@ export const Editable = ({
   outline = true,
   ...rest
 }: EditableProps): ReactElement => {
-  const [editable, setEditable] = useEditableState(false);
+  const [editable, setEditable] = useState(false);
   const ref = useRef<HTMLElement>(null);
   // Sometimes the onBlur event fires right after the user hits the enter key (since we
   // trigger it artificially). We track this value as an optimistic update to make sure
@@ -157,21 +139,16 @@ export const Editable = ({
   // lands, so the committed text stands in until value moves off what it replaced.
   const committedRef = useRef<{ text: string; replaced: string } | null>(null);
 
-  // Turns out the writing modes like vertical-rl cause all sorts of problems with
-  // elements whose values change. The following section of code forces the browser
-  // to reflow the element when the value changes or the styles that affect the
-  // layout change.
-  const stylesToTriggerReflow = useRef<StylesToTriggerReflow | undefined>(style);
-  const valueRef = useRef(value);
-  if (
-    (stylesToTriggerReflow.current != null &&
-      !compareStylesToTriggerReflow(style, stylesToTriggerReflow.current)) ||
-    value !== valueRef.current
-  ) {
-    triggerReflow(ref.current as HTMLElement);
-    stylesToTriggerReflow.current = style;
-    valueRef.current = value;
-  }
+  // Writing modes like vertical-rl do not lay out again when the value or the inline
+  // size changes, so a change forces a reflow.
+  const maxInlineSize = style?.maxInlineSize;
+  const reflowedRef = useRef({ value, maxInlineSize });
+  useLayoutEffect(() => {
+    const prev = reflowedRef.current;
+    if (prev.value === value && prev.maxInlineSize === maxInlineSize) return;
+    reflowedRef.current = { value, maxInlineSize };
+    if (ref.current != null) triggerReflow(ref.current);
+  }, [value, maxInlineSize]);
 
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
     if (allowDoubleClick) {
@@ -242,25 +219,30 @@ export const Editable = ({
     selection?.addRange(range);
   }, [editable]);
 
-  if (ref.current !== null && !editable) {
+  // Editing replaces the text React rendered, so the shown text is written by hand.
+  useLayoutEffect(() => {
+    if (ref.current == null || editable) return;
     const { current: committed } = committedRef;
     if (committed != null && value === committed.replaced)
-      ref.current.innerHTML = committed.text;
+      ref.current.textContent = committed.text;
     else {
       committedRef.current = null;
-      ref.current.innerHTML = value;
+      ref.current.textContent = value;
     }
-  }
+  });
 
-  const refCallback = useCallback((el: HTMLElement) => {
+  // A ref callback, so each element Text renders listens before asyncEdit can find it.
+  const listenForEdits = (el: HTMLElement | null) => {
     if (el == null) return;
-    el.addEventListener(START_EDITING_EVENT_NAME, (e) => {
+    const handleStartEditing = (e: Event): void => {
       injectedValueRef.current = (e as StartEditingEvent).detail?.initialValue ?? null;
       setEditable(true);
-    });
-  }, []);
+    };
+    el.addEventListener(START_EDITING_EVENT_NAME, handleStartEditing);
+    return () => el.removeEventListener(START_EDITING_EVENT_NAME, handleStartEditing);
+  };
 
-  const combinedRef = useCombinedRefs(propsRef, ref, refCallback);
+  const combinedRef = useCombinedRefs(propsRef, ref, listenForEdits);
 
   return (
     <Text

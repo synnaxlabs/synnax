@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -16,19 +15,19 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { caseconv, deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef, useState } from "react";
-import z from "zod";
+import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { type ReactElement, useCallback, useMemo, useState } from "react";
 
-import { codifyHTML } from "@/components/text/InlineCode";
+import { SECTION_ICONS } from "@/components/nav/icons";
+import {
+  type Entry,
+  fromHit,
+  group,
+  hitSchema,
+  type Result,
+} from "@/components/search/result";
+import { codifyHTML, InlineCode } from "@/components/text/InlineCode";
 
-interface SearchResult {
-  key: string;
-  title: string;
-  description: string;
-  content: string;
-  href: string;
-}
 const ALGOLIA_APP_ID = "YWD9T0JXCS";
 const ALGOLIA_SEARCH_ONLY_API_KEY = "1f8b0497301392c94adedf89a98afb6f";
 const ALGOLIA_URL = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/docs_site/query`;
@@ -37,104 +36,93 @@ const ALGOLIA_HEADERS = {
   "X-Algolia-Application-Id": ALGOLIA_APP_ID,
 };
 
+// A result shows the icon of the deepest nav group that has one, such as a vendor under
+// Hardware.
 const ICONS: Record<string, Icon.ReactElement> = {
-  core: <Icon.Core />,
-  console: <Icon.Visualize />,
-  concepts: <Icon.Concepts />,
+  ...SECTION_ICONS,
   blog: <Icon.Guide />,
-  "opc-ua": <Icon.Logo.OPCUA />,
-  ni: <Icon.Logo.NI />,
-  driver: <Icon.Device />,
-  pluto: <Icon.Table />,
   releases: <Icon.Release />,
-  client: <Icon.Terminal />,
+  ni: <Icon.Logo.NI />,
+  labjack: <Icon.Logo.LabJack />,
+  modbus: <Icon.Logo.Modbus />,
+  "opc-ua": <Icon.Logo.OPCUA />,
+  ethercat: <Icon.Logo.EtherCAT />,
+  http: <Icon.Logo.HTTP />,
+  python: <Icon.Python />,
+  arc: <Icon.Arc />,
 };
 
 const Item = (props: List.ItemRenderProps<string>) => {
   const { itemKey } = props;
-  const item = List.useItem<string, SearchResult>(itemKey);
+  const item = List.useItem<string, Entry>(itemKey);
   if (item == null) return null;
-  const { href, title, content } = item;
-  const icon = Object.entries(ICONS).find(([k]) => href.includes(k))?.[1];
-  const path = deep.transformPath(
-    href,
-    (part, index, parts) => {
-      if (part.length === 0 || index === parts.length - 1) return undefined;
-      const split = part
-        .split("-")
-        .filter((p) => p.length > 0)
-        .map(caseconv.capitalize);
-      return split.join(" ");
-    },
-    "/",
-  );
+  const { href, title, excerpt, section, path, ancestors, first } = item;
+  const icon = ancestors.findLast((key) => key in ICONS);
   return (
-    <Select.Item<string, "a">
-      id={itemKey}
-      el="a"
-      direction="y"
-      style={{ padding: "2.5rem 3rem" }}
-      gap="medium"
-      aria-selected
-      href={href}
-      propagateClick
-      {...props}
-    >
-      <Flex.Box direction="y" empty>
-        <Text.Text
-          level="h5"
+    <>
+      {first && (
+        <Text.Text className="search-results__section" level="small">
+          {section}
+        </Text.Text>
+      )}
+      <Select.Item<string, "a">
+        className="search-result"
+        id={itemKey}
+        el="a"
+        href={href}
+        propagateClick
+        {...props}
+      >
+        <span className="search-result__icon">
+          {icon == null ? <Icon.Reference /> : ICONS[icon]}
+        </span>
+        <span
+          className="search-result__title"
           dangerouslySetInnerHTML={{ __html: codifyHTML(title) }}
-          empty
         />
         {path.length > 0 && (
-          <Breadcrumb.Breadcrumb level="small" gap="tiny" highlightVariant="last">
-            {icon}
-            {path.split("/").map((segment, index) => (
-              <Breadcrumb.Segment key={index} color={8}>
-                {segment}
-              </Breadcrumb.Segment>
+          <span className="search-result__path">
+            {path.map((name) => (
+              <span key={name}>
+                <InlineCode text={name} />
+              </span>
             ))}
-          </Breadcrumb.Breadcrumb>
+          </span>
         )}
-      </Flex.Box>
-      <Text.Text level="small" dangerouslySetInnerHTML={{ __html: content }} />
-    </Select.Item>
+        <span
+          className="search-result__excerpt"
+          dangerouslySetInnerHTML={{ __html: codifyHTML(excerpt) }}
+        />
+        <Triggers.Text
+          className="search-result__enter"
+          trigger={["Enter"]}
+          level="small"
+        />
+      </Select.Item>
+    </>
   );
 };
 
 const item = Component.renderProp(Item);
 
-const hitSchema = z.object({
-  objectID: z.string(),
-  title: z.string(),
-  description: z.string().optional(),
-  content: z.string(),
-  href: z.string(),
-  _snippetResult: z
-    .object({
-      title: z
-        .object({
-          value: z.string(),
-        })
-        .optional(),
-      content: z
-        .object({
-          value: z.string(),
-        })
-        .optional(),
-    })
-    .optional(),
-});
-
 const hitsSchema = hitSchema.array();
 
-const search = async (term: string) => {
+const PARAMS = new URLSearchParams({
+  hitsPerPage: "8",
+  attributesToRetrieve: "title,href,description",
+  attributesToSnippet: "content:14,title:20",
+  highlightPreTag: "<b>",
+  highlightPostTag: "</b>",
+  snippetEllipsisText: "…",
+});
+
+const search = async (term: string): Promise<Result[]> => {
+  const params = new URLSearchParams(PARAMS);
+  params.set("query", term);
   const res = await fetch(ALGOLIA_URL, {
     method: "POST",
     headers: ALGOLIA_HEADERS,
-    body: JSON.stringify({
-      params: `query=${term}&hitsPerPage=5&attributesToSnippet=content,title:20&highlightPreTag=<b>&highlightPostTag=</b>`,
-    }),
+    body: JSON.stringify({ params: params.toString() }),
   });
   const json = await res.json();
   const hits = hitsSchema.safeParse(json.hits);
@@ -142,60 +130,52 @@ const search = async (term: string) => {
     console.error(hits.error.issues);
     return [];
   }
-
-  return hits.data.map((hit) => ({
-    key: hit.objectID,
-    title: hit._snippetResult?.title?.value ?? hit.title,
-    description: hit.description,
-    content: hit._snippetResult?.content?.value ?? hit.content,
-    href: hit.href,
-  })) as SearchResult[];
+  return hits.data.map(fromHit);
 };
 
-const DEFAULT_ITEMS: SearchResult[] = [
+const SUGGESTED: Result[] = [
   {
-    key: "default-get-started",
+    key: "suggested-get-started",
     title: "Get started",
-    description: "Get started with Synnax",
-    content: "Learn how to set up and start using Synnax",
+    excerpt: "Install Synnax and learn how it organizes your data",
     href: "/reference",
+    ancestors: ["get-started"],
   },
   {
-    key: "default-deploy",
-    title: "Deploy",
-    description: "Deploy a Synnax cluster",
-    content: "Deploy and configure a Synnax server",
-    href: "/reference/core/quick-start",
+    key: "suggested-channels",
+    title: "Channels",
+    excerpt: "Learn how channels hold every value that Synnax records",
+    href: "/reference/channels",
+    ancestors: ["channels"],
   },
   {
-    key: "default-console",
-    title: "Console",
-    description: "Get started with the Console",
-    content: "Set up and use the Synnax Console application",
-    href: "/reference/console/get-started",
+    key: "suggested-hardware",
+    title: "Hardware",
+    excerpt: "Connect NI, LabJack, OPC UA, Modbus, EtherCAT, and HTTP devices",
+    href: "/reference/hardware",
+    ancestors: ["hardware"],
   },
   {
-    key: "default-client",
-    title: "Client libraries",
-    description: "Quick start with client libraries",
-    content: "Connect to Synnax using Python or TypeScript",
-    href: "/reference/client/quick-start",
+    key: "suggested-visualize",
+    title: "Visualize",
+    excerpt: "Build line plots, schematics, tables, and logs",
+    href: "/reference/visualize",
+    ancestors: ["visualize"],
   },
   {
-    key: "default-driver",
-    title: "Device drivers",
-    description: "Get started with device drivers",
-    content: "Connect hardware devices to Synnax",
-    href: "/reference/driver/get-started",
+    key: "suggested-enterprise",
+    title: "Set up Enterprise",
+    excerpt: "Deploy and configure a Core for your team",
+    href: "/reference/enterprise",
+    ancestors: ["enterprise"],
   },
-];
+].map((result) => ({ ...result, section: "Suggested", path: [] }));
 
 /** Searches the docs as the reader types and opens the chosen page. */
 export const Results = (): ReactElement => {
   const { close, visible } = Dialog.useContext();
   const [value, setValue] = useState<string>("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [data, setData] = useState<SearchResult[]>([]);
+  const [data, setData] = useState<Result[]>([]);
   const handleSearch = useCallback(
     (query: string) => {
       setValue(query);
@@ -208,15 +188,17 @@ export const Results = (): ReactElement => {
     },
     [visible],
   );
-  const displayData = value.length === 0 ? DEFAULT_ITEMS : data;
-  const { data: items, getItem } = List.useStaticData<string, SearchResult>({
-    data: displayData,
+  const empty = value.length === 0;
+  const entries = useMemo(() => group(empty ? SUGGESTED : data), [empty, data]);
+  const { data: items, getItem } = List.useStaticData<string, Entry>({
+    data: entries,
   });
   return (
-    <Select.Frame<string, SearchResult>
+    <Select.Frame<string, Entry>
       data={items}
       getItem={getItem}
       value=""
+      initialHover={0}
       onChange={(k: string | null) => {
         if (k == null) return;
         document.getElementById(k)?.click();
@@ -225,7 +207,6 @@ export const Results = (): ReactElement => {
     >
       <Input.Text
         className="search-results__input"
-        ref={inputRef}
         placeholder={
           <>
             <Icon.Search />
@@ -239,8 +220,13 @@ export const Results = (): ReactElement => {
         size="huge"
         full="x"
       />
-      <List.Scroll className="styled-scrollbar" background={0} bordered borderColor={6}>
-        <List.Items<string, SearchResult>
+      <List.Scroll
+        className="styled-scrollbar search-results__list"
+        background={0}
+        bordered
+        borderColor={6}
+      >
+        <List.Items<string, Entry>
           emptyContent={
             <Text.Text center status="disabled">
               No results
@@ -250,6 +236,24 @@ export const Results = (): ReactElement => {
           {item}
         </List.Items>
       </List.Scroll>
+      <Flex.Box
+        className="search-results__footer"
+        x
+        align="center"
+        gap="large"
+        bordered
+        borderColor={6}
+      >
+        <Triggers.Text trigger={["ArrowUp", "ArrowDown"]} level="small">
+          Move
+        </Triggers.Text>
+        <Triggers.Text trigger={["Enter"]} level="small">
+          Open
+        </Triggers.Text>
+        <Triggers.Text trigger={["Escape"]} level="small">
+          Close
+        </Triggers.Text>
+      </Flex.Box>
     </Select.Frame>
   );
 };

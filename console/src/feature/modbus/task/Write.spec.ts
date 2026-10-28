@@ -9,6 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -221,5 +222,73 @@ describe("Write", () => {
     // absence below is read.
     expect(await screen.findByText("Remove")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
+  });
+
+  it("should store a byte order override on a holding register channel", async () => {
+    const dev = await createModbusDevice(client, {
+      properties: {
+        connection: { host: "localhost", port: 502, swapBytes: true, swapWords: false },
+      },
+    });
+    const draft = await createDraft(client, {
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+          type: "holding_register",
+          key: id.create(),
+          dataType: "float32",
+        }),
+      ],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText("Bytes: device (swapped)"));
+    fireEvent.click(await screen.findByText("Bytes: not swapped"));
+    screen.getByText("Words: device (not swapped)");
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Modbus.Task.WRITE_SCHEMAS,
+    );
+    const [register] = created.config.channels;
+    if (register.type !== "holding_register")
+      throw new Error(`expected a holding register, got ${register.type}`);
+    expect(register.bytesSwapped).toBe(false);
+    expect(register.wordsSwapped).toBeUndefined();
+  });
+
+  describe("add channel", () => {
+    it.each([
+      { dataType: "uint16", address: 11 },
+      { dataType: "float32", address: 12 },
+      { dataType: "float64", address: 14 },
+    ])(
+      "should place a new channel after the last register of a $dataType channel",
+      async ({ dataType, address }) => {
+        const dev = await createModbusDevice(client);
+        const register = Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+          type: "holding_register",
+          key: id.create(),
+          address: 10,
+          dataType,
+        });
+        const draft = await createDraft(client, {
+          ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+          device: dev.key,
+          channels: [register],
+        });
+        const { container } = await renderWrite({ client, taskKey: draft.key });
+        await screen.findByText(dev.name);
+        fireEvent.click(getIconButton(container, "add"));
+        await waitFor(async () => {
+          const saved = await client.tasks.retrieve({
+            key: draft.key,
+            schemas: Modbus.Task.WRITE_SCHEMAS,
+          });
+          expect(saved.config.channels[1]?.address).toBe(address);
+        });
+      },
+    );
   });
 });

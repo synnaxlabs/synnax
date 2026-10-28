@@ -80,8 +80,8 @@ type encoderFileOutput struct {
 func generateEncoderCodecFile(
 	packageName string,
 	parentPath string,
-	entries []CodecEntry,
-	flex []FlexCodec,
+	entries []codecEntry,
+	flex []flexCodec,
 	table *resolution.Table,
 	repoRoot string,
 	pins versioning.Pins,
@@ -113,8 +113,8 @@ func generateEncoderCodecFile(
 func renderEncoderCodecFile(
 	packageName string,
 	parentPath string,
-	entries []CodecEntry,
-	flex []FlexCodec,
+	entries []codecEntry,
+	flex []flexCodec,
 	table *resolution.Table,
 	repoRoot string,
 	pins versioning.Pins,
@@ -190,7 +190,7 @@ func renderEncoderCodecFile(
 			}
 		}
 
-		recv := ReceiverName(e.GoName)
+		recv := receiverName(e.GoName)
 		if len(typeParams) > 0 {
 			// Generic type with non-defaulted params: generate method with type
 			// assertion + JSON fallback for type parameter fields.
@@ -260,11 +260,11 @@ var reservedNames = set.New(
 	"err", "ok", // error/bool variables in method bodies
 )
 
-// ReceiverName derives a Go-idiomatic short receiver name from a type name. It takes
+// receiverName derives a Go-idiomatic short receiver name from a type name. It takes
 // the lowercase initials of each word in the PascalCase name (e.g., "TimeRange" ->
 // "tr", "XY" -> "xy", "Status" -> "s"). Names that conflict with generated local
 // variables get a "v" suffix.
-func ReceiverName(goName string) string {
+func receiverName(goName string) string {
 	var initials []byte
 	for i, c := range goName {
 		if i == 0 || (c >= 'A' && c <= 'Z') {
@@ -369,11 +369,11 @@ func (b *encoderBuilder) processFields(
 			}
 		}
 
-		if f.Optional && !b.isGoNilable(f.Type) {
+		if f.Optional && !typemap.Nilable(f.Type, b.table) {
 			if err := b.processOptional(f, getPath, setPath); err != nil {
 				return err
 			}
-		} else if f.Optional && b.isGoNilable(f.Type) {
+		} else if f.Optional {
 			if err := b.processOptionalNilable(f, getPath, setPath); err != nil {
 				return err
 			}
@@ -623,7 +623,7 @@ func buildUnionCodec(
 ) (concreteCodec, error) {
 	table := b.table
 	goName := naming.GetGoName(entry)
-	recv := ReceiverName(goName)
+	recv := receiverName(goName)
 	if recv == "tag" {
 		recv += "v"
 	}
@@ -815,7 +815,7 @@ func (b *encoderBuilder) processOptional(
 	}
 
 	// Optional other (pointer to struct/primitive)
-	goType, err := b.goTypeName(resolved)
+	goType, err := typemap.GoTypeRefName(f.Type, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
@@ -894,14 +894,15 @@ func (b *encoderBuilder) processArray(
 	if !ok {
 		return errors.Newf("cannot resolve array element type %s", elemRef.Name)
 	}
-	goType, err := b.resolveGoSliceElemType(elemType)
+	goType, err := typemap.ResolveGoSliceElemType(elemRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
 
 	// Write a presence bit to distinguish nil from empty slices.
 	// When inside a optional guard, the slice is already known non-nil.
-	if !b.skipNilCheck {
+	known := b.takeNonNil()
+	if !known {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
 			ind+fmt.Sprintf("if %s != nil {", getPath),
@@ -940,7 +941,7 @@ func (b *encoderBuilder) processArray(
 
 	b.encodeLines = append(b.encodeLines, ind+"\t}")
 	b.decodeLines = append(b.decodeLines, ind+"\t}")
-	if !b.skipNilCheck {
+	if !known {
 		b.encodeLines = append(b.encodeLines, ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	}
@@ -960,18 +961,19 @@ func (b *encoderBuilder) processMap(
 	if !ok {
 		return errors.Newf("cannot resolve map value type %s", valRef.Name)
 	}
-	goKeyType, err := b.goTypeName(keyType)
+	goKeyType, err := typemap.GoTypeRefName(keyRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
-	goValType, err := b.goTypeName(valType)
+	goValType, err := typemap.GoTypeRefName(valRef, b.table, b.goTypeName)
 	if err != nil {
 		return err
 	}
 
 	// Write a presence bit to distinguish nil from empty maps. When inside a optional
 	// guard, the map is already known non-nil.
-	if !b.skipNilCheck {
+	known := b.takeNonNil()
+	if !known {
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", getPath),
 			ind+fmt.Sprintf("if %s != nil {", getPath),
@@ -1010,7 +1012,7 @@ func (b *encoderBuilder) processMap(
 		ind+"\t\t"+setPath+"[key] = val",
 		ind+"\t}",
 	)
-	if !b.skipNilCheck {
+	if !known {
 		b.encodeLines = append(b.encodeLines, ind+"}")
 		b.decodeLines = append(b.decodeLines, ind+"}", ind+"}")
 	}
@@ -1080,7 +1082,18 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bytes":
-		// Write a presence bit to distinguish nil from empty byte slices.
+		// Write a presence bit to distinguish nil from empty byte slices. Inside an
+		// optional guard, the slice is already known non-nil.
+		if b.takeNonNil() {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.WriteWithLen(%s)", valPath),
+			)
+			b.decodeLines = append(b.decodeLines, ind+fmt.Sprintf(
+				"%s, err = r.ReadWithLen(); if err != nil { return err }",
+				setPath,
+			))
+			break
+		}
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Bool(%s != nil)", valPath),
 			ind+fmt.Sprintf("if %s != nil {", valPath),
@@ -1099,14 +1112,27 @@ func (b *encoderBuilder) processLeaf(
 		)
 
 	case "bool":
-		b.encodeLines = append(b.encodeLines,
-			ind+fmt.Sprintf("w.Bool(%s)", valPath))
-		b.decodeWithErr(
-			ind + fmt.Sprintf(
-				"if %s, err = r.Bool(); err != nil { return err }",
-				setPath,
-			),
-		)
+		if goTypeCast != "" {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.Bool(bool(%s))", valPath))
+			b.decodeLine(
+				ind + fmt.Sprintf(
+					"{ rawV, err := r.Bool(); if err != nil { return err }; "+
+						"%s = %s(rawV) }",
+					setPath,
+					goTypeCast,
+				),
+			)
+		} else {
+			b.encodeLines = append(b.encodeLines,
+				ind+fmt.Sprintf("w.Bool(%s)", valPath))
+			b.decodeWithErr(
+				ind + fmt.Sprintf(
+					"if %s, err = r.Bool(); err != nil { return err }",
+					setPath,
+				),
+			)
+		}
 
 	case "int8":
 		b.addIntLeaf(ind, valPath, setPath, goTypeCast, "Int8", "int8", "int8(%s)")
@@ -1231,16 +1257,12 @@ func (b *encoderBuilder) unwrapType(typ resolution.Type) resolution.Type {
 	return typemap.UnwrapType(typ, b.table)
 }
 
-func (b *encoderBuilder) isGoNilable(ref resolution.TypeRef) bool {
-	resolved, ok := ref.Resolve(b.table)
-	if !ok {
-		return false
-	}
-	actual := b.unwrapType(resolved)
-	if bg, ok := actual.Form.(resolution.BuiltinGenericForm); ok {
-		return bg.Name == "Array" || bg.Name == "Map"
-	}
-	return false
+// takeNonNil reports whether the value about to be encoded is known non-nil, and clears
+// the flag so the value's elements write their own presence bits.
+func (b *encoderBuilder) takeNonNil() bool {
+	known := b.skipNilCheck
+	b.skipNilCheck = false
+	return known
 }
 
 func (b *encoderBuilder) resolveLeaf(
@@ -1326,10 +1348,6 @@ func (b *encoderBuilder) aliasUsed(alias string) bool {
 		}
 	}
 	return false
-}
-
-func (b *encoderBuilder) resolveGoSliceElemType(typ resolution.Type) (string, error) {
-	return typemap.ResolveGoSliceElemType(typ, b.table, b.goTypeName)
 }
 
 // --- Template ---

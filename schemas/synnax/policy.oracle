@@ -26,6 +26,7 @@ Policy struct {
     name     string          {
         @doc value         "is a human-readable name for the policy."
         @filter
+        @search
         @validate required
     }
     objects  ontology.ID[]   {

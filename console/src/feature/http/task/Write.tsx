@@ -21,11 +21,11 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel as PChannel, Telem } from "@synnaxlabs/pluto";
 import { DataType, id, json, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback, useMemo, useState } from "react";
+import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import * as Device from "@/feature/http/device/types";
+import { SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -119,6 +119,7 @@ const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
   <PForm.Section title="Enum mapping">
     <PlatformForm.KeyValueEditor
       path={`${channelPath}.enumValues`}
+      resourceName="mapping"
       keyField="label"
       keyPlaceholder="String (e.g. ON)"
       valueType="number"
@@ -131,10 +132,7 @@ const ChannelFieldSection: FC<{ epPath: string }> = ({ epPath }) => {
   const channelPath = `${epPath}.channel`;
   const channelKey = PForm.useFieldValue<number>(`${channelPath}.channel`);
   const jsonType = PForm.useFieldValue<string>(`${channelPath}.jsonType`);
-  const channelQuery = useMemo(
-    () => (primitive.isNonZero(channelKey) ? { key: channelKey } : null),
-    [channelKey],
-  );
+  const channelQuery = primitive.isNonZero(channelKey) ? { key: channelKey } : null;
   const { data: dataType } = PChannel.useResultDataType(channelQuery);
 
   return (
@@ -225,26 +223,20 @@ const FieldListItem = ({
   });
   const { set } = PForm.useContext();
 
-  const handleJSONTypeChange = useCallback(
-    (value: json.PrimitiveType) => {
-      set(`${path}.jsonType`, value);
-      set(`${path}.value`, json.ZERO_PRIMITIVES[value]);
-    },
-    [set, path],
-  );
+  const handleJSONTypeChange = (value: json.PrimitiveType) => {
+    set(`${path}.jsonType`, value);
+    set(`${path}.value`, json.ZERO_PRIMITIVES[value]);
+  };
 
-  const handleGeneratorChange = useCallback(
-    (key: GeneratorType | TimeFormat) => {
-      if (key === "uuid") {
-        set(`${path}.generator`, "uuid");
-        set(`${path}.timeFormat`, undefined);
-      } else {
-        set(`${path}.generator`, "timestamp");
-        set(`${path}.timeFormat`, key);
-      }
-    },
-    [set, path],
-  );
+  const handleGeneratorChange = (key: GeneratorType | TimeFormat) => {
+    if (key === "uuid") {
+      set(`${path}.generator`, "uuid");
+      set(`${path}.timeFormat`, undefined);
+    } else {
+      set(`${path}.generator`, "timestamp");
+      set(`${path}.timeFormat`, key);
+    }
+  };
 
   return (
     <Select.Item {...props} justify="between" align="center" x>
@@ -324,7 +316,7 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
   const [selected, setSelected] = useState<string[]>([]);
   const isPreview = Task.useIsPreview();
 
-  const handleAddStatic = useCallback(() => {
+  const handleAddStatic = () => {
     const field: WriteField = {
       key: id.create(),
       pointer: "",
@@ -334,9 +326,9 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     };
     push(field);
     setSelected([field.key]);
-  }, [push]);
+  };
 
-  const handleAddGenerated = useCallback(() => {
+  const handleAddGenerated = () => {
     const field: WriteField = {
       key: id.create(),
       pointer: "",
@@ -345,29 +337,20 @@ const AdditionalFields: FC<{ epKey: string }> = ({ epKey }) => {
     };
     push(field);
     setSelected([field.key]);
-  }, [push]);
+  };
 
-  const handleRemove = useCallback(
-    (keys: string[]) => {
-      remove(keys);
-      setSelected([]);
-    },
-    [remove],
-  );
+  const handleRemove = (keys: string[]) => {
+    remove(keys);
+    setSelected([]);
+  };
 
-  const listItem = useCallback(
-    ({ key, ...p }: List.ItemProps<string>) => (
-      <FieldListItem key={key} {...p} epKey={epKey} />
-    ),
-    [epKey],
+  const listItem = ({ key, ...p }: List.ItemProps<string>) => (
+    <FieldListItem key={key} {...p} epKey={epKey} />
   );
 
   const menuProps = Menu.useContextMenu();
-  const menuRenderProp = useCallback(
-    (p: Menu.ContextMenuMenuProps) => (
-      <Task.Views.ContextMenu keys={p.keys} onRemove={handleRemove} />
-    ),
-    [handleRemove],
+  const menuRenderProp = (p: Menu.ContextMenuMenuProps) => (
+    <Task.Views.ContextMenu keys={p.keys} onRemove={handleRemove} />
   );
 
   const actions = !isPreview && (
@@ -433,6 +416,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.queryParams`}
+            resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
             keyPlaceholder="limit"
@@ -440,6 +424,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.headers`}
+            resourceName="header"
             label="Headers"
             keyField="name"
             keyPlaceholder="Content-Type"
@@ -461,63 +446,48 @@ const Form: FC = () => {
     "config.endpoints",
   );
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (ep: WriteEndpoint) =>
-      dev == null
-        ? null
-        : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } },
-    [dev],
-  );
+  const resolve = (ep: WriteEndpoint) =>
+    dev == null
+      ? null
+      : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } };
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
 
-  const handleAddEndpoint = useCallback(() => {
+  const handleAddEndpoint = () => {
     const ep: WriteEndpoint = { ...writeEndpointZ.parse({}), key: id.create() };
     push(ep);
     setSelectedEndpoints([ep.key]);
-  }, [push]);
+  };
 
-  const handleRemoveEndpoints = useCallback(
-    (keys: string[]) => {
-      remove(keys);
-      setSelectedEndpoints([]);
-    },
-    [remove],
-  );
+  const handleRemoveEndpoints = (keys: string[]) => {
+    remove(keys);
+    setSelectedEndpoints([]);
+  };
 
-  const handleDuplicateEndpoints = useCallback(
-    (keys: string[]) => {
-      const allEndpoints = ctx.get<WriteEndpoint[]>("config.endpoints").value;
-      const duplicated = allEndpoints
-        .filter(({ key }) => keys.includes(key))
-        .map((ep) => ({
-          ...ep,
-          key: id.create(),
-          channel: { ...ep.channel, channel: 0 },
-          fields: ep.fields.map((f) => ({ ...f, key: id.create() })),
-        }));
-      push(duplicated);
-      if (duplicated.length > 0) setSelectedEndpoints([duplicated[0].key]);
-    },
-    [ctx, push],
-  );
+  const handleDuplicateEndpoints = (keys: string[]) => {
+    const allEndpoints = ctx.get<WriteEndpoint[]>("config.endpoints").value;
+    const duplicated = allEndpoints
+      .filter(({ key }) => keys.includes(key))
+      .map((ep) => ({
+        ...ep,
+        key: id.create(),
+        channel: { ...ep.channel, channel: 0 },
+        fields: ep.fields.map((f) => ({ ...f, key: id.create() })),
+      }));
+    push(duplicated);
+    if (duplicated.length > 0) setSelectedEndpoints([duplicated[0].key]);
+  };
 
-  const handleRenameChannel = useCallback(
-    (key: string) => Text.edit(getEndpointChannelNameID(key)),
-    [],
-  );
+  const handleRenameChannel = (key: string) => Text.edit(getEndpointChannelNameID(key));
 
   const menuProps = Menu.useContextMenu();
-  const menuRenderProp = useCallback(
-    (p: Menu.ContextMenuMenuProps) => (
-      <Task.Views.ContextMenu
-        keys={p.keys}
-        onRemove={handleRemoveEndpoints}
-        onDuplicate={handleDuplicateEndpoints}
-        onRename={handleRenameChannel}
-      />
-    ),
-    [handleRemoveEndpoints, handleDuplicateEndpoints, handleRenameChannel],
+  const menuRenderProp = (p: Menu.ContextMenuMenuProps) => (
+    <Task.Views.ContextMenu
+      keys={p.keys}
+      onRemove={handleRemoveEndpoints}
+      onDuplicate={handleDuplicateEndpoints}
+      onRename={handleRenameChannel}
+    />
   );
 
   const selected = selectedEndpoints.length > 0 ? selectedEndpoints[0] : null;
@@ -600,7 +570,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
@@ -657,7 +627,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       modified = true;
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

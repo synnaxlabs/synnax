@@ -11,11 +11,12 @@ import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -66,10 +67,7 @@ const ContextMenu = <C extends Channel>({
     set(`${path}.${key}.disabled`, !enabled);
   const handleDisable = () => keys.forEach((key) => setEnabled(key, false));
   const handleEnable = () => keys.forEach((key) => setEnabled(key, true));
-  const handleTare = useCallback(
-    () => onTare?.(keys, channels),
-    [onTare, keys, channels],
-  );
+  const handleTare = () => onTare?.(keys, channels);
   const canDuplicate = onDuplicate != null && keys.length > 0;
   const canRemove = keys.length > 0;
   const canDisable = channels.some(isEnabled);
@@ -151,10 +149,8 @@ export const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
-  const handleChange = useCallback(
-    (keys: string[]) => onSelect(keys),
-    [onSelect, path],
-  );
+  const { status } = Form.useFieldState(path);
+  const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
   return (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
@@ -186,6 +182,14 @@ export const ChannelList = <C extends Channel>({
           </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
+      {status.variant !== "success" && (
+        <Input.HelpText
+          variant={status.variant}
+          className={CSS.BE("channel-list", "status")}
+        >
+          {status.message}
+        </Input.HelpText>
+      )}
       {footer}
     </Flex.Box>
   );

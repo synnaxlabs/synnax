@@ -15,7 +15,7 @@ import {
   type record,
   unique,
 } from "@synnaxlabs/x";
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
@@ -121,22 +121,16 @@ const useOrder = <K extends record.Key>(): Order<K> => {
   const { data } = List.useData<K>();
   const { scrollToIndex } = List.useScroller();
   const clickRow = List.useClick();
-  const getOrder = useCallback(() => registry.getOrder(data) as K[], [registry, data]);
-  const scrollTo = useCallback(
-    (key: K, direction: location.Y) => {
-      const element = registry.getElement(key);
-      if (element != null) element.scrollIntoView({ block: "nearest" });
-      else scrollToIndex(data.indexOf(key), direction);
-    },
-    [registry, data, scrollToIndex],
-  );
-  const click = useCallback(
-    (key: K) => {
-      if (registry.hasItem(key)) registry.getElement(key)?.click();
-      else clickRow(key);
-    },
-    [registry, clickRow],
-  );
+  const getOrder = () => registry.getOrder(data) as K[];
+  const scrollTo = (key: K, direction: location.Y) => {
+    const element = registry.getElement(key);
+    if (element != null) element.scrollIntoView({ block: "nearest" });
+    else scrollToIndex(data.indexOf(key), direction);
+  };
+  const click = (key: K) => {
+    if (registry.hasItem(key)) registry.getElement(key)?.click();
+    else clickRow(key);
+  };
   return { getOrder, scrollTo, click, subscribe: registry.subscribe };
 };
 
@@ -166,26 +160,20 @@ export const useSingle = <K extends record.Key>({
     select();
     return subscribe(select);
   }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
-  const clear = useCallback(() => {
+  const clear = () => {
     if (allowNone) onChange(null as unknown as K, { clicked: null });
-  }, [onChange, allowNone]);
-  const handleSelect = useCallback(
-    (key: K): void => {
-      if (valueRef.current === key) {
-        if (closeDialogOnSelect) close();
-        else clear();
-        return;
-      }
-      onChange(key, { clicked: key });
+  };
+  const handleSelect = (key: K): void => {
+    if (valueRef.current === key) {
       if (closeDialogOnSelect) close();
-    },
-    [onChange, close, clear, closeDialogOnSelect],
-  );
+      else clear();
+      return;
+    }
+    onChange(key, { clicked: key });
+    if (closeDialogOnSelect) close();
+  };
 
-  const setSelected = useCallback(
-    (keys: K[]): void => onChange(keys[0], { clicked: null }),
-    [onChange],
-  );
+  const setSelected = (keys: K[]): void => onChange(keys[0], { clicked: null });
 
   const hover = useHover({
     getOrder,
@@ -230,53 +218,47 @@ export const useMultiple = <K extends record.Key>({
     select();
     return subscribe(select);
   }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
-  const onSelect = useCallback(
-    (key: K): void => {
-      const shiftValue = shiftValueRef.current;
-      let nextSelected: K[];
-      const value = array.toArray(valueRef.current).filter((v) => v != null);
-      // If the control key is held, we can still allow multiple selection.
-      if (ctrl.current.held && replaceOnSingle)
-        if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
-        else nextSelected = [...value, key];
-      else if (shift.current.held && shiftValue !== null) {
-        const order = getOrder();
-        // We might select in reverse order, so we need to sort the indexes.
-        const [start, end] = [order.indexOf(key), order.indexOf(shiftValue)].sort(
-          (a, b) => a - b,
-        );
-        const nextKeys = order.slice(start, end + 1);
-        // We already deselect the shiftSelected key, so we don't included it
-        // when checking whether to select or deselect the entire range.
-        if (
-          nextKeys.slice(1, nextKeys.length - 1).every((k) => value.includes(k)) &&
-          value.includes(key)
-        )
-          nextSelected = value.filter((k) => !nextKeys.includes(k));
-        else nextSelected = [...value, ...nextKeys];
-        shiftValueRef.current = null;
-      } else {
-        shiftValueRef.current = key;
-        if (replaceOnSingle)
-          nextSelected = value.includes(key) && value.length === 1 ? [] : [key];
-        else if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
-        else nextSelected = [...value, key];
-      }
-      const v = unique.unique(nextSelected);
-      if (v.length === 0) {
-        if (!allowNone) return;
-        shiftValueRef.current = null;
-      }
-      onChange(v, { clicked: key });
-      if (closeDialogOnSelect) close();
-    },
-    [valueRef, getOrder, onChange, close],
-  );
-  const clear = useCallback((): void => onChange([], { clicked: null }), [onChange]);
-  const setSelected = useCallback(
-    (keys: K[]): void => onChange(keys, { clicked: null }),
-    [onChange],
-  );
+  const onSelect = (key: K): void => {
+    const shiftValue = shiftValueRef.current;
+    let nextSelected: K[];
+    const value = array.toArray(valueRef.current).filter((v) => v != null);
+    // If the control key is held, we can still allow multiple selection.
+    if (ctrl.current.held && replaceOnSingle)
+      if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+      else nextSelected = [...value, key];
+    else if (shift.current.held && shiftValue !== null) {
+      const order = getOrder();
+      // We might select in reverse order, so we need to sort the indexes.
+      const [start, end] = [order.indexOf(key), order.indexOf(shiftValue)].sort(
+        (a, b) => a - b,
+      );
+      const nextKeys = order.slice(start, end + 1);
+      // We already deselect the shiftSelected key, so we don't included it
+      // when checking whether to select or deselect the entire range.
+      if (
+        nextKeys.slice(1, nextKeys.length - 1).every((k) => value.includes(k)) &&
+        value.includes(key)
+      )
+        nextSelected = value.filter((k) => !nextKeys.includes(k));
+      else nextSelected = [...value, ...nextKeys];
+      shiftValueRef.current = null;
+    } else {
+      shiftValueRef.current = key;
+      if (replaceOnSingle)
+        nextSelected = value.includes(key) && value.length === 1 ? [] : [key];
+      else if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+      else nextSelected = [...value, key];
+    }
+    const v = unique.unique(nextSelected);
+    if (v.length === 0) {
+      if (!allowNone) return;
+      shiftValueRef.current = null;
+    }
+    onChange(v, { clicked: key });
+    if (closeDialogOnSelect) close();
+  };
+  const clear = (): void => onChange([], { clicked: null });
+  const setSelected = (keys: K[]): void => onChange(keys, { clicked: null });
   const hover = useHover({
     getOrder,
     subscribe,

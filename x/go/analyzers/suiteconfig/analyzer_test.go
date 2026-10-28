@@ -1,0 +1,31 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package suiteconfig_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/synnaxlabs/x/analyzers/suiteconfig"
+	"golang.org/x/tools/go/analysis/analysistest"
+)
+
+var _ = Describe("Analyzer", func() {
+	DescribeTable("Should report each RunSpecs call without SuiteConfig()",
+		func(pkg string) {
+			analysistest.Run(
+				GinkgoT(),
+				analysistest.TestData(),
+				suiteconfig.Analyzer,
+				pkg,
+			)
+		},
+		Entry("dot-imported and qualified calls that pass it", "good"),
+		Entry("calls that omit it or pass the function uncalled", "missing"),
+	)
+})

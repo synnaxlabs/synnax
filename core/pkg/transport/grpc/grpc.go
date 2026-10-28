@@ -18,6 +18,7 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
+	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -83,6 +84,9 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// CHANNEL
 	t.ChannelRename = noop.UnaryServer[apichannel.RenameRequest, struct{}]{}
 	t.ChannelRetrieveGroup = noop.UnaryServer[apichannel.RetrieveGroupRequest, apichannel.RetrieveGroupResponse]{}
+
+	// FRAME
+	t.FrameRead = noop.UnaryServer[apiframer.ReadRequest, apiframer.ReadResponse]{}
 
 	// USER
 	t.UserRename = noop.UnaryServer[user.RenameRequest, struct{}]{}

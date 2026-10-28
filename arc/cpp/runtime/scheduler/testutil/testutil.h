@@ -47,11 +47,11 @@ struct MockNode final : public node::Node {
     /// IR's declared output count — out-of-range ordinals are treated
     /// as non-truthy.
     std::vector<bool> output_truthy;
-    /// @brief disables the default behavior of calling MarkChanged for
-    /// every currently-truthy output on each next. Tests that want to
-    /// model a node whose output stays truthy across cycles but only
-    /// announces a change via MarkChanged on specific cycles should set
-    /// this and drive MarkChanged manually from on_next.
+    /// @brief disables the default behavior of calling mark_changed for
+    /// every currently-truthy output, and mark_done, on each next. Tests
+    /// that want to model a node whose output stays truthy across cycles
+    /// but only announces a change via mark_changed on specific cycles
+    /// should set this and drive mark_changed manually from on_next.
     bool suppress_auto_mark = false;
     std::function<void(node::Context &)> on_next;
 
@@ -65,9 +65,11 @@ struct MockNode final : public node::Node {
     x::errors::Error next(node::Context &ctx) override {
         next_called++;
         elapsed_values.push_back(ctx.cycle.elapsed);
-        if (!suppress_auto_mark)
+        if (!suppress_auto_mark) {
             for (size_t i = 0; i < output_truthy.size(); ++i)
                 if (output_truthy[i]) ctx.mark_changed(i);
+            ctx.mark_done();
+        }
         if (on_next) on_next(ctx);
         return x::errors::NIL;
     }
@@ -91,10 +93,13 @@ inline std::function<void(node::Context &)> mark_on_next(const size_t ordinal) {
     return [ordinal](node::Context &ctx) { ctx.mark_changed(ordinal); };
 }
 
-/// @brief collects scheduler-reported errors for assertion.
+/// @brief collects scheduler-reported errors, and the keys of the nodes that raised
+/// them, for assertion.
 struct MockErrorHandler {
     std::vector<x::errors::Error> errors;
-    errors::Handler handler = [this](const x::errors::Error &e) {
+    std::vector<std::string> node_keys;
+    ErrorHandler handler = [this](const ir::Node &node, const x::errors::Error &e) {
+        node_keys.push_back(node.key);
         errors.push_back(e);
     };
 };
@@ -201,6 +206,20 @@ ir_node(const std::string &key, std::initializer_list<std::string> outputs = {})
     return n;
 }
 
+inline ir::Node reader_node(const std::string &key) {
+    auto n = ir_node(key);
+    n.channels.read[1] = "ch";
+    return n;
+}
+
+inline ir::Transition done_transition(const std::string &node_key, ir::Target target) {
+    ir::Transition t;
+    t.on = ir::Handle{node_key, ir::done_param};
+    t.kind = ir::EdgeKind::Continuous;
+    t.target = std::move(target);
+    return t;
+}
+
 /// @brief builds an IR program from the given nodes, edges, and root
 /// scope. Output names are declared per node via ir_node — the
 /// scheduler reads them exclusively from ir::Node::outputs.
@@ -241,7 +260,7 @@ public:
         return std::make_unique<Scheduler>(std::move(ir), this->nodes);
     }
 
-    std::unique_ptr<Scheduler> build_with_handler(ir::IR ir, errors::Handler handler) {
+    std::unique_ptr<Scheduler> build_with_handler(ir::IR ir, ErrorHandler handler) {
         return std::make_unique<Scheduler>(
             std::move(ir),
             this->nodes,

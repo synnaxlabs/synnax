@@ -26,6 +26,26 @@ describe("Editable", () => {
       expect(text.getAttribute("contenteditable")).toBe("false");
     });
 
+    it("should render markup in the value as literal text", () => {
+      const value = "<img src=x onerror=alert(1)>";
+      const c = render(<Editable value={value} onChange={vi.fn()} />);
+      const text = c.getByText(value);
+      expect(text.textContent).toBe(value);
+      expect(text.querySelector("img")).toBeNull();
+    });
+
+    it("should render committed markup as literal text", () => {
+      const value = "<img src=x onerror=alert(1)>";
+      const c = render(<Editable value="Hello" onChange={vi.fn()} />);
+      const text = c.getByText("Hello");
+      fireEvent.dblClick(text);
+      text.innerText = value;
+      fireEvent.keyDown(text, { key: "Enter" });
+      c.rerender(<Editable value="Hello" onChange={vi.fn()} />);
+      expect(text.textContent).toBe(value);
+      expect(text.querySelector("img")).toBeNull();
+    });
+
     it("should forward refs to the underlying element", () => {
       const ref = createRef<HTMLParagraphElement>();
       const c = render(<Editable ref={ref} value="Hello" onChange={vi.fn()} />);
@@ -234,6 +254,26 @@ describe("Editable", () => {
       expect(text.getAttribute("contenteditable")).toBe("true");
       text.innerText = "World";
       fireEvent.keyDown(text, { key: "Enter" });
+      await expect(promise).resolves.toEqual(["World", true]);
+    });
+
+    it("should start an edit after a level change renders a new element", async () => {
+      const onChange = vi.fn();
+      const c = render(
+        <Editable id="relevel" level="p" value="Hello" onChange={onChange} />,
+      );
+      c.rerender(
+        <Editable id="relevel" level="h3" value="Hello" onChange={onChange} />,
+      );
+      const text = c.getByText("Hello");
+      expect(text.tagName).toBe("H3");
+      let promise!: Promise<[string, boolean]>;
+      act(() => {
+        promise = asyncEdit("relevel");
+      });
+      text.innerText = "World";
+      fireEvent.keyDown(text, { key: "Enter" });
+      expect(onChange).toHaveBeenCalledWith("World");
       await expect(promise).resolves.toEqual(["World", true]);
     });
 

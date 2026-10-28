@@ -8,6 +8,15 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+// Disable GCC 13 false positive warning in <regex> header
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#include <regex>
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 #include <string>
 #include <unordered_map>
 
@@ -23,19 +32,21 @@ Scanner::Scanner(
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):
-    cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
+    cfg(cfg), task(std::move(task)), syscfg(syscfg) {}
 
 const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
+const std::string MODEL_PREFIX = MAKE + " ";
+const std::regex IGNORED_MODEL("(cRIO|Unknown).*");
 
 std::pair<Device, x::errors::Error>
-Scanner::parse_device(NISysCfgResourceHandle resource) const {
+Scanner::parse_device(NISysCfgResourceHandle resource) {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
     dev.rack = this->task.rack;
     dev.configured = false;
-    NISysCfgBool is_simulated;
+    NISysCfgBool is_simulated = NISysCfgBoolFalse;
     if (const auto err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyIsSimulated,
@@ -73,7 +84,8 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.model = property_value_buf;
-    if (dev.model.size() > 3) dev.model = dev.model.substr(3);
+    if (dev.model.starts_with(MODEL_PREFIX))
+        dev.model = dev.model.substr(MODEL_PREFIX.size());
     dev.name = MAKE + " " + dev.model;
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
@@ -144,9 +156,10 @@ Scanner::parse_device(NISysCfgResourceHandle resource) const {
             << " provides=" << dev.provides_link_name;
 
     auto err = x::errors::NIL;
-    if (this->cfg.should_ignore(dev.model)) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "device ignored by filter: " << dev.key
-                     << " (model: " << dev.model << ")";
+    if (std::regex_match(dev.model, IGNORED_MODEL)) {
+        if (this->ignored_keys.insert(dev.key).second)
+            VLOG(1) << SCAN_LOG_PREFIX << "skipping " << dev.model << " (" << dev.key
+                    << "): model matches an ignored pattern";
         err = SKIP_DEVICE_ERR;
     } else {
         VLOG(1) << SCAN_LOG_PREFIX << "device validated successfully: " << dev.key
@@ -212,13 +225,9 @@ Scanner::scan(const common::ScannerContext &ctx) {
     }
 
     // Stage 3: Sort chassis before modules for creation ordering, then convert.
-    std::stable_sort(
-        ni_devices.begin(),
-        ni_devices.end(),
-        [](const ni::Device &a, const ni::Device &b) {
-            return a.is_chassis > b.is_chassis;
-        }
-    );
+    std::ranges::stable_sort(ni_devices, [](const ni::Device &a, const ni::Device &b) {
+        return a.is_chassis > b.is_chassis;
+    });
 
     std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());
@@ -243,7 +252,9 @@ x::errors::Error Scanner::start() {
             nullptr,
             NISysCfgLocaleDefault,
             NISysCfgBoolTrue,
-            (this->cfg.rate.period() - x::telem::SECOND).milliseconds(),
+            static_cast<unsigned int>(
+                (this->cfg.rate.period() - x::telem::SECOND).milliseconds()
+            ),
             nullptr,
             &this->session
         ))

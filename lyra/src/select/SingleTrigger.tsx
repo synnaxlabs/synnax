@@ -10,7 +10,7 @@
 import "@/select/SingleTrigger.css";
 
 import { primitive, type record } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, useCallback, useId } from "react";
+import { type KeyboardEvent, type ReactElement, useId } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
+import { type Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
@@ -29,7 +30,12 @@ export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNa
 }
 
 /** Props for {@link SingleTrigger}. */
-export interface SingleTriggerProps extends Dialog.TriggerProps {
+export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant"> {
+  /**
+   * The trigger's chassis. A shadow trigger reads as its value: no box at rest, a
+   * border on hover, and a box while open. Its caret shows only on hover or while open.
+   */
+  variant?: Input.Variant;
   /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
   placeholder?: string;
@@ -70,6 +76,7 @@ export const SingleTrigger = <K extends record.Key>({
   disabled,
   iconOnly = false,
   hideCaret = false,
+  variant: triggerVariant = "outlined",
   renderIcon,
   collapsible = false,
   clearable = false,
@@ -89,30 +96,24 @@ export const SingleTrigger = <K extends record.Key>({
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
-  const canDrop = useCallback(
-    (hauled: Haul.DraggingState) =>
-      staticCanDrop(hauled, haulType, allSelected, disabled),
-    [haulType, allSelected, disabled],
-  );
+  const canDrop = (hauled: Haul.DraggingState) =>
+    staticCanDrop(hauled, haulType, allSelected, disabled);
   const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
     type: haulType,
     canDrop,
-    onDrop: Haul.useFilterByTypeCallback(
-      haulType,
-      ({ items }) => {
-        if (items.length !== 0) setSelected([items[0].key as K]);
-        return items;
-      },
-      [setSelected],
-    ),
+    onDrop: ({ items }) => {
+      const dropped = Haul.filterByType(haulType, items);
+      if (dropped.length !== 0) setSelected([dropped[0].key as K]);
+      return dropped;
+    },
   });
   // A drag copies the selection: a single select must keep its value. Only a key that
   // resolves to an entry drags, so an empty sentinel such as 0 never does.
   const draggable =
     haulType !== "" && item != null && !fixed && disabled !== true && preview !== true;
-  const handleDragStart = useCallback(() => {
+  const handleDragStart = () => {
     if (item != null) startDrag([{ key: item.key, type: haulType }]);
-  }, [startDrag, item, haulType]);
+  };
   const dragging = Haul.useDraggingState();
   const baseId = useId();
   const id = idProp ?? baseId;
@@ -156,10 +157,11 @@ export const SingleTrigger = <K extends record.Key>({
   return (
     <Dialog.Trigger
       id={id}
-      variant="outlined"
+      variant={triggerVariant === "shadow" ? "outlined" : triggerVariant}
       gap="small"
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
+        triggerVariant === "shadow" && CSS.M("shadow"),
         name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
         clearShown && CSS.M("reveals"),

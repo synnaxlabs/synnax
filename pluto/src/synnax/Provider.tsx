@@ -9,16 +9,14 @@
 
 import { connection, Synnax, type SynnaxParams } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
-import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
 import { migrate } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -125,14 +123,11 @@ export const TestProvider = ({
     schema: synnax.Provider.stateZ,
     state: { props: null },
   });
-  const value = useMemo(
-    () => ({
-      ...ZERO_CONTEXT_VALUE,
-      client,
-      status: status ?? ZERO_CONTEXT_VALUE.status,
-    }),
-    [client, status],
-  );
+  const value = {
+    ...ZERO_CONTEXT_VALUE,
+    client,
+    status: status ?? ZERO_CONTEXT_VALUE.status,
+  };
   return (
     <Context value={value}>
       <Aether.Composite path={path}>{children}</Aether.Composite>
@@ -163,29 +158,28 @@ export const Provider = ({
   const handleError = Status.useErrorHandler();
   const versionWarned = useRef(false);
 
-  const handleChange = useCallback(
-    (connStatus: connection.Status) => {
-      const prev = ref.current.status;
-      if (
-        prev.variant !== connStatus.variant ||
-        prev.message !== connStatus.message ||
-        reasonOf(prev) !== reasonOf(connStatus)
-      )
-        addStatus(connStatus);
-      if (connStatus.variant === "success") {
-        if (connStatus.details.clockSkewExceeded)
-          addClockSkewStatus(addStatus, connStatus);
-        if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
-          versionWarned.current = true;
-          addVersionMismatchStatus(addStatus, connStatus);
-        }
+  const handleChange = (connStatus: connection.Status) => {
+    const prev = ref.current.status;
+    if (
+      prev.variant !== connStatus.variant ||
+      prev.message !== connStatus.message ||
+      reasonOf(prev) !== reasonOf(connStatus)
+    )
+      addStatus(connStatus);
+    if (connStatus.variant === "success") {
+      if (connStatus.details.clockSkewExceeded)
+        addClockSkewStatus(addStatus, connStatus);
+      if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
+        versionWarned.current = true;
+        addVersionMismatchStatus(addStatus, connStatus);
       }
-      if (connStatus.details.epoch !== prev.details.epoch)
-        setResetKey((key) => key + 1);
-      setState((prev) => ({ ...prev, status: connStatus }));
-    },
-    [addStatus],
-  );
+    }
+    if (connStatus.details.epoch !== prev.details.epoch) setResetKey((key) => key + 1);
+    setState((prev) => ({ ...prev, status: connStatus }));
+  };
+  // Read through refs, so a new callback does not rebuild the client.
+  const handleChangeRef = useSyncedRef(handleChange);
+  const handleErrorRef = useSyncedRef(handleError);
 
   useEffect(() => {
     if (connParams == null) {
@@ -193,10 +187,19 @@ export const Provider = ({
       return;
     }
     versionWarned.current = false;
-    const client = new Synnax({ ...connParams, onInternalError: handleError });
+    const heading = {
+      message: "Failed to sync with Core",
+      name: connParams.name ?? "",
+    };
+    const client = new Synnax({
+      ...connParams,
+      onInternalError: (e) => handleErrorRef.current(e, heading),
+    });
     setState({ client, status: client.connection.status });
     setResetKey((key) => key + 1);
-    const detach = client.connection.onChange(handleChange);
+    const detach = client.connection.onChange((connStatus) =>
+      handleChangeRef.current(connStatus),
+    );
     return () => {
       detach();
       // Effect cleanup cannot await. The failure is logged rather than pushed
@@ -204,7 +207,7 @@ export const Provider = ({
       client.close().catch((e: unknown) => console.error("failed to close client", e));
       setState(ZERO_CONTEXT_VALUE);
     };
-  }, [connParams, handleChange, handleError]);
+  }, [connParams]);
 
   return (
     <Context value={state}>

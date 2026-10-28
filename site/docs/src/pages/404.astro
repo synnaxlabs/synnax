@@ -1,0 +1,25 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import NotFound from "@/components/layout/NotFound.astro";
+import Root from "@/layouts/Root.astro";
+
+// The page names the requested path and suggests similar pages.
+export const prerender = false;
+---
+
+<Root
+    frontmatter={{
+        title: "Page not found",
+        description: "No page exists at this address.",
+    }}
+>
+    <NotFound />
+</Root>

@@ -24,7 +24,7 @@ import (
 
 func TestPBTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin PB Types Suite")
+	RunSpecs(t, "Plugin PB Types Suite", SuiteConfig())
 }
 
 // pbDomains creates domains that enable pb generation with the given go output path.
@@ -1090,6 +1090,37 @@ var _ = Describe("Protobuf Union Generation", func() {
 	)
 
 	It(
+		"Should nest an aliased shared base as a message field",
+		func(ctx SpecContext) {
+			loader.Add("schemas/hw", `
+			@go output "core/pkg/hw"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			`)
+			source := `
+			import "schemas/hw"
+
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan = hw.BaseAIChan
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, p)
+			ExpectContent(resp, "ni.proto").
+				ToContain(
+					".hw.pb.BaseAIChan base_ai_chan = 1;",
+					"VoltageFields ai_voltage = 2;",
+				)
+		},
+	)
+
+	It(
 		"Should error when a variant omits a field from a shared base",
 		func(ctx SpecContext) {
 			source := `
@@ -1109,6 +1140,32 @@ var _ = Describe("Protobuf Union Generation", func() {
 			Expect(err).To(MatchError(ContainSubstring(
 				`union "AIChannel" variant "ai_temp_builtin" omits inherited field(s) [port], which protobuf cannot express`,
 			)))
+		},
+	)
+
+	It(
+		"Should error when a variant names an alias of a struct that omits a field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			Temp struct extends BaseAIChan {
+				-port
+			}
+			Builtin = Temp
+
+			AIChannel union on type {
+				temp Builtin
+			}
+		`
+			req := MustGenerateRequest(ctx, source, "ni", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(
+				`failed to generate core/pkg/hw/ni/pb: union "AIChannel" ` +
+					`variant "temp" omits inherited field(s) [port], which ` +
+					`protobuf cannot express; drop @pb or the omission`,
+			))
 		},
 	)
 

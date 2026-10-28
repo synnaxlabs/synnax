@@ -186,7 +186,7 @@ func omitClause(
 	if len(omitted) == 0 {
 		return ""
 	}
-	resolved, ok := parent.Resolve(table)
+	resolved, _, ok := resolution.Dealias(parent, table)
 	if !ok {
 		return ""
 	}

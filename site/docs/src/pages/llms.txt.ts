@@ -9,7 +9,7 @@
 
 import { type APIRoute } from "astro";
 
-import { type PageNavNode } from "@/components/nav/Page";
+import { type PageNavNode } from "@/components/nav/tree";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { type Page, PAGES, POSTS } from "@/util/pages";
 import { normalizeRoute } from "@/util/route";
@@ -24,8 +24,8 @@ const INTRO = `# Synnax
 Synnax has a Core (a time-series database and server), the Console (a desktop app for
 live plots, schematics, and tables), the Driver (data acquisition and control for
 National Instruments, LabJack, Modbus, OPC UA, EtherCAT, and HTTP devices), Arc (a
-reactive language for control sequences, alarms, and calculated channels), and Python,
-TypeScript, and C++ client libraries.
+reactive language for control sequences, alarms, and calculated channels), and Python
+and TypeScript client libraries.
 
 Every docs page is also served as Markdown at its URL plus \`.md\`.`;
 

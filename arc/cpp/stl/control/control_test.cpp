@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/mem/indirect.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -33,7 +33,7 @@ struct TestSetup {
             )
         ) {}
 
-    runtime::state::Node make_node() const {
+    [[nodiscard]] runtime::state::Node make_node() const {
         return ASSERT_NIL_P(this->state->node("set_auth"));
     }
 
@@ -69,6 +69,7 @@ runtime::node::Context make_context() {
     return runtime::node::Context{
         .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
+        .mark_done = [] {},
         .report_error = [](const x::errors::Error &) {},
     };
 }
@@ -161,7 +162,8 @@ class SetAuthorityInputsTest : public testing::TestWithParam<bool> {
 protected:
     std::shared_ptr<runtime::state::State> auth = auth_state();
 
-    stl::testutil::Fixture config(const uint8_t value, const uint32_t channel) const {
+    [[nodiscard]] stl::testutil::Fixture
+    config(const uint8_t value, const uint32_t channel) const {
         stl::testutil::InputValue v = x::json::json(value);
         if (GetParam())
             v = std::shared_ptr<stl::testutil::VarBinding>(
@@ -190,7 +192,7 @@ TEST_P(SetAuthorityInputsTest, BuffersAPerChannelAuthorityChange) {
     ASSERT_EQ(changes.size(), 1);
     EXPECT_EQ(changes[0].authority, 200);
     ASSERT_TRUE(changes[0].channel_key.has_value());
-    EXPECT_EQ(*changes[0].channel_key, 42);
+    EXPECT_EQ(changes[0].channel_key.value(), 42);
 }
 
 TEST_P(SetAuthorityInputsTest, BuffersAGlobalAuthorityChange) {
@@ -216,6 +218,22 @@ TEST_P(SetAuthorityInputsTest, FiresOnlyOnceBeforeReset) {
     const auto changes = this->auth->flush_authority_changes();
     ASSERT_EQ(changes.size(), 1);
     EXPECT_EQ(changes[0].authority, 200);
+}
+
+TEST_P(SetAuthorityInputsTest, MarksDoneOnlyOnTheRunThatSetsAuthority) {
+    auto f = this->config(200, 42);
+    control::Module module(this->auth);
+    auto n = ASSERT_NIL_P(module.create(f.make_config()));
+    int done = 0;
+    auto ctx = make_context();
+    ctx.mark_done = [&done] { done++; };
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(done, 1);
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(done, 1);
+    n->reset(ctx);
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(done, 2);
 }
 
 TEST_P(SetAuthorityInputsTest, DoesNotCallMarkChanged) {
@@ -256,7 +274,7 @@ TEST_P(SetAuthorityInputsTest, ProducesSameAuthorityOnReFire) {
     const auto second = this->auth->flush_authority_changes();
     ASSERT_EQ(second.size(), 1);
     EXPECT_EQ(second[0].authority, first[0].authority);
-    EXPECT_EQ(*second[0].channel_key, *first[0].channel_key);
+    EXPECT_EQ(second[0].channel_key.value(), first[0].channel_key.value());
 }
 
 TEST(SetAuthorityVarTest, UsesTheVarsDeclaredInitialBeforeAnyWrite) {

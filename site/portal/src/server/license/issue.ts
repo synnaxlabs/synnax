@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 
 import { type Store } from "@/server/db/db";
 import {
@@ -84,30 +84,32 @@ export const validate = (args: Terms & { now: Date }): void => {
 
 export const issue = async (store: Store, args: IssueArgs): Promise<License> => {
   validate(args);
-  const [row] = await store.query
-    .insert(license)
-    .values({
-      organization: args.organization,
-      edition: args.edition,
-      term: args.term,
-      nodes: args.nodes,
-      channels: args.channels,
-      label: args.label,
-      expiresAt: args.expiresAt,
-      maxVersion: args.maxVersion,
-      issuedBy: args.actor,
-      issuedAt: args.now,
-    })
-    .returning();
-  await store.query.insert(event).values({
-    at: args.now,
-    kind: "issue",
-    actor: args.actor,
-    organization: row.organization,
-    license: row.key,
-    detail: { nodes: row.nodes, channels: row.channels, term: row.term },
+  return await store.transact(async (tx) => {
+    const [row] = await tx
+      .insert(license)
+      .values({
+        organization: args.organization,
+        edition: args.edition,
+        term: args.term,
+        nodes: args.nodes,
+        channels: args.channels,
+        label: args.label,
+        expiresAt: args.expiresAt,
+        maxVersion: args.maxVersion,
+        issuedBy: args.actor,
+        issuedAt: args.now,
+      })
+      .returning();
+    await tx.insert(event).values({
+      at: args.now,
+      kind: "issue",
+      actor: args.actor,
+      organization: row.organization,
+      license: row.key,
+      detail: { nodes: row.nodes, channels: row.channels, term: row.term },
+    });
+    return row;
   });
-  return row;
 };
 
 export interface AmendArgs extends Terms {
@@ -203,36 +205,105 @@ export interface RevokeArgs {
 }
 
 /**
- * revoke stops a license from activating. Running Cores keep it until they restart.
+ * revoke stops a license from activating. A Core checks its license offline, so a Core
+ * that already holds it keeps running as its terms allow, even after a restart.
  * @throws {HTTPError} 400 when the license is already revoked.
  */
 export const revoke = async (
   store: Store,
   { licenseKey, actor, now }: RevokeArgs,
-): Promise<License> => {
-  const [row] = await store.query
-    .update(license)
-    .set({ revokedAt: now })
-    .where(and(eq(license.key, licenseKey), isNull(license.revokedAt)))
-    .returning();
-  if (row == null) {
-    const [existing] = await store.query
+): Promise<License> =>
+  await store.transact(async (tx) => {
+    const [row] = await tx
+      .update(license)
+      .set({ revokedAt: now })
+      .where(and(eq(license.key, licenseKey), isNull(license.revokedAt)))
+      .returning();
+    if (row == null) {
+      const [existing] = await tx
+        .select({ key: license.key })
+        .from(license)
+        .where(eq(license.key, licenseKey));
+      if (existing == null) throw notFound("License");
+      throw badRequest("This license is already revoked");
+    }
+    await tx.insert(event).values({
+      at: now,
+      kind: "revoke",
+      actor,
+      organization: row.organization,
+      license: row.key,
+      detail: {},
+    });
+    return row;
+  });
+
+export interface RestoreArgs {
+  licenseKey: string;
+  actor: string;
+  now: Date;
+}
+
+/**
+ * restore undoes a revocation. The license keeps its key, terms, and seats, so the
+ * machines that held one need not activate again.
+ * @throws {HTTPError} 400 when the license is a Synnax Desktop license or is not
+ * revoked.
+ */
+export const restore = async (
+  store: Store,
+  { licenseKey, actor, now }: RestoreArgs,
+): Promise<License> =>
+  await store.transact(async (tx) => {
+    const [row] = await tx
+      .update(license)
+      .set({ revokedAt: null })
+      .where(
+        and(
+          eq(license.key, licenseKey),
+          eq(license.edition, "enterprise"),
+          isNotNull(license.revokedAt),
+        ),
+      )
+      .returning();
+    if (row == null) {
+      const [existing] = await tx
+        .select()
+        .from(license)
+        .where(eq(license.key, licenseKey));
+      if (existing == null) throw notFound("License");
+      requireEnterprise(existing);
+      throw badRequest("This license is not revoked");
+    }
+    await tx.insert(event).values({
+      at: now,
+      kind: "restore",
+      actor,
+      organization: row.organization,
+      license: row.key,
+      detail: {},
+    });
+    return row;
+  });
+
+/**
+ * remove deletes a license with its seats and its history. A Core checks its license
+ * offline, so a Core that already holds it keeps running as its terms allow.
+ * @throws {HTTPError} 404 when the license does not exist.
+ */
+export const remove = async (store: Store, licenseKey: string): Promise<void> =>
+  await store.transact(async (tx) => {
+    // Holds the lock activate takes, so no machine takes a seat during the delete.
+    const [row] = await tx
       .select({ key: license.key })
       .from(license)
-      .where(eq(license.key, licenseKey));
-    if (existing == null) throw notFound("License");
-    throw badRequest("This license is already revoked");
-  }
-  await store.query.insert(event).values({
-    at: now,
-    kind: "revoke",
-    actor,
-    organization: row.organization,
-    license: row.key,
-    detail: {},
+      .where(eq(license.key, licenseKey))
+      .for("update");
+    if (row == null) throw notFound("License");
+    await tx.delete(event).where(eq(event.license, licenseKey));
+    await tx.delete(activation).where(eq(activation.license, licenseKey));
+    await tx.delete(license).where(eq(license.key, licenseKey));
   });
-  return row;
-};
 
 export interface FloatingArgs {
   licenseKey: string;

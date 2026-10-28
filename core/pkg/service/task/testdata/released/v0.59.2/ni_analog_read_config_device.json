@@ -1,0 +1,101 @@
+{
+  "stream_rate": 50.5,
+  "channels": [
+    {
+      "device": "fixture-ni-config-device",
+      "max_val": 10.5,
+      "disabled": false,
+      "min_val": -10.5,
+      "terminal_config": "RSE",
+      "custom_scale": {
+        "type": "linear",
+        "slope": 0.5,
+        "y_intercept": 1.25,
+        "pre_scaled_units": "Volts",
+        "scaled_units": "v0-custom"
+      },
+      "type": "ai_voltage",
+      "key": "ch-v0-ai-voltage",
+      "name": "fixture_v0_ai_voltage",
+      "channel": 2010,
+      "port": 1
+    },
+    {
+      "port": 2,
+      "custom_scale": {
+        "type": "none"
+      },
+      "threshold_level": 2.25,
+      "channel": 2020,
+      "device": "fixture-ni-config-device",
+      "min_val": 1.5,
+      "max_val": 10000.5,
+      "hysteresis": 0.125,
+      "type": "ai_freq_voltage",
+      "key": "ch-v0-ai-freq",
+      "name": "fixture_v0_ai_frequency_voltage",
+      "disabled": true
+    },
+    {
+      "cjc": {
+        "source": "chan",
+        "port": 7
+      },
+      "key": "ch-v0-ai-tc-chan",
+      "name": "fixture_v0_ai_thermocouple_chan",
+      "disabled": false,
+      "channel": 2030,
+      "port": 3,
+      "device": "fixture-ni-config-device",
+      "min_val": -100.5,
+      "thermocouple_type": "K",
+      "type": "ai_thermocouple",
+      "max_val": 900.5,
+      "units": "DegC"
+    },
+    {
+      "type": "ai_strain_gauge",
+      "strain_config": "HalfBridgeII",
+      "disabled": false,
+      "max_val": 0.002,
+      "voltage_excit_val": 3.75,
+      "initial_bridge_voltage": 0.021,
+      "key": "ch-v0-ai-strain-kebab",
+      "name": "fixture_v0_ai_strain_kebab",
+      "gage_factor": 2.05,
+      "nominal_gage_resistance": 120.75,
+      "poisson_ratio": 0.31,
+      "lead_wire_resistance": 0.45,
+      "custom_scale": {
+        "type": "none"
+      },
+      "channel": 2050,
+      "port": 5,
+      "device": "fixture-ni-config-device",
+      "min_val": -0.002,
+      "voltage_excit_source": "Internal"
+    },
+    {
+      "type": "ai_thermocouple",
+      "key": "ch-v0-ai-tc-builtin",
+      "channel": 2040,
+      "device": "fixture-ni-channel-device",
+      "cjc": {
+        "source": "built_in"
+      },
+      "name": "fixture_v0_ai_thermocouple_builtin",
+      "disabled": false,
+      "port": 4,
+      "min_val": 0.5,
+      "max_val": 1500.5,
+      "units": "Kelvins",
+      "thermocouple_type": "J"
+    }
+  ],
+  "type": "ni_analog_read",
+  "name": "ni_analog_read_config_device",
+  "version": 2,
+  "auto_start": false,
+  "data_saving_disabled": false,
+  "sample_rate": 1000.25
+}

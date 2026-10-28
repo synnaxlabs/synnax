@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <chrono>
+#include <format>
+#include <thread>
+
 #include "absl/log/log.h"
 
 #include "driver/ethercat/errors/errors.h"
@@ -23,6 +27,18 @@ const int STATE_CHANGE_TIMEOUT = static_cast<int>(
 );
 /// Timeout for cyclic process data exchange in microseconds.
 const int PROCESSDATA_TIMEOUT = static_cast<int>(x::telem::MILLISECOND.microseconds());
+/// Time between state reads while slaves move to OP.
+const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
+/// Timeout for one recovery step on a slave in microseconds.
+const int RECOVERY_TIMEOUT = static_cast<int>(
+    (x::telem::MILLISECOND * 500).microseconds()
+);
+/// The distributed clock epoch, 2000-01-01, as a Unix timestamp.
+const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
+
+/// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
+constexpr uint8_t ENABLED_GROUP = 1;
+constexpr uint8_t DISABLED_GROUP = 2;
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -54,6 +70,7 @@ Master::Master(std::unique_ptr<API> api, std::string interface_name):
     activated(false),
     expected_wkc(0) {}
 
+// NOLINTNEXTLINE(bugprone-exception-escape): its strings throw only past max_size.
 Master::~Master() {
     if (this->activated || this->initialized) this->deactivate();
 }
@@ -61,17 +78,23 @@ Master::~Master() {
 x::errors::Error Master::initialize() {
     if (this->initialized) return x::errors::NIL;
 
-    if (this->api->init(this->iface_name.c_str()) <= 0)
+    if (auto err = this->api->check_socket(this->iface_name.c_str())) return err;
+
+    if (this->api->init(this->iface_name.c_str()) <= 0) {
+        this->api->close();
         return x::errors::Error(
             errors::MASTER_INIT_ERROR,
-            "failed to initialize EtherCAT on interface: " + this->iface_name
+            "cannot open " + this->iface_name +
+                " for raw Ethernet access. Run the Driver as root (or with "
+                "CAP_NET_RAW on Linux), and install Npcap on Windows."
         );
+    }
 
     if (this->api->config_init() <= 0) {
         this->api->close();
         return x::errors::Error(
-            errors::MASTER_INIT_ERROR,
-            "no EtherCAT slaves found on network"
+            errors::NO_SLAVES_FOUND,
+            "no EtherCAT slaves found on " + this->iface_name
         );
     }
 
@@ -80,8 +103,14 @@ x::errors::Error Master::initialize() {
     return x::errors::NIL;
 }
 
-x::errors::Error Master::register_pdos(const std::vector<pdo::Entry> &) {
-    return x::errors::NIL;
+std::pair<size_t, x::errors::Error> Master::count_slaves() {
+    if (!this->initialized)
+        return {
+            0,
+            x::errors::Error(errors::MASTER_INIT_ERROR, "master not initialized")
+        };
+    const int count = this->api->count_bus_slaves();
+    return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
 }
 
 void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
@@ -100,12 +129,17 @@ x::errors::Error Master::activate() {
 
     {
         std::lock_guard lock(this->mu);
-        for (const auto pos: this->disabled_slaves)
-            if (pos > 0 && pos <= static_cast<uint16_t>(this->api->slave_count()))
-                this->api->set_slave_group(pos, 1);
+        for (int i = 1; i <= this->api->slave_count(); ++i)
+            this->api->set_slave_group(
+                i,
+                this->disabled_slaves.contains(i) ? DISABLED_GROUP : ENABLED_GROUP
+            );
     }
 
-    const int iomap_size = this->api->config_map_group(this->iomap.data(), 0);
+    const int iomap_size = this->api->config_map_group(
+        this->iomap.data(),
+        ENABLED_GROUP
+    );
 
     if (iomap_size <= 0)
         return x::errors::Error(
@@ -113,19 +147,19 @@ x::errors::Error Master::activate() {
             "failed to configure PDO mapping"
         );
 
-    this->input_sz = this->api->group_Ibytes(0);
-    this->output_sz = this->api->group_Obytes(0);
+    this->api->configdc();
+    this->has_dc = this->api->group_hasdc(ENABLED_GROUP);
 
-    this->expected_wkc = (this->api->group_outputsWKC(0) * 2) +
-                         this->api->group_inputsWKC(0);
+    this->input_sz = this->api->group_Ibytes(ENABLED_GROUP);
+    this->output_sz = this->api->group_Obytes(ENABLED_GROUP);
+
+    this->expected_wkc = (this->api->group_outputsWKC(ENABLED_GROUP) * 2) +
+                         this->api->group_inputsWKC(ENABLED_GROUP);
 
     auto err = this->request_state(EC_STATE_SAFE_OP, STATE_CHANGE_TIMEOUT);
     if (err) return err;
 
-    this->api->send_processdata();
-    this->api->receive_processdata(PROCESSDATA_TIMEOUT);
-
-    err = this->request_state(EC_STATE_OPERATIONAL, STATE_CHANGE_TIMEOUT);
+    err = this->request_operational();
     if (err) {
         LOG(WARNING) << "OP transition failed: " << err.message()
                      << "; attempting recovery to SAFE_OP";
@@ -148,9 +182,11 @@ void Master::deactivate() {
         this->request_state(EC_STATE_INIT, STATE_CHANGE_TIMEOUT);
         this->activated = false;
         this->expected_wkc = 0;
+        this->has_dc = false;
         this->input_sz = 0;
         this->output_sz = 0;
         this->pdo_offsets.clear();
+        this->layout_errors.clear();
     }
 
     if (this->initialized) {
@@ -164,27 +200,17 @@ x::errors::Error Master::receive() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
-    const int wkc = this->api->receive_processdata(PROCESSDATA_TIMEOUT);
+    const int wkc = this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
 
     if (wkc < 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data receive failed");
 
-    if (wkc != this->expected_wkc) {
-        std::string failing_slaves;
-        for (int i = 1; i <= this->api->slave_count(); ++i) {
-            if ((this->api->slave_state(i) & EC_STATE_OPERATIONAL) == 0) {
-                if (!failing_slaves.empty()) failing_slaves += ", ";
-                failing_slaves += std::to_string(i) + " (" + this->api->slave_name(i) +
-                                  ")";
-            }
-        }
+    if (wkc != this->expected_wkc)
         return x::errors::Error(
             errors::WORKING_COUNTER_ERROR,
             "working counter mismatch: expected " + std::to_string(this->expected_wkc) +
-                ", got " + std::to_string(wkc) +
-                (failing_slaves.empty() ? "" : "; slaves not in OP: " + failing_slaves)
+                ", got " + std::to_string(wkc)
         );
-    }
 
     return x::errors::NIL;
 }
@@ -193,12 +219,17 @@ x::errors::Error Master::send() {
     if (!this->activated)
         return x::errors::Error(errors::CYCLIC_ERROR, "master not activated");
 
-    const int result = this->api->send_processdata();
+    const int result = this->api->send_processdata(ENABLED_GROUP);
 
     if (result <= 0)
         return x::errors::Error(errors::CYCLIC_ERROR, "process data send failed");
 
     return x::errors::NIL;
+}
+
+std::optional<x::telem::TimeStamp> Master::dc_time() const {
+    if (!this->has_dc) return std::nullopt;
+    return DC_EPOCH + x::telem::TimeSpan(this->api->dc_time());
 }
 
 std::span<const uint8_t> Master::input_data() {
@@ -211,8 +242,12 @@ std::span<uint8_t> Master::output_data() {
     return {this->iomap.data(), this->output_sz};
 }
 
-pdo::Offset Master::pdo_offset(const pdo::Entry &entry) const {
+std::pair<pdo::Offset, x::errors::Error>
+Master::pdo_offset(const pdo::Entry &entry) const {
     std::lock_guard lock(this->mu);
+    if (const auto it = this->layout_errors.find(entry.slave_position);
+        it != this->layout_errors.end())
+        return {{}, it->second};
     return pdo::find_offset(this->pdo_offsets, entry);
 }
 
@@ -221,23 +256,47 @@ std::vector<slave::DiscoveryResult> Master::slaves() const {
     return this->slave_list;
 }
 
-slave::State Master::slave_state(const uint16_t position) const {
-    std::lock_guard lock(this->mu);
-
-    if (position == 0 || position > static_cast<uint16_t>(this->api->slave_count()))
-        return slave::State::UNKNOWN;
-
-    return slave::from_al_state(this->api->slave_state(position));
+std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
+    this->api->readstate();
+    std::vector<slave::Health> health;
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        if (this->api->slave_group(i) != ENABLED_GROUP) continue;
+        const uint16_t state = this->api->slave_state(i);
+        auto &h = health.emplace_back(
+            slave::Health{
+                .position = static_cast<uint16_t>(i),
+                .state = slave::from_al_state(state),
+                .faulted = (state & EC_STATE_ERROR) != 0,
+                .lost = this->api->slave_lost(i),
+            }
+        );
+        if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
+            h.al_status = ec_ALstatuscode2string(code);
+        if (breaker.running()) this->recover(static_cast<uint16_t>(i));
+    }
+    return health;
 }
 
-bool Master::all_slaves_operational() const {
-    std::lock_guard lock(this->mu);
-
-    if (!this->activated) return false;
-
-    for (int i = 1; i <= this->api->slave_count(); ++i)
-        if ((this->api->slave_state(i) & EC_STATE_OPERATIONAL) == 0) return false;
-    return true;
+void Master::recover(const uint16_t pos) {
+    const uint16_t state = this->api->slave_state(pos);
+    if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
+        this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);
+        this->api->writestate(pos);
+    } else if (state == EC_STATE_SAFE_OP) {
+        this->api->set_slave_state(pos, EC_STATE_OPERATIONAL);
+        this->api->writestate(pos);
+    } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
+        if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
+            this->api->set_slave_lost(pos, false);
+    } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
+        this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
+        if (this->api->slave_state(pos) == EC_STATE_NONE)
+            this->api->set_slave_lost(pos, true);
+    }
+    if (!this->api->slave_lost(pos)) return;
+    if (this->api->slave_state(pos) != EC_STATE_NONE ||
+        this->api->recover_slave(pos, RECOVERY_TIMEOUT) > 0)
+        this->api->set_slave_lost(pos, false);
 }
 
 std::string Master::interface_name() const {
@@ -268,6 +327,7 @@ void Master::populate_slaves() {
 void Master::cache_pdo_offsets() {
     std::lock_guard lock(this->mu);
     this->pdo_offsets.clear();
+    this->layout_errors.clear();
 
     for (const auto &slave: this->slave_list) {
         const auto &props = slave.properties;
@@ -275,7 +335,7 @@ void Master::cache_pdo_offsets() {
             props.position > static_cast<uint16_t>(this->api->slave_count()))
             continue;
 
-        if (this->api->slave_group(props.position) != 0) continue;
+        if (this->api->slave_group(props.position) != ENABLED_GROUP) continue;
 
         const auto *iomap_base = this->iomap.data();
 
@@ -293,6 +353,29 @@ void Master::cache_pdo_offsets() {
                                                   )
                                                 : this->output_sz;
         const size_t slave_input_offset = slave_input_abs_offset - this->output_sz;
+
+        const auto input_bits = pdo::total_bits(props.input_pdos);
+        const auto output_bits = pdo::total_bits(props.output_pdos);
+        const auto mapped_input_bits = this->api->slave_Ibits(props.position);
+        const auto mapped_output_bits = this->api->slave_Obits(props.position);
+        if (input_bits != mapped_input_bits || output_bits != mapped_output_bits) {
+            auto err = x::errors::Error(
+                errors::PDO_MAPPING_ERROR,
+                std::format(
+                    "slave {} ({}) maps {} input and {} output bits, but its discovered "
+                    "PDO entries hold {} and {}",
+                    props.position,
+                    props.name,
+                    mapped_input_bits,
+                    mapped_output_bits,
+                    input_bits,
+                    output_bits
+                )
+            );
+            LOG(WARNING) << err.message();
+            this->layout_errors.emplace(props.position, std::move(err));
+            continue;
+        }
 
         if (!props.coe_pdo_order_reliable) {
             LOG(WARNING) << "Slave " << props.position
@@ -322,21 +405,28 @@ constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
-    if (esi::lookup_device_pdos(
+    if (this->discover_pdos_coe(slave)) {
+        esi::fill_known_entries(props);
+        return;
+    }
+    slave.status.pdo_discovery_error.clear();
+    this->discover_pdos_sii(slave);
+    if (!props.input_pdos.empty() || !props.output_pdos.empty()) {
+        esi::fill_known_entries(props);
+        return;
+    }
+    if (!esi::lookup_device_pdos(
             props.vendor_id,
             props.product_code,
             props.revision,
             props
-        )) {
-        VLOG(1) << "Slave " << props.position
-                << " PDOs discovered via ESI: " << props.input_pdos.size()
-                << " inputs, " << props.output_pdos.size() << " outputs";
-        slave.status.pdos_discovered = true;
-        props.coe_pdo_order_reliable = true;
+        ))
         return;
-    }
-
-    if (!this->discover_pdos_coe(slave)) this->discover_pdos_sii(slave);
+    VLOG(1) << "Slave " << props.position
+            << " PDOs discovered via ESI: " << props.input_pdos.size() << " inputs, "
+            << props.output_pdos.size() << " outputs";
+    slave.status.pdo_discovery_error.clear();
+    props.coe_pdo_order_reliable = true;
 }
 
 bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
@@ -399,7 +489,8 @@ bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
         }
     }
 
-    if (!tx_success && !rx_success) {
+    if ((!tx_success && !rx_success) ||
+        (props.input_pdos.empty() && props.output_pdos.empty())) {
         status.pdo_discovery_error = "no PDO objects found in object dictionary";
         return false;
     }
@@ -444,7 +535,12 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
             a += 2;
             c += 2;
 
-            (void) pdo_name_idx;
+            std::optional<std::string> pdo_name;
+            if (pdo_name_idx > 0) {
+                char name_buf[EC_MAXNAME + 1] = {0};
+                this->api->siistring(name_buf, props.position, pdo_name_idx);
+                if (name_buf[0] != '\0') pdo_name = name_buf;
+            }
 
             if (sync_manager >= EC_MAXSM) {
                 c += 4 * num_entries;
@@ -459,11 +555,24 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
                 obj_idx += (this->api->siigetbyte(props.position, a++) << 8);
                 const uint8_t obj_subidx = this->api->siigetbyte(props.position, a++);
                 const uint8_t obj_name_idx = this->api->siigetbyte(props.position, a++);
-                a++;
+                const auto coe_type = static_cast<telem::DataType>(
+                    this->api->siigetbyte(props.position, a++)
+                );
                 const uint8_t bitlen = this->api->siigetbyte(props.position, a++);
                 a += 2;
 
-                if (obj_idx == 0 && obj_subidx == 0) continue;
+                if (obj_idx == 0) {
+                    pdo::Properties gap{
+                        .pdo_index = pdo_index,
+                        .bit_length = bitlen,
+                        .is_input = is_input,
+                    };
+                    if (is_input)
+                        props.input_pdos.push_back(gap);
+                    else
+                        props.output_pdos.push_back(gap);
+                    continue;
+                }
 
                 std::string entry_name;
                 if (obj_name_idx > 0) {
@@ -472,9 +581,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
                     entry_name = name_buf;
                 }
 
-                const x::telem::DataType data_type = telem::infer_type_from_bit_length(
-                    bitlen
-                );
+                const auto data_type = telem::map_ethercat_to_synnax(coe_type, bitlen);
                 const std::string name = telem::generate_pdo_entry_name(
                     entry_name,
                     obj_idx,
@@ -490,7 +597,8 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
                     bitlen,
                     is_input,
                     name,
-                    data_type
+                    data_type,
+                    pdo_name
                 );
 
                 if (is_input)
@@ -621,6 +729,7 @@ x::errors::Error Master::read_pdo_mapping(
     VLOG(1) << "Slave " << slave_pos << " PDO 0x" << std::hex << pdo_index << " has "
             << std::dec << static_cast<int>(num_entries) << " entries";
 
+    const auto pdo_name = this->read_object_name(slave_pos, pdo_index);
     int consecutive_failures = 0;
     for (uint8_t i = 1; i <= num_entries; ++i) {
         uint32_t mapping = 0;
@@ -647,20 +756,29 @@ x::errors::Error Master::read_pdo_mapping(
 
         if (mapping == 0) continue;
 
-        const uint16_t index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
-        const uint8_t sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
-        const uint8_t bit_length = static_cast<uint8_t>(mapping & 0xFF);
+        const auto index = static_cast<uint16_t>((mapping >> 16) & 0xFFFF);
+        const auto sub_index = static_cast<uint8_t>((mapping >> 8) & 0xFF);
+        const auto bit_length = static_cast<uint8_t>(mapping & 0xFF);
 
-        if (index == 0 && sub_index == 0) continue;
+        if (index == 0) {
+            pdo::Properties gap{
+                .pdo_index = pdo_index,
+                .bit_length = bit_length,
+                .is_input = is_input,
+            };
+            if (is_input)
+                props.input_pdos.push_back(gap);
+            else
+                props.output_pdos.push_back(gap);
+            continue;
+        }
 
-        const std::string coe_name = this->read_pdo_entry_name(
+        const auto [coe_name, coe_type] = this->read_pdo_entry(
             slave_pos,
             index,
             sub_index
         );
-        const x::telem::DataType data_type = telem::infer_type_from_bit_length(
-            bit_length
-        );
+        const auto data_type = telem::map_ethercat_to_synnax(coe_type, bit_length);
         const std::string name = telem::generate_pdo_entry_name(
             coe_name,
             index,
@@ -669,8 +787,16 @@ x::errors::Error Master::read_pdo_mapping(
             data_type
         );
 
-        pdo::Properties
-            entry(pdo_index, index, sub_index, bit_length, is_input, name, data_type);
+        pdo::Properties entry(
+            pdo_index,
+            index,
+            sub_index,
+            bit_length,
+            is_input,
+            name,
+            data_type,
+            pdo_name
+        );
 
         if (is_input)
             props.input_pdos.push_back(entry);
@@ -681,7 +807,18 @@ x::errors::Error Master::read_pdo_mapping(
     return x::errors::NIL;
 }
 
-std::string Master::read_pdo_entry_name(
+std::optional<std::string>
+Master::read_object_name(const uint16_t slave_pos, const uint16_t index) {
+    ec_ODlistt od_list{};
+    od_list.Slave = slave_pos;
+    od_list.Index[0] = index;
+    od_list.Entries = 1;
+    if (this->api->readODdescription(0, &od_list) > 0 && od_list.Name[0][0] != '\0')
+        return std::string(od_list.Name[0]);
+    return std::nullopt;
+}
+
+std::pair<std::string, telem::DataType> Master::read_pdo_entry(
     const uint16_t slave_pos,
     const uint16_t index,
     const uint8_t sub_index
@@ -692,11 +829,13 @@ std::string Master::read_pdo_entry_name(
     od_list.Entries = 1;
 
     ec_OElistt oe_list{};
-    if (this->api->readOEsingle(0, sub_index, &od_list, &oe_list) > 0)
-        if (oe_list.Entries > 0 && oe_list.Name[0][0] != '\0')
-            return std::string(oe_list.Name[0]);
-
-    return "";
+    if (this->api->readOEsingle(0, sub_index, &od_list, &oe_list) <= 0 ||
+        oe_list.Entries == 0)
+        return {"", telem::DataType::EC_UNKNOWN};
+    return {
+        std::string(oe_list.Name[sub_index]),
+        static_cast<telem::DataType>(oe_list.DataType[sub_index])
+    };
 }
 
 bool Master::scan_object_dictionary_for_pdos(
@@ -750,41 +889,62 @@ bool Master::scan_object_dictionary_for_pdos(
 }
 
 x::errors::Error Master::request_state(const uint16_t state, const int timeout) {
-    int success_count = 0;
-    int group0_count = 0;
-    std::string error_msg;
-
+    std::vector<uint16_t> failed;
     for (int i = 1; i <= this->api->slave_count(); ++i) {
-        if (this->api->slave_group(i) != 0) continue;
-        group0_count++;
-
+        if (this->api->slave_group(i) != ENABLED_GROUP) continue;
         this->api->set_slave_state(i, state);
         this->api->writestate(i);
-
-        const uint16_t result = this->api->statecheck(i, state, timeout);
-
-        if ((result & 0x0F) == (state & 0x0F)) {
-            success_count++;
-        } else {
-            if (!error_msg.empty()) error_msg += "; ";
-            error_msg += "slave " + std::to_string(i) + " in state " +
-                         std::to_string(result);
-            if (result & EC_STATE_ERROR) {
-                error_msg += " (ERROR flag set, AL status code: " +
-                             std::to_string(this->api->slave_ALstatuscode(i)) + ")";
-            }
-        }
+        if (this->api->statecheck(i, state, timeout) != state) failed.push_back(i);
     }
+    if (failed.empty()) return x::errors::NIL;
+    return this->state_error(failed, state);
+}
 
-    if (success_count < group0_count)
-        return x::errors::Error(
-            errors::STATE_CHANGE_ERROR,
-            "state transition failed: " + std::to_string(success_count) + "/" +
-                std::to_string(group0_count) + " slaves reached state " +
-                std::to_string(state) + "; " + error_msg
-        );
+x::errors::Error Master::request_operational() {
+    // Slaves with outputs need one valid process data frame before they enter OP.
+    this->api->send_processdata(ENABLED_GROUP);
+    this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
+    for (int i = 1; i <= this->api->slave_count(); ++i) {
+        if (this->api->slave_group(i) != ENABLED_GROUP) continue;
+        this->api->set_slave_state(i, EC_STATE_OPERATIONAL);
+        this->api->writestate(i);
+    }
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::microseconds(STATE_CHANGE_TIMEOUT);
+    while (true) {
+        this->api->send_processdata(ENABLED_GROUP);
+        this->api->receive_processdata(ENABLED_GROUP, PROCESSDATA_TIMEOUT);
+        this->api->readstate();
+        std::vector<uint16_t> pending;
+        for (int i = 1; i <= this->api->slave_count(); ++i)
+            if (this->api->slave_group(i) == ENABLED_GROUP &&
+                this->api->slave_state(i) != EC_STATE_OPERATIONAL)
+                pending.push_back(i);
+        if (pending.empty()) return x::errors::NIL;
+        if (std::chrono::steady_clock::now() >= deadline)
+            return this->state_error(pending, EC_STATE_OPERATIONAL);
+        std::this_thread::sleep_for(OP_POLL_INTERVAL.chrono());
+    }
+}
 
-    return x::errors::NIL;
+x::errors::Error
+Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
+    const auto target = slave::slave_state_to_string(slave::from_al_state(state));
+    std::string msg;
+    for (const auto pos: failed) {
+        if (!msg.empty()) msg += "; ";
+        msg += "slave " + std::to_string(pos) + " (" + this->api->slave_name(pos) +
+               ") is in " +
+               slave::slave_state_to_string(
+                   slave::from_al_state(this->api->slave_state(pos))
+               );
+        if (const auto code = this->api->slave_ALstatuscode(pos); code != 0)
+            msg += ": " + std::string(ec_ALstatuscode2string(code));
+    }
+    return x::errors::Error(
+        errors::STATE_CHANGE_ERROR,
+        "failed to reach " + target + ": " + msg
+    );
 }
 
 std::vector<master::Info> Manager::enumerate() {
@@ -793,13 +953,14 @@ std::vector<master::Info> Manager::enumerate() {
     ec_adaptert *current = adapter;
 
     while (current != nullptr) {
-        if (is_physical_interface(current->name)) {
+        if (is_wired_interface(current->name, current->desc)) {
             master::Info info;
             info.key = current->name;
             info.description = current->desc;
             masters.push_back(std::move(info));
         } else {
-            VLOG(1) << "[ethercat] skipping virtual interface: " << current->name;
+            VLOG(1) << "[ethercat] skipping interface that cannot carry EtherCAT: "
+                    << current->name;
         }
         current = current->next;
     }
@@ -815,7 +976,7 @@ Manager::create(const std::string &key) {
             nullptr,
             x::errors::Error(errors::MASTER_INIT_ERROR, "empty interface name")
         };
-    if (key.size() >= 4 && key.substr(0, 4) == "igh:")
+    if (key.size() >= 4 && key.starts_with("igh:"))
         return {
             nullptr,
             x::errors::Error(

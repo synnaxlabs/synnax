@@ -115,6 +115,9 @@ export const Editor = <V,>({
 }: EditorProps<V>): ReactElement => {
   const [draft, setDraft] = useState<Draft | null>(null);
   const text = draft?.text;
+  // A reading's key holds the time that suggest resolved. Without this memo, the
+  // compiler reruns suggest on each hover, and each item remounts.
+  // eslint-disable-next-line no-restricted-syntax
   const suggestions = useMemo(
     () => (text == null ? [] : suggest(text)),
     [suggest, text],

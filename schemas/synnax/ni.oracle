@@ -1349,6 +1349,7 @@ AnalogReadConfig struct extends task.ReadConfig {
     @doc value  """
         configures an NI analog read task. Each channel carries its own device.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -1361,6 +1362,7 @@ CounterReadConfig struct extends task.ReadConfig {
     @doc value  """
         configures an NI counter read task. Each channel carries its own device.
     """
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -1381,6 +1383,7 @@ AnalogWriteConfig struct extends WriteConfig {
     }
 
     @doc value  "configures an NI analog write task."
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -1394,6 +1397,7 @@ DigitalReadConfig struct extends task.ReadConfig {
     }
 
     @doc value  "configures an NI digital read task."
+    @go imex    body
     @go marshal
     @go migrate
 }
@@ -1404,16 +1408,14 @@ DigitalWriteConfig struct extends WriteConfig {
     }
 
     @doc value  "configures an NI digital write task."
+    @go imex    body
     @go marshal
     @go migrate
 }
 
 ScanConfig struct extends task.ScanConfig {
-    ignored_models string[] = ["^cRIO.*", "^nown.*"] {
-        @doc value "are regex patterns matching the device models the scan skips."
-    }
-
     @doc value  "configures the NI device scanner task."
+    @go imex    body
     @go marshal
     @go migrate
 }
