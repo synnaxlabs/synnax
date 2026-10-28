@@ -57,6 +57,9 @@ export class InvalidTokenError extends AuthError.sub("invalid_token") {}
 
 export class ExpiredTokenError extends AuthError.sub("expired_token") {}
 
+/** SessionEndedError is raised when the session a stream or request used has ended. */
+export class SessionEndedError extends AuthError.sub("session_ended") {}
+
 /** Raised when the caller's policies do not permit the action. */
 export class AccessDeniedError extends AuthError.sub("access_denied") {
   toStatus() {
@@ -86,6 +89,9 @@ export class QueryError extends SynnaxError.sub("query") {}
 export class NotFoundError extends QueryError.sub("not_found") {}
 
 export class MultipleFoundError extends QueryError.sub("multiple_results") {}
+
+/** UnsupportedError is raised when a query targets an entity that cannot answer it. */
+export class UnsupportedError extends QueryError.sub("unsupported") {}
 
 /** RouteError is raised when a routing error occurs. */
 export class RouteError extends SynnaxError.sub("route") {
@@ -147,6 +153,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))
       return new ExpiredTokenError(payload.data);
+    if (payload.type.startsWith(SessionEndedError.TYPE))
+      return new SessionEndedError(payload.data);
     if (payload.type.startsWith(AccessDeniedError.TYPE))
       return new AccessDeniedError(payload.data);
     return new AuthError(payload.data);
@@ -160,6 +168,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new NotFoundError(payload.data);
     if (payload.type.startsWith(MultipleFoundError.TYPE))
       return new MultipleFoundError(payload.data);
+    if (payload.type.startsWith(UnsupportedError.TYPE))
+      return new UnsupportedError(payload.data);
     return new QueryError(payload.data);
   }
 

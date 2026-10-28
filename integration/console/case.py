@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
 import random
-from typing import cast
+from typing import Any, cast
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -26,7 +25,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 import synnax as sy
 from console.console import Console
 from framework.models import DEFAULT_CONNECTION, STATUS, SynnaxConnection
-from framework.run_dir import resolve_results_path
 from framework.test_case import TestCase
 
 
@@ -34,13 +32,8 @@ class ConsoleCase(TestCase):
     """
     Console TestCase implementation using Playwright
 
-    Environment Variables:
-    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False).
-      Set by the ``--headed`` flag.
-    - PLAYWRIGHT_CONSOLE_SLOW_MO: Delay between Playwright actions in ms (default: 0).
-      Set by the ``--slow-mo MS`` flag.
-
-    Per-case ``headed`` and ``slow_mo`` parameters override the environment.
+    Per-case ``headed`` and ``slow_mo`` parameters override the ``--headed`` and
+    ``--slow-mo`` conductor options.
     """
 
     playwright: Playwright | None
@@ -57,7 +50,7 @@ class ConsoleCase(TestCase):
         synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
-        **params: object,
+        **params: Any,
     ) -> None:
         super().__init__(synnax_connection, name=name, **params)
         self.playwright = None
@@ -79,10 +72,8 @@ class ConsoleCase(TestCase):
         self._bootstrap_project()
 
     def _launch_browser(self) -> None:
-        env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
-        headed = self.params.get("headed", env_headed)
-        env_slow_mo = int(os.environ.get("PLAYWRIGHT_CONSOLE_SLOW_MO", "0"))
-        slow_mo = self.params.get("slow_mo", env_slow_mo)
+        headed = self.params.get("headed", self.options.headed)
+        slow_mo = self.params.get("slow_mo", self.options.slow_mo)
         default_timeout = self.params.get("default_timeout", 15000)  # 15s
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
@@ -135,7 +126,7 @@ class ConsoleCase(TestCase):
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 
         self.log(f"Console found on port {port}")
-        self.console = Console(self.page, self.client)
+        self.console = Console(self.page, self.client, self.results_dir)
 
     def _login(self) -> None:
         username = self.synnax_connection.username
@@ -207,7 +198,7 @@ class ConsoleCase(TestCase):
         failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)
         try:
             if self._status in failed_states:
-                trace_path = resolve_results_path("trace.zip")
+                trace_path = str(self.results_dir / "trace.zip")
                 self.context.tracing.stop(path=trace_path)
                 self.log(f"Trace saved: {trace_path}")
             else:

@@ -210,12 +210,7 @@ describe("arc editor toolbar", () => {
     store.dispatch(Session.Arc.setEditable({ key: arc.key, editable: false }));
     expect(await screen.findByText(/is not editable/)).toBeTruthy();
     fireEvent.click(await screen.findByText("Enable editing"));
-    await waitFor(() =>
-      expect(
-        Session.Arc.selectState({ state: store.getState(), key: arc.key }).graph
-          .editable,
-      ).toBe(true),
-    );
+    await waitFor(() => expect(screen.queryByText(/is not editable/)).toBeNull());
   });
 
   it("renders the text toolbar for a text-mode arc", async () => {

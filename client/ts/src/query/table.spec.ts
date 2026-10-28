@@ -11,7 +11,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 
 const noopError = (_: Error) => {};
@@ -1333,6 +1333,23 @@ describe("Table", () => {
       expect(gone.status).toEqual("rejected");
       if (gone.status === "rejected")
         expect(NotFoundError.matches(gone.reason)).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should refetch per caller when a denied key rejects the shared batch", async () => {
+      const fetch = vi.fn(async (keys: string[]) => {
+        if (keys.includes("denied")) throw new AccessDeniedError("denied");
+        return keys.map((k) => item(k, k));
+      });
+      const table = fetchTable(fetch);
+      const [a, denied] = await Promise.allSettled([
+        table.retrieve(["a"]),
+        table.retrieve(["denied"]),
+      ]);
+      expect(a).toEqual({ status: "fulfilled", value: [item("a", "a")] });
+      expect(denied.status).toEqual("rejected");
+      if (denied.status === "rejected")
+        expect(AccessDeniedError.matches(denied.reason)).toBe(true);
       expect(fetch).toHaveBeenCalledTimes(3);
     });
 

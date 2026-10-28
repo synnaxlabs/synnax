@@ -81,7 +81,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
   readonly store: query.Table<Key, Label>;
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Label, Action>;
-  private readonly dispatchSender: (key: Key) => actions.SendDispatch<Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient } = cfg;
@@ -97,6 +96,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       store,
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/label/dispatch", dispatchReqZ, dispatchResZ),
       reduce: reduceAll,
       encode,
       createOf,
@@ -125,12 +125,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(
-      cfg.unary,
-      "/label/dispatch",
-      dispatchReqZ,
-      dispatchResZ,
-    );
   }
 
   async label(
@@ -220,16 +214,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
    * @throws {Error} if the send fails, after the cached label drops the actions.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions));
   }
 
   /** Stages actions that commit atomically as one dispatch. */
   beginTransaction(key: Key): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key));
+    return this.dispatcher.transaction(key);
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

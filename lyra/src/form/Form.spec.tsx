@@ -23,8 +23,8 @@ const basicFormSchema = z
     name: z.string().min(1, "You must enter a name."),
     optionalField: z.string().optional(),
     age: z.number().min(5, "You must be at least 5 years old."),
-    nested: z.object({ ssn: z.string(), ein: z.string().optional() }),
-    array: z.array(z.object({ key: z.string(), name: z.string() })),
+    nested: z.object({ ssn: z.string().min(1), ein: z.string().optional() }),
+    array: z.array(z.object({ key: z.string(), name: z.string().min(1) })),
   })
   .check((ctx) => {
     if (ctx.value.name === "Billy Bob")
@@ -120,15 +120,24 @@ describe("Form", () => {
         expect(field).toBeNull();
       });
 
-      it("should return true if a field is required in the schema", () => {
+      it("should return true if the schema refuses the field empty", () => {
         const { result } = renderHook(() =>
           Form.use({
             values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
-        const field = result.current.get("age");
-        expect(field.required).toBe(true);
+        expect(result.current.get("name").required).toBe(true);
+      });
+
+      it("should return false for a number, which no input can empty", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy(initialFormValues),
+            schema: basicFormSchema,
+          }),
+        );
+        expect(result.current.get("age").required).toBe(false);
       });
     });
 
@@ -491,6 +500,36 @@ describe("Form", () => {
       // we're executing an async parse so we need to wait for the error to show up
       expect(c.findByText("You must be at least 5 years old.")).toBeTruthy();
     });
+    describe("required mark", () => {
+      it("should mark the default text input when the schema refuses it empty", () => {
+        const c = render(<Form.Field path="name" />, { wrapper });
+        expect(c.getByText("*")).toBeTruthy();
+      });
+      it("should not mark a custom input", () => {
+        const c = render(
+          <Form.Field<string> path="name">{(p) => <Input.Text {...p} />}</Form.Field>,
+          { wrapper },
+        );
+        expect(c.queryByText("*")).toBeNull();
+      });
+      it("should mark a custom input that is emptiable", () => {
+        const c = render(
+          <Form.Field<string> path="name" emptiable>
+            {(p) => <Input.Text {...p} />}
+          </Form.Field>,
+          { wrapper },
+        );
+        expect(c.getByText("*")).toBeTruthy();
+      });
+      it("should mark a text field", () => {
+        const c = render(<Form.TextField path="name" />, { wrapper });
+        expect(c.getByText("*")).toBeTruthy();
+      });
+      it("should not mark a numeric field", () => {
+        const c = render(<Form.NumericField path="age" />, { wrapper });
+        expect(c.queryByText("*")).toBeNull();
+      });
+    });
     describe("Nested Field", () => {
       it("should return a text field with the correct value", () => {
         const c = render(<Form.Field path="nested.ssn" />, { wrapper });
@@ -515,8 +554,8 @@ describe("Form", () => {
         expect(c.getByText("*")).toBeTruthy();
       });
       it("should not mark the array field as required if it is not required in the schema", () => {
-        const c = render(<Form.Field path="array.0.name" />, { wrapper });
-        expect(c.getByText("*")).toBeTruthy();
+        const c = render(<Form.Field path="array.0.key" />, { wrapper });
+        expect(c.queryByText("*")).toBeNull();
       });
     });
   });

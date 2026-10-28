@@ -161,17 +161,13 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const initialLength = result.current.data.length;
 
       const newLabel = await client.labels.create({
         name: "newLabel",
         color: "#FFFF00",
       });
 
-      await waitFor(() => {
-        expect(result.current.data).toHaveLength(initialLength + 1);
-        expect(result.current.data).toContain(newLabel.key);
-      });
+      await waitFor(() => expect(result.current.data).toContain(newLabel.key));
     });
 
     it("should update the list when a label is updated", async () => {

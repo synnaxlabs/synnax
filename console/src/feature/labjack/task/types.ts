@@ -10,7 +10,11 @@
 import { labjack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import * as Device from "@/feature/labjack/device/types";
+import {
+  AIN_PORT_REGEX,
+  DAC_PORT_REGEX,
+  DIO_PORT_REGEX,
+} from "@/feature/labjack/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";
@@ -59,17 +63,17 @@ export type Channel = ReadChannel | WriteChannel;
 const deployPortZ = z.string().min(1, "Port must be specified");
 
 const deployAIPortZ = deployPortZ.regex(
-  Device.AIN_PORT_REGEX,
+  AIN_PORT_REGEX,
   "Invalid port, ports must start with AIN and end with an integer",
 );
 
 const deployDigitalPortZ = deployPortZ.regex(
-  Device.DIO_PORT_REGEX,
+  DIO_PORT_REGEX,
   "Invalid port, port must start with DIO and end with an integer",
 );
 
 const deployAOPortZ = deployPortZ.regex(
-  Device.DAC_PORT_REGEX,
+  DAC_PORT_REGEX,
   "Invalid port, ports must start with DAC and end with an integer",
 );
 
@@ -132,8 +136,6 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = labjack.writeConfigZ;
@@ -159,5 +161,3 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export interface WritePayload extends task.Payload<WriteSchemas> {}

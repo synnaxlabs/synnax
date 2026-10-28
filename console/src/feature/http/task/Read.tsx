@@ -27,7 +27,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import * as Device from "@/feature/http/device/types";
+import { SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -412,7 +412,7 @@ const channelExists = async (client: Client, key: channel.Key): Promise<boolean>
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
@@ -491,7 +491,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       }
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

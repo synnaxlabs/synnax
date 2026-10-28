@@ -14,7 +14,7 @@
 
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/task/task.h"
@@ -287,7 +287,7 @@ synnax::task::Status wait_for_task_status(
     x::telem::TimeSpan timeout = 5 * x::telem::SECOND
 ) {
     synnax::task::Status result;
-    x::test::eventually(
+    x::testutil::eventually(
         [&]() {
             auto [frame, err] = streamer.read();
             if (err) return false;
@@ -319,7 +319,7 @@ synnax::task::Status wait_for_task_status(
     )
 
 #define EVENTUALLY(condition, failure_message, ...)                                    \
-    ::x::test::eventually(                                                             \
+    ::x::testutil::eventually(                                                         \
         condition,                                                                     \
         failure_message,                                                               \
         __FILE__,                                                                      \

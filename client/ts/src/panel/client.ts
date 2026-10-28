@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -77,7 +77,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Panel>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
-  private readonly dispatchSender: (key: Key) => actions.SendDispatch<Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient } = cfg;
@@ -95,6 +94,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
+      send: actions.sender(cfg.unary, "/panel/dispatch", dispatchReqZ, dispatchResZ),
       kindOf,
       createOf,
     });
@@ -129,12 +129,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(
-      cfg.unary,
-      "/panel/dispatch",
-      dispatchReqZ,
-      dispatchResZ,
-    );
   }
 
   /** All panels currently in the cache. */
@@ -187,16 +181,28 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    // Restores only the name, so the rollback cannot undo edits made after it.
+    const rename = (): destructor.Destructor => {
+      const prev = this.store.get(key)?.name ?? name;
+      query.partialUpdate(this.store, key, { name });
+      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
+      return () => {
+        query.partialUpdate(this.store, key, { name: prev });
+        resource();
+      };
+    };
     // Rename routes through dispatch so the action channel broadcasts the change
     // to other connected clients.
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => await this.dispatchSender(key)([renameAction({ name })], ""),
+    const rollback = rename();
+    try {
+      await opts.onOptimistic?.();
+    } catch (e) {
+      rollback();
+      throw errors.fromUnknown(e);
+    }
+    await this.dispatcher.send(key, [renameAction({ name })], {
+      rollback,
+      reapply: rename,
     });
     rename();
   }
@@ -211,12 +217,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     actions: Action | Action[],
     opts: actions.Options<Panel, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-      opts,
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions), opts);
   }
 
   /**
@@ -224,7 +225,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key);
   }
 
   /**
@@ -232,7 +233,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key);
   }
 
   /** Whether the panel has a live undo entry. */
@@ -255,7 +256,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
 
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
+    return this.dispatcher.transaction(key, kind);
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

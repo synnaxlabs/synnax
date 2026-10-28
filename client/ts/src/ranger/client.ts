@@ -14,6 +14,7 @@ import {
   type CrudeTimeRange,
   deep,
   type destructor,
+  errors,
   primitive,
   type Series,
   TimeRange,
@@ -23,7 +24,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { type channel } from "@/channel";
-import { QueryError } from "@/errors";
+import { AccessDeniedError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -84,7 +85,11 @@ const createTables = (
   // Fetches missing relationship targets so compositions and membership
   // checks can see them.
   relationships.subscribe((event) => {
-    if (event.variant === "set") backfill(event.value).catch(cache.onError);
+    if (event.variant !== "set") return;
+    backfill(event.value).catch((exc: unknown) => {
+      // The relationship reaches callers who cannot read its target.
+      if (!AccessDeniedError.matches(exc)) cache.onError(errors.fromUnknown(exc));
+    });
   });
 
   const kvPairs = cache.createTable<string, kv.Pair>({
@@ -453,7 +458,6 @@ export class Client extends query.Retriever<
   private readonly writer: Writer;
   private readonly store: query.Table<Key, Range>;
   private readonly dispatcher: actions.Controller<Key, Range, Action>;
-  private readonly dispatchSender: (key: Key) => actions.SendDispatch<Action>;
   private readonly kvPairs: query.Table<string, kv.Pair>;
 
   constructor(cfg: ClientConfig) {
@@ -472,6 +476,7 @@ export class Client extends query.Retriever<
       store: ranges,
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/range/dispatch", dispatchReqZ, dispatchResZ),
       reduce: (range, acts) => {
         const { payload } = range;
         const { next, inverse, targets } = reduceAll(payload, acts);
@@ -530,12 +535,6 @@ export class Client extends query.Retriever<
     this.writer = new Writer(cfg.unary);
     this.store = ranges;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(
-      cfg.unary,
-      "/range/dispatch",
-      dispatchReqZ,
-      dispatchResZ,
-    );
     this.kvPairs = kvPairs;
     this.aliases = aliases;
     const children = cache.queries<ChildrenRequest, Range[], Key, Range>({
@@ -645,16 +644,12 @@ export class Client extends query.Retriever<
    * @throws {Error} if the send fails, after the cached range drops the actions.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions));
   }
 
   /** Stages actions that commit atomically as one dispatch. */
   beginTransaction(key: Key): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key));
+    return this.dispatcher.transaction(key);
   }
 
   async delete(key: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

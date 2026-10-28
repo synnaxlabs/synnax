@@ -73,13 +73,13 @@ const verdictValues = {
 
 interface Tracked {
   channels: { key: string; port: number }[];
-  config: { type: "a"; value: number } | { type: "b"; value?: string };
+  config: { type: "a"; value: string } | { type: "b"; value?: string };
 }
 
 const trackedSchema = z.object({
   channels: z.array(z.object({ key: z.string(), port: z.number() })),
   config: z.discriminatedUnion("type", [
-    z.object({ type: z.literal("a"), value: z.number() }),
+    z.object({ type: z.literal("a"), value: z.string().min(1) }),
     z.object({ type: z.literal("b"), value: z.string().optional() }),
   ]),
 });
@@ -90,7 +90,7 @@ const buildTracked = () => {
       { key: "a", port: 1 },
       { key: "b", port: 2 },
     ],
-    config: { type: "a", value: 1 },
+    config: { type: "a", value: "v" },
   });
   const state = new State(store, trackedSchema);
   const handleChange = vi.fn();
@@ -1017,6 +1017,49 @@ describe("State", () => {
       expect(state.getState("optionalField").required).toBe(false);
     });
 
+    describe("required", () => {
+      const schema = z.object({
+        free: z.string(),
+        count: z.number(),
+        on: z.boolean(),
+        tags: z.array(z.string()).min(1),
+        open: z.array(z.string()),
+      });
+      const values = { free: "a", count: 1, on: true, tags: ["t"], open: [] };
+
+      it("should not require a string the schema accepts empty", () => {
+        expect(
+          new State(createLocalStore(values), schema).getState("free").required,
+        ).toBe(false);
+      });
+
+      it("should not require a value no input can empty", () => {
+        const state = new State(createLocalStore(values), schema);
+        expect(state.getState("count").required).toBe(false);
+        expect(state.getState("on").required).toBe(false);
+      });
+
+      it("should require a list the schema refuses empty", () => {
+        expect(
+          new State(createLocalStore(values), schema).getState("tags").required,
+        ).toBe(true);
+      });
+
+      it("should not require a list the schema accepts empty", () => {
+        expect(
+          new State(createLocalStore(values), schema).getState("open").required,
+        ).toBe(false);
+      });
+
+      it("should not require a field whose schema checks asynchronously", () => {
+        const asyncSchema = z.object({
+          name: z.string().refine(async (v) => v !== "taken"),
+        });
+        const state = new State(createLocalStore({ name: "a" }), asyncSchema);
+        expect(state.getState("name").required).toBe(false);
+      });
+    });
+
     it("should return cached reference for performance", () => {
       const state = new State(createLocalStore(initialValues), basicSchema);
       const fieldState1 = state.getState("name");
@@ -1028,20 +1071,20 @@ describe("State", () => {
       const build = () => {
         let checks = 0;
         const schema = z.object({
-          tracked: z.unknown().check(() => {
+          tracked: z.string().check(() => {
             checks++;
           }),
           other: z.string(),
           config: z.discriminatedUnion("type", [
-            z.object({ type: z.literal("a"), value: z.number() }),
+            z.object({ type: z.literal("a"), value: z.string().min(1) }),
             z.object({ type: z.literal("b"), value: z.string().optional() }),
           ]),
           nested: z.object({ leaf: z.string() }),
         });
         const values: z.infer<typeof schema> = {
-          tracked: 1,
+          tracked: "a",
           other: "x",
-          config: { type: "a", value: 1 },
+          config: { type: "a", value: "v" },
           nested: { leaf: "l" },
         };
         return {
@@ -1060,8 +1103,8 @@ describe("State", () => {
       it("should consult the schema again after the field changes", () => {
         const { state, checks } = build();
         state.getState("tracked");
-        state.setValue("tracked", 2);
-        expect(state.getState("tracked").value).toBe(2);
+        state.setValue("tracked", "b");
+        expect(state.getState("tracked").value).toBe("b");
         expect(checks()).toBe(2);
       });
 
@@ -1085,13 +1128,13 @@ describe("State", () => {
           const schema = z.object({
             name: z.string(),
             config: z.object({
-              tracked: z.unknown().check(() => {
+              tracked: z.string().check(() => {
                 checks++;
               }),
             }),
           });
           const state = new State(
-            createLocalStore({ name: "a", config: { tracked: 1 } }),
+            createLocalStore({ name: "a", config: { tracked: "a" } }),
             schema,
           );
           state.getState("config.tracked");

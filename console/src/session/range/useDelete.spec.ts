@@ -39,11 +39,8 @@ const rejectedState = (): Session.Range.StaticState => {
   };
 };
 
-// The built-ins are code rather than stored state, so a delete never touches them.
 const storedKeys = (store: { getState: () => Session.Range.StoreState }): string[] =>
-  Session.Range.selectKeys(store.getState()).filter(
-    (key) => !Session.Range.BUILT_IN.some((builtIn) => builtIn.key === key),
-  );
+  store.getState()[Session.Range.SLICE_NAME].ranges.map(({ key }) => key);
 
 const renderDelete = async (ranges: Session.Range.State[], selected?: string) => {
   const { wrapper, store } = await createConsoleWrapper({
@@ -67,7 +64,7 @@ describe("Range.useDelete", () => {
     await waitFor(() =>
       expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined(),
     );
-    expect(Session.Range.selectSelectedKey(store.getState())).toBeUndefined();
+    expect(store.getState()[Session.Range.SLICE_NAME].selected).toBeUndefined();
     await expect(client.ranges.retrieve(range.key)).rejects.toThrow(NotFoundError);
   });
 
@@ -82,7 +79,7 @@ describe("Range.useDelete", () => {
     await waitFor(() =>
       expect(storedKeys(store)).toEqual([REJECTED_KEY, neighbor.key]),
     );
-    expect(Session.Range.selectSelectedKey(store.getState())).toEqual(REJECTED_KEY);
+    expect(store.getState()[Session.Range.SLICE_NAME].selected).toEqual(REJECTED_KEY);
   });
 
   it("should leave the slice alone for a range it does not hold", async () => {

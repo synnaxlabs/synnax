@@ -11,7 +11,9 @@ import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
+import { channel } from "@/channel";
 import { NotFoundError } from "@/errors";
+import { framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -19,7 +21,9 @@ import { type status } from "@/status";
 import { task } from "@/task";
 import {
   createTestClient,
+  createTestClientWithPolicy,
   holdResponses,
+  recordResponses,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -1475,6 +1479,57 @@ describe("Task", async () => {
             return cached.find((v) => v.key === t.key)?.config;
           })
           .toMatchObject({ routingKey: "dog" });
+      } finally {
+        off();
+      }
+    });
+
+    it("takes a change to a task the user cannot read with no fetch or error", async () => {
+      const readable = await testRack.createTask({
+        name: `set-readable-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const denied = await testRack.createTask({
+        name: `set-denied-${id.create()}`,
+        config: { routingKey: "cat" },
+        type: "pagerduty_alert",
+      });
+      const onError = vi.fn();
+      const remote = await createTestClientWithPolicy(
+        client,
+        {
+          name: "set-readable",
+          objects: [
+            channel.TYPE_ONTOLOGY_ID,
+            framer.TYPE_ONTOLOGY_ID,
+            task.ontologyID(readable.key),
+          ],
+          actions: ["retrieve"],
+        },
+        onError,
+      );
+      await waitForStreamLive(remote.connection);
+      const params = { key: readable.key };
+      const off = remote.tasks.onChange(params, vi.fn());
+      try {
+        await remote.tasks.retrieve(params);
+        const fetches = recordResponses(remote, "/task/retrieve");
+        await client.tasks.create({
+          ...denied.payload,
+          name: `${denied.name}-renamed`,
+        });
+        // Both changes stream on one channel, so the readable rename lands last.
+        const name = `set-readable-renamed-${id.create()}`;
+        await client.tasks.create({ ...readable.payload, name });
+        await expect
+          .poll(() => {
+            const cached = remote.tasks.getCached(params);
+            return query.isLive(cached) ? cached.name : undefined;
+          })
+          .toBe(name);
+        expect(fetches).toHaveLength(0);
+        expect(onError).not.toHaveBeenCalled();
       } finally {
         off();
       }

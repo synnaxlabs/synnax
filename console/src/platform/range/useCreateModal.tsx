@@ -115,8 +115,8 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
                   autoFocus
                   level="h2"
                   variant="text"
-                  placeholder="Name"
-                  aria-label="Name"
+                  placeholder="Range name"
+                  aria-label="Range name"
                   {...p}
                 />
               )}
@@ -143,12 +143,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
                   />
                 )}
               </Form.Field>
-              <Form.Field<string[]>
-                path="labels"
-                required={false}
-                showLabel={false}
-                padHelpText={false}
-              >
+              <Form.Field<string[]> path="labels" showLabel={false} padHelpText={false}>
                 {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
               </Form.Field>
             </Flex.Box>
@@ -156,7 +151,6 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action={saveName} />
         <Nav.Bar.End>
           <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
             Save locally
@@ -167,6 +161,7 @@ const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, voi
             disabled={!clientExists}
             status={variant}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             {saveName}
           </Button.Button>

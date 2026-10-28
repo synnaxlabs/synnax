@@ -13,9 +13,12 @@ import { type APIContext } from "astro";
 import { expect } from "vitest";
 
 import { type Portal } from "@/portal";
+import { type Analytics, memory as analytics, type Session } from "@/server/analytics";
 import {
   type Activation,
   activation,
+  type Invitation,
+  invitation,
   type License,
   license,
   type Organization,
@@ -27,6 +30,7 @@ import { local } from "@/server/license/sign";
 import { NOW } from "@/server/license/testutil";
 import { type Mailer, memory as mailer, type Message } from "@/server/mail";
 import { resolve } from "@/server/session";
+import { memory as slack, type Note, type Slack } from "@/server/slack";
 
 export const STAFF_ORG_ID = "org_staff";
 export const CRON_SECRET = "cron-secret";
@@ -40,6 +44,8 @@ export interface Harness {
   store: Memory;
   directory: Directory & Records;
   mail: Mailer & { sent: Message[] };
+  slack: Slack & { posted: Note[] };
+  analytics: Analytics & { recorded: Session[] };
   /** signIn makes later sessions resolve as the user, or as nobody for null. */
   signIn: (userID: string | null) => void;
 }
@@ -48,11 +54,15 @@ export interface Harness {
 export const createHarness = (store: Memory): Harness => {
   const dir = directory();
   const mail = mailer();
+  const notes = slack();
+  const sessions = analytics();
   let userID: string | null = null;
   return {
     store,
     directory: dir,
     mail,
+    slack: notes,
+    analytics: sessions,
     signIn: (id) => {
       userID = id;
     },
@@ -60,6 +70,8 @@ export const createHarness = (store: Memory): Harness => {
       store,
       signer: local(privateKey, "test"),
       mail,
+      slack: notes,
+      analytics: sessions,
       directory: dir,
       staffOrgID: STAFF_ORG_ID,
       cronSecret: CRON_SECRET,
@@ -172,6 +184,23 @@ export const createLicense = async (
       label: "Test rig",
       issuedBy: "user_staff",
       issuedAt: new Date("2026-09-01T00:00:00Z"),
+      ...values,
+    })
+    .returning();
+  return row;
+};
+
+/** createInvitation saves an invitation sent at {@link NOW} that is open for a day. */
+export const createInvitation = async (
+  store: Memory,
+  values: Partial<Invitation> & Pick<Invitation, "organization" | "email">,
+): Promise<Invitation> => {
+  const [row] = await store.query
+    .insert(invitation)
+    .values({
+      role: "org:member",
+      sentAt: NOW,
+      expiresAt: new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
       ...values,
     })
     .returning();

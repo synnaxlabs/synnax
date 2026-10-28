@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -100,7 +100,6 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
-  private readonly dispatchSender: (key: Key) => actions.SendDispatch<Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
@@ -118,6 +117,12 @@ export class Client extends query.Retriever<
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
+      send: actions.sender(
+        cfg.unary,
+        "/schematic/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
       encode,
       kindOf,
       createOf,
@@ -136,12 +141,6 @@ export class Client extends query.Retriever<
     this.symbols = new symbol.Client(cfg);
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(
-      cfg.unary,
-      "/schematic/dispatch",
-      dispatchReqZ,
-      dispatchResZ,
-    );
   }
 
   async create(
@@ -183,14 +182,26 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => await this.dispatchSender(key)([renameAction({ name })], ""),
+    // Restores only the name, so the rollback cannot undo edits made after it.
+    const rename = (): destructor.Destructor => {
+      const prev = this.store.get(key)?.name ?? name;
+      query.partialUpdate(this.store, key, { name });
+      const resource = this.cfg.ontology.cache.renameResource(ontologyID(key), name);
+      return () => {
+        query.partialUpdate(this.store, key, { name: prev });
+        resource();
+      };
+    };
+    const rollback = rename();
+    try {
+      await opts.onOptimistic?.();
+    } catch (e) {
+      rollback();
+      throw errors.fromUnknown(e);
+    }
+    await this.dispatcher.send(key, [renameAction({ name })], {
+      rollback,
+      reapply: rename,
     });
     rename();
   }
@@ -205,12 +216,7 @@ export class Client extends query.Retriever<
     actions: Action | Action[],
     opts: actions.Options<Schematic, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-      opts,
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions), opts);
   }
 
   /**
@@ -218,7 +224,7 @@ export class Client extends query.Retriever<
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key);
   }
 
   /**
@@ -226,7 +232,7 @@ export class Client extends query.Retriever<
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key);
   }
 
   /** Whether the document has a live undo entry. */
@@ -249,7 +255,7 @@ export class Client extends query.Retriever<
 
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
+    return this.dispatcher.transaction(key, kind);
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

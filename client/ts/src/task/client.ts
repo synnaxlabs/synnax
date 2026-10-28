@@ -433,7 +433,6 @@ export class Client extends query.Retriever<
   readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly cfg: ClientConfig;
   private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
-  private readonly dispatchSender: (key: Key) => actions.SendDispatch<Action>;
   private readonly statusesByTask: query.LookupIndex<status.Key, status.Status>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
 
@@ -453,6 +452,7 @@ export class Client extends query.Retriever<
       store,
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
       reduce: (task, acts) => {
         const payload = task.payload;
         const { next, inverse, targets } = reduceAll(payload, acts);
@@ -525,12 +525,6 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.dispatcher = dispatcher;
-    this.dispatchSender = actions.sender(
-      cfg.unary,
-      "/task/dispatch",
-      dispatchReqZ,
-      dispatchResZ,
-    );
     this.statusesByTask = statusesByTask;
   }
 
@@ -622,11 +616,7 @@ export class Client extends query.Retriever<
    * @throws {Error} if the send fails, after the cached task drops the actions.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions));
   }
 
   /**
@@ -639,7 +629,7 @@ export class Client extends query.Retriever<
 
   /** Stages actions that commit atomically as one dispatch. */
   beginTransaction(key: Key): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key));
+    return this.dispatcher.transaction(key);
   }
 
   async retrieve<S extends Schemas = Schemas>(

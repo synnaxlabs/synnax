@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/aspen/mock"
+	"github.com/synnaxlabs/aspen/testutil"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,7 +42,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				ctx,
 				"",
 				"localhost:0",
-				[]aspen.Address{},
+				[]address.Address{},
 				aspen.Bootstrap(),
 				aspen.InMemory(),
 			))
@@ -67,7 +67,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					ctx,
 					"",
 					"localhost:0",
-					[]aspen.Address{"localhost:1"},
+					[]address.Address{"localhost:1"},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
 				))
@@ -98,7 +98,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 						ctx,
 						"",
 						"localhost:0",
-						[]aspen.Address{bootstrapAddr},
+						[]address.Address{bootstrapAddr},
 						aspen.InMemory(),
 					))
 					defer func() { Expect(db.Close()).To(Succeed()) }()
@@ -110,7 +110,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					ctx,
 					"",
 					bootstrapAddr,
-					[]aspen.Address{},
+					[]address.Address{},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
 					aspen.WithListener(lis),
@@ -136,11 +136,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					ctx,
 					"",
 					"localhost:0",
-					[]aspen.Address{},
+					[]address.Address{},
 					aspen.InMemory(),
 					aspen.Bootstrap(),
 				))
-				peers := []aspen.Address{bootstrapper.Cluster.Host().Address}
+				peers := []address.Address{bootstrapper.Cluster.Host().Address}
 				wg := sync.WaitGroup{}
 				wg.Add(numPledges)
 				var (
@@ -190,12 +190,12 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 							PledgeRetryScale:      1,
 							ClusterGossipInterval: 50 * time.Millisecond,
 						}
-						builder := &mock.Builder{
+						builder := &testutil.Builder{
 							DataDir: "./testdata",
 							DefaultOptions: []aspen.Option{
 								aspen.WithPropagationConfig(propConfig),
 							},
-							Nodes: make(map[aspen.NodeKey]mock.NodeInfo),
+							Nodes: make(map[aspen.NodeKey]testutil.NodeInfo),
 						}
 						defer func() {
 							Expect(builder.Cleanup()).To(Succeed())
@@ -220,7 +220,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 							ctx,
 							node.Dir,
 							node.Addr,
-							[]aspen.Address{},
+							[]address.Address{},
 							builder.DefaultOptions...,
 						))
 

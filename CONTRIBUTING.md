@@ -4,7 +4,7 @@ How a change gets into `main`. Setup lives in the package guides
 ([Core](core/CONTRIBUTING.md), [Console](console/CONTRIBUTING.md),
 [Pluto](pluto/CONTRIBUTING.md), [TypeScript client](client/ts/CONTRIBUTING.md),
 [Python client](client/py/CONTRIBUTING.md), [docs site](site/docs/CONTRIBUTING.md)),
-design in the [RFCs](docs/tech/rfc), and code style in [CLAUDE.md](CLAUDE.md).
+design in the [RFCs](docs/tech/rfc), and code style in [AGENTS.md](AGENTS.md).
 
 ## Branches and pull requests
 
@@ -17,8 +17,9 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   issue.
 - Description: what changed and why, leading with the effect on a user or the
   architecture. Never a file-by-file walk.
-- One review tier label. The author merges once the gate passes, after answering every
-  Greptile comment with a fix or a reason.
+- One review tier label. Answer every Greptile comment with a fix or a reason. A
+  `review/bot` PR that is not a draft merges by itself once CI and the gate pass. The
+  author merges a `review/human` PR once the gate passes.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 
@@ -77,7 +78,7 @@ release that removes it. A flag past that release is a bug: promote or delete.
 3. **Promote** after at least one stable Desktop release, in a `review/human` PR that
    only flips or deletes the flag and removes the dark branches. The reviewer reads the
    feature as it stands on `main`, from the umbrella issue's PR list, and holds it to
-   the enterprise bar: the `CLAUDE.md` principles, tests, docs, no dev-only path left. A
+   the enterprise bar: the `AGENTS.md` principles, tests, docs, no dev-only path left. A
    feature that fails stays in Desktop until a later promotion passes.
 
 ## Issue priority

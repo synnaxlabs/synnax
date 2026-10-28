@@ -24,7 +24,7 @@ import { Telem } from "@/telem";
 import { telem } from "@/telem/aether";
 import { createAetherProvider } from "@/testutil/Aether";
 import { theming } from "@/theming/aether";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { Staleness } from "@/vis/staleness";
 import { staleness } from "@/vis/staleness/aether";
 

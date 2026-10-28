@@ -11,7 +11,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Embedded } from "@/feature/embedded";
-import { clearSupervisor, mockSupervisor, RUNNING } from "@/feature/embedded/testutil";
+import {
+  clearSupervisor,
+  mockSupervisor,
+  RUNNING,
+  type Status,
+} from "@/feature/embedded/testutil";
 
 const PARAMS = {
   host: "127.0.0.1",
@@ -57,8 +62,8 @@ describe("Embedded.useConnParams", () => {
   });
 
   it("should prefer a status event over an older status answer", async () => {
-    let answer: (status: Embedded.Status) => void = () => {};
-    const pending = new Promise<Embedded.Status>((resolve) => (answer = resolve));
+    let answer: (status: Status) => void = () => {};
+    const pending = new Promise<Status>((resolve) => (answer = resolve));
     const { emitStatus } = mockSupervisor(async () => await pending);
     const { result } = renderHook(Embedded.useConnParams, {
       wrapper: Embedded.Provider,

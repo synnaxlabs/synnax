@@ -20,10 +20,24 @@ export interface Person {
   image?: string;
 }
 
+/** Account is one Clerk user as the staff console lists them. */
+export interface Account {
+  userID: string;
+  name: string;
+  /** email is empty when Clerk holds no address for the user. */
+  email: string;
+  joinedAt: Date;
+}
+
 /** Listed is one organization in the Clerk dashboard, keyed by its Clerk id. */
 export interface Listed {
   clerkOrgID: string;
   name: string;
+}
+
+/** Listing is one organization in the Clerk dashboard with its number of members. */
+export interface Listing extends Listed {
+  members: number;
 }
 
 /** Team is one Clerk organization the user belongs to. */
@@ -40,25 +54,17 @@ export interface Member {
   role: string;
 }
 
-/** Invitation asks someone by email to join a team. */
-export interface Invitation {
-  clerkOrgID: string;
-  email: string;
-  role: string;
-  /** inviterUserID is the admin who sends the invitation. */
-  inviterUserID: string;
-  /** redirectURL is the absolute URL the link in the email lands on. */
-  redirectURL: string;
-}
-
-/** Pending is a team invitation that its recipient has not accepted. */
-export interface Pending extends Listed {
-  invitationID: string;
-}
-
 /** ADMIN_ROLE is Clerk's role for members who manage a team. */
 export const ADMIN_ROLE = "org:admin";
 export const MEMBER_ROLE = "org:member";
+
+export const ROLES: { key: string; name: string }[] = [
+  { key: ADMIN_ROLE, name: "Admin" },
+  { key: MEMBER_ROLE, name: "Member" },
+];
+
+export const roleName = (role: string): string =>
+  ROLES.find((r) => r.key === role)?.name ?? role;
 
 /** Directory reads the people and organizations Clerk holds. */
 export interface Directory {
@@ -67,19 +73,42 @@ export interface Directory {
   memberships: (userID: string) => Promise<Team[]>;
   /** roster returns every member of a team. */
   roster: (clerkOrgID: string) => Promise<Member[]>;
+  /** users returns every user in Clerk, newest first. */
+  users: () => Promise<Account[]>;
+  /** account returns null when Clerk does not know the user. */
+  account: (userID: string) => Promise<Account | null>;
   /** teams returns every organization in Clerk, newest first. */
-  teams: () => Promise<Listed[]>;
+  teams: () => Promise<Listing[]>;
   /** team returns null when Clerk does not know the organization. */
   team: (clerkOrgID: string) => Promise<Listed | null>;
   /** names resolves user ids to the name each reads as, leaving out unknown ids. */
   names: (userIDs: string[]) => Promise<Record<string, string>>;
+  /** addresses returns the user's verified email addresses in lowercase. */
+  addresses: (userID: string) => Promise<string[]>;
   /**
-   * invite emails an invitation to join a team.
-   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses the invitation.
+   * add puts a user on a team with a role. Clerk sends no email.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
    */
-  invite: (invitation: Invitation) => Promise<void>;
-  /** pending returns the team invitations the user has not accepted. */
-  pending: (userID: string) => Promise<Pending[]>;
+  add: (clerkOrgID: string, userID: string, role: string) => Promise<void>;
+  /**
+   * setRole changes a member's role on a team.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  setRole: (clerkOrgID: string, userID: string, role: string) => Promise<void>;
+  /**
+   * remove takes a member off a team.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  remove: (clerkOrgID: string, userID: string) => Promise<void>;
+  /** create makes a team with no members. */
+  create: (name: string) => Promise<Listed>;
+  /** delete removes a team and its memberships. */
+  delete: (clerkOrgID: string) => Promise<void>;
+  /**
+   * rename changes a team's name.
+   * @throws {HTTPError} 400 with Clerk's reason when Clerk refuses.
+   */
+  rename: (clerkOrgID: string, name: string) => Promise<void>;
 }
 
 type Client = ReturnType<typeof clerkClient>;
@@ -98,14 +127,38 @@ const paged = async <T, R>(
   }
 };
 
-const displayName = (
-  user: { firstName: string | null; lastName: string | null; username: string | null },
-  email: string,
-): string => {
+interface Named {
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  primaryEmailAddressId: string | null;
+  emailAddresses: { id: string; emailAddress: string }[];
+}
+
+/** primaryEmail reads a user's primary address, then any address, then none. */
+const primaryEmail = (user: Named): string =>
+  user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ??
+  user.emailAddresses[0]?.emailAddress ??
+  "";
+
+const displayName = (user: Named, email: string): string => {
   const full = [user.firstName, user.lastName].filter((p) => p != null && p !== "");
   if (full.length > 0) return full.join(" ");
   return user.username ?? email;
 };
+
+const toAccount = (user: Named & { id: string; createdAt: number }): Account => {
+  const email = primaryEmail(user);
+  return {
+    userID: user.id,
+    name: displayName(user, email),
+    email,
+    joinedAt: new Date(user.createdAt),
+  };
+};
+
+const isNotFound = (e: unknown): boolean =>
+  e instanceof Error && "status" in e && e.status === 404;
 
 interface APIError {
   status?: number;
@@ -124,11 +177,7 @@ const refused = (e: unknown): Error => {
 export const clerk = (client: Client): Directory => ({
   person: async (userID) => {
     const user = await client.users.getUser(userID);
-    const email =
-      user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
-        ?.emailAddress ??
-      user.emailAddresses[0]?.emailAddress ??
-      "";
+    const email = primaryEmail(user);
     return {
       email,
       name: displayName(user, email),
@@ -167,17 +216,42 @@ export const clerk = (client: Client): Directory => ({
     );
     return members.filter((m) => m.userID !== "");
   },
+  users: async () =>
+    await paged(
+      async (offset) =>
+        await client.users.getUserList({
+          limit: PAGE,
+          offset,
+          orderBy: "-created_at",
+        }),
+      toAccount,
+    ),
+  account: async (userID) => {
+    const user = await client.users.getUser(userID).catch((e: unknown) => {
+      if (isNotFound(e)) return null;
+      throw errors.fromUnknown(e);
+    });
+    return user == null ? null : toAccount(user);
+  },
   teams: async () =>
     await paged(
       async (offset) =>
-        await client.organizations.getOrganizationList({ limit: PAGE, offset }),
-      (o) => ({ clerkOrgID: o.id, name: o.name }),
+        await client.organizations.getOrganizationList({
+          limit: PAGE,
+          offset,
+          includeMembersCount: true,
+        }),
+      (o) => {
+        if (o.membersCount == null)
+          throw new Error(`Clerk listed organization ${o.id} without its member count`);
+        return { clerkOrgID: o.id, name: o.name, members: o.membersCount };
+      },
     ),
   team: async (clerkOrgID) => {
     const org = await client.organizations
       .getOrganization({ organizationId: clerkOrgID })
       .catch((e: unknown) => {
-        if (e instanceof Error && "status" in e && e.status === 404) return null;
+        if (isNotFound(e)) return null;
         throw errors.fromUnknown(e);
       });
     return org == null ? null : { clerkOrgID: org.id, name: org.name };
@@ -194,62 +268,84 @@ export const clerk = (client: Client): Directory => ({
     }
     return named;
   },
-  invite: async ({ clerkOrgID, email, role, inviterUserID, redirectURL }) => {
+  addresses: async (userID) => {
+    const user = await client.users.getUser(userID);
+    return user.emailAddresses
+      .filter((e) => e.verification?.status === "verified")
+      .map((e) => e.emailAddress.toLowerCase());
+  },
+  add: async (clerkOrgID, userID, role) => {
     await client.organizations
-      .createOrganizationInvitation({
+      .createOrganizationMembership({
         organizationId: clerkOrgID,
-        emailAddress: email,
+        userId: userID,
         role,
-        inviterUserId: inviterUserID,
-        redirectUrl: redirectURL,
       })
       .catch((e: unknown) => {
         throw refused(e);
       });
   },
-  pending: async (userID) =>
-    await paged(
-      async (offset) =>
-        await client.users.getOrganizationInvitationList({
-          userId: userID,
-          status: "pending",
-          limit: PAGE,
-          offset,
-        }),
-      ({ id, organizationId, publicOrganizationData: org }) => {
-        if (org == null)
-          throw new Error(`Clerk sent invitation ${id} without its team`);
-        return { invitationID: id, clerkOrgID: organizationId, name: org.name };
-      },
-    ),
+  setRole: async (clerkOrgID, userID, role) => {
+    await client.organizations
+      .updateOrganizationMembership({
+        organizationId: clerkOrgID,
+        userId: userID,
+        role,
+      })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  remove: async (clerkOrgID, userID) => {
+    await client.organizations
+      .deleteOrganizationMembership({ organizationId: clerkOrgID, userId: userID })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
+  create: async (name) => {
+    const org = await client.organizations
+      .createOrganization({ name })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+    return { clerkOrgID: org.id, name: org.name };
+  },
+  delete: async (clerkOrgID) => {
+    await client.organizations.deleteOrganization(clerkOrgID);
+  },
+  rename: async (clerkOrgID, name) => {
+    await client.organizations
+      .updateOrganization(clerkOrgID, { name })
+      .catch((e: unknown) => {
+        throw refused(e);
+      });
+  },
 });
 
 /** Records are what a {@link memory} directory serves. */
 export interface Records {
-  /** people maps a Clerk user id to the person. */
-  people: Record<string, Person>;
+  /** people maps a Clerk user id to the person, who joined at the epoch if unset. */
+  people: Record<string, Person & { joinedAt?: Date }>;
   /** members maps a Clerk user id to the teams the user belongs to. */
   members: Record<string, Team[]>;
   organizations: Listed[];
-  /** invitations are every invitation sent, oldest first. */
-  invitations: Invitation[];
-  /** invited maps a Clerk user id to the invitations the user has not accepted. */
-  invited: Record<string, Pending[]>;
 }
+
+const accountOf = (people: Records["people"], userID: string): Account => {
+  const { name, email, joinedAt = new Date(0) } = people[userID];
+  return { userID, name, email, joinedAt };
+};
 
 /** memory serves a directory from records instead of Clerk. For tests. */
 export const memory = ({
   people = {},
   members = {},
   organizations = [],
-  invitations = [],
-  invited = {},
 }: Partial<Records> = {}): Directory & Records => ({
   people,
   members,
   organizations,
-  invitations,
-  invited,
   person: async (userID) => {
     const person = people[userID];
     if (person == null) throw new Error(`no Clerk user ${userID}`);
@@ -263,15 +359,61 @@ export const memory = ({
       const { name = "", email = "" } = people[userID] ?? {};
       return [{ userID, name, email, role: team.role }];
     }),
-  teams: async () => organizations,
+  users: async () =>
+    Object.keys(people)
+      .map((userID) => accountOf(people, userID))
+      .sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime()),
+  account: async (userID) =>
+    people[userID] == null ? null : accountOf(people, userID),
+  teams: async () =>
+    organizations.map((o) => ({
+      ...o,
+      members: Object.values(members).filter((teams) =>
+        teams.some((t) => t.clerkOrgID === o.clerkOrgID),
+      ).length,
+    })),
   team: async (clerkOrgID) =>
     organizations.find((o) => o.clerkOrgID === clerkOrgID) ?? null,
   names: async (userIDs) =>
     Object.fromEntries(
       userIDs.flatMap((id) => (people[id] == null ? [] : [[id, people[id].name]])),
     ),
-  invite: async (invitation) => {
-    invitations.push(invitation);
+  addresses: async (userID) => {
+    const email = people[userID]?.email ?? "";
+    return email === "" ? [] : [email.toLowerCase()];
   },
-  pending: async (userID) => invited[userID] ?? [],
+  add: async (clerkOrgID, userID, role) => {
+    const team = organizations.find((o) => o.clerkOrgID === clerkOrgID);
+    if (team == null) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    members[userID] = [...(members[userID] ?? []), { ...team, role }];
+  },
+  setRole: async (clerkOrgID, userID, role) => {
+    members[userID] = (members[userID] ?? []).map((t) =>
+      t.clerkOrgID === clerkOrgID ? { ...t, role } : t,
+    );
+  },
+  remove: async (clerkOrgID, userID) => {
+    members[userID] = (members[userID] ?? []).filter(
+      (t) => t.clerkOrgID !== clerkOrgID,
+    );
+  },
+  create: async (name) => {
+    const team = { clerkOrgID: `org_${organizations.length}`, name };
+    organizations.unshift(team);
+    return team;
+  },
+  delete: async (clerkOrgID) => {
+    const i = organizations.findIndex((o) => o.clerkOrgID === clerkOrgID);
+    if (i === -1) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    organizations.splice(i, 1);
+    for (const [userID, teams] of Object.entries(members))
+      members[userID] = teams.filter((t) => t.clerkOrgID !== clerkOrgID);
+  },
+  rename: async (clerkOrgID, name) => {
+    const team = organizations.find((o) => o.clerkOrgID === clerkOrgID);
+    if (team == null) throw new Error(`no Clerk organization ${clerkOrgID}`);
+    team.name = name;
+    for (const teams of Object.values(members))
+      for (const t of teams) if (t.clerkOrgID === clerkOrgID) t.name = name;
+  },
 });

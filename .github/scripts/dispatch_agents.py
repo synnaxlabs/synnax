@@ -14,7 +14,9 @@ request names it, and its project has fewer than the cap in flight. In flight me
 In Progress or In Review, or named by an open pull request in any state. Without --dry-run, moves
 each selected issue to In Progress and writes the agent workflow matrix to --output.
 
-Needs LINEAR_API_KEY, and gh authenticated for the repository.
+Needs LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET for a Linear OAuth app with client
+credentials on, and gh authenticated for the repository. Linear shows its changes as the
+app.
 
 Usage: dispatch_agents.py [--dry-run] [--cap N] [--output FILE]
 """
@@ -25,14 +27,20 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
 import urllib.request
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
 TEAM = "SY"
 LABEL = "agent-ready"
 STARTED_STATE = "In Progress"
+LINEAR_OAUTH = "https://api.linear.app/oauth"
+# Linear revokes every app token when a request asks for other scopes.
+LINEAR_SCOPE = "read,write"
 _KEY = re.compile(r"\bSY-(\d+)\b", re.IGNORECASE)
 _FIELD = re.compile(r"^[-*]?\s*(RFC|Phase):\s*`?([^`\s]+)`?\s*$", re.MULTILINE)
 
@@ -62,7 +70,7 @@ query($after: String, $team: String!, $label: String!, $numbers: [Float!]!) {
 
 PROMPT = """Implement Linear issue {key}: {title}
 
-This is phase {phase} of the RFC at `{rfc}`. Read the RFC and the CLAUDE.md files
+This is phase {phase} of the RFC at `{rfc}`. Read the RFC and the AGENTS.md files
 before you write code. Do only this phase, as one pull request into `main` that merges
 on its own. Title it `{key}: {title}` and fill `.github/pull_request_template.md`. If
 the phase cannot land as the RFC plans it, stop and explain why. Do not change the
@@ -169,12 +177,39 @@ def select(
     return dispatches, skipped
 
 
-def _linear(query: str, variables: dict[str, Any]) -> dict[str, Any]:
+@contextmanager
+def linear_token() -> Iterator[str]:
+    """Yields a short-lived Linear app token and revokes it on exit, so runs do not
+    pile up toward Linear's limit of active tokens per app."""
+    form = {
+        "grant_type": "client_credentials",
+        "client_id": os.environ["LINEAR_CLIENT_ID"],
+        "client_secret": os.environ["LINEAR_CLIENT_SECRET"],
+        "scope": LINEAR_SCOPE,
+    }
+    with urllib.request.urlopen(
+        f"{LINEAR_OAUTH}/token", urllib.parse.urlencode(form).encode(), timeout=30
+    ) as resp:
+        token: str = json.load(resp)["access_token"]
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::add-mask::{token}", flush=True)
+    try:
+        yield token
+    finally:
+        revoke = {"token": token, "token_type_hint": "access_token"}
+        urllib.request.urlopen(
+            f"{LINEAR_OAUTH}/revoke",
+            urllib.parse.urlencode(revoke).encode(),
+            timeout=30,
+        ).close()
+
+
+def _linear(token: str, query: str, variables: dict[str, Any]) -> dict[str, Any]:
     req = urllib.request.Request(
         "https://api.linear.app/graphql",
         data=json.dumps({"query": query, "variables": variables}).encode(),
         headers={
-            "Authorization": os.environ["LINEAR_API_KEY"],
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         },
     )
@@ -186,7 +221,7 @@ def _linear(query: str, variables: dict[str, Any]) -> dict[str, Any]:
     return data
 
 
-def fetch_issues(open_prs: set[str]) -> list[Issue]:
+def fetch_issues(token: str, open_prs: set[str]) -> list[Issue]:
     """Returns the open agent-ready issues, plus those in any state that an open PR
     names, so they count toward their project's cap."""
     numbers = sorted(int(key.removeprefix("SY-")) for key in open_prs)
@@ -194,7 +229,7 @@ def fetch_issues(open_prs: set[str]) -> list[Issue]:
     after: str | None = None
     while True:
         variables = {"after": after, "team": TEAM, "label": LABEL, "numbers": numbers}
-        page = _linear(ISSUES_QUERY, variables)["issues"]
+        page = _linear(token, ISSUES_QUERY, variables)["issues"]
         issues.extend(parse_issue(n) for n in page["nodes"])
         if not page["pageInfo"]["hasNextPage"]:
             return issues
@@ -215,10 +250,11 @@ def fetch_open_prs() -> list[dict[str, str]]:
     return prs
 
 
-def start(issues: list[Issue]) -> tuple[list[Issue], list[str]]:
+def start(token: str, issues: list[Issue]) -> tuple[list[Issue], list[str]]:
     """Moves each issue to In Progress. Returns the moved issues and an error for
     each issue that did not move, so the moved ones still get their agents."""
     states = _linear(
+        token,
         "query($team: String!) { teams(filter: {key: {eq: $team}}) "
         "{ nodes { states { nodes { id name } } } } }",
         {"team": TEAM},
@@ -229,6 +265,7 @@ def start(issues: list[Issue]) -> tuple[list[Issue], list[str]]:
     for issue in issues:
         try:
             result = _linear(
+                token,
                 "mutation($id: String!, $state: String!) "
                 "{ issueUpdate(id: $id, input: {stateId: $state}) { success } }",
                 {"id": issue.id, "state": state_id},
@@ -250,22 +287,23 @@ def main() -> None:
     parser.add_argument("--output")
     args = parser.parse_args()
     open_prs = open_pr_keys(fetch_open_prs())
-    dispatches, skipped = select(fetch_issues(open_prs), open_prs, args.cap)
-    for reason in skipped:
-        print(f"skip {reason}", file=sys.stderr)
-    for d in dispatches:
-        verb = "would dispatch" if args.dry_run else "dispatch"
-        print(f"{verb} {d.issue.key}: {d.issue.title} ({d.rfc} phase {d.phase})")
-    if args.dry_run:
-        return
-    moved, errors = start([d.issue for d in dispatches])
-    started = [d for d in dispatches if d.issue in moved]
-    if args.output:
-        matrix = {"include": [d.matrix_entry() for d in started]}
-        with open(args.output, "a") as f:
-            f.write(f"count={len(started)}\nmatrix={json.dumps(matrix)}\n")
-    if errors:
-        sys.exit("failed to move to In Progress:\n" + "\n".join(errors))
+    with linear_token() as token:
+        dispatches, skipped = select(fetch_issues(token, open_prs), open_prs, args.cap)
+        for reason in skipped:
+            print(f"skip {reason}", file=sys.stderr)
+        for d in dispatches:
+            verb = "would dispatch" if args.dry_run else "dispatch"
+            print(f"{verb} {d.issue.key}: {d.issue.title} ({d.rfc} phase {d.phase})")
+        if args.dry_run:
+            return
+        moved, errors = start(token, [d.issue for d in dispatches])
+        started = [d for d in dispatches if d.issue in moved]
+        if args.output:
+            matrix = {"include": [d.matrix_entry() for d in started]}
+            with open(args.output, "a") as f:
+                f.write(f"count={len(started)}\nmatrix={json.dumps(matrix)}\n")
+        if errors:
+            sys.exit("failed to move to In Progress:\n" + "\n".join(errors))
 
 
 if __name__ == "__main__":

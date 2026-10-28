@@ -172,24 +172,17 @@ describe("Arc queries", () => {
         expect(result.current.list.variant).toEqual("success");
       });
 
-      const initialLength = result.current.list.data.length;
-
+      const name = `new-arc-${id.create()}`;
       await act(async () => {
-        await result.current.create.updateAsync({
-          name: "new-arc",
-          mode: "text",
-        });
+        await result.current.create.updateAsync({ name, mode: "text" });
       });
 
       await waitFor(() => {
-        expect(result.current.list.data.length).toBe(initialLength + 1);
+        const names = result.current.list.data.map(
+          (key) => result.current.list.getItem(key)?.name,
+        );
+        expect(names).toContain(name);
       });
-
-      const newArc = result.current.list.data
-        .map((key) => result.current.list.getItem(key))
-        .find((arc) => arc?.name === "new-arc");
-      expect(newArc).toBeDefined();
-      expect(newArc?.name).toBe("new-arc");
     });
 
     it("should update when an arc is modified", async () => {
