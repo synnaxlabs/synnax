@@ -32,7 +32,7 @@ func (p Proof) EncodeMsgpack(enc *msgpack.Encoder) error {
 			Username string `msgpack:"username"`
 			Password string `msgpack:"password"`
 		}{Method: MethodPassword, Username: v.Username, Password: v.Password})
-	case ApiKeyProof:
+	case APIKeyProof:
 		return enc.Encode(struct {
 			Method Method `msgpack:"method"`
 			Key    string `msgpack:"key"`
@@ -81,13 +81,19 @@ func (p *Proof) DecodeMsgpack(dec *msgpack.Decoder) error {
 		if err := msgpack.Unmarshal(raw, &creds); err != nil {
 			return err
 		}
-		p.Variant = ApiKeyProof{APIKeyCredentials: creds}
+<<<<<<< HEAD
+		p.Variant = APIKeyProof{APIKeyCredentials: creds}
 	case MethodOidc:
 		var creds OIDCCredentials
 		if err := msgpack.Unmarshal(raw, &creds); err != nil {
 			return err
 		}
 		p.Variant = OidcProof{OIDCCredentials: creds}
+||||||| e3313c9ab7
+		p.Variant = APIKeyProof{APIKeyCredentials: creds}
+=======
+		p.Variant = APIKeyProof{APIKeyCredentials: creds}
+>>>>>>> origin/sy-5138-auth-methods-clients
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
