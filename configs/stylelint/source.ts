@@ -58,7 +58,8 @@ const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", ".astro", ".turbo"]
 
 const HELPER = /(?<![\w.])(?:CSS\.)?(BEM|BE|BM|B|E|M|variable)\(/g;
 const QUALIFIED_HELPER = /\bCSS\.(BEM|BE|BM|B|E|M|variable)\(/g;
-const CLASS_LITERAL = /(?<![\w-])((?:pluto|console)(?:-|--|__)[a-z0-9][\w-]*)(\$\{)?/g;
+// A name after a dot is a selector that reads the class, not one that sets it.
+const CLASS_LITERAL = /(?<![\w.-])((?:pluto|console)(?:-|--|__)[a-z0-9][\w-]*)(\$\{)?/g;
 const PROPERTY_LITERAL = /["'`](--[a-z][\w-]*)(\$\{)?/g;
 const STRING_LITERAL = /(["'`])([\w-]+)\1/g;
 const PROPERTY_DECLARATION = /(?<![\w-])(--[\w-]+)\s*:/g;
