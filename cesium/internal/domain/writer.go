@@ -60,7 +60,7 @@ type WriterConfig struct {
 
 var (
 	ErrWriterClosed     = resource.NewClosedError("domain.writer")
-	DefaultWriterConfig = WriterConfig{
+	defaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 	}
@@ -68,10 +68,9 @@ var (
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
-// Domain returns the Domain occupied by the theoretical domain formed by the
-// configuration. If End is not set, assumes the Domain has a zero span starting at
-// Start.
-func (w WriterConfig) Domain() telem.TimeRange {
+// domain returns the time range of the domain the configuration forms. If End is not
+// set, it assumes a zero span starting at Start.
+func (w WriterConfig) domain() telem.TimeRange {
 	if w.End.IsZero() {
 		return w.Start.SpanRange(0)
 	}
@@ -172,13 +171,13 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		return nil, ErrDBClosed
 	}
 
-	cfg, err := config.New(DefaultWriterConfig, cfg)
+	cfg, err := config.New(defaultWriterConfig, cfg)
 	if err != nil {
 		return nil, err
 	}
-	if db.idx.overlap(cfg.Domain()) {
+	if db.idx.overlap(cfg.domain()) {
 		return nil, errors.Wrap(
-			NewRangeWriteConflictError(cfg.Domain(), db.idx.timeRange()),
+			NewRangeWriteConflictError(cfg.domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}

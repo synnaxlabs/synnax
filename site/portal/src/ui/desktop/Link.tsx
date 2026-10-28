@@ -15,9 +15,9 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useId, useState } from "react";
 
 import { type Mode } from "@/server/consent";
-import { post, reload, save } from "@/ui/api";
+import { post, save } from "@/ui/api";
 import { Auth } from "@/ui/auth";
-import { useClerk } from "@/ui/clerk";
+import { useLogOut } from "@/ui/clerk";
 import { activateURL, type Linked, type Query } from "@/ui/desktop/url";
 import { Panel } from "@/ui/Panel";
 import { Tile } from "@/ui/Tile";
@@ -46,22 +46,19 @@ export const Link = ({
   problem,
   consent,
 }: LinkProps): ReactElement => {
-  const clerk = useClerk();
+  const logOut = useLogOut();
   const [linked, setLinked] = useState<Linked | null>(null);
   const [shared, setShared] = useState(false);
   const analyticsAllowed = consent === "notice" || shared;
   const action = useAction(async () => {
-    const res = await post<Linked>("/api/desktop/link", { fingerprint, name });
+    const res = await post<Linked>("/api/desktop/link", {
+      fingerprint,
+      name,
+      analytics: analyticsAllowed,
+    });
     setLinked(res);
     window.location.assign(activateURL(state, res, analyticsAllowed));
   });
-  // Reloading after the log out sends the visitor through the login page and back.
-  const logOut = (): void => {
-    void clerk?.signOut(() => {
-      reload();
-      return Promise.resolve();
-    });
-  };
   if (problem != null)
     return (
       <Auth.Card
@@ -159,7 +156,7 @@ export const Link = ({
         full="x"
         justify="center"
         onClick={logOut}
-        disabled={clerk == null}
+        disabled={logOut == null}
       >
         Not you? Log out
       </Button.Button>

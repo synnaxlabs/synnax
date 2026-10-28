@@ -224,10 +224,10 @@ export const Editable = ({
     if (ref.current == null || editable) return;
     const { current: committed } = committedRef;
     if (committed != null && value === committed.replaced)
-      ref.current.innerHTML = committed.text;
+      ref.current.textContent = committed.text;
     else {
       committedRef.current = null;
-      ref.current.innerHTML = value;
+      ref.current.textContent = value;
     }
   });
 

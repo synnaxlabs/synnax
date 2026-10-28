@@ -25,7 +25,7 @@ import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import * as Device from "@/feature/http/device/types";
+import { SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -119,6 +119,7 @@ const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
   <PForm.Section title="Enum mapping">
     <PlatformForm.KeyValueEditor
       path={`${channelPath}.enumValues`}
+      resourceName="mapping"
       keyField="label"
       keyPlaceholder="String (e.g. ON)"
       valueType="number"
@@ -415,6 +416,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.queryParams`}
+            resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
             keyPlaceholder="limit"
@@ -422,6 +424,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.headers`}
+            resourceName="header"
             label="Headers"
             keyField="name"
             keyPlaceholder="Content-Type"
@@ -567,7 +570,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
@@ -624,7 +627,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       modified = true;
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

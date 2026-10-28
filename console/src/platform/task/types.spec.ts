@@ -67,6 +67,38 @@ describe("Hardware Task Types", () => {
       });
     });
 
+    describe("validateEnabledChannel", () => {
+      const enabledArrayZ = z.array(channelZ).check(Task.validateEnabledChannel);
+
+      it("should reject an empty list", () => {
+        const issues = enabledArrayZ.safeParse([]).error?.issues;
+        expect(issues).toEqual([
+          expect.objectContaining({
+            path: [],
+            message: "At least one enabled channel is required",
+          }),
+        ]);
+      });
+
+      it("should reject a list whose channels are all disabled", () => {
+        const issues = enabledArrayZ.safeParse([{ ...ZERO_CHANNEL, disabled: true }])
+          .error?.issues;
+        expect(issues).toEqual([
+          expect.objectContaining({
+            message: "At least one enabled channel is required",
+          }),
+        ]);
+      });
+
+      it("should accept a list with one enabled channel", () => {
+        const channels = [
+          { disabled: true, key: "a" },
+          { disabled: false, key: "b" },
+        ];
+        expect(enabledArrayZ.safeParse(channels).success).toBe(true);
+      });
+    });
+
     describe("validateReadChannels", () => {
       it("should report errors for duplicate channel values", () => {
         const channels: z.infer<typeof readChannelZ>[] = [
