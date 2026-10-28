@@ -191,9 +191,15 @@ func (s *Service[D]) NewRetrieve() gorp.Retrieve[uuid.UUID, D] {
 
 // Create stores d, defines its ontology resource and parent edge, and writes an
 // unknown status when it has none. A resource with a nil key gets a new one. It
-// returns the resource's validation error when it fails validation.
+// returns the resource's validation error when it fails validation. A nil tx runs the
+// writes in their own transaction.
 func (s *Service[D]) Create(ctx context.Context, tx gorp.Tx, d *D) error {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	if tx == nil {
+		return s.cfg.DB.WithTx(
+			ctx,
+			func(tx gorp.Tx) error { return s.Create(ctx, tx, d) },
+		)
+	}
 	if (*d).GorpKey() == uuid.Nil() {
 		s.cfg.SetEntryKey(d, uuid.New())
 	}
@@ -226,14 +232,19 @@ func (s *Service[D]) Create(ctx context.Context, tx gorp.Tx, d *D) error {
 // Update applies change to the resource stored under key and stores the result.
 // The resource's status and parent edge follow its name and parent. It returns an
 // error wrapping query.ErrNotFound when no resource is stored under key, and the
-// resource's validation error when the result fails validation.
+// resource's validation error when the result fails validation. A nil tx runs the
+// writes in their own transaction.
 func (s *Service[D]) Update(
 	ctx context.Context,
 	tx gorp.Tx,
 	key uuid.UUID,
 	change func(D) (D, error),
 ) error {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	if tx == nil {
+		return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return s.Update(ctx, tx, key, change)
+		})
+	}
 	var prev, next D
 	if err := s.table.NewUpdate().
 		Where(gorp.MatchKeys[uuid.UUID, D](key)).
@@ -271,9 +282,14 @@ func (s *Service[D]) Update(
 
 // Delete removes the resources stored under keys with their children, statuses, and
 // ontology resources. It returns an error wrapping validate.ErrValidation when a
-// task still references one of them. Delete is idempotent.
+// task still references one of them. A nil tx runs the writes in their own
+// transaction. Delete is idempotent.
 func (s *Service[D]) Delete(ctx context.Context, tx gorp.Tx, keys ...uuid.UUID) error {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	if tx == nil {
+		return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return s.Delete(ctx, tx, keys...)
+		})
+	}
 	if s.cfg.Referenced != nil {
 		for _, key := range keys {
 			referenced, err := s.cfg.Referenced(ctx, tx, key)

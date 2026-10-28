@@ -334,6 +334,19 @@ var _ = Describe("Service", func() {
 				return m, errors.New("nope")
 			})).To(MatchError("nope"))
 		})
+		It("Should keep the stored resource when a write without a tx fails", func(
+			ctx SpecContext,
+		) {
+			stored := module{Rack: rackSvc.EmbeddedKey, Name: "Stored"}
+			Expect(svc.Create(ctx, nil, &stored)).To(Succeed())
+			Expect(svc.Update(ctx, nil, stored.Key, func(m module) (module, error) {
+				m.Chassis = uuid.New()
+				return m, nil
+			})).To(MatchError(query.ErrNotFound))
+			Expect(retrieve(ctx, stored.Key)).To(Equal(stored))
+			Expect(parents(ctx, stored.Key)).
+				To(ConsistOf(rackSvc.EmbeddedKey.OntologyID()))
+		})
 		It("Should return not found for a missing resource", func(ctx SpecContext) {
 			Expect(svc.Update(ctx, tx, uuid.New(), func(m module) (module, error) {
 				return m, nil
