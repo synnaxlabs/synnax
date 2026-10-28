@@ -16,7 +16,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Modal } from "@/modal";
 import { Nav } from "@/nav";
-import { computed, renderThemed } from "@/testutil/style";
+import { computed, renderThemed } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const renderModal = async (body: ReactNode = "Body"): Promise<Element> => {

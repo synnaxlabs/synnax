@@ -7,12 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  computed,
-  renderThemed,
-  resolve,
-} from "@synnaxlabs/lyra/dist/testutil/style.js";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";

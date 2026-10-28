@@ -12,7 +12,7 @@ import "@/theming/base.css";
 
 import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
-import { setupBrowser } from "@/testutil/style";
+import { setupBrowser } from "@/styletest";
 
 failOnConsoleOutput();
 setupBrowser();

@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
 import { List } from "@/list";
-import { computed, renderThemed, resolve } from "@/testutil/style";
+import { computed, renderThemed, resolve } from "@/styletest";
 
 const SELECTED = new Set(["2", "3"]);
 

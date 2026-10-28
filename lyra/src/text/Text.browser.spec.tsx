@@ -10,7 +10,7 @@
 import { type text } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { computed, renderThemed, resolve } from "@/testutil/style";
+import { computed, renderThemed, resolve } from "@/styletest";
 import { Text } from "@/text";
 
 const LEVELS: text.Level[] = ["h1", "h2", "h3", "h4", "h5", "p", "small"];

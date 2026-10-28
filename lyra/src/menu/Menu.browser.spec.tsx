@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Menu } from "@/menu";
-import { computed, renderThemed, resolve } from "@/testutil/style";
+import { computed, renderThemed, resolve } from "@/styletest";
 
 const ITEMS = (
   <Menu.Menu value="copy">

@@ -10,8 +10,8 @@
 import { describe, expect, it } from "vitest";
 import { userEvent } from "vitest/browser";
 
+import { computed, renderThemed, resolve } from "@/styletest";
 import { Tabs } from "@/tabs";
-import { computed, renderThemed, resolve } from "@/testutil/style";
 
 const renderTabs = async (
   variant?: Tabs.Variant,
