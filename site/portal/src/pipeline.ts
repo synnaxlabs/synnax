@@ -34,7 +34,11 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  * BEARER_ROUTES authenticate with a bearer secret and no cookie, so a request from any
  * origin is safe there.
  */
-const BEARER_ROUTES = new Set(["/api/desktop/renew", "/api/desktop/unlink"]);
+const BEARER_ROUTES = new Set([
+  "/api/desktop/renew",
+  "/api/desktop/unlink",
+  "/api/handoff",
+]);
 
 /**
  * crossOrigin reports whether a request that changes state came from another origin. A
