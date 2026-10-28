@@ -273,8 +273,8 @@
         &.pluto--disabled {
             color: var(--pluto-text-disabled);
 
-            --pluto-bg: var(--pluto-gray-l3);
-            --pluto-border-color: var(--pluto-gray-l6);
+            --pluto-bg: var(--pluto-gray-l2);
+            --pluto-border-color: var(--pluto-gray-l4);
         }
     }
 
