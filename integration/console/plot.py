@@ -294,7 +294,7 @@ class Plot(ConsolePage):
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
 
-        channel_item.drag_to(self.pane_locator)
+        self.layout.drag(channel_item, self.pane_locator)
         channels.hide_channels()
 
         self.data["Y1"].append(channel_name)
@@ -323,7 +323,7 @@ class Plot(ConsolePage):
         axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
         axis_section.wait_for(state="visible", timeout=5000)
 
-        channel_item.drag_to(axis_section)
+        self.layout.drag(channel_item, axis_section)
         channels.hide_channels()
 
         self.data[axis].append(channel_name)

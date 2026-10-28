@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.panel.client import Client
 from synnax.panel.types_gen import (
     ONTOLOGY_TYPE,
     Key,
@@ -25,6 +26,7 @@ from synnax.panel.types_gen import (
 
 __all__ = [
     "ONTOLOGY_TYPE",
+    "Client",
     "Key",
     "LeafNode",
     "Node",

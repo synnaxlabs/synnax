@@ -455,6 +455,32 @@ section.portal-auth-page {
     min-width: 0;
 }
 
+/* The number of a setup step, or a check once the step is done. */
+.portal-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-radius: 50%;
+    background: var(--pluto-gray-l3);
+    color: var(--pluto-gray-l10);
+    font-size: var(--pluto-small-size);
+
+    & svg {
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+
+    &.portal-mark--done {
+        border-color: var(--pluto-success-z-40);
+        background: var(--pluto-success-z-10);
+        color: var(--pluto-success-z);
+    }
+}
+
 /* Extra space sets the usage data choice apart from the summary and buttons. */
 .portal-usage {
     padding-block: 1.5rem;

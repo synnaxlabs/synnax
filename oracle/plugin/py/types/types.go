@@ -1922,21 +1922,21 @@ func (m *importManager) addNamespace(alias, path string) {
 	}
 }
 
-// addModuleImport adds a module import and returns the alias to use for referencing
-// types. If the module name conflicts with a field name, an alias with underscore
-// suffix is used.
+// addModuleImport adds `from parentPath import moduleName` and returns the name that
+// binds it. A name that a field or another import already uses gets underscore
+// suffixes until it is free.
 func (m *importManager) addModuleImport(parentPath, moduleName string) string {
-	// Check if we already have this module imported
 	for _, mod := range m.modules {
-		if mod.Module == moduleName {
+		if mod.Parent == parentPath && mod.Module == moduleName {
 			return mod.Alias
 		}
 	}
-
-	// Determine if we need an alias to avoid field name conflicts
 	alias := moduleName
-	if m.fieldNames.Contains(moduleName) {
-		alias = moduleName + "_"
+	for m.fieldNames.Contains(alias) || lo.ContainsBy(
+		m.modules,
+		func(mod moduleImportData) bool { return mod.Alias == alias },
+	) {
+		alias += "_"
 	}
 
 	m.modules = append(m.modules, moduleImportData{

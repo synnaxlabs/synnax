@@ -1705,6 +1705,41 @@ var _ = Describe("Python Types Plugin", func() {
 						)
 				})
 
+			It("Should bind a hand-written type and a module of the same name apart",
+				func(ctx SpecContext) {
+					loader.Add("schemas/status", `
+						@py output "client/py/synnax/status"
+
+						Info struct {
+							key uuid
+						}
+					`)
+					source := `
+						import "schemas/status"
+
+						@py output "client/py/synnax/task"
+
+						Label struct {
+							key uuid
+							@py hand
+							@py include "client/py/synnax/task/label"
+							@py name "status"
+						}
+
+						Config struct {
+							info  status.Info
+							label Label
+						}
+					`
+					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					ExpectContent(resp, "task/types_gen.py").ToContain(
+						`from synnax import status`,
+						`from synnax.task.label import status as status_`,
+						`info: status.Info`,
+						`label: status_`,
+					)
+				})
+
 			It("Should import the variant a hand-written union default names",
 				func(ctx SpecContext) {
 					source := `
