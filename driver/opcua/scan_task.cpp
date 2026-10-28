@@ -74,11 +74,19 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     if (scan_ctx.devices == nullptr) return {devices, x::errors::NIL};
     for (const auto &dev: *scan_ctx.devices | std::views::values)
         devices.push_back(dev);
-    this->renew_certificate(devices);
+    const auto renew_err = this->renew_certificate(devices);
     for (auto &dev: devices)
         if (const auto err = this->check_device_health(dev); err)
             LOG(WARNING) << SCAN_LOG_PREFIX << "health check failed for " << dev.name
                          << ": " << err;
+    if (renew_err)
+        return {
+            devices,
+            x::errors::Error(
+                common::PARTIAL_SCAN_ERROR,
+                "Failed to renew the Driver certificate: " + renew_err.data
+            )
+        };
     return {devices, x::errors::NIL};
 }
 
@@ -168,19 +176,14 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
     return x::errors::NIL;
 }
 
-void Scanner::renew_certificate(const std::vector<synnax::device::Device> &devices) {
-    if (const auto err = this->store->renew())
-        LOG(WARNING) << SCAN_LOG_PREFIX
-                     << "failed to issue the next certificate: " << err;
+x::errors::Error
+Scanner::renew_certificate(const std::vector<synnax::device::Device> &devices) {
+    if (const auto err = this->store->renew()) return err;
     auto [next, next_err] = this->store->next();
-    if (next_err) {
-        LOG(WARNING) << SCAN_LOG_PREFIX
-                     << "failed to load the next certificate: " << next_err;
-        return;
-    }
+    if (next_err) return next_err;
     if (!next.has_value()) {
         this->renewal = Renewal{};
-        return;
+        return x::errors::NIL;
     }
     const auto thumbprint = next->certificate.thumbprint();
     if (this->renewal.thumbprint != thumbprint)
@@ -188,7 +191,7 @@ void Scanner::renew_certificate(const std::vector<synnax::device::Device> &devic
     const auto now = x::telem::TimeStamp::now();
     if (this->renewal.last_attempt != x::telem::TimeStamp() &&
         now - this->renewal.last_attempt < RENEWAL_ATTEMPT_INTERVAL)
-        return;
+        return x::errors::NIL;
     this->renewal.last_attempt = now;
     this->renewal.accepted.clear();
     bool all_accepted = true;
@@ -211,13 +214,11 @@ void Scanner::renew_certificate(const std::vector<synnax::device::Device> &devic
         this->renewal.accepted[dev.key] = !err;
         all_accepted = all_accepted && !err;
     }
-    if (!all_accepted) return;
-    if (const auto err = this->store->promote()) {
-        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to switch certificates: " << err;
-        return;
-    }
+    if (!all_accepted) return x::errors::NIL;
+    if (const auto err = this->store->promote()) return err;
     LOG(INFO) << SCAN_LOG_PREFIX << "switched to the next certificate " << thumbprint;
     this->renewal = Renewal{};
+    return x::errors::NIL;
 }
 
 void Scanner::certificates(

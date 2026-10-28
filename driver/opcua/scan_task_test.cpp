@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -699,5 +700,26 @@ TEST_F(TestScanTask, testRenewalIgnoresUnreachableServer) {
     EXPECT_EQ(scanned[0].status.value().message, "Server connected");
     const auto current = ASSERT_NIL_P(store->current());
     EXPECT_EQ(current.certificate, old.certificate);
+}
+
+/// @brief it should keep the scanned devices and report a failed renewal as a partial
+/// scan failure.
+TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
+    const auto certs = dir / "own" / "certs";
+    std::filesystem::create_directories(certs);
+    const auto corrupt = certs / "corrupt.der";
+    std::ofstream(corrupt) << "not a certificate";
+    Scanner scanner(ctx, task, conn_pool, store);
+    const auto dev = secured_device(secured_config());
+    std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    const auto [scanned, err] = scanner.scan(scan_ctx);
+    ASSERT_OCCURRED_AS(err, common::PARTIAL_SCAN_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "Failed to renew the Driver certificate: Failed to parse " + corrupt.string()
+    );
+    ASSERT_EQ(scanned.size(), 1);
 }
 }

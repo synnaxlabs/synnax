@@ -419,4 +419,21 @@ TEST_F(SecurityTest, PoolRefreshKeepsConnectionWhenRejected) {
     ASSERT_EQ(conn.get(), first);
     ASSERT_NIL_P(testutil::simple_read(conn.shared(), "NS=1;S=TestUInt32"));
 }
+
+/// @brief it should connect again only to the server that the old connection trusted,
+/// even when the configuration pins no certificate.
+TEST_F(SecurityTest, PoolRefreshKeepsTrustedServer) {
+    this->start_server(server_id);
+    const auto store = this->store();
+    Pool pool(store);
+    const auto cfg = config();
+    auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
+    const auto first = conn.get();
+    ASSERT_NIL(store->regenerate().second);
+    this->start_server(other_id);
+    const auto err = pool.refresh(conn, cfg, LOG_PREFIX).second;
+    ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
+    ASSERT_EQ(err.data, mismatch_message(other_id.certificate, server_id.certificate));
+    ASSERT_EQ(conn.get(), first);
+}
 }

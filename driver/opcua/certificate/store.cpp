@@ -163,11 +163,12 @@ x::errors::Error Store::promote_locked() {
 }
 
 std::pair<Identity, x::errors::Error> Store::regenerate_locked() {
-    const auto uri = this->application_uri();
-    for (const auto &id: this->identities)
-        if (const auto err = this->remove(id)) return {Identity{}, err};
-    this->identities.clear();
-    if (const auto err = this->issue(uri)) return {Identity{}, err};
+    if (const auto err = this->issue(this->application_uri())) return {Identity{}, err};
+    while (this->identities.size() > 1) {
+        if (const auto err = this->remove(this->identities.front()))
+            return {Identity{}, err};
+        this->identities.erase(this->identities.begin());
+    }
     return {this->identities.front(), x::errors::NIL};
 }
 

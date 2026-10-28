@@ -148,17 +148,7 @@ public:
 
     x::errors::Error write(::x::telem::Frame &frame) override {
         auto err = this->perform_write(frame);
-        if (!err) return err;
-        if (!err.matches(errors::UNREACHABLE)) {
-            auto [refreshed, refresh_err] = this->pool->refresh(
-                this->connection,
-                this->conn_cfg,
-                "[opc.write] "
-            );
-            if (refresh_err) return refresh_err;
-            if (!refreshed) return err;
-            return this->perform_write(frame);
-        }
+        if (!err.matches(errors::UNREACHABLE)) return err;
         LOG(
             WARNING
         ) << "[opc.write_task] connection error detected, attempting reconnect: "
@@ -182,6 +172,30 @@ public:
     }
 
 private:
+    /// @brief sends the built request. When the server rejects the whole request after
+    /// the client certificate changed, connects again with the new certificate and
+    /// sends it again. A broken connection is left to write(), which reads the device
+    /// first.
+    std::pair<types::WriteResponse, x::errors::Error> send() {
+        types::WriteResponse res(
+            UA_Client_Service_write(this->connection.get(), this->builder.build())
+        );
+        auto err = errors::parse(res.get().responseHeader.serviceResult);
+        if (!err || err.matches(errors::UNREACHABLE)) return {std::move(res), err};
+        auto [refreshed, refresh_err] = this->pool->refresh(
+            this->connection,
+            this->conn_cfg,
+            "[opc.write] "
+        );
+        if (refresh_err) return {std::move(res), refresh_err};
+        if (!refreshed) return {std::move(res), err};
+        types::WriteResponse retry(
+            UA_Client_Service_write(this->connection.get(), this->builder.build())
+        );
+        err = errors::parse(retry.get().responseHeader.serviceResult);
+        return {std::move(retry), err};
+    }
+
     x::errors::Error perform_write(const ::x::telem::Frame &frame) {
         if (!this->connection) return errors::NO_CONNECTION;
         this->builder.clear();
@@ -196,11 +210,8 @@ private:
             this->written_keys.push_back(key);
         }
         if (this->builder.empty()) return x::errors::NIL;
-        types::WriteResponse res(
-            UA_Client_Service_write(this->connection.get(), this->builder.build())
-        );
-        if (auto err = errors::parse(res.get().responseHeader.serviceResult); err)
-            return err;
+        auto [res, send_err] = this->send();
+        if (send_err) return send_err;
         for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
             if (auto err = errors::parse(res.get().results[i]); err) {
                 const auto &ch = this->cfg.channels.at(this->written_keys[i]);

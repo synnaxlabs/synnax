@@ -124,6 +124,9 @@ private:
 
     /// @brief issues the next Driver certificate when renewal is due, offers it to
     /// each server once a day, and switches to it when every server accepts it.
-    void renew_certificate(const std::vector<synnax::device::Device> &devices);
+    /// @returns errors::DRIVER_CERTIFICATE_FAILED if the certificate files cannot be
+    /// read or written.
+    [[nodiscard]] x::errors::Error
+    renew_certificate(const std::vector<synnax::device::Device> &devices);
 };
 }

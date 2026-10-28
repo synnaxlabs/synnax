@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -292,6 +293,61 @@ protected:
             std::make_unique<WriteTaskSink>(ctx->client, conn_pool, std::move(*cfg)),
             nullptr,
             mock_factory
+        );
+    }
+
+    static constexpr std::uint16_t SECURED_PORT = 4862;
+    inline static const std::string SECURED_DEVICE_KEY = "secured_write_device";
+    synnax::channel::Channel secured_cmd_channel;
+
+    /// @brief creates a command channel, and a device for the secured server that
+    /// presents server_cert.
+    void create_secured_device(const certificate::Certificate &server_cert) {
+        this->secured_cmd_channel = ASSERT_NIL_P(ctx->client->channels.create(
+            make_unique_channel_name("secured_cmd"),
+            x::telem::UINT32_T,
+            true
+        ));
+        const auto rack = ASSERT_NIL_P(ctx->client->racks.create("secured_write_rack"));
+        connection::Config secured_cfg;
+        secured_cfg.endpoint = "opc.tcp://localhost:" + std::to_string(SECURED_PORT);
+        secured_cfg.security_mode = "SignAndEncrypt";
+        secured_cfg.security_policy = "Basic256Sha256";
+        secured_cfg.server_certificate = server_cert;
+        synnax::device::Device dev{
+            .key = SECURED_DEVICE_KEY,
+            .rack = rack.key,
+            .location = secured_cfg.endpoint,
+            .make = "opc",
+            .model = "OPC UA Server",
+            .name = "Secured Write Device",
+            .properties = x::json::json::object(
+                {{"connection", testutil::connection_json(secured_cfg)}}
+            ),
+        };
+        ASSERT_NIL(ctx->client->devices.create(dev));
+    }
+
+    /// @brief creates a sink that writes the secured command channel to node_id.
+    [[nodiscard]] std::unique_ptr<WriteTaskSink>
+    create_secured_sink(const std::string &node_id) const {
+        x::json::json task_cfg = {
+            {"data_saving_disabled", false},
+            {"device", SECURED_DEVICE_KEY},
+            {"channels",
+             x::json::json::array(
+                 {{{"node_id", node_id},
+                   {"cmd_channel", this->secured_cmd_channel.key},
+                   {"disabled", false}}}
+             )}
+        };
+        auto p = x::json::Parser(task_cfg);
+        auto write_cfg = WriteTaskConfig(ctx->client, p);
+        EXPECT_FALSE(p.error()) << p.error().message();
+        return std::make_unique<WriteTaskSink>(
+            ctx->client,
+            conn_pool,
+            std::move(write_cfg)
         );
     }
 };
@@ -581,67 +637,63 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     ASSERT_NIL(sink->stop());
 }
 
-/// @brief it should connect again once with the new Driver certificate after a failed
-/// write, and not again while the certificate stays the same.
-TEST_F(TestWriteTask, testFailedWriteConnectsAgainOnceWithNewCertificate) {
+/// @brief it should keep writing after the Driver certificate changes and the server
+/// trusts only the new certificate.
+TEST_F(TestWriteTask, testWriteUsesNewCertificate) {
+    const auto store = testutil::create_store();
+    conn_pool = std::make_shared<connection::Pool>(store);
+    const auto old = ASSERT_NIL_P(store->current());
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto server_cfg = testutil::ServerConfig::create_default();
+    server_cfg.port = SECURED_PORT;
+    server_cfg.identity = server_id;
+    server_cfg.trusted_clients = {old.certificate};
+    auto secured = std::make_unique<testutil::Server>(server_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    this->create_secured_device(server_id.certificate);
+    const auto sink = this->create_secured_sink("NS=1;S=TestUInt32");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(
+        this->secured_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
+    );
+    ASSERT_NIL(sink->write(fr));
+    const auto next = ASSERT_NIL_P(store->regenerate());
+    secured->stop();
+    server_cfg.trusted_clients = {next.certificate};
+    secured = std::make_unique<testutil::Server>(server_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    ASSERT_NIL(sink->write(fr));
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should not send a write again for a node error after the Driver
+/// certificate changes, since a new connection cannot fix it.
+TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
     const auto store = testutil::create_store();
     conn_pool = std::make_shared<connection::Pool>(store);
     const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
-    auto secured_cfg = testutil::ServerConfig::create_default();
-    secured_cfg.port = 4862;
-    secured_cfg.identity = server_id;
-    testutil::Server secured(secured_cfg);
+    auto server_cfg = testutil::ServerConfig::create_default();
+    server_cfg.port = SECURED_PORT;
+    server_cfg.identity = server_id;
+    testutil::Server secured(server_cfg);
     secured.start();
     ASSERT_TRUE(secured.wait_until_ready());
-    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
-        make_unique_channel_name("refresh_cmd"),
-        x::telem::UINT32_T,
-        true
-    ));
-    const auto rack = ASSERT_NIL_P(ctx->client->racks.create("refresh_test_rack"));
-    connection::Config secured_conn_cfg;
-    secured_conn_cfg.endpoint = "opc.tcp://localhost:4862";
-    secured_conn_cfg.security_mode = "SignAndEncrypt";
-    secured_conn_cfg.security_policy = "Basic256Sha256";
-    secured_conn_cfg.server_certificate = server_id.certificate;
-    synnax::device::Device dev{
-        .key = "refresh_test_dev",
-        .rack = rack.key,
-        .location = "opc.tcp://localhost:4862",
-        .make = "opc",
-        .model = "OPC UA Server",
-        .name = "refresh_test_device",
-        .properties = x::json::json::object(
-            {{"connection", testutil::connection_json(secured_conn_cfg)}}
-        ),
-    };
-    ASSERT_NIL(ctx->client->devices.create(dev));
-    x::json::json task_cfg = {
-        {"data_saving_disabled", false},
-        {"device", dev.key},
-        {"channels",
-         x::json::json::array(
-             {{{"node_id", "NS=99;I=99999"},
-               {"cmd_channel", cmd.key},
-               {"disabled", false}}}
-         )}
-    };
-    auto p = x::json::Parser(task_cfg);
-    auto write_cfg = WriteTaskConfig(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
-    WriteTaskSink sink(ctx->client, conn_pool, std::move(write_cfg));
-    ASSERT_NIL(sink.start());
+    this->create_secured_device(server_id.certificate);
+    const auto sink = this->create_secured_sink("NS=99;I=99999");
+    ASSERT_NIL(sink->start());
     auto fr = x::telem::Frame(1);
-    fr.emplace(cmd.key, x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T));
-    const auto node_err = errors::CRITICAL.sub("BadNodeIdUnknown");
-    ASSERT_MATCHES(sink.write(fr), node_err);
-    ASSERT_EQ(conn_pool->size(), 1);
+    fr.emplace(
+        this->secured_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
+    );
     ASSERT_NIL(store->regenerate().second);
-    ASSERT_MATCHES(sink.write(fr), node_err);
-    ASSERT_EQ(conn_pool->size(), 2);
-    ASSERT_MATCHES(sink.write(fr), node_err);
-    ASSERT_EQ(conn_pool->size(), 2);
-    ASSERT_NIL(sink.stop());
+    ASSERT_MATCHES(sink->write(fr), errors::CRITICAL.sub("BadNodeIdUnknown"));
+    ASSERT_EQ(conn_pool->size(), 1);
+    ASSERT_NIL(sink->stop());
 }
 
 /// @brief it should configure when a disabled channel has no node id or Synnax

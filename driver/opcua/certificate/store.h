@@ -65,7 +65,8 @@ public:
     /// if there is no next identity.
     x::errors::Error promote();
 
-    /// @brief replaces the current and next identities with a new one.
+    /// @brief replaces the current and next identities with a new one. Keeps them if
+    /// the new one cannot be made or saved.
     /// @returns the new identity.
     std::pair<Identity, x::errors::Error> regenerate();
 

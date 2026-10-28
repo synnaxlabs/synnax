@@ -266,8 +266,11 @@ Pool::refresh(Connection &conn, const Config &cfg, const std::string &log_prefix
     auto [sec, sec_err] = resolve_security(cfg, *this->store);
     if (sec_err) return {false, sec_err};
     if (pool_key(cfg, sec) == conn.key_) return {false, x::errors::NIL};
+    auto replacement = cfg;
+    if (const auto trusted = trusted_certificate(conn.get()))
+        replacement.server_certificate = trusted;
     LOG(INFO) << log_prefix << "Connecting again with the new client certificate";
-    auto [next, err] = this->acquire(cfg, log_prefix);
+    auto [next, err] = this->acquire(replacement, log_prefix);
     if (err) return {false, err};
     conn = std::move(next);
     return {true, x::errors::NIL};

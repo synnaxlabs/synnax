@@ -139,6 +139,10 @@ reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint)
 /// connection attempt, or nothing if the connection is not secured.
 std::optional<certificate::Certificate> server_certificate(UA_Client *client);
 
+/// @returns the server certificate that the client trusts: the configured one, or the
+/// first one the server presented. Nothing if the client trusts any certificate.
+std::optional<certificate::Certificate> trusted_certificate(UA_Client *client);
+
 class Pool {
 public:
     class Connection {
@@ -198,7 +202,8 @@ public:
 
     /// @brief replaces conn with a new connection when the configuration now resolves
     /// to another client certificate, such as after the Driver certificate changes.
-    /// Leaves conn unchanged when the certificate is the same or the new connection
+    /// The new connection trusts only the server certificate that conn trusts. Leaves
+    /// conn unchanged when the client certificate is the same or the new connection
     /// fails.
     /// @returns true if it replaced conn.
     std::pair<bool, x::errors::Error>

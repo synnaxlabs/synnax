@@ -35,7 +35,7 @@ namespace driver::opcua::certificate {
 namespace {
 constexpr std::string_view PEM_HEADER = "-----BEGIN CERTIFICATE-----";
 constexpr std::string_view PEM_FOOTER = "-----END CERTIFICATE-----";
-// RFC 5280 §4.2.1.6 tags a URI in the subject alternative name with [6].
+// A URI in the subject alternative name uses tag [6].
 constexpr int SAN_URI_TAG = MBEDTLS_ASN1_CONTEXT_SPECIFIC | 6;
 
 std::string mbedtls_message(const int code) {

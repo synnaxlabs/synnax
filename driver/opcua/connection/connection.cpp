@@ -315,4 +315,10 @@ std::optional<certificate::Certificate> server_certificate(UA_Client *client) {
     if (v == nullptr) return std::nullopt;
     return v->received;
 }
+
+std::optional<certificate::Certificate> trusted_certificate(UA_Client *client) {
+    const auto *v = verifier(client);
+    if (v == nullptr) return std::nullopt;
+    return v->trusted;
+}
 }
