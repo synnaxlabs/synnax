@@ -25,6 +25,9 @@ const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 
 const REGION_500 = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
 
+// Tests destructure a local `log`, which shadows the namespace.
+const SELECT_ALL_END = log.SELECT_ALL_END;
+
 const makeEntry = (i: number, channelKey: number = 1): LogEntry => ({
   channelKey,
   timestamp: TimeStamp.milliseconds(i * 1000),
@@ -451,7 +454,7 @@ describe("log/aether/Log", () => {
     });
   });
 
-  describe("selection clamping on eviction", () => {
+  describe("selection anchoring", () => {
     it("should adjust selection indices when entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
       const { log, source, updateState } = setup(entries);
@@ -466,7 +469,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      source.evictedCount = 3;
       source.setEntries(entries.slice(3));
       source.notify();
 
@@ -488,7 +490,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 2,
       });
 
-      source.evictedCount = 5;
       source.setEntries(entries.slice(5));
       source.notify();
 
@@ -511,7 +512,6 @@ describe("log/aether/Log", () => {
         selectionEnd: 10,
       });
 
-      source.evictedCount = 0;
       source.notify();
 
       expect(log.state.selectionStart).toBe(5);
@@ -533,16 +533,70 @@ describe("log/aether/Log", () => {
       });
 
       // Evict 4 entries — start goes negative, end stays positive
-      source.evictedCount = 4;
       source.setEntries(entries.slice(4));
       source.notify();
 
       expect(log.state.selectionStart).toBe(0);
       expect(log.state.selectionEnd).toBe(4);
     });
+
+    it("should anchor a selection end past the last entry to the last entry", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 5,
+        selectionEnd: 30,
+      });
+      source.setEntries(entries.slice(3));
+      source.notify();
+      expect(log.state.selectionStart).toBe(2);
+      expect(log.state.selectionEnd).toBe(16);
+    });
+
+    it("should keep select-all open while entries are evicted", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 0,
+        selectionEnd: SELECT_ALL_END,
+      });
+      source.setEntries([...entries.slice(3), makeEntry(20)]);
+      source.notify();
+      expect(log.state.selectionStart).toBe(0);
+      expect(log.state.selectionEnd).toBe(SELECT_ALL_END);
+    });
+
+    it("should follow the selected entries when an entry lands before them", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+        selectionStart: 5,
+        selectionEnd: 10,
+      });
+      const earlier = { ...makeEntry(2), value: "earlier" };
+      source.setEntries([...entries.slice(0, 3), earlier, ...entries.slice(3)]);
+      source.notify();
+      expect(log.state.selectionStart).toBe(6);
+      expect(log.state.selectionEnd).toBe(11);
+    });
   });
 
-  describe("scrollback offset adjustment on eviction", () => {
+  describe("scrollback anchoring", () => {
     it("should reduce scroll offset when entries are evicted during scrollback", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { log, source, updateState } = setup(entries);
@@ -565,11 +619,34 @@ describe("log/aether/Log", () => {
 
       const offsetBeforeEviction = log.scrollState.offset;
 
-      source.evictedCount = 10;
       source.setEntries(entries.slice(10));
       source.notify();
 
       expect(log.scrollState.offset).toBe(offsetBeforeEviction - 10);
+    });
+
+    it("should keep the paused view on its entries when an entry lands before them", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { log, source, updateState } = setup(entries);
+      updateState({
+        region: REGION_500,
+        wheelPos: 0,
+        scrolling: false,
+        empty: true,
+        visible: true,
+      });
+      updateState({
+        region: REGION_500,
+        wheelPos: 100,
+        scrolling: true,
+        empty: false,
+        visible: true,
+      });
+      const before = log.scrollState.offset;
+      const earlier = { ...makeEntry(10), value: "earlier" };
+      source.setEntries([...entries.slice(0, 11), earlier, ...entries.slice(11)]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(before + 1);
     });
   });
 

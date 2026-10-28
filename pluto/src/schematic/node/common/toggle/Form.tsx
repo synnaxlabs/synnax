@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
-import { Form as Base } from "@synnaxlabs/lyra/form";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Form } from "@/schematic/node/common/form";
+import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
+import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Staleness } from "@/vis/staleness";
 
 interface ChannelFormProps {
@@ -23,7 +24,7 @@ interface ChannelFormProps {
 
 export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement => {
   const { value, onChange } =
-    Base.useField<
+    Form.useField<
       Pick<schematic.ToggleConfig, "stateChannel" | "commandChannel" | "control">
     >(path);
 
@@ -37,8 +38,8 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
     });
 
   return (
-    <Base.Sections x>
-      <Base.Section title="State">
+    <Form.Sections x>
+      <Form.Section title="State">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
@@ -46,8 +47,8 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
             onChange={handleSourceChange}
           />
         </Input.Item>
-      </Base.Section>
-      <Base.Section title="Command">
+      </Form.Section>
+      <Form.Section title="Command">
         <Input.Item label="Channel" padHelpText={false}>
           <Channel.SelectSingle
             allowNone
@@ -55,12 +56,12 @@ export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement
             onChange={handleSinkChange}
           />
         </Input.Item>
-        {!omit.includes("onClickDelay") && <Form.ActivationDelayField />}
-        <Form.ControlChipField />
-      </Base.Section>
-      <Base.Section title="Staleness">
+        {!omit.includes("onClickDelay") && <ActivationDelayField />}
+        <ControlChipField />
+      </Form.Section>
+      <Form.Section title="Staleness">
         <Staleness.Fields />
-      </Base.Section>
-    </Base.Sections>
+      </Form.Section>
+    </Form.Sections>
   );
 };

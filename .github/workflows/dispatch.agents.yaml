@@ -61,7 +61,8 @@ jobs:
         working-directory: .github/scripts
         env:
           GH_TOKEN: ${{ github.token }}
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_CLIENT_ID: ${{ secrets.LINEAR_CLIENT_ID }}
+          LINEAR_CLIENT_SECRET: ${{ secrets.LINEAR_CLIENT_SECRET }}
           CAP: ${{ inputs.cap || 3 }}
           DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
         run: |
