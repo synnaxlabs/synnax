@@ -513,7 +513,7 @@ describe("Input.Table", () => {
       expect(marked(cell("Scaled", "1"))).toBe(false);
     });
 
-    it("should drop a mark for good when the caller gives its cell another value", () => {
+    it("should drop a mark for good once the caller replaces its value", () => {
       const onChange = vi.fn();
       const { rerender } = render(
         <Input.Table value={[[1, 10]]} onChange={onChange}>
