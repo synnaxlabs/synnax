@@ -105,3 +105,6 @@ markers = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.coverage.run]
+omit = ["*/types_gen.py"]
