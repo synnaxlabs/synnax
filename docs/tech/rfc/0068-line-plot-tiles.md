@@ -196,13 +196,18 @@ aggregation setting is hidden for these lines.
 
 ### 3.8 Live plots
 
-A live line keeps a window at full resolution: `feed.read` fills it once, and
-`Feed.stream` extends it. The window starts at the home-level tile boundary at or before
-the start of the home view, and series that end before the start are released as it
-moves. Tiles cover everything before the start, or before the first held series when
-that series crosses the start, so no span draws twice. A tile that crosses where tiles
-stop is read with `end` set to it. The x and y sources compute the start from the clock,
-so both cut at the same time.
+A live line draws raw samples only at its live edge: from the start of the level 16 tile
+that holds now minus the commit margin. `Feed.stream` extends them, and raw series that
+end before the start of the home view are released as it moves. Tiles cover the rest of
+the window, or up to the first held series when that series crosses the start, so no
+span draws twice. The edge cuts one tile of the home level. That tile is read as whole
+finer tiles down to level 16, and each reads once. When the edge passes the end of a
+coarser tile, that tile reads once and replaces the finer tiles under it, so the window
+holds at most one tile per level. The Core then scans that span again: for a 30-day
+window, about 12 days once every 12 days. A window no wider than two level 16 tiles
+draws only raw samples, from the home-level tile boundary at or before its start. A live
+XY line reads its tiles with `decimate`, as in §3.7. The x and y sources compute the
+start from the clock, so both cut at the same time.
 
 ### 3.9 Loading
 
@@ -284,6 +289,11 @@ other requests.
 **5.10 One reduction per request.** Reading the calculations' inputs raw and the other
 channels reduced needs a second distribution iterator and a merge of their replies. The
 trade is real: a plot with a calculated channel reads all its channels raw.
+
+**5.11 Raw samples only at the live edge.** Raw blocks span 65.5 s, so a live window
+held at full resolution keeps one block per 65.5 s of it: about 40,000 for a 30-day
+window. The trade is real: a zoom into a live line's history reads finer tiles instead
+of drawing held raw samples.
 
 ## 6 What this RFC does not cover
 
