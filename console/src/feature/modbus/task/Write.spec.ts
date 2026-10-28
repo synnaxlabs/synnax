@@ -18,6 +18,7 @@ import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
   createChannelReadOnlyClient,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -256,5 +257,13 @@ describe("Write", () => {
       throw new Error(`expected a holding register, got ${register.type}`);
     expect(register.bytesSwapped).toBe(false);
     expect(register.wordsSwapped).toBeUndefined();
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      Modbus.Task.useCreateWrite,
+      Modbus.Task.WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

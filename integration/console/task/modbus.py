@@ -11,6 +11,7 @@
 
 from playwright.sync_api import Locator
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task_page import TaskPage
 
@@ -30,6 +31,18 @@ WRITE_TYPE_NAMES = {"coil": "Coil", "holding_register": "Holding register"}
 class ModbusTask(TaskPage):
     """Shared Modbus task page. Each channel is a row of type, address, and, for
     registers, data type."""
+
+    def __init__(
+        self,
+        layout: LayoutClient,
+        client: sy.Synnax,
+        page_name: str,
+        *,
+        pane_locator: Locator,
+    ) -> None:
+        """Initialize a Modbus task page wrapper (see ConsolePage.__init__)."""
+        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        self.channel_count = 0
 
     def _rows(self) -> Locator:
         return self._channel_list().get_by_role("option")
@@ -57,20 +70,23 @@ class ModbusTask(TaskPage):
     def add_channel(
         self, type_name: str, address: int, data_type: str | None = None
     ) -> None:
-        """Append a channel row and fill it in.
+        """Fill in the next channel row. A new task starts with one channel, so the
+        first call uses that row instead of adding one.
 
         :param type_name: Type as shown in the type dropdown, e.g. "Register".
         :param address: Modbus address.
         :param data_type: Register data type, e.g. "float32". Registers only.
         """
-        index = self._rows().count()
-        self.add_channel_row()
+        index = self.channel_count
+        if index > 0:
+            self.add_channel_row()
         self._rows().nth(index).wait_for(state="visible", timeout=5000)
         self.set_channel_type(index, type_name)
         self.set_address(index, address)
         if data_type is not None:
             self._fields(index).get_by_role("button").nth(1).click()
             self.layout.select_from_dropdown(data_type, exact=True)
+        self.channel_count += 1
 
     def set_channel_type(self, index: int, type_name: str) -> None:
         """Set the type of the channel row at ``index``."""
