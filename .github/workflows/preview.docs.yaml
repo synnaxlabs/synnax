@@ -52,7 +52,8 @@ jobs:
         run: pnpm build:docs
 
       # The CLI joins the project's root directory, site/docs, to its working directory,
-      # so it runs from the repository root and reads the output from there.
+      # so it runs from the repository root and reads the output from there. pnpm runs
+      # it, because npm rejects the repository's devEngines.
       - name: Deploy the preview
         id: deploy
         env:
@@ -63,7 +64,7 @@ jobs:
           [ -n "$VERCEL_TOKEN" ] || { echo "::error::VERCEL_TOKEN is not set"; exit 1; }
           mkdir -p .vercel
           mv site/docs/.vercel/output .vercel/output
-          deployment=$(npx --yes vercel@63.1.2 deploy --prebuilt --archive=tgz \
+          deployment=$(pnpm --silent dlx vercel@63.1.2 deploy --prebuilt --archive=tgz \
             --format=json)
           url=$(jq -er '.deployment.url // .url' <<< "$deployment")
           echo "url=$url" >> "$GITHUB_OUTPUT"
