@@ -66,12 +66,7 @@ class UserRegister(ConsoleCase):
 
         self.log("User registered, verifying in UI...")
         self.console.access.expand_role(role_name)
-
-        users = self.console.access.list_users_under_role(role_name)
-        self.log(f"Users found: {users}")
-        assert self.username in users, (
-            f"User {self.username} not found under {role_name}. Found: {users}"
-        )
+        self.console.access.wait_for_user_role(self.username, role_name)
 
     def test_change_role(self) -> None:
         """Change a user's role and verify they move between roles."""
@@ -82,9 +77,8 @@ class UserRegister(ConsoleCase):
         )
 
         self.console.access.expand_role("Engineer")
-        engineer_users = self.console.access.list_users_under_role("Engineer")
-        assert self.username in engineer_users, (
-            f"User {self.username} not found under Engineer. Found: {engineer_users}"
+        self.console.access.wait_for_user_role(
+            self.username, "Engineer", previous_role="Operator"
         )
 
     def test_role_change_affects_permissions(self) -> None:
