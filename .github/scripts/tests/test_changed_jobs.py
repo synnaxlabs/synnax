@@ -83,28 +83,35 @@ def run(ci: str = CI, filters: str = FILTERS) -> list[str]:
 class TestWorkflowEdits:
     """Tests selecting jobs from an edit to the workflow."""
 
-    def test_selects_nothing_without_an_edit(self) -> None:
+    def test_should_select_nothing_without_an_edit(self) -> None:
         assert run() == []
 
-    def test_selects_nothing_for_a_comment(self) -> None:
+    def test_should_select_nothing_for_a_comment(self) -> None:
         assert run(CI.replace("# A comment.", "# Another comment.")) == []
 
-    def test_selects_a_job_whose_block_changed(self) -> None:
+    def test_should_select_a_job_whose_block_changed(self) -> None:
         ci = CI.replace("docs == 'true'", "docs != 'false'")
         assert run(ci) == ["docs"]
 
-    def test_selects_the_jobs_a_selected_job_needs(self) -> None:
+    def test_should_select_the_jobs_a_selected_job_needs(self) -> None:
         ci = CI.replace("macos: *full", "macos: false")
         assert run(ci) == ["client-py", "core-image"]
 
-    def test_selects_a_job_added_to_ok(self) -> None:
+    def test_should_select_a_job_added_to_ok(self) -> None:
         ci = CI.replace(
             "  fail-fast:",
             "  lint:\n    needs: [changes, core-image]\n  fail-fast:",
         ).replace("needs: [alamos-go,", "needs: [lint, alamos-go,")
         assert run(ci) == ["core-image", "lint"]
 
-    def test_selects_nothing_for_a_job_removed_from_ok(self) -> None:
+    def test_should_select_an_existing_job_added_to_ok(self) -> None:
+        ci = CI.replace(
+            "    needs: [alamos-go, changes, client-py, core-image, docs]\n",
+            "    needs: [changes, client-py, core-image, docs]\n",
+        )
+        assert select(ci, CI, FILTERS, FILTERS) == ["alamos-go"]
+
+    def test_should_select_nothing_for_a_job_removed_from_ok(self) -> None:
         ci = CI.replace(
             "  docs:\n    needs: changes\n    if: needs.changes.outputs.docs == 'true'\n"
             "    runs-on: ubuntu-latest\n",
@@ -112,7 +119,7 @@ class TestWorkflowEdits:
         ).replace(", docs]", "]")
         assert run(ci) == []
 
-    def test_selects_an_added_job(self) -> None:
+    def test_should_select_an_added_job(self) -> None:
         ci = CI.replace("  fail-fast:", "  lint:\n    needs: changes\n  fail-fast:")
         assert run(ci) == ["lint"]
 
@@ -146,7 +153,7 @@ class TestSharedEdits:
             "anchor",
         ],
     )
-    def test_selects_every_job(self, old: str, new: str) -> None:
+    def test_should_select_every_job(self, old: str, new: str) -> None:
         assert old in CI
         assert run(CI.replace(old, new)) == ALL
 
@@ -154,15 +161,15 @@ class TestSharedEdits:
 class TestFilterEdits:
     """Tests selecting jobs from an edit to the change map."""
 
-    def test_selects_the_jobs_that_read_a_changed_filter(self) -> None:
+    def test_should_select_the_jobs_that_read_a_changed_filter(self) -> None:
         filters = FILTERS.replace("site/docs/**", "site/docs/**\n  - site/common/**")
         assert run(filters=filters) == ["docs"]
 
-    def test_resolves_anchors(self) -> None:
+    def test_should_resolve_anchors(self) -> None:
         filters = FILTERS.replace(".golangci.yaml", ".golangci.yml")
         assert run(filters=filters) == ["alamos-go", "client-py", "core-image"]
 
-    def test_ignores_the_order_of_paths(self) -> None:
+    def test_should_ignore_the_order_of_paths(self) -> None:
         filters = FILTERS.replace("  - *go\n  - core/**", "  - core/**\n  - *go")
         assert run(filters=filters) == []
 
@@ -170,14 +177,14 @@ class TestFilterEdits:
 class TestMain:
     """Tests the command line."""
 
-    def test_prints_nothing_without_a_base(
+    def test_should_print_nothing_without_a_base(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
         main(["changed_jobs.py", ""])
         assert capsys.readouterr().out == "[]\n"
 
 
-def test_every_filtered_job_reads_its_ci_output() -> None:
+def test_should_gate_every_filtered_job_on_its_ci_output() -> None:
     """Every job the change map gates must also run when the CI edit selects it."""
     root = Path(__file__).resolve().parents[3]
     jobs = yaml.safe_load((root / WORKFLOW).read_text())["jobs"]

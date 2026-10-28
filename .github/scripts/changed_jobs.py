@@ -14,8 +14,8 @@
 Compares the workflow and the change map at the base commit with the working tree, and
 prints a JSON list of job IDs. A job runs when its block changed or when a filter its
 condition reads changed. A job that a selected job needs runs too. An edit to a shared
-part runs every job: a top-level key other than jobs, a shared job, or an anchor. An
-edit to the needs of the OK job is not shared. An empty base selects no job.
+part runs every job: a top-level key other than jobs, a shared job, or an anchor. A job
+added to the needs of the OK job runs, and that edit is not shared. An empty base selects no job.
 """
 
 import json
@@ -75,6 +75,11 @@ def changed_filters(old: str, new: str) -> set[str]:
     }
 
 
+def _needs(jobs: dict[str, Any], job: str) -> list[str]:
+    needs = (jobs.get(job) or {}).get("needs", [])
+    return [needs] if isinstance(needs, str) else list(needs)
+
+
 def _shared(jobs: dict[str, Any], job: str) -> Any:
     """Returns the shared part of a job. OK's needs only list the other jobs."""
     block = jobs.get(job) or {}
@@ -103,10 +108,10 @@ def select(old_ci: str, new_ci: str, old_filters: str, new_filters: str) -> list
             or filters & set(FILTER_REF.findall(str(block.get("if", ""))))
         )
     }
+    selected |= set(_needs(new_jobs, "ok")) - set(_needs(old_jobs, "ok"))
     pending = list(selected)
     while pending:
-        needs = new_jobs[pending.pop()].get("needs", [])
-        for j in [needs] if isinstance(needs, str) else needs:
+        for j in _needs(new_jobs, pending.pop()):
             if j not in selected and j != "changes":
                 selected.add(j)
                 pending.append(j)

@@ -379,6 +379,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
+  - .github/workflows/ci.yaml
   - deploy/preview/**
 
 scripts:
