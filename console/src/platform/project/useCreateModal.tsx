@@ -52,10 +52,11 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       <Modal.Header icon={<Icon.Project />}>Project.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Project.formSchema> {...form}>
-          <Form.Field<string> path="name">
+          <Form.Field<string> path="name" showLabel={false}>
             {(p) => (
               <Input.Text
-                placeholder="Name"
+                placeholder="Project name"
+                aria-label="Project name"
                 variant="text"
                 autoFocus
                 level="h3"
@@ -66,7 +67,6 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>
           <Button.Button
             type="submit"
@@ -76,6 +76,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
             disabled={client == null}
             onClick={() => save()}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Create
           </Button.Button>

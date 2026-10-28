@@ -9,18 +9,21 @@
 
 import { createHash, randomBytes } from "node:crypto";
 
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, max } from "drizzle-orm";
 
 import { type Reader, schema, type Store } from "@/server/db";
 import { badRequest, forbidden, notFound } from "@/server/errors";
 import { build } from "@/server/license/claims";
 import { sign, type Signer } from "@/server/license/sign";
 import { ensurePersonal } from "@/server/organization";
+import { DESKTOP } from "@/server/usage";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** TERM_MS is how long a desktop license runs before it needs a renewal. */
 export const TERM_MS = 30 * DAY_MS;
+
+const CHANNEL_LIMIT = 50;
 
 export const mintSecret = (): string => randomBytes(32).toString("base64url");
 
@@ -45,12 +48,25 @@ export interface Linked {
   secret: string;
   activation: schema.Activation;
   license: schema.License;
+  /** previous is the user's last Desktop use before this login, or null for none. */
+  previous: Date | null;
 }
 
 export interface Machine {
   activation: schema.Activation;
   license: schema.License;
 }
+
+/** lastUse returns the newest Desktop use of an organization, or null for none. */
+const lastUse = async (db: Reader, org: string): Promise<Date | null> => {
+  const [row] = await db
+    .select({ at: max(schema.event.at) })
+    .from(schema.event)
+    .where(
+      and(eq(schema.event.organization, org), inArray(schema.event.kind, DESKTOP)),
+    );
+  return row?.at ?? null;
+};
 
 /** superseded picks the linked machines that share a hash with the one logging in. */
 export const superseded = (machines: Machine[], fingerprint: string[]): Machine[] =>
@@ -99,6 +115,7 @@ export const link = async (
       .from(schema.organization)
       .where(eq(schema.organization.key, org.key))
       .for("update");
+    const previous = await lastUse(tx, org.key);
     const machines = await machinesFor(tx, org.key);
     for (const old of superseded(machines, fingerprint)) {
       await tx
@@ -126,7 +143,7 @@ export const link = async (
         edition: "desktop",
         term: "subscription",
         nodes: 1,
-        channels: 0,
+        channels: CHANNEL_LIMIT,
         label: machineName,
         expiresAt: expiryFrom(now),
         issuedBy: userID,
@@ -154,7 +171,7 @@ export const link = async (
       detail: { name: machineName, fingerprint },
     });
     const signed = await sign(signer, build({ license: lic, fingerprint, now }));
-    return { key: signed, license: lic, activation: act };
+    return { key: signed, license: lic, activation: act, previous };
   });
   return { secret, ...linked };
 };
@@ -188,6 +205,15 @@ export interface RenewArgs {
   now: Date;
 }
 
+export interface Renewed {
+  key: string;
+  license: schema.License;
+  /** owner is the Clerk user ID of the user the machine is linked for. */
+  owner: string;
+  /** previous is the user's last Desktop use before this renewal, or null for none. */
+  previous: Date | null;
+}
+
 /**
  * renew slides the expiry of a machine's license and returns a fresh license key.
  * Throws a 403 with the code `unlinked` when the machine was unlinked after `resolve`
@@ -197,8 +223,17 @@ export const renew = async (
   store: Store,
   signer: Signer,
   { machine: row, now }: RenewArgs,
-): Promise<{ key: string; license: schema.License }> =>
+): Promise<Renewed> =>
   await store.transact(async (tx) => {
+    // Serializes the user's Desktop use with their links, so one is the day's first.
+    const [org] = await tx
+      .select({ owner: schema.organization.ownerUserID })
+      .from(schema.organization)
+      .where(eq(schema.organization.key, row.license.organization))
+      .for("update");
+    if (org?.owner == null)
+      throw new Error(`desktop license ${row.license.key} has no personal owner`);
+    const previous = await lastUse(tx, row.license.organization);
     const [lic] = await tx
       .update(schema.license)
       .set({ expiresAt: expiryFrom(now) })
@@ -224,7 +259,7 @@ export const renew = async (
       signer,
       build({ license: lic, fingerprint: row.activation.fingerprint, now }),
     );
-    return { key: signed, license: lic };
+    return { key: signed, license: lic, owner: org.owner, previous };
   });
 
 export interface UnlinkArgs {
@@ -251,6 +286,13 @@ export const unlink = async (
   if (row.license.edition !== "desktop")
     throw badRequest("Only a Synnax Desktop machine can be logged out");
   await store.transact(async (tx) => {
+    // Locks the personal organization first, as link and renew do, so no two Desktop
+    // writes deadlock.
+    await tx
+      .select({ key: schema.organization.key })
+      .from(schema.organization)
+      .where(eq(schema.organization.key, row.license.organization))
+      .for("update");
     await tx
       .update(schema.activation)
       .set({ releasedAt: row.activation.releasedAt ?? now, renewalSecretHash: null })

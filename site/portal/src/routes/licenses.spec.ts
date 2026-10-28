@@ -13,6 +13,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { OPTIONS as handoffPreflight, POST as handoffRoute } from "@/pages/api/handoff";
 import { POST as activateRoute } from "@/pages/api/licenses/[key]/activate";
+import { POST as deleteRoute } from "@/pages/api/licenses/[key]/delete";
 import { POST as floatingRoute } from "@/pages/api/licenses/[key]/floating";
 import { POST as amendRoute } from "@/pages/api/licenses/[key]/index";
 import { POST as restoreRoute } from "@/pages/api/licenses/[key]/restore";
@@ -24,6 +25,7 @@ import { ADMIN_ROLE, type Team } from "@/server/directory";
 import { issued, restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
+import { refused } from "@/server/slack";
 import {
   body,
   type ContextArgs,
@@ -689,6 +691,14 @@ describe("license routes", () => {
           detail: { reason: "no_seats", fingerprint: [HASH_A] },
         }),
       ]);
+      expect(h.slack.posted).toEqual([
+        refused({
+          organization: acme,
+          license: lic,
+          reason: "no_seats",
+          actor: { name: MEMBER, email: `${MEMBER}@example.com` },
+        }),
+      ]);
     });
 
     it("should refuse a revoked license", async () => {
@@ -927,6 +937,74 @@ describe("license routes", () => {
       expect((await post()).status).toBe(204);
       await expectError(await post(), 400, "This license is already revoked");
       expect(h.mail.sent).toHaveLength(1);
+    });
+  });
+
+  describe("POST /api/licenses/[key]/delete", () => {
+    let lic: schema.License;
+
+    beforeEach(async () => {
+      lic = await createLicense(store, { organization: acme.key });
+    });
+
+    const post = async (key: string = lic.key): Promise<Response> =>
+      await call(deleteRoute, { params: { key } });
+
+    const createEvent = async (licenseKey: string, activationKey?: string) =>
+      await store.query.insert(schema.event).values({
+        at: NOW,
+        kind: "activate",
+        actor: MEMBER,
+        organization: acme.key,
+        license: licenseKey,
+        activation: activationKey,
+      });
+
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(), 401, "Log in first");
+    });
+
+    it("should reject a member who is not staff", async () => {
+      h.signIn(MEMBER);
+      await expectError(await post(), 403, "Staff only");
+      expect(await licenses()).toHaveLength(1);
+    });
+
+    it("should answer 404 for an unknown license", async () => {
+      h.signIn(STAFF);
+      await expectError(await post(crypto.randomUUID()), 404, "License not found");
+    });
+
+    it("should delete the license, its machines, and its history", async () => {
+      const act = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await createEvent(lic.key, act.key);
+      h.signIn(STAFF);
+      expect((await post()).status).toBe(204);
+      expect(await licenses()).toEqual([]);
+      expect(await store.query.select().from(schema.activation)).toEqual([]);
+      expect(await events()).toEqual([]);
+    });
+
+    it("should keep the organization's other licenses and their history", async () => {
+      const other = await createLicense(store, { organization: acme.key });
+      await createActivation(store, { license: other.key, fingerprint: [HASH_B] });
+      await createEvent(other.key);
+      h.signIn(STAFF);
+      await post();
+      expect((await licenses()).map((l) => l.key)).toEqual([other.key]);
+      expect(await store.query.select().from(schema.activation)).toHaveLength(1);
+      expect(await events()).toEqual([expect.objectContaining({ license: other.key })]);
+      expect(await store.query.select().from(schema.organization)).toHaveLength(1);
+    });
+
+    it("should mail nobody", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.signIn(STAFF);
+      await post();
+      expect(h.mail.sent).toEqual([]);
     });
   });
 
