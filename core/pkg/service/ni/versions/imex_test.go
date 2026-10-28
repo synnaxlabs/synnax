@@ -22,12 +22,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type decoder func(context.Context, msgpack.EncodedJSON) error
+type decoder func(context.Context, msgpack.EncodedJSON) (any, error)
 
 func decodeV2[T any](ladder imex.Ladder[T]) decoder {
-	return func(ctx context.Context, blob msgpack.EncodedJSON) error {
-		_, err := ladder.Decode(ctx, v2.Version, blob)
-		return err
+	return func(ctx context.Context, blob msgpack.EncodedJSON) (any, error) {
+		return ladder.Decode(ctx, v2.Version, blob)
 	}
 }
 
@@ -64,7 +63,7 @@ var _ = Describe("Ladders", func() {
 	DescribeTable(
 		"Should decode a v2 body",
 		func(ctx SpecContext, _ string, decode decoder) {
-			Expect(decode(ctx, msgpack.EncodedJSON{"device": "dev"})).To(Succeed())
+			MustSucceed(decode(ctx, msgpack.EncodedJSON{"device": "dev"}))
 		},
 		entries,
 	)
@@ -72,8 +71,8 @@ var _ = Describe("Ladders", func() {
 	DescribeTable(
 		"Should reject a v2 body that does not decode",
 		func(ctx SpecContext, resource string, decode decoder) {
-			err := decode(ctx, msgpack.EncodedJSON{"key": 12})
-			Expect(err).To(MatchError(ContainSubstring("decode v2 " + resource)))
+			Expect(decode(ctx, msgpack.EncodedJSON{"key": 12})).Error().
+				To(MatchError(ContainSubstring("decode v2 " + resource)))
 		},
 		entries,
 	)
