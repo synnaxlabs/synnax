@@ -19,7 +19,8 @@
     "console/src/feature/arc/editor/toolbar/graph/Toolbar.css": [
       "pluto-arc__stage",
       "pluto-input",
-      "pluto-list__item"
+      "pluto-list__item",
+      "pluto-list__virtualizer"
     ],
     "console/src/feature/arc/toolbar/Toolbar.css": ["pluto-list__item"],
     "console/src/feature/auth/ConnectionGuard.css": ["pluto-orbital"],
@@ -43,6 +44,7 @@
       "pluto--direction-y",
       "pluto-form-sections"
     ],
+    "console/src/feature/opcua/task/Task.css": ["pluto-header"],
     "console/src/feature/panel/Mosaic.css": [
       "pluto--center",
       "pluto-panel-mosaic--overlaid"
@@ -52,15 +54,24 @@
     "console/src/feature/project/Selector.css": [
       "pluto-avatar",
       "pluto-dialog__dialog",
-      "pluto-list__scroll"
+      "pluto-list__scroll",
+      "pluto-list__virtualizer"
     ],
-    "console/src/feature/project/Splash.css": ["pluto-input", "pluto-list__item"],
+    "console/src/feature/project/Splash.css": [
+      "pluto-input",
+      "pluto-list__item",
+      "pluto-list__virtualizer"
+    ],
     "console/src/feature/range/explorer/Explorer.css": [
       "pluto-list__sentinel",
+      "pluto-list__virtualizer",
       "pluto-tags"
     ],
     "console/src/feature/range/list/List.css": ["pluto-list__item", "pluto-tags"],
-    "console/src/feature/range/overview/Overview.css": ["pluto--hidden"],
+    "console/src/feature/range/overview/Overview.css": [
+      "pluto--hidden",
+      "pluto-header"
+    ],
     "console/src/feature/schematic/symbol/edit/Edit.css": [
       "pluto-modal",
       "pluto-modal__body"
@@ -69,6 +80,7 @@
       "pluto-icon",
       "pluto-input",
       "pluto-list__item",
+      "pluto-list__virtualizer",
       "pluto-symbol-primitive",
       "pluto-tabs__selector",
       "pluto-tabs__tab",
@@ -133,17 +145,19 @@
     "console/src/platform/selector/Selector.css": ["pluto-btn", "pluto-icon"],
     "console/src/platform/shell/Shell.css": [
       "pluto--square",
+      "pluto-header",
       "pluto-list__item",
       "pluto-orbital__stage",
       "pluto-text--overflow-ellipsis"
     ],
-    "console/src/platform/task/Form.css": ["pluto-list__scroll"],
+    "console/src/platform/task/Form.css": ["pluto-header", "pluto-list__scroll"],
     "console/src/platform/task/views/GroupTree.css": [
       "pluto--selected",
       "pluto-btn",
-      "pluto-icon"
+      "pluto-icon",
+      "pluto-tree__item"
     ],
-    "console/src/platform/task/views/Panes.css": ["pluto-divider"],
+    "console/src/platform/task/views/Panes.css": ["pluto-divider", "pluto-header"],
     "console/src/platform/toolbar/Header.css": ["pluto--location-bottom"],
     "console/src/platform/version/Info.css": ["pluto-text"],
     "console/src/platform/vis/Controls.css": ["pluto-btn", "pluto-tabs__content"],
@@ -236,7 +250,8 @@
       "pluto-divider",
       "pluto-icon",
       "pluto-icon--caret-right",
-      "pluto-tabs__content"
+      "pluto-tabs__content",
+      "pluto-text"
     ],
     "site/docs/src/components/article/NextPrev.astro": ["pluto-icon"],
     "site/docs/src/components/blog/OneBillionRowsTile.astro": ["pluto-text--h1"],
@@ -260,13 +275,16 @@
     ],
     "site/docs/src/components/problem/Body.astro": ["pluto-description__item"],
     "site/docs/src/components/releases/Release.astro": ["pluto-icon--logo-github"],
+    "site/docs/src/components/reliability/Wall.astro": ["pluto-text"],
     "site/docs/src/components/search/Search.astro": [
       "pluto--hovered",
       "pluto-icon",
+      "pluto-text",
       "pluto-text--keyboard",
       "pluto-trigger-indicator"
     ],
-    "site/docs/src/pages/reliability.astro": ["pluto-divider"],
+    "site/docs/src/components/text/Step.astro": ["pluto-text"],
+    "site/docs/src/pages/reliability.astro": ["pluto-divider", "pluto-text"],
     "site/docs/src/styles/base.css": ["pluto-btn"],
     "site/docs/src/styles/layout.css": [
       "pluto-btn",
@@ -275,6 +293,7 @@
       "pluto-progress",
       "pluto-tabs",
       "pluto-tabs__content",
+      "pluto-text",
       "pluto-text--p"
     ],
     "site/docs/src/styles/pluto.css": [
@@ -289,7 +308,8 @@
       "pluto-tabs__content",
       "pluto-tabs__selector",
       "pluto-tabs__selector--chip",
-      "pluto-tabs__tab"
+      "pluto-tabs__tab",
+      "pluto-text"
     ],
     "site/foundation/src/styles/contact.css": ["pluto-btn"],
     "site/foundation/src/styles/page.css": ["pluto-btn"],
