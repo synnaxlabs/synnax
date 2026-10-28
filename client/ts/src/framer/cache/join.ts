@@ -267,7 +267,9 @@ export class Joins {
 
   /**
    * @returns the first raw block a catch-up read of the channel must fetch: the block
-   * of its last joined sample, of its first held sample, or of at, whichever is first.
+   * of a gap its stream hit, of its first held sample, or of at, whichever is first. A
+   * stream drop never moves it back, since windows read the raw blocks they need before
+   * it.
    */
   catchUpFrom(ch: channel.Key, at: TimeStamp): number {
     let from = rawIndex(at);
@@ -413,10 +415,7 @@ export class Joins {
   private unjoin(m: Member): void {
     m.joined = false;
     m.wait = ++this.lastWait;
-    const open = this.store.open(m.key);
-    if (open?.joined !== true) return;
-    m.from = Math.min(m.from ?? open.index, open.index);
-    this.store.flush(m.key);
+    if (this.store.open(m.key)?.joined === true) this.store.flush(m.key);
   }
 
   private copy(s: Series): Series {

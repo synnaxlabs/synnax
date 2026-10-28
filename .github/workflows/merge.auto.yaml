@@ -7,11 +7,13 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Turns on auto-merge for a pull request into main or a release branch that is labeled
-# review/bot and is not a draft, and turns it off for any other. Only those branches
-# require CI and the Review gate. GitHub turns auto-merge off when someone without write
-# access pushes, so a push turns it on again. A merge that GITHUB_TOKEN starts triggers
-# no workflows, so an App token turns auto-merge on. No pull request code runs here.
+# Turns auto-merge on or off for each pull request event; auto_merge.sh holds the rule.
+# Only main and release branches require CI and the Review gate. GitHub turns auto-merge
+# off when someone without write access pushes, so a push turns it on again. A merge
+# that GITHUB_TOKEN starts triggers no workflows, so an App token turns auto-merge on.
+# No pull request code runs here. Runs on one pull request go one at a time, so an older
+# run never acts after a newer one. A newer run waits instead of cancelling the run in
+# progress, which would show as a failed check.
 
 name: Merge - Auto
 
@@ -31,7 +33,7 @@ permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   auto-merge:
@@ -45,22 +47,17 @@ jobs:
           app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
 
+      # A pull_request_target checkout takes the base branch, so a pull request cannot
+      # edit the script that decides its auto-merge.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
       # The labels and base can change while the run waits, so it reads them live.
       - name: Turn auto-merge on or off
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           PR: ${{ github.event.pull_request.number }}
-        run: |
-          read -r want enabled < <(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" \
-            --jq '[.labels[].name] as $l
-              | (.draft == false and any($l[]; . == "review/bot")
-                  and all($l[]; . != "review/human")
-                  and (.base.ref == "main" or (.base.ref | startswith("release/"))))
-                as $want
-              | "\($want) \(.auto_merge != null)"')
-          echo "auto-merge wanted: $want, enabled: $enabled"
-          if [ "$want" = true ] && [ "$enabled" = false ]; then
-            gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --auto --squash
-          elif [ "$want" = false ] && [ "$enabled" = true ]; then
-            gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --disable-auto
-          fi
+        run: .github/scripts/auto_merge.sh "$PR"

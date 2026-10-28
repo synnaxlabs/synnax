@@ -29,9 +29,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ErrVirtual is returned when the caller tried to open a unary database on a virtual
+// errVirtual is returned when the caller tried to open a unary database on a virtual
 // channel.
-var ErrVirtual = errors.New("cannot open a unary database on a virtual channel")
+var errVirtual = errors.New("cannot open a unary database on a virtual channel")
 
 // Config is the configuration for opening a DB.
 type Config struct {
@@ -67,9 +67,11 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for a DB.
-	DefaultConfig = Config{FileSize: 1 * telem.Gigabyte, GCThreshold: 0.2}
+	_             config.Config[Config] = Config{}
+	defaultConfig                       = Config{
+		FileSize:    1 * telem.Gigabyte,
+		GCThreshold: 0.2,
+	}
 )
 
 // Validate implements config.GateConfig.
@@ -95,7 +97,7 @@ func (cfg Config) Override(other Config) Config {
 }
 
 func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +107,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	}
 	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if cfg.Channel.Virtual {
-		return nil, wrapError(ErrVirtual)
+		return nil, wrapError(errVirtual)
 	}
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,

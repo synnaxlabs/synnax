@@ -159,7 +159,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
 	if s.CreateTranslators != nil {
 		requestTranslator, responseTranslator = s.CreateTranslators()
 	}
-	return &ServerStream[RQ, RQT, RS, RST]{
+	return &serverStream[RQ, RQT, RS, RST]{
 		ctx:                ctx,
 		requestTranslator:  requestTranslator,
 		responseTranslator: responseTranslator,
@@ -170,15 +170,14 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
 func (s *StreamClient[RQ, RQT, RS, RST]) adaptStream(
 	stream GRPCClientStream[RQT, RST],
 ) freighter.ClientStream[RQ, RS] {
-	return &ClientStream[RQ, RQT, RS, RST]{
+	return &clientStream[RQ, RQT, RS, RST]{
 		requestTranslator:  s.RequestTranslator,
 		responseTranslator: s.ResponseTranslator,
 		internal:           stream,
 	}
 }
 
-// ServerStream wraps a grpc stream to implement the freighter.ServerStream interface.
-type ServerStream[RQ, RQT, RS, RST freighter.Payload] struct {
+type serverStream[RQ, RQT, RS, RST freighter.Payload] struct {
 	// ctx is the handler's context, which a parked Receive or Send also watches.
 	ctx                context.Context
 	internal           grpcServerStream[RQT, RST]
@@ -194,7 +193,7 @@ type ServerStream[RQ, RQT, RS, RST freighter.Payload] struct {
 	sendRes chan error
 }
 
-func (s *ServerStream[RQ, RQT, RS, RST]) sendLoop() {
+func (s *serverStream[RQ, RQT, RS, RST]) sendLoop() {
 	for {
 		select {
 		case msg := <-s.sendReq:
@@ -210,7 +209,7 @@ type recvResult[RQT freighter.Payload] struct {
 	err error
 }
 
-func (s *ServerStream[RQ, RQT, RS, RST]) receiveLoop() {
+func (s *serverStream[RQ, RQT, RS, RST]) receiveLoop() {
 	defer close(s.recv)
 	for {
 		msg, err := s.internal.Recv()
@@ -227,7 +226,7 @@ func (s *ServerStream[RQ, RQT, RS, RST]) receiveLoop() {
 
 // Receive implements the freighter.ServerStream interface. It returns the handler
 // context's cause when that context ends before a message arrives.
-func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
+func (s *serverStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
 	if s.recvErr != nil {
 		return req, s.recvErr
 	}
@@ -252,7 +251,7 @@ func (s *ServerStream[RQ, RQT, RS, RST]) Receive() (req RQ, err error) {
 
 // Send implements the freighter.ServerStream interface. It returns the handler
 // context's cause when that context ends before the transport accepts the message.
-func (s *ServerStream[RQ, RQT, RS, RST]) Send(res RS) error {
+func (s *serverStream[RQ, RQT, RS, RST]) Send(res RS) error {
 	if s.ctx.Err() != nil {
 		return context.Cause(s.ctx)
 	}
@@ -278,8 +277,7 @@ func (s *ServerStream[RQ, RQT, RS, RST]) Send(res RS) error {
 	}
 }
 
-// ClientStream wraps a grpc stream to implement the freighter.ClientStream interface.
-type ClientStream[RQ, RQT, RS, RST freighter.Payload] struct {
+type clientStream[RQ, RQT, RS, RST freighter.Payload] struct {
 	internal           GRPCClientStream[RQT, RST]
 	requestTranslator  Translator[RQ, RQT]
 	responseTranslator Translator[RS, RST]
@@ -287,7 +285,7 @@ type ClientStream[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 // Receive implements the freighter.ClientStream interface.
-func (c *ClientStream[RQ, RQT, RS, RST]) Receive() (res RS, err error) {
+func (c *clientStream[RQ, RQT, RS, RST]) Receive() (res RS, err error) {
 	tRes, err := c.internal.Recv()
 	if err != nil {
 		return res, translateGRPCError(err)
@@ -296,7 +294,7 @@ func (c *ClientStream[RQ, RQT, RS, RST]) Receive() (res RS, err error) {
 }
 
 // Send implements the freighter.ClientStream interface.
-func (c *ClientStream[RQ, RQT, RS, RST]) Send(req RQ) error {
+func (c *clientStream[RQ, RQT, RS, RST]) Send(req RQ) error {
 	if c.closeSent {
 		return freighter.ErrStreamClosed
 	}
@@ -308,7 +306,7 @@ func (c *ClientStream[RQ, RQT, RS, RST]) Send(req RQ) error {
 }
 
 // CloseSend implements the freighter.ClientStream interface.
-func (c *ClientStream[RQ, RQT, RS, RST]) CloseSend() error {
+func (c *clientStream[RQ, RQT, RS, RST]) CloseSend() error {
 	c.closeSent = true
 	return translateGRPCError(c.internal.CloseSend())
 }

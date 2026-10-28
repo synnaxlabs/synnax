@@ -24,7 +24,7 @@ var _ = Describe("surface command", func() {
 			"widget.oracle": "Valve struct {\n    name string\n}\n",
 		})
 		DeferCleanup(cleanup)
-		Expect(MustSucceed(executeCommand(NewRootCmd(), "surface"))).
+		Expect(MustSucceed(executeCommand(newRootCmd(), "surface"))).
 			To(Equal("widget.Valve struct\nwidget.Valve.name string\n"))
 	})
 
@@ -34,7 +34,7 @@ var _ = Describe("surface command", func() {
 		})
 		DeferCleanup(cleanup)
 		var stderr strings.Builder
-		root := NewRootCmd()
+		root := newRootCmd()
 		root.SetOut(io.Discard)
 		root.SetErr(&stderr)
 		root.SetArgs([]string{"surface"})

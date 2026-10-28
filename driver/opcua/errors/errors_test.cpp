@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 #include "open62541/types.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/errors/errors.h"
 
