@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/fs/fs.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::fs {
 class FSTest : public ::testing::Test {
