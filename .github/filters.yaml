@@ -281,6 +281,7 @@ exports_go:
   - *core
   - *freighter_integration
   - *oracle
+  - .github/scripts/go_affected.py
 
 exports_py:
   - *client_py

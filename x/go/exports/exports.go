@@ -33,16 +33,28 @@ import (
 type Config struct {
 	// Modules are the directories of the Go modules that Check loads as one workspace.
 	Modules []string
+	// Workspace are more module directories that the workspace includes, so that the
+	// local dependencies of Modules resolve. Check does not load their packages, so it
+	// sees no use in them.
+	Workspace []string
 	// GOOS are the target operating systems that Check loads the modules for.
 	GOOS []string
+	// Base is the root of a checkout to compare with. When set, Check returns only
+	// the findings that the same module directories under Base lack, and every module
+	// directory must be relative.
+	Base string
 }
 
 // Finding is an exported identifier that no other package uses.
 type Finding struct {
 	// Position is where the identifier is declared.
 	Position token.Position
+	// Package is the import path of the package that declares the identifier.
+	Package string
 	// Kind is one of "func", "method", "type", "var", or "const".
 	Kind string
+	// Receiver is the name of the type that declares a method, and empty otherwise.
+	Receiver string
 	// Name is the identifier.
 	Name string
 	// TestsOnly is true when only test code uses the identifier: test files, or the
@@ -50,16 +62,43 @@ type Finding struct {
 	TestsOnly bool
 }
 
-// String formats the finding as "file:line: kind Name is exported but ...".
+// String formats the finding as "file:line: kind Name is exported but ...". A method's
+// name carries its receiver: "method Type.Name".
 func (f Finding) String() string {
 	users := "no other package uses it"
 	if f.TestsOnly {
 		users = "only test code uses it"
 	}
+	name := f.Name
+	if f.Receiver != "" {
+		name = f.Receiver + "." + name
+	}
 	return fmt.Sprintf(
 		"%s:%d: %s %s is exported but %s",
-		f.Position.Filename, f.Position.Line, f.Kind, f.Name, users,
+		f.Position.Filename, f.Position.Line, f.Kind, name, users,
 	)
+}
+
+type identity struct{ pkg, kind, receiver, name string }
+
+func (f Finding) identity() identity {
+	return identity{pkg: f.Package, kind: f.Kind, receiver: f.Receiver, name: f.Name}
+}
+
+// added returns the findings of head that base lacks, matched by package, kind,
+// receiver, and name, so that a moved declaration is not new.
+func added(base, head []Finding) []Finding {
+	old := make(set.Set[identity], len(base))
+	for _, f := range base {
+		old.Add(f.identity())
+	}
+	var added []Finding
+	for _, f := range head {
+		if !old.Contains(f.identity()) {
+			added = append(added, f)
+		}
+	}
+	return added
 }
 
 // Check loads every package of cfg.Modules for each GOOS in cfg.GOOS and returns the
@@ -74,8 +113,9 @@ func (f Finding) String() string {
 //
 // Check skips generated files, test files, main packages, versions/vN packages, and
 // methods of unexported types. It returns validate.ErrValidation when cfg has no
-// modules or no GOOS values, and an error when a package fails to load.
-func Check(ctx context.Context, cfg Config) (findings []Finding, err error) {
+// modules, no GOOS values, or an absolute module directory beside a base, and an error
+// when a package fails to load.
+func Check(ctx context.Context, cfg Config) ([]Finding, error) {
 	if len(cfg.Modules) == 0 {
 		return nil, errors.Wrap(
 			validate.ErrValidation,
@@ -88,7 +128,38 @@ func Check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 			"exports: goos must be non-empty",
 		)
 	}
-	work, err := writeWorkspace(cfg.Modules)
+	if cfg.Base == "" {
+		return check(ctx, cfg)
+	}
+	for _, m := range slices.Concat(cfg.Modules, cfg.Workspace) {
+		if filepath.IsAbs(m) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"exports: module %s must be relative to compare with a base",
+				m,
+			)
+		}
+	}
+	baseCfg := Config{GOOS: cfg.GOOS}
+	for _, m := range cfg.Modules {
+		baseCfg.Modules = append(baseCfg.Modules, filepath.Join(cfg.Base, m))
+	}
+	for _, m := range cfg.Workspace {
+		baseCfg.Workspace = append(baseCfg.Workspace, filepath.Join(cfg.Base, m))
+	}
+	head, err := check(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	base, err := check(ctx, baseCfg)
+	if err != nil {
+		return nil, err
+	}
+	return added(base, head), nil
+}
+
+func check(ctx context.Context, cfg Config) (findings []Finding, err error) {
+	work, err := writeWorkspace(slices.Concat(cfg.Modules, cfg.Workspace))
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +183,15 @@ func Check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 			}
 			f, ok := merged[k]
 			if !ok {
-				f = &Finding{Position: s.pos, Kind: s.kind, Name: s.obj.Name()}
+				f = &Finding{
+					Position: s.pos,
+					Package:  s.pkg,
+					Kind:     s.kind,
+					Name:     s.obj.Name(),
+				}
+				if s.kind == "method" {
+					f.Receiver = receiver(s.obj.(*types.Func)).Name()
+				}
 				merged[k] = f
 			}
 			f.TestsOnly = f.TestsOnly || s.tested
@@ -145,12 +224,16 @@ func writeWorkspace(modules []string) (string, error) {
 	var b strings.Builder
 	// The running toolchain satisfies the go directive of every module it can load.
 	fmt.Fprintf(&b, "go %s\n\nuse (\n", strings.TrimPrefix(runtime.Version(), "go"))
+	used := set.Set[string]{}
 	for _, m := range modules {
 		abs, err := filepath.Abs(m)
 		if err != nil {
 			return "", errors.Wrapf(err, "exports: resolve module %s", m)
 		}
-		fmt.Fprintf(&b, "\t%q\n", abs)
+		if !used.Contains(abs) {
+			used.Add(abs)
+			fmt.Fprintf(&b, "\t%q\n", abs)
+		}
 	}
 	b.WriteString(")\n")
 	work := filepath.Join(dir, "go.work")
@@ -192,9 +275,11 @@ func load(
 		Context: ctx,
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
 			packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports,
+		// -trimpath keeps the directory out of the build cache keys, so a base checkout
+		// reuses the builds of the head.
 		Env: append(
 			os.Environ(),
-			"GOOS="+goos, "GOWORK="+work, "GOFLAGS=-buildvcs=false",
+			"GOOS="+goos, "GOWORK="+work, "GOFLAGS=-buildvcs=false -trimpath",
 		),
 		Tests: true,
 	}, patterns...)
