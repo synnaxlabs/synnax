@@ -789,6 +789,23 @@ describe("log/aether/Log", () => {
       expect(log.state.selectedText).toContain("3.14");
     });
 
+    it("should show the value as it arrives when the precision is absent", () => {
+      const entries: LogEntry[] = [
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "3.14159265",
+        },
+      ];
+      const { log } = setup(entries, REGION_500, {
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      expect(log.state.selectedText).toContain("3.14159265");
+    });
+
     it("should apply scientific notation when configured", () => {
       const entries: LogEntry[] = [
         {

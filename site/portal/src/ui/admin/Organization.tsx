@@ -24,7 +24,7 @@ import { type Team } from "@/server/member";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
 import { IssueDialog } from "@/ui/admin/IssueDialog";
 import { LicenseTable } from "@/ui/admin/LicenseTable";
-import { post, reload } from "@/ui/api";
+import { navigate, post, reload } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
 import { date, standing } from "@/ui/format";
 import { Members } from "@/ui/members";
@@ -71,7 +71,12 @@ export const Organization = (props: OrganizationProps): ReactElement => {
       title={team.name}
       parent={{ label: "Organizations", href: "/admin" }}
       subtitle={`Added ${date(team.createdAt)}`}
-      actions={<RenameDialog team={team} />}
+      actions={
+        <>
+          <RenameDialog team={team} />
+          <DeleteDialog team={team} />
+        </>
+      }
     >
       <Flex.Box
         x
@@ -182,3 +187,31 @@ const RenameContent = ({ team }: { team: Team }): ReactElement => {
     </Modal.Form>
   );
 };
+
+const DeleteDialog = ({ team }: { team: Team }): ReactElement => (
+  <Modal.Frame
+    name={`${team.name}.Delete`}
+    icon={<Icon.Delete />}
+    trigger={
+      <Dialog.Trigger variant="outlined" status="error" hideCaret>
+        <Icon.Delete />
+        Delete
+      </Dialog.Trigger>
+    }
+  >
+    <Modal.Confirm
+      question={`Delete "${team.name}"?`}
+      confirm="Delete"
+      delay={1500}
+      onConfirm={async () => {
+        await post(`/api/organizations/${team.key}/delete`);
+        navigate("/admin");
+      }}
+    >
+      This deletes the team from Clerk, so its members lose access. It also deletes the
+      team's licenses, their machines, its invitations, and its activity. You cannot
+      undo it. A Core checks its license offline, so a Core that already holds one of
+      these licenses keeps running as its terms allow.
+    </Modal.Confirm>
+  </Modal.Frame>
+);
