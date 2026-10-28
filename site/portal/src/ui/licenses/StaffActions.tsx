@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 import { type License } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
 import { filename } from "@/server/license/limits";
-import { post, postFile, reload, save } from "@/ui/api";
+import { navigate, post, postFile, reload, save } from "@/ui/api";
 import { EditDialog } from "@/ui/licenses/EditDialog";
 import { Modal } from "@/ui/modal";
 import { useAction } from "@/ui/useAction";
@@ -24,12 +24,15 @@ import { useAction } from "@/ui/useAction";
 export interface StaffActionsProps {
   license: License;
   now: Date;
+  /** back is the page that opens once the license is deleted. */
+  back: string;
 }
 
 /** StaffActions are the license actions only Synnax Labs staff can take. */
 export const StaffActions = ({
   license: lic,
   now,
+  back,
 }: StaffActionsProps): ReactElement => {
   const floating = useAction(async () => {
     const blob = await postFile(`/api/licenses/${lic.key}/floating`);
@@ -72,10 +75,10 @@ export const StaffActions = ({
       {lic.revokedAt == null && (
         <Modal.Frame
           name={`${lic.label}.Revoke`}
-          icon={<Icon.Delete />}
+          icon={<Icon.Disable />}
           trigger={
             <Dialog.Trigger variant="outlined" status="error" hideCaret>
-              <Icon.Delete />
+              <Icon.Disable />
               Revoke
             </Dialog.Trigger>
           }
@@ -98,6 +101,31 @@ export const StaffActions = ({
           </Modal.Confirm>
         </Modal.Frame>
       )}
+      <Modal.Frame
+        name={`${lic.label}.Delete`}
+        icon={<Icon.Delete />}
+        trigger={
+          <Dialog.Trigger variant="outlined" status="error" hideCaret>
+            <Icon.Delete />
+            Delete
+          </Dialog.Trigger>
+        }
+      >
+        <Modal.Confirm
+          question={`Delete "${lic.label}"?`}
+          confirm="Delete"
+          delay={1500}
+          onConfirm={async () => {
+            await post(`/api/licenses/${lic.key}/delete`);
+            navigate(back);
+          }}
+        >
+          This deletes the license, its machines, and its history. You cannot undo it,
+          and no one gets an email. A Core checks its license offline, so a Core that
+          already holds it keeps running as its terms allow. To keep the history, revoke
+          the license instead.
+        </Modal.Confirm>
+      </Modal.Frame>
     </>
   );
 };

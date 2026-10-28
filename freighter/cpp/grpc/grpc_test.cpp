@@ -15,7 +15,7 @@
 #include "freighter/cpp/grpc/grpc.h"
 #include "freighter/cpp/grpc/testutil/freighter/cpp/grpc/testutil/service.grpc.pb.h"
 #include "freighter/cpp/grpc/testutil/server.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace freighter::grpc {
 /// Internal response type uses message.

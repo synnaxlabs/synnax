@@ -48,6 +48,12 @@ on:
         description: "Repository script to run after checkout, before the agent"
         type: string
         default: ""
+      recipient:
+        description:
+          "GPG public key. With output report, the report output is encrypted to it and
+          nothing of the report reaches the log or the step summary."
+        type: string
+        default: ""
     outputs:
       pr-url:
         description: "URL of the PR the agent opened, pushed to, or commented on"
@@ -179,6 +185,7 @@ jobs:
           TITLE: ${{ inputs.title }}
           LABELS: ${{ inputs.labels }}
           BUDGET: ${{ inputs.timeout-minutes }}
+          RECIPIENT: ${{ inputs.recipient }}
         run: |
           args=(--agent "$AGENT" --output "$OUTPUT" --prompt "$PROMPT")
           # Leave ten minutes for setup and delivery. Deliver to GitHub before the App
@@ -189,4 +196,8 @@ jobs:
           if [ -n "$PR" ] && [ "$PR" != "0" ]; then args+=(--pr "$PR"); fi
           if [ -n "$TITLE" ]; then args+=(--title "$TITLE"); fi
           if [ -n "$LABELS" ]; then args+=(--labels "$LABELS"); fi
+          if [ -n "$RECIPIENT" ]; then
+            printf '%s\n' "$RECIPIENT" > "$RUNNER_TEMP/recipient.asc"
+            args+=(--recipient "$RUNNER_TEMP/recipient.asc")
+          fi
           "$RUNNER_TEMP/agent/run" "${args[@]}"

@@ -24,6 +24,8 @@ export interface KeyValueEditorProps<K extends string, V extends string | number
   valuePlaceholder?: string;
   valueType?: V extends number ? "number" : "string";
   valueFirst?: boolean;
+  /** Names one entry in the add and remove buttons ("header"). */
+  resourceName?: string;
 }
 
 export const KeyValueEditor = <K extends string, V extends string | number>({
@@ -33,6 +35,7 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
   valuePlaceholder = "Value",
   valueType,
   valueFirst = false,
+  resourceName,
   ...rest
 }: KeyValueEditorProps<K, V>): React.ReactElement => {
   const vt = valueType ?? "string";
@@ -95,7 +98,12 @@ export const KeyValueEditor = <K extends string, V extends string | number>({
 
   return (
     <Input.Item padHelpText={false} {...rest}>
-      <Input.Table value={rows} onChange={handleRowsChange} preview={preview}>
+      <Input.Table
+        value={rows}
+        onChange={handleRowsChange}
+        preview={preview}
+        resourceName={resourceName}
+      >
         {columns}
       </Input.Table>
     </Input.Item>

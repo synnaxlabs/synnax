@@ -23,7 +23,7 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Project } from "@/feature/project";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
-import { type TestStore } from "@/testutil";
+import { MemoryKV, type TestStore } from "@/testutil";
 
 const client = createTestClient();
 
@@ -120,7 +120,7 @@ describe("Sample project", () => {
     const { store, sample } = await openFromPalette(
       await Session.createStore({
         enablePrerender: false,
-        openKV: () => new Session.Persist.MemoryKV(),
+        openKV: () => new MemoryKV(),
       }),
     );
     await waitFor(() =>

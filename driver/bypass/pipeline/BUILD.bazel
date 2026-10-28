@@ -39,7 +39,7 @@ cc_test(
         "//driver/bypass/pipeline",
         "//driver/pipeline/testutil",
         "//x/cpp/sync",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
