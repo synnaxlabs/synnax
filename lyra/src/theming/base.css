@@ -212,6 +212,7 @@ th,
     --pluto-height-huge: 8rem;
     --pluto-height-tiny: 3.5rem;
     --pluto-field-gap: 3rem;
+    --pluto-section-gap: 4rem;
     --pluto-btn-transition:
         background 0.15s ease-in-out, border-color 0.15s ease-in-out,
         color 0.15s ease-in-out, fill 0.15s ease-in-out, opacity 0.15s ease-in-out,

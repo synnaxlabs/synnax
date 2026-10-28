@@ -10,7 +10,7 @@
  */
 
 .pluto-modal__body {
-    padding: 7rem 5rem;
+    padding: 3rem 4.5rem 6rem;
     min-height: 0;
     overflow-y: auto;
 
@@ -33,6 +33,41 @@
             & > .pluto-flex > .pluto-input-help-text {
                 min-height: calc(var(--pluto-field-gap) - 1rem / 3);
             }
+        }
+    }
+}
+
+/* A heading input that opens a body is its title. Its text starts on the content edge,
+   and a section gap follows it. A title that shows an error sits in a field, so its
+   message fills that gap. */
+.pluto-modal__body.pluto--field-gap > :first-child {
+    &.pluto-input.pluto-btn--text:is(
+            .pluto-text--h1,
+            .pluto-text--h2,
+            .pluto-text--h3
+        ) {
+        margin-bottom: calc(var(--pluto-section-gap) - var(--pluto-field-gap));
+
+        & > input {
+            padding-left: 0;
+        }
+    }
+
+    &.pluto-input__item:has(
+            > .pluto-flex
+                > .pluto-input.pluto-btn--text:is(
+                    .pluto-text--h1,
+                    .pluto-text--h2,
+                    .pluto-text--h3
+                )
+        ) {
+        & > .pluto-flex > .pluto-input > input {
+            padding-left: 0;
+        }
+
+        & > .pluto-flex > .pluto-input-help-text {
+            min-height: calc(var(--pluto-section-gap) - 1rem / 3);
+            margin-left: 0;
         }
     }
 }

@@ -129,8 +129,8 @@ const Create = ({
                   autoFocus
                   level="h2"
                   variant="text"
-                  placeholder="Name"
-                  aria-label="Name"
+                  placeholder="Range name"
+                  aria-label="Range name"
                   {...p}
                 />
               )}
@@ -171,7 +171,6 @@ const Create = ({
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action={saveName} />
         <Nav.Bar.End>
           <Button.Button onClick={() => saveLocal()} disabled={variant === "loading"}>
             Save locally
@@ -182,6 +181,7 @@ const Create = ({
             disabled={!clientExists}
             status={variant}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             {saveName}
           </Button.Button>

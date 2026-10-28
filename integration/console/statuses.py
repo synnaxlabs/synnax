@@ -60,7 +60,7 @@ class StatusesClient(ResourceClient):
         modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
-        name_input = modal.locator("input[placeholder='Name']")
+        name_input = modal.locator("input[placeholder='Status name']")
         name_input.fill(name)
 
         if labels is not None:
