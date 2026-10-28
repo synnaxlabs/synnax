@@ -16,7 +16,7 @@ import { parse } from "@/server/license/fingerprint";
 import { readName } from "@/server/license/machine";
 import { ensurePersonal } from "@/server/organization";
 import { check } from "@/server/ratelimit";
-import { converted, referredBy } from "@/server/referral";
+import { convert } from "@/server/referral";
 import { active, announce, firstLogin } from "@/server/slack";
 import { arrival } from "@/server/user";
 
@@ -47,7 +47,6 @@ export const POST: APIRoute = async (context) =>
       organization: org.key,
       now,
     });
-    const referred = await referredBy(portal.store, portal.directory, session.userID);
     const linked = await link(portal.store, portal.signer, {
       userID: session.userID,
       userName: session.name,
@@ -55,11 +54,17 @@ export const POST: APIRoute = async (context) =>
       machineName,
       now,
     });
-    if (linked.previous == null && referred != null && body.analytics === "true")
-      await portal.analytics.capture(converted(referred, session.userID, now));
+    const referrer =
+      linked.previous == null
+        ? await convert(portal.store, portal.directory, portal.analytics, {
+            userID: session.userID,
+            shared: body.analytics === "true",
+            now,
+          })
+        : undefined;
     await announce(portal.slack, async () => {
       const { previous } = linked;
-      if (previous == null) return firstLogin(session, machineName, referred?.referrer);
+      if (previous == null) return firstLogin(session, machineName, referrer);
       const arrived = await arrival(portal.store, portal.directory, {
         userID: session.userID,
         machine: machineName,

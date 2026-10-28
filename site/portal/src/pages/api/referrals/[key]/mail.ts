@@ -10,19 +10,19 @@
 import { type APIRoute } from "astro";
 
 import { handle } from "@/respond";
-import { notFound } from "@/server/errors";
-import { mailLink, retrieve } from "@/server/referral";
+import { mailLink } from "@/server/referral";
 
 /**
  * POST emails the referral link to the logged-in user, so a user on a phone can open
- * it on their computer.
+ * it on their computer. A link is emailed at most once every few minutes.
  */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
     const { portal } = context.locals;
-    const session = await portal.session();
-    const ref = await retrieve(portal.store.query, context.params.key ?? "");
-    if (ref == null) throw notFound("Referral");
-    await mailLink(portal.mail, ref, session);
+    await mailLink(portal.store, portal.mail, {
+      key: context.params.key ?? "",
+      session: await portal.session(),
+      now: portal.now(),
+    });
     return new Response(null, { status: 204 });
   });

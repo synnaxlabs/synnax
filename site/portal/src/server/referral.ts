@@ -9,15 +9,15 @@
 
 import { randomBytes } from "node:crypto";
 
-import { and, desc, eq, isNull, notExists } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, notExists, or } from "drizzle-orm";
 
-import { type Capture } from "@/server/analytics";
+import { type Analytics, type Capture } from "@/server/analytics";
 import { type Reader, type Store } from "@/server/db/db";
 import { type Referral, referral } from "@/server/db/schema";
 import { type Account, type Directory } from "@/server/directory";
-import { badRequest, notFound } from "@/server/errors";
+import { badRequest, HTTPError, notFound } from "@/server/errors";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
-import { type Mailer } from "@/server/mail";
+import { type Mailer, type Message } from "@/server/mail";
 import { type Session } from "@/server/session";
 import { NONE, type Usage } from "@/server/usage";
 import { usageOf } from "@/server/user";
@@ -160,27 +160,66 @@ export const visit = async (
   return claimed ?? null;
 };
 
-/** mailLink emails a referral link to the logged-in user, to open on a computer. */
+/** MAIL_WAIT_MS is how long a referral link waits before it can be emailed again. */
+export const MAIL_WAIT_MS = 5 * 60 * 1000;
+
+export interface MailArgs {
+  key: string;
+  session: Session;
+  now: Date;
+}
+
+/**
+ * mailLink emails a referral link to the logged-in user, to open on a computer. A link
+ * is emailed at most once in {@link MAIL_WAIT_MS}. Nothing is recorded when the email
+ * fails.
+ * @throws {HTTPError} 404 for an unknown key, and 429 when the link was emailed too
+ * recently.
+ */
 export const mailLink = async (
+  store: Store,
   mail: Mailer,
-  { key }: Referral,
-  { email }: Session,
-): Promise<void> =>
-  await mail.send({
-    to: [email],
-    subject: "Install Synnax Desktop on your computer",
-    heading: "Install Synnax Desktop on your computer",
-    paragraphs: [
-      "Open this email on your Mac or Windows computer to download Synnax Desktop. " +
-        "Then log in to the app with this account.",
-    ],
-    facts: [
-      { label: "Account", value: email },
-      { label: "Runs on", value: "macOS on Apple silicon and Windows" },
-    ],
-    action: { label: "Continue setup", href: referralPath(key) },
-    reason: "You get this email because you asked for the download link.",
+  { key, session: { email }, now }: MailArgs,
+): Promise<void> => {
+  const found = await retrieve(store.query, key);
+  if (found == null) throw notFound("Referral");
+  const since = new Date(now.getTime() - MAIL_WAIT_MS);
+  await store.transact(async (tx) => {
+    const [row] = await tx
+      .update(referral)
+      .set({ mailedAt: now })
+      .where(
+        and(
+          eq(referral.key, key),
+          or(isNull(referral.mailedAt), lt(referral.mailedAt, since)),
+        ),
+      )
+      .returning({ key: referral.key });
+    if (row == null)
+      throw new HTTPError(
+        429,
+        "We emailed the link a moment ago. Check your inbox, or try again in a few " +
+          "minutes.",
+      );
+    await mail.send(notice(key, email));
   });
+};
+
+const notice = (key: string, email: string): Message => ({
+  to: [email],
+  subject: "Install Synnax Desktop on your computer",
+  heading: "Install Synnax Desktop on your computer",
+  paragraphs: [
+    "Open this email on your Mac or Windows computer to download Synnax Desktop. " +
+      "Then log in to the app with this account.",
+  ],
+  facts: [
+    { label: "Account", value: email },
+    { label: "Runs on", value: "macOS on Apple silicon and Windows" },
+  ],
+  action: { label: "Continue setup", href: referralPath(key) },
+  reason: "You get this email because you asked for the download link.",
+});
 
 /**
  * Stage is how far the recipient of a referral got: the link is sent, they opened it,
@@ -232,26 +271,6 @@ export const list = async (
   });
 };
 
-/** Referred is a user's referral with the name of the staff member who made it. */
-export interface Referred {
-  referral: Referral;
-  referrer: string;
-}
-
-/** referredBy returns the referral a user claimed, or null for none. */
-export const referredBy = async (
-  store: Store,
-  directory: Directory,
-  userID: string,
-): Promise<Referred | null> => {
-  const [found] = await store.query
-    .select()
-    .from(referral)
-    .where(eq(referral.userID, userID));
-  if (found == null) return null;
-  return { referral: found, referrer: await referrerOf(directory, found) };
-};
-
 /**
  * CONVERTED is the PostHog event of a referred user's first login to Synnax Desktop.
  * It sets the referral on their person once, so an insight can filter or break down by
@@ -259,9 +278,9 @@ export const referredBy = async (
  */
 export const CONVERTED = "referral_converted";
 
-/** converted is the {@link CONVERTED} event of a referred user. */
-export const converted = (
-  { referral: ref, referrer }: Referred,
+const converted = (
+  ref: Referral,
+  referrer: string,
   userID: string,
   now: Date,
 ): Capture => {
@@ -277,4 +296,40 @@ export const converted = (
     properties,
     once: { ...properties, referred_at: ref.createdAt.toISOString() },
   };
+};
+
+export interface ConvertArgs {
+  userID: string;
+  /** shared is true when the user lets Synnax Desktop send usage data. */
+  shared: boolean;
+  now: Date;
+}
+
+/**
+ * convert runs at a user's first Desktop login. It reads who referred the user and,
+ * when they share usage data, sends {@link CONVERTED}. It returns the referrer's name,
+ * or undefined for a user nobody referred. A failed read is logged and returns
+ * undefined, so a referral cannot fail the login.
+ */
+export const convert = async (
+  store: Store,
+  directory: Directory,
+  analytics: Analytics,
+  { userID, shared, now }: ConvertArgs,
+): Promise<string | undefined> => {
+  let found: { ref: Referral; referrer: string } | null;
+  try {
+    const [ref] = await store.query
+      .select()
+      .from(referral)
+      .where(eq(referral.userID, userID));
+    found = ref == null ? null : { ref, referrer: await referrerOf(directory, ref) };
+  } catch (err) {
+    console.error("failed to read the referral of a first login", { userID }, err);
+    return undefined;
+  }
+  if (found == null) return undefined;
+  if (shared)
+    await analytics.capture(converted(found.ref, found.referrer, userID, now));
+  return found.referrer;
 };

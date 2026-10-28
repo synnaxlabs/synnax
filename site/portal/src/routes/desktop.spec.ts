@@ -229,6 +229,26 @@ describe("desktop routes", () => {
         expect(harness.analytics.captured).toHaveLength(1);
       });
 
+      it("should log the user in when the referral cannot be read", async () => {
+        const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+        harness.directory.names = async () => {
+          throw CLERK_DOWN;
+        };
+        await linkWith(true);
+        expect(harness.analytics.captured).toEqual([]);
+        expect(harness.slack.posted).toEqual([
+          firstLogin(
+            { userID: "user_a", name: "Ada Lovelace", email: "ada@example.com" },
+            "stand-1",
+          ),
+        ]);
+        expect(logged).toHaveBeenCalledWith(
+          "failed to read the referral of a first login",
+          { userID: "user_a" },
+          CLERK_DOWN,
+        );
+      });
+
       it("should name the referrer in the first login note", async () => {
         await linkWith(false);
         expect(harness.slack.posted).toEqual([

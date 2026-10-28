@@ -6,5 +6,6 @@ CREATE TABLE "referral" (
 	"opened_at" timestamp with time zone,
 	"user_id" text,
 	"claimed_at" timestamp with time zone,
+	"mailed_at" timestamp with time zone,
 	CONSTRAINT "referral_user_id_unique" UNIQUE("user_id")
 );

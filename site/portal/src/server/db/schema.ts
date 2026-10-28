@@ -140,6 +140,8 @@ export const referral = pgTable("referral", {
   /** userID is the Clerk user ID of the user who claimed the link. */
   userID: text("user_id").unique(),
   claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  /** mailedAt is when the link was last emailed to a visitor on a phone. */
+  mailedAt: timestamp("mailed_at", { withTimezone: true }),
 });
 export type Referral = typeof referral.$inferSelect;
 

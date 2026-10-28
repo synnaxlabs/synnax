@@ -9,7 +9,7 @@
 
 import { type APIRoute } from "astro";
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST as createRoute } from "@/pages/api/referrals";
 import { POST as mailRoute } from "@/pages/api/referrals/[key]/mail";
@@ -18,6 +18,7 @@ import { referral } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
 import { NOW } from "@/server/license/testutil";
+import { MAIL_WAIT_MS } from "@/server/referral";
 import { claimed } from "@/server/slack";
 import {
   body,
@@ -59,6 +60,10 @@ describe("referral routes", () => {
     h.directory.people[userID] = { email: `${userID}@example.com`, name };
     h.directory.members[userID] = teams;
   };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   const call = async (route: APIRoute, args: ContextArgs = {}): Promise<Response> =>
     await route(createAPIContext(h.portal, args));
@@ -198,6 +203,42 @@ describe("referral routes", () => {
         ],
         action: { label: "Continue setup", href: "/invite/Ada-link-001" },
       });
+      expect((await stored(ref.key)).mailedAt).toEqual(NOW);
+    });
+
+    it("should refuse to email the link again within the wait", async () => {
+      const ref = await createReferral(store, {
+        mailedAt: new Date(NOW.getTime() - MAIL_WAIT_MS + 1000),
+      });
+      h.signIn(ADA);
+      const res = await mail(ref.key);
+      expect(res.status).toBe(429);
+      expect(await body(res)).toEqual({
+        error:
+          "We emailed the link a moment ago. Check your inbox, or try again in a few " +
+          "minutes.",
+      });
+      expect(h.mail.sent).toEqual([]);
+    });
+
+    it("should email the link again after the wait", async () => {
+      const ref = await createReferral(store, {
+        mailedAt: new Date(NOW.getTime() - MAIL_WAIT_MS - 1000),
+      });
+      h.signIn(ADA);
+      expect((await mail(ref.key)).status).toBe(204);
+      expect(h.mail.sent).toHaveLength(1);
+    });
+
+    it("should record nothing when the email fails", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const ref = await createReferral(store);
+      h.mail.send = async () => {
+        throw new Error("Resend is down");
+      };
+      h.signIn(ADA);
+      expect((await mail(ref.key)).status).toBe(500);
+      expect((await stored(ref.key)).mailedAt).toBeNull();
     });
   });
 });
