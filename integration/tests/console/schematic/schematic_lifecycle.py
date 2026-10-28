@@ -161,7 +161,7 @@ class SchematicLifecycle(ConsoleCase):
 
         link = schematic.copy_link()
 
-        assert_link_format(link, "schematic")
+        assert_link_format(link, resource_type="schematic")
 
     def test_export_json(self, schematic: Schematic) -> None:
         """Test exporting the schematic as a JSON file via toolbar button."""
@@ -279,7 +279,7 @@ class SchematicLifecycle(ConsoleCase):
 
         self.log("Testing copy link via context menu")
         link = self.console.pages.copy_link(self.ctx_schematic_name)
-        assert_link_format(link, "schematic")
+        assert_link_format(link, resource_type="schematic")
 
         self.log("Testing export schematic via context menu")
         exported = self.console.pages.export(self.ctx_schematic_name)
@@ -336,7 +336,7 @@ class SchematicLifecycle(ConsoleCase):
         schematic = self.console.pages.create(Schematic, single_snapshot_name)
         schematic.close()
         self.console.ranges.snapshot_to_active_range(
-            single_snapshot_name, self.shared_range_name
+            single_snapshot_name, range_name=self.shared_range_name
         )
         self.console.pages.delete(single_snapshot_name)
 
@@ -348,7 +348,9 @@ class SchematicLifecycle(ConsoleCase):
             )
             multi_names.append(schematic.page_name)
             schematic.close()
-        self.console.pages.snapshot_to_active_range(multi_names, self.shared_range_name)
+        self.console.pages.snapshot_to_active_range(
+            multi_names, range_name=self.shared_range_name
+        )
         self.console.pages.delete_many(multi_names)
 
         self.log("Testing schematic snapshot rename synchronization")
@@ -361,7 +363,7 @@ class SchematicLifecycle(ConsoleCase):
         schematic = self.console.pages.create(Schematic, original_name)
         schematic.close()
         self.console.ranges.snapshot_to_active_range(
-            original_name, self.shared_range_name
+            original_name, range_name=self.shared_range_name
         )
 
         # Snapshot API automatically appends "(Snapshot)" suffix to the name
@@ -443,7 +445,9 @@ class SchematicLifecycle(ConsoleCase):
             f"Expected to navigate to '{names[1]}'"
         )
         self.console.layout.get_tab(names[1]).click()
-        schematic = Schematic.from_open_page(self.console.layout, self.client, names[1])
+        schematic = Schematic.from_open_page(
+            layout=self.console.layout, client=self.client, name=names[1]
+        )
         ref2 = OffPageReference(label=f"Go to {names[2]}", page_name=names[2])
         schematic.create_symbol(ref2)
         schematic.disable_edit()
@@ -456,7 +460,9 @@ class SchematicLifecycle(ConsoleCase):
             f"Expected to navigate to '{names[2]}'"
         )
         self.console.layout.get_tab(names[2]).click()
-        schematic = Schematic.from_open_page(self.console.layout, self.client, names[2])
+        schematic = Schematic.from_open_page(
+            layout=self.console.layout, client=self.client, name=names[2]
+        )
         ref3 = OffPageReference(label=f"Go to {names[0]}", page_name=names[0])
         schematic.create_symbol(ref3)
         schematic.disable_edit()

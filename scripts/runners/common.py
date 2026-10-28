@@ -118,7 +118,7 @@ def warn(what: str, e: Exception) -> None:
     print(f"[ERROR] {what} failed: {type(e).__name__}: {e}", flush=True)
 
 
-def channel_name(source: str, runner: str) -> str:
+def channel_name(source: str, *, runner: str) -> str:
     name = re.sub(r"[^A-Za-z0-9]+", "_", runner)
     for long, short in ABBREVIATIONS.items():
         name = name.replace(long, short)
@@ -130,7 +130,7 @@ def instance_prefix(runner: str) -> str | None:
     return m.group(1) if m else None
 
 
-def instance_for(runner: str, found: dict[str, dict]) -> str | None:
+def instance_for(runner: str, *, found: dict[str, dict]) -> str | None:
     prefix = instance_prefix(runner)
     if prefix is None:
         return None
@@ -140,22 +140,22 @@ def instance_for(runner: str, found: dict[str, dict]) -> str | None:
     return matches[0] if matches else None
 
 
-def instance_status(runners: set[str], found: dict[str, dict]) -> dict[str, bool]:
+def instance_status(runners: set[str], *, found: dict[str, dict]) -> dict[str, bool]:
     status: dict[str, bool] = {}
     for r in runners:
         if instance_prefix(r) is None:
             continue
-        iid = instance_for(r, found)
+        iid = instance_for(r, found=found)
         status[r] = iid is not None and found[iid]["running"]
     return status
 
 
 def command_channels(
-    runners: set[str], commands: tuple[str, ...] = COMMAND_CHANNELS
+    runners: set[str], *, commands: tuple[str, ...] = COMMAND_CHANNELS
 ) -> dict[str, tuple[str, str]]:
     """Maps each command channel name to its runner and command."""
     return {
-        channel_name(command, r): (r, command)
+        channel_name(command, runner=r): (r, command)
         for r in sorted(runners)
         if instance_prefix(r) is not None
         for command in commands
@@ -163,16 +163,19 @@ def command_channels(
 
 
 def gh_channels(runners: set[str]) -> dict[str, sy.DataType]:
-    return {channel_name("gh", r): sy.DataType.INT8 for r in sorted(runners)}
+    return {channel_name("gh", runner=r): sy.DataType.INT8 for r in sorted(runners)}
 
 
 def uptime_channels(runners: set[str]) -> dict[str, sy.DataType]:
-    return {channel_name("state_uptime", r): sy.DataType.INT32 for r in sorted(runners)}
+    return {
+        channel_name("state_uptime", runner=r): sy.DataType.INT32
+        for r in sorted(runners)
+    }
 
 
 def ec2_channels(runners: set[str]) -> dict[str, sy.DataType]:
     return {
-        channel_name("ec2", r): sy.DataType.BOOLEAN
+        channel_name("ec2", runner=r): sy.DataType.BOOLEAN
         for r in sorted(runners)
         if instance_prefix(r) is not None
     }
@@ -190,7 +193,7 @@ class Channels:
     """Creates channels on the Core. While disabled every method does nothing, since
     the usual accounts cannot create channels."""
 
-    def __init__(self, client: sy.Synnax, enabled: bool) -> None:
+    def __init__(self, *, client: sy.Synnax, enabled: bool) -> None:
         self.client = client
         self.enabled = enabled
 
@@ -205,7 +208,9 @@ class Channels:
         except Exception as e:
             raise ChannelCreateError(f"{what}: {type(e).__name__}: {e}") from e
 
-    def data(self, index: sy.Channel | None, channels: dict[str, sy.DataType]) -> None:
+    def data(
+        self, *, index: sy.Channel | None, channels: dict[str, sy.DataType]
+    ) -> None:
         if not self.enabled or index is None:
             return
         wanted = [
@@ -215,7 +220,7 @@ class Channels:
         for i in range(0, len(wanted), BATCH):
             self.create(f"channels on {index.name}", *wanted[i : i + BATCH])
 
-    def calculated(self, name: str, expression: str) -> None:
+    def calculated(self, name: str, *, expression: str) -> None:
         """Creates, or when the expression changed rewrites, a calculated channel."""
         if not self.enabled:
             return
@@ -233,7 +238,7 @@ class Channels:
         index = sy.Channel(name=name, data_type=sy.DataType.TIMESTAMP, is_index=True)
         return self.create(f"index {name}", index)[0]
 
-    def virtual(self, name: str, data_type: sy.DataType) -> None:
+    def virtual(self, name: str, *, data_type: sy.DataType) -> None:
         if not self.enabled:
             return
         self.create(
@@ -247,12 +252,19 @@ class Channels:
         for r in sorted(runners):
             if instance_prefix(r) is None:
                 continue
-            index = self.index(channel_name(AGENT_INDEX, r))
-            self.data(index, {channel_name(s, r): t for s, t in AGENT_CHANNELS.items()})
-            self.virtual(channel_name(AGENT_LOG, r), sy.DataType.STRING)
+            index = self.index(channel_name(AGENT_INDEX, runner=r))
+            self.data(
+                index=index,
+                channels={
+                    channel_name(s, runner=r): t for s, t in AGENT_CHANNELS.items()
+                },
+            )
+            self.virtual(
+                channel_name(AGENT_LOG, runner=r), data_type=sy.DataType.STRING
+            )
 
 
-def latest(client: sy.Synnax, names: list[str]) -> dict[str, np.generic]:
+def latest(client: sy.Synnax, *, names: list[str]) -> dict[str, np.generic]:
     """The last sample of each numeric channel that has one. Misses samples still
     under an open writer."""
     read = client.read_latest(names)

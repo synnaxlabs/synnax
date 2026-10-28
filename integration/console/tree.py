@@ -464,7 +464,7 @@ class Tree:
         return indicator.count() > 0
 
     def get_children_names(
-        self, parent: Locator, prefix: str, parent_name: str
+        self, parent: Locator, *, prefix: str, parent_name: str
     ) -> list[str]:
         """Get visible child item names nested under a parent in the tree.
 

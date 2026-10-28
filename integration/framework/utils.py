@@ -54,7 +54,7 @@ def get_core_fixture_path(relative: str) -> str:
 
 
 @contextmanager
-def named_envelope_copy(path: str, name: str) -> Iterator[str]:
+def named_envelope_copy(path: str, *, name: str) -> Iterator[str]:
     """Temp copy of ``path`` named ``{name}.json``.
 
     An envelope's ``name`` header wins over the filename fallback, and several
@@ -166,6 +166,7 @@ def create_time_index(client: sy.Synnax, name: str) -> sy.Channel:
 def create_virtual_channel(
     client: sy.Synnax,
     name: str,
+    *,
     data_type: sy.DataType = sy.DataType.FLOAT32,
 ) -> sy.Channel:
     """Create (or retrieve) a virtual channel."""
@@ -195,6 +196,7 @@ def create_virtual_channels(
 def create_indexed_channel(
     client: sy.Synnax,
     name: str,
+    *,
     data_type: sy.DataType,
     index_key: int,
 ) -> sy.Channel:
@@ -210,6 +212,7 @@ def create_indexed_channel(
 def create_indexed_channels(
     client: sy.Synnax,
     names: list[str],
+    *,
     index_key: int,
     data_type: sy.DataType = sy.DataType.FLOAT32,
 ) -> list[sy.Channel]:
@@ -226,6 +229,7 @@ def create_indexed_channels(
 def create_indexed_pair(
     client: sy.Synnax,
     name: str,
+    *,
     data_type: sy.DataType = sy.DataType.FLOAT64,
 ) -> sy.Channel:
     """Create a time index channel and a data channel indexed to it.
@@ -233,14 +237,14 @@ def create_indexed_pair(
     The index channel is named ``{name}_time``. Returns the data channel.
     """
     idx = create_time_index(client, f"{name}_time")
-    return create_indexed_channel(client, name, data_type, idx.key)
+    return create_indexed_channel(client, name, data_type=data_type, index_key=idx.key)
 
 
 _LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
 
 
 def assert_link_format(
-    link: str, resource_type: str, resource_id: str | None = None
+    link: str, *, resource_type: str, resource_id: str | None = None
 ) -> None:
     """Assert that a synnax:// link matches the expected format.
 
@@ -279,6 +283,7 @@ def assert_link_format(
 
 def assert_envelope(
     exported: dict[str, Any],
+    *,
     envelope_type: str,
     min_version: int,
     name: str | None = None,

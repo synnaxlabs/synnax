@@ -27,17 +27,21 @@ class Table(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Table page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
         self.colors = Colors(self.page)
 
-    def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
+    def set_cell_channel(
+        self, channel_name: str, *, row: int = 0, col: int = 0
+    ) -> None:
         """Set a cell to display a channel's telemetry value.
 
         Args:
@@ -82,7 +86,7 @@ class Table(ConsolePage):
         text_input = self.page.locator("text=Text").locator("..").locator("input").first
         return text_input.input_value().strip()
 
-    def has_text(self, text: str, row: int = 0, col: int = 0) -> bool:
+    def has_text(self, text: str, *, row: int = 0, col: int = 0) -> bool:
         """Check if a text cell contains the given text.
 
         Args:
@@ -95,7 +99,7 @@ class Table(ConsolePage):
         """
         return self.get_cell_text(row, col) == text
 
-    def has_channel(self, channel_name: str, row: int = 0, col: int = 0) -> bool:
+    def has_channel(self, channel_name: str, *, row: int = 0, col: int = 0) -> bool:
         """Check if a channel is shown in a cell.
 
         Args:
@@ -120,7 +124,7 @@ class Table(ConsolePage):
         button.wait_for(state="visible", timeout=5000)
         button.click()
 
-    def delete_row(self, row: int, col: int = 0) -> None:
+    def delete_row(self, row: int, *, col: int = 0) -> None:
         """Delete a row via context menu on a cell.
 
         Args:
@@ -130,7 +134,7 @@ class Table(ConsolePage):
         cell = self._get_cell(row, col)
         self.ctx_menu.action(cell, f"Delete row {row + 1}")
 
-    def delete_column(self, col: int, row: int = 0) -> None:
+    def delete_column(self, col: int, *, row: int = 0) -> None:
         """Delete a column via context menu on a cell.
 
         Args:
@@ -238,19 +242,19 @@ class Table(ConsolePage):
         """Click the column indicator (top header) to select every cell in the column."""
         self._get_indicator("x", col).click()
 
-    def add_row_above(self, row: int, col: int = 0) -> None:
+    def add_row_above(self, row: int, *, col: int = 0) -> None:
         """Insert a row above the row containing the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add row above")
 
-    def add_row_below(self, row: int, col: int = 0) -> None:
+    def add_row_below(self, row: int, *, col: int = 0) -> None:
         """Insert a row below the row containing the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add row below")
 
-    def add_col_left(self, col: int, row: int = 0) -> None:
+    def add_col_left(self, col: int, *, row: int = 0) -> None:
         """Insert a column to the left of the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add column left")
 
-    def add_col_right(self, col: int, row: int = 0) -> None:
+    def add_col_right(self, col: int, *, row: int = 0) -> None:
         """Insert a column to the right of the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add column right")
 
@@ -334,7 +338,7 @@ class Table(ConsolePage):
             raise ValueError(f"Cell ({row}, {col}) has no key")
         return key
 
-    def wait_for_cell_key(self, row: int, col: int, key: str) -> None:
+    def wait_for_cell_key(self, row: int, col: int, *, key: str) -> None:
         """Wait until the cell with the given key sits at (row, col)."""
         expect(self._get_cell(row, col)).to_have_attribute("id", key)
 

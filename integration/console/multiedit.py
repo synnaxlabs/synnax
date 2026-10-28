@@ -45,4 +45,4 @@ class Colors:
 
     def recolor(self, swatch: Locator, hex_digits: str) -> None:
         """Pick a new color for every element that holds the color of `swatch`."""
-        color.pick(self.page, swatch, hex_digits)
+        color.pick(self.page, swatch, hex_color=hex_digits)

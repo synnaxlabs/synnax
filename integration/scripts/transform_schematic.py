@@ -37,7 +37,9 @@ def load_channel_mapping(mapping_path: Path) -> dict[int, int]:
     return key_map
 
 
-def transform_value(value: Any, key_map: dict[int, int], stats: dict[str, int]) -> Any:
+def transform_value(
+    value: Any, *, key_map: dict[int, int], stats: dict[str, int]
+) -> Any:
     """Recursively transform values, replacing config keys with synnax keys.
 
     Args:
@@ -46,9 +48,12 @@ def transform_value(value: Any, key_map: dict[int, int], stats: dict[str, int]) 
         stats: Dictionary to track replacement statistics
     """
     if isinstance(value, dict):
-        return {k: transform_value(v, key_map, stats) for k, v in value.items()}
+        return {
+            k: transform_value(v, key_map=key_map, stats=stats)
+            for k, v in value.items()
+        }
     if isinstance(value, list):
-        return [transform_value(item, key_map, stats) for item in value]
+        return [transform_value(item, key_map=key_map, stats=stats) for item in value]
     if isinstance(value, int):
         # If in key map, use the synnax key
         if value in key_map:
@@ -64,7 +69,7 @@ def transform_value(value: Any, key_map: dict[int, int], stats: dict[str, int]) 
 
 
 def transform_schematic(
-    schematic_path: Path, mapping_path: Path, output_path: Path
+    schematic_path: Path, *, mapping_path: Path, output_path: Path
 ) -> None:
     """Transform schematic by replacing config keys with Synnax keys."""
     print(f"\n{'=' * 70}")
@@ -85,7 +90,7 @@ def transform_schematic(
     # Transform schematic with statistics tracking
     print("Transforming channel keys...")
     stats = {"mapped_replacements": 0, "unknown_to_zero": 0}
-    transformed = transform_value(schematic, key_map, stats)
+    transformed = transform_value(schematic, key_map=key_map, stats=stats)
 
     print("\nReplacement summary:")
     print(f"  Config keys in mapping: {len(key_map)}")
@@ -167,7 +172,9 @@ The script will:
         sys.exit(1)
 
     # Transform
-    transform_schematic(schematic_path, mapping_path, output_path)
+    transform_schematic(
+        schematic_path, mapping_path=mapping_path, output_path=output_path
+    )
     print(f"Output: {output_path}")
 
 

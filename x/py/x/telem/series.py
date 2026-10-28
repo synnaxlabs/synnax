@@ -65,7 +65,13 @@ class _Payload(BaseModel):
 
 
 def _from_payload(p: _Payload) -> Series:
-    return Series(p.data, p.data_type, p.time_range, p.alignment, p.alignment_multiple)
+    return Series(
+        p.data,
+        data_type=p.data_type,
+        time_range=p.time_range,
+        alignment=p.alignment,
+        alignment_multiple=p.alignment_multiple,
+    )
 
 
 def _to_payload(s: Series) -> _Payload:
@@ -130,6 +136,7 @@ class Series(ArrayOperators):
     def __init__(
         self,
         data: CrudeSeries | MultiSeries,
+        *,
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
         alignment: CrudeAlignment | None = None,
@@ -230,7 +237,7 @@ class Series(ArrayOperators):
         return arr
 
     def to_numpy(
-        self, dtype: np.dtype | None = None, copy: bool | None = None
+        self, dtype: np.dtype | None = None, *, copy: bool | None = None
     ) -> np.ndarray:
         """Converts the Series to a numpy array. This is necessary for matplotlib
         interop.
@@ -429,7 +436,7 @@ class MultiSeries(ArrayOperators):
         return pre_alloc
 
     def to_numpy(
-        self, dtype: np.dtype | None = None, copy: bool | None = None
+        self, dtype: np.dtype | None = None, *, copy: bool | None = None
     ) -> np.ndarray:
         return self.__array__(dtype=dtype, copy=copy)
 

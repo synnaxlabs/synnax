@@ -77,7 +77,7 @@ the phase cannot land as the RFC plans it, stop and explain why. Do not change t
 plan."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Issue:
     id: str
     key: str
@@ -90,7 +90,7 @@ class Issue:
     blocker_states: tuple[str, ...] | None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Dispatch:
     issue: Issue
     rfc: str
@@ -149,7 +149,7 @@ def agent_fields(description: str) -> dict[str, str]:
 
 
 def select(
-    issues: list[Issue], open_prs: set[str], cap: int
+    issues: list[Issue], *, open_prs: set[str], cap: int
 ) -> tuple[list[Dispatch], list[str]]:
     """Returns the issues to dispatch, oldest first, and a reason for each skip."""
     in_flight = Counter(
@@ -173,7 +173,9 @@ def select(
             skipped.append(f"{issue.key}: {issue.project} has {cap} in flight")
         else:
             in_flight[issue.project] += 1
-            dispatches.append(Dispatch(issue, fields["RFC"], fields["Phase"]))
+            dispatches.append(
+                Dispatch(issue=issue, rfc=fields["RFC"], phase=fields["Phase"])
+            )
     return dispatches, skipped
 
 
@@ -221,7 +223,7 @@ def _linear(token: str, query: str, variables: dict[str, Any]) -> dict[str, Any]
     return data
 
 
-def fetch_issues(token: str, open_prs: set[str]) -> list[Issue]:
+def fetch_issues(token: str, *, open_prs: set[str]) -> list[Issue]:
     """Returns the open agent-ready issues, plus those in any state that an open PR
     names, so they count toward their project's cap."""
     numbers = sorted(int(key.removeprefix("SY-")) for key in open_prs)
@@ -250,7 +252,7 @@ def fetch_open_prs() -> list[dict[str, str]]:
     return prs
 
 
-def start(token: str, issues: list[Issue]) -> tuple[list[Issue], list[str]]:
+def start(token: str, *, issues: list[Issue]) -> tuple[list[Issue], list[str]]:
     """Moves each issue to In Progress. Returns the moved issues and an error for
     each issue that did not move, so the moved ones still get their agents."""
     states = _linear(
@@ -288,7 +290,9 @@ def main() -> None:
     args = parser.parse_args()
     open_prs = open_pr_keys(fetch_open_prs())
     with linear_token() as token:
-        dispatches, skipped = select(fetch_issues(token, open_prs), open_prs, args.cap)
+        dispatches, skipped = select(
+            fetch_issues(token, open_prs=open_prs), open_prs=open_prs, cap=args.cap
+        )
         for reason in skipped:
             print(f"skip {reason}", file=sys.stderr)
         for d in dispatches:
@@ -296,7 +300,7 @@ def main() -> None:
             print(f"{verb} {d.issue.key}: {d.issue.title} ({d.rfc} phase {d.phase})")
         if args.dry_run:
             return
-        moved, errors = start(token, [d.issue for d in dispatches])
+        moved, errors = start(token, issues=[d.issue for d in dispatches])
         started = [d for d in dispatches if d.issue in moved]
         if args.output:
             matrix = {"include": [d.matrix_entry() for d in started]}

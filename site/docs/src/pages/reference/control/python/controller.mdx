@@ -322,7 +322,7 @@ Returns a function and `True`. Call the function to run the commands in order: f
 command, it sleeps for `delay` with a precise sleep, then sets the value. `schedule`
 itself sends nothing.
 
-`ScheduledCommand(channel, value, delay)` is in `synnax.control`. Each `delay` counts
+`ScheduledCommand(channel=, value=, delay=)` is in `synnax.control`. Each `delay` counts
 from the previous command. A number for `delay` is in seconds. A `TimeSpan` also works.
 
 <Divider.Divider x />

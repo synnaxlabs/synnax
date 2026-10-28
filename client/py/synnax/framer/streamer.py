@@ -96,7 +96,7 @@ class WSStreamerCodec(WSCodec):
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
-        frame = self.codec.decode(data, 1)
+        frame = self.codec.decode(data, offset=1)
         return cast(P, Message(type="data", payload=_Response(frame=frame)))
 
 
@@ -128,6 +128,7 @@ class Streamer:
 
     def __init__(
         self,
+        *,
         client: WebsocketClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int = 1,
@@ -159,7 +160,7 @@ class Streamer:
             pass
 
     @overload
-    def read(self, timeout: float | int | TimeSpan) -> Frame | None:
+    def read(self, *, timeout: float | int | TimeSpan) -> Frame | None:
         """Reads the next frame of telemetry from the streamer with a timeout. If no
         frame is received within the timeout, this method will return None. If an error
         occurs while reading the frame, an exception will be raised.
@@ -178,7 +179,7 @@ class Streamer:
         raised.
         """
 
-    def read(self, timeout: float | None = None) -> Frame | None:
+    def read(self, *, timeout: float | None = None) -> Frame | None:
         """Reads the next frame of telemetry from the streamer. If a timeout is provided,
         this method will wait for the specified amount of time for a frame to be received.
         If no frame is received within the timeout, this method will return None. If no
@@ -211,7 +212,7 @@ class Streamer:
                 return self._adapter.adapt(Frame(res.frame))
 
     def _receive(self, timeout: float | None) -> _Response:
-        res = self._stream.receive(timeout)
+        res = self._stream.receive(timeout=timeout)
         self._liveness.received(res)
         return res
 
@@ -232,7 +233,7 @@ class Streamer:
             )
         )
 
-    def close(self, timeout: float | int | TimeSpan | None = None) -> None:
+    def close(self, *, timeout: float | int | TimeSpan | None = None) -> None:
         """Closes the streamer and frees all network resources.
 
         :param timeout: The maximum amount of time to wait for the server to acknowledge
@@ -243,7 +244,7 @@ class Streamer:
         self._stream.close_send()
         while True:
             try:
-                self._stream.receive(TimeSpan.to_seconds(timeout))
+                self._stream.receive(timeout=TimeSpan.to_seconds(timeout))
             except EOF:
                 break
 
@@ -288,6 +289,7 @@ class AsyncStreamer:
 
     def __init__(
         self,
+        *,
         client: AsyncWebsocketClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int,

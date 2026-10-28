@@ -212,6 +212,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,

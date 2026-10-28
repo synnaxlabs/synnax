@@ -25,15 +25,17 @@ class Log(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
         channel_name: str | None = None,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Log page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
 
         if channel_name is not None:
             self.set_channel(channel_name)
@@ -70,7 +72,7 @@ class Log(ConsolePage):
     def set_channel(self, channel_name: str) -> None:
         """Add a channel to the log via the 'Add channel' row."""
         self._channels().get_by_text("Add channel").click()
-        self.layout.select_from_dropdown(channel_name, "Search channels")
+        self.layout.select_from_dropdown(channel_name, placeholder="Search channels")
 
     def has_channel(self, channel_name: str) -> bool:
         """Check if a channel is shown in the Log toolbar."""
@@ -113,7 +115,7 @@ class Log(ConsolePage):
             return ""
         return self.layout.read_clipboard()
 
-    def wait_for_copied_entries(self, retries: int = 20) -> list[str]:
+    def wait_for_copied_entries(self, *, retries: int = 20) -> list[str]:
         """Poll the drag-select + context-menu copy until it yields entries.
 
         Returns the non-empty copied lines (one per rendered entry), or an empty

@@ -24,7 +24,7 @@ class Stream:
     def push(self, item: sy.Frame | Exception) -> None:
         self._items.put(item)
 
-    def read(self, timeout: sy.TimeSpan) -> sy.Frame | None:
+    def read(self, *, timeout: sy.TimeSpan) -> sy.Frame | None:
         try:
             item = self._items.get(timeout=timeout.seconds)
         except queue.Empty:

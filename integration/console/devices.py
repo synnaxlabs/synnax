@@ -21,8 +21,8 @@ from console.notifications import NotificationsClient
 
 def fill_configure(
     modal: Locator,
-    notifications: NotificationsClient,
     *,
+    notifications: NotificationsClient,
     name: str,
     identifier: str,
     action: str = "Save",
@@ -49,7 +49,7 @@ class DevicesClient(ResourceClient):
     RACK_PREFIX = "rack:"
     DEVICE_PREFIX = "device:"
 
-    def __init__(self, layout: LayoutClient, client: sy.Synnax):
+    def __init__(self, *, layout: LayoutClient, client: sy.Synnax):
         super().__init__(layout)
         self.client = client
 
@@ -328,7 +328,7 @@ class DevicesClient(ResourceClient):
             if not self.tree.is_expanded(parent):
                 self.tree.expand(parent)
             names = self.tree.get_children_names(
-                parent, self.DEVICE_PREFIX, parent_name
+                parent, prefix=self.DEVICE_PREFIX, parent_name=parent_name
             )
             if names:
                 return names
@@ -387,7 +387,7 @@ class DevicesClient(ResourceClient):
         self.modal.wait_for(state="visible", timeout=5000)
         fill_configure(
             self.modal,
-            self.layout.notifications,
+            notifications=self.layout.notifications,
             name=device_name,
             identifier=identifier,
         )
@@ -446,7 +446,7 @@ class DevicesClient(ResourceClient):
         )
         fill_configure(
             self.modal,
-            self.layout.notifications,
+            notifications=self.layout.notifications,
             name=device_name,
             identifier=identifier,
             action=action,

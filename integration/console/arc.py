@@ -43,7 +43,7 @@ class ArcClient(ResourceClient):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
-    def create(self, name: str, source: str, mode: str = "Text") -> None:
+    def create(self, name: str, *, source: str, mode: str = "Text") -> None:
         """Create a new Arc automation via Console UI.
 
         Args:

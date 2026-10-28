@@ -424,10 +424,10 @@ class ForLoops(ArcCase):
             ("series_peak_idx", sy.DataType.INT32),
         ]
         for name, dtype in virtual_channels:
-            create_virtual_channel(self.client, name, dtype)
+            create_virtual_channel(self.client, name, data_type=dtype)
         for case in CASES:
-            create_virtual_channel(self.client, case.in_ch, case.in_dtype)
-            create_indexed_pair(self.client, case.out_ch, case.out_dtype)
+            create_virtual_channel(self.client, case.in_ch, data_type=case.in_dtype)
+            create_indexed_pair(self.client, case.out_ch, data_type=case.out_dtype)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

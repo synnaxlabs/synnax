@@ -23,6 +23,7 @@ class Subscription:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         name: str,
         channels: list[str],
@@ -44,7 +45,7 @@ class Subscription:
         try:
             if self.streamer is None:
                 self.streamer = self.client.open_streamer(self.channels)
-            return self.streamer.read(timeout)
+            return self.streamer.read(timeout=timeout)
         except Exception as e:
             self.report(self.name, e)
             self.close()

@@ -19,7 +19,7 @@ from synnax.telem import SampleValue
 
 
 class Stream(Protocol):
-    def read(self, timeout: sy.TimeSpan) -> sy.Frame | None: ...
+    def read(self, *, timeout: sy.TimeSpan) -> sy.Frame | None: ...
 
     def close(self) -> None: ...
 
@@ -61,6 +61,7 @@ class Streamer:
 
     def __init__(
         self,
+        *,
         client: Client,
         read_timeout: sy.CrudeTimeSpan,
         log: Callable[[str], None],
@@ -86,6 +87,7 @@ class Streamer:
     def subscribe(
         self,
         channels: str | list[str],
+        *,
         timeout: sy.CrudeTimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> None:
         timeout_span = sy.TimeSpan.from_seconds(timeout)
@@ -133,6 +135,7 @@ class Streamer:
     def wait_for(
         self,
         key: str,
+        *,
         predicate: Callable[[int | float | str], bool],
         timeout: sy.CrudeTimeSpan,
     ) -> bool:
@@ -174,7 +177,7 @@ class Streamer:
         with self._cond:
             self._cond.notify_all()
 
-    def join(self, timeout: float = 5) -> None:
+    def join(self, *, timeout: float = 5) -> None:
         if self._thread.is_alive():
             self._thread.join(timeout=timeout)
             if self._thread.is_alive():
@@ -192,7 +195,7 @@ class Streamer:
         try:
             streamer = self._client.open_streamer(list(self._channels))
             while not self._should_stop:
-                frame = streamer.read(self._read_timeout)
+                frame = streamer.read(timeout=self._read_timeout)
                 if frame is None:
                     continue
                 with self._cond:

@@ -36,6 +36,7 @@ Phase 2 of the RFC.
 
 def issue(
     number: int,
+    *,
     state: str = "unstarted",
     project: str | None = "Foo",
     blockers: tuple[str, ...] | None = (),
@@ -54,13 +55,13 @@ def issue(
 
 
 def keys(
-    issues: list[Issue], open_prs: set[str] | None = None, cap: int = 3
+    issues: list[Issue], *, open_prs: set[str] | None = None, cap: int = 3
 ) -> list[str]:
-    dispatches, _ = select(issues, open_prs or set(), cap)
+    dispatches, _ = select(issues, open_prs=open_prs or set(), cap=cap)
     return [d.issue.key for d in dispatches]
 
 
-def node(more_relations: bool = False) -> dict[str, Any]:
+def node(*, more_relations: bool = False) -> dict[str, Any]:
     return {
         "id": "uuid",
         "identifier": "SY-7",
@@ -85,7 +86,14 @@ class TestParseIssue:
     def test_should_keep_only_blocking_relations(self) -> None:
         """Should read blockers from inverse relations of type blocks."""
         assert parse_issue(node()) == Issue(
-            "uuid", "SY-7", 7, "Add the codec", "", "backlog", None, ("completed",)
+            id="uuid",
+            key="SY-7",
+            number=7,
+            title="Add the codec",
+            description="",
+            state="backlog",
+            project=None,
+            blocker_states=("completed",),
         )
 
     def test_should_mark_blockers_unknown_on_a_partial_page(self) -> None:
@@ -136,7 +144,7 @@ class TestSelect:
             issue(1, blockers=("completed", "started")),
             issue(2, blockers=("canceled",)),
         ]
-        dispatches, skipped = select(issues, set(), 3)
+        dispatches, skipped = select(issues, open_prs=set(), cap=3)
         assert dispatches == []
         assert skipped == ["SY-1: blocked", "SY-2: blocked"]
 
@@ -152,7 +160,9 @@ class TestSelect:
 
     def test_should_skip_only_the_issue_with_unknown_blockers(self) -> None:
         """Should skip an issue whose blockers are unknown and dispatch the rest."""
-        dispatches, skipped = select([issue(1, blockers=None), issue(2)], set(), 3)
+        dispatches, skipped = select(
+            [issue(1, blockers=None), issue(2)], open_prs=set(), cap=3
+        )
         assert [d.issue.key for d in dispatches] == ["SY-2"]
         assert skipped == ["SY-1: too many relations to check its blockers"]
 
@@ -173,19 +183,21 @@ class TestSelect:
 
     def test_should_skip_issues_without_a_project(self) -> None:
         """Should report an issue with no project instead of dispatching it."""
-        dispatches, skipped = select([issue(1, project=None)], set(), 3)
+        dispatches, skipped = select([issue(1, project=None)], open_prs=set(), cap=3)
         assert dispatches == []
         assert skipped == ["SY-1: no project"]
 
     def test_should_skip_issues_without_an_agent_block(self) -> None:
         """Should report an issue whose description lacks the agent fields."""
-        dispatches, skipped = select([issue(1, description="## Why\n")], set(), 3)
+        dispatches, skipped = select(
+            [issue(1, description="## Why\n")], open_prs=set(), cap=3
+        )
         assert dispatches == []
         assert skipped == ["SY-1: no RFC and Phase under ## Agent"]
 
     def test_should_build_the_agent_workflow_inputs(self) -> None:
         """Should name the issue and the RFC in the prompt and title the PR."""
-        dispatches, _ = select([issue(1)], set(), 3)
+        dispatches, _ = select([issue(1)], open_prs=set(), cap=3)
         entry = dispatches[0].matrix_entry()
         assert entry["issue"] == "SY-1"
         assert entry["title"] == "SY-1: Add part 1"

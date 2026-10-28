@@ -17,6 +17,7 @@ AGENTS = frozenset({"synnax-claude-code"})
 
 def pr(
     number: int,
+    *,
     author: str = "someone",
     bot: bool = False,
     labels: tuple[str, ...] = (),
@@ -64,9 +65,9 @@ class TestLogin:
 class TestPercentile:
     def test_returns_the_nearest_rank_sample(self) -> None:
         values = [float(v) for v in range(1, 11)]
-        assert percentile(values, 0.5) == 5
-        assert percentile(values, 0.9) == 9
-        assert percentile([3.0], 0.9) == 3
+        assert percentile(values, q=0.5) == 5
+        assert percentile(values, q=0.9) == 9
+        assert percentile([3.0], q=0.9) == 3
 
 
 class TestReverted:
@@ -83,19 +84,33 @@ class TestReverted:
 class TestReport:
     def test_counts_groups_tiers_reverts_and_ci(self) -> None:
         prs = [
-            pr(1, "synnax-claude-code", True, ("review/bot",), merge_hours=2),
-            pr(2, "synnax-claude-code", True, ("review/bot",), merge_hours=4),
-            pr(3, "synnax-claude-code", True, closed=True),
+            pr(
+                1,
+                author="synnax-claude-code",
+                bot=True,
+                labels=("review/bot",),
+                merge_hours=2,
+            ),
+            pr(
+                2,
+                author="synnax-claude-code",
+                bot=True,
+                labels=("review/bot",),
+                merge_hours=4,
+            ),
+            pr(3, author="synnax-claude-code", bot=True, closed=True),
             pr(4, labels=("review/human",), merge_hours=10),
-            pr(5, "dependabot", True),
+            pr(5, author="dependabot", bot=True),
             pr(6, labels=("review/bot",), age_days=20, merge_hours=1),
         ]
         runs = [
-            Run("pull_request", NOW - timedelta(hours=1), NOW),
-            Run("merge_group", NOW - timedelta(minutes=30), NOW),
-            Run("pull_request", NOW - timedelta(days=9), NOW),
+            Run(event="pull_request", started=NOW - timedelta(hours=1), finished=NOW),
+            Run(event="merge_group", started=NOW - timedelta(minutes=30), finished=NOW),
+            Run(event="pull_request", started=NOW - timedelta(days=9), finished=NOW),
         ]
-        out = report(NOW, 7, AGENTS, prs, runs, {2, 99})
+        out = report(
+            now=NOW, days=7, agents=AGENTS, prs=prs, runs=runs, reverts={2, 99}
+        )
         assert out.splitlines() == [
             "*Agent report, 2026-10-19 to 2026-10-26*",
             "Opened: agent 3, human 1, other bot 1",

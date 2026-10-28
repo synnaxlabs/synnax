@@ -169,7 +169,7 @@ class UserRegister(ConsoleCase):
         self.console.access.expand_role("Operator")
 
         for username in usernames:
-            self.console.access.ensure_user_visible(username, "Operator")
+            self.console.access.ensure_user_visible(username, role_name="Operator")
 
         self.log(f"Deleting users: {usernames}")
         self.console.access.delete_users(usernames)

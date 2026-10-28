@@ -48,6 +48,7 @@ class ExecutionClient:
 
     def __init__(
         self,
+        *,
         config_client: ConfigClient,
         synnax_connection: SynnaxConnection,
         options: RunOptions,
@@ -318,7 +319,7 @@ class ExecutionClient:
         future.set_result(result)
 
     def _execute_single_test(self, test_def: TestDefinition) -> Test:
-        self._watchdog.watch(threading.current_thread(), test_def.timeout)
+        self._watchdog.watch(threading.current_thread(), timeout=test_def.timeout)
         test = Test(
             test_name=test_def.case,
             name=test_def.display_name,
@@ -444,7 +445,10 @@ class ExecutionClient:
             return
         end_offset = server_log.current_offset(self._server_log_path)
         server_log.slice_to(
-            self._server_log_path, bundle / "server.log", start_offset, end_offset
+            self._server_log_path,
+            bundle / "server.log",
+            start=start_offset,
+            end=end_offset,
         )
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:

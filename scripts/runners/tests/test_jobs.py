@@ -33,11 +33,11 @@ def runs(*ids: int) -> dict:
     return {"workflow_runs": [{"id": i} for i in ids]}
 
 
-def job(id: int, status: str) -> dict:
+def job(id: int, *, status: str) -> dict:
     return {"id": id, "status": status, "labels": LABELS}
 
 
-def delivery(action: str, id: int) -> dict:
+def delivery(action: str, *, id: int) -> dict:
     return {
         "action": action,
         "workflow_job": {
@@ -55,7 +55,14 @@ def delivery(action: str, id: int) -> dict:
 
 
 def jobs(github: GitHub, client: Client) -> Jobs:
-    return Jobs(github, Log(core(client), Channels(core(client), False), "log"))
+    return Jobs(
+        github=github,
+        log=Log(
+            client=core(client),
+            channels=Channels(client=core(client), enabled=False),
+            channel="log",
+        ),
+    )
 
 
 class TestJobs:
@@ -79,7 +86,7 @@ class TestJobs:
                 "/actions/runs?status=queued&per_page=100&page=1": runs(),
                 "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
                 "/actions/runs/7/jobs?per_page=100&page=1": {
-                    "jobs": [job(1, "completed"), job(2, "queued")]
+                    "jobs": [job(1, status="completed"), job(2, status="queued")]
                 },
             }
         )
@@ -89,14 +96,14 @@ class TestJobs:
         assert j.counts() == {"ubuntu-test-bot": 1}
 
     def test_should_read_every_page_of_jobs(self, client: Client) -> None:
-        first = [job(i, "completed") for i in range(100)]
+        first = [job(i, status="completed") for i in range(100)]
         github = Responses(
             {
                 "/actions/runs?status=queued&per_page=100&page=1": runs(),
                 "/actions/runs?status=in_progress&per_page=100&page=1": runs(7),
                 "/actions/runs/7/jobs?per_page=100&page=1": {"jobs": first},
                 "/actions/runs/7/jobs?per_page=100&page=2": {
-                    "jobs": [job(100, "queued")]
+                    "jobs": [job(100, status="queued")]
                 },
             }
         )
@@ -108,5 +115,5 @@ class TestJobs:
         self, client: Client
     ) -> None:
         j = jobs(Responses({}), client)
-        j.apply([delivery("in_progress", 2), delivery("completed", 1)])
+        j.apply([delivery("in_progress", id=2), delivery("completed", id=1)])
         assert j.active["runner"]["id"] == 2

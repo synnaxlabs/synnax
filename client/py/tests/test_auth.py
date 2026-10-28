@@ -75,7 +75,9 @@ class TestAuthRetry:
         )
 
         # Create auth client
-        auth = sy.auth.Client(mock_login_client, "synnax", "seldon")
+        auth = sy.auth.Client(
+            transport=mock_login_client, username="synnax", password="seldon"
+        )
 
         # Create base mock client
         mock_client = MockUnaryClient(responses=[Empty(), Empty()])
@@ -133,7 +135,7 @@ class TestAuthRetry:
                 _SessionCreateResponse(token=t, session=session) for t in ("abc", "def")
             ]
         )
-        auth = sy.auth.Client(login, "synnax", "seldon")
+        auth = sy.auth.Client(transport=login, username="synnax", password="seldon")
         mock_client = MockUnaryClient(responses=[Empty()])
         failed = False
 

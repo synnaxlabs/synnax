@@ -218,8 +218,10 @@ class TPCColdFlow(ArcCase):
     sim_daq_class = TPCSimDAQ
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "tpc_stage", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "pressure_status", sy.DataType.STRING)
+        create_virtual_channel(self.client, "tpc_stage", data_type=sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "pressure_status", data_type=sy.DataType.STRING
+        )
         for trigger_name in ["press_trigger", "vent_trigger", "mpv_trigger"]:
             create_virtual_channel(self.client, f"tpc_{trigger_name}")
         super().setup()
