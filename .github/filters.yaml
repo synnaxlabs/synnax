@@ -347,6 +347,11 @@ soem:
   - *cpp
   - vendor/soem/**
 
+# Every path that changes a C++ CodeQL analysis.
+codeql_cpp:
+  - *driver
+  - .github/workflows/codeql.yaml
+
 buildifier:
   - "**/*.bzl"
   - "**/BUILD"
