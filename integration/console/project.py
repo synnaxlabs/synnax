@@ -13,7 +13,7 @@ import random
 import shutil
 import zipfile
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.base import ResourceClient
@@ -306,6 +306,13 @@ class ProjectClient(ResourceClient):
         except PlaywrightTimeoutError:
             return
         search.fill(name)
+        # The Core filters the list. A click before the result lands can miss the row.
+        others = (
+            self.layout.page.locator(".console-project-splash__list")
+            .get_by_role("option")
+            .filter(has_not_text=name)
+        )
+        expect(others).to_have_count(0, timeout=5000)
 
     def on_splash(self) -> bool:
         """Report whether the project Splash screen is showing.
