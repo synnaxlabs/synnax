@@ -10,10 +10,7 @@
 import { describe, expect, it } from "vitest";
 
 import { AuthError } from "@/errors";
-import { createTestClient } from "@/testutil";
-
-const createKeyedClient = (apiKey: string) =>
-  createTestClient({ username: undefined, password: undefined, apiKey });
+import { createTestAuthClient, createTestClient } from "@/testutil";
 
 describe("apiKey", () => {
   it("should create a key, log in with it, list it, and delete it", async () => {
@@ -21,10 +18,10 @@ describe("apiKey", () => {
     const { token, key } = await owner.auth.apiKeys.create({ name: "spec" });
     expect(token.startsWith("syk_")).toBe(true);
     expect(key.name).toEqual("spec");
-    const keyed = createKeyedClient(token);
-    await keyed.auth.sessions.retrieve();
-    expect(keyed.auth.session?.credential).toEqual(key.key);
-    expect(keyed.auth.subject).toEqual(owner.auth.subject);
+    const keyed = createTestAuthClient({ apiKey: token });
+    await keyed.sessions.retrieve();
+    expect(keyed.session?.credential).toEqual(key.key);
+    expect(keyed.subject).toEqual(owner.auth.subject);
     expect(key.subject).toEqual(owner.auth.subject);
     const before = await owner.auth.apiKeys.retrieve();
     expect(before.map((k) => k.key)).toContain(key.key);
@@ -36,9 +33,9 @@ describe("apiKey", () => {
   it("should fail the next request of a client whose key was deleted", async () => {
     const owner = createTestClient();
     const { token, key } = await owner.auth.apiKeys.create({ name: "deleted" });
-    const keyed = createKeyedClient(token);
-    await keyed.auth.sessions.retrieve();
+    const keyed = createTestAuthClient({ apiKey: token });
+    await keyed.sessions.retrieve();
     await owner.auth.apiKeys.delete(key.key);
-    await expect(keyed.auth.sessions.retrieve()).rejects.toThrow(AuthError);
+    await expect(keyed.sessions.retrieve()).rejects.toThrow(AuthError);
   });
 });

@@ -26,15 +26,19 @@ describe("password", () => {
       const { username, subject } = await createUser();
       const owner = createTestClient();
       await owner.auth.passwords.set({ subject, password: "new" });
-      await createTestAuthClient({ username, password: "new" }).sessions.retrieve();
+      await createTestAuthClient({
+        credentials: { username, password: "new" },
+      }).sessions.retrieve();
       await expect(
-        createTestAuthClient({ username, password: "old" }).sessions.retrieve(),
+        createTestAuthClient({
+          credentials: { username, password: "old" },
+        }).sessions.retrieve(),
       ).rejects.toThrow(AuthError);
     });
 
     it("should set the caller's own password given the current one", async () => {
       const { username } = await createUser();
-      const self = createTestAuthClient({ username, password: "old" });
+      const self = createTestAuthClient({ credentials: { username, password: "old" } });
       await expect(self.passwords.set({ password: "new" })).rejects.toThrow();
       await self.sessions.retrieve();
       await self.passwords.set({
@@ -47,7 +51,9 @@ describe("password", () => {
       await self.sessions.delete(key);
       await self.sessions.retrieve();
       expect(self.session?.key).not.toEqual(key);
-      await createTestAuthClient({ username, password: "new" }).sessions.retrieve();
+      await createTestAuthClient({
+        credentials: { username, password: "new" },
+      }).sessions.retrieve();
     });
   });
 
@@ -68,7 +74,9 @@ describe("password", () => {
         username,
         password: "first",
       });
-      const client = createTestAuthClient({ username, password: "first" });
+      const client = createTestAuthClient({
+        credentials: { username, password: "first" },
+      });
       await client.sessions.retrieve();
       expect(client.subject?.key).toEqual(u.key);
     });
@@ -91,7 +99,7 @@ describe("password", () => {
     it("should retrieve the caller's own password by default", async () => {
       const owner = createTestClient();
       const { user: u, username, password } = await createTestUser(owner);
-      const client = createTestAuthClient({ username, password });
+      const client = createTestAuthClient({ credentials: { username, password } });
       const passwords = await client.passwords.retrieve();
       expect(passwords).toEqual([{ subject: user.ontologyID(u.key), username }]);
     });
@@ -127,7 +135,7 @@ describe("password", () => {
       const { user: u, password } = await createTestUser(owner);
       const username = id.create();
       await owner.auth.passwords.rename({ subject: user.ontologyID(u.key), username });
-      const client = createTestAuthClient({ username, password });
+      const client = createTestAuthClient({ credentials: { username, password } });
       await client.sessions.retrieve();
       expect(client.subject?.key).toEqual(u.key);
     });
@@ -135,7 +143,7 @@ describe("password", () => {
     it("should let a user rename its own password and log in again", async () => {
       const owner = createTestClient();
       const { user: u, username: old, password } = await createTestUser(owner);
-      const client = createTestAuthClient({ username: old, password });
+      const client = createTestAuthClient({ credentials: { username: old, password } });
       const username = id.create();
       await client.passwords.rename({ username });
       const [p] = await owner.auth.passwords.retrieve({

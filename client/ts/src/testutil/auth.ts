@@ -14,17 +14,17 @@ import { TEST_CLIENT_PARAMS } from "@/testutil/client";
 import { Transport } from "@/transport";
 
 /**
- * Creates a client that only logs in. It opens no streams, so a user with no role can
- * use it without access errors.
+ * Creates a client that only logs in. It opens no streams, so a user with no role, or a
+ * client whose key is deleted, can use it without stream errors.
  */
-export const createTestAuthClient = (credentials: auth.Credentials): auth.Client => {
+export const createTestAuthClient = (authority: auth.Authority): auth.Client => {
   const transport = new Transport(
     new url.URL({
       host: TEST_CLIENT_PARAMS.host,
       port: Number(TEST_CLIENT_PARAMS.port),
     }),
   );
-  const client = new auth.Client(transport.unary, { credentials });
+  const client = new auth.Client(transport.unary, authority);
   transport.use(client.middleware());
   return client;
 };

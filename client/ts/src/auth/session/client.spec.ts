@@ -23,7 +23,7 @@ describe("session", () => {
     it("should list the sessions of another subject", async () => {
       const owner = createTestClient();
       const { user: u, username, password } = await createTestUser(owner);
-      const other = createTestAuthClient({ username, password });
+      const other = createTestAuthClient({ credentials: { username, password } });
       await other.sessions.retrieve();
       const sessions = await owner.auth.sessions.retrieve([user.ontologyID(u.key)]);
       expect(sessions.map((s) => s.key)).toContain(other.session?.key);
