@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { modbus, type task } from "@synnaxlabs/client";
-import { record } from "@synnaxlabs/x";
+import { DataType, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -33,6 +33,16 @@ export const isVariableDensityReadChannel = (
 
 export type WriteChannel = modbus.WriteChannel;
 export type WriteChannelType = modbus.WriteChannelType;
+
+/**
+ * Returns the first address after a channel. A register channel spans one address per
+ * 16 bits of its data type, and a coil or discrete input spans one.
+ */
+export const nextAddress = (channel: ReadChannel | WriteChannel): number => {
+  if (!("dataType" in channel)) return channel.address + 1;
+  const bytes = new DataType(channel.dataType).density.valueOf();
+  return channel.address + Math.ceil(bytes / 2);
+};
 
 export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
 
