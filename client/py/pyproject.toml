@@ -151,6 +151,9 @@ markers = [
     "user: marker to temporarily focus a user test",
 ]
 
+[tool.coverage.run]
+omit = ["*/types_gen.py"]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

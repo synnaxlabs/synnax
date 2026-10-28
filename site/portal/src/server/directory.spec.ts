@@ -105,6 +105,7 @@ const createClient = ({
         if (found == null) throw Object.assign(new Error("Not Found"), { status: 404 });
         return found;
       },
+      deleteUser: async (id: string) => await write("deletedUsers", id),
       getUserList: async (args: Paged & { userId?: string[] }) => {
         record("userList", args);
         if (args.userId == null) return page(users, args);
@@ -653,6 +654,24 @@ describe("directory", () => {
         const { directory, calls } = createClient();
         await directory.delete("org_acme");
         expect(calls.deleted).toEqual(["org_acme"]);
+      });
+
+      it("should delete an account", async () => {
+        const { directory, calls } = createClient();
+        await directory.deleteAccount("user_a");
+        expect(calls.deletedUsers).toEqual(["user_a"]);
+      });
+
+      it("should treat an account Clerk does not know as deleted", async () => {
+        const refusal = Object.assign(new Error("Not Found"), { status: 404 });
+        const { directory } = createClient({ refusal });
+        await expect(directory.deleteAccount("user_a")).resolves.toBeUndefined();
+      });
+
+      it("should treat a team Clerk does not know as deleted", async () => {
+        const refusal = Object.assign(new Error("Not Found"), { status: 404 });
+        const { directory } = createClient({ refusal });
+        await expect(directory.delete("org_acme")).resolves.toBeUndefined();
       });
 
       it("should rename a team", async () => {

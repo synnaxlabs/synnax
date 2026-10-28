@@ -290,6 +290,13 @@ export const unlink = async (
   if (row.license.edition !== "desktop")
     throw badRequest("Only a Synnax Desktop machine can be logged out");
   await store.transact(async (tx) => {
+    // Locks the personal organization first, as link and renew do, so no two Desktop
+    // writes deadlock.
+    await tx
+      .select({ key: organization.key })
+      .from(organization)
+      .where(eq(organization.key, row.license.organization))
+      .for("update");
     await tx
       .update(activation)
       .set({ releasedAt: row.activation.releasedAt ?? now, renewalSecretHash: null })
