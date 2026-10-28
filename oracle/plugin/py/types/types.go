@@ -1922,9 +1922,38 @@ func (m *importManager) addNamespace(alias, path string) {
 	}
 }
 
+// generatedImportNames holds every name the generator itself imports from typing,
+// pydantic, uuid, enum, the ontology and x.codec. A module import never binds one of
+// them, because the generator may add that import later in the same file.
+var generatedImportNames = set.New(
+	"Annotated", "Any", "BaseModel", "Bytes", "ConfigDict", "Field", "Generic",
+	"ID", "IntEnum", "JsonValue", "Literal", "Tuple", "TypeAlias", "TypeVar",
+	"UUID", "uuid4",
+)
+
+// bound reports whether name is already a field or an imported name in the file.
+func (m *importManager) bound(name string) bool {
+	if m.fieldNames.Contains(name) || generatedImportNames.Contains(name) {
+		return true
+	}
+	for _, names := range [][]string{
+		m.uuid, m.typing, m.enum, m.pydantic, m.synnax, m.ontology, m.codec,
+	} {
+		if lo.Contains(names, name) {
+			return true
+		}
+	}
+	return lo.ContainsBy(
+		m.modules,
+		func(mod moduleImportData) bool { return mod.Alias == name },
+	) || lo.ContainsBy(
+		m.namespaces,
+		func(ns namespaceImportData) bool { return ns.Alias == name },
+	)
+}
+
 // addModuleImport adds `from parentPath import moduleName` and returns the name that
-// binds it. A name that a field or another import already uses gets underscore
-// suffixes until it is free.
+// binds it. A name that bound reports gets underscore suffixes until it is free.
 func (m *importManager) addModuleImport(parentPath, moduleName string) string {
 	for _, mod := range m.modules {
 		if mod.Parent == parentPath && mod.Module == moduleName {
@@ -1932,10 +1961,7 @@ func (m *importManager) addModuleImport(parentPath, moduleName string) string {
 		}
 	}
 	alias := moduleName
-	for m.fieldNames.Contains(alias) || lo.ContainsBy(
-		m.modules,
-		func(mod moduleImportData) bool { return mod.Alias == alias },
-	) {
+	for m.bound(alias) {
 		alias += "_"
 	}
 
