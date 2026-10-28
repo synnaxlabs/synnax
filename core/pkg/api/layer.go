@@ -78,14 +78,17 @@ type Transport struct {
 	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
 	// AuthPasswordCreate gives the caller or another user its first password.
 	AuthPasswordCreate freighter.UnaryServer[auth.PasswordCreateRequest, struct{}]
+	// AuthPasswordRetrieve lists passwords by subject or username, without hashes.
+	AuthPasswordRetrieve freighter.UnaryServer[auth.PasswordRetrieveRequest, auth.PasswordRetrieveResponse]
+	// AuthPasswordRename changes the username of the caller's password or another's.
+	AuthPasswordRename freighter.UnaryServer[auth.PasswordRenameRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
 	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, struct{}]
 	// USER
-	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
-	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
-	UserCreate         freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
-	UserDelete         freighter.UnaryServer[user.DeleteRequest, struct{}]
-	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
+	UserRename   freighter.UnaryServer[user.RenameRequest, struct{}]
+	UserCreate   freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
+	UserDelete   freighter.UnaryServer[user.DeleteRequest, struct{}]
+	UserRetrieve freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve      freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
@@ -318,11 +321,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
 		t.AuthPasswordCreate,
+		t.AuthPasswordRetrieve,
+		t.AuthPasswordRename,
 		t.AuthPasswordSet,
 
 		// USER
 		t.UserRename,
-		t.UserChangeUsername,
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
@@ -507,6 +511,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthPasswordCreate.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.CreatePassword),
 	)
+	t.AuthPasswordRetrieve.BindHandler(l.Auth.RetrievePasswords)
+	t.AuthPasswordRename.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.Auth.RenamePassword),
+	)
 	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
 
 	// LICENSE
@@ -516,9 +524,6 @@ func (l *Layer) BindTo(t Transport) {
 
 	// USER
 	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
-	t.UserChangeUsername.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeUsername),
-	)
 	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
 	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
@@ -738,10 +743,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.User, err = user.NewService(user.ServiceConfig{
-		RBAC:     cfg.Service.RBAC,
-		User:     cfg.Service.User,
-		Password: cfg.Service.Password,
-		Auth:     cfg.Service.Auth,
+		RBAC: cfg.Service.RBAC,
+		User: cfg.Service.User,
+		Auth: cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}

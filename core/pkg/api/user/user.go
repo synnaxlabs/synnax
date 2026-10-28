@@ -17,11 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -36,10 +34,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	User *user.Service
-	// Password stores passwords and checks proofs of them.
-	//
-	// [REQUIRED]
-	Password *password.Service
 	// Auth logs subjects in and checks their session tokens.
 	//
 	// [REQUIRED]
@@ -56,7 +50,6 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.User = override.Nil(c.User, other.User)
-	c.Password = override.Nil(c.Password, other.Password)
 	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
@@ -66,7 +59,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.user")
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("user", c.User)
-	v.NotNil("password", c.Password)
 	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
@@ -75,7 +67,6 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	access   *rbac.Service
 	internal *user.Service
-	password *password.Service
 	auth     *svcauth.Service
 }
 
@@ -89,7 +80,6 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		access:   cfg.RBAC,
 		internal: cfg.User,
-		password: cfg.Password,
 		auth:     cfg.Auth,
 	}, nil
 }
@@ -129,45 +119,6 @@ func (s *Service) Create(
 	return CreateResponse{Users: created}, nil
 }
 
-type ChangeUsernameRequest struct {
-	Username string   `json:"username" msgpack:"username"`
-	Key      user.Key `json:"key"      msgpack:"key"`
-}
-
-// ChangeUsername changes the username of the password held by the user with the given
-// key.
-func (s *Service) ChangeUsername(
-	ctx context.Context,
-	tx gorp.Tx,
-	req ChangeUsernameRequest,
-) (struct{}, error) {
-	subject := auth.GetSubject(ctx)
-	if subject.Key == req.Key.String() {
-		return struct{}{}, errors.New(
-			"you cannot change your own username through the user service",
-		)
-	}
-	var p password.Password
-	if err := s.password.NewRetrieve().
-		Where(password.MatchSubjects(user.OntologyID(req.Key))).
-		Entry(&p).
-		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
-	}
-	if p.Username == req.Username {
-		return struct{}{}, nil
-	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{user.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.password.NewWriter(tx).
-		Rename(ctx, user.OntologyID(req.Key), req.Username)
-}
-
 type RenameRequest struct {
 	Name string   `json:"name" msgpack:"name"`
 	Key  user.Key `json:"key"  msgpack:"key"`
@@ -192,16 +143,15 @@ func (s *Service) Rename(
 
 type (
 	RetrieveRequest struct {
-		Keys      []user.Key `json:"keys"      msgpack:"keys"`
-		Usernames []string   `json:"usernames" msgpack:"usernames"`
+		Keys []user.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
 		Users []user.User `json:"users" msgpack:"users"`
 	}
 )
 
-// Retrieve returns the users with the provided keys or the provided usernames of their
-// passwords.
+// Retrieve returns the users with the provided keys, or every user when no keys are
+// given.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -209,16 +159,6 @@ func (s *Service) Retrieve(
 	q := s.internal.NewRetrieve()
 	if len(req.Keys) > 0 {
 		q = q.Where(user.MatchKeys(req.Keys...))
-	}
-	if len(req.Usernames) > 0 {
-		keys, err := s.keysByUsername(ctx, req.Usernames)
-		if err != nil {
-			return RetrieveResponse{}, err
-		}
-		if len(keys) == 0 {
-			return RetrieveResponse{Users: []user.User{}}, nil
-		}
-		q = q.Where(user.MatchKeys(keys...))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
@@ -232,31 +172,6 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return RetrieveResponse{Users: users}, nil
-}
-
-func (s *Service) keysByUsername(
-	ctx context.Context,
-	usernames []string,
-) ([]user.Key, error) {
-	var passwords []password.Password
-	if err := s.password.NewRetrieve().
-		Where(password.MatchUsernames(usernames...)).
-		Entries(&passwords).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	keys := make([]user.Key, 0, len(passwords))
-	for _, p := range passwords {
-		if p.Subject.Type != ontology.ResourceTypeUser {
-			continue
-		}
-		key, err := user.KeyFromOntologyID(p.Subject)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, key)
-	}
-	return keys, nil
 }
 
 type DeleteRequest struct {
