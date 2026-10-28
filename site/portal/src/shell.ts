@@ -38,6 +38,9 @@ export interface Link {
 /** invitationPath is the page an invitation's email links to. */
 export const invitationPath = (key: string): string => `/invitations/${key}`;
 
+/** referralPath is the page a referral link opens. */
+export const referralPath = (key: string): string => `/invite/${key}`;
+
 /** userPath is the staff page about a user. */
 export const userPath = (userID: string): string =>
   `/admin/users/${encodeURIComponent(userID)}`;
@@ -70,7 +73,8 @@ export const tabs = (scope: Organization, staff: boolean): Link[] => {
   return sections;
 };
 
-export type AdminSection = "organizations" | "users" | "licenses" | "activity";
+export type AdminSection =
+  "organizations" | "users" | "referrals" | "licenses" | "activity";
 
 export interface AdminLink {
   section: AdminSection;
@@ -82,6 +86,7 @@ export interface AdminLink {
 export const ADMIN_LINKS: AdminLink[] = [
   { section: "organizations", label: "Organizations", href: "/admin" },
   { section: "users", label: "Users", href: "/admin/users" },
+  { section: "referrals", label: "Referrals", href: "/admin/referrals" },
   { section: "licenses", label: "Licenses", href: "/admin/licenses" },
   { section: "activity", label: "Activity", href: "/admin/activity" },
 ];

@@ -16,13 +16,14 @@ import { parse } from "@/server/license/fingerprint";
 import { readName } from "@/server/license/machine";
 import { ensurePersonal } from "@/server/organization";
 import { check } from "@/server/ratelimit";
+import { converted, referredBy } from "@/server/referral";
 import { active, announce, firstLogin } from "@/server/slack";
 import { arrival } from "@/server/user";
 
 /**
  * POST links the logged-in user's machine: issues a desktop license bound to the
  * posted `fingerprint`, named by `name`, and answers `{ key, secret, activation,
- * email }`.
+ * email }`. `analytics` is true when the user lets the app send usage data.
  */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
@@ -46,6 +47,7 @@ export const POST: APIRoute = async (context) =>
       organization: org.key,
       now,
     });
+    const referred = await referredBy(portal.store, portal.directory, session.userID);
     const linked = await link(portal.store, portal.signer, {
       userID: session.userID,
       userName: session.name,
@@ -53,9 +55,11 @@ export const POST: APIRoute = async (context) =>
       machineName,
       now,
     });
+    if (linked.previous == null && referred != null && body.analytics === "true")
+      await portal.analytics.capture(converted(referred, session.userID, now));
     await announce(portal.slack, async () => {
       const { previous } = linked;
-      if (previous == null) return firstLogin(session, machineName);
+      if (previous == null) return firstLogin(session, machineName, referred?.referrer);
       const arrived = await arrival(portal.store, portal.directory, {
         userID: session.userID,
         machine: machineName,

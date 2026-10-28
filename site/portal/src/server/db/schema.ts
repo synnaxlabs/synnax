@@ -125,6 +125,25 @@ export const invitation = pgTable(
 export type Invitation = typeof invitation.$inferSelect;
 
 /**
+ * referral is a link that staff send to invite someone to Synnax Desktop. The first
+ * user who opens it while logged in claims it.
+ */
+export const referral = pgTable("referral", {
+  /** key is the random code at the end of the link. */
+  key: text("key").primaryKey(),
+  /** recipient is who staff made the link for, in their own words. */
+  recipient: text("recipient").notNull(),
+  /** createdBy is the Clerk user ID of the staff member who made the link. */
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  openedAt: timestamp("opened_at", { withTimezone: true }),
+  /** userID is the Clerk user ID of the user who claimed the link. */
+  userID: text("user_id").unique(),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+});
+export type Referral = typeof referral.$inferSelect;
+
+/**
  * handoff holds a license key until the Console that asked for it collects it. The
  * Console proves that it asked with the code whose SHA-256 is codeHash.
  */
