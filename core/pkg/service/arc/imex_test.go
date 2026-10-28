@@ -27,8 +27,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// testParent satisfies the registry's required-parent check; the Arc importer does not
-// parent imported resources, so the ID only has to be non-zero.
+// testParent satisfies the registry's required-parent check; the Arc importer ignores
+// it and parents under the Arcs group, so the ID only has to be non-zero.
 var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
 
 var _ = Describe("ImEx", func() {
@@ -126,6 +126,25 @@ var _ = Describe("ImEx", func() {
 			)
 			Expect(inputsOf(res, "n1")).To(HaveKeyWithValue("type", "constant"))
 		})
+
+		It(
+			"Should parent the imported Arc under the Arcs group",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_v3.json",
+					imex.ImportOptions{Parent: testParent},
+				)
+				var parents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(res.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&parents).
+					Exec(ctx, db)).To(Succeed())
+				Expect(parents).To(HaveLen(1))
+				Expect(parents[0].Name).To(Equal("Arcs"))
+			},
+		)
 
 		It(
 			"Should import a Console typed export carrying camelCase keys",

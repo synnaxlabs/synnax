@@ -25,6 +25,7 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -52,6 +53,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
+	// Group is used to create the Arcs group that every Arc is parented under.
+	//
+	// [REQUIRED]
+	Group *group.Service
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
@@ -105,6 +110,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
@@ -129,6 +135,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("arc")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
@@ -143,6 +150,7 @@ type Service struct {
 	indexes  indexes
 	closer   xio.MultiCloser
 	cfg      ServiceConfig
+	group    group.Group
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
@@ -246,6 +254,11 @@ func OpenService(
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx, "Arcs", ontology.RootID,
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
@@ -300,6 +313,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		otg:        s.cfg.Ontology,
+		group:      s.group,
 		tasks:      s.cfg.Task,
 		status:     s.cfg.Status,
 		table:      s.table,

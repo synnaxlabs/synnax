@@ -46,6 +46,20 @@ var _ = Describe("Writer", func() {
 			Expect(a.Key).To(Equal(key))
 		})
 
+		It("Should parent the Arc under the Arcs group", func(ctx SpecContext) {
+			a := arc.Arc{Name: "parented-arc", Mode: arc.ModeText}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			var parents []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(a.OntologyID()).
+				TraverseTo(ontology.ParentsTraverser).
+				Entries(&parents).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(parents).To(HaveLen(1))
+			Expect(parents[0].ID.Type).To(Equal(ontology.ResourceTypeGroup))
+			Expect(parents[0].Name).To(Equal("Arcs"))
+		})
+
 		It("Should handle multiple Arc creations", func(ctx SpecContext) {
 			a1 := arc.Arc{Name: "arc-1", Mode: arc.ModeText}
 			a2 := arc.Arc{Name: "arc-2", Mode: arc.ModeText}
