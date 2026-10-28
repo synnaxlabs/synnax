@@ -12,7 +12,6 @@ import inspect
 
 import pytest
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
@@ -21,18 +20,6 @@ from opentelemetry.trace import StatusCode
 from alamos import Instrumentation, Tracer, trace
 from alamos.log import NOOP_LOGGER
 from alamos.trace import NOOP_TRACER, _NoopSpan
-
-
-@pytest.fixture
-def exporter() -> InMemorySpanExporter:
-    return InMemorySpanExporter()
-
-
-@pytest.fixture
-def provider(exporter: InMemorySpanExporter) -> TracerProvider:
-    provider = TracerProvider()
-    provider.add_span_processor(SimpleSpanProcessor(exporter))
-    return provider
 
 
 class TestChild:

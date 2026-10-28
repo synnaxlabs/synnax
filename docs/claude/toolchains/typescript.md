@@ -53,7 +53,8 @@ A module's `index.ts` re-exports its public surface:
 `export * as Channel from "@/channel/external"`. Never import-side
 `import * as X from "..."` — the barrel is the only namespace mechanism. (Exception: a
 dependency subpath that ships only named exports but is conceptually one namespace, e.g.
-`import * as Drift from "@synnaxlabs/drift/react"`.)
+`import * as Drift from "@synnaxlabs/drift/react"`.) ESLint rejects a namespace import
+of a local module.
 
 ### Rule 2: Cross-module imports go through the namespace
 
