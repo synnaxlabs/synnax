@@ -80,7 +80,7 @@ class PasswordProof(Credentials):
     method: Literal["password"] = "password"
 
 
-class ApiKeyProof(APIKeyCredentials):
+class APIKeyProof(APIKeyCredentials):
     """Proves an API key."""
 
     method: Literal["api_key"] = "api_key"
@@ -89,6 +89,6 @@ class ApiKeyProof(APIKeyCredentials):
 # Is what a subject presents to log in. The method selects the authenticator that
 # checks it.
 Proof = Annotated[
-    PasswordProof | ApiKeyProof,
+    PasswordProof | APIKeyProof,
     Field(discriminator="method"),
 ]
