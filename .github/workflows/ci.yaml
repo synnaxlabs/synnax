@@ -746,6 +746,8 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'lint-integration')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: integration
+      coverage_module: framework
       directory: integration
     secrets: inherit
 
