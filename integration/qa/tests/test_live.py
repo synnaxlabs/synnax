@@ -13,6 +13,8 @@ from qa.live import frame
 
 
 class TestFrame:
+    """Tests the shapes, timestamps, and value ranges of generated signals."""
+
     def test_should_hold_one_sample_per_stamp_on_each_channel(self) -> None:
         stamps = np.arange(5, dtype=np.int64)
         f = frame(stamps, np.arange(5) / 50)
