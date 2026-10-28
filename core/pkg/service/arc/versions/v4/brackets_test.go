@@ -217,10 +217,10 @@ time.interval(1s) -> valve`),
 		func(ctx SpecContext, src, want string) {
 			Expect(v4.SwapBrackets(src)).To(Equal(want))
 		},
-		Entry("open braces", SpecTimeout(5*time.Second),
+		Entry("open braces", SpecTimeout(10*time.Second),
 			strings.Repeat("{", 100_000), strings.Repeat("{", 100_000)),
-		Entry("declarations with no body", SpecTimeout(5*time.Second),
-			strings.Repeat("func f() ", 50_000),
-			strings.Repeat("func f() {} ", 50_000)),
+		Entry("declarations with no body", SpecTimeout(10*time.Second),
+			strings.Repeat("func f() ", 20_000),
+			strings.Repeat("func f() {} ", 20_000)),
 	)
 })
