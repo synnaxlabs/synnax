@@ -245,13 +245,20 @@ func (s *Service) Retrieve(
 	res := RetrieveResponse{Statuses: resStatuses}
 	ids := statusAccessOntologyIDs(res.Statuses)
 	if req.IncludeLabels {
-		for i, stat := range res.Statuses {
+		kept := res.Statuses[:0]
+		for _, stat := range res.Statuses {
 			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
+			// A status deleted after the read above is missing, like any other.
+			if req.IgnoreNotFoundError && errors.Is(err, query.ErrNotFound) {
+				continue
+			}
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
-			res.Statuses[i].Labels = labels
+			stat.Labels = labels
+			kept = append(kept, stat)
 		}
+		res.Statuses = kept
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),

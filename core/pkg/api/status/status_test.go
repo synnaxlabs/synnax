@@ -285,6 +285,31 @@ var _ = Describe("Service.Retrieve", func() {
 	)
 
 	It(
+		"Should omit a status deleted while its labels are retrieved",
+		func(ctx SpecContext) {
+			kept := createStatus(ctx, "api_kept_"+uuid.New().String())
+			deleted := createStatus(ctx, "api_deleted_"+uuid.New().String())
+			grantOn(ctx, author.OntologyID(),
+				[]access.Action{access.ActionRetrieve},
+				statusTypeOnly)
+			// The state a concurrent delete leaves between the status read and the
+			// label read: the record is still read, and its resource is gone.
+			Expect(otg.NewWriter(nil).DeleteResources(ctx, deleted.OntologyID())).
+				To(Succeed())
+
+			res := MustSucceed(apiSvc.Retrieve(
+				AuthedCtx(ctx, author),
+				apistatus.RetrieveRequest{
+					Keys:                []status.Key{kept.Key, deleted.Key},
+					IncludeLabels:       true,
+					IgnoreNotFoundError: true,
+				},
+			))
+			Expect(res.Statuses).To(HaveExactElements(HaveField("Key", kept.Key)))
+		},
+	)
+
+	It(
 		"Should return a not found error for a missing key without the flag",
 		func(ctx SpecContext) {
 			grantOn(ctx, author.OntologyID(),
