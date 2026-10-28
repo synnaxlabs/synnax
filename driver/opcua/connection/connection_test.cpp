@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <filesystem>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/errors/errors.h"
@@ -41,7 +44,7 @@ TEST(ConnectionTest, testBasicConn) {
     cfg.security_policy = "None";
 
     auto client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connect(cfg, "opc"),
+        connect(cfg, {}, "opc"),
         (5 * x::telem::SECOND).chrono(),
         (250 * x::telem::MILLISECOND).chrono()
     );
@@ -63,7 +66,7 @@ TEST(ConnectionTest, connectionRefused) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::UNREACHABLE);
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::UNREACHABLE);
 }
 
 /// @brief it should return invalid endpoint error for malformed endpoint.
@@ -73,7 +76,7 @@ TEST(ConnectionTest, invalidEndpointFormat) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::INVALID_ENDPOINT);
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::INVALID_ENDPOINT);
 }
 
 /// @brief it should return invalid endpoint error for empty endpoint.
@@ -83,7 +86,7 @@ TEST(ConnectionTest, emptyEndpoint) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::INVALID_ENDPOINT);
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::INVALID_ENDPOINT);
 }
 
 /// @brief it should return unreachable error for invalid hostname.
@@ -93,7 +96,7 @@ TEST(ConnectionTest, invalidHostname) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::UNREACHABLE);
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::UNREACHABLE);
 }
 
 /// @brief it should reconnect successfully after disconnect.
@@ -109,7 +112,7 @@ TEST(ConnectionTest, disconnectAndReconnect) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
 
     UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
     UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
@@ -142,7 +145,7 @@ TEST(ConnectionTest, serverStopDuringConnection) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
 
     server->stop();
     server.reset();
@@ -179,7 +182,7 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client1 = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client1 = ASSERT_NIL_P(connect(cfg, {}, "test"));
 
     server->stop();
     server.reset();
@@ -188,7 +191,7 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
-    auto client2 = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client2 = ASSERT_NIL_P(connect(cfg, {}, "test"));
 
     server->stop();
 }
@@ -206,7 +209,7 @@ TEST(ConnectionTest, readAfterDisconnect) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
 
     auto ser1 = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=TestFloat"));
 
@@ -233,7 +236,7 @@ TEST(ConnectionTest, multipleDisconnects) {
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
-    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
 
     UA_Client_disconnect(client.get());
     UA_Client_disconnect(client.get());
@@ -259,74 +262,10 @@ TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
     cfg.username = "any_user";
     cfg.password = "any_password";
 
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::IDENTITY_TOKEN_REJECTED);
-
-    server.stop();
-}
-
-/// @brief it should reject sign mode connection with missing certificates.
-TEST(ConnectionTest, signModeWithMissingCertificates) {
-    // When security mode requires encryption but certificates are missing,
-    // the connection fails with identity token rejected because the server
-    // won't accept the connection without proper security
-    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4848;
-    testutil::Server server(server_cfg);
-    server.start();
-    ASSERT_TRUE(server.wait_until_ready());
-
-    Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4848";
-    cfg.security_mode = "Sign";
-    cfg.security_policy = "Basic256";
-    cfg.client_cert = "/nonexistent/cert.pem";
-    cfg.client_private_key = "/nonexistent/key.pem";
-
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::IDENTITY_TOKEN_REJECTED);
-
-    server.stop();
-}
-
-/// @brief it should reject sign and encrypt mode with missing certificates.
-TEST(ConnectionTest, signAndEncryptModeWithMissingCertificates) {
-    // When security mode requires encryption but certificates are missing,
-    // the connection fails with identity token rejected
-    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4849;
-    testutil::Server server(server_cfg);
-    server.start();
-    ASSERT_TRUE(server.wait_until_ready());
-
-    Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4849";
-    cfg.security_mode = "SignAndEncrypt";
-    cfg.security_policy = "Basic256Sha256";
-    cfg.client_cert = "/nonexistent/cert.pem";
-    cfg.client_private_key = "/nonexistent/key.pem";
-
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::IDENTITY_TOKEN_REJECTED);
-
-    server.stop();
-}
-
-/// @brief it should reject connection when client certificate is missing.
-TEST(ConnectionTest, missingClientCertificate) {
-    // Missing certificate files cause connection to fail with identity token
-    // rejected because the server won't accept unencrypted identity tokens
-    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4850;
-    testutil::Server server(server_cfg);
-    server.start();
-    ASSERT_TRUE(server.wait_until_ready());
-
-    Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4850";
-    cfg.security_mode = "Sign";
-    cfg.security_policy = "Basic256";
-    cfg.client_cert = "/path/to/missing/cert.pem";
-    cfg.client_private_key = "/path/to/missing/key.pem";
-
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::IDENTITY_TOKEN_REJECTED);
+    ASSERT_OCCURRED_AS_P(
+        connect(cfg, {}, "test"),
+        opcua::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
@@ -348,7 +287,10 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     cfg.username = "";
     cfg.password = "password";
 
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::IDENTITY_TOKEN_REJECTED);
+    ASSERT_OCCURRED_AS_P(
+        connect(cfg, {}, "test"),
+        opcua::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
@@ -370,7 +312,10 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     cfg.username = "username";
     cfg.password = "";
 
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::IDENTITY_TOKEN_REJECTED);
+    ASSERT_OCCURRED_AS_P(
+        connect(cfg, {}, "test"),
+        opcua::errors::IDENTITY_TOKEN_REJECTED
+    );
 
     server.stop();
 }
@@ -389,7 +334,7 @@ TEST(ConnectionTest, DefaultClientTimeout) {
     cfg.security_policy = "None";
     cfg.client_timeout_ms = 0;
 
-    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
     auto *config = UA_Client_getConfig(client.get());
     EXPECT_EQ(config->timeout, 5000);
 
@@ -410,7 +355,7 @@ TEST(ConnectionTest, CustomClientTimeout) {
     cfg.security_policy = "None";
     cfg.client_timeout_ms = 15000;
 
-    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
     auto *config = UA_Client_getConfig(client.get());
     EXPECT_EQ(config->timeout, 15000);
 
@@ -433,7 +378,7 @@ TEST(ConnectionTest, DefaultSessionAndChannelTimeouts) {
     cfg.secure_channel_lifetime_ms = 0;
     cfg.session_timeout_ms = 0;
 
-    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
     auto *config = UA_Client_getConfig(client.get());
     EXPECT_EQ(config->secureChannelLifeTime, 600000); // 10 minutes
     EXPECT_EQ(config->requestedSessionTimeout, 1200000); // 20 minutes
@@ -456,7 +401,7 @@ TEST(ConnectionTest, CustomSessionAndChannelTimeouts) {
     cfg.secure_channel_lifetime_ms = 30000;
     cfg.session_timeout_ms = 60000;
 
-    auto client = ASSERT_NIL_P(connect(cfg, "test"));
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
     auto *config = UA_Client_getConfig(client.get());
     EXPECT_EQ(config->secureChannelLifeTime, 30000);
     EXPECT_EQ(config->requestedSessionTimeout, 60000);
@@ -464,25 +409,44 @@ TEST(ConnectionTest, CustomSessionAndChannelTimeouts) {
     server.stop();
 }
 
-/// @brief it should reject invalid security policy with missing certificates.
-TEST(ConnectionTest, invalidSecurityPolicy) {
-    // Invalid security policy with missing certificates causes the server
-    // to reject the identity token
-    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4853;
-    testutil::Server server(server_cfg);
-    server.start();
-    ASSERT_TRUE(server.wait_until_ready());
-
+/// @brief it should read the configured certificate files instead of the Driver
+/// certificate, and report a file that is missing.
+TEST(ConnectionTest, resolveSecurityMissingFiles) {
+    const auto store = testutil::create_store();
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4853";
+    cfg.endpoint = "opc.tcp://localhost:4848";
     cfg.security_mode = "Sign";
-    cfg.security_policy = "InvalidPolicy999";
+    cfg.security_policy = "Basic256";
     cfg.client_cert = "/nonexistent/cert.pem";
     cfg.client_private_key = "/nonexistent/key.pem";
+    ASSERT_OCCURRED_AS_P(
+        resolve_security(cfg, *store),
+        opcua::errors::CLIENT_CERTIFICATE_INVALID
+    );
+}
 
-    ASSERT_OCCURRED_AS_P(connect(cfg, "test"), opcua::errors::IDENTITY_TOKEN_REJECTED);
+/// @brief it should leave the identity empty for an unsecured connection without
+/// making a Driver certificate.
+TEST(ConnectionTest, resolveSecurityUnsecured) {
+    const auto dir = std::filesystem::temp_directory_path() /
+                     ("opcua-unused-" + x::uuid::create().to_string());
+    certificate::Store store(certificate::StoreConfig{.dir = dir});
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4848";
+    const auto sec = ASSERT_NIL_P(resolve_security(cfg, store));
+    ASSERT_FALSE(sec.identity.has_value());
+    ASSERT_FALSE(std::filesystem::exists(dir));
+}
 
-    server.stop();
+/// @brief it should refuse a secured connection without a client identity.
+TEST(ConnectionTest, securedWithoutIdentity) {
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4848";
+    cfg.security_mode = "Sign";
+    cfg.security_policy = "Basic256Sha256";
+    ASSERT_OCCURRED_AS_P(
+        connect(cfg, {}, "test"),
+        opcua::errors::ENCRYPTION_CONFIG_FAILED
+    );
 }
 }

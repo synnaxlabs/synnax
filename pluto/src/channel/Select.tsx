@@ -54,14 +54,19 @@ const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
   return <Resolved />;
 };
 
-const TRIGGER_PROPS = {
+const TRIGGER_CLASS = CSS.BE("channel", "trigger");
+
+// A caller's trigger props add to the defaults, so the trigger keeps its icon and mark.
+const withDefaults = <P extends { className?: string }>(props?: P) => ({
   renderIcon: renderTriggerIcon,
-  className: CSS.BE("channel", "trigger"),
-};
+  ...props,
+  className: CSS.cls(TRIGGER_CLASS, props?.className),
+});
 
 export const SelectMultiple = ({
   initialQuery,
   filter,
+  triggerProps,
   ...rest
 }: SelectMultipleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
@@ -76,7 +81,7 @@ export const SelectMultiple = ({
       onSearch={search}
       status={status}
       icon={<Icon.Channel />}
-      triggerProps={TRIGGER_PROPS}
+      triggerProps={withDefaults(triggerProps)}
       {...rest}
       resourceName="channel"
       data={data}
@@ -99,6 +104,7 @@ export interface SelectSingleProps
 export const SelectSingle = ({
   initialQuery,
   filter,
+  triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, retrieve, getItem, subscribe, status } = useList({
@@ -113,7 +119,7 @@ export const SelectSingle = ({
       status={status}
       haulType={HAUL_TYPE}
       icon={<Icon.Channel />}
-      triggerProps={TRIGGER_PROPS}
+      triggerProps={withDefaults(triggerProps)}
       {...rest}
       data={data}
       getItem={getItem}
