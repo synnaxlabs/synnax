@@ -16,33 +16,6 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-var _ = Describe("IsScreamingCase", func() {
-	DescribeTable("should return true for all-uppercase identifiers",
-		func(input string) {
-			Expect(naming.IsScreamingCase(input)).To(BeTrue())
-		},
-		Entry("short acronym", "IR"),
-		Entry("common acronym", "HTTP"),
-		Entry("four letter acronym", "WASM"),
-		Entry("with underscores", "MY_CONST"),
-		Entry("single letter", "A"),
-	)
-
-	DescribeTable("should return false for non-screaming identifiers",
-		func(input string) {
-			Expect(naming.IsScreamingCase(input)).To(BeFalse())
-		},
-		Entry("pascal case", "UserName"),
-		Entry("snake case", "user_name"),
-		Entry("camel case", "userName"),
-		Entry("lowercase", "http"),
-		Entry("mixed with digits", "HTTP2"),
-		Entry("empty string", ""),
-		Entry("only underscores", "___"),
-		Entry("contains space", "MY CONST"),
-	)
-})
-
 var _ = Describe("ToPascalCase", func() {
 	DescribeTable("should convert snake_case to PascalCase",
 		func(input, expected string) {
@@ -60,7 +33,17 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("acronym at start", "id", "ID"),
 		Entry("iso acronym", "iso", "ISO"),
 		Entry("utc acronym", "utc", "UTC"),
-		Entry("screaming case passthrough", "WASM", "WASM"),
+	)
+
+	DescribeTable("should pass screaming-case identifiers through unchanged",
+		func(input string) {
+			Expect(naming.ToPascalCase(input)).To(Equal(input))
+		},
+		Entry("short acronym", "IR"),
+		Entry("common acronym", "HTTP"),
+		Entry("four letter acronym", "WASM"),
+		Entry("with underscores", "MY_CONST"),
+		Entry("single letter", "A"),
 	)
 })
 

@@ -96,7 +96,7 @@ class ChannelClient(ResourceClient):
             data_type = sy.DataType.TIMESTAMP
 
         self.open_create_modal()
-        self.layout.fill_input_field("Name", name)
+        self.layout.locator("input[placeholder='Channel name']").fill(name)
         if virtual:
             self.layout.click_checkbox("Virtual")
         if is_index:
@@ -161,7 +161,7 @@ class ChannelClient(ResourceClient):
                         "Modal closed between channel creations despite 'Create more'"
                     )
 
-            self.layout.fill_input_field("Name", name)
+            self.layout.locator("input[placeholder='Channel name']").fill(name)
 
             if virtual:
                 self.layout.click_checkbox("Virtual")
@@ -214,7 +214,7 @@ class ChannelClient(ResourceClient):
         """
         self.open_create_calculated_modal()
 
-        name_input = self.layout.locator("input[placeholder='Name']")
+        name_input = self.layout.locator("input[placeholder='Channel name']")
         name_input.fill(name)
 
         editor = self.layout.locator(".monaco-editor")
@@ -545,10 +545,10 @@ class ChannelClient(ResourceClient):
     def open_create_modal(self) -> None:
         """Open the Create Channel modal via command palette."""
         self.layout.open_modal("Create channel", self.layout.MODAL_SELECTOR)
-        self.layout.wait_for_selector_visible("input[placeholder='Name']")
+        self.layout.wait_for_selector_visible("input[placeholder='Channel name']")
 
     def open_create_calculated_modal(self) -> None:
         """Open the Create Calculated Channel modal via command palette."""
         self.layout.open_modal("Create calculated channel", self.layout.MODAL_SELECTOR)
-        self.layout.wait_for_selector_visible("input[placeholder='Name']")
+        self.layout.wait_for_selector_visible("input[placeholder='Channel name']")
         self.layout.wait_for_selector_visible(".monaco-editor")

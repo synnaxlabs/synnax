@@ -302,7 +302,9 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
-    local_defines = select({
+    # The default configuration adds the Basic128Rsa15 and Basic256 security policies
+    # only with UA_INCLUDE_INSECURE_POLICIES, which CMake has no option for.
+    local_defines = ["UA_INCLUDE_INSECURE_POLICIES"] + select({
         "@platforms//os:macos": ["_DARWIN_C_SOURCE=1"],
         "//conditions:default": [],
     }),

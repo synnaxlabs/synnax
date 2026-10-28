@@ -71,6 +71,20 @@ DEFAULT_CONNECTION = SynnaxConnection()
 """Connection to a local Core with the default credentials."""
 
 
+@dataclass(frozen=True)
+class RunOptions:
+    """Conductor command-line options that test cases read."""
+
+    logs_streamed: bool = False
+    headed: bool = False
+    slow_mo: int = 0
+    driver_rack: str = "Node 1 Embedded Driver"
+
+
+DEFAULT_OPTIONS = RunOptions()
+"""Options of a conductor run with no flags."""
+
+
 @dataclass
 class Test:
     """Data class to store test execution results."""
