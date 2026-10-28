@@ -12,7 +12,7 @@ import { createHmac } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "@/pages/api/webhooks/clerk";
-import { activation, event, license, organization } from "@/server/db/schema";
+import { activation, event, license, organization, referral } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HASH_A, NOW } from "@/server/license/testutil";
 import { joined } from "@/server/slack";
@@ -22,6 +22,7 @@ import {
   createHarness,
   createLicense,
   createOrganization,
+  createReferral,
   type Harness,
   WEBHOOK_SECRET,
 } from "@/testutil";
@@ -220,6 +221,12 @@ describe("POST /api/webhooks/clerk", () => {
       expect(await store.query.select().from(license)).toEqual([]);
       expect(await store.query.select().from(activation)).toEqual([]);
       expect(await store.query.select().from(event)).toEqual([]);
+    });
+
+    it("should delete the referral the user claimed", async () => {
+      await createReferral(store, { userID: "user_ada", claimedAt: NOW });
+      await post(userDeleted);
+      expect(await store.query.select().from(referral)).toEqual([]);
     });
 
     it("should keep the personal organizations of other users", async () => {

@@ -38,8 +38,9 @@ message LoginResponse {
 }
 
 message User {
+  reserved 2;
+  reserved "username";
   string key = 1;
-  string username = 2;
 }
 
 service AuthSessionCreateService {
