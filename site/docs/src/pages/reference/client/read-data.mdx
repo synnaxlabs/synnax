@@ -45,6 +45,7 @@ print(temperature.to_numpy())
 
 # A list of channels gives a Frame.
 frame = client.read(tr, ["time", "temperature", "pressure"])
+# The columns are the channel names, in the order you request them.
 df = frame.to_df()
 ```
 

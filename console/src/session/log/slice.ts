@@ -21,7 +21,7 @@ const toolbarStateZ = z.object({
   selectedTab: toolbarTabZ.default("channels"),
 });
 
-export const stateZ = z.object({
+const stateZ = z.object({
   hold: z.boolean().default(false),
   toolbar: toolbarStateZ.prefault({}),
 });

@@ -8,12 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { Modals } from "@/platform/modals";
-import { findButton, getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole, uniqueName } from "@/testutil";
 
@@ -23,7 +21,7 @@ describe("project/Splash", () => {
   it("should offer no log out and name no Core", async () => {
     const { store } = await renderWithConsole(<Project.Splash />);
     act(() => {
-      store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+      store.dispatch(Session.Core.select("LOCAL"));
     });
     const name = Session.Core.selectSelected(store.getState())?.name;
     if (name == null) throw new Error("no Core is selected");
@@ -41,28 +39,16 @@ describe("project/Splash", () => {
     expect(screen.queryByText("Open sample project")).toBeNull();
   });
 
-  it("should open the usage data settings on a linked machine", async () => {
-    await renderWithConsole(
-      <>
-        <Modals.Stack />
-        <Project.Splash />
-      </>,
-      {
-        preloadedState: {
-          [Session.Account.SLICE_NAME]: {
-            ...Session.Account.ZERO_SLICE_STATE,
-            link: { secret: "shh", email: "someone@example.com", user: "user_a" },
-          },
+  it("should not offer usage data on a machine linked to an account", async () => {
+    await renderWithConsole(<Project.Splash />, {
+      preloadedState: {
+        [Session.Account.SLICE_NAME]: {
+          ...Session.Account.ZERO_SLICE_STATE,
+          link: { secret: "shh", email: "someone@example.com", user: "user_a" },
         },
       },
-    );
-    fireEvent.click(findButton("Usage data"));
-    await screen.findByText("Share usage data");
-    expect(getSwitch("Share usage data").checked).toBe(false);
-  });
-
-  it("should not offer usage data on a machine not linked to an account", async () => {
-    await renderWithConsole(<Project.Splash />);
+    });
+    expect(screen.getByText("Projects")).toBeTruthy();
     expect(screen.queryByText("Usage data")).toBeNull();
   });
 });

@@ -21,7 +21,6 @@ from freighter import (
     ExceptionPayload,
     Stream,
     WebsocketClient,
-    decode_exception,
 )
 from freighter.transport import P
 from freighter.websocket import Message
@@ -35,6 +34,7 @@ from synnax.framer.codec import (
 from synnax.framer.frame import CrudeFrame, FramePayload, K
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
+from x.exceptions import Error, Registry
 from x.lists import normalize
 
 
@@ -128,7 +128,7 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
 ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
-class WriterClosed(Exception): ...
+class WriterClosed(Error): ...
 
 
 class Writer:
@@ -175,6 +175,7 @@ class Writer:
 
     _stream: Stream[WriterRequest, WriterResponse]
     _adapter: WriteFrameAdapter
+    _registry: Registry
     _close_exc: Exception | None = None
 
     start: CrudeTimeStamp
@@ -183,6 +184,7 @@ class Writer:
         self,
         start: CrudeTimeStamp,
         client: WebsocketClient,
+        registry: Registry,
         adapter: WriteFrameAdapter,
         name: str = "",
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
@@ -195,6 +197,7 @@ class Writer:
     ) -> None:
         self.start = start
         self._adapter = adapter
+        self._registry = registry
         client = client.with_codec(WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
@@ -418,7 +421,7 @@ class Writer:
             except Exception as recv_exc:
                 self._close_exc = recv_exc
                 continue
-            self._close_exc = decode_exception(res.err)
+            self._close_exc = self._registry.decode(res.err)
 
     def _exec(
         self, req: WriterRequest, timeout: int | None = None
@@ -436,7 +439,7 @@ class Writer:
             except Exception as recv_exc:
                 self._close(recv_exc)
                 return None
-            decoded_exc = decode_exception(res.err)
+            decoded_exc = self._registry.decode(res.err)
             if decoded_exc is not None:
                 self._close(decoded_exc)
                 return None

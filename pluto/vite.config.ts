@@ -64,7 +64,7 @@ export default defineConfig({
         "node_modules/vscode-languageclient/lib/browser/main.js",
       ),
     },
-    setupFiles: ["src/mock/setuptests.ts"],
+    setupFiles: ["src/testutil/setup.ts"],
     testTimeout: 15_000,
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {

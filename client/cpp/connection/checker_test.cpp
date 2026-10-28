@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/connection/checker.h"
-#include "freighter/cpp/mock/mock.h"
+#include "freighter/cpp/testutil/testutil.h"
 
 #include "core/pkg/transport/grpc/connectivity/connectivity.pb.h"
 
@@ -51,7 +51,7 @@ TEST(TestVersionsCompatible, DevBuild) {
 
 TEST(TestChecker, ConnectedOnValidResponse) {
     auto res = make_response();
-    auto mock = std::make_unique<freighter::mock::UnaryClient<
+    auto mock = std::make_unique<freighter::testutil::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse>>(
         std::vector<grpc::connectivity::CheckResponse>{res, res},
@@ -66,7 +66,7 @@ TEST(TestChecker, ConnectedOnValidResponse) {
 
 TEST(TestChecker, FailedOnError) {
     auto res = make_response();
-    auto mock = std::make_unique<freighter::mock::UnaryClient<
+    auto mock = std::make_unique<freighter::testutil::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse>>(
         std::vector<grpc::connectivity::CheckResponse>{res},
@@ -81,7 +81,7 @@ TEST(TestChecker, FailedOnError) {
 TEST(TestChecker, ClockSkewExceeded) {
     auto far_future = x::telem::TimeStamp::now() + x::telem::HOUR;
     auto res = make_response("test-cluster", "0.54.0", far_future.nanoseconds());
-    auto mock = std::make_unique<freighter::mock::UnaryClient<
+    auto mock = std::make_unique<freighter::testutil::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse>>(
         std::vector<grpc::connectivity::CheckResponse>{res, res},
@@ -101,7 +101,7 @@ TEST(TestChecker, ClockSkewExceeded) {
 
 TEST(TestChecker, StopHaltsThread) {
     auto res = make_response();
-    auto mock = std::make_unique<freighter::mock::UnaryClient<
+    auto mock = std::make_unique<freighter::testutil::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse>>(
         std::vector<grpc::connectivity::CheckResponse>{res, res, res, res, res},
@@ -119,7 +119,7 @@ TEST(TestChecker, StopHaltsThread) {
 
 TEST(TestChecker, VersionIncompatible) {
     auto res = make_response("test-cluster", "99.0.0");
-    auto mock = std::make_unique<freighter::mock::UnaryClient<
+    auto mock = std::make_unique<freighter::testutil::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse>>(
         std::vector<grpc::connectivity::CheckResponse>{res, res},
@@ -133,7 +133,7 @@ TEST(TestChecker, VersionIncompatible) {
 
 TEST(TestChecker, VersionCompatible) {
     auto res = make_response("test-cluster", "0.54.1");
-    auto mock = std::make_unique<freighter::mock::UnaryClient<
+    auto mock = std::make_unique<freighter::testutil::UnaryClient<
         google::protobuf::Empty,
         grpc::connectivity::CheckResponse>>(
         std::vector<grpc::connectivity::CheckResponse>{res, res},

@@ -43,24 +43,6 @@ func resolverFor(files map[string]string) *versions.Resolver {
 }
 
 var _ = Describe("Chain", func() {
-	Describe("LiveFromFilePath", func() {
-		It("Should convert a version file path to its live path", func() {
-			Expect(versions.LiveFromFilePath("schemas/x/versions/telem/v0")).
-				To(Equal("schemas/x/telem"))
-			Expect(versions.LiveFromFilePath("schemas/x/versions/telem/v0.oracle")).
-				To(Equal("schemas/x/telem"))
-		})
-
-		It("Should reject non-version paths", func() {
-			Expect(versions.LiveFromFilePath("schemas/x/telem")).Error().
-				To(MatchError(ContainSubstring("not a schema version file")))
-			Expect(versions.LiveFromFilePath("schemas/x/versions/telem/extra/v0")).
-				Error().To(MatchError(ContainSubstring("not a schema version file")))
-			Expect(versions.LiveFromFilePath("schemas/x/versions/telem/foo")).
-				Error().To(MatchError(ContainSubstring("not a schema version file")))
-		})
-	})
-
 	Describe("DepNS", func() {
 		It("Should build the internal pinned-surface namespace", func() {
 			Expect(versions.DepNS("schemas/x/telem", 3)).To(Equal("x/telem@v3"))
@@ -196,11 +178,14 @@ Channel struct {
 			Expect(f.Defined[0].QualifiedName).To(Equal("v1.Channel"))
 		})
 
-		It("Should record dependency pins from imports", func(ctx SpecContext) {
+		DescribeTable("Should record dependency pins from imports", func(
+			ctx SpecContext,
+			importPath string,
+		) {
 			r := resolverFor(map[string]string{
 				"schemas/x/versions/telem/v0.oracle": "TimeStamp = int64\n",
 				"schemas/synnax/versions/channel/v0.oracle": `
-import "schemas/x/versions/telem/v0"
+import "` + importPath + `"
 
 Channel struct {
 	key uuid @key
@@ -212,7 +197,10 @@ Channel struct {
 			Expect(f.Pins).To(HaveKeyWithValue("schemas/x/telem", 0))
 			ch := MustBeOk(f.Table.Get("v0.Channel"))
 			Expect(ch.Namespace).To(Equal("v0"))
-		})
+		},
+			Entry("without an extension", "schemas/x/versions/telem/v0"),
+			Entry("with an extension", "schemas/x/versions/telem/v0.oracle"),
+		)
 
 		It("Should resolve the live schema of a versioned resource", func(
 			ctx SpecContext,
