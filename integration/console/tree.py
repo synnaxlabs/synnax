@@ -28,9 +28,16 @@ _SCROLL_STEP = 200
 _SCROLL_SETTLE_MS = 150
 _POLL_MS = 100
 _DEFAULT_TIMEOUT_MS = 5000
+_SCROLL_TO_TOP_JS = """(el) => {
+    const tree = el.closest(".pluto-tree");
+    tree.scrollTop += el.getBoundingClientRect().top - tree.getBoundingClientRect().top;
+}"""
 # Items mount in any order, so the script sorts them by their position in the window.
+# The read is complete once it reaches a row outside the subtree or the bottom of the
+# tree.
 _NESTED_NAMES_JS = """(parent, prefix) => {
-    const items = [...parent.closest(".pluto-tree").querySelectorAll("[role=treeitem]")]
+    const tree = parent.closest(".pluto-tree");
+    const items = [...tree.querySelectorAll("[role=treeitem]")]
         .filter((el) => el.checkVisibility())
         .sort((a, b) => a.offsetTop - b.offsetTop);
     const start = items.indexOf(parent);
@@ -38,10 +45,13 @@ _NESTED_NAMES_JS = """(parent, prefix) => {
     const level = Number(parent.getAttribute("aria-level"));
     const names = [];
     for (const el of items.slice(start + 1)) {
-        if (Number(el.getAttribute("aria-level")) <= level) break;
+        if (Number(el.getAttribute("aria-level")) <= level) return [names, true];
         if (el.id.startsWith(prefix)) names.push(el.innerText.trim());
     }
-    return names;
+    const virtualizer = tree.querySelector(".pluto-list__virtualizer");
+    if (virtualizer == null) return [names, true];
+    const last = items[items.length - 1];
+    return [names, last.offsetTop + last.offsetHeight >= virtualizer.scrollHeight];
 }"""
 
 
@@ -457,15 +467,26 @@ class Tree:
         return indicator.count() > 0
 
     def list_nested_names(self, parent: Locator, prefix: str) -> list[str]:
-        """List the names of the mounted items nested under ``parent``.
+        """List the names of the items nested under ``parent``.
 
-        Reads the tree once, so an item that another test removes cannot stall it.
+        Scrolls ``parent`` to the top of the tree, then reads the tree once, so an item
+        that another test removes cannot stall the read.
 
         :param parent: The Locator for the parent tree item.
         :param prefix: The ID prefix of the nested items (e.g. 'device:').
         :returns: List of item names.
+        :raises ValueError: If the nested items do not fit in the tree's window.
         """
-        names: list[str] = parent.evaluate(_NESTED_NAMES_JS, prefix)
+        parent.evaluate(_SCROLL_TO_TOP_JS)
+        self.page.wait_for_timeout(_SCROLL_SETTLE_MS)
+        names: list[str]
+        complete: bool
+        names, complete = parent.evaluate(_NESTED_NAMES_JS, prefix)
+        if not complete:
+            raise ValueError(
+                f"Items under {parent.get_attribute('id')} do not fit in the tree's "
+                "window"
+            )
         return names
 
     def set_editable_text(self, item: Locator, text: str) -> None:

@@ -515,7 +515,7 @@ class AccessClient(ResourceClient):
         self.tree.expand(role_item)
 
     def list_users_under_role(self, role_name: str) -> list[str]:
-        """List the users mounted under a role.
+        """List the users under a role.
 
         The role must be expanded first.
 
