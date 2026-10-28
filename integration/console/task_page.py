@@ -142,6 +142,12 @@ class TaskPage(ConsolePage):
         expect(help_text).not_to_have_text("", timeout=5000)
         return help_text.inner_text().strip()
 
+    def channel_list_help_text(self) -> str:
+        """Return the error shown under the channel list after a blocked deploy."""
+        help_text = self._channel_list().locator(".console-channel-list__status")
+        help_text.wait_for(state="visible", timeout=5000)
+        return help_text.inner_text().strip()
+
     def status(self) -> dict[str, str]:
         """Get the current status information from the task status box.
 

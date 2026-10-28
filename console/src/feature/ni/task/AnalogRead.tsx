@@ -144,7 +144,6 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  if (devices.length === 0) throw new Error("No devices selected");
   let rackKey: rack.Key | undefined;
   const allDevices = await client.devices.retrieve({
     keys: devices,

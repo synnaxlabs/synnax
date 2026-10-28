@@ -30,6 +30,9 @@ on:
       - x/ts/**
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   update:
     name: Update docs search index
