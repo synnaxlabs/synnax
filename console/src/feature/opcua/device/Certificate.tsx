@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { sha1 } from "@noble/hashes/legacy.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import {
   DisconnectedError,
   type rack,
@@ -26,7 +28,6 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
-import { thumbprint, toDER } from "@/feature/opcua/device/thumbprint";
 import {
   type CertificateInfo,
   type CertificatesResponse,
@@ -47,9 +48,14 @@ const toStream = (bytes: Uint8Array): ReadableStream<Uint8Array> =>
     },
   });
 
+const PEM_ARMOR = /-----(BEGIN|END) CERTIFICATE-----|\s/g;
+
+const toDER = (pem: string): Uint8Array<ArrayBuffer> =>
+  Uint8Array.from(atob(pem.replace(PEM_ARMOR, "")), (c) => c.charCodeAt(0));
+
 const readThumbprint = (pem: string): string | status.Status => {
   try {
-    return thumbprint(pem);
+    return bytesToHex(sha1(toDER(pem))).toUpperCase();
   } catch (error) {
     return status.fromException(error, "Failed to read the server certificate");
   }
