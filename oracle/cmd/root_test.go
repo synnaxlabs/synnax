@@ -24,40 +24,65 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// run executes oracle with args and returns everything it printed and its exit code.
-func run(args ...string) (string, int) {
+// capture returns a pipe to stand in for a standard stream and a function that
+// closes it and returns what was written to it.
+func capture() (*os.File, func() string) {
 	GinkgoHelper()
 	r, w := MustSucceed2(os.Pipe())
-	stdout, stderr := os.Stdout, os.Stderr
-	os.Stdout, os.Stderr = w, w
 	printed := make(chan []byte, 1)
 	go func() {
 		defer GinkgoRecover()
 		printed <- MustSucceed(io.ReadAll(r))
 	}()
+	return w, func() string {
+		GinkgoHelper()
+		Expect(w.Close()).To(Succeed())
+		var out []byte
+		Eventually(printed).Should(Receive(&out))
+		Expect(r.Close()).To(Succeed())
+		return string(out)
+	}
+}
+
+// run executes oracle with args and returns what it printed to stdout and stderr and
+// its exit code.
+func run(args ...string) (string, string, int) {
+	GinkgoHelper()
+	stdout, stderr := os.Stdout, os.Stderr
+	var readStdout, readStderr func() string
+	os.Stdout, readStdout = capture()
+	os.Stderr, readStderr = capture()
 	code := cmd.Execute(args)
 	os.Stdout, os.Stderr = stdout, stderr
-	Expect(w.Close()).To(Succeed())
-	var out []byte
-	Eventually(printed).Should(Receive(&out))
-	Expect(r.Close()).To(Succeed())
-	return string(out), code
+	return readStdout(), readStderr(), code
 }
 
-// succeed runs oracle with args, expects exit code 0, and returns what it printed.
+// succeed runs oracle with args, expects exit code 0, and returns what it printed to
+// stdout.
 func succeed(args ...string) string {
 	GinkgoHelper()
-	out, code := run(args...)
-	Expect(code).To(BeZero(), out)
-	return out
+	stdout, stderr, code := run(args...)
+	Expect(code).To(BeZero(), stdout+stderr)
+	return stdout
 }
 
-// fail runs oracle with args, expects exit code code, and returns what it printed.
+// fail runs oracle with args, expects exit code code, and returns what it printed to
+// stderr.
 func fail(code int, args ...string) string {
 	GinkgoHelper()
-	out, actual := run(args...)
-	Expect(actual).To(Equal(code), out)
-	return out
+	stdout, stderr, actual := run(args...)
+	Expect(actual).To(Equal(code), stdout+stderr)
+	return stderr
+}
+
+// failGate runs oracle check with args, expects the gate failure code, expects
+// nothing on stderr, and returns the report printed to stdout.
+func failGate(code int, args ...string) string {
+	GinkgoHelper()
+	stdout, stderr, actual := run(append([]string{"check"}, args...)...)
+	Expect(actual).To(Equal(code), stdout+stderr)
+	Expect(stderr).To(BeEmpty())
+	return stdout
 }
 
 // printOnce matches output that contains msg exactly once.
@@ -389,7 +414,7 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail validation on invalid schemas", func() {
-		Expect(fail(check.FailureCodes["analyze"], "check")).
+		Expect(failGate(check.FailureCodes["analyze"])).
 			To(printOnce("1 gate(s) failed"))
 	})
 

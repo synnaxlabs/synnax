@@ -139,13 +139,13 @@ var _ = Describe("check command flag paths", func() {
 
 		It("returns the gate-failure exit error", func() {
 			Expect(
-				fail(check.FailureCodes["format"], "check", "--gates=format"),
+				failGate(check.FailureCodes["format"], "--gates=format"),
 			).To(ContainSubstring("1 gate(s) failed"))
 		})
 
 		It("includes diffs without error when --diff is set", func() {
 			Expect(
-				fail(check.FailureCodes["format"], "check", "--gates=format", "--diff"),
+				failGate(check.FailureCodes["format"], "--gates=format", "--diff"),
 			).To(ContainSubstring("1 gate(s) failed"))
 		})
 	})
@@ -161,9 +161,9 @@ var _ = Describe("check command flag paths", func() {
 		It("escalates warnings with --warnings-as-errors", func() {
 			succeed("check", "--gates=analyze")
 
-			Expect(fail(
+			Expect(failGate(
 				check.FailureCodes["analyze"],
-				"check", "--gates=analyze", "--warnings-as-errors",
+				"--gates=analyze", "--warnings-as-errors",
 			)).To(ContainSubstring("1 gate(s) failed"))
 		})
 	})
