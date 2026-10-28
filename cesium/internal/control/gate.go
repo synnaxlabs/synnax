@@ -58,8 +58,14 @@ func (g *Gate[R]) PeekResource() R {
 // gates in the region, so f has exclusive access to the resource even if control
 // transfers while f runs. f must not call Authorize on a gate in the same region.
 func (g *Gate[R]) Authorize(f func(R) error) error {
+	// Fail without waiting on use, so a gate without control never delays the gate
+	// that has it.
+	if _, err := g.authorize(); err != nil {
+		return err
+	}
 	g.region.use.Lock()
 	defer g.region.use.Unlock()
+	// Control can transfer while this gate waits on use.
 	r, err := g.authorize()
 	if err != nil {
 		return err
