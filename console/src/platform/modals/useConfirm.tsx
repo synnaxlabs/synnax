@@ -52,6 +52,7 @@ const ConfirmButton = ({
     variant="filled"
     status={variant}
     trigger={Triggers.SAVE}
+    triggerIndicator
     onClickDelay={delay}
     {...rest}
   >
@@ -93,7 +94,6 @@ const Confirm = ({
       <Text.Text weight={450}>{description}</Text.Text>
     </Modal.Body>
     <Modal.Footer>
-      <Triggers.SaveHelpText action={confirm.label ?? DEFAULT_CONFIRM_LABEL} />
       <Nav.Bar.End x align="center">
         <CancelButton {...cancel} onClick={() => close(false)} />
         <ConfirmButton {...confirm} onClick={() => close(true)} />
