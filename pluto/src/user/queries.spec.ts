@@ -195,6 +195,13 @@ describe("User queries", () => {
     });
   });
 
+  const viewerRole = async () => {
+    const roles = await client.access.roles.retrieve({});
+    const viewer = roles.find((r) => r.name === "Viewer");
+    if (viewer == null) throw new Error("no Viewer role");
+    return viewer.key;
+  };
+
   describe("useForm", () => {
     describe("create mode", () => {
       it("should initialize with default values for new user", async () => {
@@ -219,10 +226,12 @@ describe("User queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
         const username = `test-form-${Date.now()}`;
+        const role = await viewerRole();
         act(() => {
           result.current.form.set("username", username);
           result.current.form.set("name", "Form Test");
           result.current.form.set("password", "password123");
+          result.current.form.set("role", role);
         });
 
         await act(async () => {
@@ -246,10 +255,12 @@ describe("User queries", () => {
         });
         await waitFor(() => expect(result.current.variant).toBe("success"));
         const name = `taken-${Date.now()}`;
+        const role = await viewerRole();
         act(() => {
           result.current.form.set("username", username);
           result.current.form.set("name", name);
           result.current.form.set("password", "password123");
+          result.current.form.set("role", role);
         });
         await act(async () => {
           result.current.save();

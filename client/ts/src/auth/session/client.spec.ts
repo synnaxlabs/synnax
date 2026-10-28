@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createTestClient, createTestUser } from "@/testutil";
+import { createTestAuthClient, createTestClient, createTestUser } from "@/testutil";
 import { user } from "@/user";
 
 describe("session", () => {
@@ -23,10 +23,10 @@ describe("session", () => {
     it("should list the sessions of another subject", async () => {
       const owner = createTestClient();
       const { user: u, username, password } = await createTestUser(owner);
-      const other = createTestClient({ username, password });
-      await other.auth.sessions.retrieve();
+      const other = createTestAuthClient({ username, password });
+      await other.sessions.retrieve();
       const sessions = await owner.auth.sessions.retrieve([user.ontologyID(u.key)]);
-      expect(sessions.map((s) => s.key)).toContain(other.auth.session?.key);
+      expect(sessions.map((s) => s.key)).toContain(other.session?.key);
     });
   });
 
