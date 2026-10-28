@@ -11,7 +11,7 @@ import { alamos } from "@synnaxlabs/alamos";
 import { deep, type destructor } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
+import { UnexpectedError, ValidationError } from "@/errors";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
 import { Points, type PointsProps } from "@/framer/cache/points";
 import {
@@ -58,6 +58,13 @@ export class Handle implements Subscription {
 
   update(request: SubscribeRequest): void {
     if (this.closed) throw new UnexpectedError("subscription is closed");
+    if (isPoints(request)) {
+      const { count } = request.limit;
+      if (!Number.isFinite(count) || count < 0)
+        throw new ValidationError(
+          `points limit count ${count} must be finite and not negative`,
+        );
+    }
     const prev = this.request;
     if (prev != null && deep.equal(prev, request)) return;
     this.request = request;

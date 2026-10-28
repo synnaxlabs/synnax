@@ -8,8 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import base64
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -65,6 +67,10 @@ class TestParse:
     def test_should_reject_a_comment_without_a_pr(self) -> None:
         with pytest.raises(SystemExit):
             parse(["--prompt", "x", "--agent", "claude", "--output", "comment"], {})
+
+    def test_should_reject_a_recipient_without_a_report(self) -> None:
+        with pytest.raises(SystemExit):
+            parse(["--prompt", "x", "--agent", "claude", "--recipient", "k.asc"], {})
 
     def test_should_reject_a_turn_limit_for_codex(self) -> None:
         with pytest.raises(SystemExit):
@@ -280,6 +286,67 @@ class TestMain:
         monkeypatch.delenv("AGENT_GIT_EMAIL")
         with pytest.raises(SystemExit, match="bot identity"):
             main(fake_agent(tmp_path))
+
+
+PRIVATE_AGENT = """#!/bin/sh
+echo "secret on stderr" >&2
+echo "secret report token=$GH_TOKEN summary=$GITHUB_STEP_SUMMARY"
+echo "$CLAUDE_CONFIG_DIR" > "$STATE_FILE"
+"""
+
+
+@pytest.mark.skipif(shutil.which("gpg") is None, reason="needs gpg")
+@pytest.mark.skipif(sys.platform == "win32", reason="fake agent is a script")
+class TestPrivateReport:
+    """Tests for a report encrypted to a recipient."""
+
+    def test_should_write_only_the_encrypted_report(
+        self,
+        repo: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capfd: pytest.CaptureFixture[str],
+        request: pytest.FixtureRequest,
+    ) -> None:
+        # A short home, since the gpg-agent socket path has a length limit.
+        home = Path(tempfile.mkdtemp(dir="/tmp"))
+        request.addfinalizer(lambda: shutil.rmtree(home, ignore_errors=True))
+        request.addfinalizer(
+            lambda: subprocess.run(["gpgconf", "--homedir", str(home), "--kill", "all"])
+        )
+        gpg = ["gpg", "--homedir", str(home), "--batch", "--passphrase", ""]
+        uid = "Report <report@example.com>"
+        generate = [*gpg, "--quick-gen-key", uid, "default", "default", "never"]
+        subprocess.run(generate, check=True, capture_output=True)
+        key = tmp_path / "key.asc"
+        key.write_text(
+            subprocess.check_output([*gpg, "--armor", "--export"], text=True)
+        )
+        agent = tmp_path / "private-agent"
+        agent.write_text(PRIVATE_AGENT)
+        agent.chmod(0o755)
+        output = tmp_path / "github_output"
+        monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+        monkeypatch.setenv("STATE_FILE", str(tmp_path / "state"))
+        monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(tmp_path / "summary"))
+        runner_temp = tmp_path / "runner"
+        runner_temp.mkdir()
+        monkeypatch.setenv("RUNNER_TEMP", str(runner_temp))
+        capfd.readouterr()
+        argv = ["--prompt", "Audit", "--agent", "claude", "--bin", str(agent)]
+        assert main([*argv, "--output", "report", "--recipient", str(key)]) == 0
+        captured = capfd.readouterr()
+        assert "secret" not in captured.out + captured.err
+        armor = output.read_text().split("\n", 1)[1].rsplit("\nEOF_", 1)[0]
+        assert armor.startswith("-----BEGIN PGP MESSAGE-----")
+        plain = subprocess.run(
+            [*gpg, "--decrypt"], input=armor, capture_output=True, text=True
+        ).stdout
+        assert plain == "secret report token= summary="
+        state = Path((tmp_path / "state").read_text().strip())
+        assert state.is_relative_to(runner_temp)
+        assert not state.exists()
+        assert not (tmp_path / "summary").exists()
 
 
 class TestDelivery:

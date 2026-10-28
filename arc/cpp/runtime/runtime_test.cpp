@@ -13,7 +13,7 @@
 
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/testutil/testutil.h"
 #include "arc/cpp/runtime/runtime.h"
