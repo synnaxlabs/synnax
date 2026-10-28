@@ -13,6 +13,27 @@ import synnax as sy
 
 
 @pytest.mark.opcua
+class TestOPCDevice:
+    def test_certificate_properties(self) -> None:
+        """Test that Device writes the certificate settings that the Driver reads."""
+        dev = sy.opcua.Device(
+            endpoint="opc.tcp://localhost:4840",
+            security_mode="SignAndEncrypt",
+            security_policy="Basic256Sha256",
+            server_cert="-----BEGIN CERTIFICATE-----",
+            certificate_validation_disabled=True,
+        )
+        assert dev.properties["version"] == "2.0.0"
+        assert dev.properties["connection"] == {
+            "endpoint": "opc.tcp://localhost:4840",
+            "security_mode": "SignAndEncrypt",
+            "security_policy": "Basic256Sha256",
+            "certificate_validation_disabled": True,
+            "server_certificate": "-----BEGIN CERTIFICATE-----",
+        }
+
+
+@pytest.mark.opcua
 class TestOPCReadTask:
     @pytest.mark.parametrize(
         "test_data",

@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net"
+	"net/url"
 	"reflect"
 	"strings"
 	"sync"
@@ -264,6 +265,24 @@ var _ = Describe("License", func() {
 				true,
 			),
 		)
+
+		Describe("ActivationURL", func() {
+			It("Should open the portal with the fingerprint and the name", func() {
+				u := MustSucceed(url.Parse(fingerprint.ActivationURL("stand 3")))
+				Expect(u.Scheme + "://" + u.Host + u.Path).To(Equal(
+					"https://portal.synnaxlabs.com/licenses/activate",
+				))
+				Expect(u.Query()).To(Equal(url.Values{
+					"fingerprint": {"aaaa,bbbb"},
+					"name":        {"stand 3"},
+				}))
+			})
+
+			It("Should leave out an empty name", func() {
+				u := MustSucceed(url.Parse(fingerprint.ActivationURL("")))
+				Expect(u.Query()).To(Equal(url.Values{"fingerprint": {"aaaa,bbbb"}}))
+			})
+		})
 	})
 
 	Describe("Open", func() {

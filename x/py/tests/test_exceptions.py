@@ -9,7 +9,7 @@
 
 import pytest
 
-from x.exceptions import ExceptionPayload, Provider, Registry
+from x.exceptions import Error, ExceptionPayload, Provider, Registry
 
 _TYPE = "test.error"
 
@@ -67,9 +67,9 @@ class TestDecode:
         assert str(exc) == "cat"
 
     def test_unknown(self, registry: Registry) -> None:
-        """Should decode an unhandled type into a generic exception."""
+        """Should decode an unhandled type into a generic Error."""
         exc = registry.decode(ExceptionPayload(type="other", data="dog"))
-        assert type(exc) is Exception
+        assert type(exc) is Error
         assert str(exc) == "dog"
 
     def test_round_trip(self, registry: Registry) -> None:
@@ -82,4 +82,4 @@ class TestDecode:
         """Should not decode through the providers of another registry."""
         pld = ExceptionPayload(type=_TYPE, data="cat")
         assert isinstance(registry.decode(pld), _Error)
-        assert type(Registry().decode(pld)) is Exception
+        assert type(Registry().decode(pld)) is Error

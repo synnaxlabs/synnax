@@ -21,9 +21,8 @@ export interface FooterProps extends Omit<Nav.BarProps, "location" | "size"> {}
 export const Footer = ({ className, ...rest }: FooterProps): ReactElement => (
   <Nav.Bar
     location="bottom"
-    size="8rem"
+    size="auto"
     className={CSS.cls(CSS.BE("modal", "footer"), className)}
-    bordered
     {...rest}
   />
 );
