@@ -83,7 +83,7 @@ class PanelsClient:
 
     def reorder(self, name: str, target: str) -> None:
         """Drag the pill for ``name`` onto the pill for ``target``."""
-        self.pill(name).drag_to(self.pill(target))
+        self.layout.drag(self.pill(name), self.pill(target))
 
     def _wait_followed(self, tab_name: str, panel_name: str) -> None:
         """Every move follows the tab: its destination panel becomes selected
@@ -109,12 +109,12 @@ class PanelsClient:
 
     def drag_tab_to_pill(self, tab_name: str, panel_name: str) -> None:
         """Drag a mosaic tab onto a panel pill, moving the tab there."""
-        self.layout.get_tab(tab_name).drag_to(self.pill(panel_name))
+        self.layout.drag(self.layout.get_tab(tab_name), self.pill(panel_name))
         self._wait_followed(tab_name, panel_name)
 
     def drag_tab_to_create_button(self, tab_name: str) -> None:
         """Drag a mosaic tab onto the create button, minting a panel for it."""
-        self.layout.get_tab(tab_name).drag_to(self.create_button)
+        self.layout.drag(self.layout.get_tab(tab_name), self.create_button)
         self._wait_followed(tab_name, tab_name)
 
     def reload_console(self) -> None:

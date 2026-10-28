@@ -235,6 +235,17 @@ func compileItem(
 				ctx.Scope.Name,
 			)
 		}
+	} else if fnCtx, ok := body.(parser.IFunctionContext); ok {
+		head, tail := parser.FunctionNameParts(fnCtx)
+		if _, err = expression.CompileCall(
+			ctx.Child(fnCtx), head, tail, symbol.FunctionArguments(fnCtx),
+		); err != nil {
+			return compiledFunction{}, errors.Wrapf(
+				err,
+				"failed to compile call '%s'",
+				ctx.Scope.Name,
+			)
+		}
 	} else {
 		return compiledFunction{}, errors.Newf("unsupported body type for '%s'", key)
 	}

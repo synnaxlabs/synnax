@@ -19,10 +19,12 @@ orchestration.
 - `pnpm test` / `pnpm test:<pkg>`
 - `pnpm lint` / `pnpm fix` (also per-pkg variants)
 - `pnpm cycles` / `pnpm cycles:console` — circular dependency check (knip)
-- `pnpm knip --production --include exports,types` — exports that only specs import.
-  Drop the `export` and make its specs test through the public API. When the package's
-  users need the symbol, export it from the package entry instead. A pattern in
-  `knip.json` that ends in `!` is production code.
+- `python3 scripts/check_exports_ts.py` — exports that only their own module or test
+  code import. A module is the nearest directory with an index file. Drop the `export`
+  and make its specs test through the public API, or move a helper that other modules'
+  tests need into a `testutil` directory. When the package's users need the symbol,
+  export it from the package entry instead. A pattern in `knip.json` that ends in `!` is
+  production code.
 
 ### Console dev login
 
@@ -51,7 +53,8 @@ A module's `index.ts` re-exports its public surface:
 `export * as Channel from "@/channel/external"`. Never import-side
 `import * as X from "..."` — the barrel is the only namespace mechanism. (Exception: a
 dependency subpath that ships only named exports but is conceptually one namespace, e.g.
-`import * as Drift from "@synnaxlabs/drift/react"`.)
+`import * as Drift from "@synnaxlabs/drift/react"`.) ESLint rejects a namespace import
+of a local module.
 
 ### Rule 2: Cross-module imports go through the namespace
 
