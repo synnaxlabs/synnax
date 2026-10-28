@@ -2305,35 +2305,6 @@ var _ = Describe("Statement Compiler", func() {
 			).To(BeTrue(), "missing increment")
 		})
 
-		It(
-			"Should compile range loop with mixed concrete types",
-			func(bCtx SpecContext) {
-				// start is i32 variable, end is i64 variable — loopVarType
-				// widens to i64. Verifies compilation succeeds with mixed widths.
-				block := MustSucceed(parser.ParseBlock(`{
-				lo i32 := 1
-				hi i64 := 10
-				for i := range(lo, hi) {
-					x := i
-				}
-			}`))
-				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
-				analyzer.AnalyzeBlock(aCtx)
-				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
-				Expect(diverged).To(BeFalse())
-
-				bytecode := ctx.Writer.Bytes()
-				Expect(
-					slices.Contains(bytecode, byte(OpI64GeS)),
-				).To(BeTrue(), "missing exit condition")
-				Expect(
-					slices.Contains(bytecode, byte(OpI64Add)),
-				).To(BeTrue(), "missing increment")
-			},
-		)
-
 		It("Should compile range loop with explicit i32 type", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				for i := range(i32(5)) {

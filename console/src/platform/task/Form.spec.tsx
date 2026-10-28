@@ -14,7 +14,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -24,6 +24,7 @@ import { Task } from "@/platform/task";
 import {
   awaitCommand,
   clickDeploy,
+  commitFieldInput,
   renderTaskFormHook,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -129,8 +130,7 @@ describe("wrapForm", () => {
     const Renderer = createRenderer();
     await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
     const input = await waitFor(findNameInput);
-    fireEvent.change(input, { target: { value: "Renamed Test Task" } });
-    fireEvent.blur(input);
+    await act(async () => commitFieldInput(input, "Renamed Test Task"));
     await waitFor(async () => {
       const updated = await client.tasks.retrieve({ key: tsk.key });
       expect(updated.name).toBe("Renamed Test Task");
@@ -241,8 +241,7 @@ describe("wrapForm", () => {
         expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       const input = findNameInput();
-      fireEvent.change(input, { target: { value: "Renamed Test Task" } });
-      fireEvent.blur(input);
+      await act(async () => commitFieldInput(input, "Renamed Test Task"));
       await waitFor(async () => {
         const updated = await client.tasks.retrieve({ key: draft.key });
         expect(updated.name).toBe("Renamed Test Task");

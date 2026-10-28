@@ -318,12 +318,7 @@
       "lyra-list__item",
       "lyra-tag"
     ],
-    "site/www/src/components/Header.astro": [
-      "lyra-btn",
-      "lyra-btn--filled",
-      "lyra-btn--text",
-      "lyra-icon"
-    ],
+    "site/www/src/components/Header.astro": ["lyra-btn", "lyra-btn--text", "lyra-icon"],
     "site/www/src/components/contact/Contact.astro": ["lyra-btn--filled"],
     "site/www/src/styles/base.css": ["lyra-btn"]
   },

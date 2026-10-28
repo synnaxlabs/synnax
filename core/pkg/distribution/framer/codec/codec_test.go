@@ -1593,6 +1593,72 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+var _ = Describe("Bool Bit Packing", func() {
+	newCodec := func() *codec.Codec {
+		return codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.BooleanT})
+	}
+	encodeBools := func(ctx SpecContext, samples ...bool) []byte {
+		GinkgoHelper()
+		return MustSucceed(
+			newCodec().Encode(ctx, frame.NewUnary(1, telem.NewSeriesV(samples...))),
+		)
+	}
+
+	// The reference vector below must produce the exact same packed bytes in every
+	// language's frame codec. A divergence here is a cross-language wire-format bug.
+	Describe("Reference Vector", func() {
+		var (
+			samples = []bool{true, false, true, true, false, false, false, true, true}
+			packed  = []byte{0x8D, 0x01}
+		)
+
+		It("Should pack samples LSB-first", func(ctx SpecContext) {
+			encoded := encodeBools(ctx, samples...)
+			Expect(encoded[len(encoded)-len(packed):]).To(Equal(packed))
+		})
+
+		It("Should unpack samples LSB-first", func(ctx SpecContext) {
+			encoded := encodeBools(ctx, make([]bool, len(samples))...)
+			copy(encoded[len(encoded)-len(packed):], packed)
+			decoded := MustSucceed(newCodec().Decode(encoded))
+			Expect(decoded.SeriesAt(0)).To(
+				telem.MatchSeriesData(telem.NewSeriesV(samples...)),
+			)
+		})
+	})
+
+	DescribeTable(
+		"Should round-trip samples at one bit per sample",
+		func(ctx SpecContext, samples []bool) {
+			header := len(encodeBools(ctx))
+			encoded := encodeBools(ctx, samples...)
+			Expect(encoded).To(HaveLen(header + (len(samples)+7)/8))
+			decoded := MustSucceed(newCodec().Decode(encoded))
+			Expect(decoded.SeriesAt(0)).To(
+				telem.MatchSeriesData(telem.NewSeriesV(samples...)),
+			)
+		},
+		Entry("empty", []bool{}),
+		Entry("one bit", []bool{true}),
+		Entry("seven bits", []bool{true, false, true, true, false, false, true}),
+		Entry(
+			"eight bits",
+			[]bool{true, false, true, false, true, false, true, false},
+		),
+		Entry(
+			"nine bits",
+			[]bool{true, false, true, false, true, false, true, false, true},
+		),
+		Entry(
+			"sixteen bits",
+			[]bool{
+				true, false, true, true, false, false, true, false,
+				false, true, false, true, true, true, false, true,
+			},
+		),
+	)
+})
+
 func BenchmarkEncode(b *testing.B) {
 	dataTypes := []telem.DataType{"int32"}
 	keys := channel.Keys{1}

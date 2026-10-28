@@ -31,9 +31,7 @@ describe("User.useRegisterModal", () => {
       expect(findButton("Register").className).not.toContain("lyra--disabled"),
     );
     fireEvent.click(findButton("Register"));
-    await waitFor(() =>
-      expect(screen.getByText("First name is required")).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText("Name is required")).toBeTruthy());
     expect(screen.getByText("Password is required")).toBeTruthy();
     expect(screen.getByText("Username")).toBeTruthy();
   });
@@ -46,11 +44,8 @@ describe("User.useRegisterModal", () => {
 
     await openModal(User.useRegisterModal, { client });
     await screen.findByText("Username");
-    fireEvent.change(screen.getByPlaceholderText("Richard"), {
-      target: { value: "Ada" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("Feynman"), {
-      target: { value: "Lovelace" },
+    fireEvent.change(screen.getByPlaceholderText("Richard Feynman"), {
+      target: { value: "Ada Lovelace" },
     });
     fireEvent.change(screen.getByPlaceholderText("username"), {
       target: { value: username },
@@ -66,8 +61,7 @@ describe("User.useRegisterModal", () => {
     await waitFor(() => expect(screen.queryByText("Username")).toBeNull());
 
     const created = await client.users.retrieve({ username });
-    expect(created.firstName).toEqual("Ada");
-    expect(created.lastName).toEqual("Lovelace");
+    expect(created.name).toEqual("Ada Lovelace");
     const parents = await client.ontology.parents.retrieve({
       ids: user.ontologyID(created.key),
       types: ["role"],

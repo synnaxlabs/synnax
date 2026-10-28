@@ -175,4 +175,21 @@
             z-index: 2;
         }
     }
+
+    /* A marked cell keeps its frame at rest, above its unfocused neighbors. */
+    &
+        tbody
+        .lyra-input:is(.lyra--status-error, .lyra--status-warning):not(:focus-within) {
+        z-index: 1;
+    }
+
+    & tbody .lyra-input.lyra--status-error {
+        --pluto-border-color: var(--pluto-error-z);
+        --pluto-hover-border-color: var(--pluto-error-p1);
+    }
+
+    & tbody .lyra-input.lyra--status-warning {
+        --pluto-border-color: var(--pluto-warning-z);
+        --pluto-hover-border-color: var(--pluto-warning-p1);
+    }
 }
