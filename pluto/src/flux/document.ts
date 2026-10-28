@@ -170,7 +170,6 @@ class DocumentStore<
   private removed = false;
   private readonly edits: Edit[] = [];
   private batched: actions.Transaction<patch.Action> | null = null;
-  private sending: Promise<boolean> = Promise.resolve(true);
   private readonly inFlight = new Set<Promise<boolean>>();
 
   constructor(params: StoreParams<Key, Doc, Query, V>) {
@@ -359,21 +358,22 @@ class DocumentStore<
 
   /** @returns false when the send failed. A transaction with nothing to send passes. */
   private async send(tx: actions.Transaction<patch.Action>): Promise<boolean> {
-    const sent = this.sending.then(async () => {
-      try {
-        await tx.commit();
-        return true;
-      } catch (e) {
-        this.params.onError(e);
-        return false;
-      }
-    });
-    this.sending = sent;
+    const sent = this.commit(tx);
     this.inFlight.add(sent);
     try {
       return await sent;
     } finally {
       this.inFlight.delete(sent);
+    }
+  }
+
+  private async commit(tx: actions.Transaction<patch.Action>): Promise<boolean> {
+    try {
+      await tx.commit();
+      return true;
+    } catch (e) {
+      this.params.onError(e);
+      return false;
     }
   }
 }
