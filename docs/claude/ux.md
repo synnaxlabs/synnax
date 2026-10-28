@@ -140,6 +140,16 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
 - An open select marks the current value and opens scrolled to it.
+- A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
+  and a box while open. Fields in forms and detail panes keep their box.
+
+### Lists with checkboxes
+
+- Explorers and record lists use `Select.Item` with `checkable`. Only the checkbox, a
+  Shift click, or a Cmd click selects. A plain click runs `onActivate`, or does nothing.
+- The selection can be empty. The checkbox shows on hover and stays while selected.
+- The checkbox has no gap after it. Its own padding spaces it from the content.
+- Hover tints the item faintly, and a press does not deepen the tint.
 
 ### Table input
 
