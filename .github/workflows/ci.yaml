@@ -54,6 +54,10 @@ jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
   # group touched one of its paths.
   changes:
+    # paths-filter lists the changed files of a pull request through the API.
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     outputs:
       actionlint: ${{ steps.filter.outputs.actionlint }}
