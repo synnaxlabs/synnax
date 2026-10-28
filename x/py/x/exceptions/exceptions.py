@@ -15,6 +15,13 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 _TYPE_NONE = "nil"
+_TYPE_UNKNOWN = "unknown"
+
+
+class Error(Exception):
+    """The base of every exception class that Synnax defines, and of every error that
+    the Core sends. Built-in exceptions such as TimeoutError do not inherit it.
+    """
 
 
 class ExceptionPayload(BaseModel):
@@ -26,88 +33,62 @@ class ExceptionPayload(BaseModel):
     data: str | None
 
 
-def _parse_exception_payload(
-    pld_or_type: ExceptionPayload | Exception | str,
-    data: str | None = None,
-) -> ExceptionPayload | Exception:
-    """Parses the exception payload from one of the three representations:
-
-    1. An ExceptionPayload instance. In this case, a copy of the payload is
-    returned.
-    2. A string encoded ExceptionPayload separated by a '---' separator.
-    3. A payload type and corresponding data.
-
-    :returns: the parsed exception payload. If the payload cannot be parsed,
-    returns a payload of type unknown with as much relevant error info as possible.
-    """
-    if isinstance(pld_or_type, Exception):
-        return pld_or_type
-    if isinstance(pld_or_type, ExceptionPayload):
-        return ExceptionPayload(type=pld_or_type.type, data=pld_or_type.data)
-    if data is not None:
-        return ExceptionPayload(type=pld_or_type, data=data)
-    try:
-        type_, data = pld_or_type.split("---", 1)
-    except ValueError:
-        type_, data = "unknown", pld_or_type
-    return ExceptionPayload(type=type_, data=data)
-
-
 EncoderFunc = Callable[[Exception], ExceptionPayload | None]
+"""Encodes an exception, or returns None when it cannot handle the exception."""
 DecoderFunc = Callable[[ExceptionPayload], Exception | None]
+"""Decodes a payload, or returns None when it cannot handle the payload's type."""
 
 
-@dataclass
-class _ExceptionProvider:
+@dataclass(frozen=True)
+class Provider:
+    """Encodes and decodes the exceptions of one category."""
+
     encode: EncoderFunc
     decode: DecoderFunc
 
 
-class _Registry:
-    providers: list[_ExceptionProvider]
+class Registry:
+    """Encodes and decodes exceptions through the providers registered with it."""
+
+    _providers: list[Provider]
 
     def __init__(self) -> None:
-        self.providers = []
+        self._providers = []
 
-    def register(self, provider: _ExceptionProvider) -> None:
-        self.providers.append(provider)
+    def register(self, provider: Provider) -> None:
+        """Adds a provider. Encode and decode try providers in registration order."""
+        self._providers.append(provider)
 
-    @staticmethod
-    def encode(error: Exception | None) -> ExceptionPayload:
-        raise NotImplementedError
+    def encode(self, exc: Exception | None) -> ExceptionPayload:
+        """Encodes an exception into a payload for the network.
 
-    def decode(self, encoded: ExceptionPayload | Exception | str) -> Exception | None:
-        pld = _parse_exception_payload(encoded)
-        if isinstance(pld, Exception):
-            return pld
-        if pld.type == _TYPE_NONE:
+        :returns: a payload of type "nil" when exc is None, and a payload of type
+            "unknown" that carries the message when no provider handles exc.
+        """
+        if exc is None:
+            return ExceptionPayload(type=_TYPE_NONE, data="")
+        for provider in self._providers:
+            pld = provider.encode(exc)
+            if pld is not None:
+                return pld
+        return ExceptionPayload(type=_TYPE_UNKNOWN, data=str(exc))
+
+    def decode(self, pld: ExceptionPayload | None) -> Exception | None:
+        """Decodes a payload from the network into an exception.
+
+        :returns: None when pld is None or has type "nil", and a generic Error
+            that carries the payload's data when no provider handles its type.
+        """
+        if pld is None or pld.type == _TYPE_NONE:
             return None
-        for provider in self.providers:
-            decoded = provider.decode(pld)
-            if decoded is not None:
-                return decoded
-        return Exception(pld.data)
+        for provider in self._providers:
+            exc = provider.decode(pld)
+            if exc is not None:
+                return exc
+        return Error(pld.data)
 
 
-_REGISTRY = _Registry()
-
-
-def register_exception(_encode: EncoderFunc, _decode: DecoderFunc) -> None:
-    """Registers a custom error encoder and decoder with the exception registry."""
-    _REGISTRY.register(_ExceptionProvider(_encode, _decode))
-
-
-def encode_exception(exc: Exception) -> ExceptionPayload:
-    """Encodes an exception into a payload that can be sent over the network."""
-    return _REGISTRY.encode(exc)
-
-
-def decode_exception(encoded: ExceptionPayload | None) -> Exception | None:
-    """Decodes an error payload into an exception."""
-    return None if encoded is None else _REGISTRY.decode(encoded)
-
-
-class ContiguityError(Exception):
+class ContiguityError(Error):
     """Raised when time-series data is not contiguous."""
 
     TYPE = "sy.contiguity"

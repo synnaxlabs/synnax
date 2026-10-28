@@ -42,7 +42,8 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
   level: "h2",
   variant: "text",
-  placeholder: "Name",
+  placeholder: "Channel name",
+  "aria-label": "Channel name",
 };
 
 const EXTRA_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
@@ -84,9 +85,9 @@ const Calculated = ({
       <Modal.Header icon={<Icon.Channel />}>
         {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
       </Modal.Header>
-      <Modal.Body justify="start" gap="large">
+      <Modal.Body justify="start">
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
-          <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
+          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
           <Form.Field<string> path="expression" grow>
             {({ value, onChange }) => (
               <Flex.Box grow className={CSS.B("calculated", "editor")}>
@@ -156,11 +157,7 @@ const Calculated = ({
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.Start>
-          {variant == "success" ? (
-            <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
-          ) : (
-            <Status.Summary status={stat} center={false} />
-          )}
+          {variant !== "success" && <Status.Summary status={stat} center={false} />}
         </Nav.Bar.Start>
         <Nav.Bar.End align="center" gap="large">
           {isEdit && (
@@ -173,6 +170,7 @@ const Calculated = ({
             <Button.Button
               status={status.keepVariants(variant, "loading")}
               trigger={Triggers.SAVE}
+              triggerIndicator
               variant="filled"
               onClick={() => save()}
             >

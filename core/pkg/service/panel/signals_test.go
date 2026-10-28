@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -106,7 +107,7 @@ var _ = Describe("Signals", func() {
 			responses := openStreamer(ctx, setChannelName)
 			missing := user.OntologyID(uuid.New())
 			p := panel.Panel{Name: "sig-reject", Parent: &missing}
-			Expect(writer.Create(ctx, &p)).ToNot(Succeed())
+			Expect(writer.Create(ctx, &p)).To(MatchError(query.ErrNotFound))
 			Consistently(responses.Outlet(), 250*time.Millisecond).ShouldNot(Receive())
 		},
 	)

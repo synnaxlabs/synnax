@@ -1,0 +1,93 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# The code scanning rule on main blocks a pull request until it has an analysis for each
+# category main has. A pull request that changes no C++ input uploads an empty C++
+# analysis instead of a scan. Every other run scans all languages. A changed category
+# orphans the alerts filed under the old one.
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main, release/**]
+  pull_request:
+    branches: [main, release/**]
+  schedule:
+    - cron: "0 6 * * 1" # 6am UTC on Monday
+  workflow_dispatch:
+
+# A new push to a pull request cancels the scan it replaces.
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      cpp: ${{ steps.filter.outputs.codeql_cpp }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: .github/filters.yaml
+
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.result != 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, c-cpp, go, javascript-typescript, python, rust]
+    env:
+      PLACEHOLDER:
+        ${{ matrix.language == 'c-cpp' && github.event_name == 'pull_request' &&
+        needs.changes.outputs.cpp != 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v4
+        if: env.PLACEHOLDER != 'true'
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.language == 'go' && 'autobuild' || 'none' }}
+      - uses: github/codeql-action/analyze@v4
+        if: env.PLACEHOLDER != 'true'
+        with:
+          category: /language:${{ matrix.language }}
+      - name: Write an empty C++ analysis
+        if: env.PLACEHOLDER == 'true'
+        run: |
+          cat > "$RUNNER_TEMP/c-cpp.sarif" <<'EOF'
+          {
+            "version": "2.1.0",
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "runs": [{ "tool": { "driver": { "name": "CodeQL" } }, "results": [] }]
+          }
+          EOF
+      - uses: github/codeql-action/upload-sarif@v4
+        if: env.PLACEHOLDER == 'true'
+        with:
+          sarif_file: ${{ runner.temp }}/c-cpp.sarif
+          category: /language:c-cpp

@@ -17,6 +17,9 @@ concurrency:
   group: format-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Check formatting
@@ -26,4 +29,6 @@ jobs:
       - uses: ./.github/actions/setup-pnpm
 
       - name: Check formatting
-        run: pnpm check-format
+        run: |
+          pnpm check-format ||
+            { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
