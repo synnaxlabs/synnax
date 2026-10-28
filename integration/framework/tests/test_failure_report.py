@@ -52,6 +52,8 @@ def _render(tmp_path: Path, clicks: list[tuple[str, str]], stacks: str = "") -> 
 
 
 class TestFailureReport:
+    """The report lists the last trace actions before a failure."""
+
     def test_should_leave_teardown_actions_out_of_the_last_actions(
         self, tmp_path: Path
     ) -> None:
