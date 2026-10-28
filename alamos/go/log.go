@@ -193,8 +193,9 @@ func (c customCore) Sync() error { return c.c.Sync() }
 // Write implements zapcore.Core.
 func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	var (
-		toRemove = -1
-		cloned   bool
+		toRemove   = -1
+		cloned     bool
+		unexpected bool
 	)
 	for i, field := range fields {
 		if field.Type == zapcore.ErrorType {
@@ -203,7 +204,9 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 				continue
 			}
 			if errors.Expected(context.Background(), err) {
-				entry.Stack = ""
+				if !unexpected {
+					entry.Stack = ""
+				}
 				// A plain string field drops the stack trace that zap adds as
 				// errorVerbose.
 				if !cloned {
@@ -213,6 +216,7 @@ func (c customCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 				continue
 			}
 			entry.Stack = errors.GetStackTrace(err).String()
+			unexpected = true
 		} else if field.Key == "caller" && field.Type == zapcore.StringType && len(field.String) > 0 {
 			// This means that we should specify a custom caller.
 			entry.Caller = zapcore.EntryCaller{Defined: true, File: field.String}

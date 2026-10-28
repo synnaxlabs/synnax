@@ -215,6 +215,19 @@ var _ = Describe("Log", func() {
 			Expect(buffer.String()).To(ContainSubstring(`"S":`))
 		})
 
+		It(
+			"Should keep the stack trace of an unexpected error before an expected one",
+			func() {
+				logger := zap.New(alamos.CustomZapCore(core))
+				logger.Error(
+					"test",
+					zap.Error(errors.New("unexpected")),
+					zap.NamedError("expected", validate.ErrValidation),
+				)
+				Expect(buffer.String()).To(ContainSubstring(`"S":`))
+			},
+		)
+
 		It("Should handle custom caller information", func() {
 			custom := alamos.CustomZapCore(core)
 			entry := zapcore.Entry{
