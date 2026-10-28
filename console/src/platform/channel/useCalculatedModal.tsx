@@ -84,7 +84,7 @@ const Calculated = ({
       <Modal.Header icon={<Icon.Channel />}>
         {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
       </Modal.Header>
-      <Modal.Body justify="start" gap="large">
+      <Modal.Body justify="start">
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
           <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
           <Form.Field<string> path="expression" grow>
