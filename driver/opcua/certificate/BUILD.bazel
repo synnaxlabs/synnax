@@ -11,23 +11,42 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "test",
-    hdrs = ["test.h"],
+    name = "certificate",
+    srcs = [
+        "certificate.cpp",
+        "store.cpp",
+    ],
+    hdrs = [
+        "certificate.h",
+        "store.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/opcua/errors",
+        "//vendor/open62541",
+        "//x/cpp/date",
+        "//x/cpp/defer",
         "//x/cpp/errors",
+        "//x/cpp/fs",
+        "//x/cpp/json",
         "//x/cpp/telem",
-        "@googletest//:gtest",
+        "//x/cpp/uuid",
+        "@abseil-cpp//absl/log",
+        "@mbedtls",
     ],
 )
 
 cc_test(
-    name = "test_test",
-    srcs = ["test_test.cpp"],
-    tags = ["no-asan"],  # Tests ASSERT_EVENTUALLY_* macros with timeouts - timing-sensitive
+    name = "certificate_test",
+    srcs = [
+        "certificate_test.cpp",
+        "store_test.cpp",
+    ],
     deps = [
-        "//x/cpp/errors",
-        "//x/cpp/test",
+        ":certificate",
+        "//driver/opcua/errors",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )

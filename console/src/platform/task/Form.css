@@ -53,6 +53,10 @@
             flex-grow: 1;
         }
 
+        .console-channel-list__status {
+            padding: 1rem 3rem 0;
+        }
+
         .console-details__form {
             padding: var(--console-details-padding);
             overflow: auto;

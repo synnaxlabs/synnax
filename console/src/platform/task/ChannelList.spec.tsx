@@ -10,7 +10,7 @@
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -70,6 +70,18 @@ describe("ChannelList", () => {
   it("should render the empty content when there are no channels", async () => {
     await renderInTaskForm(<Harness />, { values: { config: { channels: [] } } });
     await waitFor(() => expect(screen.getByText("Nothing here")).toBeTruthy());
+  });
+
+  it("should show the list's error under the list", async () => {
+    const { form } = await renderInTaskForm(<Harness />, { values: twoChannels });
+    act(() =>
+      form.current?.setStatus("config.channels", {
+        key: "config.channels",
+        variant: "error",
+        message: "List error",
+      }),
+    );
+    expect(await screen.findByText("List error")).toBeTruthy();
   });
 
   it("should select the clicked channel", async () => {

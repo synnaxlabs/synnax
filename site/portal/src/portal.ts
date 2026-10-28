@@ -19,22 +19,30 @@ import {
   LICENSE_KID,
   LICENSE_KMS_KEY_ARN,
   MAIL_FROM,
+  POSTHOG_API_KEY,
   RESEND_API_KEY,
+  SLACK_WEBHOOK_URL,
   STAFF_ORG_ID,
   VERCEL_ENV,
 } from "astro:env/server";
 
+import { type Analytics, posthog, unconfigured } from "@/server/analytics";
 import { open as openStore, type Store } from "@/server/db";
 import { clerk, type Directory } from "@/server/directory";
 import { kms, type Signer } from "@/server/license/sign";
 import { log, type Mailer, resend } from "@/server/mail";
 import { resolve, type Session } from "@/server/session";
+import { log as logNotes, type Slack, webhook } from "@/server/slack";
 
 /** Portal is the set of services a portal page or route works with. */
 export interface Portal {
   store: Store;
   signer: Signer;
   mail: Mailer;
+  /** slack posts notable events to the staff channel. */
+  slack: Slack;
+  /** analytics reads Synnax Desktop sessions from PostHog and records events there. */
+  analytics: Analytics;
   directory: Directory;
   staffOrgID: string;
   /** cronSecret is the bearer token Vercel Cron calls the sweep with. */
@@ -42,6 +50,8 @@ export interface Portal {
   webhookSecret: string;
   /** session resolves the logged-in user, throwing a 401 when there is none. */
   session: () => Promise<Session>;
+  /** viewer resolves the logged-in user, or null for a visitor who is not logged in. */
+  viewer: () => Promise<Session | null>;
   now: () => Date;
 }
 
@@ -58,11 +68,22 @@ const mailer = (): Mailer => {
 };
 
 /**
+ * slack posts only from production, and only once its webhook is set. Previews and
+ * local development log each note.
+ */
+const slack = (): Slack =>
+  VERCEL_ENV === "production" && SLACK_WEBHOOK_URL != null
+    ? webhook({ url: SLACK_WEBHOOK_URL, origin: import.meta.env.SITE })
+    : logNotes();
+
+/**
  * open wires the portal for one request from the runtime environment. Nothing
  * connects until it is used, so a request that needs no service pays nothing.
  */
 export const open = (context: APIContext): Portal => {
   const directory = clerk(clerkClient(context));
+  const session = async (): Promise<Session> =>
+    await resolve(directory, context.locals.auth().userId, STAFF_ORG_ID);
   return {
     store: openStore(DATABASE_URL),
     signer: kms({
@@ -80,12 +101,20 @@ export const open = (context: APIContext): Portal => {
       kid: LICENSE_KID,
     }),
     mail: mailer(),
+    slack: slack(),
+    analytics:
+      POSTHOG_API_KEY == null
+        ? unconfigured()
+        : posthog({
+            apiKey: POSTHOG_API_KEY,
+            environment: VERCEL_ENV === "production" ? "production" : "development",
+          }),
     staffOrgID: STAFF_ORG_ID,
     cronSecret: CRON_SECRET,
     webhookSecret: CLERK_WEBHOOK_SIGNING_SECRET,
     directory,
-    session: async () =>
-      await resolve(directory, context.locals.auth().userId, STAFF_ORG_ID),
+    session,
+    viewer: async () => (context.locals.auth().userId == null ? null : await session()),
     now: () => new Date(),
   };
 };

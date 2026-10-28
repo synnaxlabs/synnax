@@ -202,6 +202,61 @@ export const rename = async (
 };
 
 /**
+ * purge deletes an organization with everything the portal holds for it: its licenses
+ * and their seats, its invitations, and its history.
+ */
+export const purge = async (tx: Tx, org: schema.Organization): Promise<void> => {
+  const { key } = org;
+  const lockOrganization = async () =>
+    await tx
+      .select({ key: schema.organization.key })
+      .from(schema.organization)
+      .where(eq(schema.organization.key, key))
+      .for("update");
+  const lockLicenses = async () =>
+    await tx
+      .select({ key: schema.license.key })
+      .from(schema.license)
+      .where(eq(schema.license.organization, key))
+      .for("update");
+  // Locks in the order the organization's writers do, so no record joins it during the
+  // delete and no writer deadlocks with it. Desktop writes lock a personal organization
+  // before its licenses, and activate locks a team's license before the team.
+  let licenses: { key: string }[];
+  if (org.kind === "personal") {
+    await lockOrganization();
+    licenses = await lockLicenses();
+  } else {
+    licenses = await lockLicenses();
+    await lockOrganization();
+  }
+  await tx.delete(schema.event).where(eq(schema.event.organization, key));
+  await tx.delete(schema.activation).where(
+    inArray(
+      schema.activation.license,
+      licenses.map((l) => l.key),
+    ),
+  );
+  await tx.delete(schema.license).where(eq(schema.license.organization, key));
+  await tx.delete(schema.invitation).where(eq(schema.invitation.organization, key));
+  await tx.delete(schema.organization).where(eq(schema.organization.key, key));
+};
+
+/**
+ * remove deletes a team in Clerk with everything the portal holds for it. Nothing is
+ * deleted when Clerk fails.
+ */
+export const remove = async (
+  store: Store,
+  directory: Directory,
+  team: Team,
+): Promise<void> =>
+  await store.transact(async (tx) => {
+    await purge(tx, team);
+    await directory.delete(team.clerkOrgID);
+  });
+
+/**
  * adoptTeam mirrors a Clerk organization into the portal's tables and returns the
  * row, so a license can be issued to an organization the webhook has not delivered.
  *
