@@ -258,8 +258,8 @@ delivered as one branch that grows for two weeks and lands as a PR nobody can re
 The phase list exists to prevent that, and a Claude session enforces it on the user:
 
 - **Phases branch from `main`, not from each other.** A phase that only makes sense
-  after another lands comes later in the list, and the earlier one merges first. A stack
-  is the exception for a piece that truly cannot land alone.
+  after another lands comes later in the list. When it needs an earlier phase that is
+  still open, stack it on that phase's branch instead of waiting for the merge.
 - **Unfinished behavior ships dark.** A feature that needs several phases hides behind a
   flag from the first phase on; the flag flip or deletion is the last phase. A migration
   prefers additive-introduce, then an atomic cutover.
