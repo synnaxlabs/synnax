@@ -124,6 +124,7 @@ var _ = Describe("Log", func() {
 
 	Describe("DecodeOrc", func() {
 		encode := func() []byte {
+			GinkgoHelper()
 			w := orc.NewWriter(0)
 			Expect(v3.Log{
 				Key:  uuid.New(),
