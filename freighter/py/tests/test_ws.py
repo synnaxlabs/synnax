@@ -304,10 +304,16 @@ class TestAsyncWebsocket:
         stream = await async_client.stream("/slamMessages", Message, Message)
         msg_str = str(uuid4())
         await stream.send(Message(id=1, message=msg_str))
-        time.sleep(2)
-        res = unary_client.send(
-            "/slamMessagesTimeoutCheck", Message(id=1, message=msg_str), Message
-        )
+        # The server times out only after the socket buffers fill, which takes a few
+        # seconds on a slow runner. The blocking sleep keeps the client from reading.
+        deadline = time.monotonic() + 30
+        while True:
+            res = unary_client.send(
+                "/slamMessagesTimeoutCheck", Message(id=1, message=msg_str), Message
+            )
+            if res.message == "timeout" or time.monotonic() > deadline:
+                break
+            time.sleep(0.25)
         assert res.message == "timeout"
         with pytest.raises(ConnectionClosedError):
             while True:
