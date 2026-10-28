@@ -20,6 +20,7 @@
     "devtools": "pnpm dlx react-devtools"
   },
   "dependencies": {
+    "@noble/hashes": "catalog:",
     "@reduxjs/toolkit": "catalog:",
     "@synnaxlabs/client": "catalog:",
     "@synnaxlabs/drift": "catalog:",
