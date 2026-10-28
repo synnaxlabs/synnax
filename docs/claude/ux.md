@@ -98,11 +98,11 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Header: an icon tile, the breadcrumb, and the close button, with no divider. The last
   breadcrumb segment is the brightest. The close tooltip says "Close" and shows the Esc
   cap.
-- Body: fields are one field gap (`--pluto-field-gap`) apart, with labels above them.
-  Help and error text sits in that gap, so a field never moves when an error shows.
+- Body: fields are 18 px (3 rem) apart, with labels above them. Help and error text sits
+  in that gap, so a field never moves when an error shows.
 - A modal that creates a named object starts with a title field: a bare heading input
-  with no label, and a placeholder that names the object ("Channel name"). It sits one
-  section gap (`--pluto-section-gap`) above the other fields.
+  with no label, and a placeholder that names the object ("Channel name"). It sits 24 px
+  (4 rem) above the other fields.
 - Footer: no divider. Cancel, then the primary button, at the trailing edge. The leading
   edge holds only Back, a mode switch ("Create more"), or a status summary.
 - Esc closes the modal from any field. Validation never changes the status of the

@@ -25,12 +25,14 @@ the prior art. This skill holds the process.
    switches, list items, menu items, tabs, and select triggers. Before you show a CSS
    change, list every component that its selectors match. Never put a global change (a
    token value, font smoothing) in the same change as a scoped one.
-4. **Build it in the real app.** Change the running dev server (`pnpm dev:console`,
-   `pnpm dev:portal`, `pnpm dev:docs`), never a mock page.
+4. **Build it in the real app.** Change a running dev server, never a mock page:
+   `pnpm dev:console-vite` serves the Console to a browser, and `pnpm dev:portal` and
+   `pnpm dev:docs` serve the sites.
 5. **Judge the renders.** Capture light and dark with headless Playwright
-   (`page.emulateMedia({ colorScheme })`). Read values with `getComputedStyle`; never
-   guess them. Critique each capture as a designer: hierarchy, shared edges, spacing,
-   clutter. Fix and capture again until it holds up.
+   (`page.emulateMedia({ colorScheme })`). The Console follows that setting only while
+   its theme is System. Read values with `getComputedStyle`; never guess them. Critique
+   each capture as a designer: hierarchy, shared edges, spacing, clutter. Fix and
+   capture again until it holds up.
 6. **Show one proposal against today.** For a visual choice, show a few real options
    next to each other on one page, with today first. Never show a grid of variants built
    from reference numbers.
