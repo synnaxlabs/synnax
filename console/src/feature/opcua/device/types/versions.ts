@@ -9,3 +9,4 @@
 
 export * as v0 from "@/feature/opcua/device/types/v0";
 export * as v1 from "@/feature/opcua/device/types/v1";
+export * as v2 from "@/feature/opcua/device/types/v2";

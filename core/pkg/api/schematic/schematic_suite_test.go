@@ -101,7 +101,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Schematic: schematicSvc,
 	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "test",
+		Name: "test",
 	}))
 	proj.Name = "test-project"
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
