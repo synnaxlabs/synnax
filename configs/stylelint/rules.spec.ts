@@ -39,6 +39,9 @@ describe("plugins", () => {
     rule: string,
     baseline: Partial<Baseline> = {},
   ): Promise<string[]> => {
+    const full = path.join(root, file);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, code);
     const { results } = await stylelint.lint({
       code,
       codeFilename: path.join(root, file),
@@ -54,6 +57,17 @@ describe("plugins", () => {
     });
     return results[0].warnings.map((w) => w.text);
   };
+
+  it("should reject a baseline that lists a file that does not exist", () => {
+    const baseline = {
+      foreignClasses: { "console/src/Gone.css": ["pluto-btn"] },
+      globalStyles: [],
+    };
+    expect(() => plugins({ root, source: read(root), baseline })).toThrow(
+      "configs/stylelint/baseline.json lists files that do not exist: " +
+        "console/src/Gone.css. Delete their entries.",
+    );
+  });
 
   describe("synnax/no-unknown-class", () => {
     const RULE = "synnax/no-unknown-class";

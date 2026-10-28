@@ -131,6 +131,13 @@ describe("read", () => {
       expect(owners("lyra-theme-synnax-dark")).toEqual(["lyra"]);
     });
 
+    it("should not count a selector that reads a class", () => {
+      write({
+        "site/docs/src/collapse.ts": `document.querySelectorAll(".pluto-text");`,
+      });
+      expect(owners("pluto-text")).toEqual([]);
+    });
+
     it("should not count classes that a style block or a spec names", () => {
       write({
         "site/docs/src/Page.astro": `<div /><style>.lyra-btn { color: red; }</style>`,

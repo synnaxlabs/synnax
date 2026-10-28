@@ -16,22 +16,33 @@ import { Dialog } from "@/dialog";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Triggers } from "@/triggers";
 
+const TALL = <div style={{ height: 2000, flexShrink: 0 }}>Tall</div>;
+
 const openDialog = async (
   variant: Dialog.FrameProps["variant"],
   content: ReactNode = <p>Content</p>,
-): Promise<{ trigger: Element; dialog: Element }> => {
-  const { getByText } = await renderThemed(
+  size?: Dialog.DialogProps["size"],
+): Promise<{ trigger: Element; dialog: Element; unmount: () => unknown }> => {
+  const { getByText, unmount } = await renderThemed(
     <Triggers.Provider>
       <Dialog.Frame variant={variant}>
         <Dialog.Trigger>Toggle</Dialog.Trigger>
-        <Dialog.Dialog>{content}</Dialog.Dialog>
+        <Dialog.Dialog size={size}>{content}</Dialog.Dialog>
       </Dialog.Frame>
     </Triggers.Provider>,
   );
   const trigger = getByText("Toggle").element();
   await userEvent.click(trigger);
   await expect.element(page.getByRole("dialog")).toBeVisible();
-  return { trigger, dialog: page.getByRole("dialog").element() };
+  return { trigger, dialog: page.getByRole("dialog").element(), unmount };
+};
+
+/** @returns the height of a floating dialog of the size, holding tall content. */
+const capOf = async (size?: Dialog.DialogProps["size"]): Promise<number> => {
+  const { dialog, unmount } = await openDialog("floating", TALL, size);
+  const { height } = dialog.getBoundingClientRect();
+  await unmount();
+  return height;
 };
 
 /** @returns true when the element is the topmost one at its own center. */
@@ -63,11 +74,13 @@ describe("Dialog", () => {
     });
 
     it("should cap the height of tall content", async () => {
-      const { dialog } = await openDialog(
-        "floating",
-        <div style={{ height: 2000, flexShrink: 0 }}>Tall</div>,
-      );
-      expect(dialog.getBoundingClientRect().height).toBeLessThan(2000);
+      expect(await capOf()).toBeLessThan(2000);
+    });
+
+    it("should cap a small dialog lower and a large one higher", async () => {
+      const medium = await capOf();
+      expect(await capOf("small")).toBeLessThan(medium);
+      expect(await capOf("large")).toBeGreaterThan(medium);
     });
   });
 
