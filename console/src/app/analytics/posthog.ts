@@ -71,10 +71,10 @@ type PostHog = Awaited<ReturnType<typeof importPostHog>>;
 
 /** Tags every later event with the environment and the install. A reset clears both. */
 const attach = (posthog: PostHog, installID: string): void => {
-  // A dev run reports as an ordinary install otherwise, so every count needs this to
-  // separate the two.
+  // Local and test builds otherwise report as ordinary installs, so every count needs
+  // this to leave them out.
   posthog.register({
-    environment: IS_DEV ? "development" : "production",
+    environment: RELEASE ? "production" : "development",
     install_id: installID,
   });
 };
