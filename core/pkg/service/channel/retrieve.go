@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or
@@ -73,14 +74,14 @@ func MatchNames(names ...string) Filter {
 	})
 }
 
-// allLiteralNames reports whether every input is accepted by validNamePattern, the
-// character set enforced during channel creation and renaming. A channel's stored Name
-// always matches it, so such inputs are literal exact-match targets routable through
-// the in-memory name index; anything else contains regex metacharacters and must fall
-// back to the regex matcher to preserve the historical contract.
+// allLiteralNames reports whether every input is an identifier, the character set
+// enforced during channel creation and renaming. A channel's stored Name always is one,
+// so such inputs are literal exact-match targets routable through the in-memory name
+// index; anything else contains regex metacharacters and must fall back to the regex
+// matcher to preserve the historical contract.
 func allLiteralNames(names []string) bool {
 	for _, n := range names {
-		if !validNamePattern.MatchString(n) {
+		if !validate.IsIdentifier(n) {
 			return false
 		}
 	}
