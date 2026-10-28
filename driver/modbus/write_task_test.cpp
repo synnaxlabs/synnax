@@ -12,12 +12,12 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
-#include "driver/modbus/mock/slave.h"
 #include "driver/modbus/modbus.h"
+#include "driver/modbus/testutil/slave.h"
 #include "driver/modbus/write_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::modbus {
 class ModbusWriteTest : public ::testing::Test {
@@ -26,7 +26,7 @@ protected:
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::StreamerFactory> mock_streamer_factory;
+    std::shared_ptr<pipeline::testutil::StreamerFactory> mock_streamer_factory;
     std::shared_ptr<device::Manager> devs;
     synnax::channel::Channel coil_ch;
     synnax::channel::Channel reg_ch;
@@ -109,11 +109,11 @@ TEST(ModbusChannels, OutputRegisterResolvesDeviceOrder) {
 /// @brief it should write coil and register values to Modbus device.
 TEST_F(ModbusWriteTest, testBasicWrite) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -142,7 +142,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     fr.emplace(reg_ch.key, x::telem::Series(static_cast<uint16_t>(12345)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {coil_ch.key, reg_ch.key},
         reads
     );
@@ -169,11 +169,11 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
 /// @brief it should write multiple data types to holding registers.
 TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -248,7 +248,7 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     fr.emplace(float64_ch.key, x::telem::Series(2.71828));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {int16_ch.key, uint32_ch.key, int32_ch.key, float32_ch.key, float64_ch.key},
         reads
     );
@@ -340,11 +340,11 @@ TEST_F(ModbusWriteTest, testUnboundDisabledChannel) {
 /// @brief it should handle concurrent writes to multiple channels.
 TEST_F(ModbusWriteTest, testConcurrentWrites) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -406,7 +406,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     fr.emplace(reg2.key, x::telem::Series(static_cast<uint16_t>(2000)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {coil1.key, coil2.key, reg1.key, reg2.key},
         reads
     );
@@ -435,14 +435,14 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
 /// @brief it should verify written values match expected values.
 TEST_F(ModbusWriteTest, testWriteVerification) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
     slave_cfg.coils[0] = 0;
     slave_cfg.holding_registers[0] = 0;
     slave_cfg.holding_registers[1] = 0;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -472,7 +472,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     fr.emplace(reg_ch.key, x::telem::Series(static_cast<uint16_t>(42)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {coil_ch.key, reg_ch.key},
         reads
     );
@@ -519,11 +519,11 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 /// sample should be written to hardware.
 TEST_F(ModbusWriteTest, testLastWriteWins) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -553,7 +553,7 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
     fr.emplace(reg_ch.key, x::telem::Series(std::vector<uint16_t>{100, 200, 300}));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         {coil_ch.key, reg_ch.key},
         reads
     );
@@ -584,11 +584,11 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
 /// division).
 TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -642,7 +642,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     fr.emplace(holding2.key, x::telem::Series(static_cast<uint8_t>(150)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {holding0.key, holding1.key, holding2.key},
         reads
     );

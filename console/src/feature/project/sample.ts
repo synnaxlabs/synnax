@@ -60,7 +60,7 @@ func step() {
     ${VENT_VLV_STATE} = ${VENT_VLV_CMD}
 }
 
-time.interval{period=100ms} -> step{}
+time.interval(period=100ms) -> step()
 `;
 
 const SEQUENCE = `import control
@@ -77,7 +77,7 @@ sequence press {
         ${START_CMD} == 1 => pressurize
     }
     stage pressurize {
-        control.set_authority{value=100}
+        control.set_authority(value=100)
         1 -> ${PRESS_VLV_CMD}
         0 -> ${VENT_VLV_CMD}
         ${TANK_PT} > 450 => abort
@@ -87,7 +87,7 @@ sequence press {
     stage hold {
         0 -> ${PRESS_VLV_CMD}
         ${ABORT_CMD} == 1 => abort
-        time.wait{duration=10s} => vent
+        time.wait(duration=10s) => vent
     }
     stage vent {
         1 -> ${VENT_VLV_CMD}
@@ -96,7 +96,7 @@ sequence press {
     // Abort raises the sequence to the authority of a control chip, so its commands
     // reach a valve an operator holds.
     stage abort {
-        control.set_authority{value=255}
+        control.set_authority(value=255)
         0 -> ${PRESS_VLV_CMD}
         1 -> ${VENT_VLV_CMD}
         ${START_CMD} == 1 => pressurize

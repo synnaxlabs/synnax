@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
-import { AuthError, NotFoundError } from "@/index";
+import { AuthError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { createTestClient, expectDeleted } from "@/testutil";
 import { type user } from "@/user";
@@ -94,9 +94,20 @@ describe("User", () => {
         });
       });
       test("Repeated username", async () =>
-        await expect(client.users.create([userOne, userTwo])).rejects.toThrow(
-          AuthError,
-        ));
+        await expect(
+          client.users.create([
+            { username: userOne.username, password: "test" },
+            { username: userTwo.username, password: "test" },
+          ]),
+        ).rejects.toThrow(AuthError));
+      test("Repeated key", async () =>
+        await expect(
+          client.users.create({
+            key: userOne.key,
+            username: id.create(),
+            password: "test",
+          }),
+        ).rejects.toThrow(ValidationError));
     });
   });
   describe("Retrieve", () => {

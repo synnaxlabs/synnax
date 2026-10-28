@@ -17,6 +17,7 @@ import (
 
 const aliasTelem = `
 @cpp output "x/cpp/telem"
+@go output "x/go/telem"
 
 TimeStamp int64 {
 	@cpp hand

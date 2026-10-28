@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace freighter {
 class BasicMiddleware final : public PassthroughMiddleware {
