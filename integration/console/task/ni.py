@@ -72,11 +72,8 @@ class NITask(TaskPage):
         ...
 
     def _open_new_device_dropdown(self) -> None:
-        """Select the next channel row and open its device dropdown. A new task starts
-        with one channel, so the first call uses that row instead of adding one."""
-        idx = len(self.channels)
-        if idx > 0:
-            self.add_channel_row()
+        """Select the next channel row and open its device dropdown."""
+        idx = self.next_channel_row()
         self.layout.page.locator(".pluto-list__item").nth(idx).click()
         self.layout.click_btn("Device")
 
