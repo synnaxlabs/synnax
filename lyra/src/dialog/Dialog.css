@@ -62,11 +62,11 @@
             var(--pluto-dialog-available-height, 100vh)
         );
         max-width: var(--pluto-dialog-available-width, none);
-        &.pluto-height-small {
+        &.pluto--height-small {
             --pluto-dialog-max-height: 200px;
         }
 
-        &.pluto-height-large {
+        &.pluto--height-large {
             --pluto-dialog-max-height: 480px;
         }
     }

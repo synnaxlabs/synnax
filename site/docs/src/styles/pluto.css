@@ -16,11 +16,6 @@
  * With CSS layers, these should override Pluto without !important.
  */
 
-/* Pack component */
-.pluto-pack {
-    --pluto-pack-br: 1rem;
-}
-
 /* Tabs selector */
 .pluto-tabs__tab {
     /* Arc context tabs render the icon to the right of the label. */
