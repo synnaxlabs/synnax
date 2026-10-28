@@ -75,6 +75,7 @@ jobs:
       driver_build: ${{ steps.filter.outputs.driver_build }}
       eslint_config: ${{ steps.filter.outputs.eslint_config }}
       exports_go: ${{ steps.filter.outputs.exports_go }}
+      exports_py: ${{ steps.filter.outputs.exports_py }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
@@ -109,6 +110,9 @@ jobs:
       - uses: dorny/paths-filter@v4
         id: filter
         with:
+          # A merge group's base is the entry ahead of it in the queue. A green group
+          # merges every entry ahead of it, so it must test their changes too.
+          base: ${{ github.event.merge_group.base_ref }}
           filters: .github/filters.yaml
 
   actionlint:
@@ -451,6 +455,24 @@ jobs:
         run: |
           "$RUNNER_TEMP/exports" alamos/go arc/go aspen cesium core freighter/go \
             freighter/integration gorp oracle x/go
+
+  exports-py:
+    needs: changes
+    if: inputs.full || needs.changes.outputs.exports_py == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: latest-known
+
+      - name: Check names that are public without need
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: uv run --project scripts scripts/check_exports_py.py
 
   format:
     uses: ./.github/workflows/test.format.yaml
@@ -875,6 +897,7 @@ jobs:
       - driver-tsan
       - eslint-config
       - exports-go
+      - exports-py
       - format
       - foundation
       - freighter-cpp

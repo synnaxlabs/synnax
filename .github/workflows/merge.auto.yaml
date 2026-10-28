@@ -12,6 +12,9 @@
 # require CI and the Review gate. GitHub turns auto-merge off when someone without write
 # access pushes, so a push turns it on again. A merge that GITHUB_TOKEN starts triggers
 # no workflows, so an App token turns auto-merge on. No pull request code runs here.
+# Runs on one pull request go one at a time, so an older run never acts after a newer
+# one. A newer run waits instead of cancelling the run in progress, which would show as
+# a failed check.
 
 name: Merge - Auto
 
@@ -31,7 +34,7 @@ permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   auto-merge:

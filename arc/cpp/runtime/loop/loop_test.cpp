@@ -18,7 +18,7 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/notify/notify.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 #if defined(__linux__)
