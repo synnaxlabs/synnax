@@ -38,6 +38,10 @@ func collectInterfaces(pkgs []*packages.Package) interfaces {
 			byName[m.Name()] = append(byName[m.Name()], it)
 		}
 	}
+	roots := set.Set[*types.Package]{}
+	for _, p := range pkgs {
+		roots.Add(p.Types)
+	}
 	seen := set.Set[*types.Package]{}
 	var walk func(*types.Package)
 	walk = func(tp *types.Package) {
@@ -47,7 +51,8 @@ func collectInterfaces(pkgs []*packages.Package) interfaces {
 		seen.Add(tp)
 		for _, name := range tp.Scope().Names() {
 			tn, ok := tp.Scope().Lookup(name).(*types.TypeName)
-			if !ok {
+			// An unexported interface of a dependency keeps no method exported.
+			if !ok || (!roots.Contains(tp) && !tn.Exported()) {
 				continue
 			}
 			it, ok := tn.Type().Underlying().(*types.Interface)
