@@ -64,7 +64,7 @@ const pressChord = async (...codes: string[]): Promise<HTMLInputElement> => {
 };
 
 describe("Palette", () => {
-  const DOCS_URL = "https://docs.synnaxlabs.com/reference/console/get-started";
+  const DOCS_URL = "https://docs.synnaxlabs.com/reference/";
 
   afterEach(() => {
     vi.restoreAllMocks();
