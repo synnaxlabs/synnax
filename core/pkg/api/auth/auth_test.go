@@ -446,6 +446,12 @@ var _ = Describe("CreatePassword", func() {
 			Credentials: auth.Credentials{Username: nopass.Username},
 		})).Error().To(MatchError(ContainSubstring("password: required")))
 	})
+	It("Should reject an empty username", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:     nopass.OntologyID(),
+			Credentials: auth.Credentials{Password: "p"},
+		})).Error().To(MatchError(ContainSubstring("username: required")))
+	})
 })
 
 var _ = Describe("Middleware", func() {
