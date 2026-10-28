@@ -198,6 +198,7 @@ x::errors::Error rack::Config::save_conn_params(
     const synnax::Config &conn_params
 ) {
     auto [kv, err] = open_kv(args);
+    if (err) return err;
     return kv->set("conn_params", conn_params.to_json().dump());
 }
 
@@ -221,6 +222,7 @@ rack::Config::save_api_key(x::args::Parser &args, const std::string &key) {
 x::errors::Error
 rack::Config::save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info) {
     auto [kv, err] = open_kv(args);
+    if (err) return err;
     return kv->set("remote_info", remote_info.to_json().dump());
 }
 
