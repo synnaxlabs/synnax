@@ -47,7 +47,7 @@ class TestGate:
         assert client.written(CHANNEL) == [True, False]
 
     def test_should_publish_the_state_after_a_slow_step(self, client: Client) -> None:
-        client.latency = 2 * OPEN_LEEWAY.seconds
+        client.latency = 2 * OPEN_LEEWAY
         gate(client).step({RUNNER})
         assert client.written(channel_name("gh_state", RUNNER)) == [True]
 

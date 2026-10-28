@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from typing import cast
 
 import numpy as np
@@ -49,13 +48,15 @@ class Streamer:
 
 class Client:
     """Stands in for the Core: records every frame written, rejects a timestamp before
-    the writer's start, fails writes while failing is set, opens a streamer after
-    latency seconds, streams the frames in streamed, and reads samples from latest."""
+    the writer's start, fails writes while failing is set, moves the clock latency
+    ahead on each streamer open, streams the frames in streamed, and reads samples
+    from latest."""
 
     def __init__(self) -> None:
         self.frames: list[dict] = []
         self.failing = False
-        self.latency = 0.0
+        self.latency = sy.TimeSpan(0)
+        self.elapsed = sy.TimeSpan(0)
         self.streamed: list[dict] = []
         self.latest: dict[str, np.ndarray] = {}
 
@@ -65,7 +66,7 @@ class Client:
         return Writer(self, start)
 
     def open_streamer(self, *args: object, **kwargs: object) -> Streamer:
-        time.sleep(self.latency)
+        self.elapsed += self.latency
         return Streamer(self)
 
     def read_latest(self, names: list[str]) -> dict:
@@ -76,8 +77,13 @@ class Client:
 
 
 @pytest.fixture
-def client() -> Client:
-    return Client()
+def client(monkeypatch: pytest.MonkeyPatch) -> Client:
+    c = Client()
+    now = sy.TimeStamp.now
+    monkeypatch.setattr(
+        sy.TimeStamp, "now", classmethod(lambda _: sy.TimeStamp(now() + c.elapsed))
+    )
+    return c
 
 
 def core(client: Client) -> sy.Synnax:
