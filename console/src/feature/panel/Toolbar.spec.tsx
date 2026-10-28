@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
+import { type panel, type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Text } from "@synnaxlabs/lyra/text";
 import { uuid } from "@synnaxlabs/x";
@@ -41,11 +41,12 @@ const REGISTRY: PlatformPanel.Tabs = {
   },
 };
 
-const setup = async (): Promise<{
-  wrapper: FC<PropsWithChildren>;
-  store: TestStore;
-}> => {
-  const { wrapper: Console, store } = await createConsoleWrapper({ client });
+const setup = async (
+  wrapperClient: Synnax | null = client,
+): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+  const { wrapper: Console, store } = await createConsoleWrapper({
+    client: wrapperClient,
+  });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <PlatformPanel.RendererContext value={REGISTRY}>
@@ -73,7 +74,7 @@ const focus = async (store: TestStore, type: string): Promise<panel.Panel> => {
 
 describe("Panel.TOOLBAR", () => {
   it("should show an empty state when no tab is focused", async () => {
-    const { wrapper } = await setup();
+    const { wrapper } = await setup(null);
     render(Panel.TOOLBAR.content, { wrapper });
     expect(await screen.findByText("No component selected")).toBeTruthy();
   });
