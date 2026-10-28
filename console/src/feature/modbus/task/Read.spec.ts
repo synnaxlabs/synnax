@@ -325,6 +325,15 @@ describe("Read", () => {
       expect(lanes).toEqual(["Coil", "Holding register"]);
     });
 
+    it("should draw one band where many channels read the same addresses", async () => {
+      const { container } = await renderChannels([
+        holding(10, "float32"),
+        holding(10, "float32"),
+        holding(10, "float32"),
+      ]);
+      expect(container.querySelectorAll(".console-modbus__overlap")).toHaveLength(1);
+    });
+
     it("should not select a channel when a field is edited", async () => {
       await renderChannels([coil(0)]);
       fireEvent.click(within(getItems()[0]).getByRole("textbox", { name: "Address" }));

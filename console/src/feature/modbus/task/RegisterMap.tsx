@@ -25,7 +25,12 @@ import {
   RegisterGlyph,
   REGISTERS,
 } from "@/feature/modbus/task/Register";
-import { addressSpan, overlaps, type ReadChannel } from "@/feature/modbus/task/types";
+import {
+  addressSpan,
+  findOverlaps,
+  type Overlaps,
+  type ReadChannel,
+} from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 
 const CHANNELS_PATH = "config.channels";
@@ -35,15 +40,35 @@ const CHANNELS_PATH = "config.channels";
 const Hovered = Store.createPresence("Modbus.Hovered");
 const [SetHovered, useSetHoveredContext] = context.create<(key?: string) => void>({
   displayName: "Modbus.SetHovered",
-  providerName: "Modbus.HoveredProvider",
+  providerName: "Modbus.RegisterMapProvider",
 });
 
-/** Shares the channel under the pointer between the channel list and the map. */
-export const HoveredProvider = ({ children }: PropsWithChildren): ReactElement => {
+const [FindOverlaps, useFindOverlaps] = context.create<
+  (channels: ReadChannel[]) => Overlaps
+>({ displayName: "Modbus.FindOverlaps", providerName: "Modbus.RegisterMapProvider" });
+
+// Finds the overlaps once for each version of the channels, however many items ask.
+const createFindOverlaps = () => {
+  let last: { channels: ReadChannel[]; overlaps: Overlaps } | undefined;
+  return (channels: ReadChannel[]): Overlaps => {
+    if (last?.channels !== channels)
+      last = { channels, overlaps: findOverlaps(channels) };
+    return last.overlaps;
+  };
+};
+
+/**
+ * Shares the channel under the pointer and the overlapping addresses between the
+ * channel list and the map.
+ */
+export const RegisterMapProvider = ({ children }: PropsWithChildren): ReactElement => {
   const [hovered, setHovered] = useState<string>();
+  const [find] = useState(createFindOverlaps);
   return (
     <SetHovered value={setHovered}>
-      <Hovered.Context value={hovered}>{children}</Hovered.Context>
+      <FindOverlaps value={find}>
+        <Hovered.Context value={hovered}>{children}</Hovered.Context>
+      </FindOverlaps>
     </SetHovered>
   );
 };
@@ -98,12 +123,10 @@ export const useColor = (key: string): string | undefined => {
  * @returns whether another channel of the same type reads one of the channel's
  * addresses.
  */
-export const useOverlaps = (key: string): boolean =>
-  useDerived((channels) => {
-    // A channel that is being removed is gone before its item unmounts.
-    const channel = channels.find((c) => c.key === key);
-    return channel != null && overlaps(channels, channel);
-  });
+export const useOverlaps = (key: string): boolean => {
+  const find = useFindOverlaps("Modbus.useOverlaps");
+  return useDerived((channels) => find(channels).keys.has(key));
+};
 
 // Past this many addresses, the ticks would merge into one fill.
 const MAX_TICKS = 128;
@@ -121,8 +144,10 @@ export const RegisterMap = (): ReactElement | null => {
   const channels = Form.useFieldValue<ReadChannel[]>(CHANNELS_PATH);
   const hovered = Hovered.usePresent();
   const setHovered = useSetHovered();
+  const find = useFindOverlaps("Modbus.RegisterMap");
   const palette = usePalette();
   if (channels.length === 0) return null;
+  const { ranges } = find(channels);
   const spans = channels.map((c, i) => ({
     channel: c,
     span: addressSpan(c),
@@ -143,14 +168,6 @@ export const RegisterMap = (): ReactElement | null => {
     >
       {REGISTER_TYPES.filter((t) => channels.some((c) => c.type === t)).map((t) => {
         const lane = spans.filter(({ channel }) => channel.type === t);
-        const shared: [number, number][] = [];
-        lane.forEach((a, i) =>
-          lane.slice(i + 1).forEach((b) => {
-            const sharedLo = Math.max(a.span[0], b.span[0]);
-            const sharedHi = Math.min(a.span[1], b.span[1]);
-            if (sharedLo <= sharedHi) shared.push([sharedLo, sharedHi]);
-          }),
-        );
         return (
           <div
             key={t}
@@ -189,7 +206,7 @@ export const RegisterMap = (): ReactElement | null => {
                   }
                 />
               ))}
-              {shared.map((span) => (
+              {ranges[t]?.map((span) => (
                 <span
                   key={span.join("-")}
                   className={CSS.BE("modbus", "overlap")}

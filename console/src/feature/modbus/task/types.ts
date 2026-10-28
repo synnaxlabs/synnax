@@ -50,17 +50,54 @@ export const addressSpan = (channel: ReadChannel): [number, number] => [
   nextAddress(channel) - 1,
 ];
 
-/**
- * @returns whether another channel of the same type reads one of the channel's
- * addresses.
- */
-export const overlaps = (channels: ReadChannel[], channel: ReadChannel): boolean => {
-  const [lo, hi] = addressSpan(channel);
-  return channels.some((other) => {
-    if (other.key === channel.key || other.type !== channel.type) return false;
-    const [otherLo, otherHi] = addressSpan(other);
-    return otherLo <= hi && lo <= otherHi;
-  });
+/** Where channels of the same type read the same addresses. */
+export interface Overlaps {
+  /** The keys of the channels that read an address another channel reads. */
+  keys: Set<string>;
+  /** For each type, the shared address ranges, in order and apart. */
+  ranges: Partial<Record<ReadChannelType, [number, number][]>>;
+}
+
+/** @returns where channels of the same type read the same addresses. */
+export const findOverlaps = (channels: ReadChannel[]): Overlaps => {
+  const keys = new Set<string>();
+  const ranges: Overlaps["ranges"] = {};
+  const byType = Map.groupBy(channels, (c) => c.type);
+  for (const [type, typed] of byType) {
+    // A channel stops reading one address past its last, and a stop comes before a
+    // start at the same address, so channels that only touch do not overlap.
+    const events = typed
+      .flatMap((c): [number, number, string][] => {
+        const [lo, hi] = addressSpan(c);
+        return [
+          [lo, 1, c.key],
+          [hi + 1, -1, c.key],
+        ];
+      })
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const reading = new Set<string>();
+    const shared: [number, number][] = [];
+    let start = 0;
+    for (const [address, step, key] of events) {
+      if (step < 0) {
+        reading.delete(key);
+        if (reading.size === 1) shared.push([start, address - 1]);
+        continue;
+      }
+      reading.add(key);
+      if (reading.size < 2) continue;
+      keys.add(key);
+      if (reading.size > 2) continue;
+      reading.forEach((k) => keys.add(k));
+      const last = shared.at(-1);
+      if (last?.[1] === address - 1) {
+        shared.pop();
+        start = last[0];
+      } else start = address;
+    }
+    if (shared.length > 0) ranges[type] = shared;
+  }
+  return { keys, ranges };
 };
 
 export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;

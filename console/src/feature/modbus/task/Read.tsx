@@ -27,8 +27,8 @@ import { SCHEMAS } from "@/feature/modbus/device/types";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
 import { RegisterField, SHADOW_TRIGGER_PROPS } from "@/feature/modbus/task/Register";
 import {
-  HoveredProvider,
   RegisterMap,
+  RegisterMapProvider,
   useColor,
   useHoveredRef,
   useIsHovered,
@@ -192,7 +192,7 @@ const Form: FC = () => {
   const resolve = (c: ReadChannel) =>
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
-    <HoveredProvider>
+    <RegisterMapProvider>
       <Task.Views.List<ReadChannel>
         createChannel={getOpenChannel}
         contextMenuItems={Task.readChannelContextMenuItem}
@@ -202,7 +202,7 @@ const Form: FC = () => {
         columns={COLUMNS}
         checkable
       />
-    </HoveredProvider>
+    </RegisterMapProvider>
   );
 };
 
