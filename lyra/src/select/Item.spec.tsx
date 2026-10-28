@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -278,9 +279,14 @@ describe("Select render isolation", () => {
     interface CheckableProps {
       onActivate?: () => void;
       onChange?: (keys: string[]) => void;
+      disabled?: boolean;
     }
 
-    const Checkable = ({ onActivate, onChange }: CheckableProps): ReactElement => {
+    const Checkable = ({
+      onActivate,
+      onChange,
+      disabled,
+    }: CheckableProps): ReactElement => {
       const [value, setValue] = useState<string[]>([]);
       const handleChange = (next: string[]): void => {
         setValue(next);
@@ -297,7 +303,13 @@ describe("Select render isolation", () => {
             <List.Scroll>
               <List.Items<string>>
                 {({ key, ...p }): ReactElement => (
-                  <Select.Item key={key} {...p} checkable onActivate={onActivate}>
+                  <Select.Item
+                    key={key}
+                    {...p}
+                    checkable
+                    onActivate={onActivate}
+                    disabled={disabled}
+                  >
                     {p.itemKey}
                   </Select.Item>
                 )}
@@ -352,6 +364,14 @@ describe("Select render isolation", () => {
       const c = render(<Checkable onActivate={onActivate} />);
       fireEvent.click(checkbox(c, "alpha"));
       expect(onActivate).not.toHaveBeenCalled();
+    });
+
+    it("should not select a disabled item through its checkbox", async () => {
+      const onChange = vi.fn();
+      const c = render(<Checkable onChange={onChange} disabled />);
+      await userEvent.click(checkbox(c, "alpha"));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(checkbox(c, "alpha").checked).toBe(false);
     });
   });
 });

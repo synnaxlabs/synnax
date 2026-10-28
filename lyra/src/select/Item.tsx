@@ -96,6 +96,8 @@ const BlockItem = <K extends record.Key, E extends Button.ElementType>({
         size="medium"
         variant="text"
         reveal={!selected}
+        disabled={item.disabled}
+        preview={item.preview}
         aria-label="Select"
       />
       {item.children}
