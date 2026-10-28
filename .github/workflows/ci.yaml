@@ -272,6 +272,8 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'ci-scripts')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: ci-scripts
+      coverage_module: .
       directory: .github/scripts
     secrets: inherit
 
