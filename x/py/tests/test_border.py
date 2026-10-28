@@ -38,6 +38,12 @@ class TestRadius:
             bottom_right=corner,
         )
 
+    def test_number_corners_independent(self) -> None:
+        """Should give each corner its own pair when expanding a bare number."""
+        r = border.Radius.model_validate(4)
+        r.top_left.x = 9
+        assert r.top_right == spatial.XY(x=4, y=4)
+
     def test_pair(self) -> None:
         """Should expand a single pair to every corner."""
         r = border.Radius.model_validate({"x": 4, "y": 8})

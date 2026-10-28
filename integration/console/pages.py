@@ -82,18 +82,11 @@ class PagesClient(ResourceClient):
         :param name: Name of the page to drag.
         :returns: Instance of ``page_class`` wrapping the opened page.
         """
-        for attempt in range(2):
-            self.layout.show_resource_toolbar("Projects")
-            page_item = self._find(name)
-            mosaic = self.layout.page.locator(".console-mosaic").first
-            page_item.drag_to(mosaic)
-            self.layout.close_left_toolbar()
-            try:
-                self.layout.wait_for_tab(name)
-                break
-            except PlaywrightTimeoutError:
-                if attempt == 1:
-                    raise
+        self.layout.show_resource_toolbar("Projects")
+        page_item = self._find(name)
+        self.layout.drag(page_item, self.layout.page.locator(".console-mosaic").first)
+        self.layout.close_left_toolbar()
+        self.layout.wait_for_tab(name)
         return page_class.from_open_page(self.layout, self.client, name)
 
     def bind_open(self, page_class: type[T], name: str) -> T:

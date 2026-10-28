@@ -12,7 +12,7 @@
 #include "gtest/gtest.h"
 #include "modbus/modbus.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/modbus/testutil/slave.h"
 

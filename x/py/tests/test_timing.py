@@ -137,24 +137,26 @@ class TestLoop:
             assert stamp >= interval * (i + 1)
         # A loop that slept one interval after the block would take 40% longer. The
         # slack leaves room for stalls on a loaded CI runner.
-        assert stamps[-1] < interval * count * 1.1
+        assert stamps[-1] < interval * count * 1.2
 
     def test_catch_up_short_overrun(self) -> None:
         """Should return at once after an overrun shorter than the interval and keep the
         original schedule.
         """
-        interval = TimeSpan.MILLISECOND * 50
+        # A schedule restarted after the overrun would end half an interval later, so
+        # the interval is long enough that a CI stall stays inside that margin.
+        interval = TimeSpan.MILLISECOND * 200
         start = time.perf_counter_ns()
         with Loop(interval, precise=True) as loop:
             loop.wait()
-            sleep(TimeSpan.MILLISECOND * 75, precise=True)
+            sleep(interval * 1.5, precise=True)
             before = time.perf_counter_ns()
             loop.wait()
             caught_up = time.perf_counter_ns() - before
             loop.wait()
             elapsed = time.perf_counter_ns() - start
-        assert caught_up < TimeSpan.MILLISECOND * 25
-        assert interval * 3 <= elapsed < interval * 3 + TimeSpan.MILLISECOND * 25
+        assert caught_up < interval * 0.5
+        assert interval * 3 <= elapsed < interval * 3.5
 
     def test_skip_missed_iterations(self) -> None:
         """Should drop the iterations missed by an overrun of more than one interval

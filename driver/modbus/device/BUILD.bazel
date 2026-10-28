@@ -30,7 +30,7 @@ cc_test(
     deps = [
         ":device",
         "//driver/modbus/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
