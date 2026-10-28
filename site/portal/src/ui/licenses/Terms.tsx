@@ -32,7 +32,7 @@ export const termsSchema = z.object({
   term: termChoiceZ,
   nodes: z.number().int().min(1, "At least one machine"),
   channelsLimited: z.boolean(),
-  channels: z.number().int(),
+  channels: z.number(),
   expiresAt: z.string(),
   maxVersion: z.string().trim(),
 });
@@ -52,7 +52,14 @@ export const checkTerms = (ctx: z.core.ParsePayload<TermsValues>): void => {
       path: ["expiresAt"],
       input: v.expiresAt,
     });
-  if (v.channelsLimited && v.channels < 1)
+  if (v.channelsLimited && !Number.isInteger(v.channels))
+    ctx.issues.push({
+      code: "custom",
+      message: "Use a whole number",
+      path: ["channels"],
+      input: v.channels,
+    });
+  else if (v.channelsLimited && v.channels < 1)
     ctx.issues.push({
       code: "custom",
       message: "At least one channel",

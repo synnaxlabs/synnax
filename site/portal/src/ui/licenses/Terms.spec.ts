@@ -32,8 +32,15 @@ describe("Terms", () => {
       ]);
     });
 
+    it("should reject a fractional channel count when the channel limit is on", () => {
+      expect(issues({ channelsLimited: true, channels: 1.5 })).toEqual([
+        { path: ["channels"], message: "Use a whole number" },
+      ]);
+    });
+
     it("should ignore the channel count when the channel limit is off", () => {
       expect(issues({ channels: 0 })).toEqual([]);
+      expect(issues({ channels: 1.5 })).toEqual([]);
     });
 
     it("should ignore the maximum version on a subscription", () => {
