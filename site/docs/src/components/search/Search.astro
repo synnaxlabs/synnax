@@ -39,10 +39,11 @@ import { Search as S } from "@/components/search/Search";
         }
     }
 
-    @media (max-width: 1100px) {
+    @media (width <= 1100px) {
         .search-box {
             width: auto;
             max-width: none;
+
             & button {
                 width: auto;
                 min-width: unset;
@@ -52,9 +53,11 @@ import { Search as S } from "@/components/search/Search";
                 aspect-ratio: 1;
                 padding: 0;
             }
+
             & button > .pluto-icon {
                 font-size: var(--pluto-small-size);
             }
+
             .pluto-trigger-indicator {
                 display: none;
             }
@@ -65,9 +68,11 @@ import { Search as S } from "@/components/search/Search";
         & .search-results__input {
             --pluto-h2-size: 3.5rem;
             --pluto-h2-line-height: 4.5rem;
+
             flex-shrink: 0;
             flex-grow: 0;
         }
+
         width: 800px;
         max-width: 100%;
         height: 460px;
@@ -102,12 +107,12 @@ import { Search as S } from "@/components/search/Search";
             "icon excerpt excerpt enter";
         align-items: center;
         align-content: center;
-        column-gap: 2rem;
-        row-gap: 0.25rem;
+        gap: 0.25rem 2rem;
         padding: 1.25rem 1.5rem;
         height: auto;
         white-space: normal;
         text-decoration: none;
+
         --pluto-btn-bg: transparent;
 
         & > * {
@@ -233,7 +238,7 @@ import { Search as S } from "@/components/search/Search";
         }
     }
 
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         .search-result {
             grid-template-columns: 4.5rem minmax(0, 1fr);
             grid-template-areas:
