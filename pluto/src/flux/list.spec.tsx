@@ -9,6 +9,7 @@
 
 import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/lyra/list";
 import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
@@ -785,6 +786,78 @@ describe("list", () => {
         fixture.handlers.get("fast")?.([{ key: 2, value: "updated" }]);
       });
       await waitFor(() => expect(result.current.getItem(2)?.value).toEqual("updated"));
+    });
+  });
+
+  describe("debounced retrieves", () => {
+    const renderPagedList = () => {
+      const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
+      const useList = Flux.createList<List.PagerParams, number, record.Keyed<number>>({
+        name: "Resource",
+        retrieve,
+        retrieveByKey: async ({ key }) => ({ key }),
+      });
+      const { result } = renderHook(
+        () => {
+          const list = useList();
+          const pager = List.usePager({ retrieve: list.retrieve, pageSize: 20 });
+          return { ...list, ...pager };
+        },
+        { wrapper },
+      );
+      return { retrieve, result };
+    };
+
+    it("should keep a search when a fetch for more follows it", async () => {
+      const { retrieve, result } = renderPagedList();
+      act(() => {
+        result.current.search("pump");
+        result.current.fetchMore();
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          query: { searchTerm: "pump", offset: 0, limit: 20 },
+        }),
+      );
+    });
+
+    it("should run a search that follows a fetch for more", async () => {
+      const { retrieve, result } = renderPagedList();
+      act(() => {
+        result.current.fetchMore();
+        result.current.search("pump");
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          query: { searchTerm: "pump", offset: 0, limit: 20 },
+        }),
+      );
+    });
+
+    it("should fetch one page for repeated fetches for more", async () => {
+      const { retrieve, result } = renderPagedList();
+      act(() => {
+        result.current.fetchMore();
+        result.current.fetchMore();
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ query: { searchTerm: "", offset: 0, limit: 20 } }),
+      );
+    });
+
+    it("should keep every query change made within the debounce", async () => {
+      const { retrieve, result } = renderPagedList();
+      act(() => {
+        result.current.retrieve((p) => ({ ...p, searchTerm: "pump" }));
+        result.current.retrieve((p) => ({ ...p, limit: 5 }));
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ query: { searchTerm: "pump", limit: 5 } }),
+      );
     });
   });
 
