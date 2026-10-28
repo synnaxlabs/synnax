@@ -406,7 +406,7 @@ class Tree:
         target = self.find_by_name("group:", group_name)
         if target is None:
             raise ValueError(f"Group '{group_name}' not found")
-        source.drag_to(target)
+        self.layout.drag(source, target)
         self.page.wait_for_timeout(300)
 
     def get_group(self, name: str) -> Locator:

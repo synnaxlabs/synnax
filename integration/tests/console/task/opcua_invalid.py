@@ -27,7 +27,7 @@ class OPCUAInvalidConfig(OPCUACase):
     Tests (run sequentially on one task page):
         1. No device selected: the form blocks the deploy.
         2. Invalid rates: stream rate above sample rate, the form blocks the deploy.
-        3. No enabled channels: the Driver rejects the start.
+        3. No enabled channels: the form blocks the deploy.
         4. Duplicate channel: a second task on the same channel is rejected while
            the first one runs.
     """
@@ -54,7 +54,7 @@ class OPCUAInvalidConfig(OPCUACase):
         self.log("Testing: No enabled channels")
         self.set_rates(page)
         page.disable_channel(NODE)
-        self.assert_driver_rejects(page, "no enabled channels")
+        self.assert_channel_required(page)
 
     def test_duplicate_channel(self, page: OPCUARead) -> None:
         """Run the task, then deploy a second task that reads the same node."""

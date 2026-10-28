@@ -84,7 +84,13 @@ export const License = ({
       }
       actions={
         <>
-          {staff && <StaffActions license={lic} now={now} />}
+          {staff && (
+            <StaffActions
+              license={lic}
+              now={now}
+              back={parent?.href ?? "/admin/licenses"}
+            />
+          )}
           {deny(lic, now) == null && (
             <Button.Button variant="filled" href={activatePath(lic.key)}>
               <Icon.Add />
