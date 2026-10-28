@@ -57,11 +57,12 @@ def job_pool(labels: set[str]) -> Pool | None:
 
 
 class Scaler:
-    """Busy runners and instances up less than boot_grace whose runner is offline
-    are never touched. Instances still booting, and runners just commanded to start,
-    count toward a pool's demand. While disabled, the writer is closed and nothing
-    is written, but idle time keeps accruing and each decision is logged once,
-    marked [DISABLED], so enabling clears whatever backlog built up."""
+    """Busy runners, runners with a job in progress, and instances up less than
+    boot_grace whose runner is offline are never touched. Instances still booting,
+    and runners just commanded to start, count toward a pool's demand. While
+    disabled, the writer is closed and nothing is written, but idle time keeps
+    accruing and each decision is logged once, marked [DISABLED], so enabling clears
+    whatever backlog built up."""
 
     def __init__(
         self,
@@ -93,6 +94,7 @@ class Scaler:
         labels: dict[str, set[str]],
         queued: dict[Pool, int],
         found: dict[str, dict],
+        running: set[str],
     ) -> None:
         self.refresh_writer(known)
         # After the command writer opens, so commands land after its start.
@@ -100,7 +102,8 @@ class Scaler:
 
         def idle_on(r: str) -> bool:
             iid = instance_for(r, found)
-            if iid is None or not found[iid]["running"]:
+            # A job in progress outranks a runner status that says offline.
+            if iid is None or not found[iid]["running"] or r in running:
                 return False
             if status.get(r) == IDLE:
                 return True
@@ -137,7 +140,7 @@ class Scaler:
                 if status.get(r) == IDLE:
                     idle.setdefault(pool, []).append(r)
             elif state in ("stopped", "pending") or (
-                state == "running" and status.get(r) == OFFLINE
+                state == "running" and status.get(r) == OFFLINE and r not in running
             ):
                 booting[pool] = booting.get(pool, 0) + 1
         commands: dict[str, bool] = {}

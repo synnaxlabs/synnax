@@ -60,7 +60,7 @@ class TestScaler:
         s = scaler(client)
         found = {"i-0aaa": instance("stopped"), "i-0bbb": instance("stopped")}
         labels = {A: LABELS, B: LABELS}
-        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found)
+        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found, set())
         assert started(client) == [A]
 
     def test_should_count_a_commanded_instance_before_it_moves(
@@ -70,8 +70,8 @@ class TestScaler:
         found = {"i-0aaa": instance("stopped"), "i-0bbb": instance("stopped")}
         labels = {A: LABELS, B: LABELS}
         status = {A: OFFLINE, B: OFFLINE}
-        s.step({A, B}, status, labels, {POOL: 1}, found)
-        s.step({A, B}, status, labels, {POOL: 1}, found)
+        s.step({A, B}, status, labels, {POOL: 1}, found, set())
+        s.step({A, B}, status, labels, {POOL: 1}, found, set())
         assert started(client) == [A]
 
     def test_should_count_booting_instances_toward_demand(self, client: Client) -> None:
@@ -79,7 +79,7 @@ class TestScaler:
         booting = instance("running") | {"launched": sy.TimeStamp.now()}
         found = {"i-0aaa": booting, "i-0bbb": instance("stopped")}
         labels = {A: LABELS, B: LABELS}
-        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found)
+        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found, set())
         assert started(client) == []
 
     def test_should_stop_idle_runners_once_the_queue_is_empty(
@@ -87,7 +87,7 @@ class TestScaler:
     ) -> None:
         s = scaler(client)
         found = {"i-0aaa": instance("running")}
-        s.step({A}, {A: IDLE}, {A: LABELS}, {}, found)
+        s.step({A}, {A: IDLE}, {A: LABELS}, {}, found, set())
         assert client.written(channel_name("ec2_cmd", A)) == [False]
 
     def test_should_keep_idle_runners_while_their_pool_has_jobs(
@@ -95,8 +95,32 @@ class TestScaler:
     ) -> None:
         s = scaler(client)
         found = {"i-0aaa": instance("running")}
-        s.step({A}, {A: IDLE}, {A: LABELS}, {POOL: 1}, found)
+        s.step({A}, {A: IDLE}, {A: LABELS}, {POOL: 1}, found, set())
         assert client.written(channel_name("ec2_cmd", A)) == []
+
+    def test_should_keep_runners_with_a_job_in_progress(self, client: Client) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("running")}
+        s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, {A})
+        assert client.written(channel_name("ec2_cmd", A)) == []
+
+    def test_should_clear_the_idle_timer_when_a_job_starts(
+        self, client: Client
+    ) -> None:
+        log = Log(core(client), Channels(core(client), False), "log")
+        s = Scaler(core(client), sy.TimeSpan.HOUR, sy.TimeSpan.MINUTE * 2, log)
+        found = {"i-0aaa": instance("running")}
+        s.step({A}, {A: IDLE}, {A: LABELS}, {}, found, set())
+        assert A in s.idle_since
+        s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, {A})
+        assert A not in s.idle_since
+
+    def test_should_stop_a_runner_once_its_job_completes(self, client: Client) -> None:
+        s = scaler(client)
+        found = {"i-0aaa": instance("running")}
+        s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, {A})
+        s.step({A}, {A: OFFLINE}, {A: LABELS}, {}, found, set())
+        assert client.written(channel_name("ec2_cmd", A)) == [False]
 
     def test_should_start_an_instance_after_a_slow_writer_close(
         self, client: Client, monkeypatch: pytest.MonkeyPatch
@@ -104,11 +128,11 @@ class TestScaler:
         s = scaler(client)
         found = {"i-0aaa": instance("stopped"), "i-0bbb": instance("stopped")}
         labels = {A: LABELS, B: LABELS}
-        s.step({A}, {A: OFFLINE}, labels, {}, found)
+        s.step({A}, {A: OFFLINE}, labels, {}, found, set())
 
         def close(_: Writer) -> None:
             client.elapsed += 2 * OPEN_LEEWAY
 
         monkeypatch.setattr(Writer, "close", close)
-        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found)
+        s.step({A, B}, {A: OFFLINE, B: OFFLINE}, labels, {POOL: 1}, found, set())
         assert started(client) == [A]
