@@ -238,6 +238,26 @@ describe("User queries", () => {
         });
       });
 
+      it("should remove the new user when its username is taken", async () => {
+        const { username } = await createTestUser(client);
+        const { result } = renderHook(() => User.useForm({ query: null }), {
+          wrapper,
+        });
+        await waitFor(() => expect(result.current.variant).toBe("success"));
+        const name = `taken-${Date.now()}`;
+        act(() => {
+          result.current.form.set("username", username);
+          result.current.form.set("name", name);
+          result.current.form.set("password", "password123");
+        });
+        await act(async () => {
+          result.current.save();
+        });
+        await waitFor(() => expect(result.current.variant).toBe("error"));
+        const users = await client.users.retrieve({});
+        expect(users.filter((u) => u.name === name)).toHaveLength(0);
+      });
+
       it("should validate required fields", async () => {
         const { result } = renderHook(() => User.useForm({ query: null }), {
           wrapper,

@@ -85,11 +85,18 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   update: async ({ client, value }) => {
     const { name, username, password, role } = value();
     const created = await client.users.create({ key: uuid.create(), name });
-    await client.auth.createPassword({
-      subject: user.ontologyID(created.key),
-      username,
-      password,
-    });
+    let registered = false;
+    try {
+      await client.auth.createPassword({
+        subject: user.ontologyID(created.key),
+        username,
+        password,
+      });
+      registered = true;
+    } finally {
+      // a user with no password cannot log in, so a failed registration removes it
+      if (!registered) await client.users.delete(created.key);
+    }
     if (role == null) return;
     await client.access.roles.assign({ user: created.key, role });
   },
