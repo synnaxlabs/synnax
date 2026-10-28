@@ -118,4 +118,42 @@ describe("hub", () => {
       );
     });
   });
+
+  describe("receive", () => {
+    it("should post the code as a bearer token and return the key", async () => {
+      answer(200, { key: "x.y.z" });
+      expect(await License.receive("abc")).toBe("x.y.z");
+      expect(vi.mocked(fetch)).toHaveBeenCalledWith(License.HANDOFF_URL, {
+        method: "POST",
+        headers: { authorization: "Bearer abc" },
+        signal: expect.any(AbortSignal),
+      });
+    });
+
+    it("should return null while the hub holds no key", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response(null, { status: 204 })),
+      );
+      expect(await License.receive("abc")).toBeNull();
+    });
+
+    it("should throw with the message of a refusal", async () => {
+      answer(401, { error: "Log in first" });
+      await expect(License.receive("abc")).rejects.toThrow(
+        "Could not get the license key: Log in first",
+      );
+    });
+  });
+
+  describe("activateURL", () => {
+    it("should carry the fingerprint and the handoff code", () => {
+      const url = new URL(
+        License.activateURL({ fingerprint: ["a", "b"], handoff: "c" }),
+      );
+      expect(url.pathname).toBe("/licenses/activate");
+      expect(url.searchParams.get("fingerprint")).toBe("a,b");
+      expect(url.searchParams.get("handoff")).toBe("c");
+    });
+  });
 });
