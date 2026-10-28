@@ -12,8 +12,8 @@ import { z } from "zod";
 import { type Analytics } from "@/platform/analytics";
 
 /**
- * The Desktop project. The key is public, and every install carries it: it grants
- * nothing but writing events into that one project.
+ * The Synnax project, which the websites share. The key is public, and every install
+ * carries it: it grants nothing but writing events into that one project.
  */
 const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
