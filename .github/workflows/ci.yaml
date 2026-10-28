@@ -468,7 +468,8 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: x/go/go.mod
-          cache-dependency-path: "**/go.sum"
+          # The check type checks from source, so a build cache saves it nothing.
+          cache: false
 
       - name: Build the check
         if: steps.modules.outputs.affected != ''

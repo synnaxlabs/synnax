@@ -274,12 +274,13 @@ func load(
 	pkgs, err := packages.Load(&packages.Config{
 		Context: ctx,
 		Mode: packages.NeedName | packages.NeedFiles | packages.NeedSyntax |
-			packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports,
-		// -trimpath keeps the directory out of the build cache keys, so a base checkout
-		// reuses the builds of the head.
+			packages.NeedTypes | packages.NeedTypesInfo | packages.NeedImports |
+			// Type checking every dependency from source costs less than compiling
+			// export data for it.
+			packages.NeedDeps,
 		Env: append(
 			os.Environ(),
-			"GOOS="+goos, "GOWORK="+work, "GOFLAGS=-buildvcs=false -trimpath",
+			"GOOS="+goos, "GOWORK="+work, "GOFLAGS=-buildvcs=false",
 		),
 		Tests: true,
 	}, patterns...)
