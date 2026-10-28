@@ -65,7 +65,7 @@ const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, voi
             label="Message"
             inputProps={{ placeholder: "Message" }}
           />
-          <Form.Field<string[]> path="labels" required={false}>
+          <Form.Field<string[]> path="labels">
             {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
           </Form.Field>
         </Form.Form>

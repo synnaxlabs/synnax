@@ -16,8 +16,14 @@ export interface FieldState<V = unknown> {
   value: V;
   status: Status.Crude;
   touched: boolean;
+  /** Whether the schema refuses the field emptied: "" for text, [] for a list. */
   required: boolean;
 }
+
+// The value a cleared input leaves for a field of this value's type, or undefined when
+// no input can clear it.
+const emptyValue = (value: unknown): unknown =>
+  typeof value === "string" ? "" : Array.isArray(value) ? [] : undefined;
 
 export interface RequiredGetOptions {
   optional?: false;
@@ -372,15 +378,16 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
             values: this.values,
           });
     if (fieldSchema != null) {
-      const verdict = fieldSchema.safeParse(undefined);
-      required = !verdict.success;
       if (value == null) {
+        const verdict = fieldSchema.safeParse(undefined);
         if (!verdict.success) {
           if (optional) return null;
           throw new Error(`Field ${path} is required and holds no value`);
         }
         value = verdict.data as V;
       }
+      const empty = emptyValue(value);
+      required = empty !== undefined && !fieldSchema.safeParse(empty).success;
     } else if (value == null) {
       if (optional) return null;
       throw new Error(`Field ${path} is not in the form`);
