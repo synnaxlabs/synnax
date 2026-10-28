@@ -44,6 +44,8 @@ class Uptime:
         self.channels = channels
         self.index = channels.index(INDEX)
         self.states: dict[str, tuple[int, sy.TimeStamp | None]] = {}
+        # The runners the writer covers. A frame must carry each of their channels.
+        self.known: set[str] = set()
         self.stopped = threading.Event()
         self.lock = threading.Lock()
         self.publisher = Publisher(
@@ -55,6 +57,7 @@ class Uptime:
     def retarget(self, known: set[str]) -> None:
         self.channels.data(self.index, uptime_channels(known))
         with self.lock:
+            self.known = set(known)
             self.publisher.retarget(list(uptime_channels(known)))
 
     def update(
@@ -75,20 +78,25 @@ class Uptime:
             return None
         return found[iid]["launched"]
 
+    def frame(self, now: sy.TimeStamp) -> dict[str, int]:
+        """Seconds in its current state for every runner the writer covers. A runner
+        new since the last update() reads 0 until the next one."""
+        return {
+            channel_name("state_uptime", r): (
+                0
+                if (entered := self.states.get(r, (0, None))[1]) is None
+                else int(now.span(entered).seconds)
+            )
+            for r in self.known
+        }
+
     def _run(self) -> None:
         while not self.stopped.wait(TICK.seconds):
             states = self.states
             if not states:
                 continue
-            now = sy.TimeStamp.now()
-            frame = {
-                channel_name("state_uptime", r): (
-                    0 if entered is None else int(now.span(entered).seconds)
-                )
-                for r, (_, entered) in states.items()
-            }
             with self.lock:
-                self.publisher.write(frame)
+                self.publisher.write(self.frame(sy.TimeStamp.now()))
         self.publisher.close()
 
     def stop(self) -> None:

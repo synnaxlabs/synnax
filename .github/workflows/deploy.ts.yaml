@@ -26,6 +26,8 @@ permissions:
 jobs:
   publish:
     name: Publish
+    # A hotfix publishes from its release branch.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
     env:
       SYNNAX_TS_ENV: prod
@@ -42,4 +44,5 @@ jobs:
         run: pnpm build:client
 
       - name: Publish
-        run: pnpm publish -r
+        # pnpm refuses a branch other than main unless it is named here.
+        run: pnpm publish -r --publish-branch "$GITHUB_REF_NAME"
