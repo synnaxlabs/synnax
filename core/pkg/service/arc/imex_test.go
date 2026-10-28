@@ -96,6 +96,9 @@ var _ = Describe("ImEx", func() {
 			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
 			Expect(id.Type).To(Equal(ontology.ResourceTypeArc))
 			key := MustSucceed(uuid.Parse(id.Key))
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
+			})
 			var res arc.Arc
 			Expect(svc.NewRetrieve().
 				Where(arc.MatchKeys(key)).
@@ -253,6 +256,8 @@ var _ = Describe("ImEx", func() {
 					imex.ImportOptions{Parent: testParent},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+				key := MustSucceed(uuid.Parse(id.Key))
+				Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
 			},
 		)
 	})
@@ -265,6 +270,8 @@ var _ = Describe("ImEx", func() {
 				original.Text.Raw = "b = 2"
 				Expect(svc.NewWriter(nil).Create(ctx, &original)).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, arc.OntologyID(original.Key)))
+				// The import lands beside the original, where the name is taken.
+				Expect(svc.NewWriter(nil).Delete(ctx, original.Key)).To(Succeed())
 				id := MustSucceed(imexSvc.Import(
 					ctx, db, WireRoundTrip(env), imex.ImportOptions{Parent: testParent},
 				))

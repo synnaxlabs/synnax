@@ -54,24 +54,32 @@ type Writer struct {
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
 	var (
-		exists bool
-		err    error
+		existing Arc
+		exists   bool
+		err      error
 	)
 	if a.Key == uuid.Nil() {
 		a.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
+		err = w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Arc](a.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+			Entry(&existing).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
+		exists = err == nil
 	}
 	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
 		a.Text.Doc = text.Create(a.Text.Raw)
 	}
 	if err = a.Validate(); err != nil {
 		return err
+	}
+	if exists && existing.Name != a.Name {
+		if err = w.otgWriter.ValidateName(ctx, a.OntologyID(), a.Name); err != nil {
+			return err
+		}
 	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err

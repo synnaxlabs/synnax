@@ -304,6 +304,10 @@ var _ = Describe("Task sync", func() {
 		GinkgoHelper()
 		a = arc.Arc{Name: "syncable", Mode: mode}
 		Expect(writer.Create(ctx, &a)).To(Succeed())
+		key := a.Key
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(writer.Delete(ctx, key)).To(Succeed())
+		})
 	}
 
 	retrieveTask := func(ctx SpecContext, key task.Key) task.Task {

@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -151,6 +152,7 @@ type Service struct {
 	closer   xio.MultiCloser
 	cfg      ServiceConfig
 	group    group.Group
+	reserved set.Set[string]
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
@@ -160,12 +162,11 @@ type Service struct {
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
 // plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	syms := slices.Concat(
-		stl.NewSymbols(),
-		arcstatus.NewSymbols(),
-		ranges.NewSymbols(),
-	)
-	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
+	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), standardSymbols())
+}
+
+func standardSymbols() []*symbol.Symbol {
+	return slices.Concat(stl.NewSymbols(), arcstatus.NewSymbols(), ranges.NewSymbols())
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
@@ -243,9 +244,10 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:     cfg,
-		state:   actions.NewState[Key, Action](cfg.DB),
-		indexes: newIndexes(),
+		cfg:      cfg,
+		reserved: reservedNames(),
+		state:    actions.NewState[Key, Action](cfg.DB),
+		indexes:  newIndexes(),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -275,6 +277,7 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Ontology.RegisterPolicy(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}

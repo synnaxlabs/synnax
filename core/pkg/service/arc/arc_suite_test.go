@@ -43,6 +43,7 @@ var (
 	otg        *ontology.Ontology
 	svc        *arc.Service
 	writer     arc.Writer
+	groupSvc   *group.Service
 	channelSvc *channel.Service
 	tx         gorp.Tx
 	taskSvc    *task.Service
@@ -59,7 +60,7 @@ var (
 		node := mock.NewNode(ctx)
 		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 		}))

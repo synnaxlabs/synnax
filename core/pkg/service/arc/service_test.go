@@ -51,6 +51,9 @@ var _ = Describe("CompileProgram", func() {
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+		})
 
 		result := MustSucceed(svc.CompileProgram(ctx, a.Key))
 		Expect(result.Key).To(Equal(a.Key))
@@ -92,6 +95,9 @@ var _ = Describe("CompileProgram", func() {
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).Delete(ctx, a.Key)).To(Succeed())
+		})
 
 		Expect(svc.CompileProgram(ctx, a.Key)).Error().
 			To(MatchError(ContainSubstring("edge target node 'nonexistent' not found")))
