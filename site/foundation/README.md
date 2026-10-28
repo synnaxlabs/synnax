@@ -84,13 +84,13 @@ vercel build --yes --scope synnax
 vercel deploy --prebuilt --target=preview --scope synnax
 ```
 
-Preview access is public. Automatic Git deployments are disconnected while deployment
-target classification is reviewed; publish previews explicitly through the CLI. Verify
-that the deployment target is `preview` with `vercel inspect <deployment-url>`.
+Preview access is public. Vercel's Git integration deploys only `main`, so publish
+previews through the CLI. Verify that the deployment target is `preview` with
+`vercel inspect <deployment-url>`.
 
 Production promotion and assigning `foundation.synnaxlabs.com` are separate deployment
-actions. Keep the Git production branch set to `main` if Git integration is enabled
-later. The canonical URL and sitemap already use the production domain.
+actions. Keep the Git production branch set to `main`. The canonical URL and sitemap
+already use the production domain.
 
 ## Diagram structure
 

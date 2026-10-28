@@ -517,10 +517,6 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
     static_cast<::synnax::task::ScanConfig &>(
         result
     ) = ::synnax::task::ScanConfig::parse(parser);
-    result.ignored_models = parser.field<std::vector<std::string>>(
-        "ignored_models",
-        std::vector<std::string>{}
-    );
     return result;
 }
 
@@ -528,7 +524,6 @@ inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
     for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
         j[k] = v;
-    j["ignored_models"] = this->ignored_models;
     return j;
 }
 

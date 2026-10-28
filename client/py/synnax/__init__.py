@@ -66,6 +66,7 @@ from synnax.framer import (
     Iterator,
     Streamer,
     Writer,
+    WriterClosed,
     WriterMode,
 )
 from synnax.options import Options
@@ -194,6 +195,7 @@ __all__ = [
     "ValidationError",
     "View",
     "Writer",
+    "WriterClosed",
     "WriterMode",
     "color",
     "convert_time_units",

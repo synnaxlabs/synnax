@@ -31,7 +31,7 @@ cc_test(
     srcs = ["program_test.cpp"],
     deps = [
         ":program",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
