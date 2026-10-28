@@ -10,6 +10,7 @@
 package analyzer_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -355,6 +356,52 @@ var _ = Describe("Analyzer Integration", func() {
 				(*ctx.Diagnostics)[0].Message,
 			).To(ContainSubstring("undefined symbol: undefined_var"))
 		})
+
+		It(
+			"Should diagnose a series operand with an invalid element type",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+				func test() series i64 {
+					s series i64 := [1, 2, 3]
+					return s + [undefined_var]
+				}
+				`, nil)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"cannot return series invalid from 'test': expected series i64",
+				))
+			},
+		)
+
+		It(
+			"Should type a range() literal from the typed argument",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
+				func test(n i32) i32 {
+					acc i32 := 0
+					for i := range(7, n) {
+						acc = acc + i
+					}
+					return acc
+				}
+				`)
+				var lit parser.ILiteralContext
+				var find func(node antlr.Tree)
+				find = func(node antlr.Tree) {
+					l, ok := node.(parser.ILiteralContext)
+					if ok && l.GetText() == "7" {
+						lit = l
+						return
+					}
+					for _, child := range node.GetChildren() {
+						find(child)
+					}
+				}
+				find(ctx.AST)
+				Expect(lit).ToNot(BeNil())
+				Expect(ctx.TypeMap[lit]).To(Equal(types.I32()))
+			},
+		)
 
 		It(
 			"Should handle type unification in statement analysis",
