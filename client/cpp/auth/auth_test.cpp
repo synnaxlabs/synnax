@@ -12,8 +12,8 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/auth/auth.h"
-#include "freighter/cpp/mock/mock.h"
-#include "x/cpp/test/test.h"
+#include "freighter/cpp/testutil/testutil.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
@@ -35,7 +35,7 @@ std::shared_ptr<Middleware> middleware_with(
     std::unique_ptr<SessionRetrieveClient> retrieve = nullptr
 ) {
     if (renew == nullptr)
-        renew = std::make_unique<freighter::mock::UnaryClient<
+        renew = std::make_unique<freighter::testutil::UnaryClient<
             google::protobuf::Empty,
             google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
     return std::make_shared<Middleware>(
@@ -51,11 +51,11 @@ std::shared_ptr<Middleware> middleware_with(
 
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, LoginHappyPath) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
     const auto mw = middleware_with(std::move(mock_create_client));
-    auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
+    auto mock_client = freighter::testutil::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
@@ -65,7 +65,7 @@ TEST(TestAuth, LoginHappyPath) {
 
 /// @brief it should send a password proof when logging in.
 TEST(TestAuth, LoginSendsPasswordProof) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
     auto *create = mock_create_client.get();
@@ -79,14 +79,14 @@ TEST(TestAuth, LoginSendsPasswordProof) {
 
 /// @brief it should return an error if credentials are invalid.
 TEST(TestAuth, LoginInvalidCredentials) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(
         session_response("abc"),
         ERR_INVALID_CREDENTIALS
     );
     const auto mw = middleware_with(std::move(mock_create_client));
-    auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
+    auto mock_client = freighter::testutil::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
     auto [r, err] = mock_client.send("", v);
@@ -95,14 +95,14 @@ TEST(TestAuth, LoginInvalidCredentials) {
 
 /// @brief it should retry authentication if the authentication token is invalid.
 TEST(TestAuth, LoginRetry) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(
         std::vector{session_response("abc"), session_response("def")},
         std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
     );
     const auto mw = middleware_with(std::move(mock_create_client));
-    auto mock_client = freighter::mock::UnaryClient<int, int>{
+    auto mock_client = freighter::testutil::UnaryClient<int, int>{
         {1, 1},
         {x::errors::Error(ERR_INVALID_TOKEN, ""), x::errors::NIL}
     };
@@ -115,7 +115,7 @@ TEST(TestAuth, LoginRetry) {
 /// @brief it should return a session-ended error instead of retrying, and log in again
 /// on the next request.
 TEST(TestAuth, SessionEndedReturnsWithoutRetry) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(
         std::vector{session_response("abc"), session_response("def")},
@@ -123,7 +123,7 @@ TEST(TestAuth, SessionEndedReturnsWithoutRetry) {
     );
     auto *create = mock_create_client.get();
     const auto mw = middleware_with(std::move(mock_create_client));
-    auto mock_client = freighter::mock::UnaryClient<int, int>{
+    auto mock_client = freighter::testutil::UnaryClient<int, int>{
         {1, 1},
         {x::errors::Error(ERR_SESSION_ENDED, ""), x::errors::NIL}
     };
@@ -155,7 +155,7 @@ public:
 
 /// @brief it should keep a newer session when a request on an older one fails.
 TEST(TestAuth, StaleFailureKeepsNewerSession) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(
         std::vector{session_response("abc"), session_response("def")},
@@ -163,7 +163,7 @@ TEST(TestAuth, StaleFailureKeepsNewerSession) {
     );
     auto *create = mock_create_client.get();
     const auto mw = middleware_with(std::move(mock_create_client));
-    auto mock_client = freighter::mock::UnaryClient<int, int>{
+    auto mock_client = freighter::testutil::UnaryClient<int, int>{
         {1, 1},
         {x::errors::NIL, x::errors::NIL}
     };
@@ -178,10 +178,10 @@ TEST(TestAuth, StaleFailureKeepsNewerSession) {
 
 /// @brief it should end the session on logout and send the token with the request.
 TEST(TestAuth, Logout) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
-    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_delete_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionDeleteRequest,
         google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
     auto *del = mock_delete_client.get();
@@ -213,10 +213,10 @@ public:
 
 /// @brief it should bound the logout request so an unanswered Core cannot hang it.
 TEST(TestAuth, LogoutCarriesDeadline) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
-    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_delete_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionDeleteRequest,
         google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
     auto *del = mock_delete_client.get();
@@ -234,15 +234,16 @@ TEST(TestAuth, LogoutCarriesDeadline) {
 /// @brief it should forget a session the Core no longer accepts on renew, so the next
 /// request logs in again instead of resending the dead token.
 TEST(TestAuth, RenewForgetsEndedSession) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(
         std::vector{session_response("abc"), session_response("def")},
         std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
     );
     auto *create = mock_create_client.get();
-    auto mock_renew_client = std::make_unique<
-        freighter::mock::UnaryClient<google::protobuf::Empty, google::protobuf::Empty>>(
+    auto mock_renew_client = std::make_unique<freighter::testutil::UnaryClient<
+        google::protobuf::Empty,
+        google::protobuf::Empty>>(
         google::protobuf::Empty(),
         x::errors::Error(ERR_SESSION_ENDED, "")
     );
@@ -254,7 +255,7 @@ TEST(TestAuth, RenewForgetsEndedSession) {
     ASSERT_NIL(mw->authenticate());
     ASSERT_OCCURRED_AS(mw->renew(), ERR_SESSION_ENDED);
     ASSERT_EQ(mw->current_session().key, "");
-    auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
+    auto mock_client = freighter::testutil::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
     ASSERT_NIL_P(mock_client.send("", v));
@@ -263,10 +264,10 @@ TEST(TestAuth, RenewForgetsEndedSession) {
 
 /// @brief it should treat a session the Core already ended as logged out.
 TEST(TestAuth, LogoutAfterSessionEnded) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
-    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_delete_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionDeleteRequest,
         google::protobuf::Empty>>(
         google::protobuf::Empty(),
@@ -283,13 +284,13 @@ TEST(TestAuth, LogoutAfterSessionEnded) {
 
 /// @brief it should list sessions for the requested subjects.
 TEST(TestAuth, RetrieveSessions) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
     grpc::auth::SessionRetrieveResponse res;
     *res.add_sessions() = session_response("abc").session();
     res.mutable_sessions(0)->set_credential("c");
-    auto mock_retrieve_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_retrieve_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionRetrieveRequest,
         grpc::auth::SessionRetrieveResponse>>(res, x::errors::NIL);
     auto *retrieve = mock_retrieve_client.get();
@@ -311,10 +312,10 @@ TEST(TestAuth, RetrieveSessions) {
 
 /// @brief it should keep its own session when ending another one.
 TEST(TestAuth, DeleteOtherSession) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
-    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_delete_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionDeleteRequest,
         google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
     auto *del = mock_delete_client.get();
@@ -330,10 +331,10 @@ TEST(TestAuth, DeleteOtherSession) {
 
 /// @brief it should forget its own session when ending it.
 TEST(TestAuth, DeleteOwnSession) {
-    auto mock_create_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
         grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
-    auto mock_delete_client = std::make_unique<freighter::mock::UnaryClient<
+    auto mock_delete_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionDeleteRequest,
         google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
     const auto mw = middleware_with(
