@@ -38,6 +38,53 @@ describe("Modbus Read Task Types", () => {
   it("should accept a null statusData", () => {
     expect(z.validate(Modbus.Task.READ_SCHEMAS.statusData, null)).toBe(true);
   });
+
+  const holding = (key: string, address: number, dataType: string) =>
+    Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+      type: "holding_register",
+      key,
+      address,
+      dataType,
+    });
+
+  describe("addressSpan", () => {
+    it("should span one address for a coil", () => {
+      const coil = Modbus.Task.READ_CHANNEL_SCHEMAS.coil.parse({
+        type: "coil",
+        address: 4,
+      });
+      expect(Modbus.Task.addressSpan(coil)).toEqual([4, 4]);
+    });
+
+    it("should span one address per 16 bits of a register's data type", () => {
+      expect(Modbus.Task.addressSpan(holding("a", 10, "float64"))).toEqual([10, 13]);
+    });
+  });
+
+  describe("overlaps", () => {
+    it("should be true when another register reads one of the same addresses", () => {
+      const a = holding("a", 10, "float32");
+      const b = holding("b", 11, "uint16");
+      expect(Modbus.Task.overlaps([a, b], a)).toBe(true);
+    });
+
+    it("should be false for registers that only touch", () => {
+      const a = holding("a", 10, "float32");
+      const b = holding("b", 12, "uint16");
+      expect(Modbus.Task.overlaps([a, b], a)).toBe(false);
+    });
+
+    it("should be false for channels of another type at the same address", () => {
+      const a = holding("a", 10, "uint16");
+      const b = Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
+        type: "input_register",
+        key: "b",
+        address: 10,
+        dataType: "uint16",
+      });
+      expect(Modbus.Task.overlaps([a, b], a)).toBe(false);
+    });
+  });
 });
 
 describe("Modbus Write Task Types", () => {

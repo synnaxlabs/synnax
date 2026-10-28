@@ -44,6 +44,25 @@ export const nextAddress = (channel: ReadChannel | WriteChannel): number => {
   return channel.address + Math.ceil(bytes / 2);
 };
 
+/** @returns the first and last addresses of a channel. */
+export const addressSpan = (channel: ReadChannel): [number, number] => [
+  channel.address,
+  nextAddress(channel) - 1,
+];
+
+/**
+ * @returns whether another channel of the same type reads one of the channel's
+ * addresses.
+ */
+export const overlaps = (channels: ReadChannel[], channel: ReadChannel): boolean => {
+  const [lo, hi] = addressSpan(channel);
+  return channels.some((other) => {
+    if (other.key === channel.key || other.type !== channel.type) return false;
+    const [otherLo, otherHi] = addressSpan(other);
+    return otherLo <= hi && lo <= otherHi;
+  });
+};
+
 export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
 
 export const READ_TYPE = `${PREFIX}_read`;

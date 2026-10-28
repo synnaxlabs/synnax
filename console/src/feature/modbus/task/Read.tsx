@@ -13,18 +13,29 @@ import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Select } from "@synnaxlabs/lyra/select";
+import { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
 import { Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { DataType, errors, id, primitive } from "@synnaxlabs/x";
+import { type CSSProperties, type FC, type ReactElement } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { SCHEMAS } from "@/feature/modbus/device/types";
-import { OrderFields } from "@/feature/modbus/task/OrderFields";
-import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
+import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
+import { RegisterField, SHADOW_TRIGGER_PROPS } from "@/feature/modbus/task/Register";
 import {
+  HoveredProvider,
+  RegisterMap,
+  useColor,
+  useHoveredRef,
+  useIsHovered,
+  useOverlaps,
+} from "@/feature/modbus/task/RegisterMap";
+import {
+  addressSpan,
   deployReadConfigZ,
   isVariableDensityReadChannel,
   nextAddress,
@@ -52,71 +63,101 @@ const Properties = () => (
   </>
 );
 
-const ChannelListItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
-  const { type, channel } = ch;
+const COLUMNS: List.Column[] = [
+  { name: "Type", width: "30rem", field: true },
+  { name: "Address", width: "10rem", field: true },
+  { name: "Data type", width: "18rem", field: true },
+  { name: "Byte order", width: "27rem", field: true },
+];
+
+interface AddressFieldProps {
+  path: string;
+  channel: ReadChannel;
+}
+
+// A channel that spans several addresses shows its last one after the first. An
+// address that another channel also reads shows in red.
+const AddressField = ({ path, channel }: AddressFieldProps): ReactElement | null => {
+  const field = PForm.useField<number>(`${path}.address`);
+  const overlapping = useOverlaps(channel.key);
+  if (field == null) return null;
+  const [lo, hi] = addressSpan(channel);
   return (
-    <Select.Item
-      {...props}
-      className={CSS.BE("modbus", "channel-item")}
-      justify="between"
-      align="center"
-      x
-    >
-      <Flex.Box x pack className={CSS.B("channel-item")}>
-        <SelectReadChannelTypeField
-          path={path}
-          onChange={(value, { get, set, path }) => {
-            const prevType = get<ReadChannelType>(path).value;
-            if (prevType === value) return;
-            const next = READ_CHANNEL_SCHEMAS[value].parse({ type: value });
-            const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<ReadChannel>(parentPath).value;
-            const schema = READ_CHANNEL_SCHEMAS[value];
-            set(parentPath, {
-              ...deep.overrideValidItems(next, prevParent, schema),
-              type: value,
-            });
-          }}
-        />
-        <PForm.NumericField
-          inputProps={{ showDragHandle: false }}
-          showLabel={false}
-          showHelpText={false}
-          path={`${path}.address`}
-        />
-        {(type === "input_register" || type === "holding_register") && (
-          <PForm.Field<string>
-            path={`${path}.dataType`}
-            showLabel={false}
-            showHelpText={false}
-          >
-            {renderTelemSelectDataType}
-          </PForm.Field>
-        )}
-      </Flex.Box>
-      {isVariableDensityReadChannel(ch) && (
-        <OrderFields path={path} dataType={ch.dataType} />
+    <div
+      className={CSS.cls(
+        CSS.BE("modbus", "address"),
+        overlapping && CSS.BEM("modbus", "address", "overlap"),
       )}
-      <Flex.Box x align="center" grow justify="end">
-        <Task.ChannelName
-          channel={channel}
-          namePath={`${path}.name`}
-          id={Task.getChannelNameID(itemKey)}
-        />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </Select.Item>
+      style={{ "--console-modbus-digits": String(lo).length } as CSSProperties}
+    >
+      <Input.Numeric
+        value={field.value}
+        onChange={field.onChange}
+        preview={field.preview}
+        variant="shadow"
+        showDragHandle={false}
+        aria-label="Address"
+        bounds={ADDRESS_BOUNDS}
+      />
+      {hi > lo && <span className={CSS.BE("modbus", "address-end")}>{`–${hi}`}</span>}
+    </div>
   );
 };
 
-const renderTelemSelectDataType = Component.renderProp(
-  (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideVariableDensity location="bottom" />
-  ),
-);
+const ADDRESS_BOUNDS = { lower: 0, upper: 65535 };
+
+const DataTypeField = ({ path }: { path: string }): ReactElement | null => {
+  const field = PForm.useField<string>(`${path}.dataType`);
+  if (field == null) return null;
+  return (
+    <Telem.SelectDataType
+      value={field.value}
+      onChange={field.onChange}
+      preview={field.preview}
+      hideVariableDensity
+      location="bottom"
+      triggerProps={SHADOW_TRIGGER_PROPS}
+    />
+  );
+};
+
+const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
+  const path = `config.channels.${itemKey}`;
+  const ch = PForm.useFieldValue<ReadChannel>(path);
+  const dev = useFromConfig();
+  const hovered = useIsHovered(itemKey);
+  const hoveredRef = useHoveredRef(itemKey);
+  const color = useColor(itemKey);
+  return (
+    <Task.Views.ListChannelItem
+      {...rest}
+      itemKey={itemKey}
+      path={path}
+      channel={ch.channel}
+      defaultName={
+        dev == null ? undefined : channelName(channel.escapeInvalidName(dev.name), ch)
+      }
+      ref={hoveredRef}
+      hovered={hovered}
+      style={{ "--console-modbus-color": color } as CSSProperties}
+    >
+      <List.Cell>
+        <RegisterField path={path} />
+      </List.Cell>
+      <List.Cell>
+        <AddressField path={path} channel={ch} />
+      </List.Cell>
+      <List.Cell>
+        {isVariableDensityReadChannel(ch) && <DataTypeField path={path} />}
+      </List.Cell>
+      <List.Cell>
+        {isVariableDensityReadChannel(ch) && (
+          <ByteOrderField path={path} dataType={ch.dataType} />
+        )}
+      </List.Cell>
+    </Task.Views.ListChannelItem>
+  );
+};
 
 const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
   if (channels.length === 0)
@@ -135,17 +176,33 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
 
 const listItem = Component.renderProp(ChannelListItem);
 
+const HEADER = (
+  <>
+    <Header.Header>
+      <Header.Title weight={500} color={10}>
+        Channels
+      </Header.Title>
+    </Header.Header>
+    <RegisterMap />
+  </>
+);
+
 const Form: FC = () => {
   const dev = useFromConfig();
   const resolve = (c: ReadChannel) =>
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
-    <Task.Views.List<ReadChannel>
-      createChannel={getOpenChannel}
-      contextMenuItems={Task.readChannelContextMenuItem}
-      listItem={listItem}
-      resolve={resolve}
-    />
+    <HoveredProvider>
+      <Task.Views.List<ReadChannel>
+        createChannel={getOpenChannel}
+        contextMenuItems={Task.readChannelContextMenuItem}
+        listItem={listItem}
+        resolve={resolve}
+        header={HEADER}
+        columns={COLUMNS}
+        checkable
+      />
+    </HoveredProvider>
   );
 };
 

@@ -15,14 +15,13 @@ from console.layout import LayoutClient
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "Modbus server"
-_CHANNEL_FIELDS_SELECTOR = ".console-channel-item"
 
 # Config channel type to the name shown in the channel type dropdown.
 READ_TYPE_NAMES = {
     "coil": "Coil",
-    "discrete_input": "Discrete",
+    "discrete_input": "Discrete input",
     "holding_register": "Holding register",
-    "input_register": "Register",
+    "input_register": "Input register",
 }
 WRITE_TYPE_NAMES = {"coil": "Coil", "holding_register": "Holding register"}
 
@@ -31,11 +30,14 @@ class ModbusTask(TaskPage):
     """Shared Modbus task page. Each channel is a row of type, address, and, for
     registers, data type."""
 
+    # The element that holds a row's fields.
+    fields_selector: str
+
     def _rows(self) -> Locator:
         return self._channel_list().get_by_role("option")
 
     def _fields(self, index: int) -> Locator:
-        return self._rows().nth(index).locator(_CHANNEL_FIELDS_SELECTOR)
+        return self._rows().nth(index).locator(self.fields_selector)
 
     def select_server(self, name: str) -> None:
         """Pick the Modbus server the task talks to. Selecting a server that is not
@@ -59,7 +61,7 @@ class ModbusTask(TaskPage):
     ) -> None:
         """Append a channel row and fill it in.
 
-        :param type_name: Type as shown in the type dropdown, e.g. "Register".
+        :param type_name: Type as shown in the type dropdown, e.g. "Coil".
         :param address: Modbus address.
         :param data_type: Register data type, e.g. "float32". Registers only.
         """
@@ -75,7 +77,8 @@ class ModbusTask(TaskPage):
     def set_channel_type(self, index: int, type_name: str) -> None:
         """Set the type of the channel row at ``index``."""
         self._fields(index).get_by_role("button").first.click()
-        self.layout.select_from_dropdown(type_name, exact=True)
+        # A read type option also shows a description, so match its name as a substring.
+        self.layout.select_from_dropdown(type_name)
 
     def set_address(self, index: int, address: int) -> None:
         """Set the address of the channel row at ``index``."""
@@ -97,6 +100,7 @@ class ModbusRead(ModbusTask):
 
     page_type = "Modbus read task"
     pluto_label: str = ".console-task-configure--modbus_read"
+    fields_selector = ".pluto-list__cells"
 
 
 class ModbusWrite(ModbusTask):
@@ -104,3 +108,4 @@ class ModbusWrite(ModbusTask):
 
     page_type = "Modbus write task"
     pluto_label: str = ".console-task-configure--modbus_write"
+    fields_selector = ".console-channel-item"
