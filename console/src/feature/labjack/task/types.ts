@@ -113,6 +113,7 @@ export const deployReadConfigZ = labjack.readConfigZ
     channels: z
       .array(deployReadChannelZ)
       .check(Task.validateReadChannels)
+      .check(Task.validateEnabledChannel)
       .check(validateUniquePorts),
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
@@ -146,6 +147,7 @@ export const deployWriteConfigZ = labjack.writeConfigZ.extend({
   channels: z
     .array(deployWriteChannelZ)
     .check(Task.validateWriteChannels)
+    .check(Task.validateEnabledChannel)
     .check(validateUniquePorts),
   stateRate: z.number().positive().max(50000),
 });
