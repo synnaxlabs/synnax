@@ -390,7 +390,7 @@ TEST_F(SecurityTest, PoolRefreshKeepsCurrentCertificate) {
     auto cfg = config();
     cfg.server_certificate = server_id.certificate;
     auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
-    const auto first = conn.get();
+    auto *const first = conn.get();
     ASSERT_FALSE(ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX)));
     ASSERT_EQ(conn.get(), first);
     ASSERT_EQ(pool.size(), 1);
@@ -437,7 +437,7 @@ TEST_F(SecurityTest, PoolRefreshKeepsConnectionWhenRejected) {
     auto cfg = config();
     cfg.server_certificate = server_id.certificate;
     auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
-    const auto first = conn.get();
+    auto *const first = conn.get();
     const auto next = ASSERT_NIL_P(store->regenerate());
     const auto err = pool.refresh(conn, cfg, LOG_PREFIX).second;
     ASSERT_MATCHES(err, errors::CLIENT_CERTIFICATE_REJECTED);
@@ -461,7 +461,7 @@ TEST_F(SecurityTest, PoolRefreshKeepsTrustedServer) {
     Pool pool(store);
     const auto cfg = config();
     auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
-    const auto first = conn.get();
+    auto *const first = conn.get();
     ASSERT_NIL(store->regenerate().second);
     this->start_server(other_id);
     const auto err = pool.refresh(conn, cfg, LOG_PREFIX).second;

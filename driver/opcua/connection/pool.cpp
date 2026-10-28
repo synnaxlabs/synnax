@@ -267,7 +267,9 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     // Success — add to pool, reset breaker, notify waiters.
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        connections_[key].push_back({client, true, settings});
+        // Another caller can replace the certificate while this one connects.
+        const bool retired = this->current_keys[settings] != key;
+        connections_[key].push_back({client, true, retired});
         auto &breaker = breakers[key];
         breaker.connecting = false;
         breaker.consecutive_failures = 0;
@@ -304,8 +306,7 @@ void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &cli
             UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
             UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
             UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
-            if (session_state == UA_SESSIONSTATE_ACTIVATED &&
-                this->current_keys.at(entry.settings) == key) {
+            if (session_state == UA_SESSIONSTATE_ACTIVATED && !entry.retired) {
                 entry.in_use = false;
                 VLOG(1) << "[conn_pool] Returned connection to pool";
             } else {
@@ -337,7 +338,10 @@ Pool::retire(const std::string &settings, const std::string &key) {
     const auto it = connections_.find(replaced);
     if (it == connections_.end()) return retired;
     for (auto &entry: it->second)
-        if (!entry.in_use) retired.push_back(std::move(entry.client));
+        if (entry.in_use)
+            entry.retired = true;
+        else
+            retired.push_back(std::move(entry.client));
     std::erase_if(it->second, [](const Entry &e) { return !e.client; });
     if (it->second.empty()) connections_.erase(it);
     return retired;
