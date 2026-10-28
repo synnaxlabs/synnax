@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -44,8 +43,7 @@ var _ = Describe("migrate command", func() {
 		})
 
 		It("scaffolds the next version file for a resource name", func() {
-			root := cmd.New()
-			MustSucceed(executeCommand(root, "migrate", "channel"))
+			succeed("migrate", "channel")
 			next := filepath.Join(
 				repoDir, "schemas", "synnax", "versions", "channel", "v1.oracle",
 			)
@@ -54,23 +52,23 @@ var _ = Describe("migrate command", func() {
 		})
 
 		It("errors when no resources are named", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "migrate")).Error().
-				To(MatchError(ContainSubstring("name the resources to bump")))
+			Expect(
+				fail(1, "migrate"),
+			).To(ContainSubstring("name the resources to bump"))
 		})
 
 		It("errors for an unknown resource", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "migrate", "ghost")).Error().
-				To(MatchError(ContainSubstring(`no version chain matches "ghost"`)))
+			Expect(
+				fail(1, "migrate", "ghost"),
+			).To(ContainSubstring(`no version chain matches "ghost"`))
 		})
 
 		It("refuses to overwrite an existing target file", func() {
 			// Naming the resource twice makes the second scaffold hit the file the
 			// first one just wrote.
-			root := cmd.New()
-			Expect(executeCommand(root, "migrate", "channel", "channel")).Error().
-				To(MatchError(ContainSubstring("already exists")))
+			Expect(
+				fail(1, "migrate", "channel", "channel"),
+			).To(ContainSubstring("already exists"))
 		})
 	})
 
@@ -83,14 +81,13 @@ var _ = Describe("migrate command", func() {
 		})
 
 		It("rejects an ambiguous resource name", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "migrate", "channel")).Error().
-				To(MatchError(ContainSubstring(`"channel" is ambiguous`)))
+			Expect(
+				fail(1, "migrate", "channel"),
+			).To(ContainSubstring(`"channel" is ambiguous`))
 		})
 
 		It("accepts a live path to disambiguate", func() {
-			root := cmd.New()
-			MustSucceed(executeCommand(root, "migrate", "schemas/x/channel"))
+			succeed("migrate", "schemas/x/channel")
 			next := filepath.Join(
 				repoDir, "schemas", "x", "versions", "channel", "v1.oracle",
 			)
@@ -110,9 +107,9 @@ var _ = Describe("migrate command", func() {
 		})
 
 		It("errors when no chains exist", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "migrate", "channel")).Error().
-				To(MatchError(ContainSubstring("no version chains exist")))
+			Expect(
+				fail(1, "migrate", "channel"),
+			).To(ContainSubstring("no version chains exist"))
 		})
 	})
 })

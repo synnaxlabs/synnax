@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/check"
-	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -113,26 +112,21 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("rejects an invalid --format value", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "check", "--format=yaml")).Error().
-				To(MatchError(ContainSubstring(`invalid --format "yaml"`)))
+			Expect(
+				fail(1, "check", "--format=yaml"),
+			).To(ContainSubstring(`invalid --format "yaml"`))
 		})
 
 		It("runs only the requested gates", func() {
-			root := cmd.New()
-			MustSucceed(executeCommand(root, "check", "--gates=format,analyze"))
+			succeed("check", "--gates=format,analyze")
 		})
 
 		It("renders a JSON report without error", func() {
-			root := cmd.New()
-			MustSucceed(executeCommand(
-				root, "check", "--gates=format,analyze", "--format=json",
-			))
+			succeed("check", "--gates=format,analyze", "--format=json")
 		})
 
 		It("renders a verbose report without error", func() {
-			root := cmd.New()
-			MustSucceed(executeCommand(root, "check", "-v"))
+			succeed("check", "-v")
 		})
 	})
 
@@ -144,15 +138,15 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("returns the gate-failure exit error", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "check", "--gates=format")).Error().
-				To(MatchError(ContainSubstring("1 gate(s) failed")))
+			Expect(
+				fail(check.FailureCodes["format"], "check", "--gates=format"),
+			).To(ContainSubstring("1 gate(s) failed"))
 		})
 
 		It("includes diffs without error when --diff is set", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "check", "--gates=format", "--diff")).Error().
-				To(MatchError(ContainSubstring("1 gate(s) failed")))
+			Expect(
+				fail(check.FailureCodes["format"], "check", "--gates=format", "--diff"),
+			).To(ContainSubstring("1 gate(s) failed"))
 		})
 	})
 
@@ -165,13 +159,12 @@ var _ = Describe("check command flag paths", func() {
 		})
 
 		It("escalates warnings with --warnings-as-errors", func() {
-			root := cmd.New()
-			MustSucceed(executeCommand(root, "check", "--gates=analyze"))
+			succeed("check", "--gates=analyze")
 
-			root = cmd.New()
-			Expect(executeCommand(
-				root, "check", "--gates=analyze", "--warnings-as-errors",
-			)).Error().To(MatchError(ContainSubstring("1 gate(s) failed")))
+			Expect(fail(
+				check.FailureCodes["analyze"],
+				"check", "--gates=analyze", "--warnings-as-errors",
+			)).To(ContainSubstring("1 gate(s) failed"))
 		})
 	})
 })

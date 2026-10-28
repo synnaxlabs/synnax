@@ -10,26 +10,52 @@
 package cmd_test
 
 import (
-	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func executeCommand(root *cobra.Command, args ...string) (string, error) {
-	buf := new(bytes.Buffer)
-	root.SetOut(buf)
-	root.SetErr(buf)
-	root.SetArgs(args)
-	_, err := root.ExecuteC()
-	return buf.String(), err
+// run executes oracle with args and returns everything it printed and its exit code.
+func run(args ...string) (string, int) {
+	GinkgoHelper()
+	r, w := MustSucceed2(os.Pipe())
+	stdout, stderr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = w, w
+	printed := make(chan []byte, 1)
+	go func() {
+		defer GinkgoRecover()
+		printed <- MustSucceed(io.ReadAll(r))
+	}()
+	code := cmd.Execute(args)
+	os.Stdout, os.Stderr = stdout, stderr
+	Expect(w.Close()).To(Succeed())
+	var out []byte
+	Eventually(printed).Should(Receive(&out))
+	Expect(r.Close()).To(Succeed())
+	return string(out), code
+}
+
+// succeed runs oracle with args, expects exit code 0, and returns what it printed.
+func succeed(args ...string) string {
+	GinkgoHelper()
+	out, code := run(args...)
+	Expect(code).To(BeZero(), out)
+	return out
+}
+
+// fail runs oracle with args, expects exit code code, and returns what it printed.
+func fail(code int, args ...string) string {
+	GinkgoHelper()
+	out, actual := run(args...)
+	Expect(actual).To(Equal(code), out)
+	return out
 }
 
 // setupMiniRepo creates a temp directory that looks like a minimal oracle repo:
@@ -72,69 +98,22 @@ func setupMiniRepo(schemas map[string]string) (string, func()) {
 	}
 }
 
-var _ = Describe("New", func() {
-	It("should create a root command with the correct use string", func() {
-		root := cmd.New()
-		Expect(root.Use).To(Equal("oracle"))
+var _ = Describe("help", func() {
+	It("Should describe oracle and list every subcommand and the verbose flag", func() {
+		Expect(succeed("--help")).To(SatisfyAll(
+			ContainSubstring("Schema-first code generation"),
+			ContainSubstring("check"),
+			ContainSubstring("fmt"),
+			ContainSubstring("lsp"),
+			ContainSubstring("migrate"),
+			ContainSubstring("sync"),
+			ContainSubstring("-v, --verbose"),
+		))
 	})
 
-	It("should register all subcommands", func() {
-		root := cmd.New()
-		names := make([]string, 0, len(root.Commands()))
-		for _, sub := range root.Commands() {
-			names = append(names, sub.Name())
-		}
-		Expect(names).To(ContainElements("check", "fmt", "lsp", "migrate", "sync"))
-	})
-
-	It("should have the verbose persistent flag", func() {
-		root := cmd.New()
-		flag := root.PersistentFlags().Lookup("verbose")
-		Expect(flag).NotTo(BeNil())
-		Expect(flag.Shorthand).To(Equal("v"))
-	})
-
-	It("should print help when run with --help", func() {
-		root := cmd.New()
-		output := MustSucceed(executeCommand(root, "--help"))
-		Expect(output).To(ContainSubstring("Schema-first code generation"))
-	})
-
-	It("should return an error for unknown subcommands", func() {
-		root := cmd.New()
-		Expect(
-			executeCommand(root, "nonexistent"),
-		).Error().
-			To(MatchError(ContainSubstring(`unknown command "nonexistent"`)))
-	})
-
-	It("should produce independent command trees on each call", func() {
-		cmd1 := cmd.New()
-		cmd2 := cmd.New()
-		Expect(cmd1).NotTo(BeIdenticalTo(cmd2))
-		Expect(cmd1.Commands()).To(HaveLen(len(cmd2.Commands())))
-	})
-})
-
-var _ = Describe("Execute", func() {
-	BeforeEach(func() {
-		_, cleanup := setupMiniRepo(map[string]string{
-			"user.oracle": "User struct {key uuid\nname   string}",
-		})
-		DeferCleanup(cleanup)
-	})
-
-	It("Should return 0 when the command succeeds", func() {
-		Expect(cmd.Execute([]string{"--help"})).To(Equal(0))
-	})
-
-	It("Should return the code of the gate that failed", func() {
-		Expect(cmd.Execute([]string{"check", "--gates=format"})).
-			To(Equal(check.FailureCodes["format"]))
-	})
-
-	It("Should return 1 for any other failure", func() {
-		Expect(cmd.Execute([]string{"nonexistent"})).To(Equal(1))
+	It("Should exit with 1 for an unknown subcommand", func() {
+		_, code := run("nonexistent")
+		Expect(code).To(Equal(1))
 	})
 })
 
@@ -151,8 +130,7 @@ var _ = Describe("check command", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should validate well-formed schemas", func() {
-		root := cmd.New()
-		MustSucceed(executeCommand(root, "check"))
+		succeed("check")
 	})
 })
 
@@ -167,11 +145,7 @@ var _ = Describe("check command with no schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should error when no schema files exist", func() {
-		root := cmd.New()
-		Expect(
-			executeCommand(root, "check"),
-		).Error().
-			To(MatchError(ContainSubstring("no schema files found")))
+		Expect(fail(1, "check")).To(ContainSubstring("no schema files found"))
 	})
 })
 
@@ -188,13 +162,11 @@ var _ = Describe("fmt command", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should format schema files without error", func() {
-		root := cmd.New()
-		MustSucceed(executeCommand(root, "fmt"))
+		succeed("fmt")
 	})
 
 	It("should pass check mode when already formatted", func() {
-		root := cmd.New()
-		MustSucceed(executeCommand(root, "fmt", "--check"))
+		succeed("fmt", "--check")
 	})
 })
 
@@ -212,17 +184,15 @@ var _ = Describe("fmt command with nested schema folders", Ordered, func() {
 	})
 
 	It("discovers and flags unformatted schemas in subdirectories", func() {
-		root := cmd.New()
-		Expect(executeCommand(root, "fmt", "--check")).Error().
-			To(MatchError(ContainSubstring("files need formatting")))
+		Expect(
+			fail(1, "fmt", "--check"),
+		).To(ContainSubstring("file(s) need formatting"))
 	})
 
 	It("formats nested schemas in place", func() {
-		root := cmd.New()
-		Expect(executeCommand(root, "fmt")).To(Equal(""))
+		succeed("fmt")
 
-		root = cmd.New()
-		Expect(executeCommand(root, "fmt", "--check")).To(Equal(""))
+		succeed("fmt", "--check")
 	})
 })
 
@@ -240,21 +210,15 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 	})
 
 	It("formats only the explicitly named file", func() {
-		root := cmd.New()
-		Expect(executeCommand(root, "fmt", "schemas/synnax/user.oracle")).
-			To(Equal(""))
+		succeed("fmt", "schemas/synnax/user.oracle")
 
-		root = cmd.New()
-		Expect(executeCommand(root, "fmt", "--check", "schemas/synnax/user.oracle")).
-			To(Equal(""))
+		succeed("fmt", "--check", "schemas/synnax/user.oracle")
 	})
 
 	It("leaves files not named in the arguments untouched", func() {
-		root := cmd.New()
 		Expect(
-			executeCommand(root, "fmt", "--check", "schemas/x/other.oracle"),
-		).Error().
-			To(MatchError(ContainSubstring("files need formatting")))
+			fail(1, "fmt", "--check", "schemas/x/other.oracle"),
+		).To(ContainSubstring("file(s) need formatting"))
 	})
 })
 
@@ -271,9 +235,7 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 	})
 
 	It("propagates the recursive-discovery error when no arguments are given", func() {
-		root := cmd.New()
-		Expect(executeCommand(root, "fmt")).Error().
-			To(MatchError(ContainSubstring("walk schema directory")))
+		Expect(fail(1, "fmt")).To(ContainSubstring("walk schema directory"))
 	})
 })
 
@@ -287,9 +249,7 @@ var _ = Describe("fmt command argument error", Ordered, func() {
 	})
 
 	It("propagates the glob error for a malformed pattern argument", func() {
-		root := cmd.New()
-		Expect(executeCommand(root, "fmt", "schemas/[")).Error().
-			To(MatchError(ContainSubstring("invalid glob pattern")))
+		Expect(fail(1, "fmt", "schemas/[")).To(ContainSubstring("invalid glob pattern"))
 	})
 })
 
@@ -307,11 +267,9 @@ var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail check mode when schemas need formatting", func() {
-		root := cmd.New()
 		Expect(
-			executeCommand(root, "fmt", "--check"),
-		).Error().
-			To(MatchError(ContainSubstring("files need formatting")))
+			fail(1, "fmt", "--check"),
+		).To(ContainSubstring("file(s) need formatting"))
 	})
 })
 
@@ -331,9 +289,10 @@ var _ = Describe("migrate command with nested schema folders", Ordered, func() {
 	})
 
 	It("discovers schemas in subdirectories instead of failing the flat glob", func() {
-		root := cmd.New()
-		Expect(executeCommand(root, "migrate")).Error().
-			NotTo(MatchError(ContainSubstring("no schema files found")))
+		Expect(fail(1, "migrate")).To(SatisfyAll(
+			ContainSubstring("name the resources to bump"),
+			Not(ContainSubstring("no schema files found")),
+		))
 	})
 })
 
@@ -361,7 +320,7 @@ var _ = Describe("fmt command with file patterns", func() {
 	DescribeTable(
 		"Should format every file a pattern matches",
 		func(pattern func() string) {
-			MustSucceed(executeCommand(cmd.New(), "fmt", pattern()))
+			succeed("fmt", pattern())
 			Expect(schema("a.oracle")).To(Equal(formatted))
 			Expect(schema("b.oracle")).To(Equal(formatted))
 		},
@@ -373,20 +332,9 @@ var _ = Describe("fmt command with file patterns", func() {
 		}),
 	)
 
-	It("Should format only the files a pattern matches", func() {
-		MustSucceed(executeCommand(cmd.New(), "fmt", "schemas/a.oracle"))
-		Expect(schema("a.oracle")).To(Equal(formatted))
-		Expect(schema("b.oracle")).To(Equal(unformatted))
-	})
-
 	It("Should fail when no file matches a pattern", func() {
-		Expect(executeCommand(cmd.New(), "fmt", "nonexistent/*.xyz")).Error().
-			To(MatchError("no schema files found"))
-	})
-
-	It("Should reject a malformed pattern", func() {
-		Expect(executeCommand(cmd.New(), "fmt", "schemas/[")).Error().
-			To(MatchError(ContainSubstring("invalid glob pattern")))
+		Expect(fail(1, "fmt", "nonexistent/*.xyz")).
+			To(ContainSubstring("no schema files found"))
 	})
 })
 
@@ -403,8 +351,7 @@ var _ = Describe("fmt --diff flag", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should report changes without writing in diff mode", func() {
-		root := cmd.New()
-		MustSucceed(executeCommand(root, "fmt", "--diff"))
+		succeed("fmt", "--diff")
 	})
 })
 
@@ -421,10 +368,7 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 	AfterAll(func() { cleanup() })
 
 	It("should fail validation on invalid schemas", func() {
-		root := cmd.New()
-		Expect(
-			executeCommand(root, "check"),
-		).Error().
-			To(MatchError(ContainSubstring("1 gate(s) failed")))
+		Expect(fail(check.FailureCodes["analyze"], "check")).
+			To(ContainSubstring("1 gate(s) failed"))
 	})
 })

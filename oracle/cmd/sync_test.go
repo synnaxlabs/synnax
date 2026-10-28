@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -40,9 +39,7 @@ var _ = Describe("sync command", func() {
 		It("writes schema sources and generated outputs before buf fails", func() {
 			// The mini repo has no buf configuration, so the run stops at the
 			// buf-generate step; everything before it must have completed.
-			root := cmd.New()
-			Expect(executeCommand(root, "sync", "-v")).Error().
-				To(MatchError(ContainSubstring("buf generate")))
+			Expect(fail(1, "sync", "-v")).To(ContainSubstring("buf generate"))
 
 			schema := string(MustSucceed(os.ReadFile(
 				filepath.Join(repoDir, "schemas", "synnax", "user.oracle"),
@@ -68,8 +65,7 @@ var _ = Describe("sync command", func() {
 		// after it writes the generated files.
 		sync := func() {
 			GinkgoHelper()
-			Expect(executeCommand(cmd.New(), "sync")).Error().
-				To(MatchError(ContainSubstring("buf generate")))
+			Expect(fail(1, "sync")).To(ContainSubstring("buf generate"))
 		}
 
 		It("Should restore a generated file that was edited by hand", func() {
@@ -110,9 +106,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("prints diagnostics and fails generation", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "sync")).Error().
-				To(MatchError(ContainSubstring("generation failed")))
+			Expect(fail(1, "sync")).To(ContainSubstring("generation failed"))
 		})
 	})
 
@@ -122,9 +116,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("errors when no schema files exist", func() {
-			root := cmd.New()
-			Expect(executeCommand(root, "sync")).Error().
-				To(MatchError(ContainSubstring("no schema files found")))
+			Expect(fail(1, "sync")).To(ContainSubstring("no schema files found"))
 		})
 	})
 })
