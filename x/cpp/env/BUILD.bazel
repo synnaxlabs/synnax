@@ -32,7 +32,7 @@ cc_test(
     ],
     deps = [
         "//x/cpp/env",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
