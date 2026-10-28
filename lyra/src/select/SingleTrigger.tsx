@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
+import { type Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
@@ -29,7 +30,12 @@ export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNa
 }
 
 /** Props for {@link SingleTrigger}. */
-export interface SingleTriggerProps extends Dialog.TriggerProps {
+export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant"> {
+  /**
+   * The trigger's chassis. A shadow trigger reads as its value: no box at rest, a
+   * border on hover, and a box while open. Its caret shows only on hover or while open.
+   */
+  variant?: Input.Variant;
   /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
   placeholder?: string;
@@ -70,6 +76,7 @@ export const SingleTrigger = <K extends record.Key>({
   disabled,
   iconOnly = false,
   hideCaret = false,
+  variant: triggerVariant = "outlined",
   renderIcon,
   collapsible = false,
   clearable = false,
@@ -150,10 +157,11 @@ export const SingleTrigger = <K extends record.Key>({
   return (
     <Dialog.Trigger
       id={id}
-      variant="outlined"
+      variant={triggerVariant === "shadow" ? "outlined" : triggerVariant}
       gap="small"
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
+        triggerVariant === "shadow" && CSS.M("shadow"),
         name == null && !fixed ? CSS.BM("select-single-trigger", "empty") : null,
         collapsible && CSS.BM("select-single-trigger", "collapsible"),
         clearShown && CSS.M("reveals"),

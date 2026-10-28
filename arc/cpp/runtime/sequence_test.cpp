@@ -827,7 +827,7 @@ TEST(ReactiveVariableReadsTest, LogsAVariableOncePerChangeAcrossStageReActivatio
             counter $= 0
             1 => counter + 1 => counter
             str(counter) => %log%
-            time.wait{100ms} => next
+            time.wait(100ms) => next
         }
         stage s2 {
             1 => s1
@@ -1699,7 +1699,7 @@ TEST(
             counter := 0
             1 => counter + 1 => counter
             str(counter) => %log%
-            time.wait{100ms} => next
+            time.wait(100ms) => next
         }
         stage s2 {
             1 => s1
@@ -1728,7 +1728,7 @@ TEST(
             counter $= 0
             1 => counter + 1 => counter
             str(counter) => %log%
-            time.wait{100ms} => next
+            time.wait(100ms) => next
         }
         stage s2 {
             1 => s1
@@ -1760,7 +1760,7 @@ TEST(
             1 => counter_s + 1 => counter_s
             str(counter_c) => %log_c%
             str(counter_s) => %log_s%
-            time.wait{100ms} => next
+            time.wait(100ms) => next
         }
         stage s2 {
             1 => s1
@@ -2110,7 +2110,7 @@ TEST(TriggeredExpressionVariableReadsTest, FiresPerIntervalTickWithTheLiveValue)
     stage main {
         x u8 := 3
         %set_ch% -> x
-        time.interval{50ms} -> f"v={x}" -> %out%
+        time.interval(50ms) -> f"v={x}" -> %out%
     }
     1 -> main)");
     h.advance(x::telem::TimeSpan(0));
@@ -2129,14 +2129,14 @@ TEST(TriggeredExpressionVariableReadsTest, FiresPerIntervalTickWithTheLiveValue)
 // each fire; the node fires only on its own trigger.
 namespace variable_brace_inputs {
 const std::string SRC = R"(
-    func echo{tag str} (n u8) str {
+    func echo(tag str) {n u8} str {
         return tag
     }
     sequence main {
         v str := "initial"
         stage s1 {
             %tag_ch% -> v
-            %go_ch% -> echo{tag=v} -> %echo_out%
+            %go_ch% -> echo(tag=v) -> %echo_out%
         }
     }
     %start_cmd% => main)";
@@ -2200,14 +2200,14 @@ TEST(VariableBraceInputsTest, FiresTheConsumerExactlyOncePerTrigger) {
 
 namespace stateful_variable_brace_inputs {
 const std::string SRC = R"(
-    func echo{tag str} (n u8) str {
+    func echo(tag str) {n u8} str {
         return tag
     }
     sequence main {
         stage s1 {
             acc str $= "initial"
             %tag_ch% -> acc
-            %go_ch% -> echo{tag=acc} -> %echo_out%
+            %go_ch% -> echo(tag=acc) -> %echo_out%
             %hop_ch% >= 1 => s2
         }
         stage s2 {
@@ -2333,12 +2333,12 @@ void run_write(const std::string &src) {
 
 TEST(ChannelBraceInputsTest, ReadsTheLatestChannelDataAtEachFire) {
     channel_brace_inputs::run(R"(
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         stage s1 {
-            %go_ch% -> reader{channel=%data_ch%} -> %reader_out%
+            %go_ch% -> reader(channel=%data_ch%) -> %reader_out%
         }
     }
     %start_cmd% => main)");
@@ -2346,13 +2346,13 @@ TEST(ChannelBraceInputsTest, ReadsTheLatestChannelDataAtEachFire) {
 
 TEST(ChannelBraceInputsTest, ReadsTheLatestDataThroughAChannelAlias) {
     channel_brace_inputs::run(R"(
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         a := %data_ch%
         stage s1 {
-            %go_ch% -> reader{channel=a} -> %reader_out%
+            %go_ch% -> reader(channel=a) -> %reader_out%
         }
     }
     %start_cmd% => main)");
@@ -2360,12 +2360,12 @@ TEST(ChannelBraceInputsTest, ReadsTheLatestDataThroughAChannelAlias) {
 
 TEST(ChannelBraceInputsTest, WritesEachValueToTheChannel) {
     channel_brace_inputs::run_write(R"(
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         stage s1 {
-            %data_ch% -> writer{channel=%sink_ch%}
+            %data_ch% -> writer(channel=%sink_ch%)
         }
     }
     %start_cmd% => main)");
@@ -2373,13 +2373,13 @@ TEST(ChannelBraceInputsTest, WritesEachValueToTheChannel) {
 
 TEST(ChannelBraceInputsTest, WritesEachValueThroughAChannelAlias) {
     channel_brace_inputs::run_write(R"(
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         w := %sink_ch%
         stage s1 {
-            %data_ch% -> writer{channel=w}
+            %data_ch% -> writer(channel=w)
         }
     }
     %start_cmd% => main)");
@@ -2388,18 +2388,18 @@ TEST(ChannelBraceInputsTest, WritesEachValueThroughAChannelAlias) {
 TEST(ChannelBraceInputsTest, WritesThroughTheDeclaredBindingThenTheReboundOne) {
     Sequence h(
         R"(
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         w := %sink_a%
         stage s1 {
-            %data_ch% -> writer{channel=w}
+            %data_ch% -> writer(channel=w)
             %hop_ch% >= 1 => s2
         }
         stage s2 {
             w = %sink_b%
-            %data_ch% -> writer{channel=w}
+            %data_ch% -> writer(channel=w)
         }
     }
     %start_cmd% => main)",
@@ -2422,14 +2422,14 @@ TEST(ChannelBraceInputsTest, WritesThroughTheDeclaredBindingThenTheReboundOne) {
 
 TEST(ChannelBraceInputsTest, ReadsThroughTheReboundChannelNotTheDeclaredOne) {
     auto h = channel_brace_inputs::new_h(R"(
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         a := %data_ch%
         stage s1 {
             a = %data2_ch%
-            %go_ch% -> reader{channel=a} -> %reader_out%
+            %go_ch% -> reader(channel=a) -> %reader_out%
         }
     }
     %start_cmd% => main)");
@@ -2446,8 +2446,8 @@ TEST(TimerBraceInputsTest, AdoptsTheReassignedIntervalPeriodAtTheNextFire) {
     sequence main {
         rate := i64 ns(100ms)
         stage s1 {
-            interval{rate} -> %tick_ch%
-            wait{1s} -> sequence {
+            interval(rate) -> %tick_ch%
+            wait(1s) -> sequence {
                 rate = i64 ns(2s)
             }
         }
@@ -2491,10 +2491,10 @@ TEST(TimerBraceInputsTest, FiresTheWaitEarlierWhenItsDurationIsShortenedMidWait)
     sequence main {
         hold := i64 ns(5s)
         stage s1 {
-            wait{300ms} -> sequence {
+            wait(300ms) -> sequence {
                 hold = i64 ns(1s)
             }
-            wait{duration=hold} -> %done_ch%
+            wait(duration=hold) -> %done_ch%
         }
     }
     %start_cmd% => main)",
@@ -2521,10 +2521,10 @@ TEST(TimerBraceInputsTest, HoldsTheWaitLongerWhenItsDurationIsLengthenedMidWait)
     sequence main {
         hold := i64 ns(500ms)
         stage s1 {
-            wait{200ms} -> sequence {
+            wait(200ms) -> sequence {
                 hold = i64 ns(3s)
             }
-            wait{duration=hold} -> %done_ch%
+            wait(duration=hold) -> %done_ch%
         }
     }
     %start_cmd% => main)",
@@ -2555,8 +2555,8 @@ TEST(MidChainVariableReadsTest, EmitsTheLiveStringValueAtEachIntervalFire) {
     sequence main {
         text := "hello"
         stage s1 {
-            interval{300ms} -> text -> %log_ch%
-            wait{100ms} -> sequence {
+            interval(300ms) -> text -> %log_ch%
+            wait(100ms) -> sequence {
                 text = "goodbye"
             }
         }
@@ -2595,8 +2595,8 @@ TEST(MidChainVariableReadsTest, EmitsTheLiveNumericValueAtEachIntervalFire) {
     sequence main {
         k u8 := 5
         stage s1 {
-            interval{300ms} -> k -> %out_ch%
-            wait{100ms} -> sequence {
+            interval(300ms) -> k -> %out_ch%
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -2628,9 +2628,9 @@ TEST(
     sequence main {
         k u8 := 5
         stage s1 {
-            interval{10s} -> k -> %slow_out%
+            interval(10s) -> k -> %slow_out%
             k -> %live_out%
-            wait{100ms} -> sequence {
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -2666,8 +2666,8 @@ TEST(MidChainVariableReadsTest, EmitsTheLiveStatefulVariableValueAtEachIntervalF
     sequence main {
         k u8 $= 5
         stage s1 {
-            interval{300ms} -> k -> %out_ch%
-            wait{100ms} -> sequence {
+            interval(300ms) -> k -> %out_ch%
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -2727,7 +2727,7 @@ TEST(ReactiveReadChainCadenceTest, KeepsTheCadenceWhenAnUnrelatedTimerChainAddsC
         R"(
     v := %src_ch% - f32(1)
     v -> "tick" -> %out_str%
-    interval{50ms} -> %beat_ch%)",
+    interval(50ms) -> %beat_ch%)",
         {{"src_ch", x::telem::FLOAT32_T},
          {"out_str", x::telem::STRING_T},
          {"beat_ch", x::telem::UINT8_T}}
@@ -3376,13 +3376,13 @@ TEST_P(TriggeredBodyTest, DoesNotRunATriggeredBodyOfAStageThatLeftAndEnteredAgai
 TEST(VariableCaptureDispatchTest, ExecutesAOneShotCaptureChainExactlyOnce) {
     Sequence h(
         R"(
-    func stamp{tag str} (n u8) str {
+    func stamp(tag str) {n u8} str {
         return tag
     }
     sequence main {
         fp str := ""
         stage s1 {
-            1 -> stamp{tag="parent"} -> fp
+            1 -> stamp(tag="parent") -> fp
             fp -> %fp_out%
         }
     }

@@ -303,7 +303,7 @@ class AccessClient(ResourceClient):
         if role_item is None:
             raise ValueError(f"Role '{role_name}' not found")
 
-        user_item.drag_to(role_item)
+        self.layout.drag(user_item, role_item)
         sy.sleep(0.3)
 
     # -------------------------------------------------------------------------
