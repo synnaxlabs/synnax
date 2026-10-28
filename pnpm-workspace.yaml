@@ -28,6 +28,10 @@ packages:
 
 shellEmulator: true
 
+# Node.js downloads from nodejs.org sometimes time out on hosted CI runners. The default
+# is two retries.
+fetchRetries: 5
+
 trustPolicy: no-downgrade
 trustPolicyExclude:
   # Old major versions that predate provenance on their package, so the downgrade is
@@ -92,6 +96,7 @@ catalog:
   '@fontsource/inter': ^5.3.0
   '@juggle/resize-observer': ^3.4.0
   '@neondatabase/serverless': ^1.2.0
+  '@noble/hashes': ^2.4.0
   '@opentelemetry/api': ^1.9.1
   '@prettier/plugin-xml': ^3.4.2
   '@reduxjs/toolkit': ^2.13.0
@@ -153,6 +158,7 @@ catalog:
   compromise: ^14.18.0
   compromise-dates: ^3.9.0
   d3-scale: ^4.0.2
+  dompurify: ^3.4.17
   drizzle-kit: ^0.31.11
   drizzle-orm: ^0.45.4
   error-stack-parser: ^2.1.4

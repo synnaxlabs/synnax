@@ -56,11 +56,22 @@ describe("Modal", () => {
       expect(screen.getByText("user.name")).toBeTruthy();
     });
 
-    it("should render a leading icon segment only when an icon is provided", () => {
+    it("should draw the last segment at full contrast", () => {
+      renderModal(<Modal.Header>Channel.Create</Modal.Header>);
+      expect(screen.getByText("Channel").className).toContain("pluto--color-9");
+      expect(screen.getByText("Create").className).toContain("pluto--color-11");
+    });
+
+    it("should frame the icon in a tile, with no separator after it", () => {
       const withIcon = renderModal(
         <Modal.Header icon={<Icon.Add className="test-icon" />}>Title</Modal.Header>,
       );
-      expect(withIcon.baseElement.querySelector(".test-icon")).not.toBeNull();
+      expect(
+        withIcon.baseElement.querySelector(".pluto-icon-tile > .test-icon"),
+      ).not.toBeNull();
+      expect(
+        withIcon.baseElement.querySelector(".pluto-breadcrumb__separator"),
+      ).toBeNull();
       withIcon.unmount();
       const withoutIcon = renderModal(<Modal.Header>Title</Modal.Header>);
       expect(withoutIcon.baseElement.querySelector(".test-icon")).toBeNull();
@@ -104,6 +115,25 @@ describe("Modal", () => {
       expect(el?.className).toContain("extra");
       expect(screen.getByText("body content")).toBeTruthy();
     });
+
+    it("should stack its children one field gap apart by default", () => {
+      const { baseElement } = renderModal(<Modal.Body>body</Modal.Body>);
+      const el = baseElement.querySelector(".pluto-modal__body");
+      expect(el?.className).toContain("pluto--field-gap");
+    });
+
+    it.each([
+      ["gap", { gap: "small" }],
+      ["pack", { pack: true }],
+      ["empty", { empty: true }],
+    ] as const)(
+      "should leave the spacing to %s when the caller sets it",
+      (_, props) => {
+        const { baseElement } = renderModal(<Modal.Body {...props}>body</Modal.Body>);
+        const el = baseElement.querySelector(".pluto-modal__body");
+        expect(el?.className).not.toContain("pluto--field-gap");
+      },
+    );
   });
 
   describe("Footer", () => {

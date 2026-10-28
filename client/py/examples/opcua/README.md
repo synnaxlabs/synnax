@@ -79,12 +79,9 @@ Connect), use these settings:
 | Security Mode   | Sign And Encrypt            |
 | Security Policy | Basic 256-bit with SHA-256  |
 
-Certificates are auto-generated under `examples/opcua/certificates/` when the server
-starts. The driver needs these files to connect:
-
-- `server-certificate.der`
-- `client-certificate.der`
-- `client-private-key.pem`
+The server accepts the Driver certificate, so keep **Client certificate** set to
+**Driver certificate**. Click **Connect**, check the thumbprint of the certificate the
+server sent, and click **Trust**.
 
 #### TLS + username/password
 
@@ -97,7 +94,7 @@ starts. The driver needs these files to connect:
 | Security Mode   | Sign And Encrypt            |
 | Security Policy | Basic 256-bit with SHA-256  |
 
-Uses the same auto-generated certificates as the TLS server above.
+Connect it the same way as the TLS server above.
 
 ### 3. Connect your OPC UA server (script)
 
