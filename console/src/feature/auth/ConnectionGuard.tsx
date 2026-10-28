@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Errors, Synnax } from "@synnaxlabs/pluto";
+import { Errors, Synnax, User } from "@synnaxlabs/pluto";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -85,8 +85,8 @@ interface DeniedProps {
 const Denied = ({ retry }: DeniedProps): ReactElement => {
   const logout = Session.useLogout();
   const target = Session.Core.useSelectSelected();
-  const subject =
-    target != null && target.username !== "" ? ` for ${target.username}` : "";
+  const { data: name } = User.useResultName({});
+  const subject = name != null ? ` for ${name}` : "";
   return (
     <Shell.Frame className={CSS.B("connection")} connection={target}>
       <Flex.Box

@@ -17,6 +17,7 @@
 
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/testutil/server.h"
+#include "driver/opcua/testutil/testutil.h"
 
 namespace driver::opcua::connection {
 class ConnectionPoolKeepAliveTest : public ::testing::Test {
@@ -44,7 +45,7 @@ protected:
 
 /// @brief it should keep connection alive when repeatedly acquired and released.
 TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Acquire and release 100 times over ~10 seconds
     // This simulates normal task operation patterns
@@ -75,7 +76,7 @@ TEST_F(ConnectionPoolKeepAliveTest, RepeatedAcquireKeepsConnectionAlive) {
 
 /// @brief it should survive idle periods between acquisitions.
 TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Initial acquisition
     { auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
@@ -98,7 +99,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConnectionSurvivesIdlePeriods) {
 
 /// @brief it should handle concurrent access with keep-alive enabled.
 TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
-    Pool pool;
+    Pool pool(testutil::create_store());
     std::atomic<int> success_count{0};
     std::atomic<int> failure_count{0};
 
@@ -146,7 +147,7 @@ TEST_F(ConnectionPoolKeepAliveTest, ConcurrentAccessWithKeepAlive) {
 
 /// @brief it should perform reads correctly after keep-alive iterations.
 TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Acquire connection multiple times to trigger keep-alive
     for (int i = 0; i < 10; ++i) {
@@ -172,7 +173,7 @@ TEST_F(ConnectionPoolKeepAliveTest, CanPerformReadAfterKeepAlive) {
 
 /// @brief it should maintain connection alive with short timeout configuration.
 TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Configure very short timeouts for testing
     Config short_cfg = conn_cfg_;
