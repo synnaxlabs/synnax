@@ -222,7 +222,8 @@ type (
 	}
 )
 
-// Retrieve returns the users with the provided keys or usernames.
+// Retrieve returns the users with the provided keys or usernames, each with the
+// username of its password.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -232,7 +233,14 @@ func (s *Service) Retrieve(
 		q = q.Where(user.MatchKeys(req.Keys...))
 	}
 	if len(req.Usernames) > 0 {
-		q = q.Where(user.MatchUsernames(req.Usernames...))
+		keys, err := s.keysByUsername(ctx, req.Usernames)
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+		if len(keys) == 0 {
+			return RetrieveResponse{Users: []user.User{}}, nil
+		}
+		q = q.Where(user.MatchKeys(keys...))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
@@ -245,7 +253,58 @@ func (s *Service) Retrieve(
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
+	if err := s.fillUsernames(ctx, users); err != nil {
+		return RetrieveResponse{}, err
+	}
 	return RetrieveResponse{Users: users}, nil
+}
+
+func (s *Service) keysByUsername(
+	ctx context.Context,
+	usernames []string,
+) ([]user.Key, error) {
+	var passwords []password.Password
+	if err := s.password.NewRetrieve().
+		Where(password.MatchUsernames(usernames...)).
+		Entries(&passwords).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	keys := make([]user.Key, 0, len(passwords))
+	for _, p := range passwords {
+		if p.Subject.Type != ontology.ResourceTypeUser {
+			continue
+		}
+		key, err := user.KeyFromOntologyID(p.Subject)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
+}
+
+// fillUsernames sets each user's username from its password, leaving it empty for a
+// user with no password.
+func (s *Service) fillUsernames(ctx context.Context, users []user.User) error {
+	if len(users) == 0 {
+		return nil
+	}
+	var passwords []password.Password
+	if err := s.password.NewRetrieve().
+		Where(password.MatchSubjects(user.OntologyIDsFromUsers(users)...)).
+		Entries(&passwords).
+		Exec(ctx, nil); err != nil {
+		return err
+	}
+	usernames := make(map[ontology.ID]string, len(passwords))
+	for _, p := range passwords {
+		usernames[p.Subject] = p.Username
+	}
+	for i := range users {
+		users[i].Username = usernames[users[i].OntologyID()]
+	}
+	return nil
 }
 
 type DeleteRequest struct {

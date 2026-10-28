@@ -27,7 +27,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import * as Device from "@/feature/http/device/types";
+import { SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -274,6 +274,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           )}
           <PlatformForm.KeyValueEditor
             path={`${path}.queryParams`}
+            resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
             keyPlaceholder="limit"
@@ -281,6 +282,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.headers`}
+            resourceName="header"
             label="Headers"
             keyField="name"
             keyPlaceholder="Content-Type"
@@ -327,6 +329,7 @@ const FieldPane: FC<{ epKey: string; fieldKey: string }> = ({ epKey, fieldKey })
         <PForm.Section title="Enum mapping">
           <PlatformForm.KeyValueEditor
             path={`${path}.enumValues`}
+            resourceName="mapping"
             keyField="label"
             keyPlaceholder="String (e.g. ON)"
             valueType="number"
@@ -412,7 +415,7 @@ const channelExists = async (client: Client, key: channel.Key): Promise<boolean>
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   let modified = false;
@@ -491,7 +494,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       }
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

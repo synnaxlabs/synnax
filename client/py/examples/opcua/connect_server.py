@@ -36,6 +36,7 @@ Configuration:
 """
 
 import argparse
+import ssl
 from pathlib import Path
 
 import synnax as sy
@@ -135,7 +136,13 @@ if response in ("", "y", "yes"):
             rack=rack.key,
             security_mode="SignAndEncrypt" if encrypted else "None",
             security_policy="Basic256Sha256" if encrypted else "None",
-            server_cert=str(CERT_DIR / "server-certificate.der") if encrypted else "",
+            server_cert=(
+                ssl.DER_cert_to_PEM_cert(
+                    (CERT_DIR / "server-certificate.der").read_bytes()
+                )
+                if encrypted
+                else ""
+            ),
             client_cert=str(CERT_DIR / "client-certificate.der") if encrypted else "",
             client_private_key=(
                 str(CERT_DIR / "client-private-key.pem") if encrypted else ""
@@ -177,8 +184,7 @@ if response in ("n", "no") or response not in ("", "y", "yes"):
     if args.tls:
         print("   - Security Mode: SignAndEncrypt")
         print("   - Security Policy: Basic256Sha256")
-        print(f"   - Server Certificate: {CERT_DIR / 'server-certificate.der'}")
-        print(f"   - Client Certificate: {CERT_DIR / 'client-certificate.der'}")
-        print(f"   - Client Private Key: {CERT_DIR / 'client-private-key.pem'}")
+        print("   - Client Certificate: Driver certificate")
+        print("   - Click Connect, check the thumbprint, then click Trust")
     print("=" * 70)
     exit(1)

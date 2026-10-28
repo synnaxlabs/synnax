@@ -16,7 +16,7 @@ import { errors, id, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
-import * as Device from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -132,11 +132,9 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  if (devices.length === 0) throw new Error("No device selected");
-
   const allDevices = await client.devices.retrieve({
     keys: devices,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1)
@@ -200,7 +198,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
     } finally {
-      if (devModified) await client.devices.create(dev, Device.SCHEMAS);
+      if (devModified) await client.devices.create(dev, SCHEMAS);
     }
   }
 

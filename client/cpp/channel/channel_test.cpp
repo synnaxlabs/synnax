@@ -14,7 +14,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::channel {
 /// @brief it should create a rate based channel and assign it a non-zero key.
