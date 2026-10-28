@@ -182,6 +182,7 @@ var _ = Describe("VariantTypeName", func() {
 		),
 		Entry("rtd acronym", "ai_rtd", "AIRTDScale"),
 		Entry("api acronym", "api_key", "APIKeyScale"),
+		Entry("oidc acronym", "oidc", "OIDCScale"),
 		Entry("no acronym", "force_bridge_table", "ForceBridgeTableScale"),
 		Entry(
 			"word containing acronym is not mangled",

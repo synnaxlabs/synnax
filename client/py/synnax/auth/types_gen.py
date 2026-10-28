@@ -105,7 +105,7 @@ class APIKeyProof(APIKeyCredentials):
     method: Literal["api_key"] = "api_key"
 
 
-class OidcProof(OIDCCredentials):
+class OIDCProof(OIDCCredentials):
     """Proves an OpenID Connect provider account."""
 
     method: Literal["oidc"] = "oidc"
@@ -114,6 +114,6 @@ class OidcProof(OIDCCredentials):
 # Is what a subject presents to log in. The method selects the authenticator that
 # checks it.
 Proof = Annotated[
-    PasswordProof | APIKeyProof | OidcProof,
+    PasswordProof | APIKeyProof | OIDCProof,
     Field(discriminator="method"),
 ]

@@ -174,9 +174,9 @@ func proofForward(p svcauth.Proof) (*Proof, error) {
 		}, nil
 	case svcauth.APIKeyProof:
 		return &Proof{Method: string(svcauth.MethodAPIKey), Key: v.Key}, nil
-	case svcauth.OidcProof:
+	case svcauth.OIDCProof:
 		return &Proof{
-			Method:      string(svcauth.MethodOidc),
+			Method:      string(svcauth.MethodOIDC),
 			Provider:    v.Provider,
 			Code:        v.Code,
 			Verifier:    v.Verifier,
@@ -203,8 +203,8 @@ func proofBackward(p *Proof) (svcauth.Proof, error) {
 		return svcauth.Proof{Variant: svcauth.APIKeyProof{
 			APIKeyCredentials: svcauth.APIKeyCredentials{Key: p.Key},
 		}}, nil
-	case svcauth.MethodOidc:
-		return svcauth.Proof{Variant: svcauth.OidcProof{
+	case svcauth.MethodOIDC:
+		return svcauth.Proof{Variant: svcauth.OIDCProof{
 			OIDCCredentials: svcauth.OIDCCredentials{
 				Provider:    p.Provider,
 				Code:        p.Code,

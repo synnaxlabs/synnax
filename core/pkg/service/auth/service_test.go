@@ -266,7 +266,7 @@ var _ = Describe("Service", func() {
 				Authenticators: map[auth.Method]auth.Authenticator{
 					auth.MethodPassword: pw,
 				},
-				Accepted: []auth.Method{auth.MethodOidc},
+				Accepted: []auth.Method{auth.MethodOIDC},
 			})).Error().To(MatchError(ContainSubstring("method oidc has no authenticator")))
 		})
 	})
