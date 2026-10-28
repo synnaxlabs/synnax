@@ -59,10 +59,12 @@ class ConsoleCase(TestCase):
 
     def execute(self) -> None:
         # Teardown errors are logged, not raised, so a subclass cleanup that raises
-        # before super().teardown() would otherwise leave the driver running.
+        # before super().teardown() would otherwise lose the trace and leave the driver
+        # running.
         try:
             super().execute()
         finally:
+            self._stop_tracing()
             self._close_browser()
 
     def setup(self) -> None:
@@ -169,10 +171,6 @@ class ConsoleCase(TestCase):
         self.console.notifications.close_connection()
 
     def teardown(self) -> None:
-        # Stop and persist the trace before cleanup; cleanup may mutate page state
-        # in ways that mask the failure we want to capture.
-        self._stop_tracing()
-
         if self._cleanup_pages:
             try:
                 self.console.pages.delete_many(self._cleanup_pages)
