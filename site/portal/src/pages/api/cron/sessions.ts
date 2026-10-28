@@ -38,5 +38,5 @@ export const GET: APIRoute = async (context) => {
       : null;
     await portal.slack.post(recap(session, account));
   }
-  return Response.json({ posted: sessions.length });
+  return Response.json({ sessions: sessions.length });
 };

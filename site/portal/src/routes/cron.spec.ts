@@ -239,7 +239,7 @@ describe("GET /api/cron/sessions", () => {
     );
     const res = await get(`Bearer ${CRON_SECRET}`);
     expect(res.status).toBe(200);
-    expect(await body(res)).toEqual({ posted: 1 });
+    expect(await body(res)).toEqual({ sessions: 1 });
     expect(h.slack.posted).toEqual([recap(inside, { userID: "user_a", ...ada })]);
   });
 

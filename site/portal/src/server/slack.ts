@@ -88,6 +88,24 @@ export const log = (): Slack => ({
   post: async ({ title }) => console.info("slack note not posted", { title }),
 });
 
+/**
+ * announce posts the note that `make` returns, if any. Like {@link Slack.post}, it
+ * never throws: a failure to make the note is logged, so it cannot fail the request.
+ */
+export const announce = async (
+  slack: Slack,
+  make: () => Promise<Note | null>,
+): Promise<void> => {
+  let note: Note | null;
+  try {
+    note = await make();
+  } catch (err) {
+    console.error("slack note failed", err);
+    return;
+  }
+  if (note != null) await slack.post(note);
+};
+
 /** memory collects notes instead of posting them. For tests. */
 export const memory = (): Slack & { posted: Note[] } => {
   const posted: Note[] = [];

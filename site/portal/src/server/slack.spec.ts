@@ -14,9 +14,11 @@ import { type Organization } from "@/server/db/schema";
 import { LICENSE, NOW } from "@/server/license/testutil";
 import {
   active,
+  announce,
   digest,
   firstLogin,
   joined,
+  memory,
   type Note,
   recap,
   refused,
@@ -100,6 +102,35 @@ describe("slack", () => {
         { title: "New account" },
         cause,
       );
+    });
+  });
+
+  describe("announce", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should post the note it makes", async () => {
+      const slack = memory();
+      await announce(slack, async () => NOTE);
+      expect(slack.posted).toEqual([NOTE]);
+    });
+
+    it("should post nothing when there is no note", async () => {
+      const slack = memory();
+      await announce(slack, async () => null);
+      expect(slack.posted).toEqual([]);
+    });
+
+    it("should log a note it cannot make instead of throwing", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const cause = new Error("Clerk is down");
+      const slack = memory();
+      await announce(slack, async () => {
+        throw cause;
+      });
+      expect(slack.posted).toEqual([]);
+      expect(error).toHaveBeenCalledWith("slack note failed", cause);
     });
   });
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { eq } from "drizzle-orm";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
@@ -64,6 +64,20 @@ describe("desktop routes", () => {
     };
     harness.directory.people.user_b = { email: "bob@example.com", name: "Bob" };
   });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const CLERK_DOWN = new Error("Clerk is down");
+
+  /** breakNotes makes every Clerk account lookup fail, and catches what is logged. */
+  const breakNotes = () => {
+    harness.directory.account = async () => {
+      throw CLERK_DOWN;
+    };
+    return vi.spyOn(console, "error").mockImplementation(() => {});
+  };
 
   const postLink = async (fields: Record<string, string>) =>
     await linkRoute(createAPIContext(harness.portal, { body: fields }));
@@ -186,6 +200,17 @@ describe("desktop routes", () => {
         }),
       );
     });
+
+    it("should answer the new secret when the note about the login fails", async () => {
+      const first = await linkAs("user_a");
+      harness.portal.now = () => TOMORROW;
+      const error = breakNotes();
+      const again = await linkAs("user_a");
+      expect(again.secret).not.toBe(first.secret);
+      expect((await postRenew(`Bearer ${again.secret}`)).status).toBe(200);
+      expect(error).toHaveBeenCalledWith("slack note failed", CLERK_DOWN);
+      expect(harness.slack.posted).toHaveLength(1);
+    });
   });
 
   describe("OPTIONS /api/desktop/renew", () => {
@@ -232,6 +257,18 @@ describe("desktop routes", () => {
           days: 2,
         }),
       ]);
+    });
+
+    it("should answer the key when the note about the renewal fails", async () => {
+      const linked = await linkAs("user_a");
+      harness.portal.now = () => TOMORROW;
+      const error = breakNotes();
+      const res = await postRenew(`Bearer ${linked.secret}`);
+      expect(res.status).toBe(200);
+      const { key } = await body<{ key: string }>(res);
+      expect(readKey(key)).toMatchObject({ fingerprints: [HASH_A] });
+      expect(error).toHaveBeenCalledWith("slack note failed", CLERK_DOWN);
+      expect(harness.slack.posted).toHaveLength(1);
     });
 
     it("should not post a later use on the same day", async () => {

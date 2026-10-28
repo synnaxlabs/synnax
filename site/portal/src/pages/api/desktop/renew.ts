@@ -13,7 +13,7 @@ import { preflight, readSecret, withCORS } from "@/bearer";
 import { handle } from "@/respond";
 import { renew, resolve } from "@/server/license/desktop";
 import { check } from "@/server/ratelimit";
-import { active } from "@/server/slack";
+import { active, announce } from "@/server/slack";
 import { arrival } from "@/server/user";
 
 export const OPTIONS = preflight;
@@ -38,13 +38,15 @@ export const POST: APIRoute = async (context) =>
         machine,
         now,
       });
-      const arrived = await arrival(portal.store, portal.directory, {
-        userID: owner,
-        machine: machine.activation.name ?? "Unnamed machine",
-        previous,
-        now,
+      await announce(portal.slack, async () => {
+        const arrived = await arrival(portal.store, portal.directory, {
+          userID: owner,
+          machine: machine.activation.name ?? "Unnamed machine",
+          previous,
+          now,
+        });
+        return arrived == null ? null : active(arrived);
       });
-      if (arrived != null) await portal.slack.post(active(arrived));
       return Response.json({ key });
     }),
   );
