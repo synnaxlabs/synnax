@@ -169,6 +169,10 @@ jobs:
           format('--shard={0}/{1}', matrix.shard, inputs.shards) || '' }} ${{
           inputs.test_args }}
 
+      - name: Test in WebKit
+        if: inputs.test && inputs.browsers
+        run: pnpm test:${{ inputs.package }} -- --run --project webkit
+
       - name: Upload coverage
         if: inputs.test && inputs.coverage_flag != ''
         uses: codecov/codecov-action@v7

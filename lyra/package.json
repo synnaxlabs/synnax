@@ -10,7 +10,7 @@
     "check-types": "tsc --noEmit",
     "watch": "vite build --watch",
     "test": "vitest",
-    "cov": "vitest --coverage",
+    "cov": "vitest --coverage --project jsdom --project chromium",
     "install-browsers": "playwright install chromium webkit",
     "lint": "eslint && stylelint \"src/**/*.css\"",
     "fix": "eslint --fix && stylelint --fix \"src/**/*.css\"",

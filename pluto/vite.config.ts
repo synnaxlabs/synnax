@@ -96,7 +96,11 @@ export default defineConfig({
             enabled: true,
             headless: true,
             provider: playwright(),
-            instances: [{ browser: "chromium" }, { browser: "webkit" }],
+            // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
+            instances: [
+              { browser: "chromium", name: "chromium" },
+              { browser: "webkit", name: "webkit" },
+            ],
           },
         },
       },
