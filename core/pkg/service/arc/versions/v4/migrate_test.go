@@ -16,9 +16,9 @@ import (
 	. "github.com/onsi/gomega"
 	graph "github.com/synnaxlabs/arc/graph/versions/v1"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )

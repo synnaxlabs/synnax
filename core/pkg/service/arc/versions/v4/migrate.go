@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/text"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	"github.com/synnaxlabs/gorp/migrate"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 )
 
 // MigrateArc lifts a v3 Arc, rewriting its text from the grammar that wrote inputs in
