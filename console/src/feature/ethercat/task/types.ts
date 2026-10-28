@@ -32,6 +32,7 @@ const readConfigZ = ethercat.readConfigZ;
 
 export const deployReadConfigZ = ethercat.readConfigZ
   .extend({
+    channels: ethercat.readConfigZ.shape.channels.check(Task.validateEnabledChannel),
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
   })
@@ -59,6 +60,7 @@ export const WRITE_TYPE = `${PREFIX}_write`;
 const writeConfigZ = ethercat.writeConfigZ;
 
 export const deployWriteConfigZ = ethercat.writeConfigZ.extend({
+  channels: ethercat.writeConfigZ.shape.channels.check(Task.validateEnabledChannel),
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
 });

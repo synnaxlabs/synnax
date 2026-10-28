@@ -21,7 +21,7 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,8 +30,8 @@ import (
 
 type streamServer struct {
 	fgrpc.StreamServerCore[
-		test.Request, *v1.Request,
-		test.Response, *v1.Response,
+		testutil.Request, *v1.Request,
+		testutil.Response, *v1.Response,
 	]
 }
 
@@ -46,14 +46,14 @@ func (s *streamServer) BindTo(reg grpc.ServiceRegistrar) {
 }
 
 func startPair() (
-	freighter.StreamServer[test.Request, test.Response],
-	freighter.StreamClient[test.Request, test.Response],
+	freighter.StreamServer[testutil.Request, testutil.Response],
+	freighter.StreamClient[testutil.Request, testutil.Response],
 	address.Address,
 ) {
 	GinkgoHelper()
 	var (
-		server freighter.StreamServer[test.Request, test.Response]
-		client freighter.StreamClient[test.Request, test.Response]
+		server freighter.StreamServer[testutil.Request, testutil.Response]
+		client freighter.StreamClient[testutil.Request, testutil.Response]
 	)
 	addr := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 		sServer := &streamServer{
@@ -66,8 +66,8 @@ func startPair() (
 		server = &sServer.StreamServerCore
 
 		client = &fgrpc.StreamClient[
-			test.Request, *v1.Request,
-			test.Response, *v1.Response,
+			testutil.Request, *v1.Request,
+			testutil.Response, *v1.Response,
 		]{
 			RequestTranslator:  requestTranslator{},
 			ResponseTranslator: responseTranslator{},
@@ -86,8 +86,8 @@ func startPair() (
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	var (
-		server freighter.StreamServer[test.Request, test.Response]
-		client freighter.StreamClient[test.Request, test.Response]
+		server freighter.StreamServer[testutil.Request, testutil.Response]
+		client freighter.StreamClient[testutil.Request, testutil.Response]
 		addr   address.Address
 	)
 
@@ -96,9 +96,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		server, client, addr = startPair()
 	})
 
-	test.StreamSuite(func() (
-		freighter.StreamServer[test.Request, test.Response],
-		freighter.StreamClient[test.Request, test.Response],
+	testutil.StreamSuite(func() (
+		freighter.StreamServer[testutil.Request, testutil.Response],
+		freighter.StreamClient[testutil.Request, testutil.Response],
 		address.Address,
 	) {
 		return server, client, addr
@@ -110,7 +110,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			errs := make(chan error, 2)
 			server.BindHandler(func(
 				_ context.Context,
-				stream freighter.ServerStream[test.Request, test.Response],
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
 			) error {
 				_, err := stream.Receive()
 				errs <- err
@@ -156,7 +156,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			received := make(chan error, 1)
 			server.BindHandler(func(
 				_ context.Context,
-				stream freighter.ServerStream[test.Request, test.Response],
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
 			) error {
 				close(handlerEntered)
 				_, err := stream.Receive()
@@ -202,10 +202,12 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			)
 			server.BindHandler(func(
 				_ context.Context,
-				stream freighter.ServerStream[test.Request, test.Response],
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
 			) error {
 				for {
-					if err := stream.Send(test.Response{Message: payload}); err != nil {
+					if err := stream.Send(
+						testutil.Response{Message: payload},
+					); err != nil {
 						sendErr <- err
 						return err
 					}

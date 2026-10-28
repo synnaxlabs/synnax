@@ -2,8 +2,8 @@
 
 Per-language frameworks, rules, and examples live in the toolchain docs
 (`docs/claude/toolchains/*.md`): Vitest (TS), Ginkgo/Gomega (Go), pytest (Python),
-Google Test + xtest (C++). All BDD-style; tests co-located with source (TS/Go/C++) or in
-`tests/` (Python).
+Google Test + testutil (C++). All BDD-style; tests co-located with source (TS/Go/C++) or
+in `tests/` (Python).
 
 ## Universal practices
 

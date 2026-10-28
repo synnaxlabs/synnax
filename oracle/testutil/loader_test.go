@@ -67,18 +67,9 @@ var _ = Describe("MockFileLoader", func() {
 			Expect(path).To(Equal("schema/range.oracle"))
 		})
 
-		It("should return FileNotFoundError for missing file", func() {
+		It("should return a file not found error for a missing file", func() {
 			Expect(loader.Load("schema/nonexistent")).Error().
-				To(MatchError(&FileNotFoundError{Path: "schema/nonexistent"}))
-		})
-	})
-
-	Describe("FileNotFoundError", func() {
-		It("should include path in error message", func() {
-			err := &FileNotFoundError{Path: "schema/missing"}
-			Expect(
-				err,
-			).To(MatchError(ContainSubstring("file not found: schema/missing")))
+				To(MatchError(ContainSubstring("file not found: schema/nonexistent")))
 		})
 	})
 })

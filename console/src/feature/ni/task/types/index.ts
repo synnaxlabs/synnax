@@ -310,6 +310,7 @@ export const deployAnalogReadConfigZ = ni.analogReadConfigZ
     channels: z
       .array(ni.aiChannelZ)
       .check(Task.validateReadChannels)
+      .check(Task.validateEnabledChannel)
       .check(createPortValidator())
       .check(Task.validateChannelDevices),
   })
@@ -339,6 +340,7 @@ export const deployCounterReadConfigZ = ni.counterReadConfigZ
     channels: z
       .array(ni.ciChannelZ)
       .check(Task.validateReadChannels)
+      .check(Task.validateEnabledChannel)
       .check(validateCounterPorts)
       .check(Task.validateChannelDevices),
   })
@@ -362,6 +364,7 @@ export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
   channels: z
     .array(ni.aoChannelZ)
     .check(Task.validateWriteChannels)
+    .check(Task.validateEnabledChannel)
     .check(validateAnalogPorts),
 });
 
@@ -384,6 +387,7 @@ export const deployDigitalReadConfigZ = ni.digitalReadConfigZ
     channels: z
       .array(ni.diChannelZ)
       .check(Task.validateReadChannels)
+      .check(Task.validateEnabledChannel)
       .check(validateDigitalPortsAndLines),
   })
   .check(Task.validateStreamRate);
@@ -406,6 +410,7 @@ export const deployDigitalWriteConfigZ = ni.digitalWriteConfigZ.extend({
   channels: z
     .array(ni.doChannelZ)
     .check(Task.validateWriteChannels)
+    .check(Task.validateEnabledChannel)
     .check(validateDigitalPortsAndLines),
 });
 

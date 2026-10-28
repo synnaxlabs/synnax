@@ -131,8 +131,6 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  if (devices.length === 0) throw new Error("No device selected");
-
   const allDevices = await client.devices.retrieve({
     keys: devices,
     schemas: Device.SCHEMAS,

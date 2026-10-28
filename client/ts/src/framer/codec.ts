@@ -394,9 +394,9 @@ export class Codec {
   }
 }
 
-export const LOW_PERF_SPECIAL_CHAR = 254;
+const LOW_PERF_SPECIAL_CHAR = 254;
 const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PERF_SPECIAL_CHAR]);
-export const HIGH_PERF_SPECIAL_CHAR = 255;
+const HIGH_PERF_SPECIAL_CHAR = 255;
 const HIGH_PERF_SPECIAL_CHAR_BUF = new Uint8Array([HIGH_PERF_SPECIAL_CHAR]);
 const CONTENT_TYPE = "application/vnd.synnax.frame";
 

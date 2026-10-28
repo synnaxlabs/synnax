@@ -19,18 +19,9 @@ type (
 	// Middleware is an interface that can be implemented to intercept and modify
 	// requests either to a server (client side) or from a client (server side).
 	Middleware = middleware.Middleware[Context, Context]
-	// Finalizer is the final middleware in a chain, and is expected to execute the
-	// request.
-	Finalizer = middleware.Finalizer[Context, Context]
 	// Next is a function that is called to continue the middleware chain.
 	Next = func(Context) (Context, error)
-	// ContextKey is a type that can be used to store and retrieve freighter specific
-	// values from a context.
-	ContextKey string
 )
-
-// MDContextKey is the context key used to store freighter metadata.
-const MDContextKey ContextKey = "freighter.md"
 
 // MDFromContext returns the freighter metadata from the given context.
 func MDFromContext(ctx context.Context) Context { return ctx.(Context) }
