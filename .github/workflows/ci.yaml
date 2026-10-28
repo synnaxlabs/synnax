@@ -859,6 +859,8 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'scripts')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: scripts
+      coverage_module: .
       directory: scripts
     secrets: inherit
 

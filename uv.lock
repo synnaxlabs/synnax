@@ -2988,6 +2988,7 @@ dev = [
     { name = "griffe" },
     { name = "mypy" },
     { name = "pytest" },
+    { name = "pytest-cov" },
     { name = "ruff" },
 ]
 
@@ -2999,6 +3000,7 @@ dev = [
     { name = "griffe", specifier = ">=2,<3" },
     { name = "mypy", specifier = ">=2.4.0,<3" },
     { name = "pytest", specifier = ">=9.1.1,<10" },
+    { name = "pytest-cov", specifier = ">=7.1.0,<8" },
     { name = "ruff", specifier = ">=0.17.1,<1" },
 ]
 
