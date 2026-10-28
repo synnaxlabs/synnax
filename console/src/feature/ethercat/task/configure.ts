@@ -97,8 +97,6 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
   pdoType: PDOType,
 ): Promise<SlaveValidationResult<C>> => {
   const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
-  if (slaveKeys.length === 0) throw new Error("No channels configured. Add a channel.");
-
   const slaves = await client.devices.retrieve({
     keys: slaveKeys,
     schemas: SLAVE_SCHEMAS,

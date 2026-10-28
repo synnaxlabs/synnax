@@ -322,7 +322,7 @@ namespace {
 /// @brief creates a write task with one command channel and no state channels.
 std::unique_ptr<WriteTask> create_write_task(
     const std::shared_ptr<driver::task::MockContext> &ctx,
-    const std::shared_ptr<pipeline::mock::StreamerFactory> &streamer_factory,
+    const std::shared_ptr<pipeline::testutil::StreamerFactory> &streamer_factory,
     MockSink *&sink
 ) {
     auto s = std::make_unique<MockSink>(
@@ -340,7 +340,7 @@ std::unique_ptr<WriteTask> create_write_task(
         ctx,
         x::breaker::default_config("cat"),
         std::move(s),
-        std::make_shared<pipeline::mock::WriterFactory>(),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
         streamer_factory
     );
 }
@@ -349,7 +349,7 @@ std::unique_ptr<WriteTask> create_write_task(
 /// @brief it should answer a start only after the command streamer opens, so a
 /// command written after the answer reaches the sink.
 TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
-    auto streamer_factory = pipeline::mock::simple_streamer_factory(
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         std::make_shared<std::vector<x::telem::Frame>>()
     );
@@ -378,9 +378,9 @@ TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
 /// @brief it should report a failed start and release the sink when the command
 /// streamer fails to open.
 TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
-    auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
         std::vector{x::errors::UNKNOWN},
-        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>()
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>()
     );
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     MockSink *sink = nullptr;
