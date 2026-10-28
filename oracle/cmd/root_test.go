@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/cmd"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -112,6 +113,28 @@ var _ = Describe("New", func() {
 		cmd2 := cmd.New()
 		Expect(cmd1).NotTo(BeIdenticalTo(cmd2))
 		Expect(cmd1.Commands()).To(HaveLen(len(cmd2.Commands())))
+	})
+})
+
+var _ = Describe("Execute", func() {
+	BeforeEach(func() {
+		_, cleanup := setupMiniRepo(map[string]string{
+			"user.oracle": "User struct {key uuid\nname   string}",
+		})
+		DeferCleanup(cleanup)
+	})
+
+	It("Should return 0 when the command succeeds", func() {
+		Expect(cmd.Execute([]string{"--help"})).To(Equal(0))
+	})
+
+	It("Should return the code of the gate that failed", func() {
+		Expect(cmd.Execute([]string{"check", "--gates=format"})).
+			To(Equal(check.FailureCodes["format"]))
+	})
+
+	It("Should return 1 for any other failure", func() {
+		Expect(cmd.Execute([]string{"nonexistent"})).To(Equal(1))
 	})
 })
 
