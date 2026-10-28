@@ -39,15 +39,15 @@ func Default(repoRoot string) (*Registry, error) {
 	}
 	r.Register(".go", license)
 	r.Register(".go", NewGo())
-	prettier := NewPrettier()
-	eslint := NewESLint()
+	prettier := newPrettier()
+	eslint := newESLint()
 	for _, ext := range []string{".ts", ".tsx"} {
 		r.Register(ext, license)
 		r.Register(ext, eslint)
 		r.Register(ext, prettier)
 	}
 	r.Register(".py", license)
-	r.Register(".py", NewRuff())
+	r.Register(".py", newRuff())
 	r.Register(".proto", license)
 	r.Register(".proto", NewBufFormat())
 	return r, nil

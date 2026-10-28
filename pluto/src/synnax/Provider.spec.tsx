@@ -10,8 +10,8 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { disableActEnvironment } from "@synnaxlabs/lyra/testutil";
-import { render, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { render, renderHook, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -22,6 +22,7 @@ import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
+import { createAetherProvider } from "@/testutil/Aether";
 
 const PROBE_TYPE = "SynnaxProbe";
 
@@ -48,6 +49,11 @@ const PageClient = ({ onClient }: { onClient: (c: Client | null) => void }): nul
   onClient(Synnax.use());
   return null;
 };
+
+const AetherProvider = createAetherProvider({
+  ...synnax.REGISTRY,
+  ...status.REGISTRY,
+});
 
 describe("Synnax.Provider", () => {
   it("should have the worker join the page client's session", async () => {
@@ -114,6 +120,25 @@ describe("Synnax.Provider", () => {
       .filter((w) => w?.params.host === "127.0.0.1")
       .map((w) => w?.params.token);
     expect(tokens).not.toContain(first);
+    unmount();
+  });
+
+  it("should keep its client when the error handler changes", () => {
+    // A new log makes the aggregator hand out a new error handler.
+    let log = (): void => {};
+    const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+      <AetherProvider>
+        <Status.Aggregator log={log}>
+          <Synnax.Provider connParams={TEST_CLIENT_PARAMS}>{children}</Synnax.Provider>
+        </Status.Aggregator>
+      </AetherProvider>
+    );
+    const { result, rerender, unmount } = renderHook(Synnax.use, { wrapper });
+    const client = result.current;
+    expect(client).not.toBeNull();
+    log = () => {};
+    rerender();
+    expect(result.current).toBe(client);
     unmount();
   });
 });
