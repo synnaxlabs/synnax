@@ -124,11 +124,17 @@ A new writer whose `Start` is before the `Start` of the shared domain fails at o
 a validation error. It cannot write there, so it does not join and lose data. A control
 handoff opens at now, so it is not affected.
 
+A writer that starts inside the shared domain joins and competes by authority, as any
+writer does. If it has control and writes behind the data stored, its commit check
+fails, and after Phase 1 it leaves no bytes. If it does not have control, its writes are
+skipped, and it gets an error only with `ErrOnUnauthorized` on.
+
 ## 5 Compatibility
 
 No stable release can write two disjoint ranges of one channel at the same time (§2.0).
-The wire, the stored shape, and the client APIs do not change. A backfill on a live
-channel now fails at open. It does not lose data with no error.
+The wire, the stored shape, and the client APIs do not change. A backfill that starts
+before the shared domain of a live channel now fails at open. A backfill that starts
+inside it keeps the behavior of §4.2, without the corruption.
 
 ## 6 Implementation phases
 
@@ -136,8 +142,8 @@ channel now fails at open. It does not lose data with no error.
 | ----- | ----------------------------------------------- | ------------------------------------------------ | ---------- |
 | 1     | Drop the bytes of a write that fails its commit | `cesium/internal/domain`                         | -          |
 | 2     | Fail a writer that starts before its domain     | `cesium/writer_open.go`, `cesium/internal/unary` | -          |
-| 3     | Hold one gate set per channel in the controller | `cesium/internal/control`                        | -          |
-| 4     | Move delete and has-data checks to a range lock | `cesium/internal/unary`, `cesium/delete.go`      | 3          |
+| 3     | Move delete and has-data checks to a range lock | `cesium/internal/unary`, `cesium/delete.go`      | -          |
+| 4     | Hold one gate set per channel in the controller | `cesium/internal/control`                        | 3          |
 
 ## 7 Resolved decisions
 
