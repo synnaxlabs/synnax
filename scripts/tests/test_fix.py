@@ -153,6 +153,19 @@ class TestFix:
         assert repo.fix("--staged").returncode == 1
         assert (repo.path / "a.sh").read_text() == "echo a\necho b\n"
 
+    def test_should_pass_when_a_fixer_fails_on_the_working_copy(
+        self, repo: Repo
+    ) -> None:
+        clang_format(
+            repo, 'for f in "${@:2}"; do ! grep -q broken "$f" || exit 1; done'
+        )
+        repo.write("a.cpp", "int a;\n")
+        repo.git("add", "a.cpp")
+        repo.write("a.cpp", "int a;\nbroken\n")
+        assert repo.fix("--staged").returncode == 0
+        assert "Copyright" in repo.git("show", ":a.cpp")
+        assert (repo.path / "a.cpp").read_text().endswith("int a;\nbroken\n")
+
     def test_should_resolve_paths_from_the_caller(self, repo: Repo) -> None:
         (repo.path / "sub").mkdir()
         repo.write("sub/a.sh", "echo a\n")
