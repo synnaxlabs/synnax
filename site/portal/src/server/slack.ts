@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Action, ACTIONS, replayURL, type Visit } from "@/server/analytics";
-import { type License, type Organization } from "@/server/db/schema";
+import { type License, type Organization, type Referral } from "@/server/db/schema";
 import { type Account } from "@/server/directory";
 import { type Denial } from "@/server/license/deny";
 import { type Fact } from "@/server/mail";
@@ -129,14 +129,40 @@ export const joined = (account: Omit<Account, "joinedAt">): Note => ({
   links: [openUser(account.userID)],
 });
 
-/** firstLogin tells staff about the first login of a user to Synnax Desktop. */
+/**
+ * firstLogin tells staff about the first login of a user to Synnax Desktop, and who
+ * referred them, if anyone did.
+ */
 export const firstLogin = (
   account: Omit<Account, "joinedAt">,
   machine: string,
+  referrer?: string,
 ): Note => ({
   title: "First Desktop login",
-  facts: [...person(account), { label: "Machine", value: machine }],
+  facts: [
+    ...person(account),
+    { label: "Machine", value: machine },
+    ...(referrer == null ? [] : [{ label: "Referred by", value: referrer }]),
+  ],
   links: [openUser(account.userID)],
+});
+
+/** claimed tells staff that someone opened a referral link while logged in. */
+export const claimed = (
+  account: Omit<Account, "joinedAt">,
+  ref: Referral,
+  referrer: string,
+): Note => ({
+  title: "Referral claimed",
+  facts: [
+    ...person(account),
+    { label: "Link for", value: ref.recipient },
+    { label: "Referred by", value: referrer },
+  ],
+  links: [
+    openUser(account.userID),
+    { label: "Open the referrals", href: "/admin/referrals" },
+  ],
 });
 
 const DENIALS: Record<Denial, string> = {

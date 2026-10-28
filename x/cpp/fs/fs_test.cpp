@@ -47,7 +47,7 @@ protected:
 
 private:
     void create_test_file() const {
-        std::ofstream file(test_file);
+        std::ofstream file(test_file, std::ios::binary);
         file << "Hello, World!\n";
         file << "This is a test file.\n";
         file << "It has multiple lines.";
@@ -55,12 +55,12 @@ private:
     }
 
     void create_empty_file() const {
-        std::ofstream file(empty_file);
+        std::ofstream file(empty_file, std::ios::binary);
         file.close();
     }
 
     void create_large_file() const {
-        std::ofstream file(large_file);
+        std::ofstream file(large_file, std::ios::binary);
         // Create a file larger than the buffer size (1024 bytes)
         for (int i = 0; i < 200; i++) {
             file
@@ -78,7 +78,7 @@ private:
     }
 
     void create_special_chars_file() const {
-        std::ofstream file(special_chars_file);
+        std::ofstream file(special_chars_file, std::ios::binary);
         file << "Special chars: \t\n\r";
         file << "Unicode: €£¥";
         file << "\nEnd of file";
@@ -136,7 +136,7 @@ TEST_F(FSTest, ReadSpecialCharsFile) {
 /// @brief it should correctly read a file with spaces in its path.
 TEST_F(FSTest, ReadFileWithSpacesInPath) {
     std::string path_with_spaces = test_dir + "/file with spaces.txt";
-    std::ofstream file(path_with_spaces);
+    std::ofstream file(path_with_spaces, std::ios::binary);
     file << "Content in file with spaces";
     file.close();
     auto content = ASSERT_NIL_P(read_file(path_with_spaces));
@@ -161,7 +161,7 @@ TEST_F(FSTest, ReadFileEmptyPath) {
 /// @brief it should correctly read a file using a relative path.
 TEST_F(FSTest, ReadFileRelativePath) {
     std::string relative_file = "test_relative.txt";
-    std::ofstream file(relative_file);
+    std::ofstream file(relative_file, std::ios::binary);
     file << "Relative path content";
     file.close();
     auto content = ASSERT_NIL_P(read_file(relative_file));
@@ -181,7 +181,7 @@ TEST_F(FSTest, ErrorTypeVerification) {
 /// @brief it should correctly read a file with different newline styles.
 TEST_F(FSTest, ReadFileWithNewlines) {
     std::string newline_file = test_dir + "/newlines.txt";
-    std::ofstream file(newline_file);
+    std::ofstream file(newline_file, std::ios::binary);
     file << "Line1\n";
     file << "Line2\r\n";
     file << "Line3\r";
@@ -194,7 +194,7 @@ TEST_F(FSTest, ReadFileWithNewlines) {
 /// @brief it should correctly read a file exactly matching the buffer size.
 TEST_F(FSTest, ReadFileExactBufferSize) {
     std::string exact_buffer_file = test_dir + "/exact_buffer.txt";
-    std::ofstream file(exact_buffer_file);
+    std::ofstream file(exact_buffer_file, std::ios::binary);
     std::string data(1024, 'A');
     file << data;
     file.close();
@@ -206,7 +206,7 @@ TEST_F(FSTest, ReadFileExactBufferSize) {
 /// @brief it should correctly read a file one byte larger than the buffer size.
 TEST_F(FSTest, ReadFileOneByteOverBuffer) {
     std::string over_buffer_file = test_dir + "/over_buffer.txt";
-    std::ofstream file(over_buffer_file);
+    std::ofstream file(over_buffer_file, std::ios::binary);
     std::string data(1025, 'B');
     file << data;
     file.close();
