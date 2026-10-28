@@ -20,7 +20,7 @@
 
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/http/errors/errors.h"
 #include "driver/http/processor/processor.h"

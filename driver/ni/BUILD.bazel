@@ -51,7 +51,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/ni",
         "//driver/pipeline/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -63,7 +63,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/ni",
         "//driver/pipeline/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:log_entry",
         "@abseil-cpp//absl/log:log_sink",

@@ -11,8 +11,8 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "test",
-    hdrs = ["test.h"],
+    name = "testutil",
+    hdrs = ["testutil.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/errors",
@@ -22,12 +22,12 @@ cc_library(
 )
 
 cc_test(
-    name = "test_test",
-    srcs = ["test_test.cpp"],
+    name = "testutil_test",
+    srcs = ["testutil_test.cpp"],
     tags = ["no-asan"],  # Tests ASSERT_EVENTUALLY_* macros with timeouts - timing-sensitive
     deps = [
         "//x/cpp/errors",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

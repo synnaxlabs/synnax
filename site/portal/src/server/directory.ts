@@ -20,6 +20,15 @@ export interface Person {
   image?: string;
 }
 
+/** Account is one Clerk user as the staff console lists them. */
+export interface Account {
+  userID: string;
+  name: string;
+  /** email is empty when Clerk holds no address for the user. */
+  email: string;
+  joinedAt: Date;
+}
+
 /** Listed is one organization in the Clerk dashboard, keyed by its Clerk id. */
 export interface Listed {
   clerkOrgID: string;
@@ -64,6 +73,10 @@ export interface Directory {
   memberships: (userID: string) => Promise<Team[]>;
   /** roster returns every member of a team. */
   roster: (clerkOrgID: string) => Promise<Member[]>;
+  /** users returns every user in Clerk, newest first. */
+  users: () => Promise<Account[]>;
+  /** account returns null when Clerk does not know the user. */
+  account: (userID: string) => Promise<Account | null>;
   /** teams returns every organization in Clerk, newest first. */
   teams: () => Promise<Listing[]>;
   /** team returns null when Clerk does not know the organization. */
@@ -114,14 +127,38 @@ const paged = async <T, R>(
   }
 };
 
-const displayName = (
-  user: { firstName: string | null; lastName: string | null; username: string | null },
-  email: string,
-): string => {
+interface Named {
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  primaryEmailAddressId: string | null;
+  emailAddresses: { id: string; emailAddress: string }[];
+}
+
+/** primaryEmail reads a user's primary address, then any address, then none. */
+const primaryEmail = (user: Named): string =>
+  user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)?.emailAddress ??
+  user.emailAddresses[0]?.emailAddress ??
+  "";
+
+const displayName = (user: Named, email: string): string => {
   const full = [user.firstName, user.lastName].filter((p) => p != null && p !== "");
   if (full.length > 0) return full.join(" ");
   return user.username ?? email;
 };
+
+const toAccount = (user: Named & { id: string; createdAt: number }): Account => {
+  const email = primaryEmail(user);
+  return {
+    userID: user.id,
+    name: displayName(user, email),
+    email,
+    joinedAt: new Date(user.createdAt),
+  };
+};
+
+const isNotFound = (e: unknown): boolean =>
+  e instanceof Error && "status" in e && e.status === 404;
 
 interface APIError {
   status?: number;
@@ -140,11 +177,7 @@ const refused = (e: unknown): Error => {
 export const clerk = (client: Client): Directory => ({
   person: async (userID) => {
     const user = await client.users.getUser(userID);
-    const email =
-      user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
-        ?.emailAddress ??
-      user.emailAddresses[0]?.emailAddress ??
-      "";
+    const email = primaryEmail(user);
     return {
       email,
       name: displayName(user, email),
@@ -183,6 +216,23 @@ export const clerk = (client: Client): Directory => ({
     );
     return members.filter((m) => m.userID !== "");
   },
+  users: async () =>
+    await paged(
+      async (offset) =>
+        await client.users.getUserList({
+          limit: PAGE,
+          offset,
+          orderBy: "-created_at",
+        }),
+      toAccount,
+    ),
+  account: async (userID) => {
+    const user = await client.users.getUser(userID).catch((e: unknown) => {
+      if (isNotFound(e)) return null;
+      throw errors.fromUnknown(e);
+    });
+    return user == null ? null : toAccount(user);
+  },
   teams: async () =>
     await paged(
       async (offset) =>
@@ -201,7 +251,7 @@ export const clerk = (client: Client): Directory => ({
     const org = await client.organizations
       .getOrganization({ organizationId: clerkOrgID })
       .catch((e: unknown) => {
-        if (e instanceof Error && "status" in e && e.status === 404) return null;
+        if (isNotFound(e)) return null;
         throw errors.fromUnknown(e);
       });
     return org == null ? null : { clerkOrgID: org.id, name: org.name };
@@ -275,12 +325,17 @@ export const clerk = (client: Client): Directory => ({
 
 /** Records are what a {@link memory} directory serves. */
 export interface Records {
-  /** people maps a Clerk user id to the person. */
-  people: Record<string, Person>;
+  /** people maps a Clerk user id to the person, who joined at the epoch if unset. */
+  people: Record<string, Person & { joinedAt?: Date }>;
   /** members maps a Clerk user id to the teams the user belongs to. */
   members: Record<string, Team[]>;
   organizations: Listed[];
 }
+
+const accountOf = (people: Records["people"], userID: string): Account => {
+  const { name, email, joinedAt = new Date(0) } = people[userID];
+  return { userID, name, email, joinedAt };
+};
 
 /** memory serves a directory from records instead of Clerk. For tests. */
 export const memory = ({
@@ -304,6 +359,12 @@ export const memory = ({
       const { name = "", email = "" } = people[userID] ?? {};
       return [{ userID, name, email, role: team.role }];
     }),
+  users: async () =>
+    Object.keys(people)
+      .map((userID) => accountOf(people, userID))
+      .sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime()),
+  account: async (userID) =>
+    people[userID] == null ? null : accountOf(people, userID),
   teams: async () =>
     organizations.map((o) => ({
       ...o,
