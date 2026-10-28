@@ -14,7 +14,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -33,8 +32,7 @@ type Writer struct {
 
 // Create persists a new user record from u. If u.Key is the zero UUID, a new key is
 // assigned. The returned User has Key populated. Returns an error if u.RootUser is
-// true, and a validation error if a user with u.Key already exists. Usernames are
-// unique among passwords, not user records.
+// true, and a validation error if u.Name is empty or a user with u.Key already exists.
 func (w Writer) Create(ctx context.Context, u User) (User, error) {
 	if u.RootUser {
 		return User{}, errors.New(
@@ -45,6 +43,9 @@ func (w Writer) Create(ctx context.Context, u User) (User, error) {
 }
 
 func (w Writer) create(ctx context.Context, u User) (User, error) {
+	if err := u.Validate(); err != nil {
+		return User{}, err
+	}
 	if u.Key == uuid.Nil() {
 		u.Key = uuid.New()
 	} else if exists, err := w.svc.NewRetrieve().
@@ -58,9 +59,6 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 			u.Key,
 		)
 	}
-	if err := u.Validate(); err != nil {
-		return User{}, err
-	}
 	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
 		return User{}, err
 	}
@@ -70,38 +68,15 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	return u, nil
 }
 
-// ChangeUsername renames the user record identified by key to newUsername. No identity
-// check; callers must already have authorized the operation. Returns
-// [auth.ErrRepeatedUsername] if newUsername already belongs to a different user.
-func (w Writer) ChangeUsername(ctx context.Context, key Key, newUsername string) error {
-	exists, err := w.svc.NewRetrieve().
-		Where(MatchUsernames(newUsername)).Exists(ctx, w.tx)
-	if err != nil {
+// ChangeName sets the name of the user with the given key. It returns a validation
+// error when name is empty.
+func (w Writer) ChangeName(ctx context.Context, key Key, name string) error {
+	if err := (User{Name: name}).Validate(); err != nil {
 		return err
 	}
-	if exists {
-		return auth.ErrRepeatedUsername
-	}
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, User](key)).
-		Change(func(_ gorp.Context, u User) User {
-			u.Username = newUsername
-			return u
-		}).
-		Exec(ctx, w.tx)
-}
-
-// ChangeName updates the first and last name of the user with the given key. If either
-// first or last is empty, the corresponding field is left unchanged.
-func (w Writer) ChangeName(ctx context.Context, key Key, first, last string) error {
 	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).
 		Change(func(_ gorp.Context, u User) User {
-			if first != "" {
-				u.FirstName = first
-			}
-			if last != "" {
-				u.LastName = last
-			}
+			u.Name = name
 			return u
 		}).Exec(ctx, w.tx)
 }
