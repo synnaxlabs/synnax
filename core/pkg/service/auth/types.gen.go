@@ -120,17 +120,17 @@ func (p PasswordProof) Validate() error {
 	return v.Error()
 }
 
-// ApiKeyProof proves an API key.
-type ApiKeyProof struct {
+// APIKeyProof proves an API key.
+type APIKeyProof struct {
 	APIKeyCredentials
 }
 
-func (ApiKeyProof) isProofVariant() {}
+func (APIKeyProof) isProofVariant() {}
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
-func (a ApiKeyProof) Validate() error {
-	v := validate.New("ApiKeyProof")
+func (a APIKeyProof) Validate() error {
+	v := validate.New("APIKeyProof")
 	v.Exec(a.APIKeyCredentials.Validate)
 	return v.Error()
 }
@@ -166,11 +166,11 @@ func (u Proof) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type Method `json:"method"`
 			PasswordProof
 		}{Type: MethodPassword, PasswordProof: v})
-	case ApiKeyProof:
+	case APIKeyProof:
 		return json.MarshalEncode(enc, struct {
 			Type Method `json:"method"`
-			ApiKeyProof
-		}{Type: MethodAPIKey, ApiKeyProof: v})
+			APIKeyProof
+		}{Type: MethodAPIKey, APIKeyProof: v})
 	case OidcProof:
 		return json.MarshalEncode(enc, struct {
 			Type Method `json:"method"`
@@ -206,7 +206,7 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		}
 		u.Variant = v
 	case MethodAPIKey:
-		var v ApiKeyProof
+		var v APIKeyProof
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -229,7 +229,7 @@ func (u Proof) Validate() error {
 	switch variant := u.Variant.(type) {
 	case PasswordProof:
 		return variant.Validate()
-	case ApiKeyProof:
+	case APIKeyProof:
 		return variant.Validate()
 	case OidcProof:
 		return variant.Validate()

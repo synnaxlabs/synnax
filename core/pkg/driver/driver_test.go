@@ -419,7 +419,7 @@ var _ = Describe("Open", func() {
 func authenticate(ctx context.Context, key string) auth.Identity {
 	GinkgoHelper()
 	return MustSucceed(keys.Authenticate(ctx, auth.Proof{
-		Variant: auth.ApiKeyProof{APIKeyCredentials: auth.APIKeyCredentials{Key: key}},
+		Variant: auth.APIKeyProof{APIKeyCredentials: auth.APIKeyCredentials{Key: key}},
 	}))
 }
 
