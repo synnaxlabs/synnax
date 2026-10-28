@@ -51,7 +51,11 @@ export const Link = ({
   const [shared, setShared] = useState(false);
   const analyticsAllowed = consent === "notice" || shared;
   const action = useAction(async () => {
-    const res = await post<Linked>("/api/desktop/link", { fingerprint, name });
+    const res = await post<Linked>("/api/desktop/link", {
+      fingerprint,
+      name,
+      analytics: analyticsAllowed,
+    });
     setLinked(res);
     window.location.assign(activateURL(state, res, analyticsAllowed));
   });
