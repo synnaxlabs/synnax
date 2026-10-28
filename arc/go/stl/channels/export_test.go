@@ -11,6 +11,10 @@ package channels
 
 import "github.com/synnaxlabs/x/telem"
 
+func (cs *ProgramState) WriteValue(key uint32, value telem.Series) {
+	cs.writeValue(key, value)
+}
+
 func (cs *ProgramState) ReadSeries(
 	key uint32,
 ) (data, time telem.MultiSeries, ok bool) {
