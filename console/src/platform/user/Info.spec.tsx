@@ -31,6 +31,13 @@ describe("User.Info", () => {
     expect(screen.getByText("Core-user")).toBeTruthy();
   });
 
+  it("should show a placeholder for a user with no name or username", async () => {
+    await renderWithConsole(<User.Info />, {
+      preloadedState: createStateWithUser(""),
+    });
+    expect(screen.getByText("Unnamed user")).toBeTruthy();
+  });
+
   it("should name the subject's role", async () => {
     const root = createTestClient();
     const viewer = await createTestClientWithRole(root, "Viewer");

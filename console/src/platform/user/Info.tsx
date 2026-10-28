@@ -36,18 +36,23 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-/** The logged-in user's name, falling back to their username. */
+const UNNAMED = "Unnamed user";
+
+/**
+ * The logged-in user's name, falling back to their username, then to "Unnamed user"
+ * for a user that has neither.
+ */
 export const useDisplayName = (): string => {
   const { data: name } = User.useResultName({});
   const username = Session.Core.useSelectSelected()?.username ?? "";
-  return name != null && name !== "" ? name : username;
+  if (name != null && name !== "") return name;
+  return username !== "" ? username : UNNAMED;
 };
 
 /** The logged-in user's name, roles, and username, for embedding in a dialog. */
 export const Info = (): ReactElement => {
-  const { data: fullName = "" } = User.useResultName({});
+  const name = useDisplayName();
   const username = Session.Core.useSelectSelected()?.username ?? "";
-  const name = fullName !== "" ? fullName : username;
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>
       <Flex.Box x align="center" gap="small">
@@ -56,7 +61,7 @@ export const Info = (): ReactElement => {
         </Text.Text>
         <Roles />
       </Flex.Box>
-      {fullName !== "" && fullName !== username && (
+      {username !== "" && username !== name && (
         <Text.Text level="small" color={9} overflow="ellipsis">
           {username}
         </Text.Text>
