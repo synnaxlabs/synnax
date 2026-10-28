@@ -11,7 +11,8 @@
 # left. Every run counts as one attempt. At the cap, the gate labels the pull request
 # agent/needs-human and asks for a person. The agent's pushes and reviews wake Agent -
 # Shepherd again, so the cap bounds the loop. Attempt comments use GITHUB_TOKEN, which
-# starts no workflows.
+# starts no workflows. The agent token cannot rerun CI, so the agent asks for a rerun in
+# its report and a later job reruns the failed CI run the gate found.
 
 name: Agent - Shepherd run
 
@@ -37,6 +38,7 @@ jobs:
     outputs:
       run: ${{ steps.gate.outputs.run }}
       prompt: ${{ steps.gate.outputs.prompt }}
+      ci: ${{ steps.gate.outputs.ci }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -76,6 +78,7 @@ jobs:
               "$PR" "$WORK"
             echo "$EOF"
             echo run=true
+            sed -n 's/^ci /ci=/p' <<< "$WORK"
           } >> "$GITHUB_OUTPUT"
 
   agent:
@@ -83,15 +86,33 @@ jobs:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     permissions:
-      actions: write
-      contents: write
-      issues: write
-      pull-requests: write
+      contents: read
+      id-token: write
+    # The agent pushes and replies itself, as its GitHub App. The App token expires an
+    # hour after it is minted, so the job budget stays at an hour.
     uses: ./.github/workflows/agent.yaml
     with:
       prompt: ${{ needs.gate.outputs.prompt }}
       agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
-      output: comment
+      output: report
       pr: ${{ inputs.pr }}
-      timeout-minutes: 90
+      timeout-minutes: 60
     secrets: inherit
+
+  rerun:
+    name: Rerun CI
+    needs:
+      - gate
+      - agent
+    if:
+      needs.gate.outputs.ci != '' && contains(needs.agent.outputs.report, '<!--
+      agent:rerun -->')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Rerun the failed CI jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ needs.gate.outputs.ci }}
+        run: gh run rerun "$RUN" --failed --repo "$GITHUB_REPOSITORY"

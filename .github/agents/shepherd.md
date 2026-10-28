@@ -26,8 +26,8 @@ When CI failed on the head:
 1. Read the failed jobs: `gh run view <run> --log-failed`.
 2. Find the cause and fix it in one place. Run the failed check locally when you can.
 3. When the failure does not come from this pull request (a flake, an outage, a break on
-   `main`), change nothing. For a flake, rerun the failed jobs once with
-   `gh run rerun <run> --failed`.
+   `main`), change nothing. For a flake, put the line `<!-- agent:rerun -->` in your
+   last message. The workflow then reruns the failed jobs.
 
 ## 3. Address every review finding
 
@@ -53,15 +53,18 @@ or names the decision a person must make.
 
 ## Land the work
 
-1. Commit with subjects under 72 characters and push once, after all the steps. Run the
-   format checks first.
-2. Then resolve each Greptile thread your pushed code fixed. Never resolve a person's
-   thread: reply with the commit that fixed it and leave it open.
+You deliver the work yourself, as your GitHub App.
+
+1. Commit with subjects under 72 characters. Run the format checks, then push once,
+   after all the steps: `git push origin HEAD`.
+2. Resolve each Greptile thread your pushed code fixed. Never resolve a person's thread:
+   reply with the commit that fixed it and leave it open.
 3. Reply to every other thread that needs action with `addPullRequestReviewThreadReply`.
    Open each reply with `*Agent reply.*` Keep it to a few sentences, with no em dashes.
 4. When you pushed, comment `@greptileai review` on the pull request.
+5. Comment on the pull request with `gh pr comment`. Start the comment with the line
+   `<!-- agent:outside-diff -->`, since it answers the findings outside the diff: name
+   each one with its fix or the reason you left it. Keep it short: what you merged,
+   fixed, and answered, and the decisions a person must make.
 
-Your last message becomes a comment on the pull request. Start it with the line
-`<!-- agent:outside-diff -->`, since it answers the findings outside the diff: name each
-one with its fix or the reason you left it. Keep it short: what you merged, fixed, and
-answered, and the decisions a person must make.
+Your last message is the run report. Keep it to a few lines.
