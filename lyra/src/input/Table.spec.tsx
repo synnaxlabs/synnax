@@ -475,7 +475,15 @@ describe("Input.Table", () => {
       render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       paste(cell("Raw", "1"), "5\tabc");
       commit(cell("Scaled", "1"), "11");
-      commit(cell("Scaled", "1"), "10");
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+    });
+
+    it("should clear a mark when an edit commits the value its cell kept", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
+      paste(cell("Raw", "1"), "5\tabc");
+      const input = cell("Scaled", "1");
+      fireEvent.change(input, { target: { value: "" } });
+      commit(input, "10");
       expect(marked(cell("Scaled", "1"))).toBe(false);
     });
 
@@ -505,7 +513,7 @@ describe("Input.Table", () => {
       expect(marked(cell("Scaled", "1"))).toBe(false);
     });
 
-    it("should drop a mark when the caller gives its cell another value", () => {
+    it("should drop a mark for good when the caller gives its cell another value", () => {
       const onChange = vi.fn();
       const { rerender } = render(
         <Input.Table value={[[1, 10]]} onChange={onChange}>
@@ -516,6 +524,12 @@ describe("Input.Table", () => {
       expect(marked(cell("Scaled", "1"))).toBe(true);
       rerender(
         <Input.Table value={[[5, 20]]} onChange={onChange}>
+          {COLUMNS}
+        </Input.Table>,
+      );
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+      rerender(
+        <Input.Table value={[[5, 10]]} onChange={onChange}>
           {COLUMNS}
         </Input.Table>,
       );

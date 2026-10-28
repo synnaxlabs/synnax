@@ -224,8 +224,9 @@ export const Table = ({
   const pendingFocus = useRef<number | null>(null);
   const table = useRef<HTMLTableElement>(null);
   const [rejections, setRejections] = useState<Rejection[]>([]);
-  // A cell that the caller gives another value drops its mark.
+  // A cell that the caller gives another value drops its mark for good.
   const marks = rejections.filter(({ at, kept }) => value[at.y]?.[at.x] === kept);
+  if (marks.length !== rejections.length) setRejections(marks);
   const columns = reactElementToArray<TableColumnProps>(children).map(
     ({ props }) => props,
   );
