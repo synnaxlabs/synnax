@@ -48,7 +48,7 @@ cc_test(
         "//arc/cpp/stl/channels",
         "//x/cpp/mem",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

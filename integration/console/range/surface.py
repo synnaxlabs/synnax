@@ -14,7 +14,7 @@ from console.base import ResourceClient
 FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
 UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
 CREATE_MODAL_SELECTOR = ".console-range-create-layout"
-_NAME_INPUT_PLACEHOLDER = "Name"
+_NAME_INPUT_PLACEHOLDER = "Range name"
 _STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
 
 # The stage menu names its items by action, not by the stage they reach.
