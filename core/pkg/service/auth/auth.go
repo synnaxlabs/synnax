@@ -33,7 +33,7 @@ func (p Proof) method() (Method, error) {
 	switch p.Variant.(type) {
 	case PasswordProof:
 		return MethodPassword, nil
-	case ApiKeyProof:
+	case APIKeyProof:
 		return MethodAPIKey, nil
 	}
 	return "", errors.Wrapf(

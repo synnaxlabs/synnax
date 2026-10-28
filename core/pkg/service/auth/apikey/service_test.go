@@ -29,7 +29,7 @@ func subject() ontology.ID {
 }
 
 func proof(key string) auth.Proof {
-	return auth.Proof{Variant: auth.ApiKeyProof{
+	return auth.Proof{Variant: auth.APIKeyProof{
 		APIKeyCredentials: auth.APIKeyCredentials{Key: key},
 	}}
 }
