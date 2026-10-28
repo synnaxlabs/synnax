@@ -78,7 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: rbacSvc,
 	}))
 	Expect(userSvc.NewRetrieve().
-		Where(user.MatchUsernames("api-imex-suite-root")).
+		Where(user.MatchRootUser(true)).
 		Entry(&root).Exec(ctx, nil)).To(Succeed())
 })
 
