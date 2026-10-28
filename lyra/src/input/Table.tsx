@@ -13,9 +13,11 @@ import { csv, type dimensions, grid, xy } from "@synnaxlabs/x";
 import {
   type ClipboardEvent,
   type ComponentPropsWithRef,
+  type FocusEvent,
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  useEffect,
   useRef,
 } from "react";
 
@@ -136,7 +138,7 @@ type Move = (dims: dimensions.Dimensions, from: xy.XY, back: boolean) => xy.XY |
 
 /** The cell each navigation key moves focus to. */
 const MOVES: Partial<Record<string, Move>> = {
-  Enter: (dims, from, back) => grid.next(dims, from, back ? -1 : 1),
+  Enter: (dims, from, back) => grid.move(dims, from, { x: 0, y: back ? -1 : 1 }),
   ArrowDown: (dims, from) => grid.move(dims, from, { x: 0, y: 1 }),
   ArrowUp: (dims, from) => grid.move(dims, from, { x: 0, y: -1 }),
 };
@@ -155,13 +157,22 @@ export interface TableProps
   rowLabel?: (index: number) => string;
   /** Builds the row the add button appends. Defaults to the column default values. */
   createRow?: (value: TableCell[][]) => TableCell[];
+  /** Names one row in the add and remove buttons ("header"). Defaults to "row". */
+  resourceName?: string;
+}
+
+/** A focused cell's value and text from when it took focus. */
+interface Initial {
+  value: TableCell | undefined;
+  text: string;
 }
 
 /**
  * An editable grid. The value is row-major: one entry per row, holding one value per
- * column. Enter and the up and down arrows move between cells. Pasting a tab or comma
- * delimited block into a focused cell fills the grid from that cell, adding rows as
- * needed.
+ * column. Enter and the down arrow move down a cell, and Shift+Enter and the up arrow
+ * move up. Esc puts back the value a cell held when it took focus, and a second Esc
+ * leaves the cell. Pasting a tab or comma delimited block into a focused cell fills the
+ * grid from that cell, adding rows as needed.
  *
  * @example
  * <Input.Table value={rows} onChange={setRows}>
@@ -176,11 +187,17 @@ export const Table = ({
   preview = false,
   rowLabel,
   createRow,
+  resourceName = "row",
   className,
   ...rest
 }: TableProps): ReactElement => {
   // Paste and keyboard moves land on the focused cell, so the last focus is the anchor.
   const anchor = useRef<xy.XY>(xy.ZERO);
+  const initial = useRef<Initial | null>(null);
+  // Set once Esc puts a cell back, so the next Esc leaves the cell.
+  const restored = useRef(false);
+  // The row that takes focus once an add or a remove renders.
+  const pendingFocus = useRef<number | null>(null);
   const table = useRef<HTMLTableElement>(null);
   const columns = reactElementToArray<TableColumnProps>(children).map(
     ({ props }) => props,
@@ -223,9 +240,60 @@ export const Table = ({
       x + (hasGutter ? 1 : 0)
     ]?.querySelector<HTMLInputElement>("input") ?? null;
 
+  useEffect(() => {
+    if (pendingFocus.current == null) return;
+    const y = Math.min(pendingFocus.current, value.length - 1);
+    pendingFocus.current = null;
+    if (y < 0) table.current?.tFoot?.querySelector("button")?.focus();
+    else cellAt({ x: 0, y })?.focus();
+  }, [value.length]);
+
+  const handleAdd = () => {
+    pendingFocus.current = value.length;
+    onChange([...value, createRow?.(value) ?? emptyRow()]);
+  };
+
+  const handleRemove = (index: number) => {
+    pendingFocus.current = index;
+    onChange(value.filter((_, i) => i !== index));
+  };
+
+  const handleCellFocus = (e: FocusEvent<HTMLTableCellElement>, at: xy.XY) => {
+    anchor.current = at;
+    if (initial.current != null || !(e.target instanceof HTMLInputElement)) return;
+    initial.current = { value: value[at.y]?.[at.x], text: e.target.value };
+    restored.current = false;
+  };
+
+  const handleCellBlur = (e: FocusEvent<HTMLTableCellElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) initial.current = null;
+  };
+
+  // Runs before the cell, which blurs on an Esc that is not prevented and discards
+  // any text it has not committed.
+  const handleKeyDownCapture = (e: KeyboardEvent) => {
+    if (!(e.target instanceof HTMLInputElement) || initial.current == null) return;
+    if (e.key !== "Escape") {
+      restored.current = false;
+      return;
+    }
+    const { value: was, text } = initial.current;
+    const at = anchor.current;
+    const committed = value[at.y]?.[at.x];
+    if (restored.current || (committed === was && e.target.value === text)) return;
+    e.preventDefault();
+    restored.current = true;
+    if (committed !== was && was != null) handleCellChange(at, was);
+  };
+
   const handleKeyDown = (e: KeyboardEvent) => {
     // Enter on the add and remove buttons must reach their native activation.
     if (!(e.target instanceof HTMLInputElement)) return;
+    // An Esc that put a cell back stops here, so it does not close a parent dialog.
+    if (e.key === "Escape") {
+      if (e.defaultPrevented) e.stopPropagation();
+      return;
+    }
     const move = MOVES[e.key];
     if (move == null) return;
     e.preventDefault();
@@ -239,9 +307,10 @@ export const Table = ({
       className={CSS.cls(CSS.BE("input", "table"), className)}
       onPaste={handlePaste}
       onKeyDown={handleKeyDown}
+      onKeyDownCapture={handleKeyDownCapture}
       {...rest}
     >
-      {hasHeader && (
+      {hasHeader && value.length > 0 && (
         <thead>
           <tr>
             {hasGutter && <th className={CSS.BE("input", "table-gutter")} />}
@@ -258,7 +327,7 @@ export const Table = ({
       )}
       <tbody>
         {value.map((row, i) => (
-          <tr key={i} className={CSS.M("reveals")}>
+          <tr key={i}>
             {hasGutter && (
               <th scope="row" className={CSS.BE("input", "table-gutter")}>
                 <Text.Text level="small" color={9}>
@@ -267,7 +336,11 @@ export const Table = ({
               </th>
             )}
             {columns.map((column, j) => (
-              <td key={j} onFocus={() => (anchor.current = { x: j, y: i })}>
+              <td
+                key={j}
+                onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
+                onBlur={handleCellBlur}
+              >
                 {renderCell(column, {
                   value: row[j] ?? emptyCell(column),
                   onChange: (next) => handleCellChange({ x: j, y: i }, next),
@@ -283,9 +356,9 @@ export const Table = ({
                 <Button.Button
                   variant="text"
                   size="small"
-                  reveal
-                  tooltip={`Remove row ${rowName(i)}`}
-                  onClick={() => onChange(value.filter((_, j) => j !== i))}
+                  textColor={9}
+                  tooltip={`Remove ${resourceName} ${rowName(i)}`}
+                  onClick={() => handleRemove(i)}
                 >
                   <Icon.Close />
                 </Button.Button>
@@ -303,10 +376,10 @@ export const Table = ({
                 variant="text"
                 size="small"
                 textColor={9}
-                onClick={() => onChange([...value, createRow?.(value) ?? emptyRow()])}
+                onClick={handleAdd}
               >
                 <Icon.Add />
-                Add row
+                Add {resourceName}
               </Button.Button>
             </td>
           </tr>

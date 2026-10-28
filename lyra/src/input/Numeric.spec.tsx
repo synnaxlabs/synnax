@@ -177,6 +177,19 @@ describe("Input.Numeric", () => {
     });
   });
 
+  describe("escape", () => {
+    it("should discard typed text instead of committing it", () => {
+      const onChange = vi.fn();
+      const c = render(<Input.Numeric value={5} onChange={onChange} />);
+      const input = c.getByRole<HTMLInputElement>("textbox");
+      input.focus();
+      fireEvent.change(input, { target: { value: "15" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(onChange).not.toHaveBeenCalled();
+      expect(input.value).toEqual("5");
+    });
+  });
+
   describe("bounds", () => {
     it("should clamp a typed value to bounds that moved after mount", () => {
       const onChange = vi.fn();

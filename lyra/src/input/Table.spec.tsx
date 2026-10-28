@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
@@ -22,6 +23,7 @@ interface RenderOptions {
   preview?: boolean;
   createRow?: (value: Input.TableCell[][]) => Input.TableCell[];
   rowLabel?: (index: number) => string;
+  resourceName?: string;
 }
 
 const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
@@ -49,6 +51,21 @@ const paste = (input: HTMLInputElement, text: string): void => {
 
 const addButton = (): HTMLElement => screen.getByRole("button", { name: "Add row" });
 
+interface StatefulProps {
+  initial: Input.TableCell[][];
+  children: ReactElement<Input.TableColumnProps>[];
+}
+
+// Holds the value, so adds, removes, and Esc restores render as they would in a form.
+const Stateful = ({ initial, children }: StatefulProps): ReactElement => {
+  const [value, setValue] = useState(initial);
+  return (
+    <Input.Table value={value} onChange={setValue}>
+      {children}
+    </Input.Table>
+  );
+};
+
 const removeButton = (row: number): HTMLElement =>
   screen.getAllByRole("row")[row + 1].querySelectorAll("button")[0];
 
@@ -66,10 +83,20 @@ describe("Input.Table", () => {
     expect(cell("Scaled", "1").value).toBe("10");
   });
 
-  it("should render the column headings when there are no rows", () => {
+  it("should show only the add button when there are no rows", () => {
     renderTable({ value: [] });
-    expect(screen.getByRole("columnheader", { name: "Raw" })).toBeTruthy();
-    expect(screen.getByRole("columnheader", { name: "Scaled" })).toBeTruthy();
+    expect(screen.queryAllByRole("columnheader")).toHaveLength(0);
+    expect(screen.getAllByRole("button")).toEqual([addButton()]);
+  });
+
+  it("should show the remove button of every row at all times", () => {
+    renderTable();
+    expect(removeButton(0).classList.contains("pluto--reveal")).toBe(false);
+  });
+
+  it("should name the row in the add button", () => {
+    renderTable({ resourceName: "header" });
+    expect(screen.getByRole("button", { name: "Add header" })).toBeTruthy();
   });
 
   it("should render every cell as a shadow input", () => {
@@ -153,28 +180,20 @@ describe("Input.Table", () => {
       [2, 20],
     ];
 
-    it("should move Enter to the next cell in row-major order", () => {
-      renderTable({ value: VALUE });
-      const from = cell("Raw", "1");
-      from.focus();
-      fireEvent.keyDown(from, { key: "Enter" });
-      expect(document.activeElement).toBe(cell("Scaled", "1"));
-    });
-
-    it("should wrap Enter onto the next row", () => {
+    it("should move Enter to the row below", () => {
       renderTable({ value: VALUE });
       const from = cell("Scaled", "1");
       from.focus();
       fireEvent.keyDown(from, { key: "Enter" });
-      expect(document.activeElement).toBe(cell("Raw", "2"));
+      expect(document.activeElement).toBe(cell("Scaled", "2"));
     });
 
-    it("should move shift+Enter backwards", () => {
+    it("should move Shift+Enter to the row above", () => {
       renderTable({ value: VALUE });
       const from = cell("Raw", "2");
       from.focus();
       fireEvent.keyDown(from, { key: "Enter", shiftKey: true });
-      expect(document.activeElement).toBe(cell("Scaled", "1"));
+      expect(document.activeElement).toBe(cell("Raw", "1"));
     });
 
     it("should move the down arrow to the row below", () => {
@@ -207,12 +226,103 @@ describe("Input.Table", () => {
       expect(fireEvent.keyDown(cell("Raw", "1"), { key: "Enter" })).toBe(false);
     });
 
-    it("should hold focus at the last cell", () => {
+    it("should hold focus on Enter in the last row", () => {
       renderTable({ value: VALUE });
       const from = cell("Scaled", "2");
       from.focus();
       fireEvent.keyDown(from, { key: "Enter" });
       expect(document.activeElement).toBe(from);
+    });
+  });
+
+  describe("focus", () => {
+    const VALUE = [
+      [1, 10],
+      [2, 20],
+    ];
+
+    it("should focus the first cell of an added row", () => {
+      render(<Stateful initial={VALUE}>{COLUMNS}</Stateful>);
+      fireEvent.click(addButton());
+      expect(document.activeElement).toBe(cell("Raw", "3"));
+    });
+
+    it("should focus the row that takes a removed row's place", () => {
+      render(<Stateful initial={VALUE}>{COLUMNS}</Stateful>);
+      fireEvent.click(removeButton(0));
+      expect(document.activeElement).toBe(cell("Raw", "1"));
+      expect(cell("Raw", "1").value).toBe("2");
+    });
+
+    it("should focus the row above when the last row is removed", () => {
+      render(<Stateful initial={VALUE}>{COLUMNS}</Stateful>);
+      fireEvent.click(removeButton(1));
+      expect(document.activeElement).toBe(cell("Raw", "1"));
+    });
+
+    it("should focus the add button when the only row is removed", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
+      fireEvent.click(removeButton(0));
+      expect(document.activeElement).toBe(addButton());
+    });
+  });
+
+  describe("escape", () => {
+    const TEXT_COLUMNS = [
+      <Input.TableColumn key="name" name="Name" type="string" />,
+      <Input.TableColumn key="value" name="Value" type="string" />,
+    ];
+
+    it("should put back the value a cell held when it took focus", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("a");
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("should leave the cell on a second Esc", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should leave an unchanged cell on the first Esc", () => {
+      render(<Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>);
+      const input = cell("Name", "1");
+      input.focus();
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(document.activeElement).not.toBe(input);
+    });
+
+    it("should discard a typed number and keep focus", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
+      const input = cell("Raw", "1");
+      input.focus();
+      fireEvent.change(input, { target: { value: "15" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(input.value).toBe("1");
+      expect(document.activeElement).toBe(input);
+    });
+
+    it("should keep an Esc that puts a cell back from reaching a parent", () => {
+      const onParentKeyDown = vi.fn();
+      render(
+        <div onKeyDown={onParentKeyDown}>
+          <Stateful initial={[["a", "b"]]}>{TEXT_COLUMNS}</Stateful>
+        </div>,
+      );
+      const input = cell("Name", "1");
+      input.focus();
+      fireEvent.change(input, { target: { value: "changed" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(onParentKeyDown).not.toHaveBeenCalled();
     });
   });
 

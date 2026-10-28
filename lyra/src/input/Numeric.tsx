@@ -176,6 +176,8 @@ export const Numeric = ({
       // When the user hits 'Enter', we should try to evaluate the input and update the
       // actual value.
       onKeyDown={(e) => {
+        // Esc cancels typed text, so the blur that follows commits nothing.
+        if (e.key === "Escape") return setIsValueValid(true);
         if (Triggers.eventKey(e) !== "Enter") return;
         updateActualValue();
         onBlur?.();
