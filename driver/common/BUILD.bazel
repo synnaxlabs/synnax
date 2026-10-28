@@ -51,9 +51,9 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/common",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/sync",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
@@ -66,9 +66,9 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/common",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/sync",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],

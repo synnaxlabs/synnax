@@ -397,6 +397,7 @@ export const Connect = ({
                   )}
                   <PlatformForm.KeyValueEditor
                     path="properties.healthCheck.headers"
+                    resourceName="header"
                     label="Headers"
                     keyField="name"
                     keyPlaceholder="Content-Type"
@@ -404,6 +405,7 @@ export const Connect = ({
                   />
                   <PlatformForm.KeyValueEditor
                     path="properties.healthCheck.queryParams"
+                    resourceName="parameter"
                     label="Query parameters"
                     keyField="parameter"
                     keyPlaceholder="limit"

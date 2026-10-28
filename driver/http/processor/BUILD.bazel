@@ -32,7 +32,7 @@ cc_binary(
     deps = [
         ":processor",
         "//driver/http/errors",
-        "//driver/http/mock",
+        "//driver/http/testutil",
         "//x/cpp/telem",
         "@google_benchmark//:benchmark_main",
     ],
@@ -42,17 +42,17 @@ cc_test(
     name = "processor_test",
     srcs = ["processor_test.cpp"],
     data = [
-        "//driver/http/mock:test_cert.pem",
-        "//driver/http/mock:test_key.pem",
+        "//driver/http/testutil:test_cert.pem",
+        "//driver/http/testutil:test_key.pem",
     ],
     shard_count = 4,
     visibility = ["//visibility:public"],
     deps = [
         ":processor",
         "//driver/http/errors",
-        "//driver/http/mock",
+        "//driver/http/testutil",
         "//x/cpp/base64",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -15,11 +15,11 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ni/hardware/hardware.h"
 #include "driver/ni/write_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::ni {
 class SingleChannelAnalogWriteTest : public ::testing::Test {
@@ -28,8 +28,8 @@ protected:
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::WriterFactory> mock_writer_factory;
-    std::shared_ptr<pipeline::mock::StreamerFactory> mock_streamer_factory;
+    std::shared_ptr<pipeline::testutil::WriterFactory> mock_writer_factory;
+    std::shared_ptr<pipeline::testutil::StreamerFactory> mock_streamer_factory;
     synnax::channel::Channel state_idx_ch = synnax::channel::Channel{
         .name = make_unique_channel_name("state_idx_ch"),
         .data_type = x::telem::TIMESTAMP_T,
@@ -124,7 +124,8 @@ protected:
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<driver::task::MockContext>(client);
-        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+        mock_writer_factory = std::make_shared<
+            driver::pipeline::testutil::WriterFactory>();
     }
 
     std::shared_ptr<hardware::mock::Writer<double>> mock_hw;
@@ -160,7 +161,7 @@ protected:
 /// task on the next start.
 TEST_F(SingleChannelAnalogWriteTest, testStartClaimsFreshHardware) {
     parse_config();
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         {cmd_ch_2.key},
         std::make_shared<std::vector<x::telem::Frame>>()
     );
@@ -235,7 +236,7 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     constexpr double v = 1;
     reads->emplace_back(cmd_ch_2.key, x::telem::Series(v, x::telem::FLOAT64_T));
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         {cmd_ch_2.key},
         reads
     );
@@ -296,7 +297,7 @@ TEST_F(SingleChannelAnalogWriteTest, testLastWriteWins) {
     x::telem::Frame fr(1);
     fr.emplace(cmd_ch_2.key, x::telem::Series(std::vector<double>{1.0, 2.0, 3.0}));
     reads->push_back(std::move(fr));
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         {cmd_ch_2.key},
         reads
     );

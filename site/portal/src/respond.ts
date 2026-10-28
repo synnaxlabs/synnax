@@ -12,12 +12,19 @@ import { type APIContext } from "astro";
 import { toResponse } from "@/server/errors";
 import { filename } from "@/server/license/limits";
 
-/** download answers with the license key as a file the Console picker accepts. */
-export const download = (key: string, label: string): Response =>
+/**
+ * download answers with the license key as a file the Console picker accepts, named
+ * after its license and the machine it is for, if any.
+ */
+export const download = (
+  key: string,
+  label: string,
+  machine?: string | null,
+): Response =>
   new Response(key, {
     headers: {
       "content-type": "text/plain; charset=utf-8",
-      "content-disposition": `attachment; filename="${filename(label)}"`,
+      "content-disposition": `attachment; filename="${filename(label, machine)}"`,
     },
   });
 

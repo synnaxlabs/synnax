@@ -59,6 +59,22 @@
     z-index: 1;
 }
 
+/* A button label sits a step heavier than body text. Inputs, switches, list items, menu
+   items, tabs, and select triggers reuse the button and keep their text's weight. */
+.pluto-btn:is(.pluto-text--p, .pluto-text--small):where(
+        :not(
+            .pluto-input,
+            .pluto-input__switch,
+            .pluto-list__item,
+            .pluto-menu-item,
+            .pluto-tabs__tab,
+            .pluto-dialog__trigger,
+            :is(.pluto-tabs-selector, .pluto-select-btns) *
+        )
+    ) {
+    font-weight: 450;
+}
+
 .pluto-btn {
     &:focus-visible {
         outline: 1px solid var(--pluto-primary-z);
@@ -257,8 +273,8 @@
         &.pluto--disabled {
             color: var(--pluto-text-disabled);
 
-            --pluto-bg: var(--pluto-gray-l3);
-            --pluto-border-color: var(--pluto-gray-l6);
+            --pluto-bg: var(--pluto-gray-l2);
+            --pluto-border-color: var(--pluto-gray-l4);
         }
     }
 

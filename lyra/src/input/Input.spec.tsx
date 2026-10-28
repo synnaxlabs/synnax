@@ -209,6 +209,22 @@ describe("Input", () => {
       });
     });
 
+    describe("preview", () => {
+      it("should show the value as text", () => {
+        const c = render(<Input.Text value="Hello" onChange={vi.fn()} preview />);
+        expect(c.getByText("Hello")).toBeTruthy();
+        expect(c.queryByRole("textbox")).toBeNull();
+      });
+
+      it("should keep a password hidden", () => {
+        const c = render(
+          <Input.Text value="hunter2" onChange={vi.fn()} preview type="password" />,
+        );
+        expect(c.queryByText("hunter2")).toBeNull();
+        expect(c.getByRole("textbox").getAttribute("type")).toBe("password");
+      });
+    });
+
     describe("status", () => {
       it("should add status class when status is provided", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} status="error" />);
