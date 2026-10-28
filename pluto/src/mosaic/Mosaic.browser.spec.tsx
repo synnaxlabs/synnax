@@ -6,6 +6,8 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import { CSS } from "@synnaxlabs/lyra/css";
 import {
   computed,
   renderThemed,
@@ -23,7 +25,7 @@ const HEIGHT = 500;
 
 const Leaf = ({ nodeKey }: { nodeKey: number }): ReactElement => (
   <Mosaic.Leaf nodeKey={nodeKey} data-testid={`leaf-${nodeKey}`}>
-    <Tabs.Frame initialValue="a">
+    <Tabs.Frame initialValue="a" data-testid={`tabs-${nodeKey}`}>
       <Tabs.Selector>
         <Tabs.Tab itemKey="a">Tab a</Tabs.Tab>
       </Tabs.Selector>
@@ -45,7 +47,7 @@ const renderMosaic = async (): Promise<Element> => {
       </Haul.Provider>
     </div>,
   );
-  const frame = container.querySelector(".pluto-mosaic");
+  const frame = container.querySelector(`.${CSS.B("mosaic")}`);
   if (frame == null) throw new Error("mosaic frame not found");
   return frame;
 };
@@ -88,7 +90,7 @@ describe("Mosaic", () => {
 
   it("should fill each leaf with its tabs", async () => {
     await renderMosaic();
-    const tabs = leaf(2).querySelector(".pluto-tabs");
+    const tabs = leaf(2).querySelector('[data-testid="tabs-2"]');
     if (tabs == null) throw new Error("tabs not found");
     const outer = leaf(2).getBoundingClientRect();
     const inner = tabs.getBoundingClientRect();

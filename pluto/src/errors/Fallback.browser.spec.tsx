@@ -6,6 +6,8 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import { CSS } from "@synnaxlabs/lyra/css";
 import {
   computed,
   renderThemed,
@@ -29,13 +31,13 @@ const renderFallback = async (message: string): Promise<Element> => {
       <Errors.Fallback error={error} resetErrorBoundary={() => {}} />
     </div>,
   );
-  const content = container.querySelector(".pluto-error-fallback__content");
+  const content = container.querySelector(`.${CSS.BE("error-fallback", "content")}`);
   if (content == null) throw new Error("fallback content not found");
   return content;
 };
 
 const part = (content: Element, element: string): Element => {
-  const el = content.querySelector(`.pluto-error-fallback__${element}`);
+  const el = content.querySelector(`.${CSS.BE("error-fallback", element)}`);
   if (el == null) throw new Error(`fallback ${element} not found`);
   return el;
 };

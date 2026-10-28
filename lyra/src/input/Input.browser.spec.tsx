@@ -81,7 +81,9 @@ describe("Input", () => {
         <Button.Button>Go</Button.Button>
       </Input.Text>,
     );
-    const box = getByRole("textbox").element().parentElement!;
+    const box = getByRole("textbox")
+      .element()
+      .closest(`.${CSS.B("input")}`)!;
     const button = getByRole("button", { name: "Go" }).element();
     expect(Number(computed(box, "z-index"))).toBeGreaterThan(
       Number(computed(button, "z-index")),
