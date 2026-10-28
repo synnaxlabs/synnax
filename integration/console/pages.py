@@ -84,16 +84,7 @@ class PagesClient(ResourceClient):
         """
         self.layout.show_resource_toolbar("Projects")
         page_item = self._find(name)
-        # drag_to presses twice with no release when its first press is blocked. A hover
-        # retries without a press.
-        page_item.hover()
-        box = self.layout.page.locator(".console-mosaic").first.bounding_box()
-        if box is None:
-            raise AssertionError("mosaic has no bounding box")
-        mouse = self.layout.page.mouse
-        mouse.down()
-        mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=10)
-        mouse.up()
+        self.layout.drag(page_item, self.layout.page.locator(".console-mosaic").first)
         self.layout.close_left_toolbar()
         self.layout.wait_for_tab(name)
         return page_class.from_open_page(self.layout, self.client, name)
