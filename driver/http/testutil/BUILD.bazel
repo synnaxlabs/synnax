@@ -70,7 +70,7 @@ cc_test(
     ],
     deps = [
         ":testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@cpp-httplib//:cpp-httplib",
         "@googletest//:gtest_main",
     ],
