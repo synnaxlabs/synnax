@@ -7,15 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, NotFoundError } from "@synnaxlabs/client";
+import { access, NotFoundError, user } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
-import { User } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/lyra/tree";
+import { User as PUser } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Access } from "@/feature/access";
-import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
+import { User } from "@/feature/user";
+import {
+  expandTreeRow,
+  findModalButton,
+  renderTreeContextMenu,
+} from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { assertDefined, queryIcon, uniqueName } from "@/testutil";
@@ -97,20 +103,61 @@ describe("role ontology service", () => {
     });
   });
 
-  it("should accept only non-root user haul items on drop", () => {
+  describe("drop", () => {
     const { canDrop } = RoleItem;
-    const source: Haul.Item = { key: "tree", type: "Tree.Item" };
-    const userItem = (rootUser: boolean): Haul.Item =>
-      User.createHaulItem({
+    const source: Haul.Item = { key: "tree", type: Tree.HAUL_TYPE };
+    // A tree drag carries a tree item for each resource and the resource's own items.
+    const dragUser = (rootUser: boolean): Haul.Item[] => [
+      Tree.createHaulItem("user:u1"),
+      PUser.createHaulItem({
         key: "u1",
         name: "",
         rootUser,
+      }),
+    ];
+
+    it("should accept a dragged user", () => {
+      expect(canDrop({ source, items: dragUser(false) })).toBe(true);
+    });
+
+    it("should refuse the root user", () => {
+      expect(canDrop({ source, items: dragUser(true) })).toBe(false);
+    });
+
+    it("should refuse a resource that is not a user", () => {
+      const items = [Tree.createHaulItem("channel:1")];
+      expect(canDrop({ source, items })).toBe(false);
+      expect(canDrop({ source, items: [...dragUser(false), ...items] })).toBe(false);
+    });
+
+    it("should move a user to the role it is dropped on", async () => {
+      const from = await createRole();
+      const to = await createRole();
+      const u = await client.users.create({
+        username: uniqueName("user"),
+        password: "password",
       });
-    expect(canDrop({ source, items: [userItem(false)] })).toBe(true);
-    expect(canDrop({ source, items: [userItem(true)] })).toBe(false);
-    expect(canDrop({ source, items: [{ key: "channel:1", type: "channel" }] })).toBe(
-      false,
-    );
+      await client.access.roles.assign({ user: u.key, role: from.key });
+      const [rolesGroup] = await client.ontology.parents.retrieve({
+        ids: access.role.ontologyID(from.key),
+      });
+      await renderOntologyTree({
+        client,
+        root: rolesGroup.id,
+        items: { ...Access.Role.TREE_ITEMS, ...User.TREE_ITEMS },
+      });
+      await findTreeRow(from.name);
+      expandTreeRow(from.name);
+      fireEvent.dragStart(await findTreeRow(u.name));
+      fireEvent.drop(await findTreeRow(to.name));
+      await waitFor(async () => {
+        const roles = await client.ontology.parents.retrieve({
+          ids: user.ontologyID(u.key),
+          types: [access.role.TYPE_ONTOLOGY_ID.type],
+        });
+        expect(roles.map(({ id }) => id.key)).toEqual([to.key]);
+      });
+    });
   });
 
   it("should render each built-in role's icon and fall back for custom roles", async () => {

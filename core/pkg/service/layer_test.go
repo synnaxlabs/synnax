@@ -101,7 +101,9 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			node := mock.NewNode(ctx)
 			alice := userv0.User{Key: uuid.New(), Username: "alice"}
-			hash := MustSucceed(bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost))
+			hash := MustSucceed(
+				bcrypt.GenerateFromPassword([]byte("p"), bcrypt.MinCost),
+			)
 			Expect(gorp.WrapWriter[string, ontology.Resource](node.DB).
 				Set(ctx, ontology.Resource{ID: alice.OntologyID()})).To(Succeed())
 			legacyDB := gorp.Wrap(node.DB.KV(), gorp.WithCodec(msgpack.Codec))

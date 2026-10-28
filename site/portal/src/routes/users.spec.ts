@@ -19,6 +19,7 @@ import {
   license,
   type Organization,
   organization,
+  referral,
 } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
@@ -32,6 +33,7 @@ import {
   createInvitation,
   createLicense,
   createOrganization,
+  createReferral,
   type Harness,
   STAFF_ORG_ID,
 } from "@/testutil";
@@ -160,6 +162,16 @@ describe("user routes", () => {
         events: [],
       });
       expect(await store.query.select().from(activation)).toEqual([]);
+    });
+
+    it("should delete the referral the user claimed", async () => {
+      await createReferral(store, { key: "ada-link-001", userID: ADA, claimedAt: NOW });
+      await createReferral(store, { key: "bob-link-001", userID: BOB, claimedAt: NOW });
+      h.signIn(STAFF);
+      await remove();
+      expect((await store.query.select().from(referral)).map((r) => r.userID)).toEqual([
+        BOB,
+      ]);
     });
 
     it("should delete the invitations sent to the user's address", async () => {
