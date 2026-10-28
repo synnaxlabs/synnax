@@ -68,6 +68,9 @@ the check that enforces it, or says that review enforces it.
 
 - `configs/stylelint/baseline.json` lists the foreign classes and global Astro styles
   from before their rules. Entries only leave it; never add one.
+- The class and custom property rules read the source of every package in `PACKAGES`
+  (`configs/stylelint/source.ts`). Each of those packages lists that source as `lint`
+  input in its `turbo.json`, so Turbo reruns its lint when any of it changes.
 - Hand-written vendor prefixes are allowed only for `user-select` and `backdrop-filter`,
   which Safari needs. Write the prefixed form first. When the standard form comes first,
   the build minifier keeps only the prefixed one (SY-4726).
