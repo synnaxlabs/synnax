@@ -13,7 +13,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"

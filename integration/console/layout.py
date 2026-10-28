@@ -11,6 +11,7 @@ import random
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Literal
 
 from playwright.sync_api import Locator, Page, expect
@@ -128,8 +129,9 @@ class LayoutClient:
     )
     TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .pluto-tabs__tab"
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, results_dir: Path):
         self.page = page
+        self.results_dir = results_dir
         self.ctx_menu = ContextMenu(self.page)
         self.notifications = NotificationsClient(self.page)
         self.tree = Tree(self)
@@ -1005,6 +1007,29 @@ class LayoutClient:
             The clipboard text.
         """
         return str(self.page.evaluate("navigator.clipboard.readText()"))
+
+    def drag(self, source: Locator, target: Locator) -> None:
+        """Drag ``source`` and drop it on the center of ``target``.
+
+        Use this instead of ``Locator.drag_to``. When the first press of ``drag_to`` is
+        blocked, it presses again without a release, and the drag breaks.
+
+        :param source: The element to drag.
+        :param target: The element to drop onto.
+        """
+        # A hover retries until it reaches the source, and it never presses.
+        source.hover()
+        self.page.mouse.down()
+        target.wait_for(state="visible")
+        # A row scrolled out of its list still counts as visible.
+        target.scroll_into_view_if_needed()
+        box = target.bounding_box()
+        if box is None:
+            raise AssertionError("drag target has no bounding box")
+        x = box["x"] + box["width"] / 2
+        y = box["y"] + box["height"] / 2
+        self.page.mouse.move(x, y, steps=10)
+        self.page.mouse.up()
 
     def drop_files(self, paths: list[str], target: Locator | None = None) -> None:
         """Drop OS files or directories onto ``target`` (default: the mosaic).

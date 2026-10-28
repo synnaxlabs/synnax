@@ -9,7 +9,7 @@
 
 import { connection, Synnax, type SynnaxParams } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
-import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
 import { migrate } from "@synnaxlabs/x";
@@ -177,6 +177,9 @@ export const Provider = ({
     if (connStatus.details.epoch !== prev.details.epoch) setResetKey((key) => key + 1);
     setState((prev) => ({ ...prev, status: connStatus }));
   };
+  // Read through refs, so a new callback does not rebuild the client.
+  const handleChangeRef = useSyncedRef(handleChange);
+  const handleErrorRef = useSyncedRef(handleError);
 
   useEffect(() => {
     if (connParams == null) {
@@ -190,11 +193,13 @@ export const Provider = ({
     };
     const client = new Synnax({
       ...connParams,
-      onInternalError: (e) => handleError(e, heading),
+      onInternalError: (e) => handleErrorRef.current(e, heading),
     });
     setState({ client, status: client.connection.status });
     setResetKey((key) => key + 1);
-    const detach = client.connection.onChange(handleChange);
+    const detach = client.connection.onChange((connStatus) =>
+      handleChangeRef.current(connStatus),
+    );
     return () => {
       detach();
       // Effect cleanup cannot await. The failure is logged rather than pushed
@@ -202,7 +207,7 @@ export const Provider = ({
       client.close().catch((e: unknown) => console.error("failed to close client", e));
       setState(ZERO_CONTEXT_VALUE);
     };
-  }, [connParams, handleChange, handleError]);
+  }, [connParams]);
 
   return (
     <Context value={state}>

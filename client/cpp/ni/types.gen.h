@@ -356,9 +356,6 @@ struct WriteConfig : public ::synnax::task::WriteConfig {
 
 /// @brief ScanConfig configures the NI device scanner task.
 struct ScanConfig : public ::synnax::task::ScanConfig {
-    /// @brief ignored_models are regex patterns matching the device models the scan
-    /// skips.
-    std::vector<std::string> ignored_models = {"^cRIO.*", "^nown.*"};
 
     static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

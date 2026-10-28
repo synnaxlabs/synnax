@@ -35,52 +35,14 @@ TEST(ScanTaskTest, testConfigParse) {
 
     EXPECT_FALSE(cfg.disabled);
     EXPECT_EQ(cfg.rate.hz(), common::DEFAULT_SCAN_RATE.hz());
-    EXPECT_EQ(cfg.ignored_models.size(), DEFAULT_IGNORED_MODELS.size());
 
     // Test custom configuration
-    x::json::json j2 = {
-        {"disabled", true},
-        {"rate", 10.0},
-        {"ignored_models", x::json::json::array({"^Test.*", "^Mock.*"})}
-    };
+    x::json::json j2 = {{"disabled", true}, {"rate", 10.0}};
     auto p2 = x::json::Parser(j2);
     ScanTaskConfig cfg2(p2);
 
     EXPECT_TRUE(cfg2.disabled);
     EXPECT_EQ(cfg2.rate.hz(), 10.0);
-    EXPECT_EQ(cfg2.ignored_models.size(), 2);
-}
-
-/// @brief it should correctly identify models to ignore based on regex patterns.
-TEST(ScanTaskTest, testConfigShouldIgnore) {
-    x::json::json j = {
-        {"ignored_models", x::json::json::array({"^Test.*", "^Mock.*", "PXI-.*"})}
-    };
-    auto p = x::json::Parser(j);
-    ScanTaskConfig cfg(p);
-
-    // Should ignore models matching the patterns
-    EXPECT_TRUE(cfg.should_ignore("TestDevice"));
-    EXPECT_TRUE(cfg.should_ignore("MockDevice123"));
-    EXPECT_TRUE(cfg.should_ignore("PXI-6255"));
-
-    // Should not ignore models not matching the patterns
-    EXPECT_FALSE(cfg.should_ignore("NI-DAQ"));
-    EXPECT_FALSE(cfg.should_ignore("Regular-Device"));
-    EXPECT_FALSE(cfg.should_ignore("cDAQ-9178"));
-
-    // Test with default configuration
-    x::json::json j2 = {};
-    auto p2 = x::json::Parser(j2);
-    ScanTaskConfig cfg2(p2);
-
-    // Should ignore models matching default patterns
-    EXPECT_TRUE(cfg2.should_ignore("cRIO-9068"));
-    EXPECT_TRUE(cfg2.should_ignore("nownDevice"));
-
-    // Should not ignore models not matching default patterns
-    EXPECT_FALSE(cfg2.should_ignore("PXI-6255"));
-    EXPECT_FALSE(cfg2.should_ignore("NI-DAQ"));
 }
 
 /// @brief to_synnax should include is_chassis in properties JSON.
@@ -304,5 +266,79 @@ TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     }
     EXPECT_EQ(sink.count("skipping cRIO-9040 (022B5288)"), 1);
     EXPECT_EQ(sink.count("skipping cRIO-9045 (022B5299)"), 1);
+}
+
+/// @brief returns the devices found by one scan of the given resources.
+std::vector<synnax::device::Device> scan_once(
+    std::vector<FakeAPI::Resource> resources,
+    x::json::json j = {{"disabled", false}}
+) {
+    auto api = std::make_shared<FakeAPI>(std::move(resources));
+    auto p = x::json::Parser(std::move(j));
+    Scanner scanner(
+        std::make_shared<syscfg::SugaredAPI>(api),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
+    auto [devices, err] = scanner.scan(common::ScannerContext{});
+    EXPECT_FALSE(err) << err;
+    return devices;
+}
+
+/// @brief the scanner should skip cRIO and unknown devices whether or not their product
+/// name starts with the make.
+TEST(ScannerTest, testSkipsIgnoredModels) {
+    const auto devices = scan_once({
+        {"022B5288", "NI cRIO-9040"},
+        {"022B5288", "cRIO-9040"},
+        {"022B5299", "NI cRIO-9068"},
+        {"01ABCDEF", "Unknown"},
+        {"01ABCDF0", "UnknownDevice"},
+        {"01A2B3C4", "NI 9485"},
+    });
+    ASSERT_EQ(devices.size(), 1);
+    EXPECT_EQ(devices[0].key, "01A2B3C4");
+    EXPECT_EQ(devices[0].model, "9485");
+    EXPECT_EQ(devices[0].name, "NI 9485");
+}
+
+/// @brief the scanner should keep devices whose model does not match an ignored
+/// pattern.
+TEST(ScannerTest, testKeepsOtherModels) {
+    const auto devices = scan_once({
+        {"01000001", "NI PXI-6255"},
+        {"01000002", "NI cDAQ-9178"},
+        {"01000003", "NI NI-DAQ"},
+        {"01000004", "Regular-Device"},
+    });
+    std::vector<std::string> models;
+    models.reserve(devices.size());
+    for (const auto &dev: devices)
+        models.push_back(dev.model);
+    EXPECT_EQ(
+        models,
+        std::vector<std::string>({"PXI-6255", "cDAQ-9178", "NI-DAQ", "Regular-Device"})
+    );
+}
+
+/// @brief the scanner should ignore the ignored_models patterns of a saved config.
+TEST(ScannerTest, testIgnoresSavedPatterns) {
+    const auto devices = scan_once(
+        {
+            {"01000005", "NI TestDevice"},
+            {"01000006", "NI MockDevice123"},
+            {"01000001", "NI PXI-6255"},
+            {"01ABCDEF", "Unknown"},
+        },
+        {{"ignored_models", x::json::json::array({"^Test.*", "^Mock.*", "PXI-.*"})}}
+    );
+    std::vector<std::string> models;
+    models.reserve(devices.size());
+    for (const auto &dev: devices)
+        models.push_back(dev.model);
+    EXPECT_EQ(
+        models,
+        std::vector<std::string>({"TestDevice", "MockDevice123", "PXI-6255"})
+    );
 }
 }
