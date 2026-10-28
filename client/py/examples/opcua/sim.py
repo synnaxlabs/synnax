@@ -463,7 +463,8 @@ class OPCUATLSSim(OPCUASim):
 class OPCUATLSDriverCertificateSim(OPCUATLSSim):
     """TLS-encrypted OPC UA simulator on port 4844 that the Driver reaches with its own
     certificate. The server checks the certificate's extensions and URI, but trusts any
-    issuer."""
+    issuer. Its device trusts no server certificate, so the Driver pins the first one it
+    sees."""
 
     description = "TLS OPC UA simulator for the Driver certificate on port 4844"
     host = "127.0.0.1"
@@ -480,7 +481,6 @@ class OPCUATLSDriverCertificateSim(OPCUATLSSim):
             rack=rack_key,
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
-            server_cert=read_server_certificate(),
         )
 
 
