@@ -104,6 +104,25 @@ describe("Modal", () => {
       expect(el?.className).toContain("extra");
       expect(screen.getByText("body content")).toBeTruthy();
     });
+
+    it("should stack its children one field gap apart by default", () => {
+      const { baseElement } = renderModal(<Modal.Body>body</Modal.Body>);
+      const el = baseElement.querySelector(".pluto-modal__body");
+      expect(el?.className).toContain("pluto--field-gap");
+    });
+
+    it.each([
+      ["gap", { gap: "small" }],
+      ["pack", { pack: true }],
+      ["empty", { empty: true }],
+    ] as const)(
+      "should leave the spacing to %s when the caller sets it",
+      (_, props) => {
+        const { baseElement } = renderModal(<Modal.Body {...props}>body</Modal.Body>);
+        const el = baseElement.querySelector(".pluto-modal__body");
+        expect(el?.className).not.toContain("pluto--field-gap");
+      },
+    );
   });
 
   describe("Footer", () => {

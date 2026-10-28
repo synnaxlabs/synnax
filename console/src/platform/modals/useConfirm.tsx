@@ -86,7 +86,7 @@ const Confirm = ({
 }: Session.Modals.ContentProps<ConfirmParams, boolean>) => (
   <Modal.Frame className={CSS.B("confirm")}>
     <Modal.Header icon={icon}>{title}</Modal.Header>
-    <Modal.Body>
+    <Modal.Body gap="medium">
       <Text.Text level="h3" weight={450}>
         {message}
       </Text.Text>
