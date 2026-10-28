@@ -10,7 +10,7 @@
 from synnax.auth.client import APIKey, Client, api_key_id
 from synnax.auth.types_gen import (
     APIKeyCredentials,
-    ApiKeyProof,
+    APIKeyProof,
     Credentials,
     Method,
     PasswordProof,
@@ -22,7 +22,7 @@ from synnax.auth.types_gen import (
 __all__ = [
     "APIKey",
     "APIKeyCredentials",
-    "ApiKeyProof",
+    "APIKeyProof",
     "Client",
     "Credentials",
     "Method",
