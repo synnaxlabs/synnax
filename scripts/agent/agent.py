@@ -289,16 +289,21 @@ def run_agent(
 
 def private_env(env: dict[str, str], out: Path) -> dict[str, str]:
     """Returns env with no GitHub token or step output files, and with the CLI state
-    of the agent in out, so no later job on the runner can read the session."""
-    codex = out / "codex"
-    codex.mkdir()
-    home = Path(env.get("CODEX_HOME") or Path.home() / ".codex")
-    for name in ("auth.json", "config.toml"):
-        if (home / name).is_file():
-            shutil.copy(home / name, codex / name)
+    of the agent in out, so no later job on the runner can read the session. The CLI
+    logins of the runner carry over."""
+    dirs = {
+        "CLAUDE_CONFIG_DIR": (".claude", out / "claude", (".credentials.json",)),
+        "CODEX_HOME": (".codex", out / "codex", ("auth.json", "config.toml")),
+    }
+    for var, (default, private, names) in dirs.items():
+        private.mkdir()
+        home = Path(env.get(var) or Path.home() / default)
+        for name in names:
+            if (home / name).is_file():
+                shutil.copy(home / name, private / name)
     hidden = {"GH_TOKEN", "GITHUB_TOKEN", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"}
     kept = {k: v for k, v in env.items() if k not in hidden}
-    return {**kept, "CLAUDE_CONFIG_DIR": str(out / "claude"), "CODEX_HOME": str(codex)}
+    return {**kept, **{var: str(private) for var, (_, private, _) in dirs.items()}}
 
 
 def encrypt(text: str, recipient: Path) -> str:
