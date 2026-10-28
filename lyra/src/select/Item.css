@@ -22,5 +22,9 @@
     display: inline-flex;
     align-items: center;
     gap: 1rem;
+
+    /* An icon before the text gives the row no text baseline, so baseline alignment
+       would grow the line and lift the text. */
+    vertical-align: top;
     pointer-events: none;
 }
