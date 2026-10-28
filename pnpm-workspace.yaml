@@ -28,6 +28,10 @@ packages:
 
 shellEmulator: true
 
+# Node.js downloads from nodejs.org sometimes time out on hosted CI runners. The default
+# is two retries.
+fetchRetries: 5
+
 trustPolicy: no-downgrade
 trustPolicyExclude:
   # Old major versions that predate provenance on their package, so the downgrade is

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package testutil
+package testutil_test
 
 import (
 	"sync"
@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 )
 
 var _ = Describe("Test Util Test", func() {
@@ -29,7 +30,7 @@ var _ = Describe("Test Util Test", func() {
 			for i := range 1000 {
 				go func() {
 					defer wg.Done()
-					keys[i] = GenerateChannelKey()
+					keys[i] = testutil.GenerateChannelKey()
 				}()
 			}
 
