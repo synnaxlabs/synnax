@@ -37,6 +37,8 @@ TEAM = "SY"
 COUNTED = {"error", "warning"}
 # Findings listed per rule, which keeps the report within a Linear description.
 LISTED = 25
+# Characters in the whole report, which keeps it within a Linear description.
+LIMIT = 60_000
 
 # Sends a JSON payload to a URL with headers and returns the response body.
 Send = Callable[[str, dict[str, Any], dict[str, str]], bytes]
@@ -125,7 +127,15 @@ def render(scans: list[Scan], run_url: str) -> str:
         lines += [f"Run: {run_url}", ""]
     for scan in scans:
         lines += render_scan(scan)
-    return "\n".join(lines)
+    report = "\n".join(lines)
+    if len(report) <= LIMIT:
+        return report
+    cut = report.rfind("\n", 0, LIMIT - 200)
+    omitted = report[cut:].count("\n- ")
+    return (
+        f"{report[:cut]}\n\nThe report stops at the size limit of a Linear issue. "
+        f"It omits {len(report) - cut} characters and {omitted} listed findings."
+    )
 
 
 def post(url: str, payload: dict[str, Any], headers: dict[str, str]) -> bytes:
