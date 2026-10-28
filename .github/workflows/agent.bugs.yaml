@@ -1,0 +1,120 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls one agent per code area twice a week to find and fix real bugs. Each area holds
+# at most about 40,000 source lines, so one agent run can read all of it.
+
+name: Agent - Bug hunt
+
+on:
+  schedule:
+    - cron: "0 6 * * 1,4" # Mondays and Thursdays, 6am UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  prompt:
+    name: Write the prompt
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      prompt: ${{ steps.prompt.outputs.prompt }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/agents
+
+      - name: Write the prompt
+        id: prompt
+        run: |
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/bug-hunt.md
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent (${{ matrix.area }})
+    needs: prompt
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - area: py-client
+            paths: client/py, x/py, alamos/py, freighter/py
+          - area: py-integration
+            paths: integration
+          - area: go-core
+            paths: core, except core/pkg/service
+          - area: go-core-service-a-l
+            paths: the core/pkg/service packages named a to l
+          - area: go-core-service-m-z
+            paths: the core/pkg/service packages named m to z
+          - area: go-storage
+            paths: cesium, aspen, gorp
+          - area: go-arc
+            paths: arc/go
+          - area: go-oracle
+            paths: oracle, except oracle/plugin
+          - area: go-oracle-plugin
+            paths: oracle/plugin
+          - area: go-x
+            paths: x/go, freighter/go, alamos/go
+          - area: ts-console-feature
+            paths: console/src/feature
+          - area: ts-console
+            paths: console/src, except console/src/feature, and console/src-tauri
+          - area: ts-pluto-vis
+            paths: pluto/src/schematic, pluto/src/vis
+          - area: ts-pluto
+            paths: pluto/src, except pluto/src/schematic and pluto/src/vis
+          - area: ts-client
+            paths: client/ts
+          - area: ts-x
+            paths: x/ts, drift, freighter/ts, alamos/ts, arc/ts
+          - area: ts-lyra
+            paths: lyra
+          - area: ts-site
+            paths: site
+          - area: cpp-driver-ni
+            paths: driver/ni
+          - area: cpp-driver-labjack
+            paths: driver/labjack
+          - area: cpp-driver-io
+            paths: driver/ethercat, driver/opcua, driver/modbus, driver/http
+          - area: cpp-driver
+            paths:
+              driver, except driver/ni, driver/labjack, driver/ethercat, driver/opcua,
+              driver/modbus, and driver/http
+          - area: cpp-arc
+            paths: arc/cpp
+          - area: cpp-x
+            paths: x/cpp, client/cpp, client/clib, freighter/cpp
+    concurrency:
+      group: agent-bug-hunt-${{ matrix.area }}
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: |
+        ${{ needs.prompt.outputs.prompt }}
+
+        Your area is `${{ matrix.area }}`: ${{ matrix.paths }}.
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: report
+      timeout-minutes: 240
+    secrets: inherit

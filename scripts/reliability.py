@@ -128,6 +128,7 @@ PLATFORMS = {"ubuntu": "linux", "windows": "windows", "macos": "darwin"}
 TC_STATES = {
     "PASSED": "passed",
     "FLAKY": "flaky",
+    "SKIPPED": "skipped",
     "FAILED": "failed",
     "TIMEOUT": "failed",
     "KILLED": "failed",
@@ -274,7 +275,7 @@ class Case:
 
     source: str
     tags: list[str]
-    # Runner OS -> why the case auto-passes there instead of running.
+    # Runner OS -> why the case skips itself there instead of running.
     skipped: dict[str, str]
 
 
@@ -348,7 +349,7 @@ class Cases:
             for node in ast.walk(c):
                 if isinstance(node, ast.If):
                     for os_name, system in PLATFORMS.items():
-                        reason = auto_pass(node, system)
+                        reason = platform_skip(node, system)
                         if reason is not None:
                             skipped.setdefault(os_name, reason)
         tags = [
@@ -367,10 +368,11 @@ class Cases:
         return Case(f"integration/{path}#L{cls.lineno}", tags, skipped)
 
 
-def auto_pass(node: ast.If, system: str) -> str | None:
-    """Returns the auto_pass message when node gates an auto_pass on the platform
-    and the gate holds for system, as in
-    `if platform.system().lower() != "windows": self.auto_pass(msg=...)`."""
+def platform_skip(node: ast.If, system: str) -> str | None:
+    """Returns the skip reason when node gates a skip on the platform and the gate
+    holds for system, as in
+    `if platform.system().lower() != "windows": self.skip(...)`, or the same with
+    the older `auto_pass`."""
     test = node.test
     if not (
         isinstance(test, ast.Compare)
@@ -387,12 +389,13 @@ def auto_pass(node: ast.If, system: str) -> str | None:
             if (
                 isinstance(call, ast.Call)
                 and isinstance(call.func, ast.Attribute)
-                and call.func.attr == "auto_pass"
+                # Sources before skip() gate the case with auto_pass().
+                and call.func.attr in ("skip", "auto_pass")
             ):
                 msg = call.keywords[0].value if call.keywords else call.args[0]
                 if isinstance(msg, ast.Constant) and isinstance(msg.value, str):
                     return msg.value
-                return "Auto-passed"
+                return "Skipped"
     return None
 
 
@@ -547,9 +550,11 @@ def main() -> None:
             for t in summary["tests"]:
                 case = cases.resolve(t["case"], t["name"])
                 state = TC_STATES[t["status"]]
-                message = t.get("error_message")
-                # tc reports an auto-passed case as PASSED.
-                if runner_os in case.skipped:
+                message = t.get(
+                    "skip_reason" if state == "skipped" else "error_message"
+                )
+                # Runs before SKIPPED existed report an auto-passed case as PASSED.
+                if state == "passed" and runner_os in case.skipped:
                     state, message = "skipped", case.skipped[runner_os]
                 tests.append(
                     [

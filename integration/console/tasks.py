@@ -16,7 +16,6 @@ from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.base import ResourceClient
-from framework.run_dir import resolve_results_path
 
 
 class TaskClient(ResourceClient):
@@ -139,7 +138,7 @@ class TaskClient(ResourceClient):
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
         download = download_info.value
-        save_path = resolve_results_path(f"{name}_export.json")
+        save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
         with open(save_path, encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)

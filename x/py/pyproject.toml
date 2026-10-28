@@ -10,6 +10,7 @@
 [project]
 name = "synnax-x"
 version = "0.60.0"
+readme = "README.md"
 description = "Shared Python utilities for Synnax"
 keywords = ["Synnax"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -73,6 +74,16 @@ python_version = "3.12"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
+warn_unreachable = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+    "possibly-undefined",
+    "mutable-override",
+    "deprecated",
+    "unused-awaitable",
+]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

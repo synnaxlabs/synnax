@@ -90,13 +90,13 @@ const Create = ({
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Create" trigger={Triggers.SAVE} />
         <Nav.Bar.End align="center">
           <Button.Button
             status={status.keepVariants(variant, "loading")}
             variant="filled"
             onClick={() => save()}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Create
           </Button.Button>

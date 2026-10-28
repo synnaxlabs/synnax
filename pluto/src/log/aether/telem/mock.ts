@@ -10,28 +10,22 @@
 import { type channel } from "@synnaxlabs/client";
 import { type destructor, observe } from "@synnaxlabs/x";
 
-import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/test/factory";
+import { telem } from "@/telem/aether";
+import { registerInstance, TEST_SOURCE_TYPE } from "@/telem/aether/testutil/factory";
 
 import { type LogEntry, type LogSource, type LogSourceSpec } from "./types";
 
 export class MockLogSource implements LogSource {
   static readonly TYPE = TEST_SOURCE_TYPE;
   private _entries: LogEntry[] = [];
-  private _evictedCount = 0;
   private activeChannels: Set<channel.Key> = new Set();
   private readonly observable = new observe.BaseObserver<void>();
 
-  get evictedCount(): number {
-    return this._evictedCount;
-  }
-
-  set evictedCount(count: number) {
-    this._evictedCount = count;
-  }
-
-  value(): LogEntry[] {
-    if (this.activeChannels.size === 0) return this._entries;
-    return this._entries.filter((e) => this.activeChannels.has(e.channelKey));
+  value(): telem.Result<LogEntry[]> {
+    if (this.activeChannels.size === 0) return telem.success(this._entries);
+    return telem.success(
+      this._entries.filter((e) => this.activeChannels.has(e.channelKey)),
+    );
   }
 
   setChannels(channels: channel.Key[]): void {

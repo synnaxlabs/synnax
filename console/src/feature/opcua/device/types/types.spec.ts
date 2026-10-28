@@ -46,7 +46,7 @@ describe("OPC UA propertiesZ v0 migration", () => {
     const result = OPCUA.Device.propertiesZ.safeParse(V0_PROPERTIES);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.version).toBe("1.0.0");
+      expect(result.data.version).toBe("2.0.0");
       expect(result.data.read.indexes).toEqual([]);
     }
   });
@@ -59,21 +59,41 @@ describe("OPC UA propertiesZ v0 migration", () => {
     const result = OPCUA.Device.propertiesZ.safeParse(v0Props);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.version).toBe("1.0.0");
+      expect(result.data.version).toBe("2.0.0");
       expect(result.data.read.indexes).toEqual([42]);
       expect(result.data.read.channels).toEqual({ "ns=2;s=Tag1": 100 });
     }
   });
 });
 
-describe("OPC UA propertiesZ v1 defaults", () => {
+describe("OPC UA propertiesZ v1 migration", () => {
   it("should fill defaults for a bare v1 properties object", () => {
     const result = OPCUA.Device.propertiesZ.safeParse({ version: "1.0.0" });
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.version).toBe("2.0.0");
       expect(result.data.connection.endpoint).toBe("opc.tcp://localhost:4840");
+      expect(result.data.connection.certificateValidationDisabled).toBe(false);
       expect(result.data.read).toEqual({ indexes: [], channels: {} });
       expect(result.data.write).toEqual({ channels: {} });
     }
+  });
+
+  it("should clear a server certificate path", () => {
+    const result = OPCUA.Device.propertiesZ.safeParse({
+      version: "1.0.0",
+      connection: { ...V0_PROPERTIES.connection, serverCertificate: "/srv/server.der" },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.connection.serverCertificate).toBe("");
+  });
+});
+
+describe("OPC UA propertiesZ v2 defaults", () => {
+  it("should default certificate validation to enabled", () => {
+    const result = OPCUA.Device.propertiesZ.safeParse({ version: "2.0.0" });
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.connection.certificateValidationDisabled).toBe(false);
   });
 });
