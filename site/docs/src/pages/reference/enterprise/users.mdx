@@ -86,16 +86,15 @@ the user and register them again.
 
 ## Manage users from code
 
-Create a user, then give it a role:
+Create a user, give it a password, then give it a role:
 
 <Client.Tabs exclude={["console"]}>
 
   <Fragment slot="python">
 
 ```python
-user = client.users.create(
-    username="jdoe", password="secret", first_name="Jane", last_name="Doe"
-)
+user = client.users.create(name="Jane Doe")
+client.auth.create_password("jdoe", "secret", subject=user.ontology_id)
 engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
 client.access.roles.assign(user=user.key, role=engineer.key)
 ```
@@ -105,25 +104,25 @@ client.access.roles.assign(user=user.key, role=engineer.key)
   <Fragment slot="typescript">
 
 ```typescript
-const user = await client.users.create({
+const jane = await client.users.create({ name: "Jane Doe" });
+await client.auth.createPassword({
+  subject: user.ontologyID(jane.key),
   username: "jdoe",
   password: "secret",
-  firstName: "Jane",
-  lastName: "Doe",
 });
 const roles = await client.access.roles.retrieve({});
 const engineer = roles.find((r) => r.name === "Engineer");
-await client.access.roles.assign({ user: user.key, role: engineer.key });
+await client.access.roles.assign({ user: jane.key, role: engineer.key });
 ```
 
   </Fragment>
 
 </Client.Tabs>
 
-A user created from code has no role and no permissions until you assign one. A user can
-hold more than one role and gets the permissions of all of them. To take a role away,
-call `unassign` with the same arguments. To delete users, call `client.users.delete`
-with their keys.
+A user created from code cannot log in until it has a password. It has no role and no
+permissions until you assign one. A user can hold more than one role and gets the
+permissions of all of them. To take a role away, call `unassign` with the same
+arguments. To delete users, call `client.users.delete` with their keys.
 
 <Divider.Divider x />
 

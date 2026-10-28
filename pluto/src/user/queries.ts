@@ -83,13 +83,15 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value }) => {
-    const v = value();
-    const createdUser = await client.users.create({ key: uuid.create(), ...v });
-    if (v.role == null) return;
-    await client.access.roles.assign({
-      user: createdUser.key,
-      role: v.role,
+    const { name, username, password, role } = value();
+    const created = await client.users.create({ key: uuid.create(), name });
+    await client.auth.createPassword({
+      subject: user.ontologyID(created.key),
+      username,
+      password,
     });
+    if (role == null) return;
+    await client.access.roles.assign({ user: created.key, role });
   },
 });
 

@@ -49,87 +49,38 @@ func createUser(ctx SpecContext, username string) user.User {
 
 var _ = Describe("Service", func() {
 	Describe("Create", func() {
-		It(
-			"Should register users and their credentials in a single call",
-			func(ctx SpecContext) {
-				username := uuid.New().String()
-				res := MustSucceed(
-					apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
-						Users: []apiuser.NewUser{
-							{
-								Username: username,
-								Password: "p",
-								Name:     "First Last",
-							},
-						},
-					}),
-				)
-				Expect(res.Users).To(HaveLen(1))
-				Expect(res.Users[0].Name).To(Equal("First Last"))
-				Expect(res.Users[0].Key).ToNot(Equal(uuid.Nil()))
-				MustSucceed(login(ctx, username, "p"))
-			},
-		)
-		It("Should refuse a user while passwords are off", func(ctx SpecContext) {
-			keysOnly := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-				DB: db,
-				Authenticators: map[auth.Method]auth.Authenticator{
-					auth.MethodAPIKey: passwordSvc,
-				},
-			}))
-			noPasswords := MustSucceed(apiuser.NewService(apiuser.ServiceConfig{
-				RBAC:     rbacSvc,
-				User:     userSvc,
-				Password: passwordSvc,
-				Auth:     keysOnly,
-			}))
-			username := "should-not-exist-" + uuid.New().String()
-			Expect(noPasswords.Create(rootCtx(ctx), db, apiuser.CreateRequest{
-				Users: []apiuser.NewUser{{Username: username, Password: "p"}},
-			})).Error().To(MatchError(validate.ErrValidation))
-			Expect(login(ctx, username, "p")).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
-		})
-		It("Should name a user after its username by default", func(ctx SpecContext) {
-			username := uuid.New().String()
+		It("Should create users and give each a new key", func(ctx SpecContext) {
 			res := MustSucceed(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
-				Users: []apiuser.NewUser{{
-					Username: username,
-					Password: "p",
-				}},
+				Users: []user.User{{Name: "Ada"}, {Name: "Grace"}},
 			}))
-			Expect(res.Users[0].Name).To(Equal(username))
+			Expect(res.Users).To(HaveLen(2))
+			Expect(res.Users[0].Name).To(Equal("Ada"))
+			Expect(res.Users[1].Name).To(Equal("Grace"))
+			Expect(res.Users[0].Key).ToNot(Equal(uuid.Nil()))
+			Expect(res.Users[0].Key).ToNot(Equal(res.Users[1].Key))
+		})
+		It("Should keep a key the caller gives", func(ctx SpecContext) {
+			key := uuid.New()
+			res := MustSucceed(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+				Users: []user.User{{Key: key, Name: "Ada"}},
+			}))
+			Expect(res.Users[0].Key).To(Equal(key))
+		})
+		It("Should refuse a root user", func(ctx SpecContext) {
+			Expect(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
+				Users: []user.User{{Name: "root", RootUser: true}},
+			})).Error().To(MatchError(validate.ErrValidation))
 		})
 		It(
 			"Should deny access when the subject lacks create permission",
 			func(ctx SpecContext) {
 				fctx, _ := nonRootCtx(ctx)
 				Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
-					Users: []apiuser.NewUser{{
-						Username: "should-not-exist-" + uuid.New().String(),
-						Password: "p",
-					}},
+					Users: []user.User{{Name: "denied"}},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
-		It(
-			"Should roll back the password when user creation fails inside the tx",
-			func(ctx SpecContext) {
-				// the second user's repeated username must roll back the first
-				username := "rollback-" + uuid.New().String()
-				tx := DeferClose(db.OpenTx())
-				Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
-					Users: []apiuser.NewUser{
-						{Username: username, Password: "p"},
-						{Username: username, Password: "p"},
-					},
-				})).Error().To(MatchError(auth.ErrRepeatedUsername))
-				Expect(login(ctx, username, "p")).Error().
-					To(MatchError(auth.ErrInvalidCredentials))
-			},
-		)
 	})
-
 	Describe("Retrieve", func() {
 		It(
 			"Should retrieve users by key when the subject has retrieve access",

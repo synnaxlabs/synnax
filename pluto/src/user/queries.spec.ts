@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { createTestClient, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import {
+  createTestClient,
+  createTestUser,
+  TEST_CREDENTIALS,
+} from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import {
@@ -46,11 +49,7 @@ describe("User queries", () => {
 
   describe("useDelete", () => {
     it("should delete a single user", async () => {
-      const testUser = await client.users.create({
-        username: `test-user-${Date.now()}`,
-        name: "Test User",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "Test User" });
 
       const { result } = renderHook(() => User.useDelete(), { wrapper });
 
@@ -66,16 +65,8 @@ describe("User queries", () => {
     });
 
     it("should delete multiple users", async () => {
-      const user1 = await client.users.create({
-        username: `user1-${Date.now()}`,
-        name: "User One",
-        password: "password123",
-      });
-      const user2 = await client.users.create({
-        username: `user2-${Date.now()}`,
-        name: "User Two",
-        password: "password123",
-      });
+      const user1 = await client.users.create({ name: "User One" });
+      const user2 = await client.users.create({ name: "User Two" });
 
       const { result } = renderHook(() => User.useDelete(), { wrapper });
 
@@ -94,11 +85,7 @@ describe("User queries", () => {
 
   describe("useRename", () => {
     it("should change a user's name", async () => {
-      const testUser = await client.users.create({
-        username: `original-${Date.now()}`,
-        name: "Test User",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "Test User" });
 
       const { result } = renderHook(() => User.useRename(), { wrapper });
 
@@ -115,11 +102,7 @@ describe("User queries", () => {
     });
 
     it("should apply the rename optimistically", async () => {
-      const testUser = await client.users.create({
-        username: `original-${id.create()}`,
-        name: "Test User",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "Test User" });
       const afterOptimistic = vi.fn();
       const { result } = renderHook(() => User.useRename({ afterOptimistic }), {
         wrapper,
@@ -145,11 +128,7 @@ describe("User queries", () => {
 
   describe("use", () => {
     it("should retrieve a user by key", async () => {
-      const testUser = await client.users.create({
-        username: `retrieve-test-${Date.now()}`,
-        name: "Retrieve Test",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "Retrieve Test" });
 
       const { result } = await renderHookSuspended(
         () => User.use({ key: testUser.key }),
@@ -182,8 +161,7 @@ describe("User queries", () => {
     });
 
     it("should update the current user on a rename from another client", async () => {
-      const username = id.create();
-      const u = await client.users.create({ username, password: "test" });
+      const { user: u, username } = await createTestUser(client);
       const roles = await client.access.roles.retrieve({});
       const viewer = roles.find((r) => r.name === "Viewer");
       assert(viewer != null);
@@ -200,11 +178,7 @@ describe("User queries", () => {
     });
 
     it("should cache retrieved users", async () => {
-      const testUser = await client.users.create({
-        username: `cached-user-${Date.now()}`,
-        name: "Cached User",
-        password: "password123",
-      });
+      const testUser = await client.users.create({ name: "Cached User" });
 
       const { result: result1 } = await renderHookSuspended(
         () => User.use({ key: testUser.key }),
@@ -244,9 +218,9 @@ describe("User queries", () => {
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const timestamp = Date.now();
+        const username = `test-form-${Date.now()}`;
         act(() => {
-          result.current.form.set("username", `test-form-${timestamp}`);
+          result.current.form.set("username", username);
           result.current.form.set("name", "Form Test");
           result.current.form.set("password", "password123");
         });
@@ -257,6 +231,10 @@ describe("User queries", () => {
 
         await waitFor(() => {
           expect(result.current.variant).toBe("success");
+        });
+        await waitFor(async () => {
+          const created = await client.users.retrieve({ username });
+          expect(created.name).toBe("Form Test");
         });
       });
 

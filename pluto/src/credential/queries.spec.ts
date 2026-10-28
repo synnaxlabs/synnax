@@ -44,10 +44,7 @@ describe("Credential queries", () => {
   };
 
   it("should create a key, list it, and delete it", async () => {
-    const u = await client.users.create({
-      username: `credential-${id.create()}`,
-      password: "p",
-    });
+    const u = await client.users.create({ name: `credential-${id.create()}` });
     const subject = user.ontologyID(u.key);
     const create = renderHook(() => useCreateKey(), { wrapper });
     await act(async () => {

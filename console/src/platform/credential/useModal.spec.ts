@@ -11,6 +11,7 @@ import { rack, user } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
+  createTestUser,
 } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -34,10 +35,7 @@ const type = async (placeholder: string, value: string): Promise<void> => {
 describe("useModal", () => {
   it("should create a key, show it once, list it, and delete it", async () => {
     const client = createTestClient();
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-    });
+    const subject = await client.users.create({ name: uniqueName("user") });
     const id = user.ontologyID(subject.key);
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
@@ -121,8 +119,9 @@ describe("useModal", () => {
 
   it("should let an owner set another user's password", async () => {
     const client = createTestClient();
-    const username = uniqueName("user");
-    const subject = await client.users.create({ username, password: "password123" });
+    const { user: subject, username } = await createTestUser(client, {
+      username: uniqueName("user"),
+    });
     await openModal(useModal, {
       client,
       params: { subject: user.ontologyID(subject.key) },

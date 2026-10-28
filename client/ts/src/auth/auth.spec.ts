@@ -19,7 +19,12 @@ import {
   SessionEndedError,
   ValidationError,
 } from "@/errors";
-import { createTestClient, TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
+import {
+  createTestClient,
+  createTestUser,
+  TEST_CLIENT_PARAMS,
+  TEST_CREDENTIALS,
+} from "@/testutil";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 
@@ -238,8 +243,10 @@ describe("auth", () => {
 
     it("should not open a new session when logging out of an ended session", async () => {
       const admin = createTestClient();
-      const credentials = { username: id.create(), password: "seldon" };
-      await admin.users.create(credentials);
+      const { username, password } = await createTestUser(admin, {
+        password: "seldon",
+      });
+      const credentials = { username, password };
       const ending = makeClient(credentials);
       const other = makeClient(credentials);
       await login(ending);
@@ -389,8 +396,8 @@ describe("auth", () => {
 
     it("should let the newest login win when two interleave", async () => {
       const admin = createTestClient();
-      const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { username: secondUsername, password } = await createTestUser(admin);
+      const second = { username: secondUsername, password };
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -405,8 +412,8 @@ describe("auth", () => {
 
     it("should keep a newer login when an older renew answers late", async () => {
       const admin = createTestClient();
-      const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { username: secondUsername, password } = await createTestUser(admin);
+      const second = { username: secondUsername, password };
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -426,8 +433,8 @@ describe("auth", () => {
 
     it("should keep a newer login when an older request is rejected late", async () => {
       const admin = createTestClient();
-      const second = { username: id.create(), password: "seldon" };
-      await admin.users.create(second);
+      const { username: secondUsername, password } = await createTestUser(admin);
+      const second = { username: secondUsername, password };
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
         onUser: (u) => (username = u?.name),
@@ -744,11 +751,8 @@ describe("auth", () => {
     };
     const createUser = async () => {
       const username = `set-password-${id.create()}`;
-      const u = await createTestClient().users.create({
-        username,
-        password: "old",
-      });
-      return { username, subject: user.ontologyID(u.key) };
+      const u = await createTestUser(createTestClient(), { username, password: "old" });
+      return { username, subject: user.ontologyID(u.user.key) };
     };
 
     it("should let an owner set another user's password", async () => {
@@ -786,6 +790,33 @@ describe("auth", () => {
       await expect(
         client.auth.createPassword({ username: id.create(), password: "p" }),
       ).rejects.toThrow(ValidationError);
+    });
+
+    it("should let an owner give a new user its first password", async () => {
+      const owner = createTestClient();
+      const u = await owner.users.create({ name: "first password" });
+      const username = id.create();
+      await owner.auth.createPassword({
+        subject: user.ontologyID(u.key),
+        username,
+        password: "first",
+      });
+      const client = createTestClient({ username, password: "first" });
+      const current = await client.users.current.retrieve();
+      expect(current.key).toEqual(u.key);
+    });
+
+    it("should refuse a username another user holds", async () => {
+      const owner = createTestClient();
+      const { username } = await createTestUser(owner);
+      const u = await owner.users.create({ name: "repeated username" });
+      await expect(
+        owner.auth.createPassword({
+          subject: user.ontologyID(u.key),
+          username,
+          password: "test",
+        }),
+      ).rejects.toThrow(AuthError);
     });
   });
 

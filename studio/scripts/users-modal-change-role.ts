@@ -16,7 +16,7 @@ import { capture, fixtures } from "@/index";
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createUsers([
-    { username: "grace", firstName: "Grace", lastName: "Hopper", role: "Viewer" },
+    { username: "grace", name: "Grace Hopper", role: "Viewer" },
   ]);
   const { page } = session;
   await capture.login(session);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { type status, TimeRange, TimeSpan, TimeStamp, user } from "@synnaxlabs/client";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -198,8 +198,8 @@ export const removeChannels = async (
 export interface UserSpec {
   username: string;
   password?: string;
-  firstName?: string;
-  lastName?: string;
+  /** Defaults to the username. */
+  name?: string;
   /** Name of a built-in role to assign; a user without one stays hidden. */
   role?: string;
 }
@@ -212,7 +212,17 @@ export const createUsers = async (
   const client = connect(opts);
   try {
     const users = await client.users.create(
-      specs.map(({ role: _role, ...s }) => ({ password: "seldon-demo", ...s })),
+      specs.map(({ username, name = username }) => ({ name })),
+    );
+    await Promise.all(
+      specs.map(
+        async ({ username, password = "seldon-demo" }, i) =>
+          await client.auth.createPassword({
+            subject: user.ontologyID(users[i].key),
+            username,
+            password,
+          }),
+      ),
     );
     const roles = await client.access.roles.retrieve({});
     await Promise.all(
