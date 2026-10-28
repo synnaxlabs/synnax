@@ -372,11 +372,14 @@ var _ = Describe("Control", func() {
 						cfg1.Authority = xcontrol.AuthorityAbsolute - 1
 						g1, _ := MustSucceed2(c.OpenGate(cfg1))
 						inG1, releaseG1 := make(chan struct{}), make(chan struct{})
+						release := sync.OnceFunc(func() { close(releaseG1) })
+						DeferCleanup(release)
 						g1Done := make(chan error, 1)
 						go func() {
+							defer GinkgoRecover()
 							g1Done <- g1.Authorize(func(testResource) error {
 								close(inG1)
-								<-releaseG1
+								Eventually(releaseG1).Should(BeClosed())
 								return nil
 							})
 						}()
@@ -394,7 +397,7 @@ var _ = Describe("Control", func() {
 						}()
 						Consistently(g2Done, 50*time.Millisecond).ShouldNot(Receive())
 
-						close(releaseG1)
+						release()
 						Eventually(g1Done).Should(Receive(BeNil()))
 						Eventually(g2Done).Should(Receive(BeNil()))
 					},
