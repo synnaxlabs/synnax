@@ -21,9 +21,9 @@ export default defineConfig({
   adapter: vercel(),
   // Astro's check refuses the Desktop renewal. src/pipeline.ts checks origins instead.
   security: { checkOrigin: false },
-  // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
+  // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
   vite: {
-    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
       postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
     },

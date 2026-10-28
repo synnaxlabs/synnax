@@ -59,4 +59,10 @@ describe("Footer", () => {
     expect(documentation?.querySelector("a")?.getAttribute("href")).toBe("/reference/");
     expect(company?.querySelector("a")).toBeNull();
   });
+
+  it("should open the consent card from the cookie settings button", () => {
+    const button = doc.querySelector("button.footer-cookies");
+    expect(button?.textContent?.trim()).toBe("Cookie settings");
+    expect(button?.getAttribute("data-consent")).toBe("settings");
+  });
 });

@@ -68,9 +68,14 @@ const { home, columns } = Astro.props;
             align="center"
             className="footer-bottom-bar"
         >
-            <Text.Text level="small" className="footer-muted">
-                &copy; {new Date().getFullYear()} Synnax Labs Inc.
-            </Text.Text>
+            <Flex.Box direction="x" align="center" className="footer-legal">
+                <Text.Text level="small" className="footer-muted">
+                    &copy; {new Date().getFullYear()} Synnax Labs Inc.
+                </Text.Text>
+                <button type="button" class="footer-cookies" data-consent="settings">
+                    Cookie settings
+                </button>
+            </Flex.Box>
             <Flex.Box direction="x" align="center" className="footer-bottom-right">
                 <Flex.Box className="footer-built-in">
                     <Text.Text level="small" variant="code" className="footer-muted">
@@ -194,6 +199,25 @@ const { home, columns } = Astro.props;
 
         .footer-bottom-right {
             gap: clamp(2rem, 1rem + 2vw, 5rem);
+        }
+
+        .footer-legal {
+            gap: 3rem;
+        }
+
+        .footer-cookies {
+            padding: 0;
+            border: none;
+            background: none;
+            color: var(--pluto-gray-l8);
+            font: inherit;
+            font-size: var(--pluto-small-size);
+            cursor: pointer;
+            transition: color 0.2s ease-in-out;
+
+            &:hover {
+                color: var(--pluto-gray-l10);
+            }
         }
 
         .footer-social {

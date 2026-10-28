@@ -1,0 +1,185 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Text } from "@synnaxlabs/lyra/text";
+
+interface Props {
+    /** The privacy policy, as the site links to it. */
+    privacy: string;
+    /** The account to link the visitor to once cookies are on. */
+    user?: string;
+    /** Hides all text in recordings, for pages that show other people's data. */
+    textMasked?: boolean;
+}
+
+const { privacy, user, textMasked = false } = Astro.props;
+---
+
+<script is:inline>
+    // PostHog's loader. It queues calls until PostHog loads, and loads it on init.
+    !(function (t, e) {
+        var o, n, p, r;
+        e.__SV ||
+            ((window.posthog = e),
+            (e._i = []),
+            (e.init = function (i, s, a) {
+                function g(t, e) {
+                    var o = e.split(".");
+                    (2 == o.length && ((t = t[o[0]]), (e = o[1])),
+                        (t[e] = function () {
+                            t.push(
+                                [e].concat(Array.prototype.slice.call(arguments, 0)),
+                            );
+                        }));
+                }
+                (((p = t.createElement("script")).type = "text/javascript"),
+                    (p.async = !0),
+                    (p.src =
+                        s.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") +
+                        "/static/array.js"),
+                    (r = t.getElementsByTagName("script")[0]).parentNode.insertBefore(
+                        p,
+                        r,
+                    ));
+                var u = e;
+                for (
+                    void 0 !== a ? (u = e[a] = []) : (a = "posthog"),
+                        u.people = u.people || [],
+                        u.toString = function (t) {
+                            var e = "posthog";
+                            return (
+                                "posthog" !== a && (e += "." + a),
+                                t || (e += " (stub)"),
+                                e
+                            );
+                        },
+                        u.people.toString = function () {
+                            return u.toString(1) + ".people (stub)";
+                        },
+                        o =
+                            "init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(
+                                " ",
+                            ),
+                        n = 0;
+                    n < o.length;
+                    n++
+                )
+                    g(u, o[n]);
+                e._i.push([i, s, a]);
+            }),
+            (e.__SV = 1));
+    })(document, window.posthog || []);
+</script>
+
+<div
+    class="consent"
+    hidden
+    data-user={user}
+    data-text-masked={textMasked ? "" : undefined}
+    transition:persist
+>
+    <Text.Text level="small" className="consent-name">
+        Cookies
+    </Text.Text>
+    <Text.Text level="p" className="consent-message">
+        Can we use cookies to learn how people use our websites?
+    </Text.Text>
+    <Text.Text level="small" className="consent-description">
+        If you reject, we count visits without cookies.{" "}
+        <a href={privacy}>Privacy policy</a>
+    </Text.Text>
+    <div class="consent-actions">
+        <Button.Button size="small" data-consent="reject">
+            Reject
+        </Button.Button>
+        <Button.Button size="small" data-consent="accept">
+            Accept
+        </Button.Button>
+    </div>
+</div>
+
+<style is:global>
+    /* The Console's notification card, in the corner. Sizes are fixed, so the card
+       reads the same on sites with different type scales. */
+    .consent {
+        position: fixed;
+        z-index: 100;
+        left: 20px;
+        bottom: 20px;
+        width: 340px;
+        padding: 16px;
+        border: var(--pluto-border-l6);
+        border-radius: var(--pluto-border-radius-medium);
+        background: color-mix(in srgb, var(--pluto-gray-l2) 94%, transparent);
+        box-shadow: var(--pluto-shadow-lift);
+        -webkit-backdrop-filter: var(--pluto-frost);
+        backdrop-filter: var(--pluto-frost);
+
+        &[hidden] {
+            display: none;
+        }
+        .pluto-text {
+            display: block;
+            font-size: 14px;
+            line-height: 20px;
+        }
+        .consent-name,
+        .consent-description {
+            color: var(--pluto-gray-l9);
+            font-size: 13px;
+        }
+        .consent-name {
+            margin-bottom: 4px;
+        }
+        .consent-message {
+            font-weight: 500;
+            text-wrap: balance;
+        }
+        .consent-description {
+            margin-top: 4px;
+            a {
+                white-space: nowrap;
+            }
+        }
+        .consent-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+            .pluto-btn {
+                flex: 1;
+                justify-content: center;
+            }
+        }
+    }
+
+    @media (max-width: 700px) {
+        .consent {
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            width: auto;
+        }
+    }
+</style>
+
+<script>
+    import { start } from "./analytics";
+
+    const card = document.querySelector<HTMLElement>(".consent");
+    if (card == null) throw new Error("the consent card is missing");
+    void start({
+        posthog: () => window.posthog,
+        fetch: window.fetch.bind(window),
+        card,
+        user: card.dataset.user ?? null,
+        textMasked: card.dataset.textMasked != null,
+    });
+</script>

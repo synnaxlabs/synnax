@@ -17,7 +17,8 @@ import { type Analytics } from "@/platform/analytics";
  */
 const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
-const API_HOST = "https://us.i.posthog.com";
+/** Our own address for PostHog, which blockers of known trackers do not know. */
+const API_HOST = "https://t.synnaxlabs.com";
 
 /** Pinned, so a PostHog release cannot change the behavior of a shipped install. */
 const DEFAULTS = "2026-08-30";
@@ -89,6 +90,7 @@ const resume = (posthog: PostHog, installID: string): void => {
 const init = (posthog: PostHog, installID: string): void => {
   posthog.init(KEY, {
     api_host: API_HOST,
+    ui_host: "https://us.posthog.com",
     defaults: DEFAULTS,
     // The defaults mark a `localhost` host as a test user, and macOS serves the app
     // from `tauri://localhost`.
