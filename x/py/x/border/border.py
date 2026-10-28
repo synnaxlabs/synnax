@@ -41,7 +41,6 @@ class Radius(BaseModel):
             return dict.fromkeys(_CORNERS, v)
         if isinstance(v, dict):
             return {k: _xy(c) for k, c in v.items()}
-        xy = _xy(v)
-        if xy is v:
+        if _xy(v) is v:
             return v
-        return dict.fromkeys(_CORNERS, xy)
+        return {k: _xy(v) for k in _CORNERS}
