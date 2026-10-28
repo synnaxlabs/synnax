@@ -52,8 +52,8 @@ jobs:
       - name: Deploy
         working-directory: scripts/runners
         run: |
-          files=$(ls *.py | sed "s/.*/'&'/" | paste -sd, -)
-          script=$(printf '$Sha = %s\n$Files = @(%s)\n' "'$GITHUB_SHA'" "$files"
+          files=$(for f in *.py; do printf "'%s'\n" "$f"; done | paste -sd, -)
+          script=$(printf "\$Sha = %s\n\$Files = @(%s)\n" "'$GITHUB_SHA'" "$files"
             cat deploy.ps1)
           encoded=$(printf '%s' "$script" | iconv -t UTF-16LE | base64 -w0)
           command="powershell -NoProfile -EncodedCommand $encoded"
