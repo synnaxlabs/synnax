@@ -11,8 +11,11 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
-#include "open62541/client.h"
+#include "client/cpp/synnax.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/types/types.h"
@@ -22,9 +25,6 @@ struct Properties {
     connection::Config connection;
     std::vector<types::Node> channels;
 
-    Properties(connection::Config connection, const std::vector<types::Node> &channels):
-        connection(std::move(connection)), channels(channels) {}
-
     explicit Properties(const x::json::Parser &parser):
         connection(parser.child("connection")) {
         if (!parser.has("channels")) return;
@@ -32,14 +32,21 @@ struct Properties {
             channels.emplace_back(cb);
         });
     }
-
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["connection"] = connection.to_json();
-        j["channels"] = x::json::json::array();
-        for (const auto &ch: channels)
-            j["channels"].push_back(ch.to_json());
-        return j;
-    }
 };
+
+/// @brief retrieves the device and parses its connection configuration.
+/// @returns the retrieve error, or a validation error for invalid properties.
+inline std::pair<connection::Config, x::errors::Error>
+retrieve_connection(synnax::Synnax &client, const std::string &key) {
+    auto [dev, err] = client.devices.retrieve(key);
+    if (err)
+        return {
+            connection::Config(),
+            x::errors::Error(err, "failed to retrieve device: " + err.data)
+        };
+    const auto parser = x::json::Parser(dev.properties);
+    auto cfg = connection::Config(parser.child("connection"));
+    if (parser.error()) return {connection::Config(), parser.error()};
+    return {std::move(cfg), x::errors::NIL};
+}
 }

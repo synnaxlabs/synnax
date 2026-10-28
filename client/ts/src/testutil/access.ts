@@ -47,8 +47,7 @@ const createUser = async (client: Synnax) => {
   const u = await client.users.create({
     username,
     password: "test",
-    firstName: "test",
-    lastName: "test",
+    name: "test",
   });
   return { username, key: u.key };
 };
