@@ -23,7 +23,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import * as Device from "@/feature/modbus/device/types";
+import { SCHEMAS } from "@/feature/modbus/device/types";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
@@ -184,7 +184,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {
@@ -226,7 +226,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       const channel = commandsToCreate[i];
       dev.properties.write.channels[writeMapKey(channel)] = c.key;
     });
-    await client.devices.create(dev, Device.SCHEMAS);
+    await client.devices.create(dev, SCHEMAS);
   }
 
   config.channels = config.channels.map((c) => ({

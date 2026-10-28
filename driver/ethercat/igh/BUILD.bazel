@@ -70,7 +70,7 @@ cc_test(
         ":mock_api",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
