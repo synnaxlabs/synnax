@@ -90,6 +90,9 @@ const init = (posthog: PostHog, installID: string): void => {
   posthog.init(KEY, {
     api_host: API_HOST,
     defaults: DEFAULTS,
+    // The defaults mark a `localhost` host as a test user, and macOS serves the app
+    // from `tauri://localhost`.
+    internal_or_test_user_hostname: null,
     // Logs every event to the console of the window, so a dev run can be read without
     // waiting for the project to ingest it.
     debug: IS_DEV,
