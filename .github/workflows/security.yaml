@@ -28,11 +28,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # An agent with no recipient prints its report, which would make the findings public.
+  key:
+    name: Require the report key
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require the report key
+        env:
+          KEY: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::Set the SECURITY_REPORT_PUBLIC_KEY variable."
+            exit 1
+          fi
+
   authn:
     name: Review (authn)
     permissions: &review
       contents: read
       id-token: write
+    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: inherit
     with:
@@ -44,6 +61,7 @@ jobs:
   api:
     name: Review (api)
     permissions: *review
+    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: inherit
     with:
@@ -55,6 +73,7 @@ jobs:
   tls:
     name: Review (tls)
     permissions: *review
+    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: inherit
     with:
@@ -66,6 +85,7 @@ jobs:
   files:
     name: Review (files)
     permissions: *review
+    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: inherit
     with:
@@ -77,6 +97,7 @@ jobs:
   driver:
     name: Review (driver)
     permissions: *review
+    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: inherit
     with:
@@ -88,6 +109,7 @@ jobs:
   console:
     name: Review (console)
     permissions: *review
+    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: inherit
     with:
@@ -99,6 +121,7 @@ jobs:
   ci:
     name: Review (ci)
     permissions: *review
+    needs: key
     uses: ./.github/workflows/agent.yaml
     secrets: inherit
     with:
