@@ -1175,11 +1175,8 @@ TEST_F(ModbusReadTest, testStringChannelRejected) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errors = p.error_json()["errors"];
     ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels");
-    EXPECT_EQ(
-        errors[0]["message"],
-        ch.name + " is a string channel, but Modbus reads only into numeric channels"
-    );
+    EXPECT_EQ(errors[0]["path"], "channels.0.channel");
+    EXPECT_EQ(errors[0]["message"], "must be a numeric channel, not a string channel");
 }
 
 /// @brief it should keep reading after the server drops the connection, without a

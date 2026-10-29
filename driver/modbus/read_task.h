@@ -243,6 +243,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
 
         std::set<synnax::channel::Key> keys;
+        std::vector<std::pair<x::json::Parser, synnax::channel::Key>> bindings;
         cfg.iter("channels", [&, this](x::json::Parser &ch) {
             const auto parsed = ::synnax::modbus::parse_read_channel(ch);
             const auto &base = std::visit(
@@ -291,6 +292,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 discrete_inputs.emplace_back(
                     std::get<::synnax::modbus::DiscreteInputReadChannel>(parsed)
                 );
+            bindings.emplace_back(ch, base.channel);
             this->data_channel_count++;
         });
 
@@ -303,17 +305,16 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
         std::unordered_map<synnax::channel::Key, synnax::channel::Channel> by_key;
         for (const auto &ch: synnax_channels) {
-            if (!channel::is_register_type(ch.data_type)) {
-                cfg.field_err(
-                    "channels",
-                    ch.name + " is a " + ch.data_type.name() +
-                        " channel, but Modbus reads only into numeric channels"
-                );
-                return;
-            }
             by_key.emplace(ch.key, ch);
             if (ch.index != 0) this->indexes.insert(ch.index);
         }
+        for (auto &[ch, key]: bindings)
+            if (const auto &dt = by_key.at(key).data_type;
+                !channel::is_register_type(dt))
+                ch.field_err(
+                    "channel",
+                    "must be a numeric channel, not a " + dt.name() + " channel"
+                );
         for (auto &ch: holding_registers)
             ch.ch = by_key.at(ch.synnax_key);
         for (auto &ch: input_registers)
