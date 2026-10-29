@@ -30,6 +30,7 @@
         border: var(--pluto-border);
         border-radius: var(--pluto-border-radius);
         padding: 0.5rem;
+
         &.pluto--show-outer-center {
             padding: 1.5rem;
         }
@@ -43,9 +44,11 @@
         display: flex;
         align-items: center;
         justify-content: center;
+
         &.pluto--selected .pluto-select-orientation__bar {
             background-color: var(--pluto-selected-color);
         }
+
         & .pluto-select-orientation__bar {
             top: unset;
             left: unset;

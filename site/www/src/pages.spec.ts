@@ -158,6 +158,26 @@ describe("pages", () => {
       });
     });
 
+    describe("analytics", () => {
+      it("should start PostHog in the head", () => {
+        const scripts = all(doc.head, "script").map((s) => s.textContent);
+        expect(scripts.some((s) => s.includes("posthog.init("))).toBe(true);
+      });
+
+      it("should tag each download link with its event and location", () => {
+        const links = all<HTMLAnchorElement>(
+          doc,
+          'a[href="https://docs.synnaxlabs.com/releases/desktop/download"]',
+        );
+        expect(links.map((a) => a.dataset.location)).toEqual([
+          "header",
+          "drawer",
+          "hero",
+        ]);
+        for (const a of links) expect(a.dataset.event).toBe("desktop_download_clicked");
+      });
+    });
+
     describe("structured data", () => {
       const script = (): HTMLScriptElement =>
         doc.querySelector('script[type="application/ld+json"]')!;

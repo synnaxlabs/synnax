@@ -17,7 +17,7 @@
 
     & > .pluto-icon {
         height: var(--pluto-height-medium);
-        width: var(--pluto-width-medium);
+        width: var(--pluto-height-medium);
     }
 
     & .pluto-btn {

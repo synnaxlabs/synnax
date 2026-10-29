@@ -16,11 +16,6 @@
  * With CSS layers, these should override Pluto without !important.
  */
 
-/* Pack component */
-.pluto-pack {
-    --pluto-pack-br: 1rem;
-}
-
 /* Tabs selector */
 .pluto-tabs__tab {
     /* Arc context tabs render the icon to the right of the label. */
@@ -30,7 +25,7 @@
     }
 }
 
-@media (max-width: 600px) {
+@media (width <= 600px) {
     .pluto-tabs__selector {
         justify-content: center;
     }
@@ -78,7 +73,7 @@ article .pluto-tabs__selector {
         padding: 0 2rem;
         gap: 1.5rem;
 
-        @media (max-width: 800px) {
+        @media (width <= 800px) {
             padding: 0 1.5rem;
             gap: 1rem;
         }
@@ -91,8 +86,7 @@ article .pluto-tabs__selector {
 
 /* Tree component. The page nav and the header drawer each size their own tree. */
 .pluto-tree {
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden auto;
 
     /* Firefox scrollbar */
     scrollbar-width: thin;
@@ -146,7 +140,7 @@ article .pluto-tabs__selector {
             }
         }
 
-        &:not(.pluto--has-children):not(.pluto--selected) {
+        &:not(.pluto--has-children, .pluto--selected) {
             box-shadow: inset 1px 0 0 0 var(--pluto-gray-l2);
         }
     }
@@ -234,7 +228,7 @@ article table th p {
     backdrop-filter: blur(2px);
 }
 
-@media (max-width: 600px) and (hover: none) {
+@media (width <= 600px) and (hover: none) {
     .pluto-dialog__dialog {
         top: 5rem;
         transform: none;

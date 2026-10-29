@@ -208,11 +208,12 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   /**
-   * Sets the status of the path. Validation never removes it. It clears when the value
-   * at the path changes, when validation sets a status there, or through `clearStatus`.
+   * Sets the status of the path, keyed by the path. Validation never removes it. It
+   * clears when the value at the path changes, when validation sets a status there, or
+   * through `clearStatus`.
    */
   setStatus(path: string, status: Status.Crude) {
-    this.statuses.set(path, status);
+    this.statuses.set(path, { ...status, key: path });
     this.external.add(path);
     this.updateCachedRefs(path);
   }

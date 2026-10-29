@@ -48,7 +48,8 @@
             max-height: 250px;
             overflow: auto;
             white-space: pre-wrap;
-            word-break: break-word;
+            word-break: normal;
+            overflow-wrap: anywhere;
             user-select: text !important;
             -webkit-user-select: text !important;
         }
@@ -65,7 +66,8 @@
             max-height: 150px;
             overflow: auto;
             white-space: pre-wrap;
-            word-break: break-word;
+            word-break: normal;
+            overflow-wrap: anywhere;
             user-select: text !important;
             -webkit-user-select: text !important;
         }
@@ -82,7 +84,8 @@
             user-select: text !important;
             -webkit-user-select: text !important;
             white-space: pre-wrap;
-            word-break: break-word;
+            word-break: normal;
+            overflow-wrap: anywhere;
         }
 
         .synnax-logo {
