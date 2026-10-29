@@ -16,13 +16,13 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #ifdef _WIN32
 #include "vendor/libmodbus/modbus/modbus.h"
@@ -449,6 +449,8 @@ public:
     const Transport transport;
     /// @brief the line settings of a serial connection. Unused for TCP.
     const Serial serial;
+    /// @brief the host and port of a TCP connection. Empty for RTU.
+    const std::string address;
 
 private:
     /// @brief the state of one unit behind the endpoint.
@@ -629,9 +631,14 @@ private:
 
 public:
     /// @brief takes ownership of a context created by modbus_new_tcp_pi.
+    /// @param address the host and port of the context.
     /// @param demotion how long the requests of a demoted unit fail at once.
-    Connection(modbus_t *ctx, const x::telem::TimeSpan demotion):
-        transport(Transport::TCP), ctx(ctx), demotion(demotion), frame_gap(0) {}
+    Connection(modbus_t *ctx, std::string address, const x::telem::TimeSpan demotion):
+        transport(Transport::TCP),
+        address(std::move(address)),
+        ctx(ctx),
+        demotion(demotion),
+        frame_gap(0) {}
 
     /// @brief takes ownership of a context created by modbus_new_rtu with the line
     /// settings.
@@ -700,6 +707,13 @@ public:
     Stats stats(const std::uint8_t unit_id) {
         std::lock_guard lock(this->mu);
         return this->units[unit_id].stats;
+    }
+
+    /// @returns the host and port for TCP, or the file the serial port resolves to now.
+    /// A link that moves to a new port, as after a replug, resolves to the new file.
+    [[nodiscard]] std::string endpoint() const {
+        if (this->transport == Transport::RTU) return canonical_port(this->serial.port);
+        return this->address;
     }
 };
 
@@ -860,7 +874,9 @@ public:
 /// port, or a serial port. Safe for concurrent use.
 class Manager {
     std::mutex mu;
-    std::map<std::pair<Transport, std::string>, std::weak_ptr<Connection>> connections;
+    /// @brief the open connections, searched at each acquire because the file a serial
+    /// port resolves to changes when its link moves.
+    std::vector<std::weak_ptr<Connection>> connections;
     /// @brief how long the requests of a demoted unit fail at once.
     x::telem::TimeSpan demotion;
 
@@ -883,7 +899,19 @@ class Manager {
         auto *ctx = modbus_new_tcp_pi(cfg.host.c_str(), port.c_str());
         if (ctx == nullptr) return nullptr;
         modbus_enable_quirks(ctx, MODBUS_QUIRK_MAX_SLAVE);
-        return std::make_shared<Connection>(ctx, this->demotion);
+        return std::make_shared<Connection>(ctx, cfg.endpoint(), this->demotion);
+    }
+
+    /// @returns the open connection to the endpoint of cfg, or nullptr if none.
+    [[nodiscard]] std::shared_ptr<Connection> find(const ConnectionConfig &cfg) const {
+        const auto endpoint = cfg.endpoint();
+        for (const auto &weak: this->connections) {
+            auto conn = weak.lock();
+            if (conn != nullptr && conn->transport == cfg.transport &&
+                conn->endpoint() == endpoint)
+                return conn;
+        }
+        return nullptr;
     }
 
 public:
@@ -901,15 +929,14 @@ public:
     std::pair<std::shared_ptr<Device>, x::errors::Error>
     acquire(const ConnectionConfig &cfg, const RequestConfig &requests = {}) {
         std::lock_guard lock(this->mu);
-        std::erase_if(this->connections, [](const auto &entry) {
-            return entry.second.expired();
+        std::erase_if(this->connections, [](const auto &weak) {
+            return weak.expired();
         });
-        auto &entry = this->connections[{cfg.transport, cfg.endpoint()}];
-        auto conn = entry.lock();
+        auto conn = this->find(cfg);
         if (conn == nullptr) {
             conn = connect(cfg);
             if (conn == nullptr) return {nullptr, classify(errno)};
-            entry = conn;
+            this->connections.push_back(conn);
         } else if (
             cfg.transport == Transport::RTU && conn->serial.line() != cfg.serial.line()
         )
