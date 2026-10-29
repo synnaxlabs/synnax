@@ -20,18 +20,18 @@ import (
 
 var _ = Describe("Policy", func() {
 	var (
+		root   group.Group
 		arcs   ontology.ID
 		groups group.Writer
 		otgW   ontology.Writer
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		var g group.Group
 		Expect(groupSvc.NewRetrieve().
 			Where(group.MatchNames("Arcs")).
-			Entry(&g).
+			Entry(&root).
 			Exec(ctx, tx)).To(Succeed())
-		arcs = g.OntologyID()
+		arcs = root.OntologyID()
 		groups = groupSvc.NewWriter(tx)
 		otgW = otg.NewWriter(tx)
 	})
@@ -75,6 +75,10 @@ var _ = Describe("Policy", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			},
 		)
+		It("Should reject renaming the root Arcs group", func(ctx SpecContext) {
+			Expect(groups.Rename(ctx, root.Key, "Automations")).
+				To(MatchError(ContainSubstring("cannot be renamed")))
+		})
 	})
 
 	Describe("Name conflicts", func() {

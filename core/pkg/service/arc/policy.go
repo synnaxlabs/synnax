@@ -105,13 +105,19 @@ func (s *Service) ValidateDetach(
 	return s.validateOutside(ctx, tx, child)
 }
 
-// ValidateName implements ontology.Policy.
+// ValidateName implements ontology.Policy. The Arcs group keeps its name.
 func (s *Service) ValidateName(
 	ctx context.Context,
 	tx gorp.Tx,
 	id ontology.ID,
 	name string,
 ) error {
+	if id == s.group.OntologyID() {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"the root Arcs group cannot be renamed",
+		)
+	}
 	if id.Type != ontology.ResourceTypeGroup && id.Type != ontology.ResourceTypeArc {
 		return nil
 	}
