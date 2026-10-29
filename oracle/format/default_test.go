@@ -10,6 +10,7 @@
 package format_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -46,10 +47,19 @@ var _ = Describe("Default Registry", func() {
 			To(MatchError(ContainSubstring("license template")))
 	})
 
+	// A canceled context fails a chain at its first external tool, so only a file
+	// routed through a formatter chain returns an error.
+	canceled := func() context.Context {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		return ctx
+	}
+
 	DescribeTable("Should register every supported extension",
 		func(ext string) {
 			r := MustSucceed(format.Default(repoRoot))
-			Expect(r.Has(ext)).To(BeTrue(), "expected formatter chain for %q", ext)
+			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).Error().
+				To(MatchError(context.Canceled))
 		},
 		Entry("Go", ".go"),
 		Entry("C++ source", ".cpp"),
@@ -63,9 +73,14 @@ var _ = Describe("Default Registry", func() {
 		Entry("Protobuf", ".proto"),
 	)
 
-	It("Should not route unknown extensions through any formatter", func() {
-		r := MustSucceed(format.Default(repoRoot))
-		Expect(r.Has(".rs")).To(BeFalse())
-		Expect(r.Has(".md")).To(BeFalse())
-	})
+	DescribeTable(
+		"Should not route unknown extensions through any formatter",
+		func(ext string) {
+			r := MustSucceed(format.Default(repoRoot))
+			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).
+				To(Equal([]byte("x")))
+		},
+		Entry("Rust", ".rs"),
+		Entry("Markdown", ".md"),
+	)
 })
