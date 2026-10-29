@@ -15,7 +15,7 @@ body {
     width: 100%;
 }
 
-#root {
+.pluto-root {
     height: 100%;
     width: 100%;
 }

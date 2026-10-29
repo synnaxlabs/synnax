@@ -84,7 +84,7 @@ class WriterResponse(BaseModel):
     err: ExceptionPayload
 
 
-class WSWriterCodec(WSCodec):
+class _WSWriterCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         if not isinstance(data, Message):
             raise TypeError(f"expected Message, got {type(data)}")
@@ -108,7 +108,7 @@ class WSWriterCodec(WSCodec):
         return cast(P, msg)
 
 
-def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
+def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if mode == "persist_stream":
         return WriterMode.PERSIST_STREAM
     if mode == "persist":
@@ -125,7 +125,7 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     raise ValueError(f"invalid writer mode {mode}")
 
 
-ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
+_ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
 class WriterClosed(Error): ...
@@ -198,14 +198,14 @@ class Writer:
         self.start = start
         self._adapter = adapter
         self._registry = registry
-        client = client.with_codec(WSWriterCodec(adapter.codec))
+        client = client.with_codec(_WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
             keys=self._adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
-            mode=parse_writer_mode(mode),
+            mode=_parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,

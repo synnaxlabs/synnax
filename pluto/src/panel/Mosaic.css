@@ -14,6 +14,7 @@
 .pluto-panel-mosaic__cap {
     --surface: var(--pluto-gray-l0);
     --spill: 1rem;
+
     position: sticky;
     right: 0;
     z-index: 2;
@@ -77,6 +78,7 @@
     border-radius: var(--pluto-border-radius-small);
     border: var(--pluto-border-width) solid var(--pluto-gray-l11-30);
     color: var(--pluto-gray-l11);
+
     --pluto-bg: var(--pluto-gray-l11-10);
     --pluto-hover-bg: var(--pluto-gray-l11-15);
     --pluto-active-bg: var(--pluto-gray-l11-20);
@@ -121,9 +123,11 @@
        cap and start-fade gradients carry the overflow fades here instead. */
     mask-image: none;
     min-height: 5rem;
+
     --pluto-tabs-tab-height: round(4.3333rem, 1px);
     --pluto-tabs-tab-align: flex-end;
     --pluto-tabs-selected-text-color: var(--pluto-gray-l10);
+
     /* Unselected tabs shrink-wrap their content and compress to a sliver before
        the strip scrolls; the selected tab holds its full content and never pads
        past it. */
@@ -146,8 +150,10 @@
     .pluto-tabs__selector
     > .pluto-tabs__tab.pluto--selected {
     --pluto-tabs-selected-text-color: var(--pluto-gray-l11);
+
     &.pluto--alt-color {
         --pluto-tabs-selected-text-color: var(--pluto-gray-l11);
+
         > .pluto-icon {
             color: var(--pluto-gray-l11);
         }
