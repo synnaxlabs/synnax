@@ -10,6 +10,7 @@
 package channels_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -20,12 +21,15 @@ const writesPerCycle = 8
 
 func benchmarkFlush(b *testing.B, bodyWrites bool, stamp func(cycle, j int) int64) {
 	s := channels.NewProgramState([]channels.Digest{{Key: 1, Index: 2}})
+	write, err := newWriteNode(context.Background(), s, 1, telem.Float32T)
+	if err != nil {
+		b.Fatal(err)
+	}
 	b.ReportAllocs()
 	for cycle := 0; b.Loop(); cycle++ {
 		base := int64(cycle+1) * 1000
 		for j := range writesPerCycle {
-			s.WriteChannel(
-				1,
+			write(
 				telem.NewSeriesV(float32(j)),
 				telem.NewSeriesV(telem.TimeStamp(base+stamp(cycle, j))),
 			)

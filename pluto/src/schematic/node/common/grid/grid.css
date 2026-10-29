@@ -25,7 +25,9 @@
     width: max-content;
     height: max-content;
     position: absolute;
+
     --offset: calc(2rem / 3);
+
     justify-content: center;
     align-items: center;
     outline: none;
@@ -36,6 +38,7 @@
         border-color: var(--haul-border-color);
         border-radius: var(--pluto-border-radius);
     }
+
     &.pluto-dragging-over {
         border-color: var(--pluto-primary-z);
     }
@@ -44,6 +47,7 @@
         min-width: 100%;
         min-height: 3rem;
     }
+
     &.pluto--direction-x {
         min-width: 3rem;
         min-height: 100%;
@@ -54,21 +58,25 @@
         left: 50%;
         transform: translate(-50%, calc(-100% - var(--offset)));
     }
+
     &.pluto--location-bottom {
         bottom: 0;
         left: 50%;
         transform: translate(-50%, calc(100% + var(--offset)));
     }
+
     &.pluto--location-left {
         left: 0;
         top: 50%;
         transform: translate(calc(-100% - var(--offset)), -50%);
     }
+
     &.pluto--location-right {
         right: 0;
         top: 50%;
         transform: translate(calc(100% + var(--offset)), -50%);
     }
+
     &.pluto--location-center {
         left: 50%;
         top: 50%;
@@ -80,15 +88,18 @@
 
 .pluto-symbol__label {
     --offset: calc(2rem / 3);
+
     &:not(:focus) {
         -webkit-user-select: none;
         user-select: none;
     }
+
     pointer-events: none;
     overflow-wrap: break-word;
     width: max-content;
     height: max-content;
     padding: 0 !important;
+
     &.pluto--direction-y {
         writing-mode: vertical-rl;
     }

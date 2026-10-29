@@ -16,10 +16,12 @@
             border-top-right-radius: 0 !important;
             border-bottom-right-radius: 0 !important;
         }
+
         & > *:nth-child(2):not(:last-child) {
             width: 15rem;
             border-radius: 0 !important;
         }
+
         & > *:last-child > * {
             width: 23rem;
             border-top-left-radius: 0 !important;
