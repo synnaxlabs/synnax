@@ -15,6 +15,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/connection/connection.h"
+#include "driver/opcua/errors/errors.h"
 #include "driver/opcua/testutil/server.h"
 #include "driver/opcua/testutil/testutil.h"
 
@@ -153,7 +154,7 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
     EXPECT_EQ(success_count, num_threads * acquisitions_per_thread);
 }
 
-/// @brief it should replace invalidated connections with new ones.
+/// @brief it should connect a closed connection again in place.
 TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
     Pool pool(testutil::create_store());
 
@@ -166,7 +167,8 @@ TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
 
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
-    EXPECT_NE(conn2.get(), client_ptr.get());
+    EXPECT_EQ(conn2.get(), client_ptr.get());
+    ASSERT_NIL(connected(conn2.get()));
     EXPECT_EQ(pool.size(), 1);
 }
 
@@ -239,8 +241,7 @@ TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 }
 
-/// @brief Tests that when run_iterate fails on a cached connection, the pool
-/// discards it and creates a new connection.
+/// @brief it should connect a cached connection that fails its probe again in place.
 TEST_F(ConnectionPoolTest, RunIterateFailureFallsThrough) {
     Pool pool(testutil::create_store());
 
@@ -254,16 +255,14 @@ TEST_F(ConnectionPoolTest, RunIterateFailureFallsThrough) {
     // Manually disconnect to simulate a connection that will fail run_iterate
     UA_Client_disconnect(client1_ptr.get());
 
-    // Next acquire should skip the broken connection and create a new one
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
-    // Should have gotten a NEW connection (broken one was discarded)
-    EXPECT_NE(conn2.get(), client1_ptr.get());
-    // Pool should have exactly 1 connection (the new one)
+    EXPECT_EQ(conn2.get(), client1_ptr.get());
+    ASSERT_NIL(connected(conn2.get()));
     EXPECT_EQ(pool.size(), 1);
 }
 
-/// @brief Tests that when all cached connections fail, a new connection is created.
+/// @brief it should connect a second connection while the first is in use.
 TEST_F(ConnectionPoolTest, AllCachedFailCreateNew) {
     Pool pool(testutil::create_store());
 
@@ -277,16 +276,16 @@ TEST_F(ConnectionPoolTest, AllCachedFailCreateNew) {
     // Manually disconnect to simulate broken cached connection
     UA_Client_disconnect(client1_ptr.get());
 
-    // Acquire should create new connection after cached one fails
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    auto conn3 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
-    // Should have created a new connection (old one removed)
-    EXPECT_EQ(pool.size(), 1);
-    EXPECT_NE(conn2.get(), client1_ptr.get());
+    EXPECT_EQ(conn2.get(), client1_ptr.get());
+    EXPECT_NE(conn3.get(), client1_ptr.get());
+    EXPECT_EQ(pool.size(), 2);
 }
 
-/// @brief Tests that when the server stops, acquire returns an error and
-/// cleans up the broken connection from the pool.
+/// @brief it should return an error when the server stops, and keep the lost
+/// connection to connect it again later.
 TEST_F(ConnectionPoolTest, ServerStopsDuringAcquire) {
     Pool pool(testutil::create_store());
 
@@ -300,13 +299,9 @@ TEST_F(ConnectionPoolTest, ServerStopsDuringAcquire) {
     server_.reset();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // Acquire should fail cleanly (no server, cached connection broken)
-    auto [conn2, err2] = pool.acquire(conn_cfg_, "[test] ");
-    ASSERT_TRUE(err2); // Should return error
-    EXPECT_FALSE(conn2);
-
-    // Pool should be empty (broken connection removed, new connection failed)
-    EXPECT_EQ(pool.size(), 0);
+    ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
+    EXPECT_EQ(pool.size(), 1);
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
 }
 
 /// @brief Tests that after a server restart, the pool can recover and
@@ -642,6 +637,78 @@ TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
     auto conn3 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto conn4 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief it should activate the same Session again after the channel drops, so a
+/// flaky network does not fill the server's Session table.
+TEST_F(SessionLimitPoolTest, ReconnectKeepsSession) {
+    Pool pool(testutil::create_store());
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto client = conn.shared();
+    for (int i = 0; i < 4; ++i) {
+        UA_Client_disconnectSecureChannel(client.get());
+        conn = Pool::Connection(nullptr, nullptr, "");
+        conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        ASSERT_EQ(conn.get(), client.get());
+    }
+    auto other = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief it should double the cooldown each time the breaker opens again.
+TEST_F(SessionLimitPoolTest, CooldownDoubles) {
+    Pool pool(testutil::create_store());
+    server_->stop();
+    server_.reset();
+    for (int i = 0; i < Pool::BREAKER_THRESHOLD; ++i)
+        ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
+    std::this_thread::sleep_for(Pool::MIN_COOLDOWN + std::chrono::milliseconds(500));
+    ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
+    std::this_thread::sleep_for(Pool::MIN_COOLDOWN + std::chrono::milliseconds(500));
+    auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
+    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
+}
+
+/// @brief it should close a connection that no one used for the idle timeout.
+TEST_F(SessionLimitPoolTest, CloseIdle) {
+    Pool pool(testutil::create_store(), std::chrono::milliseconds(200));
+    { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+    auto held = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+    pool.close_idle();
+    EXPECT_EQ(pool.size(), 2);
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    pool.close_idle();
+    EXPECT_EQ(pool.size(), 1);
+    held = Pool::Connection(nullptr, nullptr, "");
+    EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+}
+
+/// @brief it should record the time of the last reply from the server.
+TEST_F(SessionLimitPoolTest, LastReply) {
+    Pool pool(testutil::create_store());
+    EXPECT_EQ(pool.last_reply(conn_cfg_), x::telem::TimeStamp());
+    const auto before = x::telem::TimeStamp::now();
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_GE(pool.last_reply(conn_cfg_), before);
+    Config other = conn_cfg_;
+    other.password = "other";
+    EXPECT_EQ(pool.last_reply(other), x::telem::TimeStamp());
+}
+
+/// @brief it should not send a request on a lost connection, since open62541 would
+/// connect again inside the call.
+TEST_F(SessionLimitPoolTest, ReadOnLostConnection) {
+    Pool pool(testutil::create_store());
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    UA_Client_disconnectSecureChannel(conn.get());
+    types::ReadRequestBuilder builder;
+    const types::NodeId node(
+        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME)
+    );
+    builder.add_node(node, UA_ATTRIBUTEID_VALUE);
+    ASSERT_OCCURRED_AS_P(conn.read(builder.build()), errors::NO_CONNECTION);
+    ASSERT_OCCURRED_AS(connected(conn.get()), errors::NO_CONNECTION);
 }
 
 /// @brief After 3 consecutive connection failures, the circuit breaker trips

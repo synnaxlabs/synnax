@@ -264,7 +264,7 @@ TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
 
     ASSERT_OCCURRED_AS_P(
         connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
+        opcua::errors::SESSION_REJECTED
     );
 
     server.stop();
@@ -289,7 +289,7 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
 
     ASSERT_OCCURRED_AS_P(
         connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
+        opcua::errors::SESSION_REJECTED
     );
 
     server.stop();
@@ -314,7 +314,7 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
 
     ASSERT_OCCURRED_AS_P(
         connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
+        opcua::errors::SESSION_REJECTED
     );
 
     server.stop();

@@ -70,6 +70,57 @@ TEST(ErrorTest, ParseErrorConnectionCodeWithFlags) {
     ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADTIMEOUT | 0x0400), UNREACHABLE);
 }
 
+/// @brief it should map a lost connection to a temporary error.
+TEST(ErrorTest, ParseConnectionLossIsTemporary) {
+    ASSERT_MATCHES(
+        parse(UA_STATUSCODE_BADCONNECTIONCLOSED),
+        driver::errors::TEMPORARY_HARDWARE_ERROR
+    );
+}
+
+/// @brief it should map a server shutdown to unreachable error.
+TEST(ErrorTest, ParseServerShutdown) {
+    ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADSHUTDOWN), UNREACHABLE);
+    ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADSERVERHALTED), UNREACHABLE);
+}
+
+/// @brief it should map a request timeout to unreachable error.
+TEST(ErrorTest, ParseRequestTimeout) {
+    ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADREQUESTTIMEOUT), UNREACHABLE);
+}
+
+/// @brief it should map a rejected login at connect to a session rejection.
+TEST(ErrorTest, ParseConnectLoginRejected) {
+    ASSERT_OCCURRED_AS(
+        parse_connect(UA_STATUSCODE_BADUSERACCESSDENIED),
+        SESSION_REJECTED
+    );
+    ASSERT_OCCURRED_AS(
+        parse_connect(UA_STATUSCODE_BADIDENTITYTOKENREJECTED),
+        SESSION_REJECTED
+    );
+    ASSERT_MATCHES(
+        parse_connect(UA_STATUSCODE_BADIDENTITYTOKENREJECTED),
+        driver::errors::TEMPORARY_HARDWARE_ERROR
+    );
+}
+
+/// @brief it should map a full session table at connect to a session rejection.
+TEST(ErrorTest, ParseConnectTooManySessions) {
+    ASSERT_OCCURRED_AS(
+        parse_connect(UA_STATUSCODE_BADTOOMANYSESSIONS),
+        SESSION_REJECTED
+    );
+}
+
+/// @brief it should map an invalid endpoint at connect to a critical error.
+TEST(ErrorTest, ParseConnectInvalidEndpoint) {
+    ASSERT_OCCURRED_AS(
+        parse_connect(UA_STATUSCODE_BADTCPENDPOINTURLINVALID),
+        INVALID_ENDPOINT
+    );
+}
+
 /// @brief it should map out of range status to critical error.
 TEST(ErrorTest, testParseErrorNonConnectionError) {
     ASSERT_OCCURRED_AS(parse(UA_STATUSCODE_BADOUTOFRANGE), CRITICAL);
