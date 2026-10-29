@@ -63,6 +63,10 @@ export interface Entry {
   render: () => ReactNode;
   /** Dismisses the modal, resolving its caller with null. */
   dismiss: () => void;
+  /** Whether the user is blocked from dismissing the modal. */
+  locked: boolean;
+  /** Sets whether the user is blocked from dismissing the modal. */
+  setLocked: (locked: boolean) => void;
 }
 
 type Listener = () => void;
@@ -114,16 +118,27 @@ export class Store {
       key,
       render: () => <Component {...bound} close={settle} />,
       dismiss: settle,
+      locked: false,
+      setLocked: (locked: boolean) => this.setLocked(key, locked),
     };
     this.emit([...this.stack, entry]);
   }
 
-  /** closeTop dismisses the topmost open modal, resolving its caller with null. */
-  closeTop(): void {
-    this.stack.at(-1)?.dismiss();
+  private setLocked(key: string, locked: boolean): void {
+    if (!this.stack.some((e) => e.key === key && e.locked !== locked)) return;
+    this.emit(this.stack.map((e) => (e.key === key ? { ...e, locked } : e)));
   }
 
-  /** clear dismisses every open modal, resolving each caller with null. */
+  /**
+   * closeTop dismisses the topmost open modal, resolving its caller with null. It does
+   * nothing when that modal is locked.
+   */
+  closeTop(): void {
+    const top = this.stack.at(-1);
+    if (top != null && !top.locked) top.dismiss();
+  }
+
+  /** clear dismisses every open modal, locked or not, resolving each caller with null. */
   clear(): void {
     this.stack.forEach((e) => e.dismiss());
   }
