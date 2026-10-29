@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <cerrno>
+#include <chrono>
+#include <thread>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
@@ -264,6 +266,42 @@ TEST(ScanTask, testScanReportsSilentUnit) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to reach device");
     EXPECT_EQ(status.description, modbus_strerror(ETIMEDOUT));
+}
+
+/// @brief it should test a connection while a scan waits on a silent server.
+TEST(ScanTask, testConnectionDuringSlowScan) {
+    testutil::SlaveConfig silent_cfg;
+    silent_cfg.port = 1666;
+    silent_cfg.silent_units = {5};
+    testutil::Slave silent(silent_cfg);
+    ASSERT_NIL(silent.start());
+    x::defer::defer stop_silent([&silent] { silent.stop(); });
+    testutil::Slave live(testutil::SlaveConfig{.port = 1667});
+    ASSERT_NIL(live.start());
+    x::defer::defer stop_live([&live] { live.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    auto slow = local_device("slow", 1666, 5);
+    slow.properties["connection"]["timeout_ms"] = 2000;
+    std::thread scanning([&] { scan(scanner, slow); });
+    x::defer::defer join([&scanning] { scanning.join(); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    synnax::task::Command cmd{
+        .task = t.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "test",
+        .args = {
+            {"connection", local_device("live", 1667).properties.at("connection")}
+        },
+    };
+
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should fail a connection test when the unit does not answer.

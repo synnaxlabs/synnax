@@ -21,4 +21,8 @@ std::string canonical_port(const std::string &port) {
     });
     return path;
 }
+
+int lock_port(int) {
+    return 0;
+}
 }

@@ -209,8 +209,14 @@ const adoptLegacyCommand = async (
   for (const legacy of legacyWriteMapKeys(ch.address)) {
     const key = channels[legacy];
     if (key == null) continue;
-    const [cmd] = await client.channels.retrieve([key]);
-    if (cmd == null || !cmd.dataType.equals(ch.dataType)) continue;
+    let cmd: channel.Channel;
+    try {
+      cmd = await client.channels.retrieve(key);
+    } catch (e) {
+      if (NotFoundError.matches(e)) continue;
+      throw errors.fromUnknown(e);
+    }
+    if (!cmd.dataType.equals(ch.dataType)) continue;
     delete channels[legacy];
     channels[writeMapKey(ch)] = key;
     return true;

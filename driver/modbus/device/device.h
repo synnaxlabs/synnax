@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cerrno>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -57,6 +58,8 @@ const x::telem::TimeSpan DEMOTION = x::telem::SECOND * 10;
 inline x::errors::Error classify(const int errnum) {
     const std::string message = modbus_strerror(errnum);
     switch (errnum) {
+        case EBUSY:
+            return {UNREACHABLE, "serial port is in use by another connection"};
         case EMBXILFUN:
         case EMBXILADD:
         case EMBXILVAL:
@@ -190,6 +193,11 @@ inline std::string serial_path(const std::string &port) {
 /// @returns the name that every spelling of a serial port shares: on POSIX, the path
 /// with its links resolved, and on Windows, the device path in upper case.
 std::string canonical_port(const std::string &port);
+
+/// @brief locks the serial port that fd holds open, so that no other open of the port
+/// can use it. Windows already opens a COM port for one handle only.
+/// @returns 0, or EBUSY if another open of the port holds it.
+int lock_port(int fd);
 
 /// @brief the link to a Modbus server and the unit a device addresses on it.
 struct ConnectionConfig {
@@ -392,6 +400,8 @@ public:
     /// @brief the clock of request, reply, and demotion times.
     using Clock = std::chrono::steady_clock;
 
+    /// @brief the link of the connection.
+    const Transport transport;
     /// @brief the line settings of a serial connection. Unused for TCP.
     const Serial serial;
 
@@ -467,6 +477,11 @@ private:
         );
         if (!this->connected) {
             if (modbus_connect(this->ctx) == -1) return errno;
+            if (this->transport == Transport::RTU)
+                if (const int errnum = lock_port(modbus_get_socket(this->ctx))) {
+                    modbus_close(this->ctx);
+                    return errnum;
+                }
             this->connected = true;
             this->stale = false;
         }
@@ -523,12 +538,13 @@ public:
     /// @brief takes ownership of a context created by modbus_new_tcp_pi.
     /// @param demotion how long the requests of a demoted unit fail at once.
     Connection(modbus_t *ctx, const x::telem::TimeSpan demotion):
-        ctx(ctx), demotion(demotion), frame_gap(0) {}
+        transport(Transport::TCP), ctx(ctx), demotion(demotion), frame_gap(0) {}
 
     /// @brief takes ownership of a context created by modbus_new_rtu with the line
     /// settings.
     /// @param demotion how long the requests of a demoted unit fail at once.
     Connection(modbus_t *ctx, Serial serial, const x::telem::TimeSpan demotion):
+        transport(Transport::RTU),
         serial(std::move(serial)),
         ctx(ctx),
         demotion(demotion),

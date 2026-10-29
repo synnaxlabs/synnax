@@ -166,6 +166,31 @@ TEST(RTU, SharesConnectionAcrossLinks) {
     EXPECT_EQ(by_link->last_reply(), by_path->last_reply());
 }
 
+/// @brief it should let one connection at a time use a serial port, even when a link
+/// to it appeared after the other connection was acquired.
+TEST(RTU, LocksPortToOneConnection) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    const auto link = std::filesystem::temp_directory_path() /
+                      ("modbus-rtu-" + x::uuid::create().to_string());
+    device::Manager manager;
+    auto link_cfg = rtu(slave, 1);
+    link_cfg.serial.port = link.string();
+    auto by_link = ASSERT_NIL_P(manager.acquire(link_cfg));
+    std::filesystem::create_symlink(slave.serial_port(), link);
+    x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
+    auto by_path = ASSERT_NIL_P(manager.acquire(rtu(slave, 1)));
+
+    uint16_t reg = 0;
+    ASSERT_NIL(by_path->read_registers(device::HoldingRegister, 0, 1, &reg));
+    const auto err = by_link->read_registers(device::HoldingRegister, 0, 1, &reg);
+    ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
+    EXPECT_EQ(err.data, "serial port is in use by another connection");
+    by_path.reset();
+    ASSERT_NIL(by_link->read_registers(device::HoldingRegister, 0, 1, &reg));
+}
+
 /// @brief it should demote a silent unit while another unit on the port answers.
 TEST(RTU, DemotesSilentUnitWhileOthersAnswer) {
     auto cfg = serial_slave();
@@ -275,6 +300,38 @@ TEST(RTU, ScannerAcceptsNewLineSettings) {
     const auto status = scanned[0].status.value();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Device connected");
+}
+
+/// @brief it should wait for a scan's probe of a serial port to end before it tests the
+/// port at new line settings.
+TEST(RTU, ScannerTestsNewLineSettingsDuringProbe) {
+    auto slave_cfg = serial_slave();
+    slave_cfg.silent_units = {4};
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    auto silent = rtu(slave, 4);
+    silent.timeout = x::telem::MILLISECOND * 500;
+    std::unordered_map<std::string, synnax::device::Device> devices{
+        {"silent", rtu_device(slave, "silent", 4)},
+    };
+    devices["silent"].properties = {{"connection", silent.to_json()}};
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    std::thread scanning([&] { ASSERT_NIL_P(scanner.scan(scan_ctx)); });
+    x::defer::defer join([&scanning] { scanning.join(); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    auto cfg = rtu(slave, 1);
+    cfg.serial.baud_rate = 9600;
+
+    auto cmd = test_command(t, cfg);
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should fail a connection test at new line settings for a serial port that
