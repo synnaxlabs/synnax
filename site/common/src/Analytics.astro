@@ -104,33 +104,41 @@ const { privacy, userID, sensitive = false } = Astro.props;
         &[hidden] {
             display: none;
         }
+
         .pluto-text {
             display: block;
             font-size: 14px;
             line-height: 20px;
         }
+
         .consent-name,
         .consent-description {
             color: var(--pluto-gray-l9);
             font-size: 13px;
         }
+
         .consent-name {
             margin-bottom: 4px;
         }
+
         .consent-message {
             font-weight: 500;
             text-wrap: balance;
         }
+
         .consent-description {
             margin-top: 4px;
+
             a {
                 white-space: nowrap;
             }
         }
+
         .consent-actions {
             display: flex;
             gap: 8px;
             margin-top: 16px;
+
             .pluto-btn {
                 flex: 1;
                 justify-content: center;
@@ -138,7 +146,7 @@ const { privacy, userID, sensitive = false } = Astro.props;
         }
     }
 
-    @media (max-width: 700px) {
+    @media (width <= 700px) {
         .consent {
             left: 12px;
             right: 12px;
