@@ -258,24 +258,28 @@ type Layer struct {
 	Group        *group.Service
 	Log          *log.Service
 	Auth         *auth.Service
-	Session      *session.Service
-	APIKey       *apikey.Service
-	Password     *password.Service
-	OIDC         *oidc.Service
-	Schematic    *schematic.Service
-	Symbol       *symbol.Service
-	View         *view.Service
-	Table        *table.Service
-	Panel        *panel.Service
-	Label        *label.Service
-	Rack         *rack.Service
-	Task         *task.Service
-	Device       *device.Service
-	Access       *access.Service
-	Arc          *arc.Service
-	Status       *status.Service
-	ImEx         *imex.Service
-	config       config.LayerConfig
+	// Session logs in and lists, renews, and ends sessions.
+	Session *session.Service
+	// APIKey creates, lists, and deletes API keys.
+	APIKey *apikey.Service
+	// Password creates, sets, renames, and lists passwords.
+	Password *password.Service
+	// OIDC links, lists, and unlinks OpenID Connect provider accounts.
+	OIDC      *oidc.Service
+	Schematic *schematic.Service
+	Symbol    *symbol.Service
+	View      *view.Service
+	Table     *table.Service
+	Panel     *panel.Service
+	Label     *label.Service
+	Rack      *rack.Service
+	Task      *task.Service
+	Device    *device.Service
+	Access    *access.Service
+	Arc       *arc.Service
+	Status    *status.Service
+	ImEx      *imex.Service
+	config    config.LayerConfig
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
