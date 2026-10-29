@@ -127,9 +127,13 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 ### Overflow
 
 - Cut text fades at its end (`Text` with `overflow="fade"`) everywhere: trees, tabs,
-  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle.
-- A cut name shows its full text in a tooltip on hover, only when it is cut. Test
-  `scrollWidth > clientWidth` in a pointer handler, never during render.
+  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle. Text
+  with `lineClamp` fades the end of its last line. A cut input value fades until the
+  input takes focus.
+- A cut name shows its full text in a tooltip on hover, only when it is cut.
+  `Tooltip.Overflow`, mounted once, does this for every `overflow="fade"` label. An
+  element's own tooltip wins over it.
+- A name under edit stays inside its box and scrolls to the caret, with no fade.
 - Prose wraps with `overflow-wrap: anywhere` and is never cut: modal text, toasts,
   confirmations, errors, and tooltips.
 - A number never clips, because a clipped number reads as a different valid number.

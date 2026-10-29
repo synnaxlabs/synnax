@@ -10,7 +10,7 @@
  */
 
 /* A shortcut is one chip that holds all of its keys. */
-.pluto-triggers__keys.pluto-text {
+.lyra-triggers__keys.lyra-text {
     align-items: center;
     height: 3rem;
     padding-inline: round(0.833rem, 1px);

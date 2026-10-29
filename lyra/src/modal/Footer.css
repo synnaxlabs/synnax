@@ -9,15 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-modal__footer {
+.lyra-modal__footer {
     padding-bottom: var(--pluto-modal-inset);
 
-    .pluto-navbar__content {
-        &.pluto--start {
+    .lyra-navbar__content {
+        &.lyra--start {
             padding-left: var(--pluto-modal-inset);
         }
 
-        &.pluto--end {
+        &.lyra--end {
             padding-right: var(--pluto-modal-inset);
         }
     }

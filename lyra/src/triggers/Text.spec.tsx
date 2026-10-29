@@ -31,8 +31,8 @@ describe("Text", () => {
   it("should render the arrow keys as arrows", () => {
     const { container } = render(<Triggers.Text trigger={["ArrowUp", "ArrowDown"]} />);
     expect(container.textContent).toBe("");
-    expect(container.querySelector(".pluto-icon--keyboard-arrow-up")).not.toBeNull();
-    expect(container.querySelector(".pluto-icon--keyboard-arrow-down")).not.toBeNull();
+    expect(container.querySelector(".lyra-icon--keyboard-arrow-up")).not.toBeNull();
+    expect(container.querySelector(".lyra-icon--keyboard-arrow-down")).not.toBeNull();
   });
 
   it("should render nothing for a reserved trigger", () => {
@@ -90,7 +90,7 @@ describe("Text", () => {
       vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
       const reloaded = await import("@/triggers");
       const { container } = render(<reloaded.Triggers.Text trigger={trigger} />);
-      return Array.from(container.querySelectorAll(".pluto-text--keyboard"), capName);
+      return Array.from(container.querySelectorAll(".lyra-text--keyboard"), capName);
     };
 
     const MIXED: Triggers.Trigger = ["MouseLeft", "Control", "K", "Shift", "Alt"];
