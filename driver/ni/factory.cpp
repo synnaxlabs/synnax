@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <utility>
 #include <vector>
-
-#include "absl/log/log.h"
 
 #include "driver/common/factory.h"
 #include "driver/ni/daqmx/prod.h"
@@ -22,20 +21,26 @@
 
 namespace driver::ni {
 Factory::Factory(
-    const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+    common::Lazy<daqmx::SugaredAPI>::Loader load_dmx,
+    common::Lazy<syscfg::SugaredAPI>::Loader load_syscfg,
     const common::TimingConfig timing_cfg
 ):
-    dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {}
+    dmx(std::make_shared<common::Lazy<daqmx::SugaredAPI>>(std::move(load_dmx))),
+    syscfg(std::make_shared<common::Lazy<syscfg::SugaredAPI>>(std::move(load_syscfg))),
+    timing_cfg(timing_cfg) {}
 
-std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {
-    auto [syscfg, syscfg_err] = syscfg::ProdAPI::load();
-    if (syscfg_err) LOG(WARNING) << syscfg_err;
-    auto [dmx, dmx_err] = daqmx::ProdAPI::load();
-    if (dmx_err) LOG(WARNING) << dmx_err;
+std::unique_ptr<Factory> Factory::create(const common::TimingConfig timing_cfg) {
     return std::make_unique<Factory>(
-        dmx != nullptr ? std::make_shared<daqmx::SugaredAPI>(dmx) : nullptr,
-        syscfg != nullptr ? std::make_shared<syscfg::SugaredAPI>(syscfg) : nullptr,
+        []() -> std::pair<std::shared_ptr<daqmx::SugaredAPI>, x::errors::Error> {
+            auto [dmx, err] = daqmx::ProdAPI::load();
+            if (err) return {nullptr, err};
+            return {std::make_shared<daqmx::SugaredAPI>(dmx), x::errors::NIL};
+        },
+        []() -> std::pair<std::shared_ptr<syscfg::SugaredAPI>, x::errors::Error> {
+            auto [syscfg, err] = syscfg::ProdAPI::load();
+            if (err) return {nullptr, err};
+            return {std::make_shared<syscfg::SugaredAPI>(syscfg), x::errors::NIL};
+        },
         timing_cfg
     );
 }

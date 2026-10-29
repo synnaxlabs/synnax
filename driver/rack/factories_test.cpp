@@ -12,46 +12,26 @@
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
-/// @brief it should build no NI or LabJack factory when their libraries do not load,
-/// and still build the factory of an integration whose libraries load.
-TEST(RackFactoriesTest, testSkipsIntegrationsWithoutLibraries) {
-    const Config cfg{
-        .integrations =
-            {ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME, http::INTEGRATION_NAME},
-        .libraries_loaded = [](const std::string &i) {
-            return i != ni::INTEGRATION_NAME && i != labjack::INTEGRATION_NAME;
-        },
-    };
-    ASSERT_EQ(cfg.supported_integrations(), std::vector{http::INTEGRATION_NAME});
+/// @brief it should build the NI and LabJack factories whether or not their libraries
+/// load.
+TEST(RackFactoriesTest, BuildsFactoriesWithoutLibraries) {
+    const Config cfg{.integrations = {ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME}};
     const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    for (const auto &type: {
-             ni::SCAN_TASK_TYPE,
-             ni::ANALOG_READ_TASK_TYPE,
-             labjack::SCAN_TASK_TYPE,
-             labjack::READ_TASK_TYPE,
-         }) {
+    // An invalid config stops the configure before it loads a library or builds a
+    // scanner, which needs a client.
+    for (const auto &type: {ni::SCAN_TASK_TYPE, labjack::SCAN_TASK_TYPE}) {
         const auto [tsk, handled] = factory->configure_task(
             ctx,
-            synnax::task::Task{.name = type, .type = type},
+            synnax::task::Task{
+                .name = type,
+                .type = type,
+                .config = {{"rate", "fast"}}
+            },
             task::NO_COMMAND
         );
-        EXPECT_FALSE(handled) << type;
+        EXPECT_TRUE(handled) << type;
         EXPECT_EQ(tsk, nullptr) << type;
     }
-    // An invalid config stops the configure before it builds a scanner, which needs a
-    // client.
-    const auto [scanner, handled] = factory->configure_task(
-        ctx,
-        synnax::task::Task{
-            .name = "http_scan",
-            .type = "http_scan",
-            .config = {{"rate", "fast"}},
-        },
-        task::NO_COMMAND
-    );
-    EXPECT_TRUE(handled);
-    EXPECT_EQ(scanner, nullptr);
-    EXPECT_TRUE(ctx->statuses.empty());
 }
 }
