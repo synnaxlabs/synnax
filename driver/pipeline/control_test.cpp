@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <cstdint>
 #include <future>
 #include <thread>
 
@@ -177,5 +179,56 @@ TEST(ControlPipeline, OpenedSkippedOnOpenFailure) {
     control.stop();
     ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
     ASSERT_EQ(sink->opens.load(), 0);
+}
+
+namespace {
+/// @brief answers each open with the next scripted error and records the stack
+/// address of each call.
+class DepthStreamerFactory final : public StreamerFactory {
+    std::vector<x::errors::Error> errors;
+
+public:
+    std::atomic<size_t> opens{0};
+    std::vector<std::uintptr_t> depths;
+
+    explicit DepthStreamerFactory(std::vector<x::errors::Error> errors):
+        errors(std::move(errors)) {}
+
+    std::pair<std::unique_ptr<Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        volatile char marker = 0;
+        this->depths.push_back(reinterpret_cast<std::uintptr_t>(&marker));
+        const auto err = this->errors.at(this->depths.size() - 1);
+        this->opens.fetch_add(1);
+        return {nullptr, err};
+    }
+};
+}
+
+/// @brief it should retry a lost Core in a loop, so a long outage cannot overflow the
+/// stack.
+TEST(ControlPipeline, RetriesOpenAtOneStackDepth) {
+    const auto factory = std::make_shared<DepthStreamerFactory>(std::vector{
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        x::errors::UNKNOWN,
+    });
+    const auto sink = std::make_shared<testutil::Sink>();
+    auto control = Control(
+        factory,
+        synnax::framer::StreamerConfig{},
+        sink,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 5,
+        }
+    );
+    ASSERT_TRUE(control.start());
+    ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);
+    control.stop();
+    ASSERT_MATCHES(sink->stop_err, x::errors::UNKNOWN);
+    for (const auto depth: factory->depths)
+        ASSERT_EQ(depth, factory->depths.front());
 }
 }

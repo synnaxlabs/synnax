@@ -378,6 +378,47 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     EXPECT_EQ(devices[0].status.value().message, "Server connected");
 }
 
+/// @brief it should not open a session of its own when a task received a reply from
+/// the server since the last check, and open one when no task did.
+TEST_F(TestScanTask, testHealthCheckRidesTaskSession) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    synnax::device::Device dev;
+    dev.key = "ride-device";
+    dev.name = "Ride Device";
+    dev.make = "opc";
+    dev.rack = rack.key;
+    dev.properties = x::json::json{
+        {"connection", testutil::connection_json(cfg)},
+        {"channels", x::json::json::array()}
+    };
+    const auto task_conn = ASSERT_NIL_P(conn_pool->acquire(cfg, "[test] "));
+    const auto first = this->scan(scanner, dev);
+    EXPECT_EQ(first[0].status.value().message, "Server connected");
+    EXPECT_EQ(conn_pool->size(), 1);
+    const auto second = this->scan(scanner, dev);
+    EXPECT_EQ(second[0].status.value().message, "Server connected");
+    EXPECT_EQ(conn_pool->size(), 2);
+}
+
+/// @brief it should close the connections that no one used for the idle timeout on
+/// each scan.
+TEST_F(TestScanTask, testScanClosesIdleConnections) {
+    conn_pool = std::make_shared<connection::Pool>(store, std::chrono::milliseconds(0));
+    Scanner scanner(ctx, task, conn_pool, store);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    ASSERT_NIL(conn_pool->acquire(cfg, "[test] ").second);
+    ASSERT_EQ(conn_pool->size(), 1);
+    std::unordered_map<std::string, synnax::device::Device> devices;
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    const auto scanned = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    EXPECT_TRUE(scanned.empty());
+    EXPECT_EQ(conn_pool->size(), 0);
+}
+
 /// @brief Tests that health check detects connection state changes (server up/down/up).
 TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     // Create device with connection properties

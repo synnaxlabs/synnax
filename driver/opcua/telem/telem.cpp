@@ -55,6 +55,23 @@ UA_DataType *data_type_to_ua(const x::telem::DataType &data_type) {
     return &UA_TYPES[UA_TYPES_VARIANT];
 }
 
+x::telem::Series to_series(
+    const x::telem::DataType &dt,
+    const std::vector<x::telem::SampleValue> &samples
+) {
+    if (!dt.is_variable()) {
+        x::telem::Series series(dt, samples.size());
+        for (const auto &sample: samples)
+            series.write(sample);
+        return series;
+    }
+    std::vector<std::string> strings;
+    strings.reserve(samples.size());
+    for (const auto &sample: samples)
+        strings.push_back(std::get<std::string>(sample));
+    return x::telem::Series(strings, dt);
+}
+
 namespace {
 // A TimeStamp counts nanoseconds from 1970 in an int64, so it holds only DateTimes
 // from 1677 to 2262.
@@ -98,13 +115,12 @@ write(x::telem::Series &series, const std::vector<x::telem::SampleValue> &sample
             written += series.write(sample);
         return written;
     }
-    std::vector<std::string> strings;
-    strings.reserve(series.size() + samples.size());
+    std::vector<x::telem::SampleValue> all;
+    all.reserve(series.size() + samples.size());
     for (size_t i = 0; i < series.size(); ++i)
-        strings.push_back(series.at<std::string>(static_cast<int>(i)));
-    for (const auto &sample: samples)
-        strings.push_back(std::get<std::string>(sample));
-    series = x::telem::Series(strings, series.data_type());
+        all.emplace_back(series.at<std::string>(static_cast<int>(i)));
+    all.insert(all.end(), samples.begin(), samples.end());
+    series = to_series(series.data_type(), all);
     return samples.size();
 }
 
@@ -214,7 +230,7 @@ std::pair<UA_Variant, x::errors::Error> series_to_variant(const x::telem::Series
     UA_Variant v;
     UA_Variant_init(&v);
     const auto sample = s.at(-1);
-    UA_StatusCode status;
+    UA_StatusCode status = UA_STATUSCODE_GOOD;
     if (s.data_type() == x::telem::TIMESTAMP_T) {
         const UA_DateTime t = std::get<x::telem::TimeStamp>(sample).nanoseconds() /
                                   100 +

@@ -9,16 +9,25 @@
 
 #pragma once
 
+#include <cstddef>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
 #include "absl/log/log.h"
 #include "open62541/client.h"
-#include "open62541/client_config_default.h"
-#include "open62541/client_highlevel.h"
+#include "open62541/types.h"
 
+#include "client/cpp/errors/errors.h"
 #include "client/cpp/opcua/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/strings/strings.h"
 
 #include "driver/common/write_task.h"
+#include "driver/errors/errors.h"
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/device/device.h"
 #include "driver/opcua/errors/errors.h"
@@ -105,19 +114,18 @@ class WriteTaskSink final : public common::Sink {
     types::WriteRequestBuilder builder;
     std::vector<synnax::channel::Key> written_keys;
 
-    /// @brief retrieves the device again, so a changed endpoint or trusted server
-    /// certificate takes effect on the next connection.
-    x::errors::Error retrieve_connection() {
-        auto [conn_cfg, err] = device::retrieve_connection(
+    /// @brief connects with the device's current settings, so a corrected endpoint or
+    /// login takes effect without a restart. Keeps the last settings while the Core is
+    /// unavailable.
+    x::errors::Error connect() {
+        auto [conn_cfg, retrieve_err] = device::retrieve_connection(
             *this->client,
             this->cfg.device
         );
-        if (err) return err;
-        this->conn_cfg = std::move(conn_cfg);
-        return x::errors::NIL;
-    }
-
-    x::errors::Error acquire() {
+        if (!retrieve_err)
+            this->conn_cfg = std::move(conn_cfg);
+        else if (!synnax::errors::is_temporarily_unavailable(retrieve_err))
+            return retrieve_err;
         auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
         if (err) return err;
         this->connection = std::move(c);
@@ -136,48 +144,51 @@ public:
         pool(std::move(pool)),
         connection(nullptr, nullptr, "") {}
 
+    /// @brief retrieves the device again, so a changed trusted server certificate takes
+    /// effect on restart. A server that is off or refuses Sessions does not stop the
+    /// start, since each command connects again.
     x::errors::Error start() override {
-        if (const auto err = this->retrieve_connection()) return err;
-        return this->acquire();
-    }
-
-    x::errors::Error stop() override {
-        connection = connection::Pool::Connection(nullptr, nullptr, "");
+        auto [conn_cfg, conn_err] = device::retrieve_connection(
+            *this->client,
+            this->cfg.device
+        );
+        if (conn_err) return conn_err;
+        this->conn_cfg = std::move(conn_cfg);
+        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
+        if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR))
+            return x::errors::NIL;
+        if (err) return err;
+        this->connection = std::move(c);
         return x::errors::NIL;
     }
 
+    x::errors::Error stop() override {
+        this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+        return x::errors::NIL;
+    }
+
+    /// @brief writes the command to the server. A connection that breaks gets one new
+    /// connection and one more attempt, so a Session the server closed while idle
+    /// does not drop the command.
     x::errors::Error write(::x::telem::Frame &frame) override {
+        if (!this->connection)
+            if (const auto err = this->connect()) return err;
         auto err = this->perform_write(frame);
         if (!err.matches(errors::UNREACHABLE)) return err;
-        LOG(
-            WARNING
-        ) << "[opc.write_task] connection error detected, attempting reconnect: "
-          << err;
-        // Retrieve once when an open connection breaks, not on every retry while
-        // the server is down: writes arrive faster than the Core should be asked.
-        if (this->connection) {
-            this->connection = connection::Pool::Connection(nullptr, nullptr, "");
-            if (const auto retrieve_err = this->retrieve_connection())
-                return retrieve_err;
-        }
-        if (const auto conn_err = this->acquire()) {
-            LOG(ERROR) << "[opc.write_task] failed to reconnect: " << conn_err;
-            return conn_err;
-        }
-        LOG(INFO) << "[opc.write_task] reconnected successfully, retrying write";
+        LOG(WARNING) << "[opc.write_task] lost the connection, connecting again: "
+                     << err;
+        this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+        if (const auto conn_err = this->connect()) return conn_err;
         return this->perform_write(frame);
     }
 
 private:
     /// @brief sends the built request. When the server rejects the whole request after
     /// the client certificate changed, connects again with the new certificate and
-    /// sends it again. A broken connection is left to write(), which reads the device
-    /// first.
+    /// sends it again.
     std::pair<types::WriteResponse, x::errors::Error> send() {
-        types::WriteResponse res(
-            UA_Client_Service_write(this->connection.get(), this->builder.build())
-        );
-        auto err = errors::parse(res.get().responseHeader.serviceResult);
+        const auto &req = this->builder.build();
+        auto [res, err] = this->connection.write(req);
         if (!err || err.matches(errors::UNREACHABLE)) return {std::move(res), err};
         auto [refreshed, refresh_err] = this->pool->refresh(
             this->connection,
@@ -186,40 +197,36 @@ private:
         );
         if (refresh_err) return {std::move(res), refresh_err};
         if (!refreshed) return {std::move(res), err};
-        types::WriteResponse retry(
-            UA_Client_Service_write(this->connection.get(), this->builder.build())
-        );
-        err = errors::parse(retry.get().responseHeader.serviceResult);
-        return {std::move(retry), err};
+        return this->connection.write(req);
     }
 
+    /// @brief writes the frame's values. A value that the Driver cannot convert, or
+    /// that the server rejects, is not written, and the other values still are.
     x::errors::Error perform_write(const ::x::telem::Frame &frame) {
-        if (!this->connection) return errors::NO_CONNECTION;
         this->builder.clear();
         this->written_keys.clear();
+        std::vector<std::string> problems;
         for (const auto &[key, s]: frame) {
             auto it = this->cfg.channels.find(key);
             if (it == this->cfg.channels.end()) continue;
-            if (auto err = this->builder.add_value(it->second->node, s); err) {
-                LOG(ERROR) << "[opc.write_task] failed to add value: " << err;
+            if (auto err = this->builder.add_value(it->second->node, s)) {
+                problems.push_back(it->second->ch.name + ": " + err.data + ".");
                 continue;
             }
             this->written_keys.push_back(key);
         }
-        if (this->builder.empty()) return x::errors::NIL;
-        auto [res, send_err] = this->send();
-        if (send_err) return send_err;
-        for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
-            if (auto err = errors::parse(res.get().results[i]); err) {
+        if (!this->builder.empty()) {
+            auto [res, send_err] = this->send();
+            if (send_err) return send_err;
+            for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
+                const auto status = res.get().results[i];
+                if (!UA_StatusCode_isBad(status)) continue;
                 const auto &ch = this->cfg.channels.at(this->written_keys[i]);
-                return driver::errors::wrap_channel_error(
-                    err,
-                    ch->ch.name,
-                    types::NodeId::to_string(ch->node.get())
-                );
+                problems.push_back(errors::channel_status(ch->ch.name, status));
             }
         }
-        return x::errors::NIL;
+        if (problems.empty()) return x::errors::NIL;
+        return {errors::COMMAND_REJECTED, x::strings::join(problems, " ")};
     }
 };
 }

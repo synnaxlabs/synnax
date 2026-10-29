@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "open62541/types.h"
 
 #include "x/cpp/errors/errors.h"
@@ -25,6 +27,9 @@ const x::errors::Error NO_CONNECTION = UNREACHABLE.sub("no_connection");
 /// @brief the server refused to open or activate a Session. The Driver tries again,
 /// since a server with a full Session table refuses valid credentials.
 const x::errors::Error SESSION_REJECTED = TEMPORARY.sub("session_rejected");
+/// @brief the server or the Driver did not write a command to one or more nodes. The
+/// write task warns and keeps running.
+const x::errors::Error COMMAND_REJECTED = TEMPORARY.sub("command_rejected");
 
 /// @brief security-related errors for certificate and encryption issues
 const x::errors::Error SECURITY = CRITICAL.sub("security");
@@ -61,4 +66,8 @@ x::errors::Error parse(const UA_StatusCode &status);
 /// @brief converts the status of a connection attempt to an error. It is the same as
 /// parse, except that a refused Session is errors::SESSION_REJECTED.
 x::errors::Error parse_connect(const UA_StatusCode &status);
+
+/// @returns a sentence that names the channel and the status of its value, followed by
+/// the reason when the status is bad.
+std::string channel_status(const std::string &name, const UA_StatusCode &status);
 }
