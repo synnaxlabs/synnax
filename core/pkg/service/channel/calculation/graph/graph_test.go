@@ -1324,6 +1324,25 @@ var _ = Describe("Graph", func() {
 		})
 
 		It(
+			"Should drop a report for a channel with an invalid expression",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				calc := createBrokenCalc(ctx, "rt_invalid", "rt_invalid_dep")
+				expectStatus(ctx, calc.Key())
+
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_invalid",
+					Variant: status.VariantError,
+					Message: "Failed to request calculation",
+					Time:    telem.Now(),
+				})).To(Succeed())
+
+				st := MustBeOk(fetchStatus(ctx, calc.Key()))
+				Expect(st.Message).To(Equal("Failed to compile calculation"))
+			},
+		)
+
+		It(
 			"Should keep a report made from an Observe subscriber on the same batch",
 			func(ctx SpecContext) {
 				g := openGraph(ctx)

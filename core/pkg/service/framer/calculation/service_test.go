@@ -809,7 +809,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	Describe("Calculation Status", func() {
 		Specify(
-			"Should persist error status on invalid expression request",
+			"Should keep the compile error status on an invalid expression request",
 			func(ctx SpecContext) {
 				base := channel.Channel{
 					Name:     UniqueChannelName(),
@@ -833,16 +833,18 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(
 					rm.Set(ctx, channel.KeysFromChannels([]channel.Channel{calc})),
 				).To(Succeed())
-				var st calculation.Status
 				statusKey := calc.OntologyID().String()
-				Expect(statusSvc.NewRetrieve[struct{}]().
-					Where(status.MatchKeys[struct{}](statusKey)).
-					Entry(&st).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(st.Variant).To(Equal(status.VariantError))
-				Expect(st.Name).To(Equal(calc.Name))
-				Expect(st.Message).To(Equal("Failed to request calculation"))
-				Expect(st.Description).To(ContainSubstring(base.Name))
+				Eventually(func(g Gomega) {
+					var st calculation.Status
+					g.Expect(statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchKeys[struct{}](statusKey)).
+						Entry(&st).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(st.Variant).To(Equal(status.VariantError))
+					g.Expect(st.Name).To(Equal(calc.Name))
+					g.Expect(st.Message).To(Equal("Failed to compile calculation"))
+					g.Expect(st.Description).To(ContainSubstring(base.Name))
+				}).Should(Succeed())
 				Expect(rm.Close(ctx)).To(Succeed())
 			},
 		)
