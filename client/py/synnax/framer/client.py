@@ -287,10 +287,10 @@ class Client:
         frame = self._reader.read(tr, channels, reduction)
         if not normal.single:
             return frame
-        series = frame.get(normal.channels[0], None)
-        if series is None:
+        series = frame[normal.channels[0]]
+        if len(series) == 0:
             raise QueryError(
-                f"""No data found for channel {normal.channels[0]} between {tr}"""
+                f"No data found for channel {normal.channels[0]} in the range {tr}"
             )
         return series
 
@@ -374,10 +374,7 @@ class Client:
                 aggregate.append(i.value)
         if not normal.single:
             return aggregate
-        result = aggregate.get(normal.channels[0], MultiSeries([]))
-        if result is None:
-            return MultiSeries([])
-        return result
+        return aggregate[normal.channels[0]]
 
     def open_streamer(
         self,

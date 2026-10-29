@@ -262,7 +262,7 @@ df = frame.to_df()
 ```
 
 When the frame has no series for the channel, `frame["name"]` returns an empty
-`MultiSeries`.
+`MultiSeries`, and `frame.get("name")` returns `None` or the default that you give.
 
   </Fragment>
 

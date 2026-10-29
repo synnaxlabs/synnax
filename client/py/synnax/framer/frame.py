@@ -185,18 +185,26 @@ class Frame:
         indexes = [i for i, k in enumerate(self.channels) if k == key]
         return MultiSeries([self.series[i] for i in indexes])
 
+    @overload
+    def get(self, key: channel.Key | str) -> MultiSeries | None: ...
+
+    @overload
+    def get(self, key: channel.Key | str, default: MultiSeries) -> MultiSeries: ...
+
     def get(
         self, key: channel.Key | str, default: MultiSeries | None = None
     ) -> MultiSeries | None:
-        """Gets the series for the given channel key or name. If the channel does not
-        exist in the frame, returns the default value or None if no default is provided.
+        """Gets the series of a channel by its key or name.
+
         :param key: The channel key or name to get the series for.
-        :param default: The default value to return if the channel does not exist in the
+        :param default: The value to return when the frame has no series for the
+            channel.
+        :returns: The series of the channel, or default when the frame has no series
+            for the channel.
         """
-        try:
-            return self[key]
-        except ValueError:
+        if key not in self:
             return default
+        return self[key]
 
     def to_payload(self) -> FramePayload:
         """Converts the frame to its payload representation for transport over the

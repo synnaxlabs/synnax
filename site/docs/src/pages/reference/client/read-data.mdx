@@ -88,8 +88,10 @@ const samples = await channel.read(tr);
 
 </Client.Tabs>
 
-A list of channels always gives a `Frame`, even a list of one channel. To work with the
-result, see [Series and frames](/reference/client/series-and-frames).
+A list of channels always gives a `Frame`, even a list of one channel. In Python, a read
+of one channel that is not in a list raises a `QueryError` when the channel has no data
+in the time range. A list gives an empty series for the channel instead. To work with
+the result, see [Series and frames](/reference/client/series-and-frames).
 
 <Divider.Divider x />
 

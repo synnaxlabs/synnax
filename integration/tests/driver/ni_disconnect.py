@@ -271,9 +271,11 @@ class _NIReadDisconnectMixin(ReadTaskCase[ReadTaskT]):
         sy.sleep(0.5)
         end = sy.TimeStamp.now()
         tr = sy.TimeRange(start, end)
-        for key in self._channel_keys(tsk):
+        keys = self._channel_keys(tsk)
+        frame = self.client.read(tr, keys)
+        for key in keys:
             ch = self.client.channels.retrieve(key)
-            n = len(ch.read(tr))
+            n = len(frame[key])
             if n > 0:
                 self.fail(
                     f"Channel '{ch.name}' has {n} samples "
