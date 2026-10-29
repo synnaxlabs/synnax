@@ -153,6 +153,7 @@ type Service struct {
 	cfg      ServiceConfig
 	group    group.Group
 	reserved set.Set[string]
+	names    nameLock
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
@@ -246,6 +247,7 @@ func OpenService(
 	s = &Service{
 		cfg:      cfg,
 		reserved: reservedNames(),
+		names:    newNameLock(),
 		state:    actions.NewState[Key, Action](cfg.DB),
 		indexes:  newIndexes(),
 		sweeper: newTextSweeper(

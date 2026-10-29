@@ -53,6 +53,32 @@ var _ = Describe("DB", func() {
 		)
 	})
 
+	Describe("OnCleanup", func() {
+		It("Should run the hook once the transaction commits", func(ctx SpecContext) {
+			tx := db.OpenTx()
+			var calls []bool
+			Expect(gorp.OnCleanup(tx, func(committed bool) {
+				calls = append(calls, committed)
+			})).To(BeTrue())
+			Expect(calls).To(BeEmpty())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+			Expect(calls).To(Equal([]bool{true}))
+		})
+		It("Should run the hook when the transaction closes", func() {
+			tx := db.OpenTx()
+			var calls []bool
+			Expect(gorp.OnCleanup(tx, func(committed bool) {
+				calls = append(calls, committed)
+			})).To(BeTrue())
+			Expect(tx.Close()).To(Succeed())
+			Expect(calls).To(Equal([]bool{false}))
+		})
+		It("Should register nothing on a DB", func() {
+			Expect(gorp.OnCleanup(db, func(bool) { Fail("hook ran") })).To(BeFalse())
+		})
+	})
+
 	Describe("OverrideTx", func() {
 		It("Should return the override transaction if it is not nil", func() {
 			tx := db.OpenTx()

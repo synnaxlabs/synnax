@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	"sync"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -147,6 +148,9 @@ func (s *Service) validateEntry(
 	parent, id ontology.ID,
 	name string,
 ) error {
+	if err := s.names.claim(ctx, tx); err != nil {
+		return err
+	}
 	if id.Type != ontology.ResourceTypeGroup && id.Type != ontology.ResourceTypeArc {
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -190,6 +194,48 @@ func (s *Service) validateEntry(
 		}
 	}
 	return nil
+}
+
+// nameLock serializes the name checks under Arcs. A transaction holds it from its
+// first check until it commits or closes, so two transactions cannot both find one
+// name free. A DB used directly holds it for no longer than the claim.
+type nameLock struct {
+	sem    chan struct{}
+	mu     sync.Mutex
+	holder gorp.Tx
+}
+
+func newNameLock() nameLock { return nameLock{sem: make(chan struct{}, 1)} }
+
+// claim takes the lock for tx, or returns at once when tx holds it already. It returns
+// the error of ctx when ctx ends first.
+func (l *nameLock) claim(ctx context.Context, tx gorp.Tx) error {
+	l.mu.Lock()
+	held := l.holder != nil && l.holder == tx
+	l.mu.Unlock()
+	if held {
+		return nil
+	}
+	select {
+	case l.sem <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if !gorp.OnCleanup(tx, func(bool) { l.release() }) {
+		<-l.sem
+		return nil
+	}
+	l.mu.Lock()
+	l.holder = tx
+	l.mu.Unlock()
+	return nil
+}
+
+func (l *nameLock) release() {
+	l.mu.Lock()
+	l.holder = nil
+	l.mu.Unlock()
+	<-l.sem
 }
 
 func errNameUsed(name string) error {

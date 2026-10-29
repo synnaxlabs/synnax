@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -156,6 +158,38 @@ var _ = Describe("Policy", func() {
 				Expect(svc.Dispatch(ctx, b.Key, "", []arc.Action{
 					arc.NewRenameAction(arc.RenamePayload{Name: "d1"}),
 				})).To(MatchError(ContainSubstring("already used")))
+			},
+		)
+		It("Should serialize name claims across transactions", func(ctx SpecContext) {
+			tx1 := DeferClose(db.OpenTx())
+			tx2 := DeferClose(db.OpenTx())
+			MustSucceed(groupSvc.NewWriter(tx1).Create(ctx, "raced", arcs))
+			done := make(chan error, 1)
+			go func() {
+				_, err := groupSvc.NewWriter(tx2).Create(ctx, "raced", arcs)
+				done <- err
+			}()
+			Consistently(done).ShouldNot(Receive())
+			Expect(tx1.Commit(ctx)).To(Succeed())
+			Eventually(done).Should(
+				Receive(MatchError(ContainSubstring("already used"))),
+			)
+		})
+		It(
+			"Should stop waiting for a name when the context ends",
+			func(ctx SpecContext) {
+				tx1 := DeferClose(db.OpenTx())
+				tx2 := DeferClose(db.OpenTx())
+				MustSucceed(groupSvc.NewWriter(tx1).Create(ctx, "waited", arcs))
+				cancelCtx, cancel := context.WithCancel(ctx)
+				done := make(chan error, 1)
+				go func() {
+					_, err := groupSvc.NewWriter(tx2).Create(cancelCtx, "waited", arcs)
+					done <- err
+				}()
+				Consistently(done).ShouldNot(Receive())
+				cancel()
+				Eventually(done).Should(Receive(MatchError(context.Canceled)))
 			},
 		)
 	})

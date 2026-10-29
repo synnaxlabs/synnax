@@ -56,12 +56,12 @@ func (s *Service) Dispatch(
 					}
 					a.ApplyDefaults()
 					if err = validateType(stored.Type, a.Type); err != nil {
-						return a, err
+						return Arc{}, err
 					}
 					if a.Name != stored.Name {
 						if err = s.cfg.Ontology.NewWriter(tx).
 							ValidateName(ctx, OntologyID(key), a.Name); err != nil {
-							return a, err
+							return Arc{}, err
 						}
 					}
 					if len(dead) > 0 {
