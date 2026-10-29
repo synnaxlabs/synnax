@@ -20,6 +20,8 @@ export interface Toolbar extends Pick<Resize.SingleProps, "sizeBounds"> {
   tooltip: string;
   trigger: Triggers.Trigger;
   useVisible?: () => boolean;
+  /** Shows on the nav icon of the toolbar, such as a {@link Badge}. */
+  badge?: ReactElement;
 }
 
 /**

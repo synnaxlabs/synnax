@@ -15,6 +15,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Status } from "@/feature/status";
 import { Modals } from "@/platform/modals";
+import { Notifications } from "@/platform/notifications";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -55,13 +56,14 @@ const renderToolbar = async (
     },
   });
   const { container } = render(
-    <>
+    <Notifications.Provider>
       <Synchronizers />
       {Status.TOOLBAR.content}
       <Modals.Stack />
-    </>,
+    </Notifications.Provider>,
     { wrapper },
   );
+  fireEvent.click(screen.getByRole("tab", { name: "Favorites" }));
   return { store, container };
 };
 

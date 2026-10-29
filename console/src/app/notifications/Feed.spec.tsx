@@ -10,13 +10,15 @@
 import { device, rack, type status, task } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { act, render, screen, within } from "@testing-library/react";
+import { type ReactElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Notifications } from "@/app/notifications";
 import { EtherCAT } from "@/feature/ethercat";
+import { Status } from "@/feature/status";
 import { createTestDevice } from "@/platform/device/testutil";
+import { Notifications as PlatformNotifications } from "@/platform/notifications";
 import { close, settleWrites, UncappedFeed } from "@/platform/notifications/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
@@ -27,10 +29,16 @@ const Forward = (): ReactElement => {
   return <UncappedFeed />;
 };
 
-const renderForward = async (): Promise<void> => {
+const renderForward = async (ui?: ReactNode): Promise<void> => {
   await waitForStreamLive(client.connection);
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<Forward />, { wrapper });
+  render(
+    <PlatformNotifications.Provider>
+      <Forward />
+      {ui}
+    </PlatformNotifications.Provider>,
+    { wrapper },
+  );
   // A problem that starts before the open problems load counts as open at load.
   await settleWrites(client);
 };
@@ -137,5 +145,59 @@ describe("Notifications.useForward", () => {
     await close(await failStart("start-1"));
     // The second reply comes within 30 s, so it has the since of the first.
     expect(await screen.findByText(await failStart("start-2"))).toBeTruthy();
+  });
+
+  describe("problems view", () => {
+    const findProblem = async (message: string): Promise<HTMLElement> => {
+      const text = await within(screen.getByRole("tabpanel")).findByText(message);
+      const problem = text.closest<HTMLElement>(".console-status-problem");
+      if (problem == null) throw new Error(`no problem for ${message}`);
+      return problem;
+    };
+
+    it("should list a task problem under the problem of its rack", async () => {
+      const r = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await r.createTask({
+        name: uniqueName("task"),
+        type: "pagerduty_alert",
+        config: {},
+      });
+      const fakeRack = Math.floor(Math.random() * 2 ** 32);
+      await renderForward(Status.TOOLBAR.content);
+      const rackMessage = await writeStatus(rack.statusKey(fakeRack), "error");
+      const taskMessage = await writeStatus(task.statusKey(tsk.key), "error", {
+        task: tsk.key,
+        running: false,
+        rack: fakeRack,
+      });
+      const rackProblem = await findProblem(rackMessage);
+      const taskProblem = await findProblem(taskMessage);
+      expect(rackProblem.nextElementSibling).toBe(taskProblem);
+      expect(taskProblem.classList).toContain("console--nested");
+      expect(rackProblem.classList).not.toContain("console--nested");
+    });
+
+    it("should not list a reply or a device that is not configured", async () => {
+      const r = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await r.createTask({
+        name: uniqueName("task"),
+        type: "pagerduty_alert",
+        config: {},
+      });
+      const unused = await createTestDevice(client, { configured: false });
+      const used = await createTestDevice(client);
+      await renderForward(Status.TOOLBAR.content);
+      const replyMessage = await writeStatus(task.statusKey(tsk.key), "error", {
+        task: tsk.key,
+        running: false,
+        cmd: "start-1",
+      });
+      const unusedMessage = await writeStatus(device.statusKey(unused.key), "error");
+      const usedMessage = await writeStatus(device.statusKey(used.key), "error");
+      await findProblem(usedMessage);
+      const panel = within(screen.getByRole("tabpanel"));
+      expect(panel.queryByText(unusedMessage)).toBeNull();
+      expect(panel.queryByText(replyMessage)).toBeNull();
+    });
   });
 });

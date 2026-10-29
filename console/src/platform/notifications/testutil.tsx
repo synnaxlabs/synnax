@@ -11,8 +11,14 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import {
+  fireEvent,
+  renderHook,
+  type RenderHookResult,
+  screen,
+  within,
+} from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { Notifications } from "@/platform/notifications";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
@@ -63,26 +69,34 @@ export const close = async (message: string): Promise<void> => {
   fireEvent.click(within(notification).getByRole("button", { name: "Silence" }));
 };
 
-interface ForwardProps {
-  rules: Notifications.Rules;
-}
-
-const Forward = ({ rules }: ForwardProps): ReactElement => {
-  Notifications.useForward(rules);
-  return <UncappedFeed />;
-};
-
 /**
- * Renders {@link UncappedFeed} with {@link Notifications.useForward} for the rules, and
- * waits until the forwarder has loaded the open problems. A problem that starts before
- * the load ends counts as open at load.
+ * Runs {@link Notifications.useForward} for the rules inside a
+ * {@link Notifications.Provider}, and renders the UI above {@link UncappedFeed}. Waits
+ * until the forwarder has loaded the open problems. A problem that starts before the
+ * load ends counts as open at load.
+ * @returns the result of {@link Notifications.useProblems}.
  */
 export const renderForward = async (
   client: Client,
   rules: Notifications.Rules,
-): Promise<void> => {
+  ui?: ReactNode,
+): Promise<RenderHookResult<Notifications.Problem[], unknown>> => {
   await waitForStreamLive(client.connection);
-  const { wrapper } = await createConsoleWrapper({ client });
-  render(<Forward rules={rules} />, { wrapper });
+  const { wrapper: Console } = await createConsoleWrapper({ client });
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Notifications.Provider>
+        {children}
+        {ui}
+        <UncappedFeed />
+      </Notifications.Provider>
+    </Console>
+  );
+  const useForwardProblems = (): Notifications.Problem[] => {
+    Notifications.useForward(rules);
+    return Notifications.useProblems();
+  };
+  const rendered = renderHook(useForwardProblems, { wrapper });
   await settleWrites(client);
+  return rendered;
 };

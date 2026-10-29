@@ -17,6 +17,7 @@ import { List as BaseList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -25,6 +26,7 @@ import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/status/explorer";
 import { ContextMenu } from "@/feature/status/list/ContextMenu";
+import { Badge, Problems } from "@/feature/status/Problems";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -127,16 +129,28 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => (
   <Toolbar.Content>
-    <Toolbar.Header>
-      <Toolbar.Title>
-        <Icon.Status />
-        Statuses
-      </Toolbar.Title>
-      <Actions />
-    </Toolbar.Header>
-    <Toolbar.Body>
-      <List />
-    </Toolbar.Body>
+    <Tabs.Frame initialValue="problems" grow>
+      <Toolbar.Header>
+        <Flex.Box x align="center" gap="small">
+          <Toolbar.Title>
+            <Icon.Status />
+          </Toolbar.Title>
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="problems">Problems</Tabs.Tab>
+            <Tabs.Tab itemKey="favorites">Favorites</Tabs.Tab>
+          </Tabs.Selector>
+        </Flex.Box>
+        <Actions />
+      </Toolbar.Header>
+      <Toolbar.Body>
+        <Tabs.Content itemKey="problems">
+          <Problems />
+        </Tabs.Content>
+        <Tabs.Content itemKey="favorites">
+          <List />
+        </Tabs.Content>
+      </Toolbar.Body>
+    </Tabs.Frame>
   </Toolbar.Content>
 );
 
@@ -175,4 +189,5 @@ export const TOOLBAR: Nav.Toolbar = {
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
   useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
+  badge: <Badge />,
 };

@@ -10,7 +10,7 @@
 import { rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { type Notifications } from "@/platform/notifications";
@@ -57,8 +57,32 @@ const createAlarm = (): Partial<status.New> & Pick<status.New, "variant"> => ({
 });
 
 const REPLY: Notifications.Rule = { kind: () => "reply" };
+const usedOnly = (used: status.Key): Notifications.Rule => ({
+  kind: () => "state",
+  inUse: async ({ status: { key } }) => key === used,
+});
+const keysOf = (problems: Notifications.Problem[]): status.Key[] =>
+  problems.map(({ status: { key } }) => key);
 const STATE: Notifications.Rule = { kind: () => "state" };
 const DELAYED: Notifications.Rule = { kind: () => "state", warningsDelayed: true };
+const commanded = (rule: Partial<Notifications.Rule> = {}): Notifications.Rule => ({
+  kind: (stat) => (status.detailsOf(stat)?.cmd == null ? "state" : "reply"),
+  warningsDelayed: true,
+  ...rule,
+});
+
+/** @returns the message of an error that answers a command on the key. */
+const writeReply = async (key: status.Key): Promise<string> =>
+  (
+    await client.statuses.set({
+      key,
+      name: "",
+      variant: "error",
+      message: uniqueName("reply"),
+      time: TimeStamp.now(),
+      details: { cmd: "start" },
+    })
+  ).message;
 
 describe("Notifications.useForward", () => {
   afterEach(() => {
@@ -82,11 +106,15 @@ describe("Notifications.useForward", () => {
 
   describe("reply", () => {
     it("should notify a reply at once, without checking use", async () => {
-      const inUse = vi.fn(async () => false);
+      const inUse = vi.fn(async (_: Notifications.InUseArgs) => false);
       await renderForward(client, { task: { ...REPLY, inUse, warningsDelayed: true } });
       const [reply] = await write({ variant: "warning" });
       expect(await screen.findByText(reply.message)).toBeTruthy();
-      expect(inUse).not.toHaveBeenCalled();
+      // The forwarder checks the replies that are open at load.
+      const calls = inUse.mock.calls.filter(
+        ([args]) => task.statusKey(args.key) === reply.key,
+      );
+      expect(calls).toHaveLength(0);
     });
 
     it("should not notify a reply that reports success", async () => {
@@ -363,6 +391,97 @@ describe("Notifications.useForward", () => {
       await client.statuses.delete(key);
       act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
       expect(screen.queryByText(warning.message)).toBeNull();
+    });
+  });
+
+  describe("open problems", () => {
+    it("should hold a problem only when its thing is in use", async () => {
+      const [unused, used] = [createTaskKey(), createTaskKey()];
+      const { result } = await renderForward(client, { task: usedOnly(used) });
+      await write({ key: unused, variant: "error" }, { key: used, variant: "error" });
+      await waitFor(() => expect(keysOf(result.current)).toContain(used));
+      expect(keysOf(result.current)).not.toContain(unused);
+    });
+
+    it("should hold a status that no rule owns, but not a reply", async () => {
+      const { result } = await renderForward(client, { task: REPLY });
+      const [reply, alarm] = await write(
+        { variant: "error" },
+        { ...createAlarm(), variant: "error" },
+      );
+      await waitFor(() => expect(keysOf(result.current)).toContain(alarm.key));
+      await screen.findByText(reply.message);
+      expect(keysOf(result.current)).not.toContain(reply.key);
+      // The problems view of other specs lists an alarm that stays open.
+      await client.statuses.delete(alarm.key);
+    });
+
+    it("should hold a problem open at load when its thing is in use", async () => {
+      const [unused, used] = [createTaskKey(), createTaskKey()];
+      await write({ key: unused, variant: "error" }, { key: used, variant: "error" });
+      const { result } = await renderForward(client, { task: usedOnly(used) });
+      await waitFor(() => expect(keysOf(result.current)).toContain(used));
+      expect(keysOf(result.current)).not.toContain(unused);
+    });
+
+    it("should hold a state that joins a reply open at load", async () => {
+      const key = createTaskKey();
+      await client.statuses.set({
+        key,
+        name: "",
+        variant: "error",
+        message: uniqueName("message"),
+        time: TimeStamp.now(),
+        details: { cmd: "start" },
+      });
+      const { result } = await renderForward(client, {
+        task: {
+          kind: (stat) => (status.detailsOf(stat)?.cmd == null ? "state" : "reply"),
+        },
+      });
+      expect(keysOf(result.current)).not.toContain(key);
+      const [state] = await write({ key, variant: "error" });
+      await waitFor(() =>
+        expect(result.current.map(({ status: s }) => s.message)).toContain(
+          state.message,
+        ),
+      );
+    });
+
+    it("should hold a problem whose notification a newer reply retires", async () => {
+      const key = createTaskKey();
+      const { result } = await renderForward(client, { task: commanded() });
+      await write({ key, variant: "warning" });
+      await screen.findByText(await writeReply(key));
+      expect(keysOf(result.current)).toContain(key);
+    });
+  });
+
+  describe("retired problems", () => {
+    it("should notify the next write of a problem after a newer reply", async () => {
+      const key = createTaskKey();
+      await renderForward(client, { task: commanded() });
+      const [warning] = await write({ key, variant: "warning" });
+      await screen.findByText(await writeReply(key));
+      const [error] = await write({ key, variant: "error" });
+      expect(await screen.findByText(error.message)).toBeTruthy();
+      expect(screen.queryByText(warning.message)).toBeNull();
+    });
+
+    it("should not notify a problem whose check ends after a newer reply", async () => {
+      const key = createTaskKey();
+      let resolve: ((inUse: boolean) => void) | undefined;
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+        if (task.statusKey(k) !== key) return false;
+        return await new Promise<boolean>((r) => (resolve = r));
+      });
+      await renderForward(client, { task: commanded({ inUse }) });
+      const [error] = await write({ key, variant: "error" });
+      await vi.waitFor(() => expect(resolve).toBeDefined());
+      await screen.findByText(await writeReply(key));
+      act(() => resolve?.(true));
+      await settleWrites(client);
+      expect(screen.queryByText(error.message)).toBeNull();
     });
   });
 });

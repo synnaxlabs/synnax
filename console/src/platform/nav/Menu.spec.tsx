@@ -50,6 +50,25 @@ describe("nav Menu", () => {
     expect(screen.queryByLabelText("icon-bravo")).toBeNull();
   });
 
+  it("should show the badge of an item in the color of its variant", async () => {
+    await renderWithConsole(
+      <Nav.Menu
+        items={[
+          item("alpha", { badge: <Nav.Badge count={3} variant="warning" /> }),
+          item("bravo"),
+        ]}
+        onSelect={vi.fn()}
+        {...noop}
+      />,
+    );
+    const alpha = screen.getByRole("menuitem", { name: "alpha" });
+    const badge = alpha.querySelector(".console-main-nav__badge");
+    expect(badge?.textContent).toBe("3");
+    expect(badge?.classList).toContain("console--warning");
+    const bravo = screen.getByRole("menuitem", { name: "bravo" });
+    expect(bravo.querySelector(".console-main-nav__badge")).toBeNull();
+  });
+
   it("should name each item by its tooltip", async () => {
     await renderWithConsole(
       <Nav.Menu items={item("alpha")} onSelect={vi.fn()} {...noop} />,
