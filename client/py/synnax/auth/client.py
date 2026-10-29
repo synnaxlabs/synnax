@@ -37,6 +37,11 @@ class _SessionCreateResponse(BaseModel):
     user: User | None = None
 
 
+class _SessionRenewResponse(BaseModel):
+    session: Session
+    user: User | None = None
+
+
 class _SessionRetrieveRequest(BaseModel):
     subjects: list[ontology.ID] = []
 
@@ -74,6 +79,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         transport: UnaryClient,
         username: str,
         password: str,
@@ -111,9 +117,16 @@ class Client:
         """The subject the client logged in as, once logged in."""
         return None if self.session is None else self.session.subject
 
-    def renew(self) -> None:
-        """Reports activity on the session so it does not idle out."""
-        send_required(self.client, _SESSION_RENEW_ENDPOINT, Empty(), Empty)
+    def renew(self) -> Session:
+        """Reports activity on the session so it does not idle out, and returns the
+        session the Core sees.
+        """
+        res = send_required(
+            self.client, _SESSION_RENEW_ENDPOINT, Empty(), _SessionRenewResponse
+        )
+        self.session = res.session
+        self.user = res.user
+        return res.session
 
     def retrieve_sessions(
         self, subjects: list[ontology.ID] | None = None

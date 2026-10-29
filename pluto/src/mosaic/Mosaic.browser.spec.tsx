@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
+import { CSS } from "@/css";
 import { Mosaic } from "@/mosaic";
 
 const WIDTH = 800;

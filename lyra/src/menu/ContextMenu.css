@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-menu-context {
+.lyra-menu-context {
     position: fixed;
     z-index: 8;
     /* stylelint-disable-next-line declaration-no-important -- outranks the bordered Box

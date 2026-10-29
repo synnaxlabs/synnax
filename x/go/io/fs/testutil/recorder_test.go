@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fs_test
+package testutil_test
 
 import (
 	"os"
@@ -23,15 +23,15 @@ import (
 var _ = Describe("Recorder", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			var rec *xfs.Recorder
-			BeforeEach(func() { rec = xfs.NewRecorder(openFS()) })
+			var rec *Recorder
+			BeforeEach(func() { rec = NewRecorder(openFS()) })
 
 			Describe("Open", func() {
 				It("Should record a successful open", func() {
 					f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
 					DeferClose(f)
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{Op: xfs.OpOpen, Name: "a.bin"},
+					Expect(rec.Filter(MatchName("a.bin"))).To(ConsistOf(
+						Event{Op: OpOpen, Name: "a.bin"},
 					))
 				})
 
@@ -54,16 +54,16 @@ var _ = Describe("Recorder", func() {
 
 				It("Should record Write with the requested length", func() {
 					MustSucceed(f.Write([]byte("hello")))
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{Op: xfs.OpWrite, Name: "a.bin", Length: 5},
+					Expect(rec.Filter(MatchName("a.bin"))).To(ConsistOf(
+						Event{Op: OpWrite, Name: "a.bin", Length: 5},
 					))
 				})
 
 				It("Should record WriteAt with offset and length", func() {
 					MustSucceed(f.WriteAt([]byte("hi"), 7))
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{
-							Op:     xfs.OpWriteAt,
+					Expect(rec.Filter(MatchName("a.bin"))).To(ConsistOf(
+						Event{
+							Op:     OpWriteAt,
 							Name:   "a.bin",
 							Offset: 7,
 							Length: 2,
@@ -76,9 +76,9 @@ var _ = Describe("Recorder", func() {
 					rec.Reset()
 					buf := make([]byte, 4)
 					MustSucceed(f.ReadAt(buf, 1))
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{
-							Op:     xfs.OpReadAt,
+					Expect(rec.Filter(MatchName("a.bin"))).To(ConsistOf(
+						Event{
+							Op:     OpReadAt,
 							Name:   "a.bin",
 							Offset: 1,
 							Length: 4,
@@ -90,10 +90,10 @@ var _ = Describe("Recorder", func() {
 					MustSucceed(f.Write([]byte("ab")))
 					MustSucceed(f.WriteAt([]byte("cd"), 4))
 					MustSucceed(f.ReadAt(make([]byte, 1), 0))
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(Equal([]xfs.Event{
-						{Op: xfs.OpWrite, Name: "a.bin", Length: 2},
-						{Op: xfs.OpWriteAt, Name: "a.bin", Offset: 4, Length: 2},
-						{Op: xfs.OpReadAt, Name: "a.bin", Offset: 0, Length: 1},
+					Expect(rec.Filter(MatchName("a.bin"))).To(Equal([]Event{
+						{Op: OpWrite, Name: "a.bin", Length: 2},
+						{Op: OpWriteAt, Name: "a.bin", Offset: 4, Length: 2},
+						{Op: OpReadAt, Name: "a.bin", Offset: 0, Length: 1},
 					}))
 				})
 			})
@@ -111,8 +111,8 @@ var _ = Describe("Recorder", func() {
 					rec.Reset()
 					buf := make([]byte, 5)
 					MustSucceed(h.Read(buf))
-					Expect(rec.Filter(xfs.MatchName("read.bin"))).To(ConsistOf(
-						xfs.Event{Op: xfs.OpRead, Name: "read.bin", Length: 5},
+					Expect(rec.Filter(MatchName("read.bin"))).To(ConsistOf(
+						Event{Op: OpRead, Name: "read.bin", Length: 5},
 					))
 				})
 			})
@@ -125,9 +125,9 @@ var _ = Describe("Recorder", func() {
 						f := MustSucceed(sub.Open("a.bin", os.O_CREATE|os.O_RDWR))
 						DeferClose(f)
 						MustSucceed(f.Write([]byte("xyz")))
-						Expect(rec.Events()).To(Equal([]xfs.Event{
-							{Op: xfs.OpOpen, Name: "a.bin"},
-							{Op: xfs.OpWrite, Name: "a.bin", Length: 3},
+						Expect(rec.Events()).To(Equal([]Event{
+							{Op: OpOpen, Name: "a.bin"},
+							{Op: OpWrite, Name: "a.bin", Length: 3},
 						}))
 					},
 				)
@@ -137,7 +137,7 @@ var _ = Describe("Recorder", func() {
 					subB := MustSucceed(subA.Sub("b"))
 					f := MustSucceed(subB.Open("file.bin", os.O_CREATE|os.O_RDWR))
 					DeferClose(f)
-					Expect(rec.Filter(xfs.MatchName("file.bin"))).To(HaveLen(1))
+					Expect(rec.Filter(MatchName("file.bin"))).To(HaveLen(1))
 				})
 
 				It("Should reflect Reset across the parent and every sub", func() {
@@ -145,7 +145,7 @@ var _ = Describe("Recorder", func() {
 					f := MustSucceed(sub.Open("a.bin", os.O_CREATE|os.O_RDWR))
 					DeferClose(f)
 					rec.Reset()
-					Expect(sub.(*xfs.Recorder).Events()).To(BeEmpty())
+					Expect(sub.(*Recorder).Events()).To(BeEmpty())
 				})
 			})
 
@@ -157,20 +157,20 @@ var _ = Describe("Recorder", func() {
 					DeferClose(b)
 					MustSucceed(a.Write([]byte("a")))
 					MustSucceed(b.Write([]byte("bb")))
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(Equal([]xfs.Event{
-						{Op: xfs.OpOpen, Name: "a.bin"},
-						{Op: xfs.OpWrite, Name: "a.bin", Length: 1},
+					Expect(rec.Filter(MatchName("a.bin"))).To(Equal([]Event{
+						{Op: OpOpen, Name: "a.bin"},
+						{Op: OpWrite, Name: "a.bin", Length: 1},
 					}))
 					Expect(
-						rec.Filter(xfs.MatchName("b.bin"), xfs.MatchOp(xfs.OpWrite)),
+						rec.Filter(MatchName("b.bin"), MatchOp(OpWrite)),
 					).
-						To(Equal([]xfs.Event{
-							{Op: xfs.OpWrite, Name: "b.bin", Length: 2},
+						To(Equal([]Event{
+							{Op: OpWrite, Name: "b.bin", Length: 2},
 						}))
 				})
 
 				It("Should return an empty slice for an unknown file", func() {
-					Expect(rec.Filter(xfs.MatchName("missing.bin"))).To(BeEmpty())
+					Expect(rec.Filter(MatchName("missing.bin"))).To(BeEmpty())
 				})
 
 				It("Should return all events with no filters", func() {
@@ -188,11 +188,11 @@ var _ = Describe("Recorder", func() {
 					MustSucceed(a.WriteAt([]byte("xy"), 0))
 					MustSucceed(a.WriteAt([]byte("zw"), 4))
 					MustSucceed(a.ReadAt(make([]byte, 1), 0))
-					Expect(rec.Count(xfs.MatchOp(xfs.OpWriteAt))).To(Equal(2))
+					Expect(rec.Count(MatchOp(OpWriteAt))).To(Equal(2))
 					Expect(
-						rec.Count(xfs.MatchOp(xfs.OpWriteAt), xfs.MatchLength(2)),
+						rec.Count(MatchOp(OpWriteAt), MatchLength(2)),
 					).To(Equal(2))
-					Expect(rec.Count(xfs.MatchOp(xfs.OpReadAt))).To(Equal(1))
+					Expect(rec.Count(MatchOp(OpReadAt))).To(Equal(1))
 				})
 
 				It("Should return the total count with no filters", func() {
@@ -256,9 +256,9 @@ var _ = Describe("Recorder", func() {
 					// returned length.
 					buf := make([]byte, 16)
 					_, _ = f.ReadAt(buf, 0)
-					Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-						xfs.Event{
-							Op:     xfs.OpReadAt,
+					Expect(rec.Filter(MatchName("a.bin"))).To(ConsistOf(
+						Event{
+							Op:     OpReadAt,
 							Name:   "a.bin",
 							Offset: 0,
 							Length: 16,
@@ -279,9 +279,9 @@ var _ = Describe("Recorder", func() {
 						// length.
 						buf := make([]byte, 4)
 						_, _ = f.ReadAt(buf, 100)
-						Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
-							xfs.Event{
-								Op:     xfs.OpReadAt,
+						Expect(rec.Filter(MatchName("a.bin"))).To(ConsistOf(
+							Event{
+								Op:     OpReadAt,
 								Name:   "a.bin",
 								Offset: 100,
 								Length: 4,
@@ -313,7 +313,7 @@ var _ = Describe("Recorder", func() {
 					wg.Wait()
 
 					Expect(
-						rec.Filter(xfs.MatchName("a.bin")),
+						rec.Filter(MatchName("a.bin")),
 					).To(HaveLen(writers * writesPerWriter))
 				})
 			})

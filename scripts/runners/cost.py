@@ -92,7 +92,7 @@ def groups() -> list[Group]:
     ]
 
 
-def hours(region: str, window: str) -> str:
+def hours(region: str, *, window: str) -> str:
     return f"hours_{region}_{window}"
 
 
@@ -131,7 +131,7 @@ class Prices:
             self.cache[key] = float(next(iter(dims.values()))["pricePerUnit"]["USD"])
         return self.cache[key]
 
-    def instance(self, instance_type: str, region: str, windows: bool) -> float:
+    def instance(self, instance_type: str, *, region: str, windows: bool) -> float:
         """USD per hour."""
         return self.usd(
             instanceType=instance_type,
@@ -151,7 +151,9 @@ class Prices:
         )
 
 
-def amounts(rows: list[dict], key: Key, metric: str) -> dict[Group, dict[str, float]]:
+def amounts(
+    rows: list[dict], *, key: Key, metric: str
+) -> dict[Group, dict[str, float]]:
     """Daily amounts of one metric per group, groups that map to the same key
     summed."""
     out: dict[Group, dict[str, float]] = {}
@@ -166,15 +168,15 @@ def amounts(rows: list[dict], key: Key, metric: str) -> dict[Group, dict[str, fl
 
 
 def fold(
-    queries: list[tuple[list[dict], Key]], metric: str
+    queries: list[tuple[list[dict], Key]], *, metric: str
 ) -> dict[Group, dict[str, float]]:
     out: dict[Group, dict[str, float]] = {}
     for rows, key in queries:
-        out |= amounts(rows, key, metric)
+        out |= amounts(rows, key=key, metric=metric)
     return out
 
 
-def windows(days: dict[str, float], today: dt.date) -> dict[str, float]:
+def windows(days: dict[str, float], *, today: dt.date) -> dict[str, float]:
     def back(n: int) -> float:
         return sum(
             days.get((today - dt.timedelta(days=i)).isoformat(), 0.0)
@@ -197,12 +199,12 @@ def windows(days: dict[str, float], today: dt.date) -> dict[str, float]:
     }
 
 
-def spend_names(net: bool) -> list[str]:
+def spend_names(*, net: bool) -> list[str]:
     """Account, region, and service channels, plus the hours when gross."""
     tail = ("net",) if net else ()
     names = [name(*g, w, *tail) for g in groups() for w in WINDOWS]
     if not net:
-        names += [hours(r, w) for r in REGIONS.values() for w in WINDOWS]
+        names += [hours(r, window=w) for r in REGIONS.values() for w in WINDOWS]
     return names
 
 
@@ -216,11 +218,11 @@ def type_names(types: set[str]) -> list[str]:
 
 
 def runner_names(known: list[str]) -> list[str]:
-    return [channel_name(s, r) for r in known for s in PER_RUNNER]
+    return [channel_name(s, runner=r) for r in known for s in PER_RUNNER]
 
 
 class Cost:
-    def __init__(self, log: Log, aws: AWS) -> None:
+    def __init__(self, *, log: Log, aws: AWS) -> None:
         self.log = log
         self.aws = aws
         self.prices = Prices(aws)
@@ -243,8 +245,8 @@ class Cost:
     def channels(self) -> dict[str, sy.DataType]:
         """Every data channel, all on the QUERY_TIME index."""
         names = [
-            *spend_names(False),
-            *spend_names(True),
+            *spend_names(net=False),
+            *spend_names(net=True),
             *type_names(self.types),
             *runner_names(self.known),
             MONTH_REMAINING_FORECAST,
@@ -258,7 +260,7 @@ class Cost:
         """Name to expression. Regions sum their runners, the fleet sums regions."""
         by_region: dict[str, list[str]] = {r: [] for r in REGIONS.values()}
         for r in self.known:
-            if (iid := instance_for(r, found)) is not None:
+            if (iid := instance_for(r, found=found)) is not None:
                 by_region[REGIONS[found[iid]["region"]]].append(r)
 
         def total(terms: list[str]) -> str:
@@ -268,7 +270,9 @@ class Cost:
         for s in (RATE, EST_1D, EST_MTD):
             tail = s.removeprefix("cost_")
             for region, runners in by_region.items():
-                out[name(region, tail)] = total([channel_name(s, r) for r in runners])
+                out[name(region, tail)] = total(
+                    [channel_name(s, runner=r) for r in runners]
+                )
             out[name(tail)] = total([name(region, tail) for region in by_region])
         for w in ("1d", "mtd"):
             out[name(w, "est_error")] = f"return {name(w, 'est')} - {name(w)}"
@@ -283,7 +287,7 @@ class Cost:
         )
         return out
 
-    def create_state(self, client: sy.Synnax, known: set[str]) -> None:
+    def create_state(self, client: sy.Synnax, *, known: set[str]) -> None:
         """The types, the last values, and the last fetch time on the Core, so the
         fetch cadence and the live writes hold across a restart."""
         self.known = sorted(r for r in known if instance_prefix(r) is not None)
@@ -291,7 +295,7 @@ class Cost:
             for ch in client.channels.retrieve(["^cost_.*_365d$"]):
                 if m := TYPE_CHANNEL.match(ch.name):
                     self.types.add(m.group(1))
-            found = latest(client, list(self.channels()))
+            found = latest(client, names=list(self.channels()))
         except Exception as e:
             self.log.error("cost state", e)
             return
@@ -317,7 +321,7 @@ class Cost:
         return float(page["Total"]["Amount"])
 
     def hours_ran(
-        self, instances: dict[str, dict], start: dt.datetime, end: dt.datetime
+        self, instances: dict[str, dict], *, start: dt.datetime, end: dt.datetime
     ) -> dict[str, float]:
         """Hours each instance ran between start and end, from its CPU sample count."""
         ran: dict[str, float] = dict.fromkeys(instances, 0.0)
@@ -358,7 +362,7 @@ class Cost:
         return ran
 
     def estimate(
-        self, moment: dt.datetime, found: dict[str, dict], priced: Priced
+        self, moment: dt.datetime, *, found: dict[str, dict], priced: Priced
     ) -> dict[str, float]:
         """Rates and the estimated spend of each runner, from list prices. Fills
         priced with what the live rates need."""
@@ -366,12 +370,16 @@ class Cost:
         midnight = dt.datetime(today.year, today.month, today.day, tzinfo=dt.UTC)
         first = midnight.replace(day=1)
         mapped = {
-            r: iid for r in self.known if (iid := instance_for(r, found)) is not None
+            r: iid
+            for r in self.known
+            if (iid := instance_for(r, found=found)) is not None
         }
         instances = {iid: found[iid] for iid in mapped.values()}
         volumes = self.aws.volumes()
-        yesterday = self.hours_ran(instances, midnight - dt.timedelta(days=1), midnight)
-        month = self.hours_ran(instances, first, midnight)
+        yesterday = self.hours_ran(
+            instances, start=midnight - dt.timedelta(days=1), end=midnight
+        )
+        month = self.hours_ran(instances, start=first, end=midnight)
         # Runners without an instance cost nothing.
         values = dict.fromkeys(runner_names(self.known), 0.0)
         for r, iid in mapped.items():
@@ -379,24 +387,26 @@ class Cost:
             try:
                 ebs = volumes.get(iid, 0) * self.prices.volume(info["region"])
                 price = self.prices.instance(
-                    info["type"], info["region"], info["windows"]
+                    info["type"], region=info["region"], windows=info["windows"]
                 )
             except Exception as e:
                 self.log.error(f"price {info['type']} {info['region']}", e)
                 for s in PER_RUNNER:
-                    values[channel_name(s, r)] = math.nan
+                    values[channel_name(s, runner=r)] = math.nan
                 continue
             priced[r] = (iid, price, ebs)
-            values[channel_name(RATE, r)] = ebs + (price if info["running"] else 0.0)
-            values[channel_name(EBS, r)] = ebs
-            values[channel_name(EST_1D, r)] = price * yesterday[iid] + ebs * 24
-            values[channel_name(EST_MTD, r)] = price * month[iid] + ebs * 24 * (
+            values[channel_name(RATE, runner=r)] = ebs + (
+                price if info["running"] else 0.0
+            )
+            values[channel_name(EBS, runner=r)] = ebs
+            values[channel_name(EST_1D, runner=r)] = price * yesterday[iid] + ebs * 24
+            values[channel_name(EST_MTD, runner=r)] = price * month[iid] + ebs * 24 * (
                 today.day - 1
             )
         return values
 
     def query(
-        self, today: dt.date, group_by: list[dict], filter: dict | None
+        self, today: dt.date, *, group_by: list[dict], filter: dict | None
     ) -> list[dict]:
         params: dict = {
             "TimePeriod": {
@@ -419,17 +429,17 @@ class Cost:
             params["NextPageToken"] = token
 
     def queries(
-        self, today: dt.date, filter: dict | None
+        self, today: dt.date, *, filter: dict | None
     ) -> list[tuple[list[dict], Key]]:
         """Regions and services under one filter. Every region is a group, so the
         regions summed are the total."""
         leaves = {"And": [filter, OUR_REGIONS]} if filter else OUR_REGIONS
-        by_region = self.query(today, [REGION], filter)
+        by_region = self.query(today, group_by=[REGION], filter=filter)
         return [
             (by_region, lambda keys: ()),
             (by_region, lambda keys: (REGIONS.get(keys[0], GLOBAL),)),
             (
-                self.query(today, [REGION, SERVICE], leaves),
+                self.query(today, group_by=[REGION, SERVICE], filter=leaves),
                 lambda keys: (
                     REGIONS.get(keys[0], GLOBAL),
                     SERVICES.get(keys[1], OTHER),
@@ -437,45 +447,45 @@ class Cost:
             ),
         ]
 
-    def spend(self, today: dt.date, net: bool) -> dict[str, float]:
+    def spend(self, today: dt.date, *, net: bool) -> dict[str, float]:
         """Account, region, and service windows, plus the hours when gross."""
-        queries = self.queries(today, None if net else USAGE_ONLY)
+        queries = self.queries(today, filter=None if net else USAGE_ONLY)
         tail = ("net",) if net else ()
-        cost = fold(queries, COST)
+        cost = fold(queries, metric=COST)
         values = {
             name(*g, w, *tail): v
             for g in groups()
-            for w, v in windows(cost.get(g, {}), today).items()
+            for w, v in windows(cost.get(g, {}), today=today).items()
         }
         if not net:
-            usage = fold(queries, USAGE)
+            usage = fold(queries, metric=USAGE)
             for r in REGIONS.values():
-                for w, v in windows(usage.get((r, "ec2"), {}), today).items():
-                    values[hours(r, w)] = v
+                for w, v in windows(usage.get((r, "ec2"), {}), today=today).items():
+                    values[hours(r, window=w)] = v
         return values
 
     def by_type(self, today: dt.date) -> dict[str, float]:
         """Windows per instance type. Grouped by record type as well, the usage rows
         alone are the gross."""
-        rows = self.query(today, [INSTANCE_TYPE, RECORD_TYPE], None)
+        rows = self.query(today, group_by=[INSTANCE_TYPE, RECORD_TYPE], filter=None)
         gross = amounts(
             rows,
-            lambda keys: (type_key(keys[0]),) if keys[1] == USAGE_RECORD else None,
-            COST,
+            key=lambda keys: (type_key(keys[0]),) if keys[1] == USAGE_RECORD else None,
+            metric=COST,
         )
-        net = amounts(rows, lambda keys: (type_key(keys[0]),), COST)
+        net = amounts(rows, key=lambda keys: (type_key(keys[0]),), metric=COST)
         # Usage with no instance type groups under a placeholder key.
         types = {g[0] for g in gross if TYPE_CHANNEL.match(name(g[0], "365d"))}
         values: dict[str, float] = {}
         for t in sorted(types | self.types):
-            for w, v in windows(gross.get((t,), {}), today).items():
+            for w, v in windows(gross.get((t,), {}), today=today).items():
                 values[name(t, w)] = v
-            for w, v in windows(net.get((t,), {}), today).items():
+            for w, v in windows(net.get((t,), {}), today=today).items():
                 values[name(t, w, "net")] = v
         return values
 
     def part(
-        self, what: str, names: list[str], get: Callable[[], dict[str, float]]
+        self, what: str, *, names: list[str], get: Callable[[], dict[str, float]]
     ) -> dict[str, float]:
         """The part's values, or NaN on its channels when it fails."""
         try:
@@ -490,12 +500,12 @@ class Cost:
         volumes = self.aws.volumes()
         priced: Priced = {}
         for r in self.known:
-            if (iid := instance_for(r, found)) is None:
+            if (iid := instance_for(r, found=found)) is None:
                 continue
             info = found[iid]
             try:
                 price = self.prices.instance(
-                    info["type"], info["region"], info["windows"]
+                    info["type"], region=info["region"], windows=info["windows"]
                 )
                 ebs = volumes.get(iid, 0) * self.prices.volume(info["region"])
             except Exception as e:
@@ -505,7 +515,7 @@ class Cost:
         return priced
 
     def fetch(
-        self, moment: dt.datetime, found: dict[str, dict]
+        self, moment: dt.datetime, *, found: dict[str, dict]
     ) -> tuple[dict[str, float], Priced]:
         # List prices change rarely; a day's cache saves a lookup per fetch.
         if self.prices_since is None or moment - self.prices_since >= PRICE_TTL:
@@ -513,28 +523,32 @@ class Cost:
             self.prices_since = moment
         today = moment.date()
         values = self.part(
-            "spend", spend_names(False), lambda: self.spend(today, False)
+            "spend",
+            names=spend_names(net=False),
+            get=lambda: self.spend(today, net=False),
         )
-        values |= self.part("net", spend_names(True), lambda: self.spend(today, True))
         values |= self.part(
-            "types", type_names(self.types), lambda: self.by_type(today)
+            "net", names=spend_names(net=True), get=lambda: self.spend(today, net=True)
+        )
+        values |= self.part(
+            "types", names=type_names(self.types), get=lambda: self.by_type(today)
         )
         values |= self.part(
             "forecast",
-            [MONTH_REMAINING_FORECAST],
-            lambda: {MONTH_REMAINING_FORECAST: self.forecast(today)},
+            names=[MONTH_REMAINING_FORECAST],
+            get=lambda: {MONTH_REMAINING_FORECAST: self.forecast(today)},
         )
         priced: Priced = {}
         values |= self.part(
             "estimate",
-            runner_names(self.known),
-            lambda: self.estimate(moment, found, priced),
+            names=runner_names(self.known),
+            get=lambda: self.estimate(moment, found=found, priced=priced),
         )
         values[FETCHED] = int(sy.TimeStamp(moment))
         return values, priced
 
     def step(
-        self, now: sy.TimeStamp, known: set[str], found: dict[str, dict]
+        self, now: sy.TimeStamp, *, known: set[str], found: dict[str, dict]
     ) -> dict[str, float]:
         """Every cost channel when a fetch lands or LIVE_INTERVAL passes, with each
         runner's rate from its instance's current state. Nothing before the first
@@ -542,7 +556,7 @@ class Cost:
         self.known = sorted(r for r in known if instance_prefix(r) is not None)
         if self.pending is None and self.due(now):
             self.attempted = now
-            self.pending = self.pool.submit(self.fetch, self.moment(), found)
+            self.pending = self.pool.submit(self.fetch, self.moment(), found=found)
         landed = False
         if self.pending is not None and self.pending.done():
             pending, self.pending = self.pending, None
@@ -573,19 +587,19 @@ class Cost:
         ):
             return {}
         self.written = now
-        return self.frame(now, found)
+        return self.frame(now, found=found)
 
     def reprice(self, found: dict[str, dict]) -> tuple[None, Priced]:
         return None, self.price_table(found)
 
-    def frame(self, now: sy.TimeStamp, found: dict[str, dict]) -> dict[str, float]:
+    def frame(self, now: sy.TimeStamp, *, found: dict[str, dict]) -> dict[str, float]:
         """Every cost channel, so the Core accepts the frame: the last values, NaN
         where none exist yet, then the live rates and hours remaining."""
         values = {n: self.latest.get(n, math.nan) for n in self.channels()}
         for r, (iid, price, ebs) in self.priced.items():
             if r in self.known and (info := found.get(iid)) is not None:
                 running = price if info["running"] else 0.0
-                values[channel_name(RATE, r)] = ebs + running
+                values[channel_name(RATE, runner=r)] = ebs + running
         moment = now.datetime().astimezone(dt.UTC)
         hours_left = (month_end(moment.date()) - moment).total_seconds() / 3600
         values[HOURS_REMAINING] = hours_left
