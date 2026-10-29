@@ -16,6 +16,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -24,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -361,6 +363,12 @@ var _ = Describe("Open", func() {
 		})
 
 		It("Should delete the API key it could not save", func(ctx SpecContext) {
+			// Windows denies opening a directory for writing instead of naming it one.
+			saveDirErr := lo.Ternary[error](
+				runtime.GOOS == "windows",
+				fs.ErrPermission,
+				syscall.EISDIR,
+			)
 			logger, _ := newTestLogger()
 			keyDir := GinkgoT().TempDir()
 			Expect(os.Mkdir(filepath.Join(keyDir, "embedded-driver-key.tmp"), 0o700)).
@@ -381,7 +389,7 @@ var _ = Describe("Open", func() {
 				KeyDirname:      keyDir,
 				Keys:            keys,
 				RackKey:         rackKey,
-			})).Error().To(MatchError(syscall.EISDIR))
+			})).Error().To(MatchError(saveDirErr))
 			Expect(count()).To(Equal(before))
 		})
 
