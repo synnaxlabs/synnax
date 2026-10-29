@@ -196,7 +196,7 @@ The Core writes the CSV file, so your code never holds the whole export in memor
   <Fragment slot="python">
 
 ```python
-client.read_csv(tr, ["temperature", "pressure"], "tank.csv")
+client.read_csv(tr, ["temperature", "pressure"], dest="tank.csv")
 ```
 
 The file name must end in `.csv`.
@@ -239,7 +239,7 @@ Export samples to an NI TDMS file:
   <Fragment slot="python">
 
 ```python
-client.read_tdms(tr, ["temperature", "pressure"], "tank.tdms")
+client.read_tdms(tr, ["temperature", "pressure"], dest="tank.tdms")
 ```
 
 The file name must end in `.tdms`.
