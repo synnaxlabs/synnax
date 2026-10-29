@@ -744,10 +744,9 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         end_time = sy.TimeStamp.now()
         time_range = sy.TimeRange(start_time, end_time)
 
-        frame = self.client.read(time_range, channel_keys)
         for key in channel_keys:
             ch = self.client.channels.retrieve(key)
-            num_samples = len(frame[key])
+            num_samples = len(ch.read(time_range))
             if num_samples > 0:
                 raise AssertionError(
                     f"Channel '{ch.name}' has {num_samples} persisted samples "

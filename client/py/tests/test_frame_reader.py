@@ -526,10 +526,9 @@ class TestReader:
     def test_read_empty(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
-        """Should raise a QueryError when one channel has no data in the range"""
+        """Should return no samples when the channel has no data in the range"""
         _, data_ch = indexed_pair
-        with pytest.raises(sy.QueryError, match=data_ch.name):
-            client.read(sy.TimeRange.MAX, data_ch.name)
+        assert len(client.read(sy.TimeRange.MAX, data_ch.key)) == 0
 
     def test_read_empty_list(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax

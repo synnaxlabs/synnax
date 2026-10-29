@@ -147,7 +147,6 @@ class Channel(Payload):
         the timestamp of the first sample in the array.
         :raises ContiguityError: If the telemetry between start and end is
             non-contiguous.
-        :raises QueryError: If the channel has no data in the time range.
         """
         tr = TimeRange(start_or_range, end)
         return self._frame_client.read(tr, self.key)

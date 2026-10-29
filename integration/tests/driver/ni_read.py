@@ -164,6 +164,8 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
         ]
         for key, (name, lo, hi) in zip(channel_keys, bounds, strict=True):
             data = np.array(self.client.channels.retrieve(key).read(tr))
+            if len(data) == 0:
+                self.fail(f"No samples for '{name}'")
             vmin, vmax = float(np.min(data)), float(np.max(data))
             if vmin < lo - 1 or vmax > hi + 1:
                 self.fail(
@@ -196,8 +198,10 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             pre_tr = sy.TimeRange(pre_start, pre_end)
 
             pre_avgs: dict[int, float] = {}
-            for key in channel_keys:
+            for key, name in zip(channel_keys, names, strict=True):
                 data = np.array(self.client.channels.retrieve(key).read(pre_tr))
+                if len(data) == 0:
+                    self.fail(f"No pre-tare samples for '{name}'")
                 pre_avgs[key] = float(np.mean(data))
             self.log(
                 "  Pre-tare averages: "
@@ -227,6 +231,8 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
         ]
         for key, (name, orig_lo, orig_hi) in zip(channel_keys, bounds, strict=True):
             data = np.array(self.client.channels.retrieve(key).read(post_tr))
+            if len(data) == 0:
+                self.fail(f"No post-tare samples for '{name}'")
             avg = float(np.mean(data))
             vmin, vmax = float(np.min(data)), float(np.max(data))
 
