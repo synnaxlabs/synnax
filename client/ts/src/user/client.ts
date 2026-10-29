@@ -101,12 +101,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Us
     users: z.input<typeof userZ> | z.input<typeof userZ>[],
   ): Promise<User | User[]> {
     const isMany = Array.isArray(users);
-    const res = await this.cfg.unary.send(
-      "/user/create",
-      { users: array.toArray(users) },
-      createReqZ,
-      createResZ,
-    );
+    // Parsed once so a retried request keeps the keys it generated.
+    const req = createReqZ.parse({ users: array.toArray(users) });
+    const res = await this.cfg.unary.send("/user/create", req, createReqZ, createResZ);
     this.store.set(res.users);
     return isMany ? res.users : res.users[0];
   }
