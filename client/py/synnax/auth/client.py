@@ -23,7 +23,7 @@ from freighter import (
     UnaryClient,
 )
 from synnax import ontology
-from synnax.auth import api_key, password, session
+from synnax.auth import apikey, password, session
 from synnax.auth.types_gen import PasswordProof, Proof, Session
 from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
@@ -100,7 +100,7 @@ class Client:
         self.session = None
         self.user = None
         self.authenticated = False
-        self.api_keys = api_key.Client(transport)
+        self.api_keys = apikey.Client(transport)
         self.sessions = session.Client(transport)
         self.passwords = password.Client(transport, self._on_rename)
         # Scoped to the caller's thread or task, so only the logout's own request
