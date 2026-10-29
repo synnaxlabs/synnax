@@ -73,6 +73,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         stream_client: WebsocketClient,
         async_client: AsyncWebsocketClient,
         unary_client: UnaryClient,
@@ -88,15 +89,17 @@ class Client:
         self._channels = retriever
         self._deleter = deleter
         self._registry = registry
-        self._reader = Reader(retriever, file_transport, registry)
+        self._reader = Reader(
+            retriever=retriever, file_transport=file_transport, registry=registry
+        )
         self.instrumentation = instrumentation
 
     def open_writer(
         self,
         start: CrudeTimeStamp,
         channels: channel.Params,
-        authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         *,
+        authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         name: str = "",
         group: int = 0,
         strict: bool = False,
@@ -169,6 +172,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         chunk_size: int = 100000,
         reduction: Reduction | None = None,
     ) -> Iterator:
@@ -254,6 +258,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Key | str,
+        *,
         reduction: Reduction | None = None,
     ) -> MultiSeries: ...
 
@@ -262,6 +267,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: _FrameParams,
+        *,
         reduction: Reduction | None = None,
     ) -> Frame: ...
 
@@ -269,6 +275,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         reduction: Reduction | None = None,
     ) -> MultiSeries | Frame:
         """Reads telemetry from the channels between the two timestamps.
@@ -284,7 +291,7 @@ class Client:
         :raises NotFoundError: If a single channel has no data in the time range.
         """
         normal = channel.normalize_params(channels)
-        frame = self._reader.read(tr, channels, reduction)
+        frame = self._reader.read(tr, channels, reduction=reduction)
         if not normal.single:
             return frame
         series = frame.get(normal.channels[0], None)
@@ -298,6 +305,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         dest: FilePath,
         reduction: StrideReduction | None = None,
     ) -> None:
@@ -311,12 +319,13 @@ class Client:
         :param reduction: Keeps every factor-th sample of each channel. Defaults to
         keeping every sample.
         """
-        self._reader.read_csv(tr, channels, dest, reduction)
+        self._reader.read_csv(tr, channels, dest=dest, reduction=reduction)
 
     def read_tdms(
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         dest: FilePath,
         reduction: StrideReduction | None = None,
     ) -> None:
@@ -331,12 +340,13 @@ class Client:
         :param reduction: Keeps every factor-th sample of each channel. Defaults to
         keeping every sample.
         """
-        self._reader.read_tdms(tr, channels, dest, reduction)
+        self._reader.read_tdms(tr, channels, dest=dest, reduction=reduction)
 
     @overload
     def read_latest(
         self,
         channels: channel.Key | str,
+        *,
         n: int = 1,
     ) -> MultiSeries: ...
 
@@ -344,12 +354,14 @@ class Client:
     def read_latest(
         self,
         channels: _FrameParams,
+        *,
         n: int = 1,
     ) -> Frame: ...
 
     def read_latest(
         self,
         channels: channel.Params,
+        *,
         n: int = 1,
     ) -> Frame | MultiSeries:
         """Reads the latest n samples from the given channels. If fewer than n samples
@@ -382,6 +394,7 @@ class Client:
     def open_streamer(
         self,
         channels: channel.Params,
+        *,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
@@ -415,6 +428,7 @@ class Client:
     async def open_async_streamer(
         self,
         channels: channel.Params,
+        *,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,

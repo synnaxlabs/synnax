@@ -833,7 +833,7 @@ class TestChannelWriteRead:
                 data_type=sy.DataType.TIMESTAMP,
             )
         )
-        d = seconds_linspace(1, 10)
+        d = seconds_linspace(1, count=10)
         start = 1 * sy.TimeSpan.SECOND
         channel.write(start, d)
         data = channel.read(start, start + len(d) * sy.TimeSpan.SECOND)

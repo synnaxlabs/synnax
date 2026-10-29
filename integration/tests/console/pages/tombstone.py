@@ -27,9 +27,9 @@ class Tombstone(ConsoleCase):
             ("Table", f"TombTable_{suffix}"),
         ]
         for page_type, page_name in pages:
-            self.test_tombstone_lifecycle(page_type, page_name)
+            self.test_tombstone_lifecycle(page_type, page_name=page_name)
 
-    def test_tombstone_lifecycle(self, page_type: PageType, page_name: str) -> None:
+    def test_tombstone_lifecycle(self, page_type: PageType, *, page_name: str) -> None:
         """Delete an open page, restore it from the tombstone, then delete it
         again and dismiss the tombstone with Close."""
         console = self.console

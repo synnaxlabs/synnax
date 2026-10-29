@@ -162,4 +162,4 @@ class ChannelContextMenu(ConsoleCase):
         link = self.console.channels.copy_link(self.shared_data)
 
         channel = self.client.channels.retrieve(self.shared_data)
-        assert_link_format(link, "channel", str(channel.key))
+        assert_link_format(link, resource_type="channel", resource_id=str(channel.key))
