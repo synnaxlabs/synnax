@@ -26,15 +26,14 @@ import { Search as S } from "@/components/search/Search";
             font-size: var(--pluto-small-size);
             font-weight: 400;
 
+            /* The shortcut chip takes the page fill, so it stands out of the box. */
+            --pluto-keycap-bg: var(--pluto-gray-l0);
+            --pluto-keycap-border-color: var(--pluto-gray-l5);
+
             & * {
                 color: var(--pluto-gray-l8);
                 font-size: var(--pluto-small-size);
                 font-weight: 400;
-            }
-
-            & .lyra-text--keyboard {
-                background: var(--pluto-gray-l0);
-                border-color: var(--pluto-gray-l5);
             }
         }
     }
