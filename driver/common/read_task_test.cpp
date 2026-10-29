@@ -524,8 +524,14 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(warning_state.message, "Failed to read data");
     EXPECT_EQ(warning_state.description, "Next retry 1/50 in 0.0 s.");
 
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
-    auto recovered_state = ctx->statuses[2];
+    // The recovery comes inside the status window, so it waits for the window to end.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->snapshot().size(),
+        3,
+        std::chrono::seconds(3),
+        std::chrono::milliseconds(10)
+    );
+    auto recovered_state = ctx->snapshot()[2];
     EXPECT_EQ(recovered_state.key, synnax::task::status_key(t));
     EXPECT_EQ(recovered_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(recovered_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -541,8 +547,8 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
-/// @brief it should show the retry count and the backoff interval in the warning for
-/// each consecutive temporary error.
+/// @brief it should show the retry count and the backoff interval in the warning for a
+/// temporary error, then send only the latest state once the status window ends.
 TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     const auto
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
@@ -568,12 +574,17 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     ReadTask
         read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
     read_task.start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 4);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[1].description, "Next retry 1/3 in 0.1 s.");
-    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[2].description, "Next retry 2/3 in 0.2 s.");
-    EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->snapshot().size(),
+        3,
+        std::chrono::seconds(3),
+        std::chrono::milliseconds(10)
+    );
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(statuses[1].description, "Next retry 1/3 in 0.1 s.");
+    EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[2].message, "Task running");
     read_task.stop("stop_cmd", true);
 }
 
