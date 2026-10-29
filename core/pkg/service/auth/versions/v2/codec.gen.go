@@ -27,7 +27,6 @@ func (s Session) EncodeOrc(w *orc.Writer) error {
 		return err
 	}
 	w.Write(s.Credential[:])
-	w.Int64(int64(s.CredentialVersion))
 	w.Int64(int64(s.LastActive))
 	return nil
 }
@@ -55,13 +54,6 @@ func (s *Session) DecodeOrc(r *orc.Reader) error {
 	}
 	if _, err := r.Read(s.Credential[:]); err != nil {
 		return err
-	}
-	{
-		rawV, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		s.CredentialVersion = telem.TimeStamp(rawV)
 	}
 	{
 		rawV, err := r.Int64()
