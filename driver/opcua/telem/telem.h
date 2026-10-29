@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "open62541/types.h"
 
 #include "x/cpp/errors/errors.h"
@@ -27,6 +29,12 @@ UA_DataType *data_type_to_ua(const x::telem::DataType &data_type);
 /// or value that the data type cannot hold.
 std::pair<x::telem::SampleValue, x::errors::Error>
 to_sample(const UA_Variant &v, const x::telem::DataType &dt);
+
+/// @brief builds a series of the data type from samples of that data type.
+x::telem::Series to_series(
+    const x::telem::DataType &dt,
+    const std::vector<x::telem::SampleValue> &samples
+);
 
 /// @brief writes a scalar variant to a telemetry series.
 /// @return a pair containing the number of samples written and any error.

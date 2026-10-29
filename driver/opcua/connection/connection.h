@@ -189,13 +189,13 @@ public:
         /// @brief reads the attributes that req names.
         /// @returns errors::NO_CONNECTION without sending req when the connection is
         /// lost, or the error of the service result.
-        std::pair<types::ReadResponse, x::errors::Error>
+        [[nodiscard]] std::pair<types::ReadResponse, x::errors::Error>
         read(const UA_ReadRequest &req) const;
 
         /// @brief writes the values in req.
         /// @returns errors::NO_CONNECTION without sending req when the connection is
         /// lost, or the error of the service result.
-        std::pair<types::WriteResponse, x::errors::Error>
+        [[nodiscard]] std::pair<types::WriteResponse, x::errors::Error>
         write(const UA_WriteRequest &req) const;
 
     private:

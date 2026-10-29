@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <cstdint>
 
 #include "gtest/gtest.h"
 
@@ -1114,5 +1115,59 @@ TEST(AuthoritiesValidation, RejectsMismatchedSizes) {
 TEST(AuthoritiesValidation, RejectsManyAuthoritiesWithoutKeys) {
     Authorities auth{.authorities = {100, 200}};
     ASSERT_OCCURRED_AS(auth.validate(), x::errors::VALIDATION);
+}
+
+namespace {
+/// @brief answers each open with the next scripted error and records the stack
+/// address of each call.
+class DepthWriterFactory final : public WriterFactory {
+    std::vector<x::errors::Error> errors;
+
+public:
+    std::atomic<size_t> opens{0};
+    std::vector<std::uintptr_t> depths;
+
+    explicit DepthWriterFactory(std::vector<x::errors::Error> errors):
+        errors(std::move(errors)) {}
+
+    std::pair<std::unique_ptr<Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        volatile char marker = 0;
+        this->depths.push_back(reinterpret_cast<std::uintptr_t>(&marker));
+        const auto err = this->errors.at(this->depths.size() - 1);
+        this->opens.fetch_add(1);
+        return {nullptr, err};
+    }
+};
+}
+
+/// @brief it should retry a lost Core in a loop, so a long outage cannot overflow the
+/// stack.
+TEST(AcquisitionPipeline, RetriesOpenAtOneStackDepth) {
+    const auto factory = std::make_shared<DepthWriterFactory>(std::vector{
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        x::errors::UNKNOWN,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 5,
+        },
+        "",
+        true,
+        true
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);
+    pipeline.stop();
+    ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
+    for (const auto depth: factory->depths)
+        ASSERT_EQ(depth, factory->depths.front());
 }
 }

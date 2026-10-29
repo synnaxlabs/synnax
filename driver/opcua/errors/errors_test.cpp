@@ -151,4 +151,22 @@ TEST(ErrorTest, ParseErrorDescribesUnknownCode) {
         "The server returned Unknown StatusCode (0x80FF0000)."
     );
 }
+
+/// @brief it should name the channel, the status, and the reason for a bad status.
+TEST(ErrorTest, ChannelStatusBad) {
+    EXPECT_EQ(
+        channel_status("valve", UA_STATUSCODE_BADNOTWRITABLE),
+        "valve returned BadNotWritable. The access level does not allow writing to the "
+        "Node."
+    );
+}
+
+/// @brief it should name the channel and the status without a reason for an uncertain
+/// status.
+TEST(ErrorTest, ChannelStatusUncertain) {
+    EXPECT_EQ(
+        channel_status("pressure", UA_STATUSCODE_UNCERTAINLASTUSABLEVALUE),
+        "pressure returned UncertainLastUsableValue."
+    );
+}
 }

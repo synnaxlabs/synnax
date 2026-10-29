@@ -446,4 +446,10 @@ x::errors::Error parse(const UA_StatusCode &status) {
 x::errors::Error parse_connect(const UA_StatusCode &status) {
     return to_error(status, true);
 }
+
+std::string channel_status(const std::string &name, const UA_StatusCode &status) {
+    std::string text = name + " returned " + UA_StatusCode_name(status) + ".";
+    if (UA_StatusCode_isBad(status)) text += " " + parse(status).data;
+    return text;
+}
 }

@@ -30,7 +30,7 @@ struct Log {
     bool contains(const std::string &text) {
         std::lock_guard lock(this->mu);
         for (const auto &m: this->messages)
-            if (m.find(text) != std::string::npos) return true;
+            if (m.contains(text)) return true;
         return false;
     }
 };

@@ -82,26 +82,35 @@ describe("OPC UA Read Task Config Validation", () => {
     );
   });
 
-  it("should reject a node ID used by multiple channels", () => {
+  it("should warn at each node ID used by multiple channels", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse(
       createConfig([{ nodeId: "ns=1;s=dup" }, { nodeId: "ns=1;s=dup" }]),
     );
     expect(result.success).toBe(false);
-    expect(
-      result.error?.issues.some(({ message }) => message.includes("already been used")),
-    ).toBe(true);
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "nodeId"],
+          message: "This node ID has already been used elsewhere in the configuration",
+          params: { variant: "warning" },
+        }),
+      ),
+    );
   });
 
-  it("should reject multiple channels marked as index", () => {
+  it("should reject each channel marked as index when there are several", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse(
       createConfig([{ isIndex: true }, { isIndex: true }]),
     );
     expect(result.success).toBe(false);
-    expect(
-      result.error?.issues.some(({ message }) =>
-        message.includes("Only one channel can be marked as an index"),
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "isIndex"],
+          message: "Only one channel can be marked as an index channel",
+        }),
       ),
-    ).toBe(true);
+    );
   });
 
   it("should reject an array size larger than the sample rate", () => {

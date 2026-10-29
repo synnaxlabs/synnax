@@ -96,6 +96,14 @@ x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
 }
 
 void Acquisition::run() {
+    while (this->run_once()) {}
+}
+
+void Acquisition::stopped_with_err(const x::errors::Error &err) {
+    this->source->stopped_with_err(err);
+}
+
+bool Acquisition::run_once() {
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
     std::optional<x::control::Authority> pending_global_auth;
@@ -110,15 +118,13 @@ void Acquisition::run() {
         writer_err = writer_err_i;
         if (writer_err) {
             if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-                this->breaker.wait(writer_err.message())) {
-                this->run();
-                return;
-            }
+                this->breaker.wait(writer_err.message()))
+                return true;
             LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
                        << writer_err.message();
             this->source->stopped_with_err(writer_err);
             this->breaker.stop();
-            return;
+            return false;
         }
         writer = std::move(writer_i);
         writer_opened = true;
@@ -218,15 +224,14 @@ void Acquisition::run() {
     }
     if (writer_opened) writer_err = writer->close();
     if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-        this->breaker.wait(writer_err.message())) {
-        this->run();
-        return;
-    }
+        this->breaker.wait(writer_err.message()))
+        return true;
     if (source_err && !source_err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
         this->source->stopped_with_err(source_err);
     else if (writer_err)
         this->source->stopped_with_err(writer_err);
     this->breaker.stop();
     VLOG(1) << "[acquisition] acquisition thread stopped";
+    return false;
 }
 }
