@@ -15,7 +15,7 @@ import { type State } from "@/session/store";
 
 const selectSliceState = (state: State): SliceState => state[SLICE_NAME];
 
-export const selectFavorites = (state: State): status.Key[] =>
+const selectFavorites = (state: State): status.Key[] =>
   selectSliceState(state).favorites;
 
 export const useSelectFavorites = (): status.Key[] =>
@@ -27,7 +27,7 @@ const selectFavoriteSet = (state: State): Set<status.Key> =>
 export const useSelectFavoriteSet = (): Set<status.Key> =>
   Select.useMemo((state: State) => selectFavoriteSet(state), []);
 
-export const selectIsFavorite = (state: State, key: status.Key): boolean =>
+const selectIsFavorite = (state: State, key: status.Key): boolean =>
   selectSliceState(state).favorites.includes(key);
 
 export const useSelectIsFavorite = (key: status.Key): boolean =>

@@ -10,6 +10,7 @@
 [project]
 name = "synnax"
 version = "0.60.0"
+readme = "README.md"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -70,6 +71,7 @@ select = [
     "I",
     "B",
     "DTZ",
+    "E501",
     "E7",
     "E9",
     "PLE",
@@ -149,6 +151,9 @@ markers = [
     "focus: marker to temporarily focus a test",
     "user: marker to temporarily focus a user test",
 ]
+
+[tool.coverage.run]
+omit = ["*/types_gen.py"]
 
 [build-system]
 requires = ["hatchling"]

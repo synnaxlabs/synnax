@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-text--editable {
+.lyra-text--editable {
     cursor: pointer;
     -webkit-user-select: text;
     user-select: text;
@@ -17,9 +17,11 @@
 
     &:focus {
         outline: none;
+        /* stylelint-disable-next-line declaration-no-important -- a focused field shows
+           all its text whatever overflow its host sets */
         overflow: unset !important;
 
-        &.pluto--outline::after {
+        &.lyra--outline::after {
             content: "";
             position: absolute;
             inset: -1px -0.666rem;
@@ -29,16 +31,18 @@
         }
     }
 
-    /* A field asked to ellipsize has declared that it must stay inside its box, so
-       editing scrolls to the caret rather than spilling past the container. The clip
-       would eat the ring above, so the ring moves inside the box. */
-    &.pluto-text--overflow-ellipsis:focus {
+    /* A field that fades stays inside its box, so editing scrolls to the caret rather
+       than spilling past the container. The clip would eat the ring above, so the
+       ring moves inside the box, and the caret's end of the text never fades. */
+    &.lyra-text--overflow-fade:focus {
+        /* stylelint-disable-next-line declaration-no-important -- outranks the focused
+           rule above */
         overflow: hidden !important;
-        text-overflow: clip;
+        animation: none;
         border-radius: var(--pluto-border-radius);
         box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-primary-z);
 
-        &.pluto--outline::after {
+        &.lyra--outline::after {
             content: none;
         }
     }

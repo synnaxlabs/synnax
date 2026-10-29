@@ -22,17 +22,18 @@ import (
 
 // acronyms are initialisms that stay fully upper-cased in PascalCase identifiers
 // derived from snake_case (e.g. "ai_voltage" -> "AIVoltage"). The set covers the
-// hardware and signal initialisms used in Synnax schemas.
+// initialisms used in Synnax schemas.
 var acronyms = set.New(
 	"ai", "ao", "ci", "co", "di", "do",
 	"rtd", "iepe", "rms", "dc", "ac",
+	"api",
 )
 
-// PascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase, fully
+// pascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase, fully
 // upper-casing any whole underscore-delimited segment that is a known acronym.
 // Whole-segment matching means a word that merely contains an acronym (e.g. "email",
 // "accel") is title-cased normally rather than mangled.
-func PascalAcronym(s string) string {
+func pascalAcronym(s string) string {
 	segs := strings.Split(TypeSnake(s), "_")
 	for i, seg := range segs {
 		if seg == "" {
@@ -48,23 +49,22 @@ func PascalAcronym(s string) string {
 }
 
 // CamelAcronym converts an identifier to camelCase while keeping known acronyms
-// upper-cased after the first word, mirroring PascalAcronym. Only the leading word or
-// acronym is lower-cased: "AIVoltageRMSChannel" -> "aiVoltageRMSChannel",
-// "BaseAOChannel" -> "baseAOChannel", "RTDType" -> "rtdType", "Channel" -> "channel".
-// Use this for generated type and schema-const identifiers. It must not be used for
-// wire field keys, which have to match the naive snake/camel conversion the JSON codec
-// performs.
+// upper-cased after the first word. Only the leading word or acronym is lower-cased:
+// "AIVoltageRMSChannel" -> "aiVoltageRMSChannel", "BaseAOChannel" -> "baseAOChannel",
+// "RTDType" -> "rtdType", "Channel" -> "channel". Use this for generated type and
+// schema-const identifiers. It must not be used for wire field keys, which have to
+// match the naive snake/camel conversion the JSON codec performs.
 func CamelAcronym(s string) string {
 	if s == "" {
 		return s
 	}
 	// Normalize snake_case/kebab-case or camelCase input to acronym-aware
 	// PascalCase. Already-PascalCase input is used as-is: routing it back through
-	// PascalAcronym would collapse adjacent acronyms ("AIRTD" -> "Airtd") that a
+	// pascalAcronym would collapse adjacent acronyms ("AIRTD" -> "Airtd") that a
 	// snake round-trip cannot re-split.
 	p := s
 	if isLower(s[0]) || strings.ContainsAny(s, "_-") {
-		p = PascalAcronym(s)
+		p = pascalAcronym(s)
 	}
 	// Lower-case only the leading word or acronym; the remainder is preserved verbatim
 	// so embedded acronyms survive (the AO in "BaseAOChannel", the RMS in
@@ -106,7 +106,7 @@ func leadingKnownAcronym(s string) string {
 // (e.g. value "ai_voltage" under union "AIChannel"), the acronym is written once:
 // "AIVoltageChannel" rather than "AIVoltageAIChannel".
 func VariantTypeName(unionName, variantValue string) string {
-	variant := PascalAcronym(variantValue)
+	variant := pascalAcronym(variantValue)
 	if acr := leadingAcronym(unionName); acr != "" &&
 		firstSegment(variantValue) == strings.ToLower(acr) {
 		return variant + unionName[len(acr):]

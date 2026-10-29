@@ -63,14 +63,14 @@ class TestRowEngine:
     ) -> None:
         """Should write a file that holds its index without the start it was given"""
         idx, data = indexed_pair
-        client.write(1 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(1, 1)})
+        client.write(1 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(1, count=1)})
         path = tmp_path / "with_index.csv"
         path.write_text(f"{idx.name},{data.name}\n10000000000,1.5\n11000000000,2.5\n")
         row.Engine(
-            client,
-            FACTORY.new_reader(path),
-            [idx, data],
-            sy.TimeStamp(1 * sy.TimeSpan.SECOND),
+            client=client,
+            reader=FACTORY.new_reader(path),
+            channels=[idx, data],
+            start=sy.TimeStamp(1 * sy.TimeSpan.SECOND),
         ).run()
         frame = client.read(sy.TimeRange.MAX, [idx.key, data.key])
         assert list(frame[idx.key]) == [
@@ -88,14 +88,14 @@ class TestRowEngine:
     ) -> None:
         """Should align a file without its index to an index written before it"""
         idx, data = indexed_pair
-        client.write(5 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(5, 2)})
+        client.write(5 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(5, count=2)})
         path = tmp_path / "without_index.csv"
         path.write_text(f"{idx.name},{data.name}\n5000000000,1.5\n6000000000,2.5\n")
         row.Engine(
-            client,
-            CSVReader(path, keys=[data.name]),
-            [data],
-            sy.TimeStamp(5 * sy.TimeSpan.SECOND),
+            client=client,
+            reader=CSVReader(path, keys=[data.name]),
+            channels=[data],
+            start=sy.TimeStamp(5 * sy.TimeSpan.SECOND),
         ).run()
         frame = client.read(
             sy.TimeRange(5 * sy.TimeSpan.SECOND, 7 * sy.TimeSpan.SECOND), data.key

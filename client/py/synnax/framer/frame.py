@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from typing import TypeAlias, overload
 
@@ -19,7 +20,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
-from synnax.exceptions import ValidationError
+from synnax.exceptions import MultipleFoundError, ValidationError
 from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
@@ -43,10 +44,14 @@ class Frame:
     """
     A frame is a collection of telemetry series mapped to particular channels. Frames
     can be keyed by channel name or channel key, but not both.
+
+    :ivar names: The names of channels in the frame, by channel key. Frames read from
+        the Core carry the names of the channels they read.
     """
 
     channels: list[channel.Key | str]
     series: list[Series] = Field(default_factory=list)
+    names: dict[channel.Key, str]
 
     @overload
     def __init__(
@@ -91,9 +96,11 @@ class Frame:
         ) = None,
         series: Sequence[TypedCrudeSeries] | None = None,
     ) -> None:
+        self.names = {}
         if isinstance(channels, Frame):
             self.channels = channels.channels
             self.series = channels.series
+            self.names = channels.names
         elif isinstance(channels, FramePayload):
             self.channels = list(channels.keys)
             self.series = channels.series
@@ -126,7 +133,8 @@ class Frame:
 
     @overload
     def append(self, col_or_frame: Frame) -> None:
-        """Appends the given frame to the current frame, modifying the current frame in place.
+        """Appends the given frame to the current frame, modifying the current frame in
+        place.
         :param col_or_frame: The frame to append to the current frame.
         """
 
@@ -136,16 +144,17 @@ class Frame:
         series: Series | None = None,
     ) -> None:
         """Appends a frame or series to the current frame. If a frame is provided, the
-        series and channels from the frame are appended to the current frame. If a series
-        is provided, the series is appended to the frame for the given channel.
-        :param col_or_frame: The channel key or name to append the series to, or the frame
-            to append to the current frame.
-        :param series: The series to append to the frame, if col_or_frame is a channel key
-            or name.
+        series and channels from the frame are appended to the current frame. If a
+        series is provided, the series is appended to the frame for the given channel.
+        :param col_or_frame: The channel key or name to append the series to, or the
+            frame to append to the current frame.
+        :param series: The series to append to the frame, if col_or_frame is a channel
+            key or name.
         """
         if isinstance(col_or_frame, Frame):
             self.series.extend(col_or_frame.series)
             self.channels.extend(col_or_frame.channels)
+            self.names.update(col_or_frame.names)
         else:
             if series is None:
                 raise ValueError("series must be provided when appending a channel")
@@ -162,7 +171,12 @@ class Frame:
         return zip(self.channels, self.series, strict=True)
 
     @overload
-    def __getitem__(self, key: channel.Key | str) -> MultiSeries: ...
+    def __getitem__(self, key: channel.Key | str) -> MultiSeries:
+        """Gets the series of a channel by its key or name. A name also finds a
+        channel keyed by key when the frame knows its name.
+
+        :raises MultipleFoundError: If two channels in the frame share the name.
+        """
 
     @overload
     def __getitem__(self, key: npt.NDArray[np.bool_]) -> DataFrame:
@@ -173,8 +187,23 @@ class Frame:
     ) -> MultiSeries | DataFrame:
         if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
-        indexes = [i for i, k in enumerate(self.channels) if k == key]
-        return MultiSeries([self.series[i] for i in indexes])
+        cols = self._columns(key)
+        return MultiSeries(
+            [self.series[i] for i, k in enumerate(self.channels) if k in cols]
+        )
+
+    def _columns(self, key: channel.Key | str) -> set[channel.Key | str]:
+        if isinstance(key, channel.Key):
+            name = self.names.get(key)
+            if name is None or list(self.names.values()).count(name) > 1:
+                return {key}
+            return {key, name}
+        keys = [k for k, name in self.names.items() if name == key]
+        if len(keys) > 1:
+            raise MultipleFoundError(
+                f"Channels {keys} in the frame share the name {key}. Use a key."
+            )
+        return {key, *keys}
 
     def get(
         self, key: channel.Key | str, default: MultiSeries | None = None
@@ -204,22 +233,28 @@ class Frame:
         return FramePayload(keys=keys, series=self.series)
 
     def to_df(self) -> DataFrame:
-        """Converts the frame to a pandas DataFrame. Each column in the DataFrame
-        corresponds to a channel in the frame.
+        """Converts the frame to a pandas DataFrame with one column per channel. The
+        columns are in the order the channels first appear in the frame. Each column
+        is the channel name, or the channel key when the frame does not know the name
+        or when two channels in the frame share the name.
         """
+        cols = {
+            k: self.names.get(k, k) if isinstance(k, channel.Key) else k
+            for k in self.channels
+        }
+        counts = Counter(cols.values())
         base: dict[channel.Key | str, object] = {}
-        for k in set(self.channels):
-            v = self.get(k)
-            if v is None:
-                continue
+        for k, name in cols.items():
+            col = name if counts[name] == 1 else k
+            v = self[k]
             try:
-                base[k] = v.__array__()
+                base[col] = v.__array__()
             except TypeError:
-                base[k] = list(v)
+                base[col] = list(v)
         return DataFrame(base)
 
     def __contains__(self, key: channel.Key | str) -> bool:
-        return key in self.channels
+        return not self._columns(key).isdisjoint(self.channels)
 
 
 # Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.

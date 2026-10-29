@@ -21,7 +21,6 @@ from freighter import (
     ExceptionPayload,
     Stream,
     WebsocketClient,
-    decode_exception,
 )
 from freighter.transport import P
 from freighter.websocket import Message
@@ -35,6 +34,7 @@ from synnax.framer.codec import (
 from synnax.framer.frame import CrudeFrame, FramePayload, K
 from synnax.telem import CrudeSeries, CrudeTimeStamp, TimeSpan, TimeStamp
 from x.control import Authority, CrudeAuthority, Subject
+from x.exceptions import Error, Registry
 from x.lists import normalize
 
 
@@ -84,7 +84,7 @@ class WriterResponse(BaseModel):
     err: ExceptionPayload
 
 
-class WSWriterCodec(WSCodec):
+class _WSWriterCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         if not isinstance(data, Message):
             raise TypeError(f"expected Message, got {type(data)}")
@@ -94,7 +94,7 @@ class WSWriterCodec(WSCodec):
             or data.payload.command != WriterCommand.WRITE
         ):
             return bytes([LOW_PERF_SPECIAL_CHAR]) + self.lower_perf_codec.encode(data)
-        encoded = self.codec.encode(data.payload.frame, 1)
+        encoded = self.codec.encode(data.payload.frame, start_offset=1)
         buf = bytearray(encoded)
         buf[0] = HIGH_PERF_SPECIAL_CHAR
         return bytes(buf)
@@ -102,13 +102,13 @@ class WSWriterCodec(WSCodec):
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
-        frame = self.codec.decode(data, 1)
+        frame = self.codec.decode(data, offset=1)
         msg: Message[WriterRequest] = Message(type="data")
         msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
         return cast(P, msg)
 
 
-def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
+def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if mode == "persist_stream":
         return WriterMode.PERSIST_STREAM
     if mode == "persist":
@@ -125,10 +125,10 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     raise ValueError(f"invalid writer mode {mode}")
 
 
-ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
+_ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
-class WriterClosed(Exception): ...
+class WriterClosed(Error): ...
 
 
 class Writer:
@@ -152,12 +152,12 @@ class Writer:
     frames to the writer.
 
     2. To write a frame, the caller can use the write method and follow the validation
-    rules described in the method's documentation. This process is asynchronous,
-    meaning that write will return before the frame has been written to the cluster. This
-    also means that the writer can accumulate an error after write is called. If the
-    writer accumulates an error, subsequent calls to `write` will repeatedly throw that
-    error. If write throws an error, the writer can no longer be used, and it must
-    be closed and re-opened to continue writing.
+    rules described in the method's documentation. This process is asynchronous, meaning
+    that write will return before the frame has been written to the cluster. This also
+    means that the writer can accumulate an error after write is called. If the writer
+    accumulates an error, subsequent calls to `write` will repeatedly throw that error.
+    If write throws an error, the writer can no longer be used, and it must be closed
+    and re-opened to continue writing.
 
     3. To commit the written frames to the database, the caller can call the commit
     method. Unlike write, commit is synchronous, meaning that it will not return until
@@ -175,14 +175,17 @@ class Writer:
 
     _stream: Stream[WriterRequest, WriterResponse]
     _adapter: WriteFrameAdapter
+    _registry: Registry
     _close_exc: Exception | None = None
 
     start: CrudeTimeStamp | None
 
     def __init__(
         self,
+        *,
         start: CrudeTimeStamp | None,
         client: WebsocketClient,
+        registry: Registry,
         adapter: WriteFrameAdapter,
         name: str = "",
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
@@ -195,14 +198,15 @@ class Writer:
     ) -> None:
         self.start = start
         self._adapter = adapter
-        client = client.with_codec(WSWriterCodec(adapter.codec))
+        self._registry = registry
+        client = client.with_codec(_WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
             keys=self._adapter.keys,
             start=None if self.start is None else TimeStamp(self.start),
             authorities=normalize(authorities),
-            mode=parse_writer_mode(mode),
+            mode=_parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
@@ -289,6 +293,7 @@ class Writer:
     def set_authority(
         self,
         value: channel.Key | str,
+        *,
         authority: CrudeAuthority,
     ) -> None:
         """Sets the authority level for a single channel.
@@ -315,6 +320,7 @@ class Writer:
             | str
             | CrudeAuthority
         ),
+        *,
         authority: CrudeAuthority | None = None,
     ) -> None:
         """Sets the control authority for channels the writer is writing to. Authority
@@ -327,8 +333,8 @@ class Writer:
             writer.set_authority(Authority.ABSOLUTE)
 
         2. Set authority for a single channel by key or name:
-            writer.set_authority("my_channel", Authority.ABSOLUTE)
-            writer.set_authority(channel_key, 200)
+            writer.set_authority("my_channel", authority=Authority.ABSOLUTE)
+            writer.set_authority(channel_key, authority=200)
 
         3. Set authority for multiple channels via dictionary:
             writer.set_authority({
@@ -418,7 +424,7 @@ class Writer:
             except Exception as recv_exc:
                 self._close_exc = recv_exc
                 continue
-            self._close_exc = decode_exception(res.err)
+            self._close_exc = self._registry.decode(res.err)
 
     def _exec(
         self, req: WriterRequest, timeout: int | None = None
@@ -430,13 +436,13 @@ class Writer:
             return None
         while True:
             try:
-                res = self._stream.receive(timeout)
+                res = self._stream.receive(timeout=timeout)
             except TimeoutError:
                 raise
             except Exception as recv_exc:
                 self._close(recv_exc)
                 return None
-            decoded_exc = decode_exception(res.err)
+            decoded_exc = self._registry.decode(res.err)
             if decoded_exc is not None:
                 self._close(decoded_exc)
                 return None

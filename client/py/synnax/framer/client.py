@@ -41,6 +41,7 @@ from synnax.telem import (
     TimeSpan,
 )
 from x.control import Authority, CrudeAuthority
+from x.exceptions import Registry
 from x.fs import FilePath
 
 # A str is a Sequence[str], so a list or tuple of names keeps the overloads disjoint.
@@ -52,7 +53,7 @@ _FrameParams: TypeAlias = (
     | tuple[str, ...]
 )
 
-ontology_type = ontology.ID(type="framer")
+_ontology_type = ontology.ID(type="framer")
 
 
 class Client:
@@ -66,17 +67,20 @@ class Client:
     _unary_client: UnaryClient
     _channels: Retriever
     _deleter: Deleter
+    _registry: Registry
     _reader: Reader
     instrumentation: Instrumentation
 
     def __init__(
         self,
+        *,
         stream_client: WebsocketClient,
         async_client: AsyncWebsocketClient,
         unary_client: UnaryClient,
         file_transport: FileTransport,
         retriever: Retriever,
         deleter: Deleter,
+        registry: Registry,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._stream_client = stream_client
@@ -84,15 +88,18 @@ class Client:
         self._unary_client = unary_client
         self._channels = retriever
         self._deleter = deleter
-        self._reader = Reader(retriever, file_transport)
+        self._registry = registry
+        self._reader = Reader(
+            retriever=retriever, file_transport=file_transport, registry=registry
+        )
         self.instrumentation = instrumentation
 
     def open_writer(
         self,
         start: CrudeTimeStamp | None = None,
         channels: channel.Params | None = None,
-        authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         *,
+        authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         name: str = "",
         group: int = 0,
         strict: bool = False,
@@ -107,9 +114,9 @@ class Client:
         """Opens a new writer on the given channels.
 
         :param start: Sets where the writer's control region begins. Defaults to the
-        time the writer opens on the Core. A writer fails to open when stored data on any
-        of its channels holds start. A writer that writes data channels without their
-        index needs a start, and it must be a sample of that index.
+        time the writer opens on the Core. A writer fails to open when stored data on
+        any of its channels holds start. A writer that writes data channels without
+        their index needs a start, and it must be a sample of that index.
         :param channels: The channels to write to. This can be a single channel name, a
         list of channel names, a single channel key, or a list of channel keys. :param
         authorities: The control authority to set for each channel on the writer.
@@ -153,6 +160,7 @@ class Client:
             start=start,
             adapter=adapter,
             client=self._stream_client,
+            registry=self._registry,
             authorities=authorities,
             name=name,
             group=group,
@@ -167,6 +175,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         chunk_size: int = 100000,
         reduction: Reduction | None = None,
     ) -> Iterator:
@@ -252,6 +261,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Key | str,
+        *,
         reduction: Reduction | None = None,
     ) -> MultiSeries: ...
 
@@ -260,6 +270,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: _FrameParams,
+        *,
         reduction: Reduction | None = None,
     ) -> Frame: ...
 
@@ -267,6 +278,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         reduction: Reduction | None = None,
     ) -> MultiSeries | Frame:
         """Reads telemetry from the channels between the two timestamps.
@@ -282,7 +294,7 @@ class Client:
         :raises QueryError: If a single channel has no data in the time range.
         """
         normal = channel.normalize_params(channels)
-        frame = self._reader.read(tr, channels, reduction)
+        frame = self._reader.read(tr, channels, reduction=reduction)
         if not normal.single:
             return frame
         series = frame.get(normal.channels[0], None)
@@ -296,6 +308,7 @@ class Client:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         dest: FilePath,
         reduction: StrideReduction | None = None,
     ) -> None:
@@ -309,12 +322,13 @@ class Client:
         :param reduction: Keeps every factor-th sample of each channel. Defaults to
         keeping every sample.
         """
-        self._reader.read_csv(tr, channels, dest, reduction)
+        self._reader.read_csv(tr, channels, dest=dest, reduction=reduction)
 
     def read_tdms(
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         dest: FilePath,
         reduction: StrideReduction | None = None,
     ) -> None:
@@ -329,12 +343,13 @@ class Client:
         :param reduction: Keeps every factor-th sample of each channel. Defaults to
         keeping every sample.
         """
-        self._reader.read_tdms(tr, channels, dest, reduction)
+        self._reader.read_tdms(tr, channels, dest=dest, reduction=reduction)
 
     @overload
     def read_latest(
         self,
         channels: channel.Key | str,
+        *,
         n: int = 1,
     ) -> MultiSeries: ...
 
@@ -342,12 +357,14 @@ class Client:
     def read_latest(
         self,
         channels: _FrameParams,
+        *,
         n: int = 1,
     ) -> Frame: ...
 
     def read_latest(
         self,
         channels: channel.Params,
+        *,
         n: int = 1,
     ) -> Frame | MultiSeries:
         """Reads the latest n samples from the given channels. If fewer than n samples
@@ -380,6 +397,7 @@ class Client:
     def open_streamer(
         self,
         channels: channel.Params,
+        *,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,
@@ -413,6 +431,7 @@ class Client:
     async def open_async_streamer(
         self,
         channels: channel.Params,
+        *,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         exclude_groups: list[int] | None = None,

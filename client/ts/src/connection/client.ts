@@ -46,6 +46,7 @@ const CHECK_ENDPOINT = "/connectivity/check";
 const checkResZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string(),
+  nodeKey: z.number(),
   nodeTime: TimeStamp.z,
   license: license.stateZ.default("ok"),
 });
@@ -57,7 +58,7 @@ const checkResZ = z.object({
  * @throws {AuthError} if the cluster rejects the client's credentials.
  * @throws {Unreachable} if the cluster cannot be reached.
  */
-export const sendCheck = async (unary: UnaryClient): Promise<Info> => {
+const sendCheck = async (unary: UnaryClient): Promise<Info> => {
   const skew = new ClockSkewCalculator();
   skew.start();
   const res = await unary.send(CHECK_ENDPOINT, undefined, z.void(), checkResZ);
@@ -65,6 +66,7 @@ export const sendCheck = async (unary: UnaryClient): Promise<Info> => {
   return {
     clusterKey: res.clusterKey,
     nodeVersion: res.nodeVersion,
+    nodeKey: res.nodeKey,
     clockSkew: skew.skew,
     roundTrip: skew.roundTrip,
     license: res.license,
@@ -109,8 +111,7 @@ export const check = async (params: CheckParams): Promise<Status> => {
 /** How hard the check loop is working. */
 export type Mode = "checking" | "heartbeat" | "idle";
 
-/** The mode a given connection status calls for. */
-export const modeFor = ({ variant, details }: Status): Mode => {
+const modeFor = ({ variant, details }: Status): Mode => {
   switch (variant) {
     // warning is settled, not in progress: a denied stream checks on the
     // slow cadence like a healthy one
