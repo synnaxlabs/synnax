@@ -7,9 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Status as LyraStatus } from "@synnaxlabs/lyra/status";
 import { save } from "@tauri-apps/plugin-dialog";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 
 import { Command } from "@/feature/command";
 import { Embedded } from "@/feature/embedded";
@@ -21,8 +30,27 @@ import {
   RUNNING,
   type Status,
 } from "@/feature/embedded/testutil";
+import { License } from "@/platform/license";
+import { stubHub } from "@/platform/license/testutil";
+import { Session } from "@/session";
+import { CaptureStatuses } from "@/testutil";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({ save: vi.fn() }));
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; label: string } => ({
+  engine: "web",
+  label: "main",
+}));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
+
+vi.mock("@tauri-apps/api/window", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  getCurrentWindow: () => ({ label: mocks.label }),
+}));
 
 const DIAGNOSTICS = {
   version: "0.58.0",
@@ -50,23 +78,34 @@ const LOG = [
   "panic: not a structured line",
 ].join("\n");
 
+const LINK = {
+  secret: "shh",
+  email: "ada@example.com",
+  user: "user_a",
+  analyticsAllowed: true,
+};
+
 const openDiagnostics = async (
   status: Status,
   handlers: Record<string, CommandHandler> = {},
-): Promise<ReturnType<typeof mockSupervisor>> => {
+) => {
   const supervisor = mockSupervisor(() => status, {
     supervisor_diagnostics: () => DIAGNOSTICS,
     supervisor_log_tail: () => LOG,
     ...handlers,
   });
-  const { wrapper } = await createDesktopWrapper();
+  const { wrapper, store } = await createDesktopWrapper();
+  let statuses: LyraStatus.NotificationSpec[] = [];
   render(
-    <Command.List
-      commands={Embedded.COMMANDS}
-      value=">"
-      onChange={() => {}}
-      inputPlaceholder={<>Commands</>}
-    />,
+    <>
+      <Command.List
+        commands={Embedded.COMMANDS}
+        value=">"
+        onChange={() => {}}
+        inputPlaceholder={<>Commands</>}
+      />
+      <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+    </>,
     { wrapper },
   );
   const command = await screen.findByText("Open diagnostics");
@@ -74,11 +113,24 @@ const openDiagnostics = async (
     fireEvent.click(command, { detail: 1 });
   });
   await screen.findByText("Diagnostics");
-  return supervisor;
+  return { ...supervisor, store, statuses: () => statuses };
 };
 
+/** Opens the erase dialog from the diagnostics and holds its confirm button. */
+const holdErase = async (): Promise<void> => {
+  fireEvent.click(screen.getByRole("button", { name: "Erase all data" }));
+  await screen.findByText(/want to erase all data/);
+  const buttons = screen.getAllByRole("button", { name: "Erase all data" });
+  fireEvent.mouseDown(buttons[buttons.length - 1]);
+};
+
+/** Answers every request to the hub with `answer` until the test ends. */
 describe("Embedded diagnostics", () => {
-  beforeEach(() => vi.mocked(save).mockReset());
+  beforeEach(() => {
+    vi.mocked(save).mockReset();
+    mocks.engine = "web";
+    mocks.label = "main";
+  });
   afterEach(clearSupervisor);
 
   it("should show the health, the data, and a readable log", async () => {
@@ -144,6 +196,50 @@ describe("Embedded diagnostics", () => {
     expect(commands).not.toHaveBeenCalledWith("supervisor_reset");
     fireEvent.mouseDown(confirm);
     await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_reset"));
+  });
+
+  it("should log the machine out before it erases the data", async () => {
+    const hub = stubHub(async () => new Response(null, { status: 204 }));
+    let atReset: Session.Account.SliceState | undefined;
+    const { store, statuses } = await openDiagnostics(RUNNING, {
+      supervisor_reset: () => {
+        atReset = Session.Account.selectSliceState(store.getState());
+      },
+    });
+    store.dispatch(Session.Account.link(LINK));
+    await holdErase();
+    await waitFor(() => expect(atReset).toEqual(Session.Account.ZERO_SLICE_STATE));
+    // The status list renders after the reset command can already have run.
+    await waitFor(() =>
+      expect(statuses().map(({ message }) => message)).toContain("Erasing all data"),
+    );
+    expect(hub).toHaveBeenCalledWith(
+      License.UNLINK_URL,
+      expect.objectContaining({ headers: { authorization: "Bearer shh" } }),
+    );
+  });
+
+  it("should erase the data when the hub cannot be reached", async () => {
+    const offline = new TypeError("Failed to fetch");
+    stubHub(async () => {
+      throw offline;
+    });
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    onTestFinished(() => logged.mockRestore());
+    const { commands, store } = await openDiagnostics(RUNNING);
+    store.dispatch(Session.Account.link(LINK));
+    await holdErase();
+    await waitFor(() => expect(commands).toHaveBeenCalledWith("supervisor_reset"));
+    expect(Session.Account.selectSliceState(store.getState()).link).toBeUndefined();
+    expect(logged).toHaveBeenCalledWith(offline);
+  });
+
+  it("should offer the erase only in the main window", async () => {
+    mocks.engine = "tauri";
+    mocks.label = "child";
+    await openDiagnostics(RUNNING);
+    expect(screen.getByRole("button", { name: "Show logs" })).toBeTruthy();
+    expect(screen.queryByText("Erase all data")).toBeNull();
   });
 
   it("should show the data folder and the logs", async () => {

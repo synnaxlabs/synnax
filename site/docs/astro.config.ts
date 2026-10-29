@@ -14,8 +14,12 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
-import { layers } from "@synnaxlabs/vite-plugin";
+import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
+import { type AstroIntegration } from "astro";
 import { defineConfig } from "astro/config";
+import fs from "fs";
+import matter from "gray-matter";
+import path from "path";
 
 import { schema } from "./src/util/env";
 import { inlineCode } from "./src/util/inlineCode";
@@ -32,23 +36,34 @@ const RELEASE_REDIRECTS = Object.fromEntries(
   ]),
 );
 
+// A page behind a flag renders per request, so it can answer 404 while the flag is off.
+const flaggedPages: AstroIntegration = {
+  name: "flagged-pages",
+  hooks: {
+    "astro:route:setup": ({ route }) => {
+      if (!/\.mdx?$/.test(route.component)) return;
+      const source = fs.readFileSync(
+        path.join(import.meta.dirname, route.component),
+        "utf8",
+      );
+      if (matter(source).data.flag != null) route.prerender = false;
+    },
+  },
+};
+
 // https://astro.build/config
 export default defineConfig({
-  integrations: [integration(), react(), mdx()],
-  output: "server",
+  integrations: [integration(), react(), mdx(), flaggedPages],
   env: { schema },
-  adapter: vercel({
-    // Misses read Vercel's shared page cache, not the function, and pages refresh
-    // with the release listing. The updater feeds stay uncached so a failed lookup
-    // never sticks.
-    isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
-  }),
+  adapter: vercel(),
   vite: {
     // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
     // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
-      postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+      postcss: {
+        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
+      },
     },
     // An inlined font ships in the render-blocking stylesheet whether or not a page
     // needs its characters.
@@ -65,6 +80,7 @@ export default defineConfig({
     },
   },
   redirects: {
+    "/": "/reference",
     // Shipped clients print these paths in errors and docstrings.
     "/reference/client/resources/troubleshooting": "/reference/client/troubleshooting",
     "/reference/client/working-with-data/streaming-data":
@@ -89,6 +105,7 @@ export default defineConfig({
     "/reference/console/requirements": "/reference/enterprise/requirements",
     "/reference/console/channels": "/reference/channels",
     "/reference/console/calculated-channels": "/reference/channels/calculated",
+    "/reference/desktop/usage-data": "/privacy-policy#desktop-usage-data",
     "/reference/console/ranges": "/reference/ranges/find",
     "/reference/console/workspaces": "/reference/visualize/projects",
     "/reference/control/arc/concepts": "/reference/control/arc/execution-model",

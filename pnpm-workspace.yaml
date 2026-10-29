@@ -28,6 +28,10 @@ packages:
 
 shellEmulator: true
 
+# Node.js downloads from nodejs.org sometimes time out on hosted CI runners. The default
+# is two retries.
+fetchRetries: 5
+
 trustPolicy: no-downgrade
 trustPolicyExclude:
   # Old major versions that predate provenance on their package, so the downgrade is
@@ -92,6 +96,7 @@ catalog:
   '@fontsource/inter': ^5.3.0
   '@juggle/resize-observer': ^3.4.0
   '@neondatabase/serverless': ^1.2.0
+  '@noble/hashes': ^2.4.0
   '@opentelemetry/api': ^1.9.1
   '@prettier/plugin-xml': ^3.4.2
   '@reduxjs/toolkit': ^2.13.0
@@ -140,6 +145,7 @@ catalog:
   '@types/ws': ^8.18.2
   '@vercel/oidc-aws-credentials-provider': ^3.3.13
   '@vitejs/plugin-react': ^6.1.2
+  '@vitest/browser-playwright': ^5.0.5
   '@vitest/coverage-v8': ^5.0.5
   '@vscode/vsce': ^4.0.0
   '@xyflow/react': ^12.12.0
@@ -153,6 +159,7 @@ catalog:
   compromise: ^14.18.0
   compromise-dates: ^3.9.0
   d3-scale: ^4.0.2
+  dompurify: ^3.4.17
   drizzle-kit: ^0.31.11
   drizzle-orm: ^0.45.4
   error-stack-parser: ^2.1.4
@@ -178,6 +185,9 @@ catalog:
   playwright: ^1.64.1
   pluralize: ^8.0.0
   postcss: ^8.5.30
+  postcss-html: ^1.8.1
+  postcss-selector-parser: ^7.1.6
+  postcss-value-parser: ^4.2.0
   # Pinned exactly. posthog-js publishes several times a day, so a range resolves to a
   # release minutes old and trips the minimum release age gate.
   posthog-js: 1.438.12
@@ -215,6 +225,7 @@ catalog:
   uuid: ^14.0.3
   vite: ^8.3.4
   vitest: ^5.0.5
+  vitest-browser-react: ^2.3.0
   vscode: npm:@codingame/monaco-vscode-extension-api@^37.6.1
   vscode-jsonrpc: ^9.0.3
   vscode-languageclient: ^10.1.2

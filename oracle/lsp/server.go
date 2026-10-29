@@ -30,15 +30,14 @@ import (
 type Server struct {
 	protocol.UnimplementedServer
 	capabilities protocol.ServerCapabilities
-	documents    map[uri.URI]*Document
+	documents    map[uri.URI]*document
 	client       protocol.Client
 	mu           sync.RWMutex
 }
 
 const translateSource = "oracle-analyzer"
 
-// Document represents an open document in the LSP server.
-type Document struct {
+type document struct {
 	Content string
 }
 
@@ -47,7 +46,7 @@ var _ protocol.Server = (*Server)(nil)
 // New creates a new Oracle LSP server.
 func New() *Server {
 	return &Server{
-		documents: make(map[uri.URI]*Document),
+		documents: make(map[uri.URI]*document),
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
 				OpenClose: new(true),
@@ -90,11 +89,8 @@ func (s *Server) Serve(ctx context.Context, rwc io.ReadWriteCloser) error {
 	return conn.Err()
 }
 
-// SetClient sets the LSP client for sending notifications.
-func (s *Server) SetClient(client protocol.Client) { s.client = client }
-
 // getDocument retrieves a document from the cache by URI.
-func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
+func (s *Server) getDocument(docURI uri.URI) (*document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	doc, ok := s.documents[docURI]
@@ -125,7 +121,7 @@ func (s *Server) DidOpen(
 ) error {
 	docURI := params.TextDocument.URI
 	s.mu.Lock()
-	s.documents[docURI] = &Document{Content: params.TextDocument.Text}
+	s.documents[docURI] = &document{Content: params.TextDocument.Text}
 	s.mu.Unlock()
 	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
 	return nil

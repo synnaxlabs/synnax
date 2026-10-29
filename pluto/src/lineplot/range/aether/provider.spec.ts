@@ -17,7 +17,7 @@ import { aether } from "@/aether/aether";
 import { Provider, type ProviderProps } from "@/lineplot/range/aether/provider";
 import { renderAether } from "@/testutil/renderAether";
 import { render } from "@/vis/render";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const REGION = box.construct({ x: 0, y: 0 }, { width: 1000, height: 500 });
 const PROVIDER_KEY = "annotations";

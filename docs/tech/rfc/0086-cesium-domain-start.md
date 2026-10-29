@@ -140,6 +140,7 @@ def open_writer(
     self,
     start: CrudeTimeStamp | None = None,      # was: start: CrudeTimeStamp
     channels: channel.Params | None = None,   # was: channels: channel.Params
+    *,
     authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
     ...
 ) -> Writer: ...
@@ -390,16 +391,19 @@ changes from before the writer opened.
 
 ## 8 Implementation phases
 
-The phases are one stack of pull requests, merged from the bottom up.
+Phases 1 to 5 merge as one stack of pull requests, from the bottom up: #3521, #3522,
+#3528, #3529, and #3530. Phase 2 also adds the delete guard (§6.0) and removes the
+`AutoIndex` default. Phase 3 fixes SY-5057 in the Core. Phase 6 lands in #2950 after
+phase 2 merges.
 
-- **Phase 1: Cesium.** #3521 lets a domain writer take its start before its first write
-  (§7.0). #3522 applies §3, adds the delete guard (§6.0), and removes the `AutoIndex`
-  default.
-- **Phase 2: Go callers.** #3528 drops the `Start` of Arc, which fixes SY-5057 in the
-  Core. The Go read task drops its start picker in #2950, after #3522 merges.
-- **Phase 3: C++ callers.** #3529 changes the acquisition pipeline and C++ Arc.
-- **Phase 4: Clients.** #3530 changes the Python and TypeScript clients, the CLI ingest,
-  the C++ client docs, and the writes pages of the docs.
+| Phase | Scope                                             | Touches                                                                                                           | Depends on |
+| ----- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Let Cesium unary writers set their domain start   | `cesium/internal/domain`, `cesium/internal/unary`                                                                 | -          |
+| 2     | Start each index's domains at its first timestamp | `cesium`, `core/pkg/api/framer`, `core/pkg/distribution/framer/writer`, `client/py/tests`, `client/ts/src/framer` | 1          |
+| 3     | Open Arc task writers without a start             | `core/pkg/service/arc/task`                                                                                       | 2          |
+| 4     | Open Driver writers when their task starts        | `driver/pipeline`, `driver/arc`                                                                                   | 2          |
+| 5     | Open client writers without a start               | `client/py`, `client/ts/src/framer`, `client/cpp/framer`, `site/docs`                                             | 2          |
+| 6     | Open the read task writer when the task starts    | `core/pkg/service/driver`, `core/pkg/service/mqtt`                                                                | 2          |
 
 ## 9 Resolved decisions
 

@@ -244,17 +244,6 @@ func (d Diagnostics) Errors() []Diagnostic {
 	return errors
 }
 
-// Warnings returns only warning-level diagnostics.
-func (d Diagnostics) Warnings() []Diagnostic {
-	var warnings []Diagnostic
-	for _, diag := range d {
-		if diag.Severity == protocol.DiagnosticSeverityWarning {
-			warnings = append(warnings, diag)
-		}
-	}
-	return warnings
-}
-
 // String formats all diagnostics as a human-readable string with line:column severity:
 // message format. The line:column prefix is omitted for diagnostics without a range.
 func (d Diagnostics) String() string {
