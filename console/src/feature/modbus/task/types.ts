@@ -31,6 +31,10 @@ export const isVariableDensityReadChannel = (
   channel: ReadChannel,
 ): channel is TypedReadChannel => VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
 
+export const isStringChannel = (channel: ReadChannel): channel is TypedReadChannel =>
+  isVariableDensityReadChannel(channel) &&
+  new DataType(channel.dataType).equals(DataType.STRING);
+
 // Auto-generated channel names and device map keys keep the released type
 // spellings, so channels created before the labels were renamed keep matching.
 const NAME_TYPES: Record<ReadChannelType, string> = {
@@ -60,14 +64,30 @@ export const readChannelName = (deviceName: string, channel: ReadChannel) => {
 export type WriteChannel = modbus.WriteChannel;
 export type WriteChannelType = modbus.WriteChannelType;
 
+export const BIT_BOUNDS = { lower: 0, upper: 15 };
+export const STRING_LENGTH_BOUNDS = { lower: 1, upper: 250 };
+
 /**
  * Returns the first address after a channel. A register value spans one address per 16
- * bits of its data type, and every other channel spans one.
+ * bits of its data type, a string spans one address per two characters, and every
+ * other channel spans one.
  */
 export const nextAddress = (channel: ReadChannel | WriteChannel): number => {
   if (!("dataType" in channel)) return channel.address + 1;
+  if ("stringLength" in channel && isStringChannel(channel))
+    return channel.address + Math.ceil(channel.stringLength / 2);
   const bytes = new DataType(channel.dataType).density.valueOf();
   return channel.address + Math.ceil(bytes / 2);
+};
+
+/**
+ * Returns the channel to add after the given one: the next bit of a bit channel, then
+ * bit 0 of the next register, or the first address after any other channel.
+ */
+export const nextChannel = <C extends ReadChannel | WriteChannel>(channel: C): C => {
+  if (!("bit" in channel)) return { ...channel, address: nextAddress(channel) };
+  if (channel.bit < BIT_BOUNDS.upper) return { ...channel, bit: channel.bit + 1 };
+  return { ...channel, address: channel.address + 1, bit: 0 };
 };
 
 export const WRITE_CHANNEL_SCHEMAS = modbus.WRITE_CHANNEL_SCHEMAS;
@@ -85,9 +105,14 @@ const REGISTER_DATA_TYPES = [
   DataType.FLOAT64,
 ];
 
-/** Data types the Driver cannot decode from registers. */
-export const UNSUPPORTED_REGISTER_DATA_TYPES = DataType.ALL.filter(
+/** Data types the Driver cannot write to registers. */
+export const UNSUPPORTED_WRITE_DATA_TYPES = DataType.ALL.filter(
   (d) => !d.matches(...REGISTER_DATA_TYPES),
+);
+
+/** Data types the Driver cannot read from registers. */
+export const UNSUPPORTED_READ_DATA_TYPES = DataType.ALL.filter(
+  (d) => !d.matches(...REGISTER_DATA_TYPES, DataType.STRING),
 );
 
 const ADDRESS_LIMIT = 65536;
@@ -115,6 +140,17 @@ const validateReadChannels = ({
     if (ch.disabled) return;
     const rangeIssue = addressRangeIssue(channels, ch, i);
     if (rangeIssue != null) issues.push(rangeIssue);
+    if (
+      isStringChannel(ch) &&
+      (ch.stringLength < STRING_LENGTH_BOUNDS.lower ||
+        ch.stringLength > STRING_LENGTH_BOUNDS.upper)
+    )
+      issues.push({
+        code: "custom",
+        message: `String length must be from ${STRING_LENGTH_BOUNDS.lower} to ${STRING_LENGTH_BOUNDS.upper}`,
+        path: [i, "stringLength"],
+        input: channels,
+      });
     const binding = readMapKey(ch);
     if (!bindings.has(binding)) {
       bindings.add(binding);

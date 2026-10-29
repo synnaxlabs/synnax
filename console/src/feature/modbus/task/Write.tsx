@@ -28,9 +28,10 @@ import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
+  BIT_BOUNDS,
   deployWriteConfigZ,
-  nextAddress,
-  UNSUPPORTED_REGISTER_DATA_TYPES,
+  nextChannel,
+  UNSUPPORTED_WRITE_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -83,6 +84,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
               showDragHandle: false,
               bounds: BIT_BOUNDS,
               startContent: "Bit",
+              "aria-label": "Bit",
             }}
             showLabel={false}
             showHelpText={false}
@@ -114,11 +116,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   );
 };
 
-const BIT_BOUNDS = { lower: 0, upper: 15 };
-
 const renderTelemSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideDataTypes={UNSUPPORTED_REGISTER_DATA_TYPES} />
+    <Telem.SelectDataType {...props} hideDataTypes={UNSUPPORTED_WRITE_DATA_TYPES} />
   ),
 );
 
@@ -128,13 +128,7 @@ const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
       ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
-  const channelToCopy = channels[channels.length - 1];
-  const next = { ...channelToCopy, key: id.create(), name: "" };
-  if (next.type !== "holding_register_bit")
-    return { ...next, address: nextAddress(channelToCopy) };
-  // A bit channel takes the next bit, then bit 0 of the next register.
-  if (next.bit < BIT_BOUNDS.upper) return { ...next, bit: next.bit + 1 };
-  return { ...next, address: next.address + 1, bit: 0 };
+  return { ...nextChannel(channels[channels.length - 1]), key: id.create(), name: "" };
 };
 
 const listItem = Component.renderProp(ChannelListItem);

@@ -23,6 +23,8 @@ READ_TYPE_NAMES = {
     "discrete_input": "Discrete",
     "holding_register": "Holding register",
     "input_register": "Register",
+    "holding_register_bit": "Holding register bit",
+    "input_register_bit": "Register bit",
 }
 WRITE_TYPE_NAMES = {
     "coil": "Coil",
@@ -94,8 +96,15 @@ class ModbusTask(TaskPage):
 
     def set_bit(self, index: int, bit: int) -> None:
         """Set the bit of the register bit channel row at ``index``."""
-        field = self._fields(index).locator("input").nth(1)
-        field.fill(str(bit))
+        self._fill(index, "Bit", bit)
+
+    def set_string_length(self, index: int, length: int) -> None:
+        """Set the string length of the string channel row at ``index``."""
+        self._fill(index, "String length", length)
+
+    def _fill(self, index: int, label: str, value: int) -> None:
+        field = self._fields(index).get_by_label(label, exact=True)
+        field.fill(str(value))
         field.press("Enter")
 
     def channels(self) -> list[tuple[str, int]]:
