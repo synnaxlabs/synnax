@@ -84,7 +84,7 @@ class WriterResponse(BaseModel):
     err: ExceptionPayload
 
 
-class WSWriterCodec(WSCodec):
+class _WSWriterCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         if not isinstance(data, Message):
             raise TypeError(f"expected Message, got {type(data)}")
@@ -108,7 +108,7 @@ class WSWriterCodec(WSCodec):
         return cast(P, msg)
 
 
-def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
+def _parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     if mode == "persist_stream":
         return WriterMode.PERSIST_STREAM
     if mode == "persist":
@@ -125,7 +125,7 @@ def parse_writer_mode(mode: CrudeWriterMode) -> WriterMode:
     raise ValueError(f"invalid writer mode {mode}")
 
 
-ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
+_ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
 class WriterClosed(Error): ...
@@ -152,12 +152,12 @@ class Writer:
     successfully, the caller is then free to write frames to the writer.
 
     2. To write a frame, the caller can use the write method and follow the validation
-    rules described in the method's documentation. This process is asynchronous,
-    meaning that write will return before the frame has been written to the cluster. This
-    also means that the writer can accumulate an error after write is called. If the
-    writer accumulates an error, subsequent calls to `write` will repeatedly throw that
-    error. If write throws an error, the writer can no longer be used, and it must
-    be closed and re-opened to continue writing.
+    rules described in the method's documentation. This process is asynchronous, meaning
+    that write will return before the frame has been written to the cluster. This also
+    means that the writer can accumulate an error after write is called. If the writer
+    accumulates an error, subsequent calls to `write` will repeatedly throw that error.
+    If write throws an error, the writer can no longer be used, and it must be closed
+    and re-opened to continue writing.
 
     3. To commit the written frames to the database, the caller can call the commit
     method. Unlike write, commit is synchronous, meaning that it will not return until
@@ -198,14 +198,14 @@ class Writer:
         self.start = start
         self._adapter = adapter
         self._registry = registry
-        client = client.with_codec(WSWriterCodec(adapter.codec))
+        client = client.with_codec(_WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),
             keys=self._adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
-            mode=parse_writer_mode(mode),
+            mode=_parse_writer_mode(mode),
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,

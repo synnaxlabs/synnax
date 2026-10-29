@@ -78,7 +78,9 @@ class Schematic(ConsolePage):
         *,
         pane_locator: Locator,
     ):
-        """Initialize a Schematic page wrapper (see ConsolePage.__init__ for details)."""
+        """Initialize a Schematic page wrapper (see ConsolePage.__init__ for
+        details).
+        """
         super().__init__(layout, client, page_name, pane_locator=pane_locator)
         self.colors = Colors(self.page)
 
@@ -171,7 +173,8 @@ class Schematic(ConsolePage):
 
         Raises:
             ValueError: If fewer than 2 symbols are provided
-            AssertionError: If symbols are not properly aligned within tolerance after alignment
+            AssertionError: If symbols are not properly aligned within tolerance after
+                alignment
         """
         if len(symbols) < 2:
             raise ValueError("At least 2 symbols are required for alignment")
@@ -211,11 +214,14 @@ class Schematic(ConsolePage):
         Args:
             symbols: List of symbols to distribute (must have at least 3 symbols)
             distribution: The distribution type to apply ('horizontal' or 'vertical')
-            tolerance: Maximum allowed difference in spacing for assertion (default: 3.0 for horizontal, 20.0 for vertical)
+            tolerance: Maximum allowed difference in spacing for assertion (default: 3.0
+                for horizontal, 20.0 for vertical)
 
         Raises:
-            ValueError: If fewer than 3 symbols are provided (otherwise, nothing to distribute)
-            AssertionError: If symbols are not evenly distributed within tolerance after distribution
+            ValueError: If fewer than 3 symbols are provided (otherwise, nothing to
+                distribute)
+            AssertionError: If symbols are not evenly distributed within tolerance after
+                distribution
         """
         if len(symbols) < 3:
             raise ValueError("At least 3 symbols are required for distribution")
@@ -248,7 +254,8 @@ class Schematic(ConsolePage):
         Args:
             symbols: List of symbols to rotate (must have at least 1 symbol)
             direction: The rotation direction ('clockwise' or 'counterclockwise')
-            group: If True, rotate symbols around their group center. If False, rotate each individually.
+            group: If True, rotate symbols around their group center. If False, rotate
+                each individually.
 
         Raises:
             ValueError: If no symbols are provided
@@ -366,7 +373,7 @@ class Schematic(ConsolePage):
 
         Symbols must be selected first (see select).
         """
-        return self.page.locator(".console-schematic__symbol .pluto-text").first
+        return self.page.locator(".console-schematic__symbol .lyra-text").first
 
     def change_symbol(self, name: str) -> None:
         """Change the selected symbols to the named symbol from the symbols tab.
@@ -409,7 +416,8 @@ class Schematic(ConsolePage):
         if control_authority is not None:
             if control_authority < 0 or control_authority > 255:
                 raise ValueError(
-                    f"Control Authority must be between 0 and 255, got {control_authority}"
+                    "Control Authority must be between 0 and 255, got "
+                    f"{control_authority}"
                 )
             self.layout.fill_input_field("Control Authority", str(control_authority))
             self.page.keyboard.press("Enter")
