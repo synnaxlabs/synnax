@@ -26,7 +26,7 @@ _SPIN_MARGIN = (
 ).nanoseconds
 
 
-def _sleep_until(deadline: int, precise: bool) -> None:
+def _sleep_until(deadline: int, *, precise: bool) -> None:
     remaining = deadline - time.perf_counter_ns()
     if not precise:
         if remaining > 0:
@@ -52,7 +52,7 @@ def sleep(dur: Rate | TimeSpan | float | int, *, precise: bool = False) -> None:
     span = TimeSpan.from_seconds(dur)
     if not precise:
         return time.sleep(span.seconds)
-    return _sleep_until(time.perf_counter_ns() + span.nanoseconds, True)
+    return _sleep_until(time.perf_counter_ns() + span.nanoseconds, precise=True)
 
 
 class Timer:
@@ -140,7 +140,7 @@ class Loop:
     def __next__(self) -> None:
         interval = self.interval.nanoseconds
         if time.perf_counter_ns() < self._deadline:
-            _sleep_until(self._deadline, self.precise)
+            _sleep_until(self._deadline, precise=self.precise)
         now = time.perf_counter_ns()
         if now - self._deadline >= interval:
             self._deadline = now
