@@ -28,7 +28,7 @@ def create_source(waits_ms: list[int]) -> str:
     """
     steps = ["    1 -> ws_cmd"]
     for i, wait_ms in enumerate(waits_ms):
-        steps.append(f"    time.wait{{{wait_ms}ms}}")
+        steps.append(f"    time.wait({wait_ms}ms)")
         steps.append(f"    {i + 2} -> ws_cmd")
     body = ",\n".join(steps)
     return f"""
@@ -70,10 +70,10 @@ class _WaitSamples(ArcCase):
         min_ms = self.limits.min_wait_ms
         profile = [w for w in self.profile_ms if w >= min_ms]
         if not profile:
-            self.auto_pass(f"every wait of the case is under {min_ms} ms")
+            self.skip(f"every wait of the case is under {min_ms} ms")
         self.waits_ms = profile * REPEATS
         self.arc_source = create_source(self.waits_ms)
-        create_indexed_pair(self.client, "ws_cmd", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "ws_cmd", data_type=sy.DataType.UINT8)
         self.start = sy.TimeStamp.now()
         super().setup()
 

@@ -301,18 +301,9 @@ func QualifiedNameParts(qid IQualifiedIdentifierContext) (head, tail string) {
 	return head, tail
 }
 
-// QualifiedName returns the dot-joined name from a qualified identifier
-// (e.g., "math.avg"). For symbol resolution, prefer QualifiedNameParts so
-// the head and tail are resolved as separate symbols. This helper is for
-// display purposes (diagnostics, completion items, debug strings).
-func QualifiedName(qid IQualifiedIdentifierContext) string {
-	head, tail := QualifiedNameParts(qid)
-	return head + "." + tail
-}
-
 // FunctionNameParts returns the head and tail of a function context's
-// name. A bare function (set_authority{}) returns (name, ""); a qualified
-// one (math.avg{}) returns (head, tail).
+// name. A bare function (set_authority()) returns (name, ""); a qualified
+// one (math.avg()) returns (head, tail).
 func FunctionNameParts(fn IFunctionContext) (head, tail string) {
 	if qid := fn.QualifiedIdentifier(); qid != nil {
 		return QualifiedNameParts(qid)

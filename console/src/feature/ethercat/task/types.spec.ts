@@ -346,3 +346,18 @@ describe("legacy shapes", () => {
     expect(EtherCAT.Task.READ_SCHEMAS.config.safeParse(v0Config).success).toBe(false);
   });
 });
+
+describe("deploy configs", () => {
+  it.each([
+    ["read", EtherCAT.Task.READ_SCHEMAS.config, EtherCAT.Task.deployReadConfigZ],
+    ["write", EtherCAT.Task.WRITE_SCHEMAS.config, EtherCAT.Task.deployWriteConfigZ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
+  });
+});

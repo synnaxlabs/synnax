@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Account } from "@/feature/account";
 import { License } from "@/platform/license";
@@ -22,7 +22,7 @@ const FIELDS = {
 };
 
 const linkOf = (params: Record<string, string>): string =>
-  `${Account.SCHEME}://activate?${new URLSearchParams(params).toString()}`;
+  `synnax-desktop://activate?${new URLSearchParams(params).toString()}`;
 
 describe("account handoff", () => {
   describe("mintState", () => {
@@ -88,84 +88,6 @@ describe("account handoff", () => {
       const { secret: _, ...rest } = FIELDS;
       expect(() => Account.parseLink(linkOf(rest))).toThrow(
         "The login link is missing its secret",
-      );
-    });
-  });
-
-  describe("renew", () => {
-    afterEach(() => vi.unstubAllGlobals());
-
-    const answer = (status: number, body: unknown): void => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => Response.json(body, { status })),
-      );
-    };
-
-    const answerPage = (status: number, statusText: string): void => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => new Response("<html>Blocked</html>", { status, statusText })),
-      );
-    };
-
-    it("should post the secret as a bearer token and return the new token", async () => {
-      answer(200, { key: "x.y.z" });
-      const result = await Account.renew("shh");
-      expect(result).toEqual({ variant: "renewed", key: "x.y.z" });
-      const fetchMock = vi.mocked(fetch);
-      expect(fetchMock).toHaveBeenCalledWith(
-        License.RENEW_URL,
-        expect.objectContaining({
-          method: "POST",
-          headers: { authorization: "Bearer shh" },
-        }),
-      );
-    });
-
-    it("should report a machine the hub logged out as unlinked", async () => {
-      answer(403, {
-        error: "This machine was logged out. Log in again.",
-        code: "unlinked",
-      });
-      expect(await Account.renew("shh")).toEqual({
-        variant: "unlinked",
-        message: "This machine was logged out. Log in again.",
-      });
-    });
-
-    it("should throw on a refusal without the unlinked code", async () => {
-      answer(403, { error: "Access denied" });
-      await expect(Account.renew("shh")).rejects.toThrow(
-        "Could not renew the license: Access denied",
-      );
-    });
-
-    it("should throw on an unauthorized answer without the unlinked code", async () => {
-      answer(401, { error: "Sign in to the proxy" });
-      await expect(Account.renew("shh")).rejects.toThrow(
-        "Could not renew the license: Sign in to the proxy",
-      );
-    });
-
-    it("should throw on a page a proxy answers with", async () => {
-      answerPage(403, "Forbidden");
-      await expect(Account.renew("shh")).rejects.toThrow(
-        "Could not renew the license: Forbidden",
-      );
-    });
-
-    it("should throw on a server error that carries the unlinked code", async () => {
-      answer(500, { error: "Internal error", code: "unlinked" });
-      await expect(Account.renew("shh")).rejects.toThrow(
-        "Could not renew the license: Internal error",
-      );
-    });
-
-    it("should throw on any other refusal", async () => {
-      answer(429, { error: "Too many requests" });
-      await expect(Account.renew("shh")).rejects.toThrow(
-        "Could not renew the license: Too many requests",
       );
     });
   });

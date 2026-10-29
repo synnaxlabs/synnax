@@ -122,7 +122,7 @@ describe("auth guard", () => {
     expect(screen.queryByText("authenticated content")).toBeNull();
     submitCredentials("synnax", "seldon");
     await waitFor(
-      () => expect(document.querySelector(".pluto--status-success")).toBeTruthy(),
+      () => expect(document.querySelector(".lyra--status-success")).toBeTruthy(),
       { timeout: 10000 },
     );
     // The login sequence swaps the Core and project partitions in turn; the workspace
@@ -135,9 +135,9 @@ describe("auth guard", () => {
     // duplicate.
     const selected = Session.Core.selectSelectedKey(store.getState());
     expect(selected).toBe(key);
-    const added = Session.Core.selectMany(store.getState())
+    const added = Object.values(store.getState()[Session.Core.SLICE_NAME].cores)
       .map(({ key: k }) => k)
-      .filter((k) => k !== Session.Core.LOCAL_KEY && k !== Session.Core.DEMO_KEY);
+      .filter((k) => k !== "LOCAL" && k !== "DEMO");
     expect(added).toEqual([selected]);
   });
 

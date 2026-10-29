@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -27,6 +28,7 @@ import {
 import {
   awaitEditableForm,
   clickDeploy,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -49,12 +51,12 @@ const ZERO_DRAFT: task.New<EtherCAT.Task.WriteSchemas> = {
 
 const createDraft = async (
   client: Synnax,
-  config: EtherCAT.Task.WritePayload["config"],
+  config: z.infer<EtherCAT.Task.WriteSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.WRITE_SCHEMAS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
-const renderWrite = async (config: EtherCAT.Task.WritePayload["config"]) => {
+const renderWrite = async (config: z.infer<EtherCAT.Task.WriteSchemas["config"]>) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
   const rendered = await renderTaskFormTab(EtherCAT.Task.Write, {
@@ -394,5 +396,13 @@ describe("Write", () => {
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);
     await awaitStatus(statuses, /No network found/);
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateWrite,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

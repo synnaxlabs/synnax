@@ -20,19 +20,23 @@ import { Session } from "@/session";
 const client: Synnax = createTestClient();
 
 const submitName = async (name: string): Promise<void> => {
-  await waitFor(() => expect(screen.getByPlaceholderText("Name")).toBeTruthy());
-  fireEvent.change(screen.getByPlaceholderText("Name"), { target: { value: name } });
+  await waitFor(() => expect(screen.getByPlaceholderText("Project name")).toBeTruthy());
+  fireEvent.change(screen.getByPlaceholderText("Project name"), {
+    target: { value: name },
+  });
   fireEvent.click(screen.getByRole("button", { name: "Create" }));
 };
 
 describe("Project.useCreateModal", () => {
   it("renders the create form and disables Create without a client", async () => {
     await openModal(Project.useCreateModal);
-    await waitFor(() => expect(screen.getByPlaceholderText("Name")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Project name")).toBeTruthy(),
+    );
     const createBtn = await waitFor(() =>
       screen.getByRole("button", { name: "Create" }),
     );
-    expect(createBtn.className).toContain("pluto--disabled");
+    expect(createBtn.className).toContain("lyra--disabled");
   });
 
   it("creates the project on the Core, activates it, and closes", async () => {
@@ -44,7 +48,9 @@ describe("Project.useCreateModal", () => {
       const active = Session.Project.selectOptionalSelected(store.getState());
       expect(active).not.toBeUndefined();
     });
-    await waitFor(() => expect(screen.queryByPlaceholderText("Name")).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText("Project name")).toBeNull(),
+    );
 
     const active = Session.Project.selectSelected(store.getState());
     const created = await client.projects.retrieve(active);

@@ -14,7 +14,7 @@ from framework.utils import create_indexed_pair
 from tests.arc.arc import ArcCase
 
 ARC_LOAD_CURRENT_SOURCE = """
-func count{c_chan chan u8} () {
+func count(c_chan chan u8) {
     n u8 $= 0
     n = n + 1
     c_chan = n
@@ -25,8 +25,8 @@ start_load_current_cmd => main
 sequence main {
     stage first {
         1 -> flag
-        load_current > 25 => count{c_chan=lc_tick_count}
-        load_current > 25 => wait{2s} => next
+        load_current > 25 => count(c_chan=lc_tick_count)
+        load_current > 25 => wait(2s) => next
     }
     stage last {
         0 -> flag
@@ -60,7 +60,7 @@ class LoadCurrent(ArcCase):
     sim_daq_class = LoadCurrentSimDAQ
 
     def setup(self) -> None:
-        create_indexed_pair(self.client, "lc_tick_count", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "lc_tick_count", data_type=sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(30)
 
