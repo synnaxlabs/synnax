@@ -40,7 +40,7 @@ class Button(Symbol):
             mode: Button mode - "Fire", "Momentary", or "Pulse" (optional)
             symbol_type: The type of symbol (default: "Button")
         """
-        super().__init__(label, symbol_type=symbol_type, rotatable=False)
+        super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
         self.activation_delay = activation_delay
         self.show_control_chip = show_control_chip
@@ -57,6 +57,7 @@ class Button(Symbol):
 
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
         activation_delay: float | None = None,
         show_control_chip: bool | None = None,
@@ -101,7 +102,7 @@ class Button(Symbol):
 
         return applied_properties
 
-    def get_properties(self, tab: str = "Control") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Control") -> dict[str, Any]:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 

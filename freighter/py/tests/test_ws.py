@@ -69,7 +69,9 @@ def sync_client(endpoint: URL) -> WebsocketClient:
 
 @pytest.fixture
 def unary_client(endpoint: URL) -> HTTPClient:
-    return HTTPClient(endpoint.child("unary"), JSONCodec(), create_registry())
+    return HTTPClient(
+        url=endpoint.child("unary"), codec=JSONCodec(), registry=create_registry()
+    )
 
 
 @pytest.fixture
@@ -86,7 +88,7 @@ def errorless_close_endpoint() -> Iterator[URL]:
     with serve(handler, "localhost", 0) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
-        yield URL("localhost", server.socket.getsockname()[1])
+        yield URL(host="localhost", port=server.socket.getsockname()[1])
         server.shutdown()
         thread.join()
 
@@ -135,7 +137,7 @@ def server_close_endpoint() -> Iterator[tuple[URL, threading.Event]]:
     with serve(handler, "localhost", 0) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
-        yield URL("localhost", server.socket.getsockname()[1]), closed
+        yield URL(host="localhost", port=server.socket.getsockname()[1]), closed
         server.shutdown()
         thread.join()
 
@@ -185,7 +187,7 @@ def failed_open_endpoint() -> Iterator[tuple[URL, threading.Event]]:
     with serve(handler, "localhost", 0) as server:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
-        yield URL("localhost", server.socket.getsockname()[1]), closed
+        yield URL(host="localhost", port=server.socket.getsockname()[1]), closed
         server.shutdown()
         thread.join()
 

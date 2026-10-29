@@ -17,28 +17,28 @@ class TestURL:
         """
         Should generate a correct path.
         """
-        url = URL("localhost", 8080, "/api", "http")
+        url = URL(host="localhost", port=8080, path="/api", protocol="http")
         assert url.child("echo").stringify() == "http://localhost:8080/api/echo/"
 
     def test_child_with_trailing_slash(self) -> None:
         """
         Should generate a correct path.
         """
-        url = URL("localhost", 8080, "/api/", "http")
+        url = URL(host="localhost", port=8080, path="/api/", protocol="http")
         assert url.child("echo/").stringify() == "http://localhost:8080/api/echo/"
 
     def test_child_with_trailing_slash_and_path(self) -> None:
         """
         Should generate a correct path.
         """
-        url = URL("localhost", 8080, "/api/", "http")
+        url = URL(host="localhost", port=8080, path="/api/", protocol="http")
         assert url.child("/echo/").stringify() == "http://localhost:8080/api/echo/"
 
     def test_child_replace_protocol(self) -> None:
         """
         Should generate a correct child endpoint.
         """
-        url = URL("localhost", 8080, "/api", "http")
+        url = URL(host="localhost", port=8080, path="/api", protocol="http")
         child = url.child("echo").replace(protocol="https")
         assert url.child("").stringify() == "http://localhost:8080/api/"
         assert child.child("").stringify() == "https://localhost:8080/api/echo/"
@@ -68,10 +68,10 @@ class TestURL:
 
     def test_replace_port_zero(self) -> None:
         """Should replace the port with 0."""
-        url = URL("localhost", 8080, "/api", "http")
+        url = URL(host="localhost", port=8080, path="/api", protocol="http")
         assert url.replace(port=0).port == 0
 
     def test_replace_empty_path(self) -> None:
         """Should replace the path with an empty path."""
-        url = URL("localhost", 8080, "/api", "http")
+        url = URL(host="localhost", port=8080, path="/api", protocol="http")
         assert url.replace(path="").stringify() == "http://localhost:8080/"

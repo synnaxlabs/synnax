@@ -131,7 +131,7 @@ class StlTime(ArcCase):
             ],
         )
         for name in ("toggle_cmd", "toggle_cmd_mod"):
-            create_indexed_pair(self.client, name, sy.DataType.UINT8)
+            create_indexed_pair(self.client, name, data_type=sy.DataType.UINT8)
         super().setup()
 
     def _test_now(self) -> None:

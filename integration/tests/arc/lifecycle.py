@@ -139,10 +139,18 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.new_name = f"ArcRenamed_{random_name()}"
         create_virtual_channel(self.client, "arc_lifecycle_virt")
         create_virtual_channel(self.client, "const_output")
-        create_virtual_channel(self.client, "lifecycle_log", sy.DataType.STRING)
-        create_virtual_channel(self.client, "signal_stage_log", sy.DataType.STRING)
-        create_virtual_channel(self.client, "bb_signal_start_cmd", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "bb_signal_stop_cmd", sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "lifecycle_log", data_type=sy.DataType.STRING
+        )
+        create_virtual_channel(
+            self.client, "signal_stage_log", data_type=sy.DataType.STRING
+        )
+        create_virtual_channel(
+            self.client, "bb_signal_start_cmd", data_type=sy.DataType.UINT8
+        )
+        create_virtual_channel(
+            self.client, "bb_signal_stop_cmd", data_type=sy.DataType.UINT8
+        )
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",
