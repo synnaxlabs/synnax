@@ -54,7 +54,7 @@ reports those). No speculation: "could be unsafe" is not a finding.
 
 Paths: `core/pkg/service/auth`, `core/pkg/service/access`, `core/pkg/service/user`,
 `core/pkg/api/auth`, `core/pkg/api/access`, `core/pkg/api/user`,
-`core/pkg/transport/grpc/auth`, `client/ts/src/auth`, `client/py/synnax/auth.py`,
+`core/pkg/transport/grpc/auth`, `client/ts/src/auth`, `client/py/synnax/auth`,
 `client/cpp/auth`, and `docs/tech/rfc/0073-authentication.md` for the design.
 
 Look at password storage and comparison, token signing, validation, and expiry, sessions
