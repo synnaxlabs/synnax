@@ -554,8 +554,9 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
     EXPECT_EQ(s.message, "Failed to configure task");
     EXPECT_EQ(
         s.description,
-        "No integration on this Driver handles task type '" + ALT_SYNTHETIC_TASK_TYPE +
-            "'."
+        "This Driver does not run '" + ALT_SYNTHETIC_TASK_TYPE +
+            "' tasks. Its configuration leaves the integration out, or its operating "
+            "system cannot run the integration."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
 }

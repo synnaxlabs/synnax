@@ -24,9 +24,8 @@
 namespace driver::rack {
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
 
-bool Config::integration_supported(const std::string &i) const {
-    return std::ranges::find(this->integrations, i) != this->integrations.end() &&
-           this->libraries_loaded(i);
+bool Config::integration_enabled(const std::string &i) const {
+    return std::ranges::find(integrations, i) != integrations.end();
 }
 
 template<typename F>
@@ -36,18 +35,11 @@ void configure_integration(
     const std::string &integration_name,
     F factory_creator
 ) {
-    if (std::ranges::find(config.integrations, integration_name) ==
-        config.integrations.end()) {
-        VLOG(1) << "[" << integration_name << "] integration not enabled";
+    if (!config.integration_enabled(integration_name)) {
+        VLOG(1) << "[" << integration_name << "] integration disabled";
         return;
     }
-    if (!config.libraries_loaded(integration_name)) {
-        LOG(WARNING) << "[" << integration_name
-                     << "] integration is enabled, but its libraries do not load on "
-                        "this computer";
-        return;
-    }
-    VLOG(1) << "[" << integration_name << "] integration supported";
+    VLOG(1) << "[" << integration_name << "] integration enabled";
     factories.push_back(factory_creator());
 }
 
@@ -81,7 +73,7 @@ void configure_state(FactoryList &factories) {
 
 #ifndef SYNNAX_NILINUXRT
 void configure_modbus(const Config &config, FactoryList &factories) {
-    if (!config.integration_supported(modbus::INTEGRATION_NAME)) return;
+    if (!config.integration_enabled(modbus::INTEGRATION_NAME)) return;
     factories.push_back(std::make_unique<modbus::Factory>());
 }
 #endif
