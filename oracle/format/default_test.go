@@ -12,6 +12,7 @@ package format_test
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -47,8 +48,9 @@ var _ = Describe("Default Registry", func() {
 			To(MatchError(ContainSubstring("license template")))
 	})
 
-	// A canceled context fails a chain at its first external tool, so only a file
-	// routed through a formatter chain returns an error.
+	// A chain stops at its first external tool: on the canceled context when the tool
+	// is installed, and on the lookup when it is not. A file no chain routes passes
+	// through unchanged.
 	canceled := func() context.Context {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -59,7 +61,10 @@ var _ = Describe("Default Registry", func() {
 		func(ext string) {
 			r := MustSucceed(format.Default(repoRoot))
 			Expect(r.Format(canceled(), []byte("x"), "/x/file"+ext)).Error().
-				To(MatchError(context.Canceled))
+				To(SatisfyAny(
+					MatchError(context.Canceled),
+					MatchError(exec.ErrNotFound),
+				))
 		},
 		Entry("Go", ".go"),
 		Entry("C++ source", ".cpp"),
