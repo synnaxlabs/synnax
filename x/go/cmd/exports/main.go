@@ -9,14 +9,20 @@
 
 // Command exports prints the exported Go identifiers that no other package uses and
 // exits with status 1 when it finds any. With -base, it prints only the findings that
-// the same module directories under the base checkout lack. -workspace adds modules
-// that the checked modules depend on, without checking them.
+// the same module directories under the base checkout lack, and every finding of the
+// modules and usages that the -gates file lists. -workspace adds modules that the
+// checked modules depend on, without checking them.
 //
-//	go run ./cmd/exports [-goos linux] [-base dir] [-workspace a,b] <module dir>...
+//	go run ./cmd/exports [-goos linux] [-base dir] [-gates file] [-workspace a,b] \
+//	  <module dir>...
+//
+// The gates file holds {"gated": [{"module": "core", "usage": "unused"}, ...]}, where
+// usage is "unused" or "tests-only".
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -33,6 +39,7 @@ func main() {
 	base := flag.String(
 		"base", "", "checkout to compare with; print only the findings it lacks",
 	)
+	gates := flag.String("gates", "", "JSON file of the gated modules and usages")
 	workspace := flag.String(
 		"workspace", "", "comma-separated modules to add to the workspace",
 	)
@@ -45,6 +52,19 @@ func main() {
 	if *workspace != "" {
 		cfg.Workspace = strings.Split(*workspace, ",")
 	}
+	if *gates != "" {
+		data, err := os.ReadFile(*gates)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		var file struct{ Gated []exports.Gate }
+		if err := json.Unmarshal(data, &file); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+		cfg.Gated = file.Gated
+	}
 	findings, err := exports.Check(context.Background(), cfg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -52,7 +72,7 @@ func main() {
 	}
 	summary := "%d exported identifiers no other package uses\n"
 	if *base != "" {
-		summary = "%d new exported identifiers no other package uses\n"
+		summary = "%d new or gated exported identifiers no other package uses\n"
 	}
 	wd, err := os.Getwd()
 	if err != nil {

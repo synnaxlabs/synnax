@@ -59,6 +59,7 @@ var _ = Describe("Check", func() {
 				{File: "lib.go", Kind: "var", Name: "Dead"},
 				{File: "lib.go", Kind: "method", Name: "Side"},
 				{File: "lib.go", Kind: "type", Name: "Handler"},
+				{File: "lib.go", Kind: "method", Name: "Handle"},
 				{File: "lib.go", Kind: "type", Name: "Box"},
 				{File: "lib.go", Kind: "method", Name: "Read"},
 				{File: "windows.go", Kind: "func", Name: "WindowsOnly"},
@@ -219,6 +220,42 @@ var _ = Describe("Check with a base", func() {
 			[]edit{{libTestGo, "lib.Tested", "lib.Used"}},
 			[]finding{},
 		),
+	)
+
+	It(
+		"Should return every finding of a gated module and usage",
+		func(ctx SpecContext) {
+			findings := MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+				Base:    copyModules(),
+				Gated: []exports.Gate{
+					{Module: "testdata/a", Usage: "tests-only"},
+					{Module: "testdata/b", Usage: "unused"},
+				},
+			}))
+			Expect(summarize(findings)).To(Equal([]finding{
+				{File: "lib.go", Kind: "func", Name: "Tested", TestsOnly: true},
+				{File: "lib.go", Kind: "func", Name: "OtherTests", TestsOnly: true},
+				{File: "user.go", Kind: "func", Name: "Run"},
+			}))
+			Expect(findings).To(HaveEach(HaveField("Module", BeElementOf(modules))))
+		},
+	)
+
+	It(
+		"Should return a validation error for an unknown gate usage",
+		func(ctx SpecContext) {
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+				Base:    GinkgoT().TempDir(),
+				Gated:   []exports.Gate{{Module: "testdata/a", Usage: "dead"}},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`gate usage "dead"`)),
+			))
+		},
 	)
 
 	It(

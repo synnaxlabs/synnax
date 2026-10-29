@@ -493,9 +493,10 @@ jobs:
       package: eslint-config
     secrets: inherit
 
-  # Fails on the exported identifiers no other package uses that the change adds, for
-  # Linux. It checks each changed module and each module that depends on one. Check - Go
-  # exports reports every finding each night.
+  # Fails on the exported identifiers no other package uses that the change adds, and
+  # on every one of a module and usage that .github/exports-go.json gates, for Linux. It
+  # checks each changed module and each module that depends on one. Check - Go exports
+  # reports every finding each night.
   exports-go:
     needs: changes
     if:
@@ -517,9 +518,13 @@ jobs:
       - name: Select the changed modules and their dependents
         id: modules
         run: |
+          changed=$(git diff --name-only HEAD^1 HEAD)
           # shellcheck disable=SC2086
-          affected=$(git diff --name-only HEAD^1 HEAD |
-            python3 .github/scripts/go_affected.py $MODULES | xargs)
+          affected=$(python3 .github/scripts/go_affected.py $MODULES <<< "$changed" |
+            xargs)
+          if grep -qx .github/exports-go.json <<< "$changed"; then
+            affected=$MODULES
+          fi
           echo "affected=$affected" >> "$GITHUB_OUTPUT"
           echo "Modules to check: ${affected:-none}"
 
@@ -548,14 +553,15 @@ jobs:
           set +e
           # shellcheck disable=SC2086
           "$RUNNER_TEMP/exports" -goos linux -base "$RUNNER_TEMP/base" \
-            -workspace "${MODULES// /,}" $AFFECTED > "$RUNNER_TEMP/findings.txt"
+            -gates .github/exports-go.json -workspace "${MODULES// /,}" $AFFECTED \
+            > "$RUNNER_TEMP/findings.txt"
           status=$?
           set -e
           if [ "$status" -eq 1 ]; then
             sed -E 's/^([^:]+):([0-9]+): (.*)$/::error file=\1,line=\2::\3/' \
               "$RUNNER_TEMP/findings.txt"
             {
-              echo "## New exported Go identifiers no other package uses"
+              echo "## New or gated exported Go identifiers no other package uses"
               echo
               echo "Unexport each one, or move a helper that other packages' tests"
               echo "need into a \`testutil\` package."
