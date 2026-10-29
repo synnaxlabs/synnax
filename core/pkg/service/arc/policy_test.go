@@ -182,5 +182,56 @@ var _ = Describe("Policy", func() {
 				a.OntologyID(),
 			)).To(MatchError(ContainSubstring("only go under Arcs")))
 		})
+		It("Should reject a group holding an Arc outside Arcs", func(ctx SpecContext) {
+			sub := MustSucceed(groups.Create(ctx, "sy_lib", arcs))
+			inner := MustSucceed(groups.Create(ctx, "inner", sub.OntologyID()))
+			a := createArc(ctx, "m")
+			Expect(move(ctx, arcs, inner.OntologyID(), a.OntologyID())).To(Succeed())
+			Expect(move(ctx, arcs, ontology.RootID, sub.OntologyID())).
+				To(MatchError(ContainSubstring("holding an Arc")))
+		})
+		It("Should let a group without Arcs leave Arcs", func(ctx SpecContext) {
+			sub := MustSucceed(groups.Create(ctx, "sy_lib", arcs))
+			MustSucceed(groups.Create(ctx, "inner", sub.OntologyID()))
+			Expect(move(ctx, arcs, ontology.RootID, sub.OntologyID())).To(Succeed())
+		})
+		It(
+			"Should move a directory with its entries between directories",
+			func(ctx SpecContext) {
+				d1 := MustSucceed(groups.Create(ctx, "d1", arcs))
+				d2 := MustSucceed(groups.Create(ctx, "d2", arcs))
+				a := createArc(ctx, "m")
+				Expect(move(ctx, arcs, d1.OntologyID(), a.OntologyID())).To(Succeed())
+				Expect(move(ctx, arcs, d2.OntologyID(), d1.OntologyID())).To(Succeed())
+			},
+		)
+		DescribeTable(
+			"Should check every entry of a group placed under Arcs",
+			func(ctx SpecContext, fill func(ctx SpecContext, g ontology.ID), msg string) {
+				g := MustSucceed(groups.Create(ctx, "g", ontology.RootID))
+				fill(ctx, g.OntologyID())
+				Expect(move(ctx, ontology.RootID, arcs, g.OntologyID())).
+					To(MatchError(ContainSubstring(msg)))
+			},
+			Entry("another type", func(ctx SpecContext, g ontology.ID) {
+				GinkgoHelper()
+				Expect(otgW.DefineRelationships(
+					ctx, g, ontology.RelationshipTypeParentOf, testRack.OntologyID(),
+				)).To(Succeed())
+			}, "cannot go under Arcs"),
+			Entry(
+				"a name that is not an identifier",
+				func(ctx SpecContext, g ontology.ID) {
+					GinkgoHelper()
+					MustSucceed(groups.Create(ctx, "sy lib", g))
+				},
+				"letters, digits, and underscores",
+			),
+			Entry("two entries of one name", func(ctx SpecContext, g ontology.ID) {
+				GinkgoHelper()
+				MustSucceed(groups.Create(ctx, "x", g))
+				MustSucceed(groups.Create(ctx, "x", g))
+			}, "already used"),
+		)
 	})
 })

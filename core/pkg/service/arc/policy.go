@@ -26,8 +26,8 @@ var _ ontology.Policy = (*Service)(nil)
 
 // ValidateParent implements ontology.Policy. Below the Arcs group a child is a group or
 // an Arc, a group name is an identifier, a name is unique in its directory, and a
-// standard module name is reserved directly under Arcs. An Arc is rejected anywhere
-// else.
+// standard module name is reserved directly under Arcs. A group is checked with every
+// entry below it. Outside Arcs an Arc, or a group holding one, is rejected.
 func (s *Service) ValidateParent(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -38,16 +38,13 @@ func (s *Service) ValidateParent(
 		return err
 	}
 	if !directory {
-		if child.Type == ontology.ResourceTypeArc {
+		switch child.Type {
+		case ontology.ResourceTypeArc:
 			return errors.Wrap(validate.ErrValidation, "an Arc can only go under Arcs")
+		case ontology.ResourceTypeGroup:
+			return s.validateOutside(ctx, tx, child)
 		}
 		return nil
-	}
-	if child.Type != ontology.ResourceTypeGroup &&
-		child.Type != ontology.ResourceTypeArc {
-		return errors.Wrapf(
-			validate.ErrValidation, "a %s cannot go under Arcs", child.Type,
-		)
 	}
 	var res ontology.Resource
 	if err = s.cfg.Ontology.NewRetrieve().
@@ -56,7 +53,13 @@ func (s *Service) ValidateParent(
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	return s.validateEntry(ctx, tx, parent, child, res.Name)
+	if err = s.validateEntry(ctx, tx, parent, child, res.Name); err != nil {
+		return err
+	}
+	if child.Type == ontology.ResourceTypeGroup {
+		return s.validateSubtree(ctx, tx, child)
+	}
+	return nil
 }
 
 // ValidateName implements ontology.Policy.
@@ -95,6 +98,13 @@ func (s *Service) validateEntry(
 	parent, id ontology.ID,
 	name string,
 ) error {
+	if id.Type != ontology.ResourceTypeGroup && id.Type != ontology.ResourceTypeArc {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"a %s cannot go under Arcs",
+			id.Type,
+		)
+	}
 	identifier := id.Type == ontology.ResourceTypeGroup
 	if id.Type == ontology.ResourceTypeArc {
 		module, err := s.isModule(ctx, tx, id)
@@ -132,6 +142,77 @@ func (s *Service) validateEntry(
 				"name %q is already used in this directory",
 				name,
 			)
+		}
+	}
+	return nil
+}
+
+// validateSubtree checks every entry below the directory g.
+func (s *Service) validateSubtree(
+	ctx context.Context,
+	tx gorp.Tx,
+	g ontology.ID,
+) error {
+	return s.walk(
+		ctx, tx, g, false,
+		func(parent ontology.ID, child ontology.Resource) error {
+			return s.validateEntry(ctx, tx, parent, child.ID, child.Name)
+		},
+	)
+}
+
+// validateOutside rejects the group g placed outside Arcs while an Arc is below it.
+func (s *Service) validateOutside(
+	ctx context.Context,
+	tx gorp.Tx,
+	g ontology.ID,
+) error {
+	return s.walk(
+		ctx, tx, g, true,
+		func(_ ontology.ID, child ontology.Resource) error {
+			if child.ID.Type == ontology.ResourceTypeArc {
+				return errors.Wrap(
+					validate.ErrValidation,
+					"a group holding an Arc can only go under Arcs",
+				)
+			}
+			return nil
+		},
+	)
+}
+
+// walk calls visit on every entry below g, descending through groups. Field data is
+// skipped when fieldDataExcluded is true, for a visit that reads only types.
+func (s *Service) walk(
+	ctx context.Context,
+	tx gorp.Tx,
+	g ontology.ID,
+	fieldDataExcluded bool,
+	visit func(parent ontology.ID, child ontology.Resource) error,
+) error {
+	visited := set.New(g)
+	frontier := []ontology.ID{g}
+	for len(frontier) > 0 {
+		current := frontier[0]
+		frontier = frontier[1:]
+		var children []ontology.Resource
+		if err := s.cfg.Ontology.NewRetrieve().
+			WhereIDs(current).
+			TraverseTo(ontology.ChildrenTraverser).
+			ExcludeFieldData(fieldDataExcluded).
+			Entries(&children).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		for _, child := range children {
+			if err := visit(current, child); err != nil {
+				return err
+			}
+			if child.ID.Type == ontology.ResourceTypeGroup &&
+				!visited.Contains(child.ID) {
+				visited.Add(child.ID)
+				frontier = append(frontier, child.ID)
+			}
 		}
 	}
 	return nil
