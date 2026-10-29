@@ -18,6 +18,8 @@ import { EtherCAT } from "@/feature/ethercat";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { type Device } from "@/platform/device";
 import { createDeviceResource } from "@/platform/device/testutil";
+import { Modals } from "@/platform/modals";
+import { findButton } from "@/platform/modals/testutil";
 import {
   createBaseProps,
   createSelection,
@@ -70,11 +72,43 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
         <PMenu.Menu>
           <EtherCAT.Device.ContextMenuItems {...props} />
         </PMenu.Menu>
+        <Modals.Stack />
       </>,
     );
   });
   return { store };
 };
+
+const FILTER: EtherCAT.Device.StartupParameter = {
+  index: 0x8000,
+  subIndex: 0x15,
+  dataType: "uint8",
+  value: 3,
+  name: "Filter",
+};
+
+const openStartupParameters = async () => {
+  const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
+  const slave = await createSlaveDevice(client, rack.key, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    startupParameters: [FILTER],
+  });
+  await renderContextMenu([slave]);
+  fireEvent.click(await screen.findByText("Edit startup parameters"));
+  await screen.findByLabelText("Index 1");
+  return slave;
+};
+
+const setCell = (label: string, value: string) => {
+  const input = screen.getByLabelText(label);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+};
+
+const retrieveStartupParameters = async (key: string) =>
+  (await client.devices.retrieve({ key, schemas: EtherCAT.Device.SLAVE_SCHEMAS }))
+    .properties.startupParameters;
 
 const createSlave = async (enabled: boolean) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
@@ -106,6 +140,7 @@ describe("EtherCAT device ContextMenuItems", () => {
     await renderContextMenu([enabled, disabled]);
     await waitFor(() => expect(screen.getByText("Enable")).toBeTruthy());
     expect(screen.getByText("Disable")).toBeTruthy();
+    expect(screen.queryByText("Edit startup parameters")).toBeNull();
   });
 
   it("should create the vendor task drafts and open their resource tabs", async () => {
@@ -158,5 +193,38 @@ describe("EtherCAT device ContextMenuItems", () => {
       });
       expect(updated.properties.enabled).toBe(true);
     });
+  });
+
+  it("should save edited and added startup parameters to the slave", async () => {
+    const slave = await openStartupParameters();
+    expect(screen.getByLabelText<HTMLInputElement>("Index 1").value).toBe("0x8000");
+    setCell("Value 1", "5");
+    fireEvent.click(screen.getByRole("button", { name: "Add row" }));
+    setCell("Index 2", "1C12");
+    setCell("Subindex 2", "0");
+    setCell("Value 2", "2");
+    fireEvent.click(screen.getByRole("button", { name: /^Data type 2 / }));
+    fireEvent.click(await screen.findByRole("option", { name: /uint16/ }));
+    fireEvent.click(findButton("Save"));
+    await waitFor(async () =>
+      expect(await retrieveStartupParameters(slave.key)).toEqual([
+        { ...FILTER, value: 5 },
+        { index: 0x1c12, subIndex: 0, dataType: "uint16", value: 2, name: "" },
+      ]),
+    );
+  });
+
+  it("should reject a startup parameter index that is not hexadecimal", async () => {
+    const slave = await openStartupParameters();
+    setCell("Index 1", "zz");
+    setCell("Value 1", "5");
+    fireEvent.click(findButton("Save"));
+    expect(
+      await screen.findByText(
+        "Row 1: the index must be a hexadecimal number such as 0x8000.",
+      ),
+    ).toBeTruthy();
+    await act(async () => {});
+    expect(await retrieveStartupParameters(slave.key)).toEqual([FILTER]);
   });
 });

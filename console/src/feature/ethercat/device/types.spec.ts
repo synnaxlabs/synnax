@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { describe, expect, it } from "vitest";
+
 import { EtherCAT } from "@/feature/ethercat";
 import { createPDOs } from "@/feature/ethercat/testutil";
 import { testPropertiesSchema } from "@/platform/device/testutil";
@@ -75,3 +77,9 @@ testPropertiesSchema(
     ],
   ],
 );
+
+describe("formatIndex", () => {
+  it("should format an index in upper case, as entry addresses show it", () => {
+    expect(EtherCAT.Device.formatIndex(0x1c12)).toBe("0x1C12");
+  });
+});
