@@ -57,7 +57,7 @@ var _ = Describe("Analyzer", func() {
 					value int32
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("retired @go version tag"))
 		})
@@ -70,7 +70,7 @@ var _ = Describe("Analyzer", func() {
 					@go version 0
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("retired @go version tag"))
 		})
@@ -421,7 +421,7 @@ Node union on variant {
 					@go imex
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
 
@@ -433,7 +433,7 @@ Node union on variant {
 					@go imex body
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
@@ -447,7 +447,7 @@ Node union on variant {
 					@go imex bodies
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(
 				"malformed @go imex; the marker takes no argument or body",
@@ -462,7 +462,7 @@ Node union on variant {
 					@go imex 2
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("malformed @go imex"))
 		})
@@ -475,7 +475,7 @@ Node union on variant {
 					value int32
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("declare it per type"))
 		})
@@ -495,7 +495,7 @@ Node union on variant {
 					inner Inner
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring("omitted in go"))
 			},
@@ -516,7 +516,7 @@ Node union on variant {
 					` + unionDomains + `
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				payload := table.MustGet("test.ReductionLimitPayload")
 				Expect(omit.IsType(payload, "go")).To(BeTrue())
@@ -541,7 +541,7 @@ Node union on variant {
 					}
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.String()).To(ContainSubstring(
 					"test.ReductionLimitPayload generates for go but field " +
 						"aggregation references test.Aggregation, which is omitted in go",
@@ -562,7 +562,7 @@ Node union on variant {
 					inner Inner
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
 
@@ -582,7 +582,7 @@ Node union on variant {
 					notation notation.Notation
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.String()).To(ContainSubstring(
 					"test.Entry generates for py but field notation references " +
 						"notation.Notation, which has no py output",
@@ -604,7 +604,7 @@ Node union on variant {
 				@py output "py/out"
 				Mode = notation.Notation
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.String()).To(ContainSubstring(
 					"test.Mode generates for py but its alias target references " +
 						"notation.Notation, which has no py output",
@@ -624,7 +624,7 @@ Node union on variant {
 					@py output "py/out"
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 			},
 		)
@@ -663,7 +663,7 @@ Node union on variant {
 					@ts omit
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring("remove the @ts output"))
 			},
@@ -680,7 +680,7 @@ Node union on variant {
 					@ts hand
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 			},
 		)
@@ -701,7 +701,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.Session").Form.(resolution.StructForm)
 			hash := MustBeOk(form.Field("hash"))
@@ -723,14 +723,14 @@ Node union on variant {
 					value?
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 
 		DescribeTable(
 			"Should reject an illegal field-level omit",
 			func(ctx SpecContext, source, msg string) {
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(msg))
 			},
@@ -823,7 +823,7 @@ Node union on variant {
 					name string
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(`unused import "schemas/dep"`))
 		})
@@ -838,7 +838,7 @@ Node union on variant {
 					inner dep.Inner
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 		})
 
@@ -860,7 +860,7 @@ Node union on variant {
 					level text.Level
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring(
 				`unused import "schemas/arc/text"`,
@@ -889,12 +889,12 @@ Node union on variant {
 					doc   text.Document
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 		})
 	})
 
-	Describe("AnalyzeSource", func() {
+	Describe("Single source", func() {
 		It("Should analyze a simple struct", func(ctx SpecContext) {
 			source := `
 				Range struct {
@@ -902,7 +902,7 @@ Node union on variant {
 					name string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(table).NotTo(BeNil())
 			Expect(table.StructTypes()).To(HaveLen(1))
@@ -936,7 +936,7 @@ Node union on variant {
 					failed = 3
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.EnumTypes()).To(HaveLen(1))
 
@@ -959,7 +959,7 @@ Node union on variant {
 					int32 = "int32"
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
+			table, diag := Analyze(ctx, source, "telem", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			dataTypeType := table.MustGet("telem.DataType")
@@ -982,7 +982,7 @@ Node union on variant {
 					completed = 2
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			taskStateType := table.MustGet("task.TaskState")
@@ -1028,13 +1028,13 @@ Node union on variant {
 
 				AxisKey enum extends XAxisKey, YAxisKey {}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				table, diag := Analyze(ctx, source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				axis := table.MustGet("lineplot.AxisKey")
 				form, ok := axis.Form.(resolution.EnumForm)
 				Expect(ok).To(BeTrue())
-				Expect(form.IsExtension()).To(BeTrue())
+				Expect(form.Extends).To(HaveLen(2))
 				Expect(form.IsIntEnum).To(BeFalse())
 				Expect(form.Values).To(HaveLen(4))
 				var names []string
@@ -1056,7 +1056,7 @@ Node union on variant {
 					b = "b"
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			table, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("x.More").Form.(resolution.EnumForm)
 			Expect(form.Values).To(HaveLen(2))
@@ -1073,7 +1073,7 @@ Node union on variant {
 
 				Priority enum extends Low, High {}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("task.Priority").Form.(resolution.EnumForm)
 			Expect(form.IsIntEnum).To(BeTrue())
@@ -1086,7 +1086,7 @@ Node union on variant {
 
 				Bad enum extends Thing {}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			_, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("which is not an enum"))
 		})
@@ -1095,7 +1095,7 @@ Node union on variant {
 			source := `
 				Bad enum extends Nonexistent {}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			_, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("extends unknown enum"))
 		})
@@ -1107,7 +1107,7 @@ Node union on variant {
 
 				Mixed enum extends Strs, Ints {}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			_, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("mixed integer and string"))
 		})
@@ -1121,7 +1121,7 @@ Node union on variant {
 
 				C enum extends A, B {}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+				_, diag := Analyze(ctx, source, "x", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("conflicting values"))
 			},
@@ -1131,7 +1131,7 @@ Node union on variant {
 			source := `
 				A enum extends A {}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			_, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
 		})
@@ -1141,7 +1141,7 @@ Node union on variant {
 				A enum extends B {}
 				B enum extends A {}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			_, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
 		})
@@ -1156,7 +1156,7 @@ Node union on variant {
 
 				Diamond enum extends Left, Right {}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+				table, diag := Analyze(ctx, source, "x", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				form := table.MustGet("x.Diamond").Form.(resolution.EnumForm)
 				var names []string
@@ -1174,7 +1174,7 @@ Node union on variant {
 				B enum extends C { b = "b" }
 				A enum extends B { a = "a" }
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			table, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("x.A").Form.(resolution.EnumForm)
 			var names []string
@@ -1202,7 +1202,7 @@ Node union on variant {
 					y2 = "y2"
 				}
 			`)
-				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				table, diag := Analyze(ctx, source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				form := table.MustGet("lineplot.AxisKey").Form.(resolution.EnumForm)
 				Expect(form.Values).To(HaveLen(4))
@@ -1227,7 +1227,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			table, diag := Analyze(ctx, source, "user", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			userType := table.MustGet("user.User")
@@ -1264,7 +1264,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
@@ -1283,7 +1283,7 @@ Node union on variant {
 					tags string[]?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
@@ -1306,7 +1306,7 @@ Node union on variant {
 					parent uuid?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
@@ -1334,7 +1334,7 @@ Node union on variant {
 					labels label.Label[]
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			// Both structs should be in the table
@@ -1359,7 +1359,7 @@ Node union on variant {
 				import "schema/core/a"
 				C struct { a a.A? }
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "main", loader)
+			table, diag := Analyze(ctx, source, "main", loader)
 			// Should not error - circular imports are handled by tracking
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.StructTypes()).To(HaveLen(3))
@@ -1370,7 +1370,7 @@ Node union on variant {
 				import "schema/core/nonexistent"
 				Range struct {}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(
 				diag,
 			).To(MatchError(ContainSubstring("failed to import schema/core")))
@@ -1405,7 +1405,7 @@ Node union on variant {
 					end timestamp
 				}
 			`)
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			testType := table.MustGet("test.Test")
@@ -1430,7 +1430,7 @@ Node union on variant {
 					zoom float64
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "viz", loader)
+			table, diag := Analyze(ctx, source, "viz", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			viewportType := table.MustGet("viz.Viewport")
@@ -1460,7 +1460,7 @@ Node union on variant {
 					labels label.Label[]
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
@@ -1488,7 +1488,7 @@ Node union on variant {
 					state TaskState
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			taskType := table.MustGet("task.Task")
@@ -1510,7 +1510,7 @@ Node union on variant {
 				Range struct {}
 				Range struct {}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(
 				diag,
 			).To(MatchError(ContainSubstring("duplicate type definition")))
@@ -1527,7 +1527,7 @@ Node union on variant {
 					b = 0
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(
 				diag,
 			).To(MatchError(ContainSubstring("duplicate type definition: test.State")))
@@ -1549,7 +1549,7 @@ Node union on variant {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				userType := table.MustGet("user.User")
@@ -1584,7 +1584,7 @@ Node union on variant {
 					@go hand
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				userType := table.MustGet("user.User")
@@ -1620,7 +1620,7 @@ Node union on variant {
 					key uuid @key
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				// User should have overridden output
@@ -1652,7 +1652,7 @@ Node union on variant {
 					email string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.StructTypes()).To(HaveLen(2))
 
@@ -1689,7 +1689,7 @@ Node union on variant {
 					email string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -1719,7 +1719,7 @@ Node union on variant {
 					name string?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -1757,7 +1757,7 @@ Node union on variant {
 					age = 21
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -1781,7 +1781,7 @@ Node union on variant {
 					count @validate required
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -1806,7 +1806,7 @@ Node union on variant {
 					name @validate required
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -1835,7 +1835,7 @@ Node union on variant {
 					key?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -1867,7 +1867,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				child := table.MustGet("test.Child")
@@ -1890,7 +1890,7 @@ Node union on variant {
 					name -@validate
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			child := table.MustGet("test.Child")
@@ -1905,7 +1905,7 @@ Node union on variant {
 			func(ctx SpecContext, parentField, childField, field, wantType string, wantOptional bool) {
 				source := "Key uint32\n\nParent struct {\n  " + parentField +
 					"\n}\n\nChild struct extends Parent {\n  " + childField + "\n}\n"
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				f := findField(
 					resolution.UnifiedFields(table.MustGet("test.Child"), table),
@@ -1925,7 +1925,7 @@ Node union on variant {
 		DescribeTable(
 			"Should reject the removed ?? optionality marker as a syntax error",
 			func(ctx SpecContext, source string) {
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 			},
 			Entry("?? on a typed field",
@@ -1938,7 +1938,7 @@ Node union on variant {
 
 		DescribeTable("Should reject partial-override syntax that cannot resolve",
 			func(ctx SpecContext, source, wantErr string) {
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(wantErr))
 			},
@@ -1991,7 +1991,7 @@ Node union on variant {
 					timestamp timestamp
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			rackStatusType := table.MustGet("test.RackStatus")
@@ -2029,7 +2029,7 @@ Node union on variant {
 					c string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -2059,7 +2059,7 @@ Node union on variant {
 					description string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			extendedType := table.MustGet("test.Extended")
@@ -2081,7 +2081,7 @@ Node union on variant {
 					b string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -2092,7 +2092,7 @@ Node union on variant {
 					a string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -2103,7 +2103,7 @@ Node union on variant {
 					a string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -2118,7 +2118,7 @@ Node union on variant {
 					-nonexistent
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -2134,7 +2134,7 @@ Node union on variant {
 					key uuid?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -2172,7 +2172,7 @@ Node union on variant {
 					}
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
@@ -2205,7 +2205,7 @@ Node union on variant {
 					key uuid? @validate required
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				childType := table.MustGet("test.Child")
@@ -2240,7 +2240,7 @@ Node union on variant {
 					name string @validate max_length 100
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				childType := table.MustGet("test.Child")
@@ -2280,7 +2280,7 @@ Node union on variant {
 				B struct { b string }
 				C struct extends A, B { c string }
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				cType := table.MustGet("test.C")
@@ -2308,7 +2308,7 @@ Node union on variant {
 				B struct { shared string }
 				C struct extends A, B { }
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					`struct C inherits field "shared" from both A and B`,
@@ -2327,7 +2327,7 @@ Node union on variant {
 					c bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				allFields := resolution.UnifiedFields(table.MustGet("test.C"), table)
@@ -2343,7 +2343,7 @@ Node union on variant {
 				Right struct extends Base { right string }
 				Diamond struct extends Left, Right { }
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(
 				`struct Diamond inherits field "base" from both Left and Right`,
@@ -2358,7 +2358,7 @@ Node union on variant {
 				B struct { b string }
 				C struct extends A, B { c string }
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 			},
 		)
@@ -2373,7 +2373,7 @@ Node union on variant {
 					combined V
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				cType := table.MustGet("test.Combined")
@@ -2394,7 +2394,7 @@ Node union on variant {
 					c string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			cType := table.MustGet("test.C")
@@ -2415,7 +2415,7 @@ Node union on variant {
 					-nonexistent
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 		})
 	})
@@ -2449,7 +2449,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Schematic", "Rename")
 				Expect(action.Fields).To(HaveLen(1))
@@ -2475,7 +2475,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Schematic", "SetNodePosition")
 				names := make([]string, len(action.Fields))
@@ -2502,7 +2502,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Container", "SetValue")
 				Expect(action.Fields).To(HaveLen(1))
@@ -2527,7 +2527,7 @@ Node union on variant {
 					action Combine extends A, B {}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Container", "Combine")
 				names := make([]string, len(action.Fields))
@@ -2555,7 +2555,7 @@ Node union on variant {
 					action Combine extends A, B {}
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					`action Combine inherits field "a" from both A and B`,
@@ -2578,7 +2578,7 @@ Node union on variant {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Container", "Apply")
 				names := make([]string, len(action.Fields))
@@ -2607,7 +2607,7 @@ Node union on variant {
 					action Load extends Box<Details> {}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				action := findAction(table, "test.Container", "Load")
 				Expect(action.Fields).To(HaveLen(1))
@@ -2626,7 +2626,7 @@ Node union on variant {
 					action Apply extends Missing {}
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("extends unresolved type"))
 			},
@@ -2647,7 +2647,7 @@ Node union on variant {
 					action Apply extends Color {}
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
 			},
@@ -2667,7 +2667,7 @@ Node union on variant {
 					action Load extends Box {}
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("type arguments"))
 			},
@@ -2680,7 +2680,7 @@ Node union on variant {
 			source := `
 				ChannelKey uint32
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+			table, diag := Analyze(ctx, source, "channel", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			channelKeyType := table.MustGet("channel.ChannelKey")
@@ -2698,7 +2698,7 @@ Node union on variant {
 
 				Point = Position
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "geo", loader)
+			table, diag := Analyze(ctx, source, "geo", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			pointType := table.MustGet("geo.Point")
@@ -2716,7 +2716,7 @@ Node union on variant {
 
 				Params Param[]
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+			table, diag := Analyze(ctx, source, "ir", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			paramsType := table.MustGet("ir.Params")
@@ -2731,7 +2731,7 @@ Node union on variant {
 			source := `
 				Stratum = string[]
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+			table, diag := Analyze(ctx, source, "ir", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			stratumType := table.MustGet("ir.Stratum")
@@ -2751,7 +2751,7 @@ Node union on variant {
 					value T
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			containerType := table.MustGet("test.Container")
@@ -2773,7 +2773,7 @@ Node union on variant {
 					value T
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				containerType := table.MustGet("test.NumberContainer")
@@ -2792,7 +2792,7 @@ Node union on variant {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				stateType := table.MustGet("test.State")
@@ -2811,7 +2811,7 @@ Node union on variant {
 					upper T
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				boundsType := table.MustGet("test.Bounds")
@@ -2830,7 +2830,7 @@ Node union on variant {
 					upper T
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("requires a default"))
 		})
@@ -2844,7 +2844,7 @@ Node union on variant {
 					upper T
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring("non-numeric default"))
 			},
@@ -2857,7 +2857,7 @@ Node union on variant {
 					a A
 					b B
 				}`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					"required type parameter B of Pair cannot follow optional or " +
@@ -2875,7 +2875,7 @@ Node union on variant {
 					a A
 					b B
 				}`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 			},
 		)
@@ -2888,7 +2888,7 @@ Node union on variant {
 					value T
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				containerType := table.MustGet("test.Container")
@@ -2919,7 +2919,7 @@ Node union on variant {
 					value ` + ref + `
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 				form := table.MustGet("test.Wrapper").Form.(resolution.StructForm)
 				var got []string
@@ -2949,7 +2949,7 @@ Node union on variant {
 					container Container<string>
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			wrapperType := table.MustGet("test.Wrapper")
@@ -2973,7 +2973,7 @@ Node union on variant {
 					config Config
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				taskType := table.MustGet("test.Task")
@@ -3035,7 +3035,7 @@ Node union on variant {
 					config Config
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				taskType := table.MustGet("test.Task")
@@ -3083,7 +3083,7 @@ Node union on variant {
 					settings Map<string, record>
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			configType := table.MustGet("test.Config")
@@ -3104,7 +3104,7 @@ Node union on variant {
 					children Node[]
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			nodeType := table.MustGet("test.Node")
@@ -3119,7 +3119,7 @@ Node union on variant {
 					count int32
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			simpleType := table.MustGet("test.Simple")
@@ -3138,7 +3138,7 @@ Node union on variant {
 					a A?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
@@ -3160,7 +3160,7 @@ Node union on variant {
 				}
 				Bs B[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
@@ -3182,7 +3182,7 @@ Node union on variant {
 				}
 				Bs = B[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
@@ -3204,7 +3204,7 @@ Node union on variant {
 				}
 				BWrap B
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				aForm := table.MustGet("test.A").Form.(resolution.StructForm)
@@ -3220,7 +3220,7 @@ Node union on variant {
 			GinkgoHelper()
 			source := "Mode enum {\n\texclusive = \"Exclusive\"\n}\n\n" +
 				"Item struct {\n\t" + fieldDecl + "\n}\n"
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Item").Form.(resolution.StructForm)
 			Expect(form.Fields).To(HaveLen(1))
@@ -3282,7 +3282,7 @@ Node union on variant {
 			"Should reject a field that is both optional and defaulted",
 			func(ctx SpecContext) {
 				source := "Item struct {\n\tname string? = \"\"\n}\n"
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Error()).To(ContainSubstring("both nullable"))
 			},
 		)
@@ -3354,7 +3354,7 @@ Mode enum {
 		analyze := func(ctx SpecContext, fieldDecl string) *diagnostics.Files {
 			GinkgoHelper()
 			source := unionSource + "Item struct {\n\t" + fieldDecl + "\n}\n"
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			return diag
 		}
 
@@ -3423,7 +3423,7 @@ Mode enum {
 					none   NoneParams
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+				table, diag := Analyze(ctx, source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				tr := table.MustGet("arc.Transition")
 				form := tr.Form.(resolution.StructForm)
@@ -3459,7 +3459,7 @@ Mode enum {
 					none   NoneParams
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				table, diag := Analyze(ctx, source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				Expect(table.UnionTypes()).To(HaveLen(1))
 
@@ -3494,7 +3494,7 @@ Mode enum {
 
 				ElementConfig union on variant extends NodeConfig, EdgeConfig {}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+				table, diag := Analyze(ctx, source, "schematic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				el := table.MustGet("schematic.ElementConfig")
@@ -3525,7 +3525,7 @@ Mode enum {
 					group GroupConfig
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+				table, diag := Analyze(ctx, source, "schematic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
 				Expect(form.Variants).To(HaveLen(2))
@@ -3556,7 +3556,7 @@ Mode enum {
 					group GroupConfig
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+				table, diag := Analyze(ctx, source, "schematic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
 				Expect(form.Variants).To(HaveLen(2))
@@ -3586,7 +3586,7 @@ Mode enum {
 					empty {}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "panel", loader)
+				table, diag := Analyze(ctx, source, "panel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				form := table.MustGet("panel.Tab").Form.(resolution.UnionForm)
@@ -3637,7 +3637,7 @@ Mode enum {
 
 				ElementConfig union on variant extends A, B {}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+				_, diag := Analyze(ctx, source, "schematic", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -3659,7 +3659,7 @@ Mode enum {
 
 				ElementConfig union on variant extends A {}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+				_, diag := Analyze(ctx, source, "schematic", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("different discriminator"))
 			},
@@ -3678,7 +3678,7 @@ Mode enum {
 
 				ElementConfig union on variant extends A, Base {}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+				_, diag := Analyze(ctx, source, "schematic", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -3696,7 +3696,7 @@ Mode enum {
 
 				B union on variant extends A {}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+			_, diag := Analyze(ctx, source, "schematic", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
 		})
@@ -3726,7 +3726,7 @@ Mode enum {
 					ai_accel   AIAccelFields
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				table, diag := Analyze(ctx, source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
@@ -3768,7 +3768,7 @@ Mode enum {
 					ai_voltage VoltageFields
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				table, diag := Analyze(ctx, source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
@@ -3799,7 +3799,7 @@ Mode enum {
 					}
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			table, diag := Analyze(ctx, source, "ni", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			form := table.MustGet("ni.Scale").Form.(resolution.UnionForm)
@@ -3825,7 +3825,7 @@ Mode enum {
 					@doc value "controls how raw values are transformed"
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+			table, diag := Analyze(ctx, source, "ni", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			scale := table.MustGet("ni.Scale")
@@ -3855,7 +3855,7 @@ Mode enum {
 					empty      Empty
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				table, diag := Analyze(ctx, source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				ch := table.MustGet("ni.AIChannel")
@@ -3894,7 +3894,7 @@ Mode enum {
 					empty      Empty
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				table, diag := Analyze(ctx, source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				voltageFields := resolution.UnifiedVariantFields(
@@ -3918,7 +3918,7 @@ Mode enum {
 					same B
 				}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(`duplicate variant value "same"`))
 		})
@@ -3933,7 +3933,7 @@ Mode enum {
 					linear LinearScale
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -3953,7 +3953,7 @@ Mode enum {
 					linear B
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -3972,7 +3972,7 @@ Mode enum {
 					linear A
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -3988,7 +3988,7 @@ Mode enum {
 					a MissingStruct
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4010,7 +4010,7 @@ Mode enum {
 					a Color
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4033,7 +4033,7 @@ Mode enum {
 					a A
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring(
 					`union Foo inherits field "name" from both Ident and Audited`,
@@ -4051,7 +4051,7 @@ Mode enum {
 					a A
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4073,7 +4073,7 @@ Mode enum {
 					a A
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4099,7 +4099,7 @@ Mode enum {
 
 				ElementConfig union on variant extends A {}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(
 					ContainSubstring(
@@ -4113,7 +4113,7 @@ Mode enum {
 			source := `
 				Empty union on type {}
 			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			_, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring("union Empty has no variants"))
 		})
@@ -4133,7 +4133,7 @@ Mode enum {
 					other Other
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4157,7 +4157,7 @@ Mode enum {
 					b B
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4180,7 +4180,7 @@ Mode enum {
 					color Color
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(
 					diag.Error(),
@@ -4204,7 +4204,7 @@ Mode enum {
 					b B
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("extends non-struct type"))
 			},
@@ -4220,7 +4220,7 @@ Mode enum {
 					a A
 				}
 			`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.Error()).To(ContainSubstring("duplicate type definition"))
 			},
@@ -4239,7 +4239,7 @@ Mode enum {
 					ai_accel   AIAccelFields
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				table, diag := Analyze(ctx, source, "ni", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				all := table.TypesInNamespace("ni")
@@ -4286,7 +4286,7 @@ Mode enum {
 					b B
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			mixed := table.MustGet("test.Mixed")
@@ -4336,7 +4336,7 @@ Mode enum {
 						}
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				Expect(variantFieldNames(table, "test.Chan", "wired")).
 					To(Equal([]string{"name", "port", "gain"}))
@@ -4357,7 +4357,7 @@ Mode enum {
 						}
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				Expect(variantFieldNames(table, "test.Chan", "a")).
 					To(Equal([]string{"min"}))
@@ -4373,7 +4373,7 @@ Mode enum {
 						}
 					}
 				`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					`union Chan variant "a": cannot omit field "port", which the variant does not inherit`,
@@ -4388,7 +4388,7 @@ Mode enum {
 						}
 					}
 				`
-				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				_, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeFalse())
 				Expect(diag.String()).To(ContainSubstring(
 					`union Chan variant "a": cannot omit the discriminator field "type", which is owned by the union`,
@@ -4402,7 +4402,7 @@ Mode enum {
 				source := `
 				Foo struct { x int32 }
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				foo := table.MustGet("test.Foo")
@@ -4420,7 +4420,7 @@ Mode enum {
 	Describe("Struct Defaults", func() {
 		structDefaultOf := func(ctx SpecContext, source string) *resolution.ExpressionValue {
 			GinkgoHelper()
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Outer").Form.(resolution.StructForm)
 			return form.Fields[0].Default
@@ -4551,7 +4551,7 @@ var _ = Describe("Union enum discriminator", func() {
 				api_key  APIKey
 			}
 		`
-		table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		table, diag := Analyze(ctx, source, "test", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
 		form := table.MustGet("test.Proof").Form.(resolution.UnionForm)
 		Expect(form.Discriminator).To(Equal("method"))
@@ -4565,14 +4565,14 @@ var _ = Describe("Union enum discriminator", func() {
 				api_key  APIKey
 			}
 		`
-		table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		table, diag := Analyze(ctx, source, "test", loader)
 		Expect(diag.Ok()).To(BeTrue(), diag.String())
 		Expect(table.MustGet("test.Proof").Form.(resolution.UnionForm).BorrowsEnum()).
 			To(BeFalse())
 	})
 	DescribeTable("Should reject a borrowed enum that does not fit",
 		func(ctx SpecContext, union, message string) {
-			_, diag := analyzer.AnalyzeSource(ctx, prelude+union, "test", loader)
+			_, diag := Analyze(ctx, prelude+union, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(message))
 		},
@@ -4643,7 +4643,7 @@ var _ = Describe("Union enum discriminator", func() {
 				password Credentials
 			}
 		`
-		_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+		_, diag := Analyze(ctx, source, "test", loader)
 		Expect(diag.String()).To(ContainSubstring(
 			"test.Proof generates for ts but its discriminator enum references " +
 				"test.Method, which is omitted in ts",

@@ -36,7 +36,7 @@
 
 /* :where adds no specificity, so a component built on a button overrides these defaults
    even when a bundler loads a second copy of this file after it. */
-:where(.pluto-btn) {
+:where(.lyra-btn) {
     position: relative;
     cursor: pointer;
     width: fit-content;
@@ -61,63 +61,63 @@
 
 /* A button label sits a step heavier than body text. Inputs, switches, list items, menu
    items, tabs, and select triggers reuse the button and keep their text's weight. */
-.pluto-btn:is(.pluto-text--p, .pluto-text--small):where(
+.lyra-btn:is(.lyra-text--p, .lyra-text--small):where(
         :not(
-            .pluto-input,
-            .pluto-input__switch,
-            .pluto-list__item,
-            .pluto-menu-item,
-            .pluto-tabs__tab,
-            .pluto-dialog__trigger,
-            .pluto-select-btns *
+            .lyra-input,
+            .lyra-input__switch,
+            .lyra-list__item,
+            .lyra-menu-item,
+            .lyra-tabs__tab,
+            .lyra-dialog__trigger,
+            .lyra-select-btns *
         )
     ) {
     font-weight: 450;
 }
 
-.pluto-btn {
+.lyra-btn {
     &:focus-visible {
         outline: 1px solid var(--pluto-primary-z);
         outline-offset: var(--pluto-focus-ring-offset);
         z-index: 2;
     }
 
-    &.pluto--direction-x {
+    &.lyra--direction-x {
         align-items: center;
     }
 
-    &.pluto--rounded {
+    &.lyra--rounded {
         border-radius: var(--pluto-border-radius);
     }
 
-    &.pluto--height-huge {
+    &.lyra--height-huge {
         padding: 0 2.5rem;
     }
 
-    &.pluto--height-small {
+    &.lyra--height-small {
         padding: 0 1.5rem;
     }
 
-    &.pluto--height-tiny {
+    &.lyra--height-tiny {
         padding: 0 1rem;
     }
 
     /* Cap content that outgrows the square sizes the row past the caps themselves, so
        pin them to the row's right edge and every hint ends on the same edge. */
-    .pluto-trigger-indicator > .pluto-text {
+    .lyra-trigger-indicator > .lyra-text {
         justify-content: flex-end;
     }
 
-    &.pluto-btn--filled {
+    &.lyra-btn--filled {
         border-radius: var(--pluto-border-radius-small);
 
-        .pluto-text {
+        .lyra-text {
             color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
         }
 
         color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
 
-        &.pluto--status-success {
+        &.lyra--status-success {
             color: var(--pluto-text-on-primary);
         }
 
@@ -127,7 +127,7 @@
         --pluto-keycap-bg: var(--pluto-white);
         --pluto-keycap-border-color: var(--pluto-white);
 
-        .pluto-text--keyboard {
+        .lyra-text--keyboard {
             color: var(--pluto-black);
         }
 
@@ -138,7 +138,7 @@
         --pluto-hover-border-color: var(--pluto-primary-p1);
         --pluto-active-border-color: var(--pluto-primary-m1);
 
-        &.pluto-btn--custom-color {
+        &.lyra-btn--custom-color {
             --pluto-bg: rgb(var(--pluto-btn-color), 1);
             --pluto-hover-bg: rgb(var(--pluto-btn-color), 0.85);
             --pluto-active-bg: rgb(var(--pluto-btn-color), 0.6);
@@ -147,10 +147,10 @@
             --pluto-active-border-color: rgb(var(--pluto-btn-color), 0.7);
         }
 
-        &.pluto--status-warning {
+        &.lyra--status-warning {
             color: var(--pluto-text-on-warning);
 
-            :where(.pluto-text) {
+            :where(.lyra-text) {
                 color: var(--pluto-text-on-warning);
             }
 
@@ -162,7 +162,7 @@
             --pluto-active-border-color: var(--pluto-warning-m1);
         }
 
-        &.pluto--status-error {
+        &.lyra--status-error {
             color: var(--pluto-text-on-primary);
 
             --pluto-bg: var(--pluto-error-z);
@@ -173,7 +173,7 @@
             --pluto-active-border-color: var(--pluto-error-m1);
         }
 
-        &.pluto--disabled {
+        &.lyra--disabled {
             color: var(--pluto-text-disabled);
 
             --pluto-bg: var(--pluto-gray-l3);
@@ -190,30 +190,30 @@
             clip-path: inset(0 100% 0 0);
         }
 
-        &.pluto--pressed::after {
+        &.lyra--pressed::after {
             animation: delay var(--pluto-btn-delay) linear;
             clip-path: inset(0 0 0 0);
         }
     }
 
-    &:not(.pluto--square) .pluto-trigger-indicator {
+    &:not(.lyra--square) .lyra-trigger-indicator {
         margin-left: auto;
     }
 
-    &.pluto--square {
+    &.lyra--square {
         padding: 0;
 
-        & .pluto-icon {
+        & .lyra-icon {
             width: round(1.1em, 1px);
             height: round(1.1em, 1px);
         }
 
-        &.pluto--height-large .pluto-icon {
+        &.lyra--height-large .lyra-icon {
             width: round(1.2em, 1px);
             height: round(1.2em, 1px);
         }
 
-        .pluto-trigger-indicator {
+        .lyra-trigger-indicator {
             opacity: 0;
             display: block;
             position: absolute;
@@ -226,7 +226,7 @@
             /* The badge floats clear of the button, over the page, so it keeps the
                page's own cap colors. A filled button inverts its caps to read against
                the fill, which here would leave a black glyph on the dark badge. */
-            & .pluto-text--keyboard {
+            & .lyra-text--keyboard {
                 background: var(--pluto-gray-l0);
                 border-color: var(--pluto-gray-l7);
                 color: var(--pluto-text-color);
@@ -235,12 +235,12 @@
 
         /* A disabled button's trigger is inert, so the hint stays hidden rather than
            advertising a dead shortcut. */
-        &:hover:not(.pluto--disabled) .pluto-trigger-indicator {
+        &:hover:not(.lyra--disabled) .lyra-trigger-indicator {
             opacity: 1;
         }
     }
 
-    &.pluto-btn--outlined {
+    &.lyra-btn--outlined {
         --pluto-bg: var(--pluto-fill-rest);
         --pluto-hover-bg: var(--pluto-fill-hover);
         --pluto-active-bg: var(--pluto-fill-press);
@@ -248,13 +248,13 @@
         --pluto-hover-border-color: var(--pluto-gray-l8);
         --pluto-active-border-color: var(--pluto-gray-l8);
 
-        &.pluto-btn--custom-color {
+        &.lyra-btn--custom-color {
             --pluto-border-color: rgb(var(--pluto-btn-color), 1);
             --pluto-hover-border-color: rgb(var(--pluto-btn-color), 0.6);
             --pluto-active-border-color: rgb(var(--pluto-btn-color), 1);
         }
 
-        &.pluto--status-warning {
+        &.lyra--status-warning {
             color: var(--pluto-warning-z);
 
             --pluto-border-color: var(--pluto-warning-z);
@@ -262,7 +262,7 @@
             --pluto-active-border-color: var(--pluto-warning-m1);
         }
 
-        &.pluto--status-error {
+        &.lyra--status-error {
             color: var(--pluto-error-p1);
 
             --pluto-border-color: var(--pluto-error-z);
@@ -270,7 +270,7 @@
             --pluto-active-border-color: var(--pluto-error-m1);
         }
 
-        &.pluto--disabled {
+        &.lyra--disabled {
             color: var(--pluto-text-disabled);
 
             --pluto-bg: var(--pluto-gray-l2);
@@ -278,7 +278,7 @@
         }
     }
 
-    &.pluto-btn--text {
+    &.lyra-btn--text {
         /* Grounded, not inherited: custom props cascade, so an undeclared bg would
            repaint a host row's selection fill inside the nested button. An undeclared
            state border color is worse: the shared hover and active rules below blank
@@ -292,24 +292,24 @@
 
         /* A shade reads as de-emphasis, so hover restores full text color. A crude
            color is semantic and sets an inline style, which this cannot override. */
-        &:hover:not(.pluto--status-warning, .pluto--status-error, .pluto--disabled) {
+        &:hover:not(.lyra--status-warning, .lyra--status-error, .lyra--disabled) {
             color: var(--pluto-text-color);
         }
 
-        &.pluto--disabled {
+        &.lyra--disabled {
             color: var(--pluto-text-disabled);
         }
 
-        &.pluto--status-warning {
+        &.lyra--status-warning {
             color: var(--pluto-warning-p1);
         }
 
-        &.pluto--status-error {
+        &.lyra--status-error {
             color: var(--pluto-error-p1);
         }
     }
 
-    &.pluto--selected {
+    &.lyra--selected {
         --pluto-bg: var(--pluto-selected-bg);
         --pluto-hover-bg: var(--pluto-selected-hover-bg);
         --pluto-active-bg: var(--pluto-selected-active-bg);
@@ -322,7 +322,7 @@
 
     /* Placed after the selected block so a preview strips the selected chassis too: the
        value reads as plain text, never as a still-active control. */
-    &.pluto-btn--preview {
+    &.lyra-btn--preview {
         cursor: default;
         pointer-events: none;
         padding: 0;
@@ -335,7 +335,7 @@
         --pluto-hover-border-color: transparent;
         --pluto-active-border-color: transparent;
 
-        &.pluto--selected {
+        &.lyra--selected {
             color: var(--pluto-text-color);
         }
 
@@ -343,22 +343,22 @@
             outline: none;
         }
 
-        &.pluto--disabled {
+        &.lyra--disabled {
             color: var(--pluto-text-disabled);
         }
 
-        &.pluto--status-warning {
+        &.lyra--status-warning {
             color: var(--pluto-warning-p1);
         }
 
-        &.pluto--status-error {
+        &.lyra--status-error {
             color: var(--pluto-error-p1);
         }
     }
 
     /* Placed after the variant blocks: their cap vars and text colors would otherwise
        outrank these, leaving a trigger hint at full contrast. */
-    &.pluto--disabled {
+    &.lyra--disabled {
         cursor: not-allowed;
 
         & * {
@@ -368,7 +368,7 @@
         --pluto-keycap-bg: transparent;
         --pluto-keycap-border-color: var(--pluto-gray-l6);
 
-        & .pluto-text {
+        & .lyra-text {
             color: var(--pluto-text-disabled);
         }
     }
@@ -376,7 +376,7 @@
     /* Inline glyph action: a chassis-nested micro-button (tab close, tag close). No
        fill feedback; the glyph alone carries hover and press. The bg re-point shields
        it from the host chassis's inherited fill vars. */
-    &.pluto-btn--glyph {
+    &.lyra-btn--glyph {
         --pluto-bg: transparent;
         --pluto-hover-bg: transparent;
         --pluto-active-bg: transparent;
@@ -386,7 +386,7 @@
             --pluto-glyph-fill: var(--pluto-gray-l11);
         }
 
-        &.pluto--destructive.pluto--pressed {
+        &.lyra--destructive.lyra--pressed {
             --pluto-glyph-fill: var(--pluto-error-z);
         }
 
@@ -398,7 +398,7 @@
         }
     }
 
-    &.pluto-btn--close {
+    &.lyra-btn--close {
         position: absolute;
         left: 0.25rem;
         top: 50%;
@@ -414,12 +414,12 @@
             flex-shrink: 0;
         }
 
-        .pluto--reveals:not(:hover) &:not(:focus-visible) svg {
+        .lyra--reveals:not(:hover) &:not(:focus-visible) svg {
             transform: scale(0.9);
         }
     }
 
-    &.pluto-haul-drop-region {
+    &.lyra-haul-drop-region {
         /* stylelint-disable declaration-no-important -- a drop target keeps its drop
            colors while hovered or pressed */
         --pluto-btn-bg: var(--haul-background) !important;
@@ -430,53 +430,53 @@
     /* We use the flex selector that is always present in order to increase specificity
      of the hover and active states. */
 
-    /* pluto--focus-frozen marks a control whose pointer states freeze while it holds
+    /* lyra--focus-frozen marks a control whose pointer states freeze while it holds
        focus: hover and press swap nothing until it blurs. */
-    &:not(.pluto-btn--prevent-click, .pluto--disabled) {
-        &:is(:hover, .pluto--hovered, [data-context-menu-open]):not(
-                .pluto--focus-frozen:focus-within
+    &:not(.lyra-btn--prevent-click, .lyra--disabled) {
+        &:is(:hover, .lyra--hovered, [data-context-menu-open]):not(
+                .lyra--focus-frozen:focus-within
             ) {
             --pluto-btn-bg: var(--pluto-hover-bg);
             --pluto-btn-border-color: var(--pluto-hover-border-color);
         }
 
-        &.pluto--pressed:not(.pluto--focus-frozen:focus-within) {
+        &.lyra--pressed:not(.lyra--focus-frozen:focus-within) {
             --pluto-btn-bg: var(--pluto-active-bg);
             --pluto-btn-border-color: var(--pluto-active-border-color);
         }
     }
 }
 
-.pluto--pack .pluto-btn:is(:focus, :focus-within, :active, :hover) {
+.lyra--pack .lyra-btn:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
 /* Wins the negative-margin border collapse against unselected neighbors. */
-.pluto--pack .pluto-btn.pluto--selected {
+.lyra--pack .lyra-btn.lyra--selected {
     z-index: 2;
 }
 
-/* A pluto--reveals container hides marked child actions until hovered. Keyboard
+/* A lyra--reveals container hides marked child actions until hovered. Keyboard
    focus always shows one, so reveal never hides the only keyboard path. */
-.pluto--reveals .pluto--reveal {
+.lyra--reveals .lyra--reveal {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.1s ease-out;
 }
 
-.pluto--reveals:hover .pluto--reveal {
+.lyra--reveals:hover .lyra--reveal {
     opacity: 1;
     pointer-events: auto;
 }
 
 /* Reveal comes from the nearest container: an un-hovered inner one (a tag in a
    hovered row) keeps its own actions hidden. */
-.pluto--reveals:not(:hover) .pluto--reveal {
+.lyra--reveals:not(:hover) .lyra--reveal {
     opacity: 0;
     pointer-events: none;
 }
 
-.pluto--reveals .pluto--reveal:focus-visible {
+.lyra--reveals .lyra--reveal:focus-visible {
     opacity: 1;
     pointer-events: auto;
 }

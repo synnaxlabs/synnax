@@ -9,7 +9,6 @@
 
 import "@/log/Log.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,6 +18,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef } from "react";
 
+import { CSS } from "@/css";
 import { log } from "@/log/aether";
 import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
