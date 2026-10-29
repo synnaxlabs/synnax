@@ -15,10 +15,10 @@
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
-/// @brief it should leave LabJack out of the default integrations and delete the
-/// LabJack scanner that a Driver built with LabJack left on the rack.
+/// @brief it should leave LabJack out of the built integrations and delete the LabJack
+/// scanner that a Driver built with LabJack left on the rack.
 TEST(RackFactoriesTest, DeletesLegacyLabJackScanner) {
-    const auto integrations = default_integrations();
+    const auto integrations = built_integrations();
     EXPECT_EQ(std::ranges::find(integrations, "labjack"), integrations.end());
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -35,5 +35,19 @@ TEST(RackFactoriesTest, DeletesLegacyLabJackScanner) {
     for (const auto &[_, tsk]: tasks)
         tsk->stop(false);
     ASSERT_OCCURRED_AS_P(rack.tasks.retrieve(scanner.key), x::errors::NOT_FOUND);
+}
+
+/// @brief it should leave LabJack out of the rack's integrations when a config names
+/// it.
+TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
+    Config cfg{
+        .connection = test_client_config,
+        .integrations = {"labjack", http::INTEGRATION_NAME},
+    };
+    x::breaker::Breaker breaker;
+    ASSERT_NIL(cfg.load_remote(breaker));
+    const auto client = synnax::Synnax(test_client_config);
+    const auto rack = ASSERT_NIL_P(client.racks.retrieve(cfg.rack.key));
+    EXPECT_EQ(rack.integrations, std::vector<std::string>{http::INTEGRATION_NAME});
 }
 }

@@ -28,7 +28,7 @@ TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
     const Config cfg{.integrations = {"ni", "labjack"}};
     const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const auto built = default_integrations();
+    const auto built = built_integrations();
     for (const auto &[integration, type]: scanners) {
         // An invalid config stops the configure before it loads a library or builds a
         // scanner, which needs a client.

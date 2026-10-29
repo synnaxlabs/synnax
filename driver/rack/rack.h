@@ -70,7 +70,9 @@ struct RemoteInfo {
 /// build has. Each platform defines it in its own source.
 std::vector<std::string> platform_integrations();
 
-inline std::vector<std::string> default_integrations() {
+/// @brief returns the integrations that this build runs. A config enables all of them
+/// unless it names its own.
+inline std::vector<std::string> built_integrations() {
     std::vector<std::string> integrations = {
         opcua::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
@@ -156,7 +158,7 @@ struct Config {
                     .username = "synnax",
                     .password = "seldon",
                 },
-            .integrations = default_integrations(),
+            .integrations = built_integrations(),
         };
         VLOG(1) << "loading configuration from persisted state";
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
