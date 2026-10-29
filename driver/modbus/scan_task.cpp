@@ -124,7 +124,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
-    auto [dev, err] = this->devices->acquire(args.connection);
+    auto [dev, err] = this->devices->acquire(args.connection, args.requests);
     if (!err) err = dev->probe();
     if (err) {
         status.message = "Failed to connect to device";

@@ -26,6 +26,7 @@ import {
   type Connection,
   type Device,
   INTEGRATION,
+  type Requests,
   SCHEMAS,
   swapsOf,
   type WriteCodes,
@@ -93,13 +94,11 @@ const beforeSave = async ({
     schemas: SCAN_SCHEMAS,
   });
   const connection = get<Connection>("properties.connection").value;
+  const requests = get<Requests>("properties.requests").value;
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
-    timeout: testConnectionTimeout(
-      connection,
-      get<number>("properties.requests.delayMs").value,
-    ),
-    args: { connection },
+    timeout: testConnectionTimeout(connection, requests.delayMs),
+    args: { connection, requests },
   });
   if (state.variant === "error") throw status.toError(state);
   // Since we just scanned successfully, we create a default healthy status for the

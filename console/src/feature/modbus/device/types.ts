@@ -76,6 +76,7 @@ const propertiesZ = z.object({
 export interface Properties extends z.infer<typeof propertiesZ> {}
 
 export type Connection = Properties["connection"];
+export type Requests = Properties["requests"];
 
 export const ZERO_PROPERTIES = {
   connection: ZERO_CONNECTION,

@@ -71,10 +71,14 @@ describe("Modbus.Device.useConnectModal", () => {
     await selectFromDropdown("Word swap (CDAB)", "Big-endian (ABCD)");
     const { answered } = await answerNextCommand(client, scan);
     pressSaveTrigger();
-    await answered;
+    const cmd = await answered;
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     const dev = await client.devices.retrieve({ key, schemas: Modbus.Device.SCHEMAS });
+    expect(cmd.args).toEqual({
+      connection: dev.properties.connection,
+      requests: dev.properties.requests,
+    });
     expect(dev.properties.connection.unitId).toBe(12);
     expect(dev.properties.connection.swapBytes).toBe(false);
     expect(dev.properties.connection.swapWords).toBe(true);

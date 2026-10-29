@@ -36,10 +36,13 @@ struct ScanTaskConfig : common::ScanTaskConfig {
 struct ScanCommandArgs {
     /// @brief Connection parameters for the device.
     device::ConnectionConfig connection;
+    /// @brief how the device paces its requests. A missing object takes every default.
+    device::RequestConfig requests;
 
     /// @brief Parses the arguments from their JSON object representation.
     explicit ScanCommandArgs(const x::json::Parser &parser):
-        connection(device::ConnectionConfig(parser.child("connection"))) {}
+        connection(device::ConnectionConfig(parser.child("connection"))),
+        requests(parser.optional_child("requests")) {}
 };
 
 /// @brief Modbus scanner implementing the common::Scanner interface. It checks each

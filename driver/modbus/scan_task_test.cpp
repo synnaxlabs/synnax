@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cerrno>
+#include <chrono>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
@@ -264,6 +265,42 @@ TEST(ScanTask, testScanReportsSilentUnit) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to reach device");
     EXPECT_EQ(status.description, modbus_strerror(ETIMEDOUT));
+}
+
+/// @brief it should wait the request delay of the tested device after a task's request
+/// on the shared connection.
+TEST(ScanTask, testConnectionWaitsRequestDelay) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1680;
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    auto devs = std::make_shared<device::Manager>();
+    Scanner scanner(ctx, t, devs);
+    const auto dev = local_device("paced", 1680);
+    auto task_dev = ASSERT_NIL_P(
+        devs->acquire(device::ConnectionConfig{"127.0.0.1", 1680})
+    );
+    synnax::task::Command cmd{
+        .task = t.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "test",
+        .args = {
+            {"connection", dev.properties.at("connection")},
+            {"requests", {{"delay_ms", 300}}},
+        },
+    };
+
+    uint8_t bit = 0;
+    ASSERT_NIL(task_dev->read_bits(device::Coil, 0, 1, &bit));
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    EXPECT_GE(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(250));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should fail a connection test when the unit does not answer.
