@@ -20,14 +20,22 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import {
+  BAUD_RATES,
   BYTE_ORDERS,
   type ByteOrder,
   byteOrderOf,
+  type Connection,
+  DATA_BITS,
   type Device,
   INTEGRATION,
+  PARITIES,
+  type Parity,
   SCHEMAS,
+  STOP_BITS,
   swapsOf,
+  type Transport,
   type WriteCodes,
+  ZERO_CONNECTIONS,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
 import {
@@ -41,16 +49,18 @@ import { Device as PlatformDevice } from "@/platform/device";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
+const INITIAL_CONNECTIONS = {
+  tcp: { ...ZERO_CONNECTIONS.tcp, port: 502 },
+  rtu: ZERO_CONNECTIONS.rtu,
+} as const satisfies Record<Transport, Connection>;
+
 const INITIAL_VALUES: Device = {
   key: "",
   name: "Modbus server",
   make: "Modbus",
   model: "Modbus",
   location: "",
-  properties: {
-    ...ZERO_PROPERTIES,
-    connection: { ...ZERO_PROPERTIES.connection, port: 502 },
-  },
+  properties: { ...ZERO_PROPERTIES, connection: INITIAL_CONNECTIONS.tcp },
   rack: 0,
   configured: true,
 };
@@ -64,9 +74,13 @@ const beforeValidate = ({
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
-  const host = get<string>("properties.connection.host").value;
-  const port = get<number>("properties.connection.port").value;
-  set("location", `${host}:${port}`);
+  const connection = get<Connection>("properties.connection").value;
+  set(
+    "location",
+    connection.transport === "rtu"
+      ? connection.serialPort
+      : `${connection.host}:${connection.port}`,
+  );
 };
 
 const beforeSave = async ({
@@ -136,7 +150,30 @@ export const Connect = ({
     name: "Modbus",
     rack: rackKey,
   });
+  const transport = Form.useFieldValue<
+    Transport,
+    Transport,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("properties.connection.transport", { ctx: form });
   const [tab, setTab] = useState("unit");
+
+  // The transports share no address fields, so a switch starts the address over.
+  const renderTransport = ({ value, onChange }: Input.Control<Transport>) => {
+    const handleChange = (value: Transport) => {
+      const { swapBytes, swapWords, timeoutMs, retries } = form.get<Connection>(
+        "properties.connection",
+      ).value;
+      form.set("properties.connection", {
+        ...INITIAL_CONNECTIONS[value],
+        swapBytes,
+        swapWords,
+        timeoutMs,
+        retries,
+      });
+      onChange(value);
+    };
+    return <SelectTransport value={value} onChange={handleChange} />;
+  };
 
   return (
     <Modal.Frame className={CSS.B("modbus-connect")}>
@@ -146,18 +183,84 @@ export const Connect = ({
           <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
           <Form.Sections>
             <Form.Section title="Connection">
-              <Form.TextField
-                path="properties.connection.host"
-                label="Host"
+              <Form.Field<Transport>
+                path="properties.connection.transport"
+                label="Transport"
                 padHelpText={false}
-                inputProps={HOST_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path="properties.connection.port"
-                label="Port"
-                padHelpText={false}
-                inputProps={PORT_INPUT_PROPS}
-              />
+              >
+                {renderTransport}
+              </Form.Field>
+              {transport === "tcp" ? (
+                <>
+                  <Form.TextField
+                    path="properties.connection.host"
+                    label="Host"
+                    padHelpText={false}
+                    inputProps={HOST_INPUT_PROPS}
+                  />
+                  <Form.NumericField
+                    path="properties.connection.port"
+                    label="Port"
+                    padHelpText={false}
+                    inputProps={PORT_INPUT_PROPS}
+                  />
+                </>
+              ) : (
+                <>
+                  <Form.TextField
+                    path="properties.connection.serialPort"
+                    label="Serial port"
+                    padHelpText={false}
+                    inputProps={SERIAL_PORT_INPUT_PROPS}
+                  />
+                  <Form.Field<number>
+                    path="properties.connection.baudRate"
+                    label="Baud rate"
+                    padHelpText={false}
+                  >
+                    {(p) => (
+                      <SelectNumber
+                        {...p}
+                        values={BAUD_RATES}
+                        resourceName="baud rate"
+                      />
+                    )}
+                  </Form.Field>
+                  <Form.Field<Parity>
+                    path="properties.connection.parity"
+                    label="Parity"
+                    padHelpText={false}
+                  >
+                    {(p) => <SelectParity {...p} />}
+                  </Form.Field>
+                  <Form.Field<number>
+                    path="properties.connection.dataBits"
+                    label="Data bits"
+                    padHelpText={false}
+                  >
+                    {(p) => (
+                      <SelectNumber
+                        {...p}
+                        values={DATA_BITS}
+                        resourceName="data bits"
+                      />
+                    )}
+                  </Form.Field>
+                  <Form.Field<number>
+                    path="properties.connection.stopBits"
+                    label="Stop bits"
+                    padHelpText={false}
+                  >
+                    {(p) => (
+                      <SelectNumber
+                        {...p}
+                        values={STOP_BITS}
+                        resourceName="stop bits"
+                      />
+                    )}
+                  </Form.Field>
+                </>
+              )}
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
           </Form.Sections>
@@ -246,7 +349,7 @@ export const Connect = ({
 
 export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
-const HEADER = ["Device", "Connect", "Modbus TCP server"];
+const HEADER = ["Device", "Connect", "Modbus server"];
 
 const NAME_INPUT_PROPS = {
   level: "h2",
@@ -260,6 +363,11 @@ const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
 const PORT_INPUT_PROPS = {
   bounds: { lower: 1, upper: 65535 },
   style: { width: "23rem" },
+} as const;
+
+const SERIAL_PORT_INPUT_PROPS = {
+  autoFocus: true,
+  placeholder: "/dev/ttyUSB0",
 } as const;
 
 const UNIT_ID_INPUT_PROPS = {
@@ -331,6 +439,54 @@ const ByteOrderField = (): ReactElement => {
     </Input.Item>
   );
 };
+
+const SelectTransport = (props: Select.ButtonsProps<Transport>) => (
+  <Select.Buttons<Transport> {...props}>
+    <Select.Item<Transport> itemKey="tcp">TCP</Select.Item>
+    <Select.Item<Transport> itemKey="rtu">Serial</Select.Item>
+  </Select.Buttons>
+);
+
+const PARITY_NAMES: Record<Parity, string> = {
+  none: "None",
+  even: "Even",
+  odd: "Odd",
+};
+
+const SelectParity = ({ value, onChange }: Input.Control<Parity>) => (
+  <Select.Simple<Parity>
+    value={value}
+    onChange={onChange}
+    allowNone={false}
+    resourceName="parity"
+  >
+    {PARITIES.map((parity) => (
+      <Select.Item<Parity> key={parity} itemKey={parity}>
+        {PARITY_NAMES[parity]}
+      </Select.Item>
+    ))}
+  </Select.Simple>
+);
+
+interface SelectNumberProps extends Input.Control<number> {
+  values: readonly number[];
+  resourceName: string;
+}
+
+const SelectNumber = ({ value, onChange, values, resourceName }: SelectNumberProps) => (
+  <Select.Simple<number>
+    value={value}
+    onChange={onChange}
+    allowNone={false}
+    resourceName={resourceName}
+  >
+    {values.map((v) => (
+      <Select.Item<number> key={v} itemKey={v}>
+        {v.toString()}
+      </Select.Item>
+    ))}
+  </Select.Simple>
+);
 
 const SelectWriteCodes = (props: Select.ButtonsProps<WriteCodes>) => (
   <Select.Buttons<WriteCodes> {...props}>

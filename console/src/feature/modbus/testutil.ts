@@ -15,15 +15,31 @@ import {
   type Device,
   type Properties,
   SCHEMAS,
+  ZERO_CONNECTIONS,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
 import { uniqueName } from "@/testutil";
 
+type TCPConnection = Extract<Connection, { transport: "tcp" }>;
+type RTUConnection = Extract<Connection, { transport: "rtu" }>;
+
+/** Connection fields to set. A serial connection names its transport. */
+type ConnectionOverrides =
+  Partial<TCPConnection> | (Partial<RTUConnection> & Pick<RTUConnection, "transport">);
+
+const connectionOf = (overrides: ConnectionOverrides = {}): Connection =>
+  overrides.transport === "rtu"
+    ? { ...ZERO_CONNECTIONS.rtu, ...overrides }
+    : { ...ZERO_CONNECTIONS.tcp, ...overrides };
+
 export interface CreateModbusDeviceOptions {
   configured?: boolean;
-  /** Properties to set. Connection fields left out keep their zero values. */
+  /**
+   * Properties to set. Connection fields left out keep the zero values of the
+   * connection's transport.
+   */
   properties?: Partial<Omit<Properties, "connection">> & {
-    connection?: Partial<Connection>;
+    connection?: ConnectionOverrides;
   };
 }
 
@@ -45,7 +61,7 @@ export const createModbusDevice = async (
       properties: {
         ...deep.copy(ZERO_PROPERTIES),
         ...properties,
-        connection: { ...ZERO_PROPERTIES.connection, ...properties?.connection },
+        connection: connectionOf(properties?.connection),
       },
     },
     SCHEMAS,

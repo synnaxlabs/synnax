@@ -21,6 +21,10 @@ testPropertiesSchema(
       "properties with only connection config",
       { connection: { host: "192.168.1.10", port: 502 } },
     ],
+    [
+      "properties with a serial connection",
+      { connection: { transport: "rtu", serialPort: "COM3" } },
+    ],
   ],
 );
 
@@ -45,6 +49,33 @@ describe("Modbus.Device.SCHEMAS", () => {
       writeCodes: "multiple",
       delayMs: 0,
     });
+  });
+
+  it("should fill the line settings and unit of a serial connection", () => {
+    const props = Modbus.Device.SCHEMAS.properties.parse({
+      connection: { transport: "rtu", serialPort: "/dev/ttyUSB0" },
+    });
+    expect(props.connection).toEqual({
+      transport: "rtu",
+      serialPort: "/dev/ttyUSB0",
+      baudRate: 19200,
+      parity: "even",
+      dataBits: 8,
+      stopBits: 1,
+      swapBytes: false,
+      swapWords: false,
+      unitId: 1,
+      timeoutMs: 1000,
+      retries: 1,
+    });
+  });
+
+  it("should reject a transport the Driver does not know", () => {
+    expect(
+      Modbus.Device.SCHEMAS.properties.safeParse({
+        connection: { transport: "ascii", serialPort: "COM3" },
+      }).success,
+    ).toBe(false);
   });
 
   it("should reject a write code the Driver does not know", () => {
