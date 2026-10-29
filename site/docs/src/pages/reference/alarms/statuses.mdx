@@ -99,13 +99,8 @@ To set the status once for each change, and to clear it, see
   <Fragment slot="console">
 
 Press **S** or click <Icon.Status /> on the left side of the Console to open the
-statuses toolbar. The **Problems** tab lists the open warnings and errors, newest first,
-with how long each has been open and its count. It follows the rules of
-[notifications](#notifications), so it leaves out answers to commands and things that
-are not in use. The problems of a Driver's tasks and devices show under the problem of
-the Driver. <Icon.Status /> shows the count of open problems. The **Favorites** tab
-shows your favorite statuses with their variant, name, message, labels, and the time
-since their last change.
+statuses toolbar. It shows your favorite statuses with their variant, name, message,
+labels, and the time since their last change.
 
 To see every status, run the "Open status explorer" command, or click the explore button
 in the statuses toolbar. In the explorer, search by name and filter by label and by
@@ -179,8 +174,7 @@ When a status changes, the Console shows a notification in the corner of the win
 - A warning or error starts a problem. The Console shows each problem once, and later
   changes of the problem add to the count of its notification. A problem that comes back
   within 30 seconds after it clears is the same problem.
-- The Console does not show the problems that are open when it starts. The statuses
-  toolbar lists them.
+- The Console does not show the problems that are open when it starts.
 - Different statuses with the same name, variant, message, and description merge into
   one notification with a count.
 - The Console shows up to four notifications. Click **+N more** to see the rest, and
