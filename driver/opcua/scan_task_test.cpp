@@ -933,7 +933,8 @@ std::unique_ptr<testutil::Server> start_motor_server() {
 /// @brief it should list the members of a structure variable, with their fields.
 TEST_F(TestScanTask, testBrowsesStructureMembers) {
     const auto motor_server = start_motor_server();
-    const auto status = browse_motor(ctx, task, conn_pool, store, "NS=1;S=TestMotor", "");
+    const auto
+        status = browse_motor(ctx, task, conn_pool, store, "NS=1;S=TestMotor", "");
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
     auto channels = x::json::json::array();
     for (const auto &ch: status.details.data.value().at("channels"))

@@ -310,8 +310,8 @@ struct VariableType {
 };
 
 /// @brief finds the type of a variable from its DataType and ValueRank. When the
-/// DataType is abstract or unknown, or the ValueRank allows both a scalar and an
-/// array, the current value tells the type.
+/// DataType is abstract or unknown, or the ValueRank allows both a scalar and an array,
+/// the current value tells the type.
 std::pair<VariableType, x::errors::Error> variable_type(
     UA_Client *client,
     const UA_NodeId &id,
@@ -337,7 +337,7 @@ std::pair<VariableType, x::errors::Error> variable_type(
     const auto &value = res.get().results[0];
     if (!value.hasValue) return {type, x::errors::NIL};
     if (type.data_type == x::telem::UNKNOWN_T)
-        type.data_type = telem::ua_to_data_type(value.value.type);
+        type.data_type = telem::to_data_type(value.value.type);
     if (!rank_known) type.is_array = !UA_Variant_isScalar(&value.value);
     return {type, x::errors::NIL};
 }
@@ -392,11 +392,15 @@ std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
     const std::string &node_id,
     const structure::Path &path
 ) {
-    const auto none = [&path]() -> std::pair<std::vector<types::Node>, x::errors::Error> {
+    const auto none =
+        [&path]() -> std::pair<std::vector<types::Node>, x::errors::Error> {
         if (path.empty()) return {{}, x::errors::NIL};
         return {
             {},
-            x::errors::Error(x::errors::VALIDATION, "the node does not hold a structure")
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "the node does not hold a structure"
+            )
         };
     };
     auto [res, err] = read_attributes(
@@ -427,7 +431,7 @@ std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
         auto member_path = path;
         member_path.push_back(m.name);
         members.emplace_back(
-            telem::ua_to_data_type(m.type),
+            telem::to_data_type(m.type),
             m.name,
             node_id,
             types::node_class_to_string(UA_NODECLASS_VARIABLE),

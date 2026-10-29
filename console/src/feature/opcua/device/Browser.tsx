@@ -145,8 +145,8 @@ export const Browser = ({ device }: BrowserProps) => {
         return;
       }
       setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
-      // A member's name carries its structure's name, so channels made from members
-      // of different structures do not collide.
+      // A member's name carries its structure's name, so channels made from members of
+      // different structures do not collide.
       const nodes = channels.map((node) => ({
         ...node,
         name:

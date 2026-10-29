@@ -14,8 +14,15 @@ import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
-import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  createMember,
+  createOPCDevice,
+  createScannedDevice,
+  createVariableNode,
+  dragNode,
+} from "@/feature/opcua/testutil";
+import {
+  answerNextCommand,
   awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -280,6 +287,46 @@ describe("Read", () => {
         schemas: OPCUA.Task.READ_SCHEMAS,
       });
       expect(saved.config.nanFillEnabled).toBe(true);
+    });
+  });
+});
+
+describe("Read structure members", () => {
+  it("should add each dropped member of a node once", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const held = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(device.key, [held]));
+    const motor = createVariableNode();
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [motor] },
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await root.answered;
+    const members = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: {
+        channels: [
+          createMember(motor, "Speed", "float64"),
+          createMember(motor, "Torque", "float32"),
+        ],
+      },
+    });
+    fireEvent.click(await screen.findByText(motor.name));
+    await members.answered;
+    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await dragNode(`${motor.name}.Torque`, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await waitFor(async () => {
+      const { config } = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.READ_SCHEMAS,
+      });
+      expect(config.channels.map(({ nodeId, field }) => ({ nodeId, field }))).toEqual([
+        { nodeId: held.nodeId, field: "" },
+        { nodeId: motor.nodeId, field: "Speed" },
+        { nodeId: motor.nodeId, field: "Torque" },
+      ]);
     });
   });
 });

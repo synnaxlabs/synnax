@@ -40,7 +40,10 @@ const validateNodeIDs = ({
     issues.push({
       code: "custom",
       path: [i, "nodeId"],
-      message: "This node ID has already been used elsewhere in the configuration",
+      message:
+        "field" in ch && ch.field !== ""
+          ? "This field has already been used elsewhere in the configuration"
+          : "This node ID has already been used elsewhere in the configuration",
       params: { variant: "warning" },
       input: channels,
     });

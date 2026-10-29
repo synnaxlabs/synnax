@@ -137,8 +137,8 @@ constexpr UA_UInt32 POINT_ENCODING_ID = 4243;
 constexpr UA_UInt32 MOTOR_TYPE_ID = 4244;
 constexpr UA_UInt32 MOTOR_ENCODING_ID = 4245;
 
-/// @brief the open62541 descriptions of Point and Motor. Motor points at Point, so
-/// the descriptions never move.
+/// @brief the open62541 descriptions of Point and Motor. Motor points at Point, so the
+/// descriptions never move.
 class StructureTypes {
     std::array<UA_DataTypeMember, 2> point_members{};
     std::array<UA_DataTypeMember, 3> motor_members{};

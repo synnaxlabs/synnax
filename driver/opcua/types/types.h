@@ -29,8 +29,8 @@ struct Node {
     std::string name;
     std::string node_id;
     bool is_array;
-    /// @brief the path to a member of the node's structure value, or empty for the
-    /// node itself.
+    /// @brief the path to a member of the node's structure value, or empty for the node
+    /// itself.
     std::string field;
 
     Node(
@@ -257,8 +257,8 @@ public:
         return *this;
     }
 
-    /// @brief adds the last sample of series, converted to target, the data type of
-    /// the node. A null target converts to the type that matches the series.
+    /// @brief adds the last sample of series, converted to target, the data type of the
+    /// node. A null target converts to the type that matches the series.
     /// @returns x::errors::VALIDATION if the sample does not convert to target.
     x::errors::Error add_value(
         const UA_NodeId &node_id,

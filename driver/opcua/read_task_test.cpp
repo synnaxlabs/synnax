@@ -313,9 +313,10 @@ protected:
         };
     }
 
-    /// @returns the config of a task that reads members of TestMotor at fields into
-    /// the double, float, and bool channels.
-    [[nodiscard]] x::json::json motor_cfg(const std::vector<std::string> &fields) const {
+    /// @returns the config of a task that reads members of TestMotor at fields into the
+    /// double, float, and bool channels.
+    [[nodiscard]] x::json::json
+    motor_cfg(const std::vector<std::string> &fields) const {
         const std::vector<synnax::channel::Key> keys{
             this->double_channel.key,
             this->float_channel.key,

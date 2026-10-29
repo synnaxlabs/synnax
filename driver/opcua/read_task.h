@@ -301,8 +301,8 @@ protected:
         }
     }
 
-    /// @brief reads the structure types of the nodes of field channels, so their
-    /// values decode.
+    /// @brief reads the structure types of the nodes of field channels, so their values
+    /// decode.
     /// @returns only an error that loses the connection. When the server refuses the
     /// read for another reason, the fields fail to read.
     x::errors::Error read_types() {

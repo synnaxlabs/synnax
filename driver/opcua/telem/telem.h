@@ -18,11 +18,11 @@
 #include "x/cpp/telem/telem.h"
 
 namespace driver::opcua::telem {
-/// @brief converts an OPC UA data type to the Synnax data type that holds its values.
-/// A subtype, such as Duration, converts as its builtin type, and an enumeration as
+/// @brief converts an OPC UA data type to the Synnax data type that holds its values. A
+/// subtype, such as Duration, converts as its builtin type, and an enumeration as
 /// int32.
 /// @returns x::telem::UNKNOWN_T for a type that no Synnax data type holds.
-x::telem::DataType ua_to_data_type(const UA_DataType *dt);
+x::telem::DataType to_data_type(const UA_DataType *dt);
 
 /// @brief converts the DataType attribute of a node to a Synnax data type.
 /// @returns x::telem::UNKNOWN_T for an abstract type, a structure, or a type that the
