@@ -1183,17 +1183,13 @@ var _ = Describe("Graph", func() {
 			)
 			createDep(ctx, "st_ow_a")
 			deleteDep(ctx, "st_ow_b")
-			var s2 calculation.Status
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				s, ok := fetchStatus(ctx, calc.Key())
-				if ok && s.Description != s1.Description {
-					s2 = s
-					return true
-				}
-				return false
-			}, 2*time.Second, 10*time.Millisecond).Should(BeTrue(),
-				"expected status description to change")
-			Expect(s2.Variant).To(Equal(status.VariantError))
+				g.Expect(ok).To(BeTrue())
+				g.Expect(s.Variant).To(Equal(status.VariantError))
+				g.Expect(s.Description).ToNot(Equal(s1.Description))
+				g.Expect(s.Description).To(ContainSubstring("st_ow_b"))
+			}, 2*time.Second, 10*time.Millisecond).Should(Succeed())
 		})
 
 		It(
@@ -1574,6 +1570,60 @@ var _ = Describe("Graph", func() {
 
 				held := MustBeOk(fetchStatus(ctx, calc.Key()))
 				Expect(held.Description).To(Equal(st.Description))
+			},
+		)
+	})
+
+	Describe("AcceptDefinition", func() {
+		It("Should keep a status the runtime reported", func(ctx SpecContext) {
+			g := openGraph(ctx)
+			createDep(ctx, "rt_accept_keep_dep")
+			calc := channel.Channel{
+				Name: "rt_accept_keep", DataType: telem.Int64T, Virtual: true,
+				Expression: "return rt_accept_keep_dep + 1",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+				Name:    "rt_accept_keep",
+				Variant: status.VariantError,
+				Message: "Failed to run calculation",
+				Time:    telem.Now(),
+			})).To(Succeed())
+
+			Expect(g.AcceptDefinition(ctx, calc.Key())).To(Succeed())
+
+			Expect(expectStatus(ctx, calc.Key()).Message).
+				To(Equal("Failed to run calculation"))
+		})
+
+		It(
+			"Should remove a rejection and resume runtime reports",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_accept_dep")
+				calc := channel.Channel{
+					Name: "rt_accept", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_accept_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(g.RejectDefinition(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_accept",
+					Variant: status.VariantError,
+					Message: "Failed to compile calculation",
+					Time:    telem.Now(),
+				})).To(Succeed())
+
+				Expect(g.AcceptDefinition(ctx, calc.Key())).To(Succeed())
+				eventuallyExpectCleared(ctx, calc.Key())
+
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_accept",
+					Variant: status.VariantError,
+					Message: "Failed to run calculation",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				Expect(expectStatus(ctx, calc.Key()).Message).
+					To(Equal("Failed to run calculation"))
 			},
 		)
 	})
