@@ -35,8 +35,11 @@ std::string to_string(const Path &path);
 
 /// @brief a member of a structure type.
 struct Member {
+    /// @brief the name of the member in its structure.
     std::string name;
+    /// @brief the data type of the member.
     const UA_DataType *type;
+    /// @brief whether the member holds an array of its type.
     bool is_array;
 };
 
@@ -50,9 +53,9 @@ class Types {
         UA_DataType type{};
     };
 
-    /// @brief each entry's array links to the previous entry's, so the last entry
-    /// heads a list of every type. The entries never move, since types point at the
-    /// types of their members.
+    /// @brief each entry's array links to the previous entry's, so the last entry heads
+    /// a list of every type. The entries never move, since types point at the types of
+    /// their members.
     std::vector<std::unique_ptr<Entry>> entries;
 
     [[nodiscard]] const UA_DataTypeArray *head() const;
@@ -74,8 +77,8 @@ public:
     /// @brief reads the data types of the nodes, and the definitions of the types the
     /// client does not know, with the types their members use. A type whose definition
     /// the server does not give is left out, so its values do not decode.
-    /// @returns the error of a request, such as errors::UNREACHABLE when the
-    /// connection is lost.
+    /// @returns the error of a request, such as errors::UNREACHABLE when the connection
+    /// is lost.
     static std::pair<Types, x::errors::Error>
     read(const connection::Pool::Connection &conn, const std::vector<UA_NodeId> &nodes);
 

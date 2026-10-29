@@ -14,8 +14,7 @@ import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
-import { createOPCDevice } from "@/feature/opcua/testutil";
-import { createRunningRack } from "@/platform/device/testutil";
+import { createOPCDevice, createScannedDevice } from "@/feature/opcua/testutil";
 import {
   answerNextCommand,
   awaitEditableForm,
@@ -117,14 +116,8 @@ describe("Event", () => {
   });
 
   it("should add a dropped object as a source, and remove it", async () => {
-    const rack = await createRunningRack(client, "opc");
-    const scan = await rack.createTask({
-      name: uniqueName("opcua_scan"),
-      type: OPCUA.Task.SCAN_TYPE,
-      config: {},
-    });
-    const dev = await createOPCDevice(client, { rack: rack.key });
-    const draft = await createDraft({ device: dev.key });
+    const { scan, device } = await createScannedDevice(client);
+    const draft = await createDraft({ device: device.key });
     const pump: OPCUA.Task.ScannedNode = {
       key: "ns=1;s=Pump",
       nodeId: "ns=1;s=Pump",

@@ -36,12 +36,12 @@ import {
   nodeIdentity,
   type ScannedNode,
 } from "@/feature/opcua/task/types";
+import { CSS } from "@/platform/css";
 
 /** A node in the browser, with the error of its last failed browse. */
 interface BrowserNode extends ScannedNode {
   error?: string;
 }
-import { CSS } from "@/platform/css";
 
 const ICONS: Record<string, ReactElement> = {
   VariableType: <Icon.Type />,
@@ -194,8 +194,8 @@ export const Browser = ({ device }: BrowserProps) => {
         return;
       }
       setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
-      // A member's name carries its structure's name, so channels made from members
-      // of different structures do not collide.
+      // A member's name carries its structure's name, so channels made from members of
+      // different structures do not collide.
       const nodes = channels.map((node) => ({
         ...node,
         name:

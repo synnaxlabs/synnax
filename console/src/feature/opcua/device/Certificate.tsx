@@ -40,14 +40,6 @@ import { Runtime } from "@/platform/runtime";
 
 const COMMAND_TIMEOUT = TimeSpan.seconds(10);
 
-const toStream = (bytes: Uint8Array): ReadableStream<Uint8Array> =>
-  new ReadableStream({
-    start: (controller) => {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-
 const PEM_ARMOR = /-----(BEGIN|END) CERTIFICATE-----|\s/g;
 
 const toDER = (pem: string): Uint8Array<ArrayBuffer> =>
@@ -173,7 +165,7 @@ export const DriverCertificate = ({ rack }: DriverCertificateProps): ReactElemen
     handleError(
       async () =>
         await download({
-          stream: toStream(toDER(certificate.pem)),
+          stream: Runtime.toStream(toDER(certificate.pem)),
           name,
           extension: "der",
         }),

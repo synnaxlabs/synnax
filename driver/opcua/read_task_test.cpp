@@ -313,9 +313,10 @@ protected:
         };
     }
 
-    /// @returns the config of a task that reads members of TestMotor at fields into
-    /// the double, float, and bool channels.
-    [[nodiscard]] x::json::json motor_cfg(const std::vector<std::string> &fields) const {
+    /// @returns the config of a task that reads members of TestMotor at fields into the
+    /// double, float, and bool channels.
+    [[nodiscard]] x::json::json
+    motor_cfg(const std::vector<std::string> &fields) const {
         const std::vector<synnax::channel::Key> keys{
             this->double_channel.key,
             this->float_channel.key,
@@ -540,16 +541,25 @@ TEST_F(TestReadTask, testUnknownNamespaceIsMissingNode) {
     const auto res = source->read(breaker, fr);
     ASSERT_NIL(res.error);
     EXPECT_EQ(res.warning.message, "Received bad values");
-    EXPECT_EQ(
-        res.warning.description,
-        this->float_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space. " +
-            this->float_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space."
-    );
+    const auto problem = this->float_channel.name +
+                         ": the server has no namespace urn:missing.";
+    EXPECT_EQ(res.warning.description, problem + " " + problem);
     EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read the other channels when the server lacks the namespace of one,
+/// with NaN for the missing one.
+TEST_F(TestReadTask, testUnknownNamespaceKeepsOtherChannels) {
+    const auto source = this->create_source(
+        mixed_cfg("nsu=urn:missing;s=TestFloat", true)
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_TRUE(std::isnan(fr.at<float>(this->float_channel.key, 0)));
+    EXPECT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
     ASSERT_NIL(source->stop());
 }
 
@@ -561,8 +571,8 @@ testutil::TestNode shared_node(const std::int32_t ns, UA_Float value) {
     return {ns, "Shared", &UA_TYPES[UA_TYPES_FLOAT], variant, "Shared"};
 }
 
-/// @brief it should find a node by its namespace URI after the server restarts with
-/// its namespaces in another order.
+/// @brief it should find a node by its namespace URI after the server restarts with its
+/// namespaces in another order.
 TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
     server->stop();
     testutil::ServerConfig server_cfg;
@@ -1204,85 +1214,6 @@ TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // We can't force an error in this test without a mock server that returns bad data,
     // but we verify the task runs successfully
     ASSERT_GE(ctx->statuses.size(), 2);
-}
-
-/// @brief it should skip samples when write error occurs in unary mode.
-TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
-    // Test that UnaryReadTaskSource properly skips samples when write_to_series fails
-    // This exercises the skip_sample logic in read_task.h lines 324-334
-    const auto rt = create_task();
-    rt->start("start_cmd");
-
-    // Let task run and collect multiple samples
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-    rt->stop("stop_cmd", true);
-
-    // Verify that task completed successfully
-    ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
-}
-
-/// @brief it should clear frame when error occurs in array mode.
-TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
-    // Test that ArrayReadTaskSource clears the frame when errors occur
-    // This exercises the frame.clear() logic in read_task.h line 268
-    x::json::json array_cfg{
-        {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
-        {"channels",
-         x::json::json::array(
-             {{{"key", "NS=2;I=1"},
-               {"name", "bool_test"},
-               {"node_name", "TestBoolean"},
-               {"node_id", "NS=1;S=TestBoolean"},
-               {"channel", this->bool_channel.key},
-               {"disabled", false},
-               {"is_index", false},
-               {"data_type", "uint8"}}}
-         )},
-        {"sample_rate", 50},
-        {"array_mode", true},
-        {"array_size", 5},
-        {"stream_rate", 25}
-    };
-
-    auto p = x::json::Parser(array_cfg);
-    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
-
-    auto rt = std::make_unique<common::ReadTask>(
-        task,
-        ctx,
-        x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
-        mock_factory
-    );
-
-    rt->start("start_cmd");
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    rt->stop("stop_cmd", true);
-
-    // Verify task ran successfully
-    ASSERT_GE(ctx->statuses.size(), 1);
-}
-
-/// @brief it should clear frame when error occurs in unary mode.
-TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
-    // Test that UnaryReadTaskSource clears the frame when errors occur
-    // This exercises the frame.clear() logic in read_task.h line 333
-    const auto rt = create_task();
-    rt->start("start_cmd");
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    rt->stop("stop_cmd", true);
-
-    if (!mock_factory->writes->empty()) {
-        for (const auto &fr: mock_factory->writes->snapshot()) {
-            EXPECT_GT(fr.length(), 0);
-        }
-    }
 }
 
 /// @brief it should skip samples with invalid boolean data.

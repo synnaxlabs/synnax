@@ -346,16 +346,16 @@ Write the node ID in one of the forms in [node IDs](#node-ids).
 <Problem.Item message={"Received bad values"}>
 <Problem.Cause>
 
-The server sent a Bad status for a node, or the Driver could not convert its value. The
-description names each channel and the reason. For example, `BadNodeIdUnknown` means
-that the server has no node with that ID, or no namespace with that URI. See
-[bad values](#bad-values).
+The server sent a Bad status for a node, the server has no namespace with the URI of the
+node, or the Driver could not convert its value. The description names each channel and
+the reason. For example, `BadNodeIdUnknown` means that the server has no node with that
+ID. See [bad values](#bad-values).
 
 </Problem.Cause>
 <Problem.Fix>
 
-For `BadNodeIdUnknown`, drag the node from the **Browser** again. For a conversion
-error, check the data type of the node.
+For `BadNodeIdUnknown` or a missing namespace, drag the node from the **Browser** again.
+For a conversion error, check the data type of the node.
 
 </Problem.Fix>
 </Problem.Item>

@@ -496,8 +496,8 @@ TEST(TypesTest, ParseNodeIdWithoutNamespace) {
     EXPECT_TRUE(str.namespace_uri().empty());
 }
 
-/// @brief it should give a namespace URI the server's index for it, and leave a node
-/// ID with an index unchanged.
+/// @brief it should give a namespace URI the server's index for it, and leave a node ID
+/// with an index unchanged.
 TEST(TypesTest, ResolveNodeId) {
     const std::vector<std::string> namespaces = {
         "http://opcfoundation.org/UA/",

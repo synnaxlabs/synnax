@@ -45,6 +45,15 @@ export const toBytes = async (
 ): Promise<Uint8Array<ArrayBuffer>> =>
   data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer());
 
+/** Wraps bytes in a stream, for a download. */
+export const toStream = (bytes: Uint8Array): ReadableStream<Uint8Array> =>
+  new ReadableStream({
+    start: (controller) => {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+
 // The Tauri dialog wants a named filter group; the name is just the dialog's label for
 // the extension.
 const tauriFilters = (extension: string) => [

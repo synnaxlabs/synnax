@@ -47,8 +47,8 @@ void custom_logger(
 ) {
     const std::string prefix = "[opc] ";
     char buffer[1024] = {};
-    // open62541 messages use specifiers that vsnprintf does not know, such as %S for
-    // a UA_String.
+    // open62541 messages use specifiers that vsnprintf does not know, such as %S for a
+    // UA_String.
     UA_String out{
         .length = sizeof(buffer),
         .data = reinterpret_cast<UA_Byte *>(buffer)
@@ -295,7 +295,7 @@ x::errors::Error connect_client(UA_Client *client, const std::string &endpoint) 
 }
 }
 
-x::errors::Error connected(UA_Client *client) {
+x::errors::Error lost(UA_Client *client) {
     if (client == nullptr) return errors::NO_CONNECTION;
     UA_SecureChannelState channel = UA_SECURECHANNELSTATE_CLOSED;
     UA_SessionState session = UA_SESSIONSTATE_CLOSED;

@@ -603,8 +603,8 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     ASSERT_NIL(sink->stop());
 }
 
-/// @brief it should warn about a node that the server rejects and still write the
-/// other nodes in the command.
+/// @brief it should warn about a node that the server rejects and still write the other
+/// nodes in the command.
 TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     const auto bad_cmd = ASSERT_NIL_P(ctx->client->channels.create(
         make_unique_channel_name("bad_node_cmd"),
@@ -720,9 +720,7 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
     ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
     EXPECT_EQ(
         err.data,
-        this->uint32_cmd_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space."
+        this->uint32_cmd_channel.name + ": the server has no namespace urn:missing."
     );
     ASSERT_NIL(sink->stop());
 }

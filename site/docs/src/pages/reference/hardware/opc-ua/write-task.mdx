@@ -307,12 +307,26 @@ Use the data type from the [table](#data-types). For example, a Double node need
 <Problem.Item message={"... returned BadNodeIdUnknown. The node id refers to a node that does not exist in the server address space."}>
 <Problem.Cause>
 
-The server has no node with that ID, or no namespace with that URI.
+The server has no node with that ID.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Drag the node from the **Browser** again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... the server has no namespace ..."}>
+<Problem.Cause>
+
+The server has no namespace with the URI in the node ID of the channel. The server can
+add the namespace later, for example when a PLC loads its program.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that the server loaded its program, or drag the node from the **Browser** again.
 
 </Problem.Fix>
 </Problem.Item>

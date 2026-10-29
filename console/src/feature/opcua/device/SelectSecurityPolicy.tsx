@@ -19,7 +19,7 @@ import {
   type SecurityPolicy,
 } from "@/feature/opcua/device/types";
 
-/** The names of the security policies other than None, newest first. */
+/** The names of the security policies other than None. */
 export const SECURITY_POLICY_NAMES: Record<Exclude<SecurityPolicy, "None">, string> = {
   [BASIC256_SHA256_SECURITY_POLICY]: "Basic 256-bit with SHA-256",
   [AES128_SHA256_RSAOAEP_SECURITY_POLICY]: "AES 128-bit with SHA-256",

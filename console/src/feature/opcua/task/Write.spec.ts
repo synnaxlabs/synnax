@@ -14,8 +14,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
-import { createOPCDevice } from "@/feature/opcua/testutil";
-import { createRunningRack } from "@/platform/device/testutil";
+import {
+  createMember,
+  createOPCDevice,
+  createScannedDevice,
+  createVariableNode,
+  dragNode,
+} from "@/feature/opcua/testutil";
 import {
   answerNextCommand,
   awaitEditableForm,
@@ -388,15 +393,9 @@ describe("Write", () => {
     });
 
     it("should add a dropped method with its arguments, the first taking the command", async () => {
-      const rack = await createRunningRack(client, "opc");
-      const scan = await rack.createTask({
-        name: uniqueName("opcua_scan"),
-        type: OPCUA.Task.SCAN_TYPE,
-        config: {},
-      });
-      const dev = await createOPCDevice(client, { rack: rack.key });
+      const { scan, device } = await createScannedDevice(client);
       const held = createWriteChannel();
-      const draft = await createDraft(client, createWriteConfig(dev.key, [held]));
+      const draft = await createDraft(client, createWriteConfig(device.key, [held]));
       const method: OPCUA.Task.ScannedNode = {
         key: "ns=1;s=Pump.Configure",
         nodeId: "ns=1;s=Pump.Configure",
@@ -451,6 +450,40 @@ describe("Write", () => {
           },
         ]);
       });
+    });
+  });
+});
+
+describe("Write structure members", () => {
+  it("should add a dropped variable but not a dropped structure member", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const held = createWriteChannel();
+    const draft = await createDraft(client, createWriteConfig(device.key, [held]));
+    const motor = createVariableNode();
+    const valve = createVariableNode("float32");
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [motor, valve] },
+    });
+    await renderWrite({ client, taskKey: draft.key });
+    await root.answered;
+    const members = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [createMember(motor, "Speed", "float64")] },
+    });
+    fireEvent.click(await screen.findByText(motor.name));
+    await members.answered;
+    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await dragNode(valve.name, held.nodeName);
+    await waitFor(async () => {
+      const { config } = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.WRITE_SCHEMAS,
+      });
+      expect(config.channels.map(({ nodeId }) => nodeId)).toEqual([
+        held.nodeId,
+        valve.nodeId,
+      ]);
     });
   });
 });
