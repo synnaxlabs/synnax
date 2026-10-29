@@ -218,8 +218,9 @@ func (s *Service) Hold(
 	return h.ended, release, nil
 }
 
-// CheckHolds ends every held session that storage no longer has. The change feed
-// normally does this as a session is deleted, but it can drop notifications under load.
+// CheckHolds ends every held session that storage no longer has or whose credential
+// changed since login. The change feed normally ends a held session as it is deleted,
+// but it can drop notifications under load.
 func (s *Service) CheckHolds(ctx context.Context) error {
 	held := s.held()
 	if len(held) == 0 {
@@ -232,16 +233,46 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	stored := make(set.Set[SessionKey], len(sessions))
+	live := make(set.Set[SessionKey], len(sessions))
 	for _, e := range sessions {
-		stored.Add(e.Key)
+		current, err := s.current(ctx, e)
+		if err != nil {
+			return err
+		}
+		if current {
+			live.Add(e.Key)
+		}
 	}
 	for _, key := range held {
-		if !stored.Contains(key) {
+		if !live.Contains(key) {
 			s.endHold(key)
 		}
 	}
 	return nil
+}
+
+// version returns the current version of the credential, or an error wrapping
+// query.ErrNotFound when no authenticator holds it.
+func (s *Service) version(
+	ctx context.Context,
+	tx gorp.Tx,
+	credential uuid.UUID,
+) (telem.TimeStamp, error) {
+	for _, a := range s.cfg.Authenticators {
+		v, err := a.Version(ctx, tx, credential)
+		if !errors.Is(err, query.ErrNotFound) {
+			return v, err
+		}
+	}
+	return 0, errors.Wrapf(query.ErrNotFound, "credential %s", credential)
+}
+
+func (s *Service) current(ctx context.Context, session Session) (bool, error) {
+	v, err := s.version(ctx, nil, session.Credential)
+	if errors.Is(err, query.ErrNotFound) {
+		return false, nil
+	}
+	return v == session.CredentialVersion, err
 }
 
 func (s *Service) endHold(key SessionKey) {
@@ -317,10 +348,11 @@ func (s *Service) Login(
 		return Session{}, "", err
 	}
 	session := Session{
-		Key:        uuid.New(),
-		Subject:    identity.Subject,
-		Credential: identity.Credential,
-		LastActive: s.now(),
+		Key:               uuid.New(),
+		Subject:           identity.Subject,
+		Credential:        identity.Credential,
+		CredentialVersion: identity.Version,
+		LastActive:        s.now(),
 	}
 	token, hash, err := NewToken(tokenPrefix, session.Key)
 	if err != nil {
@@ -334,9 +366,9 @@ func (s *Service) Login(
 }
 
 // Authenticate returns the session a token belongs to and counts the request as
-// activity. It returns [ErrInvalidToken] when no session matches the token and
-// [ErrExpiredToken] when the session has been idle for the idle timeout, in which case
-// the session is deleted.
+// activity. It returns [ErrInvalidToken] when no session matches the token or the
+// session's credential changed since login, and [ErrExpiredToken] when the session has
+// been idle for the idle timeout. Both of the latter delete the session.
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
 	key, hash, err := ParseToken(tokenPrefix, token)
 	if err != nil {
@@ -353,6 +385,16 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return Session{}, err
 	}
 	if subtle.ConstantTimeCompare(session.Hash, hash) != 1 {
+		return Session{}, ErrInvalidToken
+	}
+	current, err := s.current(ctx, session)
+	if err != nil {
+		return Session{}, err
+	}
+	if !current {
+		if err = s.Logout(ctx, key); err != nil {
+			return Session{}, err
+		}
 		return Session{}, ErrInvalidToken
 	}
 	now := s.now()
@@ -508,18 +550,47 @@ func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 }
 
 // RevokeCredential ends every session the credentials opened, except those in keep.
+// A kept session takes its credential's version in tx, so it outlives a change to the
+// credential.
 func (w Writer) RevokeCredential(
 	ctx context.Context,
 	keep []SessionKey,
 	credentials ...uuid.UUID,
 ) error {
 	kept := set.New(keep...)
-	return w.svc.table.NewDelete().
+	if err := w.svc.table.NewDelete().
 		Where(And(
 			MatchCredentials(credentials...),
 			Match(func(_ gorp.Context, _ Retrieve, e *Session) (bool, error) {
 				return !kept.Contains(e.Key), nil
 			}),
 		)(w.svc.NewRetrieve())).
-		Exec(ctx, w.tx)
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if len(keep) == 0 {
+		return nil
+	}
+	var sessions []Session
+	// a kept session may have ended since the caller read it
+	if err := w.svc.NewRetrieve().
+		Where(MatchKeys(keep...)).
+		Entries(&sessions).
+		Exec(ctx, w.tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return err
+	}
+	revoked := set.New(credentials...)
+	renewed := make([]Session, 0, len(sessions))
+	for _, e := range sessions {
+		if !revoked.Contains(e.Credential) {
+			continue
+		}
+		v, err := w.svc.version(ctx, w.tx, e.Credential)
+		if err != nil {
+			return err
+		}
+		e.CredentialVersion = v
+		renewed = append(renewed, e)
+	}
+	return w.svc.table.NewCreate().Entries(&renewed).Exec(ctx, w.tx)
 }
