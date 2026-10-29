@@ -79,18 +79,19 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	}
 }
 
-// retrieveStatus returns the status that stat holds for the rack with the given key.
 func retrieveStatus(
 	ctx context.Context,
 	stat *status.Service,
 	key rack.Key,
 ) (rack.Status, error) {
 	var s rack.Status
-	err := stat.NewRetrieve[rack.StatusDetails]().
+	if err := stat.NewRetrieve[rack.StatusDetails]().
 		Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
 		Entry(&s).
-		Exec(ctx, nil)
-	return s, err
+		Exec(ctx, nil); err != nil {
+		return rack.Status{}, err
+	}
+	return s, nil
 }
 
 var _ = Describe("Rack", Ordered, func() {
