@@ -30,7 +30,8 @@ cc_library(
         "remote.cpp",
     ] + select({
         "@platforms//os:macos": ["factories_darwin.cpp"],
-        "//conditions:default": ["factories_default.cpp"],
+        "@platforms//os:linux": ["factories_linux.cpp"],
+        "@platforms//os:windows": ["factories_windows.cpp"],
     }),
     hdrs = ["rack.h"],
     defines = select({
@@ -44,7 +45,6 @@ cc_library(
         "//driver/common",
         "//driver/ethercat",
         "//driver/http",
-        "//driver/labjack",
         "//driver/opcua",
         "//driver/rack/status",
         "//driver/task",
@@ -62,8 +62,12 @@ cc_library(
         ":nilinuxrt": [],
         "//conditions:default": ["//driver/modbus"],
     }) + select({
-        "@platforms//os:macos": [],
-        "//conditions:default": ["//driver/ni"],
+        "@platforms//os:macos": ["//driver/labjack"],
+        "@platforms//os:linux": ["//driver/ni"],
+        "@platforms//os:windows": [
+            "//driver/labjack",
+            "//driver/ni",
+        ],
     }),
 )
 
@@ -81,6 +85,19 @@ cc_test(
     srcs = ["factories_darwin_test.cpp"],
     tags = ["requires-core"],
     target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/rack",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factories_linux_test",
+    srcs = ["factories_linux_test.cpp"],
+    tags = ["requires-core"],
+    target_compatible_with = ["@platforms//os:linux"],
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",

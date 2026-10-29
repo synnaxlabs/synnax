@@ -7,47 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "absl/log/log.h"
-
-#include "driver/common/factory.h"
+#include "driver/labjack/labjack.h"
 #include "driver/rack/factories.h"
 
 namespace driver::rack {
 std::vector<std::string> platform_integrations() {
-    return {};
+    return {labjack::INTEGRATION_NAME};
 }
-
-bool platform_libraries_loaded(const std::string &integration) {
-    // The macOS build leaves NI out, so its name is a literal.
-    return integration != "ni";
-}
-
-/// @brief deletes the NI scanner that a Driver built with NI left on the rack, as the
-/// macOS build has no NI integration to run it.
-class LegacyNIFactory final : public task::Factory {
-public:
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
-    configure_initial_tasks(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
-    ) override {
-        const auto err = common::delete_legacy_task_by_type(rack, "ni_scanner", "ni");
-        if (err) LOG(ERROR) << "[ni] failed to retrieve the legacy NI scanner: " << err;
-        return {};
-    }
-
-    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task,
-        const std::string &cmd_key
-    ) override {
-        return {nullptr, false};
-    }
-
-    std::string name() override { return "ni"; }
-};
 
 void configure_ni(const Config &, FactoryList &factories) {
-    factories.push_back(std::make_unique<LegacyNIFactory>());
+    // The macOS build leaves NI out, so its names are literals.
+    factories.push_back(std::make_unique<LegacyFactory>("ni", "ni_scanner"));
+}
+
+void configure_labjack(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {
+        return labjack::Factory::create(config.timing);
+    });
 }
 }
