@@ -56,3 +56,8 @@ export interface ContextMenu extends FC<ContextMenuProps> {}
 export interface AllowRename {
   (resource: ontology.Resource): boolean;
 }
+
+/** Decides whether a row shows. Ancestors run from the root's child to the parent. */
+export interface Filter {
+  (resource: ontology.Resource, ancestors: ontology.Resource[]): boolean;
+}

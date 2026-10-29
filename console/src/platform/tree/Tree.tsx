@@ -15,6 +15,7 @@ import {
 } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { useCombinedStateAndRef, useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
@@ -38,6 +39,7 @@ import { useStore } from "react-redux";
 import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
+import { Search } from "@/platform/search";
 import {
   DefaultContextMenu,
   type DefaultContextMenuProps,
@@ -48,6 +50,7 @@ import { useItems } from "@/platform/tree/Provider";
 import {
   type BaseProps,
   type ContextMenuProps,
+  type Filter,
   type GetResource,
   type TreeState,
 } from "@/platform/tree/types";
@@ -58,6 +61,9 @@ interface InternalProps {
   root: ontology.ID;
   emptyContent?: ReactNode;
   rootContextMenu: FC<DefaultContextMenuProps>;
+  search: boolean;
+  filter?: Filter;
+  bar?: ReactNode;
 }
 
 interface ContextValue {
@@ -187,11 +193,45 @@ const toNodes = (
       children: resolveItem(r.id.type).hasChildren ? [] : undefined,
     }));
 
+// A node the filter cannot judge stays, either with no resource yet or with children
+// not yet loaded. A rejected group stays while a descendant passes.
+const filterNodes = (
+  tree: Base.Node<string>[],
+  filter: Filter,
+  getResource: (key: string) => ontology.Resource | undefined,
+  ancestors: ontology.Resource[] = [],
+): Base.Node<string>[] =>
+  tree.flatMap((node) => {
+    const resource = getResource(node.key);
+    if (resource == null || filter(resource, ancestors)) return [node];
+    if (node.children == null) return [];
+    if (node.children.length === 0) return [node];
+    const children = filterNodes(node.children, filter, getResource, [
+      ...ancestors,
+      resource,
+    ]);
+    return children.length > 0 ? [{ ...node, children }] : [];
+  });
+
+// A row matches on its path, the names above it and its own joined by dots.
+const matchesPath =
+  (term: string): Filter =>
+  (resource, ancestors) =>
+    [...ancestors, resource]
+      .map(({ name }) => name)
+      .join(".")
+      .toLowerCase()
+      .includes(term);
+
 const Internal = ({
   root,
   emptyContent,
   rootContextMenu: RootContextMenu,
+  search,
+  filter,
+  bar,
 }: InternalProps): ReactElement => {
+  const [term, setTerm] = useState("");
   const items = useItems();
   const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
@@ -379,8 +419,13 @@ const Internal = ({
     return aResource.name.localeCompare(bResource.name);
   };
 
+  const matches = matchesPath(term.toLowerCase());
+  const accepts: Filter =
+    filter == null ? matches : (r, a) => matches(r, a) && filter(r, a);
+  const visibleNodes =
+    search || filter != null ? filterNodes(nodes, accepts, getResourceByKey) : nodes;
   const treeProps = Base.use({
-    nodes,
+    nodes: visibleNodes,
     onExpand: handleExpand,
     selected,
     onSelectedChange: setSelected,
@@ -536,20 +581,30 @@ const Internal = ({
   return (
     <Context value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
-      <Base.Tree<string, ontology.Resource>
-        {...treeProps}
-        showRules
-        shape={shape}
-        subscribe={subscribeResource}
-        // Not getResource: it throws, and a resource may not be cached before
-        // the tree attempts to render it.
-        getItem={getItem}
-        emptyContent={answered ? emptyContent : null}
-        pinned={pinned}
-        onContextMenu={menuProps.open}
-      >
-        {itemRenderProp}
-      </Base.Tree>
+      <Flex.Box full="y" empty>
+        {(search || bar != null) && (
+          <Search.Bar>
+            {search && (
+              <Search.Input value={term} onChange={setTerm} placeholder="Search..." />
+            )}
+            {bar}
+          </Search.Bar>
+        )}
+        <Base.Tree<string, ontology.Resource>
+          {...treeProps}
+          showRules
+          shape={shape}
+          subscribe={subscribeResource}
+          // Not getResource: it throws, and a resource may not be cached before
+          // the tree attempts to render it.
+          getItem={getItem}
+          emptyContent={answered ? emptyContent : null}
+          pinned={pinned}
+          onContextMenu={menuProps.open}
+        >
+          {itemRenderProp}
+        </Base.Tree>
+      </Flex.Box>
     </Context>
   );
 };
@@ -559,13 +614,27 @@ export interface TreeProps {
   emptyContent?: ReactNode;
   /** The menu for a right-click on empty space. */
   rootContextMenu?: FC<DefaultContextMenuProps>;
+  /** Shows the search input above the rows. */
+  search?: boolean;
+  /** Hides the rows it rejects, on top of the search term. */
+  filter?: Filter;
+  /** Extra controls in the bar beside the input. */
+  bar?: ReactNode;
 }
 
 export const Tree = ({
   root,
   rootContextMenu = DefaultContextMenu,
+  search = true,
   ...rest
 }: TreeProps): ReactElement | null => {
   if (root == null) return null;
-  return <Internal root={root} rootContextMenu={rootContextMenu} {...rest} />;
+  return (
+    <Internal
+      root={root}
+      rootContextMenu={rootContextMenu}
+      search={search}
+      {...rest}
+    />
+  );
 };

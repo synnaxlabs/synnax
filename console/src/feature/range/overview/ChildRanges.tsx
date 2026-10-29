@@ -25,7 +25,7 @@ export interface ChildRangesProps {
 export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
   const openCreate = Range.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
-  const { data, getItem, subscribe, retrieve, answered } = Ranger.useListChildren({
+  const { data, getItem, subscribe, retrieve } = Ranger.useListChildren({
     initialQuery: { key: rangeKey },
   });
   return (
@@ -51,9 +51,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
         getItem={getItem}
         subscribe={subscribe}
         retrieve={retrieve}
-        answered={answered}
         showParent={false}
-        emptyContent={null}
       />
     </Flex.Box>
   );

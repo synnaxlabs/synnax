@@ -27,5 +27,5 @@ export const enableEditing = async (): Promise<void> => {
  */
 export const findToolbarIconButton = async (icon: string): Promise<HTMLButtonElement> =>
   await waitFor(() =>
-    getIconButton(getBySelector(document.body, ".console-view__toolbar"), icon),
+    getIconButton(getBySelector(document.body, ".console-search__bar"), icon),
   );
