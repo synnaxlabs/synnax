@@ -435,7 +435,7 @@ class AccessClient(ResourceClient):
 
     def _show_users_panel(self) -> None:
         """Show the users panel in the navigation drawer."""
-        self.layout.show_toolbar(self.SHORTCUT_KEY, self.ROLE_ITEM_PREFIX)
+        self.layout.show_toolbar(self.SHORTCUT_KEY, item_prefix=self.ROLE_ITEM_PREFIX)
 
     def _find_user_item(self, username: str) -> Locator | None:
         """Find a user item in the users panel by username.
@@ -451,7 +451,7 @@ class AccessClient(ResourceClient):
             sy.sleep(0.2)
         return None
 
-    def ensure_user_visible(self, username: str, role_name: str) -> Locator:
+    def ensure_user_visible(self, username: str, *, role_name: str) -> Locator:
         """Find a user item, re-expanding its role if needed.
 
         After tree refreshes (e.g. login/logout, deletions), a role node
@@ -523,13 +523,13 @@ class AccessClient(ResourceClient):
         role_item = self._find_role_item(role_name)
         if role_item is None:
             raise ValueError(f"Role '{role_name}' not found")
-        return self.tree.list_nested_names(role_item, self.USER_ITEM_PREFIX)
+        return self.tree.list_nested_names(role_item, prefix=self.USER_ITEM_PREFIX)
 
     def wait_for_user_role(
         self,
         username: str,
-        role_name: str,
         *,
+        role_name: str,
         previous_role: str | None = None,
         timeout: int = 5000,
     ) -> None:
