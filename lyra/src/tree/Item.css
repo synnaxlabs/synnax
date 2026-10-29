@@ -47,6 +47,7 @@
         &.pluto--margin {
             margin-left: var(--pluto-tree-item-offset);
         }
+
         &:not(.pluto--margin) {
             padding-top: 0;
             padding-bottom: 0;

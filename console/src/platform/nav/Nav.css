@@ -12,12 +12,14 @@
 .console-nav__bar {
     .pluto-menu-item {
         position: relative;
+
         &.pluto--selected {
             &::after {
                 transform: scaleY(1);
                 opacity: 1;
             }
         }
+
         &::after {
             content: "";
             position: absolute;
@@ -38,11 +40,14 @@
             /* Between medium and large: matches the 5.5rem list-row height, with the
                icon kept at size-large's h5 scale. */
             --pluto-height: round(5.333rem, 1px);
+
             font-size: var(--pluto-h5-size);
+
             &.pluto--square {
                 min-width: var(--pluto-height);
             }
         }
+
         .pluto-menu-item::after {
             left: round(-1.666rem, 1px);
             border-top-right-radius: 0.5rem;
@@ -64,17 +69,19 @@
     &.pluto--location-top {
         > .pluto-navbar__content.pluto--start {
             min-width: 0;
+
             /* A squeeze runs the strip right up to the badges, so the start keeps
                this much clear of whatever follows it. */
             margin-right: 5rem;
         }
+
         > .pluto-navbar__content.pluto--end {
             flex-shrink: 0;
         }
     }
 
     &.pluto--direction-y .pluto-navbar__content {
-        padding: 2rem 0rem;
+        padding: 2rem 0;
     }
 }
 
@@ -115,37 +122,39 @@
 
     &.console--hover,
     &.pluto--hidden {
-        &.pluto--location-bottom {
-            transition: transform 0.15s linear;
-        }
-        &.pluto--location-left {
-            transition:
-                opacity 0.05s linear,
-                transform 0.15s linear;
-        }
         /* Viewport-positioned (the canvas forbids positioned ancestors); each window
            shell sets the inset vars to match its chrome. */
         position: absolute;
         z-index: 200;
+
         &.pluto--location-bottom {
+            transition: transform 0.15s linear;
             bottom: var(--console-bottom-drawer-inset-bottom, 0);
             left: var(--console-bottom-drawer-inset-left, 0);
             right: var(--console-bottom-drawer-inset-right, 0);
+
             /* The resize box's full-x/full-y 100% would beat the opposing inset. */
             width: auto;
         }
+
         &.pluto--location-left {
+            transition:
+                opacity 0.05s linear,
+                transform 0.15s linear;
             left: var(--console-left-drawer-inset-left, 0);
             top: var(--console-left-drawer-inset-top, 0);
             bottom: var(--console-left-drawer-inset-bottom, 0);
             height: auto;
         }
     }
+
     &.pluto--hidden {
         pointer-events: none;
+
         &.pluto--location-bottom {
             transform: translateY(calc(100% + 3rem));
         }
+
         &.pluto--location-left {
             opacity: 0;
             transform: translateX(-2rem);
