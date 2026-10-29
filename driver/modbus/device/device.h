@@ -549,8 +549,9 @@ private:
         };
     }
 
-    /// @brief adds an attempt to the counters of the unit, and records its reply when
-    /// it answered.
+    /// @brief adds an attempt to the counters of the unit. Any reply times the
+    /// response, a gateway exception included. Only a reply from the unit itself
+    /// records that the unit answered.
     void record(const std::uint8_t unit_id, const bool retry, const int errnum) {
         std::lock_guard lock(this->mu);
         auto &unit = this->units[unit_id];
@@ -559,12 +560,14 @@ private:
         if (retry) stats.retries++;
         if (errnum == ETIMEDOUT) stats.timeouts++;
         // libmodbus numbers the exception codes 01 to 0B in order.
-        if (errnum >= EMBXILFUN && errnum <= EMBXGTAR) stats.exceptions++;
+        const bool exception = errnum >= EMBXILFUN && errnum <= EMBXGTAR;
+        if (exception) stats.exceptions++;
+        if (errnum != 0 && !exception) return;
+        stats.last_response = x::telem::TimeSpan(this->last_request - this->sent);
+        stats.max_response = std::max(stats.max_response, stats.last_response);
         if (errnum != 0 && !answered(errnum)) return;
         unit.timeouts = 0;
         unit.last_reply = this->last_request;
-        stats.last_response = x::telem::TimeSpan(this->last_request - this->sent);
-        stats.max_response = std::max(stats.max_response, stats.last_response);
     }
 
     /// @brief records a timed-out attempt and demotes the unit after DEMOTE_AFTER in a

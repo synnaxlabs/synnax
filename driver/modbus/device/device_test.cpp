@@ -1096,6 +1096,8 @@ TEST(DeviceTest, CountsRequestsOfEachUnit) {
     EXPECT_EQ(g.retries, 1U);
     EXPECT_EQ(g.timeouts, 0U);
     EXPECT_EQ(g.exceptions, 2U);
+    EXPECT_GT(g.max_response, x::telem::TimeSpan(0));
+    EXPECT_EQ(gateway->last_reply(), Connection::Clock::time_point{});
     const auto s = silent->stats();
     EXPECT_EQ(s.requests, 2U);
     EXPECT_EQ(s.retries, 1U);
