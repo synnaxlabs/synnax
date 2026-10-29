@@ -111,7 +111,9 @@ class AccessClient(ResourceClient):
         for _ in range(20):
             sy.sleep(0.5)
 
-            error_status = self.layout.page.locator(".pluto--status-error")
+            error_status = self.layout.page.locator(
+                ".console-login__status .pluto--status-error"
+            )
             if error_status.count() > 0 and error_status.is_visible():
                 error_text = error_status.inner_text().strip()
                 raise RuntimeError(f"Login failed: {error_text}")
