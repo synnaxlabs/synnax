@@ -10,19 +10,21 @@
 package iterator
 
 import (
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/x/address"
 )
 
 // Network backs the in-memory iterator transport for a cluster of nodes.
 type Network struct {
-	net *mock.Network[iterator.Request, iterator.Response]
+	net *freightertestutil.Network[iterator.Request, iterator.Response]
 }
 
 // NewNetwork constructs a Network with a freshly initialized iterator network.
 func NewNetwork() *Network {
-	return &Network{net: mock.NewNetwork[iterator.Request, iterator.Response]()}
+	return &Network{
+		net: freightertestutil.NewNetwork[iterator.Request, iterator.Response](),
+	}
 }
 
 // New provisions an in-memory iterator.Transport whose server is hosted at addr.

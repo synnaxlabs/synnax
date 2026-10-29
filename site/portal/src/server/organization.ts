@@ -12,7 +12,14 @@ import { eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { type Query, type Store, type Tx } from "@/server/db/db";
-import { event, type Organization, organization } from "@/server/db/schema";
+import {
+  activation,
+  event,
+  invitation,
+  license,
+  type Organization,
+  organization,
+} from "@/server/db/schema";
 import { ADMIN_ROLE, type Directory, type Listed } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
 import { invite } from "@/server/invitation";
@@ -201,6 +208,61 @@ export const rename = async (
     return row;
   });
 };
+
+/**
+ * purge deletes an organization with everything the portal holds for it: its licenses
+ * and their seats, its invitations, and its history.
+ */
+export const purge = async (tx: Tx, org: Organization): Promise<void> => {
+  const { key } = org;
+  const lockOrganization = async () =>
+    await tx
+      .select({ key: organization.key })
+      .from(organization)
+      .where(eq(organization.key, key))
+      .for("update");
+  const lockLicenses = async () =>
+    await tx
+      .select({ key: license.key })
+      .from(license)
+      .where(eq(license.organization, key))
+      .for("update");
+  // Locks in the order the organization's writers do, so no record joins it during the
+  // delete and no writer deadlocks with it. Desktop writes lock a personal organization
+  // before its licenses, and activate locks a team's license before the team.
+  let licenses: { key: string }[];
+  if (org.kind === "personal") {
+    await lockOrganization();
+    licenses = await lockLicenses();
+  } else {
+    licenses = await lockLicenses();
+    await lockOrganization();
+  }
+  await tx.delete(event).where(eq(event.organization, key));
+  await tx.delete(activation).where(
+    inArray(
+      activation.license,
+      licenses.map((l) => l.key),
+    ),
+  );
+  await tx.delete(license).where(eq(license.organization, key));
+  await tx.delete(invitation).where(eq(invitation.organization, key));
+  await tx.delete(organization).where(eq(organization.key, key));
+};
+
+/**
+ * remove deletes a team in Clerk with everything the portal holds for it. Nothing is
+ * deleted when Clerk fails.
+ */
+export const remove = async (
+  store: Store,
+  directory: Directory,
+  team: Team,
+): Promise<void> =>
+  await store.transact(async (tx) => {
+    await purge(tx, team);
+    await directory.delete(team.clerkOrgID);
+  });
 
 /**
  * adoptTeam mirrors a Clerk organization into the portal's tables and returns the

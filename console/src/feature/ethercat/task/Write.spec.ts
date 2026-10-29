@@ -28,6 +28,7 @@ import {
 import {
   awaitEditableForm,
   clickDeploy,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -372,5 +373,13 @@ describe("Write", () => {
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);
     await awaitStatus(statuses, /No network found/);
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateWrite,
+      EtherCAT.Task.WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

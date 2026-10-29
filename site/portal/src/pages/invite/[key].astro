@@ -1,0 +1,31 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Guest from "@/layouts/Guest.astro";
+import { view } from "@/server/referral";
+import { Desktop } from "@/ui/desktop";
+
+const { portal } = Astro.locals;
+const shown = await view(portal.store, portal.directory, {
+    key: Astro.params.key ?? "",
+    session: await portal.viewer(),
+    now: portal.now(),
+});
+if (shown == null) Astro.response.status = 404;
+const installable = Desktop.installable(Astro.request.headers.get("user-agent") ?? "");
+---
+
+<Guest
+    title={
+        shown == null ? "Invitation" : `${shown.referrer} invited you to Synnax Desktop`
+    }
+>
+    <Desktop.Invite client:load view={shown} installable={installable} />
+</Guest>

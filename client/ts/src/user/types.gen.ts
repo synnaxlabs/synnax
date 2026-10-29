@@ -23,12 +23,8 @@ export type Key = z.infer<typeof keyZ>;
 export const userZ = z.object({
   /** key is the unique identifier for this user. */
   key: keyZ,
-  /** username is the unique login name for the user. */
-  username: z.string().min(1, "username is required"),
-  /** firstName is the user's first name. */
-  firstName: z.string(),
-  /** lastName is the user's last name. */
-  lastName: z.string(),
+  /** name is the user's display name. */
+  name: z.string().min(1),
   /**
    * rootUser is true if this is a root/admin user with full system access. Root users
    * cannot be deleted.
@@ -39,8 +35,9 @@ export interface User extends z.infer<typeof userZ> {}
 
 export const newZ = userZ
   .omit({ rootUser: true })
-  .partial({ key: true, firstName: true, lastName: true })
+  .partial({ key: true, name: true })
   .extend({
+    username: z.string().min(1, "username is required"),
     password: z.string().min(1),
   });
 export interface New extends z.input<typeof newZ> {}
