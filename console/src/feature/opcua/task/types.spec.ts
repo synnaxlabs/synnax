@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
+import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 
 describe("OPC UA Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
@@ -183,28 +184,20 @@ describe("Scanned Nodes", () => {
           nodeId: "ns=2;s=A",
         },
       ],
-      connection: OPCUA.Device.ZERO_PROPERTIES.connection,
     });
-    expect(result?.channels[0].key).toBe("ns=2;s=A");
+    expect(result).toMatchObject({ channels: [{ key: "ns=2;s=A" }] });
   });
 });
 
-describe("draft configs", () => {
-  // Drafts persist server-side before configuration, so the shape schema must
-  // accept every zero config; retrieve parses with it.
-  it("should accept the zero read config", () => {
-    expect(
-      OPCUA.Task.READ_SCHEMAS.config.safeParse(OPCUA.Task.READ_SCHEMAS.config.parse({}))
-        .success,
-    ).toBe(true);
+describe("Scan command replies", () => {
+  it("should parse a certificate reply", () => {
+    const reply = { current: SERVER_CERTIFICATE, next: SERVER_CERTIFICATE };
+    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
   });
-  it("should accept the zero write config", () => {
-    expect(
-      z.validate(
-        OPCUA.Task.WRITE_SCHEMAS.config,
-        OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
-      ),
-    ).toBe(true);
+
+  it("should parse a failed test connection reply with the server certificate", () => {
+    const reply = { serverCertificate: SERVER_CERTIFICATE };
+    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
   });
 });
 

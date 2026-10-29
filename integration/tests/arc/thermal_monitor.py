@@ -101,10 +101,10 @@ class ThermalMonitor(ArcCase):
         super().setup()
 
     def _create_additional_channels(self) -> None:
-        create_virtual_channel(self.client, "abort_cmd", sy.DataType.UINT8)
-        create_indexed_pair(self.client, "cycle_count", sy.DataType.INT64)
-        create_indexed_pair(self.client, "peak_temp", sy.DataType.FLOAT32)
-        create_indexed_pair(self.client, "temp_error", sy.DataType.FLOAT32)
+        create_virtual_channel(self.client, "abort_cmd", data_type=sy.DataType.UINT8)
+        create_indexed_pair(self.client, "cycle_count", data_type=sy.DataType.INT64)
+        create_indexed_pair(self.client, "peak_temp", data_type=sy.DataType.FLOAT32)
+        create_indexed_pair(self.client, "temp_error", data_type=sy.DataType.FLOAT32)
 
     def verify_sequence_execution(self) -> None:
         self._verify_thermal_cycling()

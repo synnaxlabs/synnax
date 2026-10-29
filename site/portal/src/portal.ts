@@ -41,7 +41,7 @@ export interface Portal {
   mail: Mailer;
   /** slack posts notable events to the staff channel. */
   slack: Slack;
-  /** analytics reads Synnax Desktop sessions from PostHog. */
+  /** analytics reads Synnax Desktop sessions from PostHog and records events there. */
   analytics: Analytics;
   directory: Directory;
   staffOrgID: string;
@@ -50,6 +50,8 @@ export interface Portal {
   webhookSecret: string;
   /** session resolves the logged-in user, throwing a 401 when there is none. */
   session: () => Promise<Session>;
+  /** viewer resolves the logged-in user, or null for a visitor who is not logged in. */
+  viewer: () => Promise<Session | null>;
   now: () => Date;
 }
 
@@ -80,6 +82,8 @@ const slack = (): Slack =>
  */
 export const open = (context: APIContext): Portal => {
   const directory = clerk(clerkClient(context));
+  const session = async (): Promise<Session> =>
+    await resolve(directory, context.locals.auth().userId, STAFF_ORG_ID);
   return {
     store: openStore(DATABASE_URL),
     signer: kms({
@@ -98,13 +102,19 @@ export const open = (context: APIContext): Portal => {
     }),
     mail: mailer(),
     slack: slack(),
-    analytics: POSTHOG_API_KEY == null ? unconfigured() : posthog(POSTHOG_API_KEY),
+    analytics:
+      POSTHOG_API_KEY == null
+        ? unconfigured()
+        : posthog({
+            apiKey: POSTHOG_API_KEY,
+            environment: VERCEL_ENV === "production" ? "production" : "development",
+          }),
     staffOrgID: STAFF_ORG_ID,
     cronSecret: CRON_SECRET,
     webhookSecret: CLERK_WEBHOOK_SIGNING_SECRET,
     directory,
-    session: async () =>
-      await resolve(directory, context.locals.auth().userId, STAFF_ORG_ID),
+    session,
+    viewer: async () => (context.locals.auth().userId == null ? null : await session()),
     now: () => new Date(),
   };
 };

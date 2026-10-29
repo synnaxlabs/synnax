@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dialog__dialog {
+.lyra-dialog__dialog {
     position: fixed;
     overflow: hidden;
 
@@ -19,13 +19,15 @@
     --pluto-fill-hover: var(--pluto-gray-l4);
     --pluto-fill-press: var(--pluto-gray-l5);
 
-    &.pluto--modal {
+    &.lyra--modal {
         position: relative;
-        &.pluto--hidden {
+
+        &.lyra--hidden {
             background: none;
             border: none;
         }
-        &.pluto--visible {
+
+        &.lyra--visible {
             top: 15%;
             border-color: var(--pluto-gray-l5);
             min-width: var(--pluto-dialog-min-width, min(110rem, 100%));
@@ -38,20 +40,23 @@
             background: color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent);
             -webkit-backdrop-filter: var(--pluto-frost);
             backdrop-filter: var(--pluto-frost);
-            &.pluto-dialog--modal-position-shifted {
+
+            &.lyra-dialog--modal-position-shifted {
                 top: 8%;
             }
-            &.pluto-dialog--modal-position-slammed {
+
+            &.lyra-dialog--modal-position-slammed {
                 top: 0;
             }
-            &:not(.pluto-dialog--passthrough) {
+
+            &:not(.lyra-dialog--passthrough) {
                 transition: top 0.15s ease-in-out;
                 animation: var(--pluto-modal-animation);
             }
         }
     }
 
-    &:not(.pluto--modal) {
+    &:not(.lyra--modal) {
         animation: var(--pluto-dialog-animation);
         box-shadow: var(--pluto-shadow-overlay);
         z-index: 6;
@@ -62,54 +67,60 @@
             var(--pluto-dialog-available-height, 100vh)
         );
         max-width: var(--pluto-dialog-available-width, none);
-        &.pluto-height-small {
+
+        &.lyra--height-small {
             --pluto-dialog-max-height: 200px;
         }
 
-        &.pluto-height-large {
+        &.lyra--height-large {
             --pluto-dialog-max-height: 480px;
         }
     }
 
-    &.pluto--hidden:not(.pluto-dialog--passthrough) {
+    &.lyra--hidden:not(.lyra-dialog--passthrough) {
         opacity: 0;
         z-index: -1;
         pointer-events: none;
     }
+
     /* An unfocused passthrough tab is a pass-through box: its bg's sizing chain
        already forces the content to fill, so the flex level is pure cost. */
-    &.pluto--modal.pluto-dialog--passthrough:not(.pluto--visible) {
+    &.lyra--modal.lyra-dialog--passthrough:not(.lyra--visible) {
         display: block;
     }
-    &.pluto--visible {
+
+    &.lyra--visible {
         z-index: 5;
         opacity: 1;
     }
 }
 
-.pluto-dialog__frame.pluto--anchored {
+.lyra-dialog__frame.lyra--anchored {
     display: contents;
 }
 
-.pluto-dialog__bg {
+.lyra-dialog__bg {
     width: 100%;
     height: 100%;
-
     background: transparent;
+
     /* Only a visible modal centers its dialog; as a passthrough wrapper the
        flex level just costs WebKit re-measurement on every ancestor resize. */
-    &:not(.pluto--visible) {
+    &:not(.lyra--visible) {
         display: block;
     }
-    &:not(.pluto--visible) > div {
+
+    &:not(.lyra--visible) > div {
         width: 100%;
         height: 100%;
+
         & > div {
             width: 100%;
             height: 100%;
         }
     }
-    &.pluto--visible {
+
+    &.lyra--visible {
         -webkit-user-select: none;
         user-select: none;
         position: fixed;
@@ -118,23 +129,24 @@
         width: 100%;
         height: 100%;
         z-index: 4;
-        padding: 3rem 5rem 3rem 5rem;
+        padding: 3rem 5rem;
         transition: background 0.15s ease-in-out;
         background: var(--pluto-gray-l8-40);
-        @media (max-height: 800px) {
-            .pluto-dialog__dialog {
+
+        @media (height <= 800px) {
+            .lyra-dialog__dialog {
                 top: 10%;
             }
         }
     }
 }
 
-.pluto-theme-synnax-dark .pluto-dialog__bg.pluto--visible {
+.lyra-theme-synnax-dark .lyra-dialog__bg.lyra--visible {
     background: var(--pluto-gray-l1-60);
 }
 
 @media (prefers-color-scheme: dark) {
-    .pluto-dialog__bg.pluto--visible {
+    .lyra-dialog__bg.lyra--visible {
         background: var(--pluto-gray-l1-60);
     }
 }

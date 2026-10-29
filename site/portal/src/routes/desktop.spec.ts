@@ -19,6 +19,7 @@ import { type Memory, openMemory } from "@/server/db/testutil";
 import { hashSecret } from "@/server/license/desktop";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR } from "@/server/ratelimit";
+import { CONVERTED } from "@/server/referral";
 import { active, firstLogin } from "@/server/slack";
 import { DAY_MS } from "@/server/usage";
 import {
@@ -28,6 +29,7 @@ import {
   createHarness,
   createLicense,
   createOrganization,
+  createReferral,
   type Harness,
   readKey,
 } from "@/testutil";
@@ -63,6 +65,7 @@ describe("desktop routes", () => {
       name: "Ada Lovelace",
     };
     harness.directory.people.user_b = { email: "bob@example.com", name: "Bob" };
+    harness.directory.people.user_em = { email: "em@synnaxlabs.com", name: "Emiliano" };
   });
 
   afterEach(() => {
@@ -179,6 +182,99 @@ describe("desktop routes", () => {
       ]);
     });
 
+    it("should not post the logins of a Synnax Labs user", async () => {
+      await linkAs("user_em");
+      harness.portal.now = () => TOMORROW;
+      await linkAs("user_em", HASH_B);
+      expect(harness.slack.posted).toEqual([]);
+    });
+
+    describe("referred user", () => {
+      beforeEach(async () => {
+        harness.directory.people.user_staff = {
+          email: "em@synnaxlabs.com",
+          name: "Emiliano",
+        };
+        await createReferral(store, { userID: "user_a", claimedAt: NOW });
+      });
+
+      const linkWith = async (analytics: boolean, fingerprint = HASH_A) => {
+        harness.signIn("user_a");
+        const res = await postLink({
+          fingerprint,
+          name: "stand-1",
+          analytics: String(analytics),
+        });
+        expect(res.status).toBe(200);
+      };
+
+      it("should tell PostHog who referred the user at their first login", async () => {
+        await linkWith(true);
+        const props = {
+          referral: "Ada-link-001",
+          referred_by: "user_staff",
+          referred_by_name: "Emiliano",
+        };
+        expect(harness.analytics.captured).toEqual([
+          {
+            userID: "user_a",
+            event: CONVERTED,
+            at: NOW,
+            properties: props,
+            once: { ...props, referred_at: NOW.toISOString() },
+          },
+        ]);
+      });
+
+      it("should tell PostHog nothing when the user refuses usage data", async () => {
+        await linkWith(false);
+        expect(harness.analytics.captured).toEqual([]);
+      });
+
+      it("should tell PostHog only about the first login", async () => {
+        await linkWith(true);
+        await linkWith(true, HASH_B);
+        expect(harness.analytics.captured).toHaveLength(1);
+      });
+
+      it("should log the user in when the referral cannot be read", async () => {
+        const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+        harness.directory.names = async () => {
+          throw CLERK_DOWN;
+        };
+        await linkWith(true);
+        expect(harness.analytics.captured).toEqual([]);
+        expect(harness.slack.posted).toEqual([
+          firstLogin(
+            { userID: "user_a", name: "Ada Lovelace", email: "ada@example.com" },
+            "stand-1",
+          ),
+        ]);
+        expect(logged).toHaveBeenCalledWith(
+          "failed to read the referral of a first login",
+          { userID: "user_a" },
+          CLERK_DOWN,
+        );
+      });
+
+      it("should name the referrer in the first login note", async () => {
+        await linkWith(false);
+        expect(harness.slack.posted).toEqual([
+          firstLogin(
+            { userID: "user_a", name: "Ada Lovelace", email: "ada@example.com" },
+            "stand-1",
+            "Emiliano",
+          ),
+        ]);
+      });
+    });
+
+    it("should tell PostHog nothing about a user nobody referred", async () => {
+      harness.signIn("user_a");
+      await postLink({ fingerprint: HASH_A, name: "stand-1", analytics: "true" });
+      expect(harness.analytics.captured).toEqual([]);
+    });
+
     it("should not post a login after the user logged out", async () => {
       const linked = await linkAs("user_a");
       expect((await postDesktopUnlink(`Bearer ${linked.secret}`)).status).toBe(204);
@@ -257,6 +353,14 @@ describe("desktop routes", () => {
           days: 2,
         }),
       ]);
+    });
+
+    it("should not post the use of a Synnax Labs user", async () => {
+      const linked = await linkAs("user_em");
+      harness.signIn(null);
+      harness.portal.now = () => TOMORROW;
+      expect((await postRenew(`Bearer ${linked.secret}`)).status).toBe(200);
+      expect(harness.slack.posted).toEqual([]);
     });
 
     it("should answer the key when the note about the renewal fails", async () => {

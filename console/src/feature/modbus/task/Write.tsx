@@ -28,6 +28,7 @@ import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
   deployWriteConfigZ,
+  nextAddress,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -121,7 +122,7 @@ const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
     ...channelToCopy,
     key: id.create(),
     name: "",
-    address: channelToCopy.address + 1,
+    address: nextAddress(channelToCopy),
   };
 };
 
@@ -175,6 +176,7 @@ const writeMapKey = (channel: WriteChannel) =>
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => {
   const config = WRITE_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
+  config.channels = [getOpenChannel([])];
   return { name: "Modbus write task", type: WRITE_TYPE, config };
 };
 

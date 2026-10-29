@@ -10,19 +10,21 @@
 import { type APIRoute } from "astro";
 
 import { form, handle } from "@/respond";
+import { isInternal } from "@/server/directory";
 import { badRequest } from "@/server/errors";
 import { link } from "@/server/license/desktop";
 import { parse } from "@/server/license/fingerprint";
 import { readName } from "@/server/license/machine";
 import { ensurePersonal } from "@/server/organization";
 import { check } from "@/server/ratelimit";
+import { convert } from "@/server/referral";
 import { active, announce, firstLogin } from "@/server/slack";
 import { arrival } from "@/server/user";
 
 /**
  * POST links the logged-in user's machine: issues a desktop license bound to the
  * posted `fingerprint`, named by `name`, and answers `{ key, secret, activation,
- * email }`.
+ * email }`. `analytics` is true when the user lets the app send usage data.
  */
 export const POST: APIRoute = async (context) =>
   await handle(async () => {
@@ -53,17 +55,26 @@ export const POST: APIRoute = async (context) =>
       machineName,
       now,
     });
-    await announce(portal.slack, async () => {
-      const { previous } = linked;
-      if (previous == null) return firstLogin(session, machineName);
-      const arrived = await arrival(portal.store, portal.directory, {
-        userID: session.userID,
-        machine: machineName,
-        previous,
-        now,
+    const referrer =
+      linked.previous == null
+        ? await convert(portal.store, portal.directory, portal.analytics, {
+            userID: session.userID,
+            shared: body.analytics === "true",
+            now,
+          })
+        : undefined;
+    if (!isInternal(session.email))
+      await announce(portal.slack, async () => {
+        const { previous } = linked;
+        if (previous == null) return firstLogin(session, machineName, referrer);
+        const arrived = await arrival(portal.store, portal.directory, {
+          userID: session.userID,
+          machine: machineName,
+          previous,
+          now,
+        });
+        return arrived == null ? null : active(arrived);
       });
-      return arrived == null ? null : active(arrived);
-    });
     return Response.json({
       key: linked.key,
       secret: linked.secret,

@@ -111,7 +111,7 @@ const Machines = ({
     >
       {machines.map(({ activation: a, license: lic }) => (
         <Row key={a.key} columns={MACHINE_COLUMNS} href={`/licenses/${lic.key}`}>
-          <Text.Text level="p" overflow="ellipsis">
+          <Text.Text level="p" overflow="fade">
             {machineName(a)}
           </Text.Text>
           <Flex.Box>
@@ -139,7 +139,7 @@ const Teams = ({ teams }: { teams: Membership[] }): ReactElement =>
           columns={TEAM_COLUMNS}
           href={`/admin/organizations/${org.key}`}
         >
-          <Text.Text level="p" weight={500} overflow="ellipsis">
+          <Text.Text level="p" weight={500} overflow="fade">
             {org.name}
           </Text.Text>
           <Text.Text level="p" color={9}>
@@ -171,10 +171,11 @@ const DeleteDialog = ({ account }: { account: Account }): ReactElement => (
       }}
     >
       This deletes the account from Clerk, so they cannot log in and they leave their
-      teams. It also deletes their Desktop licenses, their machines, their activity, and
-      the invitations sent to them. You cannot undo it. Their machines log out at their
-      next renewal, and a machine that stays offline keeps its license key until it
-      expires. PostHog keeps their Desktop events and replays.
+      teams. It also deletes their Desktop licenses, their machines, their activity, the
+      invitations sent to them, and the referral link they used. You cannot undo it.
+      Their machines log out at their next renewal, and a machine that stays offline
+      keeps its license key until it expires. PostHog keeps their Desktop events and
+      replays.
     </Modal.Confirm>
   </Modal.Frame>
 );
