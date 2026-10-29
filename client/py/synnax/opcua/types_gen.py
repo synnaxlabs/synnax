@@ -57,10 +57,13 @@ class ReadChannel(BaseChannel):
     Attributes:
         channel: Is the Synnax channel that samples are written to.
         is_index: Is true when the channel's Synnax channel is the task's index.
+        field: Is the path to a member of the node's structure value. Names join with
+            '.', and '&' escapes the next character. Empty reads the whole value.
     """
 
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     is_index: bool = False
+    field: str = ""
 
     def __hash__(self) -> int:
         return hash(self.key)

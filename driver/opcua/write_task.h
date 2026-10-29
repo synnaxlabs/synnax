@@ -111,8 +111,54 @@ class WriteTaskSink final : public common::Sink {
     /// @brief the device's connection settings as of the last retrieve.
     connection::Config conn_cfg;
     connection::Pool::Connection connection;
+    /// @brief the data type of each channel's node on the current connection, or
+    /// nothing for a node whose type the server did not report.
+    std::unordered_map<synnax::channel::Key, const UA_DataType *> targets;
     types::WriteRequestBuilder builder;
     std::vector<synnax::channel::Key> written_keys;
+
+    /// @brief writes on conn from now on.
+    /// @returns the error of reading the types of the nodes, after which the sink has
+    /// no connection.
+    x::errors::Error use(connection::Pool::Connection conn) {
+        this->connection = std::move(conn);
+        const auto err = this->read_targets();
+        if (err) this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+        return err;
+    }
+
+    /// @brief reads the DataType of each channel's node, so commands convert to it. A
+    /// node of a type the client does not know converts by the type of its channel.
+    /// @returns only an error that loses the connection. When the server refuses the
+    /// read for another reason, every node converts by the type of its channel.
+    x::errors::Error read_targets() {
+        this->targets.clear();
+        const auto &namespaces = this->connection.server().namespaces;
+        types::ReadRequestBuilder req;
+        std::vector<synnax::channel::Key> keys;
+        for (const auto &[key, ch]: this->cfg.channels) {
+            const auto id = ch->node.resolve(namespaces);
+            if (!id.has_value()) continue;
+            req.add_node(id.value(), UA_ATTRIBUTEID_DATATYPE);
+            keys.push_back(key);
+        }
+        if (req.empty()) return x::errors::NIL;
+        auto [res, err] = this->connection.read(req.build());
+        if (err.matches(errors::UNREACHABLE)) return err;
+        if (err) {
+            LOG(WARNING) << "[opc.write] failed to read the types of the nodes, so "
+                            "commands convert by the types of their channels: "
+                         << err;
+            return x::errors::NIL;
+        }
+        for (std::size_t i = 0; i < keys.size(); ++i)
+            if (const auto &value = res.get().results[i].value;
+                UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_NODEID]))
+                this->targets[keys[i]] = UA_findDataType(
+                    static_cast<const UA_NodeId *>(value.data)
+                );
+        return x::errors::NIL;
+    }
 
     /// @brief connects with the device's current settings, so a corrected endpoint or
     /// login takes effect without a restart. Keeps the last settings while the Core is
@@ -128,8 +174,7 @@ class WriteTaskSink final : public common::Sink {
             return retrieve_err;
         auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
         if (err) return err;
-        this->connection = std::move(c);
-        return x::errors::NIL;
+        return this->use(std::move(c));
     }
 
 public:
@@ -155,11 +200,10 @@ public:
         if (conn_err) return conn_err;
         this->conn_cfg = std::move(conn_cfg);
         auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
+        if (!err) err = this->use(std::move(c));
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR))
             return x::errors::NIL;
-        if (err) return err;
-        this->connection = std::move(c);
-        return x::errors::NIL;
+        return err;
     }
 
     x::errors::Error stop() override {
@@ -183,8 +227,8 @@ public:
     }
 
 private:
-    /// @brief fills builder with the frame's values, with the namespace indexes of
-    /// the current connection.
+    /// @brief fills builder with the frame's values, converted to the types of their
+    /// nodes, with the namespace indexes of the current connection.
     /// @returns a problem for each value that the Driver cannot convert or whose
     /// namespace the server lacks.
     std::vector<std::string> build(const ::x::telem::Frame &frame) {
@@ -203,7 +247,12 @@ private:
                 );
                 continue;
             }
-            if (auto err = this->builder.add_value(id.value(), s)) {
+            const auto target = this->targets.find(key);
+            if (auto err = this->builder.add_value(
+                    id.value(),
+                    s,
+                    target == this->targets.end() ? nullptr : target->second
+                )) {
                 problems.push_back(ch.ch.name + ": " + err.data + ".");
                 continue;
             }
@@ -232,6 +281,8 @@ private:
         );
         if (refresh_err) return {std::move(res), refresh_err};
         if (!refreshed) return {std::move(res), err};
+        if (const auto targets_err = this->read_targets())
+            return {types::WriteResponse(), targets_err};
         return attempt();
     }
 

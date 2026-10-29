@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/log.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 #include "open62541/types.h"
@@ -41,6 +42,7 @@
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/device/device.h"
 #include "driver/opcua/errors/errors.h"
+#include "driver/opcua/structure/structure.h"
 #include "driver/opcua/telem/telem.h"
 #include "driver/opcua/types/types.h"
 
@@ -48,6 +50,9 @@ namespace driver::opcua {
 struct InputChan {
     /// @brief the OPC UA node id.
     types::NodeId node;
+    /// @brief the member of the node's structure value to read, or empty to read the
+    /// whole value.
+    structure::Path field;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
     const synnax::channel::Key synnax_key;
@@ -59,11 +64,16 @@ struct InputChan {
         node(types::NodeId::parse("node_id", parser)), synnax_key(parsed.channel) {
         if (this->synnax_key == 0)
             parser.field_err("channel", "channel must be specified");
+        if (parsed.field.empty()) return;
+        auto [field, err] = structure::parse(parsed.field);
+        if (err) parser.field_err("field", err.data);
+        this->field = std::move(field);
     }
 
     // Move constructor - needed because NodeId is move-only
     InputChan(InputChan &&other) noexcept:
         node(std::move(other.node)),
+        field(std::move(other.field)),
         synnax_key(other.synnax_key),
         ch(std::move(other.ch)) {}
 
@@ -132,6 +142,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         parser.iter("channels", [&](x::json::Parser &cp) {
             const auto parsed = ::synnax::opcua::ReadChannel::parse(cp);
             if (parsed.disabled) return;
+            if (this->array_mode && !parsed.field.empty())
+                cp.field_err("field", "array mode cannot read structure fields");
             channels.push_back(std::make_unique<InputChan>(parsed, cp));
         });
         if (this->channels.empty()) {
@@ -250,29 +262,68 @@ protected:
     /// of cfg.
     types::ReadRequestBuilder request_builder;
     /// @brief the place of each channel's result in a response to request_builder, or
-    /// nothing when the server lacks the channel's namespace.
+    /// nothing when the server lacks the channel's namespace. Channels on the same node
+    /// share a place.
     std::vector<std::optional<std::size_t>> positions;
+    /// @brief the structure types of the nodes of field channels, on the current
+    /// connection.
+    structure::Types types;
 
     /// @brief reads the channels on conn from now on, with the namespace indexes of
     /// its server.
-    void use(connection::Pool::Connection conn) {
+    /// @returns the error of reading the structure types, after which the source has
+    /// no connection.
+    x::errors::Error use(connection::Pool::Connection conn) {
         this->connection = std::move(conn);
         this->build_request();
+        const auto err = this->read_types();
+        if (err) this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+        return err;
     }
 
     void build_request() {
         this->request_builder = types::ReadRequestBuilder();
         this->positions.clear();
         const auto &namespaces = this->connection.server().namespaces;
+        std::map<std::string, std::size_t> places;
         for (const auto &ch: this->cfg.channels) {
             const auto id = ch->node.resolve(namespaces);
             if (!id.has_value()) {
                 this->positions.emplace_back(std::nullopt);
                 continue;
             }
-            this->positions.emplace_back(this->request_builder.size());
-            this->request_builder.add_node(id.value(), UA_ATTRIBUTEID_VALUE);
+            const auto [it, added] = places.try_emplace(
+                types::NodeId::to_string(id.value()),
+                this->request_builder.size()
+            );
+            this->positions.emplace_back(it->second);
+            if (added) this->request_builder.add_node(id.value(), UA_ATTRIBUTEID_VALUE);
         }
+    }
+
+    /// @brief reads the structure types of the nodes of field channels, so their
+    /// values decode.
+    /// @returns only an error that loses the connection. When the server refuses the
+    /// read for another reason, the fields fail to read.
+    x::errors::Error read_types() {
+        this->types = structure::Types();
+        std::vector<UA_NodeId> nodes;
+        const auto &namespaces = this->connection.server().namespaces;
+        for (const auto &ch: this->cfg.channels)
+            if (!ch->field.empty())
+                if (const auto id = ch->node.resolve(namespaces); id.has_value())
+                    nodes.push_back(id.value());
+        if (nodes.empty()) return x::errors::NIL;
+        auto [read, err] = structure::Types::read(this->connection, nodes);
+        if (err.matches(errors::UNREACHABLE)) return err;
+        if (err) {
+            LOG(WARNING) << "[opc.read] failed to read the structure types of the "
+                            "nodes, so their fields do not read: "
+                         << err;
+            return x::errors::NIL;
+        }
+        this->types = std::move(read);
+        return x::errors::NIL;
     }
 
     /// @returns the result of channel i in res, a response to request_builder.
@@ -297,8 +348,7 @@ protected:
             return retrieve_err;
         auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.read] ");
         if (err) return err;
-        this->use(std::move(c));
-        return x::errors::NIL;
+        return this->use(std::move(c));
     }
 
     /// @brief reads the value of every channel. Connects first when the task has no
@@ -325,7 +375,11 @@ protected:
         );
         if (refreshed) {
             this->build_request();
-            std::tie(res, err) = this->connection.read(this->request_builder.build());
+            err = this->read_types();
+            if (!err)
+                std::tie(res, err) = this->connection.read(
+                    this->request_builder.build()
+                );
         }
         if (refresh_err) err = refresh_err;
         if (err.matches(errors::UNREACHABLE))
@@ -359,13 +413,12 @@ public:
         if (conn_err) return conn_err;
         this->conn_cfg = std::move(conn_cfg);
         auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.read] ");
+        if (!err) err = this->use(std::move(c));
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR)) {
             this->start_err = err;
             return x::errors::NIL;
         }
-        if (err) return err;
-        this->use(std::move(c));
-        return x::errors::NIL;
+        return err;
     }
 
     x::errors::Error stop() override {
@@ -493,7 +546,13 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
             } else {
                 if (UA_StatusCode_isUncertain(result.status))
                     q.add_uncertain(errors::channel_status(ch.ch.name, result.status));
-                auto [sample, err] = telem::to_sample(result.value, ch.ch.data_type);
+                auto [sample, err] = ch.field.empty()
+                                       ? telem::to_sample(result.value, ch.ch.data_type)
+                                       : this->types.sample(
+                                             result.value,
+                                             ch.field,
+                                             ch.ch.data_type
+                                         );
                 if (err) {
                     q.add_bad(ch.ch.name + ": " + err.data + ".");
                     values.emplace_back(std::nullopt);

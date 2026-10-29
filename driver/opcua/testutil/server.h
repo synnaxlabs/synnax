@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -116,6 +117,127 @@ struct TestNode {
     }
 };
 
+/// @brief a value of the Point structure type of the mock server.
+struct Point {
+    UA_Float x;
+    UA_Float y;
+};
+
+/// @brief a value of the Motor structure type of the mock server.
+struct Motor {
+    UA_Double speed;
+    UA_Boolean running;
+    Point position;
+};
+
+/// @brief the numeric IDs, in namespace 1, of the Point and Motor data types and of
+/// their binary encodings.
+constexpr UA_UInt32 POINT_TYPE_ID = 4242;
+constexpr UA_UInt32 POINT_ENCODING_ID = 4243;
+constexpr UA_UInt32 MOTOR_TYPE_ID = 4244;
+constexpr UA_UInt32 MOTOR_ENCODING_ID = 4245;
+
+/// @brief the open62541 descriptions of Point and Motor. Motor points at Point, so
+/// the descriptions never move.
+class StructureTypes {
+    std::array<UA_DataTypeMember, 2> point_members{};
+    std::array<UA_DataTypeMember, 3> motor_members{};
+    std::array<UA_DataType, 2> types{};
+
+    static void set_member(
+        UA_DataTypeMember &m,
+        const char *name,
+        const UA_DataType *type,
+        const std::size_t padding
+    ) {
+        m.memberName = name;
+        m.memberType = type;
+        m.padding = static_cast<UA_Byte>(padding);
+    }
+
+    static void set_type(
+        UA_DataType &t,
+        const char *name,
+        const UA_UInt32 id,
+        const UA_UInt32 encoding_id,
+        const std::size_t size,
+        UA_DataTypeMember *members,
+        const std::size_t members_size
+    ) {
+        t.typeName = name;
+        t.typeId = UA_NODEID_NUMERIC(1, id);
+        t.binaryEncodingId = UA_NODEID_NUMERIC(1, encoding_id);
+        t.xmlEncodingId = UA_NODEID_NULL;
+        t.memSize = static_cast<UA_UInt32>(size);
+        t.typeKind = UA_DATATYPEKIND_STRUCTURE;
+        t.pointerFree = true;
+        t.overlayable = false;
+        t.membersSize = static_cast<UA_UInt32>(members_size);
+        t.members = members;
+    }
+
+public:
+    /// @brief the list to set as the customDataTypes of a server.
+    UA_DataTypeArray array{};
+
+    StructureTypes() {
+        const auto *f = &UA_TYPES[UA_TYPES_FLOAT];
+        set_member(this->point_members[0], "X", f, 0);
+        set_member(
+            this->point_members[1],
+            "Y",
+            f,
+            offsetof(Point, y) - offsetof(Point, x) - sizeof(UA_Float)
+        );
+        set_type(
+            this->types[0],
+            "Point",
+            POINT_TYPE_ID,
+            POINT_ENCODING_ID,
+            sizeof(Point),
+            this->point_members.data(),
+            this->point_members.size()
+        );
+        set_member(this->motor_members[0], "Speed", &UA_TYPES[UA_TYPES_DOUBLE], 0);
+        set_member(
+            this->motor_members[1],
+            "Running",
+            &UA_TYPES[UA_TYPES_BOOLEAN],
+            offsetof(Motor, running) - offsetof(Motor, speed) - sizeof(UA_Double)
+        );
+        set_member(
+            this->motor_members[2],
+            "Position",
+            &this->point(),
+            offsetof(Motor, position) - offsetof(Motor, running) - sizeof(UA_Boolean)
+        );
+        set_type(
+            this->types[1],
+            "Motor",
+            MOTOR_TYPE_ID,
+            MOTOR_ENCODING_ID,
+            sizeof(Motor),
+            this->motor_members.data(),
+            this->motor_members.size()
+        );
+        this->array = {
+            .next = nullptr,
+            .typesSize = this->types.size(),
+            .types = this->types.data(),
+            .cleanup = false,
+        };
+    }
+
+    StructureTypes(const StructureTypes &) = delete;
+    StructureTypes &operator=(const StructureTypes &) = delete;
+    StructureTypes(StructureTypes &&) = delete;
+    StructureTypes &operator=(StructureTypes &&) = delete;
+    ~StructureTypes() = default;
+
+    [[nodiscard]] const UA_DataType &point() const { return this->types[0]; }
+    [[nodiscard]] const UA_DataType &motor() const { return this->types[1]; }
+};
+
 /// @brief the ApplicationUri of the mock server, which its certificate must carry.
 const std::string SERVER_APPLICATION_URI = "urn:open62541.server.application";
 
@@ -147,6 +269,9 @@ struct ServerConfig {
     std::uint32_t max_nodes_per_read = 0;
     /// @brief the most nodes that one Write request can name. 0 means no limit.
     std::uint32_t max_nodes_per_write = 0;
+    /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
+    /// server adds the node only when it is set.
+    std::optional<Motor> motor;
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -433,12 +558,64 @@ public:
         server_config->maxNodesPerWrite = cfg.max_nodes_per_write;
         for (const auto &uri: cfg.namespaces)
             UA_Server_addNamespace(server, uri.c_str());
+        const StructureTypes structures;
+        server_config->customDataTypes = const_cast<UA_DataTypeArray *>(
+            &structures.array
+        );
+        for (const auto *type: {&structures.point(), &structures.motor()}) {
+            UA_DataTypeAttributes attr = UA_DataTypeAttributes_default;
+            attr.displayName = UA_LOCALIZEDTEXT(
+                const_cast<char *>("en-US"),
+                const_cast<char *>(type->typeName)
+            );
+            UA_Server_addDataTypeNode(
+                server,
+                type->typeId,
+                UA_NS0ID(STRUCTURE),
+                UA_NS0ID(HASSUBTYPE),
+                UA_QUALIFIEDNAME(1, const_cast<char *>(type->typeName)),
+                attr,
+                nullptr,
+                nullptr
+            );
+        }
+        if (cfg.motor.has_value()) {
+            UA_VariableAttributes attr = UA_VariableAttributes_default;
+            attr.dataType = structures.motor().typeId;
+            attr.valueRank = UA_VALUERANK_SCALAR;
+            attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+            attr.displayName = UA_LOCALIZEDTEXT(
+                const_cast<char *>("en-US"),
+                const_cast<char *>("TestMotor")
+            );
+            UA_Variant_setScalar(&attr.value, &*cfg.motor, &structures.motor());
+            UA_Server_addVariableNode(
+                server,
+                UA_NODEID_STRING(1, const_cast<char *>("TestMotor")),
+                UA_NS0ID(OBJECTSFOLDER),
+                UA_NS0ID(ORGANIZES),
+                UA_QUALIFIEDNAME(1, const_cast<char *>("TestMotor")),
+                UA_NODEID_NULL,
+                attr,
+                nullptr,
+                nullptr
+            );
+        }
 
         for (const auto &node: cfg.test_nodes) {
             UA_VariableAttributes attr = UA_VariableAttributes_default;
 
             // Set the variant as the value to be exposed by the server
             attr.value = node.initial_value;
+            if (node.data_type != nullptr) attr.dataType = node.data_type->typeId;
+            auto length = static_cast<UA_UInt32>(node.initial_value.arrayLength);
+            if (UA_Variant_isScalar(&node.initial_value))
+                attr.valueRank = UA_VALUERANK_SCALAR;
+            else if (node.initial_value.data != nullptr) {
+                attr.valueRank = UA_VALUERANK_ONE_DIMENSION;
+                attr.arrayDimensionsSize = 1;
+                attr.arrayDimensions = &length;
+            }
 
             // Set access level to allow reading and writing
             attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;

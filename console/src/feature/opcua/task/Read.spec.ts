@@ -51,6 +51,7 @@ const createReadChannel = (
     isIndex: false,
     dataType: "float32",
     name: "",
+    field: "",
     ...overrides,
   };
 };
@@ -117,6 +118,49 @@ describe("Read", () => {
     expect(updated.properties.read.channels[chB.nodeId]).toBe(
       config.channels[1].channel,
     );
+  });
+
+  it("should map structure field channels by node and field on deploy", async () => {
+    const dev = await createOPCDevice(client);
+    // Underscores pin that the field map keeps its keys' case on the wire.
+    const nodeId = `ns=1;s=${uniqueName("motor")}`;
+    const speed = createReadChannel({
+      key: `${nodeId}/motor_speed`,
+      nodeId,
+      field: "motor_speed",
+      nodeName: "Motor.motor_speed",
+    });
+    const y = createReadChannel({
+      key: `${nodeId}/Position.Y`,
+      nodeId,
+      field: "Position.Y",
+      nodeName: "Motor.Position.Y",
+    });
+    const draft = await createDraft(client, createReadConfig(dev.key, [speed, y]));
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(new RegExp(y.nodeName));
+
+    const { config } = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      OPCUA.Task.READ_SCHEMAS,
+    );
+    expect(config.channels.map(({ field }) => field)).toEqual([
+      "motor_speed",
+      "Position.Y",
+    ]);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: OPCUA.Device.SCHEMAS,
+    });
+    expect(updated.properties.read.fields).toEqual({
+      [nodeId]: {
+        motor_speed: config.channels[0].channel,
+        "Position.Y": config.channels[1].channel,
+      },
+    });
+    expect(updated.properties.read.channels).toEqual({});
   });
 
   it("should bind a new entry to the channel the device already maps", async () => {

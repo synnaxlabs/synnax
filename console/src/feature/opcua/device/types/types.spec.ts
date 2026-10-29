@@ -74,7 +74,7 @@ describe("OPC UA propertiesZ v1 migration", () => {
       expect(result.data.version).toBe("2.0.0");
       expect(result.data.connection.endpoint).toBe("opc.tcp://localhost:4840");
       expect(result.data.connection.certificateValidationDisabled).toBe(false);
-      expect(result.data.read).toEqual({ indexes: [], channels: {} });
+      expect(result.data.read).toEqual({ indexes: [], channels: {}, fields: {} });
       expect(result.data.write).toEqual({ channels: {} });
     }
   });

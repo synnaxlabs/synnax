@@ -29,7 +29,10 @@ TEST(TelemTest, testUAToDataType) {
     EXPECT_EQ(ua_to_data_type(&UA_TYPES[UA_TYPES_STRING]), x::telem::STRING_T);
     EXPECT_EQ(ua_to_data_type(&UA_TYPES[UA_TYPES_DATETIME]), x::telem::TIMESTAMP_T);
     EXPECT_EQ(ua_to_data_type(&UA_TYPES[UA_TYPES_GUID]), x::telem::UUID_T);
-    EXPECT_EQ(ua_to_data_type(&UA_TYPES[UA_TYPES_BOOLEAN]), x::telem::UINT8_T);
+    EXPECT_EQ(ua_to_data_type(&UA_TYPES[UA_TYPES_BOOLEAN]), x::telem::BOOLEAN_T);
+    EXPECT_EQ(ua_to_data_type(&UA_TYPES[UA_TYPES_BYTESTRING]), x::telem::BYTES_T);
+    EXPECT_EQ(ua_to_data_type(&UA_TYPES[UA_TYPES_DURATION]), x::telem::FLOAT64_T);
+    EXPECT_EQ(ua_to_data_type(&UA_TYPES[UA_TYPES_SERVERSTATE]), x::telem::INT32_T);
     EXPECT_EQ(ua_to_data_type(nullptr), x::telem::UNKNOWN_T);
 }
 
@@ -47,6 +50,9 @@ TEST(TelemTest, testDataTypeToUA) {
     EXPECT_EQ(data_type_to_ua(x::telem::STRING_T), &UA_TYPES[UA_TYPES_STRING]);
     EXPECT_EQ(data_type_to_ua(x::telem::TIMESTAMP_T), &UA_TYPES[UA_TYPES_DATETIME]);
     EXPECT_EQ(data_type_to_ua(x::telem::UUID_T), &UA_TYPES[UA_TYPES_GUID]);
+    EXPECT_EQ(data_type_to_ua(x::telem::UINT8_T), &UA_TYPES[UA_TYPES_BYTE]);
+    EXPECT_EQ(data_type_to_ua(x::telem::BOOLEAN_T), &UA_TYPES[UA_TYPES_BOOLEAN]);
+    EXPECT_EQ(data_type_to_ua(x::telem::BYTES_T), &UA_TYPES[UA_TYPES_BYTESTRING]);
     EXPECT_EQ(data_type_to_ua(x::telem::UNKNOWN_T), &UA_TYPES[UA_TYPES_VARIANT]);
 }
 
@@ -105,7 +111,7 @@ TEST(TelemTest, testSeriesToVariant) {
     float val = 42.0f;
     series.write(val);
 
-    auto variant = ASSERT_NIL_P(series_to_variant(series));
+    auto variant = ASSERT_NIL_P(to_variant(series, nullptr));
     EXPECT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_FLOAT]));
     EXPECT_EQ(*static_cast<float *>(variant.data), 42.0f);
 
@@ -188,7 +194,7 @@ TEST(TelemTest, DateTimeArrayWritesNothingOnBadElement) {
 /// @brief it should write a string sample as an OPC UA String.
 TEST(TelemTest, StringSeriesToVariant) {
     x::telem::Series series(std::string("hello"));
-    auto variant = ASSERT_NIL_P(series_to_variant(series));
+    auto variant = ASSERT_NIL_P(to_variant(series, nullptr));
     ASSERT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_STRING]));
     const auto *str = static_cast<UA_String *>(variant.data);
     EXPECT_EQ(std::string(reinterpret_cast<char *>(str->data), str->length), "hello");
@@ -198,12 +204,210 @@ TEST(TelemTest, StringSeriesToVariant) {
 /// @brief it should write a timestamp sample as an OPC UA DateTime.
 TEST(TelemTest, TimestampSeriesToVariant) {
     x::telem::Series series(x::telem::TimeStamp(15 * x::telem::SECOND));
-    auto variant = ASSERT_NIL_P(series_to_variant(series));
+    auto variant = ASSERT_NIL_P(to_variant(series, nullptr));
     ASSERT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_DATETIME]));
     EXPECT_EQ(
         *static_cast<UA_DateTime *>(variant.data),
         UA_DATETIME_UNIX_EPOCH + 15 * UA_DATETIME_SEC
     );
     UA_Variant_clear(&variant);
+}
+
+/// @brief it should convert the DataType of a node to the data type of its channel.
+TEST(TelemTest, ToDataType) {
+    EXPECT_EQ(to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_DOUBLE)), x::telem::FLOAT64_T);
+    EXPECT_EQ(
+        to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_BOOLEAN)),
+        x::telem::BOOLEAN_T
+    );
+    EXPECT_EQ(
+        to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_UTCTIME)),
+        x::telem::TIMESTAMP_T
+    );
+    EXPECT_EQ(
+        to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_BASEDATATYPE)),
+        x::telem::UNKNOWN_T
+    );
+    EXPECT_EQ(
+        to_data_type(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERSTATUSDATATYPE)),
+        x::telem::UNKNOWN_T
+    );
+    EXPECT_EQ(to_data_type(UA_NODEID_NUMERIC(2, 3001)), x::telem::UNKNOWN_T);
+}
+
+/// @brief it should read a Boolean node into a boolean sample.
+TEST(TelemTest, ToSampleBoolean) {
+    UA_Boolean value = true;
+    UA_Variant v;
+    UA_Variant_setScalar(&v, &value, &UA_TYPES[UA_TYPES_BOOLEAN]);
+    EXPECT_EQ(std::get<uint8_t>(ASSERT_NIL_P(to_sample(v, x::telem::BOOLEAN_T))), 1);
+    EXPECT_EQ(std::get<uint8_t>(ASSERT_NIL_P(to_sample(v, x::telem::UINT8_T))), 1);
+}
+
+/// @brief it should read a Guid into a uuid series and into its text.
+TEST(TelemTest, GuidToUUID) {
+    UA_Guid guid;
+    const auto text = std::string("09087e75-8e5e-499b-954f-f2a9603db28a");
+    ASSERT_EQ(
+        UA_Guid_parse(&guid, UA_STRING(const_cast<char *>(text.c_str()))),
+        UA_STATUSCODE_GOOD
+    );
+    UA_Variant v;
+    UA_Variant_setScalar(&v, &guid, &UA_TYPES[UA_TYPES_GUID]);
+    x::telem::Series series(x::telem::UUID_T, 1);
+    EXPECT_EQ(ASSERT_NIL_P(write_to_series(series, v)), 1);
+    EXPECT_EQ(series.uuids()[0].to_string(), text);
+    const auto sample = ASSERT_NIL_P(to_sample(v, x::telem::STRING_T));
+    EXPECT_EQ(std::get<std::string>(sample), text);
+    const auto round_trip = ASSERT_NIL_P(to_variant(series, nullptr));
+    ASSERT_TRUE(UA_Variant_hasScalarType(&round_trip, &UA_TYPES[UA_TYPES_GUID]));
+    EXPECT_TRUE(UA_Guid_equal(static_cast<UA_Guid *>(round_trip.data), &guid));
+    UA_Variant_clear(const_cast<UA_Variant *>(&round_trip));
+}
+
+/// @brief it should read a ByteString array into a bytes series.
+TEST(TelemTest, ByteStringArrayToBytes) {
+    UA_ByteString bytes[2] = {UA_STRING_STATIC("ab"), UA_STRING_STATIC("c")};
+    UA_Variant v;
+    UA_Variant_setArray(&v, bytes, 2, &UA_TYPES[UA_TYPES_BYTESTRING]);
+    x::telem::Series series(x::telem::BYTES_T, 2);
+    EXPECT_EQ(ASSERT_NIL_P(ua_array_write_to_series(series, &v, 2)), 2);
+    EXPECT_EQ(series.data_type(), x::telem::BYTES_T);
+    EXPECT_EQ(series.size(), 2);
+    auto variant = ASSERT_NIL_P(to_variant(series, nullptr));
+    ASSERT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_BYTESTRING]));
+    const UA_ByteString last = UA_STRING_STATIC("c");
+    EXPECT_TRUE(UA_ByteString_equal(static_cast<UA_ByteString *>(variant.data), &last));
+    UA_Variant_clear(&variant);
+}
+
+/// @brief it should reject a ByteString for a channel that is not bytes.
+TEST(TelemTest, ByteStringToStringRejected) {
+    UA_ByteString bytes = UA_STRING_STATIC("ab");
+    UA_Variant v;
+    UA_Variant_setScalar(&v, &bytes, &UA_TYPES[UA_TYPES_BYTESTRING]);
+    ASSERT_OCCURRED_AS_P(to_sample(v, x::telem::STRING_T), x::errors::VALIDATION);
+}
+
+namespace {
+/// @returns the variant of the command converted for a node of type target.
+UA_Variant convert(const x::telem::Series &command, const UA_DataType &target) {
+    auto [v, err] = to_variant(command, &target);
+    EXPECT_FALSE(err) << err;
+    return v;
+}
+
+/// @returns the error of converting the command for a node of type target.
+x::errors::Error reject(const x::telem::Series &command, const UA_DataType &target) {
+    auto [v, err] = to_variant(command, &target);
+    UA_Variant_clear(&v);
+    return err;
+}
+}
+
+/// @brief it should write a uint8 or boolean command to a Boolean node.
+TEST(TelemTest, ToVariantBoolean) {
+    const auto &boolean = UA_TYPES[UA_TYPES_BOOLEAN];
+    for (const auto &command:
+         {x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T),
+          x::telem::Series(static_cast<uint8_t>(1), x::telem::BOOLEAN_T),
+          x::telem::Series(1.0),
+          x::telem::Series(std::string("TRUE"))}) {
+        auto v = convert(command, boolean);
+        ASSERT_TRUE(UA_Variant_hasScalarType(&v, &boolean));
+        EXPECT_TRUE(*static_cast<UA_Boolean *>(v.data));
+        UA_Variant_clear(&v);
+    }
+    ASSERT_OCCURRED_AS(reject(x::telem::Series(2.0), boolean), x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS(
+        reject(x::telem::Series(std::string("maybe")), boolean),
+        x::errors::VALIDATION
+    );
+}
+
+/// @brief it should write a whole number in range to an integer node.
+TEST(TelemTest, ToVariantInteger) {
+    const auto &byte = UA_TYPES[UA_TYPES_BYTE];
+    auto v = convert(x::telem::Series(7.0), byte);
+    ASSERT_TRUE(UA_Variant_hasScalarType(&v, &byte));
+    EXPECT_EQ(*static_cast<UA_Byte *>(v.data), 7);
+    UA_Variant_clear(&v);
+    const auto &int64 = UA_TYPES[UA_TYPES_INT64];
+    v = convert(x::telem::Series(std::string("-123")), int64);
+    EXPECT_EQ(*static_cast<UA_Int64 *>(v.data), -123);
+    UA_Variant_clear(&v);
+}
+
+/// @brief it should not write a value that the integer type of the node cannot hold.
+TEST(TelemTest, ToVariantIntegerRejected) {
+    const auto &byte = UA_TYPES[UA_TYPES_BYTE];
+    auto err = reject(x::telem::Series(300.0), byte);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "300 is out of range for a Byte node");
+    ASSERT_OCCURRED_AS(reject(x::telem::Series(1.5), byte), x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS(
+        reject(x::telem::Series(static_cast<int32_t>(-1)), byte),
+        x::errors::VALIDATION
+    );
+    err = reject(x::telem::Series(std::string("12a")), UA_TYPES[UA_TYPES_INT64]);
+    EXPECT_EQ(err.data, "\"12a\" is not a valid Int64");
+}
+
+/// @brief it should convert a command to a Float or Double node.
+TEST(TelemTest, ToVariantFloat) {
+    const auto &dbl = UA_TYPES[UA_TYPES_DOUBLE];
+    auto v = convert(x::telem::Series(static_cast<int64_t>(5)), dbl);
+    EXPECT_EQ(*static_cast<UA_Double *>(v.data), 5.0);
+    UA_Variant_clear(&v);
+    v = convert(x::telem::Series(std::string("2.5")), dbl);
+    EXPECT_EQ(*static_cast<UA_Double *>(v.data), 2.5);
+    UA_Variant_clear(&v);
+    ASSERT_OCCURRED_AS(
+        reject(x::telem::Series(1e40), UA_TYPES[UA_TYPES_FLOAT]),
+        x::errors::VALIDATION
+    );
+}
+
+/// @brief it should write a number to a String node as text.
+TEST(TelemTest, ToVariantString) {
+    const auto &str = UA_TYPES[UA_TYPES_STRING];
+    auto v = convert(x::telem::Series(1.5), str);
+    const UA_String expected = UA_STRING_STATIC("1.5");
+    EXPECT_TRUE(UA_String_equal(static_cast<UA_String *>(v.data), &expected));
+    UA_Variant_clear(&v);
+}
+
+/// @brief it should write the builtin type of a subtype or an enumeration.
+TEST(TelemTest, ToVariantSubtypes) {
+    auto v = convert(x::telem::Series(2.0), UA_TYPES[UA_TYPES_DURATION]);
+    EXPECT_TRUE(UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DOUBLE]));
+    UA_Variant_clear(&v);
+    v = convert(
+        x::telem::Series(static_cast<int32_t>(3)),
+        UA_TYPES[UA_TYPES_SERVERSTATE]
+    );
+    ASSERT_TRUE(UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_INT32]));
+    EXPECT_EQ(*static_cast<UA_Int32 *>(v.data), 3);
+    UA_Variant_clear(&v);
+}
+
+/// @brief it should write the type that matches the command to a node of
+/// BaseDataType.
+TEST(TelemTest, ToVariantBaseDataType) {
+    auto v = convert(x::telem::Series(2.0), UA_TYPES[UA_TYPES_VARIANT]);
+    EXPECT_TRUE(UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_DOUBLE]));
+    UA_Variant_clear(&v);
+}
+
+/// @brief it should reject a command to a structure node, and an empty command.
+TEST(TelemTest, ToVariantRejectsStructuresAndEmptyCommands) {
+    ASSERT_OCCURRED_AS(
+        reject(x::telem::Series(1.0), UA_TYPES[UA_TYPES_SERVERSTATUSDATATYPE]),
+        x::errors::VALIDATION
+    );
+    ASSERT_OCCURRED_AS(
+        reject(x::telem::Series(x::telem::FLOAT64_T, 1), UA_TYPES[UA_TYPES_DOUBLE]),
+        x::errors::VALIDATION
+    );
 }
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type rack, type Synnax } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
 import {
@@ -41,19 +41,21 @@ IQDyvwdbi7qXLS7bkjYtMlxZ94PTGKApVOsBgqdDntq6EA==
 export interface CreateOPCDeviceOptions {
   configured?: boolean;
   properties?: Partial<Properties>;
+  /** The rack of the device. A new rack when absent. */
+  rack?: rack.Key;
 }
 
-/** Creates a rack and a configured OPC UA server device on the live Core. */
+/** Creates a configured OPC UA server device on the live Core. */
 export const createOPCDevice = async (
   client: Synnax,
-  { configured = true, properties }: CreateOPCDeviceOptions = {},
+  { configured = true, properties, rack }: CreateOPCDeviceOptions = {},
 ): Promise<Device> => {
-  const rack = await client.racks.create({ name: uniqueName("rack") });
+  const rackKey = rack ?? (await client.racks.create({ name: uniqueName("rack") })).key;
   return await client.devices.create(
     {
       key: id.create(),
       name: uniqueName("opc_server"),
-      rack: rack.key,
+      rack: rackKey,
       location: "opc.tcp://localhost:4840",
       make: MAKE,
       model: "OPC UA server",

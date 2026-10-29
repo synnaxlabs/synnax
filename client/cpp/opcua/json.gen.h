@@ -58,6 +58,7 @@ inline ReadChannel ReadChannel::parse(x::json::Parser parser) {
         ::synnax::channel::Key(0)
     );
     result.is_index = parser.field<bool>("is_index", false);
+    result.field = parser.field<std::string>("field", "");
     return result;
 }
 
@@ -67,6 +68,7 @@ inline x::json::json ReadChannel::to_json() const {
         j[k] = v;
     j["channel"] = this->channel;
     j["is_index"] = this->is_index;
+    j["field"] = this->field;
     return j;
 }
 

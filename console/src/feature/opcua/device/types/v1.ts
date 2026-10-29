@@ -20,15 +20,15 @@ import {
 
 export const VERSION = "1.0.0";
 
+export const readZ = z.object({
+  indexes: z.array(channel.keyZ).default(() => []),
+  channels: z.record(z.string(), channel.keyZ).default(() => ({})),
+});
+
 export const propertiesZ = z.object({
   version: z.literal(VERSION),
   connection: connectionConfigZ.default(() => ({ ...ZERO_CONNECTION_CONFIG })),
-  read: z
-    .object({
-      indexes: z.array(channel.keyZ).default(() => []),
-      channels: z.record(z.string(), channel.keyZ).default(() => ({})),
-    })
-    .default(() => ({ indexes: [], channels: {} })),
+  read: readZ.default(() => ({ indexes: [], channels: {} })),
   write: z
     .object({ channels: z.record(z.string(), channel.keyZ).default(() => ({})) })
     .default(() => ({ channels: {} })),

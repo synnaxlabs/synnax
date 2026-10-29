@@ -641,9 +641,11 @@ TEST_F(ConnectionPoolTest, WriteSplitsAtServerLimit) {
     const auto id = ASSERT_NIL_P(types::NodeId::parse("ns=1;s=TestUInt32"));
     types::WriteRequestBuilder builder;
     for (const uint32_t value: {1U, 2U, 3U})
-        ASSERT_NIL(
-            builder.add_value(id.get(), x::telem::Series(value, x::telem::UINT32_T))
-        );
+        ASSERT_NIL(builder.add_value(
+            id.get(),
+            x::telem::Series(value, x::telem::UINT32_T),
+            nullptr
+        ));
     const auto res = ASSERT_NIL_P(conn.write(builder.build()));
     ASSERT_EQ(res.get().resultsSize, 3);
     for (size_t i = 0; i < 3; ++i)

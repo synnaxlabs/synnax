@@ -63,7 +63,7 @@ const TEST_RECORD: TestCase[] = [
         secureChannelLifetimeMs: 600_000,
         sessionTimeoutMs: 1_200_000,
       },
-      read: { indexes: [34], channels: { test: 34 } },
+      read: { indexes: [34], channels: { test: 34 }, fields: {} },
       version: "2.0.0",
       write: { channels: { "4132": 4132 } },
     },

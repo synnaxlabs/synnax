@@ -15,7 +15,14 @@ import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
-import { CaptureStatuses, createConsoleWrapper, getIconButton } from "@/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
+import { answerNextCommand } from "@/platform/task/testutil";
+import {
+  CaptureStatuses,
+  createConsoleWrapper,
+  getIconButton,
+  uniqueName,
+} from "@/testutil";
 
 const NODE: OPCUA.Task.ScannedNode = {
   key: "ns=2;s=Demo.Static.Scalar.Float",
@@ -24,6 +31,7 @@ const NODE: OPCUA.Task.ScannedNode = {
   nodeClass: "Variable",
   dataType: "float32",
   isArray: false,
+  field: "",
 };
 
 const ITEM: Haul.Item = { type: OPCUA.Device.HAUL_TYPE, key: NODE.nodeId, data: NODE };
@@ -70,5 +78,63 @@ describe("Browser", () => {
     fireEvent.click(refresh);
     await screen.findByText(/not found/i);
     expect(statuses).toHaveLength(0);
+  });
+});
+
+const MOTOR: OPCUA.Task.ScannedNode = {
+  key: "ns=1;s=TestMotor",
+  nodeId: "ns=1;s=TestMotor",
+  name: "TestMotor",
+  nodeClass: "Variable",
+  dataType: "",
+  isArray: false,
+  field: "",
+};
+
+const member = (field: string, name: string, dataType: string) => ({
+  ...MOTOR,
+  key: `${MOTOR.nodeId}/${field}`,
+  name,
+  dataType,
+  field,
+});
+
+describe("Browser structures", () => {
+  it("should browse members by field and name them after their structure", async () => {
+    const client = createTestClient();
+    const rack = await createRunningRack(client, "opc");
+    const scan = await rack.createTask({
+      name: uniqueName("opcua_scan"),
+      type: OPCUA.Task.SCAN_TYPE,
+      config: {},
+    });
+    const dev = await createOPCDevice(client, { rack: rack.key });
+    const browse = async (channels: OPCUA.Task.ScannedNode[]) =>
+      await answerNextCommand(client, scan, {
+        type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+        data: { channels },
+      });
+    const { wrapper } = await createConsoleWrapper({ client });
+    const root = await browse([MOTOR]);
+    render(<OPCUA.Device.Browser device={dev} />, { wrapper });
+    // The command stream decodes the args, so node_id reads as nodeId here.
+    expect((await root.answered).args).toMatchObject({ nodeId: "", field: "" });
+    const members = await browse([
+      member("Speed", "Speed", "float64"),
+      member("Position", "Position", ""),
+    ]);
+    fireEvent.click(await screen.findByText("TestMotor"));
+    expect((await members.answered).args).toMatchObject({
+      nodeId: MOTOR.nodeId,
+      field: "",
+    });
+    await screen.findByText("TestMotor.Speed");
+    const nested = await browse([member("Position.X", "X", "float32")]);
+    fireEvent.click(await screen.findByText("TestMotor.Position"));
+    expect((await nested.answered).args).toMatchObject({
+      nodeId: MOTOR.nodeId,
+      field: "Position",
+    });
+    await screen.findByText("TestMotor.Position.X");
   });
 });

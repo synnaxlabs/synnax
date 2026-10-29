@@ -32,6 +32,7 @@ cc_library(
         "//driver/opcua/connection",
         "//driver/opcua/device",
         "//driver/opcua/errors",
+        "//driver/opcua/structure",
         "//driver/opcua/telem",
         "//driver/opcua/types",
         "//driver/pipeline",

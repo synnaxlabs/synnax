@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { channel, type device } from "@synnaxlabs/client";
+import { caseconv, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -20,6 +20,7 @@ import {
   type Properties as BaseProperties,
   PROPERTIES_MIGRATION_NAME,
   propertiesZ as basePropertiesZ,
+  readZ as baseReadZ,
   ZERO_PROPERTIES as BASE_ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types/v1";
 
@@ -53,9 +54,18 @@ const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   ...TIMEOUTS,
 };
 
+const readZ = baseReadZ.extend({
+  // The channel of each structure field, by node ID and then by field. Both keys are
+  // server text, so they keep their case on the wire.
+  fields: caseconv.preserveCase(
+    z.record(z.string(), z.record(z.string(), channel.keyZ)).default(() => ({})),
+  ),
+});
+
 export const propertiesZ = basePropertiesZ.extend({
   version: z.literal(VERSION),
   connection: connectionConfigZ.default(() => ({ ...ZERO_CONNECTION_CONFIG })),
+  read: readZ.default(() => ({ indexes: [], channels: {}, fields: {} })),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 
@@ -63,6 +73,7 @@ export const ZERO_PROPERTIES: Properties = {
   ...BASE_ZERO_PROPERTIES,
   version: VERSION,
   connection: ZERO_CONNECTION_CONFIG,
+  read: { ...BASE_ZERO_PROPERTIES.read, fields: {} },
 };
 
 /** Clears a server certificate that is not PEM, since v1 stored a file path there. */
@@ -73,6 +84,7 @@ export const propertiesMigration = migrate.createMigration<BaseProperties, Prope
     return {
       ...p,
       version: VERSION,
+      read: { ...p.read, fields: {} },
       connection: {
         ...p.connection,
         serverCertificate: serverCertificate.includes(PEM_CERTIFICATE_HEADER)

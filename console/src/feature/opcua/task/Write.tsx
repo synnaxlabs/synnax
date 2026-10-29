@@ -43,15 +43,19 @@ const Properties = () => (
   </>
 );
 
-const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel => ({
-  key: data.nodeId,
-  nodeName: data.name,
-  nodeId: data.nodeId,
-  name: "",
-  cmdChannel: 0,
-  disabled: false,
-  dataType: data.dataType,
-});
+// A write goes to a whole node, so a member of a structure is not a write channel.
+const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel | null =>
+  data.field !== ""
+    ? null
+    : {
+        key: data.nodeId,
+        nodeName: data.name,
+        nodeId: data.nodeId,
+        name: "",
+        cmdChannel: 0,
+        disabled: false,
+        dataType: data.dataType,
+      };
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<WriteChannel> = ({
   cmdChannel,

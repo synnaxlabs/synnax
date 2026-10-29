@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -276,6 +278,64 @@ struct ScanContext {
     x::errors::Error err;
 };
 
+/// @brief reads attributes of one node, in one request.
+/// @returns errors::NO_CONNECTION without sending the request when the connection is
+/// lost, since a read on a lost connection would open a new one outside the pool.
+std::pair<types::ReadResponse, x::errors::Error> read_attributes(
+    UA_Client *client,
+    const UA_NodeId &id,
+    const std::vector<UA_AttributeId> &attributes
+) {
+    if (auto err = connection::connected(client)) return {types::ReadResponse(), err};
+    types::ReadRequestBuilder req;
+    for (const auto attribute: attributes)
+        req.add_node(id, attribute);
+    types::ReadResponse res(UA_Client_Service_read(client, req.build()));
+    auto err = errors::parse(res.get().responseHeader.serviceResult);
+    if (!err && res.get().resultsSize != attributes.size())
+        err = x::errors::Error(errors::CRITICAL, "the server returned too few results");
+    return {std::move(res), err};
+}
+
+/// @brief the data type of a variable and whether it holds an array.
+struct VariableType {
+    x::telem::DataType data_type = x::telem::UNKNOWN_T;
+    bool is_array = false;
+};
+
+/// @brief finds the type of a variable from its DataType and ValueRank. When the
+/// DataType is abstract or unknown, or the ValueRank allows both a scalar and an
+/// array, the current value tells the type.
+std::pair<VariableType, x::errors::Error> variable_type(
+    UA_Client *client,
+    const UA_NodeId &id,
+    const UA_DataValue &data_type,
+    const UA_DataValue &value_rank
+) {
+    VariableType type;
+    if (data_type.hasValue &&
+        UA_Variant_hasScalarType(&data_type.value, &UA_TYPES[UA_TYPES_NODEID]))
+        type.data_type = telem::to_data_type(
+            *static_cast<const UA_NodeId *>(data_type.value.data)
+        );
+    std::optional<UA_Int32> rank;
+    if (value_rank.hasValue &&
+        UA_Variant_hasScalarType(&value_rank.value, &UA_TYPES[UA_TYPES_INT32]))
+        rank = *static_cast<const UA_Int32 *>(value_rank.value.data);
+    const bool rank_known = rank.has_value() && *rank >= UA_VALUERANK_SCALAR;
+    type.is_array = rank_known && *rank != UA_VALUERANK_SCALAR;
+    if (type.data_type != x::telem::UNKNOWN_T && rank_known)
+        return {type, x::errors::NIL};
+    auto [res, err] = read_attributes(client, id, {UA_ATTRIBUTEID_VALUE});
+    if (err) return {type, err};
+    const auto &value = res.get().results[0];
+    if (!value.hasValue) return {type, x::errors::NIL};
+    if (type.data_type == x::telem::UNKNOWN_T)
+        type.data_type = telem::ua_to_data_type(value.value.type);
+    if (!rank_known) type.is_array = !UA_Variant_isScalar(&value.value);
+    return {type, x::errors::NIL};
+}
+
 // open62541 combines the returned statuses with a bitwise OR, so a failure is kept in
 // the context instead.
 static UA_StatusCode
@@ -283,51 +343,93 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     auto *ctx = static_cast<ScanContext *>(raw_ctx);
     if (is_inverse || ctx->err) return UA_STATUSCODE_GOOD;
     auto *const ua_client = ctx->client.get();
-    // A read on a lost connection would open a new one outside the pool.
-    if (ctx->err = connection::connected(ua_client); ctx->err)
-        return UA_STATUSCODE_GOOD;
-
-    UA_ReadValueId ids[3];
-    UA_ReadValueId_init(&ids[0]);
-    UA_ReadValueId_init(&ids[1]);
-    UA_ReadValueId_init(&ids[2]);
-    ids[0].nodeId = child_id;
-    ids[1].nodeId = child_id;
-    ids[2].nodeId = child_id;
-    ids[0].attributeId = UA_ATTRIBUTEID_NODECLASS;
-    ids[1].attributeId = UA_ATTRIBUTEID_BROWSENAME;
-    ids[2].attributeId = UA_ATTRIBUTEID_VALUE;
-
-    UA_ReadRequest req;
-    UA_ReadRequest_init(&req);
-    req.nodesToRead = ids;
-    req.nodesToReadSize = 3;
-
-    types::ReadResponse res(UA_Client_Service_read(ua_client, req));
-    ctx->err = errors::parse(res.get().responseHeader.serviceResult);
-    if (ctx->err || !res.get().results[0].hasValue || !res.get().results[1].hasValue)
-        return UA_STATUSCODE_GOOD;
-    UA_NodeClass cls = *static_cast<UA_NodeClass *>(res.get().results[0].value.data);
-    auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(
-        res.get().results[1].value.data
+    auto [res, err] = read_attributes(
+        ua_client,
+        child_id,
+        {UA_ATTRIBUTEID_NODECLASS,
+         UA_ATTRIBUTEID_BROWSENAME,
+         UA_ATTRIBUTEID_DATATYPE,
+         UA_ATTRIBUTEID_VALUERANK}
     );
+    ctx->err = err;
+    const auto &results = res.get().results;
+    if (ctx->err || !results[0].hasValue || !results[1].hasValue)
+        return UA_STATUSCODE_GOOD;
+    UA_NodeClass cls = *static_cast<UA_NodeClass *>(results[0].value.data);
+    auto [ns_index, b_name] = *static_cast<UA_QualifiedName *>(results[1].value.data);
     const auto name = std::string(reinterpret_cast<char *>(b_name.data), b_name.length);
-    auto data_type = ::x::telem::UNKNOWN_T;
-    bool is_array = false;
-    if (cls == UA_NODECLASS_VARIABLE && res.get().results[2].hasValue) {
-        const auto &value = res.get().results[2].value;
-        data_type = telem::ua_to_data_type(value.type);
-        is_array = !UA_Variant_isScalar(&value);
-    } else if (cls == UA_NODECLASS_VARIABLE)
-        LOG(ERROR) << "[opc.scan_task] no value for " << name;
+    VariableType type;
+    if (cls == UA_NODECLASS_VARIABLE) {
+        std::tie(
+            type,
+            ctx->err
+        ) = variable_type(ua_client, child_id, results[2], results[3]);
+        if (ctx->err) return UA_STATUSCODE_GOOD;
+    }
     ctx->channels->emplace_back(
-        data_type,
+        type.data_type,
         name,
         types::NodeId::to_string(child_id, ctx->namespaces),
         types::node_class_to_string(cls),
-        is_array
+        type.is_array
     );
     return UA_STATUSCODE_GOOD;
+}
+
+/// @brief lists the members of the structure value of a variable, at path. A node that
+/// holds no structure has no members.
+/// @returns x::errors::VALIDATION if path is not empty and does not name a structure
+/// member of the node's value.
+std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
+    const connection::Pool::Connection &conn,
+    const UA_NodeId &id,
+    const std::string &node_id,
+    const structure::Path &path
+) {
+    const auto none = [&path]() -> std::pair<std::vector<types::Node>, x::errors::Error> {
+        if (path.empty()) return {{}, x::errors::NIL};
+        return {
+            {},
+            x::errors::Error(x::errors::VALIDATION, "the node does not hold a structure")
+        };
+    };
+    auto [res, err] = read_attributes(
+        conn.get(),
+        id,
+        {UA_ATTRIBUTEID_NODECLASS, UA_ATTRIBUTEID_DATATYPE}
+    );
+    if (err) return {{}, err};
+    const auto &cls = res.get().results[0].value;
+    const auto &dt = res.get().results[1].value;
+    // The client decodes the NodeClass enumeration as its Int32 encoding.
+    if (!UA_Variant_hasScalarType(&cls, &UA_TYPES[UA_TYPES_INT32]) ||
+        *static_cast<const UA_Int32 *>(cls.data) != UA_NODECLASS_VARIABLE ||
+        !UA_Variant_hasScalarType(&dt, &UA_TYPES[UA_TYPES_NODEID]))
+        return none();
+    const auto &data_type = *static_cast<const UA_NodeId *>(dt.data);
+    structure::Types types;
+    if (UA_findDataType(&data_type) == nullptr) {
+        std::tie(types, err) = structure::Types::read(conn, {id});
+        if (err) return {{}, err};
+    }
+    const auto *type = types.find(data_type);
+    if (type == nullptr) return none();
+    auto [member_type, member_err] = structure::Types::member_type(*type, path);
+    if (member_err) return {{}, member_err};
+    std::vector<types::Node> members;
+    for (const auto &m: structure::Types::members(*member_type)) {
+        auto member_path = path;
+        member_path.push_back(m.name);
+        members.emplace_back(
+            telem::ua_to_data_type(m.type),
+            m.name,
+            node_id,
+            types::node_class_to_string(UA_NODECLASS_VARIABLE),
+            m.is_array,
+            structure::to_string(member_path)
+        );
+    }
+    return {std::move(members), x::errors::NIL};
 }
 
 void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
@@ -373,13 +475,27 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         .channels = std::make_shared<std::vector<types::Node>>(),
     });
 
-    auto browse_err = errors::parse(UA_Client_forEachChildNodeCall(
-        scan_ctx->client.get(),
-        start.value(),
-        node_iter,
-        scan_ctx.get()
-    ));
-    if (!browse_err) browse_err = scan_ctx->err;
+    x::errors::Error browse_err;
+    if (args.field.empty()) {
+        browse_err = errors::parse(UA_Client_forEachChildNodeCall(
+            scan_ctx->client.get(),
+            start.value(),
+            node_iter,
+            scan_ctx.get()
+        ));
+        if (!browse_err) browse_err = scan_ctx->err;
+    }
+    if (!browse_err) {
+        auto [members, members_err] = structure_members(
+            connection,
+            start.value(),
+            args.node_id,
+            args.field
+        );
+        browse_err = members_err;
+        for (auto &m: members)
+            scan_ctx->channels->push_back(std::move(m));
+    }
     if (browse_err) {
         status.message = "Failed to browse nodes";
         status.description = browse_err.data;
