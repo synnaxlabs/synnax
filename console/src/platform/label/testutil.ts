@@ -26,7 +26,7 @@ export const searchAndClickLabel = async (name: string): Promise<void> => {
  */
 export const searchAndClickNestedLabel = async (name: string): Promise<void> => {
   const trigger = await waitFor(() => {
-    const triggers = document.querySelectorAll<HTMLElement>(".pluto-dialog__trigger");
+    const triggers = document.querySelectorAll<HTMLElement>(".lyra-dialog__trigger");
     if (triggers.length === 0) throw new Error("no dialog trigger found");
     return triggers[triggers.length - 1];
   });

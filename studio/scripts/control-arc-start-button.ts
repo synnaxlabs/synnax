@@ -90,7 +90,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     };
     const input = (label: string): Locator =>
       properties
-        .locator(".pluto-input__item")
+        .locator(".lyra-input__item")
         .filter({ hasText: new RegExp(`^${label}`) })
         .locator("input")
         .first();
@@ -141,7 +141,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         properties.getByRole("button", { name: "Add option" }).first(),
         { zoom: false },
       );
-    const options = properties.locator(".pluto-state-mapping-list .pluto-list__item");
+    const options = properties.locator(".pluto-state-mapping-list .lyra-list__item");
     for (const [i, name] of STAGES.entries()) {
       const nameInput = options.nth(i).locator("input").first();
       await session.waitFor(nameInput);
