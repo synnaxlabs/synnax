@@ -11,9 +11,12 @@
 
 #include <algorithm>
 #include <cstring>
+#include <deque>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "driver/ethercat/soem/api.h"
@@ -75,7 +78,8 @@ public:
     std::vector<std::pair<uint16_t, uint16_t>> state_change_requests;
     std::vector<uint8_t> processdata_groups;
     std::optional<uint8_t> mapped_group;
-    /// @brief CoE objects returned by SDOread, keyed by index and sub-index.
+    /// @brief CoE objects keyed by index and sub-index. SDOread returns them, and a
+    /// successful SDOwrite replaces them.
     std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_objects;
     /// @brief entry names and CoE data types returned by readOEsingle, keyed by index
     /// and sub-index.
@@ -91,6 +95,24 @@ public:
     std::vector<uint16_t> recovered_slaves;
     /// @brief slaves passed to writestate, in call order.
     std::vector<uint16_t> written_slaves;
+    /// @brief one SDO write: slave, index, sub-index, and bytes.
+    struct SDOWrite {
+        uint16_t slave;
+        uint16_t index;
+        uint8_t sub_index;
+        std::vector<uint8_t> data;
+
+        bool operator==(const SDOWrite &) const = default;
+    };
+    /// @brief SDO writes in call order.
+    std::vector<SDOWrite> sdo_writes;
+    /// @brief abort codes for objects that reject SDO writes, keyed by index and
+    /// sub-index. A code of 0 makes the write time out.
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> sdo_write_aborts;
+    /// @brief the SOEM error list, oldest first.
+    std::deque<ec_errort> errors;
+    /// @brief PO2SOconfig hooks keyed by slave.
+    std::map<uint16_t, std::function<void(uint16_t)>> po2so_configs;
     /// @brief the value count_bus_slaves returns, or nullopt for the slave count.
     std::optional<int> bus_slaves;
     /// @brief whether the mapped group carries the reference clock time.
@@ -101,6 +123,12 @@ public:
 
 private:
     uint8_t *iomap_ptr = nullptr;
+
+    void run_PO2SOconfig(const uint16_t slave) {
+        if (const auto it = this->po2so_configs.find(slave);
+            it != this->po2so_configs.end())
+            it->second(slave);
+    }
 
 public:
     x::errors::Error check_socket(const char *) override {
@@ -119,6 +147,9 @@ public:
     int config_map_group(void *iomap, uint8_t group) override {
         this->iomap_ptr = static_cast<uint8_t *>(iomap);
         this->mapped_group = group;
+        for (size_t i = 0; i < this->slave_infos.size(); ++i)
+            if (this->slave_infos[i].group == group)
+                this->run_PO2SOconfig(static_cast<uint16_t>(i + 1));
         return this->config_map_return;
     }
 
@@ -169,6 +200,7 @@ public:
 
     int reconfig_slave(uint16_t slave, int) override {
         this->reconfigured_slaves.push_back(slave);
+        this->run_PO2SOconfig(slave);
         return this->reconfig_return;
     }
 
@@ -210,6 +242,57 @@ public:
         if (it == this->sdo_objects.end()) return 0;
         std::memcpy(p, &it->second, *psize);
         return 1;
+    }
+
+    int SDOwrite(
+        uint16_t slave,
+        uint16_t index,
+        uint8_t sub_index,
+        bool,
+        int psize,
+        const void *p,
+        int
+    ) override {
+        const auto *bytes = static_cast<const uint8_t *>(p);
+        this->sdo_writes.push_back(
+            {slave, index, sub_index, std::vector(bytes, bytes + psize)}
+        );
+        const auto it = this->sdo_write_aborts.find({index, sub_index});
+        if (it == this->sdo_write_aborts.end()) {
+            uint32_t value = 0;
+            std::memcpy(&value, p, std::min(psize, 4));
+            this->sdo_objects[{index, sub_index}] = value;
+            return 1;
+        }
+        if (it->second != 0) this->push_sdo_abort(slave, index, sub_index, it->second);
+        return 0;
+    }
+
+    /// @brief appends an SDO abort for the object to the SOEM error list.
+    void
+    push_sdo_abort(uint16_t slave, uint16_t index, uint8_t sub_index, uint32_t code) {
+        ec_errort err{};
+        err.Etype = EC_ERR_TYPE_SDO_ERROR;
+        err.Slave = slave;
+        err.Index = index;
+        err.SubIdx = sub_index;
+        err.AbortCode = static_cast<int32>(code);
+        this->errors.push_back(err);
+    }
+
+    bool poperror(ec_errort &err) override {
+        if (this->errors.empty()) return false;
+        err = this->errors.front();
+        this->errors.pop_front();
+        return true;
+    }
+
+    void
+    set_PO2SOconfig(uint16_t slave, std::function<void(uint16_t)> config) override {
+        if (config == nullptr)
+            this->po2so_configs.erase(slave);
+        else
+            this->po2so_configs[slave] = std::move(config);
     }
 
     int16_t siifind(uint16_t, uint16_t category) override {

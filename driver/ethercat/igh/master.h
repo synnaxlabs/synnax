@@ -61,6 +61,9 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, ec_slave_config_t *> slave_configs;
     /// @brief slaves that are disabled (excluded from cyclic exchange).
     std::unordered_set<uint16_t> disabled_slaves;
+    /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
+    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
+        startup_parameters;
     /// @brief protects slave state queries and configuration.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -85,7 +88,7 @@ public:
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    void set_slave_enabled(uint16_t position, bool enabled) override;
+    void set_slave_config(uint16_t position, slave::Config config) override;
 
     x::errors::Error activate() override;
 
@@ -117,6 +120,14 @@ private:
     /// @brief returns or creates the configuration of the slave at a position,
     /// registering every PDO entry the slave maps.
     ec_slave_config_t *get_or_create_slave_config(uint16_t position);
+
+    /// @brief writes a slave's startup parameters and adds them to its config, so the
+    /// master writes them again at each move to SAFE-OP.
+    x::errors::Error add_startup_parameters(
+        const slave::Properties &slave,
+        ec_slave_config_t *sc,
+        const std::vector<slave::StartupParameter> &parameters
+    );
 
     /// @brief discovers PDO entries for a slave and populates its PDO lists.
     void discover_slave_pdos(slave::DiscoveryResult &slave);

@@ -33,6 +33,9 @@ const auto OP_POLL_INTERVAL = x::telem::MILLISECOND;
 const int RECOVERY_TIMEOUT = static_cast<int>(
     (x::telem::MILLISECOND * 500).microseconds()
 );
+/// Timeout for one SDO (Service Data Object) read or write in microseconds.
+const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
+
 /// The distributed clock epoch, 2000-01-01, as a Unix timestamp.
 const x::telem::TimeStamp DC_EPOCH(x::telem::SECOND * 946684800);
 
@@ -59,6 +62,25 @@ constexpr uint16_t RXPDO_MAPPING_START = 0x1600;
 constexpr uint16_t RXPDO_MAPPING_END = 0x17FF;
 
 /// @}
+
+namespace {
+/// @brief empties the SOEM error list, returning the code of the latest SDO abort in it
+/// for the object, or 0 when it holds none.
+uint32_t pop_sdo_abort(
+    API &api,
+    const uint16_t slave,
+    const uint16_t index,
+    const uint8_t sub_index
+) {
+    uint32_t code = 0;
+    ec_errort err{};
+    while (api.poperror(err))
+        if (err.Etype == EC_ERR_TYPE_SDO_ERROR && err.Slave == slave &&
+            err.Index == index && err.SubIdx == sub_index)
+            code = static_cast<uint32_t>(err.AbortCode);
+    return code;
+}
+}
 
 Master::Master(std::unique_ptr<API> api, std::string interface_name):
     iface_name(std::move(interface_name)),
@@ -113,12 +135,43 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
 }
 
-void Master::set_slave_enabled(const uint16_t position, const bool enabled) {
+void Master::set_slave_config(const uint16_t position, slave::Config config) {
     std::lock_guard lock(this->mu);
-    if (!enabled)
-        this->disabled_slaves.insert(position);
-    else
+    if (config.enabled)
         this->disabled_slaves.erase(position);
+    else
+        this->disabled_slaves.insert(position);
+    this->startup_parameters[position] = std::move(config.startup_parameters);
+}
+
+void Master::write_startup_parameters(
+    const uint16_t pos,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    std::string failure;
+    for (const auto &param: parameters) {
+        const auto data = param.bytes();
+        if (this->api->SDOwrite(
+                pos,
+                param.index,
+                param.sub_index,
+                false,
+                static_cast<int>(data.size()),
+                data.data(),
+                SDO_TIMEOUT
+            ) > 0)
+            continue;
+        failure = "rejected startup parameter " + param.to_string() + ": " +
+                  errors::sdo_abort_reason(
+                      pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
+                  );
+        break;
+    }
+    std::lock_guard lock(this->mu);
+    if (failure.empty())
+        this->startup_failures.erase(pos);
+    else
+        this->startup_failures[pos] = failure;
 }
 
 x::errors::Error Master::activate() {
@@ -127,13 +180,24 @@ x::errors::Error Master::activate() {
     if (this->activated)
         return x::errors::Error(errors::ACTIVATION_ERROR, "master already activated");
 
+    std::vector<uint16_t> parameterized;
     {
         std::lock_guard lock(this->mu);
-        for (int i = 1; i <= this->api->slave_count(); ++i)
-            this->api->set_slave_group(
-                i,
-                this->disabled_slaves.contains(i) ? DISABLED_GROUP : ENABLED_GROUP
-            );
+        this->startup_failures.clear();
+        for (int i = 1; i <= this->api->slave_count(); ++i) {
+            const bool disabled = this->disabled_slaves.contains(i);
+            this->api->set_slave_group(i, disabled ? DISABLED_GROUP : ENABLED_GROUP);
+            const auto it = this->startup_parameters.find(i);
+            if (disabled || it == this->startup_parameters.end() ||
+                it->second.empty()) {
+                this->api->set_PO2SOconfig(i, nullptr);
+                continue;
+            }
+            parameterized.push_back(static_cast<uint16_t>(i));
+            this->api->set_PO2SOconfig(i, [this, params = it->second](uint16_t pos) {
+                this->write_startup_parameters(pos, params);
+            });
+        }
     }
 
     const int iomap_size = this->api->config_map_group(
@@ -146,6 +210,23 @@ x::errors::Error Master::activate() {
             errors::ACTIVATION_ERROR,
             "failed to configure PDO mapping"
         );
+
+    {
+        std::lock_guard lock(this->mu);
+        std::string msg;
+        for (const auto &[pos, failure]: this->startup_failures)
+            msg += (msg.empty() ? "" : "; ") + std::string("slave ") +
+                   std::to_string(pos) + " (" + this->api->slave_name(pos) + ") " +
+                   failure;
+        if (!msg.empty()) return x::errors::Error(errors::STARTUP_PARAMETER_ERROR, msg);
+    }
+
+    // A startup parameter can change the slave's PDO assignment.
+    for (const auto pos: parameterized) {
+        auto result = this->discover_slave(pos);
+        std::lock_guard lock(this->mu);
+        this->slave_list[pos - 1] = std::move(result);
+    }
 
     this->api->configdc();
     this->has_dc = this->api->group_hasdc(ENABLED_GROUP);
@@ -271,13 +352,25 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
             }
         );
         if (const auto code = this->api->slave_ALstatuscode(i); h.faulted && code != 0)
-            h.al_status = ec_ALstatuscode2string(code);
+            h.fault = ec_ALstatuscode2string(code);
+        {
+            std::lock_guard lock(this->mu);
+            if (const auto it = this->startup_failures.find(i);
+                it != this->startup_failures.end()) {
+                h.faulted = true;
+                h.fault = it->second;
+            }
+        }
         if (breaker.running()) this->recover(static_cast<uint16_t>(i));
     }
     return health;
 }
 
 void Master::recover(const uint16_t pos) {
+    {
+        std::lock_guard lock(this->mu);
+        if (this->startup_failures.contains(pos)) return;
+    }
     const uint16_t state = this->api->slave_state(pos);
     if (state == EC_STATE_SAFE_OP + EC_STATE_ERROR) {
         this->api->set_slave_state(pos, EC_STATE_SAFE_OP + EC_STATE_ACK);
@@ -288,6 +381,11 @@ void Master::recover(const uint16_t pos) {
     } else if (state > EC_STATE_NONE && state != EC_STATE_OPERATIONAL) {
         if (this->api->reconfig_slave(pos, RECOVERY_TIMEOUT) >= EC_STATE_PRE_OP)
             this->api->set_slave_lost(pos, false);
+        std::lock_guard lock(this->mu);
+        if (this->startup_failures.contains(pos)) {
+            this->api->set_slave_state(pos, EC_STATE_PRE_OP);
+            this->api->writestate(pos);
+        }
     } else if (state == EC_STATE_NONE && !this->api->slave_lost(pos)) {
         this->api->statecheck(pos, EC_STATE_OPERATIONAL, EC_TIMEOUTRET);
         if (this->api->slave_state(pos) == EC_STATE_NONE)
@@ -307,21 +405,24 @@ void Master::populate_slaves() {
     this->slave_list.clear();
     this->slave_list.reserve(this->api->slave_count());
 
-    for (int i = 1; i <= this->api->slave_count(); ++i) {
-        slave::DiscoveryResult result{};
-        result.properties.network = this->interface_name();
-        result.properties.position = static_cast<uint16_t>(i);
-        result.properties.vendor_id = this->api->slave_eep_man(i);
-        result.properties.product_code = this->api->slave_eep_id(i);
-        result.properties.revision = this->api->slave_eep_rev(i);
-        result.properties.serial = this->api->slave_eep_ser(i);
-        result.properties.name = this->api->slave_name(i);
-        result.properties.input_bits = this->api->slave_Ibits(i);
-        result.properties.output_bits = this->api->slave_Obits(i);
-        result.status.state = slave::from_al_state(this->api->slave_state(i));
-        this->discover_slave_pdos(result);
-        this->slave_list.push_back(result);
-    }
+    for (int i = 1; i <= this->api->slave_count(); ++i)
+        this->slave_list.push_back(this->discover_slave(static_cast<uint16_t>(i)));
+}
+
+slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {
+    slave::DiscoveryResult result{};
+    result.properties.network = this->interface_name();
+    result.properties.position = pos;
+    result.properties.vendor_id = this->api->slave_eep_man(pos);
+    result.properties.product_code = this->api->slave_eep_id(pos);
+    result.properties.revision = this->api->slave_eep_rev(pos);
+    result.properties.serial = this->api->slave_eep_ser(pos);
+    result.properties.name = this->api->slave_name(pos);
+    result.properties.input_bits = this->api->slave_Ibits(pos);
+    result.properties.output_bits = this->api->slave_Obits(pos);
+    result.status.state = slave::from_al_state(this->api->slave_state(pos));
+    this->discover_slave_pdos(result);
+    return result;
 }
 
 void Master::cache_pdo_offsets() {
@@ -399,8 +500,6 @@ void Master::cache_pdo_offsets() {
     }
 }
 
-/// Timeout for SDO (Service Data Object) reads during PDO discovery in microseconds.
-const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
 constexpr int MAX_SDO_FAILURES = 3;
 
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {

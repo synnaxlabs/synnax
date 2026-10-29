@@ -271,7 +271,7 @@ TEST_F(SOEMMasterTest, ActivateDisabledSlavesSetGroup) {
     this->add_slave(slave2);
 
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(2, false);
+    this->master->set_slave_config(2, {.enabled = false});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
@@ -290,7 +290,7 @@ TEST_F(SOEMMasterTest, DisabledSlaveStaysOutOfStateTransitions) {
     this->add_slave(slave2);
 
     ASSERT_NIL(this->master->initialize());
-    this->master->set_slave_enabled(2, false);
+    this->master->set_slave_config(2, {.enabled = false});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
@@ -441,7 +441,7 @@ TEST_F(SOEMMasterTest, CheckAcknowledgesSafeOpError) {
     ASSERT_EQ(health.size(), 1);
     EXPECT_EQ(health[0].state, slave::State::SAFE_OP);
     EXPECT_TRUE(health[0].faulted);
-    EXPECT_EQ(health[0].al_status, ec_ALstatuscode2string(0x001B));
+    EXPECT_EQ(health[0].fault, ec_ALstatuscode2string(0x001B));
     EXPECT_EQ(
         this->mock->state_change_requests,
         (std::vector<std::pair<uint16_t, uint16_t>>{
@@ -524,7 +524,7 @@ TEST_F(SOEMMasterTest, CheckFindsLostSlaveThatAnswers) {
 TEST_F(SOEMMasterTest, CheckSkipsDisabledSlave) {
     this->add_default_slave();
     this->add_default_slave();
-    this->master->set_slave_enabled(2, false);
+    this->master->set_slave_config(2, {.enabled = false});
     ASSERT_NIL(this->master->initialize());
     this->activate_master();
     this->mock->slave_infos[1].state = EC_STATE_SAFE_OP;
@@ -572,8 +572,8 @@ TEST_F(SOEMMasterTest, InterfaceName) {
 
 TEST_F(SOEMMasterTest, SetSlaveDisabledThenReEnabled) {
     this->initialize_with_slave();
-    this->master->set_slave_enabled(1, false);
-    this->master->set_slave_enabled(1, true);
+    this->master->set_slave_config(1, {.enabled = false});
+    this->master->set_slave_config(1, {});
     this->mock->obytes = 2;
     this->mock->ibytes = 4;
     ASSERT_NIL(this->master->activate());
@@ -782,4 +782,197 @@ TEST_F(SOEMMasterTest, SlaveWhoseLayoutDisagreesWithMappingHasNoOffsets) {
     );
 }
 
+////////////////////// Startup Parameters //////////////////////
+
+const slave::StartupParameter FILTER{
+    .index = 0x8000,
+    .sub_index = 0x15,
+    .data_type = x::telem::UINT16_T,
+    .value = 3,
+    .name = "Filter",
+};
+
+const slave::StartupParameter RANGE{
+    .index = 0x8000,
+    .sub_index = 0x19,
+    .data_type = x::telem::UINT8_T,
+    .value = 2,
+};
+
+/// @brief it should write the startup parameters of a slave in their given order.
+TEST_F(SOEMMasterTest, ActivateWritesStartupParametersInOrder) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER, RANGE}});
+    this->activate_master();
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{
+            {1, 0x8000, 0x15, {0x03, 0x00}},
+            {1, 0x8000, 0x19, {0x02}},
+        })
+    );
+}
+
+/// @brief it should fail activation and stop writing when a slave aborts a startup
+/// parameter.
+TEST_F(SOEMMasterTest, ActivateFailsWhenSlaveRejectsStartupParameter) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER, RANGE}});
+    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high"
+    );
+    EXPECT_EQ(this->mock->sdo_writes.size(), 1);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should fail activation when a startup parameter write gets no response.
+TEST_F(SOEMMasterTest, ActivateFailsWhenStartupParameterGetsNoResponse) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
+    this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:19: no response"
+    );
+}
+
+/// @brief it should not blame an abort of another object for a failed startup parameter
+/// write.
+TEST_F(SOEMMasterTest, StartupFailureIgnoresAbortsOfOtherObjects) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {RANGE}});
+    this->mock->push_sdo_abort(1, 0x1C12, 0, 0x06020000);
+    this->mock->sdo_write_aborts[{0x8000, 0x19}] = 0;
+    const auto err = this->master->activate();
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:19: no response"
+    );
+}
+
+/// @brief it should write no startup parameters after a new config clears them.
+TEST_F(SOEMMasterTest, ActivateWritesNothingAfterStartupParametersAreCleared) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->master->set_slave_config(1, {});
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sdo_writes.empty());
+}
+
+/// @brief it should not write the startup parameters of a disabled slave.
+TEST_F(SOEMMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(
+        1,
+        {.enabled = false, .startup_parameters = {FILTER}}
+    );
+    this->activate_master();
+    EXPECT_TRUE(this->mock->sdo_writes.empty());
+}
+
+/// @brief it should read the PDO layout after the startup parameters change the PDO
+/// assignment.
+TEST_F(SOEMMasterTest, ActivateReadsLayoutThatStartupParametersAssign) {
+    this->add_slave(coe_slave(24));
+    serve_padded_txpdo(*this->mock);
+    this->mock->sdo_objects[{0x1A01, 0}] = 1;
+    this->mock->sdo_objects[{0x1A01, 1}] = 0x60100110;
+    this->mock->oe_entries[{0x6010, 1}] = {"Value", 0x0003};
+    ASSERT_NIL(this->master->initialize());
+    const slave::StartupParameter assign_1a01{
+        .index = ECT_SDO_TXPDOASSIGN,
+        .sub_index = 1,
+        .data_type = x::telem::UINT16_T,
+        .value = 0x1A01,
+    };
+    this->master->set_slave_config(1, {.startup_parameters = {assign_1a01}});
+    this->mock->slave_infos[0].Ibits = 16;
+    this->mock->ibytes = 2;
+    ASSERT_NIL(this->master->activate());
+
+    const auto offset = ASSERT_NIL_P(
+        this->master->pdo_offset(pdo::Entry(1, 0x6010, 1, 16, true, x::telem::INT16_T))
+    );
+    EXPECT_EQ(offset.byte, 0);
+    EXPECT_EQ(this->master->slaves()[0].properties.input_pdos.size(), 1);
+}
+
+/// @brief it should write the startup parameters again when it configures a slave that
+/// fell back to INIT.
+TEST_F(SOEMMasterTest, CheckWritesStartupParametersAgainOnReconfig) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(this->mock->sdo_writes.size(), 2);
+    EXPECT_TRUE(this->mock->state_change_requests.empty());
+}
+
+/// @brief it should hold a slave in PRE-OP and report the failure when a startup
+/// parameter write fails during reconfiguration.
+TEST_F(SOEMMasterTest, CheckHoldsSlaveInPreOpWhenReconfigWriteFails) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->activate_master();
+    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(
+        this->mock->state_change_requests,
+        (std::vector<std::pair<uint16_t, uint16_t>>{{1, EC_STATE_PRE_OP}})
+    );
+    this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+    const auto health = this->master->check(this->brk);
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_TRUE(health[0].faulted);
+    EXPECT_EQ(
+        health[0].fault,
+        "rejected startup parameter 0x8000:15 (Filter): Value of parameter written "
+        "too high"
+    );
+}
+
+/// @brief it should not reconfigure a slave again after it rejects a startup parameter
+/// during reconfiguration.
+TEST_F(SOEMMasterTest, CheckStopsRecoveringSlaveThatRejectsStartupParameter) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->activate_master();
+    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    this->mock->sdo_write_aborts.clear();
+    this->mock->slave_infos[0].state = EC_STATE_PRE_OP;
+    const auto health = this->master->check(this->brk);
+    EXPECT_EQ(this->mock->reconfigured_slaves, std::vector<uint16_t>{1});
+    ASSERT_EQ(health.size(), 1);
+    EXPECT_TRUE(health[0].faulted);
+}
+
+/// @brief it should recover a slave that rejected a startup parameter once the master
+/// activates again.
+TEST_F(SOEMMasterTest, ActivateClearsStartupFailureFromRecovery) {
+    this->initialize_with_slave();
+    this->master->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->activate_master();
+    this->mock->sdo_write_aborts[{0x8000, 0x15}] = 0x06090031;
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    this->mock->sdo_write_aborts.clear();
+    this->master->deactivate();
+    ASSERT_NIL(this->master->initialize());
+    this->activate_master();
+    this->mock->slave_infos[0].state = EC_STATE_INIT;
+    this->master->check(this->brk);
+    EXPECT_EQ(this->mock->reconfigured_slaves, (std::vector<uint16_t>{1, 1}));
+}
 }

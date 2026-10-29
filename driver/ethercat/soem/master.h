@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -45,6 +46,11 @@ class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> slave_list;
     /// @brief slave positions that are disabled (excluded from cyclic exchange).
     std::set<uint16_t> disabled_slaves;
+    /// @brief CoE objects written to each slave before SAFE-OP, keyed by position.
+    std::map<uint16_t, std::vector<slave::StartupParameter>> startup_parameters;
+    /// @brief why each slave rejected a startup parameter at its latest move to
+    /// SAFE-OP, keyed by position.
+    std::map<uint16_t, std::string> startup_failures;
     /// @brief protects slave state queries.
     mutable std::mutex mu;
     /// @brief whether the master has been initialized.
@@ -69,7 +75,7 @@ public:
 
     std::pair<size_t, x::errors::Error> count_slaves() override;
 
-    void set_slave_enabled(uint16_t position, bool enabled) override;
+    void set_slave_config(uint16_t position, slave::Config config) override;
 
     x::errors::Error activate() override;
 
@@ -95,8 +101,18 @@ public:
     std::string interface_name() const override;
 
 private:
+    /// @brief writes a slave's startup parameters in order, recording why the slave
+    /// rejected the first one that fails.
+    void write_startup_parameters(
+        uint16_t pos,
+        const std::vector<slave::StartupParameter> &parameters
+    );
+
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
+
+    /// @brief reads the identity and PDO layout of the slave at a position.
+    slave::DiscoveryResult discover_slave(uint16_t pos);
 
     /// @brief computes and caches PDO offsets for all slaves after activation.
     void cache_pdo_offsets();
@@ -147,7 +163,8 @@ private:
 
     /// @brief takes one recovery step for a slave that is not in OP, following the SOEM
     /// ecatcheck sample: acknowledge an error, request OP, reconfigure, or restore a
-    /// slave that lost power.
+    /// slave that lost power. Takes no step for a slave that rejected a startup
+    /// parameter, so it stays in PRE-OP until the next activation.
     void recover(uint16_t pos);
 
     /// @brief builds the error for enabled slaves that did not reach a state.

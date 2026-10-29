@@ -213,8 +213,9 @@ Field groups per make:
   `thermocouple_index`, `write_state_index`, four port channel maps.
 - **EtherCAT master**: identity `interface`, `slaves Slave.Key[]` in bus order.
 - **EtherCAT slave**: identity `serial`, `vendor_id`, `product_code`, `revision`,
-  `master Master.Key`, `pdos`; configuration `identifier`, `enabled`, `read_index`,
-  `write_state_index`, input and output channel maps.
+  `master Master.Key`, `pdos`; configuration `identifier`, `enabled`,
+  `startup_parameters`, `read_index`, `write_state_index`, input and output channel
+  maps.
 - **OPC UA server**: `connection` (endpoint, credentials, security mode and policy,
   certificates), `read_indexes`, node channel maps
   (`console/src/feature/opcua/device/types/v1.ts:18-30`).

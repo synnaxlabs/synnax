@@ -9,6 +9,9 @@
 
 #pragma once
 
+#include <cstdint>
+#include <string>
+
 #include "driver/errors/errors.h"
 
 namespace driver::ethercat::errors {
@@ -35,6 +38,8 @@ const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
 const x::errors::Error DOMAIN_ERROR = BASE_ERROR.sub("domain");
 /// @brief error returned when master activation fails.
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
+/// @brief error returned when a slave rejects a startup parameter.
+const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
 /// @brief error returned when cyclic communication fails.
 const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
 /// @brief error returned when a slave enters an unexpected state.
@@ -59,4 +64,7 @@ const x::errors::Error SDO_READ_ERROR = BASE_ERROR.sub("sdo_read");
 const x::errors::Error RATE_MISMATCH = BASE_ERROR.sub("rate_mismatch");
 /// @brief error returned when bus topology doesn't match configured devices.
 const x::errors::Error TOPOLOGY_MISMATCH = BASE_ERROR.sub("topology_mismatch");
+
+/// @brief returns the CoE meaning of an SDO abort code, or "no response" for 0.
+std::string sdo_abort_reason(uint32_t code);
 }

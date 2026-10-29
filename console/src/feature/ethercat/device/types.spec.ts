@@ -57,5 +57,21 @@ testPropertiesSchema(
         },
       },
     ],
+    [
+      "properties carrying startup parameters",
+      {
+        identifier: "EL3004",
+        position: 1,
+        startupParameters: [
+          {
+            index: 0x8000,
+            subIndex: 0x15,
+            dataType: "uint16",
+            value: 3,
+            name: "Filter",
+          },
+        ],
+      },
+    ],
   ],
 );

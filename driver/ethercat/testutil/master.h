@@ -33,6 +33,8 @@ class Master final : public master::Master {
     std::unordered_map<uint16_t, std::string> faults;
     std::set<uint16_t> lost_slaves;
     std::set<uint16_t> disabled_slaves;
+    std::unordered_map<uint16_t, std::vector<slave::StartupParameter>>
+        startup_parameters_by_slave;
     std::optional<size_t> bus_slaves;
     std::optional<x::telem::TimeSpan> dc_step;
     x::telem::TimeStamp dc_now{};
@@ -159,11 +161,11 @@ public:
     void fault_slave(
         const uint16_t position,
         const slave::State state,
-        const std::string &al_status
+        const std::string &fault
     ) {
         std::lock_guard lock(this->mu);
         this->slave_states[position] = state;
-        this->faults[position] = al_status;
+        this->faults[position] = fault;
     }
 
     /// @brief makes check() report a slave as not responding until lost is false.
@@ -221,12 +223,24 @@ public:
         this->bus_slaves = count;
     }
 
-    void set_slave_enabled(const uint16_t position, const bool enabled) override {
+    void set_slave_config(const uint16_t position, slave::Config config) override {
         std::lock_guard lock(this->mu);
-        if (enabled)
+        if (config.enabled)
             this->disabled_slaves.erase(position);
         else
             this->disabled_slaves.insert(position);
+        this->startup_parameters_by_slave[position] = std::move(
+            config.startup_parameters
+        );
+    }
+
+    /// @brief returns the startup parameters set for a slave.
+    std::vector<slave::StartupParameter>
+    startup_parameters(const uint16_t position) const {
+        std::lock_guard lock(this->mu);
+        const auto it = this->startup_parameters_by_slave.find(position);
+        if (it == this->startup_parameters_by_slave.end()) return {};
+        return it->second;
     }
 
     x::errors::Error activate() override {
@@ -339,13 +353,13 @@ public:
         for (const auto &slave: this->slave_list) {
             const auto pos = slave.properties.position;
             if (this->disabled_slaves.contains(pos)) continue;
-            const auto fault = this->faults.find(pos);
+            const auto it = this->faults.find(pos);
             health.push_back({
                 .position = pos,
                 .state = this->slave_states[pos],
-                .faulted = fault != this->faults.end(),
+                .faulted = it != this->faults.end(),
                 .lost = this->lost_slaves.contains(pos),
-                .al_status = fault != this->faults.end() ? fault->second : "",
+                .fault = it != this->faults.end() ? it->second : "",
             });
             if (this->lost_slaves.contains(pos)) continue;
             const auto blocked = this->state_transition_failures.find(pos);

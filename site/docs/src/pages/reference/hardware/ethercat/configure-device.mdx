@@ -239,17 +239,83 @@ await client.devices.create(module);
 
 <Divider.Divider x />
 
+## Startup parameters
+
+Many modules keep settings such as filters, measurement ranges, and sensor types in CoE
+objects. Add these settings to the `startup_parameters` property, and the Driver writes
+them to the module each time the network starts, before the module exchanges data. The
+Driver also writes them again when a module returns after a power loss.
+
+| Parameter   | Type   | Required | Default | Description                                                                                                        |
+| ----------- | ------ | -------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `index`     | number | Yes      | -       | CoE object index (`0x0000` to `0xFFFF`)                                                                            |
+| `sub_index` | number | Yes      | -       | CoE object subindex (`0` to `255`)                                                                                 |
+| `data_type` | string | Yes      | -       | `int8` to `int64`, `uint8` to `uint64`, `float32`, or `float64`                                                    |
+| `value`     | number | Yes      | -       | The value to write. It must fit in `data_type`. An integer must be between -9007199254740991 and 9007199254740991. |
+| `name`      | string | No       | `""`    | A label that error messages show                                                                                   |
+
+- **When changes apply** -> If the network is running, a change applies the next time
+  the network starts. Stop every task on the port, then start them again.
+- **Rejected values** -> If a module rejects a value, the task does not start. The error
+  names the parameter and the reason that the module gave, for example
+  `rejected startup parameter 0x8000:15 (Filter settings): Value of parameter written too high`.
+  If a module rejects a value when it reconnects, it stays out of operation until the
+  network starts again.
+- **Invalid properties** -> If a parameter is not valid, the status of the module shows
+  **Invalid device properties** and says which field is wrong. The network starts every
+  module on it, so no task on that network starts until you correct the parameter.
+
+<Client.Tabs exclude={["console"]}>
+  <Fragment slot="python">
+
+```python
+module = client.devices.retrieve(key="<module key>")
+module.properties["startup_parameters"] = [
+    {
+        "index": 0x8000,
+        "sub_index": 0x15,
+        "data_type": "uint16",
+        "value": 1,
+        "name": "Filter settings",
+    },
+]
+client.devices.create(module)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const module = await client.devices.retrieve({ key: "<module key>" });
+module.properties.startupParameters = [
+  {
+    index: 0x8000,
+    subIndex: 0x15,
+    dataType: "uint16",
+    value: 1,
+    name: "Filter settings",
+  },
+];
+await client.devices.create(module);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
 ## Device properties
 
-| Property                      | Meaning                                                     |
-| ----------------------------- | ----------------------------------------------------------- |
-| `name`                        | The name stored in the module.                              |
-| `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.             |
-| `revision`, `serial`          | The revision and serial number of the module, as numbers.   |
-| `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.   |
-| `position`                    | The position on the network. Starts at 1, or at 0 with IgH. |
-| `enabled`                     | `false` when the module is [disabled](#disable-a-device).   |
-| `pdos.inputs`, `pdos.outputs` | The PDO entries of the module. See below.                   |
+| Property                      | Meaning                                                                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `name`                        | The name stored in the module.                                                                                          |
+| `vendor_id`, `product_code`   | The vendor and model of the module, as numbers.                                                                         |
+| `revision`, `serial`          | The revision and serial number of the module, as numbers.                                                               |
+| `network`                     | The port of the module, such as `en5`. With IgH, `igh:0`.                                                               |
+| `position`                    | The position on the network. Starts at 1, or at 0 with IgH.                                                             |
+| `enabled`                     | `false` when the module is [disabled](#disable-a-device).                                                               |
+| `startup_parameters`          | CoE values that the Driver writes to the module when the network starts. See [startup parameters](#startup-parameters). |
+| `pdos.inputs`, `pdos.outputs` | The PDO entries of the module. See below.                                                                               |
 
 Each entry has a `name`, an `index` and a `sub_index` (its CoE address), a `bit_length`,
 and a `data_type`. When the module names its PDOs, an entry also has a `pdo_name`, the

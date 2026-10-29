@@ -14,6 +14,7 @@
 #include "driver/common/factory.h"
 #include "driver/common/read_task.h"
 #include "driver/common/scan_task.h"
+#include "driver/common/status.h"
 #include "driver/common/write_task.h"
 #include "driver/errors/errors.h"
 #include "driver/ethercat/ethercat.h"
@@ -69,6 +70,46 @@ std::unique_ptr<master::Manager> default_manager() {
     return std::make_unique<soem::Manager>();
 }
 
+namespace {
+/// @brief acquires the engine for the network and passes it the settings of each slave
+/// saved on the rack for that network. A task can start the bus before the scanner
+/// first runs. Returns errors::SLAVE_CONFIG_ERROR when a slave on the network has
+/// invalid properties, since the bus starts every slave on it.
+std::pair<std::shared_ptr<engine::Engine>, x::errors::Error> acquire_engine(
+    engine::Pool &pool,
+    const std::shared_ptr<synnax::Synnax> &client,
+    const synnax::rack::Key rack,
+    const std::string &network
+) {
+    auto [eng, err] = pool.acquire(network);
+    if (err) return {nullptr, err};
+    synnax::device::RetrieveRequest req;
+    req.makes = {DEVICE_MAKE};
+    req.models = {SLAVE_DEVICE_MODEL};
+    req.racks = {rack};
+    auto [devices, dev_err] = client->devices.retrieve(req);
+    if (dev_err) return {nullptr, dev_err};
+    for (const auto &dev: devices) {
+        auto parser = x::json::Parser(dev.properties);
+        const auto props = slave::Properties::parse(parser);
+        if (props.network != network) continue;
+        if (parser.error())
+            return {
+                nullptr,
+                x::errors::Error(
+                    errors::SLAVE_CONFIG_ERROR,
+                    dev.name + " has invalid properties. Every slave on " + network +
+                        " starts with the bus, so fix them before you start the "
+                        "task.\n" +
+                        common::config_err_description(parser.error())
+                )
+            };
+        eng->set_slave_config(props.position, props.config());
+    }
+    return {eng, x::errors::NIL};
+}
+}
+
 Factory::Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager):
     pool(std::make_shared<engine::Pool>(default_manager(), std::move(rt_manager))) {}
 
@@ -85,7 +126,12 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_read(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = ReadTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
+    auto [eng, eng_err] = acquire_engine(
+        *this->pool,
+        ctx->client,
+        task.rack,
+        cfg.interface_name
+    );
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     // The bus recovers a lost device without a limit, so the task waits for it.
@@ -109,7 +155,12 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_write(
     common::ConfigureResult result;
     auto [cfg, cfg_err] = WriteTaskConfig::parse(ctx->client, task);
     if (cfg_err) return {std::move(result), cfg_err};
-    auto [eng, eng_err] = this->pool->acquire(cfg.interface_name);
+    auto [eng, eng_err] = acquire_engine(
+        *this->pool,
+        ctx->client,
+        task.rack,
+        cfg.interface_name
+    );
     if (eng_err) return {std::move(result), eng_err};
     result.auto_start = cfg.auto_start;
     result.task = std::make_unique<common::WriteTask>(
