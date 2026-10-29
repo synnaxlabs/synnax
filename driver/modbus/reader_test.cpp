@@ -131,6 +131,46 @@ TEST(RegisterReader, IllegalAddressNamesChannels) {
     slave.stop();
 }
 
+/// @brief it should cast a register value into the data type of its Synnax channel.
+TEST(RegisterReader, CastsToChannelDataType) {
+    testutil::SlaveConfig cfg;
+    cfg.port = 1634;
+    cfg.holding_registers[4] = static_cast<uint16_t>(1234);
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1634}));
+
+    auto level = holding(1, 4, x::telem::UINT16_T, "level");
+    level.ch.data_type = x::telem::FLOAT32_T;
+    auto low = holding(2, 4, x::telem::UINT16_T, "low");
+    low.ch.data_type = x::telem::UINT8_T;
+    RegisterReader reader(device::HoldingRegister, {level, low});
+    const auto [fr, err] = read_once(reader, dev);
+    ASSERT_NIL(err);
+    EXPECT_FLOAT_EQ(fr.at<float>(1, 0), 1234.0F);
+    EXPECT_EQ(fr.at<uint8_t>(2, 0), static_cast<uint8_t>(1234));
+    EXPECT_EQ(fr.series->at(1).byte_size(), 1U);
+    slave.stop();
+}
+
+/// @brief it should cast a coil into the data type of its Synnax channel.
+TEST(BitReader, CastsToChannelDataType) {
+    testutil::SlaveConfig cfg;
+    cfg.port = 1635;
+    cfg.coils[2] = 1;
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1635}));
+
+    auto state = coil(1, 2, "state");
+    state.ch.data_type = x::telem::FLOAT64_T;
+    BitReader reader(device::Coil, {state});
+    const auto [fr, err] = read_once(reader, dev);
+    ASSERT_NIL(err);
+    EXPECT_DOUBLE_EQ(fr.at<double>(1, 0), 1.0);
+    slave.stop();
+}
+
 /// @brief it should return an unreachable error without channel names when the
 /// server drops the connection, then read again on a new connection.
 TEST(BitReader, ReconnectsAfterDroppedConnection) {

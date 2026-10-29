@@ -1146,11 +1146,12 @@ TEST_F(ModbusReadTest, testDuplicateChannelRejected) {
 TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("str"),
-        x::telem::STRING_T,
+        x::telem::FLOAT32_T,
         true
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(create_channel_config("holding_register", ch, 0));
+    cfg["channels"][0]["data_type"] = "string";
     auto p = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
@@ -1158,6 +1159,27 @@ TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
     EXPECT_EQ(errors[0]["message"], "unsupported data type: string");
+}
+
+/// @brief it should reject a Synnax channel that cannot hold a number.
+TEST_F(ModbusReadTest, testStringChannelRejected) {
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("str"),
+        x::telem::STRING_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("coil", ch, 0));
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels");
+    EXPECT_EQ(
+        errors[0]["message"],
+        ch.name + " is a string channel, but Modbus reads only into numeric channels"
+    );
 }
 
 /// @brief it should keep reading after the server drops the connection, without a

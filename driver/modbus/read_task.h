@@ -131,7 +131,8 @@ public:
                     ch.words_swapped
                 );
                 if (err) return err;
-                fr.series->at(frame_offset++).write(value);
+                auto &s = fr.series->at(frame_offset++);
+                s.write(s.data_type().cast(value));
             }
         }
         return x::errors::NIL;
@@ -172,9 +173,12 @@ public:
                     this->buffer.data()
                 ))
                 return this->wrap(err, table, b);
-            for (std::size_t i = b.first; i < b.last; i++)
-                fr.series->at(frame_offset++)
-                    .write(this->buffer[this->channels[i].address - b.start]);
+            for (std::size_t i = b.first; i < b.last; i++) {
+                auto &s = fr.series->at(frame_offset++);
+                s.write(s.data_type().cast(
+                    this->buffer[this->channels[i].address - b.start]
+                ));
+            }
         }
         return x::errors::NIL;
     }
@@ -299,6 +303,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
         std::unordered_map<synnax::channel::Key, synnax::channel::Channel> by_key;
         for (const auto &ch: synnax_channels) {
+            if (!channel::is_register_type(ch.data_type)) {
+                cfg.field_err(
+                    "channels",
+                    ch.name + " is a " + ch.data_type.name() +
+                        " channel, but Modbus reads only into numeric channels"
+                );
+                return;
+            }
             by_key.emplace(ch.key, ch);
             if (ch.index != 0) this->indexes.insert(ch.index);
         }
