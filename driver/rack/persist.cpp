@@ -104,14 +104,30 @@ x::errors::Error take_state_file(const int dir_fd, const std::string &name) {
     return x::errors::NIL;
 }
 
+/// @brief creates the OPC UA directory in the state directory if it is missing and
+/// gives it to the service user. Root never writes in it.
+x::errors::Error give_opcua_dir(const int dir_fd, const passwd &user) {
+    if (mkdirat(dir_fd, OPCUA_STATE_DIR.c_str(), S_IRWXU) != 0 && errno != EEXIST)
+        return errno_error("failed to create OPC UA directory");
+    FD sub{openat(
+        dir_fd,
+        OPCUA_STATE_DIR.c_str(),
+        O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+    )};
+    if (sub.fd < 0) return errno_error("failed to open OPC UA directory");
+    if (fchown(sub.fd, user.pw_uid, user.pw_gid) != 0 || fchmod(sub.fd, S_IRWXU) != 0)
+        return errno_error("failed to give OPC UA directory to the service user");
+    return x::errors::NIL;
+}
+
 /// @brief opens the state directory and file without following links, so a link put
 /// in their place is refused. A file that does not exist yet is skipped. Only the
 /// default directory is dedicated to the Driver, so only it changes mode or owner,
 /// through the open descriptors. When root writes it, as `sudo synnax-driver login`
 /// does, root keeps the directory and the Linux service user gets read access to it
-/// and owns the file. The service can then read and write its key but cannot put a
-/// link in the directory for root to follow. A process that is not root and does not
-/// own the file takes it over first.
+/// and owns the file and the OPC UA directory. The service can then read and write its
+/// key but cannot put a link in the directory for root to follow. A process that is not
+/// root and does not own the file takes it over first.
 x::errors::Error secure_state(const std::filesystem::path &path, const bool dedicated) {
     FD dir{open(
         path.parent_path().c_str(),
@@ -133,6 +149,7 @@ x::errors::Error secure_state(const std::filesystem::path &path, const bool dedi
             if (fchown(dir.fd, 0, service_user->pw_gid) != 0 ||
                 fchmod(dir.fd, S_IRWXU | S_IRGRP | S_IXGRP) != 0)
                 return errno_error("failed to secure state directory");
+            if (auto err = give_opcua_dir(dir.fd, *service_user)) return err;
         } else if (st.st_uid == geteuid() && fchmod(dir.fd, S_IRWXU) != 0)
             return errno_error("failed to secure state directory");
         if (service_user == nullptr)
