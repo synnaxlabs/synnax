@@ -160,7 +160,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) {
     auto [dev, err] = [&] {
         std::unique_lock lock(this->mu);
         this->release_stale(lock, args.connection);
-        return this->devices->acquire(args.connection);
+        return this->devices->acquire(args.connection, args.requests);
     }();
     if (!err) err = dev->probe();
     if (err) {
