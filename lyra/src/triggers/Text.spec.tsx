@@ -9,52 +9,110 @@
 
 import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Provider } from "@/triggers/Provider";
-import { Text } from "@/triggers/Text";
-import { type Trigger } from "@/triggers/triggers";
+import { Triggers } from "@/triggers";
 
-const TAB: Trigger = ["Control", "T"];
+const TAB: Triggers.Trigger = ["Control", "T"];
 
-const reserving = (reserved: Trigger[]) => {
+const reserving = (reserved: Triggers.Trigger[]) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Provider reserved={reserved}>{children}</Provider>
+    <Triggers.Provider reserved={reserved}>{children}</Triggers.Provider>
   );
   return Wrapper;
 };
 
 describe("Text", () => {
   it("should render the trigger's keycaps", () => {
-    const { container } = render(<Text trigger={TAB} />);
+    const { container } = render(<Triggers.Text trigger={TAB} />);
     expect(container.textContent).toContain("T");
   });
 
   it("should render the arrow keys as arrows", () => {
-    const { container } = render(<Text trigger={["ArrowUp", "ArrowDown"]} />);
+    const { container } = render(<Triggers.Text trigger={["ArrowUp", "ArrowDown"]} />);
     expect(container.textContent).toBe("");
     expect(container.querySelector(".lyra-icon--keyboard-arrow-up")).not.toBeNull();
     expect(container.querySelector(".lyra-icon--keyboard-arrow-down")).not.toBeNull();
   });
 
   it("should render nothing for a reserved trigger", () => {
-    const { container } = render(<Text trigger={TAB} />, {
+    const { container } = render(<Triggers.Text trigger={TAB} />, {
       wrapper: reserving([["T", "Control"]]),
     });
     expect(container.innerHTML).toBe("");
   });
 
   it("should keep the label of a reserved trigger", () => {
-    const { container } = render(<Text trigger={TAB}>New tab</Text>, {
+    const { container } = render(<Triggers.Text trigger={TAB}>New tab</Triggers.Text>, {
       wrapper: reserving([TAB]),
     });
     expect(container.textContent).toBe("New tab");
   });
 
   it("should render a trigger the provider does not reserve", () => {
-    const { container } = render(<Text trigger={["Control", "S"]} />, {
+    const { container } = render(<Triggers.Text trigger={["Control", "S"]} />, {
       wrapper: reserving([TAB]),
     });
     expect(container.textContent).toContain("S");
+  });
+
+  it("should put the label before the keys", () => {
+    const { container } = render(
+      <Triggers.Text trigger={["Control", "S"]}>Save</Triggers.Text>,
+    );
+    expect(container.textContent).toBe("SaveS");
+  });
+
+  it("should start a word key with a capital", () => {
+    const { container } = render(<Triggers.Text trigger={["Escape"]} />);
+    expect(container.textContent).toBe("Esc");
+  });
+
+  describe("modifier order", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.resetModules();
+    });
+
+    const capName = (cap: Element): string =>
+      cap
+        .querySelector("svg")
+        ?.getAttribute("class")
+        ?.match(/--(?:keyboard-)?(\w+)/)?.[1] ??
+      cap.textContent ??
+      "";
+
+    const renderOn = async (
+      userAgent: string,
+      trigger: Triggers.Trigger,
+    ): Promise<string[]> => {
+      vi.resetModules();
+      vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
+      const reloaded = await import("@/triggers");
+      const { container } = render(<reloaded.Triggers.Text trigger={trigger} />);
+      return Array.from(container.querySelectorAll(".lyra-text--keyboard"), capName);
+    };
+
+    const MIXED: Triggers.Trigger = ["MouseLeft", "Control", "K", "Shift", "Alt"];
+
+    it("should follow Apple's order on macOS", async () => {
+      expect(await renderOn("Macintosh", MIXED)).toEqual([
+        "option",
+        "shift",
+        "command",
+        "K",
+        "click",
+      ]);
+    });
+
+    it("should keep the declared order on Windows, with the mouse last", async () => {
+      expect(await renderOn("Windows", MIXED)).toEqual([
+        "control",
+        "K",
+        "shift",
+        "Alt",
+        "click",
+      ]);
+    });
   });
 });

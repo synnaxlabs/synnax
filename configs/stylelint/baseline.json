@@ -270,7 +270,6 @@
       "lyra--hovered",
       "lyra-icon",
       "lyra-text",
-      "lyra-text--keyboard",
       "lyra-trigger-indicator"
     ],
     "site/docs/src/components/text/Step.astro": ["lyra-text"],
