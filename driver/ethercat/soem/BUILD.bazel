@@ -29,6 +29,7 @@ cc_library(
     name = "soem_api",
     srcs = select({
         "@platforms//os:linux": ["api_linux.cpp"],
+        "@platforms//os:macos": ["api_darwin.cpp"],
         "//conditions:default": ["api_noop.cpp"],
     }),
     hdrs = ["api.h"],
@@ -37,6 +38,18 @@ cc_library(
         "//driver/ethercat/errors",
         "//vendor/soem",
         "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "soem_api_test",
+    srcs = ["api_darwin_test.cpp"],
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        ":soem_api",
+        "//driver/ethercat/errors",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
     ],
 )
 
