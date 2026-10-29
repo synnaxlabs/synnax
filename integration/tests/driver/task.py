@@ -773,6 +773,10 @@ class WriteTaskCase(TaskCase[TaskT]):
         self.test_send_commands()
         self.test_reconfigure_name()
 
+    def assert_written(self) -> None:
+        """Check that the device holds the last round of commands. Runs before the task
+        stops, because a stopping task drops the commands it has not written."""
+
     def test_send_commands(self) -> None:
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
@@ -786,6 +790,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_key=self.tsk.key,
                 command_values=self.command_values,
             )
+            self.assert_written()
 
     def test_reconfigure_name(self) -> None:
         """Rename the task, verify it persists, then send commands again."""
@@ -813,3 +818,4 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_key=self.tsk.key,
                 command_values=self.command_values,
             )
+            self.assert_written()
