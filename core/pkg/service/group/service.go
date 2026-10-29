@@ -181,7 +181,14 @@ func (w Writer) CreateWithKey(
 		return Group{}, err
 	}
 	id := g.OntologyID()
-	if err := w.otgWriter.ValidateName(ctx, id, name); err != nil {
+	err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Group](g.Key)).
+		Exec(ctx, w.tx)
+	if err == nil {
+		if err = w.otgWriter.ValidateName(ctx, id, name); err != nil {
+			return Group{}, err
+		}
+	} else if !errors.Is(err, query.ErrNotFound) {
 		return Group{}, err
 	}
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {

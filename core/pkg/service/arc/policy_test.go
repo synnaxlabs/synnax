@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"context"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -83,6 +84,12 @@ var _ = Describe("Policy", func() {
 			Expect(groups.CreateWithKey(ctx, root.Key, "Automations", ontology.RootID)).
 				Error().To(MatchError(ContainSubstring("cannot be renamed")))
 		})
+		It(
+			"Should accept a new group created with a key under Arcs",
+			func(ctx SpecContext) {
+				MustSucceed(groups.CreateWithKey(ctx, uuid.New(), "fresh", arcs))
+			},
+		)
 		It(
 			"Should check the name of a group created again with its key",
 			func(ctx SpecContext) {
