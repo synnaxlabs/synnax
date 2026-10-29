@@ -71,10 +71,7 @@ func (loginResponseTranslator) Forward(
 ) (*LoginResponse, error) {
 	return &LoginResponse{
 		Token: r.Token,
-		User: &User{
-			Key:      r.User.Key.String(),
-			Username: r.User.Username,
-		},
+		User:  &User{Key: r.User.Key.String()},
 		ClusterInfo: &ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
@@ -94,10 +91,7 @@ func (loginResponseTranslator) Backward(
 	}
 	return auth.LoginResponse{
 		Token: r.Token,
-		User: user.User{
-			Key:      key,
-			Username: r.User.Username,
-		},
+		User:  user.User{Key: key},
 		ClusterInfo: auth.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
@@ -245,7 +239,7 @@ func userForward(u *user.User) *User {
 	if u == nil {
 		return nil
 	}
-	return &User{Key: u.Key.String(), Username: u.Username}
+	return &User{Key: u.Key.String()}
 }
 
 func userBackward(u *User) (*user.User, error) {
@@ -256,7 +250,7 @@ func userBackward(u *User) (*user.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &user.User{Key: key, Username: u.Username}, nil
+	return &user.User{Key: key}, nil
 }
 
 func (sessionCreateRequestTranslator) Forward(
