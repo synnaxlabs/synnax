@@ -22,7 +22,7 @@ from freighter import (
 )
 from synnax import ontology
 from synnax.channel.retrieve import Retriever
-from synnax.exceptions import QueryError, ValidationError
+from synnax.exceptions import NotFoundError, ValidationError
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.deleter import Deleter
 from synnax.framer.frame import CrudeFrame, Frame, FramePayload, K
@@ -281,7 +281,7 @@ class Client:
         channel to about point_limit points. Defaults to keeping every sample.
         :returns: A MultiSeries for a single key or name. A Frame for a sequence, even
         a sequence with one item.
-        :raises QueryError: If a single channel has no data in the time range.
+        :raises NotFoundError: If a single channel has no data in the time range.
         """
         normal = channel.normalize_params(channels)
         frame = self._reader.read(tr, channels, reduction)
@@ -289,7 +289,7 @@ class Client:
             return frame
         series = frame.get(normal.channels[0], None)
         if series is None:
-            raise QueryError(
+            raise NotFoundError(
                 f"""No data found for channel {normal.channels[0]} between {tr}"""
             )
         return series

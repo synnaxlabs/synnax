@@ -187,7 +187,7 @@ class RangeDetails(HardwareCase, ConsoleCase):
             raise AssertionError(
                 f"Range '{self.child_3_name}' should be deleted from server"
             )
-        except sy.QueryError:
+        except sy.NotFoundError:
             pass
 
     def test_delete_multiple_child_ranges(self) -> None:
@@ -205,7 +205,7 @@ class RangeDetails(HardwareCase, ConsoleCase):
             try:
                 self.client.ranges.retrieve(name=name)
                 raise AssertionError(f"Range '{name}' should be deleted from server")
-            except sy.QueryError:
+            except sy.NotFoundError:
                 pass
 
     def test_set_metadata(self) -> None:

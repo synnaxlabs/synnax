@@ -22,7 +22,7 @@ import synnax.channel.payload as channel
 from freighter import UnaryClient
 from synnax import framer, label
 from synnax.channel.retrieve import Retriever as ChannelRetriever
-from synnax.exceptions import QueryError
+from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
@@ -163,7 +163,7 @@ class ScopedChannel(ArrayOperators):
 
     def _guard(self) -> None:
         if len(self._internal) > 1:
-            raise QueryError(
+            raise MultipleFoundError(
                 f"""Multiple channels found for query '{self._query}':
             {[str(ch) for ch in self._internal]}
             """
@@ -227,7 +227,7 @@ class ScopedChannel(ArrayOperators):
         return sum(len(ch) for ch in self._internal)
 
 
-_RANGE_NOT_CREATED = QueryError(
+_RANGE_NOT_CREATED = ConfigurationError(
     """Cannot read from a range that has not been created.
 Please call client.ranges.create(range) before attempting to read from a range."""
 )
@@ -322,7 +322,7 @@ class Range(Payload):
         self, channels: list[channel.Payload], query: str
     ) -> ScopedChannel:
         if len(channels) == 0:
-            raise QueryError(f"Channel matching {query} not found")
+            raise NotFoundError(f"Channel matching {query} not found")
         return ScopedChannel(query, self._splice_cached(channels))
 
     def __getattr__(self, query: str) -> ScopedChannel:
@@ -435,7 +435,7 @@ class Range(Payload):
             if isinstance(ch, str):
                 res = self._channel_retriever.retrieve(ch)
                 if len(res) == 0:
-                    raise QueryError(f"Channel {ch} not found")
+                    raise NotFoundError(f"Channel {ch} not found")
                 corrected[res[0].key] = alias
             else:
                 corrected[ch] = alias
@@ -626,7 +626,7 @@ class Client:
             if is_single and len(res) > 1:
                 filtered = [r for r in res if r.time_range == time_range]
                 if len(filtered) == 0:
-                    raise QueryError(
+                    raise NotFoundError(
                         f"""
                         retrieve_if_name_exists was set to true, but {len(res)} ranges
                         were found matching {name} but none had the same time range as
@@ -634,7 +634,7 @@ class Client:
                         """
                     )
                 if len(filtered) > 1:
-                    raise QueryError(
+                    raise MultipleFoundError(
                         f"""
                     retrieve_if_name_exists was set to true, but {len(res)} ranges were
                     found that matched {name} and had time range {time_range}. Synnax
@@ -712,7 +712,8 @@ class Client:
         :param include_labels: Attaches the labels of each range.
         :param include_parent: Attaches the parent of each range.
         :returns: The range for a key or name, else a list of the matching ranges.
-        :raises QueryError: If a single range is not found, or more than one matches.
+        :raises NotFoundError: If no range matches a key or name.
+        :raises MultipleFoundError: If more than one range matches a key or name.
         :raises ValueError: If key and name are both given, or either is combined with
             a list filter.
         """
@@ -740,9 +741,9 @@ class Client:
         if not is_single:
             return sug
         if len(sug) == 0:
-            raise QueryError(f"Range {key or name} not found")
+            raise NotFoundError(f"Range {key or name} not found")
         if len(sug) > 1:
-            raise QueryError(f"Multiple ranges matching {key or name} found")
+            raise MultipleFoundError(f"Multiple ranges matching {key or name} found")
         return sug[0]
 
     def delete(

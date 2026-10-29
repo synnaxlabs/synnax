@@ -117,7 +117,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         try:
             rng = self.client.ranges.retrieve(name=RANGE_NAME)
             self.client.ranges.delete(rng.key)
-        except sy.QueryError:
+        except sy.NotFoundError:
             pass
         super().teardown()
 

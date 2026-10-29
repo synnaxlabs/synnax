@@ -26,6 +26,18 @@ from x.strings import random_name
 from x.testutil import assert_eventually
 
 
+class TestRangeNotCreated:
+    def test_meta_data(self) -> None:
+        """Should raise a ConfigurationError when reading from a range that was
+        never created"""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ConfigurationError):
+            rng.meta_data.get("key")
+
+
 @pytest.mark.ranger
 class TestRangeClient:
     @pytest.fixture(scope="class")
@@ -122,9 +134,17 @@ class TestRangeClient:
     def test_retrieve_by_name_not_found(
         self, two_ranges: list[sy.Range], client: sy.Synnax
     ) -> None:
-        """Should raise an error when a range is not found"""
-        with pytest.raises(sy.exceptions.QueryError):
+        """Should raise a NotFoundError when a range is not found"""
+        with pytest.raises(sy.NotFoundError):
             client.ranges.retrieve(name="not_found")
+
+    def test_retrieve_by_name_multiple(self, client: sy.Synnax) -> None:
+        """Should raise a MultipleFoundError when more than one range matches"""
+        name = random_name()
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
+        with pytest.raises(sy.MultipleFoundError):
+            client.ranges.retrieve(name=name)
 
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax) -> None:
         """Should search for ranges"""
@@ -145,6 +165,37 @@ class TestRangeClient:
         )
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
+
+    def test_create_retrieve_if_name_exists_no_time_range_match(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise a NotFoundError when no range with the name has the same
+        time range"""
+        name = random_name()
+        now = sy.TimeStamp.now()
+        client.ranges.create(
+            [
+                sy.Range(name=name, time_range=now.span_range(sy.TimeSpan.SECOND)),
+                sy.Range(name=name, time_range=now.span_range(2 * sy.TimeSpan.SECOND)),
+            ]
+        )
+        with pytest.raises(sy.NotFoundError):
+            client.ranges.create(
+                name=name,
+                time_range=now.span_range(3 * sy.TimeSpan.SECOND),
+                retrieve_if_name_exists=True,
+            )
+
+    def test_create_retrieve_if_name_exists_multiple_time_range_matches(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise a MultipleFoundError when more than one range with the name
+        has the same time range"""
+        name = random_name()
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
+        with pytest.raises(sy.MultipleFoundError):
+            client.ranges.create(name=name, time_range=tr, retrieve_if_name_exists=True)
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a range."""
@@ -188,7 +239,7 @@ class TestRangeClient:
         def test_delete_by_key(self, rng: sy.Range, client: sy.Synnax) -> None:
             """Should delete a range by key"""
             client.ranges.delete(rng.key)
-            with pytest.raises(sy.exceptions.QueryError):
+            with pytest.raises(sy.NotFoundError):
                 client.ranges.retrieve(key=rng.key)
 
         def test_delete_multiple_keys(self, client: sy.Synnax) -> None:
@@ -212,7 +263,7 @@ class TestRangeClient:
             keys = [r.key for r in ranges]
             client.ranges.delete(keys)
             for k in keys:
-                with pytest.raises(sy.exceptions.QueryError):
+                with pytest.raises(sy.NotFoundError):
                     client.ranges.retrieve(key=k)
 
     @pytest.mark.ranger
@@ -267,6 +318,15 @@ class TestRangeClient:
             for _ in channels:
                 found += 1
             assert found == 2
+
+        def test_single_channel_operation_on_regex_matches(
+            self, rng: sy.Range, two_channels: list[sy.Channel]
+        ) -> None:
+            """Should raise a MultipleFoundError when a single channel operation runs
+            on a query that matches more than one channel"""
+            prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
+            with pytest.raises(sy.MultipleFoundError):
+                rng[f"test_{prefix}_.*"].to_numpy()
 
         def test_repeated_access_retrieves_once(
             self,
@@ -358,7 +418,7 @@ class TestRangeClient:
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(sy.exceptions.QueryError):
+            with pytest.raises(sy.NotFoundError):
                 rng["not_found"]
 
         def test_channel_not_found_on_set(self, client: sy.Synnax) -> None:
@@ -366,7 +426,7 @@ class TestRangeClient:
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            with pytest.raises(sy.exceptions.QueryError):
+            with pytest.raises(sy.NotFoundError):
                 rng.set_alias("not_found", "test")
 
     @pytest.mark.ranger

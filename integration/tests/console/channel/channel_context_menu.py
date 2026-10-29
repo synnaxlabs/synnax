@@ -124,7 +124,7 @@ class ChannelContextMenu(ConsoleCase):
         rng = client.ranges.retrieve(name=range_name)
         try:
             rng[alias_name]
-        except sy.QueryError:
+        except sy.NotFoundError:
             pass
         else:
             raise AssertionError(

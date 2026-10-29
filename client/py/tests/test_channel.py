@@ -232,7 +232,7 @@ class TestChannel:
             assert isinstance(indexed_pair[i].data_type.density, sy.Density)
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
-        """Should raise QueryError when key not found"""
+        """Should raise a NotFoundError when key not found"""
         with pytest.raises(sy.NotFoundError):
             client.channels.retrieve(1234)
 
@@ -281,7 +281,7 @@ class TestChannel:
         self,
         client: sy.Synnax,
     ) -> None:
-        """Should raise QueryError when retrieving a single channel with
+        """Should raise a MultipleFoundError when retrieving a single channel with
         multiple matches"""
         with pytest.raises(sy.MultipleFoundError):
             prefix = channel_name()
@@ -335,7 +335,7 @@ class TestChannel:
         )
         keys = [channel.key for channel in channels]
         client.channels.delete(keys)
-        with pytest.raises(sy.QueryError):
+        with pytest.raises(sy.NotFoundError):
             client.channels.retrieve(keys)
 
     def test_delete_by_name(self, client: sy.Synnax) -> None:
