@@ -9,7 +9,7 @@
 
 import { rack } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
@@ -35,22 +35,30 @@ describe("useCreateModal", () => {
     expect(findButton("Create").className).toContain("pluto--disabled");
   });
 
-  it("should delete the key when the modal closes before it arrives", async () => {
+  it("should block closing while the key is being created", async () => {
     const client = createTestClient();
-    // API keys have no change stream, so the delete call is the only completion signal.
-    const deleteAPIKeys = vi.spyOn(client.auth, "deleteAPIKeys");
+    const create = client.auth.createAPIKey.bind(client.auth);
+    let release = (): void => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const createKey = vi
+      .spyOn(client.auth, "createAPIKey")
+      .mockImplementation(async (params) => {
+        await gate;
+        return await create(params);
+      });
     await openModal(Rack.useCreateModal, { client });
-    const name = uniqueName("rack");
     fireEvent.change(screen.getByPlaceholderText("Rack name"), {
-      target: { value: name },
+      target: { value: uniqueName("rack") },
     });
     fireEvent.click(findButton("Create"));
+    await expect.poll(() => createKey.mock.calls.length).toBe(1);
     fireEvent.click(findDismissButton());
-    await expect.poll(() => deleteAPIKeys.mock.results.length).toBe(1);
-    await deleteAPIKeys.mock.results[0].value;
-    const [created] = await client.racks.retrieve({ names: [name] });
-    expect(
-      await client.auth.retrieveAPIKeys([rack.ontologyID(created.key)]),
-    ).toHaveLength(0);
+    fireEvent.keyDown(window, { code: "Escape" });
+    fireEvent.keyUp(window, { code: "Escape" });
+    expect(screen.queryByPlaceholderText("Rack name")).not.toBeNull();
+    release();
+    await screen.findByDisplayValue(/^syk_/);
+    fireEvent.click(findDismissButton());
+    await waitFor(() => expect(screen.queryByPlaceholderText("Rack name")).toBeNull());
   });
 });

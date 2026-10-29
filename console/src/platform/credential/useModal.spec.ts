@@ -13,12 +13,15 @@ import {
   createTestClientWithRole,
   createTestUser,
 } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { useModal } from "@/platform/credential/useModal";
 import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
 import {
+  CaptureStatuses,
   createTestClientWithGrants,
   getIconButton,
   getIconButtons,
@@ -76,6 +79,36 @@ describe("useModal", () => {
     await waitFor(async () =>
       expect((await client.auth.retrieveAPIKeys([id])).map((k) => k.key)).not.toContain(
         createdKey,
+      ),
+    );
+  });
+
+  it("should show an error when deleting an unused key fails", async () => {
+    const client = createTestClient();
+    const { user: subject } = await createTestUser(client);
+    const id = user.ontologyID(subject.key);
+    const create = client.auth.createAPIKey.bind(client.auth);
+    let release = (): void => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    vi.spyOn(client.auth, "createAPIKey").mockImplementation(async (params) => {
+      await gate;
+      return await create(params);
+    });
+    vi.spyOn(client.auth, "deleteAPIKeys").mockRejectedValue(new Error("denied"));
+    let statuses: Status.NotificationSpec[] = [];
+    await openModal(useModal, {
+      client,
+      params: { subject: id },
+      extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+    });
+    await screen.findByText("No API keys");
+    await type("Key name", uniqueName("key"));
+    fireEvent.click(findButton("Create key"));
+    fireEvent.click(findDismissButton());
+    release();
+    await waitFor(() =>
+      expect(statuses.map((s) => s.message)).toContain(
+        "Failed to delete an unused API key",
       ),
     );
   });

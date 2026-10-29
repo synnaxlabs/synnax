@@ -42,37 +42,42 @@ pub fn oidc_listen(state: tauri::State<'_, Loopback>) -> Result<u16, String> {
     Ok(port)
 }
 
-/// Waits for the browser to return to the listener and returns the query string of
-/// the redirect, which carries the code and state. Fails after five minutes.
+/// Waits for the browser to return to the listener with the given login state, and
+/// returns the query string of the redirect, which carries the code and state. Fails
+/// after five minutes.
 #[tauri::command]
-pub async fn oidc_wait(state: tauri::State<'_, Loopback>) -> Result<String, String> {
-    let listener = state
+pub async fn oidc_wait(
+    loopback: tauri::State<'_, Loopback>,
+    state: String,
+) -> Result<String, String> {
+    let listener = loopback
         .0
         .lock()
         .map_err(|e| e.to_string())?
         .take()
         .ok_or("no login is waiting for a redirect")?;
-    tauri::async_runtime::spawn_blocking(move || accept(&listener, TIMEOUT))
+    tauri::async_runtime::spawn_blocking(move || accept(&listener, &state, TIMEOUT))
         .await
         .map_err(|e| e.to_string())?
 }
 
-/// Accepts connections until one requests the callback path, answers it with a page
-/// that tells the person to return to the Console, and returns its query string.
-fn accept(listener: &TcpListener, timeout: Duration) -> Result<String, String> {
+/// Accepts connections until one requests the callback path with the given state,
+/// answers it with a page that tells the person to return to the Console, and returns
+/// its query string. Every request counts against the timeout.
+fn accept(listener: &TcpListener, state: &str, timeout: Duration) -> Result<String, String> {
     listener.set_nonblocking(true).map_err(|e| e.to_string())?;
     let deadline = Instant::now() + timeout;
     loop {
+        if Instant::now() >= deadline {
+            return Err("the login timed out".into());
+        }
         match listener.accept() {
             Ok((stream, _)) => {
-                if let Some(query) = respond(stream)? {
+                if let Some(query) = respond(stream, state, deadline)? {
                     return Ok(query);
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                if Instant::now() >= deadline {
-                    return Err("the login timed out".into());
-                }
                 std::thread::sleep(Duration::from_millis(50));
             }
             Err(e) => return Err(e.to_string()),
@@ -80,20 +85,29 @@ fn accept(listener: &TcpListener, timeout: Duration) -> Result<String, String> {
     }
 }
 
-/// Reads one request line, within [`REQUEST_TIMEOUT`] and [`MAX_REQUEST_LINE`] bytes,
-/// so a local process cannot hold the listener or grow its memory. A request for
-/// `/callback` gets the page and yields its query; any other request, such as a favicon,
-/// gets a 404 and yields nothing.
-fn respond(mut stream: TcpStream) -> Result<Option<String>, String> {
+/// Reads one request line, within [`REQUEST_TIMEOUT`], the deadline, and
+/// [`MAX_REQUEST_LINE`] bytes, so a local process cannot hold the listener or grow its
+/// memory. A request for `/callback` with the given state gets the page and yields its
+/// query. A callback with another state gets a 400, any other request a 404, and both
+/// yield nothing.
+fn respond(
+    mut stream: TcpStream,
+    state: &str,
+    deadline: Instant,
+) -> Result<Option<String>, String> {
     stream.set_nonblocking(false).map_err(|e| e.to_string())?;
-    let line = read_request_line(&mut stream, Instant::now() + REQUEST_TIMEOUT);
+    let line = read_request_line(&mut stream, deadline.min(Instant::now() + REQUEST_TIMEOUT));
     let target = line.split_whitespace().nth(1).unwrap_or("");
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
-    let found = path == "/callback";
-    let (status, body) = if found {
-        ("200 OK", PAGE)
+    let (status, body, found) = if path != "/callback" {
+        ("404 Not Found", "", false)
+    } else if query
+        .split('&')
+        .any(|p| p.strip_prefix("state=") == Some(state))
+    {
+        ("200 OK", PAGE, true)
     } else {
-        ("404 Not Found", "")
+        ("400 Bad Request", "", false)
     };
     write!(
         stream,
@@ -133,7 +147,8 @@ fn read_request_line(stream: &mut TcpStream, deadline: Instant) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     fn get(port: u16, target: &str) -> String {
         let mut stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
@@ -152,7 +167,7 @@ mod tests {
             let page = get(port, "/callback?code=abc&state=xyz");
             (missing, page)
         });
-        let query = accept(&listener, Duration::from_secs(5)).unwrap();
+        let query = accept(&listener, "xyz", Duration::from_secs(5)).unwrap();
         let (missing, page) = client.join().unwrap();
         assert_eq!(query, "code=abc&state=xyz");
         assert!(missing.starts_with("HTTP/1.1 404"));
@@ -169,14 +184,66 @@ mod tests {
             while stream.write_all(&chunk).is_ok() {}
         });
         let (stream, _) = listener.accept().unwrap();
-        assert_eq!(respond(stream).unwrap(), None);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        assert_eq!(respond(stream, "xyz", deadline).unwrap(), None);
         flood.join().unwrap();
     }
 
     #[test]
     fn times_out_without_a_redirect() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let err = accept(&listener, Duration::from_millis(100)).unwrap_err();
+        let err = accept(&listener, "xyz", Duration::from_millis(100)).unwrap_err();
         assert_eq!(err, "the login timed out");
+    }
+
+    #[test]
+    fn ignores_a_callback_for_another_login() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let client = std::thread::spawn(move || {
+            let other = get(port, "/callback?code=bad&state=other");
+            let page = get(port, "/callback?code=abc&state=xyz");
+            (other, page)
+        });
+        let query = accept(&listener, "xyz", Duration::from_secs(5)).unwrap();
+        let (other, page) = client.join().unwrap();
+        assert_eq!(query, "code=abc&state=xyz");
+        assert!(other.starts_with("HTTP/1.1 400"));
+        assert!(page.starts_with("HTTP/1.1 200"));
+    }
+
+    #[test]
+    fn times_out_while_requests_keep_arriving() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let done = Arc::new(AtomicBool::new(false));
+        let flood_done = done.clone();
+        let flood = std::thread::spawn(move || {
+            while !flood_done.load(Ordering::Relaxed) {
+                if let Ok(mut stream) = TcpStream::connect(("127.0.0.1", port)) {
+                    let _ = write!(stream, "GET /callback?state=other HTTP/1.1\r\n\r\n");
+                    let _ = stream.read_to_end(&mut Vec::new());
+                }
+            }
+        });
+        let start = Instant::now();
+        let err = accept(&listener, "xyz", Duration::from_millis(300)).unwrap_err();
+        done.store(true, Ordering::Relaxed);
+        drop(listener);
+        flood.join().unwrap();
+        assert_eq!(err, "the login timed out");
+        assert!(start.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn times_out_while_a_request_stalls() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let stalled = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let start = Instant::now();
+        let err = accept(&listener, "xyz", Duration::from_millis(300)).unwrap_err();
+        drop(stalled);
+        assert_eq!(err, "the login timed out");
+        assert!(start.elapsed() < REQUEST_TIMEOUT);
     }
 }
