@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <condition_variable>
 #include <functional>
 #include <future>
@@ -390,7 +391,7 @@ protected:
     }
 
     /// @brief reads the statuses that a Driver on this rack stamped at or after since,
-    /// keyed by task, until done returns true for them.
+    /// keyed by task, until done returns true for them. Fails the spec after 5 seconds.
     std::unordered_map<synnax::task::Key, synnax::task::Status> read_statuses_since(
         const x::telem::TimeStamp since,
         const std::function<
@@ -398,23 +399,33 @@ protected:
             &done
     ) {
         std::unordered_map<synnax::task::Key, synnax::task::Status> statuses;
-        x::testutil::eventually(
-            [&] {
+        std::promise<bool> ended;
+        auto read_all = ended.get_future();
+        std::thread reader([&] {
+            while (true) {
                 auto [frame, err] = streamer.read();
-                if (err) return false;
+                if (err) {
+                    ended.set_value(false);
+                    return;
+                }
                 for (const auto &j: frame.series->at(0).json_values()) {
                     auto parser = x::json::Parser(j);
                     auto s = synnax::task::Status::parse(parser);
                     if (s.details.rack == rack.key && s.time >= since)
                         statuses[s.details.task] = s;
                 }
-                return done(statuses);
-            },
-            [] { return "Timed out waiting for task statuses"; },
-            __FILE__,
-            __LINE__,
-            std::chrono::seconds(5)
-        );
+                if (done(statuses)) {
+                    ended.set_value(true);
+                    return;
+                }
+            }
+        });
+        // read has no deadline, so closing the stream is what ends a read that waits
+        // for a status that never comes.
+        if (read_all.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+            streamer.close_send();
+        reader.join();
+        if (!read_all.get()) ADD_FAILURE() << "Timed out waiting for task statuses";
         return statuses;
     }
 
@@ -1498,10 +1509,11 @@ TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
 
 using SynnaxContextTest = TaskManagerTest;
 
-/// @brief a status set transport that holds each write that starts with one status key
-/// until released, and echoes every write.
+/// @brief a status set transport that holds each write that carries one status key
+/// until released, and echoes every write. The first passes such writes are not held.
 class HoldingSetClient final : public synnax::status::SetClient {
     const std::string held_key;
+    size_t passes;
     std::mutex mu;
     std::condition_variable cv;
     bool released = false;
@@ -1510,7 +1522,8 @@ class HoldingSetClient final : public synnax::status::SetClient {
 public:
     std::atomic<bool> holding = false;
 
-    explicit HoldingSetClient(std::string held_key): held_key(std::move(held_key)) {}
+    explicit HoldingSetClient(std::string held_key, const size_t passes = 0):
+        held_key(std::move(held_key)), passes(passes) {}
 
     void use(std::shared_ptr<freighter::Middleware>) override {}
 
@@ -1520,7 +1533,10 @@ public:
         auto &keys = this->requests.emplace_back();
         for (const auto &status: req.statuses())
             keys.push_back(status.key());
-        if (keys.front() == this->held_key) {
+        const bool held = std::ranges::find(keys, this->held_key) != keys.end();
+        if (held && this->passes > 0)
+            this->passes--;
+        else if (held) {
             this->holding = true;
             this->cv.wait(lock, [this] { return this->released; });
         }
@@ -1613,6 +1629,43 @@ TEST_F(SynnaxContextTest, ResendSkipsTaskThatIsWriting) {
     ASSERT_EQ(resent.wait_for(std::chrono::seconds(2)), std::future_status::ready);
     ASSERT_NIL(resent.get());
     EXPECT_EQ(transport->sent().back(), std::vector{synnax::task::status_key(free)});
+}
+
+/// @brief it should write the status of a task while the re-send of another task's
+/// status hangs.
+TEST_F(SynnaxContextTest, WriteDoesNotWaitOnResendOfAnotherTask) {
+    const auto held = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
+    const auto free = synnax::task::Task{.key = x::uuid::create(), .name = "free"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::status_key(held),
+        1
+    );
+    const auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    sy->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<SynnaxContext>(sy, nullptr, nullptr, rack.key);
+    synnax::task::Status held_status{
+        .key = synnax::task::status_key(held),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .details = {.task = held.key},
+    };
+    ctx->set_status(held_status);
+    synnax::task::Status free_status{
+        .key = synnax::task::status_key(free),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .details = {.task = free.key},
+    };
+    ctx->set_status(free_status);
+    // Declared before the guard, so the guard releases the hung re-send before the
+    // futures wait for their tasks.
+    std::future<x::errors::Error> resent;
+    std::future<void> written;
+    x::defer::defer release([&] { transport->release(); });
+    resent = std::async(std::launch::async, [&] { return ctx->resend_statuses(); });
+    ASSERT_EVENTUALLY_TRUE(transport->holding.load());
+    written = std::async(std::launch::async, [&] { ctx->set_status(free_status); });
+    ASSERT_EQ(written.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+    transport->release();
+    ASSERT_NIL(resent.get());
 }
 
 /// @brief it should send the latest status of each task again, with no command key.
