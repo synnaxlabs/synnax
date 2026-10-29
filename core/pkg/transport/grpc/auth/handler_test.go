@@ -87,7 +87,7 @@ type (
 const errInvalidUUID = "invalid uuid"
 
 var (
-	bob    = user.User{Key: uuid.New(), Username: "bob"}
+	bob    = user.User{Key: uuid.New()}
 	apiKey = auth.APIKey{
 		Key:     uuid.New(),
 		Subject: bob.OntologyID(),

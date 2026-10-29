@@ -7,4 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Analytics from "@/components/analytics/external";
+package v3
+
+// CustomTypeName gives ScanConfig records a table prefix that cannot collide with
+// the identically named config types of other integrations.
+func (ScanConfig) CustomTypeName() string { return "ni_scanner_config" }

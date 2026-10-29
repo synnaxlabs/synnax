@@ -9,6 +9,8 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/os/os.h"
+
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
@@ -42,8 +44,14 @@ void configure_integration(
 }
 
 void configure_opcua(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, opcua::INTEGRATION_NAME, []() {
-        return std::make_unique<opcua::Factory>();
+    configure_integration(config, factories, opcua::INTEGRATION_NAME, [&config]() {
+        auto [host, _] = x::os::get_hostname();
+        return std::make_unique<opcua::Factory>(
+            std::make_shared<opcua::certificate::Store>(opcua::certificate::StoreConfig{
+                .dir = config.state_dir / "opcua" / "pki",
+                .host = host,
+            })
+        );
     });
 }
 

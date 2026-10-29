@@ -10,15 +10,6 @@
 #pragma once
 
 #include <optional>
-// Disable GCC 13 false positive warning in <regex> header
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
-#include <regex>
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 #include <string>
 #include <thread>
 #include <unordered_set>
@@ -92,28 +83,9 @@ struct Device : synnax::device::Device {
     }
 };
 
-/// @brief the default pattern for ignoring certain models.
-const std::vector<std::string> DEFAULT_IGNORED_MODELS = {"^cRIO.*", "^nown.*"};
 /// @brief configuration for opening a scan task.
 struct ScanTaskConfig : common::ScanTaskConfig {
-    /// @brief a set of regex patterns to ignore certain devices when scanning.
-    std::vector<std::regex> ignored_models;
-
-    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {
-        const auto i = cfg.field<std::vector<std::string>>(
-            "ignored_models",
-            DEFAULT_IGNORED_MODELS
-        );
-        for (const auto &pattern: i)
-            ignored_models.emplace_back(pattern);
-    }
-
-    /// @brief returns if the device with the given model should be ignored.
-    [[nodiscard]] bool should_ignore(const std::string &model) const {
-        for (const auto &pattern: this->ignored_models)
-            if (std::regex_match(model, pattern)) return true;
-        return false;
-    }
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
 /// @brief a task that scans for NI devices.
