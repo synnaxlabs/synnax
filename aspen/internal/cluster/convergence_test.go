@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/rand"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 type newConvergenceVars struct {
