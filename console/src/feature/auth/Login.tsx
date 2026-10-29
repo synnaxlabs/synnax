@@ -51,16 +51,23 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 
 // An unreachable Core, or one older than the methods endpoint, keeps the password
 // form: the connection status reports the first, and the second accepts passwords.
-const usePasswordAccepted = (core?: auth.MethodsParams): boolean => {
+const usePasswordAccepted = (core?: auth.TokenlessParams): boolean => {
+  const host = core?.host;
+  const port = core?.port;
+  const secure = core?.secure;
+  const tokenless =
+    host == null || port == null
+      ? null
+      : auth.createTokenlessClient({ host, port, secure });
   const [accepted, setAccepted] = useState(true);
   useAsyncEffect(
     async (signal) => {
       setAccepted(true);
-      if (core == null) return;
-      const methods = await auth.retrieveMethods(core).catch(() => null);
+      if (tokenless == null) return;
+      const methods = await auth.retrieveMethods(tokenless).catch(() => null);
       if (methods != null && !signal.aborted) setAccepted(methods.includes("password"));
     },
-    [core?.host, core?.port, core?.secure],
+    [host, port, secure],
   );
   return accepted;
 };

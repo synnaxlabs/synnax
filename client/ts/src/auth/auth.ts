@@ -172,45 +172,49 @@ const methodsResZ = z.object({
 });
 
 /** The address of a Core, for a request that needs no session. */
-export interface MethodsParams {
+export interface TokenlessParams {
   host: string;
   port: number | string;
   secure?: boolean;
 }
 
-const sendMethods = async ({
+/**
+ * Creates a client for the routes a Core serves without a session. Create one per Core
+ * address and reuse it across requests.
+ */
+export const createTokenlessClient = ({
   host,
   port,
   secure = false,
-}: MethodsParams): Promise<z.infer<typeof methodsResZ>> => {
+}: TokenlessParams): UnaryClient => {
   const transport = new Transport(
     new url.URL({ host, port: Number(port) }),
     {},
     secure,
   );
   transport.use(errorsMiddleware);
-  return await transport.unaryNoRetry.send(
-    METHODS_ENDPOINT,
-    {},
-    z.object({}),
-    methodsResZ,
-  );
+  return transport.unaryNoRetry;
 };
+
+const sendMethods = async (client: UnaryClient): Promise<z.infer<typeof methodsResZ>> =>
+  await client.send(METHODS_ENDPOINT, {}, z.object({}), methodsResZ);
 
 /**
  * Retrieves the login methods a Core accepts, without logging in.
+ * @param client - A client from {@link createTokenlessClient}.
  * @throws {Unreachable} if the Core cannot be reached.
  */
-export const retrieveMethods = async (params: MethodsParams): Promise<Method[]> =>
-  (await sendMethods(params)).methods;
+export const retrieveMethods = async (client: UnaryClient): Promise<Method[]> =>
+  (await sendMethods(client)).methods;
 
 /**
  * Retrieves where to log in through each OpenID Connect provider of a Core, without
  * logging in. It is empty when the Core does not accept the oidc method.
+ * @param client - A client from {@link createTokenlessClient}.
  * @throws {Unreachable} if the Core cannot be reached.
  */
-export const retrieveProviders = async (params: MethodsParams): Promise<OIDCLogin[]> =>
-  (await sendMethods(params)).providers;
+export const retrieveProviders = async (client: UnaryClient): Promise<OIDCLogin[]> =>
+  (await sendMethods(client)).providers;
 
 export interface CreateSessionResult {
   /** The token of the new session. */
@@ -220,23 +224,17 @@ export interface CreateSessionResult {
 }
 
 /**
- * Opens a session with a proof, without a client. For a caller that saves the token
- * itself and hands it to clients to resume.
+ * Opens a session with a proof, without a logged-in client. For a caller that saves the
+ * token itself and hands it to clients to resume.
+ * @param client - A client from {@link createTokenlessClient}.
  * @throws {AuthError} when the Core rejects the proof.
  * @throws {Unreachable} if the Core cannot be reached.
  */
 export const createSession = async (
-  params: MethodsParams,
+  client: UnaryClient,
   proof: Proof,
 ): Promise<CreateSessionResult> => {
-  const { host, port, secure = false } = params;
-  const transport = new Transport(
-    new url.URL({ host, port: Number(port) }),
-    {},
-    secure,
-  );
-  transport.use(errorsMiddleware);
-  const { token, session } = await transport.unaryNoRetry.send(
+  const { token, session } = await client.send(
     SESSION_CREATE_ENDPOINT,
     { proof },
     createReqZ,
