@@ -12,7 +12,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/modbus/modbus.h"
 #include "driver/modbus/testutil/slave.h"

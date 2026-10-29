@@ -172,14 +172,14 @@ describe("setpoint symbol", () => {
   describe("units", () => {
     it("should show the units at the end of the field", () => {
       const { container } = render(<Setpoint onSend={vi.fn()} units="psi" />);
-      expect(container.querySelector(".pluto-input__end-content")?.textContent).toBe(
+      expect(container.querySelector(".lyra-input__end-content")?.textContent).toBe(
         "psi",
       );
     });
 
     it("should show no units when the units are empty", () => {
       const { container } = render(<Setpoint onSend={vi.fn()} units="" />);
-      expect(container.querySelector(".pluto-input__end-content")).toBeNull();
+      expect(container.querySelector(".lyra-input__end-content")).toBeNull();
     });
   });
 });

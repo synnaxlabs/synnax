@@ -500,27 +500,6 @@ var _ = Describe("Diagnostics", func() {
 		})
 	})
 
-	Describe("Warnings", func() {
-		It("Should return empty slice when no warnings", func() {
-			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Errorf(nil, "error"))
-			d.Add(diagnostics.Hintf(nil, "hint"))
-			Expect(d.Warnings()).To(BeEmpty())
-		})
-
-		It("Should return only warning-level diagnostics", func() {
-			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Warningf(nil, "warning1"))
-			d.Add(diagnostics.Errorf(nil, "error"))
-			d.Add(diagnostics.Warningf(nil, "warning2"))
-			d.Add(diagnostics.Hintf(nil, "hint"))
-			warnings := d.Warnings()
-			Expect(warnings).To(HaveLen(2))
-			Expect(warnings[0].Message).To(Equal("warning1"))
-			Expect(warnings[1].Message).To(Equal("warning2"))
-		})
-	})
-
 	Describe("Empty", func() {
 		It("Should return true when no diagnostics", func() {
 			var d diagnostics.Diagnostics

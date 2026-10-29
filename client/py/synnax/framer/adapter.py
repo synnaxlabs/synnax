@@ -186,10 +186,11 @@ class WriteFrameAdapter:
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(channels_or_data, (str, channel.Key, channel.Payload)):
+            kind = "name" if isinstance(channels_or_data, str) else "key"
             if series is None:
                 raise ValidationError(
                     f"""
-                Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
+                Received a single channel {kind}
                 but no data.
                 """
                 )
@@ -198,7 +199,7 @@ class WriteFrameAdapter:
                 if not isinstance(first, (float, int)):
                     raise ValidationError(
                         f"""
-                    Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
+                    Received a single channel {kind}
                     but multiple series.
                     """
                     )
@@ -223,9 +224,10 @@ class WriteFrameAdapter:
             for i, ch in enumerate(channels_or_data):
                 key = self._adapt_to_key(ch)
                 if i >= len(series_list):
+                    n_channels, n_series = len(channels_or_data), len(series_list)
                     raise ValidationError(
                         f"""
-                    Received {len(channels_or_data)} channels but only {len(series_list)} series.
+                    Received {n_channels} channels but only {n_series} series.
                     """
                     )
                 channels.append(key)

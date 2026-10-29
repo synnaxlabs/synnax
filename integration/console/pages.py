@@ -82,18 +82,11 @@ class PagesClient(ResourceClient):
         :param name: Name of the page to drag.
         :returns: Instance of ``page_class`` wrapping the opened page.
         """
-        for attempt in range(2):
-            self.layout.show_resource_toolbar("Projects")
-            page_item = self._find(name)
-            mosaic = self.layout.page.locator(".console-mosaic").first
-            page_item.drag_to(mosaic)
-            self.layout.close_left_toolbar()
-            try:
-                self.layout.wait_for_tab(name)
-                break
-            except PlaywrightTimeoutError:
-                if attempt == 1:
-                    raise
+        self.layout.show_resource_toolbar("Projects")
+        page_item = self._find(name)
+        self.layout.drag(page_item, self.layout.page.locator(".console-mosaic").first)
+        self.layout.close_left_toolbar()
+        self.layout.wait_for_tab(name)
         return page_class.from_open_page(self.layout, self.client, name)
 
     def bind_open(self, page_class: type[T], name: str) -> T:
@@ -190,7 +183,7 @@ class PagesClient(ResourceClient):
         """
         self.layout.close_left_toolbar()
         add_btn = self.layout.page.locator(
-            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.pluto-icon--add)"
+            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.lyra-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.dispatch_event("click")

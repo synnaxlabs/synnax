@@ -39,7 +39,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const entry = (name: string) =>
       page.locator(".pluto-legend-entry").filter({ hasText: name }).first();
     await session.waitFor(entry(AUTOMATION));
-    await session.waitFor(symbol.locator(".pluto-control-chip svg.pluto-icon--square"));
+    await session.waitFor(symbol.locator(".pluto-control-chip svg.lyra-icon--square"));
     const toggle = symbol.locator("button.pluto-symbol-primitive-toggle").first();
     // The valve shows its echoed state channel, so it reads open only once the echo
     // lands, and closed again once the Arc's next write does.

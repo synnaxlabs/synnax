@@ -34,6 +34,7 @@
         { "case": "console/task/modbus_write_task" },
         { "case": "console/task/modbus_invalid" },
         { "case": "console/device/connect_network" },
+        { "case": "console/device/connect_opcua" },
         { "case": "console/device/http_legacy_device" }
       ]
     },

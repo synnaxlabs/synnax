@@ -18,6 +18,8 @@
 #include <winsock2.h>
 #endif
 
+#include <filesystem>
+
 #include "absl/log/log.h"
 
 #include "x/cpp/args/args.h"
@@ -105,6 +107,9 @@ struct Config {
     synnax::Config connection;
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
+    /// @brief the directory that holds the persisted state file. Integrations keep
+    /// their own files, such as certificates, inside it.
+    std::filesystem::path state_dir;
 
     /// @brief returns a new task factory to use for creating tasks in the task
     /// manager.

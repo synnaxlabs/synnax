@@ -38,25 +38,25 @@ test("grid", async ({ bench }) => {
   );
 });
 
-const SLOTS = indexes(HOUR, HOUR_LEVEL);
+const SLOTS = indexes(HOUR, HOUR_LEVEL).map((index) => ({ level: HOUR_LEVEL, index }));
 
 const positions = (l: number, from: number, count: number): Position[] =>
   Array.from({ length: count }, (_, i) => ({ level: l, index: from + i }));
 
 // below returns every tile depth levels finer than the slots.
 const below = (depth: number): Position[] =>
-  positions(HOUR_LEVEL - depth, SLOTS[0] * 2 ** depth, SLOTS.length * 2 ** depth);
+  positions(HOUR_LEVEL - depth, SLOTS[0].index * 2 ** depth, SLOTS.length * 2 ** depth);
 
 // The held tiles of a view settled at its level, of a zoom in that waits on the new
 // level, and of a zoom out that waits on it.
-const OWN = positions(HOUR_LEVEL, SLOTS[0], SLOTS.length);
-const COARSER = [{ level: HOUR_LEVEL + 2, index: Math.floor(SLOTS[0] / 4) }];
+const OWN = positions(HOUR_LEVEL, SLOTS[0].index, SLOTS.length);
+const COARSER = [{ level: HOUR_LEVEL + 2, index: Math.floor(SLOTS[0].index / 4) }];
 const FINER = below(4);
 
 test("choose", async ({ bench }) => {
   await bench.compare(
-    bench("own tiles held", () => void choose(HOUR_LEVEL, SLOTS, OWN)),
-    bench("a coarser tile held", () => void choose(HOUR_LEVEL, SLOTS, COARSER)),
-    bench("tiles 4 levels finer held", () => void choose(HOUR_LEVEL, SLOTS, FINER)),
+    bench("own tiles held", () => void choose(SLOTS, OWN)),
+    bench("a coarser tile held", () => void choose(SLOTS, COARSER)),
+    bench("tiles 4 levels finer held", () => void choose(SLOTS, FINER)),
   );
 });
