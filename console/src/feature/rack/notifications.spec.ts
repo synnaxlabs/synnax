@@ -19,11 +19,22 @@ import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
+/** @returns the status key of a new rack, without the status that the Core gives it. */
+const createRackKey = async (): Promise<status.Key> => {
+  const r = await client.racks.create({ name: uniqueName("rack") });
+  const key = rack.statusKey(r.key);
+  // The Core gives a new rack an open "Rack status unknown" problem.
+  await client.statuses.delete(key);
+  return key;
+};
+
 /** @returns the message of the status. */
-const writeStatus = async (variant: status.Variant): Promise<string> => {
+const writeStatus = async (
+  key: status.Key,
+  variant: status.Variant,
+): Promise<string> => {
   const { message } = await client.statuses.set({
-    // The Core writes statuses of its own on the key of each rack that exists.
-    key: rack.statusKey(Math.floor(Math.random() * 2 ** 32)),
+    key,
     name: uniqueName("rack"),
     variant,
     message: uniqueName("message"),
@@ -34,15 +45,17 @@ const writeStatus = async (variant: status.Variant): Promise<string> => {
 
 describe("Rack.NOTIFICATION_RULE", () => {
   it("should notify a rack warning at once", async () => {
+    const key = await createRackKey();
     await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
-    const message = await writeStatus("warning");
+    const message = await writeStatus(key, "warning");
     await settleWrites(client);
     expect(screen.getByText(message)).toBeTruthy();
   });
 
   it("should not notify a rack status that is not a problem", async () => {
+    const key = await createRackKey();
     await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
-    const message = await writeStatus("info");
+    const message = await writeStatus(key, "info");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
   });
