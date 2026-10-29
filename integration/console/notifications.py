@@ -21,10 +21,10 @@ _SILENCE_TIMEOUT = 1000
 _READ_JS = """(elements) => elements.map((el) => {
   const text = (selector) => el.querySelector(selector)?.innerText.trim();
   const fields = {
-    count: text(".pluto-text--small"),
-    timestamp: text(".pluto-notification__time"),
-    message: text(".pluto-notification__message"),
-    description: text(".pluto-notification__description"),
+    count: text(".lyra-text--small"),
+    timestamp: text(".lyra-notification__time"),
+    message: text(".lyra-notification__message"),
+    description: text(".lyra-notification__description"),
   };
   const read = Object.fromEntries(
     Object.entries(fields).filter(([, value]) => value != null),
@@ -155,12 +155,12 @@ class NotificationsClient:
         notification = self._all().filter(has_text=text)
         if name is not None:
             notification = notification.filter(
-                has=self.page.locator(".pluto-notification__name", has_text=name)
+                has=self.page.locator(".lyra-notification__name", has_text=name)
             )
         if description is not None:
             notification = notification.filter(
                 has=self.page.locator(
-                    ".pluto-notification__description", has_text=description
+                    ".lyra-notification__description", has_text=description
                 )
             )
         try:

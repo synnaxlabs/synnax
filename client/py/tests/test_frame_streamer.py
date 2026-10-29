@@ -170,7 +170,9 @@ class TestStreamer:
             pass
 
     def test_open_streamer_channel_not_found(self, client: sy.Synnax) -> None:
-        """Should throw an exception when a streamer is opened with an unknown channel"""
+        """Should throw an exception when a streamer is opened with an unknown
+        channel
+        """
         with pytest.raises(sy.NotFoundError), client.open_streamer([123]):
             pass
 

@@ -397,6 +397,20 @@
     --pluto-border-radius-huge: round(3rem, 1px);
     --pluto-border-thick-width: 1px;
     --pluto-schematic-element-stroke-width: 2px;
+    --pluto-shadow-lift:
+        lch(0% 0 0deg / 18.8%) 0px 2px 5px, lch(0% 0 0deg / 18.8%) 0px 1px 1px;
+    --pluto-shadow-overlay:
+        lch(0% 0 0deg / 18.8%) 0px 3px 8px, lch(0% 0 0deg / 18.8%) 0px 2px 5px,
+        lch(0% 0 0deg / 18.8%) 0px 1px 1px;
+    --pluto-shadow-modal:
+        lch(0% 0 0deg / 32%) 0px 9px 48px, lch(0% 0 0deg / 28%) 0px 6px 24px,
+        lch(0% 0 0deg / 18.8%) 0px 1px 1px;
+    --pluto-symbol-l-extreme: 1;
+    --pluto-symbol-l-min: 0.4;
+    --pluto-symbol-l-max: 1;
+    --pluto-symbol-c-thresh: 0.09;
+    --pluto-symbol-icon-l-min: 0.65;
+    --pluto-symbol-icon-l-max: 1;
     --pluto-font-family: "Inter Variable", sans-serif;
     --pluto-code-font-family: "Geist Mono", monospace;
     --pluto-h1-size: round(5.5rem, 1px);
@@ -807,6 +821,20 @@
     --pluto-dark-border-radius-huge: round(3rem, 1px);
     --pluto-dark-border-thick-width: 1px;
     --pluto-dark-schematic-element-stroke-width: 2px;
+    --pluto-dark-shadow-lift:
+        lch(0% 0 0deg / 18.8%) 0px 2px 5px, lch(0% 0 0deg / 18.8%) 0px 1px 1px;
+    --pluto-dark-shadow-overlay:
+        lch(0% 0 0deg / 18.8%) 0px 3px 8px, lch(0% 0 0deg / 18.8%) 0px 2px 5px,
+        lch(0% 0 0deg / 18.8%) 0px 1px 1px;
+    --pluto-dark-shadow-modal:
+        lch(0% 0 0deg / 32%) 0px 9px 48px, lch(0% 0 0deg / 28%) 0px 6px 24px,
+        lch(0% 0 0deg / 18.8%) 0px 1px 1px;
+    --pluto-dark-symbol-l-extreme: 1;
+    --pluto-dark-symbol-l-min: 0.4;
+    --pluto-dark-symbol-l-max: 1;
+    --pluto-dark-symbol-c-thresh: 0.09;
+    --pluto-dark-symbol-icon-l-min: 0.65;
+    --pluto-dark-symbol-icon-l-max: 1;
     --pluto-dark-font-family: "Inter Variable", sans-serif;
     --pluto-dark-code-font-family: "Geist Mono", monospace;
     --pluto-dark-h1-size: round(5.5rem, 1px);
