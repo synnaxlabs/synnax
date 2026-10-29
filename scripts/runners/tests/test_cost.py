@@ -53,7 +53,7 @@ class SomePrices:
         return 0.0
 
 
-def found(running: bool) -> dict[str, dict]:
+def found(*, running: bool) -> dict[str, dict]:
     return {"i-0aaa": {"running": running}}
 
 
@@ -79,39 +79,44 @@ class TestLiveFrame:
     """Tests for the cost frame written between fetches."""
 
     def test_should_carry_every_cost_channel(self, cost: Cost) -> None:
-        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(True))
+        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert frame.keys() == cost.channels().keys()
 
     def test_should_follow_the_instance_state(self, cost: Cost) -> None:
         assert (
-            cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(False))[RATE]
+            cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=False))[
+                RATE
+            ]
             == 0.1
         )
 
     def test_should_keep_the_last_fetch_time(self, cost: Cost) -> None:
-        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(True))
+        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert frame[FETCHED] == cost.latest[FETCHED]
 
     def test_should_fill_channels_without_a_value_with_nan(self, cost: Cost) -> None:
-        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(True))
+        frame = cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert math.isnan(frame[channel_name("cost_mtd_est", runner=RUNNER)])
 
     def test_should_reprice_only_once_after_a_restart(self, cost: Cost) -> None:
         cost.priced = {}
-        cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(True))
+        cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert cost.pending is not None
         cost.pending.exception()
-        cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(True))
+        cost.step(sy.TimeStamp.now(), known={RUNNER}, found=found(running=True))
         assert cost.repriced
         assert cost.pending is None
 
     def test_should_write_once_per_live_interval(self, cost: Cost) -> None:
         now = sy.TimeStamp.now()
-        assert cost.step(now, known={RUNNER}, found=found(True))
+        assert cost.step(now, known={RUNNER}, found=found(running=True))
         assert (
-            cost.step(now + LIVE_INTERVAL / 2, known={RUNNER}, found=found(True)) == {}
+            cost.step(
+                now + LIVE_INTERVAL / 2, known={RUNNER}, found=found(running=True)
+            )
+            == {}
         )
-        assert cost.step(now + LIVE_INTERVAL, known={RUNNER}, found=found(True))
+        assert cost.step(now + LIVE_INTERVAL, known={RUNNER}, found=found(running=True))
 
 
 class TestPriceTable:
