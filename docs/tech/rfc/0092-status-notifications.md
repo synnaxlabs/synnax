@@ -186,9 +186,11 @@ to match, and the statuses page in the docs
   `missing_lib(PCAP_LIBRARY_INFO)` instead.
 - **Statuses are sent again after a reconnect**: `SynnaxContext::set_status` keeps the
   latest status of each task. On the first heartbeat that succeeds after a failure
-  (`driver/rack/status/status.h:77`), the Driver sends them again with `cmd` cleared.
-  The manager drops the entry of a task that it removes. The Driver writes nothing new
-  at boot: RFC 0056 §4.5 keeps a never-started task silent.
+  (`driver/rack/status/status.h:77`), or more than three heartbeat periods after the
+  last good one, the Driver sends them again with `cmd` cleared. A sleep or a slow write
+  can let the Core mark tasks as stopped with no failed write. The manager drops the
+  entry of a task that it removes. The Driver writes nothing new at boot: RFC 0056 §4.5
+  keeps a never-started task silent.
 - **The status filter delays, and never drops, a change**: Today the Driver drops a
   status that it sent in the last 5 s, even when a different status came between them
   (`driver/common/status.h:183`). A dropped "Task running" is never sent again, because
@@ -246,9 +248,9 @@ Core.
   an injected `Now`, as the rack service does (`core/pkg/service/rack/service.go:69`).
   Rack specs cover copies onto running tasks only and one write per outage. Calculation
   specs cover one write per error change and the good status on recovery.
-- **Driver**: Specs cover the re-send after a failed heartbeat, the dropped entry after
-  a removal, the late send of a filtered change, the macOS socket check, a library that
-  loads after boot, and a build with no NI or LabJack factory.
+- **Driver**: Specs cover the re-send after a failed or late heartbeat, the dropped
+  entry after a removal, the late send of a filtered change, the macOS socket check, a
+  library that loads after boot, and a build with no NI or LabJack factory.
 - **Console**: Specs drive real statuses through a live Core for each kind, the "in use"
   rules, the 5 s wait, the rack cover, closing by identity, and the problems view.
 
