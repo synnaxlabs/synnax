@@ -152,7 +152,8 @@ def _create_timing_report(
     ax2.plot(x_offset, gaussian_offset, "magenta", lw=2, label="Gaussian fit")
 
     ax2.set_title(
-        "Distribution of Clock Offsets\nDifference between time channel and local machine reception time"
+        "Distribution of Clock Offsets\nDifference between time channel and local "
+        "machine reception time"
     )
     ax2.set_xlabel("Offset (microseconds)")
     ax2.set_ylabel("Count")
