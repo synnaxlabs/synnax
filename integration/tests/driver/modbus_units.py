@@ -9,7 +9,6 @@
 
 """Modbus units that share one connection."""
 
-import re
 import sys
 
 from examples.modbus import ModbusGatewaySim, ModbusSerialSim
@@ -26,10 +25,15 @@ from tests.driver.task import (
     send_and_verify_commands,
 )
 
+DEMOTED = (
+    "Failed to read data: unit 3 timed out 3 times in a row, so its requests fail "
+    "for 10s"
+)
+
 
 class ModbusUnits(SimulatorCase):
     """Reads units 1 and 2 of a gateway at once, then adds a unit that never answers.
-    The units share one connection, the silent unit reports a warning, and the other
+    The units share one connection, the Driver demotes the silent unit, and the other
     units keep reading."""
 
     sim_classes = [ModbusGatewaySim]
@@ -120,26 +124,25 @@ class ModbusUnits(SimulatorCase):
                 sy.sleep(0.2)
 
     def test_silent_unit(self) -> None:
-        self.log("Testing: A silent unit warns, and the other units keep reading")
+        self.log("Testing: A silent unit is demoted, and the others keep reading")
         silent = self.create_task(3)
         with self.client.open_streamer(["sy_status_set"]) as statuses:
             with silent.run():
-                warning = self.wait_for_warning(statuses, silent.key)
+                self.wait_for_warning(statuses, silent.key, DEMOTED)
                 expected = self.expected_values((1, 2))
                 with self.client.open_streamer(list(expected)) as streamer:
                     assert_streamed_values(self.client, streamer, expected)
-        # The timeout text is the platform's: "Operation timed out" on macOS.
-        pattern = r"Failed to read data: (Operation|Connection) timed out"
-        assert re.match(pattern, warning), f"{warning!r} should match {pattern!r}"
 
     @staticmethod
     def wait_for_warning(
         statuses: sy.Streamer,
         task_key: sy.task.Key,
+        prefix: str,
         timeout: sy.TimeSpan = 15 * sy.TimeSpan.SECOND,
-    ) -> str:
-        """Return the message and description of the first warning or error status
-        of a task."""
+    ) -> None:
+        """Wait for a warning or error status of a task whose message and description
+        start with ``prefix``."""
+        last = None
         timer = sy.Timer()
         while timer.elapsed() < timeout:
             frame = statuses.read(timeout=timeout)
@@ -153,8 +156,12 @@ class ModbusUnits(SimulatorCase):
                 if status.details is None or status.details.task != task_key:
                     continue
                 if status.variant in ("warning", "error"):
-                    return f"{status.message}: {status.description}"
-        raise AssertionError(f"Task {task_key} did not warn within {timeout}")
+                    last = f"{status.message}: {status.description}"
+                    if last.startswith(prefix):
+                        return
+        raise AssertionError(
+            f"Task {task_key} should warn {prefix!r} within {timeout}, got {last!r}"
+        )
 
 
 class ModbusSerialUnits(ModbusUnits):
