@@ -68,7 +68,9 @@ class Breaker {
     /// @brief protects the retry state and the condition variable.
     mutable std::mutex mu;
 
-    /// @brief requires mu to be held. @see next_retry().
+    /// @brief requires mu to be held. Describes the next call to wait(), such as "retry
+    /// 3/50 in 1.2 s", or returns an empty string when that call exceeds the maximum
+    /// retry count.
     [[nodiscard]] std::string next_retry_locked() const {
         const auto next = this->retries + 1;
         if (this->config.max_retries != RETRY_INFINITELY &&
@@ -203,11 +205,16 @@ public:
         return this->retries;
     }
 
-    /// @brief describes the next call to wait(), such as "retry 3/50 in 1.2 s". Returns
-    /// an empty string when that call exceeds the maximum retry count.
-    [[nodiscard]] std::string next_retry() const {
+    /// @brief describes an error and the next call to wait(), such as "Operation timed
+    /// out. Next retry 3/50 in 1.2 s.". With no retries left, describes only the error.
+    /// @param error the error text, with or without a closing period.
+    [[nodiscard]] std::string describe(std::string error) const {
+        if (!error.empty() && !error.ends_with('.')) error += '.';
         std::lock_guard lock(this->mu);
-        return this->next_retry_locked();
+        const auto next = this->next_retry_locked();
+        if (next.empty()) return error;
+        if (!error.empty()) error += ' ';
+        return error + "Next " + next + ".";
     }
 
     /// @brief returns true if the breaker is currently running (i.e. start() has been

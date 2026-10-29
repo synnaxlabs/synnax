@@ -541,8 +541,8 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
-/// @brief it should show the retry count and the backoff interval in the warning for
-/// each consecutive temporary error.
+/// @brief it should show the error, the retry count, and the backoff interval in the
+/// warning for each consecutive temporary error.
 TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     const auto
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
@@ -556,7 +556,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     auto mock_source = std::make_unique<MockSource>(
         reads,
         std::make_shared<std::vector<x::errors::Error>>(std::vector{
-            errors::TEMPORARY_HARDWARE_ERROR,
+            x::errors::Error(errors::TEMPORARY_HARDWARE_ERROR, "Operation timed out"),
             errors::TEMPORARY_HARDWARE_ERROR,
             x::errors::NIL
         })
@@ -570,7 +570,10 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     read_task.start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 4);
     EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[1].description, "Next retry 1/3 in 0.1 s.");
+    EXPECT_EQ(
+        ctx->statuses[1].description,
+        "Operation timed out. Next retry 1/3 in 0.1 s."
+    );
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(ctx->statuses[2].description, "Next retry 2/3 in 0.2 s.");
     EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_SUCCESS);

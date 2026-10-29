@@ -738,7 +738,7 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
     EXPECT_EQ(warning->message, "Failed to read data");
     EXPECT_EQ(
         warning->description,
-        "every bus cycle failed: expected 3, got 1 Next retry 1/∞ in 1.0 s."
+        "every bus cycle failed: expected 3, got 1. Next retry 1/∞ in 1.0 s."
     );
 }
 

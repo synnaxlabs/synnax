@@ -116,23 +116,40 @@ TEST(BreakerTest, testRetryCount) {
 }
 
 /// @brief it should describe the retry number and interval of the next call to wait().
-TEST(BreakerTest, testNextRetry) {
+TEST(BreakerTest, testDescribe) {
     auto b = Breaker(Config{"my-breaker", 100 * telem::MILLISECOND, 2, 2});
     EXPECT_TRUE(b.start());
-    EXPECT_EQ(b.next_retry(), "retry 1/2 in 0.1 s");
+    EXPECT_EQ(b.describe(""), "Next retry 1/2 in 0.1 s.");
     EXPECT_TRUE(b.wait("first retry"));
-    EXPECT_EQ(b.next_retry(), "retry 2/2 in 0.2 s");
+    EXPECT_EQ(b.describe(""), "Next retry 2/2 in 0.2 s.");
     EXPECT_TRUE(b.wait("second retry"));
-    EXPECT_EQ(b.next_retry(), "");
+    EXPECT_EQ(b.describe(""), "");
     b.reset();
-    EXPECT_EQ(b.next_retry(), "retry 1/2 in 0.1 s");
+    EXPECT_EQ(b.describe(""), "Next retry 1/2 in 0.1 s.");
+    EXPECT_TRUE(b.stop());
+}
+
+/// @brief it should end the error with a period before the retry.
+TEST(BreakerTest, testDescribeError) {
+    auto b = Breaker(Config{"my-breaker", 100 * telem::MILLISECOND, 1, 2});
+    EXPECT_EQ(
+        b.describe("Operation timed out"),
+        "Operation timed out. Next retry 1/1 in 0.1 s."
+    );
+    EXPECT_EQ(
+        b.describe("The device is unreachable."),
+        "The device is unreachable. Next retry 1/1 in 0.1 s."
+    );
+    EXPECT_TRUE(b.start());
+    EXPECT_TRUE(b.wait("first retry"));
+    EXPECT_EQ(b.describe("Operation timed out"), "Operation timed out.");
     EXPECT_TRUE(b.stop());
 }
 
 /// @brief it should show an unbounded retry count when the breaker retries infinitely.
-TEST(BreakerTest, testNextRetryInfinite) {
+TEST(BreakerTest, testDescribeInfinite) {
     auto b = Breaker(Config{"my-breaker", telem::SECOND, RETRY_INFINITELY, 1});
-    EXPECT_EQ(b.next_retry(), "retry 1/∞ in 1.0 s");
+    EXPECT_EQ(b.describe(""), "Next retry 1/∞ in 1.0 s.");
 }
 
 /// @brief it should allow reads and resets of the retry state while another thread
@@ -144,7 +161,7 @@ TEST(BreakerTest, testConcurrentRetryState) {
     EXPECT_TRUE(b.start());
     std::thread t(&helper, std::ref(b));
     for (int i = 0; i < 1000; i++) {
-        EXPECT_TRUE(b.next_retry().starts_with("retry "));
+        EXPECT_TRUE(b.describe("").starts_with("Next retry "));
         static_cast<void>(b.retry_count());
         b.reset();
     }

@@ -152,11 +152,7 @@ class ReadTask final : public driver::task::Task {
             // 3. We have a warning, in which case we communicate it and return nil.
             if (err) {
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
-                    auto description = err.data;
-                    if (const auto retry = breaker.next_retry(); !retry.empty()) {
-                        if (!description.empty()) description += ' ';
-                        description += "Next " + retry + ".";
-                    }
+                    const auto description = breaker.describe(err.data);
                     LOG(WARNING)
                         << this->p.name() << ": [" << err.type << "] " << description;
                     this->p.state.send_warning("Failed to read data", description);
