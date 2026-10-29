@@ -81,12 +81,13 @@ var _ = Describe("Disabled methods", func() {
 
 var _ = Describe("Middleware", func() {
 	var (
-		mw    freighter.Middleware
-		token string
+		mw      freighter.Middleware
+		token   string
+		session auth.Session
 	)
 	BeforeEach(func(ctx SpecContext) {
 		mw = apiauth.Middleware(authSvc)
-		_, token = MustSucceed2(authSvc.Login(ctx, auth.Proof{
+		session, token = MustSucceed2(authSvc.Login(ctx, auth.Proof{
 			Variant: auth.PasswordProof{Credentials: creds},
 		}))
 	})
@@ -115,6 +116,7 @@ var _ = Describe("Middleware", func() {
 			),
 		))
 		Expect(apiauth.GetSubject(seen)).To(Equal(root.OntologyID()))
+		Expect(apiauth.GetSession(seen).Key).To(Equal(session.Key))
 	})
 	It("Should reject a request without a token", func(ctx SpecContext) {
 		Expect(mw.Exec(requestCtx(ctx), passthrough)).Error().

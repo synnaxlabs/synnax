@@ -43,6 +43,8 @@ var (
 	oidcSvc     *oidc.Service
 	provider    *testutil.Provider
 	apiSvc      *apiauth.Service
+	rbacSvc     *rbac.Service
+	userSvc     *user.Service
 	root        user.User
 	creds       = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
 )
@@ -55,13 +57,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB: db, Ontology: otg, Group: groupSvc,
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
-	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
