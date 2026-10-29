@@ -159,7 +159,7 @@ class TestSessions:
         assert session is not None
         assert client.auth.subject is not None
         assert client.auth.subject.type == "user"
-        client.auth.renew()
+        assert client.auth.renew().key == session.key
         keys = [s.key for s in client.auth.retrieve_sessions()]
         assert session.key in keys
         client.auth.logout()

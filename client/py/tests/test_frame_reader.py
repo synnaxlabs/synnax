@@ -118,6 +118,15 @@ class TestReader:
         assert np.array_equal(f[data_ch.key], np.arange(10, dtype=np.float64))
         assert np.array_equal(f[idx_ch.key], seconds_linspace(1, count=10))
 
+    def test_read_by_key_get_by_name(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should find a channel by name in a frame read by key"""
+        idx_ch, data_ch = written_pair
+        f = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
+        assert data_ch.name in f
+        assert np.array_equal(f[data_ch.name], np.arange(10, dtype=np.float64))
+
     @pytest.mark.parametrize("by_name", [True, False])
     def test_read_to_df(
         self,
