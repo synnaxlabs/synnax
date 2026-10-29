@@ -36,8 +36,15 @@ void configure_integration(
     const std::string &integration_name,
     F factory_creator
 ) {
-    if (!config.integration_supported(integration_name)) {
-        VLOG(1) << "[" << integration_name << "] integration not supported";
+    if (std::ranges::find(config.integrations, integration_name) ==
+        config.integrations.end()) {
+        VLOG(1) << "[" << integration_name << "] integration not enabled";
+        return;
+    }
+    if (!config.libraries_loaded(integration_name)) {
+        LOG(WARNING) << "[" << integration_name
+                     << "] integration is enabled, but its libraries do not load on "
+                        "this computer";
         return;
     }
     VLOG(1) << "[" << integration_name << "] integration supported";

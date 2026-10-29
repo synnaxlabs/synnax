@@ -94,4 +94,11 @@ describe("Device.useFindModal", () => {
     await screen.findByText(accepted.name);
     expect(screen.queryByText(rejected.name)).toBeNull();
   });
+
+  it("should say the integration is off when a running Driver does not have it", async () => {
+    const hardware = createHardware();
+    await createRunningRack(client, uniqueName("integration"));
+    await renderModalOpener(Device.useFindModal, [{ hardware }], { client });
+    await screen.findByText("Your Driver is running, but Test is off");
+  });
 });
