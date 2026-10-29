@@ -42,6 +42,7 @@
         &::-webkit-scrollbar-thumb:hover {
             background: var(--pluto-gray-l7);
         }
+
         & > .pluto-list__virtualizer {
             display: flex;
             flex-direction: inherit;

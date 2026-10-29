@@ -83,11 +83,11 @@ describe("Core.Badge", () => {
     expect(await screen.findByText("synnax")).toBeTruthy();
   });
 
-  it("should fall back to the Core username in the trigger when no user is loaded", async () => {
+  it("should never show the Core username in the trigger", async () => {
     await renderWithConsole(<Core.Badge />, {
       preloadedState: createStateWithUser("Core-user"),
     });
-    expect(screen.getByText("Core-user")).toBeTruthy();
+    expect(screen.queryByText("Core-user")).toBeNull();
   });
 
   it("should open the diagnostics dialog on click", async () => {

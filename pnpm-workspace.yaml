@@ -184,6 +184,7 @@ catalog:
   playwright: ^1.64.1
   pluralize: ^8.0.0
   postcss: ^8.5.30
+  postcss-html: ^1.8.1
   # Pinned exactly. posthog-js publishes several times a day, so a range resolves to a
   # release minutes old and trips the minimum release age gate.
   posthog-js: 1.438.12
