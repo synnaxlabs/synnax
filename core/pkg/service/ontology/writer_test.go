@@ -340,6 +340,72 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
+		Describe("Moving a Relationship", func() {
+			var idThree ontology.ID
+			BeforeEach(func(ctx SpecContext) {
+				idThree = newSampleType("baz")
+				Expect(w.DefineResources(ctx, idThree)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(w.DeleteResources(ctx, idThree)).To(Succeed())
+				})
+				Expect(w.DefineRelationships(
+					ctx, idOne, ontology.RelationshipTypeParentOf, idTwo,
+				)).To(Succeed())
+			})
+			children := func(ctx SpecContext, parent ontology.ID) []ontology.Resource {
+				GinkgoHelper()
+				var res []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(parent).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				return res
+			}
+			It("Should replace the parent", func(ctx SpecContext) {
+				Expect(w.MoveRelationships(
+					ctx, idOne, idThree, ontology.RelationshipTypeParentOf, idTwo,
+				)).To(Succeed())
+				Expect(children(ctx, idOne)).To(BeEmpty())
+				Expect(children(ctx, idThree)).To(HaveLen(1))
+			})
+			It("Should leave a move onto the same parent alone", func(ctx SpecContext) {
+				Expect(w.MoveRelationships(
+					ctx, idOne, idOne, ontology.RelationshipTypeParentOf, idTwo,
+				)).To(Succeed())
+				Expect(children(ctx, idOne)).To(HaveLen(1))
+			})
+			It(
+				"Should reject a move a policy refuses under the new parent",
+				func(ctx SpecContext) {
+					rejected := newSampleType("rejected")
+					Expect(w.DefineResources(ctx, rejected)).To(Succeed())
+					DeferCleanup(func(ctx SpecContext) {
+						Expect(w.DeleteResources(ctx, rejected)).To(Succeed())
+					})
+					Expect(w.MoveRelationships(
+						ctx,
+						idOne,
+						idThree,
+						ontology.RelationshipTypeParentOf,
+						rejected,
+					)).To(MatchError(errRejected))
+				},
+			)
+			It("Should reject moving a child a policy pins", func(ctx SpecContext) {
+				pinned := newSampleType("pinned")
+				Expect(w.DefineResources(ctx, pinned)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(w.DeleteResources(ctx, pinned)).To(Succeed())
+				})
+				Expect(w.DefineRelationships(
+					ctx, idOne, ontology.RelationshipTypeParentOf, pinned,
+				)).To(Succeed())
+				Expect(w.MoveRelationships(
+					ctx, idOne, idThree, ontology.RelationshipTypeParentOf, pinned,
+				)).To(MatchError(errRejected))
+			})
+		})
 		Describe("Deleting a Relationship", func() {
 			It("Should delete a relationship by its ID", func(ctx SpecContext) {
 				Expect(w.DefineRelationships(

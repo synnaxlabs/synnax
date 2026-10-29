@@ -45,14 +45,9 @@ var _ = Describe("Policy", func() {
 
 	move := func(ctx SpecContext, from, to, child ontology.ID) error {
 		GinkgoHelper()
-		if err := otgW.DefineRelationships(
-			ctx, to, ontology.RelationshipTypeParentOf, child,
-		); err != nil {
-			return err
-		}
-		return otgW.DeleteRelationships(ctx, ontology.Relationship{
-			From: from, Type: ontology.RelationshipTypeParentOf, To: child,
-		})
+		return otgW.MoveRelationships(
+			ctx, from, to, ontology.RelationshipTypeParentOf, child,
+		)
 	}
 
 	Describe("Names", func() {
@@ -187,43 +182,6 @@ var _ = Describe("Policy", func() {
 			sub := MustSucceed(groups.Create(ctx, "sub", arcs))
 			Expect(detach(ctx, arcs, sub.OntologyID())).To(Succeed())
 		})
-		It("Should let an Arc leave one of two directories", func(ctx SpecContext) {
-			sub := MustSucceed(groups.Create(ctx, "sub", arcs))
-			a := createArc(ctx, "o3")
-			Expect(otgW.DefineRelationships(
-				ctx,
-				sub.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				a.OntologyID(),
-			)).To(Succeed())
-			Expect(detach(ctx, arcs, a.OntologyID())).To(Succeed())
-		})
-		It(
-			"Should reject removing an Arc from both directories at once",
-			func(ctx SpecContext) {
-				sub := MustSucceed(groups.Create(ctx, "sub", arcs))
-				a := createArc(ctx, "o4")
-				Expect(otgW.DefineRelationships(
-					ctx,
-					sub.OntologyID(),
-					ontology.RelationshipTypeParentOf,
-					a.OntologyID(),
-				)).To(Succeed())
-				Expect(otgW.DeleteRelationships(
-					ctx,
-					ontology.Relationship{
-						From: arcs,
-						Type: ontology.RelationshipTypeParentOf,
-						To:   a.OntologyID(),
-					},
-					ontology.Relationship{
-						From: sub.OntologyID(),
-						Type: ontology.RelationshipTypeParentOf,
-						To:   a.OntologyID(),
-					},
-				)).To(MatchError(ContainSubstring("can only go under Arcs")))
-			},
-		)
 	})
 
 	Describe("Standard module names", func() {
@@ -315,6 +273,60 @@ var _ = Describe("Policy", func() {
 				MustSucceed(groups.Create(ctx, "x", g))
 				MustSucceed(groups.Create(ctx, "x", g))
 			}, "already used"),
+			Entry(
+				"an entry with another parent",
+				func(ctx SpecContext, g ontology.ID) {
+					GinkgoHelper()
+					inner := MustSucceed(groups.Create(ctx, "inner", g))
+					other := MustSucceed(groups.Create(ctx, "other", ontology.RootID))
+					Expect(otgW.DefineRelationships(
+						ctx,
+						other.OntologyID(),
+						ontology.RelationshipTypeParentOf,
+						inner.OntologyID(),
+					)).To(Succeed())
+				},
+				"already has another parent",
+			),
+		)
+	})
+
+	Describe("One parent", func() {
+		It("Should reject adding an Arc to a second directory", func(ctx SpecContext) {
+			d1 := MustSucceed(groups.Create(ctx, "d1", arcs))
+			d2 := MustSucceed(groups.Create(ctx, "d2", arcs))
+			a := createArc(ctx, "m")
+			Expect(move(ctx, arcs, d1.OntologyID(), a.OntologyID())).To(Succeed())
+			Expect(otgW.DefineRelationships(
+				ctx,
+				d2.OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				a.OntologyID(),
+			)).To(MatchError(ContainSubstring("already has another parent")))
+		})
+		It("Should reject adding a group to a second directory", func(ctx SpecContext) {
+			d1 := MustSucceed(groups.Create(ctx, "d1", arcs))
+			d2 := MustSucceed(groups.Create(ctx, "d2", arcs))
+			g := MustSucceed(groups.Create(ctx, "g", d1.OntologyID()))
+			Expect(otgW.DefineRelationships(
+				ctx,
+				d2.OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				g.OntologyID(),
+			)).To(MatchError(ContainSubstring("already has another parent")))
+		})
+		It(
+			"Should reject a parent outside Arcs on a group under Arcs",
+			func(ctx SpecContext) {
+				sub := MustSucceed(groups.Create(ctx, "sub", arcs))
+				out := MustSucceed(groups.Create(ctx, "out", ontology.RootID))
+				Expect(otgW.DefineRelationships(
+					ctx,
+					out.OntologyID(),
+					ontology.RelationshipTypeParentOf,
+					sub.OntologyID(),
+				)).To(MatchError(ContainSubstring("parent outside Arcs")))
+			},
 		)
 	})
 })

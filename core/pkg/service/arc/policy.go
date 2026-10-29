@@ -25,9 +25,10 @@ import (
 var _ ontology.Policy = (*Service)(nil)
 
 // ValidateParent implements ontology.Policy. Below the Arcs group a child is a group or
-// an Arc, a group name is an identifier, a name is unique in its directory, and a
-// standard module name is reserved directly under Arcs. A group is checked with every
-// entry below it. Outside Arcs an Arc, or a group holding one, is rejected.
+// an Arc with no other parent, a group name is an identifier, a name is unique in its
+// directory, and a standard module name is reserved directly under Arcs. A group is
+// checked with every entry below it. Outside Arcs an Arc, a group under Arcs, or a
+// group holding an Arc is rejected.
 func (s *Service) ValidateParent(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -40,6 +41,16 @@ func (s *Service) ValidateParent(
 	}
 	if !directory {
 		for _, child := range children {
+			var inside bool
+			if inside, err = s.isDirectory(ctx, tx, child); err != nil {
+				return err
+			}
+			if inside {
+				return errors.Wrap(
+					validate.ErrValidation,
+					"a group under Arcs cannot have a parent outside Arcs",
+				)
+			}
 			if err = s.validateOutside(ctx, tx, child); err != nil {
 				return err
 			}
@@ -60,6 +71,9 @@ func (s *Service) ValidateParent(
 	}
 	for _, entry := range entries {
 		if err = s.validateEntry(ctx, tx, parent, entry.ID, entry.Name); err != nil {
+			return err
+		}
+		if err = s.validateSoleParent(ctx, tx, parent, entry); err != nil {
 			return err
 		}
 		if entry.ID.Type == ontology.ResourceTypeGroup {
@@ -178,6 +192,25 @@ func errNameUsed(name string) error {
 	)
 }
 
+// validateSoleParent rejects entry when it has a parent other than parent.
+func (s *Service) validateSoleParent(
+	ctx context.Context,
+	tx gorp.Tx,
+	parent ontology.ID,
+	entry ontology.Resource,
+) error {
+	parents, err := s.parents(ctx, tx, entry.ID)
+	if err != nil {
+		return err
+	}
+	if lo.SomeBy(parents, func(p ontology.ID) bool { return p != parent }) {
+		return errors.Wrapf(
+			validate.ErrValidation, "%q already has another parent", entry.Name,
+		)
+	}
+	return nil
+}
+
 // validateSubtree checks every entry below the directory g.
 func (s *Service) validateSubtree(
 	ctx context.Context,
@@ -187,7 +220,11 @@ func (s *Service) validateSubtree(
 	return s.walk(
 		ctx, tx, g, false,
 		func(parent ontology.ID, child ontology.Resource) error {
-			return s.validateEntry(ctx, tx, parent, child.ID, child.Name)
+			err := s.validateEntry(ctx, tx, parent, child.ID, child.Name)
+			if err != nil {
+				return err
+			}
+			return s.validateSoleParent(ctx, tx, parent, child)
 		},
 	)
 }

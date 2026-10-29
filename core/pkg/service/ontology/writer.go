@@ -148,6 +148,57 @@ func (w Writer) DeleteRelationships(ctx context.Context, rels ...Relationship) e
 		Exec(ctx, w.tx)
 }
 
+// MoveRelationships re-parents each child from from to to. A child not under from
+// only gains to. Returns the errors of [Writer.DefineRelationships] and of a [Policy]
+// that refuses the child under its parents after the move.
+func (w Writer) MoveRelationships(
+	ctx context.Context,
+	from, to ID,
+	relationshipType RelationshipType,
+	children ...ID,
+) error {
+	if from == to {
+		return nil
+	}
+	wanted := set.New(children...)
+	prefix := from.String() + relationshipKeySep +
+		string(relationshipType) + relationshipKeySep
+	var moved []Relationship
+	if err := w.relationshipTable.NewRetrieve().
+		WherePrefix([]byte(prefix)).
+		Where(gorp.Match(func(_ gorp.Context, rel *Relationship) (bool, error) {
+			return wanted.Contains(rel.To), nil
+		})).
+		Entries(&moved).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	keys := lo.Map(moved, func(rel Relationship, _ int) string { return rel.GorpKey() })
+	if err := w.relationshipTable.NewDelete().
+		Where(gorp.MatchKeys[string, Relationship](keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err := w.DefineRelationships(
+		ctx, to, relationshipType, children...,
+	); err != nil {
+		return err
+	}
+	if relationshipType != RelationshipTypeParentOf {
+		return nil
+	}
+	for _, rel := range moved {
+		parents, err := w.retrieveParents(ctx, rel.To)
+		if err != nil {
+			return err
+		}
+		if err = w.validateKept(ctx, rel.To, parents); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
 // type from the resource with the given ID. If the resource does not exist, or if it
 // has no outgoing relationships of the given type, DeleteOutgoingRelationshipsOfType
@@ -222,10 +273,18 @@ func (w Writer) validateDetach(ctx context.Context, rels []Relationship) error {
 		if len(kept) == len(current) {
 			continue
 		}
-		for _, p := range w.policies {
-			if err = p.ValidateDetach(ctx, w.tx, child, kept...); err != nil {
-				return err
-			}
+		if err = w.validateKept(ctx, child, kept); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateKept asks every policy whether child may hold only parents.
+func (w Writer) validateKept(ctx context.Context, child ID, parents []ID) error {
+	for _, p := range w.policies {
+		if err := p.ValidateDetach(ctx, w.tx, child, parents...); err != nil {
+			return err
 		}
 	}
 	return nil

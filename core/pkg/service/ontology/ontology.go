@@ -141,8 +141,8 @@ func (o *Ontology) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-// RegisterPolicy registers a Policy that every Writer consults before it defines a
-// parent_of relationship and whenever a service calls [Writer.ValidateName].
+// RegisterPolicy registers a Policy that every Writer consults on each parent_of
+// change and whenever a service calls [Writer.ValidateName].
 func (o *Ontology) RegisterPolicy(p Policy) { o.policies = append(o.policies, p) }
 
 // NewRetrieve opens a new Retrieve query, which can be used to traverse and read
