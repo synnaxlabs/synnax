@@ -34,6 +34,7 @@ class Commander:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         command: str,
         name: str,
@@ -46,18 +47,22 @@ class Commander:
         # Time and value of the last command that landed on each runner.
         self.commanded: dict[str, tuple[sy.TimeStamp, bool]] = {}
         self.commands = Publisher(
-            client, name, [], RELEASED_AUTHORITY, report=log.error
+            client=client,
+            name=name,
+            channels=[],
+            authority=RELEASED_AUTHORITY,
+            report=log.error,
         )
 
     def channel(self, runner: str) -> str:
-        return channel_name(self.command_name, runner)
+        return channel_name(self.command_name, runner=runner)
 
     def refresh_writer(self, known: set[str]) -> None:
         """Holds the writer open over the current runner set."""
         self.commands.retarget(
             [
                 c
-                for name in command_channels(known, (self.command_name,))
+                for name in command_channels(known, commands=(self.command_name,))
                 for c in (f"{name}_time", name)
             ]
         )
@@ -67,7 +72,7 @@ class Commander:
         self.commands.close()
         self.log.close()
 
-    def ready(self, runners: set[str], now: sy.TimeStamp) -> set[str]:
+    def ready(self, runners: set[str], *, now: sy.TimeStamp) -> set[str]:
         """The runners not commanded within RECOMMAND_DELAY."""
         return {
             r
@@ -76,14 +81,14 @@ class Commander:
             or now.span(last[0]) >= RECOMMAND_DELAY
         }
 
-    def command(self, commands: dict[str, bool], now: sy.TimeStamp) -> bool:
+    def command(self, commands: dict[str, bool], *, now: sy.TimeStamp) -> bool:
         """Writes commands, returning whether they landed. A failed write records
         nothing, so the caller sends the same commands again."""
         frame: dict[str, object] = {}
         for r, v in commands.items():
             frame[self.channel(r)] = v
             frame[f"{self.channel(r)}_time"] = now
-        if not self.commands.write(frame, COMMAND_AUTHORITY):
+        if not self.commands.write(frame, authority=COMMAND_AUTHORITY):
             return False
         again = {
             r: v
@@ -94,10 +99,10 @@ class Commander:
         for r, v in commands.items():
             self.commanded[r] = (now, v)
         if first:
-            self.log(self.lines(first, now))
+            self.log(self.lines(first, now=now))
         if again:
-            self.log(f"[WARN] resending {self.lines(again, now)}")
+            self.log(f"[WARN] resending {self.lines(again, now=now)}")
         return True
 
-    def lines(self, commands: dict[str, bool], now: sy.TimeStamp) -> str:
+    def lines(self, commands: dict[str, bool], *, now: sy.TimeStamp) -> str:
         return ", ".join(self.describe(r, v, now) for r, v in sorted(commands.items()))

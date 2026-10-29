@@ -61,5 +61,10 @@ class TestFromContext:
             secure=True,
             ca_cert=str(ca_cert),
         )
-        assert connect.from_context(Context(console=console.Mock(output)), opts) is None
+        assert (
+            connect.from_context(
+                Context(console=console.Mock(output=output)), opts=opts
+            )
+            is None
+        )
         assert str(ca_cert) in (output.entries[-1].message or "")
