@@ -16,7 +16,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/ts/types"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -183,7 +182,7 @@ var _ = Describe("TS Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -221,7 +220,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			table, diag := Analyze(ctx, source, "user", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -287,7 +286,7 @@ var _ = Describe("TS Types Plugin", func() {
 					state TaskState
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -322,7 +321,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data_type DataType
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
+			table, diag := Analyze(ctx, source, "telem", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -382,7 +381,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				AxisKey enum extends XAxisKey, YAxisKey {}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				table, diag := Analyze(ctx, source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -480,7 +479,7 @@ var _ = Describe("TS Types Plugin", func() {
 					my_long_field_name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+				table, diag := Analyze(ctx, source, "ranger", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -510,7 +509,7 @@ var _ = Describe("TS Types Plugin", func() {
 					last_name string?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -542,7 +541,7 @@ var _ = Describe("TS Types Plugin", func() {
 					status string?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "device", loader)
+			table, diag := Analyze(ctx, source, "device", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -568,7 +567,7 @@ var _ = Describe("TS Types Plugin", func() {
 					actions string[]
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "policy", loader)
+				table, diag := Analyze(ctx, source, "policy", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -600,7 +599,7 @@ var _ = Describe("TS Types Plugin", func() {
 					operations string[]?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+				table, diag := Analyze(ctx, source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -628,7 +627,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+				table, diag := Analyze(ctx, source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -657,7 +656,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+				table, diag := Analyze(ctx, source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -686,7 +685,7 @@ var _ = Describe("TS Types Plugin", func() {
 					layout record?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+				table, diag := Analyze(ctx, source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -716,7 +715,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+				table, diag := Analyze(ctx, source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -748,7 +747,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+				table, diag := Analyze(ctx, source, "workspace", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -780,7 +779,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+				table, diag := Analyze(ctx, source, "task", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -817,7 +816,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -848,7 +847,7 @@ var _ = Describe("TS Types Plugin", func() {
 					first_name string @validate required
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -879,7 +878,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts use_input
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			table, diag := Analyze(ctx, source, "workspace", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -913,7 +912,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts use_input
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -937,7 +936,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			table, diag := Analyze(ctx, source, "workspace", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -968,7 +967,7 @@ var _ = Describe("TS Types Plugin", func() {
 					elem Type?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+				table, diag := Analyze(ctx, source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -999,7 +998,7 @@ var _ = Describe("TS Types Plugin", func() {
 					children Node[]?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "tree", loader)
+				table, diag := Analyze(ctx, source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1092,7 +1091,7 @@ var _ = Describe("TS Types Plugin", func() {
 					last MosaicNode?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "mosaic", loader)
+				table, diag := Analyze(ctx, source, "mosaic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1132,7 +1131,7 @@ var _ = Describe("TS Types Plugin", func() {
 					type Type
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+				table, diag := Analyze(ctx, source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1170,7 +1169,7 @@ var _ = Describe("TS Types Plugin", func() {
 					group Group
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "mosaic", loader)
+				table, diag := Analyze(ctx, source, "mosaic", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1195,7 +1194,7 @@ var _ = Describe("TS Types Plugin", func() {
 					children TreeNode<K>[]?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "tree", loader)
+				table, diag := Analyze(ctx, source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1228,7 +1227,7 @@ var _ = Describe("TS Types Plugin", func() {
 					children MapNode<K, V>[]?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "tree", loader)
+				table, diag := Analyze(ctx, source, "tree", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1267,7 +1266,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "simple", loader)
+				table, diag := Analyze(ctx, source, "simple", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1304,7 +1303,7 @@ var _ = Describe("TS Types Plugin", func() {
 					config Config
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1349,7 +1348,7 @@ var _ = Describe("TS Types Plugin", func() {
 					value string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1387,7 +1386,7 @@ var _ = Describe("TS Types Plugin", func() {
 					upper T
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1434,7 +1433,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1485,7 +1484,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1517,7 +1516,7 @@ var _ = Describe("TS Types Plugin", func() {
 					config Config
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1550,7 +1549,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data    Data
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1584,7 +1583,7 @@ var _ = Describe("TS Types Plugin", func() {
 					statusData StatusData
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1624,7 +1623,7 @@ var _ = Describe("TS Types Plugin", func() {
 					email string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1663,7 +1662,7 @@ var _ = Describe("TS Types Plugin", func() {
 					email string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1699,7 +1698,7 @@ var _ = Describe("TS Types Plugin", func() {
 					e string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1731,7 +1730,7 @@ var _ = Describe("TS Types Plugin", func() {
 					name string?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1771,7 +1770,7 @@ var _ = Describe("TS Types Plugin", func() {
 					data record?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -1806,7 +1805,7 @@ var _ = Describe("TS Types Plugin", func() {
 					-b
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1839,7 +1838,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1876,7 +1875,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c bool
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1912,7 +1911,7 @@ var _ = Describe("TS Types Plugin", func() {
 					c float32
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1938,7 +1937,7 @@ var _ = Describe("TS Types Plugin", func() {
 					mango bool
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+			table, diag := Analyze(ctx, source, "order", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1976,7 +1975,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				RackStatus = Status<StatusDetails>
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+				table, diag := Analyze(ctx, source, "rack", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2012,7 +2011,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				Stratum = string[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+				table, diag := Analyze(ctx, source, "arc", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2058,7 +2057,7 @@ var _ = Describe("TS Types Plugin", func() {
 					optional_ops Operation[]?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+				table, diag := Analyze(ctx, source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2500,31 +2499,6 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`import { common } from "@/common"`, `common.nameZ`)
-			})
-		})
-
-		Context("reference into a namespace with no TS output", func() {
-			BeforeEach(func() {
-				loader.Add("schemas/common", `
-					Info struct {
-						key uuid
-					}
-				`)
-			})
-
-			It("Should import the namespace by its name", func(ctx SpecContext) {
-				source := `
-					import "schemas/common"
-
-					@ts output "client/ts/src/task"
-
-					Task struct {
-						key uuid
-						info common.Info
-					}
-				`
-				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
-				ExpectContent(resp, "types.gen.ts").ToContain(`common.infoZ`)
 			})
 		})
 

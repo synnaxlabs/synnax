@@ -11,9 +11,9 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { scale } from "@/vis/scale/aether";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);

@@ -33,8 +33,8 @@ describe("Text", () => {
   it("should render the arrow keys as arrows", () => {
     const { container } = render(<Text trigger={["ArrowUp", "ArrowDown"]} />);
     expect(container.textContent).toBe("");
-    expect(container.querySelector(".pluto-icon--keyboard-arrow-up")).not.toBeNull();
-    expect(container.querySelector(".pluto-icon--keyboard-arrow-down")).not.toBeNull();
+    expect(container.querySelector(".lyra-icon--keyboard-arrow-up")).not.toBeNull();
+    expect(container.querySelector(".lyra-icon--keyboard-arrow-down")).not.toBeNull();
   });
 
   it("should render nothing for a reserved trigger", () => {

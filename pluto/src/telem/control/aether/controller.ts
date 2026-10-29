@@ -14,6 +14,7 @@ import {
   DisconnectedError,
   type framer,
   NotFoundError,
+  SessionEndedError,
   status as cstatus,
   type Synnax,
   TimeStamp,
@@ -249,6 +250,8 @@ export class Controller
     try {
       await this.writer?.close();
     } catch (err) {
+      // The Core frees a writer's control when its session ends.
+      if (SessionEndedError.matches(err)) return;
       this.internal.addStatus(
         cstatus.fromException(err, {
           message: "Failed to release control",
@@ -502,44 +505,50 @@ export class AuthoritySource
     return [];
   }
 
-  value(): cstatus.Status<typeof authoritySourceDetailsZ> {
+  value(): telem.Result<cstatus.Status<typeof authoritySourceDetailsZ>> {
     const time = TimeStamp.now();
     const { channel: key } = this.props;
     if (key === 0)
-      return cstatus.create<typeof authoritySourceDetailsZ>({
-        name: this.controller.key,
-        key: this.controller.key,
-        variant: "disabled",
-        message: "No channel",
-        time,
-        details: { valid: false, authority: 0 },
-      });
+      return telem.success(
+        cstatus.create<typeof authoritySourceDetailsZ>({
+          name: this.controller.key,
+          key: this.controller.key,
+          variant: "disabled",
+          message: "No channel",
+          time,
+          details: { valid: false, authority: 0 },
+        }),
+      );
 
     this.retrieve.update(this.controller.client, { key });
     const state = this.retrieve.value;
 
     if (state == null)
-      return cstatus.create<typeof authoritySourceDetailsZ>({
-        name: this.controller.key,
-        key: this.controller.key,
-        variant: "disabled",
-        message: "Uncontrolled",
-        time,
-        details: { valid: true, color: undefined, authority: 0 },
-      });
+      return telem.success(
+        cstatus.create<typeof authoritySourceDetailsZ>({
+          name: this.controller.key,
+          key: this.controller.key,
+          variant: "disabled",
+          message: "Uncontrolled",
+          time,
+          details: { valid: true, color: undefined, authority: 0 },
+        }),
+      );
 
-    return cstatus.create<typeof authoritySourceDetailsZ>({
-      name: this.controller.key,
-      key: state.subject.key,
-      variant: state.subject.key === this.controller.key ? "success" : "error",
-      message: `Controlled by ${state.subject.name}`,
-      time,
-      details: {
-        valid: true,
-        color: this.colors.get(state.subject.key),
-        authority: state.authority,
-      },
-    });
+    return telem.success(
+      cstatus.create<typeof authoritySourceDetailsZ>({
+        name: this.controller.key,
+        key: state.subject.key,
+        variant: state.subject.key === this.controller.key ? "success" : "error",
+        message: `Controlled by ${state.subject.name}`,
+        time,
+        details: {
+          valid: true,
+          color: this.colors.get(state.subject.key),
+          authority: state.authority,
+        },
+      }),
+    );
   }
 
   cleanup(): void {

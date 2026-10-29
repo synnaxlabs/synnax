@@ -15,8 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	fmock "github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -59,7 +60,7 @@ var _ = Describe("Framer", func() {
 				Expression: fmt.Sprintf("return %s * 2", data.Name),
 			}
 			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-			client, server := fmock.NewStreams[
+			client, server := freightertestutil.NewStreams[
 				apiframer.IteratorRequest,
 				apiframer.IteratorResponse,
 			](ctx)
@@ -181,7 +182,7 @@ var _ = Describe("Framer", func() {
 
 		It("Should return an error when a key has no channel", func(ctx SpecContext) {
 			Expect(apiSvc.Read(rootCtx(ctx), apiframer.ReadRequest{
-				Keys:   channel.Keys{channel.NewKey(index.Leaseholder, 9999)},
+				Keys:   channel.Keys{distchannel.NewKey(index.Leaseholder, 9999)},
 				Bounds: telem.TimeRangeMax,
 			})).Error().To(MatchError(query.ErrNotFound))
 		})

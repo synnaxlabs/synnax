@@ -9,7 +9,6 @@
 
 import "@/mosaic/Mosaic.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
@@ -17,6 +16,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { box, type location, xy } from "@synnaxlabs/x";
 import { type DragEventHandler, type ReactElement, useRef, useState } from "react";
 
+import { CSS } from "@/css";
 import { useContext } from "@/mosaic/Frame";
 import { filterTabCreateHaulItems, filterTabDropHaulItems } from "@/mosaic/haul";
 

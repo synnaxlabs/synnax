@@ -16,6 +16,7 @@ import { Schematic } from "@/feature/schematic";
 import { client, testProjectKey } from "@/feature/schematic/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 import { assertDefined, createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 const roles = new RoleClients(client);
@@ -38,9 +39,9 @@ describe("schematic/Selectable", () => {
     const created = await client.schematics.retrieve(key);
     expect(created.name).toBe("Schematic");
     await waitFor(() =>
-      expect(Session.Schematic.selectEditable({ state: store.getState(), key })).toBe(
-        true,
-      ),
+      expect(
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.editable,
+      ).toBe(true),
     );
   });
 });

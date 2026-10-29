@@ -11,10 +11,10 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, type xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { type ProviderOptions } from "@/testutil/providers";
 import { renderAether } from "@/testutil/renderAether";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { value } from "@/vis/value/aether";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);

@@ -36,3 +36,35 @@ export const layers = (order: Layer[]): Plugin => {
     },
   };
 };
+
+const under = (root: string, dir: string): string =>
+  RegExp.escape(`${root.replaceAll("\\", "/")}/${dir}/`);
+
+/**
+ * @returns the layers of Lyra's stylesheets in the repository at root, lowest priority
+ * first. Its global stylesheets sit below its components, so a component rule beats a
+ * default whatever the specificity.
+ */
+export const lyraLayers = (root: string): Layer[] => {
+  const lyra = under(root, "lyra");
+  return [
+    {
+      name: "lyra.base",
+      files: new RegExp(
+        `^${lyra}(src|dist)/(theming/)?(static/)?(base|theme(-dark|-light)?)\\.css`,
+      ),
+    },
+    { name: "lyra.components", files: new RegExp(`^${lyra}`) },
+  ];
+};
+
+/**
+ * @returns the layers of an app that renders Pluto in the repository at root, lowest
+ * priority first. Lyra styles bare elements, so third-party CSS sits above it, and
+ * Pluto overrides both.
+ */
+export const plutoLayers = (root: string): Layer[] => [
+  ...lyraLayers(root),
+  { name: "vendor", files: /\/node_modules\// },
+  { name: "pluto", files: new RegExp(`^${under(root, "pluto")}`) },
+];

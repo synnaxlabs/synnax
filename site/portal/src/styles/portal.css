@@ -87,11 +87,11 @@
     }
 }
 
-.portal-account__trigger .pluto-avatar {
+.portal-account__trigger .lyra-avatar {
     --pluto-avatar-size: round(5.6667rem, 1px);
 }
 
-.pluto-btn.portal-account__trigger {
+.lyra-btn.portal-account__trigger {
     padding: 0;
 }
 
@@ -104,7 +104,7 @@
 
 /* The left inset matches the space above and below the mark, so the hover fill rims it
    evenly. */
-.pluto-btn.portal-scope {
+.lyra-btn.portal-scope {
     padding: 1.5rem 2rem 1.5rem 1.5rem;
 }
 
@@ -112,7 +112,7 @@
     margin-left: 1rem;
 }
 
-.pluto-dialog__dialog.portal-scope__dialog {
+.lyra-dialog__dialog.portal-scope__dialog {
     /* Lyra's rounded rule ties this selector, so set the radius it reads. */
     --pluto-border-radius: var(--pluto-border-radius-medium);
 
@@ -123,7 +123,7 @@
 }
 
 /* Inset from the dialog's corner by its padding, so the corners stay concentric. */
-.pluto-list__item.portal-scope__item {
+.lyra-list__item.portal-scope__item {
     gap: 1.5rem;
     padding: 1.5rem 2rem;
     border-radius: calc(var(--pluto-border-radius-medium) - 0.5rem);
@@ -139,7 +139,7 @@
 
 /* A long name truncates before the tag shrinks. Lyra's tag rule outranks a single
    class. */
-.pluto-btn.pluto-tag.portal-scope__tag {
+.lyra-btn.lyra-tag.portal-scope__tag {
     flex-shrink: 0;
     border-color: var(--portal-tag-z-50);
     background: var(--portal-tag-z-20);
@@ -221,7 +221,7 @@ section.portal {
     align-items: stretch;
     min-width: 0;
 
-    & a:not(.pluto-btn):hover {
+    & a:not(.lyra-btn):hover {
         text-decoration: none;
     }
 
@@ -247,7 +247,7 @@ section.portal {
     padding: 2rem 3rem;
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
 
-    &.pluto-btn {
+    &.lyra-btn {
         border-radius: 0;
     }
 
@@ -331,8 +331,36 @@ section.portal {
     flex: 1 1 40rem;
 }
 
-.portal-activate {
-    padding: 4rem;
+/* The fingerprint that came with an activation link, in place of a field. */
+.portal-received {
+    padding: 1.5rem 2rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius-large);
+    background: var(--pluto-gray-l1);
+}
+
+.portal-received__check {
+    color: var(--pluto-success-z);
+}
+
+/* Room for a few hashes. The size class of the input sets a height, so outrank it. */
+.lyra-input.portal-fingerprint,
+.portal-fingerprint textarea {
+    min-height: 14rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+/* Geist Mono's ligatures draw " --" as one dash, hiding the space in a command. */
+.portal-command {
+    padding: 0.5rem 0.5rem 0.5rem 1.5rem;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    border-radius: var(--pluto-border-radius-medium);
+    background: var(--pluto-gray-l1);
+    min-width: 0;
+    font-feature-settings:
+        "liga" 0,
+        "calt" 0;
 }
 
 section.portal-auth-page {
@@ -382,6 +410,11 @@ section.portal-auth-page {
     }
 }
 
+/* A card with a form and commands needs more room than a login. */
+.portal-auth-page--wide .portal-auth__stage {
+    max-width: 84rem;
+}
+
 .portal-auth {
     padding: 5rem;
     border-radius: var(--pluto-border-radius-huge);
@@ -420,6 +453,32 @@ section.portal-auth-page {
 
 .portal-summary__text {
     min-width: 0;
+}
+
+/* The number of a setup step, or a check once the step is done. */
+.portal-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-radius: 50%;
+    background: var(--pluto-gray-l3);
+    color: var(--pluto-gray-l10);
+    font-size: var(--pluto-small-size);
+
+    & svg {
+        width: 1.75rem;
+        height: 1.75rem;
+    }
+
+    &.portal-mark--done {
+        border-color: var(--pluto-success-z-40);
+        background: var(--pluto-success-z-10);
+        color: var(--pluto-success-z);
+    }
 }
 
 /* Extra space sets the usage data choice apart from the summary and buttons. */
@@ -518,5 +577,28 @@ section.portal-auth-page {
 
     .portal-list__head {
         display: none;
+    }
+}
+
+/* A section's own tab row, below the shell's. */
+.portal-subtabs {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+/* Tabs with an action beside them keep one height, so a tab without one does not
+   shift the page. */
+.portal-tab-row {
+    min-height: var(--pluto-height-medium);
+}
+
+.portal-crumb {
+    width: fit-content;
+    margin-bottom: 1rem;
+
+    &:hover {
+        color: var(--pluto-gray-l11);
     }
 }

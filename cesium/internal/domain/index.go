@@ -21,7 +21,8 @@ import (
 )
 
 type index struct {
-	indexPersist *indexPersist
+	indexPersist    *indexPersist
+	onHistoryChange func(context.Context, telem.TimeRange)
 	alamos.Instrumentation
 	mu struct {
 		pointers []pointer
@@ -64,6 +65,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		}
 	}
 
+	appended := insertAt == len(idx.mu.pointers)
 	if insertAt == 0 {
 		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
 	} else if insertAt == len(idx.mu.pointers) {
@@ -76,6 +78,10 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, insertAt)
 
 	idx.mu.Unlock()
+	// The live stream carries domains added at the end.
+	if !appended {
+		idx.notifyHistoryChange(ctx, p.TimeRange)
+	}
 	if !persist {
 		return nil
 	}
@@ -111,7 +117,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// pointers.
 		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
-		return span.Error(NewRangeNotFoundError(p.TimeRange))
+		return span.Error(newRangeNotFoundError(p.TimeRange))
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -128,7 +134,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// database to reach this inconceivable state.
 		idx.L.DPanic("cannot update a pointer with a different start timestamp")
 		idx.mu.Unlock()
-		return span.Error(NewRangeNotFoundError(p.TimeRange))
+		return span.Error(newRangeNotFoundError(p.TimeRange))
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 &&
 		ptrs[updateAt+1].OverlapsWith(p.TimeRange)
@@ -150,15 +156,25 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	}
 
 	idx.persistHead = min(idx.persistHead, updateAt)
-
+	var persistPointers func() error
 	if persist {
-		persistPointers := idx.indexPersist.prepare(idx.persistHead)
-		idx.mu.Unlock()
-		return persistPointers()
+		persistPointers = idx.indexPersist.prepare(idx.persistHead)
 	}
-
 	idx.mu.Unlock()
-	return nil
+	// The live stream carries commits to the last domain.
+	if updateAt != lastI {
+		idx.notifyHistoryChange(ctx, oldP.End.Range(p.End))
+	}
+	if persistPointers == nil {
+		return nil
+	}
+	return persistPointers()
+}
+
+func (idx *index) notifyHistoryChange(ctx context.Context, tr telem.TimeRange) {
+	if idx.onHistoryChange != nil {
+		idx.onHistoryChange(ctx, tr)
+	}
 }
 
 func (idx *index) afterLast(ts telem.TimeStamp) bool {

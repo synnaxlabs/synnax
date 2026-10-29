@@ -12,12 +12,12 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/ethercat.h"
-#include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/read_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/ethercat/testutil/master.h"
+#include "driver/pipeline/testutil/pipeline.h"
 #include "engine/engine.h"
 
 namespace driver::ethercat {
@@ -25,7 +25,7 @@ class EtherCATReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<mock::Master> mock_master;
+    std::shared_ptr<testutil::Master> mock_master;
     std::shared_ptr<engine::Engine> engine;
     synnax::channel::Channel index_channel;
     synnax::rack::Rack rack;
@@ -62,7 +62,7 @@ protected:
             x::json::json::array()
         );
 
-        mock_master = std::make_shared<mock::Master>(NETWORK_INTERFACE);
+        mock_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
         mock_master->add_slave(
             slave::Properties{
                 .position = 0,
@@ -703,7 +703,7 @@ TEST_F(EtherCATReadTest, ReadTaskRetriesFailedCyclesWithoutALimit) {
     cfg["channels"].push_back(
         this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
     );
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure(NETWORK_INTERFACE, this->mock_master);
     Factory factory(std::move(manager));
     const synnax::task::Task task{
@@ -768,7 +768,7 @@ TEST_F(EtherCATReadTest, ConfigurePassesSavedSlaveSettingsOnTheNetworkToTheMaste
     cfg["channels"].push_back(
         this->create_input_channel_config(data_ch, 0x6000, 1, "int16")
     );
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure(NETWORK_INTERFACE, this->mock_master);
     Factory factory(std::move(manager));
     auto [read_task, ok] = factory.configure_task(
@@ -833,7 +833,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsOnTopologyMismatch) {
     ReadTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
 
-    auto mismatched_master = std::make_shared<mock::Master>(NETWORK_INTERFACE);
+    auto mismatched_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
     mismatched_master->add_slave(
         slave::Properties{
             .position = 0,
@@ -861,7 +861,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsWhenTheBusLacksAnEntry) {
     ReadTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
 
-    auto remapped_master = std::make_shared<mock::Master>(NETWORK_INTERFACE);
+    auto remapped_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
     remapped_master->add_slave(
         slave::Properties{
             .position = 0,
@@ -901,7 +901,7 @@ TEST_F(EtherCATReadTest, SourceStartFailsWhenAnEntryChangedBitLength) {
     ReadTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
 
-    auto remapped_master = std::make_shared<mock::Master>(NETWORK_INTERFACE);
+    auto remapped_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
     remapped_master->add_slave(
         slave::Properties{
             .position = 0,

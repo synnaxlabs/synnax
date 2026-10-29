@@ -16,7 +16,7 @@ import weakref
 import synnax as sy
 from freighter.exceptions import Unreachable
 from freighter.mock import MockUnaryClient
-from synnax.connection import Checker, CheckResponse, State, _versions_compatible
+from synnax.connection import Checker, State, _CheckResponse, _versions_compatible
 from synnax.license import State as LicenseState
 from x.telem import TimeSpan, TimeStamp
 
@@ -25,8 +25,8 @@ def _make_response(
     node_time: TimeStamp | None = None,
     node_version: str = "0.54.0",
     license: LicenseState = "ok",
-) -> CheckResponse:
-    return CheckResponse(
+) -> _CheckResponse:
+    return _CheckResponse(
         cluster_key="test-cluster",
         node_version=node_version,
         node_time=node_time or TimeStamp.now(),
@@ -57,7 +57,7 @@ class TestChecker:
         """Should report connected status on a valid connectivity response."""
         mock = MockUnaryClient(responses=[_make_response(), _make_response()])
         checker = Checker(
-            mock,
+            client=mock,
             poll_freq=TimeSpan.SECOND * 30,
             client_version="0.54.0",
         )
@@ -68,11 +68,11 @@ class TestChecker:
     def test_failed_on_error(self) -> None:
         """Should report failed status when the server is unreachable."""
         mock = MockUnaryClient(
-            responses=[CheckResponse()],
-            response_errors=[Unreachable("localhost:9090")],
+            responses=[_CheckResponse()],
+            response_errors=[Unreachable(target="localhost:9090")],
         )
         checker = Checker(
-            mock,
+            client=mock,
             poll_freq=TimeSpan.SECOND * 30,
             client_version="0.54.0",
         )
@@ -87,7 +87,7 @@ class TestChecker:
             responses=[_make_response(node_time=far_future), _make_response()]
         )
         checker = Checker(
-            mock,
+            client=mock,
             poll_freq=TimeSpan.SECOND * 30,
             client_version="0.54.0",
             clock_skew_threshold=TimeSpan.SECOND,
@@ -99,7 +99,7 @@ class TestChecker:
         """Should not flag skew when server time is close to local time."""
         mock = MockUnaryClient(responses=[_make_response(), _make_response()])
         checker = Checker(
-            mock,
+            client=mock,
             poll_freq=TimeSpan.SECOND * 30,
             client_version="0.54.0",
             clock_skew_threshold=TimeSpan.SECOND,
@@ -115,7 +115,7 @@ class TestChecker:
             _make_response(),
         ]
         errors: list[Exception | None] = [
-            Unreachable("localhost:9090"),
+            Unreachable(target="localhost:9090"),
             None,
             None,
         ]
@@ -124,7 +124,7 @@ class TestChecker:
             response_errors=errors,
         )
         checker = Checker(
-            mock,
+            client=mock,
             poll_freq=TimeSpan.SECOND * 30,
             client_version="0.54.0",
         )
@@ -140,7 +140,7 @@ class TestChecker:
         """Should stop the background polling thread."""
         mock = MockUnaryClient(responses=[_make_response()] * 10)
         checker = Checker(
-            mock,
+            client=mock,
             poll_freq=TimeSpan.SECOND * 30,
             client_version="0.54.0",
         )
@@ -153,7 +153,7 @@ class TestChecker:
         mock = MockUnaryClient(
             responses=[_make_response(license="missing"), _make_response()]
         )
-        checker = Checker(mock, poll_freq=TimeSpan.SECOND * 30)
+        checker = Checker(client=mock, poll_freq=TimeSpan.SECOND * 30)
         assert checker.state.license == "missing"
         checker.stop()
 
@@ -162,7 +162,7 @@ class TestChecker:
         mock = MockUnaryClient(
             responses=[_make_response(license="missing"), _make_response()]
         )
-        checker = Checker(mock, poll_freq=TimeSpan.SECOND * 30)
+        checker = Checker(client=mock, poll_freq=TimeSpan.SECOND * 30)
         assert checker.state.status == "connected"
         changes: list[State] = []
         checker.on_change(lambda s: changes.append(s))
@@ -178,7 +178,7 @@ class TestChecker:
             responses=[_make_response(node_version="99.0.0"), _make_response()]
         )
         checker = Checker(
-            mock,
+            client=mock,
             poll_freq=TimeSpan.SECOND * 30,
             client_version="0.54.0",
         )
@@ -191,7 +191,7 @@ class TestChecker:
             responses=[_make_response(node_version="0.54.1"), _make_response()]
         )
         checker = Checker(
-            mock,
+            client=mock,
             poll_freq=TimeSpan.SECOND * 30,
             client_version="0.54.0",
         )
