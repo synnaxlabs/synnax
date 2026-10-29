@@ -10,7 +10,7 @@
  */
 
 /* A button styles its own link. :where adds no specificity, so color classes win. */
-a.pluto-text:where(:not(.pluto-btn)) {
+a.lyra-text:where(:not(.lyra-btn)) {
     text-decoration: none;
     color: var(--pluto-primary-p1);
     cursor: pointer;
@@ -20,25 +20,25 @@ a.pluto-text:where(:not(.pluto-btn)) {
     }
 }
 
-span.pluto-text {
+span.lyra-text {
     font-size: inherit;
     font-weight: inherit;
     line-height: inherit;
     height: fit-content;
 }
 
-.pluto-text {
+.lyra-text {
     margin: 0;
 
-    &.pluto--direction-x {
+    &.lyra--direction-x {
         align-items: center;
     }
 
-    &.pluto-text--code {
+    &.lyra-text--code {
         font-family: var(--pluto-code-font-family);
     }
 
-    &.pluto-text--keyboard {
+    &.lyra-text--keyboard {
         line-height: 1;
 
         /* Square for a single glyph; word keys ("esc", "delete") outgrow the ratio and
@@ -62,41 +62,41 @@ span.pluto-text {
 
         /* An icon already fits inside the square, so padding it moves nothing and only
            widens the row's intrinsic size, knocking the caps off whole pixels. */
-        &:has(> .pluto-icon) {
+        &:has(> .lyra-icon) {
             padding-inline: 0;
         }
 
-        &.pluto-text--p {
+        &.lyra-text--p {
             height: var(--pluto-p-line-height);
             font-size: calc(var(--pluto-p-size) - 1px);
         }
 
-        &.pluto-text--h1 {
+        &.lyra-text--h1 {
             height: var(--pluto-h1-line-height);
             font-size: calc(var(--pluto-h1-size) - 1px);
         }
 
-        &.pluto-text--h2 {
+        &.lyra-text--h2 {
             height: var(--pluto-h2-line-height);
             font-size: calc(var(--pluto-h2-size) - 1px);
         }
 
-        &.pluto-text--h3 {
+        &.lyra-text--h3 {
             height: var(--pluto-h3-line-height);
             font-size: calc(var(--pluto-h3-size) - 1px);
         }
 
-        &.pluto-text--h4 {
+        &.lyra-text--h4 {
             height: var(--pluto-h4-line-height);
             font-size: calc(var(--pluto-h4-size) - 1px);
         }
 
-        &.pluto-text--h5 {
+        &.lyra-text--h5 {
             height: var(--pluto-h5-line-height);
             font-size: calc(var(--pluto-h5-size) - 1px);
         }
 
-        &.pluto-text--small {
+        &.lyra-text--small {
             height: calc(var(--pluto-small-line-height) + 1px);
             font-size: calc(var(--pluto-small-size) - 2px);
         }
@@ -104,7 +104,7 @@ span.pluto-text {
 
     /* Both axes, since a lone overflow-x computes the unmentioned overflow-y to auto
        and a crushed line-height then grows a scrollbar on a one-line label. */
-    &.pluto-text--overflow-ellipsis {
+    &.lyra-text--overflow-ellipsis {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -114,7 +114,7 @@ span.pluto-text {
     /* Overflowing text fades out at the right edge, Chrome-style, instead of
        ellipsizing. The self scroll timeline is inactive until the text actually
        overflows, so fitted text never fades. */
-    &.pluto-text--overflow-fade {
+    &.lyra-text--overflow-fade {
         white-space: nowrap;
         overflow: hidden;
         display: block;
@@ -125,26 +125,26 @@ span.pluto-text {
 
     /* Engines without scroll timelines (Safari < 26, Firefox < 156) ellipsize. */
     @supports not (animation-timeline: scroll(self x)) {
-        &.pluto-text--overflow-fade {
+        &.lyra-text--overflow-fade {
             text-overflow: ellipsis;
         }
     }
 
-    &.pluto-text--overflow-clip {
+    &.lyra-text--overflow-clip {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: clip;
     }
 
-    &.pluto-text--overflow-nowrap {
+    &.lyra-text--overflow-nowrap {
         white-space: nowrap;
     }
 
-    &.pluto-text--overflow-wrap {
+    &.lyra-text--overflow-wrap {
         white-space: wrap;
     }
 
-    &.pluto-text--line-clamp {
+    &.lyra-text--line-clamp {
         display: -webkit-box;
         -webkit-box-orient: vertical;
         overflow: hidden;
