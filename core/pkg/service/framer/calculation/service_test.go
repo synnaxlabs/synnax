@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -1104,6 +1105,36 @@ var _ = Describe("Calculation", Ordered, func() {
 					Eventually(written).Should(ContainElement(compileFailure()))
 					failAndRebuild(ctx, baseName)
 					Expect(written()).To(HaveEach(compileFailure()))
+				},
+			)
+
+			It(
+				"Should write a failure again after a dependency is renamed away and back",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					name := base.Name
+					Expect(channelWriter.Rename(
+						ctx, base.Key(), UniqueChannelName(), false,
+					)).To(Succeed())
+					Eventually(written).Should(ContainElement(compileFailure()))
+					Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
+						To(Succeed())
+					stored := func() (calculation.Status, error) {
+						var st calculation.Status
+						err := statusSvc.NewRetrieve[struct{}]().
+							Where(status.MatchKeys[struct{}](calc.OntologyID().String())).
+							Entry(&st).
+							Exec(ctx, nil)
+						return st, err
+					}
+					Eventually(func() error {
+						_, err := stored()
+						return err
+					}).Should(MatchError(query.ErrNotFound))
+					write(0)
+					Eventually(stored).Should(failure())
 				},
 			)
 		})

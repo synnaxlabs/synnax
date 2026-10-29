@@ -12,7 +12,8 @@
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
-/// @brief it should build no NI or LabJack factory when their libraries do not load.
+/// @brief it should build no NI or LabJack factory when their libraries do not load,
+/// and still build the factory of an integration whose libraries load.
 TEST(RackFactoriesTest, testSkipsIntegrationsWithoutLibraries) {
     const Config cfg{
         .integrations =
@@ -38,6 +39,19 @@ TEST(RackFactoriesTest, testSkipsIntegrationsWithoutLibraries) {
         EXPECT_FALSE(handled) << type;
         EXPECT_EQ(tsk, nullptr) << type;
     }
+    // An invalid config stops the configure before it builds a scanner, which needs a
+    // client.
+    const auto [scanner, handled] = factory->configure_task(
+        ctx,
+        synnax::task::Task{
+            .name = "http_scan",
+            .type = "http_scan",
+            .config = {{"rate", "fast"}},
+        },
+        task::NO_COMMAND
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(scanner, nullptr);
     EXPECT_TRUE(ctx->statuses.empty());
 }
 }

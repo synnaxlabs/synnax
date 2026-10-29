@@ -26,6 +26,28 @@ cc_test(
 )
 
 cc_library(
+    name = "bpf",
+    srcs = ["bpf.cpp"],
+    hdrs = ["bpf.h"],
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "bpf_test",
+    srcs = ["bpf_test.cpp"],
+    deps = [
+        ":bpf",
+        "//driver/ethercat/errors",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "soem_api",
     srcs = select({
         "@platforms//os:linux": ["api_linux.cpp"],
@@ -38,19 +60,10 @@ cc_library(
         "//driver/ethercat/errors",
         "//vendor/soem",
         "//x/cpp/errors",
-    ],
-)
-
-cc_test(
-    name = "soem_api_test",
-    srcs = ["api_darwin_test.cpp"],
-    target_compatible_with = ["@platforms//os:macos"],
-    deps = [
-        ":soem_api",
-        "//driver/ethercat/errors",
-        "//x/cpp/testutil",
-        "@googletest//:gtest_main",
-    ],
+    ] + select({
+        "@platforms//os:macos": [":bpf"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
