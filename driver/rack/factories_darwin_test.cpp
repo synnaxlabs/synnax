@@ -15,17 +15,10 @@
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
-/// @brief it should not report NI as supported when a config names it.
-TEST(RackFactoriesTest, NamedNIIsNotSupported) {
-    const Config cfg{.integrations = {"ni", http::INTEGRATION_NAME}};
-    EXPECT_FALSE(cfg.integration_supported("ni"));
-    EXPECT_EQ(cfg.supported_integrations(), std::vector{http::INTEGRATION_NAME});
-}
-
-/// @brief it should leave NI out of the default integrations and delete the NI scanner
+/// @brief it should leave NI out of the built integrations and delete the NI scanner
 /// that a Driver built with NI left on the rack.
 TEST(RackFactoriesTest, DeletesLegacyNIScanner) {
-    const auto integrations = default_integrations();
+    const auto integrations = built_integrations();
     EXPECT_EQ(std::ranges::find(integrations, "ni"), integrations.end());
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -42,5 +35,18 @@ TEST(RackFactoriesTest, DeletesLegacyNIScanner) {
     for (const auto &[_, tsk]: tasks)
         tsk->stop(false);
     ASSERT_OCCURRED_AS_P(rack.tasks.retrieve(scanner.key), x::errors::NOT_FOUND);
+}
+
+/// @brief it should leave NI out of the rack's integrations when a config names it.
+TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
+    Config cfg{
+        .connection = test_client_config,
+        .integrations = {"ni", http::INTEGRATION_NAME},
+    };
+    x::breaker::Breaker breaker;
+    ASSERT_NIL(cfg.load_remote(breaker));
+    const auto client = synnax::Synnax(test_client_config);
+    const auto rack = ASSERT_NIL_P(client.racks.retrieve(cfg.rack.key));
+    EXPECT_EQ(rack.integrations, std::vector<std::string>{http::INTEGRATION_NAME});
 }
 }

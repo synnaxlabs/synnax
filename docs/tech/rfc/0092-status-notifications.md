@@ -14,8 +14,8 @@ use and goes bad. An offer toasts once, with its button.
 
 The Core marks each problem with two new status fields: `since` and `cleared`. They let
 the Console toast a problem once, count its repeats, and keep one cause from making many
-toasts. The Driver stops reporting integrations that cannot run on its computer, and it
-gives setup steps for the operating system it runs on.
+toasts. The Driver leaves out integrations that its operating system cannot run, names a
+missing library instead of hiding it, and gives setup steps for its operating system.
 
 ## 1 Motivation
 
@@ -165,13 +165,17 @@ to match, and the statuses page in the docs
 
 ### 3.5 Driver changes
 
-- **Integrations that cannot run are not built**: The macOS build leaves out NI, as the
-  NI Linux RT build leaves out Modbus (`driver/rack/BUILD.bazel:59`,
-  `driver/rack/rack.h:76`). On other systems, the factories use the check that
-  `supported_integrations()` already applies to `rack.integrations`, so a missing NI or
-  LabJack library means no factory. On macOS, the rack deletes the old NI scanner with
+- **Integrations that cannot run are not built**: The macOS build leaves out NI and the
+  Linux build leaves out LabJack, as the NI Linux RT build leaves out Modbus
+  (`driver/rack/BUILD.bazel:59`). `rack.integrations` lists the integrations that are
+  enabled and built. The rack deletes the old scanner of a left-out integration with
   `delete_legacy_task_by_type` (`driver/common/factory.h:100`), as the rack status
   factory deletes its old heartbeat task (`driver/rack/status/status.h:161`).
+- **A missing library is reported, not hidden**: Where NI or LabJack can run, its
+  factory always exists. It loads the library on first use and tries again on each scan
+  and each task configure until the load succeeds, so an install needs no restart. Until
+  then, the scanner warns and a configure fails with `missing_lib`, which names the
+  library and its download link.
 - **EtherCAT setup text fits the system**: A macOS `check_socket` tests `/dev/bpf*` and
   returns `PERMISSION_DENIED` with macOS steps, such as the Wireshark ChmodBPF package.
   The scan already stops on that error (`driver/ethercat/scan_task.cpp:135`), so the
@@ -243,8 +247,8 @@ Core.
   Rack specs cover copies onto running tasks only and one write per outage. Calculation
   specs cover one write per error change and the good status on recovery.
 - **Driver**: Specs cover the re-send after a failed heartbeat, the dropped entry after
-  a removal, the late send of a filtered change, the macOS socket check, and a Driver
-  with no NI factory.
+  a removal, the late send of a filtered change, the macOS socket check, a library that
+  loads after boot, and a build with no NI or LabJack factory.
 - **Console**: Specs drive real statuses through a live Core for each kind, the "in use"
   rules, the 5 s wait, the rack cover, closing by identity, and the problems view.
 
@@ -256,12 +260,12 @@ Phases 8 to 12 change the status shape, the toast model, and the UI.
 
 | Phase | Scope                                                 | Touches                                                                                                                                                     | Depends on |
 | ----- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Skip NI and LabJack factories without their libraries | `driver/rack`                                                                                                                                               | -          |
+| 1     | Report missing NI and LabJack libraries               | `driver/rack`                                                                                                                                               | -          |
 | 2     | Explain EtherCAT setup problems on macOS and Windows  | `driver/ethercat`, `console/src/platform/device`                                                                                                            | -          |
 | 3     | Never drop a Driver task status change                | `driver/common`, `integration/tests/driver`                                                                                                                 | -          |
 | 4     | Stop repeated and stale status writes in the Core     | `core/pkg/service/framer/calculation`, `core/pkg/service/rack`, `core/pkg/service/task`                                                                     | -          |
 | 5     | Send task statuses again after the Driver reconnects  | `driver/task`, `driver/rack/status`                                                                                                                         | -          |
-| 6     | Leave NI out of the macOS Driver build                | `driver/rack`, `driver/ni`                                                                                                                                  | 1          |
+| 6     | Leave NI out of macOS and LabJack out of Linux        | `driver/rack`, `driver/ni`                                                                                                                                  | 1          |
 | 7     | Toast states only when their thing is in use          | `lyra/src/status`, `console/src/platform/notifications`, `console/src/platform/device`, `console/src/feature`, `site/docs`                                  | -          |
 | 8     | Add problem start and clear times to statuses         | `schemas/synnax`, `core/pkg/service/status`, `core/pkg/service/channel/calculation`, `client/ts/src/status`, `client/py/synnax/status`, `client/cpp/status` | -          |
 | 9     | Toast each problem once and close it by problem       | `lyra/src/status`, `console/src/platform/notifications`, `console/src/app/notifications`, `site/docs`                                                       | 7, 8       |
@@ -293,10 +297,11 @@ Phases 8 to 12 change the status shape, the toast model, and the UI.
    repairs the statuses lost while the Driver could not reach the Core.
 8. **No new variant for copies**: A copy is a real problem on a running task, so it
    keeps the rack's variant.
-9. **No factory without its libraries, not a failing factory**: A start on such a task
-   gets the manager's reply, "No integration on this Driver handles task type"
-   (`driver/task/manager.cpp:625`). The trade is real: that reply does not name the
-   missing library.
+9. **Report a missing library, not skip the factory**: Without a factory, a start gets
+   only "This Driver does not run ... tasks", and an auto-start task writes nothing at
+   boot. The "in use" rule of phase 7 already keeps the scanner warning from toasting.
+   Home Assistant also names a missing package and tries again. The trade is real: each
+   Driver without the library keeps one scanner warning.
 10. **Clear a calculation with a good status, not a delete**: A delete loses `cleared`,
     so each failure of a flapping calculation would toast. The channel tree shows only
     warnings and errors (`console/src/feature/channel/tree.tsx:216`). The trade is real:

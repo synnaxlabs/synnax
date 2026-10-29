@@ -15,14 +15,14 @@ std::vector<std::string> platform_integrations() {
     return {ni::INTEGRATION_NAME};
 }
 
-bool platform_libraries_loaded(const std::string &integration) {
-    if (integration == ni::INTEGRATION_NAME) return ni::integration_supported();
-    return true;
-}
-
 void configure_ni(const Config &config, FactoryList &factories) {
     configure_integration(config, factories, ni::INTEGRATION_NAME, [&config]() {
         return ni::Factory::create(config.timing);
     });
+}
+
+void configure_labjack(const Config &, FactoryList &factories) {
+    // The Linux build leaves LabJack out, so its names are literals.
+    factories.push_back(std::make_unique<LegacyFactory>("labjack", "labjack_scan"));
 }
 }
