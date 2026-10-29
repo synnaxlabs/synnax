@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -38,6 +39,31 @@ public:
             if (this->beats++ == 0) return {{}, freighter::UNREACHABLE};
         } else if (this->task_writes++ == 1)
             return {{}, freighter::UNREACHABLE};
+        grpc::status::SetResponse res;
+        *res.mutable_statuses() = req.statuses();
+        return {res, x::errors::NIL};
+    }
+};
+
+/// @brief a status set transport that holds the second rack heartbeat past LATE_GAP,
+/// and echoes every write.
+class SlowSetClient final : public synnax::status::SetClient {
+    const std::string rack_key;
+
+public:
+    std::atomic<int> beats = 0;
+    std::atomic<int> task_writes = 0;
+
+    explicit SlowSetClient(std::string rack_key): rack_key(std::move(rack_key)) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::status::SetResponse, x::errors::Error>
+    send(const std::string &, grpc::status::SetRequest &req) override {
+        if (req.statuses(0).key() != this->rack_key)
+            this->task_writes++;
+        else if (this->beats++ == 1)
+            std::this_thread::sleep_for((LATE_GAP + x::telem::SECOND / 2).chrono());
         grpc::status::SetResponse res;
         *res.mutable_statuses() = req.statuses();
         return {res, x::errors::NIL};
@@ -210,5 +236,32 @@ TEST(stateTests, ResendsTaskStatusesUntilTheyReachTheCore) {
         std::chrono::milliseconds(10)
     );
     EXPECT_EQ(transport->task_writes.load(), 3);
+}
+
+/// @brief it should send task statuses again after a heartbeat that succeeds more than
+/// LATE_GAP after the one before it, and only once.
+TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<SlowSetClient>(
+        synnax::rack::ontology_id(rack.key).string()
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    // Beat 2 is late and re-sends, and beat 3 sends nothing. Beat 4 starts once beat 3
+    // is done.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        4,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(transport->task_writes.load(), 2);
 }
 }
