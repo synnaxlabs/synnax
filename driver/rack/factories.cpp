@@ -39,12 +39,6 @@ void configure_opcua(const Config &config, FactoryList &factories) {
     });
 }
 
-void configure_labjack(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {
-        return labjack::Factory::create(config.timing);
-    });
-}
-
 void configure_state(FactoryList &factories) {
     factories.push_back(std::make_unique<status::Factory>());
 }

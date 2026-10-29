@@ -31,7 +31,6 @@
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
@@ -74,7 +73,6 @@ std::vector<std::string> platform_integrations();
 inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
         opcua::INTEGRATION_NAME,
-        labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
         http::INTEGRATION_NAME

@@ -20,4 +20,9 @@ void configure_ni(const Config &config, FactoryList &factories) {
         return ni::Factory::create(config.timing);
     });
 }
+
+void configure_labjack(const Config &, FactoryList &factories) {
+    // The Linux build leaves LabJack out, so its names are literals.
+    factories.push_back(std::make_unique<LegacyFactory>("labjack", "labjack_scan"));
+}
 }
