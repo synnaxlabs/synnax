@@ -35,9 +35,11 @@ protected:
         ASSERT_NIL(Config::clear_persisted_state(args));
     }
 
-    /// @brief saves remote info in the shape an older Driver wrote, with a rack key.
-    static void
-    save_legacy_remote_info(const synnax::rack::Key key, const std::string &cluster) {
+    /// @brief saves remote info with the key of a rack that needs enrollment.
+    static void save_unenrolled_remote_info(
+        const synnax::rack::Key key,
+        const std::string &cluster
+    ) {
         const auto kv = ASSERT_NIL_P(
             x::kv::JSONFile::open_file({
                 .path = STATE_PATH,
@@ -112,14 +114,14 @@ TEST_F(RackConfigTest, SaveConnParamsToPersistedState) {
     ASSERT_EQ(cfg.connection.password, "nip");
 }
 
-/// @brief it should enroll the rack an older Driver saved.
-TEST_F(RackConfigTest, EnrollLegacyRack) {
+/// @brief it should enroll the saved rack that needs enrollment.
+TEST_F(RackConfigTest, EnrollSavedRack) {
     const auto client = new_test_client();
     const auto rack = ASSERT_NIL_P(client.racks.create("abc rack"));
     const auto cluster_key = ASSERT_NIL_P(
         x::uuid::UUID::parse(client.connectivity->check().cluster_key)
     );
-    save_legacy_remote_info(rack.key, cluster_key.to_string());
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.rack.name, "abc rack");
@@ -129,6 +131,30 @@ TEST_F(RackConfigTest, EnrollLegacyRack) {
     ASSERT_FALSE(state["conn_params"].contains("username"));
     ASSERT_FALSE(state["conn_params"].contains("password"));
     ASSERT_EQ(state["conn_params"]["api_key"], cfg.connection.api_key);
+}
+
+/// @brief it should keep the saved rack and the password when the caller cannot create
+/// an API key for the rack.
+TEST_F(RackConfigTest, EnrollKeepsSavedRackWhenKeyDenied) {
+    const auto client = new_test_client();
+    const auto caller = ASSERT_NIL_P(client.racks.create("caller rack"));
+    const auto caller_key = ASSERT_NIL_P(
+        client.api_keys.create("test", {"rack", std::to_string(caller.key)})
+    );
+    const auto saved = ASSERT_NIL_P(client.racks.create("saved rack"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    auto conn = test_client_config;
+    conn.api_key = caller_key.token;
+    Config cfg{
+        .remote_info = {.rack_key = saved.key, .cluster_key = cluster_key},
+        .connection = conn,
+    };
+    ASSERT_OCCURRED_AS(cfg.enroll(), synnax::auth::ERR_ACCESS_DENIED);
+    ASSERT_EQ(cfg.rack.key, saved.key);
+    ASSERT_EQ(cfg.connection.password, conn.password);
+    ASSERT_NIL_P(client.racks.retrieve(saved.key));
 }
 
 /// @brief it should keep a saved rack key until the rack is enrolled.
@@ -142,7 +168,7 @@ TEST_F(RackConfigTest, RemoteInfoKeepsUnenrolledRackKey) {
 TEST_F(RackConfigTest, RecreateOnClusterKeyMismatch) {
     const auto client = new_test_client();
     const auto rack = ASSERT_NIL_P(client.racks.create("abc rack"));
-    save_legacy_remote_info(rack.key, "00000000-0000-0000-0000-000000000001");
+    save_unenrolled_remote_info(rack.key, "00000000-0000-0000-0000-000000000001");
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_NE(cfg.rack.key, rack.key);
     ASSERT_NE(
