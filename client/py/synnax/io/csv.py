@@ -46,6 +46,7 @@ class CSVReader(ExtensionMatcher):
     def __init__(
         self,
         path: Path,
+        *,
         keys: list[str] | None = None,
         chunk_size: int | None = None,
     ):

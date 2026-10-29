@@ -100,6 +100,7 @@ class Controller:
 
     def __init__(
         self,
+        *,
         name: str,
         write: channel_.Params | None,
         read: channel_.Params | None,
@@ -240,6 +241,7 @@ class Controller:
     def set_authority(
         self,
         value: channel_.Key | str,
+        *,
         authority: CrudeAuthority,
     ) -> None: ...
 
@@ -253,6 +255,7 @@ class Controller:
             | str
             | CrudeAuthority
         ),
+        *,
         authority: CrudeAuthority | None = None,
     ) -> None:
         if isinstance(value, dict):
@@ -277,6 +280,7 @@ class Controller:
     def wait_until(
         self,
         cond: Condition,
+        *,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
@@ -307,6 +311,7 @@ class Controller:
     def wait_while(
         self,
         cond: Condition,
+        *,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
@@ -338,7 +343,7 @@ class Controller:
             raise processor.exc
         return ok
 
-    def sleep(self, dur: float | int | TimeSpan, precise: bool = False) -> None:
+    def sleep(self, dur: float | int | TimeSpan, *, precise: bool = False) -> None:
         """Sleeps the controller for the provided duration.
 
         :param dur: The duration to sleep for. This can be a flot or int representing
@@ -348,11 +353,12 @@ class Controller:
         If you're looking for millisecond level precision, set this value to True.
         Otherwise, we recommend leaving it as False.
         """
-        sleep(dur, precise)
+        sleep(dur, precise=precise)
 
     def wait_until_defined(
         self,
         channels: channel_.Params,
+        *,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks until the controller has received at least one value from all the
@@ -369,11 +375,14 @@ class Controller:
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
         res = [self._resolve(ch) for ch in channel_.normalize_params(channels).channels]
-        return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
+        return self.wait_until(
+            lambda c: all(v.key in c.state for v in res), timeout=timeout
+        )
 
     def remains_true_for(
         self,
         cond: Condition,
+        *,
         duration: CrudeTimeSpan,
         percentage: float = 1,
     ) -> bool:
@@ -611,6 +620,7 @@ class ScheduledCommand:
 
     def __init__(
         self,
+        *,
         channel: channel_.Key | str,
         value: SampleValue,
         delay: float | int | TimeSpan,
