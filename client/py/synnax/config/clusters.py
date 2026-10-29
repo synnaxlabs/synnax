@@ -63,7 +63,7 @@ class Clusters:
         pwd = self.keyring.get_password(_PASSWORD_SERVICE, key) or ""
         return Cluster(options=Options(**opts, password=pwd))
 
-    def set(self, c: Cluster, key: str = "default") -> None:
+    def set(self, c: Cluster, *, key: str = "default") -> None:
         """Saves the options and their API key, and deletes any saved password. A
         failed save leaves the saved options as they were.
         """

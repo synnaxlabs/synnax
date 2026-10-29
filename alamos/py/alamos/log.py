@@ -34,7 +34,7 @@ class Logger:
     def _(self) -> Noop:
         return self
 
-    def __init__(self, noop: bool = True, base: BaseLogger | None = None):
+    def __init__(self, *, noop: bool = True, base: BaseLogger | None = None):
         self.noop = noop
         self.base = base
         self._fields = {}
