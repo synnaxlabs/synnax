@@ -64,10 +64,6 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
 
 const isIndexItem = Component.renderProp(IsIndexItem);
 
-const NAN_FILL_INPUT_PROPS = {
-  tooltip: "Write NaN for bad float values instead of skipping the sample",
-} as const;
-
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
   return (
@@ -96,11 +92,7 @@ const Properties = (): ReactElement => {
         )}
         <Task.Fields.DataSaving />
         <Task.Fields.AutoStart />
-        <PForm.SwitchField
-          label="NaN fill"
-          path="config.nanFillEnabled"
-          inputProps={NAN_FILL_INPUT_PROPS}
-        />
+        <Task.Fields.NaNFill />
       </Flex.Box>
     </>
   );

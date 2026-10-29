@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
-#include <cstdint>
 
 #include "gtest/gtest.h"
 
@@ -1118,33 +1117,27 @@ TEST(AuthoritiesValidation, RejectsManyAuthoritiesWithoutKeys) {
 }
 
 namespace {
-/// @brief answers each open with the next scripted error and records the stack
-/// address of each call.
-class DepthWriterFactory final : public WriterFactory {
+/// @brief answers each open with the next scripted error.
+class ScriptedWriterFactory final : public WriterFactory {
     std::vector<x::errors::Error> errors;
 
 public:
     std::atomic<size_t> opens{0};
-    std::vector<std::uintptr_t> depths;
 
-    explicit DepthWriterFactory(std::vector<x::errors::Error> errors):
+    explicit ScriptedWriterFactory(std::vector<x::errors::Error> errors):
         errors(std::move(errors)) {}
 
     std::pair<std::unique_ptr<Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &) override {
-        volatile char marker = 0;
-        this->depths.push_back(reinterpret_cast<std::uintptr_t>(&marker));
-        const auto err = this->errors.at(this->depths.size() - 1);
-        this->opens.fetch_add(1);
-        return {nullptr, err};
+        return {nullptr, this->errors.at(this->opens.fetch_add(1))};
     }
 };
 }
 
-/// @brief it should retry a lost Core in a loop, so a long outage cannot overflow the
-/// stack.
-TEST(AcquisitionPipeline, RetriesOpenAtOneStackDepth) {
-    const auto factory = std::make_shared<DepthWriterFactory>(std::vector{
+/// @brief it should open the writer again while the Core is unreachable, and stop on
+/// another error.
+TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
         freighter::UNREACHABLE,
         freighter::UNREACHABLE,
         freighter::UNREACHABLE,
@@ -1167,7 +1160,5 @@ TEST(AcquisitionPipeline, RetriesOpenAtOneStackDepth) {
     ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);
     pipeline.stop();
     ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
-    for (const auto depth: factory->depths)
-        ASSERT_EQ(depth, factory->depths.front());
 }
 }

@@ -139,14 +139,13 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         return parser.error();
     }
     const auto &cfg = props.connection;
-    const auto previous = std::exchange(
-        this->checked[dev.key],
-        x::telem::TimeStamp::now()
-    );
+    const auto previous = this->checked[dev.key];
     const bool pin = cfg.secured() && !cfg.certificate_validation_disabled &&
                      !cfg.server_certificate.has_value();
     if (pin || this->conn_pool->last_reply(cfg) <= previous) {
         auto [conn, conn_err] = this->conn_pool->acquire(cfg, SCAN_LOG_PREFIX);
+        // Marked after the acquire, so its own reply does not skip the next probe.
+        this->checked[dev.key] = x::telem::TimeStamp::now();
         if (conn_err) {
             status.message = failure_message(conn_err, cfg, "Failed to reach server");
             status.variant = conn_err.matches(errors::SECURITY)
@@ -162,7 +161,8 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
                           << cert->thumbprint() << " for " << dev.name;
                 dev.properties["connection"]["server_certificate"] = cert->pem();
             }
-    }
+    } else
+        this->checked[dev.key] = x::telem::TimeStamp::now();
 
     const auto accepted = this->renewal.accepted.find(dev.key);
     if (cfg.secured() && cfg.certificate_validation_disabled) {
@@ -284,8 +284,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     if (is_inverse || ctx->err) return UA_STATUSCODE_GOOD;
     auto *const ua_client = ctx->client.get();
     // A read on a lost connection would open a new one outside the pool.
-    if (ctx->err = connection::connected(ua_client); ctx->err)
-        return UA_STATUSCODE_GOOD;
+    if (ctx->err = connection::lost(ua_client); ctx->err) return UA_STATUSCODE_GOOD;
 
     UA_ReadValueId ids[3];
     UA_ReadValueId_init(&ids[0]);

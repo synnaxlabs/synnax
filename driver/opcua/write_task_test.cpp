@@ -566,8 +566,8 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     ASSERT_NIL(sink->stop());
 }
 
-/// @brief it should warn about a node that the server rejects and still write the
-/// other nodes in the command.
+/// @brief it should warn about a node that the server rejects and still write the other
+/// nodes in the command.
 TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     const auto bad_cmd = ASSERT_NIL_P(ctx->client->channels.create(
         make_unique_channel_name("bad_node_cmd"),

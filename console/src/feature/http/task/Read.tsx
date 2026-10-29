@@ -49,10 +49,6 @@ const RATE_INPUT_PROPS = {
   className: CSS.B("rate-input"),
 } as const;
 
-const NAN_FILL_INPUT_PROPS = {
-  tooltip: "Write NaN for invalid floats instead of skipping the sample",
-} as const;
-
 const Properties = () => (
   <>
     <SelectDevice />
@@ -64,11 +60,7 @@ const Properties = () => (
       />
       <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
-      <PForm.SwitchField
-        label="NaN fill"
-        path="config.nanFillEnabled"
-        inputProps={NAN_FILL_INPUT_PROPS}
-      />
+      <Task.Fields.NaNFill />
     </Flex.Box>
   </>
 );

@@ -36,11 +36,6 @@ x::telem::Series to_series(
     const std::vector<x::telem::SampleValue> &samples
 );
 
-/// @brief writes a scalar variant to a telemetry series.
-/// @return a pair containing the number of samples written and any error.
-std::pair<size_t, x::errors::Error>
-write_to_series(x::telem::Series &s, const UA_Variant &v);
-
 /// @brief converts a telemetry series to a UA_Variant.
 std::pair<UA_Variant, x::errors::Error> series_to_variant(const x::telem::Series &s);
 

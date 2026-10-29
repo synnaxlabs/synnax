@@ -302,9 +302,9 @@ protected:
     }
 
     /// @brief reads the value of every channel. Connects first when the task has no
-    /// connection, and drops a connection that is lost so the next read connects
-    /// again. When the read fails after the client certificate changed, connects again
-    /// with the new certificate and reads again.
+    /// connection, and drops a connection that is lost so the next read connects again.
+    /// When the read fails after the client certificate changed, connects again with
+    /// the new certificate and reads again.
     std::pair<types::ReadResponse, x::errors::Error> read_values() {
         if (!this->connection) {
             if (this->start_err)
@@ -478,8 +478,8 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
     /// @brief the stamps of each generated index in the current read.
     std::map<synnax::channel::Key, std::vector<x::telem::TimeStamp>> stamps;
 
-    /// @brief adds the value of each channel at ts, skipping every channel on the
-    /// index of a channel with a bad value.
+    /// @brief adds the value of each channel at ts, skipping every channel on the index
+    /// of a channel with a bad value.
     void collect(const UA_ReadResponse &res, const x::telem::TimeStamp ts, Quality &q) {
         std::vector<std::optional<x::telem::SampleValue>> values;
         values.reserve(this->cfg.channels.size());
