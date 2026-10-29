@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, task } from "@synnaxlabs/client";
+import { status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, screen } from "@testing-library/react";
@@ -131,6 +131,22 @@ describe("Notifications.useForward", () => {
       expect(calls).toHaveLength(2);
     });
 
+    it("should drop the pending check of a deleted status", async () => {
+      const key = createTaskKey();
+      let resolve: ((inUse: boolean) => void) | undefined;
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+        if (task.statusKey(k) !== key) return false;
+        return await new Promise<boolean>((r) => (resolve = r));
+      });
+      await renderForward(client, { task: { ...STATE, inUse } });
+      const [error] = await write({ key, variant: "error" });
+      await vi.waitFor(() => expect(resolve).toBeDefined());
+      await client.statuses.delete(key);
+      act(() => resolve?.(true));
+      await settleWrites(client);
+      expect(screen.queryByText(error.message)).toBeNull();
+    });
+
     it("should report a check that fails", async () => {
       const key = createTaskKey();
       const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
@@ -181,6 +197,40 @@ describe("Notifications.useForward", () => {
       const [error] = await write({ variant: "error" });
       await settleWrites(client);
       expect(screen.getByText(error.message)).toBeTruthy();
+    });
+
+    it("should not notify a held warning after a newer reply", async () => {
+      fakeTimers();
+      const rule: Notifications.Rule = {
+        kind: (stat) => (status.detailsOf(stat)?.cmd == null ? "state" : "reply"),
+        warningsDelayed: true,
+      };
+      await renderForward(client, { task: rule });
+      const key = createTaskKey();
+      const [warning] = await write({ key, variant: "warning" });
+      const { message: reply } = await client.statuses.set({
+        key,
+        name: "",
+        variant: "error",
+        message: uniqueName("reply"),
+        time: TimeStamp.now(),
+        details: { cmd: "start" },
+      });
+      await screen.findByText(reply);
+      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      expect(screen.queryByText(warning.message)).toBeNull();
+      expect(screen.getByText(reply)).toBeTruthy();
+    });
+
+    it("should not notify a held warning whose status is deleted", async () => {
+      fakeTimers();
+      await renderForward(client, { task: DELAYED });
+      const key = createTaskKey();
+      const [warning] = await write({ key, variant: "warning" });
+      await settleWrites(client);
+      await client.statuses.delete(key);
+      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      expect(screen.queryByText(warning.message)).toBeNull();
     });
   });
 });

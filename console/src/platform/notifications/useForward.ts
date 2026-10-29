@@ -80,6 +80,8 @@ interface ForwarderArgs {
 
 interface Forwarder {
   write: (status: status.Status) => void;
+  /** Closes the problem of a deleted status. */
+  remove: (key: status.Key) => void;
   stop: () => void;
 }
 
@@ -102,6 +104,11 @@ const createForwarder = ({
   const close = (key: status.Key): void => {
     clearTimeout(problems.get(key)?.timer);
     problems.delete(key);
+  };
+
+  // A newer status replaces the notification on its key, so an older one must not show.
+  const retire = (key: status.Key): void => {
+    if (problems.get(key)?.shown === false) close(key);
   };
 
   const open = (stat: status.Status, { rule, key }: Owner): void => {
@@ -135,6 +142,7 @@ const createForwarder = ({
   const write = (stat: status.Status): void => {
     const owner = getOwner(rules, stat.key);
     const kind = owner?.rule.kind(stat) ?? "alarm";
+    if (kind !== "state") retire(stat.key);
     if (owner == null || kind === "alarm") {
       add(stat);
       return;
@@ -160,7 +168,7 @@ const createForwarder = ({
     problems.clear();
   };
 
-  return { write, stop };
+  return { write, remove: close, stop };
 };
 
 /**
@@ -178,9 +186,11 @@ export const useForward = (rules: Rules): void => {
   useEffect(() => {
     if (client == null) return;
     const forwarder = createForwarder({ client, rules, add, handleError });
-    const removeListener = client.statuses.onWrite(forwarder.write);
+    const removeWriteListener = client.statuses.onWrite(forwarder.write);
+    const removeDeleteListener = client.statuses.onDelete(forwarder.remove);
     return () => {
-      removeListener();
+      removeWriteListener();
+      removeDeleteListener();
       forwarder.stop();
     };
   }, [client, rules, add, handleError]);
