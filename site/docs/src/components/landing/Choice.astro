@@ -37,7 +37,7 @@ const { title, description, action, href, primary = false } = Astro.props;
         variant={primary ? "filled" : "outlined"}
         size="large"
         level="p"
-        weight={500}
+        className="docs-cta"
     >
         <slot name="action-icon" />
         {action}
@@ -80,6 +80,8 @@ const { title, description, action, href, primary = false } = Astro.props;
 
         .pluto-btn {
             margin-top: auto;
+            width: 100%;
+            justify-content: center;
         }
     }
 </style>
