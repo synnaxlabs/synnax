@@ -191,7 +191,7 @@ class Scaler:
             self.announced[pool] = line
             self.log(line)
 
-    def describe(self, runner: str, value: bool, now: sy.TimeStamp) -> str:
+    def describe(self, runner: str, *, value: bool, now: sy.TimeStamp) -> str:
         name = self.commander.channel(runner)
         if value:
             return f"{name}=True"
