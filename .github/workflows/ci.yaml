@@ -110,6 +110,7 @@ jobs:
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
+      stylelint: ${{ steps.filter.outputs.stylelint }}
       stylelint_config: ${{ steps.filter.outputs.stylelint_config }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
       www: ${{ steps.filter.outputs.www }}
@@ -909,6 +910,26 @@ jobs:
       ubuntu: false
     secrets: inherit
 
+  stylelint:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.stylelint == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'stylelint')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Lint the styles of every package
+        # The rules read the code of every package, so a change to one can break the
+        # lint of another whose own job does not run.
+        run: >-
+          pnpm --filter "./lyra" --filter "./pluto" --filter "./console" --filter
+          "./site/*" exec stylelint "src/**/*.{css,astro}" --allow-empty-input
+
   stylelint-config:
     needs: changes
     if:
@@ -1126,6 +1147,7 @@ jobs:
       - runners
       - site-common
       - soem
+      - stylelint
       - stylelint-config
       - versions
       - vite-plugin

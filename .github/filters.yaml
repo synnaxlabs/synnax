@@ -65,6 +65,14 @@ ts: &ts
 eslint_config:
   - *ts
 
+stylelint:
+  - *ts
+  - console/index.html
+  - console/src/**
+  - lyra/src/**
+  - pluto/src/**
+  - site/*/src/**
+
 stylelint_config:
   - *ts
 
