@@ -21,16 +21,21 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
 #include "open62541/plugin/certificategroup_default.h"
+#include "open62541/plugin/historydata/history_data_backend_memory.h"
+#include "open62541/plugin/historydata/history_data_gathering_default.h"
+#include "open62541/plugin/historydata/history_database_default.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
 
 #include "x/cpp/telem/telem.h"
 
 #include "driver/opcua/certificate/certificate.h"
+#include "driver/opcua/telem/telem.h"
 #include "driver/opcua/types/types.h"
 
 namespace driver::opcua::testutil {
@@ -170,6 +175,17 @@ struct Event {
     std::optional<x::telem::TimeStamp> time;
     /// @brief the value of the event field 1:Level.
     std::optional<UA_Double> level;
+};
+
+/// @brief a change that the mock server makes to the value of a Double or DateTime
+/// variable.
+struct Change {
+    /// @brief the string ID of the variable, in namespace 1.
+    std::string node;
+    std::variant<UA_Double, x::telem::TimeStamp> value = 0.0;
+    /// @brief the source time of the value. Without one, the server uses its clock.
+    std::optional<x::telem::TimeStamp> time;
+    UA_StatusCode status = UA_STATUSCODE_GOOD;
 };
 
 /// @brief the numeric IDs, in namespace 1, of the Point and Motor data types and of
@@ -313,6 +329,17 @@ struct ServerConfig {
     std::uint32_t max_nodes_per_write = 0;
     /// @brief the most nodes that one Browse request can name. 0 means no limit.
     std::uint32_t max_nodes_per_browse = 0;
+    /// @brief the most monitored items that one request can create. 0 means no limit.
+    std::uint32_t max_monitored_items_per_call = 0;
+    /// @brief the MaxNodesPerHistoryReadData that the server reports. The server does
+    /// not enforce it. 0 reports none.
+    std::uint32_t max_nodes_per_history_read_data = 0;
+    /// @brief whether the server records the history of each test node, from each
+    /// Change. Such a node allows history reads.
+    bool historizing = false;
+    /// @brief the most values that the server returns for a node in one history read
+    /// before it returns a continuation point.
+    std::size_t max_history_values = 1000;
     /// @brief the most children that the server returns for a node before it
     /// returns a continuation point. 0 means no limit.
     std::uint32_t max_references_per_node = 0;
@@ -344,6 +371,7 @@ struct ServerConfig {
         UA_Int64 int64_data = 12345;
         UA_Float float_data = 3.14159f;
         UA_Double double_data = 2.71828;
+        UA_DateTime date_time_data = UA_DATETIME_UNIX_EPOCH;
         UA_Guid guid_data = {
             0x12345678,
             0x1234,
@@ -412,6 +440,14 @@ struct ServerConfig {
             &UA_TYPES[UA_TYPES_DOUBLE]
         );
 
+        UA_Variant date_time_val;
+        UA_Variant_init(&date_time_val);
+        UA_Variant_setScalarCopy(
+            &date_time_val,
+            &date_time_data,
+            &UA_TYPES[UA_TYPES_DATETIME]
+        );
+
         // guid node
         UA_Variant guid_val;
         UA_Variant_init(&guid_val);
@@ -453,6 +489,11 @@ struct ServerConfig {
              &UA_TYPES[UA_TYPES_DOUBLE],
              double_array_val,
              "Test Double Array Node"},
+            {1,
+             "TestDateTime",
+             &UA_TYPES[UA_TYPES_DATETIME],
+             date_time_val,
+             "Test DateTime Node"},
             {1, "TestGuid", &UA_TYPES[UA_TYPES_GUID], guid_val, "Test GUID Node"},
         };
 
@@ -468,6 +509,7 @@ struct ServerConfig {
         UA_Variant_clear(&float_val);
         UA_Variant_clear(&double_val);
         UA_Variant_clear(&double_array_val);
+        UA_Variant_clear(&date_time_val);
         UA_Variant_clear(&guid_val);
 
         return cfg;
@@ -532,6 +574,9 @@ public:
     /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
     /// Zero means no delay.
     x::telem::TimeSpan probe_delay;
+    /// @brief whether the server stops answering, as a hung server does. Its
+    /// connections stay open.
+    std::atomic<bool> frozen{false};
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -560,6 +605,13 @@ public:
     void emit(Event event) {
         std::lock_guard lock(this->events_mutex);
         this->events.push_back(std::move(event));
+    }
+
+    /// @brief makes the server apply change on its next cycle. Safe to call from any
+    /// thread.
+    void change(Change change) {
+        std::lock_guard lock(this->events_mutex);
+        this->changes.push_back(std::move(change));
     }
 
     void stop() {
@@ -719,6 +771,68 @@ public:
     }
 
     /// @brief emits the events that emit queued.
+    /// @brief adds the MaxNodesPerHistoryReadData node, which open62541 removes.
+    static void add_history_limit(UA_Server *server, UA_UInt32 limit) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        UA_Variant_setScalar(&attr.value, &limit, &UA_TYPES[UA_TYPES_UINT32]);
+        attr.dataType = UA_TYPES[UA_TYPES_UINT32].typeId;
+        UA_Server_addVariableNode(
+            server,
+            UA_NS0ID(
+                SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERHISTORYREADDATA
+            ),
+            UA_NS0ID(SERVER_SERVERCAPABILITIES_OPERATIONLIMITS),
+            UA_NS0ID(HASPROPERTY),
+            UA_QUALIFIEDNAME(0, const_cast<char *>("MaxNodesPerHistoryReadData")),
+            UA_NS0ID(PROPERTYTYPE),
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
+    void apply_changes(UA_Server *server) {
+        std::vector<Change> queued;
+        {
+            std::lock_guard lock(this->events_mutex);
+            queued.swap(this->changes);
+        }
+        for (auto &change: queued) {
+            UA_DataValue value;
+            UA_DataValue_init(&value);
+            UA_DateTime date_time = 0;
+            if (auto *d = std::get_if<UA_Double>(&change.value))
+                UA_Variant_setScalar(&value.value, d, &UA_TYPES[UA_TYPES_DOUBLE]);
+            else {
+                date_time = telem::to_date_time(
+                    std::get<x::telem::TimeStamp>(change.value)
+                );
+                UA_Variant_setScalar(
+                    &value.value,
+                    &date_time,
+                    &UA_TYPES[UA_TYPES_DATETIME]
+                );
+            }
+            value.hasValue = true;
+            if (change.time.has_value()) {
+                value.sourceTimestamp = telem::to_date_time(*change.time);
+                value.hasSourceTimestamp = true;
+            }
+            if (change.status != UA_STATUSCODE_GOOD) {
+                value.status = change.status;
+                value.hasStatus = true;
+            }
+            const auto status = UA_Server_writeDataValue(
+                server,
+                UA_NODEID_STRING(1, const_cast<char *>(change.node.c_str())),
+                value
+            );
+            if (status != UA_STATUSCODE_GOOD)
+                LOG(WARNING) << "Mock OPC UA server failed to change " << change.node
+                             << ": " << UA_StatusCode_name(status);
+        }
+    }
+
     void emit_events(UA_Server *server) {
         std::vector<Event> queued;
         {
@@ -728,8 +842,7 @@ public:
         for (const auto &event: queued) {
             UA_KeyValueMap fields = UA_KEYVALUEMAP_NULL;
             if (event.time.has_value()) {
-                const UA_DateTime time = event.time->nanoseconds() / 100 +
-                                         UA_DATETIME_UNIX_EPOCH;
+                const UA_DateTime time = telem::to_date_time(*event.time);
                 UA_KeyValueMap_setScalar(
                     &fields,
                     UA_QUALIFIEDNAME(0, const_cast<char *>("/Time")),
@@ -891,7 +1004,20 @@ public:
         server_config->maxNodesPerRead = cfg.max_nodes_per_read;
         server_config->maxNodesPerWrite = cfg.max_nodes_per_write;
         server_config->maxNodesPerBrowse = cfg.max_nodes_per_browse;
+        server_config->maxMonitoredItemsPerCall = cfg.max_monitored_items_per_call;
         server_config->maxReferencesPerNode = cfg.max_references_per_node;
+        if (cfg.max_nodes_per_history_read_data > 0)
+            add_history_limit(server, cfg.max_nodes_per_history_read_data);
+        UA_HistoryDataGathering gathering{};
+        UA_HistoryDataBackend backend{};
+        if (cfg.historizing) {
+            gathering = UA_HistoryDataGathering_Default(cfg.test_nodes.size());
+            server_config->historyDatabase = UA_HistoryDatabase_default(gathering);
+            backend = UA_HistoryDataBackend_Memory(
+                cfg.test_nodes.size(),
+                cfg.max_history_values * 10
+            );
+        }
         for (const auto &uri: cfg.namespaces)
             UA_Server_addNamespace(server, uri.c_str());
         const StructureTypes structures;
@@ -955,6 +1081,10 @@ public:
 
             // Set access level to allow reading and writing
             attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+            if (cfg.historizing) {
+                attr.accessLevel |= UA_ACCESSLEVELMASK_HISTORYREAD;
+                attr.historizing = true;
+            }
 
             driver::opcua::types::LocalizedText description(
                 "en-US",
@@ -991,6 +1121,15 @@ public:
                 nullptr,
                 nullptr
             );
+            if (cfg.historizing) {
+                UA_HistorizingNodeIdSettings setting{};
+                setting.historizingBackend = backend;
+                setting.maxHistoryDataResponseSize = cfg.max_history_values;
+                setting
+                    .historizingUpdateStrategy = UA_HISTORIZINGUPDATESTRATEGY_VALUESET;
+                gathering
+                    .registerNodeId(server, gathering.context, &nodeId.get(), setting);
+            }
         }
 
         if (cfg.generated_variables > 0) add_generated(server, cfg.generated_variables);
@@ -1008,21 +1147,28 @@ public:
         ready = true;
 
         while (running.load()) {
+            if (frozen.load()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
             if (probe_delay.nanoseconds() > 0)
                 std::this_thread::sleep_for(
                     std::chrono::nanoseconds(probe_delay.nanoseconds())
                 );
             this->emit_events(server);
+            this->apply_changes(server);
             UA_Server_run_iterate(server, true);
         }
 
         ready = false;
         UA_Server_run_shutdown(server);
         UA_Server_delete(server);
+        if (cfg.historizing) backend.deleteMembers(&backend);
     }
 
 private:
     std::mutex events_mutex;
     std::vector<Event> events;
+    std::vector<Change> changes;
 };
 }

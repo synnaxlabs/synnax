@@ -21,9 +21,11 @@ func MigrateReadChannel(ctx context.Context, old v2.ReadChannel) (ReadChannel, e
 	return autoMigrateReadChannel(ctx, old)
 }
 
-// MigrateReadConfig lifts a v2 read config to v3.
+// MigrateReadConfig lifts a v2 read config to v3, where it samples its nodes.
 func MigrateReadConfig(ctx context.Context, old v2.ReadConfig) (ReadConfig, error) {
-	return autoMigrateReadConfig(ctx, old)
+	cfg, err := autoMigrateReadConfig(ctx, old)
+	cfg.Mode = ReadModeSampled
+	return cfg, err
 }
 
 // ReadMigration lifts stored read configs to v3.

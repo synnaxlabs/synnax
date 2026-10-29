@@ -20,6 +20,10 @@ export const WRITE_TYPES = ["node", "method"] as const;
 export const writeTypeZ = z.enum(WRITE_TYPES);
 export type WriteType = z.infer<typeof writeTypeZ>;
 
+export const READ_MODES = ["sampled", "on_change"] as const;
+export const readModeZ = z.enum(READ_MODES);
+export type ReadMode = z.infer<typeof readModeZ>;
+
 export const ARGUMENT_SOURCES = ["value", "command"] as const;
 export const argumentSourceZ = z.enum(ARGUMENT_SOURCES);
 export type ArgumentSource = z.infer<typeof argumentSourceZ>;
@@ -118,6 +122,8 @@ export const readConfigZ = task.readConfigZ
     arraySize: z.int32().default(1),
     channels: readChannelZ.array().default(() => []),
     nanFillEnabled: z.boolean().default(false),
+    mode: readModeZ.default("sampled"),
+    historyBackfillEnabled: z.boolean().default(false),
   });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 

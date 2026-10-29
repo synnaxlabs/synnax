@@ -18,6 +18,7 @@ from synnax.opcua.types_gen import (
     EventField,
     ReadChannel,
     ReadConfig,
+    ReadMode,
     WriteChannel,
     WriteConfig,
 )
@@ -57,6 +58,11 @@ class ReadTask(
         their data to.
     :param nan_fill_enabled: Whether to write NaN for a bad value of a float channel.
         When False, a bad value skips the sample for every channel on its index.
+    :param mode: "sampled" reads each node at the sample rate. "on_change" subscribes
+        to the changes of each node and writes each change at its source time, so each
+        channel needs an index of its own.
+    :param history_backfill_enabled: Whether an "on_change" task reads the history of
+        each node from the last stored value when it starts.
     """
 
     TYPE = "opc_read"
@@ -76,6 +82,8 @@ class ReadTask(
         array_size: int = 1,
         channels: list[ReadChannel] | None = None,
         nan_fill_enabled: bool = False,
+        mode: ReadMode = "sampled",
+        history_backfill_enabled: bool = False,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -92,6 +100,8 @@ class ReadTask(
             array_size=array_size,
             channels=channels if channels is not None else [],
             nan_fill_enabled=nan_fill_enabled,
+            mode=mode,
+            history_backfill_enabled=history_backfill_enabled,
         )
         task.assign_keys(self.config.channels)
 

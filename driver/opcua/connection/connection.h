@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -182,18 +183,49 @@ struct Server {
     /// @brief the most nodes that one Browse or BrowseNext request can name. 0 means
     /// no limit.
     uint32_t max_nodes_per_browse = 0;
+    /// @brief the most monitored items that one request can create. 0 means no limit.
+    uint32_t max_monitored_items_per_call = 0;
+    /// @brief the most nodes that one HistoryRead request for values can name. 0 means
+    /// no limit.
+    uint32_t max_nodes_per_history_read_data = 0;
 };
 
 /// @brief handles one event of a subscription: the values of the select clauses of its
 /// filter, in order.
 using EventHandler = std::function<void(const UA_KeyValueMap &fields)>;
 
-/// @brief the event subscription that a connection holds. Its address stays fixed for
-/// the life of the subscription, since the client passes it to each callback.
+/// @brief handles one change of a node of a subscription: the place of the node in the
+/// subscribe request, and its value.
+using ChangeHandler = std::function<void(std::size_t node, const UA_DataValue &value)>;
+
+/// @brief the intervals of a subscription to the changes of nodes.
+struct Intervals {
+    /// @brief how often the server samples each node.
+    x::telem::TimeSpan sampling;
+    /// @brief how often the server sends the changes.
+    x::telem::TimeSpan publishing;
+};
+
+/// @brief what the server did with a request to subscribe to the changes of nodes.
+struct Monitored {
+    /// @brief the error of each node that the server did not monitor, in order.
+    std::vector<x::errors::Error> errors;
+    /// @brief the intervals that the server chose. The sampling interval is the longest
+    /// of any node.
+    Intervals intervals;
+};
+
+/// @brief the subscription that a connection holds. Its address stays fixed for the
+/// life of the subscription, since the client passes it to each callback.
 struct Subscription {
     UA_UInt32 id = 0;
-    EventHandler handle;
-    /// @brief the bad status with which the server ended the subscription.
+    EventHandler handle_event;
+    ChangeHandler handle_change;
+    /// @brief the place of each monitored node in its subscribe request. The client
+    /// passes a pointer to one of them to each callback, so the list never grows.
+    std::vector<std::size_t> nodes;
+    /// @brief the bad status with which the server ended the subscription, or
+    /// BadTimeout when the server stopped answering.
     UA_StatusCode status = UA_STATUSCODE_GOOD;
 };
 
@@ -295,6 +327,31 @@ public:
             EventHandler handle
         );
 
+        /// @brief subscribes to the changes of the values of nodes, and replaces the
+        /// earlier subscription of the connection. Each node keeps the changes of one
+        /// publishing interval, and drops the oldest past that. handle runs for each
+        /// change, as for events, and first for the current value of each node.
+        /// Creates the nodes in as many requests as the server's limit needs.
+        /// @returns errors::NO_CONNECTION when the connection is lost, or the error of
+        /// a service result. A lost server ends the subscription with BadTimeout, which
+        /// iterate returns as errors::UNREACHABLE.
+        [[nodiscard]] std::pair<Monitored, x::errors::Error> subscribe(
+            const std::vector<UA_NodeId> &nodes,
+            const Intervals &intervals,
+            ChangeHandler handle
+        );
+
+        /// @brief reads the history that req names, in as many requests as the
+        /// server's limit needs. Releases each continuation point that the server
+        /// returns, so the Session holds none after the call. A result that keeps a
+        /// continuation point has more history, which a later request must read by
+        /// time.
+        /// @returns errors::NO_CONNECTION without sending req when the connection is
+        /// lost, the error of the service result, or errors::CRITICAL when the server
+        /// returns a result count that does not match req.
+        [[nodiscard]] std::pair<types::HistoryReadResponse, x::errors::Error>
+        read_history(const UA_HistoryReadRequest &req) const;
+
         /// @returns the ID of the subscription of the connection, or 0 when it has
         /// none.
         [[nodiscard]] UA_UInt32 subscription_id() const;
@@ -308,6 +365,14 @@ public:
     private:
         /// @brief ends the subscription, then gives the client back to the pool.
         void close();
+
+        /// @brief creates a subscription for sub, which replaces the earlier one.
+        /// @returns the publishing interval that the server chose.
+        [[nodiscard]] std::pair<x::telem::TimeSpan, x::errors::Error>
+        create(std::unique_ptr<Subscription> sub, x::telem::TimeSpan publishing);
+
+        /// @brief releases the continuation points of res on the server.
+        void release(const UA_HistoryReadResponse &res) const;
 
         /// @brief ends the subscription of the connection. When the server does not
         /// delete it, closes the Session, since a client that the pool hands out again

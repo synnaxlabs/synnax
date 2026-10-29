@@ -149,8 +149,8 @@ alarms refuses the request, and the task records events as usual.
 ## Outages
 
 An event task keeps running when the server or the network goes down. It shows "Failed
-to read data" and connects again. The task checks every 5 seconds that the server still
-answers, because a server that stops answering sends no notice.
+to read data" and connects again. The server sends the task a message at least every 2.5
+seconds, so the task also connects again when these messages stop.
 
 The task cannot record the events of an outage. When it connects again, it gets the
 state of each active alarm, as it does at start.

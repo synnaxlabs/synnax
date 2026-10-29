@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <memory>
 #include <new>
+#include <numeric>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -161,6 +163,20 @@ std::pair<Server, x::errors::Error> read_server(UA_Client *client) {
     );
     if (browse_err) return {Server{}, browse_err};
     server.max_nodes_per_browse = uint32_value(browse_limit.get().results[0]);
+    const auto [items_limit, items_err] = read_value(
+        client,
+        UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXMONITOREDITEMSPERCALL
+    );
+    if (items_err) return {Server{}, items_err};
+    server.max_monitored_items_per_call = uint32_value(items_limit.get().results[0]);
+    const auto [history_limit, history_err] = read_value(
+        client,
+        UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERHISTORYREADDATA
+    );
+    if (history_err) return {Server{}, history_err};
+    server.max_nodes_per_history_read_data = uint32_value(
+        history_limit.get().results[0]
+    );
     return {std::move(server), x::errors::NIL};
 }
 
@@ -733,15 +749,30 @@ size_t Pool::available_count(const std::string &endpoint) const {
 }
 namespace {
 /// @brief how often the server publishes the events of a subscription.
-constexpr double EVENT_PUBLISHING_INTERVAL_MS = 250;
-/// @brief the publishing intervals with no events after which the server sends a
+const auto EVENT_PUBLISHING_INTERVAL = 250 * x::telem::MILLISECOND;
+/// @brief about how long a subscription with nothing to send waits before it sends a
 /// keep-alive.
-constexpr UA_UInt32 EVENT_KEEP_ALIVE_COUNT = 10;
-/// @brief the publishing intervals with no publish request after which the server ends
-/// the subscription: three keep-alives.
-constexpr UA_UInt32 EVENT_LIFETIME_COUNT = 3 * EVENT_KEEP_ALIVE_COUNT;
+const auto KEEP_ALIVE_INTERVAL = 2500 * x::telem::MILLISECOND;
 /// @brief the most events that the server holds for one notifier between publishes.
 constexpr UA_UInt32 EVENT_QUEUE_SIZE = 1000;
+
+/// @returns the publishing intervals in KEEP_ALIVE_INTERVAL, and at least 1.
+UA_UInt32 keep_alive_count(const x::telem::TimeSpan publishing) {
+    return static_cast<UA_UInt32>(std::max(
+        1.0,
+        std::ceil(KEEP_ALIVE_INTERVAL.milliseconds() / publishing.milliseconds())
+    ));
+}
+
+/// @returns the samples in one publishing interval, and at least 1.
+UA_UInt32 queue_size(const Intervals &intervals) {
+    return static_cast<UA_UInt32>(std::max(
+        1.0,
+        std::ceil(
+            intervals.publishing.milliseconds() / intervals.sampling.milliseconds()
+        )
+    ));
+}
 
 void on_event(
     UA_Client *,
@@ -751,7 +782,25 @@ void on_event(
     void *,
     const UA_KeyValueMap fields
 ) {
-    static_cast<Subscription *>(subscription)->handle(fields);
+    static_cast<Subscription *>(subscription)->handle_event(fields);
+}
+
+void on_change(
+    UA_Client *,
+    UA_UInt32,
+    void *subscription,
+    UA_UInt32,
+    void *node,
+    UA_DataValue *value
+) {
+    static_cast<Subscription *>(subscription)
+        ->handle_change(*static_cast<const std::size_t *>(node), *value);
+}
+
+/// @brief runs when the client gets no publish response for a keep-alive period and
+/// its request timeout.
+void on_inactive(UA_Client *, UA_UInt32, void *subscription) {
+    static_cast<Subscription *>(subscription)->status = UA_STATUSCODE_BADTIMEOUT;
 }
 
 void on_status_change(
@@ -781,29 +830,44 @@ Pool::Connection::call(const UA_CallMethodRequest &method) const {
     return {std::move(res), err};
 }
 
-std::pair<std::vector<x::errors::Error>, x::errors::Error> Pool::Connection::subscribe(
-    const std::vector<UA_NodeId> &notifiers,
-    const UA_EventFilter &filter,
-    EventHandler handle
+std::pair<x::telem::TimeSpan, x::errors::Error> Pool::Connection::create(
+    std::unique_ptr<Subscription> sub,
+    const x::telem::TimeSpan publishing
 ) {
     this->unsubscribe();
-    if (const auto err = connected(this->get())) return {{}, err};
-    auto sub = std::make_unique<Subscription>();
-    sub->handle = std::move(handle);
+    if (const auto err = connected(this->get())) return {x::telem::TimeSpan(), err};
+    UA_Client_getConfig(this->get())->subscriptionInactivityCallback = on_inactive;
+    const auto keep_alive = keep_alive_count(publishing);
     auto req = UA_CreateSubscriptionRequest_default();
-    req.requestedPublishingInterval = EVENT_PUBLISHING_INTERVAL_MS;
-    req.requestedMaxKeepAliveCount = EVENT_KEEP_ALIVE_COUNT;
-    req.requestedLifetimeCount = EVENT_LIFETIME_COUNT;
-    const auto res = UA_Client_Subscriptions_create(
+    req.requestedPublishingInterval = publishing.milliseconds();
+    req.requestedMaxKeepAliveCount = keep_alive;
+    req.requestedLifetimeCount = 3 * keep_alive;
+    auto res = UA_Client_Subscriptions_create(
         this->get(),
         req,
         sub.get(),
         on_status_change,
         nullptr
     );
-    if (auto err = errors::parse(res.responseHeader.serviceResult)) return {{}, err};
+    const auto err = errors::parse(res.responseHeader.serviceResult);
+    const auto revised = x::telem::MILLISECOND * res.revisedPublishingInterval;
     sub->id = res.subscriptionId;
+    UA_CreateSubscriptionResponse_clear(&res);
+    if (err) return {x::telem::TimeSpan(), err};
+    if (this->pool_ != nullptr) this->pool_->replied(this->key_);
     this->subscription_ = std::move(sub);
+    return {revised, x::errors::NIL};
+}
+
+std::pair<std::vector<x::errors::Error>, x::errors::Error> Pool::Connection::subscribe(
+    const std::vector<UA_NodeId> &notifiers,
+    const UA_EventFilter &filter,
+    EventHandler handle
+) {
+    auto sub = std::make_unique<Subscription>();
+    sub->handle_event = std::move(handle);
+    if (const auto err = this->create(std::move(sub), EVENT_PUBLISHING_INTERVAL).second)
+        return {{}, err};
     std::vector<x::errors::Error> results;
     results.reserve(notifiers.size());
     for (const auto &notifier: notifiers) {
@@ -836,6 +900,146 @@ std::pair<std::vector<x::errors::Error>, x::errors::Error> Pool::Connection::sub
         UA_MonitoredItemCreateResult_clear(&created);
     }
     return {std::move(results), x::errors::NIL};
+}
+
+std::pair<Monitored, x::errors::Error> Pool::Connection::subscribe(
+    const std::vector<UA_NodeId> &nodes,
+    const Intervals &intervals,
+    ChangeHandler handle
+) {
+    auto sub = std::make_unique<Subscription>();
+    sub->handle_change = std::move(handle);
+    sub->nodes.resize(nodes.size());
+    std::iota(sub->nodes.begin(), sub->nodes.end(), std::size_t{0});
+    auto *created = sub.get();
+    auto [publishing, err] = this->create(std::move(sub), intervals.publishing);
+    if (err) return {Monitored{}, err};
+    Monitored monitored{.intervals = {.publishing = publishing}};
+    monitored.errors.reserve(nodes.size());
+    const auto queue = queue_size(intervals);
+    const size_t limit = this->server_->max_monitored_items_per_call;
+    const size_t step = limit == 0 ? std::max<size_t>(nodes.size(), 1) : limit;
+    double sampling = 0;
+    for (size_t offset = 0; offset < nodes.size(); offset += step) {
+        if (const auto conn_err = connected(this->get())) {
+            this->unsubscribe();
+            return {Monitored{}, conn_err};
+        }
+        const size_t count = std::min(step, nodes.size() - offset);
+        std::vector<UA_MonitoredItemCreateRequest> items(count);
+        std::vector<void *> contexts(count);
+        std::vector<UA_Client_DataChangeNotificationCallback> callbacks(
+            count,
+            on_change
+        );
+        for (size_t i = 0; i < count; ++i) {
+            auto &item = items[i];
+            UA_MonitoredItemCreateRequest_init(&item);
+            item.itemToMonitor.nodeId = nodes[offset + i];
+            item.itemToMonitor.attributeId = UA_ATTRIBUTEID_VALUE;
+            item.monitoringMode = UA_MONITORINGMODE_REPORTING;
+            item.requestedParameters.samplingInterval = intervals.sampling
+                                                            .milliseconds();
+            item.requestedParameters.queueSize = queue;
+            item.requestedParameters.discardOldest = true;
+            contexts[i] = &created->nodes[offset + i];
+        }
+        UA_CreateMonitoredItemsRequest req;
+        UA_CreateMonitoredItemsRequest_init(&req);
+        req.subscriptionId = created->id;
+        req.timestampsToReturn = UA_TIMESTAMPSTORETURN_BOTH;
+        req.itemsToCreate = items.data();
+        req.itemsToCreateSize = count;
+        auto res = UA_Client_MonitoredItems_createDataChanges(
+            this->get(),
+            req,
+            contexts.data(),
+            callbacks.data(),
+            nullptr
+        );
+        auto res_err = errors::parse(res.responseHeader.serviceResult);
+        if (!res_err) res_err = check_results(res.resultsSize, count);
+        if (!res_err)
+            for (size_t i = 0; i < count; ++i) {
+                const auto &result = res.results[i];
+                monitored.errors.push_back(errors::parse(result.statusCode));
+                if (UA_StatusCode_isGood(result.statusCode))
+                    sampling = std::max(sampling, result.revisedSamplingInterval);
+            }
+        UA_CreateMonitoredItemsResponse_clear(&res);
+        if (res_err) {
+            this->unsubscribe();
+            return {Monitored{}, res_err};
+        }
+    }
+    monitored.intervals.sampling = x::telem::MILLISECOND * sampling;
+    return {std::move(monitored), x::errors::NIL};
+}
+
+std::pair<types::HistoryReadResponse, x::errors::Error>
+Pool::Connection::read_history(const UA_HistoryReadRequest &req) const {
+    const size_t limit = this->server_->max_nodes_per_history_read_data;
+    const size_t total = req.nodesToReadSize;
+    if (limit == 0 || total <= limit) {
+        if (const auto err = connected(this->get()))
+            return {types::HistoryReadResponse(), err};
+        types::HistoryReadResponse res(UA_Client_Service_historyRead(this->get(), req));
+        const auto &raw = res.get();
+        if (auto err = errors::parse(raw.responseHeader.serviceResult))
+            return {std::move(res), err};
+        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        this->release(raw);
+        auto err = check_results(raw.resultsSize, total);
+        return {std::move(res), err};
+    }
+    types::HistoryReadResponse merged;
+    auto &out = *merged.ptr();
+    out.results = static_cast<UA_HistoryReadResult *>(
+        UA_Array_new(total, &UA_TYPES[UA_TYPES_HISTORYREADRESULT])
+    );
+    if (out.results == nullptr) throw std::bad_alloc();
+    out.resultsSize = total;
+    for (size_t offset = 0; offset < total; offset += limit) {
+        UA_HistoryReadRequest part = req;
+        part.nodesToRead = req.nodesToRead + offset;
+        part.nodesToReadSize = std::min(limit, total - offset);
+        auto [res, err] = this->read_history(part);
+        if (err) return {types::HistoryReadResponse(), err};
+        auto &raw = *res.ptr();
+        move_results(out.results + offset, raw.results, raw.resultsSize);
+    }
+    return {std::move(merged), x::errors::NIL};
+}
+
+void Pool::Connection::release(const UA_HistoryReadResponse &res) const {
+    if (connected(this->get())) return;
+    std::vector<UA_HistoryReadValueId> held;
+    for (size_t i = 0; i < res.resultsSize; ++i)
+        if (res.results[i].continuationPoint.length > 0) {
+            UA_HistoryReadValueId id;
+            UA_HistoryReadValueId_init(&id);
+            id.continuationPoint = res.results[i].continuationPoint;
+            held.push_back(id);
+        }
+    if (held.empty()) return;
+    // Releasing needs no details, but the request must name their type.
+    UA_ReadRawModifiedDetails details;
+    UA_ReadRawModifiedDetails_init(&details);
+    UA_HistoryReadRequest req;
+    UA_HistoryReadRequest_init(&req);
+    UA_ExtensionObject_setValueNoDelete(
+        &req.historyReadDetails,
+        &details,
+        &UA_TYPES[UA_TYPES_READRAWMODIFIEDDETAILS]
+    );
+    req.releaseContinuationPoints = true;
+    req.nodesToRead = held.data();
+    req.nodesToReadSize = held.size();
+    auto released = UA_Client_Service_historyRead(this->get(), req);
+    if (const auto err = errors::parse(released.responseHeader.serviceResult))
+        VLOG(1) << "[opc.connection] failed to release history continuation points: "
+                << err;
+    UA_HistoryReadResponse_clear(&released);
 }
 
 UA_UInt32 Pool::Connection::subscription_id() const {

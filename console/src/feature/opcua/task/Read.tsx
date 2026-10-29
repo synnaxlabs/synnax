@@ -9,12 +9,13 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { channel, NotFoundError, type opcua, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
+import { Select as PSelect } from "@synnaxlabs/lyra/select";
+import { caseconv, DataType, errors, primitive, record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { type HaulItem } from "@/feature/opcua/device/Browser";
@@ -82,23 +83,59 @@ const NAN_FILL_INPUT_PROPS = {
   tooltip: "Write NaN for bad float values instead of skipping the sample",
 } as const;
 
+const HISTORY_BACKFILL_INPUT_PROPS = {
+  tooltip:
+    "When the task starts, read the history of each node from the last stored value",
+} as const;
+
+const MODE_NAMES: Record<opcua.ReadMode, string> = {
+  sampled: "Sampled",
+  on_change: "On change",
+};
+
+const renderMode = Component.renderProp((p: PSelect.ButtonsProps<opcua.ReadMode>) => (
+  <PSelect.Buttons {...p}>
+    {record.entries(MODE_NAMES).map(([mode, name]) => (
+      <PSelect.Item key={mode} itemKey={mode}>
+        {name}
+      </PSelect.Item>
+    ))}
+  </PSelect.Buttons>
+));
+
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
+  const onChange = PForm.useFieldValue<opcua.ReadMode>("config.mode") === "on_change";
   return (
     <>
       <Select />
       <Flex.Box x>
-        <Task.Fields.SampleRate />
-        <PForm.SwitchField
-          label="Array sampling"
-          path="config.arrayMode"
-          onChange={(value, { set }) => {
-            // always set the array size to 1 for either the default in array mode or an
-            // array size of 1 in stream mode.
+        <PForm.Field<opcua.ReadMode>
+          path="config.mode"
+          label="Mode"
+          onChange={(mode, { get, set }) => {
+            // On change mode reads each value at its own time, never as an array.
+            if (mode !== "on_change" || !get<boolean>("config.arrayMode").value) return;
+            set("config.arrayMode", false);
             set("config.arraySize", 1);
-            if (!value) set("config.streamRate", 25);
+            set("config.streamRate", 25);
           }}
-        />
+        >
+          {renderMode}
+        </PForm.Field>
+        <Task.Fields.SampleRate />
+        {!onChange && (
+          <PForm.SwitchField
+            label="Array sampling"
+            path="config.arrayMode"
+            onChange={(value, { set }) => {
+              // always set the array size to 1 for either the default in array mode or
+              // an array size of 1 in stream mode.
+              set("config.arraySize", 1);
+              if (!value) set("config.streamRate", 25);
+            }}
+          />
+        )}
         {arrayMode ? (
           <PForm.NumericField
             label="Array size"
@@ -110,11 +147,19 @@ const Properties = (): ReactElement => {
         )}
         <Task.Fields.DataSaving />
         <Task.Fields.AutoStart />
-        <PForm.SwitchField
-          label="NaN fill"
-          path="config.nanFillEnabled"
-          inputProps={NAN_FILL_INPUT_PROPS}
-        />
+        {onChange ? (
+          <PForm.SwitchField
+            label="History backfill"
+            path="config.historyBackfillEnabled"
+            inputProps={HISTORY_BACKFILL_INPUT_PROPS}
+          />
+        ) : (
+          <PForm.SwitchField
+            label="NaN fill"
+            path="config.nanFillEnabled"
+            inputProps={NAN_FILL_INPUT_PROPS}
+          />
+        )}
       </Flex.Box>
     </>
   );
@@ -162,6 +207,9 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: "OPC UA read task", type: READ_TYPE, config: cfg };
 };
 
+const channelName = ({ name, nodeName }: ReadChannel) =>
+  primitive.isNonZero(name) ? name : channel.escapeInvalidName(nodeName, true);
+
 interface DetermineIndexChannelParams {
   client: Synnax;
   config: ReadConfig;
@@ -202,15 +250,14 @@ const determineIndexChannel = async ({
     return key;
   }
 
-  // if one of the channels already exists, just use that channels index channel.
+  // if one of the channels already exists on an index that sampled tasks share, use
+  // that index. The index of an On change channel belongs to that channel alone.
   for (const ch of config.channels) {
     const existingChannelKey = getChannel(device.properties, ch);
     if (existingChannelKey)
       try {
         const { index } = await client.channels.retrieve(existingChannelKey);
-        if (!device.properties.read.indexes.includes(index))
-          device.properties.read.indexes.push(index);
-        return index;
+        if (device.properties.read.indexes.includes(index)) return index;
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
@@ -226,20 +273,13 @@ const determineIndexChannel = async ({
   return idxCh.key;
 };
 
-const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
-  client,
-  config,
-  name,
-) => {
-  const previous = await client.devices.retrieve({
-    key: config.device,
-    schemas: SCHEMAS,
-  });
-  const device = await client.devices.create(
-    { ...previous, properties: migrateProperties(previous.properties) },
-    SCHEMAS,
-  );
-
+/** Binds each channel of a sampled task to a channel on the index that they share. */
+const bindSharedIndex = async (
+  client: Synnax,
+  config: ReadConfig,
+  device: Device,
+  name: string,
+): Promise<void> => {
   const index = await determineIndexChannel({
     client,
     device,
@@ -265,18 +305,73 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
       else throw errors.fromUnknown(e);
     }
   }
-  if (toCreate.length > 0) {
-    const channels = await client.channels.create(
-      toCreate.map(({ name, nodeName, dataType }) => ({
-        dataType,
-        name: primitive.isNonZero(name)
-          ? name
-          : channel.escapeInvalidName(nodeName, true),
-        index,
-      })),
-    );
-    channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
+  if (toCreate.length === 0) return;
+  const channels = await client.channels.create(
+    toCreate.map((ch) => ({ dataType: ch.dataType, name: channelName(ch), index })),
+  );
+  channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
+};
+
+/**
+ * Binds each channel of an On change task to a channel with an index of its own, since
+ * each channel writes at the times that its node gives.
+ */
+const bindOwnIndexes = async (
+  client: Synnax,
+  config: ReadConfig,
+  device: Device,
+): Promise<void> => {
+  const toCreate: ReadChannel[] = [];
+  for (const ch of config.channels) {
+    const exKey = getChannel(device.properties, ch);
+    if (!exKey) {
+      toCreate.push(ch);
+      continue;
+    }
+    try {
+      const rCh = await client.channels.retrieve(exKey);
+      if (device.properties.read.indexes.includes(rCh.index))
+        throw new Error(
+          `Channel ${ch.nodeName} already exists as ${rCh.name}, which shares an index with other channels. On change mode needs a channel with its own index. Read ${ch.nodeName} in the task that reads ${rCh.name}.`,
+        );
+    } catch (e) {
+      if (NotFoundError.matches(e)) toCreate.push(ch);
+      else throw errors.fromUnknown(e);
+    }
   }
+  if (toCreate.length === 0) return;
+  const indexes = await client.channels.create(
+    toCreate.map((ch) => ({
+      name: `${channelName(ch)}_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    })),
+  );
+  const channels = await client.channels.create(
+    toCreate.map((ch, i) => ({
+      dataType: ch.dataType,
+      name: channelName(ch),
+      index: indexes[i].key,
+    })),
+  );
+  channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
+};
+
+const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
+  client,
+  config,
+  name,
+) => {
+  const previous = await client.devices.retrieve({
+    key: config.device,
+    schemas: SCHEMAS,
+  });
+  const device = await client.devices.create(
+    { ...previous, properties: migrateProperties(previous.properties) },
+    SCHEMAS,
+  );
+  if (config.mode === "on_change") await bindOwnIndexes(client, config, device);
+  else await bindSharedIndex(client, config, device, name);
   config.channels = config.channels.map((c) => ({
     ...c,
     channel: getChannel(device.properties, c),

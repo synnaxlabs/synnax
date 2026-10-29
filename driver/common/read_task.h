@@ -9,8 +9,15 @@
 
 #pragma once
 
+#include <algorithm>
+#include <map>
+#include <tuple>
+#include <utility>
+#include <vector>
+
 #include "absl/log/log.h"
 
+#include "client/cpp/synnax.h"
 #include "client/cpp/task/json.gen.h"
 
 #include "driver/bypass/pipeline/factory.h"
@@ -67,6 +74,35 @@ void initialize_frame(
         );
     for (const auto &idx: index_keys)
         fr.emplace(idx, x::telem::Series(x::telem::TIMESTAMP_T, samples_per_chan));
+}
+
+/// @returns the last timestamp that the Core stores on each index, or the minimum
+/// timestamp for an index that stores none after 1970.
+inline std::pair<std::map<synnax::channel::Key, x::telem::TimeStamp>, x::errors::Error>
+last_stamps(synnax::Synnax &client, const std::vector<synnax::channel::Key> &indexes) {
+    std::map<synnax::channel::Key, x::telem::TimeStamp> last;
+    for (const auto key: indexes)
+        last[key] = x::telem::TimeStamp::min();
+    if (indexes.empty()) return {std::move(last), x::errors::NIL};
+    // The Core finds nothing in bounds whose span overflows a TimeSpan.
+    auto [iter, err] = client.telem.open_iterator({
+        .channels = indexes,
+        .bounds = {x::telem::TimeStamp(0), x::telem::TimeStamp::max()},
+    });
+    if (err) return {{}, err};
+    // Each channel steps back on its own, so the frame holds the last span of each.
+    auto [found, seek_err] = iter.seek_last();
+    if (!seek_err && found)
+        std::tie(found, seek_err) = iter.prev(synnax::framer::AUTO_SPAN);
+    if (!seek_err && found)
+        for (std::size_t i = 0; i < iter.value.size(); ++i)
+            if (const auto &s = iter.value.series->at(i); !s.empty()) {
+                auto &stamp = last[iter.value.channels->at(i)];
+                stamp = std::max(stamp, s.at<x::telem::TimeStamp>(-1));
+            }
+    const auto close_err = iter.close();
+    if (seek_err) return {{}, seek_err};
+    return {std::move(last), close_err};
 }
 
 /// @brief a problem that does not stop a read, sent as a task warning.

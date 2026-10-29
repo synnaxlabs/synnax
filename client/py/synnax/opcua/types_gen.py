@@ -28,6 +28,13 @@ WRITE_TYPE_METHOD: Literal["method"] = "method"
 
 WriteType = Literal["node", "method"]
 
+READ_MODE_SAMPLED: Literal["sampled"] = "sampled"
+
+READ_MODE_ON_CHANGE: Literal["on_change"] = "on_change"
+
+
+ReadMode = Literal["sampled", "on_change"]
+
 ARGUMENT_SOURCE_VALUE: Literal["value"] = "value"
 
 ARGUMENT_SOURCE_COMMAND: Literal["command"] = "command"
@@ -177,6 +184,9 @@ class ReadConfig(task.ReadConfig):
         nan_fill_enabled: Is true when a bad value of a float channel is written as NaN.
             When false, a bad value skips the read for every channel that shares its
             index.
+        mode: Is how the task gets the values of its nodes.
+        history_backfill_enabled: Is true when an on_change task reads the history of
+            its nodes from the last stored value to the start of its subscription.
     """
 
     sample_rate: telem.Rate = telem.Rate(50)
@@ -186,6 +196,8 @@ class ReadConfig(task.ReadConfig):
     array_size: int = Field(default=1, ge=-2147483648, le=2147483647)
     channels: list[ReadChannel] = Field(default_factory=list)
     nan_fill_enabled: bool = False
+    mode: ReadMode = "sampled"
+    history_backfill_enabled: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)

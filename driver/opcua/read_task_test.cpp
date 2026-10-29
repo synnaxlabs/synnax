@@ -315,7 +315,8 @@ protected:
 
     /// @returns the config of a task that reads members of TestMotor at fields into
     /// the double, float, and bool channels.
-    [[nodiscard]] x::json::json motor_cfg(const std::vector<std::string> &fields) const {
+    [[nodiscard]] x::json::json
+    motor_cfg(const std::vector<std::string> &fields) const {
         const std::vector<synnax::channel::Key> keys{
             this->double_channel.key,
             this->float_channel.key,
@@ -354,7 +355,107 @@ protected:
             mock_factory
         );
     }
+
+    /// @returns a new index channel, and a float64 channel on it.
+    [[nodiscard]] std::pair<synnax::channel::Channel, synnax::channel::Channel>
+    create_stamped_channels() const {
+        const auto idx = ASSERT_NIL_P(ctx->client->channels.create(
+            make_unique_channel_name("date_time"),
+            x::telem::TIMESTAMP_T,
+            0,
+            true
+        ));
+        const auto ch = ASSERT_NIL_P(ctx->client->channels.create(
+            make_unique_channel_name("date_time_value"),
+            x::telem::FLOAT64_T,
+            idx.key,
+            false
+        ));
+        return {idx, ch};
+    }
+
+    /// @returns the config of a task that reads TestDateTime into the index of ch, and
+    /// TestDouble into ch.
+    [[nodiscard]] static x::json::json
+    date_time_cfg(const synnax::channel::Channel &ch) {
+        return {
+            {"device", "opc_read_task_test_server_key"},
+            {"channels",
+             x::json::json::array({
+                 {{"node_id", "NS=1;S=TestDateTime"},
+                  {"channel", ch.index},
+                  {"disabled", false}},
+                 {{"node_id", "NS=1;S=TestDouble"},
+                  {"channel", ch.key},
+                  {"disabled", false}},
+             })},
+            {"sample_rate", 50},
+            {"stream_rate", 25},
+        };
+    }
+
+    /// @brief the stamps that reads wrote to the index of a channel, the number of
+    /// values they wrote to the channel, and their warnings.
+    struct Stamps {
+        std::vector<x::telem::TimeStamp> stamps;
+        std::size_t values = 0;
+        std::vector<common::Warning> warnings;
+    };
+
+    /// @brief reads src until count stamps of the index of ch arrive, or timeout
+    /// passes.
+    static Stamps read_stamps(
+        UnaryReadTaskSource &src,
+        const synnax::channel::Channel &ch,
+        const std::size_t count,
+        const x::telem::TimeSpan timeout
+    ) {
+        Stamps out;
+        x::breaker::Breaker breaker;
+        const auto deadline = std::chrono::steady_clock::now() + timeout.chrono();
+        while (out.stamps.size() < count &&
+               std::chrono::steady_clock::now() < deadline) {
+            x::telem::Frame fr;
+            const auto res = src.read(breaker, fr);
+            EXPECT_FALSE(res.error) << res.error;
+            if (!res.warning.empty()) out.warnings.push_back(res.warning);
+            for (const auto &[key, s]: fr)
+                if (key == ch.index)
+                    for (std::size_t i = 0; i < s.size(); ++i)
+                        out.stamps.push_back(
+                            s.at<x::telem::TimeStamp>(static_cast<int>(i))
+                        );
+                else if (key == ch.key)
+                    out.values += s.size();
+        }
+        return out;
+    }
+
+    /// @brief changes TestDateTime to time, and waits until a read gives it.
+    void change_date_time(const x::telem::TimeStamp time) {
+        this->server->change({.node = "TestDateTime", .value = time});
+        const auto ch = this->create_stamped_channels().second;
+        const auto probe = this->create_source(date_time_cfg(ch));
+        ASSERT_NIL(probe->start());
+        x::breaker::Breaker breaker;
+        ASSERT_EVENTUALLY_EQ(
+            [&] {
+                x::telem::Frame fr;
+                probe->read(breaker, fr);
+                return fr.contains(ch.index) ? fr.at<x::telem::TimeStamp>(ch.index, -1)
+                                             : x::telem::TimeStamp(0);
+            }(),
+            time
+        );
+        ASSERT_NIL(probe->stop());
+    }
 };
+
+/// @returns the time now, rounded to the microsecond so that it survives the 100 ns
+/// resolution of an OPC UA DateTime.
+x::telem::TimeStamp now_us() {
+    return x::telem::TimeStamp(x::telem::TimeStamp::now().nanoseconds() / 1000 * 1000);
+}
 
 /// @brief it should read multiple data types from OPC UA server.
 TEST_F(TestReadTask, testBasicReadTask) {
@@ -422,9 +523,6 @@ TEST_F(TestReadTask, testMissingNodeSkipsIndex) {
         res.warning.description,
         this->float_channel.name +
             " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space. " +
-            this->float_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
             "exist in the server address space."
     );
     EXPECT_TRUE(fr.empty());
@@ -461,8 +559,7 @@ TEST_F(TestReadTask, testUnknownFieldSkipsIndex) {
     EXPECT_EQ(res.warning.message, "Received bad values");
     EXPECT_EQ(
         res.warning.description,
-        this->float_channel.name + ": Motor has no member Torque. " +
-            this->float_channel.name + ": Motor has no member Torque."
+        this->float_channel.name + ": Motor has no member Torque."
     );
     EXPECT_TRUE(fr.empty());
     ASSERT_NIL(source->stop());
@@ -512,6 +609,62 @@ TEST_F(TestReadTask, testMissingNodeFillsNaN) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should write each new stamp of a DateTime index node, drop a repeated
+/// stamp without a warning, and skip the index with a warning on an older stamp.
+TEST_F(TestReadTask, testDateTimeIndexChecksStamps) {
+    const auto [idx, ch] = this->create_stamped_channels();
+    const auto src = this->create_source(date_time_cfg(ch));
+    ASSERT_NIL(src->start());
+    auto got = read_stamps(*src, ch, 2, 500 * x::telem::MILLISECOND);
+    EXPECT_EQ(got.stamps, std::vector{x::telem::TimeStamp(0)});
+    EXPECT_EQ(got.values, 1);
+    EXPECT_TRUE(got.warnings.empty());
+    const auto time = now_us();
+    this->change_date_time(time);
+    got = read_stamps(*src, ch, 2, 500 * x::telem::MILLISECOND);
+    EXPECT_EQ(got.stamps, std::vector{time});
+    EXPECT_EQ(got.values, 1);
+    EXPECT_TRUE(got.warnings.empty());
+    this->change_date_time(time - x::telem::SECOND);
+    got = read_stamps(*src, ch, 1, 500 * x::telem::MILLISECOND);
+    EXPECT_TRUE(got.stamps.empty());
+    EXPECT_EQ(got.values, 0);
+    ASSERT_FALSE(got.warnings.empty());
+    EXPECT_EQ(got.warnings.back().message, "Rejected values with old timestamps");
+    EXPECT_EQ(
+        got.warnings.back().description,
+        "Rejected a value of " + idx.name +
+            ": its timestamp is not after the last one written."
+    );
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should drop the stamp that the Core stores last without a warning when
+/// the task starts again.
+TEST_F(TestReadTask, testDateTimeIndexDropsStoredStampAtStart) {
+    const auto [idx, ch] = this->create_stamped_channels();
+    const auto stored = now_us();
+    auto writer = ASSERT_NIL_P(ctx->client->telem.open_writer(
+        synnax::framer::WriterConfig{.channels = {idx.key, ch.key}, .start = stored}
+    ));
+    auto fr = x::telem::Frame(2);
+    fr.emplace(idx.key, x::telem::Series(stored));
+    fr.emplace(ch.key, x::telem::Series(1.0));
+    ASSERT_NIL(writer.write(fr));
+    ASSERT_NIL_P(writer.commit());
+    ASSERT_NIL(writer.close());
+    this->change_date_time(stored);
+    const auto src = this->create_source(date_time_cfg(ch));
+    ASSERT_NIL(src->start());
+    auto got = read_stamps(*src, ch, 1, 500 * x::telem::MILLISECOND);
+    EXPECT_TRUE(got.stamps.empty());
+    EXPECT_TRUE(got.warnings.empty());
+    this->change_date_time(stored + x::telem::SECOND);
+    got = read_stamps(*src, ch, 1, 500 * x::telem::MILLISECOND);
+    EXPECT_EQ(got.stamps, std::vector{stored + x::telem::SECOND});
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should read a node by the URI of its namespace.
 TEST_F(TestReadTask, testReadsNamespaceURINode) {
     const auto source = this->create_source(
@@ -543,9 +696,6 @@ TEST_F(TestReadTask, testUnknownNamespaceIsMissingNode) {
     EXPECT_EQ(
         res.warning.description,
         this->float_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space. " +
-            this->float_channel.name +
             " returned BadNodeIdUnknown. The node id refers to a node that does not "
             "exist in the server address space."
     );
