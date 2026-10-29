@@ -127,10 +127,9 @@ jobs:
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
         # Records the removed previews even when the deploy fails after removing them.
         run: |
-          echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           status=0
           .github/scripts/run_preview_command.sh | tee deploy.log || status=$?
-          evicted=$(sed -n 's/^evicted //p' deploy.log | xargs)
+          evicted=$(sed -n 's/^evicted \([0-9]*\) /\1@/p' deploy.log | xargs)
           echo "evicted=$evicted" >> "$GITHUB_OUTPUT"
           exit "$status"
 
@@ -140,13 +139,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVICTED: ${{ steps.deploy.outputs.evicted }}
-          STARTED: ${{ steps.deploy.outputs.started }}
-        # A comment updated after this deploy started belongs to a newer deploy of that
-        # preview, so the notice leaves it.
+        # Each entry is <pr>@<eviction time>. A comment updated after the eviction is
+        # from a newer deploy of that preview, so the notice leaves it.
         run: |
           marker="<!-- Sticky Pull Request Commentpreview -->"
           issues="repos/$GITHUB_REPOSITORY/issues"
-          for pr in $EVICTED; do
+          for entry in $EVICTED; do
+            pr=${entry%@*}
+            evicted=${entry#*@}
             checks="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/$pr/checks"
             body=$(printf '%s\n\n%s\n%s\n%s\n%s' "### Preview" \
               "Evicted to make room for the preview of #$PR, so the link no longer" \
@@ -155,7 +155,7 @@ jobs:
             comment=$(gh api --paginate "$issues/$pr/comments" --jq \
               ".[] | select(.body | contains(\"$marker\")) | \"\(.id) \(.updated_at)\"")
             read -r id updated <<< "$comment"
-            if [[ -n $id && $updated < $STARTED ]]; then
+            if [[ -n $id && $updated < $evicted ]]; then
               gh api -X PATCH "$issues/comments/$id" -f body="$body"
             fi
           done

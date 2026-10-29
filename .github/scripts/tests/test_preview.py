@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import os
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -191,7 +192,10 @@ class TestCap:
     """Tests for the limit on previews the host runs at once."""
 
     def evicted(self, result: subprocess.CompletedProcess[str]) -> list[str]:
-        return [ln for ln in result.stdout.splitlines() if ln.startswith("evicted")]
+        lines = [ln for ln in result.stdout.splitlines() if ln.startswith("evicted")]
+        for ln in lines:
+            assert re.fullmatch(r"evicted \d+ \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", ln)
+        return [ln.rsplit(" ", 1)[0] for ln in lines]
 
     def test_should_remove_the_oldest_preview_at_the_cap(self, host: Host) -> None:
         host.ready()

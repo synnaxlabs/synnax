@@ -14,9 +14,9 @@
 #   preview up <pr> <image> [human|none <time>]
 #                             Starts or replaces the Core for a pull request, and
 #                             marks it as mark does. At the cap, it first removes a
-#                             preview and prints "evicted <pr>": unmarked ones before
-#                             marked ones, and within each, the one deployed or viewed
-#                             longest ago.
+#                             preview and prints "evicted <pr> <UTC time>": unmarked
+#                             ones before marked ones, and within each, the one
+#                             deployed or viewed longest ago.
 #   preview mark <pr> human|none <time>
 #                             Sets whether a pull request waits on a human review, as
 #                             its labels showed at <time> (Unix seconds). A mark older
@@ -109,7 +109,7 @@ up() {
     fi
     for ((i = 0; i <= ${#others[@]} - PREVIEW_MAX; i++)); do
         down "${others[i]}"
-        echo "evicted ${others[i]}"
+        echo "evicted ${others[i]} $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     done
     docker rm --force "$name" > /dev/null
     # In-memory storage: each deploy starts from an empty Core.
