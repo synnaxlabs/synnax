@@ -53,7 +53,7 @@ _FrameParams: TypeAlias = (
     | tuple[str, ...]
 )
 
-ontology_type = ontology.ID(type="framer")
+_ontology_type = ontology.ID(type="framer")
 
 
 class Client:

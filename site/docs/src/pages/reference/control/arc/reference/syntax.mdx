@@ -117,11 +117,11 @@ number prints in its shortest form: `{p}` with `3.0` gives `3`. A `bool` takes n
 a literal `}`.
 
 ```arc channels="tank_pt, tank_msg" bodies="describe"
-func describe(p f64) str {
+func describe() {p f64} str {
     return f"Tank at {p:.1f} psi"
 }
 
-tank_pt -> describe{} -> tank_msg
+tank_pt -> describe() -> tank_msg
 ```
 
 A spec has the form `[flags][width][.precision]verb`. Only the verb is necessary. The
@@ -159,9 +159,9 @@ The standard library is in modules. Import a module before you use its members.
 
 | Form  | Example                 | Use the member as |
 | ----- | ----------------------- | ----------------- |
-| One   | `import time`           | `time.wait{}`     |
-| Alias | `import time as t`      | `t.wait{}`        |
-| Group | `import ( math  time )` | `math.avg{}`      |
+| One   | `import time`           | `time.wait()`     |
+| Alias | `import time as t`      | `t.wait()`        |
+| Group | `import ( math  time )` | `math.avg()`      |
 
 The modules are `control`, `math`, `ranges`, `stable`, `status`, and `time`. See the
 [standard library](/reference/control/arc/standard-library).
@@ -172,8 +172,8 @@ import (
     time as t
 )
 
-tank_pt -> math.avg{duration=1s} -> tank_pt_avg
-t.interval{period=1min} -> vent_vlv_cmd
+tank_pt -> math.avg(duration=1s) -> tank_pt_avg
+t.interval(period=1min) -> vent_vlv_cmd
 ```
 
 | Rule                                   | Error                                                                   |
@@ -223,18 +223,18 @@ authority 100
 
 limit := 500.0
 
-func over(p f64) u8 {
+func over() {p f64} u8 {
     if p > limit {
         return 1
     }
     return 0
 }
 
-tank_pt -> over{} -> high_alarm
+tank_pt -> over() -> high_alarm
 
 sequence press {
     1 -> press_vlv_cmd
-    time.wait{duration=5s}
+    time.wait(duration=5s)
     0 -> press_vlv_cmd
 }
 

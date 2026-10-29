@@ -50,7 +50,7 @@ describe("Controls.Controls", () => {
       { client, values: { snapshot: true } },
     );
     await waitFor(() => expect(screen.getByText("Task not deployed")).toBeTruthy());
-    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
+    expect(container.querySelector("[aria-label='lyra-icon--play']")).toBeNull();
   });
 
   it("should invoke onDeploy when the start button is pressed", async () => {

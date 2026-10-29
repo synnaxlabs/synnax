@@ -138,7 +138,9 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
         self.test_tare()
 
     def test_scaled_values(self) -> None:
-        """Stream data and verify each channel's values fall within its scaled bounds."""
+        """Stream data and verify each channel's values fall within its scaled
+        bounds.
+        """
         assert self.tsk is not None
         self.log("Testing: Verify scaled value ranges")
         channel_keys = self._channel_keys(self.tsk)

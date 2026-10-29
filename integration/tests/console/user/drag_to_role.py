@@ -33,9 +33,7 @@ class UserDragToRole(ConsoleCase):
 
         # Verify user is under initial role
         self.console.access.expand_role(initial_role)
-        users = self.console.access.list_users_under_role(initial_role)
-        self.log(f"Users under {initial_role}: {users}")
-        assert username in users, f"User {username} not found under {initial_role}"
+        self.console.access.wait_for_user_role(username, initial_role)
 
         # Drag user to new role
         self.log(f"Dragging {username} from {initial_role} to {new_role}")
@@ -43,10 +41,8 @@ class UserDragToRole(ConsoleCase):
 
         # Expand new role and verify user moved
         self.console.access.expand_role(new_role)
-        users_in_new_role = self.console.access.list_users_under_role(new_role)
-        self.log(f"Users under {new_role}: {users_in_new_role}")
-        assert username in users_in_new_role, (
-            f"User {username} not found under {new_role}"
+        self.console.access.wait_for_user_role(
+            username, new_role, previous_role=initial_role
         )
 
         self.log("User drag-to-role test passed")
