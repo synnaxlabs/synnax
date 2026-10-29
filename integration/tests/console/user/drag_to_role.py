@@ -20,8 +20,6 @@ class UserDragToRole(ConsoleCase):
         # Create a user with initial role
         username = f"testuser_{random_name()}"
         password = "testpassword123"
-        first_name = "Test"
-        last_name = "User"
         initial_role = "Operator"
         new_role = "Viewer"
 
@@ -30,8 +28,6 @@ class UserDragToRole(ConsoleCase):
         self.console.access.register_user(
             username=username,
             password=password,
-            first_name=first_name,
-            last_name=last_name,
             role_name=initial_role,
         )
 
