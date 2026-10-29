@@ -11,6 +11,7 @@ import random
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Literal
 
 from playwright.sync_api import Locator, Page, expect
@@ -115,21 +116,22 @@ class LayoutClient:
     (command palette, forms, keyboard, navigation) should go through this client.
     """
 
-    MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+    MODAL_SELECTOR = "div.lyra-dialog__dialog.lyra--modal.lyra--visible"
     # Text.Editable carries the class whether or not it is editing; the attribute is
     # what marks the element that currently takes keystrokes.
-    EDITABLE_SELECTOR = ".pluto-text--editable[contenteditable='true']"
+    EDITABLE_SELECTOR = ".lyra-text--editable[contenteditable='true']"
     # Focusing a tab collapses the mosaic to a single overlaid leaf instead of
     # opening a modal dialog.
     FOCUS_SELECTOR = ".pluto-panel-mosaic__overlaid-leaf"
     # Scoped to the mosaic: the top nav renders a second tab strip for panels.
     TAB_STRIP_SELECTOR = (
-        ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector"
+        ".console-mosaic .pluto-mosaic__leaf > .lyra-tabs > .lyra-tabs__selector"
     )
-    TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .pluto-tabs__tab"
+    TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .lyra-tabs__tab"
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, results_dir: Path):
         self.page = page
+        self.results_dir = results_dir
         self.ctx_menu = ContextMenu(self.page)
         self.notifications = NotificationsClient(self.page)
         self.tree = Tree(self)
@@ -142,14 +144,14 @@ class LayoutClient:
         opacity 0 and still expose their role; the open-state class excludes
         them.
         """
-        return self.page.locator("[role='dialog'].pluto--visible")
+        return self.page.locator("[role='dialog'].lyra--visible")
 
     def form_section(self, title: str) -> Locator:
         """The form section with the given title."""
-        header = self.page.locator(".pluto-form-section__header").get_by_text(
+        header = self.page.locator(".lyra-form-section__header").get_by_text(
             title, exact=True
         )
-        return self.page.locator(".pluto-form-section").filter(has=header)
+        return self.page.locator(".lyra-form-section").filter(has=header)
 
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
@@ -192,7 +194,9 @@ class LayoutClient:
         error_prefix: str,
         retries: int,
     ) -> None:
-        """Internal palette implementation used by command_palette and search_palette."""
+        """Internal palette implementation used by command_palette and
+        search_palette.
+        """
         for attempt in range(retries):
             palette_btn = self.page.locator(".console-palette button").first
             palette_btn.wait_for(state="visible", timeout=5000)
@@ -307,17 +311,17 @@ class LayoutClient:
     # Resource toolbar toggles live in the left navbar's main content section. The
     # end section holds the Component toggle.
     _RESOURCE_NAV_ITEMS = (
-        ".pluto-navbar.pluto--location-left "
-        ".pluto-navbar__content:not(.pluto--end) button.console-main-nav__item"
+        ".lyra-navbar.lyra--location-left "
+        ".lyra-navbar__content:not(.lyra--end) button.console-main-nav__item"
     )
 
     def show_resource_toolbar(self, name: str) -> None:
         """Show a resource toolbar by its nav item's name (e.g. "Tasks")."""
         nav_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
+            ".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)"
         )
         item = self.page.get_by_role("menuitem", name=name, exact=True)
-        selected = "pluto--selected" in (item.get_attribute("class") or "")
+        selected = "lyra--selected" in (item.get_attribute("class") or "")
         if selected and nav_drawer.count() > 0 and nav_drawer.first.is_visible():
             return
         if not selected:
@@ -325,26 +329,28 @@ class LayoutClient:
         nav_drawer.wait_for(state="visible", timeout=5000)
 
     def close_left_toolbar(self) -> None:
-        """Close any open side nav drawer (left/right, not bottom visualization toolbar)."""
+        """Close any open side nav drawer (left/right, not bottom visualization
+        toolbar).
+        """
         nav_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
+            ".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)"
         )
         if nav_drawer.count() == 0 or not nav_drawer.first.is_visible():
             return
         active_nav_btn = self.page.locator(
-            f"{self._RESOURCE_NAV_ITEMS}.pluto--selected"
+            f"{self._RESOURCE_NAV_ITEMS}.lyra--selected"
         ).first
         if active_nav_btn.count() == 0:
             return
         drawer_class = nav_drawer.first.get_attribute("class") or ""
-        is_expanded = "pluto--expanded" in drawer_class
+        is_expanded = "lyra--expanded" in drawer_class
         if is_expanded:
             # First click: collapse from expanded to anchored
             active_nav_btn.click()
 
             try:
                 self.page.locator(
-                    ".console-nav__drawer.pluto--visible.pluto--expanded:not(.pluto--location-bottom)"
+                    ".console-nav__drawer.lyra--visible.lyra--expanded:not(.lyra--location-bottom)"
                 ).wait_for(state="hidden", timeout=2000)
             except PlaywrightTimeoutError:
                 # Retry
@@ -352,12 +358,12 @@ class LayoutClient:
                 sy.sleep(0.2)
 
             anchored_drawer = self.page.locator(
-                ".console-nav__drawer.pluto--visible:not(.pluto--expanded):not(.pluto--location-bottom)"
+                ".console-nav__drawer.lyra--visible:not(.lyra--expanded):not(.lyra--location-bottom)"
             )
             if anchored_drawer.count() > 0 and anchored_drawer.first.is_visible():
                 # Re-find the selected button to close anchored drawer
                 selected_btn = self.page.locator(
-                    f"{self._RESOURCE_NAV_ITEMS}.pluto--selected"
+                    f"{self._RESOURCE_NAV_ITEMS}.lyra--selected"
                 ).first
                 if selected_btn.count() > 0:
                     selected_btn.click()
@@ -460,7 +466,7 @@ class LayoutClient:
                 continue
             button.wait_for(state="attached", timeout=5000)
             class_name = button.get_attribute("class") or ""
-            if "pluto--selected" in class_name:
+            if "lyra--selected" in class_name:
                 return option
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
@@ -501,9 +507,9 @@ class LayoutClient:
             else generic
         )
         loaded = self.dialog.get_by_role("option").or_(
-            self.dialog.locator(".pluto-list__scroll--empty")
+            self.dialog.locator(".lyra-list__scroll--empty")
         )
-        loading = self.dialog.locator(".pluto-icon--loading")
+        loading = self.dialog.locator(".lyra-icon--loading")
 
         def apply_search(refill: bool = False) -> None:
             # The dropdown renders its search input and options together, so either
@@ -718,7 +724,7 @@ class LayoutClient:
     def create_panel(self) -> None:
         """Create a panel through the panel selector's add button."""
         add_btn = self.page.locator(
-            ".console-panel-selector button:has(.pluto-icon--add)"
+            ".console-panel-selector button:has(.lyra-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.click()
@@ -799,7 +805,7 @@ class LayoutClient:
         except PlaywrightTimeoutError:
             # Fallback to more general selector
             editable_text = tab.locator(
-                ".pluto-text--editable[contenteditable='true']"
+                ".lyra-text--editable[contenteditable='true']"
             ).first
             editable_text.wait_for(state="visible", timeout=2000)
 
@@ -844,7 +850,7 @@ class LayoutClient:
     def show_visualization_toolbar(self) -> None:
         """Show the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+            ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
             return
@@ -855,7 +861,7 @@ class LayoutClient:
     def hide_visualization_toolbar(self) -> None:
         """Hide the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+            ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
             return
@@ -866,11 +872,11 @@ class LayoutClient:
     def get_visualization_toolbar_title(self) -> str:
         """Get the title from the visualization toolbar header."""
         bottom_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+            ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         # Use combined selector to handle different page type structures
         header = bottom_drawer.locator(
-            "header .pluto-breadcrumb__segment, header .pluto-header__text"
+            "header .lyra-breadcrumb__segment, header .lyra-header__text"
         ).first
         header.wait_for(state="visible", timeout=5000)
         return header.inner_text().strip()
@@ -1006,6 +1012,29 @@ class LayoutClient:
         """
         return str(self.page.evaluate("navigator.clipboard.readText()"))
 
+    def drag(self, source: Locator, target: Locator) -> None:
+        """Drag ``source`` and drop it on the center of ``target``.
+
+        Use this instead of ``Locator.drag_to``. When the first press of ``drag_to`` is
+        blocked, it presses again without a release, and the drag breaks.
+
+        :param source: The element to drag.
+        :param target: The element to drop onto.
+        """
+        # A hover retries until it reaches the source, and it never presses.
+        source.hover()
+        self.page.mouse.down()
+        target.wait_for(state="visible")
+        # A row scrolled out of its list still counts as visible.
+        target.scroll_into_view_if_needed()
+        box = target.bounding_box()
+        if box is None:
+            raise AssertionError("drag target has no bounding box")
+        x = box["x"] + box["width"] / 2
+        y = box["y"] + box["height"] / 2
+        self.page.mouse.move(x, y, steps=10)
+        self.page.mouse.up()
+
     def drop_files(self, paths: list[str], target: Locator | None = None) -> None:
         """Drop OS files or directories onto ``target`` (default: the mosaic).
 
@@ -1077,14 +1106,14 @@ class LayoutClient:
     def deselect_all_items(self, container: Locator | Page, item_selector: str) -> None:
         """Deselect all checked items by dispatching click on their checkbox labels."""
         checked = container.locator(
-            f"{item_selector}:has(input.pluto-input__checkbox-input:checked"
+            f"{item_selector}:has(input.lyra-input__checkbox-input:checked"
             ":not([aria-label='Favorite']))"
         )
         # Wait out each unchecking before the next. Clicking again while the row is
         # still checked re-selects the box that was just cleared.
         while (remaining := checked.count()) > 0:
             checked.first.locator(
-                ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
+                ".lyra-input__checkbox:not(:has(input[aria-label='Favorite']))"
             ).dispatch_event("click")
             expect(checked).to_have_count(remaining - 1, timeout=5000)
 
@@ -1099,7 +1128,7 @@ class LayoutClient:
             # List items also carry a favorite checkbox; the unlabeled one is
             # the selection control.
             checkbox = item.locator(
-                ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
+                ".lyra-input__checkbox:not(:has(input[aria-label='Favorite']))"
             ).first
             if not checkbox.locator("input").is_checked():
                 checkbox.dispatch_event("click")

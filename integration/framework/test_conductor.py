@@ -20,6 +20,7 @@ import traceback
 from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import Enum, auto
+from pathlib import Path
 from typing import Any
 
 import synnax as sy
@@ -27,12 +28,12 @@ from framework import failure_report, run_dir, server_log
 from framework.config_client import ConfigClient, Sequence, TestDefinition
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import SynnaxConnection, Test
+from framework.models import DEFAULT_OPTIONS, RunOptions, SynnaxConnection, Test
 from framework.report_client import ReportClient
 from framework.target_filter import TargetFilter, parse_target, split_csv
 from framework.telemetry import TelemetryClient
 from framework.test_case import TestCase
-from x import validate_and_sanitize_name
+from x import is_ci, validate_and_sanitize_name
 
 
 class _STATE(Enum):
@@ -48,10 +49,14 @@ class _STATE(Enum):
 
 
 class _TestConductor:
-    """Manages execution of test sequences with timeout monitoring and result collection."""
+    """Manages execution of test sequences with timeout monitoring and result
+    collection.
+    """
 
     def __init__(
         self,
+        options: RunOptions,
+        server_log_path: Path,
         name: str | None = None,
         synnax_connection: SynnaxConnection | None = None,
     ) -> None:
@@ -71,9 +76,10 @@ class _TestConductor:
         # Establish the run directory before anything else writes artifacts.
         # Capture the server log's current size so that the run-scoped slice
         # at exit doesn't include lines from prior server sessions.
-        self.run_dir = run_dir.init_run_dir(self.name)
+        self.run_dir = run_dir.create(self.name)
         self.started_at = time.time()
-        self._server_log_start_offset = server_log.current_offset()
+        self._server_log_path = server_log_path
+        self._server_log_start_offset = server_log.current_offset(server_log_path)
 
         # Use provided connection or create default
         if synnax_connection is None:
@@ -129,6 +135,9 @@ class _TestConductor:
         self.execution_client = ExecutionClient(
             config_client=self.config_client,
             synnax_connection=self.synnax_connection,
+            options=options,
+            server_log_path=server_log_path,
+            run_dir=self.run_dir,
             client=self.client,
             conductor_range=self.range,
             tests=self.tests,
@@ -248,6 +257,7 @@ class _TestConductor:
         """
         try:
             server_log.copy_range(
+                self._server_log_path,
                 self.run_dir / "server.log",
                 self._server_log_start_offset,
             )
@@ -367,7 +377,7 @@ in the repo) for the full command cheatsheet, common gotchas, and triage heurist
 
 `uv run tc` writing this directory at conductor exit. The breadcrumb line
 `→ bundle: <path>` in conductor stdout points here.
-"""
+"""  # noqa: E501
 
 
 def _monitor_test_execution(conductor: _TestConductor) -> None:
@@ -375,7 +385,8 @@ def _monitor_test_execution(conductor: _TestConductor) -> None:
     while conductor.is_running:
         status = conductor.get_current_status()
         conductor.log(
-            f"Status: {status['completed_tests']}/{status['total_tests']} tests completed"
+            f"Status: {status['completed_tests']}/{status['total_tests']} tests "
+            "completed"
         )
         if status["active_tests"]:
             for test in status["active_tests"]:
@@ -437,7 +448,10 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--filter",
         "-f",
-        help="Filter tests by case path substring. Without a target, searches all *_tests.json. With a target, narrows results within that target.",
+        help=(
+            "Filter tests by case path substring. Without a target, searches all "
+            "*_tests.json. With a target, narrows results within that target."
+        ),
     )
     parser.add_argument(
         "--exclude",
@@ -447,39 +461,37 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--headed",
         action="store_true",
-        help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
+        help="Run Playwright Console tests in headed mode",
     )
     parser.add_argument(
         "--slow-mo",
         type=int,
         default=0,
         metavar="MS",
-        help=(
-            "Delay each Playwright action by MS milliseconds "
-            "(sets PLAYWRIGHT_CONSOLE_SLOW_MO environment variable)"
-        ),
+        help="Delay each Playwright action by MS milliseconds",
     )
     parser.add_argument(
         "--driver",
         "-d",
-        help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
+        help="Driver rack name to use for driver tests",
     )
     parser.add_argument(
         "--logs",
         action="store_true",
-        help=(
-            "Stream test case logs as they happen instead of only after a failure "
-            "(sets TC_LOGS environment variable)"
-        ),
+        help=("Stream test case logs as they happen instead of only after a failure"),
     )
 
     args = parser.parse_args()
 
-    os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
-    os.environ["PLAYWRIGHT_CONSOLE_SLOW_MO"] = str(args.slow_mo)
-    os.environ["TC_LOGS"] = "1" if args.logs else "0"
-    if args.driver:
-        os.environ["SYNNAX_DRIVER_RACK"] = args.driver
+    if is_ci() and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    options = RunOptions(
+        logs_streamed=args.logs,
+        headed=args.headed,
+        slow_mo=args.slow_mo,
+        driver_rack=args.driver or DEFAULT_OPTIONS.driver_rack,
+    )
+    server_log_path = Path(os.environ.get("SYNNAX_SERVER_LOG", server_log.DEFAULT_PATH))
 
     # Create connection object
     connection = SynnaxConnection(
@@ -493,6 +505,8 @@ All matching is case-insensitive substring.
 
     # Create and run test conductor
     conductor = _TestConductor(
+        options=options,
+        server_log_path=server_log_path,
         name=args.name,
         synnax_connection=connection,
     )
@@ -545,7 +559,8 @@ All matching is case-insensitive substring.
 
             if stats["total_failed"] > 0:
                 conductor.log(
-                    f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests"
+                    "\nExiting with failure code due to "
+                    f"{stats['total_failed']}/{stats['total']} failed tests"
                 )
                 conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(1)

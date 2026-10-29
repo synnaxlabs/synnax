@@ -139,7 +139,8 @@ class ThermalSimDAQ(SimDAQ):
                                 )
                                 if new_overheat != force_overheat:
                                     self.log(
-                                        f"Force overheat: {force_overheat} -> {new_overheat}"
+                                        f"Force overheat: {force_overheat} -> "
+                                        f"{new_overheat}"
                                     )
                                 force_overheat = new_overheat
                         else:

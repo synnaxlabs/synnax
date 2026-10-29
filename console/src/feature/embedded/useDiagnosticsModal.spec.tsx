@@ -209,7 +209,10 @@ describe("Embedded diagnostics", () => {
     store.dispatch(Session.Account.link(LINK));
     await holdErase();
     await waitFor(() => expect(atReset).toEqual(Session.Account.ZERO_SLICE_STATE));
-    expect(statuses().map(({ message }) => message)).toContain("Erasing all data");
+    // The status list renders after the reset command can already have run.
+    await waitFor(() =>
+      expect(statuses().map(({ message }) => message)).toContain("Erasing all data"),
+    );
     expect(hub).toHaveBeenCalledWith(
       License.UNLINK_URL,
       expect.objectContaining({ headers: { authorization: "Bearer shh" } }),

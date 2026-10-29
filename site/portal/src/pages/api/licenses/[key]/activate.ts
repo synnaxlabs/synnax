@@ -11,6 +11,7 @@ import { type APIRoute } from "astro";
 
 import { licenseFor } from "@/access";
 import { form, handle } from "@/respond";
+import { isInternal } from "@/server/directory";
 import { badRequest } from "@/server/errors";
 import { activate } from "@/server/license/activate";
 import { DENIAL_MESSAGES } from "@/server/license/deny";
@@ -19,6 +20,7 @@ import { offer, readCode } from "@/server/license/handoff";
 import { filename } from "@/server/license/limits";
 import { readName } from "@/server/license/machine";
 import { check } from "@/server/ratelimit";
+import { refused } from "@/server/slack";
 
 /**
  * POST grants a seat to the machine whose fingerprint is posted as `fingerprint` and
@@ -53,7 +55,13 @@ export const POST: APIRoute = async (context) =>
       actor: session.userID,
       now,
     });
-    if (!result.ok) throw badRequest(DENIAL_MESSAGES[result.reason]);
+    if (!result.ok) {
+      if (!isInternal(session.email))
+        await portal.slack.post(
+          refused({ organization, license, reason: result.reason, actor: session }),
+        );
+      throw badRequest(DENIAL_MESSAGES[result.reason]);
+    }
     if (code != null) await offer(portal.store, { code, key: result.key, now });
     return Response.json({
       key: result.key,

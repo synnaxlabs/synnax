@@ -140,7 +140,8 @@ class Task:
     def _frame_client(self) -> FrameClient:
         if self._cached_frame_client is None:
             raise RuntimeError(
-                "Cannot execute commands on a task that has not been created or retrieved from the cluster."
+                "Cannot execute commands on a task that has not been created or "
+                "retrieved from the cluster."
             )
         return self._cached_frame_client
 

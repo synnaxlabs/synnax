@@ -634,24 +634,25 @@ describe("remote", () => {
       ).toBe(true);
     });
 
-    it("should draw every raw sample of a live xy line's window", async () => {
+    it("should draw a live xy line's history with decimate", async () => {
       const core = createCore({ channels: 2 });
       const [x, y] = core.data.map((c) => c.key);
-      const span = TimeSpan.seconds(10);
       const { client, reductions } = connectCounting(core);
       const source = create(client, {
         channel: y,
         xChannel: x,
-        window: dynamicWindow(span),
+        window: dynamicWindow(TimeSpan.minutes(5)),
       });
       await settle(source);
       const [, series] = source.value().data;
-      expect(series.series.every((s) => s.alignmentMultiple === 1n)).toBe(true);
-      expect(series.series[0].timeRange.start.beforeEq(NOW.sub(span))).toBe(true);
       expect(series.series.at(-1)?.timeRange.end).toEqual(
         newest(core, y).timeRange.end,
       );
-      expect(reductions.every((r) => r == null)).toBe(true);
+      const reduced = reductions.filter((r) => r != null);
+      expect(reduced.length).toBeGreaterThan(0);
+      expect(
+        reduced.every((r) => r.variant === "limit" && r.aggregation === "decimate"),
+      ).toBe(true);
     });
 
     it("should draw tiles before a live window and raw samples in it", async () => {

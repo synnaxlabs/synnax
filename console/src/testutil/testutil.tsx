@@ -79,7 +79,7 @@ export function assertDefined<T>(
  */
 export const findDialogTrigger = async (): Promise<HTMLElement> =>
   await waitFor(() => {
-    const el = document.querySelector<HTMLElement>(".pluto-dialog__trigger");
+    const el = document.querySelector<HTMLElement>(".lyra-dialog__trigger");
     assertDefined(el, "dialog trigger not found");
     return el;
   });
@@ -88,8 +88,8 @@ export const findDialogTrigger = async (): Promise<HTMLElement> =>
 export const findTagCloseButton = (name: string): HTMLElement => {
   const btn = screen
     .getByText(name)
-    .closest(".pluto-tag")
-    ?.querySelector<HTMLElement>(".pluto-tag__close");
+    .closest(".lyra-tag")
+    ?.querySelector<HTMLElement>(".lyra-tag__close");
   assertDefined(btn, `close button for tag ${name} not found`);
   return btn;
 };

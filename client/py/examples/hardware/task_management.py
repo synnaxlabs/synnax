@@ -10,8 +10,8 @@
 """
 This example demonstrates task management features in Synnax.
 
-The principles shown here apply to ALL hardware task types (NI, LabJack, OPC UA, Modbus, etc.),
-but this example uses Modbus for demonstration purposes.
+The principles shown here apply to ALL hardware task types (NI, LabJack, OPC UA, Modbus,
+etc.), but this example uses Modbus for demonstration purposes.
 
 Key features demonstrated:
 - Creating tasks

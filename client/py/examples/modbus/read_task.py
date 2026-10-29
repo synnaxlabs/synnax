@@ -124,7 +124,8 @@ except KeyboardInterrupt:
     print("✓ Read task stopped by user")
     print(f"\nCollected {sample_count} samples")
     print(
-        "The server provides sine wave data (0-255) at input register addresses 0 and 1."
+        "The server provides sine wave data (0-255) at input register addresses "
+        "0 and 1."
     )
     print("=" * 70)
 finally:

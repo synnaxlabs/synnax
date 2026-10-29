@@ -10,8 +10,6 @@
 package zyn_test
 
 import (
-	"fmt"
-	"strconv"
 	"testing"
 	"uuid"
 
@@ -342,105 +340,6 @@ func BenchmarkObjectValidate(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
 			_ = channelSchema.Validate(data)
-		}
-	})
-}
-
-// --- Array benchmarks (realistic sizes) ---
-
-func BenchmarkArrayParse(b *testing.B) {
-	schema := zyn.Array(zyn.String())
-	for _, size := range []int{1, 10, 100, 1000} {
-		b.Run(fmt.Sprintf("strings_%d", size), func(b *testing.B) {
-			data := make([]any, size)
-			for i := range data {
-				data[i] = fmt.Sprintf("item-%d", i)
-			}
-			dest := make([]string, 0)
-			b.ReportAllocs()
-			for b.Loop() {
-				_ = schema.Parse(data, &dest)
-			}
-		})
-	}
-}
-
-func BenchmarkArrayOfChannelsDump(b *testing.B) {
-	schema := zyn.Array(channelSchema)
-	for _, size := range []int{1, 10, 100} {
-		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			data := make([]any, size)
-			for i := range data {
-				data[i] = channelPayload()
-			}
-			b.ReportAllocs()
-			for b.Loop() {
-				_, _ = schema.Dump(data)
-			}
-		})
-	}
-}
-
-// --- Map benchmarks ---
-
-func BenchmarkMapParse(b *testing.B) {
-	schema := zyn.Map(zyn.String(), zyn.String())
-	for _, size := range []int{1, 10, 100} {
-		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			data := make(map[string]any, size)
-			for i := range size {
-				data[strconv.Itoa(i)] = fmt.Sprintf("value-%d", i)
-			}
-			var dest map[string]string
-			b.ReportAllocs()
-			for b.Loop() {
-				_ = schema.Parse(data, &dest)
-			}
-		})
-	}
-}
-
-func BenchmarkMapDump(b *testing.B) {
-	schema := zyn.Map(zyn.String(), zyn.String())
-	for _, size := range []int{1, 10, 100} {
-		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			data := make(map[string]string, size)
-			for i := range size {
-				data[strconv.Itoa(i)] = fmt.Sprintf("value-%d", i)
-			}
-			b.ReportAllocs()
-			for b.Loop() {
-				_, _ = schema.Dump(data)
-			}
-		})
-	}
-}
-
-// --- Union vs DiscriminatedUnion ---
-
-func BenchmarkUnionVsDiscriminated(b *testing.B) {
-	readSchema := zyn.Object(map[string]zyn.Schema{
-		"type":        zyn.Literal("read"),
-		"sample_rate": zyn.Number(),
-	})
-	writeSchema := zyn.Object(map[string]zyn.Schema{
-		"type":     zyn.Literal("write"),
-		"endpoint": zyn.String(),
-	})
-	union := zyn.Union(readSchema, writeSchema)
-	discriminated := zyn.DiscriminatedUnion("type", readSchema, writeSchema)
-	data := map[string]any{"type": "write", "endpoint": "opc.tcp://localhost"}
-
-	b.Run("union_validate", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			_ = union.Validate(data)
-		}
-	})
-	b.Run("discriminated_validate", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			_ = discriminated.Validate(data)
 		}
 	})
 }

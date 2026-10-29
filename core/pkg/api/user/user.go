@@ -95,12 +95,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 // NewUser is the create-request payload for a single user. It bundles the user-record
-// fields and the credentials the auth service will store.
+// fields and the credentials the auth service will store. An empty Name defaults to the
+// username.
 type NewUser struct {
 	svcauth.Credentials
-	FirstName string   `json:"first_name" msgpack:"first_name"`
-	LastName  string   `json:"last_name"  msgpack:"last_name"`
-	Key       user.Key `json:"key"        msgpack:"key"`
+	Name string   `json:"name" msgpack:"name"`
+	Key  user.Key `json:"key"  msgpack:"key"`
 }
 
 type (
@@ -130,12 +130,11 @@ func (s *Service) Create(
 	userW := s.internal.NewWriter(tx)
 	newUsers := make([]user.User, len(req.Users))
 	for i, nu := range req.Users {
-		u, err := userW.Create(ctx, user.User{
-			Username:  nu.Username,
-			FirstName: nu.FirstName,
-			LastName:  nu.LastName,
-			Key:       nu.Key,
-		})
+		name := nu.Name
+		if name == "" {
+			name = nu.Username
+		}
+		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key})
 		if err != nil {
 			return CreateResponse{}, err
 		}
@@ -152,7 +151,8 @@ type ChangeUsernameRequest struct {
 	Key      user.Key `json:"key"      msgpack:"key"`
 }
 
-// ChangeUsername changes the username for the user with the given key.
+// ChangeUsername changes the username of the password held by the user with the given
+// key.
 func (s *Service) ChangeUsername(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -164,13 +164,14 @@ func (s *Service) ChangeUsername(
 			"you cannot change your own username through the user service",
 		)
 	}
-	var u user.User
-	if err := s.internal.NewRetrieve().
-		Where(user.MatchKeys(req.Key)).Entry(&u).
+	var p password.Password
+	if err := s.password.NewRetrieve().
+		Where(password.MatchSubjects(user.OntologyID(req.Key))).
+		Entry(&p).
 		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
 	}
-	if u.Username == req.Username {
+	if p.Username == req.Username {
 		return struct{}{}, nil
 	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -180,22 +181,16 @@ func (s *Service) ChangeUsername(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	if err := s.internal.NewWriter(tx).
-		ChangeUsername(ctx, req.Key, req.Username); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.password.NewWriter(tx).
-		Rename(ctx, u.OntologyID(), req.Username)
+		Rename(ctx, user.OntologyID(req.Key), req.Username)
 }
 
 type RenameRequest struct {
-	FirstName string   `json:"first_name" msgpack:"first_name"`
-	LastName  string   `json:"last_name"  msgpack:"last_name"`
-	Key       user.Key `json:"key"        msgpack:"key"`
+	Name string   `json:"name" msgpack:"name"`
+	Key  user.Key `json:"key"  msgpack:"key"`
 }
 
-// Rename changes the name for the user with the provided key. If either the first or
-// last name is empty, the corresponding field will not be updated.
+// Rename changes the name of the user with the provided key.
 func (s *Service) Rename(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -209,7 +204,7 @@ func (s *Service) Rename(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).
-		ChangeName(ctx, req.Key, req.FirstName, req.LastName)
+		ChangeName(ctx, req.Key, req.Name)
 }
 
 type (
@@ -222,7 +217,8 @@ type (
 	}
 )
 
-// Retrieve returns the users with the provided keys or usernames.
+// Retrieve returns the users with the provided keys or the provided usernames of their
+// passwords.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
@@ -232,7 +228,14 @@ func (s *Service) Retrieve(
 		q = q.Where(user.MatchKeys(req.Keys...))
 	}
 	if len(req.Usernames) > 0 {
-		q = q.Where(user.MatchUsernames(req.Usernames...))
+		keys, err := s.keysByUsername(ctx, req.Usernames)
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+		if len(keys) == 0 {
+			return RetrieveResponse{Users: []user.User{}}, nil
+		}
+		q = q.Where(user.MatchKeys(keys...))
 	}
 	var users []user.User
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
@@ -246,6 +249,31 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return RetrieveResponse{Users: users}, nil
+}
+
+func (s *Service) keysByUsername(
+	ctx context.Context,
+	usernames []string,
+) ([]user.Key, error) {
+	var passwords []password.Password
+	if err := s.password.NewRetrieve().
+		Where(password.MatchUsernames(usernames...)).
+		Entries(&passwords).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	keys := make([]user.Key, 0, len(passwords))
+	for _, p := range passwords {
+		if p.Subject.Type != ontology.ResourceTypeUser {
+			continue
+		}
+		key, err := user.KeyFromOntologyID(p.Subject)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, nil
 }
 
 type DeleteRequest struct {
