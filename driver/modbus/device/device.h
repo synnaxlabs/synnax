@@ -25,28 +25,25 @@
 #include "driver/errors/errors.h"
 
 namespace driver::modbus::device {
-/// @brief a fault in the configuration or the device that a retry cannot fix, such
-/// as an illegal function or address.
+/// @brief a fault that a retry cannot fix, such as an illegal function or address.
 const x::errors::Error CRITICAL_ERROR = errors::CRITICAL_HARDWARE_ERROR.sub("modbus");
 /// @brief a fault that can clear on retry, such as a busy server or a gateway that
 /// cannot reach its target.
 const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub("modbus");
-/// @brief the connection failed, timed out, or lost sync. The device reconnects on
-/// the next request.
+/// @brief the connection failed, timed out, or lost sync. The device reconnects on the
+/// next request.
 const x::errors::Error UNREACHABLE = TEMPORARY_ERROR.sub("unreachable");
 
 /// @brief classifies a libmodbus or system error number.
 /// @param errnum the value of errno after a failed libmodbus call.
-/// @returns CRITICAL_ERROR, TEMPORARY_ERROR, or UNREACHABLE, carrying the message
-/// from modbus_strerror.
+/// @returns CRITICAL_ERROR, TEMPORARY_ERROR, or UNREACHABLE, carrying the message from
+/// modbus_strerror.
 inline x::errors::Error classify(const int errnum) {
     const std::string message = modbus_strerror(errnum);
     switch (errnum) {
         case EMBXILFUN:
         case EMBXILADD:
         case EMBXILVAL:
-        case EMBXNACK:
-        case EMBXMEMPAR:
         case EMBMDATA:
         case EINVAL:
         case ENOMEM:
@@ -54,6 +51,8 @@ inline x::errors::Error classify(const int errnum) {
         case EMBXSFAIL:
         case EMBXACK:
         case EMBXSBUSY:
+        case EMBXNACK:
+        case EMBXMEMPAR:
         case EMBXGPATH:
         case EMBXGTAR:
         case EMBBADCRC:
@@ -73,8 +72,8 @@ enum RegisterType {
 enum BitType { Coil, DiscreteInput };
 
 /// @brief a connection to one Modbus TCP server. After a request fails with
-/// UNREACHABLE, the device closes its socket and reconnects on the next request.
-/// Not safe for concurrent use.
+/// UNREACHABLE, the device closes its socket and reconnects on the next request. Not
+/// safe for concurrent use.
 class Device {
     modbus_t *ctx;
     bool connected = false;

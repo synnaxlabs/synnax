@@ -66,8 +66,8 @@ read_once(Reader &reader, const std::shared_ptr<device::Device> &dev) {
 }
 }
 
-/// @brief it should read a multi-register value and a register inside it, sizing
-/// the request by the value that ends last.
+/// @brief it should read a multi-register value and a register inside it, sizing the
+/// request by the value that ends last.
 TEST(RegisterReader, OverlappingChannels) {
     testutil::SlaveConfig cfg;
     cfg.port = 1630;
@@ -112,8 +112,8 @@ TEST(RegisterReader, SplitsWideSpan) {
     slave.stop();
 }
 
-/// @brief it should return a critical error that names the channels and addresses
-/// of a request the server rejects.
+/// @brief it should return a critical error that names the channels and addresses of a
+/// request the server rejects.
 TEST(RegisterReader, IllegalAddressNamesChannels) {
     testutil::SlaveConfig cfg;
     cfg.port = 1632;
@@ -171,8 +171,8 @@ TEST(BitReader, CastsToChannelDataType) {
     slave.stop();
 }
 
-/// @brief it should return an unreachable error without channel names when the
-/// server drops the connection, then read again on a new connection.
+/// @brief it should return an unreachable error without channel names when the server
+/// drops the connection, then read again on a new connection.
 TEST(BitReader, ReconnectsAfterDroppedConnection) {
     testutil::SlaveConfig cfg;
     cfg.port = 1633;

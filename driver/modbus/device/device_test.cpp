@@ -335,9 +335,12 @@ INSTANTIATE_TEST_SUITE_P(
         ClassifyCase{EMBXILVAL, CRITICAL_ERROR},
         ClassifyCase{EMBMDATA, CRITICAL_ERROR},
         ClassifyCase{EINVAL, CRITICAL_ERROR},
+        ClassifyCase{ENOMEM, CRITICAL_ERROR},
         ClassifyCase{EMBXSFAIL, TEMPORARY_ERROR},
         ClassifyCase{EMBXACK, TEMPORARY_ERROR},
         ClassifyCase{EMBXSBUSY, TEMPORARY_ERROR},
+        ClassifyCase{EMBXNACK, TEMPORARY_ERROR},
+        ClassifyCase{EMBXMEMPAR, TEMPORARY_ERROR},
         ClassifyCase{EMBXGPATH, TEMPORARY_ERROR},
         ClassifyCase{EMBXGTAR, TEMPORARY_ERROR},
         ClassifyCase{EMBBADCRC, TEMPORARY_ERROR},
@@ -371,8 +374,8 @@ TEST(DeviceTest, ReconnectsAfterDroppedConnection) {
     slave.stop();
 }
 
-/// @brief it should report an unreachable server when the server is gone, and
-/// connect once it is back.
+/// @brief it should report an unreachable server when the server is gone, and connect
+/// once it is back.
 TEST(DeviceTest, ReusesDeviceAcrossServerRestart) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1621;
@@ -395,8 +398,8 @@ TEST(DeviceTest, ReusesDeviceAcrossServerRestart) {
     slave->stop();
 }
 
-/// @brief it should return a critical error for an address the server does not
-/// have, and keep the connection.
+/// @brief it should return a critical error for an address the server does not have,
+/// and keep the connection.
 TEST(DeviceTest, IllegalAddressIsCritical) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1622;

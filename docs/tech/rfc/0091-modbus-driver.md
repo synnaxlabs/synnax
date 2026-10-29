@@ -6,7 +6,7 @@
 
 ## 0 Summary
 
-The Modbus Driver becomes production grade. A write touches only the addresses its
+The Modbus driver becomes production grade. A write touches only the addresses its
 command names. Reads plan blocks inside the protocol limits. Temporary faults retry and
 reconnect, and configuration faults stop the task and name the channels. Devices on one
 endpoint share one connection, and each device has a unit ID, a timeout, and retries, so
@@ -105,10 +105,10 @@ the docs say so.
 
 ### 2.4 Errors
 
-| Kind          | Causes                                                                                       | Effect                                                                                                                       |
-| ------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Temporary     | Timeout, socket error, bad CRC or transaction ID, exception 04, 05, 06, 0A, 0B, demoted unit | After `retries`, a read task retries without a limit, at most 5 s apart. A write task warns, drops the command, and runs on. |
-| Configuration | Exception 01, 02, 03                                                                         | The task stops, and the error names the channels and the address range.                                                      |
+| Kind          | Causes                                                                                     | Effect                                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Temporary     | Timeout, socket error, bad CRC or transaction ID, exception 04 to 08, 0A, 0B, demoted unit | After `retries`, a read task retries without a limit, at most 5 s apart. A write task warns, drops the command, and runs on. |
+| Configuration | Exception 01, 02, 03                                                                       | The task stops, and the error names the channels and the address range.                                                      |
 
 `retries` is the only retry inside a request. The read task's retry is for an outage
 that outlasts it.
@@ -159,8 +159,8 @@ units. Every write spec reads the device back, never the Synnax echo.
   the settings, §2.4 with one fixed retry after a reconnect, hostnames and IPv6 through
   `modbus_new_tcp_pi`, and channel mapping by key. The Console lists only supported data
   types, makes a new command channel when a data type changes, and rejects overlapping
-  write channels and addresses past 65535. Python write map keys match the Console. No
-  stored change (SY-4676). This RFC lands with it.
+  write channels and addresses past 65535. Console write map keys match the Python
+  client. No stored change (SY-4676). This RFC lands with it.
 - **Phase 2: Connections.** §2.1, the scanner probe, `transport` with TCP only, the
   shared `connection` fields, and every `requests` field except `mask_write_supported`.
   The connect dialog gets an advanced section.
@@ -172,6 +172,14 @@ units. Every write spec reads the device back, never the Synnax echo.
 
 Compatibility: every new field is optional. Phase 1 stops writing gap addresses, and
 Phase 2 raises the timeout from 500 ms to 1000 ms. Both go in the release notes.
+
+| Phase | Scope                                                       | Touches                                                                                          | Depends on |
+| ----- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------- |
+| 1     | Fix Modbus write task zeroing addresses after a failed read | `driver/modbus`, `console/src/feature/modbus`, `site/docs`                                       | -          |
+| 2     | Share one Modbus connection for each endpoint               | `driver/modbus`, `console/src/feature/modbus`, `client/py/synnax/modbus`, `site/docs`            | 1          |
+| 3     | Add Modbus RTU serial connections                           | `driver/modbus`, `console/src/feature/modbus`, `client/py/synnax/modbus`, `site/docs`            | 2          |
+| 4     | Add Modbus strings, register bits, and Modicon addresses    | `schemas`, `driver/modbus`, `console/src/feature/modbus`, `client/py/synnax/modbus`, `site/docs` | 2          |
+| 5     | Report Modbus request counters in the server status         | `driver/modbus`, `console/src/feature/modbus`                                                    | 2          |
 
 ## 4 What this RFC does not cover
 

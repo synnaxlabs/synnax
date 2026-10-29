@@ -69,8 +69,8 @@ TEST(Plan, SplitsWideChannelAtLimit) {
     expect_block(blocks[1], 123, 4, 1, 2);
 }
 
-/// @brief it should size a block by the channel that ends last, not the one that
-/// starts last.
+/// @brief it should size a block by the channel that ends last, not the one that starts
+/// last.
 TEST(Plan, SizesByFurthestEnd) {
     const std::vector<Range> chs{{10, 4}, {11, 1}};
     const auto blocks = plan(chs, 125, true);

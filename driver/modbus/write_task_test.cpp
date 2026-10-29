@@ -668,8 +668,8 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     wt->stop("stop_cmd", true);
 }
 
-/// @brief it should retry a command once on a new connection after the server
-/// drops the old one.
+/// @brief it should retry a command once on a new connection after the server drops the
+/// old one.
 TEST_F(ModbusWriteTest, testRetriesAfterDroppedConnection) {
     this->setup_task_config();
     testutil::SlaveConfig slave_cfg;
@@ -728,5 +728,27 @@ TEST_F(ModbusWriteTest, testOverlappingRegistersRejected) {
     ASSERT_EQ(errors.size(), 1);
     EXPECT_EQ(errors[0]["path"], "channels.1.address");
     EXPECT_EQ(errors[0]["message"], "overlaps the holding register at address 0");
+}
+
+/// @brief it should reject a holding register data type the Driver cannot encode.
+TEST_F(ModbusWriteTest, testUnsupportedDataTypeRejected) {
+    this->setup_task_config();
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "holding_register"},
+               {"address", 0},
+               {"channel", reg_ch.key},
+               {"data_type", "string"}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    WriteTaskConfig write_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
+    EXPECT_EQ(errors[0]["message"], "unsupported data type: string");
 }
 }

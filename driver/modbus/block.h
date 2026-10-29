@@ -35,12 +35,15 @@ struct Block {
 /// @brief groups channels into blocks of at most limit registers or bits.
 /// @param channels channels sorted by address, each with an address and a width.
 /// @param limit the most registers or bits one request can hold.
-/// @param gaps whether a block may span addresses that no channel covers. A block
-/// without gaps holds only channels whose ranges touch end to end.
+/// @param gaps_allowed whether a block may span addresses that no channel covers. A
+/// block without gaps holds only channels whose ranges touch end to end.
 /// @returns the blocks in address order. Each channel is in exactly one block.
 template<typename Channel>
-std::vector<Block>
-plan(const std::vector<Channel> &channels, const std::size_t limit, const bool gaps) {
+std::vector<Block> plan(
+    const std::vector<Channel> &channels,
+    const std::size_t limit,
+    const bool gaps_allowed
+) {
     std::vector<Block> blocks;
     std::size_t end = 0;
     for (std::size_t i = 0; i < channels.size(); i++) {
@@ -48,7 +51,7 @@ plan(const std::vector<Channel> &channels, const std::size_t limit, const bool g
         const std::size_t ch_end = ch.address + ch.width();
         if (!blocks.empty()) {
             auto &b = blocks.back();
-            const bool reachable = gaps || ch.address <= end;
+            const bool reachable = gaps_allowed || ch.address <= end;
             const auto merged_end = std::max(end, ch_end);
             if (reachable && merged_end - b.start <= limit) {
                 end = merged_end;

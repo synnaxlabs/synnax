@@ -111,9 +111,6 @@ public:
         x::telem::Frame &fr,
         size_t &frame_offset
     ) override {
-        const std::string table = this->register_type == device::HoldingRegister
-                                    ? "holding registers"
-                                    : "input registers";
         for (const auto &b: this->blocks) {
             if (const auto err = dev->read_registers(
                     this->register_type,
@@ -121,7 +118,12 @@ public:
                     b.count,
                     this->buffer.data()
                 ))
-                return this->wrap(err, table, b);
+                return this->wrap(
+                    err,
+                    this->register_type == device::HoldingRegister ? "holding registers"
+                                                                   : "input registers",
+                    b
+                );
             for (std::size_t i = b.first; i < b.last; i++) {
                 const auto &ch = this->channels[i];
                 auto [value, err] = util::parse_register_value(
@@ -163,8 +165,6 @@ public:
         x::telem::Frame &fr,
         size_t &frame_offset
     ) override {
-        const std::string table = this->bit_type == device::Coil ? "coils"
-                                                                 : "discrete inputs";
         for (const auto &b: this->blocks) {
             if (const auto err = dev->read_bits(
                     this->bit_type,
@@ -172,7 +172,11 @@ public:
                     b.count,
                     this->buffer.data()
                 ))
-                return this->wrap(err, table, b);
+                return this->wrap(
+                    err,
+                    this->bit_type == device::Coil ? "coils" : "discrete inputs",
+                    b
+                );
             for (std::size_t i = b.first; i < b.last; i++) {
                 auto &s = fr.series->at(frame_offset++);
                 s.write(s.data_type().cast(

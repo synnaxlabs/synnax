@@ -27,11 +27,11 @@ class Writer {
 public:
     virtual ~Writer() = default;
 
-    /// @brief writes the commands in the frame to the device. Addresses with no
-    /// command in the frame are left untouched.
+    /// @brief writes the commands in the frame to the device. Addresses with no command
+    /// in the frame are left untouched.
     /// @param dev the device to write to.
-    /// @param fr the frame of commands. It may hold only some of the writer's
-    /// channels, and channels of other writers, which are ignored.
+    /// @param fr the frame of commands. It may hold only some of the writer's channels,
+    /// and channels of other writers, which are ignored.
     virtual x::errors::Error
     write(const std::shared_ptr<device::Device> &dev, const x::telem::Frame &fr) = 0;
 

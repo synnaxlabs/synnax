@@ -123,7 +123,7 @@ const validateWriteChannels = ({
     if (overlap == null) return;
     issues.push({
       code: "custom",
-      message: `Overlaps the ${ch.type.replace("_", " ")} at address ${overlap.address}`,
+      message: `Overlaps the ${ch.type.replaceAll("_", " ")} at address ${overlap.address}`,
       path: [i, "address"],
       input: channels,
     });

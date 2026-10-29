@@ -150,8 +150,8 @@ TEST(CoilWriter, MergesAdjacentCoils) {
     slave.stop();
 }
 
-/// @brief it should write adjacent registers in one request and leave the gap
-/// between channels untouched.
+/// @brief it should write adjacent registers in one request and leave the gap between
+/// channels untouched.
 TEST(RegisterWriter, MergesAdjacentRegisters) {
     testutil::SlaveConfig cfg;
     cfg.port = 1644;
@@ -188,8 +188,8 @@ TEST(RegisterWriter, MergesAdjacentRegisters) {
     slave.stop();
 }
 
-/// @brief it should return a critical error that names the channel and addresses of
-/// a write the server rejects.
+/// @brief it should return a critical error that names the channel and addresses of a
+/// write the server rejects.
 TEST(RegisterWriter, IllegalAddressNamesChannel) {
     testutil::SlaveConfig cfg;
     cfg.port = 1645;
