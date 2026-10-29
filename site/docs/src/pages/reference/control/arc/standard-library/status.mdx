@@ -58,11 +58,11 @@ a warning, and the automation keeps running.
 ```arc channels="tank_pt"
 import status
 
-tank_pt > 500 => status.set{
+tank_pt > 500 => status.set(
     key_or_name="tank_overpressure",
     message="Tank pressure above 500 psi",
     variant="error",
-}
+)
 ```
 
 The example sets the status on each `tank_pt` value above 500. `status.set` works the

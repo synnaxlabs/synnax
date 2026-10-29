@@ -36,7 +36,7 @@ A sequence runs its steps in order:
 | Step           | Example                   | Moves on                             |
 | -------------- | ------------------------- | ------------------------------------ |
 | Write          | `1 -> press_vlv_cmd`      | At once, after the write.            |
-| Wait           | `time.wait{duration=10s}` | When the time is up.                 |
+| Wait           | `time.wait(duration=10s)` | When the time is up.                 |
 | Condition gate | `tank_pt > 300 => next`   | When the condition is true.          |
 | Stage          | `stage pressurize { }`    | When one of its transitions is true. |
 
@@ -144,7 +144,7 @@ the stage the inner sequence entered stops at once.
 ## Writes
 
 An automation sends every value it writes, in the order of the code, not only the last
-value of a cycle. A flow such as `tank_pt -> scale{} -> tank_pt_kpa` writes each value
+value of a cycle. A flow such as `tank_pt -> scale() -> tank_pt_kpa` writes each value
 with the timestamp of the input value it came from. Values that a function body writes
 to a channel get the current time, 1 ns apart. A function that reads a channel gets its
 latest value, or 0 before the first value.

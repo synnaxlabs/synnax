@@ -92,10 +92,10 @@ import ranges
 sequence test {
     key $= ""
     stage run {
-        ranges.create{name="Hotfire", color="#3bc454"} -> key
+        ranges.create(name="Hotfire", color="#3bc454") -> key
         stop_cmd == 1 => next
     }
-    ranges.end{key=key}
+    ranges.end(key=key)
 }
 
 start_cmd == 1 => test

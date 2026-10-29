@@ -267,7 +267,7 @@ LogicalOp ::= 'and' | 'or'
 Examples:
 
 ```arc
-func example{}(){
+func example() {
     power := 2 ^ 8 // 256
     neg := -2 ^ 2 // -4: parses as -(2 ^ 2)
     remainder := 10 % 3 // 1
@@ -298,15 +298,16 @@ current := now() // current timestamp (i64 ns)
 Arc has two execution contexts with different function syntax:
 
 - **Reactive scope** (flow statements): Functions are instantiated as nodes using
-  `func{...}` syntax, with an upstream edge feeding the trigger input
+  `func(...)` syntax, with an upstream edge feeding the trigger input
 - **Imperative scope** (function bodies): Functions are called using `func(args)` syntax
 
 ### Function declaration
 
 ```
-FunctionDeclaration ::= 'func' Identifier BraceInputs? '(' InputList? ')' OutputType? Block
+FunctionDeclaration ::= 'func' Identifier '(' InputList? ')' ('{' TriggerList? '}')?
+                        OutputType? Block
 
-BraceInputs ::= '{' InputList? '}'
+TriggerList ::= InputList
 InputList ::= Input (',' Input)* ','?
 Input ::= Identifier Type ('=' Literal)?
 
@@ -332,11 +333,11 @@ The two-group split is transitional, not semantic: `()` will eventually carry al
 inputs, and `{}` is kept (and bridged during analysis) until that merge completes.
 
 ```arc
-func controller{
+func controller(
     setpoint f64,       // literal-valued: static at instantiation
     sensor chan f64,    // channel-reference: resolved by key
     actuator chan f64,  // channel-reference: resolved by key
-} (enable bool) f64 {
+) {enable bool} f64 {
 // function body
 }
 ```
@@ -344,7 +345,7 @@ func controller{
 A function with no brace block is just a parens list:
 
 ```arc
-func add(x f64, y f64) f64 {
+func add() {x f64, y f64} f64 {
     return x + y
 }
 ```
@@ -352,7 +353,7 @@ func add(x f64, y f64) f64 {
 **Optional inputs** carry a default value and may be omitted (must be trailing):
 
 ```arc
-func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
+func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
     if value < min {
         return min
     }
@@ -365,9 +366,9 @@ func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
 
 **Supplying brace-block inputs:**
 
-- By name with `=`: `controller{setpoint=100.0}`
-- Positionally by declaration order: `filter{50.0}` sets the first input;
-  `average{10ms, 100}` sets the first and second. Trailing inputs with defaults may be
+- By name with `=`: `controller(setpoint=100.0)`
+- Positionally by declaration order: `filter(50.0)` sets the first input;
+  `average(10ms, 100)` sets the first and second. Trailing inputs with defaults may be
   omitted.
 - Values must be literals or channel identifiers (resolved at compile time).
 
@@ -386,7 +387,7 @@ which input that edge feeds:
 Inside function bodies, call other functions using parentheses:
 
 ```arc
-func process(x f64) f64 {
+func process() {x f64} f64 {
     clamped := clamp(x, 0.0, 100.0) // function call
     return clamped * 2.0
 }
@@ -397,7 +398,7 @@ func process(x f64) f64 {
 In flow statements, instantiate functions as nodes using brace block syntax:
 
 ```arc
-sensor -> controller{setpoint=100.0, sensor=temp, actuator=valve}
+sensor -> controller(setpoint=100.0, sensor=temp, actuator=valve)
 ```
 
 The upstream edge feeds the function's trigger input. Mapping multiple upstream sources
@@ -408,7 +409,7 @@ to named inputs requires routing tables (see Flow Layer).
 Functions can have multiple named outputs:
 
 ```arc
-func threshold(value f64) (above f64, below f64) {
+func threshold() {value f64} (above f64, below f64) {
     if value > 50.0 {
         above = value
     } else {
@@ -437,7 +438,7 @@ A `$=` initializer must be a literal value; only literal variables can be statef
 Functions can read from and write to channels:
 
 ```arc
-func controller{input chan f64, output chan f64, threshold f64} () {
+func controller(input chan f64, output chan f64, threshold f64) {
     value := input // read from channel (non-blocking)
     if value > threshold {
         output = value // write to channel
@@ -513,7 +514,7 @@ RoutingEntry ::= RoutingKey ':' FlowNode (('->' | '=>') FlowNode)* (':' Identifi
 RoutingKey ::= Identifier | 'true' | 'false'
 
 FlowNode ::= Identifier           // channel, variable, stage, or sequence name
-           | FunctionInvocation   // func{...}
+           | FunctionInvocation   // func(...)
            | Expression           // inline computation
            | StageDeclaration     // inline stage body
            | SequenceDeclaration  // inline sequence body
@@ -528,7 +529,7 @@ input of the function after the table.
 ### Simple pipelines
 
 ```arc
-sensor -> filter{threshold=50.0} -> controller{} -> actuator
+sensor -> filter(threshold=50.0) -> controller() -> actuator
 ```
 
 ### Output routing tables
@@ -536,7 +537,7 @@ sensor -> filter{threshold=50.0} -> controller{} -> actuator
 Branch on named outputs; the output that fires runs its entry:
 
 ```arc
-sensor -> demux{} -> {
+sensor -> demux() -> {
     high: true => alarm,
     low: true => all_clear
 }
@@ -550,7 +551,7 @@ Map multiple sources to named input parameters:
  {
     sensor1: a,
     sensor2: b
-} -> combiner{}
+} -> combiner()
 ```
 
 ### Combined routing
@@ -559,7 +560,7 @@ Map multiple sources to named input parameters:
  {
     temp1: a,
     temp2: b
-} -> averager{} -> threshold{} -> {
+} -> averager() -> threshold() -> {
     above: true => alarm,
     below: true => all_clear
 }
@@ -572,18 +573,18 @@ scope (channels, variables), literals, and function calls, but not function-loca
 variables.
 
 ```arc
-temperature > 100 -> alarm{} // comparison (the edge carries a bool)
+temperature > 100 -> alarm() // comparison (the edge carries a bool)
  (sensor1 + sensor2) / 2.0 -> display // arithmetic
-pressure > 100 or emergency -> shutdown{} // logical (emergency is a chan bool)
+pressure > 100 or emergency -> shutdown() // logical (emergency is a chan bool)
 ```
 
 ### Selecting on a boolean
 
-`select{}` runs the `true` or `false` entry for each `bool` input. No value flows into
+`select()` runs the `true` or `false` entry for each `bool` input. No value flows into
 the entry; each case body is a full flow statement.
 
 ```arc
-pressure > 500.0 -> select{} -> {
+pressure > 500.0 -> select() -> {
     true: true => alarm,
     false: true => all_clear
 }
@@ -636,7 +637,7 @@ StageItem ::= FlowStatement | Assignment | SingleInvocation
 sequence main {
     stage pressurize {
         // Reactive flows: run continuously while stage is active
-        sensor -> pressure_control{target=500.0}
+        sensor -> pressure_control(target=500.0)
         // One-shot transitions: fire once when condition is true
         pressure > 500.0 => next
         abort_btn => abort

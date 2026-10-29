@@ -25,7 +25,7 @@ import time
 hold i64 ns := 5s
 
 sequence fire {
-    time.wait{duration=hold} => next
+    time.wait(duration=hold) => next
     1 -> ign_cmd
 }
 
@@ -63,7 +63,7 @@ The time between two fires.
 ```arc channels="heartbeat"
 import time
 
-time.interval{period=1s} -> heartbeat
+time.interval(period=1s) -> heartbeat
 ```
 
 <Divider.Divider x />
@@ -83,7 +83,7 @@ Gives the current time.
 ```arc channels="start_cmd, start_time"
 import time
 
-start_cmd == 1 => time.now{} -> start_time
+start_cmd == 1 => time.now() -> start_time
 ```
 
 <Divider.Divider x />
@@ -113,7 +113,7 @@ import time
 
 sequence fire {
     1 -> ign_cmd
-    time.wait{duration=2s} => next
+    time.wait(duration=2s) => next
     1 -> press_vlv_cmd
 }
 

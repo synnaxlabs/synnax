@@ -47,7 +47,7 @@ last value.
 ```arc channels="tank_pt, high_pt"
 import stable
 
-tank_pt > 500 -> stable.for{duration=500ms} -> high_pt
+tank_pt > 500 -> stable.for(duration=500ms) -> high_pt
 ```
 
 `stable.for` works the same on the Core and on a Driver.

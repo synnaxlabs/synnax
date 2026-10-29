@@ -19,7 +19,7 @@ export const components = mdxOverrides;
 Sends each input value to its `true` output or its `false` output.
 
 - Input -> a `bool` value from `->`. Another type, such as `u8`, is an error. A `=>`
-  into `select` gives the error `'=>' cannot feed select{}, use '->'`.
+  into `select` gives the error `'=>' cannot feed select(), use '->'`.
 - Outputs -> `true` and `false`, both `u8`. Each `true` input value emits 1 on `true`.
   Each `false` input value emits 1 on `false`.
 - Runs -> on each new input value.
@@ -28,7 +28,7 @@ Sends each input value to its `true` output or its `false` output.
 [output routing table](/reference/control/arc/reference/flow). Each entry is optional.
 
 ```arc channels="vlv_open, open_cmd, close_cmd"
-vlv_open -> select{} -> {
+vlv_open -> select() -> {
     true: 1 -> open_cmd,
     false: 1 -> close_cmd
 }
