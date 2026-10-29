@@ -111,4 +111,99 @@ TEST(TelemTest, testSeriesToVariant) {
 
     UA_Variant_clear(&variant);
 }
+
+/// @brief it should read a String node into a string sample.
+TEST(TelemTest, ToSampleString) {
+    UA_String str = UA_STRING_STATIC("hello");
+    UA_Variant v;
+    UA_Variant_setScalar(&v, &str, &UA_TYPES[UA_TYPES_STRING]);
+    const auto sample = ASSERT_NIL_P(to_sample(v, x::telem::STRING_T));
+    EXPECT_EQ(std::get<std::string>(sample), "hello");
+}
+
+/// @brief it should convert a DateTime to nanoseconds since 1970.
+TEST(TelemTest, ToSampleDateTime) {
+    UA_DateTime t = UA_DATETIME_UNIX_EPOCH + 15 * UA_DATETIME_SEC;
+    UA_Variant v;
+    UA_Variant_setScalar(&v, &t, &UA_TYPES[UA_TYPES_DATETIME]);
+    const auto sample = ASSERT_NIL_P(to_sample(v, x::telem::TIMESTAMP_T));
+    EXPECT_EQ(
+        std::get<x::telem::TimeStamp>(sample),
+        x::telem::TimeStamp(15 * x::telem::SECOND)
+    );
+}
+
+/// @brief it should reject a DateTime that a timestamp cannot hold, such as the
+/// zero DateTime that servers send for an unset value.
+TEST(TelemTest, ToSampleDateTimeOutOfRange) {
+    UA_DateTime t = 0;
+    UA_Variant v;
+    UA_Variant_setScalar(&v, &t, &UA_TYPES[UA_TYPES_DATETIME]);
+    ASSERT_OCCURRED_AS_P(to_sample(v, x::telem::TIMESTAMP_T), x::errors::VALIDATION);
+}
+
+/// @brief it should reject an empty variant.
+TEST(TelemTest, ToSampleEmpty) {
+    UA_Variant v;
+    UA_Variant_init(&v);
+    ASSERT_OCCURRED_AS_P(to_sample(v, x::telem::FLOAT32_T), x::errors::VALIDATION);
+}
+
+/// @brief it should reject a type that it cannot convert.
+TEST(TelemTest, ToSampleUnsupportedType) {
+    UA_LocalizedText text{
+        .locale = UA_STRING_STATIC("en"),
+        .text = UA_STRING_STATIC("text")
+    };
+    UA_Variant v;
+    UA_Variant_setScalar(&v, &text, &UA_TYPES[UA_TYPES_LOCALIZEDTEXT]);
+    ASSERT_OCCURRED_AS_P(to_sample(v, x::telem::FLOAT32_T), x::errors::VALIDATION);
+}
+
+/// @brief it should write a String array to a string series.
+TEST(TelemTest, StringArrayToSeries) {
+    UA_String strs[2] = {UA_STRING_STATIC("a"), UA_STRING_STATIC("bc")};
+    UA_Variant v;
+    UA_Variant_setArray(&v, strs, 2, &UA_TYPES[UA_TYPES_STRING]);
+    x::telem::Series series(x::telem::STRING_T, 2);
+    EXPECT_EQ(ASSERT_NIL_P(ua_array_write_to_series(series, &v, 2)), 2);
+    EXPECT_EQ(series.at<std::string>(0), "a");
+    EXPECT_EQ(series.at<std::string>(1), "bc");
+}
+
+/// @brief it should write nothing when one element of a DateTime array is out of
+/// range.
+TEST(TelemTest, DateTimeArrayWritesNothingOnBadElement) {
+    UA_DateTime times[2] = {UA_DATETIME_UNIX_EPOCH, 0};
+    UA_Variant v;
+    UA_Variant_setArray(&v, times, 2, &UA_TYPES[UA_TYPES_DATETIME]);
+    x::telem::Series series(x::telem::TIMESTAMP_T, 2);
+    ASSERT_OCCURRED_AS_P(
+        ua_array_write_to_series(series, &v, 2),
+        x::errors::VALIDATION
+    );
+    EXPECT_EQ(series.size(), 0);
+}
+
+/// @brief it should write a string sample as an OPC UA String.
+TEST(TelemTest, StringSeriesToVariant) {
+    x::telem::Series series(std::string("hello"));
+    auto variant = ASSERT_NIL_P(series_to_variant(series));
+    ASSERT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_STRING]));
+    const auto *str = static_cast<UA_String *>(variant.data);
+    EXPECT_EQ(std::string(reinterpret_cast<char *>(str->data), str->length), "hello");
+    UA_Variant_clear(&variant);
+}
+
+/// @brief it should write a timestamp sample as an OPC UA DateTime.
+TEST(TelemTest, TimestampSeriesToVariant) {
+    x::telem::Series series(x::telem::TimeStamp(15 * x::telem::SECOND));
+    auto variant = ASSERT_NIL_P(series_to_variant(series));
+    ASSERT_TRUE(UA_Variant_hasScalarType(&variant, &UA_TYPES[UA_TYPES_DATETIME]));
+    EXPECT_EQ(
+        *static_cast<UA_DateTime *>(variant.data),
+        UA_DATETIME_UNIX_EPOCH + 15 * UA_DATETIME_SEC
+    );
+    UA_Variant_clear(&variant);
+}
 }

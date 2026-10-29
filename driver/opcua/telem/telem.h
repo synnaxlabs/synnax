@@ -22,7 +22,13 @@ x::telem::DataType ua_to_data_type(const UA_DataType *dt);
 /// @brief converts a Synnax telemetry data type to an OPC UA data type.
 UA_DataType *data_type_to_ua(const x::telem::DataType &data_type);
 
-/// @brief writes data from a UA_Variant to a telemetry series.
+/// @brief converts a scalar variant to a sample of the data type.
+/// @returns x::errors::VALIDATION if the variant is empty or an array, or holds a type
+/// or value that the data type cannot hold.
+std::pair<x::telem::SampleValue, x::errors::Error>
+to_sample(const UA_Variant &v, const x::telem::DataType &dt);
+
+/// @brief writes a scalar variant to a telemetry series.
 /// @return a pair containing the number of samples written and any error.
 std::pair<size_t, x::errors::Error>
 write_to_series(x::telem::Series &s, const UA_Variant &v);
