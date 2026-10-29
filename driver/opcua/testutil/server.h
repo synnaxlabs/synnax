@@ -538,6 +538,8 @@ public:
     std::atomic<size_t> channels{0};
     /// @brief the Sessions that the server created since it started.
     std::atomic<size_t> sessions_created{0};
+    /// @brief the calls of the methods of the Pump object that the server ran.
+    std::atomic<size_t> method_calls{0};
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -608,7 +610,7 @@ public:
         const UA_NodeId *,
         void *,
         const UA_NodeId *method,
-        void *,
+        void *calls,
         const UA_NodeId *,
         void *,
         const size_t input_size,
@@ -616,6 +618,7 @@ public:
         size_t,
         UA_Variant *
     ) {
+        ++*static_cast<std::atomic<size_t> *>(calls);
         if (UA_NodeId_equal(method, &PUMP_FAIL)) return UA_STATUSCODE_BADINVALIDSTATE;
         const auto &speed = input[input_size - 1];
         UA_Server_writeValue(
@@ -633,12 +636,13 @@ public:
     }
 
     /// @brief adds a method named name to the Pump object, with the input arguments
-    /// args.
+    /// args, that counts each call in calls.
     static void add_pump_method(
         UA_Server *server,
         const UA_NodeId &id,
         const char *name,
-        const std::vector<std::pair<const char *, const UA_DataType *>> &args
+        const std::vector<std::pair<const char *, const UA_DataType *>> &args,
+        std::atomic<size_t> &calls
     ) {
         std::vector<UA_Argument> inputs(args.size());
         for (size_t i = 0; i < args.size(); ++i) {
@@ -666,13 +670,13 @@ public:
             inputs.data(),
             0,
             nullptr,
-            nullptr,
+            &calls,
             nullptr
         );
     }
 
     /// @brief adds the object that ServerConfig::pump describes.
-    static void add_pump(UA_Server *server, const Pump &pump) {
+    void add_pump(UA_Server *server, const Pump &pump) {
         UA_ObjectAttributes attr = UA_ObjectAttributes_default;
         attr.displayName = UA_LOCALIZEDTEXT(
             const_cast<char *>("en-US"),
@@ -695,14 +699,16 @@ public:
         add_pump_variable(server, "Mode", &mode, UA_TYPES[UA_TYPES_STRING]);
         const auto *dbl = &UA_TYPES[UA_TYPES_DOUBLE];
         const auto *str = &UA_TYPES[UA_TYPES_STRING];
-        add_pump_method(server, PUMP_SET_SPEED, "SetSpeed", {{"speed", dbl}});
+        auto &calls = this->method_calls;
+        add_pump_method(server, PUMP_SET_SPEED, "SetSpeed", {{"speed", dbl}}, calls);
         add_pump_method(
             server,
             PUMP_CONFIGURE,
             "Configure",
-            {{"mode", str}, {"speed", dbl}}
+            {{"mode", str}, {"speed", dbl}},
+            calls
         );
-        add_pump_method(server, PUMP_FAIL, "Fail", {});
+        add_pump_method(server, PUMP_FAIL, "Fail", {}, calls);
     }
 
     /// @brief adds TEST_EVENT_TYPE.

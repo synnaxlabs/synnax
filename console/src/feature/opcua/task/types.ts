@@ -205,12 +205,19 @@ const STANDARD_EVENT_KEYS = [
 export const deployEventConfigZ = opcua.eventConfigZ.extend({
   device: Task.deviceKeyZ,
   fields: opcua.eventFieldZ.array().check(({ value: fields, issues }) => {
-    const names = new Set(STANDARD_EVENT_KEYS);
+    const names = new Set<string>();
     fields.forEach(({ name, browsePath }, i) => {
       if (name.length === 0)
         issues.push({
           code: "custom",
           message: "Field must have a name",
+          path: [i, "name"],
+          input: fields,
+        });
+      else if (STANDARD_EVENT_KEYS.includes(name))
+        issues.push({
+          code: "custom",
+          message: "A standard field has this name",
           path: [i, "name"],
           input: fields,
         });
@@ -267,7 +274,7 @@ const inputArgumentZ = z.object({
 });
 
 /** An input argument of a method, as the server declares it. */
-export interface InputArgument extends z.infer<typeof inputArgumentZ> {}
+interface InputArgument extends z.infer<typeof inputArgumentZ> {}
 
 export interface ScannedNode extends z.infer<typeof scannedNodeZ> {
   /** The node ID of the node that the browser found this one under. */

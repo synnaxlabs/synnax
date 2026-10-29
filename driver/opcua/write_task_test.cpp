@@ -972,6 +972,41 @@ TEST_F(TestWriteTask, testRejectsFailedMethod) {
     ASSERT_NIL(sink->stop());
 }
 
+/// @brief it should not call a method again when the call times out, since the server
+/// might have run it.
+TEST_F(TestWriteTask, testDoesNotResendTimedOutCall) {
+    auto timeout_cfg = conn_cfg;
+    timeout_cfg.client_timeout_ms = 500;
+    auto dev = ASSERT_NIL_P(ctx->client->devices.retrieve("abc123"));
+    dev.properties = x::json::json::object(
+        {{"connection", testutil::connection_json(timeout_cfg)}}
+    );
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "command"}}}
+    );
+    ASSERT_NIL(sink->start());
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    server->probe_delay = 2 * x::telem::SECOND;
+    // The server waits for a request before it starts the delay, so send one first.
+    ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    auto fr = this->method_command(42);
+    const auto err = sink->write(fr);
+    server->probe_delay = x::telem::TimeSpan{};
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        this->double_cmd_channel.name +
+            ": lost the connection during the call, so the method might not have run."
+    );
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 42);
+    EXPECT_EQ(server->method_calls, 1);
+    ASSERT_NIL(sink->stop());
+}
+
 /// @brief it should reject a command when the channel gives a different number of
 /// arguments than the method takes.
 TEST_F(TestWriteTask, testRejectsArgumentCount) {

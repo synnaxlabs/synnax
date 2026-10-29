@@ -48,6 +48,7 @@ inline x::json::json connection_json(const connection::Config &cfg) {
         {"client_certificate", cfg.client_cert},
         {"client_private_key", cfg.client_private_key},
         {"certificate_validation_disabled", cfg.certificate_validation_disabled},
+        {"client_timeout_ms", cfg.client_timeout_ms},
     };
     if (cfg.server_certificate.has_value())
         j["server_certificate"] = cfg.server_certificate->pem();

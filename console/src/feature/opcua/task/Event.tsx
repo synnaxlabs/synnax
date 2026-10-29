@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -30,6 +30,7 @@ import { use } from "@/feature/opcua/device/queries";
 import { Select } from "@/feature/opcua/device/Select";
 import { type Device, SCHEMAS } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
+import { findFreeName } from "@/feature/opcua/task/findFreeName";
 import {
   deployEventConfigZ,
   EVENT_SCHEMAS,
@@ -251,10 +252,7 @@ const getInitialValues: Task.GetInitialValues<EventSchemas> = ({
   return { name: "OPC UA event task", type: EVENT_TYPE, config: cfg };
 };
 
-const channelExists = async (
-  client: Parameters<Task.OnConfigure>[0],
-  key: channel.Key,
-): Promise<boolean> => {
+const channelExists = async (client: Synnax, key: channel.Key): Promise<boolean> => {
   if (key === 0) return false;
   try {
     await client.channels.retrieve(key);
@@ -272,7 +270,11 @@ const onConfigure: Task.OnConfigure<EventSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
   if (await channelExists(client, config.channel)) return [config, dev.rack];
-  const base = `${channel.escapeInvalidName(name)}_events`;
+  const base = await findFreeName(
+    client,
+    `${channel.escapeInvalidName(name)}_events`,
+    new Set(),
+  );
   const index = await client.channels.create({
     name: `${base}_time`,
     dataType: DataType.TIMESTAMP,

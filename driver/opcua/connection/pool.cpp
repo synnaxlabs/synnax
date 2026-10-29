@@ -797,16 +797,12 @@ std::pair<std::vector<x::errors::Error>, x::errors::Error> Pool::Connection::sub
     if (auto err = errors::parse(res.responseHeader.serviceResult)) return {{}, err};
     sub->id = res.subscriptionId;
     this->subscription_ = std::move(sub);
-    std::vector<x::errors::Error> results;
-    results.reserve(notifiers.size());
-    for (const auto &notifier: notifiers) {
-        if (const auto err = lost(this->get())) {
-            this->unsubscribe();
-            return {{}, err};
-        }
-        UA_MonitoredItemCreateRequest item;
+    if (notifiers.empty()) return {{}, x::errors::NIL};
+    std::vector<UA_MonitoredItemCreateRequest> items(notifiers.size());
+    for (size_t i = 0; i < notifiers.size(); ++i) {
+        auto &item = items[i];
         UA_MonitoredItemCreateRequest_init(&item);
-        item.itemToMonitor.nodeId = notifier;
+        item.itemToMonitor.nodeId = notifiers[i];
         item.itemToMonitor.attributeId = UA_ATTRIBUTEID_EVENTNOTIFIER;
         item.monitoringMode = UA_MONITORINGMODE_REPORTING;
         item.requestedParameters.queueSize = EVENT_QUEUE_SIZE;
@@ -816,17 +812,37 @@ std::pair<std::vector<x::errors::Error>, x::errors::Error> Pool::Connection::sub
             .type = &UA_TYPES[UA_TYPES_EVENTFILTER];
         item.requestedParameters.filter.content.decoded
             .data = const_cast<UA_EventFilter *>(&filter);
-        auto created = UA_Client_MonitoredItems_createEvent(
-            this->get(),
-            this->subscription_->id,
-            UA_TIMESTAMPSTORETURN_BOTH,
-            item,
-            nullptr,
-            on_event,
-            nullptr
-        );
-        results.push_back(errors::parse(created.statusCode));
-        UA_MonitoredItemCreateResult_clear(&created);
+    }
+    std::vector<UA_Client_EventNotificationCallback> callbacks(items.size(), on_event);
+    UA_CreateMonitoredItemsRequest items_req;
+    UA_CreateMonitoredItemsRequest_init(&items_req);
+    items_req.subscriptionId = this->subscription_->id;
+    items_req.timestampsToReturn = UA_TIMESTAMPSTORETURN_BOTH;
+    items_req.itemsToCreate = items.data();
+    items_req.itemsToCreateSize = items.size();
+    if (const auto err = lost(this->get())) {
+        this->unsubscribe();
+        return {{}, err};
+    }
+    // The delete callbacks stay null: on a failure before the request, open62541 calls
+    // each one that the array holds.
+    auto created = UA_Client_MonitoredItems_createEvents(
+        this->get(),
+        items_req,
+        nullptr,
+        callbacks.data(),
+        nullptr
+    );
+    auto err = errors::parse(created.responseHeader.serviceResult);
+    if (!err) err = check_results(created.resultsSize, items.size());
+    std::vector<x::errors::Error> results;
+    if (!err)
+        for (size_t i = 0; i < created.resultsSize; ++i)
+            results.push_back(errors::parse(created.results[i].statusCode));
+    UA_CreateMonitoredItemsResponse_clear(&created);
+    if (err) {
+        this->unsubscribe();
+        return {{}, err};
     }
     return {std::move(results), x::errors::NIL};
 }

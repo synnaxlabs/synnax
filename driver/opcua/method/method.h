@@ -24,14 +24,16 @@
 namespace driver::opcua::method {
 /// @brief an input argument of a method, as the server declares it.
 struct Argument {
+    /// @brief the name of the argument.
     std::string name;
+    /// @brief the node of the data type that the argument takes.
     types::NodeId data_type;
 };
 
 /// @brief reads the InputArguments property of each method.
-/// @returns the input arguments of each method, in order. A method without the
-/// property takes none. Nothing for a method that the server did not browse, or whose
-/// property holds no arguments. Returns the error of the browse or the read.
+/// @returns the input arguments of each method, in order. A method without the property
+/// takes none. Nothing for a method that the server did not browse, or whose property
+/// holds no arguments. Returns the error of the browse or the read.
 std::pair<std::vector<std::optional<std::vector<Argument>>>, x::errors::Error>
 read_inputs(
     const connection::Pool::Connection &conn,

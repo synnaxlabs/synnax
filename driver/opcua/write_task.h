@@ -282,9 +282,9 @@ public:
     }
 
     /// @brief writes the commands of node channels to the server, then calls the
-    /// methods of method channels. A connection that breaks gets one new connection
-    /// and one more attempt, so a Session the server closed while idle does not drop
-    /// the command.
+    /// methods of method channels. A connection that breaks gets one new connection and
+    /// one more attempt, so a Session the server closed while idle does not drop the
+    /// command.
     x::errors::Error write(::x::telem::Frame &frame) override {
         if (!this->connection)
             if (const auto err = this->connect()) return err;
@@ -395,9 +395,9 @@ private:
         return x::errors::NIL;
     }
 
-    /// @brief calls the method of each method channel in frame. A call that the
-    /// server did not run because the connection broke gets one new connection and
-    /// one more attempt. A call that the server might have run is never sent again.
+    /// @brief calls the method of each method channel in frame. A call that the server
+    /// did not run because the connection broke gets one new connection and one more
+    /// attempt. A call that the server might have run is never sent again.
     x::errors::Error call_methods(const ::x::telem::Frame &frame) {
         std::vector<std::string> problems;
         for (const auto &[key, s]: frame) {

@@ -194,7 +194,9 @@ using EventHandler = std::function<void(const UA_KeyValueMap &fields)>;
 /// @brief the event subscription that a connection holds. Its address stays fixed for
 /// the life of the subscription, since the client passes it to each callback.
 struct Subscription {
+    /// @brief the ID that the server gave the subscription.
     UA_UInt32 id = 0;
+    /// @brief runs for each event of the subscription.
     EventHandler handle;
     /// @brief the bad status with which the server ended the subscription.
     UA_StatusCode status = UA_STATUSCODE_GOOD;
@@ -302,8 +304,8 @@ public:
         /// none.
         [[nodiscard]] UA_UInt32 subscription_id() const;
 
-        /// @brief handles the notifications that the server sent, waiting up to
-        /// timeout for the first one.
+        /// @brief handles the notifications that the server sent, waiting up to timeout
+        /// for the first one.
         /// @returns errors::NO_CONNECTION when the connection is lost, or the status
         /// with which the server ended the subscription.
         [[nodiscard]] x::errors::Error iterate(x::telem::TimeSpan timeout) const;

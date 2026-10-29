@@ -289,7 +289,7 @@ describe("OPC UA event task config validation", () => {
         { name: "level", browsePath: "Level" },
       ]),
     ).toEqual([
-      { message: "Another field has this name", path: ["fields", 0, "name"] },
+      { message: "A standard field has this name", path: ["fields", 0, "name"] },
       { message: "Another field has this name", path: ["fields", 2, "name"] },
     ]);
   });

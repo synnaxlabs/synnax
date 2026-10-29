@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type opcua, type Synnax } from "@synnaxlabs/client";
+import { channel, NotFoundError, type opcua } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -30,6 +30,7 @@ import {
   type Properties as DeviceProperties,
   SCHEMAS,
 } from "@/feature/opcua/device/types";
+import { findFreeName } from "@/feature/opcua/task/findFreeName";
 import {
   type ChannelKeyAndIDGetter,
   createForm,
@@ -67,7 +68,6 @@ const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel | null => {
   if (data.field !== "") return null;
   const base = { nodeName: data.name, nodeId: data.nodeId, name: "" };
   if (data.nodeClass === "Method") {
-    // The first argument takes the command, unless its type has no Synnax type.
     const args = (data.inputArguments ?? []).map(
       ({ name, dataType }, i): MethodArgument => ({
         source: i === 0 && dataType !== "" ? "command" : "value",
@@ -109,7 +109,6 @@ const Argument = ({ path, index }: ArgumentProps): ReactElement | null => {
   const arg = PForm.useFieldValue<MethodArgument>(argPath, { optional: true });
   if (arg == null) return null;
   const command = arg.source === "command";
-  // One argument at most takes the command, and the command channel takes its type.
   const handleSourceChange = (
     source: opcua.ArgumentSource,
     { get, set }: PForm.ContextValue,
@@ -235,25 +234,6 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 
 const defaultCommandName = ({ nodeName }: WriteChannel): string =>
   `${channel.escapeInvalidName(nodeName)}_cmd`;
-
-/**
- * @returns base, or base with the lowest numeric suffix, such that no channel and no
- * name in reserved holds it or its index name. Adds the name to reserved.
- */
-const findFreeName = async (
-  client: Synnax,
-  base: string,
-  reserved: Set<string>,
-): Promise<string> => {
-  for (let n = 1; ; n++) {
-    const name = n === 1 ? base : `${base}_${n}`;
-    if (reserved.has(name)) continue;
-    const taken = await client.channels.retrieve([name, `${name}_time`]);
-    if (taken.length > 0) continue;
-    reserved.add(name);
-    return name;
-  }
-};
 
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,

@@ -915,8 +915,8 @@ synnax::task::Status browse_motor(
     return ctx->statuses.back();
 }
 
-/// @brief starts a server that holds a TestMotor node, of the Motor structure type,
-/// and the Pump object.
+/// @brief starts a server that holds a TestMotor node, of the Motor structure type, and
+/// the Pump object.
 std::unique_ptr<testutil::Server> start_motor_server() {
     auto cfg = testutil::ServerConfig::create_default();
     cfg.port = 4881;

@@ -842,8 +842,8 @@ TEST_F(ConnectionPoolTest, SubscribeReplacesSubscription) {
     EXPECT_TRUE(first.empty());
 }
 
-/// @brief it should delete the subscription when the connection goes back to the
-/// pool, and keep the Session for the next caller.
+/// @brief it should delete the subscription when the connection goes back to the pool,
+/// and keep the Session for the next caller.
 TEST_F(ConnectionPoolTest, ReleaseDeletesSubscription) {
     server_cfg_.pump = testutil::Pump{};
     restart_server();
@@ -869,8 +869,8 @@ TEST_F(ConnectionPoolTest, ReleaseDeletesSubscription) {
     EXPECT_EQ(pool.size(), 1);
 }
 
-/// @brief it should report a lost connection while it waits for events, and close
-/// the Session of a lost connection that still holds a subscription.
+/// @brief it should report a lost connection while it waits for events, and close the
+/// Session of a lost connection that still holds a subscription.
 TEST_F(ConnectionPoolTest, IterateReportsLostConnection) {
     server_cfg_.pump = testutil::Pump{};
     restart_server();

@@ -392,7 +392,30 @@ describe("Write", () => {
       expect(cmd.dataType.toString()).toBe("string");
     });
 
-    it("should add a dropped method with its arguments, the first taking the command", async () => {
+    it("should give a method a uint8 trigger when its command switch is turned off", async () => {
+      const dev = await createOPCDevice(client);
+      const ch = createMethodChannel(createMethodName(), [MODE, SPEED]);
+      const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+      await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(`Call ${ch.nodeName}`);
+      const [, speedSwitch] = screen.getAllByRole("checkbox", { name: "Command" });
+      fireEvent.click(speedSwitch);
+      await waitFor(async () => {
+        const { config } = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: OPCUA.Task.WRITE_SCHEMAS,
+        });
+        const [saved] = config.channels;
+        expect(saved.dataType).toBe("uint8");
+        expect(saved.arguments.map(({ source }) => source)).toEqual(["value", "value"]);
+      });
+    });
+
+    // Drops a method that takes the arguments onto a draft that holds one node, and
+    // returns the method channel that the draft saves.
+    const dropMethod = async (
+      inputArguments: OPCUA.Task.NodeDetails["inputArguments"],
+    ): Promise<OPCUA.Task.WriteChannel> => {
       const { scan, device } = await createScannedDevice(client);
       const held = createWriteChannel();
       const draft = await createDraft(client, createWriteConfig(device.key, [held]));
@@ -417,38 +440,53 @@ describe("Write", () => {
           node: method,
           nodeClass: "Method",
           browseName: "Configure",
-          inputArguments: [
-            { name: "mode", typeName: "String", dataType: "string" },
-            { name: "speed", typeName: "Double", dataType: "float64" },
-          ],
+          inputArguments,
         },
       });
       fireEvent.dragStart(await screen.findByText("Configure"));
       fireEvent.drop(await screen.findByText(new RegExp(held.nodeName)));
       expect((await read.answered).args).toMatchObject({ nodeId: method.nodeId });
-      await waitFor(async () => {
-        const saved = await client.tasks.retrieve({
+      const [first, added] = await waitFor(async () => {
+        const { config } = await client.tasks.retrieve({
           key: draft.key,
           schemas: OPCUA.Task.WRITE_SCHEMAS,
         });
-        expect(saved.config.channels).toEqual([
-          held,
-          {
-            key: expect.any(String),
-            nodeName: "Configure",
-            nodeId: method.nodeId,
-            name: "",
-            cmdChannel: 0,
-            disabled: false,
-            type: "method",
-            objectId: "",
-            dataType: "string",
-            arguments: [
-              { source: "command", value: "", name: "mode", dataType: "string" },
-              { source: "value", value: "", name: "speed", dataType: "float64" },
-            ],
-          },
-        ]);
+        expect(config.channels).toHaveLength(2);
+        return config.channels;
+      });
+      expect(first).toEqual(held);
+      return added;
+    };
+
+    it("should add a dropped method with its arguments, the first taking the command", async () => {
+      expect(
+        await dropMethod([
+          { name: "mode", typeName: "String", dataType: "string" },
+          { name: "speed", typeName: "Double", dataType: "float64" },
+        ]),
+      ).toEqual({
+        key: expect.any(String),
+        nodeName: "Configure",
+        nodeId: "ns=1;s=Pump.Configure",
+        name: "",
+        cmdChannel: 0,
+        disabled: false,
+        type: "method",
+        objectId: "",
+        dataType: "string",
+        arguments: [
+          { source: "command", value: "", name: "mode", dataType: "string" },
+          { source: "value", value: "", name: "speed", dataType: "float64" },
+        ],
+      });
+    });
+
+    it("should give a dropped method a uint8 trigger when its first argument has no Synnax type", async () => {
+      expect(
+        await dropMethod([{ name: "recipe", typeName: "Recipe", dataType: "" }]),
+      ).toMatchObject({
+        dataType: "uint8",
+        arguments: [{ source: "value", value: "", name: "recipe", dataType: "" }],
       });
     });
   });

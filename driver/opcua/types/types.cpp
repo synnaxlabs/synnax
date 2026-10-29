@@ -341,8 +341,8 @@ EventFilter::EventFilter(
     for (size_t i = 0; i < fields.size(); ++i)
         filter_.selectClauses[i] = select_clause(fields[i]);
     if (types.empty()) return;
-    // The where clause chains an Or for each type after the first, then holds an
-    // OfType for each type. Operands may only point forward.
+    // The where clause chains an Or for each type after the first, then holds an OfType
+    // for each type. Operands may only point forward.
     const size_t ors = types.size() - 1;
     auto &where = filter_.whereClause;
     where.elements = static_cast<UA_ContentFilterElement *>(

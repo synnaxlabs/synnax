@@ -27,8 +27,8 @@ namespace {
 const std::string ENDPOINT = "opc.tcp://localhost:4864";
 const std::string DEVICE_KEY = "opc_event_task_test_server_key";
 
-/// @returns the events and stamps that the reads of source wrote, reading until
-/// count events arrive or 5 seconds pass.
+/// @returns the events and stamps that the reads of source wrote, reading until count
+/// events arrive or 5 seconds pass.
 std::pair<std::vector<x::json::json>, std::vector<x::telem::TimeStamp>>
 read_events(EventTaskSource &source, const std::size_t count) {
     std::vector<x::json::json> events;
@@ -142,6 +142,29 @@ protected:
         );
     }
 
+    /// @brief stores one empty event at time on the event channel.
+    void store(const x::telem::TimeStamp time) const {
+        auto writer = ASSERT_NIL_P(this->client->telem.open_writer(
+            synnax::framer::WriterConfig{
+                .channels = {this->index.key, this->events.key},
+                .start = time,
+            }
+        ));
+        auto fr = x::telem::Frame(2);
+        fr.emplace(this->index.key, x::telem::Series(time));
+        fr.emplace(this->events.key, x::telem::Series(x::json::json::object()));
+        ASSERT_NIL(writer.write(fr));
+        ASSERT_NIL_P(writer.commit());
+        ASSERT_NIL(writer.close());
+    }
+
+    /// @brief emits an event of the standard type id from the Pump object.
+    void emit_marker(const UA_UInt32 id) const {
+        this->server->emit(
+            {.source = testutil::PUMP, .type = UA_NODEID_NUMERIC(0, id)}
+        );
+    }
+
     /// @brief emits a TestEventType event from the Pump object.
     void emit(
         const std::string &message,
@@ -199,18 +222,7 @@ TEST_F(TestEventTask, testRecordsServerEventsByDefault) {
 /// so that no event is lost.
 TEST_F(TestEventTask, testWritesAfterLastStoredSample) {
     const auto stored = x::telem::TimeStamp::now();
-    auto writer = ASSERT_NIL_P(this->client->telem.open_writer(
-        synnax::framer::WriterConfig{
-            .channels = {this->index.key, this->events.key},
-            .start = stored,
-        }
-    ));
-    auto fr = x::telem::Frame(2);
-    fr.emplace(this->index.key, x::telem::Series(stored));
-    fr.emplace(this->events.key, x::telem::Series(x::json::json::object()));
-    ASSERT_NIL(writer.write(fr));
-    ASSERT_NIL_P(writer.commit());
-    ASSERT_NIL(writer.close());
+    this->store(stored);
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
     this->emit("late", stored - x::telem::SECOND);
@@ -232,8 +244,26 @@ TEST_F(TestEventTask, testWritesAfterLastStoredSample) {
     ASSERT_NIL(src->stop());
 }
 
-/// @brief it should record the events of the notifiers that exist, and warn about
-/// each notifier that the server does not monitor.
+/// @brief it should skip a replayed event at or before the last stored sample, since
+/// the task stored it before, and keep a new event at the same time.
+TEST_F(TestEventTask, testSkipsReplayedStoredEvents) {
+    const auto stored = x::telem::TimeStamp::now();
+    this->store(stored);
+    const auto src = this->source(this->config());
+    ASSERT_NIL(src->start());
+    this->emit_marker(UA_NS0ID_REFRESHSTARTEVENTTYPE);
+    this->emit("replayed", stored - x::telem::SECOND);
+    this->emit_marker(UA_NS0ID_REFRESHENDEVENTTYPE);
+    this->emit("new", stored - x::telem::SECOND);
+    const auto [events, stamps] = read_events(*src, 1);
+    ASSERT_EQ(events.size(), 1);
+    EXPECT_EQ(events[0]["message"], "new");
+    EXPECT_EQ(stamps, std::vector{stored + x::telem::NANOSECOND});
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should record the events of the notifiers that exist, and warn about each
+/// notifier that the server does not monitor.
 TEST_F(TestEventTask, testWarnsAboutMissingNotifier) {
     const auto src = this->source(this->config({"NS=1;S=Missing", "NS=1;S=Pump"}));
     ASSERT_NIL(src->start());
@@ -253,8 +283,7 @@ TEST_F(TestEventTask, testWarnsAboutMissingNotifier) {
     ASSERT_NIL(src->stop());
 }
 
-/// @brief it should report a lost server, then subscribe again when the server
-/// returns.
+/// @brief it should report a lost server, then subscribe again when the server returns.
 TEST_F(TestEventTask, testSubscribesAgainAfterServerRestart) {
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
@@ -314,16 +343,18 @@ TEST_F(TestEventTask, testRejectsChannelWithoutJSON) {
     EXPECT_NE(err.data.find("Channel must have the json data type"), std::string::npos);
 }
 
-/// @brief it should reject a field whose name another field has, or whose browse path
-/// has an empty element.
+/// @brief it should reject a field whose name a standard field or another field has, or
+/// whose browse path has an empty element.
 TEST_F(TestEventTask, testRejectsInvalidFields) {
     auto cfg = this->config();
     cfg["fields"] = {
         {{"key", "a"}, {"name", "message"}, {"browse_path", "Message"}},
         {{"key", "b"}, {"name", "b"}, {"browse_path", "Pump//Speed"}},
+        {{"key", "c"}, {"name", "b"}, {"browse_path", "Speed"}},
     };
     const auto [_, err] = this->parse(cfg);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_NE(err.data.find("A standard field has this name"), std::string::npos);
     EXPECT_NE(err.data.find("Another field has this name"), std::string::npos);
     EXPECT_NE(err.data.find("Browse path must name each element"), std::string::npos);
 }

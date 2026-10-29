@@ -467,6 +467,31 @@ describe("Read", () => {
     );
   });
 
+  it("should refuse a dropped method", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const held = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(device.key, [held]));
+    const method: OPCUA.Task.ScannedNode = {
+      ...createVariableNode(),
+      nodeClass: "Method",
+    };
+    const variable = createVariableNode("float64");
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [method, variable] },
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await root.answered;
+    await dragNode(method.name, held.nodeName);
+    await dragNode(variable.name, held.nodeName);
+    await waitFor(async () =>
+      expect((await retrieveChannels(draft.key)).map(({ nodeId }) => nodeId)).toEqual([
+        held.nodeId,
+        variable.nodeId,
+      ]),
+    );
+  });
+
   it("should warn and add nothing when a dropped folder holds no variables", async () => {
     const folder = createFolder();
     const held = createReadChannel();

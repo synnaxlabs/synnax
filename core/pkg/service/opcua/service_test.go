@@ -93,6 +93,12 @@ var _ = Describe("Service", func() {
 			))
 		})
 
+		It("Should reject a write channel with an unknown type", func(ctx SpecContext) {
+			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"key": "chan-1", "type": "valve"}},
+			})).To(MatchError(ContainSubstring("channels.0.type: invalid type: valve")))
+		})
+
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {

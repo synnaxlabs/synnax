@@ -479,8 +479,8 @@ class EventFilter {
 
 public:
     /// @param fields the browse path of each field to select, from the event, such as
-    /// "Message" or "2:Pump/2:Speed". A name with a number and a colon before it is
-    /// in the namespace with that index. Other names are in namespace 0.
+    /// "Message" or "2:Pump/2:Speed". A name with a number and a colon before it is in
+    /// the namespace with that index. Other names are in namespace 0.
     /// @param types the event types to pass, with their subtypes. Empty passes every
     /// event.
     EventFilter(

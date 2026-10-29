@@ -650,8 +650,8 @@ TEST(EventFilterTest, PassesOneEventType) {
     EXPECT_EQ(of_type(where.elements[0]).identifier.numeric, 2782);
 }
 
-/// @brief it should chain an Or for each event type after the first, with operands
-/// that point forward to an OfType for each type.
+/// @brief it should chain an Or for each event type after the first, with operands that
+/// point forward to an OfType for each type.
 TEST(EventFilterTest, ChainsEventTypesWithOr) {
     const EventFilter filter(
         {"Message"},

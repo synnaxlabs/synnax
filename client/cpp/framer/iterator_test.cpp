@@ -84,6 +84,64 @@ TEST(IteratorTests, testReadsBackFromLast) {
     ASSERT_NIL(iter.close());
 }
 
+/// @brief it should read back from a position between two samples that seek_le finds.
+TEST(IteratorTests, testReadsBackFromSeekLE) {
+    auto client = new_test_client();
+    auto [time, data] = create_indexed_pair(client);
+    const auto start = x::telem::TimeStamp::now();
+    write_seconds(client, time, data, start, {1, 2, 3});
+    auto iter = ASSERT_NIL_P(client.telem.open_iterator(
+        IteratorConfig{
+            .channels = {time.key, data.key},
+            .bounds = {start, start + x::telem::SECOND * 10},
+        }
+    ));
+    ASSERT_TRUE(ASSERT_NIL_P(iter.seek_le(start + x::telem::MILLISECOND * 1500)));
+    ASSERT_TRUE(ASSERT_NIL_P(iter.prev(x::telem::SECOND * 10)));
+    ASSERT_EQ(iter.value.at<float>(data.key, 0), 1);
+    ASSERT_EQ(iter.value.at<float>(data.key, -1), 2);
+    ASSERT_NIL(iter.close());
+}
+
+/// @brief it should read forward from a position between two samples that seek_ge
+/// finds.
+TEST(IteratorTests, testReadsForwardFromSeekGE) {
+    auto client = new_test_client();
+    auto [time, data] = create_indexed_pair(client);
+    const auto start = x::telem::TimeStamp::now();
+    write_seconds(client, time, data, start, {1, 2, 3});
+    auto iter = ASSERT_NIL_P(client.telem.open_iterator(
+        IteratorConfig{
+            .channels = {time.key, data.key},
+            .bounds = {start, start + x::telem::SECOND * 10},
+        }
+    ));
+    ASSERT_TRUE(ASSERT_NIL_P(iter.seek_ge(start + x::telem::MILLISECOND * 500)));
+    ASSERT_TRUE(ASSERT_NIL_P(iter.next(x::telem::SECOND * 10)));
+    ASSERT_EQ(iter.value.at<float>(data.key, 0), 2);
+    ASSERT_EQ(iter.value.at<float>(data.key, -1), 3);
+    ASSERT_NIL(iter.close());
+}
+
+/// @brief it should report a value only after a read at the current position.
+TEST(IteratorTests, testValidAfterRead) {
+    auto client = new_test_client();
+    auto [time, data] = create_indexed_pair(client);
+    const auto start = x::telem::TimeStamp::now();
+    write_seconds(client, time, data, start, {1, 2, 3});
+    auto iter = ASSERT_NIL_P(client.telem.open_iterator(
+        IteratorConfig{
+            .channels = {time.key, data.key},
+            .bounds = {start, start + x::telem::SECOND * 10},
+        }
+    ));
+    ASSERT_TRUE(ASSERT_NIL_P(iter.seek_first()));
+    ASSERT_FALSE(ASSERT_NIL_P(iter.valid()));
+    ASSERT_TRUE(ASSERT_NIL_P(iter.next()));
+    ASSERT_TRUE(ASSERT_NIL_P(iter.valid()));
+    ASSERT_NIL(iter.close());
+}
+
 /// @brief it should find nothing to read in a channel with no stored samples.
 TEST(IteratorTests, testFindsNothingInEmptyChannel) {
     auto client = new_test_client();

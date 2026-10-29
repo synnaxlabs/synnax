@@ -39,10 +39,11 @@ type Config = z.infer<OPCUA.Task.EventSchemas["config"]>;
 
 const createDraft = async (
   config: Partial<Config> & Pick<Config, "device">,
+  name: string = uniqueName("events"),
 ): Promise<task.Task<OPCUA.Task.EventSchemas>> =>
   await client.tasks.create(
     {
-      name: uniqueName("events"),
+      name,
       type: OPCUA.Task.EVENT_TYPE,
       config: { ...OPCUA.Task.EVENT_SCHEMAS.config.parse({}), ...config },
     },
@@ -53,6 +54,16 @@ const retrieveConfig = async (key: task.Key): Promise<Config> =>
   (await client.tasks.retrieve({ key, schemas: OPCUA.Task.EVENT_SCHEMAS })).config;
 
 const STANDARD_FIELD_HINT = /Each event records its ID/;
+
+const createNode = (name: string, nodeClass: string): OPCUA.Task.ScannedNode => ({
+  key: `ns=1;s=${name}`,
+  nodeId: `ns=1;s=${name}`,
+  name,
+  nodeClass,
+  dataType: "",
+  isArray: false,
+  field: "",
+});
 
 describe("Event", () => {
   it("should create a JSON channel with an index on deploy", async () => {
@@ -115,18 +126,38 @@ describe("Event", () => {
     );
   });
 
+  it("should give a second task with the same name channels with a free name", async () => {
+    const dev = await createOPCDevice(client);
+    const name = uniqueName("events");
+    const first = await createDraft({ device: dev.key }, name);
+    const rendered = await renderEvent({ client, taskKey: first.key });
+    await screen.findByText(STANDARD_FIELD_HINT);
+    await deployAndAwaitTask(
+      client,
+      rendered.container,
+      first.key,
+      OPCUA.Task.EVENT_SCHEMAS,
+    );
+    rendered.unmount();
+    const second = await createDraft({ device: dev.key }, name);
+    const { container } = await renderEvent({ client, taskKey: second.key });
+    await screen.findByText(STANDARD_FIELD_HINT);
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      second.key,
+      OPCUA.Task.EVENT_SCHEMAS,
+    );
+    const events = await client.channels.retrieve(deployed.config.channel);
+    expect(events.name).toBe(`${name}_events_2`);
+    const index = await client.channels.retrieve(events.index);
+    expect(index.name).toBe(`${name}_events_2_time`);
+  });
+
   it("should add a dropped object as a source, and remove it", async () => {
     const { scan, device } = await createScannedDevice(client);
     const draft = await createDraft({ device: device.key });
-    const pump: OPCUA.Task.ScannedNode = {
-      key: "ns=1;s=Pump",
-      nodeId: "ns=1;s=Pump",
-      name: "Pump",
-      nodeClass: "Object",
-      dataType: "",
-      isArray: false,
-      field: "",
-    };
+    const pump = createNode("Pump", "Object");
     const root = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_COMMAND_TYPE,
       data: { channels: [pump] },
@@ -144,5 +175,27 @@ describe("Event", () => {
     await waitFor(async () =>
       expect((await retrieveConfig(draft.key)).notifiers).toEqual([]),
     );
+  });
+
+  it("should add a dropped event type, and refuse a dropped object", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const draft = await createDraft({ device: device.key });
+    const alarm = createNode("PumpAlarm", "ObjectType");
+    const pump = createNode("Pump", "Object");
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [alarm, pump] },
+    });
+    await renderEvent({ client, taskKey: draft.key });
+    await root.answered;
+    const types = await screen.findByText(/Records events of every type/);
+    fireEvent.dragStart(await screen.findByText("Pump"));
+    fireEvent.drop(types);
+    fireEvent.dragStart(await screen.findByText("PumpAlarm"));
+    fireEvent.drop(types);
+    await waitFor(async () =>
+      expect((await retrieveConfig(draft.key)).eventTypes).toEqual([alarm.nodeId]),
+    );
+    expect((await retrieveConfig(draft.key)).notifiers).toEqual([]);
   });
 });
