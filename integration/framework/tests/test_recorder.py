@@ -30,7 +30,7 @@ class TestRecorder:
         client = Client()
         with Notifications(client) as notifications:
             client.stream.push(status("Started task"))
-            assert notifications.wait_for("Started task", WAIT)
+            assert notifications.wait_for("Started task", timeout=WAIT)
             notifications.check()
         assert client.stream.closed
 
@@ -40,7 +40,7 @@ class TestRecorder:
         with Notifications(client) as notifications:
             client.stream.push(ValueError("decode failed"))
             with pytest.raises(RuntimeError, match="decode failed") as info:
-                notifications.wait_for("Started task", WAIT)
+                notifications.wait_for("Started task", timeout=WAIT)
             assert isinstance(info.value.__cause__, ValueError)
             with pytest.raises(RuntimeError, match="decode failed"):
                 notifications.check()
