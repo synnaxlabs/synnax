@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "synnax>=0.59"]
+# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
 # ///
 
 """Dispatches each write to a runner's command channel to the matching script.
@@ -25,6 +25,7 @@ runner appears. Beats runner_commands_heartbeat and logs to runner_commands_log.
 import argparse
 import os
 from collections.abc import Callable
+from functools import partial
 
 import synnax as sy
 
@@ -37,9 +38,12 @@ from common import (
     close_quietly,
     command_channels,
     connect,
+    parameter_store,
     patch_client,
+    secret,
     shield,
 )
+from github import GitHub
 from heartbeat import Heartbeat
 from log import Log
 from registry import known_runners
@@ -51,11 +55,17 @@ RETRY_DELAY = 5 * sy.TimeSpan.SECOND
 # interrupted, so the signal only lands once the read returns.
 READ_TIMEOUT = sy.TimeSpan.SECOND
 
-Handler = Callable[[str, AWS], str]
+Handler = Callable[[str], str]
+Handlers = dict[str, dict[bool, Handler]]
 
-COMMANDS: dict[str, dict[bool, Handler]] = {
-    "ec2_cmd": {True: ec2_on.run, False: ec2_off.run},
-}
+
+def handlers(aws: AWS, github: GitHub) -> Handlers:
+    return {
+        "ec2_cmd": {
+            True: partial(ec2_on.run, aws=aws),
+            False: partial(ec2_off.run, aws=aws, github=github),
+        },
+    }
 
 
 def existing_channels(
@@ -78,20 +88,23 @@ def existing_channels(
 
 
 def dispatch(
-    frame: sy.Frame, lookup: dict[int | str, tuple[str, str]], aws: AWS, log: Log
+    frame: sy.Frame,
+    lookup: dict[int | str, tuple[str, str]],
+    commands: Handlers,
+    log: Log,
 ) -> None:
     for channel, series in frame.items():
         if channel not in lookup or len(series) == 0:
             continue
         runner, command = lookup[channel]
         value = bool(series[-1])
-        handler = COMMANDS[command].get(value)
+        handler = commands[command].get(value)
         if handler is None:
             log(f"{runner}: ignoring {command}={value}")
             continue
         log(f"{runner}: {command}={value}")
         try:
-            log(handler(runner, aws))
+            log(handler(runner))
         except Exception as e:
             log.error(f"{runner} {command}={value}", e)
 
@@ -101,12 +114,13 @@ def main() -> None:
     add_connection_args(p)
     args = p.parse_args()
     patch_client()
-    client = connect(args)
+    store = parameter_store()
+    client = connect(args, store)
     creator = Channels(client, args.create_channels)
     log = Log(client, creator, LOG)
-    aws = AWS()
+    commands = handlers(AWS(), GitHub(secret("GH_TOKEN", store)))
     alive = Heartbeat(client, creator, HEARTBEAT)
-    channels = command_channels(known_runners(), tuple(COMMANDS))
+    channels = command_channels(known_runners(), tuple(commands))
     names, lookup = existing_channels(client, channels)
     if not names:
         raise SystemExit("no command channels exist yet; run controller.py first")
@@ -119,7 +133,7 @@ def main() -> None:
                     streamer = client.open_streamer(names)
                 frame = streamer.read(READ_TIMEOUT)
                 if frame is not None:
-                    dispatch(frame, lookup, aws, log)
+                    dispatch(frame, lookup, commands, log)
             except Exception as e:
                 log.error("listener", e)
                 close_quietly(streamer)

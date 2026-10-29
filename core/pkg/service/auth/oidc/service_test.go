@@ -352,7 +352,7 @@ var _ = Describe("Service", func() {
 					Where(user.MatchKeys(uuid.MustParse(identity.Subject.Key))).
 					Entry(&u).
 					Exec(ctx, nil)).To(Succeed())
-				Expect(u.FirstName).To(Equal("Ada Lovelace"))
+				Expect(u.Name).To(Equal("Ada Lovelace"))
 				Expect(roles(ctx, identity.Subject)).To(ConsistOf(
 					HaveField("ID", role.OntologyID(rbacSvc.Builtin.ViewerKey)),
 				))
@@ -375,7 +375,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-				Username: uuid.New().String(),
+				Name: uuid.New().String(),
 			}))
 			link := MustSucceed(
 				svc.NewWriter(nil).Create(ctx, u.OntologyID(), oidc.Account{
@@ -435,14 +435,14 @@ var _ = Describe("Service", func() {
 		var subject ontology.ID
 		BeforeEach(func(ctx SpecContext) {
 			subject = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-				Username: uuid.New().String(),
+				Name: uuid.New().String(),
 			})).OntologyID()
 		})
 		It("Should refuse a second link to one account", func(ctx SpecContext) {
 			account := oidc.Account{Provider: "idp", ID: uuid.New().String()}
 			MustSucceed(svc.NewWriter(nil).Create(ctx, subject, account))
 			other := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-				Username: uuid.New().String(),
+				Name: uuid.New().String(),
 			})).OntologyID()
 			Expect(svc.NewWriter(nil).Create(ctx, other, account)).Error().
 				To(MatchError(validate.ErrValidation))
@@ -462,7 +462,7 @@ var _ = Describe("Service", func() {
 		) {
 			account := oidc.Account{Provider: "idp", ID: uuid.New().String()}
 			other := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-				Username: uuid.New().String(),
+				Name: uuid.New().String(),
 			})).OntologyID()
 			first, second := db.OpenTx(), db.OpenTx()
 			MustSucceed(svc.NewWriter(first).Create(ctx, subject, account))

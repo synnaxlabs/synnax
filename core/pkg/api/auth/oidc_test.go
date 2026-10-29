@@ -70,7 +70,7 @@ var _ = Describe("OIDC links", func() {
 	}
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
-		bobToken = login(ctx, passwordProof(bob.Username, "p"))
+		bobToken = login(ctx, passwordProof(bob.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
 	})
 

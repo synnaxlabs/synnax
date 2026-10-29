@@ -214,7 +214,6 @@ func (x *LoginResponse) GetClusterInfo() *ClusterInfo {
 type User struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Username      string                 `protobuf:"bytes,2,opt,name=username,proto3" json:"username,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -252,13 +251,6 @@ func (*User) Descriptor() ([]byte, []int) {
 func (x *User) GetKey() string {
 	if x != nil {
 		return x.Key
-	}
-	return ""
-}
-
-func (x *User) GetUsername() string {
-	if x != nil {
-		return x.Username
 	}
 	return ""
 }
@@ -1138,10 +1130,9 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\rLoginResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12#\n" +
 	"\x04user\x18\x02 \x01(\v2\x0f.grpc.auth.UserR\x04user\x129\n" +
-	"\fcluster_info\x18\x03 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfo\"4\n" +
+	"\fcluster_info\x18\x03 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfo\"(\n" +
 	"\x04User\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x1a\n" +
-	"\busername\x18\x02 \x01(\tR\busername\"+\n" +
+	"\x03key\x18\x01 \x01(\tR\x03keyJ\x04\b\x02\x10\x03R\busername\"+\n" +
 	"\x0fMethodsResponse\x12\x18\n" +
 	"\amethods\x18\x01 \x03(\tR\amethods\"\xd8\x01\n" +
 	"\x05Proof\x12\x16\n" +
