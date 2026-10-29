@@ -33,6 +33,8 @@ type Session struct {
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
 	// Credential is the key of the credential record the login matched.
 	Credential uuid.UUID `json:"credential" msgpack:"credential"`
+	// CredentialVersion is when the credential's secret was set, as the login saw it.
+	CredentialVersion telem.TimeStamp `json:"-" msgpack:"-"`
 	// LastActive is the last time a request used the session, to the nearest quarter of
 	// the idle timeout.
 	LastActive telem.TimeStamp `json:"last_active" msgpack:"last_active"`
