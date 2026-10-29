@@ -364,8 +364,9 @@ describe("Ontology Queries", () => {
     });
 
     it("should return undefined when the root has no child with the name", async () => {
+      const name = `missing-${id.create()}`;
       const { result } = await renderHookSuspended(
-        () => Ontology.useRootChildID({ name: `missing-${id.create()}` }),
+        () => Ontology.useRootChildID({ name }),
         { wrapper },
       );
       expect(result.current).toBeUndefined();

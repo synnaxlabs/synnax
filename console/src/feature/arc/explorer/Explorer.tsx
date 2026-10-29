@@ -7,21 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc } from "@synnaxlabs/pluto";
+import { Ontology } from "@synnaxlabs/pluto";
 
-import { List } from "@/feature/arc/list/List";
+import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
+import { Tree } from "@/platform/tree";
 
 export const Explorer: Panel.Content = () => {
-  const { data, getItem, subscribe, retrieve } = Arc.useList({});
-  return (
-    <List
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      retrieve={retrieve}
-      enableSearch
-      textIdPrefix="arc-explorer-text"
-    />
-  );
+  const groupID = Ontology.useRootChildID({ name: "Arcs" });
+  return <Tree.Tree root={groupID} emptyContent={<Empty.Action message="No Arcs" />} />;
 };

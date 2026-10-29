@@ -94,7 +94,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 const TreeItem = Tree.createItem({
   type: "arc",
   icon: <Icon.Arc />,
-  canDrop: () => true,
+  hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   ContextMenu: TreeContextMenu,
 });
