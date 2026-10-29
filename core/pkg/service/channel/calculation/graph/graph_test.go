@@ -1300,6 +1300,33 @@ var _ = Describe("Graph", func() {
 				Eventually(statusCommitted).Should(Receive(BeTrue()))
 			},
 		)
+
+		It(
+			"Should hold each calculation the batch re-inspects and finds valid",
+			func(ctx SpecContext) {
+				dep := createDep(ctx, "obs_repair_dep")
+				calc := channel.Channel{
+					Name: "obs_repair", DataType: telem.Int64T, Virtual: true,
+					Expression: "return obs_repair_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				g := openGraph(ctx)
+				repaired := make(chan bool, 16)
+				g.Observe().OnChange(func(_ context.Context, r graph.Changes) {
+					if batchWrites(r, "obs_repair_dep") {
+						repaired <- batchWrites(r, "obs_repair")
+					}
+				})
+				Expect(channelWriter.Rename(ctx, dep.Key(), "obs_repair_moved", false)).
+					To(Succeed())
+				expectStatus(ctx, calc.Key())
+
+				Expect(channelWriter.Rename(ctx, dep.Key(), "obs_repair_dep", false)).
+					To(Succeed())
+
+				Eventually(repaired).Should(Receive(BeTrue()))
+			},
+		)
 	})
 
 	Describe("SetRuntimeStatus", func() {
