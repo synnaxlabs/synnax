@@ -91,9 +91,9 @@ describe("arc/ontology", () => {
     it("offers only the shared actions when several Arcs are selected", async () => {
       const { arc, root } = await createArcInGroup();
       const other = await client.arcs.create({
-        name: uniqueName("arc"),
-        mode: "graph",
-        graph: { nodes: [], edges: [] },
+        name: uniqueName("mod"),
+        mode: "text",
+        type: "module",
       });
       await client.ontology.addChildren(root, clientArc.ontologyID(other.key));
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });

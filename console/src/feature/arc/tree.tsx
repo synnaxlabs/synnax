@@ -104,7 +104,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const TreeItem = Tree.createItem({
   type: "arc",
-  icon: <Icon.Arc />,
+  icon: ({ data }) => {
+    const TypeIcon = PlatformArc.TYPE_ICONS[(data as Pick<arc.Arc, "type">).type];
+    return <TypeIcon />;
+  },
   hasChildren: false,
   useOnSelect: Panel.useOpenResource,
   ContextMenu: TreeContextMenu,

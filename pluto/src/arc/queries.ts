@@ -173,11 +173,13 @@ export const formSchema = z.object({
   key: arc.keyZ.optional(),
   name: z.string().min(1, "Name is required"),
   mode: arc.modeZ,
+  type: arc.typeZ,
 });
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   mode: "text",
+  type: "automation",
 };
 
 export type FormQuery = Record<string, never>;

@@ -132,6 +132,13 @@ export const openTreeRowContextMenu = async (text: string): Promise<void> => {
   });
 };
 
+/** Returns the icon named by its registry name inside the tree row, or null. */
+export const findTreeRowIcon = async (
+  text: string,
+  icon: string,
+): Promise<Element | null> =>
+  (await findTreeRow(text)).querySelector(`.pluto-icon--${icon}`);
+
 /** Right-clicks the tree's empty space, opening the root context menu. */
 export const openTreeRootContextMenu = async (): Promise<void> => {
   const tree = await waitFor(() => {

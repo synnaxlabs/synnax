@@ -17,6 +17,19 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var _ = Describe("RetrieveResource", func() {
+	DescribeTable("Should carry the Arc type in the resource data",
+		func(ctx SpecContext, t arc.Type) {
+			a := arc.Arc{Name: "typed", Mode: arc.ModeText, Type: t}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			res := MustSucceed(svc.RetrieveResource(ctx, a.Key.String(), tx))
+			Expect(res.Data).To(HaveKeyWithValue("type", string(t)))
+		},
+		Entry("automation", arc.TypeAutomation),
+		Entry("module", arc.TypeModule),
+	)
+})
+
 var _ = Describe("Search", func() {
 	create := func(ctx SpecContext, name string) ontology.ID {
 		GinkgoHelper()
