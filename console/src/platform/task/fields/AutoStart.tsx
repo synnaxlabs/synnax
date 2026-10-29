@@ -10,5 +10,5 @@
 import { Form } from "@synnaxlabs/lyra/form";
 
 export const AutoStart = () => (
-  <Form.SwitchField label="Auto start" path="config.autoStart" />
+  <Form.CheckboxField label="Auto start" path="config.autoStart" />
 );

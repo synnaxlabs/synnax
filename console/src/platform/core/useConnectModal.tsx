@@ -97,7 +97,7 @@ const Connect = ({ coreKey, close }: Modals.ContentProps<ConnectModalParams, voi
           <Flex.Box x align="stretch">
             <Form.TextField path="host" grow inputProps={HOST_FIELD_PROPS} />
             <Form.NumericField path="port" />
-            <Form.SwitchField path="secure" />
+            <Form.CheckboxField path="secure" />
           </Flex.Box>
         </Modal.Body>
       </Form.Form>

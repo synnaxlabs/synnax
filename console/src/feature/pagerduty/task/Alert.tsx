@@ -83,7 +83,7 @@ const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
         <PForm.Field<string> path={`${path}.status`} label="Status" required>
           {selectStatusRenderProp}
         </PForm.Field>
-        <PForm.SwitchField
+        <PForm.CheckboxField
           path={`${path}.errorsCritical`}
           label="Treat error as critical"
         />

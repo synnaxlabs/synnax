@@ -235,7 +235,7 @@ const Editor = ({
                         />
                       )}
                     </Form.Field>
-                    <Form.SwitchField
+                    <Form.CheckboxField
                       path="data.strokeScaled"
                       label="Scale stroke"
                       align="start"

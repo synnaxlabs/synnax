@@ -8,12 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { Input } from "@synnaxlabs/lyra/input";
 
 export const DataSaving = () => (
-  <Form.Field<boolean> label="Data saving" path="config.dataSavingDisabled">
-    {({ value, onChange, ...rest }) => (
-      <Input.Switch {...rest} value={!value} onChange={(v) => onChange(!v)} />
-    )}
-  </Form.Field>
+  <Form.CheckboxField label="Data saving" path="config.dataSavingDisabled" inverted />
 );

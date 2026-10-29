@@ -62,7 +62,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
             )}
           </Form.Field>
           <Flex.Box x gap="large">
-            <Form.SwitchField
+            <Form.CheckboxField
               path="virtual"
               label="Virtual"
               inputProps={{ disabled: isIndex }}
@@ -72,7 +72,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
                 ctx.set("index", 0);
               }}
             />
-            <Form.SwitchField
+            <Form.CheckboxField
               path="isIndex"
               label="Is index"
               inputProps={{ disabled: isVirtual }}
