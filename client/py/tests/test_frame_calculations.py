@@ -23,7 +23,9 @@ READ_TIMEOUT = 5
 @pytest.mark.calculations
 class TestCalculatedChannelStreaming:
     def test_basic_calculated_channel_stream(self, client: sy.Synnax) -> None:
-        """Should correctly create and read from a basic calculated channel using streaming"""
+        """Should correctly create and read from a basic calculated channel using
+        streaming
+        """
         timestamp_channel = client.channels.create(
             name=random_name(),
             is_index=True,
@@ -153,7 +155,9 @@ class TestCalculatedChannelStreaming:
 @pytest.mark.calculations
 class TestCalculatedChannelIteration:
     def test_basic_calculated_channel_iterate(self, client: sy.Synnax) -> None:
-        """Should correctly create and read from a basic calculated channel using iteration"""
+        """Should correctly create and read from a basic calculated channel using
+        iteration
+        """
         timestamp_channel = client.channels.create(
             name=random_name(),
             is_index=True,
@@ -247,7 +251,9 @@ class TestCalculatedChannelIteration:
         )
 
     def test_conditional_calculated_channel(self, client: sy.Synnax) -> None:
-        """Should correctly create and read from a basic calculated channel using iteration"""
+        """Should correctly create and read from a basic calculated channel using
+        iteration
+        """
         timestamp_channel = client.channels.create(
             name=random_name(),
             is_index=True,
@@ -297,7 +303,9 @@ class TestCalculatedChannelIteration:
         )
 
     def test_calculation_deleted_channel(self, client: sy.Synnax) -> None:
-        """Should correctly create and read from a basic calculated channel using iteration"""
+        """Should correctly create and read from a basic calculated channel using
+        iteration
+        """
         timestamp_channel = client.channels.create(
             name=random_name(),
             is_index=True,
@@ -564,7 +572,9 @@ class TestCalculatedChannelIteration:
             )
 
     def test_mixed_calculated_and_concrete_channels(self, client: sy.Synnax) -> None:
-        """Should correctly handle requesting both calculated and concrete channels together"""
+        """Should correctly handle requesting both calculated and concrete channels
+        together
+        """
         # Create index and base concrete channels
         timestamp_channel = client.channels.create(
             name=random_name(),
@@ -2420,7 +2430,9 @@ class TestCalculationsAcrossDomains:
 
 
 class TestStatOperationsAlignment:
-    """Tests that statistical operations correctly propagate alignment metadata across domains."""
+    """Tests that statistical operations correctly propagate alignment metadata across
+    domains.
+    """
 
     def test_avg_operation_alignment_across_domains(self, client: sy.Synnax) -> None:
         """Should correctly calculate avg with proper alignment per domain."""

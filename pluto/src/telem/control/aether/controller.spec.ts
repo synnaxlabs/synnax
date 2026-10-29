@@ -416,7 +416,8 @@ describe("control/aether/Controller", SUITE, () => {
     const { controller, source, setState } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
+    // The stream can report the grant before the writer open answers.
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
     setState({ disabled: true });
     await expect.poll(() => controller.state.status, POLL).toEqual("released");
     await expect.poll(() => source.value().data.message, POLL).toEqual("Uncontrolled");
@@ -429,7 +430,7 @@ describe("control/aether/Controller", SUITE, () => {
     setState({ disabled: true });
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
-    expect(controller.state.status).toEqual("acquired");
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
   });
 
   it("should refuse to open a writer for a write while disabled", async () => {
@@ -474,10 +475,10 @@ describe("control/aether/Controller", SUITE, () => {
 
   it("should keep control while it is not disabled", async () => {
     const ch = await createIndexed();
-    const { controller, source, setState } = await setup(ch.key);
+    const { controller, setState } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
     setState({ disabled: false });
     expect(controller.state.status).toEqual("acquired");
   });

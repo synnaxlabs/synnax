@@ -14,20 +14,20 @@
  * track and knob. On fills the track. Off tints the track and paints the knob, which
  * keeps the two states apart. A disabled switch keeps the input theme's look.
  */
-.pluto-switch-symbol--colored .pluto-input__switch:not(.pluto--disabled) {
-    .pluto-input__switch-indicator {
+.pluto-switch-symbol--colored .lyra-input__switch:not(.lyra--disabled) {
+    .lyra-input__switch-indicator {
         background: oklch(from var(--pluto-symbol-display) l c h / 25%);
     }
 
-    .pluto-input__switch-indicator::before {
+    .lyra-input__switch-indicator::before {
         background: var(--pluto-symbol-display);
     }
 
-    input:checked ~ .pluto-input__switch-indicator {
+    input:checked ~ .lyra-input__switch-indicator {
         background: var(--pluto-symbol-display);
     }
 
-    input:checked ~ .pluto-input__switch-indicator::before {
+    input:checked ~ .lyra-input__switch-indicator::before {
         background: var(--pluto-gray-l1);
     }
 }
@@ -35,18 +35,18 @@
 /*
  * Zero the button chrome so the symbol box hugs the track at every scale.
  */
-.pluto-symbol-primitive > .pluto-btn.pluto-input__switch {
+.pluto-symbol-primitive > .lyra-btn.lyra-input__switch {
     min-height: 0;
     padding: 0;
 
     /* Transition only paint so geometry tracks resize drags instantly. Flex must not
        shrink the indicator into the narrower vertical box. */
-    .pluto-input__switch-indicator {
+    .lyra-input__switch-indicator {
         flex: none;
         transition: background 0.15s;
     }
 
-    .pluto-input__switch-indicator::before {
+    .lyra-input__switch-indicator::before {
         transition:
             transform 0.15s,
             background 0.15s;
@@ -58,20 +58,20 @@
  * an HTML element leaves its layout box unrotated. So swap the box by hand and rotate
  * the flex-centered indicator inside it.
  */
-.pluto-symbol-primitive.pluto--direction-y > .pluto-input__switch {
+.pluto-symbol-primitive.lyra--direction-y > .lyra-input__switch {
     width: var(--pluto-switch-height);
     height: var(--pluto-switch-width);
 }
 
-.pluto-symbol-primitive.pluto--direction-y
-    .pluto-input__switch
-    .pluto-input__switch-indicator {
+.pluto-symbol-primitive.lyra--direction-y
+    .lyra-input__switch
+    .lyra-input__switch-indicator {
     rotate: -90deg;
 }
 
 /* The knob is the track's ::before, so ::after carries the hold sweep. */
 .pluto-switch-symbol--delayed {
-    .pluto-input__switch-indicator::after {
+    .lyra-input__switch-indicator::after {
         content: "";
         position: absolute;
         inset: 0;
@@ -86,17 +86,17 @@
         clip-path: inset(0 100% 0 0);
     }
 
-    &.pluto--pressed .pluto-input__switch-indicator::after {
+    &.pluto--pressed .lyra-input__switch-indicator::after {
         animation: delay var(--pluto-toggle-delay) linear;
         clip-path: inset(0 0 0 0);
     }
 
     /* The sweep runs the way the knob will travel, so an on switch fills toward off. */
-    input:checked ~ .pluto-input__switch-indicator::after {
+    input:checked ~ .lyra-input__switch-indicator::after {
         clip-path: inset(0 0 0 100%);
     }
 
-    &.pluto--pressed input:checked ~ .pluto-input__switch-indicator::after {
+    &.pluto--pressed input:checked ~ .lyra-input__switch-indicator::after {
         animation-name: delay-reverse;
         clip-path: inset(0 0 0 0);
     }
