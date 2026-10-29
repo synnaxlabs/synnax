@@ -171,10 +171,11 @@ const DeleteDialog = ({ account }: { account: Account }): ReactElement => (
       }}
     >
       This deletes the account from Clerk, so they cannot log in and they leave their
-      teams. It also deletes their Desktop licenses, their machines, their activity, and
-      the invitations sent to them. You cannot undo it. Their machines log out at their
-      next renewal, and a machine that stays offline keeps its license key until it
-      expires. PostHog keeps their Desktop events and replays.
+      teams. It also deletes their Desktop licenses, their machines, their activity, the
+      invitations sent to them, and the referral link they used. You cannot undo it.
+      Their machines log out at their next renewal, and a machine that stays offline
+      keeps its license key until it expires. PostHog keeps their Desktop events and
+      replays.
     </Modal.Confirm>
   </Modal.Frame>
 );

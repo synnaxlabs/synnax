@@ -63,12 +63,7 @@ class TestAuthRetry:
                 credential=uuid4(),
                 last_active=sy.TimeStamp(0),
             ),
-            user=sy.User(
-                key=user_key,
-                username="synnax",
-                first_name="Synnax",
-                last_name="Labs",
-            ),
+            user=sy.User(key=user_key, name="Synnax Labs"),
         )
         mock_login_client = MockUnaryClient(
             responses=[res, res], response_errors=[None, None]
@@ -187,13 +182,10 @@ class TestSessions:
         """
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        user = admin.users.create(username=str(uuid4()), password="seldon")
-        ending = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
-        )
-        other = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
-        )
+        user_name = str(uuid4())
+        admin.users.create(username=user_name, password="seldon")
+        ending = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
+        other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert ending.auth.session is not None
         assert other.auth.session is not None
         other.auth.delete_sessions(ending.auth.session.key)
@@ -213,13 +205,10 @@ class TestSessions:
         """
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        user = admin.users.create(username=str(uuid4()), password="seldon")
-        closing = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
-        )
-        other = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
-        )
+        user_name = str(uuid4())
+        admin.users.create(username=user_name, password="seldon")
+        closing = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
+        other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert other.auth.session is not None
         assert len(other.auth.retrieve_sessions()) == 2
         closing.close()
@@ -263,9 +252,10 @@ class TestAPIKeys:
         """Should create a key, log in with it, list it, and delete it."""
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        user = admin.users.create(username=str(uuid4()), password="seldon")
+        new_username = str(uuid4())
+        admin.users.create(username=new_username, password="seldon")
         owner = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
+            host=host, port=port, username=new_username, password="seldon"
         )
         token, key = owner.auth.create_key("script")
         assert token.startswith("syk_")

@@ -22,12 +22,13 @@ permissions:
 jobs:
   ci:
     name: CI
-    # A called workflow gets no more than its caller grants, and the fail-fast job in CI
-    # asks for actions: write.
+    # A called workflow gets no more than its caller grants. In CI, the fail-fast job
+    # asks for actions: write and the paths filter for pull-requests: read.
     permissions:
       actions: write
       contents: write
       packages: write
+      pull-requests: read
     uses: ./.github/workflows/ci.yaml
     with:
       full: true
