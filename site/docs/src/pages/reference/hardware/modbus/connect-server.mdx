@@ -15,9 +15,13 @@ export const components = mdxOverrides;
 
 The Modbus integration reads and writes the coils and registers of Modbus TCP servers,
 such as PLCs and remote I/O modules. Modbus RTU and Modbus ASCII are not supported. In
-Synnax, a Modbus server is one IP address and port. The
+Synnax, a Modbus server is one unit at an IP address and port. The
 [read task](/reference/hardware/modbus/read-task) and the
 [write task](/reference/hardware/modbus/write-task) add the addresses.
+
+To reach several units behind one gateway, connect one server for each unit, with the
+same host and port and a different unit ID. Servers on the same host and port share one
+connection, and their requests take turns.
 
 <Divider.Divider x />
 
@@ -43,13 +47,17 @@ Synnax, a Modbus server is one IP address and port. The
 4. In **Port**, enter the port of the server. The default is `502`.
 5. In **Connect from**, select the Driver that connects to the server. If only one
    running Driver has Modbus enabled, the Console selects it for you.
-6. If the device sends its bytes or words in a different order, turn on **Swap bytes**
-   or **Swap words**. See
+6. On the **Unit** tab, enter the **Unit ID**. Keep `255` for a server you reach
+   directly. For a unit behind a gateway, enter its unit ID.
+7. In **Byte order**, select the order in which the device sends its bytes. See
    [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order).
-7. Click **Connect**.
+8. If the device is slow or limits its requests, change the settings on the **Advanced**
+   tab. See [connection options](#connection-options).
+9. Click **Connect**.
 
-The Console connects to the server before it saves it. If the connection fails, the
-dialog shows the error and keeps your entries.
+The Console asks the Driver to read holding register 0 of the unit before it saves the
+server. Any reply, an error reply included, shows that the unit answers. If the unit
+does not answer, the dialog shows the error and keeps your entries.
 
 <Video id="device-drivers/modbus/connect-server/modbus-connect" />
 
@@ -101,25 +109,44 @@ TypeScript does not test the connection.
   </Fragment>
 </Client.Tabs>
 
-After you connect a server, the Driver connects to it again every few seconds and shows
-the result as the server status in the devices toolbar. See
-[device statuses](/reference/hardware/devices#statuses).
+After you connect a server, the Driver checks the unit every few seconds and shows the
+result as the server status in the devices toolbar. If a task got a reply from the unit
+since the last check, the Driver sends no request. Otherwise it reads holding
+register 0. See [device statuses](/reference/hardware/devices#statuses).
 
 <Divider.Divider x />
 
 ## Connection options
 
-| Console label | Python field | Default | Notes                                                 |
-| ------------- | ------------ | ------- | ----------------------------------------------------- |
-| Host          | `host`       |         | An IPv4 address, an IPv6 address, or a hostname.      |
-| Port          | `port`       | `502`   | The TCP port. Python has no default.                  |
-| Connect from  | `rack`       |         | The Driver that connects to the server.               |
-| Swap bytes    | `swap_bytes` | Off     | Swaps the two bytes in each register.                 |
-| Swap words    | `swap_words` | Off     | Puts the high word first in 32-bit and 64-bit values. |
+| Console label | Python field               | Default    | Notes                                                                      |
+| ------------- | -------------------------- | ---------- | -------------------------------------------------------------------------- |
+| Host          | `host`                     |            | An IPv4 address, an IPv6 address, or a hostname.                           |
+| Port          | `port`                     | `502`      | The TCP port. Python has no default.                                       |
+| Connect from  | `rack`                     |            | The Driver that connects to the server.                                    |
+| Unit ID       | `unit_id`                  | `255`      | The unit that requests go to, from 0 to 255.                               |
+| Byte order    | `swap_bytes`, `swap_words` | Word swap  | See the table below.                                                       |
+| Timeout       | `timeout_ms`               | `1000`     | The time to connect, and to wait for each reply, in milliseconds.          |
+| Retries       | `retries`                  | `1`        | How many times the Driver sends a request again at once after a fault.     |
+| Request delay | `delay_ms`                 | `0`        | The wait between requests on the connection, in milliseconds.              |
+| Max registers | `max_registers`            | `125`      | The most registers in one read, from 1 to 125.                             |
+| Max gap       | `max_gap`                  | `125`      | The most unused addresses that one read can include. `0` reads only yours. |
+| Write codes   | `write_codes`              | `multiple` | `multiple` writes with function codes 15 and 16. `single` uses 05 and 06.  |
 
-**Swap bytes** and **Swap words** set the default for every register channel of the
-server. A channel can override them. The Driver always sends unit ID 255. There is no
-option to change it.
+**Byte order** sets the order of every register channel of the server. A channel can
+override it. The letters show the bytes of a 32-bit value in the order the device sends
+them, with A the most significant byte.
+
+| Byte order           | `swap_bytes` | `swap_words` |
+| -------------------- | ------------ | ------------ |
+| Big-endian (ABCD)    | `False`      | `True`       |
+| Byte swap (BADC)     | `True`       | `True`       |
+| Word swap (CDAB)     | `False`      | `False`      |
+| Little-endian (DCBA) | `True`       | `False`      |
+
+A request that times out or loses its connection is sent again at once, up to
+**Retries** times. After three timed-out attempts in a row, the Driver stops sending
+requests to the unit for 10 seconds, so that a unit that is off does not slow down the
+other units on the connection.
 
 <Divider.Divider x />
 
@@ -130,10 +157,16 @@ option to change it.
 Check the address and the port. Make sure that the server allows Modbus TCP connections
 from the computer that runs the Driver.
 
-### The server connects but does not answer requests
+### Connect fails with "Connection timed out", but the server is on
 
-The server, or the gateway in front of it, needs a unit ID other than 255. The Driver
-cannot send a different unit ID.
+The server accepts the connection, but the unit does not answer. Check the **Unit ID**.
+A gateway needs the unit ID of the device behind it. Some servers answer only unit 1 or
+unit 0.
+
+### "Gateway target device failed to respond"
+
+The gateway is on, but the unit behind it does not answer. Check the unit, its wiring,
+and the **Unit ID**.
 
 For other problems, see
 [Troubleshoot hardware](/reference/hardware/troubleshooting#failed-to-reach-device-or-failed-to-reach-server).
