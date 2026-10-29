@@ -137,10 +137,11 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 }
 
 // Observe returns an observable that fires with a channel change batch after the Graph
-// has reconciled it and committed the resulting statuses and node state. Subscribers
-// that act on calculated channels must use this instead of the channel observable, so
-// that their work runs against a reconciled graph and their status reports land after
-// the Graph's own.
+// has reconciled it and committed the resulting statuses and node state. The batch also
+// holds a Set change for each calculated channel the Graph re-inspected and found valid
+// because a channel it reads changed. Subscribers that act on calculated channels must
+// use this instead of the channel observable, so that their work runs against a
+// reconciled graph and their status reports land after the Graph's own.
 func (g *Graph) Observe() observe.Observable[Changes] { return g.obs }
 
 // RejectDefinition persists a status the calculation runtime reports when it cannot
@@ -423,6 +424,7 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 	var (
 		updates []channel.Channel
+		valid   []channel.Channel
 		batch   []change.Change[channel.Key, channel.Channel]
 	)
 	g.mu.Lock()
@@ -489,16 +491,24 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 			g.enqueueDependents(ch.Key(), queued)
 			unresolvedNames = append(unresolvedNames, ch.Name)
 		}
-		updates = append(
-			updates,
-			g.reconcileQueued(ctx, tx, queued, unresolvedNames, analyzer)...,
+		var reconciled []channel.Channel
+		reconciled, valid = g.reconcileQueued(
+			ctx, tx, queued, unresolvedNames, analyzer,
 		)
+		updates = append(updates, reconciled...)
 		return nil
 	})
 	g.mu.Unlock()
 	if err != nil {
 		g.L.Error("failed to apply calculated channel changes", zap.Error(err))
 		return
+	}
+	for _, ch := range valid {
+		batch = append(batch, change.Change[channel.Key, channel.Channel]{
+			Key:     ch.Key(),
+			Value:   ch,
+			Variant: change.VariantSet,
+		})
 	}
 	g.obs.Notify(ctx, slices.Values(batch))
 	if len(updates) > 0 {
@@ -587,12 +597,12 @@ func (g *Graph) reconcileQueued(
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
 	analyzer *channel.CalculationAnalyzer,
-) []channel.Channel {
+) (updates, valid []channel.Channel) {
 	g.enqueueUnresolved(unresolvedNames, queued)
 	if len(queued) > 0 {
 		g.L.Debug("reconciling dependent channels", zap.Int("count", len(queued)))
 	}
-	updates := make([]channel.Channel, 0)
+	updates = make([]channel.Channel, 0)
 	for len(queued) > 0 {
 		next := make(set.Set[channel.Key])
 		for key := range queued {
@@ -630,6 +640,7 @@ func (g *Graph) reconcileQueued(
 				)
 				continue
 			}
+			valid = append(valid, refetched)
 			if oldInvalid {
 				g.clearNodeStatus(ctx, tx, key)
 			}
@@ -649,7 +660,7 @@ func (g *Graph) reconcileQueued(
 		}
 		queued = next
 	}
-	return updates
+	return updates, valid
 }
 
 func (g *Graph) removeNode(key channel.Key) {
