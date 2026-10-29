@@ -19,12 +19,6 @@
     .pluto-header__text,
     .pluto-breadcrumb {
         overflow: hidden;
-
-        .pluto-text {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
     }
 
     .pluto-header-button-title {

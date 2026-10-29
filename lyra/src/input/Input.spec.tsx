@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
 
@@ -193,6 +193,39 @@ describe("Input", () => {
           />,
         );
         expect(c.queryByText("Custom placeholder")).not.toBeTruthy();
+      });
+    });
+
+    describe("cut value", () => {
+      const mockWidths = (scrollWidth: number): void => {
+        vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(
+          scrollWidth,
+        );
+        vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);
+      };
+
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it("should mark a value that outruns the input as cut", () => {
+        mockWidths(300);
+        const c = render(<Input.Text value="A long value" onChange={vi.fn()} />);
+        expect(c.getByRole("textbox").className).toContain("pluto--cut");
+      });
+
+      it("should not mark a value that fits the input as cut", () => {
+        mockWidths(100);
+        const c = render(<Input.Text value="Short" onChange={vi.fn()} />);
+        expect(c.getByRole("textbox").className).not.toContain("pluto--cut");
+      });
+
+      it("should measure again when the value changes", () => {
+        mockWidths(100);
+        const c = render(<Input.Text value="Short" onChange={vi.fn()} />);
+        mockWidths(300);
+        c.rerender(<Input.Text value="A long value" onChange={vi.fn()} />);
+        expect(c.getByRole("textbox").className).toContain("pluto--cut");
       });
     });
 

@@ -71,10 +71,10 @@ export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
         variant={variant}
         className={CSS.BE("shell", "connection-dot")}
       />
-      <Text.Text color={10} weight={500} overflow="ellipsis">
+      <Text.Text color={10} weight={500} overflow="fade">
         {core.name}
       </Text.Text>
-      <Text.Text color={9} overflow="ellipsis">
+      <Text.Text color={9} overflow="fade">
         {core.host}:{core.port}
       </Text.Text>
       <Text.Text status={variant} className={CSS.BE("shell", "connection-status")}>

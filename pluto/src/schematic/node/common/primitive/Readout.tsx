@@ -53,7 +53,7 @@ export const Readout = ({
         ref={valueRef}
         level={level}
         color={color}
-        overflow="ellipsis"
+        overflow="fade"
         className={CSS.BE("symbol-field", "readout-value")}
       >
         {value}

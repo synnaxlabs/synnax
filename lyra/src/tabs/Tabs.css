@@ -219,21 +219,6 @@
     transition: none;
 }
 
-/* Tab children arrive as bare strings that Button wraps, so Text's fade-out (see
-   Text.css) is applied by descent rather than through its overflow prop. */
-.pluto-tabs__tab .pluto-text {
-    overflow: hidden;
-    white-space: nowrap;
-    animation: text-fade linear;
-    animation-timeline: scroll(self x);
-}
-
-@supports not (animation-timeline: scroll(self x)) {
-    .pluto-tabs__tab .pluto-text {
-        text-overflow: ellipsis;
-    }
-}
-
 /* A drag starting on an idle editable name would select text instead of hauling the
    tab. Non-selectable until it enters edit mode keeps the whole tab a drag handle. */
 .pluto-tabs__tab .pluto-text--editable:not([contenteditable="true"]) {

@@ -35,11 +35,11 @@ export const Target = (): ReactElement => {
       className={CSS.B("connection-target")}
     >
       <Indicator />
-      <Text.Text color={10} weight={500} overflow="ellipsis">
+      <Text.Text color={10} weight={500} overflow="fade">
         {core?.name ?? "Core"}
       </Text.Text>
       {core != null && (
-        <Text.Text color={9} overflow="ellipsis">
+        <Text.Text color={9} overflow="fade">
           {core.host}:{core.port}
         </Text.Text>
       )}

@@ -44,7 +44,7 @@ export const Symbol = ({ config: { channel, value } }: SymbolProps) => {
           weight={500}
           color={10}
           className={CSS.BE("arc", "sink-label")}
-          overflow="ellipsis"
+          overflow="fade"
         >
           {name}
         </Text.Text>
@@ -53,7 +53,7 @@ export const Symbol = ({ config: { channel, value } }: SymbolProps) => {
           weight={500}
           color={10}
           className={CSS.BE("arc", "sink-label")}
-          overflow="ellipsis"
+          overflow="fade"
           variant="code"
         >
           {value}
