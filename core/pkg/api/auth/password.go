@@ -28,8 +28,7 @@ type PasswordSetRequest struct {
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
 	// Password is the new password.
 	Password string `json:"password" msgpack:"password"`
-	// CurrentPassword is the caller's current password. Only a caller setting its own
-	// password sends it.
+	// CurrentPassword is required when the caller changes its own password.
 	CurrentPassword string `json:"current_password" msgpack:"current_password"`
 }
 
