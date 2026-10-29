@@ -897,6 +897,83 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(rm.Close(ctx)).To(Succeed())
 			},
 		)
+		Specify(
+			"Should write runtime failures of a dependency after a rejected request",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				dep := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return 100 / %s", base.Name),
+				}
+				Expect(channelWriter.Create(ctx, &dep)).To(Succeed())
+				stored := func() (calculation.Status, error) {
+					var st calculation.Status
+					err := statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchKeys[struct{}](dep.OntologyID().String())).
+						Entry(&st).
+						Exec(ctx, nil)
+					return st, err
+				}
+				name := base.Name
+				Expect(channelWriter.Rename(
+					ctx, base.Key(), UniqueChannelName(), false,
+				)).To(Succeed())
+				Eventually(stored).
+					Should(HaveField("Message", "Failed to compile calculation"))
+				depRM := c.OpenRequestManager()
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(depRM.Close(ctx)).To(Succeed())
+				})
+				Expect(depRM.Set(ctx, channel.Keys{dep.Key()})).To(Succeed())
+				Expect(stored()).
+					To(HaveField("Message", "Failed to request calculation"))
+				Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
+					To(Succeed())
+				Eventually(func() error {
+					_, err := stored()
+					return err
+				}).Should(MatchError(query.ErrNotFound))
+				reader := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", dep.Name),
+				}
+				Expect(channelWriter.Create(ctx, &reader)).To(Succeed())
+				readerRM := c.OpenRequestManager()
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(readerRM.Close(ctx)).To(Succeed())
+				})
+				Expect(readerRM.Set(ctx, channel.Keys{reader.Key()})).To(Succeed())
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: 1 * telem.SecondTS,
+					Keys:  channel.Keys{base.Key()},
+				}))
+				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+				Eventually(func(g Gomega) {
+					g.Expect(w.Write(frame.NewUnary(
+						base.Key(),
+						telem.NewSeriesV[int64](0),
+					))).To(BeTrue())
+					g.Expect(stored()).To(SatisfyAll(
+						HaveField("Message", "Failed to run calculation"),
+						HaveField(
+							"Description",
+							ContainSubstring("integer divide by zero"),
+						),
+					))
+				}).Should(Succeed())
+			},
+		)
 
 		Describe("Runtime", func() {
 			var (
