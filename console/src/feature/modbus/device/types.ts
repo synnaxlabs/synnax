@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, TimeSpan } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const MAKE = "Modbus";
@@ -157,6 +157,25 @@ export const SCHEMAS = {
   typeof makeZ,
   typeof modelZ
 >;
+
+/** The request counters of a server, as the Driver reports them in its status. */
+export const statsZ = z.object({
+  requests: z.number(),
+  retries: z.number(),
+  timeouts: z.number(),
+  exceptions: z.number(),
+  lastResponse: TimeSpan.z,
+  maxResponse: TimeSpan.z,
+});
+export interface Stats extends z.infer<typeof statsZ> {}
+
+const statusDataZ = z.object({ stats: statsZ });
+
+/** @returns the request counters in a device status, or undefined if it has none. */
+export const statsOf = (status?: device.Status | null): Stats | undefined => {
+  const data = status?.details.data;
+  return data == null ? undefined : statusDataZ.parse(data).stats;
+};
 
 /**
  * The order of the four bytes of a two-register value as the device sends them, with A

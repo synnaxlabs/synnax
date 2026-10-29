@@ -10,8 +10,6 @@
 #include <memory>
 #include <utility>
 
-#include "absl/log/log.h"
-
 #include "x/cpp/json/json.h"
 
 #include "driver/modbus/scan_task.h"
@@ -77,14 +75,14 @@ void Scanner::check_device_health(
     }
 
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
+    synnax::device::StatusDetails details{.rack = rack_key, .device = dev.key};
     if (!err) {
         const auto prev = this->checks.find(dev.key);
         const bool replied = prev != this->checks.end() &&
                              d->last_reply() >= prev->second.time;
         if (!replied) err = d->probe();
         next[dev.key] = Check{.dev = d, .time = device::Connection::Clock::now()};
-        VLOG(1) << SCAN_LOG_PREFIX << " " << dev.name << ": "
-                << d->stats().to_json().dump();
+        details.data = x::json::json::object_t{{"stats", d->stats().to_json()}};
     }
     if (err)
         dev.status = synnax::device::Status{
@@ -94,7 +92,7 @@ void Scanner::check_device_health(
             .message = "Failed to reach device",
             .description = err.data,
             .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
+            .details = details,
         };
     else
         dev.status = synnax::device::Status{
@@ -103,7 +101,7 @@ void Scanner::check_device_health(
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Device connected",
             .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
+            .details = details,
         };
 }
 

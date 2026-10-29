@@ -153,10 +153,13 @@ unreachable.
 
 Each connection counts, for each unit, the requests it tries (retries included), the
 retries, the timeouts, and the exceptions (a gateway's 0A and 0B included). It also
-keeps the last and longest time from sending a request to its reply. The scanner reports
-them in the Modbus server's `StatusDetails` (RFC 0081 §4.2) as `stats`, with the fields
+keeps the last and longest time from sending a request to its reply. On each scan, the
+scanner puts them in the device status as `details.data.stats`, with the fields
 `requests`, `retries`, `timeouts`, `exceptions`, `last_response`, and `max_response`.
-Times are in nanoseconds.
+Times are in nanoseconds. Device status details get an optional `data` record for this,
+as task status details have. RFC 0081 moves `stats` into the Modbus server's own
+`StatusDetails`. The connect dialog of an existing server shows the counts in a
+Diagnostics tab.
 
 ### 2.8 Testing
 
@@ -180,8 +183,8 @@ silent and a stalled reply in Phase 2, and an RTU mode on a pseudo-terminal pair
 - **Phase 3: RTU serial.** The RTU fields of `connection`, `modbus_new_rtu`, and the
   serial form in the connect dialog, which is now "Modbus server" for both transports.
 - **Phase 4: Channels.** §2.5, bit writes with `mask_write_supported`, and §2.6.
-- **Phase 5: Diagnostics.** §2.7 counters, after RFC 0081 gives the Modbus server its
-  own `StatusDetails`.
+- **Phase 5: Diagnostics.** §2.7: the counters, the `data` field of device status
+  details, and the Diagnostics tab.
 
 Compatibility: every new field is optional. Phase 1 stops writing gap addresses. Phase 2
 raises the timeout from 500 ms to 1000 ms, starts tasks while their server is off, and

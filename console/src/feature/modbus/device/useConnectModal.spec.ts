@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { device, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -83,6 +84,56 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(dev.properties.connection.timeoutMs).toBe(1000);
     expect(dev.properties.requests.writeCodes).toBe("multiple");
     expect(dev.properties.requests.maskWriteSupported).toBe(true);
+  });
+
+  it("should show the request counters the Driver reports for a server", async () => {
+    const dev = await createModbusDevice(client);
+    await client.statuses.set(
+      status.create<typeof device.statusDetailsZ>({
+        key: device.statusKey(dev.key),
+        variant: "success",
+        message: "Device connected",
+        details: {
+          rack: dev.rack,
+          device: dev.key,
+          data: {
+            stats: {
+              requests: 41,
+              retries: 3,
+              timeouts: 2,
+              exceptions: 5,
+              lastResponse: 4_500_000,
+              maxResponse: 12_000_000,
+            },
+          },
+        },
+      }),
+    );
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    fireEvent.click(await screen.findByText("Diagnostics"));
+    expect(await screen.findByText("41")).toBeTruthy();
+    expect(screen.getByText("3")).toBeTruthy();
+    expect(screen.getByText("2")).toBeTruthy();
+    expect(screen.getByText("5")).toBeTruthy();
+    expect(screen.getByText("4.5 ms")).toBeTruthy();
+    expect(screen.getByText("12.0 ms")).toBeTruthy();
+  });
+
+  it("should show that a server has no request counters yet", async () => {
+    const dev = await createModbusDevice(client);
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    fireEvent.click(await screen.findByText("Diagnostics"));
+    expect(await screen.findByText("No requests counted yet")).toBeTruthy();
+  });
+
+  it("should not show diagnostics for a new server", async () => {
+    await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
+    await screen.findByText("Advanced");
+    expect(screen.queryByText("Diagnostics")).toBeNull();
   });
 
   it("should start a new server at the standard Modbus TCP port", async () => {

@@ -10,11 +10,13 @@
 import "@/feature/modbus/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { Description } from "@synnaxlabs/lyra/description";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
@@ -30,6 +32,7 @@ import {
   PARITIES,
   type Parity,
   SCHEMAS,
+  statsOf,
   STOP_BITS,
   swapsOf,
   type Transport,
@@ -230,6 +233,9 @@ export const Connect = ({
             <Tabs.Selector variant="chip">
               <Tabs.Tab itemKey="unit">Unit</Tabs.Tab>
               <Tabs.Tab itemKey="advanced">Advanced</Tabs.Tab>
+              {deviceKey != null && (
+                <Tabs.Tab itemKey="diagnostics">Diagnostics</Tabs.Tab>
+              )}
             </Tabs.Selector>
             <Tabs.Content itemKey="unit">
               <Form.Sections>
@@ -295,6 +301,9 @@ export const Connect = ({
                   </Form.Field>
                 </Form.Section>
               </Form.Sections>
+            </Tabs.Content>
+            <Tabs.Content itemKey="diagnostics">
+              <Diagnostics />
             </Tabs.Content>
           </Tabs.Frame>
         </Form.Form>
@@ -364,6 +373,41 @@ const MAX_GAP_INPUT_PROPS = {
   bounds: { lower: 0, upper: 65535 },
   style: { width: "23rem" },
 } as const;
+
+const formatResponse = (span: TimeSpan): string => `${span.milliseconds.toFixed(1)} ms`;
+
+interface StatProps {
+  name: string;
+  value: string;
+}
+
+const Stat = ({ name, value }: StatProps): ReactElement => (
+  <Description.Item>
+    <Description.Label>{name}</Description.Label>
+    <Description.Value>{value}</Description.Value>
+  </Description.Item>
+);
+
+// The request counters the Driver reports in the device status.
+const Diagnostics = (): ReactElement => {
+  const stats = statsOf(
+    Form.useFieldValue<device.Status | undefined>("status", { optional: true }),
+  );
+  if (stats == null)
+    return (
+      <Status.Summary variant="info" level="small" message="No requests counted yet" />
+    );
+  return (
+    <Description.List level="small" justify="between">
+      <Stat name="Requests" value={stats.requests.toString()} />
+      <Stat name="Retries" value={stats.retries.toString()} />
+      <Stat name="Timeouts" value={stats.timeouts.toString()} />
+      <Stat name="Exceptions" value={stats.exceptions.toString()} />
+      <Stat name="Last response" value={formatResponse(stats.lastResponse)} />
+      <Stat name="Longest response" value={formatResponse(stats.maxResponse)} />
+    </Description.List>
+  );
+};
 
 const SWAP_BYTES_PATH = "properties.connection.swapBytes";
 const SWAP_WORDS_PATH = "properties.connection.swapWords";
