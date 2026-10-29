@@ -14,22 +14,23 @@
 namespace driver::rack {
 /// @brief it should build no NI or LabJack factory when their libraries do not load.
 TEST(RackFactoriesTest, testSkipsIntegrationsWithoutLibraries) {
+    // The NI names are literals because the macOS build leaves NI out.
     const Config cfg{
-        .integrations =
-            {ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME, http::INTEGRATION_NAME},
+        .integrations = {"ni", labjack::INTEGRATION_NAME, http::INTEGRATION_NAME},
         .libraries_loaded = [](const std::string &i) {
-            return i != ni::INTEGRATION_NAME && i != labjack::INTEGRATION_NAME;
+            return i != "ni" && i != labjack::INTEGRATION_NAME;
         },
     };
     ASSERT_EQ(cfg.supported_integrations(), std::vector{http::INTEGRATION_NAME});
     const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    for (const auto &type: {
-             ni::SCAN_TASK_TYPE,
-             ni::ANALOG_READ_TASK_TYPE,
-             labjack::SCAN_TASK_TYPE,
-             labjack::READ_TASK_TYPE,
-         }) {
+    const std::vector<std::string> types = {
+        "ni_scanner",
+        "ni_analog_read",
+        labjack::SCAN_TASK_TYPE,
+        labjack::READ_TASK_TYPE,
+    };
+    for (const auto &type: types) {
         const auto [tsk, handled] = factory->configure_task(
             ctx,
             synnax::task::Task{.name = type, .type = type},

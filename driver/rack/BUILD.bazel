@@ -41,7 +41,6 @@ cc_library(
         "//driver/ethercat",
         "//driver/http",
         "//driver/labjack",
-        "//driver/ni",
         "//driver/opcua",
         "//driver/rack/status",
         "//driver/task",
@@ -58,6 +57,9 @@ cc_library(
     ] + select({
         ":nilinuxrt": [],
         "//conditions:default": ["//driver/modbus"],
+    }) + select({
+        "@platforms//os:macos": [],
+        "//conditions:default": ["//driver/ni"],
     }),
 )
 
@@ -66,6 +68,19 @@ cc_test(
     srcs = ["factories_test.cpp"],
     deps = [
         "//driver/rack",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factories_darwin_test",
+    srcs = ["factories_darwin_test.cpp"],
+    tags = ["requires-core"],
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/rack",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -32,11 +32,13 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
+#ifndef __APPLE__
+#include "driver/ni/ni.h"
+#endif
 
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
-#include "driver/ni/ni.h"
 #include "driver/opcua/opcua.h"
 #include "driver/task/task.h"
 
@@ -68,12 +70,14 @@ struct RemoteInfo {
 inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
         opcua::INTEGRATION_NAME,
-        ni::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
         http::INTEGRATION_NAME
     };
+#ifndef __APPLE__
+    integrations.push_back(ni::INTEGRATION_NAME);
+#endif
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);
 #endif
@@ -115,7 +119,9 @@ struct Config {
     /// computer.
     std::function<bool(const std::string &)> libraries_loaded =
         [](const std::string &i) {
+#ifndef __APPLE__
             if (i == ni::INTEGRATION_NAME) return ni::integration_supported();
+#endif
             if (i == labjack::INTEGRATION_NAME) return labjack::integration_supported();
             return true;
         };

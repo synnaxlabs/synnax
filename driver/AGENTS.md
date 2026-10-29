@@ -37,7 +37,7 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
   (`ConnectsToLinkName`/`ProvidesLinkName`) in a two-pass algorithm (collect devices +
   build link-name→chassis map, then resolve module parents; chassis sorted before
   modules). Error codes: `DEVICE_DISCONNECTED`, `REQUIRES_RESTART`,
-  `APPLICATION_TOO_SLOW`. Windows/Linux/NI Linux RT.
+  `APPLICATION_TOO_SLOW`. Windows/Linux/NI Linux RT. **Excluded on macOS.**
 - **Modbus** (`/driver/modbus/`) — vendored libmodbus. `device::Device` (RAII around
   `modbus_t*`), `device::Manager` (connection pooling via weak_ptr cache), byte/word
   swap config. Readers: `RegisterReader` (holding/input registers), `BitReader`
