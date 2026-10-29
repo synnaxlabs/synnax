@@ -52,7 +52,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(400);
     await session.type("Operator");
     const role = page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
+      .locator(".lyra-list__item:not(.lyra-tree__item)")
       .filter({ hasText: "Operator" })
       .first();
     await session.waitFor(role);

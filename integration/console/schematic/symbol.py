@@ -65,8 +65,8 @@ class Symbol(ABC):
     def __init__(self, label: str, symbol_type: str, rotatable: bool = False):
         """Initialize a symbol with configuration parameters.
 
-        The symbol is not yet attached to a schematic. Call schematic.create_symbol(symbol)
-        to add it to the schematic.
+        The symbol is not yet attached to a schematic. Call
+        schematic.create_symbol(symbol) to add it to the schematic.
 
         Args:
             label: Display label for the symbol
@@ -138,7 +138,9 @@ class Symbol(ABC):
         self.layout.click(self.locator)
 
     def meta_click(self) -> None:
-        """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down."""
+        """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held
+        down.
+        """
         self.layout.meta_click(self.locator)
 
     def set_label(self, label: str) -> None:
@@ -182,7 +184,9 @@ class Symbol(ABC):
         """Set the symbol's value if applicable. Default implementation does nothing."""
 
     def press(self) -> None:
-        """Press/activate the symbol if applicable. Default implementation does nothing."""
+        """Press/activate the symbol if applicable. Default implementation does
+        nothing.
+        """
 
     @contextmanager
     def hold(self) -> Iterator[None]:
@@ -233,14 +237,16 @@ class Symbol(ABC):
     @property
     def colored(self) -> Locator:
         """The element that carries the symbol's `--pluto-symbol-color` style."""
-        return self.locator.locator(".pluto-symbol-colored").first
+        return self.locator.locator(".lyra-symbol-colored").first
 
     def delete(self) -> None:
         self.click()
         self.layout.press_delete()
 
     def toggle_absolute_control(self) -> None:
-        """Toggle absolute control authority for this symbol by clicking its control chip button."""
+        """Toggle absolute control authority for this symbol by clicking its control
+        chip button.
+        """
         # Locate the control chip button within this specific symbol's container
         control_chip = self.locator.locator(".pluto-control-chip").first
         self.layout.click(control_chip)
@@ -250,7 +256,8 @@ class Symbol(ABC):
         Get the current properties of the symbol.
 
         Base implementation opens the Properties panel and optionally selects a tab.
-        Subclasses should call super().get_properties(tab="TabName") to open the correct tab.
+        Subclasses should call super().get_properties(tab="TabName") to open the correct
+        tab.
 
         Args:
             tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
