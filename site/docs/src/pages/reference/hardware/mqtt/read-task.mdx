@@ -92,15 +92,16 @@ set its `time_format`, and put its key in the `index` parameter of the entry.
 </Details>
 
 Timestamps in a channel must always increase. The task drops a payload whose timestamp
-is not after the last one it wrote, and shows a warning. A broker can cause such a
-payload when it delivers a message twice at quality of service 1.
+is not after the last one stored in the channel, and shows a warning. A broker can cause
+such a payload when it delivers a message twice at quality of service 1.
 
 <Divider.Divider x />
 
 ## Retained messages and overload
 
 When the task subscribes, the broker sends the retained message of each topic, if it has
-one. The task treats it like any other message. Set `retained_ignored` to drop it.
+one. The task treats it like any other message, but drops it with no warning when its
+timestamp is not after the last one stored. Set `retained_ignored` to always drop it.
 
 Each task holds up to 4096 messages that wait to be written. If messages arrive faster
 than the task can write them, the task drops the oldest ones and shows a warning.

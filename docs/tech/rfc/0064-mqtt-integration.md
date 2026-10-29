@@ -420,11 +420,12 @@ specs could inject a fake. The embedded broker made the fake unnecessary: the sp
 exercise the real client, TLS, credentials, and outages. An interface with one
 implementation is speculative. A 5.0 client can introduce the interface when it arrives.
 
-**7.12 A timestamp that is not after the last one is dropped with a warning.** QoS 1
-redelivery and a retained message replayed after a restart both give such a sample.
-Cesium rejects it, and a rejected write would stop the task. The source compares each
-sample with the last timestamp written for its index, drops a sample that is not after
-it, and holds a warning on the task for 5 s.
+**7.12 A timestamp that is not after the last one is dropped.** QoS 1 redelivery and a
+retained message replayed after a restart both give such a sample. Cesium rejects it,
+and a rejected write would stop the task. Each run starts from the last timestamp stored
+for each index. The source drops a sample that is not after the last timestamp of its
+index. A retained message or a birth repeats a value that Cesium may hold, so its drop
+gives no warning. Any other drop holds a warning on the task for 5 s.
 
 **7.13 Retained messages are accepted by default.** Each plain entry has a
 `retained_ignored` option, false by default. A retained message gets its arrival time

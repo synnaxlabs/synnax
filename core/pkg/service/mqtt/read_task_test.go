@@ -242,6 +242,42 @@ var _ = Describe("Read task", func() {
 					To(telem.MatchSeriesData(telem.NewSeriesV[float64](2)))
 			},
 		)
+
+		It("Should skip a retained message that the stored data holds, with no warning",
+			func(ctx SpecContext) {
+				idx, data := createIndexed(ctx, telem.Float64T)
+				time := field("time", idx, "/ts")
+				time["time_format"] = "unix_sec"
+				entry := plainEntry("plant/line7", time, field("v", data[0], "/v"))
+				entry["index"] = "time"
+				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, entry))
+				// run configures t again, which forgets the timestamps of earlier runs.
+				run := func() driver.Task {
+					GinkgoHelper()
+					configured := configure(ctx, factory, t)
+					cmd := task.Command{Type: "start", Key: "start"}
+					Expect(configured.Exec(ctx, cmd)).To(Succeed())
+					Eventually(broker.subscriptions).Should(BeNumerically(">", 0))
+					return configured
+				}
+				first := run()
+				broker.publish("plant/line7", `{"ts":10,"v":1}`, false)
+				broker.publish("plant/line7", `{"ts":20,"v":2}`, true)
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(2))
+				Expect(first.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
+					To(Succeed())
+				run()
+				broker.publish("plant/line7", `{"ts":30,"v":3}`, false)
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(3))
+				Expect(stored(ctx, data[0])).
+					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
+				stat := taskStatus(ctx, t)
+				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				Expect(stat.Details.Running).To(BeTrue())
+			},
+		)
 	})
 
 	Describe("Batching", func() {

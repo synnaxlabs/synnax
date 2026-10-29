@@ -266,8 +266,13 @@ type readSource struct {
 	topics map[string]readTopic
 	// tags holds the Sparkplug B tags of the task.
 	tags map[tagID]readTag
-	// lastStamp is the last timestamp written to each index channel, by any run.
+	// lastStamp is the last timestamp of each index channel, stored or written by any
+	// run.
 	lastStamp map[channel.Key]telem.TimeStamp
+	framer    *framer.Service
+	// stored holds the index channels that each run reads the stored data of. Empty
+	// when the task saves no data.
+	stored channel.Keys
 	// broker is the key of the broker device.
 	broker    device.Key
 	queueSize int
@@ -279,6 +284,9 @@ var _ driver.Source = (*readSource)(nil)
 
 // Open implements driver.Source.
 func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
+	if err := s.seed(ctx); err != nil {
+		return nil, err
+	}
 	a, err := s.pool.attach(ctx, s.broker, s.queueSize)
 	if err != nil {
 		return nil, err
@@ -294,6 +302,32 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 		return nil, err
 	}
 	return r, nil
+}
+
+// seed raises lastStamp to the last timestamp stored for each index. After a restart,
+// the broker repeats values that Cesium holds, and Cesium rejects a write inside stored
+// data.
+func (s *readSource) seed(ctx context.Context) error {
+	if len(s.stored) == 0 {
+		return nil
+	}
+	iter, err := s.framer.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:      s.stored,
+		Bounds:    telem.TimeRangeMax,
+		ChunkSize: 1,
+	})
+	if err != nil {
+		return err
+	}
+	if iter.SeekLast() && iter.Prev(framer.IteratorAutoSpan) {
+		for key, series := range iter.Value().Entries() {
+			if series.Len() > 0 {
+				last := series.ValueAt[telem.TimeStamp](-1)
+				s.lastStamp[key] = max(s.lastStamp[key], last)
+			}
+		}
+	}
+	return errors.Combine(iter.Error(), iter.Close())
 }
 
 // reader is the driver.Reader of one run of an MQTT read task.
@@ -501,13 +535,16 @@ func (r *reader) convert(now time.Time, msg message, b *batch) {
 		return
 	}
 	if t.index != 0 {
-		// An index takes timestamps in rising order only.
+		// An index takes timestamps in rising order only. A retained message repeats a
+		// value that the task may have, so a stale one is no loss.
 		if stamp <= r.lastStamp[t.index] {
-			r.degrade(now, errors.Newf(
-				"rejected a message on topic %s: its timestamp is not after the "+
-					"last one written",
-				t.topic,
-			))
+			if !msg.retained {
+				r.degrade(now, errors.Newf(
+					"rejected a message on topic %s: its timestamp is not after the "+
+						"last one written",
+					t.topic,
+				))
+			}
 			return
 		}
 		r.lastStamp[t.index] = stamp

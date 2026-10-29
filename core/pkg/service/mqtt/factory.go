@@ -375,6 +375,7 @@ func (f *Factory) configureRead(
 		topics:     make(map[string]readTopic),
 		tags:       make(map[tagID]readTag),
 		lastStamp:  make(map[channel.Key]telem.TimeStamp),
+		framer:     f.cfg.Framer,
 	}
 	var (
 		// written names the entry that writes to each channel.
@@ -436,6 +437,8 @@ func (f *Factory) configureRead(
 	mode := framer.WriterModePersistStream
 	if cfg.DataSavingDisabled {
 		mode = framer.WriterModeStreamOnly
+	} else {
+		src.stored = indexes
 	}
 	rt, err := driver.NewReadTask(driver.ReadTaskConfig{
 		Instrumentation: f.cfg.Child(t.Key.String()),
