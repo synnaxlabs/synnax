@@ -8,9 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import csv
+import sys
 import threading
 import time
 from pathlib import Path
+
+import pytest
 
 import sample_resources
 
@@ -86,3 +89,17 @@ class TestReport:
         assert "2 samples over 1.0 minutes." in summary
         assert "| CPU % | 20 | 10 | 30 | 30 |" in summary
         assert "| Memory GB | 5.0 | 4.0 | 6.0 | 6.0 |" in summary
+
+
+class TestMain:
+    """Tests for the command line entry point."""
+
+    def test_should_sample_until_the_stop_file_exists(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        path = tmp_path / "resources.csv"
+        sample_resources.stop_path(path).touch()
+        argv = ["sample_resources.py", "sample", str(path), "--interval", "0.01"]
+        monkeypatch.setattr(sys, "argv", argv)
+        sample_resources.main()
+        assert path.read_text().splitlines() == [",".join(sample_resources.FIELDS)]

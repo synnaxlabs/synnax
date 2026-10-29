@@ -7,8 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
+import sys
+from pathlib import Path
 from typing import Any
 
+import pytest
+
+import clones
 from clones import Fragment, Group, groups, markdown
 
 
@@ -82,4 +88,28 @@ class TestGroups:
         ]
         assert groups(duplicates, formats={"go"}) == groups(
             duplicates[::-1], formats={"go"}
+        )
+
+
+class TestMain:
+    """Prints the top clone groups of a jscpd report."""
+
+    def test_should_print_the_top_groups_of_the_language(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        report = tmp_path / "report.json"
+        duplicates = [
+            pair("go", a=("a.go", 1, 10), b=("b.go", 1, 10)),
+            pair("go", a=("c.go", 1, 30), b=("d.go", 1, 30)),
+            pair("python", a=("a.py", 1, 100), b=("b.py", 1, 100)),
+        ]
+        report.write_text(json.dumps({"duplicates": duplicates}))
+        argv = ["clones.py", str(report), "--language", "go", "--top", "1"]
+        monkeypatch.setattr(sys, "argv", argv)
+        clones.main()
+        assert capsys.readouterr().out == (
+            "1. 30 lines, 2 copies: `c.go:1-30`, `d.go:1-30`\n"
         )

@@ -7,10 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
+import classify
 from classify import (
     BOT,
     HUMAN,
@@ -250,3 +254,88 @@ class TestRender:
 
     def test_fences_a_diff_that_holds_backticks(self) -> None:
         assert fence("+```\n").startswith("````diff")
+
+
+REPO = "synnaxlabs/synnax"
+LABELS = f"repos/{REPO}/issues/5/labels"
+COMMENTS = f"repos/{REPO}/issues/5/comments"
+
+
+class FakeGH:
+    """Serves pull request 5 through the gh API calls the classifier makes."""
+
+    def __init__(self) -> None:
+        self.heads = ["abc", "abc"]
+        self.labels: list[str] = []
+        self.comments: list[dict[str, Any]] = []
+        self.writes: list[tuple[tuple[str, ...], str | None]] = []
+
+    def __call__(self, *args: str, stdin: str | None = None) -> str:
+        if args == ("api", f"repos/{REPO}/pulls/5"):
+            same = {"repo": {"full_name": REPO}}
+            head = {**same, "sha": self.heads.pop(0)}
+            labels = [{"name": n} for n in self.labels]
+            return json.dumps({"head": head, "base": same, "labels": labels})
+        if f"repos/{REPO}/pulls/5/files" in args:
+            return json.dumps(file("core/main.go")) + "\n"
+        if args[:3] == ("api", "--paginate", COMMENTS):
+            return "".join(json.dumps(c) + "\n" for c in self.comments)
+        self.writes.append((args, stdin))
+        return ""
+
+
+class TestMain:
+    """Tests labeling and commenting on a pull request end to end."""
+
+    @pytest.fixture
+    def gh(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeGH:
+        (tmp_path / "pr").mkdir()
+        (tmp_path / "pr" / "number").write_text("5\n")
+        for name in ("oracle", "client-ts", "client-py", "core", "driver"):
+            d = tmp_path / f"surface-{name}"
+            d.mkdir()
+            (d / "status").write_text("same\n")
+        fake = FakeGH()
+        monkeypatch.setattr(classify, "gh", fake)
+        monkeypatch.setattr(sys, "argv", ["classify.py", str(tmp_path)])
+        monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
+        monkeypatch.setenv("HEAD_SHA", "abc")
+        monkeypatch.setenv("REVIEW_AGENT", "false")
+        return fake
+
+    def test_labels_bot_and_posts_a_comment_when_nothing_changed(
+        self, gh: FakeGH
+    ) -> None:
+        classify.main()
+        (label, _), (post, body) = gh.writes
+        assert label == ("api", "-X", "POST", LABELS, "-f", f"labels[]={BOT}")
+        assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+        assert body is not None
+        assert f"## Review tier: `{BOT}`" in json.loads(body)["body"]
+
+    def test_swaps_bot_for_human_and_edits_the_comment_when_a_surface_changed(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        (tmp_path / "surface-core" / "status").write_text("changed\n")
+        gh.labels = [BOT]
+        gh.comments = [{"id": 9, "body": f"{MARKER}\nold"}]
+        classify.main()
+        assert [args for args, _ in gh.writes] == [
+            ("api", "-X", "POST", LABELS, "-f", f"labels[]={HUMAN}"),
+            ("api", "-X", "DELETE", f"{LABELS}/review%2Fbot"),
+            (
+                "api",
+                "-X",
+                "PATCH",
+                f"repos/{REPO}/issues/comments/9",
+                "--input",
+                "-",
+            ),
+        ]
+
+    def test_writes_nothing_when_the_head_moves_during_the_run(
+        self, gh: FakeGH
+    ) -> None:
+        gh.heads = ["abc", "def"]
+        classify.main()
+        assert gh.writes == []

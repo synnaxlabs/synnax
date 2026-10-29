@@ -7,8 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
+import sys
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
+import agent_metrics
 from agent_metrics import PR, Run, login, parse_pr, percentile, report, reverted
 
 NOW = datetime(2026, 10, 26, tzinfo=UTC)
@@ -124,3 +129,46 @@ class TestReport:
             "• merge_group (n=1): 30.0 min / 30.0 min",
             "• pull_request (n=1): 60.0 min / 60.0 min",
         ]
+
+
+class TestMain:
+    def test_reports_the_prs_runs_and_reverts_that_gh_returns(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Should count a pull request that more than one search finds once."""
+        created = datetime.now(UTC) - timedelta(days=1)
+        row = {
+            "number": 1,
+            "author": {"login": "app/synnax-codex", "is_bot": True},
+            "labels": [{"name": "review/bot"}],
+            "createdAt": f"{created:%FT%TZ}",
+            "mergedAt": f"{created + timedelta(hours=2):%FT%TZ}",
+            "closedAt": f"{created + timedelta(hours=2):%FT%TZ}",
+        }
+        run = [
+            "merge_group",
+            f"{created:%FT%TZ}",
+            f"{created + timedelta(minutes=6):%FT%TZ}",
+        ]
+
+        def gh(*args: str) -> list[str]:
+            if args[0] == "pr":
+                return [json.dumps([row])]
+            if "--jq" in args and args[-1].startswith(".workflow_runs"):
+                return [json.dumps(run)]
+            return [json.dumps('Revert "Add x (#1)" (#2)')]
+
+        monkeypatch.setattr(agent_metrics, "gh", gh)
+        monkeypatch.setattr(sys, "argv", ["agent_metrics.py", "--days", "7"])
+        agent_metrics.main()
+        lines = capsys.readouterr().out.splitlines()
+        assert lines[1:4] == [
+            "Opened: agent 1, human 0, other bot 0",
+            "Agent PRs: merged 1, closed 0",
+            "Human PRs: merged 0, closed 0",
+        ]
+        assert "• `review/bot` (n=1): 2.0 h / 2.0 h" in lines
+        assert "Reverted `review/bot` merges, last 30 days: 1 of 1 (100%)" in lines
+        assert "• merge_group (n=1): 6.0 min / 6.0 min" in lines

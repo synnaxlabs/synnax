@@ -8,12 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 import io
+import json
+import sys
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 import pytest
 
+import dispatch_agents
 from dispatch_agents import (
     Issue,
     agent_fields,
@@ -273,3 +277,96 @@ class TestLinearToken:
         with linear_token():
             pass
         assert capsys.readouterr().out == ""
+
+
+class FakeLinear:
+    """Serves the Linear OAuth and GraphQL requests the dispatcher sends."""
+
+    def __init__(self) -> None:
+        self.update_succeeds = True
+        self.updated: list[str] = []
+
+    def __call__(self, req: Any, *args: Any, **kwargs: Any) -> io.BytesIO:
+        if isinstance(req, str):
+            return io.BytesIO(b'{"access_token": "tok"}')
+        body = json.loads(req.data)
+        query, variables = body["query"], body["variables"]
+        if "issueUpdate" in query:
+            self.updated.append(variables["id"])
+            data: dict[str, Any] = {"issueUpdate": {"success": self.update_succeeds}}
+        elif "teams" in query:
+            states = {"nodes": [{"id": "started", "name": "In Progress"}]}
+            data = {"teams": {"nodes": [{"states": states}]}}
+        else:
+            nodes = [self.node(1), self.node(2)]
+            page = {"hasNextPage": False, "endCursor": None}
+            data = {"issues": {"nodes": nodes, "pageInfo": page}}
+        return io.BytesIO(json.dumps({"data": data}).encode())
+
+    @staticmethod
+    def node(number: int) -> dict[str, Any]:
+        return {
+            "id": f"uuid-{number}",
+            "identifier": f"SY-{number}",
+            "number": number,
+            "title": f"Add part {number}",
+            "description": AGENT,
+            "state": {"type": "unstarted"},
+            "project": {"name": "Foo"},
+            "inverseRelations": {"nodes": [], "pageInfo": {"hasNextPage": False}},
+        }
+
+
+class TestMain:
+    """Tests a dispatch run end to end against a fake Linear and gh."""
+
+    @pytest.fixture
+    def linear(self, monkeypatch: pytest.MonkeyPatch) -> FakeLinear:
+        fake = FakeLinear()
+        monkeypatch.setattr(urllib.request, "urlopen", fake)
+        monkeypatch.setattr(
+            dispatch_agents,
+            "fetch_open_prs",
+            lambda: [{"title": "SY-2: Add part 2", "headRefName": "sy-2"}],
+        )
+        monkeypatch.setenv("LINEAR_CLIENT_ID", "id")
+        monkeypatch.setenv("LINEAR_CLIENT_SECRET", "secret")
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+        return fake
+
+    def test_should_start_the_ready_issue_and_write_its_matrix(
+        self, linear: FakeLinear, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        output = tmp_path / "output"
+        argv = ["dispatch_agents.py", "--output", str(output)]
+        monkeypatch.setattr(sys, "argv", argv)
+        dispatch_agents.main()
+        assert linear.updated == ["uuid-1"]
+        count, matrix = output.read_text().splitlines()
+        assert count == "count=1"
+        include = json.loads(matrix.removeprefix("matrix="))["include"]
+        assert [e["issue"] for e in include] == ["SY-1"]
+
+    def test_should_move_nothing_on_a_dry_run(
+        self,
+        linear: FakeLinear,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(sys, "argv", ["dispatch_agents.py", "--dry-run"])
+        dispatch_agents.main()
+        assert linear.updated == []
+        assert capsys.readouterr().out == (
+            "would dispatch SY-1: Add part 1 (docs/tech/rfc/0090-foo.md phase 2)\n"
+        )
+
+    def test_should_exit_when_linear_does_not_apply_an_update(
+        self, linear: FakeLinear, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        linear.update_succeeds = False
+        output = tmp_path / "output"
+        argv = ["dispatch_agents.py", "--output", str(output)]
+        monkeypatch.setattr(sys, "argv", argv)
+        with pytest.raises(SystemExit, match="SY-1: Linear did not apply the update"):
+            dispatch_agents.main()
+        assert output.read_text().startswith("count=0\n")

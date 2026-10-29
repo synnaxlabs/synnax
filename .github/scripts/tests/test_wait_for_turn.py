@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import sys
 import urllib.parse
 from email.message import Message
 from typing import Any
@@ -220,3 +221,34 @@ class TestHttp:
 
         with pytest.raises(HTTPError):
             Http(token="token", urlopen=urlopen)("https://api.github.com", None)
+
+
+class TestMain:
+    """Tests the command line entry point."""
+
+    @pytest.fixture
+    def tokens(self, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+        sent: list[str] = []
+
+        def http(*, token: str) -> FakeAPI:
+            sent.append(token)
+            return FakeAPI([entry(1, sha="a"), entry(2, sha="b")])
+
+        monkeypatch.setattr(wait_for_turn, "Http", http)
+        monkeypatch.setenv("GITHUB_REPOSITORY", "synnaxlabs/synnax")
+        monkeypatch.setenv("GH_TOKEN", "token")
+        return sent
+
+    def test_should_return_when_the_group_is_within_the_slots(
+        self, tokens: list[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(sys, "argv", ["wait_for_turn.py", "b", "2"])
+        wait_for_turn.main()
+        assert tokens == ["token"]
+
+    def test_should_exit_when_the_group_is_not_in_the_queue(
+        self, tokens: list[str], monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(sys, "argv", ["wait_for_turn.py", "z", "1"])
+        with pytest.raises(SystemExit, match="merge group z left the queue"):
+            wait_for_turn.main()
