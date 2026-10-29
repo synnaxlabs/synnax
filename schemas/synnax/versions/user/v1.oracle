@@ -10,7 +10,7 @@
 Key = v0.Key
 
 User struct {
-    key       Key    {
+    key       Key = create {
         @doc value "is the unique identifier for this user."
         @key
     }

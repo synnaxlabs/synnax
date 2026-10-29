@@ -16,7 +16,7 @@ Key = uuid {
 }
 
 User struct {
-    key       Key    {
+    key       Key = create {
         @doc value "is the unique identifier for this user."
         @key
     }
@@ -41,15 +41,4 @@ User struct {
     @go migrate
     @ontology type "user"
     @retrieve
-}
-
-New struct extends User {
-    -root_user
-    key?
-
-    @cpp omit
-    @doc value    "contains parameters for creating a new user."
-    @go omit
-    @py omit
-    @ts use_input
 }

@@ -212,7 +212,6 @@ describe("User queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
         const formData = result.current.form.value();
-        expect(formData.key).toBeUndefined();
         expect(formData.username).toBe("");
         expect(formData.name).toBe("");
         expect(formData.password).toBe("");

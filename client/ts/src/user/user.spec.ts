@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { beforeAll, describe, expect, test, vi } from "vitest";
+import { type z } from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
 import { query } from "@/query";
@@ -16,19 +17,21 @@ import { type user } from "@/user";
 
 const client = createTestClient();
 
-const userOne: user.New = { name: "George Washington" };
+const userOne: z.input<typeof user.userZ> = { name: "George Washington" };
 
-const userTwo: user.New = { name: "John Hancock" };
+const userTwo: z.input<typeof user.userZ> = { name: "John Hancock" };
 
-const userThree: user.New = { name: "John Adams" };
+const userThree: z.input<typeof user.userZ> = { name: "John Adams" };
 
-const userArray: user.New[] = [{ name: "Steve" }, { name: "Martha" }];
+const userArray: z.input<typeof user.userZ>[] = [{ name: "Steve" }, { name: "Martha" }];
 
-const createUsers = async (fixtures: user.New[]): Promise<user.User[]> =>
+const createUsers = async (
+  fixtures: z.input<typeof user.userZ>[],
+): Promise<user.User[]> =>
   await client.users.create(fixtures.map(({ key, name }) => ({ key, name })));
 
 /** Expects users to hold exactly the keys and names of the created users. */
-const expectUsers = (users: user.User[], created: user.New[]) =>
+const expectUsers = (users: user.User[], created: z.input<typeof user.userZ>[]) =>
   expect(users.map(({ key, name }) => ({ key, name }))).toEqual(
     expect.arrayContaining(created.map(({ key, name }) => ({ key, name }))),
   );

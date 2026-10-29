@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access, ontology, user } from "@synnaxlabs/client";
-import { array, uuid, verbs } from "@synnaxlabs/x";
+import { array, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -60,7 +60,7 @@ export const { use: useGroupID } = Flux.createRetrieve<
   },
 });
 
-export const formSchema = user.newZ.extend({
+export const formSchema = z.object({
   username: z.string().min(1, "username is required"),
   password: z.string().min(1, "Password is required"),
   name: z.string().min(1, "Name is required"),
@@ -84,7 +84,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_FORM_VALUES,
   update: async ({ client, value }) => {
     const { name, username, password, role } = value();
-    const created = await client.users.create({ key: uuid.create(), name });
+    const created = await client.users.create({ name });
     let registered = false;
     try {
       await client.auth.passwords.create({

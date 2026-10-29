@@ -95,7 +95,7 @@ Create a user, give it a password, then give it a role:
 
 ```python
 user = client.users.create(name="Jane Doe")
-client.auth.passwords.create("jdoe", "secret", subject=user.ontology_id)
+client.auth.passwords.create("jdoe", "secret", subject=sy.user.ontology_id(user.key))
 engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
 client.access.roles.assign(user=user.key, role=engineer.key)
 ```
