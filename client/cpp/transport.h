@@ -10,6 +10,7 @@
 #pragma once
 
 #include "client/cpp/arc/arc.h"
+#include "client/cpp/auth/apikey/apikey.h"
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/connection/checker.h"
@@ -30,9 +31,9 @@ struct Transport {
     std::unique_ptr<auth::SessionRenewClient> auth_session_renew;
     std::unique_ptr<auth::SessionRetrieveClient> auth_session_retrieve;
     std::unique_ptr<auth::SessionDeleteClient> auth_session_delete;
-    std::unique_ptr<auth::APIKeyCreateClient> auth_api_key_create;
-    std::unique_ptr<auth::APIKeyRetrieveClient> auth_api_key_retrieve;
-    std::unique_ptr<auth::APIKeyDeleteClient> auth_api_key_delete;
+    std::unique_ptr<auth::apikey::CreateClient> auth_api_key_create;
+    std::unique_ptr<auth::apikey::RetrieveClient> auth_api_key_retrieve;
+    std::unique_ptr<auth::apikey::DeleteClient> auth_api_key_delete;
     std::unique_ptr<framer::StreamerClient> frame_stream;
     std::unique_ptr<framer::WriterClient> frame_write;
     std::shared_ptr<channel::CreateClient> chan_create;
