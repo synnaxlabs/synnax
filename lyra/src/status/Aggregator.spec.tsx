@@ -65,9 +65,9 @@ describe("Aggregator", () => {
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
-      const key = result.current.statuses.statuses[0].key;
+      const { id } = result.current.statuses.statuses[0];
       act(() => {
-        result.current.statuses.silence(key);
+        result.current.statuses.silence(id);
       });
       expect(result.current.statuses.statuses).toHaveLength(0);
     });
@@ -120,6 +120,86 @@ describe("Aggregator", () => {
         act(() => void vi.advanceTimersByTime(TimeSpan.seconds(2).milliseconds));
         expect(result.current.statuses.statuses).toHaveLength(0);
       });
+    });
+  });
+
+  describe("problems", () => {
+    const renderAggregator = () =>
+      renderHook(
+        () => ({ add: Status.useAdder(), notifications: Status.useNotifications() }),
+        { wrapper },
+      );
+    const problem = (name: string = "p1"): Status.Crude => ({
+      key: "task:1",
+      variant: "error",
+      message: "Failed to read",
+      problem: name,
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("should join a status of the same problem to its notification", () => {
+      const { result } = renderAggregator();
+      act(() => result.current.add(problem()));
+      act(() => result.current.add({ ...problem(), message: "Still failing" }));
+      expect(result.current.notifications.statuses).toMatchObject([
+        { message: "Still failing", count: 2 },
+      ]);
+    });
+
+    it("should not show a notification again when a status joins it", () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+      const { result } = renderAggregator();
+      act(() => result.current.add(problem()));
+      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(8).milliseconds));
+      act(() => result.current.add(problem()));
+      expect(result.current.notifications.statuses).toHaveLength(0);
+    });
+
+    it("should not join a status that names no problem", () => {
+      const { result } = renderAggregator();
+      const reply: Status.Crude = { ...problem(), problem: undefined };
+      act(() => result.current.add(reply));
+      act(() => result.current.add(reply));
+      expect(result.current.notifications.statuses).toMatchObject([{ count: 1 }]);
+    });
+
+    it("should show the next problem on a key", () => {
+      const { result } = renderAggregator();
+      act(() => result.current.add(problem()));
+      act(() => result.current.add(problem("p2")));
+      expect(result.current.notifications.statuses).toMatchObject([{ count: 1 }]);
+    });
+
+    it("should keep the notification of a problem beside another status", () => {
+      const { result } = renderAggregator();
+      act(() => result.current.add(problem()));
+      act(() =>
+        result.current.add({ ...problem(), problem: undefined, message: "No reply" }),
+      );
+      act(() => result.current.add(problem()));
+      expect(result.current.notifications.statuses).toMatchObject([
+        { message: "No reply", count: 1 },
+        { message: "Failed to read", count: 2 },
+      ]);
+    });
+
+    it("should not join a status that is not a problem", () => {
+      const { result } = renderAggregator();
+      const good: Status.Crude = { ...problem(), variant: "info" };
+      act(() => result.current.add(good));
+      act(() => result.current.add(good));
+      expect(result.current.notifications.statuses).toMatchObject([{ count: 1 }]);
+    });
+
+    it("should add the counts of identical notifications on different keys", () => {
+      const { result } = renderAggregator();
+      act(() => result.current.add(problem()));
+      act(() => result.current.add(problem()));
+      act(() => result.current.add({ ...problem(), key: "task:2" }));
+      expect(result.current.notifications.statuses).toMatchObject([{ count: 3 }]);
     });
   });
 
@@ -213,9 +293,9 @@ describe("Aggregator", () => {
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
-      const key = result.current.statuses.statuses[0].key;
+      const { id } = result.current.statuses.statuses[0];
       act(() => {
-        result.current.statuses.silence(key);
+        result.current.statuses.silence(id);
       });
       expect(result.current.statuses.statuses).toHaveLength(0);
     });
@@ -245,9 +325,9 @@ describe("Aggregator", () => {
       expect(result.current.statuses.statuses).toHaveLength(1);
       expect(result.current.statuses.statuses[0].count).toBe(2);
 
-      const key = result.current.statuses.statuses[0].key;
+      const { id } = result.current.statuses.statuses[0];
       act(() => {
-        result.current.statuses.silence(key);
+        result.current.statuses.silence(id);
       });
       expect(result.current.statuses.statuses).toHaveLength(0);
     });
@@ -267,9 +347,9 @@ describe("Aggregator", () => {
         result.current.add({ variant: "error", message: "Discrepancy", name: "2" });
       });
       expect(result.current.statuses.statuses).toHaveLength(2);
-      const key = result.current.statuses.statuses[0].key;
+      const { id } = result.current.statuses.statuses[0];
       act(() => {
-        result.current.statuses.silence(key);
+        result.current.statuses.silence(id);
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
       expect(result.current.statuses.statuses[0].name).toEqual("1");
@@ -297,14 +377,55 @@ describe("Aggregator", () => {
           description: "The channel no longer exists.",
         });
       });
-      const key = result.current.statuses.statuses[0].key;
+      const { id } = result.current.statuses.statuses[0];
       act(() => {
-        result.current.statuses.silence(key);
+        result.current.statuses.silence(id);
       });
       expect(result.current.statuses.statuses).toHaveLength(1);
       expect(result.current.statuses.statuses[0].description).toEqual(
         "The device is unreachable.",
       );
+    });
+    describe("problems", () => {
+      const renderAggregator = () =>
+        renderHook(
+          () => ({ add: Status.useAdder(), notifications: Status.useNotifications() }),
+          { wrapper },
+        );
+      const firstID = (result: {
+        current: { notifications: Status.UseNotificationsReturn };
+      }): string => result.current.notifications.statuses[0].id;
+      const problem = (name: string): Status.Crude => ({
+        key: "task:1",
+        variant: "error",
+        message: "Failed to read",
+        problem: name,
+      });
+
+      it("should keep a closed problem closed", () => {
+        const { result } = renderAggregator();
+        act(() => result.current.add(problem("p1")));
+        act(() => result.current.notifications.silence(firstID(result)));
+        act(() => result.current.add(problem("p1")));
+        expect(result.current.notifications.statuses).toHaveLength(0);
+      });
+
+      it("should show the next problem on the key of a closed one", () => {
+        const { result } = renderAggregator();
+        act(() => result.current.add(problem("p1")));
+        act(() => result.current.notifications.silence(firstID(result)));
+        act(() => result.current.add(problem("p2")));
+        expect(result.current.notifications.statuses).toHaveLength(1);
+      });
+
+      it("should show a status that is not a problem after a closed one", () => {
+        const { result } = renderAggregator();
+        const good: Status.Crude = { key: "rack:1", variant: "info", message: "Ready" };
+        act(() => result.current.add(good));
+        act(() => result.current.notifications.silence(firstID(result)));
+        act(() => result.current.add(good));
+        expect(result.current.notifications.statuses).toHaveLength(1);
+      });
     });
   });
 

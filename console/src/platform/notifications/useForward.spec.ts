@@ -7,19 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, task } from "@synnaxlabs/client";
+import { rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, screen } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { type Notifications } from "@/platform/notifications";
-import { renderForward, settleWrites } from "@/platform/notifications/testutil";
+import {
+  close,
+  findNotification,
+  renderForward,
+  settleWrites,
+} from "@/platform/notifications/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
 const createTaskKey = (): status.Key => task.statusKey(uuid.create());
+const createRackKey = (): status.Key =>
+  rack.statusKey(Math.floor(Math.random() * 2 ** 32));
 
 interface Written {
   key: status.Key;
@@ -112,18 +119,22 @@ describe("Notifications.useForward", () => {
       expect(screen.queryByText(info.message)).toBeNull();
     });
 
-    it("should check use only when a problem starts on its key", async () => {
+    it("should check use only when a new problem starts on its key", async () => {
       const key = createTaskKey();
       const inUse = vi.fn(async (_: Notifications.InUseArgs) => true);
       await renderForward(client, { task: { ...STATE, inUse } });
-      const written = await write(
+      // The Core keeps the since of a problem that comes back within 30 s.
+      await write(
         { key, variant: "error" },
         { key, variant: "error" },
-        { key, variant: "success" },
         { key, variant: "success" },
         { key, variant: "error" },
       );
-      await screen.findByText(written[4].message);
+      // A delete reaches the forwarder at once, before the writes the Core streams.
+      await settleWrites(client);
+      await client.statuses.delete(key);
+      const [next] = await write({ key, variant: "error" });
+      await screen.findByText(next.message);
       // Specs that share the Core write task statuses too.
       const calls = inUse.mock.calls.filter(
         ([args]) => task.statusKey(args.key) === key,
@@ -158,6 +169,127 @@ describe("Notifications.useForward", () => {
       await write({ key, variant: "error", name });
       expect(await screen.findByText(name)).toBeTruthy();
       expect(screen.getByText("Failed to show status")).toBeTruthy();
+    });
+  });
+
+  describe("problems", () => {
+    it("should notify a problem once and count its later writes", async () => {
+      await renderForward(client, { task: STATE });
+      const key = createTaskKey();
+      const message = uniqueName("message");
+      await write(
+        { key, variant: "error", message },
+        { key, variant: "error", message },
+      );
+      await settleWrites(client);
+      expect(within(await findNotification(message)).getByText("x2")).toBeTruthy();
+    });
+
+    it("should keep a closed problem closed", async () => {
+      await renderForward(client, { task: STATE });
+      const key = createTaskKey();
+      const [first] = await write({ key, variant: "error" });
+      await close(first.message);
+      const [repeat] = await write({ key, variant: "error" });
+      await settleWrites(client);
+      expect(screen.queryByText(repeat.message)).toBeNull();
+    });
+
+    it("should notify the next problem on the key of a closed one", async () => {
+      await renderForward(client, { task: STATE });
+      const key = createTaskKey();
+      const [first] = await write({ key, variant: "error" });
+      await close(first.message);
+      await client.statuses.delete(key);
+      const [next] = await write({ key, variant: "error" });
+      expect(await screen.findByText(next.message)).toBeTruthy();
+    });
+
+    it("should take the problems on a key with no since as one", async () => {
+      await renderForward(client, {});
+      const local: status.Status = {
+        key: uniqueName("alarm"),
+        name: "",
+        variant: "error",
+        message: uniqueName("message"),
+        description: "",
+        time: TimeStamp.now(),
+      };
+      client.statuses.setLocal(local);
+      client.statuses.setLocal(local);
+      expect(
+        within(await findNotification(local.message)).getByText("x2"),
+      ).toBeTruthy();
+    });
+
+    it("should not notify a problem that is open at load", async () => {
+      const key = createTaskKey();
+      await write({ key, variant: "error" });
+      await renderForward(client, { task: STATE });
+      const [repeat, other] = await write(
+        { key, variant: "error" },
+        { variant: "error" },
+      );
+      await screen.findByText(other.message);
+      expect(screen.queryByText(repeat.message)).toBeNull();
+    });
+
+    it("should notify a reply to a problem that is open at load", async () => {
+      const key = createTaskKey();
+      await write({ key, variant: "error" });
+      await renderForward(client, { task: REPLY });
+      const [reply] = await write({ key, variant: "error" });
+      expect(await screen.findByText(reply.message)).toBeTruthy();
+    });
+  });
+
+  describe("cover", () => {
+    it("should not notify a problem inside the covering problem", async () => {
+      const covering = createRackKey();
+      await renderForward(client, {
+        rack: STATE,
+        task: { ...STATE, coveredBy: () => covering },
+      });
+      const [rackProblem, taskProblem] = await write(
+        { key: covering, variant: "error" },
+        { variant: "error" },
+      );
+      await screen.findByText(rackProblem.message);
+      await settleWrites(client);
+      expect(screen.queryByText(taskProblem.message)).toBeNull();
+    });
+
+    it("should notify a problem that starts before the covering problem", async () => {
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout"],
+        shouldAdvanceTime: true,
+      });
+      const covering = createRackKey();
+      await renderForward(client, {
+        rack: STATE,
+        task: { ...DELAYED, coveredBy: () => covering },
+      });
+      const [taskProblem] = await write(
+        { variant: "warning" },
+        { key: covering, variant: "error" },
+      );
+      await settleWrites(client);
+      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      expect(screen.getByText(taskProblem.message)).toBeTruthy();
+    });
+
+    it("should notify a problem after the covering problem closes", async () => {
+      const covering = createRackKey();
+      await renderForward(client, {
+        rack: STATE,
+        task: { ...STATE, coveredBy: () => covering },
+      });
+      const [, , taskProblem] = await write(
+        { key: covering, variant: "error" },
+        { key: covering, variant: "success" },
+        { variant: "error" },
+      );
+      expect(await screen.findByText(taskProblem.message)).toBeTruthy();
     });
   });
 

@@ -34,7 +34,7 @@ const Action = ({ action }: ActionProps): ReactElement => {
 
 export interface NotificationProps extends ComponentPropsWithRef<"div"> {
   status: NotificationSpec;
-  silence: (key: string) => void;
+  silence: (id: string) => void;
   actions?: ReactElement | Button.ButtonProps[];
   /** Custom indicator glyph, tinted with the status variant color. */
   icon?: ReactElement<Icon.IconProps>;
@@ -49,7 +49,7 @@ export const Notification = ({
   children,
   ...rest
 }: NotificationProps): ReactElement => {
-  const { key, time, count, message, description, variant, name } = stat;
+  const { time, count, message, description, variant, name } = stat;
   const getCopyText = () => toString(stat);
 
   return (
@@ -89,7 +89,7 @@ export const Notification = ({
               variant="outlined"
               size="small"
               tooltip="Silence"
-              onClick={() => silence(key)}
+              onClick={() => silence(stat.id)}
             >
               <Icon.Close />
             </Button.Button>

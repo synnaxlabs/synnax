@@ -22,6 +22,7 @@ describe("Notification Component", () => {
   const notificationProps: NotificationProps = {
     status: {
       key: "test-key",
+      id: "test-id",
       name: "test-name",
       time: TimeStamp.now(),
       count: 1,
@@ -101,7 +102,7 @@ describe("Notification Component", () => {
     const closeButton = c.getByRole("button", { name: "Silence" });
     fireEvent.click(closeButton);
 
-    expect(mockSilence).toHaveBeenCalledWith("test-key");
+    expect(mockSilence).toHaveBeenCalledWith("test-id");
   });
 
   it("renders action buttons correctly", () => {

@@ -11,7 +11,7 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 
 import { Notifications } from "@/platform/notifications";
@@ -26,32 +26,10 @@ export const UncappedFeed = (): ReactElement => {
   return (
     <>
       {statuses.map((status) => (
-        <Status.Notification key={status.key} status={status} silence={silence} />
+        <Status.Notification key={status.id} status={status} silence={silence} />
       ))}
     </>
   );
-};
-
-interface ForwardProps {
-  rules: Notifications.Rules;
-}
-
-const Forward = ({ rules }: ForwardProps): ReactElement => {
-  Notifications.useForward(rules);
-  return <UncappedFeed />;
-};
-
-/**
- * Renders {@link UncappedFeed} with {@link Notifications.useForward} for the rules,
- * once the client streams status writes.
- */
-export const renderForward = async (
-  client: Client,
-  rules: Notifications.Rules,
-): Promise<void> => {
-  await waitForStreamLive(client.connection);
-  const { wrapper } = await createConsoleWrapper({ client });
-  render(<Forward rules={rules} />, { wrapper });
 };
 
 /**
@@ -68,4 +46,43 @@ export const settleWrites = async (client: Client): Promise<void> => {
     time: TimeStamp.now(),
   });
   await screen.findByText(message);
+};
+
+/** @returns the notification that shows the message. */
+export const findNotification = async (message: string): Promise<HTMLElement> => {
+  const notification = (await screen.findByText(message)).closest<HTMLElement>(
+    "[role='status']",
+  );
+  if (notification == null) throw new Error(`no notification for ${message}`);
+  return notification;
+};
+
+/** Closes the notification that shows the message. */
+export const close = async (message: string): Promise<void> => {
+  const notification = await findNotification(message);
+  fireEvent.click(within(notification).getByRole("button", { name: "Silence" }));
+};
+
+interface ForwardProps {
+  rules: Notifications.Rules;
+}
+
+const Forward = ({ rules }: ForwardProps): ReactElement => {
+  Notifications.useForward(rules);
+  return <UncappedFeed />;
+};
+
+/**
+ * Renders {@link UncappedFeed} with {@link Notifications.useForward} for the rules, and
+ * waits until the forwarder has loaded the open problems. A problem that starts before
+ * the load ends counts as open at load.
+ */
+export const renderForward = async (
+  client: Client,
+  rules: Notifications.Rules,
+): Promise<void> => {
+  await waitForStreamLive(client.connection);
+  const { wrapper } = await createConsoleWrapper({ client });
+  render(<Forward rules={rules} />, { wrapper });
+  await settleWrites(client);
 };

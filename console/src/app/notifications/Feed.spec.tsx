@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type status, task } from "@synnaxlabs/client";
+import { device, rack, type status, task } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, screen } from "@testing-library/react";
@@ -17,7 +17,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Notifications } from "@/app/notifications";
 import { EtherCAT } from "@/feature/ethercat";
 import { createTestDevice } from "@/platform/device/testutil";
-import { settleWrites, UncappedFeed } from "@/platform/notifications/testutil";
+import { close, settleWrites, UncappedFeed } from "@/platform/notifications/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -31,12 +31,15 @@ const renderForward = async (): Promise<void> => {
   await waitForStreamLive(client.connection);
   const { wrapper } = await createConsoleWrapper({ client });
   render(<Forward />, { wrapper });
+  // A problem that starts before the open problems load counts as open at load.
+  await settleWrites(client);
 };
 
 /** @returns the message of the status. */
 const writeStatus = async (
   key: status.Key,
   variant: status.Variant,
+  details?: unknown,
 ): Promise<string> => {
   const { message } = await client.statuses.set({
     key,
@@ -44,6 +47,7 @@ const writeStatus = async (
     variant,
     message: uniqueName("message"),
     time: TimeStamp.now(),
+    details,
   });
   return message;
 };
@@ -81,11 +85,57 @@ describe("Notifications.useForward", () => {
       shouldAdvanceTime: true,
     });
     const dev = await createTestDevice(client);
+    // The Core opens a "Device status unknown" problem on each new device.
+    await writeStatus(device.statusKey(dev.key), "success");
     await renderForward();
     const message = await writeStatus(device.statusKey(dev.key), "warning");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
     expect(await screen.findByText(message)).toBeTruthy();
+  });
+
+  it("should not notify a task problem inside the problem of its rack", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    const createUserTask = async (): Promise<task.Task> =>
+      await r.createTask({
+        name: uniqueName("task"),
+        type: "pagerduty_alert",
+        config: {},
+      });
+    const [onDown, onUp] = await Promise.all([createUserTask(), createUserTask()]);
+    // The Core writes problems of its own on the key of each rack that exists.
+    const [down, up] = [1, 2].map(() => Math.floor(Math.random() * 2 ** 32));
+    await writeStatus(rack.statusKey(down), "warning");
+    await renderForward();
+    const writeTaskError = async (tsk: task.Task, rackKey: rack.Key): Promise<string> =>
+      await writeStatus(task.statusKey(tsk.key), "error", {
+        task: tsk.key,
+        running: false,
+        rack: rackKey,
+      });
+    const covered = await writeTaskError(onDown, down);
+    const shown = await writeTaskError(onUp, up);
+    await screen.findByText(shown);
+    expect(screen.queryByText(covered)).toBeNull();
+  });
+
+  it("should notify each failed command, even after a close", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    const tsk = await r.createTask({
+      name: uniqueName("task"),
+      type: "pagerduty_alert",
+      config: {},
+    });
+    await renderForward();
+    const failStart = async (cmd: string): Promise<string> =>
+      await writeStatus(task.statusKey(tsk.key), "error", {
+        task: tsk.key,
+        running: false,
+        cmd,
+      });
+    await close(await failStart("start-1"));
+    // The second reply comes within 30 s, so it has the since of the first.
+    expect(await screen.findByText(await failStart("start-2"))).toBeTruthy();
   });
 });
