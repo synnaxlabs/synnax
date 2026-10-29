@@ -258,6 +258,17 @@ var _ = Describe("Writer", func() {
 			return p.Key
 		}
 
+		It(
+			"Should reject an action that leaves the panel invalid",
+			func(ctx SpecContext) {
+				key := create(ctx, leafNode())
+				Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+					panel.NewRenameAction(panel.RenamePayload{}),
+				})).To(MatchError(ContainSubstring("name: required")))
+				Expect(retrieve(ctx, key).Name).To(Equal("test"))
+			},
+		)
+
 		It("Should apply a Rename action and persist it", func(ctx SpecContext) {
 			key := create(ctx, leafNode())
 			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{

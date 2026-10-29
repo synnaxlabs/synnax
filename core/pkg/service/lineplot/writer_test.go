@@ -210,6 +210,29 @@ var _ = Describe("Writer", func() {
 
 	Describe("Dispatch", func() {
 		Describe("per-action semantics", func() {
+			It(
+				"Should reject an action that leaves the line plot invalid",
+				func(ctx SpecContext) {
+					plot := lineplot.LinePlot{Name: "test"}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).
+						To(Succeed())
+					Expect(
+						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+							lineplot.NewRenameAction(lineplot.RenamePayload{}),
+						}),
+					).To(MatchError(ContainSubstring("name: required")))
+					var res lineplot.LinePlot
+					Expect(
+						svc.NewRetrieve().
+							Where(lineplot.MatchKeys(plot.Key)).
+							Entry(&res).
+							Exec(ctx, tx),
+					).
+						To(Succeed())
+					Expect(res.Name).To(Equal("test"))
+				},
+			)
+
 			It("Should apply Rename", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "original"}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
@@ -278,12 +301,12 @@ var _ = Describe("Writer", func() {
 			It("Should apply SetLegendPosition", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
+				pos := spatial.StickyXY{X: 10, Y: 20}
+				pos.ApplyDefaults()
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 						lineplot.NewSetLegendPositionAction(
-							lineplot.SetLegendPositionPayload{
-								Position: spatial.StickyXY{X: 10, Y: 20},
-							},
+							lineplot.SetLegendPositionPayload{Position: pos},
 						),
 					}),
 				).To(Succeed())

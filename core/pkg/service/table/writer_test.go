@@ -118,6 +118,18 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Dispatch", func() {
+		It(
+			"Should reject an action that leaves the table invalid",
+			func(ctx SpecContext) {
+				s := table.Table{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+				Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+					table.NewRenameAction(table.RenamePayload{}),
+				})).To(MatchError(ContainSubstring("name: required")))
+				Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
+			},
+		)
+
 		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())

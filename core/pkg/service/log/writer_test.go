@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -181,6 +180,17 @@ var _ = Describe("Writer", func() {
 				To(Succeed())
 			return res
 		}
+		entry := func(ch channel.Key, alias string) log.ChannelEntry {
+			return log.ChannelEntry{
+				Channel:  ch,
+				Alias:    alias,
+				Notation: notation.NotationStandard,
+				Timestamp: log.TimestampConfig{
+					Format: telem.TimestampFormatPreciseDate,
+					Tz:     telem.TimeZoneLocal,
+				},
+			}
+		}
 		Describe("per-action semantics", func() {
 			It("Should apply Rename", func(ctx SpecContext) {
 				l := log.Log{Name: "original"}
@@ -242,10 +252,10 @@ var _ = Describe("Writer", func() {
 					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 						log.NewSetChannelEntryAction(log.SetChannelEntryPayload{
-							Entry: log.ChannelEntry{Channel: 5, Alias: "first"},
+							Entry: entry(5, "first"),
 						}),
 						log.NewSetChannelEntryAction(log.SetChannelEntryPayload{
-							Entry: log.ChannelEntry{Channel: 5, Alias: "second"},
+							Entry: entry(5, "second"),
 						}),
 					})).To(Succeed())
 					res := retrieve(ctx, l.Key)
@@ -352,7 +362,7 @@ var _ = Describe("Writer", func() {
 							Channel:   5,
 							Precision: &precision,
 						}),
-					})).Error().To(MatchError(validate.ErrValidation))
+					})).Error().To(MatchError(ContainSubstring("channels.0.precision")))
 				},
 				Entry("below minimum", int32(-1)),
 				Entry("above maximum", int32(18)),
@@ -363,7 +373,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
 					log.NewSetChannelsAction(log.SetChannelsPayload{
-						Channels: []log.ChannelEntry{{Channel: 2}, {Channel: 3}},
+						Channels: []log.ChannelEntry{entry(2, ""), entry(3, "")},
 					}),
 				})).To(Succeed())
 				res := retrieve(ctx, l.Key)
@@ -442,10 +452,55 @@ var _ = Describe("Writer", func() {
 								TimestampPrecision: precision,
 							},
 						),
-					})).Error().To(MatchError(validate.ErrValidation))
+					})).Error().To(MatchError(ContainSubstring("timestamp_precision")))
 				},
 				Entry("below minimum", int32(-1)),
 				Entry("above maximum", int32(4)),
+			)
+
+			DescribeTable("Should reject an action that leaves the log invalid",
+				func(ctx SpecContext, act log.Action, path string) {
+					l := log.Log{Name: "test"}
+					Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewAddChannelAction(log.AddChannelPayload{Channel: 5}),
+					})).To(Succeed())
+					Expect(svc.Dispatch(ctx, l.Key, "d2", []log.Action{act})).
+						To(MatchError(ContainSubstring(path)))
+					Expect(retrieve(ctx, l.Key).Channels).To(Equal([]log.ChannelEntry{
+						entry(5, ""),
+					}))
+				},
+				Entry(
+					"empty timestamp format",
+					log.NewSetChannelTimestampFormatAction(
+						log.SetChannelTimestampFormatPayload{Channel: 5},
+					),
+					"channels.0.timestamp.format",
+				),
+				Entry(
+					"empty time zone",
+					log.NewSetChannelTimestampTzAction(
+						log.SetChannelTimestampTzPayload{Channel: 5},
+					),
+					"channels.0.timestamp.tz",
+				),
+				Entry(
+					"entry with no timestamp",
+					log.NewSetChannelEntryAction(
+						log.SetChannelEntryPayload{Entry: log.ChannelEntry{Channel: 5}},
+					),
+					"channels.0.timestamp",
+				),
+				Entry(
+					"channels with no timestamp",
+					log.NewSetChannelsAction(
+						log.SetChannelsPayload{
+							Channels: []log.ChannelEntry{{Channel: 5}},
+						},
+					),
+					"channels.0.timestamp",
+				),
 			)
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
@@ -496,7 +551,7 @@ var _ = Describe("Writer", func() {
 								TimestampPrecision: 99,
 							},
 						),
-					})).Error().To(MatchError(validate.ErrValidation))
+					})).Error().To(MatchError(ContainSubstring("timestamp_precision")))
 					Expect(retrieve(ctx, l.Key).Name).To(Equal("before"))
 				},
 			)
@@ -558,7 +613,7 @@ var _ = Describe("Writer", func() {
 								TimestampPrecision: 99,
 							},
 						),
-					})).Error().To(MatchError(validate.ErrValidation))
+					})).Error().To(MatchError(ContainSubstring("timestamp_precision")))
 					Expect(rec.Snapshot()).To(BeEmpty())
 				},
 			)

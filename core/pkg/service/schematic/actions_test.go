@@ -34,7 +34,9 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 	if hex != "" {
 		cfg.StrokeColor = new(MustSucceed(color.FromHex(hex)))
 	}
-	return schematic.ElementConfig{Variant: cfg}
+	ec := schematic.ElementConfig{Variant: cfg}
+	ec.ApplyDefaults()
+	return ec
 }
 
 // pipeCfg constructs a typed pipe edge config. hex is optional.
