@@ -16,9 +16,6 @@
 #include "driver/labjack/write_task.h"
 
 namespace driver::labjack {
-const std::string NO_LIBS_DESCRIPTION = "The LabJack LJM libraries are not "
-                                        "installed on this system.";
-
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
@@ -81,36 +78,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     return {std::move(result), x::errors::NIL};
 }
 
-bool Factory::check_health(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task,
-    const std::string &cmd_key
-) const {
-    if (this->dev_manager != nullptr) return true;
-    synnax::task::Status status{
-        .key = synnax::task::status_key(task),
-        .name = task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .message = "Failed to create task",
-        .description = NO_LIBS_DESCRIPTION,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = false,
-            .cmd = cmd_key,
-            .config_hash = task.config_hash,
-        }
-    };
-    ctx->set_status(status);
-    return false;
-}
-
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const std::string &cmd_key
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
-    if (!this->check_health(ctx, task, cmd_key)) return {nullptr, true};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE) res = configure_scan(this->dev_manager, ctx, task);
     if (task.type == READ_TASK_TYPE)

@@ -11,8 +11,6 @@
 
 #include "absl/log/log.h"
 
-#include "x/cpp/os/os.h"
-
 #include "driver/common/factory.h"
 #include "driver/ni/daqmx/prod.h"
 #include "driver/ni/hardware/hardware.h"
@@ -23,9 +21,6 @@
 #include "driver/ni/write_task.h"
 
 namespace driver::ni {
-const std::string NO_LIBS_DESCRIPTION = "The NI-DAQmx and System Configuration "
-                                        "libraries are not installed on this system.";
-
 Factory::Factory(
     const std::shared_ptr<daqmx::SugaredAPI> &dmx,
     const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
@@ -33,36 +28,7 @@ Factory::Factory(
 ):
     dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {}
 
-bool Factory::check_health() const {
-    return this->dmx != nullptr && this->syscfg != nullptr;
-}
-
-bool Factory::check_health(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task,
-    const std::string &cmd_key
-) const {
-    if (this->check_health()) return true;
-    synnax::task::Status status{
-        .key = synnax::task::status_key(task),
-        .name = task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .message = "Failed to create task",
-        .description = NO_LIBS_DESCRIPTION,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = false,
-            .cmd = cmd_key,
-            .config_hash = task.config_hash,
-        },
-    };
-    ctx->set_status(status);
-    return false;
-}
-
 std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {
-    if (x::os::get() == x::os::MACOS_NAME)
-        LOG(WARNING) << "[ni] integration is not supported on macOS";
     auto [syscfg, syscfg_err] = syscfg::ProdAPI::load();
     if (syscfg_err) LOG(WARNING) << syscfg_err;
     auto [dmx, dmx_err] = daqmx::ProdAPI::load();
@@ -80,7 +46,6 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::string &cmd_key
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
-    if (!this->check_health(ctx, task, cmd_key)) return {nullptr, true};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(ctx, task);

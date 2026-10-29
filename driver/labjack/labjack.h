@@ -55,15 +55,6 @@ class Factory final : public task::Factory {
     std::shared_ptr<device::Manager> dev_manager;
     common::TimingConfig timing_cfg;
 
-    /// @brief checks whether the factory is healthy and capable of creating tasks.
-    /// If not, the factory will automatically send an error back through the
-    /// task state and return false.
-    [[nodiscard]] bool check_health(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task,
-        const std::string &cmd_key
-    ) const;
-
 public:
     explicit Factory(
         const std::shared_ptr<device::Manager> &dev_manager,

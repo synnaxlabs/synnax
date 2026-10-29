@@ -51,7 +51,7 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 
 Every integration implements `task::Factory::configure_task` (return `{nullptr, false}`
 for unrecognized types) and `configure_initial_tasks`; registered in
-`rack/factories.cpp` gated by `config.integration_enabled(<name>)`.
+`rack/factories.cpp` gated by `config.integration_supported(<name>)`.
 
 ## Device hierarchy
 

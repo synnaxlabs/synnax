@@ -62,6 +62,15 @@ cc_library(
 )
 
 cc_test(
+    name = "factories_test",
+    srcs = ["factories_test.cpp"],
+    deps = [
+        "//driver/rack",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "rack_test",
     srcs = [
         "config_test.cpp",

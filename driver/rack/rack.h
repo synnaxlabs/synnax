@@ -19,6 +19,7 @@
 #endif
 
 #include <filesystem>
+#include <functional>
 
 #include "absl/log/log.h"
 
@@ -110,9 +111,17 @@ struct Config {
     /// @brief the directory that holds the persisted state file. Integrations keep
     /// their own files, such as certificates, inside it.
     std::filesystem::path state_dir;
+    /// @brief returns true if the SDK libraries of the named integration load on this
+    /// computer.
+    std::function<bool(const std::string &)> libraries_loaded =
+        [](const std::string &i) {
+            if (i == ni::INTEGRATION_NAME) return ni::integration_supported();
+            if (i == labjack::INTEGRATION_NAME) return labjack::integration_supported();
+            return true;
+        };
 
     /// @brief returns a new task factory to use for creating tasks in the task
-    /// manager.
+    /// manager. It holds a factory only for each supported integration.
     [[nodiscard]] std::unique_ptr<task::Factory>
     new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
 
@@ -121,21 +130,14 @@ struct Config {
         return std::make_shared<synnax::Synnax>(this->connection);
     }
 
-    /// @brief returns true if the integration with the given name is enabled.
-    [[nodiscard]] bool integration_enabled(const std::string &i) const;
+    /// @brief returns true if the integration is enabled and its SDK libraries load.
+    [[nodiscard]] bool integration_supported(const std::string &i) const;
 
-    /// @brief returns the list of integrations that are actually available
-    /// at runtime, filtering out NI and LabJack if their SDK libraries
-    /// are not present.
+    /// @brief returns the enabled integrations whose SDK libraries load.
     [[nodiscard]] std::vector<std::string> supported_integrations() const {
         std::vector<std::string> result;
-        const bool supports_ni = ni::integration_supported();
-        const bool supports_labjack = labjack::integration_supported();
-        for (const auto &i: this->integrations) {
-            if (i == ni::INTEGRATION_NAME && !supports_ni) continue;
-            if (i == labjack::INTEGRATION_NAME && !supports_labjack) continue;
-            result.push_back(i);
-        }
+        for (const auto &i: this->integrations)
+            if (this->libraries_loaded(i)) result.push_back(i);
         return result;
     }
 
