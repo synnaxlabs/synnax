@@ -77,15 +77,19 @@ def _encode_variable(parts: list[bytes]) -> bytes:
     )
 
 
-def _iter_variable(data: bytes) -> Iterator[bytes]:
+def _variable_spans(data: bytes) -> Iterator[tuple[int, int]]:
     offset = 0
     while offset + _VARIABLE_LENGTH_PREFIX_SIZE <= len(data):
         length = int.from_bytes(
             data[offset : offset + _VARIABLE_LENGTH_PREFIX_SIZE], "little"
         )
         offset += _VARIABLE_LENGTH_PREFIX_SIZE
-        yield data[offset : offset + length]
+        yield offset, offset + length
         offset += length
+
+
+def _iter_variable(data: bytes) -> Iterator[bytes]:
+    return (data[start:end] for start, end in _variable_spans(data))
 
 
 class _Codec(Protocol[T]):
@@ -141,9 +145,9 @@ class _VariableCodec(Generic[U]):
         self._decode = decode
 
     def get(self, data: bytes, index: int) -> U:
-        for i, sample in enumerate(_iter_variable(data)):
+        for i, (start, end) in enumerate(_variable_spans(data)):
             if i == index:
-                return self._decode(sample)
+                return self._decode(data[start:end])
         raise IndexError(f"[Series] - Index {index} out of bounds")
 
     def iter(self, data: bytes) -> Iterator[U]:
@@ -292,7 +296,7 @@ class Series(ArrayOperators, Generic[T]):
         if not self.data_type.is_variable:
             return self.data_type.density.sample_count(len(self.data))
         if self._len_cache is None:
-            self._len_cache = sum(1 for _ in _iter_variable(self.data))
+            self._len_cache = sum(1 for _ in _variable_spans(self.data))
         return self._len_cache
 
     def __init__(
