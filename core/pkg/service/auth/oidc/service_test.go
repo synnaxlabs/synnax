@@ -325,19 +325,20 @@ var _ = Describe("Service", func() {
 					{Name: "up", Issuer: provider.Issuer(), ClientID: "u"},
 				},
 			}))
-			loginErr := make(chan error, 1)
+			loggedIn := make(chan struct{})
 			go func() {
-				_, err := svc.Authenticate(
+				defer GinkgoRecover()
+				defer close(loggedIn)
+				Expect(svc.Authenticate(
 					ctx,
 					proof(credentials("stalled", "code", "v")),
-				)
-				loginErr <- err
+				)).Error().To(MatchError(context.DeadlineExceeded))
 			}()
 			Eventually(reached).Should(Receive())
 			start := time.Now()
 			Expect(svc.Logins(ctx)).To(ConsistOf(HaveField("Provider", "up")))
 			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
-			Eventually(loginErr).Should(Receive(MatchError(context.DeadlineExceeded)))
+			Eventually(loggedIn).Should(BeClosed())
 		})
 	})
 
