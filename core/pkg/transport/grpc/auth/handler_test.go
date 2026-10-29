@@ -43,8 +43,8 @@ type (
 	sessionRenewServer = grpc.UnaryServer[
 		struct{},
 		*emptypb.Empty,
-		struct{},
-		*emptypb.Empty,
+		auth.SessionRenewResponse,
+		*grpcauth.SessionRenewResponse,
 	]
 	sessionRetrieveServer = grpc.UnaryServer[
 		auth.SessionRetrieveRequest,
@@ -78,6 +78,7 @@ var _ = Describe("Auth", func() {
 		bindable  = grpcauth.New(&transport).(grpc.CompoundBindableTransport)
 		login     = transport.AuthLogin.(*loginServer)
 		create    = transport.AuthSessionCreate.(*sessionCreateServer)
+		renew     = transport.AuthSessionRenew.(*sessionRenewServer)
 		retrieve  = transport.AuthSessionRetrieve.(*sessionRetrieveServer)
 		del       = transport.AuthSessionDelete.(*sessionDeleteServer)
 	)
@@ -205,6 +206,41 @@ var _ = Describe("Auth", func() {
 				Session: &grpcauth.Session{Key: uuid.New().String(), Credential: "bad"},
 			}),
 			Entry("user", &grpcauth.SessionCreateResponse{
+				Session: &grpcauth.Session{
+					Key:        uuid.New().String(),
+					Credential: uuid.New().String(),
+				},
+				User: &grpcauth.User{Key: "bad"},
+			}),
+		)
+	})
+
+	Describe("SessionRenewResponse", func() {
+		It("Should round-trip the session and user", func(ctx SpecContext) {
+			t := renew.ResponseTranslator
+			msg := auth.SessionRenewResponse{Session: session, User: &bob}
+			Expect(
+				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
+			).To(Equal(msg))
+		})
+		It("Should round-trip a subject that is not a user", func(ctx SpecContext) {
+			t := renew.ResponseTranslator
+			msg := auth.SessionRenewResponse{Session: session}
+			fwd := MustSucceed(t.Forward(ctx, msg))
+			Expect(fwd.User).To(BeNil())
+			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
+		})
+		DescribeTable("Should reject a malformed key", func(
+			ctx SpecContext,
+			res *grpcauth.SessionRenewResponse,
+		) {
+			Expect(renew.ResponseTranslator.Backward(ctx, res)).Error().
+				To(MatchError(errInvalidUUID))
+		},
+			Entry("session", &grpcauth.SessionRenewResponse{
+				Session: &grpcauth.Session{Key: "bad"},
+			}),
+			Entry("user", &grpcauth.SessionRenewResponse{
 				Session: &grpcauth.Session{
 					Key:        uuid.New().String(),
 					Credential: uuid.New().String(),

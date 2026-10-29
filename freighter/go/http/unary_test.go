@@ -609,6 +609,24 @@ var _ = Describe("Unary", func() {
 			return res
 		}
 
+		It("should expose the Cookie header as a param", func(ctx context.Context) {
+			bindParamEcho(fiber.HeaderCookie)
+			body := MustSucceed(json.Codec.Encode(ctx, testutil.Request{}))
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, http.MethodPost,
+				"http://"+unaryAddr.String()+"/",
+				bytes.NewReader(body),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+			httpReq.Header.Set(fiber.HeaderCookie, "session=abc; theme=dark")
+			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+			respBody := MustSucceed(io.ReadAll(httpRes.Body))
+			var res testutil.Response
+			Expect(json.Codec.Decode(ctx, respBody, &res)).To(Succeed())
+			Expect(res.Message).To(Equal("session=abc; theme=dark"))
+		})
+
 		It(
 			"should expose freighterctx-prefixed query params with the prefix stripped",
 			func(ctx context.Context) {

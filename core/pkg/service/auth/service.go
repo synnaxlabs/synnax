@@ -170,6 +170,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
+// IdleTimeout returns how long a session lives without use.
+func (s *Service) IdleTimeout() time.Duration { return s.cfg.IdleTimeout }
+
 // Close stops the sweep and releases the service's resources.
 func (s *Service) Close() error {
 	s.disconnect()
