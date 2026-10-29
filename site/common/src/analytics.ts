@@ -42,8 +42,26 @@ interface Config {
   opt_out_capturing_by_default: boolean;
   consent_persistence_name: string;
   opt_out_capturing_persistence_type: "cookie";
-  session_recording: { maskTextSelector?: string };
+  mask_all_text: boolean;
+  mask_all_element_attributes: boolean;
+  before_send: (event: CaptureResult) => CaptureResult;
+  session_recording: Recording;
   loaded: (posthog: PostHog) => void;
+}
+
+type Properties = Record<string, unknown>;
+
+/** The parts of an event that can hold URLs. */
+interface CaptureResult {
+  properties: Properties;
+  $set?: Properties;
+  $set_once?: Properties;
+}
+
+interface Recording {
+  maskTextSelector?: string;
+  maskAttributeFn?: (name: string, value: string) => string;
+  maskCapturedNetworkRequestFn: <R extends { name: string }>(request: R) => R;
 }
 
 declare global {
@@ -70,9 +88,41 @@ export interface Options {
   card: HTMLElement;
   /** The account to link the visitor to once cookies are on. */
   userID: string | null;
-  /** Hides all text in recordings, for pages that show other people's data. */
-  textMasked: boolean;
+  /**
+   * For pages that show other people's data or put one-time codes in links. PostHog
+   * then records no page text, no attributes of clicked elements, and no link queries.
+   */
+  sensitive: boolean;
 }
+
+/** Cuts the query and fragment off a URL. Portal links carry one-time codes there. */
+const bare = (url: string): string => url.replace(/[?#].*/s, "");
+
+const bareIfAbsolute = (value: string): string =>
+  /^https?:\/\//.test(value) ? bare(value) : value;
+
+const isRecord = (value: unknown): value is Properties =>
+  typeof value === "object" && value != null && value.constructor === Object;
+
+const scrub = (value: unknown): unknown => {
+  if (typeof value === "string") return bareIfAbsolute(value);
+  if (Array.isArray(value)) return value.map(scrub);
+  if (isRecord(value)) return scrubProperties(value);
+  return value;
+};
+
+/** Cuts the query and fragment off each URL in the properties, keys included. */
+const scrubProperties = (properties: Properties): Properties => {
+  const scrubbed: Properties = {};
+  for (const [key, value] of Object.entries(properties)) {
+    const k = bareIfAbsolute(key);
+    const v = scrub(value);
+    const prior = scrubbed[k];
+    // Heatmaps key their points by page URL, so two keys can become one.
+    scrubbed[k] = Array.isArray(prior) && Array.isArray(v) ? [...prior, ...v] : v;
+  }
+  return scrubbed;
+};
 
 const chosen = (): boolean =>
   document.cookie.split("; ").some((c) => c.startsWith(`${CHOICE}=`));
@@ -88,13 +138,14 @@ const fetchMode = async (fetch: Options["fetch"]): Promise<Mode> => {
  * Starts PostHog. A visitor who has not answered sees the card in Europe, and gets
  * cookies everywhere else. Until they answer, and after they reject, PostHog counts
  * them without cookies. A `[data-consent]` element accepts, rejects, or opens the card.
+ * PostHog never receives the query or fragment of a page URL.
  */
 export const start = async ({
   posthog,
   fetch,
   card,
   userID,
-  textMasked,
+  sensitive,
 }: Options): Promise<void> => {
   const identify = (to: PostHog): void => {
     if (userID != null) to.identify(userID);
@@ -125,7 +176,24 @@ export const start = async ({
       opt_out_capturing_by_default: !notice,
       consent_persistence_name: CHOICE,
       opt_out_capturing_persistence_type: "cookie",
-      session_recording: textMasked ? { maskTextSelector: "*" } : {},
+      mask_all_text: sensitive,
+      mask_all_element_attributes: sensitive,
+      before_send: (event) => {
+        event.properties = scrubProperties(event.properties);
+        if (event.$set != null) event.$set = scrubProperties(event.$set);
+        if (event.$set_once != null) event.$set_once = scrubProperties(event.$set_once);
+        return event;
+      },
+      session_recording: {
+        maskCapturedNetworkRequestFn: (request) => ({
+          ...request,
+          name: bare(request.name),
+        }),
+        ...(sensitive && {
+          maskTextSelector: "*",
+          maskAttributeFn: (name, value) => (name === "href" ? bare(value) : value),
+        }),
+      },
       loaded: (loaded) => {
         if (loaded.get_explicit_consent_status() === "granted") identify(loaded);
       },

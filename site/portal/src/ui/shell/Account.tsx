@@ -54,6 +54,11 @@ export const Account = ({ name, image }: AccountProps): ReactElement => {
             <Icon.Settings />
             Settings
           </Menu.Item>
+          {/* The consent card opens on any click of a [data-consent] element. */}
+          <Menu.Item itemKey="cookies" data-consent="settings">
+            <Icon.Lock />
+            Cookie settings
+          </Menu.Item>
           <Menu.Divider />
           <Menu.Item itemKey="logout">
             <Icon.Logout />

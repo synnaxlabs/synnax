@@ -9,7 +9,7 @@
 
 import reactRenderer from "@astrojs/react/server.js";
 import { experimental_AstroContainer as AstroContainer } from "astro/container";
-import { JSDOM } from "jsdom";
+import { type DOMWindow, JSDOM } from "jsdom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { capture, type PostHog, reset, start } from "./analytics";
@@ -61,17 +61,17 @@ const card = (): HTMLElement => document.querySelector(".consent") as HTMLElemen
 const begin = async ({
   mode = "ask",
   userID = null,
-  textMasked = false,
+  sensitive = false,
   consent,
 }: {
   mode?: string;
   userID?: string | null;
-  textMasked?: boolean;
+  sensitive?: boolean;
   consent?: "granted" | "denied" | "pending";
 } = {}) => {
   const rec = recorder(consent);
   const fetch = country(mode);
-  await start({ posthog: () => rec.posthog, fetch, card: card(), userID, textMasked });
+  await start({ posthog: () => rec.posthog, fetch, card: card(), userID, sensitive });
   return { ...rec, fetch };
 };
 
@@ -93,20 +93,53 @@ describe("analytics", () => {
       expect(el.querySelector("a")?.getAttribute("href")).toBe("/privacy-policy");
     });
 
-    it("should hand the account and the text masking to the script", async () => {
+    it("should hand the account and the sensitivity to the script", async () => {
       const el = await rendered({
         privacy: "/privacy",
         userID: "user_1",
-        textMasked: true,
+        sensitive: true,
       });
       expect(el.dataset.userId).toBe("user_1");
-      expect(el.dataset.textMasked).toBe("");
+      expect(el.dataset.sensitive).toBe("");
     });
 
     it("should hand neither to the script by default", async () => {
       const el = await rendered({ privacy: "/privacy" });
       expect(el.dataset.userId).toBeUndefined();
-      expect(el.dataset.textMasked).toBeUndefined();
+      expect(el.dataset.sensitive).toBeUndefined();
+    });
+  });
+
+  describe("loader", () => {
+    /** Runs the loader on the given queue, which stands in for `window.posthog`. */
+    const load = async (queue: unknown[]): Promise<DOMWindow> =>
+      new JSDOM(await render({ privacy: "/privacy" }), {
+        runScripts: "dangerously",
+        beforeParse: (window) => Object.assign(window, { posthog: queue }),
+      }).window;
+
+    it("should queue calls made before PostHog starts", async () => {
+      const queue: unknown[] = [];
+      const window = await load(queue);
+      window.posthog.capture("desktop_download_clicked", { location: "hero" });
+      window.posthog.reset();
+      expect([...queue]).toEqual([
+        ["capture", "desktop_download_clicked", { location: "hero" }],
+        ["reset"],
+      ]);
+    });
+
+    it("should load PostHog from the API host once", async () => {
+      const queue: unknown[] = [];
+      const window = await load(queue);
+      const config = { api_host: "https://t.synnaxlabs.com" } as Init;
+      window.posthog.init("key", config);
+      window.posthog.init("key", config);
+      const scripts = window.document.querySelectorAll(
+        'script[src="https://t.synnaxlabs.com/static/array.js"]',
+      );
+      expect(scripts).toHaveLength(1);
+      expect([...queue]).toEqual([["init", "key", config]]);
     });
   });
 
@@ -211,11 +244,76 @@ describe("analytics", () => {
       expect(configured().opt_out_capturing_persistence_type).toBe("cookie");
     });
 
-    it("should hide all text in recordings only when asked", async () => {
-      expect((await begin()).configured().session_recording).toEqual({});
-      expect(
-        (await begin({ textMasked: true })).configured().session_recording,
-      ).toEqual({ maskTextSelector: "*" });
+    describe("URLs", () => {
+      const handoff = "https://portal.synnaxlabs.com/licenses/activate?handoff=a#done";
+      const bare = "https://portal.synnaxlabs.com/licenses/activate";
+
+      it("should cut the query and fragment off each URL in an event", async () => {
+        const { configured } = await begin();
+        const event = configured().before_send({
+          properties: {
+            $current_url: handoff,
+            $web_vitals_LCP_event: { $current_url: handoff },
+            $el_text: "Why?",
+            $screen_height: 900,
+          },
+          $set_once: { $initial_current_url: handoff },
+        });
+        expect(event).toEqual({
+          properties: {
+            $current_url: bare,
+            $web_vitals_LCP_event: { $current_url: bare },
+            $el_text: "Why?",
+            $screen_height: 900,
+          },
+          $set_once: { $initial_current_url: bare },
+        });
+      });
+
+      it("should merge heatmap points of URLs that differ only by query", async () => {
+        const { configured } = await begin();
+        const event = configured().before_send({
+          properties: {
+            $heatmap_data: { [`${bare}?handoff=a`]: [{ x: 1 }], [handoff]: [{ x: 2 }] },
+          },
+        });
+        expect(event.properties).toEqual({
+          $heatmap_data: { [bare]: [{ x: 1 }, { x: 2 }] },
+        });
+      });
+
+      it("should cut the query and fragment off each URL in recordings", async () => {
+        const { configured } = await begin();
+        const mask = configured().session_recording.maskCapturedNetworkRequestFn;
+        expect(mask({ name: handoff, method: "GET" })).toEqual({
+          name: bare,
+          method: "GET",
+        });
+      });
+    });
+
+    describe("a sensitive page", () => {
+      it("should keep page text and attributes out of PostHog", async () => {
+        const { configured } = await begin({ sensitive: true });
+        expect(configured().mask_all_text).toBe(true);
+        expect(configured().mask_all_element_attributes).toBe(true);
+        expect(configured().session_recording.maskTextSelector).toBe("*");
+      });
+
+      it("should cut the query off links in recordings", async () => {
+        const { configured } = await begin({ sensitive: true });
+        const mask = configured().session_recording.maskAttributeFn;
+        expect(mask?.("href", "/login?redirect_url=a")).toBe("/login");
+        expect(mask?.("src", "/logo.png?w=2")).toBe("/logo.png?w=2");
+      });
+    });
+
+    it("should keep page text and attributes on other pages", async () => {
+      const { configured } = await begin();
+      expect(configured().mask_all_text).toBe(false);
+      expect(configured().mask_all_element_attributes).toBe(false);
+      expect(configured().session_recording.maskTextSelector).toBeUndefined();
+      expect(configured().session_recording.maskAttributeFn).toBeUndefined();
     });
 
     it("should reject an unknown mode from the country route", async () => {
