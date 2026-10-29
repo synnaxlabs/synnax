@@ -29,14 +29,14 @@ _SCROLL_SETTLE_MS = 150
 _POLL_MS = 100
 _DEFAULT_TIMEOUT_MS = 5000
 _SCROLL_TO_TOP_JS = """(el) => {
-    const tree = el.closest(".pluto-tree");
+    const tree = el.closest(".lyra-tree");
     tree.scrollTop += el.getBoundingClientRect().top - tree.getBoundingClientRect().top;
 }"""
 # Items mount in any order, so the script sorts them by their position in the window.
 # The read is complete once it reaches a row outside the subtree or the bottom of the
 # tree.
 _NESTED_NAMES_JS = """(parent, prefix) => {
-    const tree = parent.closest(".pluto-tree");
+    const tree = parent.closest(".lyra-tree");
     const items = [...tree.querySelectorAll("[role=treeitem]")]
         .filter((el) => el.checkVisibility())
         .sort((a, b) => a.offsetTop - b.offsetTop);
@@ -48,7 +48,7 @@ _NESTED_NAMES_JS = """(parent, prefix) => {
         if (Number(el.getAttribute("aria-level")) <= level) return [names, true];
         if (el.id.startsWith(prefix)) names.push(el.innerText.trim());
     }
-    const virtualizer = tree.querySelector(".pluto-list__virtualizer");
+    const virtualizer = tree.querySelector(".lyra-list__virtualizer");
     if (virtualizer == null) return [names, true];
     const last = items[items.length - 1];
     return [names, last.offsetTop + last.offsetHeight >= virtualizer.scrollHeight];
