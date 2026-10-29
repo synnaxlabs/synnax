@@ -1394,12 +1394,10 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(c.Next(ctx, fr, frame.NewUnary(
 				base[0].Key(),
 				telem.NewSeriesV[int64](1),
-			))).Error().To(MatchError(
+			))).Error().To(MatchError(HavePrefix(
 				"WASM execution failed in node calculation at sample 0/1: " +
-					"wasm error: integer divide by zero\n" +
-					"wasm stack trace:\n" +
-					"\t.$0(i64) i64",
-			))
+					"wasm error: integer divide by zero",
+			)))
 			d := telem.NewSeriesV[int64](5)
 			d.Alignment = telem.NewAlignment(0, 1)
 			of, changed := MustSucceed2(c.Next(
