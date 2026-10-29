@@ -151,9 +151,12 @@ address 0, unless a task got a reply within the scan period. Any reply, an excep
 included, shows that the unit answers. A timeout, exception 0A, or exception 0B marks it
 unreachable.
 
-Each connection counts requests, retries, timeouts, and exceptions for each unit, and
-keeps the last and maximum response time. The scanner reports them in the Modbus
-server's `StatusDetails` (RFC 0081 §4.2).
+Each connection counts, for each unit, the requests it tries (retries included), the
+retries, the timeouts, and the exceptions (a gateway's 0A and 0B included). It also
+keeps the last and longest time from sending a request to its reply. The scanner reports
+them in the Modbus server's `StatusDetails` (RFC 0081 §4.2) as `stats`, with the fields
+`requests`, `retries`, `timeouts`, `exceptions`, `last_response`, and `max_response`.
+Times are in nanoseconds.
 
 ### 2.8 Testing
 
