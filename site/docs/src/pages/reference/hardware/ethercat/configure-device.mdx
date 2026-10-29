@@ -262,7 +262,8 @@ Driver also writes them again when a module returns after a power loss.
   If a module rejects a value when it reconnects, it stays out of operation until the
   network starts again.
 - **Invalid properties** -> If a parameter is not valid, the status of the module shows
-  **Invalid device properties** and says which field is wrong.
+  **Invalid device properties** and says which field is wrong. The network starts every
+  module on it, so no task on that network starts until you correct the parameter.
 
 <Client.Tabs exclude={["console"]}>
   <Fragment slot="python">
