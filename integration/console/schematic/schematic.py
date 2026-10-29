@@ -371,7 +371,7 @@ class Schematic(ConsolePage):
 
         Symbols must be selected first (see select).
         """
-        return self.page.locator(".console-schematic__symbol .pluto-text").first
+        return self.page.locator(".console-schematic__symbol .lyra-text").first
 
     def change_symbol(self, name: str) -> None:
         """Change the selected symbols to the named symbol from the symbols tab.

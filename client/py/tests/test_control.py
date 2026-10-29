@@ -520,6 +520,8 @@ class TestController:
             waiter.start()
             deadline = time.monotonic() + HANDSHAKE_TIMEOUT
             while not receiver.processors:
+                if errors:
+                    raise errors[0]
                 assert time.monotonic() < deadline, "waiter never registered"
                 time.sleep(0.01)
             asyncio.run_coroutine_threadsafe(

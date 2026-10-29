@@ -105,16 +105,14 @@ class Client(Surface):
         """
         self.pages.expand_active()
         page_item = (
-            self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
+            self.layout.page.locator(".lyra-tree__item").filter(has_text=name).first
         )
         if self.layout.locator_exists(page_item):
             self.ctx_menu.action(page_item, f"Snapshot to {range_name}")
         else:
             self.layout.show_resource_toolbar("Tasks")
             task_item = (
-                self.layout.page.locator(".pluto-list__item")
-                .filter(has_text=name)
-                .first
+                self.layout.page.locator(".lyra-list__item").filter(has_text=name).first
             )
             task_item.wait_for(state="visible", timeout=5000)
             self.ctx_menu.action(task_item, f"Snapshot to {range_name}")

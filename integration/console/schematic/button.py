@@ -139,7 +139,7 @@ class Button(Symbol):
                 button = self.page.get_by_text(option).first
                 if button.count() > 0:
                     class_name = button.get_attribute("class") or ""
-                    if "pluto--selected" in class_name:
+                    if "lyra--selected" in class_name:
                         props["mode"] = option
                         break
             except Exception as e:

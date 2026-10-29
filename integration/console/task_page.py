@@ -79,7 +79,7 @@ class TaskPage(ConsolePage):
         """
         controls = self._controls()
         self.notifications.close_all()
-        play = controls.locator("button:has(.pluto-icon--play)")
+        play = controls.locator("button:has(.lyra-icon--play)")
         play.wait_for(state="visible", timeout=5000)
         play.click()
         if expect is not None:
@@ -88,7 +88,7 @@ class TaskPage(ConsolePage):
     def stop(self) -> None:
         """Stop the task from the controls bar and wait for the stopped message."""
         controls = self._controls()
-        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
         stop_btn.click()
@@ -139,9 +139,9 @@ class TaskPage(ConsolePage):
         :param label: Label of the field.
         """
         item = self.page.locator(f"text={label}").locator(
-            "xpath=ancestor::*[contains(@class, 'pluto-input__item')][1]"
+            "xpath=ancestor::*[contains(@class, 'lyra-input__item')][1]"
         )
-        help_text = item.locator(".pluto-input-help-text").first
+        help_text = item.locator(".lyra-input-help-text").first
         expect(help_text).not_to_have_text("", timeout=5000)
         return help_text.inner_text().strip()
 
@@ -167,8 +167,8 @@ class TaskPage(ConsolePage):
         class_attr = status_element.get_attribute("class") or ""
         level = "unknown"
         for cls in class_attr.split():
-            if cls.startswith("pluto--status-"):
-                level = cls.replace("pluto--status-", "")
+            if cls.startswith("lyra--status-"):
+                level = cls.replace("lyra--status-", "")
                 break
 
         msg = status_element.inner_text()
@@ -180,7 +180,7 @@ class TaskPage(ConsolePage):
 
     def copy_link(self) -> str:
         """Copy link to the task via the utility button in the form header."""
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button = self.page.locator(".lyra-icon--link").locator("..")
         link_button.click(timeout=5000)
         return self.layout.read_clipboard()
 

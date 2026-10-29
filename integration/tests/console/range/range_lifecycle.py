@@ -226,7 +226,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.set_active(self.range_name)
         item = self.console.ranges.toolbar.get_item(self.range_name)
         class_attr = item.get_attribute("class") or ""
-        assert "pluto--selected" in class_attr, "Range should be marked as active"
+        assert "lyra--selected" in class_attr, "Range should be marked as active"
 
     def test_remove_active_range(self) -> None:
         """Test removing an active range from the toolbar via context menu."""

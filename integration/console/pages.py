@@ -205,7 +205,7 @@ class PagesClient(ResourceClient):
         """
         self.layout.close_left_toolbar()
         add_btn = self.layout.page.locator(
-            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.pluto-icon--add)"
+            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.lyra-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.dispatch_event("click")

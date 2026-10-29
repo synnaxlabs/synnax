@@ -197,12 +197,12 @@ class Analog:
         if value is None:
             return
         trigger = self.layout.page.locator(
-            f"button.pluto-dialog__trigger:has-text('{trigger_text}')"
+            f"button.lyra-dialog__trigger:has-text('{trigger_text}')"
         )
         if trigger.inner_text().strip() == value:
             return
         trigger.click()
-        self.layout.page.locator(".pluto-list__item").get_by_text(
+        self.layout.page.locator(".lyra-list__item").get_by_text(
             value, exact=True
         ).dispatch_event("click")
 

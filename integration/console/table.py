@@ -160,7 +160,7 @@ class Table(ConsolePage):
         self.page.locator(".pluto-redline-form").get_by_text(
             "Add band", exact=True
         ).click()
-        threshold_input = bands.locator(".pluto-list__item input").last
+        threshold_input = bands.locator(".lyra-list__item input").last
         threshold_input.fill(str(threshold))
         threshold_input.press("Enter")
 
@@ -174,7 +174,7 @@ class Table(ConsolePage):
         Returns:
             The threshold of each band as shown in its input
         """
-        inputs = self._open_redline_bands(row, col).locator(".pluto-list__item input")
+        inputs = self._open_redline_bands(row, col).locator(".lyra-list__item input")
         return [inputs.nth(i).input_value() for i in range(inputs.count())]
 
     def _open_redline_bands(self, row: int, col: int) -> Locator:
@@ -364,7 +364,7 @@ class Table(ConsolePage):
         """Read the cell type from the toolbar header. "Mixed" when the selected
         cells disagree on type."""
         self.layout.show_visualization_toolbar()
-        identity = self.page.locator(".console-table__variant > .pluto-text")
+        identity = self.page.locator(".console-table__variant > .lyra-text")
         return identity.inner_text().strip()
 
     def set_toolbar_size(self, label: str) -> None:
@@ -389,7 +389,7 @@ class Table(ConsolePage):
         position like "A1"), or 0 when no cell is selected.
         """
         self.layout.show_visualization_toolbar()
-        segments = self.page.locator(".pluto-breadcrumb__segment")
+        segments = self.page.locator(".lyra-breadcrumb__segment")
         if segments.count() < 2:
             return 0
         text = segments.nth(1).inner_text().strip()

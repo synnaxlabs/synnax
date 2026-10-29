@@ -169,7 +169,13 @@ class Streamer:
         return key in self._channels
 
     def start(self) -> None:
-        self._thread = threading.Thread(target=self._loop, daemon=True)
+        """Opens the stream and reads it in the background. Returns once the Core
+        reports the stream live, so the stream sees every later write.
+        """
+        if not self._channels:
+            return
+        stream = self._client.open_streamer(list(self._channels))
+        self._thread = threading.Thread(target=self._loop, args=(stream,), daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
@@ -187,13 +193,8 @@ class Streamer:
     def has_channels(self) -> bool:
         return len(self._channels) > 0
 
-    def _loop(self) -> None:
-        if not self._channels:
-            return
-
-        streamer = None
+    def _loop(self, streamer: Stream) -> None:
         try:
-            streamer = self._client.open_streamer(list(self._channels))
             while not self._should_stop:
                 frame = streamer.read(timeout=self._read_timeout)
                 if frame is None:
@@ -207,12 +208,11 @@ class Streamer:
         except Exception as e:
             self._fail(e)
         finally:
-            if streamer is not None:
-                try:
-                    with suppress_websocket_errors():
-                        streamer.close()
-                except Exception as e:
-                    self._fail(e)
+            try:
+                with suppress_websocket_errors():
+                    streamer.close()
+            except Exception as e:
+                self._fail(e)
 
     def _fail(self, error: Exception) -> None:
         """Saves error unless an earlier one stopped the stream, and wakes waiters."""

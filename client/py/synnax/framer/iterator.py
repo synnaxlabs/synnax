@@ -63,7 +63,7 @@ class _Response(BaseModel):
     frame: FramePayload
 
 
-class WSIteratorCodec(WSCodec):
+class _WSIteratorCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
@@ -118,7 +118,7 @@ class Iterator:
         self.tr = tr
         self.instrumentation = instrumentation
         self._adapter = adapter
-        client = client.with_codec(WSIteratorCodec(self._adapter.codec))
+        client = client.with_codec(_WSIteratorCodec(self._adapter.codec))
         self._stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
         self._reduction = reduction
