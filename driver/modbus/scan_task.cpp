@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <mutex>
+#include <string>
 #include <utility>
 
 #include "x/cpp/json/json.h"
@@ -34,13 +35,14 @@ std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices_out;
     if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
-    std::lock_guard lock(this->mu);
-    std::unordered_map<std::string, Check> next;
     for (auto [key, dev]: *scan_ctx.devices) {
-        this->check_device_health(dev, next);
+        this->check_device_health(dev);
         devices_out.push_back(dev);
     }
-    this->checks = std::move(next);
+    std::lock_guard lock(this->mu);
+    std::erase_if(this->checks, [&](const auto &entry) {
+        return !scan_ctx.devices->contains(entry.first);
+    });
     return {devices_out, x::errors::NIL};
 }
 
@@ -56,23 +58,26 @@ bool Scanner::exec(
     return false;
 }
 
-void Scanner::release_stale(const device::ConnectionConfig &cfg) {
+void Scanner::release_stale(
+    std::unique_lock<std::mutex> &lock,
+    const device::ConnectionConfig &cfg
+) {
     if (cfg.transport != device::Transport::RTU) return;
+    const auto endpoint = cfg.endpoint();
+    this->probed.wait(lock, [&] { return !this->probing.contains(endpoint); });
     std::erase_if(this->checks, [&](const auto &entry) {
         const auto &held = entry.second.dev->config();
-        return held.endpoint() == cfg.endpoint() &&
-               held.serial.line() != cfg.serial.line();
+        return held.endpoint() == endpoint && held.serial.line() != cfg.serial.line();
     });
 }
 
-void Scanner::check_device_health(
-    synnax::device::Device &dev,
-    std::unordered_map<std::string, Check> &next
-) {
+void Scanner::check_device_health(synnax::device::Device &dev) {
     const auto rack_key = this->task.rack;
     const auto parser = x::json::Parser(dev.properties);
     const auto props = device::Properties(parser);
+    std::unique_lock lock(this->mu);
     if (parser.error()) {
+        this->checks.erase(dev.key);
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
@@ -85,17 +90,33 @@ void Scanner::check_device_health(
         return;
     }
 
-    this->release_stale(props.connection);
+    this->release_stale(lock, props.connection);
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
     synnax::device::StatusDetails details{.rack = rack_key, .device = dev.key};
-    if (!err) {
+    if (err)
+        this->checks.erase(dev.key);
+    else {
         const auto prev = this->checks.find(dev.key);
         const bool replied = prev != this->checks.end() &&
                              d->last_reply() >= prev->second.time;
-        if (!replied) err = d->probe();
-        next[dev.key] = Check{.dev = d, .time = device::Connection::Clock::now()};
+        if (!replied) {
+            const auto endpoint = props.connection.endpoint();
+            this->probing.insert(endpoint);
+            lock.unlock();
+            err = d->probe();
+            lock.lock();
+            this->probing.erase(endpoint);
+            this->probed.notify_all();
+        }
+        this->checks[dev.key] = Check{
+            .dev = d,
+            .time = device::Connection::Clock::now()
+        };
         details.data = x::json::json::object_t{{"stats", d->stats().to_json()}};
     }
+    // A connection test that releases the check must also release the connection.
+    d.reset();
+    lock.unlock();
     if (err)
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
@@ -138,9 +159,11 @@ void Scanner::test_connection(const synnax::task::Command &cmd) {
         ctx->set_status(status);
         return;
     }
-    std::lock_guard lock(this->mu);
-    this->release_stale(args.connection);
-    auto [dev, err] = this->devices->acquire(args.connection);
+    auto [dev, err] = [&] {
+        std::unique_lock lock(this->mu);
+        this->release_stale(lock, args.connection);
+        return this->devices->acquire(args.connection);
+    }();
     if (!err) err = dev->probe();
     if (err) {
         status.message = "Failed to connect to device";

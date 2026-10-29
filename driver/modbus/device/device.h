@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cerrno>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -57,6 +58,8 @@ const x::telem::TimeSpan DEMOTION = x::telem::SECOND * 10;
 inline x::errors::Error classify(const int errnum) {
     const std::string message = modbus_strerror(errnum);
     switch (errnum) {
+        case EBUSY:
+            return {UNREACHABLE, "serial port is in use by another connection"};
         case EMBXILFUN:
         case EMBXILADD:
         case EMBXILVAL:
@@ -190,6 +193,11 @@ inline std::string serial_path(const std::string &port) {
 /// @returns the name that every spelling of a serial port shares: on POSIX, the path
 /// with its links resolved, and on Windows, the device path in upper case.
 std::string canonical_port(const std::string &port);
+
+/// @brief locks the serial port that fd holds open, so that no other open of the port
+/// can use it. Windows already opens a COM port for one handle only.
+/// @returns 0, or EBUSY if another open of the port holds it.
+int lock_port(int fd);
 
 /// @brief the link to a Modbus server and the unit a device addresses on it.
 struct ConnectionConfig {
@@ -421,6 +429,8 @@ public:
     /// @brief the clock of request, reply, and demotion times.
     using Clock = std::chrono::steady_clock;
 
+    /// @brief the link of the connection.
+    const Transport transport;
     /// @brief the line settings of a serial connection. Unused for TCP.
     const Serial serial;
 
@@ -501,6 +511,11 @@ private:
         );
         if (!this->connected) {
             if (modbus_connect(this->ctx) == -1) return errno;
+            if (this->transport == Transport::RTU)
+                if (const int errnum = lock_port(modbus_get_socket(this->ctx))) {
+                    modbus_close(this->ctx);
+                    return errnum;
+                }
             this->connected = true;
             this->stale = false;
         }
@@ -564,16 +579,40 @@ private:
         return true;
     }
 
+    /// @brief runs a request for a unit while holding the turn.
+    template<typename Request>
+    x::errors::Error send(
+        const ConnectionConfig &cfg,
+        const x::telem::TimeSpan delay,
+        const Request &request
+    ) {
+        if (auto err = this->demoted(cfg.unit_id)) return err;
+        const auto wait = std::max(delay, this->frame_gap);
+        for (std::size_t i = 0;; i++) {
+            if (wait > x::telem::TimeSpan(0))
+                std::this_thread::sleep_until(this->last_request + wait.chrono());
+            const int errnum = this->attempt(cfg, request);
+            this->last_request = Clock::now();
+            this->record(cfg.unit_id, i > 0, errnum);
+            if (errnum == 0) return x::errors::NIL;
+            if (errnum == ETIMEDOUT && this->timed_out(cfg.unit_id))
+                return this->demoted(cfg.unit_id);
+            auto err = classify(errnum);
+            if (!err.matches(TEMPORARY_ERROR) || i >= cfg.retries) return err;
+        }
+    }
+
 public:
     /// @brief takes ownership of a context created by modbus_new_tcp_pi.
     /// @param demotion how long the requests of a demoted unit fail at once.
     Connection(modbus_t *ctx, const x::telem::TimeSpan demotion):
-        ctx(ctx), demotion(demotion), frame_gap(0) {}
+        transport(Transport::TCP), ctx(ctx), demotion(demotion), frame_gap(0) {}
 
     /// @brief takes ownership of a context created by modbus_new_rtu with the line
     /// settings.
     /// @param demotion how long the requests of a demoted unit fail at once.
     Connection(modbus_t *ctx, Serial serial, const x::telem::TimeSpan demotion):
+        transport(Transport::RTU),
         serial(std::move(serial)),
         ctx(ctx),
         demotion(demotion),
@@ -604,21 +643,26 @@ public:
         const bool write,
         const Request &request
     ) {
+        return this->sequence(cfg, delay, write, [&](const auto &send) {
+            return send(request);
+        });
+    }
+
+    /// @brief runs several requests for a unit in one turn, so that no other request on
+    /// the connection comes between them. Each request runs as exec runs it.
+    /// @param run calls its argument with each request, which returns the request's
+    /// error, and returns NIL or the error to stop at.
+    template<typename Run>
+    x::errors::Error sequence(
+        const ConnectionConfig &cfg,
+        const x::telem::TimeSpan delay,
+        const bool write,
+        const Run &run
+    ) {
         Turn turn(*this, write);
-        if (auto err = this->demoted(cfg.unit_id)) return err;
-        const auto wait = std::max(delay, this->frame_gap);
-        for (std::size_t i = 0;; i++) {
-            if (wait > x::telem::TimeSpan(0))
-                std::this_thread::sleep_until(this->last_request + wait.chrono());
-            const int errnum = this->attempt(cfg, request);
-            this->last_request = Clock::now();
-            this->record(cfg.unit_id, i > 0, errnum);
-            if (errnum == 0) return x::errors::NIL;
-            if (errnum == ETIMEDOUT && this->timed_out(cfg.unit_id))
-                return this->demoted(cfg.unit_id);
-            auto err = classify(errnum);
-            if (!err.matches(TEMPORARY_ERROR) || i >= cfg.retries) return err;
-        }
+        return run([&](const auto &request) {
+            return this->send(cfg, delay, request);
+        });
     }
 
     /// @returns when the unit last answered a request, an exception included.
@@ -643,6 +687,11 @@ class Device {
     template<typename Request>
     x::errors::Error exec(const bool write, const Request &request) {
         return this->conn->exec(this->cfg, this->requests.delay, write, request);
+    }
+
+    template<typename Run>
+    x::errors::Error sequence(const bool write, const Run &run) {
+        return this->conn->sequence(this->cfg, this->requests.delay, write, run);
     }
 
 public:
@@ -730,8 +779,8 @@ public:
 
     /// @brief sets the bits of a holding register that and_mask clears to those of
     /// or_mask, and keeps the rest. With mask writes this is one function code 22
-    /// request. Otherwise the device reads the register and writes it back, and a
-    /// change the server makes between the two requests is lost.
+    /// request. Otherwise the device reads the register and writes it back in one turn
+    /// on the connection, and a change the server makes between the two is lost.
     /// @param addr the address of the register.
     /// @param and_mask the bits to keep.
     /// @param or_mask the new values of the bits that and_mask clears.
@@ -744,13 +793,19 @@ public:
             return this->exec(true, [&](modbus_t *ctx) {
                 return modbus_mask_write_register(ctx, addr, and_mask, or_mask);
             });
-        std::uint16_t value = 0;
-        if (auto err = this->exec(true, [&](modbus_t *ctx) {
-                return modbus_read_registers(ctx, addr, 1, &value);
-            }))
-            return err;
-        value = (value & and_mask) | (or_mask & ~and_mask);
-        return this->write_registers(addr, 1, &value);
+        return this->sequence(true, [&](const auto &send) {
+            std::uint16_t value = 0;
+            if (auto err = send([&](modbus_t *ctx) {
+                    return modbus_read_registers(ctx, addr, 1, &value);
+                }))
+                return err;
+            value = (value & and_mask) | (or_mask & ~and_mask);
+            return send([&](modbus_t *ctx) {
+                if (this->requests.write_codes == WriteCodes::Single)
+                    return modbus_write_register(ctx, addr, value);
+                return modbus_write_registers(ctx, addr, 1, &value);
+            });
+        });
     }
 
     /// @brief checks that the unit answers by reading holding register 0.

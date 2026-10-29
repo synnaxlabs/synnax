@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cerrno>
 #include <filesystem>
 #include <string>
 #include <system_error>
+
+#include <sys/file.h>
 
 #include "driver/modbus/device/device.h"
 
@@ -20,5 +23,10 @@ std::string canonical_port(const std::string &port) {
     // A path that cannot resolve also fails to open, and the open reports why.
     if (ec) return port;
     return path.string();
+}
+
+int lock_port(const int fd) {
+    if (flock(fd, LOCK_EX | LOCK_NB) == 0) return 0;
+    return errno == EWOULDBLOCK ? EBUSY : errno;
 }
 }

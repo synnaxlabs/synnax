@@ -1113,6 +1113,35 @@ TEST(DeviceTest, CountsRequestsOfEachUnit) {
              {"max_response", 0}}
         )
     );
+}
+
+/// @brief it should keep the bits that another device sets in the same register while
+/// a read-then-write runs.
+TEST(MaskWrite, ReadThenWriteKeepsConcurrentBits) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1679;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    const ConnectionConfig conn{"127.0.0.1", 1679};
+    auto low = ASSERT_NIL_P(manager.acquire(conn));
+    auto high = ASSERT_NIL_P(manager.acquire(conn));
+    const auto set_bits = [](const std::shared_ptr<Device> &dev, const int first) {
+        for (int bit = first; bit < first + 8; bit++) {
+            const auto mask = static_cast<std::uint16_t>(1U << bit);
+            ASSERT_NIL(
+                dev->mask_write_register(0, static_cast<std::uint16_t>(~mask), mask)
+            );
+        }
+    };
+
+    for (int round = 0; round < 10; round++) {
+        ASSERT_NIL(low->mask_write_register(0, 0, 0));
+        std::thread writing([&] { set_bits(high, 8); });
+        set_bits(low, 0);
+        writing.join();
+        ASSERT_EQ(slave.get_holding_register(0), 0xFFFF) << "round " << round;
+    }
     slave.stop();
 }
 
