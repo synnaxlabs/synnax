@@ -28,7 +28,7 @@ class Toolbar(Surface):
 
     def get_item(self, name: str) -> Locator:
         """Get a range item locator from the toolbar by name."""
-        return self.layout.get_list_item(self.ITEM_SELECTOR, name)
+        return self.layout.get_list_item(self.ITEM_SELECTOR, name=name)
 
     def get_item_time(self, name: str) -> str:
         """Get the displayed time text from a toolbar range item.
@@ -79,25 +79,27 @@ class Toolbar(Surface):
         toolbar."""
         self._ctx_action(name, "Add to active plot")
 
-    def get_label(self, range_name: str, label_name: str) -> Locator:
+    def get_label(self, range_name: str, *, label_name: str) -> Locator:
         """Get a label tag within a range item in the toolbar."""
         range_item = self.get_item(range_name)
         return range_item.locator(".lyra-tag").filter(has_text=label_name).first
 
-    def label_exists(self, range_name: str, label_name: str) -> bool:
+    def label_exists(self, range_name: str, *, label_name: str) -> bool:
         """Check if a label exists on a range in the toolbar."""
         self.show()
-        return self.layout.locator_exists(self.get_label(range_name, label_name))
+        return self.layout.locator_exists(
+            self.get_label(range_name, label_name=label_name)
+        )
 
-    def wait_for_label_removed(self, range_name: str, label_name: str) -> None:
+    def wait_for_label_removed(self, range_name: str, *, label_name: str) -> None:
         """Wait until a label is removed from a range in the toolbar."""
         self.show()
-        self.layout.wait_for_hidden(self.get_label(range_name, label_name))
+        self.layout.wait_for_hidden(self.get_label(range_name, label_name=label_name))
 
-    def get_label_color(self, range_name: str, label_name: str) -> Color | None:
+    def get_label_color(self, range_name: str, *, label_name: str) -> Color | None:
         """Get the color of a label's icon in the range toolbar."""
         self.show()
-        label = self.get_label(range_name, label_name)
+        label = self.get_label(range_name, label_name=label_name)
         if label.count() == 0:
             return None
         icon = label.locator("svg").first

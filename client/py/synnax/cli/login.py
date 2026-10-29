@@ -24,10 +24,10 @@ def login() -> None:
     """
     flow_ctx = Context(console=console.Rich())
     options = connect.prompt_client_options(flow_ctx)
-    synnax = connect.from_context(flow_ctx, options)
+    synnax = connect.from_context(flow_ctx, opts=options)
     if synnax is None:
         return
-    cfg = config.Clusters(config.File(Path(os.path.expanduser("~/.synnax"))))
+    cfg = config.Clusters(config.File(config_dir=Path(os.path.expanduser("~/.synnax"))))
     cfg.set(config.Cluster(options=options))
     flow_ctx.console.info(_SUCCESSFUL_LOGIN)
 

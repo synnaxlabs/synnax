@@ -45,7 +45,7 @@ def _latest(frame: sy.Frame, name: str) -> float | None:
 
 
 class SimDAQ:
-    def __init__(self, client: sy.Synnax, config_dir: Path):
+    def __init__(self, *, client: sy.Synnax, config_dir: Path):
         self.client = client
         self.running = True
         self.config_dir = config_dir
@@ -312,7 +312,7 @@ class SimDAQ:
         print(f"  Total mappings: {len(self.channel_mapping)}\n")
 
     def generate_sensor_value(
-        self, name: str, ch_type: str, timestamp: sy.TimeStamp
+        self, name: str, *, ch_type: str, timestamp: sy.TimeStamp
     ) -> float:
         """Generate realistic sensor data."""
         t = (timestamp - self.time_offset) / sy.TimeSpan.SECOND
@@ -448,7 +448,7 @@ class SimDAQ:
                 # Add sensor data
                 for name, ch_type in self.sensor_channels:
                     frame_data[name] = self.generate_sensor_value(
-                        name, ch_type, timestamp
+                        name, ch_type=ch_type, timestamp=timestamp
                     )
 
                 # Add valve states
@@ -550,7 +550,7 @@ The script will:
         print(f"✗ ERROR: {e}\n")
         sys.exit(1)
 
-    daq = SimDAQ(client, config_dir)
+    daq = SimDAQ(client=client, config_dir=config_dir)
     daq.setup_channels()
     daq.run()
 
