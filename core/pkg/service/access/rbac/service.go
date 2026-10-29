@@ -99,17 +99,6 @@ type Service struct {
 // Close shuts down the RBAC service and its sub-services.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
-// This includes all policies from roles assigned to the subject via ontology
-// relationships.
-func (s *Service) RetrievePoliciesForSubject(
-	ctx context.Context,
-	subject ontology.ID,
-	tx gorp.Tx,
-) ([]policy.Policy, error) {
-	return s.NewEnforcer(tx).retrievePolicies(ctx, subject)
-}
-
 // OpenService creates a new RBAC service with both Policy and Role sub-services. It
 // also provisions built-in roles/policies and runs legacy permission migrations.
 func OpenService(

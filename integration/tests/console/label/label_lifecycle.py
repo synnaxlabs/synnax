@@ -72,7 +72,8 @@ class LabelLifecycle(ConsoleCase):
         range_name = self.shared_range
 
         assert self.console.ranges.toolbar.label_exists(range_name, old_label_name), (
-            f"Label {old_label_name} should be visible in toolbar for range {range_name}"
+            f"Label {old_label_name} should be visible in toolbar for range "
+            f"{range_name}"
         )
         self.log(f"Label {old_label_name} visible in toolbar for range {range_name}")
 
@@ -81,7 +82,8 @@ class LabelLifecycle(ConsoleCase):
         self.log(f"Label {old_label_name} renamed to {new_label_name}")
 
         assert self.console.ranges.toolbar.label_exists(range_name, new_label_name), (
-            f"Label {new_label_name} should be visible in toolbar for range {range_name}"
+            f"Label {new_label_name} should be visible in toolbar for range "
+            f"{range_name}"
         )
         self.console.ranges.toolbar.wait_for_label_removed(range_name, old_label_name)
         self.log(f"Label {new_label_name} visible in toolbar for range {range_name}")

@@ -17,13 +17,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   let optedOut = false;
   let label = "some-child-window";
+  let session = "";
   return {
     engine: "tauri" as const,
     setOptedOut: (next: boolean) => (optedOut = next),
     label: () => label,
     setLabel: (next: string) => (label = next),
+    /** Moves PostHog to a session on its own, as after an idle time. */
+    moveSession: (next: string) => (session = next),
     posthog: {
-      init: vi.fn(),
+      init: vi.fn((_key: string, config: { bootstrap: { sessionID: string } }) => {
+        session = config.bootstrap.sessionID;
+      }),
       set_config: vi.fn(),
       register: vi.fn(),
       capture: vi.fn(),
@@ -33,6 +38,13 @@ const mocks = vi.hoisted(() => {
       opt_in_capturing: vi.fn(() => (optedOut = false)),
       opt_out_capturing: vi.fn(() => (optedOut = true)),
       onSessionId: vi.fn<(share: (id: string) => void) => void>(),
+      get_session_id: vi.fn(() => session),
+      sessionManager: {
+        setBootstrapSessionId: vi.fn((next: string) => {
+          session = next;
+          return true;
+        }),
+      },
     },
   };
 });
@@ -75,6 +87,9 @@ const LINK = { secret: "shh", email: "a@example.com", user: "user_a" };
 
 /** The session the main window started, as a UUIDv7. */
 const SESSION = "019a2b3c-4d5e-7f60-8a1b-2c3d4e5f6a7b";
+
+/** A later session, after an idle time or the length limit. */
+const NEXT = "019a2b3c-4d5e-7f60-8a1b-000000000000";
 
 const renderProvider = async (
   account: Partial<Session.Account.SliceState>,
@@ -306,10 +321,23 @@ describe("Analytics.Provider", () => {
       const { store } = await renderProvider({ link: LINK, analyticsAllowed: true });
       await waitFor(() => expect(mocks.posthog.onSessionId).toHaveBeenCalledOnce());
       const share = mocks.posthog.onSessionId.mock.calls[0][0];
-      act(() => share("019a2b3c-4d5e-7f60-8a1b-000000000000"));
-      expect(Session.Analytics.selectSessionID(store.getState())).toBe(
-        "019a2b3c-4d5e-7f60-8a1b-000000000000",
-      );
+      act(() => {
+        mocks.moveSession(NEXT);
+        share(NEXT);
+      });
+      expect(Session.Analytics.selectSessionID(store.getState())).toBe(NEXT);
+      expect(mocks.posthog.sessionManager.setBootstrapSessionId).not.toHaveBeenCalled();
+    });
+
+    it("should move to a session that another window shares", async () => {
+      const { store } = await renderProvider({ link: LINK, analyticsAllowed: true });
+      await waitFor(() => expect(mocks.posthog.onSessionId).toHaveBeenCalledOnce());
+      act(() => {
+        store.dispatch(Session.Analytics.setSessionID(NEXT));
+      });
+      expect(
+        mocks.posthog.sessionManager.setBootstrapSessionId,
+      ).toHaveBeenCalledExactlyOnceWith(NEXT);
     });
 
     it("should keep the shared session when the user refuses usage data", async () => {

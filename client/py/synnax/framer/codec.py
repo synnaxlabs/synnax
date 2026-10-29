@@ -174,7 +174,8 @@ class Codec:
                 )
             if dt != ser.data_type:
                 raise ValidationError(
-                    f"data type {ser.data_type} for key {key} does not match codec state data type {dt}."
+                    f"data type {ser.data_type} for key {key} does not match codec "
+                    f"state data type {dt}."
                 )
             if curr_data_size == -1:
                 curr_data_size = len(ser)
@@ -232,7 +233,8 @@ class Codec:
                 )
             if dt != ser.data_type:
                 raise ValidationError(
-                    f"Series data type {ser.data_type} for key {k} does not match codec state data type {dt}."
+                    f"Series data type {ser.data_type} for key {k} does not match "
+                    f"codec state data type {dt}."
                 )
 
             if not flg.all_channels_present:

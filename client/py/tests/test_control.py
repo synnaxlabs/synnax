@@ -363,7 +363,9 @@ class TestController:
             assert time.perf_counter() - start >= 0.2
 
     def test_wait_while(self, client: sy.Synnax) -> None:
-        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        """Test that the controller can wait for a condition to be true for a certain
+        amount of time
+        """
         _, press_en_cmd, press_en, _ = create_valve_set(client)
 
         assertions: dict[str, bool | int] = {}
