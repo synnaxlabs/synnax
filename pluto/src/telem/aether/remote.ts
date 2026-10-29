@@ -147,7 +147,10 @@ class ChannelValue<V>
 
   private readonly client: Client | null;
   private readonly conversion: Conversion<V>;
-  private readonly failures = new FailureReporter(() => this.notify());
+  private readonly failures = new FailureReporter(() => {
+    this.notifiedStatus = this.failures.status;
+    this.notify();
+  });
   private subscription: framer.Subscription | null = null;
   private key: channel.Key | null = null;
   private converted: Converted<V> | null = null;
@@ -174,6 +177,7 @@ class ChannelValue<V>
       return {
         data: empty,
         status: sourceStatus(this.client, this.loading, this.failures),
+        appended: 0,
       };
     const snapshot = subscription.value(key);
     this.convert(snapshot);

@@ -19,6 +19,10 @@ import { Value } from "@/vis/value";
 import { value } from "@/vis/value/aether";
 
 const BOX = box.construct({ x: 0, y: 0 }, { width: 200, height: 50 });
+const START = TimeStamp.seconds(100);
+
+const createCore = (now: TimeStamp): SyntheticCore =>
+  new SyntheticCore({ rate: 10, start: START, now });
 
 describe("Value.use", () => {
   const closers: Array<() => Promise<void>> = [];
@@ -26,12 +30,7 @@ describe("Value.use", () => {
     for (const close of closers.splice(0)) await close();
   });
 
-  const connect = (): telem.Client => {
-    const core = new SyntheticCore({
-      rate: 10,
-      start: TimeStamp.seconds(100),
-      now: TimeStamp.seconds(110),
-    });
+  const connect = (core = createCore(TimeStamp.seconds(110))): telem.Client => {
     const client = telemTest.createClient(core);
     closers.push(async () => await client.feed.close());
     return client;
@@ -63,5 +62,51 @@ describe("Value.use", () => {
       ]),
     );
     expect(providers.status?.state.statuses).toEqual([]);
+  });
+
+  it("should clear an empty channel's problem once retrieval recovers", async () => {
+    const core = createCore(START);
+    const client = connect(core);
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => (release = resolve));
+    let failed = false;
+    const flaky: telem.Client = {
+      ...client,
+      channels: {
+        retrieve: async (ch) => {
+          if (!failed) {
+            failed = true;
+            throw new Error("connection refused");
+          }
+          await released;
+          return await client.channels.retrieve(ch);
+        },
+      },
+    };
+    const { result } = renderHook(
+      () =>
+        Value.use({
+          aetherKey: "value",
+          box: BOX,
+          telem: telem.streamChannelStringValue({ channel: core.data[0].key }),
+        }),
+      {
+        render: true,
+        registry: value.REGISTRY,
+        telem: { factories: [new telem.RemoteFactory(flaky)] },
+      },
+    );
+    await waitFor(() =>
+      expect(result.current.problems).toEqual([
+        {
+          variant: "error",
+          name: "",
+          message: "Failed to stream channel value",
+          description: "connection refused",
+        },
+      ]),
+    );
+    release();
+    await waitFor(() => expect(result.current.problems).toEqual([]));
   });
 });
