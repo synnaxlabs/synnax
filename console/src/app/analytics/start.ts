@@ -26,7 +26,7 @@ import { Session } from "@/session";
 export const start = (store: Session.Store): Analytics.Sink => {
   if (!DESKTOP || Session.Runtime.ENGINE !== "tauri") return Analytics.NOOP;
   const install = retrieveInstall();
-  const transport = create(identify(install), share(store));
+  const transport = create(identify(install), storeSession(store));
   const sink = Analytics.createSink(transport);
   watchAccount({ store, sink, transport });
   // Every window reports its own screens and actions, but a launch opens the app once,
@@ -47,31 +47,31 @@ const identify = async (install: Promise<Install>): Promise<Params> => ({
  * Keeps the PostHog session in the store, where every window sees it. The main window
  * starts a new session each launch, and every other window waits for it.
  */
-const share = (store: Session.Store): SharedSession => {
+const storeSession = (store: Session.Store): SharedSession => {
   const current = (): string | undefined =>
     Session.Analytics.selectSessionID(store.getState());
-  const set = (id: string): void => {
+  const share = (id: string): void => {
     if (id !== current()) store.dispatch(Session.Analytics.setSessionID(id));
   };
   const join = async (): Promise<string> => {
     if (Session.Runtime.isMainWindow()) {
       // PostHog takes only a UUIDv7, since it reads the start of the session from it.
       const id = uuidv7();
-      set(id);
+      share(id);
       return id;
     }
+    const id = current();
+    if (id != null) return id;
     return await new Promise((resolve) => {
-      const check = (): void => {
-        const id = current();
-        if (id == null) return;
+      const unsubscribe = store.subscribe(() => {
+        const next = current();
+        if (next == null) return;
         unsubscribe();
-        resolve(id);
-      };
-      const unsubscribe = store.subscribe(check);
-      check();
+        resolve(next);
+      });
     });
   };
-  return { join, current, share: set };
+  return { join, current, share };
 };
 
 /**
