@@ -75,7 +75,7 @@ class NITask(TaskPage):
         """Add a channel row, select it, and open its device dropdown."""
         idx = len(self.channels)
         self.add_channel_row()
-        self.layout.page.locator(".pluto-list__item").nth(idx).click()
+        self.layout.page.locator(".lyra-list__item").nth(idx).click()
         self.layout.click_btn("Device")
 
     def connect_device(self) -> None:
@@ -150,7 +150,7 @@ class NITask(TaskPage):
 
         for channel_name in names:
             idx = self.channels_by_name.index(channel_name)
-            self.layout.page.locator(".pluto-list__item").nth(idx).click()
+            self.layout.page.locator(".lyra-list__item").nth(idx).click()
             channel = self.channels[idx]
             sy.sleep(0.3)
             channel.assert_form()

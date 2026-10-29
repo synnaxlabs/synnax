@@ -47,12 +47,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(600);
 
   await session.click(trigger, { text: true });
-  const search = page.locator(".pluto-select__dialog:visible input").first();
+  const search = page.locator(".lyra-select__dialog:visible input").first();
   await session.waitFor(search);
   await session.hold(400);
   await session.type(STATUS);
   const option = page
-    .locator(".pluto-select__dialog:visible .pluto-list__item")
+    .locator(".lyra-select__dialog:visible .lyra-list__item")
     .filter({ hasText: STATUS })
     .first();
   await session.waitFor(option);
@@ -63,9 +63,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(600);
 
   const critical = form
-    .locator(".pluto-input__item")
+    .locator(".lyra-input__item")
     .filter({ has: page.getByText("Treat error as critical", { exact: true }) })
-    .locator(".pluto-input__switch")
+    .locator(".lyra-input__switch")
     .first();
   await session.click(critical);
   await session.hold(600);

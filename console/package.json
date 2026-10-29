@@ -43,6 +43,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-redux": "catalog:",
+    "uuid": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
