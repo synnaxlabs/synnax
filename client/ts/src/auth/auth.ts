@@ -133,33 +133,37 @@ const methodsResZ = z.object({
 });
 
 /** The address of a Core, for a request that needs no session. */
-export interface MethodsParams {
+export interface TokenlessParams {
   host: string;
   port: number | string;
   secure?: boolean;
 }
 
 /**
- * Retrieves the login methods a Core accepts, without logging in.
- * @throws {Unreachable} if the Core cannot be reached.
+ * Creates a client for the routes a Core serves without a session. Create one per Core
+ * address and reuse it across requests.
  */
-export const retrieveMethods = async ({
+export const createTokenlessClient = ({
   host,
   port,
   secure = false,
-}: MethodsParams): Promise<Method[]> => {
+}: TokenlessParams): UnaryClient => {
   const transport = new Transport(
     new url.URL({ host, port: Number(port) }),
     {},
     secure,
   );
   transport.use(errorsMiddleware);
-  const res = await transport.unaryNoRetry.send(
-    METHODS_ENDPOINT,
-    {},
-    z.object({}),
-    methodsResZ,
-  );
+  return transport.unaryNoRetry;
+};
+
+/**
+ * Retrieves the login methods a Core accepts, without logging in.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const retrieveMethods = async (client: UnaryClient): Promise<Method[]> => {
+  const res = await client.send(METHODS_ENDPOINT, {}, z.object({}), methodsResZ);
   return res.methods;
 };
 
