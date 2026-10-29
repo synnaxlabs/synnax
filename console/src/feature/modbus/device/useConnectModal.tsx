@@ -307,7 +307,7 @@ export const Connect = ({
                 </Form.Section>
               </Form.Sections>
             </Tabs.Content>
-            <Tabs.Content itemKey="diagnostics">
+            <Tabs.Content itemKey="diagnostics" className={CONTENT_CLASS}>
               <Diagnostics />
             </Tabs.Content>
           </Tabs.Frame>
