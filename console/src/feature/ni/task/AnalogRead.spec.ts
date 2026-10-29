@@ -411,6 +411,15 @@ describe("AnalogRead", () => {
     ).toBeTruthy();
   });
 
+  it("should mark the device field when a channel has no device", async () => {
+    const { container } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [createChannel("ai_voltage", 0, { device: "" })],
+    });
+    await clickDeploy(container);
+    expect(await screen.findByText("Device is required")).toBeTruthy();
+  });
+
   it("should create the task with one channel", async () => {
     const tsk = await createWithHook(
       NI.Task.useCreateAnalogRead,
