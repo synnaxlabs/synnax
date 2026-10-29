@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { getVersion } from "@tauri-apps/api/app";
-import { v7 as uuidv7 } from "uuid";
+import { v7 } from "uuid";
 
 import { watchAccount } from "@/app/analytics/account";
 import { follow } from "@/app/analytics/core";
@@ -56,7 +56,7 @@ const storeSession = (store: Session.Store): SharedSession => {
   const join = async (): Promise<string> => {
     if (Session.Runtime.isMainWindow()) {
       // PostHog takes only a UUIDv7, since it reads the start of the session from it.
-      const id = uuidv7();
+      const id = v7();
       share(id);
       return id;
     }
