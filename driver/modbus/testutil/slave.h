@@ -81,6 +81,8 @@ class Slave {
     std::vector<int> log_;
     /// @brief the one-time delay before the next reply to each unit. Guarded by mutex_.
     std::map<int, std::chrono::milliseconds> stalls_;
+    /// @brief the units whose next reply goes out damaged. Guarded by mutex_.
+    std::set<int> damaged_;
     /// @brief the number of client connections accepted. Guarded by mutex_.
     std::size_t connections_ = 0;
     /// @brief set to ask the server loop to close every client connection.
@@ -235,12 +237,22 @@ class Slave {
         unit_requests_[unit]++;
         log_.push_back(function_code);
         if (config_.silent_units.contains(unit)) return;
-        if (config_.gateway_failed_units.contains(unit))
-            modbus_reply_exception(ctx_, query, MODBUS_EXCEPTION_GATEWAY_TARGET);
-        else if (config_.reject_function_codes.contains(function_code))
-            modbus_reply_exception(ctx_, query, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
+        const auto reply = [&] {
+            if (config_.gateway_failed_units.contains(unit))
+                modbus_reply_exception(ctx_, query, MODBUS_EXCEPTION_GATEWAY_TARGET);
+            else if (config_.reject_function_codes.contains(function_code))
+                modbus_reply_exception(ctx_, query, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
+            else
+                modbus_reply(ctx_, query, length, mb_mapping_);
+        };
+        if (damaged_.erase(unit) == 0)
+            reply();
         else
-            modbus_reply(ctx_, query, length, mb_mapping_);
+            terminal_.write_damaged([&](const int fd) {
+                modbus_set_socket(ctx_, fd);
+                reply();
+                modbus_set_socket(ctx_, terminal_.fd());
+            });
     }
 
     /// @brief serves RTU frames from the pseudo-terminal. libmodbus drops each RTU
@@ -481,6 +493,13 @@ public:
     void stall_next(const int unit, const std::chrono::milliseconds delay) {
         std::lock_guard lock(mutex_);
         stalls_[unit] = delay;
+    }
+
+    /// @brief flips the last CRC byte of the next reply to the unit, as line noise
+    /// would. Serial slaves only.
+    void damage_next(const int unit) {
+        std::lock_guard lock(mutex_);
+        damaged_.insert(unit);
     }
 
     /// @brief sets whether the slave answers the unit.

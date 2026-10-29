@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 
 #include "x/cpp/errors/errors.h"
 
@@ -24,4 +25,6 @@ void PseudoTerminal::close() {}
 std::size_t PseudoTerminal::read_frame(std::uint8_t *, const std::size_t) const {
     return 0;
 }
+
+void PseudoTerminal::write_damaged(const std::function<void(int)> &) const {}
 }

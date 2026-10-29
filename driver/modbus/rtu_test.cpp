@@ -285,6 +285,58 @@ TEST(RTU, WaitsFrameGapBetweenRequests) {
     );
 }
 
+/// @brief it should report a reply that line noise damaged as a temporary error, and
+/// serve the next request on the same port.
+TEST(RTU, RecoversFromDamagedReply) {
+    auto cfg = serial_slave();
+    cfg.holding_registers[0] = static_cast<uint16_t>(1234);
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    device::Manager manager;
+    auto dev = ASSERT_NIL_P(manager.acquire(rtu(slave, 1)));
+
+    uint16_t reg = 0;
+    slave.damage_next(1);
+    const auto err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
+    ASSERT_OCCURRED_AS(err, device::TEMPORARY_ERROR);
+    EXPECT_EQ(err.data, modbus_strerror(EMBBADCRC));
+    ASSERT_NIL(dev->read_registers(device::HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(reg, 1234);
+}
+
+/// @brief it should report an unplugged port as unreachable, and serve the unit again
+/// once a port is back at the same path.
+TEST(RTU, RecoversAfterUnplug) {
+    auto cfg = serial_slave();
+    cfg.holding_registers[0] = static_cast<uint16_t>(1234);
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    const auto link = std::filesystem::temp_directory_path() /
+                      ("modbus-rtu-" + x::uuid::create().to_string());
+    std::filesystem::create_symlink(slave.serial_port(), link);
+    x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
+    device::Manager manager;
+    auto link_cfg = rtu(slave, 1);
+    link_cfg.serial.port = link.string();
+    auto dev = ASSERT_NIL_P(manager.acquire(link_cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(dev->read_registers(device::HoldingRegister, 0, 1, &reg));
+
+    slave.stop();
+    const auto err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
+    ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
+    EXPECT_EQ(err.data, modbus_strerror(EIO));
+
+    ASSERT_NIL(slave.start());
+    std::filesystem::remove(link);
+    std::filesystem::create_symlink(slave.serial_port(), link);
+    reg = 0;
+    ASSERT_NIL(dev->read_registers(device::HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(reg, 1234);
+}
+
 /// @brief it should return an unreachable error when the serial port does not exist.
 TEST(RTU, MissingPortIsUnreachable) {
     device::Manager manager;

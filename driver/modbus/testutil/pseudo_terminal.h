@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <string>
 
 #include "x/cpp/errors/errors.h"
@@ -42,6 +43,10 @@ public:
     /// @param size the length of the buffer.
     /// @returns the length of the frame, or 0 if no frame arrived.
     std::size_t read_frame(std::uint8_t *frame, std::size_t size) const;
+
+    /// @brief runs write on a descriptor of its own, then sends what it wrote to the
+    /// client with the last byte flipped, as line noise would.
+    void write_damaged(const std::function<void(int)> &write) const;
 
     /// @returns the descriptor the slave reads requests from and writes replies to.
     [[nodiscard]] int fd() const { return this->controller_; }
