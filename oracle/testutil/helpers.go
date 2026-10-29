@@ -35,10 +35,7 @@ func generateRequest(
 ) (*plugin.Request, error) {
 	table, diag := analyzer.AnalyzeSource(ctx, source, namespace, loader)
 	if diag != nil && !diag.Ok() {
-		errors := diag.Errors()
-		if len(errors) > 0 {
-			return nil, diag
-		}
+		return nil, diag
 	}
 	return &plugin.Request{
 		Resolutions: table,
@@ -74,8 +71,8 @@ func MustGenerateMulti(
 		files = append(files, path)
 	}
 	table, diag := analyzer.Analyze(ctx, files, loader)
-	if diag != nil && !diag.Ok() {
-		gomega.Expect(diag.Errors()).To(gomega.BeEmpty(), "failed to analyze sources")
+	if diag != nil {
+		gomega.Expect(diag.Ok()).To(gomega.BeTrue(), diag.String)
 	}
 	req := &plugin.Request{Resolutions: table, RepoRoot: loader.RepoRoot()}
 	resp, err := p.Generate(req)
