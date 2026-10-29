@@ -58,8 +58,10 @@ class BackwardJump(ArcCase):
     ]
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "bj_press_cmd", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "bj_pressure", sy.DataType.FLOAT32)
+        create_virtual_channel(self.client, "bj_press_cmd", data_type=sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "bj_pressure", data_type=sy.DataType.FLOAT32
+        )
         super().setup()
         self.set_manual_timeout(60)
 

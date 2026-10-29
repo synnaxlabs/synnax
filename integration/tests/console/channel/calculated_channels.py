@@ -69,7 +69,9 @@ class CalculatedChannels(ConsoleCase):
         updated_multiplier = 30
         updated_expr = f"return {self._ch_uptime} * {updated_multiplier}"
 
-        console.channels.edit_calculated(self.calc_editable, updated_expr)
+        console.channels.edit_calculated(
+            self.calc_editable, new_expression=updated_expr
+        )
         sy.sleep(0.5)
         frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
         for _ in range(4):

@@ -51,6 +51,7 @@ class CounterRead(NITask):
     def add_channel(
         self,
         name: str,
+        *,
         chan_type: str,
         device: str,
         dev_name: str | None = None,

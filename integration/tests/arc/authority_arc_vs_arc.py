@@ -62,7 +62,9 @@ class AuthorityArcVsArc(ArcCase):
     sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "start_high_cmd", sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "start_high_cmd", data_type=sy.DataType.UINT8
+        )
         super().setup()
         self.set_manual_timeout(60)
 
@@ -71,7 +73,9 @@ class AuthorityArcVsArc(ArcCase):
         self.wait_for_eq("press_vlv_state", 0)
 
         self.log("Loading Arc B (high priority)")
-        self.load_arc(ARC_HIGH_PRIORITY_SOURCE, "ArcHigh", trigger="start_high_cmd")
+        self.load_arc(
+            ARC_HIGH_PRIORITY_SOURCE, name_prefix="ArcHigh", trigger="start_high_cmd"
+        )
 
         self.log("Waiting for Arc B to override (press_vlv_state == 1)...")
         self.wait_for_eq("press_vlv_state", 1)

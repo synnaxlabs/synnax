@@ -57,7 +57,7 @@ class IntervalPress(ArcCase):
     sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "str_chan", sy.DataType.STRING)
+        create_virtual_channel(self.client, "str_chan", data_type=sy.DataType.STRING)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

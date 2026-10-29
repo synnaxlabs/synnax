@@ -56,7 +56,9 @@ class AuthoritySchematicOverride(ArcCase, ConsoleCase):
     def setup(self) -> None:
         self._schematic: Schematic | None = None
         self._schematic_controlled = False
-        create_virtual_channel(self.client, "seq_close_cmd", sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "seq_close_cmd", data_type=sy.DataType.UINT8
+        )
         super().setup()
         self.set_manual_timeout(120)
 

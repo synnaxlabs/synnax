@@ -60,7 +60,7 @@ class LoadCurrent(ArcCase):
     sim_daq_class: type[SimDAQ] | None = LoadCurrentSimDAQ
 
     def setup(self) -> None:
-        create_indexed_pair(self.client, "lc_tick_count", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "lc_tick_count", data_type=sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(30)
 

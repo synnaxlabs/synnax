@@ -81,6 +81,7 @@ class ConfigClient:
 
     def __init__(
         self,
+        *,
         tests_dir: Path | None = None,
         log: Callable[[str], None] | None = None,
     ) -> None:

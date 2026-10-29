@@ -83,7 +83,7 @@ class AuthorityEmergency(ArcCase):
         self._override_writer = self.client.open_writer(
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],
-            200,
+            authorities=200,
         )
         self._override_writer.write(
             {

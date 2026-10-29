@@ -50,7 +50,7 @@ class CalcChannelStress(ConsoleCase):
         self, base_name: str, count: int, index_key: int
     ) -> list[sy.Channel]:
         names = [f"{base_name}_{i + 1}" for i in range(count)]
-        return create_indexed_channels(self.client, names, index_key)
+        return create_indexed_channels(self.client, names, index_key=index_key)
 
     def _start_stress_writer(self) -> None:
         """Start the stress writer in a background thread."""

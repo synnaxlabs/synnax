@@ -92,8 +92,8 @@ class TestCase(ABC):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         name: str,
         options: RunOptions = DEFAULT_OPTIONS,
         results_dir: Path,
@@ -127,7 +127,7 @@ class TestCase(ABC):
             name=self.name,
             mode=LogMode.REALTIME if options.logs_streamed else LogMode.BUFFERED,
             persistent_sinks=[
-                SynnaxChannelSink(self.client, self._ch_log),
+                SynnaxChannelSink(client=self.client, channel_name=self._ch_log),
             ],
         )
 
@@ -211,9 +211,9 @@ class TestCase(ABC):
     ) -> None:
         """Wait for client threads to complete."""
         timeout_secs = sy.TimeSpan.from_seconds(timeout).seconds
-        self.streamer.join(timeout_secs)
+        self.streamer.join(timeout=timeout_secs)
         if self._telemetry_writer is not None:
-            self._telemetry_writer.stop(timeout_secs)
+            self._telemetry_writer.stop(timeout=timeout_secs)
 
     def _check_expectation(self) -> None:
         """Check if test met expected outcome and handle failures gracefully."""
@@ -253,13 +253,16 @@ class TestCase(ABC):
         """Create a telemetry channel with name {self.name}_{name}."""
         tlm_name = f"{self.name}_{name}" if append_name else name
 
-        create_indexed_channel(self.client, tlm_name, data_type, self.time_index.key)
+        create_indexed_channel(
+            self.client, tlm_name, data_type=data_type, index_key=self.time_index.key
+        )
 
         self.tlm[tlm_name] = initial_value
 
     def subscribe(
         self,
         channels: str | list[str],
+        *,
         timeout: sy.CrudeTimeSpan = 10 * sy.TimeSpan.SECOND,
     ) -> None:
         """Subscribe to channels.
@@ -269,7 +272,7 @@ class TestCase(ABC):
         :param channels: Channel name(s) to subscribe to.
         :param timeout: Maximum time to wait for channels to be initialized.
         """
-        self.streamer.subscribe(channels, timeout)
+        self.streamer.subscribe(channels, timeout=timeout)
 
     def setup(self) -> None:
         """Load configs, add channels, subscribe to channels, etc."""
@@ -349,7 +352,9 @@ class TestCase(ABC):
         timeout_span = sy.TimeSpan.from_seconds(timeout)
 
         if self.streamer.is_subscribed(channel_name):
-            if self.streamer.wait_for(channel_name, condition, timeout):
+            if self.streamer.wait_for(
+                channel_name, predicate=condition, timeout=timeout
+            ):
                 return
             actual_value = self.read_tlm(channel_name)
             self.fail(
@@ -378,6 +383,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         expected: int | float | str,
+        *,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
     ) -> None:
         """Wait for channel value == expected."""
@@ -389,6 +395,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
+        *,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
     ) -> None:
         """Wait for channel value > threshold."""
@@ -400,6 +407,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
+        *,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
     ) -> None:
         """Wait for channel value >= threshold."""
@@ -414,6 +422,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
+        *,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
     ) -> None:
         """Wait for channel value < threshold."""
@@ -425,6 +434,7 @@ class TestCase(ABC):
         self,
         channel_name: str,
         threshold: float | int,
+        *,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
     ) -> None:
         """Wait for channel value <= threshold."""
@@ -451,7 +461,7 @@ class TestCase(ABC):
             timeout,
         )
 
-    def wait_for_notification(self, text: str, timeout: float = 5.0) -> bool:
+    def wait_for_notification(self, text: str, *, timeout: float = 5.0) -> bool:
         """Return True if a status notification containing text has surfaced.
 
         Requires collect_notifications = True so the base lifecycle records
@@ -461,10 +471,10 @@ class TestCase(ABC):
             raise RuntimeError(
                 "wait_for_notification requires collect_notifications = True"
             )
-        return self._notifications.wait_for(text, timeout)
+        return self._notifications.wait_for(text, timeout=timeout)
 
     def wait_for_task_status(
-        self, task_key: sy.task.Key, text: str, timeout: float = 5.0
+        self, task_key: sy.task.Key, text: str, *, timeout: float = 5.0
     ) -> bool:
         """Return True if a status for task_key containing text has surfaced.
 
@@ -475,7 +485,7 @@ class TestCase(ABC):
             raise RuntimeError(
                 "wait_for_task_status requires collect_task_status = True"
             )
-        return self._task_status.wait_for(task_key, text, timeout)
+        return self._task_status.wait_for(task_key, text, timeout=timeout)
 
     def task_is_running(self, task_key: sy.task.Key) -> bool:
         """Return True if the latest status reports task_key as running.
@@ -556,6 +566,7 @@ class TestCase(ABC):
 
     def configure(
         self,
+        *,
         read_timeout: sy.CrudeTimeSpan | None = None,
         loop_rate: sy.CrudeTimeSpan | None = None,
         manual_timeout: sy.CrudeTimeSpan | None = None,
