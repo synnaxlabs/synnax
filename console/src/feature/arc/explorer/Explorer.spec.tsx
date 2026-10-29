@@ -82,7 +82,8 @@ describe("arc/Explorer", () => {
     const dir = await createGroup(arcsID);
     const sub = await createGroup(group.ontologyID(dir.key));
     const module = await createModule();
-    await client.ontology.addChildren(
+    await client.ontology.moveChildren(
+      arcsID,
       group.ontologyID(sub.key),
       clientArc.ontologyID(module.key),
     );

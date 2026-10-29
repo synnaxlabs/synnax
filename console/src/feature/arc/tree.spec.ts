@@ -34,20 +34,22 @@ import {
 const client = createTestClient();
 
 const createArcInGroup = async () => {
+  const arcsID = await retrieveArcsGroupID(client);
   const arc = await client.arcs.create({
     name: uniqueName("arc"),
     mode: "graph",
     graph: { nodes: [], edges: [] },
   });
   const grp = await client.groups.create({
-    parent: await retrieveArcsGroupID(client),
+    parent: arcsID,
     name: uniqueName("arcgrp"),
   });
-  await client.ontology.addChildren(
+  await client.ontology.moveChildren(
+    arcsID,
     group.ontologyID(grp.key),
     clientArc.ontologyID(arc.key),
   );
-  return { arc, root: group.ontologyID(grp.key) };
+  return { arc, root: group.ontologyID(grp.key), arcsID };
 };
 
 describe("arc/ontology", () => {
@@ -89,13 +91,13 @@ describe("arc/ontology", () => {
     });
 
     it("offers only the shared actions when several Arcs are selected", async () => {
-      const { arc, root } = await createArcInGroup();
+      const { arc, root, arcsID } = await createArcInGroup();
       const other = await client.arcs.create({
         name: uniqueName("mod"),
         mode: "text",
         type: "module",
       });
-      await client.ontology.addChildren(root, clientArc.ontologyID(other.key));
+      await client.ontology.moveChildren(arcsID, root, clientArc.ontologyID(other.key));
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
       fireEvent.click(await findTreeRow(arc.name));
       withControlHeld(() => fireEvent.click(getTreeRow(other.name)));
