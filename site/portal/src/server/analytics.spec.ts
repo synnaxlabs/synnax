@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import {
   ACTIONS,
+  type Capture,
   personURL,
   posthog,
   replayURL,
@@ -83,7 +84,8 @@ describe("analytics", () => {
       fetch.mockResolvedValue(Response.json({ results: rows.map(row) }));
     };
 
-    const visits = async () => await posthog("phx_key").visits(FROM, TO);
+    const visits = async () =>
+      await posthog({ apiKey: "phx_key", environment: "production" }).visits(FROM, TO);
 
     const sent = (): { url: string; init: RequestInit; query: string } => {
       const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
@@ -253,11 +255,103 @@ describe("analytics", () => {
     });
   });
 
+  describe("capture", () => {
+    let fetch: Mock<typeof globalThis.fetch>;
+
+    beforeEach(() => {
+      fetch = vi.fn<typeof globalThis.fetch>(async () => Response.json({ status: 1 }));
+      vi.stubGlobal("fetch", fetch);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    const EVENT: Capture = {
+      userID: "user_a",
+      event: "referral_converted",
+      at: FROM,
+      properties: { referral: "abc" },
+      once: { referral: "abc" },
+    };
+
+    const capture = async (environment: "production" | "development" = "production") =>
+      await posthog({ apiKey: "phx_key", environment }).capture(EVENT);
+
+    it("should send the event with the project key, as the user", async () => {
+      await capture();
+      const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://us.i.posthog.com/i/v0/e/");
+      expect(JSON.parse(init.body as string)).toEqual({
+        api_key: "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t",
+        event: "referral_converted",
+        distinct_id: "user_a",
+        timestamp: "2026-09-17T13:15:00.000Z",
+        properties: {
+          referral: "abc",
+          environment: "production",
+          $set_once: { referral: "abc" },
+        },
+      });
+    });
+
+    it("should tag the event with the environment", async () => {
+      await capture("development");
+      const [, init] = fetch.mock.calls[0] as [string, RequestInit];
+      expect(JSON.parse(init.body as string)).toMatchObject({
+        properties: { environment: "development" },
+      });
+    });
+
+    it("should log a refused event instead of throwing", async () => {
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      fetch.mockResolvedValue(new Response("bad token", { status: 401 }));
+      await capture();
+      expect(logged).toHaveBeenCalledWith("posthog capture failed", {
+        event: "referral_converted",
+        status: 401,
+        body: "bad token",
+      });
+    });
+
+    it("should log a failed request instead of throwing", async () => {
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      const err = new Error("offline");
+      fetch.mockRejectedValue(err);
+      await capture();
+      expect(logged).toHaveBeenCalledWith(
+        "posthog capture failed",
+        { event: "referral_converted" },
+        err,
+      );
+    });
+  });
+
   describe("unconfigured", () => {
     it("should throw on every read", async () => {
       await expect(unconfigured().visits(FROM, TO)).rejects.toThrow(
         "POSTHOG_API_KEY is not set",
       );
+    });
+
+    it("should log a capture instead of sending it", async () => {
+      const fetch = vi.fn<typeof globalThis.fetch>();
+      vi.stubGlobal("fetch", fetch);
+      const logged = vi.spyOn(console, "info").mockImplementation(() => {});
+      await unconfigured().capture({
+        userID: "user_a",
+        event: "referral_converted",
+        at: FROM,
+        properties: {},
+        once: {},
+      });
+      expect(fetch).not.toHaveBeenCalled();
+      expect(logged).toHaveBeenCalledWith("analytics event not sent", {
+        event: "referral_converted",
+      });
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
     });
   });
 });

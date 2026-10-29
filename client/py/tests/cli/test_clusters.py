@@ -230,11 +230,12 @@ class TestLogin:
         )
         first = clusters.get()
         assert first is not None
-        other = client.users.create(username=f"cli-{uuid4()}", password="password123")
+        other_username = f"cli-{uuid4()}"
+        other = client.users.create(username=other_username, password="password123")
         login(
             Context(
                 console=console.Mock(
-                    responses=[host, port, other.username, "password123", False]
+                    responses=[host, port, other_username, "password123", False]
                 )
             ),
             clusters,

@@ -111,3 +111,7 @@ that box, and runs the scaler; `dispatch.py` turns the scaler's commands into EC
 and stops. Its own uv project and CI job. A pool in `scaler.py` must use the label the
 workflows request (`windows-test-bot`, not `windows-latest`), or its jobs never start an
 instance.
+
+Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
+Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start
+the scripts by hand on the box.

@@ -224,6 +224,8 @@ TEST_F(RackConfigTest, RefuseSymlinkStateFile) {
         std::filesystem::remove(target);
     });
     ASSERT_OCCURRED_AS(Config::save_api_key(args, "syk_saved"), STATE_ERROR);
+    ASSERT_OCCURRED_AS(Config::save_conn_params(args, {}), STATE_ERROR);
+    ASSERT_OCCURRED_AS(Config::save_remote_info(args, {}), STATE_ERROR);
 }
 
 /// @brief it should keep the persisted state file readable only by its owner.

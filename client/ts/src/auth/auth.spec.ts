@@ -293,7 +293,7 @@ describe("auth", () => {
         transport.unary,
         { token },
         {
-          onUser: (u) => (username = u?.username),
+          onUser: (u) => (username = u?.name),
           onSuccess: () => (succeeded = true),
         },
       );
@@ -362,7 +362,7 @@ describe("auth", () => {
       await admin.users.create(second);
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
-        onUser: (u) => (username = u?.username),
+        onUser: (u) => (username = u?.name),
       });
       const first = client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
       client.setCredentials(second);
@@ -378,7 +378,7 @@ describe("auth", () => {
       await admin.users.create(second);
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
-        onUser: (u) => (username = u?.username),
+        onUser: (u) => (username = u?.name),
       });
       await login(client);
       const first = client.session?.key;
@@ -399,7 +399,7 @@ describe("auth", () => {
       await admin.users.create(second);
       let username: string | undefined;
       const client = makeClient(TEST_CREDENTIALS, {
-        onUser: (u) => (username = u?.username),
+        onUser: (u) => (username = u?.name),
       });
       await login(client);
       let reject: (() => void) | undefined;
@@ -540,8 +540,6 @@ describe("auth", () => {
       const u = await createTestClient().users.create({
         username,
         password: "old",
-        firstName: "Set",
-        lastName: "Password",
       });
       return { username, subject: user.ontologyID(u.key) };
     };
