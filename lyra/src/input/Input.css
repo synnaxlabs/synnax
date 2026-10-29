@@ -88,8 +88,12 @@
 
         &::placeholder {
             color: var(--pluto-text-placeholder);
-            text-overflow: ellipsis;
             max-width: 100%;
+        }
+
+        /* A cut placeholder cannot be measured, so it keeps an ellipsis. */
+        &:placeholder-shown {
+            text-overflow: ellipsis;
         }
     }
 
