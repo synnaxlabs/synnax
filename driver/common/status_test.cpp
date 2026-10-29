@@ -437,6 +437,45 @@ TEST(TestStatusWindow, testDestroyDropsPending) {
     EXPECT_EQ(ctx->snapshot().size(), 1);
 }
 
+/// @brief it should drop a pending status and later changes once closed, and still send
+/// replies.
+TEST(TestStatusWindow, testCloseDropsPending) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto window = 50 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
+    handler.send_warning("skew too high", "");
+    handler.send_warning("array mismatch", "");
+    handler.close();
+    std::this_thread::sleep_for((3 * window).chrono());
+    handler.send_warning("device unreachable", "");
+    EXPECT_EQ(ctx->snapshot().size(), 1);
+    handler.ack("start_cmd", false);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 2);
+    EXPECT_EQ(statuses[1].details.cmd, "start_cmd");
+}
+
+/// @brief it should keep a full window between two statuses when another thread starts
+/// a window while the flusher waits.
+TEST(TestStatusWindow, testKeepsWindowWhenAnotherThreadSends) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "ni_analog_read"};
+    const auto window = 20 * x::telem::MILLISECOND;
+    auto handler = StatusHandler(ctx, task, window);
+    // A tight loop of changes often takes the lock at the end of a window before the
+    // flusher does, then queues the next change.
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    for (int i = 0; std::chrono::steady_clock::now() < end; i++) {
+        handler.send_warning(i % 2 == 0 ? "skew too high" : "array mismatch", "");
+        std::this_thread::yield();
+    }
+    const auto statuses = ctx->snapshot();
+    ASSERT_GE(statuses.size(), 2);
+    for (size_t i = 1; i < statuses.size(); i++)
+        EXPECT_GE(statuses[i].time - statuses[i - 1].time, window / 2) << i;
+}
+
 /// @brief it should send the same status again once the window ends.
 TEST(TestStatusWindow, testWindowExpires) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
