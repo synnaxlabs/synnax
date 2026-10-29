@@ -128,6 +128,7 @@ const propertiesZ = z.object({
 export interface Properties extends z.infer<typeof propertiesZ> {}
 
 export type Connection = Properties["connection"];
+export type Requests = Properties["requests"];
 
 /** The connection a device starts with on each transport. */
 export const ZERO_CONNECTIONS = {
