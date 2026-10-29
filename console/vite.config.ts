@@ -21,6 +21,8 @@ const isDev = process.env.VITE_IS_DEV === "true";
 const fromSource = process.env.VITEST == null;
 // Builds Synnax Desktop, the app that bundles and manages its own Core.
 const desktop = process.env.VITE_DESKTOP === "true";
+// Builds a Desktop release in CI.
+const release = process.env.VITE_RELEASE === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
 
@@ -113,7 +115,7 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev, DESKTOP: desktop },
+  define: { IS_DEV: isDev, DESKTOP: desktop, RELEASE: release },
   worker: {
     format: "es",
     // The worker is a separate build and does not inherit `plugins`, so its frames
