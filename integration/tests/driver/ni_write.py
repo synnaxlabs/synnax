@@ -416,7 +416,9 @@ def _send_oob_and_assert_state_clamped(
 
 
 class _NIAnalogWriteOOBBase(NIAnalogWriteTaskCase):
-    """Base for OOB analog write tests — sends out-of-bounds values and verifies clamping."""
+    """Base for OOB analog write tests — sends out-of-bounds values and verifies
+    clamping.
+    """
 
     _oob_values: list[float]
 

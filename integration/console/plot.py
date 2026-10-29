@@ -51,7 +51,7 @@ class Plot(ConsolePage):
 
         axis_label = self.page.locator("label").filter(has_text=axis)
         axis_label.wait_for(state="visible", timeout=5000)
-        trigger = axis_label.locator("..").locator(".pluto-dialog__trigger")
+        trigger = axis_label.locator("..").locator(".lyra-dialog__trigger")
         trigger.click(timeout=5000)
 
         search_input = self.page.locator("input[placeholder*='Search']")
@@ -76,7 +76,7 @@ class Plot(ConsolePage):
     ) -> None:
         """Add time ranges to the plot."""
         ranges_label = self.page.locator("label").filter(has_text="Ranges")
-        trigger = ranges_label.locator("..").locator(".pluto-dialog__trigger")
+        trigger = ranges_label.locator("..").locator(".lyra-dialog__trigger")
         trigger.click(timeout=5000)
 
         for range_value in ranges:
@@ -172,7 +172,10 @@ class Plot(ConsolePage):
         icon_direction: Literal["arrow-up", "arrow-right"] = (
             "arrow-up" if direction == "vertical" else "arrow-right"
         )
-        selector = f"label:has-text('Label direction') + div button:has(svg.pluto-icon--{icon_direction})"
+        selector = (
+            "label:has-text('Label direction') + div "
+            f"button:has(svg.lyra-icon--{icon_direction})"
+        )
         self.page.locator(selector).click(timeout=5000)
 
     def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:
@@ -217,7 +220,7 @@ class Plot(ConsolePage):
                 f"Lines container not found. Toolbar HTML: {html[:1000]}"
             )
 
-        line_items = lines_container.locator(".pluto-list__item")
+        line_items = lines_container.locator(".lyra-list__item")
         if line_items.count() == 0:
             html = lines_container.inner_html()
             raise RuntimeError(f"No line items. Lines container HTML: {html[:500]}")
@@ -238,7 +241,7 @@ class Plot(ConsolePage):
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         lines_container.wait_for(state="visible", timeout=5000)
 
-        line_item = lines_container.locator(".pluto-list__item").first
+        line_item = lines_container.locator(".lyra-list__item").first
         line_item.wait_for(state="visible", timeout=5000)
 
         label_input = line_item.locator("input").first
@@ -255,7 +258,7 @@ class Plot(ConsolePage):
         self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
-        line_item = lines_container.locator(".pluto-list__item").first
+        line_item = lines_container.locator(".lyra-list__item").first
         stroke_input = line_item.locator("input").nth(1)
         return int(stroke_input.input_value())
 
@@ -270,7 +273,7 @@ class Plot(ConsolePage):
         self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
-        line_items = lines_container.locator(".pluto-list__item")
+        line_items = lines_container.locator(".lyra-list__item")
         count = line_items.count()
         return [
             line_items.nth(i).locator("input").first.input_value() for i in range(count)
@@ -294,7 +297,7 @@ class Plot(ConsolePage):
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
 
-        channel_item.drag_to(self.pane_locator)
+        self.layout.drag(channel_item, self.pane_locator)
         channels.hide_channels()
 
         self.data["Y1"].append(channel_name)
@@ -323,7 +326,7 @@ class Plot(ConsolePage):
         axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
         axis_section.wait_for(state="visible", timeout=5000)
 
-        channel_item.drag_to(axis_section)
+        self.layout.drag(channel_item, axis_section)
         channels.hide_channels()
 
         self.data[axis].append(channel_name)
@@ -370,7 +373,7 @@ class Plot(ConsolePage):
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
         return self.pane_locator.locator(
-            ".console-controls button:has(.pluto-icon--range)"
+            ".console-controls button:has(.lyra-icon--range)"
         )
 
     def wait_for_annotation_toggle(self, timeout: int = 5000) -> None:
@@ -386,9 +389,9 @@ class Plot(ConsolePage):
     ) -> None:
         """Assert the annotation visibility toggle reflects the given state.
 
-        Pluto's Button.Toggle carries pluto--selected when on.
+        Pluto's Button.Toggle carries lyra--selected when on.
         """
-        pattern = re.compile(r"pluto--selected")
+        pattern = re.compile(r"lyra--selected")
         toggle = expect(self.get_annotation_toggle())
         if visible:
             toggle.to_have_class(pattern, timeout=timeout)

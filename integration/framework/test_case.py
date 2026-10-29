@@ -13,7 +13,6 @@ import warnings
 warnings.filterwarnings("ignore", message=".*keepalive ping.*")
 warnings.filterwarnings("ignore", message=".*timed out while closing connection.*")
 
-import os
 import traceback
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
@@ -23,7 +22,14 @@ from typing import Any, Literal, NoReturn, overload
 
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import DEFAULT_CONNECTION, STATUS, SYMBOLS, SynnaxConnection
+from framework.models import (
+    DEFAULT_CONNECTION,
+    DEFAULT_OPTIONS,
+    STATUS,
+    SYMBOLS,
+    RunOptions,
+    SynnaxConnection,
+)
 from framework.recorder import Notifications, TaskStatus
 from framework.streamer import Streamer
 from framework.telemetry import TelemetryWriter
@@ -89,11 +95,13 @@ class TestCase(ABC):
         synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
         name: str,
+        options: RunOptions = DEFAULT_OPTIONS,
         results_dir: Path,
         **params: Any,
     ) -> None:
         """Initialize test case with Synnax server connection."""
         self.synnax_connection = synnax_connection
+        self.options = options
         self.results_dir = results_dir
         self.params = params
         self.start_time: sy.TimeStamp = sy.TimeStamp.now()
@@ -115,10 +123,9 @@ class TestCase(ABC):
         self.client = synnax_connection.create_client()
         self.writer = Writer(self.client)
 
-        stream_logs = os.environ.get("TC_LOGS", "0") == "1"
         self.log_client = LogClient(
             name=self.name,
-            mode=LogMode.REALTIME if stream_logs else LogMode.BUFFERED,
+            mode=LogMode.REALTIME if options.logs_streamed else LogMode.BUFFERED,
             persistent_sinks=[
                 SynnaxChannelSink(self.client, self._ch_log),
             ],

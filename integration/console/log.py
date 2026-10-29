@@ -105,7 +105,7 @@ class Log(ConsolePage):
         menu = self.page.get_by_role("menu")
         try:
             menu.wait_for(state="visible", timeout=3000)
-            menu.locator(".pluto-menu-item").filter(has_text="Copy").first.click(
+            menu.locator(".lyra-menu-item").filter(has_text="Copy").first.click(
                 timeout=2000
             )
         except PlaywrightTimeoutError:
@@ -191,7 +191,7 @@ class Log(ConsolePage):
         if toggle.count() == 0:
             return False
         btn_class = toggle.get_attribute("class") or ""
-        return "pluto--selected" in btn_class
+        return "lyra--selected" in btn_class
 
     def pause_scrolling(self) -> None:
         """Pause log scrolling (enter scrollback mode)."""
@@ -200,7 +200,7 @@ class Log(ConsolePage):
         # The controls reveal on pane hover; hover first so the click lands.
         self.pane_locator.hover()
         self._hold_toggle().click()
-        self.pane_locator.locator(".console-controls button.pluto--selected").wait_for(
+        self.pane_locator.locator(".console-controls button.lyra--selected").wait_for(
             state="attached", timeout=2000
         )
 
@@ -210,6 +210,6 @@ class Log(ConsolePage):
             return
         self.pane_locator.hover()
         self._hold_toggle().click()
-        self.pane_locator.locator(".console-controls button.pluto--selected").wait_for(
+        self.pane_locator.locator(".console-controls button.lyra--selected").wait_for(
             state="detached", timeout=2000
         )

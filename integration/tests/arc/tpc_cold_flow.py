@@ -158,7 +158,7 @@ sequence main {
         start_tpc_cmd == 1 => precheck
     }
 }
-"""
+"""  # noqa: E501
 
 PHASE_NAMES = {
     0: "Idle",  # Waiting for start command

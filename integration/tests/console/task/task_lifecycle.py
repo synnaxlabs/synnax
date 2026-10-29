@@ -249,7 +249,9 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.console.tasks.snapshot(TASK_NAMES[1:], RANGE_NAME)
 
     def test_rename_channel_sync(self) -> None:
-        """Rename channels from toolbar, verify in task config; rename back from task config, verify in toolbar."""
+        """Rename channels from toolbar, verify in task config; rename back from task
+        config, verify in toolbar.
+        """
         t = TASKS[0]
         original_names = ["my_float_0", "my_float_1"]
         renamed_names = ["renamed_float_0", "renamed_float_1"]
@@ -278,7 +280,8 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         self.log("Testing: Verify original channel names in channels toolbar")
         assert self.console.channels.wait_for_channels(original_names), (
-            "Original channel names not found in channels toolbar after rename from task config"
+            "Original channel names not found in channels toolbar after rename from "
+            "task config"
         )
 
         self.console.close_all_tabs()

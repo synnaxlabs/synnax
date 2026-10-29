@@ -7,11 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { Controller, type Frame, type Reducer, type Send } from "@/actions/controller";
+import {
+  Controller,
+  type Edit,
+  type Frame,
+  type Reducer,
+  type SendDispatch,
+} from "@/actions/controller";
 import { Table } from "@/query/table";
 
 interface Doc {
@@ -67,8 +73,10 @@ const setupStore = (
     stackCap: number;
     preprocess: (s: Doc, acts: Action[]) => Action[];
     now: () => TimeStamp;
+    send: SendDispatch<string, Action>;
   }> = {},
 ) => {
+  const send = vi.fn<SendDispatch<string, Action>>(opts.send ?? (async () => {}));
   const errors: Error[] = [];
   const onError = (error: Error) => errors.push(error);
   const docs = new Table<string, Doc>({ onError });
@@ -76,6 +84,7 @@ const setupStore = (
     store: docs,
     onError,
     reduce: reducer,
+    send,
     isUndoable: opts.isUndoable,
     kindOf: opts.kindOf,
     createOf: (a) => (a.type === "create" ? a.doc : undefined),
@@ -84,7 +93,7 @@ const setupStore = (
     preprocess: opts.preprocess,
     now: opts.now,
   });
-  return { errors, docs, controller };
+  return { errors, docs, controller, send };
 };
 
 const prime = (
@@ -517,18 +526,256 @@ describe("actions.Controller", () => {
     });
   });
 
-  describe("beginTransaction", () => {
-    it("accumulates and commits as a single undoable", async () => {
-      const { docs, controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
+  describe("send queue", () => {
+    const set = (key: string, value: number): Action => ({ type: "set", key, value });
+
+    // A send that waits on the returned gate before its first call settles.
+    const createGatedSend = () => {
+      const gate = Promise.withResolvers<void>();
+      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+        if (send.mock.calls.length === 1) await gate.promise;
+      });
+      return { gate, send };
+    };
+
+    it("sends a dispatch at once when nothing is in flight", async () => {
+      const { docs, controller, send } = setupStore();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction("k", send, "move");
+      const done = controller.dispatch("k", [set("a", 1)]);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(await done).toBe(true);
+      expect(send.mock.calls[0][1]).toEqual([set("a", 1)]);
+    });
+
+    it("sends dispatches made during an in-flight send as one batch after it settles", async () => {
+      const { gate, send } = createGatedSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("a", 2)]);
+      const three = controller.dispatch("k", [set("b", 3)]);
+      expect(send).toHaveBeenCalledTimes(1);
+      gate.resolve();
+      expect(await Promise.all([one, two, three])).toEqual([true, true, true]);
+      expect(send).toHaveBeenCalledTimes(2);
+      const [[, first, firstKey], [, batch, batchKey]] = send.mock.calls;
+      expect(first).toEqual([set("a", 1)]);
+      expect(batch).toEqual([set("a", 2), set("b", 3)]);
+      expect(batchKey).not.toEqual(firstKey);
+      expect(docs.get("k")).toEqual({ values: { a: 2, b: 3 } });
+    });
+
+    it("sends dispatches for different documents in parallel", async () => {
+      const { send } = createGatedSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k1", { a: 0 });
+      prime(docs, "k2", { a: 0 });
+      void controller.dispatch("k1", [set("a", 1)]);
+      void controller.dispatch("k2", [set("a", 1)]);
+      expect(send.mock.calls.map(([key]) => key)).toEqual(["k1", "k2"]);
+    });
+
+    it("skips the reduce for an undisturbed echo of a batch", async () => {
+      const { gate, send } = createGatedSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("b", 2)]);
+      const three = controller.dispatch("k", [set("c", 3)]);
+      gate.resolve();
+      await Promise.all([one, two, three]);
+      const [[, first, firstKey], [, batch, batchKey]] = send.mock.calls;
+      controller.applyRemote("k", 1, firstKey, first);
+      controller.applyRemote("k", 2, batchKey, batch);
+      expect(controller.hasOutstanding("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 2, c: 3 } });
+      expect(controller.hasUndo("k")).toBe(true);
+    });
+
+    // Fails the sends whose call numbers are listed, counting from 1.
+    const createFailingSend = (...failing: number[]) => {
+      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+        if (failing.includes(send.mock.calls.length)) throw new Error("rejected");
+      });
+      return send;
+    };
+
+    // Sets a value outside the reducer, as a client's rename does.
+    const name = (docs: Table<string, Doc>, value: number): Edit => {
+      const reapply = () =>
+        docs.set("k", (d) => (d == null ? d : { values: { ...d.values, n: value } }));
+      return { rollback: reapply(), reapply };
+    };
+
+    it("applies the batch over the state before a failed in-flight dispatch", async () => {
+      const send = createFailingSend(1);
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("a", 2)]);
+      await expect(one).rejects.toThrow("rejected");
+      expect(await two).toBe(true);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+      const [, batch, batchKey] = send.mock.calls[1];
+      controller.applyRemote("k", 1, batchKey, batch);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+      expect(controller.prepareUndo("k")?.actions).toEqual([set("a", 0)]);
+    });
+
+    it("restores the original state when the in-flight dispatch and the batch fail", async () => {
+      const { docs, controller } = setupStore({ send: createFailingSend(1, 2) });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("a", 2)]);
+      await expect(one).rejects.toThrow("rejected");
+      await expect(two).rejects.toThrow("rejected");
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+      expect(controller.hasUndo("k")).toBe(false);
+    });
+
+    it("moves the rebuilt entry to redo for a queued undo after a failed send", async () => {
+      const send = createFailingSend(1);
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0, b: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("b", 2)]);
+      const undone = controller.undo("k");
+      await expect(one).rejects.toThrow("rejected");
+      expect(await Promise.all([two, undone])).toEqual([true, true]);
+      expect(send.mock.calls[1][1]).toEqual([set("b", 2), set("b", 0)]);
+      expect(docs.get("k")).toEqual({ values: { a: 0, b: 0 } });
+      expect(controller.hasUndo("k")).toBe(false);
+      expect(controller.prepareRedo("k")?.actions).toEqual([set("b", 2)]);
+    });
+
+    it("drops a queued undo of a dispatch whose send failed", async () => {
+      const send = createFailingSend(2);
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0, b: 0 });
+      expect(await controller.dispatch("k", [set("a", 1)])).toBe(true);
+      const two = controller.dispatch("k", [set("b", 2)]);
+      const undone = controller.undo("k");
+      await expect(two).rejects.toThrow("rejected");
+      expect(await undone).toBe(true);
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 0 } });
+      expect(controller.prepareUndo("k")?.actions).toEqual([set("a", 0)]);
+      expect(controller.hasRedo("k")).toBe(false);
+    });
+
+    it("keeps a batched rename when only the in-flight dispatch fails", async () => {
+      const { docs, controller } = setupStore({ send: createFailingSend(1) });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const renamed = controller.send("k", [{ type: "noop" }], name(docs, 7));
+      const two = controller.dispatch("k", [set("b", 2)]);
+      await expect(one).rejects.toThrow("rejected");
+      await Promise.all([renamed, two]);
+      expect(docs.get("k")).toEqual({ values: { a: 0, n: 7, b: 2 } });
+    });
+
+    it("rolls back a batched rename in order with the batch's dispatches", async () => {
+      const { docs, controller } = setupStore({ send: createFailingSend(1, 2) });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("b", 2)]);
+      const renamed = controller.send("k", [{ type: "noop" }], name(docs, 7));
+      const three = controller.dispatch("k", [set("c", 3)]);
+      await expect(one).rejects.toThrow("rejected");
+      await expect(two).rejects.toThrow("rejected");
+      await expect(renamed).rejects.toThrow("rejected");
+      await expect(three).rejects.toThrow("rejected");
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+    });
+
+    it("rolls back every dispatch in a failed batch, newest first", async () => {
+      const gate = Promise.withResolvers<void>();
+      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+        if (send.mock.calls.length === 1) await gate.promise;
+        else throw new Error("rejected");
+      });
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("b", 2)]);
+      const three = controller.dispatch("k", [set("c", 3)]);
+      gate.resolve();
+      expect(await one).toBe(true);
+      await expect(two).rejects.toThrow("rejected");
+      await expect(three).rejects.toThrow("rejected");
+      expect(docs.get("k")).toEqual({ values: { a: 1 } });
+      expect(controller.prepareUndo("k")?.actions).toEqual([set("a", 0)]);
+    });
+
+    it("sends undo and redo through the queue in program order", async () => {
+      const send = vi.fn<SendDispatch<string, Action>>(async () => {});
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      const gate = Promise.withResolvers<void>();
+      send.mockImplementationOnce(async () => await gate.promise);
+      const undone = controller.undo("k");
+      const redone = controller.redo("k");
+      const again = controller.dispatch("k", [set("b", 2)]);
+      expect(send).toHaveBeenCalledTimes(2);
+      gate.resolve();
+      expect(await Promise.all([undone, redone, again])).toEqual([true, true, true]);
+      expect(send.mock.calls.map(([, actions]) => actions)).toEqual([
+        [set("a", 1)],
+        [set("a", 0)],
+        [set("a", 1), set("b", 2)],
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 1, b: 2 } });
+    });
+
+    it("sends actions the caller applied after queued dispatches", async () => {
+      const { gate, send } = createGatedSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const two = controller.dispatch("k", [set("a", 2)]);
+      const tagged = controller.send("k", [{ type: "tag", key: "a", tag: "x" }], {
+        rollback: destructor.NOOP,
+        reapply: () => destructor.NOOP,
+      });
+      gate.resolve();
+      await Promise.all([one, two, tagged]);
+      expect(send.mock.calls[1][1]).toEqual([
+        set("a", 2),
+        { type: "tag", key: "a", tag: "x" },
+      ]);
+    });
+
+    it("recovers a queued transaction from a foreign frame", async () => {
+      const { gate, send } = createGatedSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("a", 1)]);
+      const tx = controller.transaction("k");
+      tx.add(set("a", 2));
+      const committed = tx.commit();
+      controller.applyRemote("k", 1, "foreign-1", [set("a", 5)]);
+      expect(docs.get("k")).toEqual({ values: { a: 5 } });
+      gate.resolve();
+      await one;
+      expect(await committed).toBe(true);
+      const [, actions, dispatchKey] = send.mock.calls[1];
+      controller.applyRemote("k", 2, dispatchKey, actions);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+  });
+
+  describe("transaction", () => {
+    it("accumulates and commits as a single undoable", async () => {
+      const { docs, controller, send } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const tx = controller.transaction("k", "move");
       tx.add({ type: "set", key: "a", value: 1 });
       tx.add([{ type: "set", key: "a", value: 2 }]);
       const ok = await tx.commit();
       expect(ok).toBe(true);
       expect(send).toHaveBeenCalledTimes(1);
-      expect(send.mock.calls[0][0]).toHaveLength(2);
+      expect(send.mock.calls[0][1]).toHaveLength(2);
       expect(docs.get("k")).toEqual({ values: { a: 2 } });
       const r = controller.prepareUndo("k");
       // Inverse computed against the pre-transaction snapshot (a:0), not
@@ -540,19 +787,17 @@ describe("actions.Controller", () => {
     });
 
     it("returns false from commit when no actions were added", async () => {
-      const { docs, controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
+      const { docs, controller, send } = setupStore();
       prime(docs, "k", { a: 0 });
-      const ok = await controller.beginTransaction("k", send).commit();
+      const ok = await controller.transaction("k").commit();
       expect(ok).toBe(false);
       expect(send).not.toHaveBeenCalled();
       expect(controller.hasUndo("k")).toBe(false);
     });
 
     it("returns false from commit when the doc is not cached", async () => {
-      const { controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
-      const tx = controller.beginTransaction("missing", send);
+      const { controller, send } = setupStore();
+      const tx = controller.transaction("missing");
       tx.add({ type: "set", key: "a", value: 1 });
       const ok = await tx.commit();
       expect(ok).toBe(false);
@@ -560,10 +805,9 @@ describe("actions.Controller", () => {
     });
 
     it("subsequent commits return false and do not re-send", async () => {
-      const { docs, controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
+      const { docs, controller, send } = setupStore();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction("k", send);
+      const tx = controller.transaction("k");
       tx.add({ type: "set", key: "a", value: 1 });
       expect(await tx.commit()).toBe(true);
       expect(await tx.commit()).toBe(false);
@@ -573,20 +817,16 @@ describe("actions.Controller", () => {
     it("add throws after the transaction is finalized", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction(
-        "k",
-        vi.fn<Send<Action>>(async () => {}),
-      );
+      const tx = controller.transaction("k");
       tx.add({ type: "set", key: "a", value: 1 });
       await tx.commit();
       expect(() => tx.add({ type: "set", key: "a", value: 2 })).toThrow();
     });
 
     it("abort restores the pre-transaction snapshot and pushes nothing", () => {
-      const { docs, controller } = setupStore();
-      const send = vi.fn<Send<Action>>(async () => {});
+      const { docs, controller, send } = setupStore();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction("k", send);
+      const tx = controller.transaction("k");
       tx.add({ type: "set", key: "a", value: 1 });
       tx.add({ type: "set", key: "a", value: 2 });
       expect(docs.get("k")).toEqual({ values: { a: 2 } });
@@ -599,10 +839,7 @@ describe("actions.Controller", () => {
     it("abort is a no-op after commit", async () => {
       const { docs, controller } = setupStore();
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction(
-        "k",
-        vi.fn<Send<Action>>(async () => {}),
-      );
+      const tx = controller.transaction("k");
       tx.add({ type: "set", key: "a", value: 5 });
       await tx.commit();
       tx.abort();
@@ -611,12 +848,12 @@ describe("actions.Controller", () => {
     });
 
     it("rolls back doc and stack when send fails", async () => {
-      const { docs, controller } = setupStore();
-      const send = vi.fn(async () => {
+      const send = vi.fn<SendDispatch<string, Action>>(async () => {
         throw new Error("boom");
       });
+      const { docs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
-      const tx = controller.beginTransaction("k", send);
+      const tx = controller.transaction("k");
       tx.add({ type: "set", key: "a", value: 1 });
       await expect(tx.commit()).rejects.toThrow("boom");
       expect(docs.get("k")).toEqual({ values: { a: 0 } });

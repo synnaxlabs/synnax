@@ -83,7 +83,8 @@ class SimplePress(SimDaqCase):
                     timeout=10 * sy.TimeSpan.SECOND,
                 ):
                     self.log(
-                        f"Target pressure reached: {ctrl[PRESSURE]:.2f} > {target_pressure}"
+                        f"Target pressure reached: {ctrl[PRESSURE]:.2f} > "
+                        f"{target_pressure}"
                     )
                     ctrl[PRESS_VALVE_CMD] = 0
                     ctrl.wait_until(

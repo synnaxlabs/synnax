@@ -36,10 +36,12 @@ def assert_properties(
     """Assert the schematic properties match expected values."""
     props = schematic.get_properties()
     assert props["control_authority"] == control_authority, (
-        f"Control authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
+        f"Control authority mismatch! Actual: {props['control_authority']}, Expected: "
+        f"{control_authority}"
     )
     assert props["show_control_legend"] == show_control_legend, (
-        f"Show control state legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
+        f"Show control state legend mismatch! Actual: {props['show_control_legend']}, "
+        f"Expected: {show_control_legend}"
     )
 
 
