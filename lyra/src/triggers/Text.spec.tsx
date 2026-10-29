@@ -9,7 +9,7 @@
 
 import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Provider } from "@/triggers/Provider";
 import { Text } from "@/triggers/Text";
@@ -56,5 +56,60 @@ describe("Text", () => {
       wrapper: reserving([TAB]),
     });
     expect(container.textContent).toContain("S");
+  });
+
+  it("should put the label before the keys", () => {
+    const { container } = render(<Text trigger={["Control", "S"]}>Save</Text>);
+    expect(container.textContent).toBe("SaveS");
+  });
+
+  it("should start a word key with a capital", () => {
+    const { container } = render(<Text trigger={["Escape"]} />);
+    expect(container.textContent).toBe("Esc");
+  });
+
+  describe("modifier order", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.resetModules();
+    });
+
+    const capName = (cap: Element): string =>
+      cap
+        .querySelector("svg")
+        ?.getAttribute("class")
+        ?.match(/--(?:keyboard-)?(\w+)/)?.[1] ??
+      cap.textContent ??
+      "";
+
+    const renderOn = async (userAgent: string, trigger: Trigger): Promise<string[]> => {
+      vi.resetModules();
+      vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
+      const { Text: PlatformText } = await import("@/triggers/Text");
+      const { container } = render(<PlatformText trigger={trigger} />);
+      return Array.from(container.querySelectorAll(".pluto-text--keyboard"), capName);
+    };
+
+    const MIXED: Trigger = ["MouseLeft", "Control", "K", "Shift", "Alt"];
+
+    it("should follow Apple's order on macOS", async () => {
+      expect(await renderOn("Macintosh", MIXED)).toEqual([
+        "option",
+        "shift",
+        "command",
+        "K",
+        "click",
+      ]);
+    });
+
+    it("should keep the declared order on Windows, with the mouse last", async () => {
+      expect(await renderOn("Windows", MIXED)).toEqual([
+        "control",
+        "K",
+        "shift",
+        "Alt",
+        "click",
+      ]);
+    });
   });
 });
