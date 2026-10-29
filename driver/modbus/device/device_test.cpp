@@ -9,6 +9,8 @@
 
 #include <atomic>
 #include <chrono>
+#include <map>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -825,6 +827,7 @@ TEST(RequestConfigTest, DefaultsWhenMissing) {
     EXPECT_EQ(props.requests.max_registers, 125);
     EXPECT_EQ(props.requests.max_gap, 125);
     EXPECT_EQ(props.requests.write_codes, WriteCodes::Multiple);
+    EXPECT_FALSE(props.requests.mask_write_supported);
     EXPECT_EQ(props.requests.delay, x::telem::TimeSpan(0));
 }
 
@@ -835,6 +838,7 @@ TEST(RequestConfigTest, ParsesFields) {
             {"max_registers", 60},
             {"max_gap", 0},
             {"write_codes", "single"},
+            {"mask_write_supported", true},
             {"delay_ms", 20},
         }
     );
@@ -843,6 +847,7 @@ TEST(RequestConfigTest, ParsesFields) {
     EXPECT_EQ(requests.max_registers, 60);
     EXPECT_EQ(requests.max_gap, 0);
     EXPECT_EQ(requests.write_codes, WriteCodes::Single);
+    EXPECT_TRUE(requests.mask_write_supported);
     EXPECT_EQ(requests.delay, x::telem::MILLISECOND * 20);
 }
 
@@ -1043,6 +1048,58 @@ TEST(DeviceTest, WriteGoesBeforeWaitingReads) {
     EXPECT_EQ(slave.log(), expected);
     slave.stop();
 }
+
+struct MaskWriteCase {
+    std::string name;
+    bool mask_write_supported;
+    /// @brief the requests the write sends, by function code.
+    std::map<int, std::size_t> requests;
+};
+
+class MaskWriteTest : public ::testing::TestWithParam<MaskWriteCase> {};
+
+/// @brief it should set the cleared bits of a register and keep the rest, with one
+/// function code 22 request when the device has mask writes, and a read and a write
+/// otherwise.
+TEST_P(MaskWriteTest, SetsBitsAndKeepsTheRest) {
+    const auto &[_, mask_write_supported, expected] = GetParam();
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1676;
+    slave_config.holding_registers[4] = static_cast<uint16_t>(0xFF0F);
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    RequestConfig requests;
+    requests.mask_write_supported = mask_write_supported;
+    auto dev = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1676}, requests));
+    ASSERT_NIL(dev->mask_write_register(4, 0xFFF0, 0x0005));
+    EXPECT_EQ(slave.get_holding_register(4), 0xFF05);
+    for (const auto &[fc, count]: expected)
+        EXPECT_EQ(slave.requests(fc), count) << "function code " << fc;
+    slave.stop();
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Writes,
+    MaskWriteTest,
+    ::testing::Values(
+        MaskWriteCase{
+            "MaskWrite",
+            true,
+            {{MODBUS_FC_MASK_WRITE_REGISTER, 1},
+             {MODBUS_FC_READ_HOLDING_REGISTERS, 0},
+             {MODBUS_FC_WRITE_MULTIPLE_REGISTERS, 0}},
+        },
+        MaskWriteCase{
+            "ReadThenWrite",
+            false,
+            {{MODBUS_FC_MASK_WRITE_REGISTER, 0},
+             {MODBUS_FC_READ_HOLDING_REGISTERS, 1},
+             {MODBUS_FC_WRITE_MULTIPLE_REGISTERS, 1}},
+        }
+    ),
+    [](const ::testing::TestParamInfo<MaskWriteCase> &info) { return info.param.name; }
+);
 
 /// @brief it should write each coil and register with its own request when the device
 /// writes with single function codes.

@@ -330,6 +330,9 @@ struct RequestConfig {
     std::size_t max_gap = MODBUS_MAX_READ_REGISTERS;
     /// @brief the function codes writes use.
     WriteCodes write_codes = WriteCodes::Multiple;
+    /// @brief whether the server takes function code 22, so a register bit write needs
+    /// one request instead of a read and a write.
+    bool mask_write_supported = false;
     /// @brief the wait between the end of one request on the connection and the start
     /// of the next.
     x::telem::TimeSpan delay;
@@ -357,6 +360,7 @@ struct RequestConfig {
             this->write_codes = WriteCodes::Single;
         else if (codes != "multiple")
             parser.field_err("write_codes", "must be multiple or single");
+        this->mask_write_supported = parser.field<bool>("mask_write_supported", false);
         const auto delay_ms = parser.field<int>("delay_ms", 0);
         if (delay_ms < 0 || delay_ms > 5000)
             parser.field_err("delay_ms", "must be between 0 and 5000");
@@ -671,6 +675,31 @@ public:
                 return err;
         }
         return x::errors::NIL;
+    }
+
+    /// @brief sets the bits of a holding register that and_mask clears to those of
+    /// or_mask, and keeps the rest. With mask writes this is one function code 22
+    /// request. Otherwise the device reads the register and writes it back, and a
+    /// change the server makes between the two requests is lost.
+    /// @param addr the address of the register.
+    /// @param and_mask the bits to keep.
+    /// @param or_mask the new values of the bits that and_mask clears.
+    x::errors::Error mask_write_register(
+        const int addr,
+        const std::uint16_t and_mask,
+        const std::uint16_t or_mask
+    ) {
+        if (this->requests.mask_write_supported)
+            return this->exec(true, [&](modbus_t *ctx) {
+                return modbus_mask_write_register(ctx, addr, and_mask, or_mask);
+            });
+        std::uint16_t value = 0;
+        if (auto err = this->exec(true, [&](modbus_t *ctx) {
+                return modbus_read_registers(ctx, addr, 1, &value);
+            }))
+            return err;
+        value = (value & and_mask) | (or_mask & ~and_mask);
+        return this->write_registers(addr, 1, &value);
     }
 
     /// @brief checks that the unit answers by reading holding register 0.

@@ -290,12 +290,12 @@ TEST(BitReader, SplitsAtMaxGap) {
 /// register next to it.
 TEST(RegisterReader, BitsShareRequestWithValues) {
     testutil::SlaveConfig cfg;
-    cfg.port = 1650;
+    cfg.port = 1670;
     cfg.holding_registers[4] = static_cast<uint16_t>(0b1000'0000'0000'0101);
     cfg.holding_registers[5] = static_cast<uint16_t>(77);
     testutil::Slave slave(cfg);
     ASSERT_NIL(slave.start());
-    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1650}));
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1670}));
 
     RegisterReader reader(
         device::HoldingRegister,
@@ -320,14 +320,14 @@ TEST(RegisterReader, BitsShareRequestWithValues) {
 /// end it at the first NUL.
 TEST(RegisterReader, String) {
     testutil::SlaveConfig cfg;
-    cfg.port = 1651;
+    cfg.port = 1671;
     cfg.input_registers[0] = static_cast<uint16_t>('P' << 8 | 'U');
     cfg.input_registers[1] = static_cast<uint16_t>('M' << 8 | 'P');
     cfg.input_registers[2] = static_cast<uint16_t>('1' << 8);
     cfg.input_registers[3] = static_cast<uint16_t>('X' << 8 | 'Y');
     testutil::Slave slave(cfg);
     ASSERT_NIL(slave.start());
-    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1651}));
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1671}));
 
     RegisterReader reader(device::InputRegister, {input_string(1, 0, 8, false, "tag")});
     const auto [fr, err] = read_once(reader, dev);
@@ -340,12 +340,12 @@ TEST(RegisterReader, String) {
 /// bytes are swapped, and stop at the string length.
 TEST(RegisterReader, StringBytesSwapped) {
     testutil::SlaveConfig cfg;
-    cfg.port = 1652;
+    cfg.port = 1672;
     cfg.input_registers[0] = static_cast<uint16_t>('B' << 8 | 'A');
     cfg.input_registers[1] = static_cast<uint16_t>('D' << 8 | 'C');
     testutil::Slave slave(cfg);
     ASSERT_NIL(slave.start());
-    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1652}));
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1672}));
 
     RegisterReader reader(device::InputRegister, {input_string(1, 0, 3, true, "tag")});
     EXPECT_EQ(reader.sy_channels().size(), 1);

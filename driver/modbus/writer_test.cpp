@@ -243,11 +243,11 @@ TEST(FindOverlap, MultiRegisterChannels) {
 /// keep the bits the device set since the last command.
 TEST(RegisterBitWriter, KeepsOtherBits) {
     testutil::SlaveConfig cfg;
-    cfg.port = 1653;
+    cfg.port = 1673;
     cfg.holding_registers[3] = static_cast<uint16_t>(0b0000'0000'1111'0000);
     testutil::Slave slave(cfg);
     ASSERT_NIL(slave.start());
-    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1653}));
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1673}));
     RegisterBitWriter writer(
         {holding_bit(1, 3, 0, "set"), holding_bit(2, 3, 4, "clear")}
     );
@@ -272,13 +272,13 @@ TEST(RegisterBitWriter, KeepsOtherBits) {
 /// registers without a command untouched.
 TEST(RegisterBitWriter, OneWritePerRegister) {
     testutil::SlaveConfig cfg;
-    cfg.port = 1654;
+    cfg.port = 1674;
     cfg.holding_registers[1] = static_cast<uint16_t>(0);
     cfg.holding_registers[2] = static_cast<uint16_t>(0xFFFF);
     cfg.holding_registers[9] = static_cast<uint16_t>(0);
     testutil::Slave slave(cfg);
     ASSERT_NIL(slave.start());
-    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1654}));
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1674}));
     RegisterBitWriter writer(
         {holding_bit(1, 9, 15, "c"),
          holding_bit(2, 1, 2, "a"),
@@ -300,10 +300,10 @@ TEST(RegisterBitWriter, OneWritePerRegister) {
 /// rejects the read of the register.
 TEST(RegisterBitWriter, IllegalAddressNamesChannel) {
     testutil::SlaveConfig cfg;
-    cfg.port = 1655;
+    cfg.port = 1675;
     testutil::Slave slave(cfg);
     ASSERT_NIL(slave.start());
-    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1655}));
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1675}));
     RegisterBitWriter writer({holding_bit(1, 500, 3, "alarm")});
 
     x::telem::Frame fr(1);

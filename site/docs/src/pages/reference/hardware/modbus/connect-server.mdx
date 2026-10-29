@@ -161,24 +161,25 @@ register 0. See [device statuses](/reference/hardware/devices#statuses).
 
 ## Connection options
 
-| Console label | Python field               | Default               | Notes                                                                      |
-| ------------- | -------------------------- | --------------------- | -------------------------------------------------------------------------- |
-| Transport     | `transport`                | `tcp`                 | `tcp` for Modbus TCP, or `rtu` for Modbus RTU on a serial port.            |
-| Host          | `host`                     |                       | TCP only. An IPv4 address, an IPv6 address, or a hostname.                 |
-| Port          | `port`                     | `502`                 | TCP only. Python has no default.                                           |
-| Serial port   | `serial_port`              |                       | RTU only. Such as `/dev/ttyUSB0` or `COM3`.                                |
-| Baud rate     | `baud_rate`                | `19200`               | RTU only. See [serial devices](#serial-devices).                           |
-| Parity        | `parity`                   | `even`                | RTU only. `none`, `even`, or `odd`.                                        |
-| Stop bits     | `stop_bits`                | `1`                   | RTU only. `1` or `2`.                                                      |
-| Connect from  | `rack`                     |                       | The Driver that connects to the server.                                    |
-| Unit ID       | `unit_id`                  | `255`, or `1` for RTU | The unit that requests go to: 0 to 255 for TCP, and 1 to 247 for RTU.      |
-| Byte order    | `swap_bytes`, `swap_words` | Word swap             | See the table below.                                                       |
-| Timeout       | `timeout_ms`               | `1000`                | The time to connect, and to wait for each reply, in milliseconds.          |
-| Retries       | `retries`                  | `1`                   | How many times the Driver sends a request again at once after a fault.     |
-| Request delay | `delay_ms`                 | `0`                   | The wait between requests on the connection, from 0 to 5000 milliseconds.  |
-| Max registers | `max_registers`            | `125`                 | The most registers in one read, from 1 to 125.                             |
-| Max gap       | `max_gap`                  | `125`                 | The widest gap between channels that one read spans. `0` reads only yours. |
-| Write codes   | `write_codes`              | `multiple`            | `multiple` writes with function codes 15 and 16. `single` uses 05 and 06.  |
+| Console label     | Python field               | Default               | Notes                                                                      |
+| ----------------- | -------------------------- | --------------------- | -------------------------------------------------------------------------- |
+| Transport         | `transport`                | `tcp`                 | `tcp` for Modbus TCP, or `rtu` for Modbus RTU on a serial port.            |
+| Host              | `host`                     |                       | TCP only. An IPv4 address, an IPv6 address, or a hostname.                 |
+| Port              | `port`                     | `502`                 | TCP only. Python has no default.                                           |
+| Serial port       | `serial_port`              |                       | RTU only. Such as `/dev/ttyUSB0` or `COM3`.                                |
+| Baud rate         | `baud_rate`                | `19200`               | RTU only. See [serial devices](#serial-devices).                           |
+| Parity            | `parity`                   | `even`                | RTU only. `none`, `even`, or `odd`.                                        |
+| Stop bits         | `stop_bits`                | `1`                   | RTU only. `1` or `2`.                                                      |
+| Connect from      | `rack`                     |                       | The Driver that connects to the server.                                    |
+| Unit ID           | `unit_id`                  | `255`, or `1` for RTU | The unit that requests go to: 0 to 255 for TCP, and 1 to 247 for RTU.      |
+| Byte order        | `swap_bytes`, `swap_words` | Word swap             | See the table below.                                                       |
+| Timeout           | `timeout_ms`               | `1000`                | The time to connect, and to wait for each reply, in milliseconds.          |
+| Retries           | `retries`                  | `1`                   | How many times the Driver sends a request again at once after a fault.     |
+| Request delay     | `delay_ms`                 | `0`                   | The wait between requests on the connection, from 0 to 5000 milliseconds.  |
+| Max registers     | `max_registers`            | `125`                 | The most registers in one read, from 1 to 125.                             |
+| Max gap           | `max_gap`                  | `125`                 | The widest gap between channels that one read spans. `0` reads only yours. |
+| Write codes       | `write_codes`              | `multiple`            | `multiple` writes with function codes 15 and 16. `single` uses 05 and 06.  |
+| Mask write (FC22) | `mask_write_supported`     | `false`               | Bit writes in a holding register use function code 22, in one request.     |
 
 **Byte order** sets the order of every register channel of the server. A channel can
 override it. The letters show the bytes of a 32-bit value in the order the device sends

@@ -137,24 +137,8 @@ public:
 };
 
 /// @brief writes single bits of holding registers. The commanded bits of one register
-/// go in one read of the register and one write back. A change the device makes to the
-/// other bits between the two requests is lost.
+/// go in one mask write.
 class RegisterBitWriter final : public BaseWriter<channel::OutputRegisterBit> {
-    /// @brief sets the register to (current AND and_mask) OR (or_mask AND NOT
-    /// and_mask), the result of function code 22.
-    static x::errors::Error mask_write(
-        device::Device &dev,
-        const std::uint16_t address,
-        const std::uint16_t and_mask,
-        const std::uint16_t or_mask
-    ) {
-        std::uint16_t value = 0;
-        if (auto err = dev.read_registers(device::HoldingRegister, address, 1, &value))
-            return err;
-        value = (value & and_mask) | (or_mask & ~and_mask);
-        return dev.write_registers(address, 1, &value);
-    }
-
 public:
     explicit RegisterBitWriter(const std::vector<channel::OutputRegisterBit> &chs):
         BaseWriter(chs) {}
@@ -175,7 +159,7 @@ public:
                 if (x::telem::cast<double>(fr.at(cmds[last].channel, -1)) != 0)
                     or_mask |= bit;
             }
-            if (auto err = mask_write(*dev, address, and_mask, or_mask))
+            if (auto err = dev->mask_write_register(address, and_mask, or_mask))
                 return wrap(err, "holding registers", {address, 1, first, last}, cmds);
         }
         return x::errors::NIL;

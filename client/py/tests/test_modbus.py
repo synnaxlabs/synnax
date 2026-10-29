@@ -783,6 +783,7 @@ class TestModbusDevicePropertyUpdates:
             "max_registers": 125,
             "max_gap": 125,
             "write_codes": "multiple",
+            "mask_write_supported": False,
             "delay_ms": 0,
         }
 
@@ -797,6 +798,7 @@ class TestModbusDevicePropertyUpdates:
             max_registers=60,
             max_gap=0,
             write_codes="single",
+            mask_write_supported=True,
             delay_ms=20,
         )
         connection = obj(dev.properties["connection"])
@@ -807,6 +809,7 @@ class TestModbusDevicePropertyUpdates:
             "max_registers": 60,
             "max_gap": 0,
             "write_codes": "single",
+            "mask_write_supported": True,
             "delay_ms": 20,
         }
 

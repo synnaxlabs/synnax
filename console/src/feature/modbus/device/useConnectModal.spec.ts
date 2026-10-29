@@ -52,7 +52,7 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(screen.getByText("Little-endian (DCBA)")).toBeTruthy();
   });
 
-  it("should save the unit and byte order entered for a new server", async () => {
+  it("should save the unit, byte order, and mask writes entered for a new server", async () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
@@ -69,6 +69,8 @@ describe("Modbus.Device.useConnectModal", () => {
     });
     commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("255"), "12");
     await selectFromDropdown("Word swap (CDAB)", "Big-endian (ABCD)");
+    fireEvent.click(screen.getByText("Advanced"));
+    fireEvent.click(await screen.findByRole("checkbox"));
     const { answered } = await answerNextCommand(client, scan);
     pressSaveTrigger();
     await answered;
@@ -80,6 +82,7 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(dev.properties.connection.swapWords).toBe(true);
     expect(dev.properties.connection.timeoutMs).toBe(1000);
     expect(dev.properties.requests.writeCodes).toBe("multiple");
+    expect(dev.properties.requests.maskWriteSupported).toBe(true);
   });
 
   it("should start a new server at the standard Modbus TCP port", async () => {

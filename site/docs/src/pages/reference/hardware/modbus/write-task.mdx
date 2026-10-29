@@ -30,7 +30,9 @@ connection.
 
 To write one bit of a holding register, the Driver reads the register, changes the bit,
 and writes the register back. If the device changes another bit of the register between
-the read and the write, the write removes that change.
+the read and the write, the write removes that change. For a device that supports
+function code 22, select **Mask write (FC22)** on the server. The Driver then changes
+the bit with one request, and the other bits stay as the device has them.
 
 Before you start, you need a
 [connected server](/reference/hardware/modbus/connect-server).

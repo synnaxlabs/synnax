@@ -215,6 +215,9 @@ class Device(device.Device):
         0 reads only addresses that channels cover.
     :param write_codes: "multiple" writes with function codes 15 and 16. "single" writes
         each coil with 05 and each register with 06.
+    :param mask_write_supported: Whether the server takes function code 22, so a
+        register bit write is one request. Otherwise the Driver reads the register and
+        writes it back.
     :param delay_ms: The wait in milliseconds between requests on the connection,
         from 0 to 5000.
     :param name: Human-readable name for the device.
@@ -245,6 +248,7 @@ class Device(device.Device):
         max_registers: int = 125,
         max_gap: int = 125,
         write_codes: Literal["multiple", "single"] = "multiple",
+        mask_write_supported: bool = False,
         delay_ms: int = 0,
         name: str = "",
         location: str = "",
@@ -292,6 +296,7 @@ class Device(device.Device):
                 "max_registers": max_registers,
                 "max_gap": max_gap,
                 "write_codes": write_codes,
+                "mask_write_supported": mask_write_supported,
                 "delay_ms": delay_ms,
             },
             "read": {"index": 0, "channels": {}},
