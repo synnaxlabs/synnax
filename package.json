@@ -90,6 +90,7 @@
     "cov:vite-plugin": "turbo cov --filter @synnaxlabs/vite-plugin",
     "cov:www": "turbo cov --filter @synnaxlabs/www",
     "cov:x": "turbo cov --filter @synnaxlabs/x",
+    "install-chromium:lyra": "pnpm --filter @synnaxlabs/lyra install-chromium",
     "lint": "turbo lint --continue",
     "lint:alamos": "turbo lint --filter @synnaxlabs/alamos",
     "lint:client": "turbo lint --filter @synnaxlabs/client",

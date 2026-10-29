@@ -11,6 +11,7 @@
     "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
+    "install-chromium": "playwright install chromium",
     "lint": "eslint && stylelint \"src/**/*.css\"",
     "fix": "eslint --fix && stylelint --fix \"src/**/*.css\"",
     "exports": "tsx scripts/exports.ts",
@@ -57,16 +58,19 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@vitest/browser-playwright": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "jsdom": "catalog:",
+    "playwright": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "stylelint": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vitest-browser-react": "catalog:"
   },
   "exports": {
     "./avatar": {

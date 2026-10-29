@@ -9,7 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-btn.pluto-tag {
+/* The flex class outranks the bordered rule in Box.css, which would otherwise tie with
+   this one and leave the border color to load order. */
+.pluto-flex.pluto-btn.pluto-tag {
     border: var(--pluto-border-l6);
     border-radius: var(--pluto-border-radius-small);
     width: fit-content;

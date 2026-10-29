@@ -762,6 +762,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'lyra')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      chromium: true
       coverage_flag: lyra
       directory: lyra
       macos: *full
