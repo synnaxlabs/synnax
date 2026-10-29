@@ -87,11 +87,12 @@ await client.devices.create({
   model: "OPC UA server",
   configured: true,
   properties: {
-    version: "1.0.0",
+    version: "2.0.0",
     connection: {
       endpoint: "opc.tcp://192.168.1.50:4840",
       securityMode: "None",
       securityPolicy: "None",
+      certificateValidationDisabled: false,
     },
     read: { indexes: [], channels: {} },
     write: { channels: {} },
@@ -112,34 +113,75 @@ In the **Security** section, the **Mode** and the **Policy** protect the connect
 between the Driver and the server. Set them to values that the server accepts.
 
 - **Mode** -> **None**, **Sign**, or **Sign and encrypt**.
-- **Policy** -> the algorithms. The field shows when the mode is not **None**. When you
-  change the mode from **None**, the Console selects **Basic 256-bit with SHA-256**.
-  Select a deprecated policy only when the server supports no other policy.
-- **Client certificate** and **Client private key** -> the certificate that the Driver
-  sends to the server, and its key. The fields show when the mode is not **None**.
+- **Policy** -> the algorithms. When you change the mode from **None**, the Console
+  selects **Basic 256-bit with SHA-256**. Select a deprecated policy only when the
+  server supports nothing newer.
 
-In Python and TypeScript, set a policy other than `"None"` when the mode is not
-`"None"`. With the policy at `"None"`, the Driver does not load the certificates, even
-when the mode is `"Sign"`.
+The other security fields show when the mode is not **None**. In Python and TypeScript,
+set a policy other than `"None"` when the mode is not `"None"`. With the policy at
+`"None"`, the Driver does not load the certificates, even when the mode is `"Sign"`.
 
-The certificate and key are file paths on the computer that runs the Driver:
+### Client certificate
 
-- In Synnax Desktop, the Console and the Driver run on the same computer, so the file
-  picker gives a correct path.
-- When the Driver runs on a different computer, the picker gives a path on your
-  computer. Set the paths in Python or TypeScript instead.
-- The Console in a web browser cannot pick files. Set the paths in Python or TypeScript.
+The Driver sends a certificate to the server. Select one of these:
 
-In Python and TypeScript, set a policy other than `"None"` when the mode is not
-`"None"`. With the policy at `"None"`, the Driver does not load the certificates, even
-when the mode is `"Sign"`.
+- **Driver certificate** -> the default. Each Driver makes its own certificate, and all
+  the servers that the Driver connects to get the same one. The dialog shows its
+  thumbprint and its expiry date.
+- **Files on the Driver computer** -> the paths of a certificate and a private key on
+  the computer that runs the Driver. Use this when your site issues its own
+  certificates. The key must not have a password, and the certificate must hold the
+  application URI of the Driver.
 
-The private key must not have a password. The server reads the application URI of the
-Driver from the URI in the client certificate. Without a client certificate, the URI is
-`urn:synnax.opcua.client`.
+Most servers reject a certificate that they do not know, and keep it in a list of
+rejected certificates. To make the server trust the Driver certificate:
 
-The Driver accepts every server certificate. The **Server certificate** field has no
-effect.
+1. Click **Connect**. The test fails with "Server rejected the Driver certificate".
+2. On the server, find the Driver certificate in the rejected list. Make sure that its
+   thumbprint is the same as the one in the dialog, then trust it.
+3. Click **Connect** again.
+
+If the server has no rejected list, click **Download** to save the certificate as a DER
+file, then add the file to the trust list of the server. For a server that needs PEM,
+convert the file that you downloaded, here `driver.der`:
+
+```bash
+openssl x509 -inform der -in driver.der -out driver.pem
+```
+
+The Driver certificate is valid for 3 years. 60 days before it expires, the Driver makes
+the next certificate and keeps using the current one. Once a day, the Driver connects to
+each secured server with the next certificate, so a server that does not trust it yet
+adds it to its rejected list. Trust it there, or download it from the dialog, where it
+shows as **Next certificate**. The Driver uses the next certificate when all the servers
+accept it, or when the current one expires.
+
+**Regenerate** replaces the certificate of the Driver with a new one. Use it only when
+the private key is no longer safe. All the servers must then trust the new certificate.
+
+### Server certificate
+
+Each server has a certificate, and a device trusts one server certificate. The Driver
+connects only to a server that sends the trusted certificate.
+
+- In the dialog, the first **Connect** fails with "Server certificate not trusted". The
+  dialog shows the certificate that the server sent, with its subject, thumbprint, and
+  expiry date. Make sure that the thumbprint is the same as the one the server shows,
+  then click **Trust**. The dialog saves the certificate and connects again.
+- A device made in Python or TypeScript without a server certificate trusts the
+  certificate that the server sends on the first connection. The Driver saves that
+  certificate to the device.
+- When the server gets a new certificate, the device shows "Server certificate not
+  trusted". Open the device, compare the new thumbprint, and click **Trust**.
+
+### Validate server certificate
+
+**Validate server certificate** is on by default. Turn it off only to troubleshoot a
+connection. When it is off, the Driver accepts any server certificate, and the device
+shows the warning "Connected without certificate validation". Turn it on again when you
+finish.
+
+### Login
 
 The Driver logs in to the server as an anonymous user, or with the **Username** and
 **Password** when you enter one of them. It cannot log in with a user certificate.
@@ -148,20 +190,22 @@ The Driver logs in to the server as an anonymous user, or with the **Username** 
 
 ## Connection options
 
-| Console label      | Python field         | Default                    | Notes                                                                                   |
-| ------------------ | -------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
-| Connect from       | `rack`               |                            | The key of the rack that runs the Driver.                                               |
-| Endpoint           | `endpoint`           | `opc.tcp://localhost:4840` | Required in Python.                                                                     |
-| Username           | `username`           | Empty                      | Empty for an anonymous login.                                                           |
-| Password           | `password`           | Empty                      |                                                                                         |
-| Mode               | `security_mode`      | None                       | `"None"`, `"Sign"`, or `"SignAndEncrypt"`.                                              |
-| Policy             | `security_policy`    | None                       | `"None"` goes only with the mode `"None"`. See [security policies](#security-policies). |
-| Client certificate | `client_cert`        | Empty                      | A path on the Driver computer.                                                          |
-| Client private key | `client_private_key` | Empty                      | A path on the Driver computer. No password.                                             |
-| Server certificate | `server_cert`        | Empty                      | Has no effect.                                                                          |
+| Console label               | Python field                      | Default                    | Notes                                                                                   |
+| --------------------------- | --------------------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
+| Connect from                | `rack`                            |                            | The key of the rack that runs the Driver.                                               |
+| Endpoint                    | `endpoint`                        | `opc.tcp://localhost:4840` | Required in Python.                                                                     |
+| Username                    | `username`                        | Empty                      | Empty for an anonymous login.                                                           |
+| Password                    | `password`                        | Empty                      |                                                                                         |
+| Mode                        | `security_mode`                   | None                       | `"None"`, `"Sign"`, or `"SignAndEncrypt"`.                                              |
+| Policy                      | `security_policy`                 | None                       | `"None"` goes only with the mode `"None"`. See [security policies](#security-policies). |
+| Certificate file            | `client_cert`                     | Empty                      | A path on the Driver computer. Empty, with an empty key, uses the Driver certificate.   |
+| Private key file            | `client_private_key`              | Empty                      | A path on the Driver computer. No password.                                             |
+| Server certificate          | `server_cert`                     | Empty                      | The trusted certificate as PEM. Empty trusts the certificate of the first connection.   |
+| Validate server certificate | `certificate_validation_disabled` | `False`                    | The switch shows the opposite value.                                                    |
 
 In TypeScript, the fields are in `properties.connection` in camel case, such as
-`securityMode`, `clientCertificate`, and `serverCertificate`.
+`securityMode`, `clientCertificate`, `serverCertificate`, and
+`certificateValidationDisabled`.
 
 ### Security policies
 
@@ -217,22 +261,106 @@ The Driver could not use the certificate, the key, or the policy.
 </Problem.Cause>
 <Problem.Fix>
 
-1. Make sure that the paths are correct on the computer that runs the Driver.
-2. Remove the password from the private key.
-3. Select a policy that the server supports.
+Select a policy that the server supports.
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"The certificate is not trusted."}>
+<Problem.Item message={"Server certificate not trusted"}>
 <Problem.Cause>
 
-The server rejected the client certificate.
+The server sent a certificate other than the one that the device trusts, or the device
+trusts no certificate yet.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Add the client certificate to the trust list of the server.
+1. Open the device and click **Connect**.
+2. Make sure that the thumbprint in the dialog is the same as the one the server shows.
+3. Click **Trust**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Server rejected the Driver certificate"}>
+<Problem.Cause>
+
+The server does not trust the client certificate.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Trust the certificate on the server. See [client certificate](#client-certificate).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Server certificate expired"}>
+<Problem.Cause>
+
+The certificate of the server is not valid at the current time.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Renew the certificate of the server.
+2. Open the device, click **Connect**, and trust the new certificate.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read client certificate"}>
+<Problem.Cause>
+
+The Driver could not use the files in **Certificate file** and **Private key file**.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Make sure that the paths are correct on the computer that runs the Driver.
+2. Make sure that the key belongs to the certificate.
+3. Remove the password from the private key.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to load the Driver certificate"}>
+<Problem.Cause>
+
+The Driver could not read, make, or save its certificate.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Make sure that the Driver can write to its data directory.
+2. Restart the Driver.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Connected without certificate validation"}>
+<Problem.Cause>
+
+**Validate server certificate** is off, so the Driver accepts any server certificate.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Turn on **Validate server certificate** when you finish troubleshooting.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Server does not trust the next certificate"}>
+<Problem.Cause>
+
+The Driver certificate expires soon, and the server does not trust the next one yet.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Trust the next certificate on the server before the date in the description. See
+[client certificate](#client-certificate).
 
 </Problem.Fix>
 </Problem.Item>
@@ -240,7 +368,7 @@ Add the client certificate to the trust list of the server.
 <Problem.Item message={"The URI specified in the ApplicationDescription does not match the URI in the certificate."}>
 <Problem.Cause>
 
-The URI in the client certificate is different from the URI that the server expects.
+The URI in the certificate file is different from the URI that the server expects.
 
 </Problem.Cause>
 <Problem.Fix>
