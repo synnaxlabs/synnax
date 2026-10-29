@@ -11,6 +11,7 @@
 
 import struct
 from abc import abstractmethod
+from collections.abc import Callable
 
 from examples.modbus import ModbusSim
 from examples.modbus.server import SLAVE_ID
@@ -28,16 +29,30 @@ def float32_words(value: float) -> list[int]:
     return [low, high]
 
 
-def assert_sim_registers(address: int, expected: list[int]) -> None:
-    """Assert the simulator's holding registers from ``address`` are ``expected``."""
+def _wait_for_sim[T](
+    read: Callable[[ModbusTcpClient], list[T]], expected: list[T], what: str
+) -> None:
+    """Assert that ``read`` returns ``expected`` within two seconds. The Synnax echo
+    of a command can arrive before the Driver writes it to the device."""
+    timer = sy.Timer()
     with ModbusTcpClient(ModbusSim.host, port=ModbusSim.port) as sim:
+        while (got := read(sim)) != expected:
+            if timer.elapsed() > 2 * sy.TimeSpan.SECOND:
+                raise AssertionError(f"{what} should be {expected}, got {got}")
+            sy.sleep(0.05)
+
+
+def assert_sim_registers(address: int, expected: list[int]) -> None:
+    """Assert the simulator's holding registers from ``address`` become ``expected``."""
+
+    def read(sim: ModbusTcpClient) -> list[int]:
         res = sim.read_holding_registers(
             address, count=len(expected), device_id=SLAVE_ID
         )
-    assert not res.isError(), res
-    assert res.registers == expected, (
-        f"Holding registers from {address} should be {expected}, got {res.registers}"
-    )
+        assert not res.isError(), res
+        return list(res.registers)
+
+    _wait_for_sim(read, expected, f"Holding registers from {address}")
 
 
 def set_sim_register(address: int, value: int) -> None:
@@ -55,12 +70,14 @@ def set_sim_coil(address: int, value: bool) -> None:
 
 
 def assert_sim_coils(address: int, expected: list[bool]) -> None:
-    """Assert the simulator's coils from ``address`` are ``expected``."""
-    with ModbusTcpClient(ModbusSim.host, port=ModbusSim.port) as sim:
+    """Assert the simulator's coils from ``address`` become ``expected``."""
+
+    def read(sim: ModbusTcpClient) -> list[bool]:
         res = sim.read_coils(address, count=len(expected), device_id=SLAVE_ID)
-    assert not res.isError(), res
-    coils = res.bits[: len(expected)]
-    assert coils == expected, f"Coils from {address} should be {expected}, got {coils}"
+        assert not res.isError(), res
+        return list(res.bits[: len(expected)])
+
+    _wait_for_sim(read, expected, f"Coils from {address}")
 
 
 class ModbusReadTaskCase(SimulatorCase, ReadTaskCase[sy.modbus.ReadTask]):
