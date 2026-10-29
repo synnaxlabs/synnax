@@ -519,6 +519,7 @@ void Manager::monitor_loop() {
 void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
     switch (op.type) {
         case Op::Type::DEPLOY: {
+            this->ctx->claim_status(op.task_key);
             auto tsk = op.task;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.

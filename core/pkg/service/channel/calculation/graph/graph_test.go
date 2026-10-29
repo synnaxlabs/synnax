@@ -1673,6 +1673,60 @@ var _ = Describe("Graph", func() {
 		)
 	})
 
+	Describe("Failed", func() {
+		var (
+			g    *graph.Graph
+			calc channel.Channel
+		)
+		open := func(ctx context.Context, name string) {
+			GinkgoHelper()
+			g = openGraph(ctx)
+			createDep(ctx, name+"_dep")
+			calc = channel.Channel{
+				Name:       name,
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return " + name + "_dep + 1",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+		}
+		report := func(ctx context.Context, variant status.Variant) {
+			GinkgoHelper()
+			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+				Name:    calc.Name,
+				Variant: variant,
+				Message: "Calculation status",
+				Time:    telem.Now(),
+			})).To(Succeed())
+		}
+
+		It("Should return false for a channel with no status", func(ctx SpecContext) {
+			open(ctx, "failed_none")
+			Expect(g.Failed(ctx, calc.Key())).To(BeFalse())
+		})
+
+		It(
+			"Should return false for a channel with a success status",
+			func(ctx SpecContext) {
+				open(ctx, "failed_success")
+				report(ctx, status.VariantError)
+				report(ctx, status.VariantSuccess)
+				Expect(MustBeOk(fetchStatus(ctx, calc.Key())).Variant).
+					To(Equal(status.VariantSuccess))
+				Expect(g.Failed(ctx, calc.Key())).To(BeFalse())
+			},
+		)
+
+		It(
+			"Should return true for a channel with an error status",
+			func(ctx SpecContext) {
+				open(ctx, "failed_error")
+				report(ctx, status.VariantError)
+				Expect(g.Failed(ctx, calc.Key())).To(BeTrue())
+			},
+		)
+	})
+
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			Expect(MustOpen(graph.Open(ctx, graph.Config{
