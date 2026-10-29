@@ -10,6 +10,7 @@
 package testutil_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,8 +23,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// tempDirPrefix is the prefix of every directory osFS creates in os.TempDir.
+func tempDirPrefix() string {
+	return fmt.Sprintf("testdata-p%d-", GinkgoParallelProcess())
+}
+
 // matchingTempDirs returns the basenames of every entry in os.TempDir that
-// starts with the given prefix. Used to observe whether OpenOS leaves a
+// starts with the given prefix. Used to observe whether osFS leaves a
 // directory behind after its enclosing scope exits.
 func matchingTempDirs(prefix string) []string {
 	GinkgoHelper()
@@ -92,9 +98,9 @@ var _ = Describe("FS Testutil", func() {
 		}
 	})
 
-	Describe("OpenMem", func() {
+	Describe("memFS", func() {
 		It("Should return a usable in-memory FS", func() {
-			fs := OpenMem()
+			fs := FileSystems["memFS"]()
 			Expect(fs).ToNot(BeNil())
 			f := MustSucceed(fs.Open("a.bin", os.O_CREATE|os.O_RDWR))
 			DeferClose(f)
@@ -105,8 +111,8 @@ var _ = Describe("FS Testutil", func() {
 		It(
 			"Should return a fresh FS on each call so callers cannot leak state across tests",
 			func() {
-				a := OpenMem()
-				b := OpenMem()
+				a := FileSystems["memFS"]()
+				b := FileSystems["memFS"]()
 				fa := MustSucceed(a.Open("only-in-a.bin", os.O_CREATE|os.O_RDWR))
 				DeferClose(fa)
 				Expect(MustSucceed(b.Exists("only-in-a.bin"))).To(BeFalse())
@@ -114,15 +120,15 @@ var _ = Describe("FS Testutil", func() {
 		)
 
 		It("Should leave nothing on disk", func() {
-			before := matchingTempDirs(TempDirPrefix())
-			OpenMem()
-			Expect(matchingTempDirs(TempDirPrefix())).To(Equal(before))
+			before := matchingTempDirs(tempDirPrefix())
+			FileSystems["memFS"]()
+			Expect(matchingTempDirs(tempDirPrefix())).To(Equal(before))
 		})
 	})
 
-	Describe("OpenOS", func() {
+	Describe("osFS", func() {
 		It("Should return a usable on-disk FS", func() {
-			fs := OpenOS()
+			fs := FileSystems["osFS"]()
 			Expect(fs).ToNot(BeNil())
 			f := MustSucceed(fs.Open("a.bin", os.O_CREATE|os.O_RDWR))
 			DeferClose(f)
@@ -131,17 +137,17 @@ var _ = Describe("FS Testutil", func() {
 		})
 
 		It("Should return a fresh FS rooted at its own tempdir on each call", func() {
-			a := OpenOS()
-			b := OpenOS()
+			a := FileSystems["osFS"]()
+			b := FileSystems["osFS"]()
 			fa := MustSucceed(a.Open("only-in-a.bin", os.O_CREATE|os.O_RDWR))
 			DeferClose(fa)
 			Expect(MustSucceed(b.Exists("only-in-a.bin"))).To(BeFalse())
 		})
 
 		It("Should back the FS with a real directory under os.TempDir", func() {
-			before := matchingTempDirs(TempDirPrefix())
-			OpenOS()
-			after := matchingTempDirs(TempDirPrefix())
+			before := matchingTempDirs(tempDirPrefix())
+			FileSystems["osFS"]()
+			after := matchingTempDirs(tempDirPrefix())
 			Expect(after).To(HaveLen(len(before) + 1))
 		})
 
@@ -152,11 +158,11 @@ var _ = Describe("FS Testutil", func() {
 			)
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
-				priorDirs = matchingTempDirs(TempDirPrefix())
+				priorDirs = matchingTempDirs(tempDirPrefix())
 			})
 			It("Creates the tempdir while the spec is running", func() {
-				OpenOS()
-				current := matchingTempDirs(TempDirPrefix())
+				FileSystems["osFS"]()
+				current := matchingTempDirs(tempDirPrefix())
 				Expect(current).To(HaveLen(len(priorDirs) + 1))
 				for _, name := range current {
 					if !slices.Contains(priorDirs, name) {
@@ -169,7 +175,7 @@ var _ = Describe("FS Testutil", func() {
 			It("Removes the tempdir before the next spec runs", func() {
 				_, err := os.Stat(createdAt)
 				Expect(os.IsNotExist(err)).To(BeTrue())
-				Expect(matchingTempDirs(TempDirPrefix())).To(Equal(priorDirs))
+				Expect(matchingTempDirs(tempDirPrefix())).To(Equal(priorDirs))
 			})
 		})
 	})
@@ -189,26 +195,6 @@ var _ = Describe("FS Testutil", func() {
 				MustSucceed(f.Write([]byte("hello")))
 				Expect(MustSucceed(fs.Exists("a.bin"))).To(BeTrue())
 			}
-		})
-
-		It("Should bind memFS to OpenMem and osFS to OpenOS", func() {
-			before := matchingTempDirs(TempDirPrefix())
-			FileSystems["memFS"]()
-			Expect(matchingTempDirs(TempDirPrefix())).To(Equal(before))
-
-			FileSystems["osFS"]()
-			Expect(matchingTempDirs(TempDirPrefix())).To(HaveLen(len(before) + 1))
-		})
-	})
-
-	Describe("Factory type", func() {
-		It("Should be assignable from any FileSystems value", func() {
-			var f Factory = OpenMem
-			Expect(f()).ToNot(BeNil())
-			f = OpenOS
-			Expect(f()).ToNot(BeNil())
-			f = FileSystems["memFS"]
-			Expect(f()).ToNot(BeNil())
 		})
 	})
 })

@@ -130,7 +130,8 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         self._range.set_alias(self.key, alias)
 
     def __str__(self) -> str:
-        return f"{super().__str__()} between {self.time_range.start} and {self.time_range.end}"
+        tr = self.time_range
+        return f"{super().__str__()} between {tr.start} and {tr.end}"
 
     def __len__(self) -> int:
         return len(self.read())

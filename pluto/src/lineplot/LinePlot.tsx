@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
@@ -25,6 +24,7 @@ import {
 import { type ReactElement, type RefObject, useEffect, useRef } from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
+import { CSS } from "@/css";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
 import {

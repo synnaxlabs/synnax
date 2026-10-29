@@ -92,7 +92,7 @@ describe("arc/Toolbar", () => {
     const name = uniqueName("arc");
     fireEvent.change(input, { target: { value: name } });
     const create = screen.getByRole("button", { name: "Create" });
-    await waitFor(() => expect(create.className).not.toContain("pluto--disabled"));
+    await waitFor(() => expect(create.className).not.toContain("lyra--disabled"));
     fireEvent.click(create);
     const key = await focusedResourceKey(store);
     const created = await client.arcs.retrieve(key);
