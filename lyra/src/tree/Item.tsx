@@ -25,24 +25,40 @@ export type ItemProps<
 > = Select.ItemProps<K, E> & {
   index: number;
   loading?: boolean;
+  useMargin?: boolean;
+  offsetMultiplier?: number;
 };
 
-const DEPTH_VARIABLE = CSS.variable("tree-item-depth");
+const OFFSET_VARIABLE = CSS.variable("tree-item-offset");
+const STEP_VARIABLE = CSS.variable("tree-item-step");
+const RULES_WIDTH_VARIABLE = CSS.variable("tree-item-rules-width");
 
 export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   children,
   style,
   className,
   loading,
+  useMargin = false,
+  offsetMultiplier = 2.5,
   ...rest
 }: ItemProps<K, E>) => {
   const { index } = rest;
   const { nodes, toggle } = useContext("Tree.Item");
   const { expanded, depth, hasChildren } = nodes[index];
-  const itemStyle = { [DEPTH_VARIABLE]: depth, ...style };
+  const itemStyle = {
+    [OFFSET_VARIABLE]: `${depth * offsetMultiplier + 1.5}rem`,
+    [STEP_VARIABLE]: `${offsetMultiplier}rem`,
+    [RULES_WIDTH_VARIABLE]: `${depth * offsetMultiplier}rem`,
+    ...style,
+  };
   return (
     <Select.Item
-      className={CSS.cls(CSS.BE("tree", "item"), className)}
+      className={CSS.cls(
+        CSS.BE("tree", "item"),
+        depth !== 0 && CSS.M("show-rules"),
+        useMargin && CSS.M("margin"),
+        className,
+      )}
       style={itemStyle}
       gap="small"
       align="center"

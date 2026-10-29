@@ -10,15 +10,26 @@
  */
 
 .lyra-tree {
-    .lyra-tree__item {
-        /* A caret's footprint plus the small gap. */
-        --pluto-tree-item-step: 2.5rem;
-        --pluto-tree-item-indent: calc(
-            var(--pluto-tree-item-depth) * var(--pluto-tree-item-step)
+    &.lyra--show-rules .lyra-tree__item::after {
+        /* One rule per ancestor, starting under the depth 0 caret. */
+        content: "";
+        position: absolute;
+        left: calc(2.25rem - 1px);
+        top: 0;
+        bottom: 0;
+        width: var(--pluto-tree-item-rules-width);
+        background: repeating-linear-gradient(
+            to right,
+            var(--pluto-gray-l6) 0 2px,
+            transparent 2px var(--pluto-tree-item-step)
         );
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
 
+    .lyra-tree__item {
         min-height: 4.5rem;
-        padding: 0 1.5rem 0 calc(1.5rem + var(--pluto-tree-item-indent));
+        padding-right: 1.5rem;
 
         &:is(a) {
             text-decoration: none;
@@ -37,22 +48,20 @@
             margin-left: -0.5rem;
             margin-right: -0.5rem;
         }
-    }
 
-    &.lyra--show-rules .lyra-tree__item::after {
-        content: "";
-        position: absolute;
-        left: calc(2.25rem - 1px);
-        top: 0;
-        bottom: 0;
-        width: var(--pluto-tree-item-indent);
-        background: repeating-linear-gradient(
-            to right,
-            var(--pluto-gray-l6) 0 2px,
-            transparent 2px var(--pluto-tree-item-step)
-        );
-        opacity: 0;
-        transition: opacity 0.2s ease-in-out;
+        &.lyra--margin {
+            margin-left: var(--pluto-tree-item-offset);
+
+            &::after {
+                left: calc(2.25rem - 1px - var(--pluto-tree-item-offset));
+            }
+        }
+
+        &:not(.lyra--margin) {
+            padding-top: 0;
+            padding-bottom: 0;
+            padding-left: var(--pluto-tree-item-offset);
+        }
     }
 
     &.lyra-list__scroll--virtual .lyra-tree__item {
@@ -62,7 +71,7 @@
         flex-shrink: 0;
     }
 
-    &:hover .lyra-tree__item::after {
+    &:hover .lyra-tree__item.lyra--show-rules::after {
         opacity: 1;
     }
 }
