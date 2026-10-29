@@ -156,6 +156,79 @@ describe("invalidate", () => {
     });
   });
 
+  describe("during a recovery", () => {
+    interface Answer {
+      resolve: (n: number) => void;
+      reject: () => void;
+    }
+    const answer = async (answers: Answer[]): Promise<number> =>
+      await new Promise<number>((resolve, reject) =>
+        answers.push({ resolve, reject: () => reject(new Error("stale")) }),
+      );
+    const recoveringFetcher = (local: LocalCache<number>) => {
+      const answers: Answer[] = [];
+      const recoveries: Answer[] = [];
+      const fetch = async (): Promise<number> =>
+        await ensureFetch(params, {
+          name: "number",
+          retrieve: async () => await answer(answers),
+          onFetchError: async () => await answer(recoveries),
+          local,
+        });
+      return { answers, recoveries, fetch };
+    };
+    const startRecovery = async (local: LocalCache<number>) => {
+      const fetcher = recoveringFetcher(local);
+      const first = fetcher.fetch();
+      fetcher.answers[0].reject();
+      await vi.waitFor(() => expect(fetcher.recoveries).toHaveLength(1));
+      invalidate(local, query.hash(params.query));
+      return { ...fetcher, first };
+    };
+
+    it("should give the replacement when the recovery succeeds late", async () => {
+      const local = newLocal();
+      const { answers, recoveries, fetch, first } = await startRecovery(local);
+      const second = fetch();
+      answers[1].resolve(2);
+      expect(await second).toBe(2);
+      recoveries[0].resolve(1);
+      expect(await first).toBe(2);
+      expect([...local.settled.values()]).toEqual([{ data: 2 }]);
+    });
+
+    it("should give the replacement when the recovery fails late", async () => {
+      const local = newLocal();
+      const { answers, recoveries, fetch, first } = await startRecovery(local);
+      const second = fetch();
+      answers[1].resolve(2);
+      expect(await second).toBe(2);
+      recoveries[0].reject();
+      expect(await first).toBe(2);
+      expect([...local.settled.values()]).toEqual([{ data: 2 }]);
+    });
+
+    it("should refetch when the discarded recovery succeeds", async () => {
+      const local = newLocal();
+      const { answers, recoveries, first } = await startRecovery(local);
+      recoveries[0].resolve(1);
+      await vi.waitFor(() => expect(answers).toHaveLength(2));
+      answers[1].resolve(2);
+      expect(await first).toBe(2);
+      expect([...local.settled.values()]).toEqual([{ data: 2 }]);
+    });
+
+    it("should refetch when the discarded recovery fails", async () => {
+      const local = newLocal();
+      const { answers, recoveries, first } = await startRecovery(local);
+      recoveries[0].reject();
+      await vi.waitFor(() => expect(answers).toHaveLength(2));
+      answers[1].resolve(2);
+      expect(await first).toBe(2);
+      expect([...local.settled.values()]).toEqual([{ data: 2 }]);
+    });
+  });
+
   it("drops the settled answer", () => {
     const local = newLocal();
     setSettled(local, "q", { data: 1 });
