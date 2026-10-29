@@ -156,7 +156,7 @@ export const Connect = ({
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
           <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
-          <Form.Sections>
+          <Form.Sections className={SECTIONS_CLASS}>
             <Form.Section title="Connection">
               <Form.TextField
                 path="properties.connection.host"
@@ -173,19 +173,13 @@ export const Connect = ({
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
           </Form.Sections>
-          <Tabs.Frame
-            value={tab}
-            onChange={setTab}
-            className={CSS.BE("modbus-connect", "tabs")}
-            empty={false}
-            gap="large"
-          >
-            <Tabs.Selector variant="chip">
+          <Tabs.Frame value={tab} onChange={setTab} empty={false} gap="large">
+            <Tabs.Selector variant="chip" className={SELECTOR_CLASS}>
               <Tabs.Tab itemKey="unit">Unit</Tabs.Tab>
               <Tabs.Tab itemKey="advanced">Advanced</Tabs.Tab>
             </Tabs.Selector>
-            <Tabs.Content itemKey="unit">
-              <Form.Sections>
+            <Tabs.Content itemKey="unit" className={CONTENT_CLASS}>
+              <Form.Sections className={SECTIONS_CLASS}>
                 <Form.Section>
                   <Form.NumericField
                     path="properties.connection.unitId"
@@ -197,8 +191,8 @@ export const Connect = ({
                 </Form.Section>
               </Form.Sections>
             </Tabs.Content>
-            <Tabs.Content itemKey="advanced">
-              <Form.Sections>
+            <Tabs.Content itemKey="advanced" className={CONTENT_CLASS}>
+              <Form.Sections className={SECTIONS_CLASS}>
                 <Form.Section title="Timing">
                   <Form.NumericField
                     path="properties.connection.timeoutMs"
@@ -259,6 +253,10 @@ export const Connect = ({
 export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
 const HEADER = ["Device", "Connect", "Modbus TCP server"];
+
+const SECTIONS_CLASS = CSS.BE("modbus-connect", "sections");
+const SELECTOR_CLASS = CSS.BE("modbus-connect", "selector");
+const CONTENT_CLASS = CSS.BE("modbus-connect", "content");
 
 const NAME_INPUT_PROPS = {
   level: "h2",
