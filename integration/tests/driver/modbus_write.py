@@ -255,7 +255,7 @@ class ModbusWriteRegisterBits(ModbusWriteTaskCase):
             assert_sim_registers(BIT_REGISTER, [0b10000101])
             set_sim_register(BIT_REGISTER, 0b00000101)
             self.send_commands([[0, 1], [0, 1]])
-        assert_sim_registers(BIT_REGISTER, [0b00001100])
+            assert_sim_registers(BIT_REGISTER, [0b00001100])
 
 
 class ModbusWriteRegisterBitsMasked(ModbusWriteRegisterBits):

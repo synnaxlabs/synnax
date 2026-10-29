@@ -106,6 +106,6 @@ class ModbusWriteTask(ModbusCase):
         name = self.client.channels.retrieve(self.channel_keys(task)[index]).name
         assert name.endswith("_holding_register_bit_output_140_4_cmd"), name
         self.send_commands(page, task)
-        self.stop(page)
         # Register 140 holds 0b10001100.
         assert_sim_registers(140, [0b10011100])
+        self.stop(page)
