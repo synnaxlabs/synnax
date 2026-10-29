@@ -269,6 +269,16 @@ struct ServerConfig {
     std::uint32_t max_nodes_per_read = 0;
     /// @brief the most nodes that one Write request can name. 0 means no limit.
     std::uint32_t max_nodes_per_write = 0;
+    /// @brief the most nodes that one Browse request can name. 0 means no limit.
+    std::uint32_t max_nodes_per_browse = 0;
+    /// @brief the most children that the server returns for a node before it
+    /// returns a continuation point. 0 means no limit.
+    std::uint32_t max_references_per_node = 0;
+    /// @brief the number of Double variables V0, V1, ... in the NS=1;S=Generated
+    /// folder. The folder also holds NS=1;S=Generated.Inner, a folder that holds the
+    /// variable Deep and organizes the Generated folder again. The server adds the
+    /// folders only when this is more than 0.
+    std::uint32_t generated_variables = 0;
     /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
     /// server adds the node only when it is set.
     std::optional<Motor> motor;
@@ -508,6 +518,84 @@ public:
         if (running) this->stop();
     }
 
+    /// @brief adds a folder named name under parent.
+    static void
+    add_folder(UA_Server *server, const char *name, const UA_NodeId &parent) {
+        UA_ObjectAttributes attr = UA_ObjectAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>(name)
+        );
+        UA_Server_addObjectNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>(name)),
+            parent,
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
+            UA_NS0ID(FOLDERTYPE),
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
+    /// @brief adds a Double variable with the browse name name under parent.
+    static void add_double(
+        UA_Server *server,
+        const std::string &id,
+        const std::string &name,
+        const UA_NodeId &parent
+    ) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        UA_Double value = 1.0;
+        UA_Variant_setScalar(&attr.value, &value, &UA_TYPES[UA_TYPES_DOUBLE]);
+        attr.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>(id.c_str())),
+            parent,
+            UA_NS0ID(HASCOMPONENT),
+            UA_QUALIFIEDNAME(1, const_cast<char *>(name.c_str())),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
+    /// @brief adds the folders that ServerConfig::generated_variables describes.
+    static void add_generated(UA_Server *server, const std::uint32_t count) {
+        const auto generated = UA_NODEID_STRING(1, const_cast<char *>("Generated"));
+        const auto inner = UA_NODEID_STRING(1, const_cast<char *>("Generated.Inner"));
+        add_folder(server, "Generated", UA_NS0ID(OBJECTSFOLDER));
+        for (std::uint32_t i = 0; i < count; ++i) {
+            const auto name = "V" + std::to_string(i);
+            add_double(server, "Generated." + name, name, generated);
+        }
+        UA_ObjectAttributes attr = UA_ObjectAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("Inner")
+        );
+        UA_Server_addObjectNode(
+            server,
+            inner,
+            generated,
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("Inner")),
+            UA_NS0ID(FOLDERTYPE),
+            attr,
+            nullptr,
+            nullptr
+        );
+        add_double(server, "Generated.Inner.Deep", "Deep", inner);
+        UA_ExpandedNodeId target = UA_EXPANDEDNODEID_NULL;
+        target.nodeId = generated;
+        UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
+    }
+
     void run() {
         UA_Server *server = UA_Server_new();
         auto *server_config = UA_Server_getConfig(server);
@@ -556,6 +644,8 @@ public:
         if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
         server_config->maxNodesPerRead = cfg.max_nodes_per_read;
         server_config->maxNodesPerWrite = cfg.max_nodes_per_write;
+        server_config->maxNodesPerBrowse = cfg.max_nodes_per_browse;
+        server_config->maxReferencesPerNode = cfg.max_references_per_node;
         for (const auto &uri: cfg.namespaces)
             UA_Server_addNamespace(server, uri.c_str());
         const StructureTypes structures;
@@ -656,6 +746,8 @@ public:
                 nullptr
             );
         }
+
+        if (cfg.generated_variables > 0) add_generated(server, cfg.generated_variables);
 
         UA_StatusCode status = UA_Server_run_startup(server);
         if (status != UA_STATUSCODE_GOOD) {

@@ -147,6 +147,7 @@ const TaskForm: FC = createForm<ReadChannel>({
   contextMenuItems: Task.readChannelContextMenuItem,
   children: isIndexItem,
   resolve,
+  indexed: true,
 });
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({

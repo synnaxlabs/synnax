@@ -9,20 +9,29 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import {
+  answerNextCommand,
   awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskStopped,
 } from "@/platform/task/testutil";
-import { getLabeledInput, uniqueName } from "@/testutil";
+import {
+  captureBrowserDownloads,
+  fakePickedFile,
+  getLabeledInput,
+  interceptFilePicker,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -77,7 +86,69 @@ const createDraft = async (
   config: z.infer<OPCUA.Task.ReadSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, OPCUA.Task.READ_SCHEMAS);
 
+const retrieveChannels = async (key: string) =>
+  (await client.tasks.retrieve({ key, schemas: OPCUA.Task.READ_SCHEMAS })).config
+    .channels;
+
+const createFolder = (): OPCUA.Task.ScannedNode => {
+  const name = uniqueName("Line").replace(/_/g, "");
+  return {
+    key: `ns=1;s=${name}`,
+    nodeId: `ns=1;s=${name}`,
+    name,
+    nodeClass: "Object",
+    dataType: "",
+    isArray: false,
+    field: "",
+  };
+};
+
+// Renders a draft whose device sits on a running rack, with a browser that lists only
+// the folder.
+const renderWithFolder = async (
+  folder: OPCUA.Task.ScannedNode,
+  channels: OPCUA.Task.ReadChannel[],
+) => {
+  const rack = await createRunningRack(client, "opc");
+  const scan = await rack.createTask({
+    name: uniqueName("opcua_scan"),
+    type: OPCUA.Task.SCAN_TYPE,
+    config: {},
+  });
+  const dev = await createOPCDevice(client, { rack: rack.key });
+  const draft = await createDraft(client, createReadConfig(dev.key, channels));
+  const root = await answerNextCommand(client, scan, {
+    type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+    data: { channels: [folder] },
+  });
+  const statuses: Status.NotificationSpec[] = [];
+  await renderRead({
+    client,
+    taskKey: draft.key,
+    onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+  });
+  await root.answered;
+  return { scan, draft, statuses };
+};
+
+const dropFolder = async (folder: OPCUA.Task.ScannedNode, target: string) => {
+  fireEvent.dragStart(await screen.findByText(folder.name));
+  fireEvent.drop(await screen.findByText(new RegExp(target)));
+};
+
+const importCSV = async (rows: string[]) => {
+  const picker = interceptFilePicker();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Import channels from CSV" }),
+  );
+  picker.selectFiles([fakePickedFile("channels.csv", rows.join("\n"))]);
+};
+
 describe("Read", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("should create channels under a new index on deploy", async () => {
     const dev = await createOPCDevice(client);
     const chA = createReadChannel();
@@ -124,17 +195,19 @@ describe("Read", () => {
     const dev = await createOPCDevice(client);
     // Underscores pin that the field map keeps its keys' case on the wire.
     const nodeId = `ns=1;s=${uniqueName("motor")}`;
+    // Channel names come from node names, so a fixed name collides across runs.
+    const motor = uniqueName("Motor").replace(/_/g, "");
     const speed = createReadChannel({
       key: `${nodeId}/motor_speed`,
       nodeId,
       field: "motor_speed",
-      nodeName: "Motor.motor_speed",
+      nodeName: `${motor}.motor_speed`,
     });
     const y = createReadChannel({
       key: `${nodeId}/Position.Y`,
       nodeId,
       field: "Position.Y",
-      nodeName: "Motor.Position.Y",
+      nodeName: `${motor}.Position.Y`,
     });
     const draft = await createDraft(client, createReadConfig(dev.key, [speed, y]));
     const { container } = await renderRead({ client, taskKey: draft.key });
@@ -281,5 +354,169 @@ describe("Read", () => {
       });
       expect(saved.config.nanFillEnabled).toBe(true);
     });
+  });
+
+  it("should export the channel list to a CSV named after the task", async () => {
+    const downloads = captureBrowserDownloads();
+    const dev = await createOPCDevice(client);
+    const pump = createReadChannel({ name: "pump, inlet" });
+    const speed = createReadChannel({ field: "Speed", disabled: true });
+    const draft = await createDraft(client, createReadConfig(dev.key, [pump, speed]));
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(new RegExp(speed.nodeName));
+    fireEvent.click(screen.getByRole("button", { name: "Export channels to CSV" }));
+    await waitFor(() => expect(downloads.anchors).toHaveLength(1));
+    expect(downloads.anchors[0].download).toBe("OPC UA read task_channels.csv");
+    expect(new TextDecoder().decode(await downloads.blobs[0].arrayBuffer())).toBe(
+      [
+        "name,node_id,field,data_type,enabled,index",
+        `"pump, inlet",${pump.nodeId},,float32,true,false`,
+        `,${speed.nodeId},Speed,float32,false,false`,
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("should add the channels of an imported CSV that the task does not hold", async () => {
+    const dev = await createOPCDevice(client);
+    const held = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(dev.key, [held]));
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(new RegExp(held.nodeName));
+    const motor = uniqueName("motor").replace(/_/g, "");
+    const nodeId = `ns=1;s=${motor}`;
+    await importCSV([
+      "name,node_id,field,data_type,enabled,index",
+      `,${held.nodeId},,float32,true,false`,
+      `motor_time,${nodeId},,timestamp,true,true`,
+      `,${nodeId},Speed,float64,false,false`,
+    ]);
+    await waitFor(async () =>
+      expect(await retrieveChannels(draft.key)).toEqual([
+        held,
+        {
+          key: nodeId,
+          nodeName: motor,
+          nodeId,
+          field: "",
+          channel: 0,
+          disabled: false,
+          isIndex: true,
+          dataType: "timestamp",
+          name: "motor_time",
+        },
+        {
+          key: OPCUA.Task.nodeIdentity({ nodeId, field: "Speed" }),
+          nodeName: `${motor}.Speed`,
+          nodeId,
+          field: "Speed",
+          channel: 0,
+          disabled: true,
+          isIndex: false,
+          dataType: "float64",
+          name: "",
+        },
+      ]),
+    );
+  });
+
+  it("should add the variables under a dropped folder, named from their path", async () => {
+    const folder = createFolder();
+    const held = createReadChannel();
+    const { scan, draft } = await renderWithFolder(folder, [held]);
+    const pressure = `${folder.nodeId}.Tank.Pressure`;
+    const search = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      data: {
+        channels: [
+          {
+            nodeId: held.nodeId,
+            name: held.nodeName,
+            nodeClass: "Variable",
+            dataType: "float32",
+            isArray: false,
+            field: "",
+            path: [held.nodeName],
+          },
+          {
+            nodeId: pressure,
+            name: "Pressure",
+            nodeClass: "Variable",
+            dataType: "float64",
+            isArray: false,
+            field: "",
+            path: ["Tank", "Pressure"],
+          },
+        ],
+        truncated: false,
+      },
+    });
+    await dropFolder(folder, held.nodeName);
+    expect((await search.answered).args).toMatchObject({ nodeId: folder.nodeId });
+    await screen.findByText(`Add 1 variable from ${folder.name}?`);
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(async () =>
+      expect(await retrieveChannels(draft.key)).toEqual([
+        held,
+        {
+          key: pressure,
+          nodeName: `${folder.name}_Tank_Pressure`,
+          nodeId: pressure,
+          field: "",
+          channel: 0,
+          disabled: false,
+          isIndex: false,
+          dataType: "float64",
+          name: "",
+        },
+      ]),
+    );
+  });
+
+  it("should warn and add nothing when a dropped folder holds no variables", async () => {
+    const folder = createFolder();
+    const held = createReadChannel();
+    const { scan, draft, statuses } = await renderWithFolder(folder, [held]);
+    const search = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      data: { channels: [], truncated: false },
+    });
+    await dropFolder(folder, held.nodeName);
+    await search.answered;
+    await waitFor(() =>
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "warning",
+          name: folder.name,
+          message: "Found no new variables",
+          description: "No variables are under the folder.",
+        }),
+      ),
+    );
+    expect(await retrieveChannels(draft.key)).toEqual([held]);
+  });
+
+  it("should report an imported CSV row without a node ID and add nothing", async () => {
+    const statuses: Status.NotificationSpec[] = [];
+    const dev = await createOPCDevice(client);
+    const held = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(dev.key, [held]));
+    await renderRead({
+      client,
+      taskKey: draft.key,
+      onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+    });
+    await screen.findByText(new RegExp(held.nodeName));
+    await importCSV(["name,node_id", `pump,ns=1;s=${uniqueName("pump")}`, "tank,"]);
+    await waitFor(() =>
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "error",
+          message: "Failed to import channels",
+          description: "Row 3 has no node_id.",
+        }),
+      ),
+    );
+    expect(await retrieveChannels(draft.key)).toEqual([held]);
   });
 });

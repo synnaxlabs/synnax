@@ -138,3 +138,107 @@ describe("Browser structures", () => {
     await screen.findByText("TestMotor.Position.X");
   });
 });
+
+const variable = (name: string): OPCUA.Task.ScannedNode => ({
+  key: `ns=2;s=${name}`,
+  nodeId: `ns=2;s=${name}`,
+  name,
+  nodeClass: "Variable",
+  dataType: "float64",
+  isArray: false,
+  field: "",
+});
+
+const TANK = variable("TankPressure");
+
+const PUMP = variable("PumpSpeed");
+
+const DETAILS = {
+  node: TANK,
+  nodeClass: "Variable",
+  browseName: "TankPressure",
+  typeName: "Double",
+  valueRank: -1,
+  readable: true,
+  writable: false,
+  historyReadable: true,
+  status: "Good",
+  value: "2.5",
+};
+
+const renderBrowser = async () => {
+  const client = createTestClient();
+  const rack = await createRunningRack(client, "opc");
+  const scan = await rack.createTask({
+    name: uniqueName("opcua_scan"),
+    type: OPCUA.Task.SCAN_TYPE,
+    config: {},
+  });
+  const dev = await createOPCDevice(client, { rack: rack.key });
+  const root = await answerNextCommand(client, scan, {
+    type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+    data: { channels: [TANK, PUMP] },
+  });
+  const { wrapper } = await createConsoleWrapper({ client });
+  render(<OPCUA.Device.Browser device={dev} />, { wrapper });
+  await root.answered;
+  await screen.findByText("TankPressure");
+  return { client, scan };
+};
+
+describe("Browser search", () => {
+  it("should show only the loaded nodes whose name or node ID matches", async () => {
+    await renderBrowser();
+    fireEvent.change(screen.getByPlaceholderText("Search, or enter a node ID"), {
+      target: { value: "pump" },
+    });
+    await screen.findByText("PumpSpeed");
+    expect(screen.queryByText("TankPressure")).toBeNull();
+  });
+
+  it("should read the node of a node ID that the user enters", async () => {
+    const { client, scan } = await renderBrowser();
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: DETAILS,
+    });
+    const input = screen.getByPlaceholderText("Search, or enter a node ID");
+    fireEvent.change(input, { target: { value: "ns=2;s=TankPressure" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect((await read.answered).args).toMatchObject({
+      nodeId: "ns=2;s=TankPressure",
+      field: "",
+    });
+    await screen.findByText("Read, History");
+  });
+});
+
+describe("Browser details", () => {
+  it("should show the attributes and value of a selected node", async () => {
+    const { client, scan } = await renderBrowser();
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: DETAILS,
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    expect((await read.answered).args).toMatchObject({ nodeId: TANK.nodeId });
+    await screen.findByText("Double");
+    expect(screen.getByText("Scalar")).toBeTruthy();
+    expect(screen.getByText("2.5")).toBeTruthy();
+    expect(screen.getByText("Good")).toBeTruthy();
+  });
+
+  it("should mark a node whose browse fails and keep the rest of the tree", async () => {
+    const { client, scan } = await renderBrowser();
+    const browse = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      variant: "error",
+      message: "Failed to browse nodes",
+      description: "The server returned BadUserAccessDenied.",
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await browse.answered;
+    await screen.findByLabelText(/BadUserAccessDenied/);
+    expect(screen.getByText("PumpSpeed")).toBeTruthy();
+  });
+});

@@ -9,7 +9,8 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, DisconnectedError, type Synnax } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -17,7 +18,10 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import {
@@ -28,11 +32,20 @@ import {
   isHaulItem,
 } from "@/feature/opcua/device/Browser";
 import { use } from "@/feature/opcua/device/queries";
+import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
 import { type Device } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
-import { type Channel, nodeIdentity } from "@/feature/opcua/task/types";
+import { CSV } from "@/feature/opcua/task/csv";
+import {
+  BROWSE_VARIABLES_COMMAND_TYPE,
+  browseVariablesResponseZ,
+  type Channel,
+  nodeIdentity,
+} from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Modals } from "@/platform/modals";
+import { Runtime } from "@/platform/runtime";
 import { Task } from "@/platform/task";
 
 export interface ExtraItemProps {
@@ -100,33 +113,134 @@ const ChannelListItem = <C extends Channel>({
   );
 };
 
-const Header = () => (
-  <PHeader.Header className={CSS.B("opc-task-header")}>
-    <PHeader.Title weight={500} color={10} level="p">
-      Channels
-    </PHeader.Title>
-  </PHeader.Header>
-);
+const CHANNELS_PATH = "config.channels";
+
+const EXPORT_LABEL = "Export channels to CSV";
+
+const IMPORT_LABEL = "Import channels from CSV";
+
+const toStream = (text: string): ReadableStream<Uint8Array> =>
+  new ReadableStream({
+    start: (controller) => {
+      controller.enqueue(new TextEncoder().encode(text));
+      controller.close();
+    },
+  });
+
+interface HeaderProps<C extends Channel> extends Pick<
+  ChannelListProps<C>,
+  "convertHaulItemToChannel" | "indexed"
+> {
+  push: (channels: C[]) => void;
+}
+
+const Header = <C extends Channel>({
+  convertHaulItemToChannel,
+  indexed,
+  push,
+}: HeaderProps<C>) => {
+  const ctx = PForm.useContext();
+  const isPreview = Task.useIsPreview();
+  const download = Runtime.useDownload();
+  const handleError = Status.useErrorHandler();
+  const getChannels = () => ctx.get<C[]>(CHANNELS_PATH).value;
+  const handleExport = () =>
+    handleError(
+      async () =>
+        await download({
+          stream: toStream(CSV.encode(getChannels(), { indexed })),
+          name: `${ctx.get<string>("name").value}_channels`,
+          extension: "csv",
+        }),
+      "Failed to export channels",
+    );
+  const handleImport = () =>
+    handleError(async () => {
+      const file = await Runtime.pickFiles({ title: IMPORT_LABEL, extension: "csv" });
+      if (file == null) return;
+      const text = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
+      push(
+        CSV.decode(text, {
+          existing: getChannels(),
+          convert: convertHaulItemToChannel,
+          indexed,
+        }),
+      );
+    }, "Failed to import channels");
+  return (
+    <PHeader.Header className={CSS.B("opc-task-header")}>
+      <PHeader.Title weight={500} color={10} level="p">
+        Channels
+      </PHeader.Title>
+      <PHeader.Actions>
+        {!isPreview && (
+          <Button.Button
+            onClick={handleImport}
+            tooltip={IMPORT_LABEL}
+            aria-label={IMPORT_LABEL}
+            size="medium"
+            variant="text"
+          >
+            <Icon.Import />
+          </Button.Button>
+        )}
+        <Button.Button
+          onClick={handleExport}
+          tooltip={EXPORT_LABEL}
+          aria-label={EXPORT_LABEL}
+          size="medium"
+          variant="text"
+        >
+          <Icon.Export />
+        </Button.Button>
+      </PHeader.Actions>
+    </PHeader.Header>
+  );
+};
 
 const EmptyContent = () => (
   <Flex.Box center>
     <Text.Text status="disabled" className={CSS.B("opc-task-empty-text")}>
       No channels added. Drag a variable{" "}
-      <Icon.Variable className={CSS.B("opc-task-variable-icon")} /> from the browser to
-      add a channel to the task.
+      <Icon.Variable className={CSS.B("opc-task-variable-icon")} /> or a folder from the
+      browser to add channels to the task.
     </Text.Text>
   </Flex.Box>
 );
 
-const CHANNELS_PATH = "config.channels";
-
 const VARIABLE_NODE_CLASS = "Variable";
+const OBJECT_NODE_CLASS = "Object";
 
 const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
   isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
 
+const isFolderHaulItem = (item: Haul.Item): item is HaulItem =>
+  isHaulItem(item) && item.data.nodeClass === OBJECT_NODE_CLASS;
+
 const canDrop = ({ items }: Haul.DraggingState): boolean =>
-  items.some(isVariableHaulItem);
+  items.some((item) => isVariableHaulItem(item) || isFolderHaulItem(item));
+
+const SEARCH_TIMEOUT = TimeSpan.seconds(30);
+
+/** @returns the variables under a folder, named from the folder and their path. */
+const findVariables = async (
+  client: Synnax,
+  device: Device,
+  { data: folder }: HaulItem,
+): Promise<{ items: HaulItem[]; truncated: boolean }> => {
+  const { channels, truncated } = browseVariablesResponseZ.parse(
+    await executeScanCommand(client, device.rack, {
+      type: BROWSE_VARIABLES_COMMAND_TYPE,
+      args: { connection: device.properties.connection, node_id: folder.nodeId },
+      timeout: SEARCH_TIMEOUT,
+    }),
+  );
+  const items = channels.map(({ path, ...node }): HaulItem => {
+    const data = { ...node, name: [folder.name, ...path].join("_") };
+    return { type: HAUL_TYPE, key: data.key, data };
+  });
+  return { items, truncated };
+};
 
 interface ChannelListProps<C extends Channel> extends Pick<
   Task.ChannelListProps<C>,
@@ -137,6 +251,8 @@ interface ChannelListProps<C extends Channel> extends Pick<
   /** @returns the channel of a dropped node, or null if the task cannot hold it. */
   convertHaulItemToChannel: (item: HaulItem) => C | null;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
+  /** True when a channel can be the task's index, which adds a CSV index column. */
+  indexed?: boolean;
 }
 
 const ChannelList = <C extends Channel>({
@@ -144,20 +260,62 @@ const ChannelList = <C extends Channel>({
   children,
   convertHaulItemToChannel,
   getChannelKeyAndID,
+  indexed,
   ...rest
 }: ChannelListProps<C>) => {
   const ctx = PForm.useContext();
   const fieldListReturn = PForm.useFieldList<C["key"], C>(CHANNELS_PATH);
   const { data, push } = fieldListReturn;
-  const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
-    const channels = ctx.get<C[]>(CHANNELS_PATH).value;
-    const dropped = items.filter(isVariableHaulItem);
-    const existing = new Set(channels.map(nodeIdentity));
-    const toAdd = dropped
+  const client = PSynnax.use();
+  const confirm = Modals.useConfirm();
+  const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
+  const newChannels = (items: HaulItem[]): C[] => {
+    const existing = new Set(ctx.get<C[]>(CHANNELS_PATH).value.map(nodeIdentity));
+    return items
       .map(convertHaulItemToChannel)
       .filter((ch): ch is C => ch != null && !existing.has(nodeIdentity(ch)));
-    push(toAdd);
-    return dropped;
+  };
+  const addFolders = (folders: HaulItem[]) =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const results: Awaited<ReturnType<typeof findVariables>>[] = [];
+      // One search at a time, so a drop of many folders does not flood the server.
+      for (const folder of folders)
+        results.push(await findVariables(client, device, folder));
+      const found = results.flatMap(({ items }) => items);
+      const truncated = results.some((r) => r.truncated);
+      const name = folders.length === 1 ? folders[0].data.name : "";
+      const count = newChannels(found).length;
+      if (count === 0) {
+        addStatus({
+          variant: "warning",
+          name,
+          message: "Found no new variables",
+          description:
+            found.length === 0
+              ? "No variables are under the folder."
+              : "The task already has every variable under the folder.",
+        });
+        return;
+      }
+      const source = name === "" ? `${folders.length} folders` : name;
+      const confirmed = await confirm({
+        message: `Add ${count} ${count === 1 ? "variable" : "variables"} from ${source}?`,
+        description: truncated
+          ? "The search stopped at a limit before it found every variable. Drag folders further down to add the rest."
+          : "Each channel takes its name from the folder and the path to the variable.",
+        confirm: { label: "Add", variant: "success" },
+      });
+      if (confirmed !== true) return;
+      push(newChannels(found));
+    }, "Failed to add the variables of a folder");
+  const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
+    const variables = items.filter(isVariableHaulItem);
+    const folders = items.filter(isFolderHaulItem);
+    push(newChannels(variables));
+    if (folders.length > 0) addFolders(folders);
+    return [...variables, ...folders];
   };
 
   const haulProps = Haul.useDrop({
@@ -183,7 +341,13 @@ const ChannelList = <C extends Channel>({
       onSelect={setSelected}
       path={CHANNELS_PATH}
       emptyContent={<EmptyContent />}
-      header={<Header />}
+      header={
+        <Header<C>
+          convertHaulItemToChannel={convertHaulItemToChannel}
+          indexed={indexed}
+          push={push}
+        />
+      }
       selected={selected}
       isDragging={isDragging}
       listItem={listItem}
@@ -195,9 +359,12 @@ const ChannelList = <C extends Channel>({
   );
 };
 
-export interface FormProps<C extends Channel> extends Required<
-  Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
-> {
+export interface FormProps<C extends Channel>
+  extends
+    Required<
+      Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
+    >,
+    Pick<ChannelListProps<C>, "indexed"> {
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
@@ -214,6 +381,7 @@ const Body = <C extends Channel>({
   getChannelKeyAndID,
   contextMenuItems,
   resolve,
+  indexed,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
   const resolveOnDevice = (channel: C) => resolve(device, channel);
@@ -226,6 +394,7 @@ const Body = <C extends Channel>({
         getChannelKeyAndID={getChannelKeyAndID}
         contextMenuItems={contextMenuItems}
         resolve={resolveOnDevice}
+        indexed={indexed}
       >
         {children}
       </ChannelList>

@@ -552,6 +552,7 @@ TEST_F(ConnectionPoolTest, ReadsServerFacts) {
     server_cfg_.namespaces = {"urn:synnax:test"};
     server_cfg_.max_nodes_per_read = 7;
     server_cfg_.max_nodes_per_write = 3;
+    server_cfg_.max_nodes_per_browse = 5;
     restart_server();
     Pool pool(testutil::create_store());
     const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -566,6 +567,7 @@ TEST_F(ConnectionPoolTest, ReadsServerFacts) {
     );
     EXPECT_EQ(server.max_nodes_per_read, 7);
     EXPECT_EQ(server.max_nodes_per_write, 3);
+    EXPECT_EQ(server.max_nodes_per_browse, 5);
 }
 
 /// @brief it should keep the server facts of an idle connection that it reuses.
@@ -654,6 +656,76 @@ TEST_F(ConnectionPoolTest, WriteSplitsAtServerLimit) {
         testutil::simple_read(conn.shared(), "NS=1;S=TestUInt32")
     );
     EXPECT_EQ(value.at<uint32_t>(0), 3);
+}
+
+/// @returns the browse names of the children in result.
+std::vector<std::string> names(const types::BrowseResult &result) {
+    std::vector<std::string> out;
+    out.reserve(result.references.size());
+    for (const auto &ref: result.references)
+        out.push_back(ref.browse_name);
+    return out;
+}
+
+/// @brief it should list the forward hierarchical children of a node, without the
+/// target of its HasTypeDefinition reference.
+TEST_F(ConnectionPoolTest, BrowseListsChildren) {
+    server_cfg_.generated_variables = 2;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto results = ASSERT_NIL_P(
+        conn.browse({UA_NODEID_STRING(1, const_cast<char *>("Generated"))})
+    );
+    ASSERT_EQ(results.size(), 1);
+    ASSERT_NIL(results[0].err);
+    EXPECT_EQ(names(results[0]), std::vector<std::string>({"V0", "V1", "Inner"}));
+    const auto &v0 = results[0].references[0];
+    EXPECT_EQ(v0.node_class, UA_NODECLASS_VARIABLE);
+    EXPECT_EQ(types::NodeId::to_string(v0.node), "NS=1;S=Generated.V0");
+    EXPECT_EQ(results[0].references[2].node_class, UA_NODECLASS_OBJECT);
+}
+
+/// @brief it should follow continuation points until the server returns every child.
+TEST_F(ConnectionPoolTest, BrowseFollowsContinuationPoints) {
+    server_cfg_.generated_variables = 7;
+    server_cfg_.max_references_per_node = 2;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto results = ASSERT_NIL_P(
+        conn.browse({UA_NODEID_STRING(1, const_cast<char *>("Generated"))})
+    );
+    ASSERT_NIL(results[0].err);
+    EXPECT_EQ(
+        names(results[0]),
+        std::vector<std::string>({"V0", "V1", "V2", "V3", "V4", "V5", "V6", "Inner"})
+    );
+}
+
+/// @brief it should split a browse that names more nodes than the server allows, and
+/// keep the error of a node that fails without failing the others.
+TEST_F(ConnectionPoolTest, BrowseSplitsAtServerLimit) {
+    server_cfg_.generated_variables = 1;
+    server_cfg_.max_nodes_per_browse = 1;
+    server_cfg_.max_references_per_node = 1;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto results = ASSERT_NIL_P(conn.browse({
+        UA_NODEID_STRING(1, const_cast<char *>("Generated")),
+        UA_NODEID_STRING(1, const_cast<char *>("Missing")),
+        UA_NODEID_STRING(1, const_cast<char *>("Generated.Inner")),
+    }));
+    ASSERT_EQ(results.size(), 3);
+    EXPECT_EQ(names(results[0]), std::vector<std::string>({"V0", "Inner"}));
+    ASSERT_OCCURRED_AS(results[1].err, errors::CRITICAL.sub("BadNodeIdUnknown"));
+    EXPECT_EQ(
+        results[1].err.data,
+        "The node id refers to a node that does not exist in the server address space."
+    );
+    EXPECT_TRUE(results[1].references.empty());
+    EXPECT_EQ(names(results[2]), std::vector<std::string>({"Deep", "Generated"}));
 }
 
 class SessionLimitPoolTest : public ::testing::Test {

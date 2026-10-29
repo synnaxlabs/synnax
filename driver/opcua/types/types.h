@@ -131,6 +131,22 @@ public:
 
 std::string node_class_to_string(const UA_NodeClass &node_class);
 
+/// @brief a child that a browse found under a node.
+struct Reference {
+    /// @brief the node ID, with the namespace index of the connection that browsed.
+    NodeId node;
+    std::string browse_name;
+    UA_NodeClass node_class = UA_NODECLASS_UNSPECIFIED;
+};
+
+/// @brief the children of one browsed node.
+struct BrowseResult {
+    /// @brief the error of the node's browse, such as BadNodeIdUnknown. The children
+    /// are then empty.
+    x::errors::Error err;
+    std::vector<Reference> references;
+};
+
 class Variant {
     UA_Variant var_{};
 

@@ -58,6 +58,40 @@ find_member(const UA_DataType &type, const std::string &name) {
     return {place, x::errors::NIL};
 }
 
+/// @returns one value of a type as JSON text.
+std::pair<std::string, x::errors::Error>
+json(const void *data, const UA_DataType *type) {
+    UA_EncodeJsonOptions options{};
+    options.stringNodeIds = true;
+    UA_ByteString out = UA_BYTESTRING_NULL;
+    if (const auto status = UA_encodeJson(data, type, &out, &options);
+        status != UA_STATUSCODE_GOOD)
+        return {
+            "",
+            invalid(
+                std::string("the value does not encode: ") + UA_StatusCode_name(status)
+            )
+        };
+    std::string text(reinterpret_cast<const char *>(out.data), out.length);
+    UA_ByteString_clear(&out);
+    return {std::move(text), x::errors::NIL};
+}
+
+/// @returns the value as JSON text, where an array is a JSON array of its elements.
+std::pair<std::string, x::errors::Error> json(const UA_Variant &value) {
+    if (value.type == nullptr) return {"null", x::errors::NIL};
+    if (UA_Variant_isScalar(&value)) return json(value.data, value.type);
+    std::string text = "[";
+    const auto *data = static_cast<const char *>(value.data);
+    for (std::size_t i = 0; i < value.arrayLength; ++i) {
+        auto [element, err] = json(data + i * value.type->memSize, value.type);
+        if (err) return {"", err};
+        if (i > 0) text += ", ";
+        text += element;
+    }
+    return {text + "]", x::errors::NIL};
+}
+
 bool contains(const std::vector<types::NodeId> &ids, const UA_NodeId &id) {
     for (const auto &seen: ids)
         if (UA_NodeId_equal(&seen.get(), &id)) return true;
@@ -312,15 +346,13 @@ Types::member_type(const UA_DataType &type, const Path &path) {
     return {current, x::errors::NIL};
 }
 
-std::pair<x::telem::SampleValue, x::errors::Error> Types::sample(
-    const UA_Variant &value,
-    const Path &path,
-    const x::telem::DataType &dt
-) const {
+template<typename R, typename F>
+std::pair<R, x::errors::Error>
+Types::visit(const UA_Variant &value, const Path &path, const F &fn) const {
     if (value.type == nullptr || value.data == nullptr)
-        return {{}, invalid("the value is empty")};
+        return {R{}, invalid("the value is empty")};
     if (!UA_Variant_isScalar(&value))
-        return {{}, invalid("the value is an array of structures")};
+        return {R{}, invalid("the value is an array of structures")};
     const void *data = value.data;
     const UA_DataType *type = value.type;
     Decoded decoded;
@@ -338,7 +370,10 @@ std::pair<x::telem::SampleValue, x::errors::Error> Types::sample(
                     ))
                     encoded = &entry->type;
             if (encoded == nullptr)
-                return {{}, invalid("the server did not define the type of the value")};
+                return {
+                    R{},
+                    invalid("the server did not define the type of the value")
+                };
             decoded.data = UA_new(encoded);
             if (decoded.data == nullptr) throw std::bad_alloc();
             decoded.type = encoded;
@@ -352,7 +387,7 @@ std::pair<x::telem::SampleValue, x::errors::Error> Types::sample(
                 );
                 status != UA_STATUSCODE_GOOD)
                 return {
-                    {},
+                    R{},
                     invalid(
                         std::string("the value does not decode: ") +
                         UA_StatusCode_name(status)
@@ -361,21 +396,43 @@ std::pair<x::telem::SampleValue, x::errors::Error> Types::sample(
             data = decoded.data;
             type = encoded;
         } else
-            return {{}, invalid("the value is encoded as XML")};
+            return {R{}, invalid("the value is encoded as XML")};
     }
     for (const auto &name: path) {
         auto [place, err] = find_member(*type, name);
-        if (err) return {{}, err};
+        if (err) return {R{}, err};
         const auto *ptr = static_cast<const char *>(data) + place.offset;
         if (place.member->isOptional) {
             ptr = *reinterpret_cast<const char *const *>(ptr);
-            if (ptr == nullptr) return {{}, invalid("the value has no " + name)};
+            if (ptr == nullptr) return {R{}, invalid("the value has no " + name)};
         }
         data = ptr;
         type = place.member->memberType;
     }
     UA_Variant member;
     UA_Variant_setScalar(&member, const_cast<void *>(data), type);
-    return telem::to_sample(member, dt);
+    return fn(member);
+}
+
+std::pair<x::telem::SampleValue, x::errors::Error> Types::sample(
+    const UA_Variant &value,
+    const Path &path,
+    const x::telem::DataType &dt
+) const {
+    return this->visit<x::telem::SampleValue>(
+        value,
+        path,
+        [&dt](const UA_Variant &member) { return telem::to_sample(member, dt); }
+    );
+}
+
+std::pair<std::string, x::errors::Error>
+Types::print(const UA_Variant &value, const Path &path) const {
+    if (path.empty() && (value.type == nullptr || !UA_Variant_isScalar(&value) ||
+                         value.type->typeKind != UA_DATATYPEKIND_EXTENSIONOBJECT))
+        return json(value);
+    return this->visit<std::string>(value, path, [](const UA_Variant &member) {
+        return json(member);
+    });
 }
 }

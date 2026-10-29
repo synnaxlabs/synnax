@@ -17,22 +17,30 @@ import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
 import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Tree } from "@synnaxlabs/lyra/tree";
-import { Synnax, TimeSpan } from "@synnaxlabs/pluto";
+import { Synnax } from "@synnaxlabs/pluto";
 import { array, type optional } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { type KeyboardEvent, type ReactElement, useEffect, useState } from "react";
 
-import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { Details } from "@/feature/opcua/device/Details";
+import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
 import {
   BROWSE_COMMAND_TYPE,
   nodeIdentity,
   type ScannedNode,
 } from "@/feature/opcua/task/types";
+
+/** A node in the browser, with the error of its last failed browse. */
+interface BrowserNode extends ScannedNode {
+  error?: string;
+}
 import { CSS } from "@/platform/css";
 
 const ICONS: Record<string, ReactElement> = {
@@ -70,7 +78,7 @@ const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
 });
 
 const NodeItem = (props: Tree.ItemRenderProps<string>) => {
-  const node = List.useItem<string, ScannedNode>(props.itemKey);
+  const node = List.useItem<string, BrowserNode>(props.itemKey);
   const { getState } = Select.useContext<string>();
   const { getItem } = List.useUtilContext<string, ScannedNode>();
   const { startDrag } = Haul.useDrag({
@@ -93,13 +101,21 @@ const NodeItem = (props: Tree.ItemRenderProps<string>) => {
         {icon}
         {node.name}
       </Text.Text>
+      {node.error != null && (
+        <Tooltip.Dialog>
+          <Text.Text level="small">{node.error}</Text.Text>
+          <Text.Text level="small" status="error" aria-label={node.error}>
+            <Icon.Warning />
+          </Text.Text>
+        </Tooltip.Dialog>
+      )}
     </Tree.Item>
   );
 };
 
 const itemRenderProp = Component.renderProp(NodeItem);
 
-const BROWSE_TIMEOUT = TimeSpan.seconds(10);
+const SEARCH_ICON = <Icon.Search color={9} />;
 
 const browseNodes = async (
   client: Client,
@@ -107,32 +123,58 @@ const browseNodes = async (
   connection: ConnectionConfig,
   parent?: ScannedNode,
 ): Promise<ScannedNode[]> => {
-  const scanTask = await retrieveScanTask(client, rack);
-  const browseStatus = await scanTask.executeCommandSync({
+  const data = await executeScanCommand(client, rack, {
     type: BROWSE_COMMAND_TYPE,
-    timeout: BROWSE_TIMEOUT,
     args: { connection, node_id: parent?.nodeId ?? "", field: parent?.field ?? "" },
   });
-  if (browseStatus.variant === "error") throw status.toError(browseStatus);
-  const { details } = browseStatus;
-  if (details?.data == null || !("channels" in details.data)) return [];
-  return details.data.channels;
+  if (data == null || typeof data !== "object" || !("channels" in data)) return [];
+  return data.channels as ScannedNode[];
 };
+
+/** @returns the nodes that match, or that hold a node that matches. */
+const filterNodes = (
+  nodes: Tree.Node[],
+  matches: (key: string) => boolean,
+): Tree.Node[] =>
+  nodes.flatMap((node) => {
+    const children = filterNodes(node.children ?? [], matches);
+    if (children.length === 0 && !matches(node.key)) return [];
+    return [{ ...node, children }];
+  });
+
+// A typed value with '=' names a node ID, such as ns=2;s=Tank1 or i=2258.
+const isNodeID = (value: string): boolean => value.includes("=");
+
+interface Selection {
+  nodeId: string;
+  field: string;
+}
+
+/** A node ID that the user entered, and the tree selection when they entered it. */
+interface Lookup {
+  nodeId: string;
+  selected?: string;
+}
 
 export const Browser = ({ device }: BrowserProps) => {
   const [treeNodes, setTreeNodes, treeNodesRef] = useCombinedStateAndRef<Tree.Node[]>(
     [],
   );
-  const opcNodesStore = List.useMapData<string, ScannedNode>();
+  const opcNodesStore = List.useMapData<string, BrowserNode>();
   const [stat, setStat] = useState<status.Status | null>(null);
   const [initialLoading, setInitialLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [lookup, setLookup] = useState<Lookup | null>(null);
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const retrieveNodes = (parent?: ScannedNode) => {
+  const { startDrag } = Haul.useDrag({ type: HAUL_TYPE });
+  const retrieveNodes = (parent?: BrowserNode) => {
     if (client == null) return;
-    setStat(status.create({ variant: "loading", message: "Browsing OPC UA nodes" }));
+    if (parent == null)
+      setStat(status.create({ variant: "loading", message: "Browsing OPC UA nodes" }));
     handleError(async () => {
-      let channels: ScannedNode[];
+      let channels: ScannedNode[] = [];
+      let failure: status.Status | null = null;
       try {
         channels = await browseNodes(
           client,
@@ -141,7 +183,13 @@ export const Browser = ({ device }: BrowserProps) => {
           parent,
         );
       } catch (e) {
-        setStat(status.fromException(e, "Failed to browse OPC UA nodes"));
+        failure = status.fromException(e, "Failed to browse OPC UA nodes");
+      }
+      // A failed child marks its node and leaves the rest of the tree alone.
+      if (parent != null)
+        opcNodesStore.setItem({ ...parent, error: failure?.description });
+      if (failure != null) {
+        if (parent == null) setStat(failure);
         return;
       }
       setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
@@ -179,12 +227,44 @@ export const Browser = ({ device }: BrowserProps) => {
   };
 
   const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
-  const { shape, clearExpanded } = treeProps;
+  const { shape, clearExpanded, selected } = treeProps;
+  const selectedKey = selected.at(-1);
+  const selectedNode =
+    selectedKey == null ? undefined : opcNodesStore.getItem(selectedKey);
+  // An entered node ID shows until the user selects another node in the tree.
+  let selection: Selection | null = null;
+  if (lookup != null && lookup.selected === selectedKey)
+    selection = { nodeId: lookup.nodeId, field: "" };
+  else if (selectedNode != null)
+    selection = { nodeId: selectedNode.nodeId, field: selectedNode.field };
   const refresh = () => {
     setInitialLoading(true);
     expand({ action: "expand", current: [] });
     clearExpanded();
   };
+  const search = query.trim().toLowerCase();
+  const matches = (key: string): boolean => {
+    const node = opcNodesStore.getItem(key);
+    return (
+      node != null &&
+      (node.name.toLowerCase().includes(search) ||
+        node.nodeId.toLowerCase().includes(search))
+    );
+  };
+  let visibleShape = shape;
+  if (search !== "") {
+    const filtered = filterNodes(treeNodes, matches);
+    visibleShape = Tree.flatten({
+      nodes: filtered,
+      expanded: Tree.getDescendants(...filtered).map(({ key }) => key),
+    });
+  }
+  const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter" || !isNodeID(query.trim())) return;
+    setLookup({ nodeId: query.trim(), selected: selectedKey });
+  };
+  const handleDetailsDragStart = (node: ScannedNode) =>
+    startDrag([createHaulItem({ ...node, key: nodeIdentity(node) })]);
   const refreshRef = useSyncedRef(refresh);
   useEffect(() => refreshRef.current(), [refreshRef]);
   let content: ReactElement;
@@ -199,7 +279,7 @@ export const Browser = ({ device }: BrowserProps) => {
     content = (
       <Tree.Tree
         {...treeProps}
-        shape={shape}
+        shape={visibleShape}
         getItem={opcNodesStore.getItem}
         subscribe={opcNodesStore.subscribe}
       >
@@ -218,12 +298,31 @@ export const Browser = ({ device }: BrowserProps) => {
             disabled={initialLoading && stat?.variant !== "error"}
             size="medium"
             variant="text"
+            tooltip="Browse again"
           >
             <Icon.Refresh />
           </Button.Button>
         </Header.Actions>
       </Header.Header>
+      <Input.Text
+        size="small"
+        variant="text"
+        value={query}
+        onChange={setQuery}
+        onKeyDown={handleSearchKeyDown}
+        startContent={SEARCH_ICON}
+        placeholder="Search, or enter a node ID"
+        className={CSS.BE("opc-browser", "search")}
+      />
       {content}
+      {selection != null && (
+        <Details
+          device={device}
+          nodeId={selection.nodeId}
+          field={selection.field}
+          onDragStart={handleDetailsDragStart}
+        />
+      )}
     </Flex.Box>
   );
 };

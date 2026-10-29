@@ -178,6 +178,9 @@ struct Server {
     uint32_t max_nodes_per_read = 0;
     /// @brief the most nodes that one Write request can name. 0 means no limit.
     uint32_t max_nodes_per_write = 0;
+    /// @brief the most nodes that one Browse or BrowseNext request can name. 0 means
+    /// no limit.
+    uint32_t max_nodes_per_browse = 0;
 };
 
 class Pool {
@@ -246,7 +249,25 @@ public:
         [[nodiscard]] std::pair<types::WriteResponse, x::errors::Error>
         write(const UA_WriteRequest &req) const;
 
+        /// @brief finds the children of each node: the targets of its forward
+        /// hierarchical references. Follows continuation points until the server
+        /// returns every child, in as many requests as the server's limit needs. Skips
+        /// a child on another server or in a namespace the server does not list.
+        /// @returns one result for each node, in order. Returns errors::NO_CONNECTION
+        /// when the connection is lost, the error of a service result, or
+        /// errors::CRITICAL when the server returns a result count that does not
+        /// match the request, or continuation points with no children.
+        [[nodiscard]] std::pair<std::vector<types::BrowseResult>, x::errors::Error>
+        browse(const std::vector<UA_NodeId> &nodes) const;
+
     private:
+        /// @brief browses count nodes in one request, and fills count results.
+        [[nodiscard]] x::errors::Error browse(
+            const UA_NodeId *nodes,
+            size_t count,
+            types::BrowseResult *results
+        ) const;
+
         std::shared_ptr<UA_Client> client_;
         Pool *pool_;
         std::string key_;

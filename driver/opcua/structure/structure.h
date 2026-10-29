@@ -57,6 +57,12 @@ class Types {
 
     [[nodiscard]] const UA_DataTypeArray *head() const;
 
+    /// @brief calls fn with the member at path of a scalar value, decoded when it is a
+    /// structure that the client does not know.
+    template<typename R, typename F>
+    std::pair<R, x::errors::Error>
+    visit(const UA_Variant &value, const Path &path, const F &fn) const;
+
 public:
     Types() = default;
     ~Types();
@@ -93,5 +99,12 @@ public:
         const Path &path,
         const x::telem::DataType &dt
     ) const;
+
+    /// @returns the member at path of a value as JSON text, or the whole value when
+    /// path is empty. An array is a JSON array of its elements.
+    /// @returns x::errors::VALIDATION if the value does not decode or has no such
+    /// member.
+    [[nodiscard]] std::pair<std::string, x::errors::Error>
+    print(const UA_Variant &value, const Path &path) const;
 };
 }

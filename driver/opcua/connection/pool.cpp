@@ -154,6 +154,12 @@ std::pair<Server, x::errors::Error> read_server(UA_Client *client) {
     );
     if (write_err) return {Server{}, write_err};
     server.max_nodes_per_write = uint32_value(write_limit.get().results[0]);
+    const auto [browse_limit, browse_err] = read_value(
+        client,
+        UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERBROWSE
+    );
+    if (browse_err) return {Server{}, browse_err};
+    server.max_nodes_per_browse = uint32_value(browse_limit.get().results[0]);
     return {std::move(server), x::errors::NIL};
 }
 
@@ -164,6 +170,112 @@ void move_results(T *results, T *&part, size_t &part_size) {
     UA_free(part);
     part = nullptr;
     part_size = 0;
+}
+
+/// @brief owns a response from the client and clears it on destruction.
+template<typename T>
+class Response {
+    T value_;
+    const UA_DataType *type_;
+
+public:
+    Response(T value, const UA_DataType *type): value_(value), type_(type) {}
+    ~Response() { UA_clear(&value_, type_); }
+    Response(const Response &) = delete;
+    Response &operator=(const Response &) = delete;
+    Response(Response &&) = delete;
+    Response &operator=(Response &&) = delete;
+
+    T &get() { return value_; }
+};
+
+/// @brief the continuation points of one BrowseNext request, with the index of the
+/// browse result that each one continues.
+struct Pending {
+    UA_BrowseNextRequest req{};
+    std::vector<size_t> results;
+
+    /// @brief takes the continuation points of the count results in raw, where raw[i]
+    /// continues the browse result at indexes[i].
+    Pending(
+        UA_BrowseResult *raw,
+        const size_t count,
+        const std::vector<size_t> &indexes
+    ) {
+        UA_BrowseNextRequest_init(&req);
+        std::vector<size_t> positions;
+        for (size_t i = 0; i < count; ++i)
+            if (raw[i].continuationPoint.length > 0) positions.push_back(i);
+        if (positions.empty()) return;
+        req.continuationPoints = static_cast<UA_ByteString *>(
+            UA_Array_new(positions.size(), &UA_TYPES[UA_TYPES_BYTESTRING])
+        );
+        if (req.continuationPoints == nullptr) throw std::bad_alloc();
+        req.continuationPointsSize = positions.size();
+        for (size_t j = 0; j < positions.size(); ++j) {
+            auto &point = raw[positions[j]].continuationPoint;
+            req.continuationPoints[j] = point;
+            UA_ByteString_init(&point);
+            results.push_back(indexes[positions[j]]);
+        }
+    }
+
+    ~Pending() { UA_BrowseNextRequest_clear(&req); }
+    Pending(const Pending &) = delete;
+    Pending &operator=(const Pending &) = delete;
+    Pending(Pending &&) = delete;
+    Pending &operator=(Pending &&) = delete;
+
+    [[nodiscard]] bool empty() const { return results.empty(); }
+
+    /// @brief frees the continuation points on the server, since each one counts
+    /// against the server's limit until the session closes. Does nothing when the
+    /// connection is lost, since the server then frees them itself.
+    void release(UA_Client *client) {
+        if (this->empty() || connected(client)) return;
+        req.releaseContinuationPoints = true;
+        const Response<UA_BrowseNextResponse> res(
+            UA_Client_Service_browseNext(client, req),
+            &UA_TYPES[UA_TYPES_BROWSENEXTRESPONSE]
+        );
+    }
+};
+
+/// @brief adds the children that raw lists to out, with the namespace indexes of the
+/// server. A failed browse sets the error of out and drops its children.
+void add_references(
+    const UA_BrowseResult &raw,
+    types::BrowseResult &out,
+    const std::vector<std::string> &namespaces
+) {
+    if (auto err = errors::parse(raw.statusCode)) {
+        out.err = err;
+        out.references.clear();
+        return;
+    }
+    if (out.err) return;
+    for (size_t i = 0; i < raw.referencesSize; ++i) {
+        const auto &ref = raw.references[i];
+        if (ref.nodeId.serverIndex != 0) continue;
+        UA_NodeId id = ref.nodeId.nodeId;
+        if (const auto &uri = ref.nodeId.namespaceUri; uri.length > 0) {
+            const auto it = std::ranges::find(
+                namespaces,
+                std::string(reinterpret_cast<const char *>(uri.data), uri.length)
+            );
+            if (it == namespaces.end()) continue;
+            id.namespaceIndex = static_cast<UA_UInt16>(it - namespaces.begin());
+        }
+        const auto &name = ref.browseName.name;
+        out.references.push_back({
+            .node = types::NodeId(id),
+            .browse_name = std::string(
+                reinterpret_cast<const char *>(name.data),
+                name.length
+            ),
+            .node_class = ref.nodeClass,
+        });
+    }
 }
 }
 
@@ -233,6 +345,104 @@ Pool::Connection::write(const UA_WriteRequest &req) const {
         move_results(out.results + offset, raw.results, raw.resultsSize);
     }
     return {std::move(merged), x::errors::NIL};
+}
+
+std::pair<std::vector<types::BrowseResult>, x::errors::Error>
+Pool::Connection::browse(const std::vector<UA_NodeId> &nodes) const {
+    std::vector<types::BrowseResult> results(nodes.size());
+    const size_t limit = this->server_->max_nodes_per_browse;
+    const size_t step = limit == 0 ? std::max<size_t>(nodes.size(), 1) : limit;
+    for (size_t offset = 0; offset < nodes.size(); offset += step)
+        if (auto err = this->browse(
+                nodes.data() + offset,
+                std::min(step, nodes.size() - offset),
+                results.data() + offset
+            ))
+            return {{}, err};
+    return {std::move(results), x::errors::NIL};
+}
+
+x::errors::Error Pool::Connection::browse(
+    const UA_NodeId *nodes,
+    const size_t count,
+    types::BrowseResult *results
+) const {
+    std::vector<UA_BrowseDescription> descriptions(count);
+    for (size_t i = 0; i < count; ++i) {
+        auto &d = descriptions[i];
+        UA_BrowseDescription_init(&d);
+        d.nodeId = nodes[i];
+        d.browseDirection = UA_BROWSEDIRECTION_FORWARD;
+        d.referenceTypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_HIERARCHICALREFERENCES);
+        d.includeSubtypes = true;
+        d.resultMask = UA_BROWSERESULTMASK_BROWSENAME | UA_BROWSERESULTMASK_NODECLASS;
+    }
+    UA_BrowseRequest req;
+    UA_BrowseRequest_init(&req);
+    req.nodesToBrowse = descriptions.data();
+    req.nodesToBrowseSize = count;
+    if (auto err = connected(this->get())) return err;
+    Response<UA_BrowseResponse> res(
+        UA_Client_Service_browse(this->get(), req),
+        &UA_TYPES[UA_TYPES_BROWSERESPONSE]
+    );
+    auto &raw = res.get();
+    if (auto err = errors::parse(raw.responseHeader.serviceResult)) return err;
+    if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+    const auto &namespaces = this->server_->namespaces;
+    std::vector<size_t> indexes(count);
+    for (size_t i = 0; i < count; ++i)
+        indexes[i] = i;
+    const size_t received = std::min(raw.resultsSize, count);
+    auto pending = std::make_unique<Pending>(raw.results, received, indexes);
+    if (auto err = check_results(raw.resultsSize, count)) {
+        pending->release(this->get());
+        return err;
+    }
+    for (size_t i = 0; i < count; ++i)
+        add_references(raw.results[i], results[i], namespaces);
+    while (!pending->empty()) {
+        if (auto err = connected(this->get())) return err;
+        Response<UA_BrowseNextResponse> next(
+            UA_Client_Service_browseNext(this->get(), pending->req),
+            &UA_TYPES[UA_TYPES_BROWSENEXTRESPONSE]
+        );
+        auto &next_raw = next.get();
+        if (auto err = errors::parse(next_raw.responseHeader.serviceResult)) {
+            pending->release(this->get());
+            return err;
+        }
+        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        const size_t asked = pending->results.size();
+        const size_t got = std::min(next_raw.resultsSize, asked);
+        auto following = std::make_unique<Pending>(
+            next_raw.results,
+            got,
+            pending->results
+        );
+        if (auto err = check_results(next_raw.resultsSize, asked)) {
+            following->release(this->get());
+            return err;
+        }
+        bool found = false;
+        for (size_t j = 0; j < got; ++j) {
+            found = found || next_raw.results[j].referencesSize > 0;
+            add_references(
+                next_raw.results[j],
+                results[pending->results[j]],
+                namespaces
+            );
+        }
+        pending = std::move(following);
+        if (!found && !pending->empty()) {
+            pending->release(this->get());
+            return x::errors::Error(
+                errors::CRITICAL,
+                "the server returned continuation points with no children"
+            );
+        }
+    }
+    return x::errors::NIL;
 }
 
 Pool::Pool(
