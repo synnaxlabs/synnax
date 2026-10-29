@@ -310,7 +310,7 @@ export const Find = ({
               <Icon.Tile>{icon}</Icon.Tile>
               <Text.Text level="p" weight={500} color={11}>
                 {scope != null
-                  ? `${name} is off on ${scope.name}`
+                  ? `${scope.name} does not have ${name} enabled`
                   : running
                     ? `Your Driver is running, but ${name} is off`
                     : "No Driver is running"}
