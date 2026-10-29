@@ -181,8 +181,8 @@ class Controller:
     ) -> None:
         """Sets the provided channel(s) to the provided value(s).
 
-        :param channel: A single channel key or name, or a dictionary of channel keys and
-        names to their corresponding values to set.
+        :param channel: A single channel key or name, or a dictionary of channel keys
+        and names to their corresponding values to set.
         :param value: The value to set the channel to. This parameter should not be
         provided if ch is a dictionary.
 
@@ -298,7 +298,9 @@ class Controller:
 
         Examples:
         >>> controller.wait_until(lambda c: c["my_channel"] > 42)
-        >>> controller.wait_until(lambda c: c["channel_1"] > 42 and c["channel_2"] < 3.14)
+        >>> controller.wait_until(
+        ...     lambda c: c["channel_1"] > 42 and c["channel_2"] < 3.14
+        ... )
         """
         return self._internal_wait_until(cond, timeout)
 
@@ -458,8 +460,8 @@ class Controller:
         value if no value has been received yet.
 
         :param ch: The channel key or name to get the value for.
-        :param default: The default value to return if no value has been received for the
-        channel yet.
+        :param default: The default value to return if no value has been received for
+        the channel yet.
 
         Examples:
         >>> controller.get("my_channel")
