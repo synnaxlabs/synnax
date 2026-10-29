@@ -11,6 +11,7 @@ package domain
 
 import (
 	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -23,6 +24,12 @@ var (
 	ErrWriteConflict = errors.Wrap(
 		validate.ErrValidation,
 		"write overlaps with existing data in database",
+	)
+	// ErrDeleteOverlapsWriter is returned when a deletion reaches the domain an open
+	// writer is writing.
+	ErrDeleteOverlapsWriter = errors.Wrap(
+		control.ErrUnauthorized,
+		"deletion overlaps the domain of an open writer",
 	)
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.ErrNotFound, "time range not found")

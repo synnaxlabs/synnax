@@ -44,8 +44,11 @@ type WriterConfig struct {
 	// Subject is the control subject held by the writer.
 	// [REQUIRED]
 	Subject xcontrol.Subject
-	// Start marks the starting bound of the writer.
-	// [REQUIRED]
+	// Start marks the start of the writer's control region and, unless
+	// Writer.SetDomainStart sets another, of the domain it writes. A zero Start means
+	// the time the writer opens. A non-zero Start fails the open when stored data holds
+	// it.
+	// [OPTIONAL]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
 	// this parameter will allow the writer to write data to the domain without needing
@@ -117,10 +120,10 @@ func (c WriterConfig) domain() domain.WriterConfig {
 	}
 }
 
-func (c WriterConfig) controlTimeRange() telem.TimeRange {
+func (c WriterConfig) controlTimeRange(start telem.TimeStamp) telem.TimeRange {
 	// The automatic controlTimeRange is until the end of time, but we are not sure if
 	// we should use this or the start of next domain.
-	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
+	return start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
 // controlledWriter is used for exchanging control between multiple unary writers. When
@@ -146,6 +149,9 @@ type controlledWriter struct {
 	// and the current domain start remain consistent across owners. Reset on rollover
 	// via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
+	// sessionStart is the start of the resource's first domain. Commits that resolve
+	// their end from the session sample count anchor on it.
+	sessionStart telem.TimeStamp
 }
 
 var _ control.Resource = &controlledWriter{}
@@ -161,6 +167,15 @@ func (w *controlledWriter) storeAlignment(a telem.Alignment) {
 	w.alignment.Store(uint64(a))
 }
 
+func (w *controlledWriter) setStart(start telem.TimeStamp) error {
+	if err := w.SetStart(start); err != nil {
+		return err
+	}
+	w.sessionStart = start
+	w.tracker.currentStart = start
+	return nil
+}
+
 type Writer struct {
 	// control stores the gate held by the writer in the controller of the unaryDB.
 	control *control.Gate[*controlledWriter]
@@ -173,6 +188,9 @@ type Writer struct {
 	// but not limited to density and index.
 	Channel channel.Channel
 	cfg     WriterConfig
+	// domainStart is where the domain starts if this writer persists its first
+	// sample. Defaults to cfg.Start, or to the open time when cfg.Start is zero.
+	domainStart telem.TimeStamp
 	// highWaterMark is a hot-path optimization when writing to an index channel. We can
 	// avoid unnecessary index lookups by keeping track of the highest timestamp
 	// written. Only valid when Channel.IsIndex is true.
@@ -194,17 +212,22 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	if err != nil {
 		return nil, transfer, err
 	}
+	start := cfg.Start
+	if start.IsZero() {
+		start = telem.Now()
+	}
 	w = &Writer{
-		cfg:       cfg,
-		Channel:   db.cfg.Channel,
-		idx:       db.index(),
-		wrapError: db.wrapError,
+		cfg:         cfg,
+		Channel:     db.cfg.Channel,
+		idx:         db.index(),
+		wrapError:   db.wrapError,
+		domainStart: start,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
 		control.GateConfig[*controlledWriter]{
 			ErrIfControlled:       new(false),
 			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
-			TimeRange:             cfg.controlTimeRange(),
+			TimeRange:             cfg.controlTimeRange(start),
 			Authority:             cfg.Authority,
 			Subject:               cfg.Subject,
 			OpenResource: func() (*controlledWriter, error) {
@@ -213,8 +236,9 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 					return nil, err
 				}
 				cw := &controlledWriter{
-					channelKey: db.cfg.Channel.Key,
-					tracker:    db.resolver.newTracker(cfg.Start),
+					channelKey:   db.cfg.Channel.Key,
+					tracker:      db.resolver.newTracker(),
+					sessionStart: start,
 				}
 				cw.storeAlignment(a)
 				domainCfg := cfg.domain()
@@ -230,6 +254,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	return w, transfer, w.wrapError(err)
 }
 
+// Write writes series to db in a domain that starts at start.
 func Write(
 	ctx context.Context,
 	db *DB,
@@ -244,6 +269,7 @@ func Write(
 	if err != nil {
 		return db.wrapError(err)
 	}
+	w.SetDomainStart(start)
 	defer func() {
 		_, errClose := w.Close()
 		err = db.wrapError(errors.Combine(err, errClose))
@@ -288,6 +314,11 @@ func (w *Writer) write(
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
+	if *w.cfg.Persist && dw.Len() == 0 {
+		if err = dw.setStart(w.domainStart); err != nil {
+			return 0, w.wrapError(err)
+		}
+	}
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
@@ -314,6 +345,10 @@ func (w *Writer) write(
 	}
 	return a, w.wrapError(err)
 }
+
+// SetDomainStart sets where the writer's domain starts, in place of Start. It applies
+// at the next persisted write, and only while the domain holds no data.
+func (w *Writer) SetDomainStart(start telem.TimeStamp) { w.domainStart = start }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(a)
@@ -364,13 +399,12 @@ func (w *Writer) commitWithEnd(
 
 	if end.IsZero() {
 		// Subtract 1 because we want the timestamp of the last written sample.
-		// Anchor on cfg.Start (the writer's session start, always a real index
-		// timestamp) and use the cumulative session sample count, since after a
-		// rollover the per-domain start is "previous commit end + 1ns" which is
-		// not a sample boundary in the index.
+		// Anchor on the session start with the cumulative session sample count, since
+		// after a rollover the per-domain start is "previous commit end + 1ns" which
+		// is not a sample boundary in the index.
 		approx, err := w.idx.Stamp(
 			ctx,
-			w.cfg.Start,
+			dw.sessionStart,
 			dw.tracker.count(dw.Writer)-1,
 			index.MustBeContinuous,
 		)
@@ -378,7 +412,7 @@ func (w *Writer) commitWithEnd(
 			return 0, err
 		}
 		if !approx.Exact() {
-			return 0, index.NewDiscontinuousStampError(w.cfg.Start)
+			return 0, index.NewDiscontinuousStampError(dw.sessionStart)
 		}
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1

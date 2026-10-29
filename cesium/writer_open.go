@@ -80,9 +80,15 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to control.AuthorityAbsolute on all channels.
 	Authorities []xcontrol.Authority
-	// Start marks the starting timestamp of the first sample to be written by the
-	// writer. If a sample exists for any channel at this timestamp, the writer will
-	// fail to open.
+	// Start marks the start of the writer's control region. When Start is zero, the
+	// region starts at the time the writer opens. If a sample exists for any channel at
+	// a non-zero Start, the writer fails to open. The domains of each index start at
+	// the first timestamp written to that index, not at Start.
+	//
+	// A writer that writes data channels without their index needs a Start that is a
+	// sample of that index.
+	//
+	// [OPTIONAL]
 	Start telem.TimeStamp
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
@@ -104,11 +110,6 @@ type WriterConfig struct {
 	//
 	// When AutoIndex is true, any index channel referenced by a data channel in
 	// Channels but not present in Channels itself is implicitly opened for writing.
-	//
-	// When AutoIndex is true and Start is left as its zero value, Start is defaulted to
-	// telem.Now() at open time so the writer's domain aligns with the auto-stamped
-	// timestamps. Callers who pass an explicit index series whose timestamps fall
-	// before this defaulted Start will have that write rejected.
 	//
 	// [OPTIONAL] - Defaults to false.
 	AutoIndex *bool
@@ -204,9 +205,6 @@ func (db *DB) newStreamWriter(
 		return nil, err
 	}
 	if *cfg.AutoIndex {
-		if cfg.Start.IsZero() {
-			cfg.Start = telem.Now()
-		}
 		cfg = db.expandKeysForAutoIndex(cfg)
 	}
 	var (
@@ -306,6 +304,14 @@ func (db *DB) newStreamWriter(
 			idxW, err = db.openDomainIdxWriter(idxKey, cfg)
 			if err != nil {
 				return nil, err
+			}
+			if cfg.Start.IsZero() {
+				return nil, errors.Wrapf(
+					validate.ErrValidation,
+					"writer needs a start to write channel %v without its index %v",
+					u.Channel(),
+					idxW.idx.ch,
+				)
 			}
 			idxW.writingToIdx = false
 			domainWriters[idxKey] = idxW

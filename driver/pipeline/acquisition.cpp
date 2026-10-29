@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <map>
-#include <optional>
-
 #include "absl/log/log.h"
 
 #include "client/cpp/errors/errors.h"
@@ -50,8 +47,7 @@ Acquisition::Acquisition(
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
     std::string thread_name,
-    bool err_on_unauthorized,
-    bool open_eagerly
+    bool err_on_unauthorized
 ):
     Acquisition(
         std::make_shared<SynnaxWriterFactory>(std::move(client)),
@@ -59,8 +55,7 @@ Acquisition::Acquisition(
         std::move(source),
         breaker_config,
         std::move(thread_name),
-        err_on_unauthorized,
-        open_eagerly
+        err_on_unauthorized
     ) {}
 
 Acquisition::Acquisition(
@@ -69,31 +64,13 @@ Acquisition::Acquisition(
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
     std::string thread_name,
-    bool err_on_unauthorized,
-    bool open_eagerly
+    bool err_on_unauthorized
 ):
     Base(breaker_config, std::move(thread_name)),
     factory(std::move(factory)),
     source(std::move(source)),
     writer_config(std::move(writer_config)),
-    err_on_unauthorized(err_on_unauthorized),
-    open_eagerly(open_eagerly) {}
-
-/// @brief attempts to resolve the start timestamp for the writer from a series in
-/// the frame with a timestamp data type. If that can't be found, resolveStart falls
-/// back to now().
-x::telem::TimeStamp resolve_start(const x::telem::Frame &frame) {
-    auto min_timestamp = x::telem::TimeStamp::max();
-    for (size_t i = 0; i < frame.size(); i++) {
-        const auto &series = frame.series->at(i);
-        if (series.data_type() == x::telem::TIMESTAMP_T && !series.empty()) {
-            const auto ts = series.at<x::telem::TimeStamp>(0);
-            if (ts < min_timestamp) min_timestamp = ts;
-        }
-    }
-    if (min_timestamp < x::telem::TimeStamp::max()) return min_timestamp;
-    return x::telem::TimeStamp::now();
-}
+    err_on_unauthorized(err_on_unauthorized) {}
 
 void Acquisition::run() {
     while (this->run_once()) {}
@@ -104,31 +81,20 @@ void Acquisition::stopped_with_err(const x::errors::Error &err) {
 }
 
 bool Acquisition::run_once() {
-    std::unique_ptr<Writer> writer;
-    bool writer_opened = false;
-    std::optional<x::control::Authority> pending_global_auth;
-    std::map<synnax::channel::Key, x::control::Authority> pending_channel_auths;
-    x::errors::Error writer_err;
+    this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
+    auto [writer, writer_err] = this->factory->open_writer(this->writer_config);
+    if (writer_err) {
+        if (synnax::errors::is_temporarily_unavailable(writer_err) &&
+            this->breaker.wait(writer_err.message()))
+            return true;
+        LOG(ERROR) << "[acquisition] failed to open writer: " << writer_err.message();
+        this->source->stopped_with_err(writer_err);
+        this->breaker.stop();
+        return false;
+    }
     x::errors::Error source_err;
     x::telem::Frame fr(0);
     Authorities authorities;
-    if (this->open_eagerly) {
-        this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
-        auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
-        writer_err = writer_err_i;
-        if (writer_err) {
-            if (synnax::errors::is_temporarily_unavailable(writer_err) &&
-                this->breaker.wait(writer_err.message()))
-                return true;
-            LOG(ERROR) << "[acquisition] failed to eagerly open writer: "
-                       << writer_err.message();
-            this->source->stopped_with_err(writer_err);
-            this->breaker.stop();
-            return false;
-        }
-        writer = std::move(writer_i);
-        writer_opened = true;
-    }
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
         fr.clear();
@@ -152,44 +118,6 @@ bool Acquisition::run_once() {
             this->breaker.reset();
             continue;
         }
-        // Open the writer after receiving the first frame so we can resolve the
-        // start timestamp from the data. This helps to account for clock drift
-        // between the source we're recording data from and the system clock.
-        if (!fr.empty() && !writer_opened) {
-            this->writer_config.start = resolve_start(fr);
-            this->writer_config.err_on_unauthorized = this->err_on_unauthorized;
-            auto [writer_i, writer_err_i] = factory->open_writer(writer_config);
-            writer_err = writer_err_i;
-            if (writer_err) {
-                LOG(ERROR) << "[acquisition] failed to open writer: "
-                           << writer_err.message();
-                break;
-            }
-            writer = std::move(writer_i);
-            writer_opened = true;
-            if (pending_global_auth.has_value()) {
-                Authorities auth{.authorities = {*pending_global_auth}};
-                if (auto err = writer->set_authority(auth)) {
-                    LOG(ERROR)
-                        << "[acquisition] failed to set authority: " << err.message();
-                    break;
-                }
-                pending_global_auth.reset();
-            }
-            if (!pending_channel_auths.empty()) {
-                Authorities auth;
-                for (const auto &[k, v]: pending_channel_auths) {
-                    auth.keys.push_back(k);
-                    auth.authorities.push_back(v);
-                }
-                if (auto err = writer->set_authority(auth)) {
-                    LOG(ERROR)
-                        << "[acquisition] failed to set authority: " << err.message();
-                    break;
-                }
-                pending_channel_auths.clear();
-            }
-        }
         // Apply authority changes before writing the frame so the frame
         // is sent at the correct authority level.
         if (!authorities.empty()) {
@@ -197,21 +125,10 @@ bool Acquisition::run_once() {
                 LOG(ERROR) << "[acquisition] invalid authorities: " << err.message();
                 break;
             }
-            if (writer_opened) {
-                if (auto err = writer->set_authority(authorities)) {
-                    LOG(ERROR)
-                        << "[acquisition] failed to set authority: " << err.message();
-                    break;
-                }
-            } else {
-                if (authorities.keys.empty()) {
-                    pending_global_auth = authorities.authorities[0];
-                    pending_channel_auths.clear();
-                } else {
-                    for (size_t i = 0; i < authorities.keys.size(); i++)
-                        pending_channel_auths
-                            [authorities.keys[i]] = authorities.authorities[i];
-                }
+            if (auto err = writer->set_authority(authorities)) {
+                LOG(ERROR) << "[acquisition] failed to set authority: "
+                           << err.message();
+                break;
             }
         }
         if (!fr.empty()) {
@@ -222,7 +139,7 @@ bool Acquisition::run_once() {
         }
         this->breaker.reset();
     }
-    if (writer_opened) writer_err = writer->close();
+    writer_err = writer->close();
     if (synnax::errors::is_temporarily_unavailable(writer_err) &&
         this->breaker.wait(writer_err.message()))
         return true;

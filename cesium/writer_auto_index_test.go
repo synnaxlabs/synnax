@@ -599,9 +599,9 @@ var _ = Describe("Writer AutoIndex", func() {
 				)
 			})
 
-			Describe("Default Start", func() {
+			Describe("Start", func() {
 				It(
-					"Defaults Start to telem.Now() when AutoIndex is true and Start is zero",
+					"Stamps from the time the writer opens when Start is zero",
 					func(ctx SpecContext) {
 						var (
 							idx  = GenerateChannelKey()
@@ -647,7 +647,7 @@ var _ = Describe("Writer AutoIndex", func() {
 				)
 
 				It(
-					"Rejects an explicit index series with timestamps before the defaulted Start",
+					"Accepts an explicit index series with timestamps before the open time",
 					func(ctx SpecContext) {
 						var (
 							idx  = GenerateChannelKey()
@@ -674,14 +674,19 @@ var _ = Describe("Writer AutoIndex", func() {
 							AutoIndex: new(true),
 							Sync:      new(true),
 						}))
-						Expect(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{idx, data},
 							[]telem.Series{
 								telem.NewSeriesSecondsTSV(1),
 								telem.NewSeriesV[float64](1),
 							},
-						))).Error().To(MatchError(validate.ErrValidation))
-						Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						)))
+						MustSucceed(w.Commit())
+						Expect(w.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+							telem.NewSeriesSecondsTSV(1),
+						))
 					},
 				)
 

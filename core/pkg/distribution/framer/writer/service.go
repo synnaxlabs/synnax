@@ -89,11 +89,11 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	Authorities []control.Authority
-	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys, the
-	// writer will fail to open.
+	// Start marks the start of the writer's control region. When Start is zero, the
+	// region starts at the time the writer opens. If telemetry occupying a non-zero
+	// Start already exists for the provided keys, the writer fails to open.
 	//
-	// [OPTIONAL] - Defaults to 0, or telem.Now() if AutoIndex is true.
+	// [OPTIONAL]
 	Start telem.TimeStamp
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set

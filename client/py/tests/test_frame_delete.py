@@ -78,7 +78,7 @@ class TestDeleter:
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
         idx_ch, _ = indexed_pair
-        with client.open_writer(0, idx_ch.key):
+        with client.open_writer(sy.TimeStamp(1 * sy.TimeSpan.SECOND), idx_ch.key):
             with pytest.raises(sy.UnauthorizedError):
                 client.delete(
                     [idx_ch.key],
@@ -110,8 +110,13 @@ class TestDeleter:
             sy.TimeStamp(3 * sy.TimeSpan.SECOND),
             sy.TimeStamp(4 * sy.TimeSpan.SECOND),
         ]
-        ch1.write(0, np.array(timestamps))
-        ch2.write(0, np.array([0, 1, 2, 3, 4], dtype=np.float32))
+        client.write(
+            0,
+            {
+                ch1.key: np.array(timestamps),
+                ch2.key: np.array([0, 1, 2, 3, 4], dtype=np.float32),
+            },
+        )
 
         with pytest.raises(Exception, match="cannot delete index channel"):
             client.delete(
