@@ -24,6 +24,12 @@ from synnax import modbus
 
 SLAVE_ID = 0x00
 SENSOR_COUNT = 5
+# From FIXED_START to TYPED_START, register n holds n, and bit n is on when n is odd.
+FIXED_START = 100
+TYPED_START = 300
+# From TYPED_START: float32 1.5, int16 -2, and uint32 70000, low word first as the
+# Driver reads by default.
+TYPED_REGISTERS = [0x0000, 0x3FC0, 0xFFFE, 0x1170, 0x0001]
 
 
 async def updating_writer(
@@ -116,13 +122,16 @@ async def run_server(
     rate: sy.Rate = 50 * sy.Rate.HZ,
 ) -> None:
     """Run the Modbus TCP server."""
+    fixed = range(FIXED_START, TYPED_START)
+    bits = [False] * FIXED_START + [n % 2 == 1 for n in fixed]
+    registers = [0] * FIXED_START + list(fixed) + TYPED_REGISTERS
     dev = SimDevice(
         id=SLAVE_ID,
         simdata=(
-            [SimData(0, values=[False] * 100, datatype=DataType.BITS)],
-            [SimData(0, values=[False] * 100, datatype=DataType.BITS)],
-            [SimData(0, values=[0] * 100, datatype=DataType.REGISTERS)],
-            [SimData(0, values=[0] * 100, datatype=DataType.REGISTERS)],
+            [SimData(0, values=bits, datatype=DataType.BITS)],
+            [SimData(0, values=bits, datatype=DataType.BITS)],
+            [SimData(0, values=registers, datatype=DataType.REGISTERS)],
+            [SimData(0, values=registers, datatype=DataType.REGISTERS)],
         ),
     )
 

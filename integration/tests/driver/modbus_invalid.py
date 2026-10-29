@@ -181,7 +181,12 @@ class ModbusInvalidConfig(SimulatorCase):
                 ),
             ],
         )
-        self._assert_deploy_fails(task, "invalid address")
+        message = assert_start_rejected(self.client, task, "invalid address")
+        expected = (
+            "Failed to read data: modbus_inv_addr_ch (input registers 65000): "
+            "Illegal data address"
+        )
+        assert message == expected, f"Rejection should be {expected!r}, got {message!r}"
 
     def test_duplicate_channel(self) -> None:
         """Configure and run two tasks that use the same channel."""
