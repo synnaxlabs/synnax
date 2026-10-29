@@ -186,7 +186,9 @@ class Frame:
         return MultiSeries([self.series[i] for i in indexes])
 
     @overload
-    def get(self, key: channel.Key | str) -> MultiSeries | None: ...
+    def get(
+        self, key: channel.Key | str, default: None = None
+    ) -> MultiSeries | None: ...
 
     @overload
     def get(self, key: channel.Key | str, default: MultiSeries) -> MultiSeries: ...
