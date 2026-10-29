@@ -25,9 +25,9 @@ const TRANSPORTS = ["tcp", "rtu"] as const;
 export const transportZ = z.enum(TRANSPORTS);
 export type Transport = z.infer<typeof transportZ>;
 
-/** The baud rates the connect dialog offers. */
+/** The baud rates the Driver accepts, which libmodbus sets on every platform. */
 export const BAUD_RATES = [
-  1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200,
+  1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400,
 ] as const;
 
 export const PARITIES = ["none", "even", "odd"] as const;

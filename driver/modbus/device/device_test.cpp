@@ -674,6 +674,27 @@ TEST(ConnectionConfigTest, DefaultsSerial) {
     EXPECT_EQ(config.to_json()["parity"], "even");
 }
 
+/// @brief it should accept the lowest and the highest baud rate.
+TEST(ConnectionConfigTest, AcceptsBaudRateBounds) {
+    for (const int rate: {1200, 230400}) {
+        x::json::Parser parser(
+            x::json::json{
+                {"transport", "rtu"},
+                {"serial_port", "/dev/ttyUSB0"},
+                {"baud_rate", rate},
+                {"swap_bytes", false},
+                {"swap_words", false},
+            }
+        );
+        const ConnectionConfig config(parser);
+        ASSERT_NIL(parser.error());
+        EXPECT_EQ(config.serial.baud_rate, rate);
+    }
+}
+
+const std::string BAUD_RATE_ERROR = "must be one of 1200, 2400, 4800, 9600, 19200, "
+                                    "38400, 57600, 115200, 230400";
+
 class InvalidSerialTest : public ::testing::TestWithParam<InvalidConnectionCase> {};
 
 /// @brief it should reject a serial field out of range, naming the field.
@@ -700,7 +721,9 @@ INSTANTIATE_TEST_SUITE_P(
     InvalidSerialTest,
     ::testing::Values(
         InvalidConnectionCase{"serial_port", "", "must not be empty"},
-        InvalidConnectionCase{"baud_rate", 14400, "unsupported baud rate"},
+        InvalidConnectionCase{"baud_rate", 14400, BAUD_RATE_ERROR},
+        InvalidConnectionCase{"baud_rate", 600, BAUD_RATE_ERROR},
+        InvalidConnectionCase{"baud_rate", 460800, BAUD_RATE_ERROR},
         InvalidConnectionCase{"parity", "mark", "must be none, even, or odd"},
         InvalidConnectionCase{"stop_bits", 3, "must be 1 or 2"},
         InvalidConnectionCase{"unit_id", 0, "must be between 1 and 247"},

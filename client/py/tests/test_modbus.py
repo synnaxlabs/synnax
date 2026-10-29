@@ -13,6 +13,7 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from synnax.exceptions import PathError
 from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
 from tests.json_value import arr, obj
 from x.strings import random_name
@@ -812,14 +813,14 @@ class TestModbusDevicePropertyUpdates:
         dev = sy.modbus.Device(
             transport="rtu",
             serial_port="COM3",
-            baud_rate=9600,
+            baud_rate=230400,
             parity="none",
             stop_bits=2,
             unit_id=17,
         )
         connection = obj(dev.properties["connection"])
         assert connection["serial_port"] == "COM3"
-        assert connection["baud_rate"] == 9600
+        assert connection["baud_rate"] == 230400
         assert connection["parity"] == "none"
         assert connection["stop_bits"] == 2
         assert connection["unit_id"] == 17
@@ -846,6 +847,20 @@ class TestModbusDevicePropertyUpdates:
         """Should reject a connection that lacks or mixes the fields of a transport."""
         with pytest.raises(ValueError, match=f"^{message}$"):
             sy.modbus.Device(**kwargs)
+
+    @pytest.mark.parametrize("baud_rate", [600, 14400, 460800])
+    def test_device_rejects_unsupported_baud_rate(self, baud_rate: int) -> None:
+        """Should reject a baud rate that libmodbus cannot set on every platform."""
+        with pytest.raises(
+            PathError,
+            match=r"^baud_rate: must be one of 1200, 2400, 4800, 9600, 19200, 38400, "
+            r"57600, 115200, 230400$",
+        ):
+            sy.modbus.Device(
+                transport="rtu",
+                serial_port="COM3",
+                baud_rate=baud_rate,  # type: ignore[arg-type]
+            )
 
     def test_device_property_key_format(self) -> None:
         """Test that map keys keep the released type spellings after the rename."""

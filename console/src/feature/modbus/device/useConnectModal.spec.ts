@@ -143,7 +143,7 @@ describe("Modbus.Device.useConnectModal", () => {
       target: { value: "/dev/ttyUSB1" },
     });
     fireEvent.click(screen.getByText("19200"));
-    fireEvent.click(await screen.findByText("9600"));
+    fireEvent.click(await screen.findByText("230400"));
     fireEvent.click(screen.getByText("Even"));
     fireEvent.click(await screen.findByText("None"));
     const { answered } = await answerNextCommand(client, scan);
@@ -156,7 +156,7 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(dev.properties.connection).toEqual({
       transport: "rtu",
       serialPort: "/dev/ttyUSB1",
-      baudRate: 9600,
+      baudRate: 230400,
       parity: "none",
       stopBits: 1,
       swapBytes: false,

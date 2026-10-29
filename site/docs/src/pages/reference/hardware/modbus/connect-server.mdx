@@ -167,7 +167,7 @@ register 0. See [device statuses](/reference/hardware/devices#statuses).
 | Host          | `host`                     |                       | TCP only. An IPv4 address, an IPv6 address, or a hostname.                 |
 | Port          | `port`                     | `502`                 | TCP only. Python has no default.                                           |
 | Serial port   | `serial_port`              |                       | RTU only. Such as `/dev/ttyUSB0` or `COM3`.                                |
-| Baud rate     | `baud_rate`                | `19200`               | RTU only.                                                                  |
+| Baud rate     | `baud_rate`                | `19200`               | RTU only. See [serial devices](#serial-devices).                           |
 | Parity        | `parity`                   | `even`                | RTU only. `none`, `even`, or `odd`.                                        |
 | Stop bits     | `stop_bits`                | `1`                   | RTU only. `1` or `2`.                                                      |
 | Connect from  | `rack`                     |                       | The Driver that connects to the server.                                    |
@@ -203,8 +203,10 @@ other units on the connection.
 All servers on one serial port must use the same line settings. When a task or a check
 uses a server whose settings differ from the settings in use on the port, it fails with
 an error that names both. The Driver always uses 8 data bits, as Modbus RTU requires.
-Between two requests, the Driver waits for the silence of 3.5 characters that Modbus RTU
-requires, or 1.75 ms above 19200 baud.
+The baud rate is one of 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, or 230400,
+the rates that the Driver can set on Linux, macOS, and Windows. Between two requests,
+the Driver waits for the silence of 3.5 characters that Modbus RTU requires, or 1.75 ms
+above 19200 baud.
 
 On Linux, the user that runs the Driver needs access to the serial port. This usually
 means that the user is in the `dialout` group.

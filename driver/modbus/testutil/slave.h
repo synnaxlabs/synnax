@@ -29,13 +29,7 @@
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
-#include <termios.h>
 #include <unistd.h>
-#ifdef __APPLE__
-#include <util.h>
-#else
-#include <pty.h>
-#endif
 #endif
 
 #include "absl/log/log.h"
@@ -44,6 +38,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "driver/modbus/testutil/pseudo_terminal.h"
 #include "driver/modbus/util/util.h"
 
 namespace driver::modbus::testutil {
@@ -90,11 +85,8 @@ class Slave {
     std::size_t connections_ = 0;
     /// @brief set to ask the server loop to close every client connection.
     std::atomic<bool> drop_requested_{false};
-    /// @brief the terminal side of the pseudo-terminal of a serial slave. Held open so
-    /// that the line outlives each client.
-    int terminal_{-1};
-    /// @brief the path a client opens to reach a serial slave.
-    std::string serial_port_;
+    /// @brief the line of a serial slave. Held open so that it outlives each client.
+    PseudoTerminal terminal_;
 
     /// @brief closes a socket. A Winsock socket is not a CRT file descriptor, so
     /// close() aborts on Windows.
@@ -251,53 +243,17 @@ class Slave {
             modbus_reply(ctx_, query, length, mb_mapping_);
     }
 
-    /// @brief opens the pseudo-terminal of a serial slave.
-    x::errors::Error open_terminal() {
-#ifdef _WIN32
-        return x::errors::Error("a serial slave needs a POSIX pseudo-terminal");
-#else
-        int controller = -1;
-        if (openpty(&controller, &terminal_, nullptr, nullptr, nullptr) == -1)
-            return x::errors::Error(
-                "Failed to open a pseudo-terminal: " + std::string(strerror(errno))
-            );
-        termios tios{};
-        tcgetattr(terminal_, &tios);
-        cfmakeraw(&tios);
-        tcsetattr(terminal_, TCSANOW, &tios);
-        serial_port_ = ttyname(terminal_);
-        socket_ = controller;
-        modbus_set_socket(ctx_, controller);
-        return x::errors::NIL;
-#endif
-    }
-
     /// @brief serves RTU frames from the pseudo-terminal. libmodbus drops each RTU
     /// request for a unit other than its own, so the loop splits frames itself to serve
-    /// every unit. A frame ends at the first 5 ms of silence.
+    /// every unit.
     void serial_loop() {
-#ifndef _WIN32
         uint8_t frame[MODBUS_RTU_MAX_ADU_LENGTH];
-        const auto readable = [this](const int timeout_us) {
-            fd_set set;
-            FD_ZERO(&set);
-            FD_SET(socket_, &set);
-            timeval timeout{.tv_sec = 0, .tv_usec = timeout_us};
-            return select(socket_ + 1, &set, nullptr, nullptr, &timeout) > 0;
-        };
         while (running_) {
-            if (!readable(100000)) continue;
-            std::size_t length = 0;
-            do {
-                const auto n = read(socket_, frame + length, sizeof(frame) - length);
-                if (n <= 0) break;
-                length += static_cast<std::size_t>(n);
-            } while (length < sizeof(frame) && readable(5000));
+            const auto length = terminal_.read_frame(frame, sizeof(frame));
             // The shortest RTU frame holds a unit, a function code, and a CRC.
             if (length < 4) continue;
             this->handle(frame, static_cast<int>(length), frame[0], frame[1]);
         }
-#endif
     }
 
     void server_loop() {
@@ -422,7 +378,8 @@ public:
         if (running_) { return x::errors::NIL; }
 
         if (config_.serial) {
-            if (const auto err = this->open_terminal()) return err;
+            if (const auto err = terminal_.open()) return err;
+            modbus_set_socket(ctx_, terminal_.fd());
         } else {
             // Concurrent tests connect faster than the loop accepts. macOS drops the
             // connects past the backlog, and libmodbus gives up before the retransmit.
@@ -459,12 +416,7 @@ public:
             close_socket(socket_);
             socket_ = -1;
         }
-#ifndef _WIN32
-        if (terminal_ != -1) {
-            close(terminal_);
-            terminal_ = -1;
-        }
-#endif
+        terminal_.close();
     }
 
     /// @brief Get the IP address this slave is bound to
@@ -474,7 +426,7 @@ public:
     int port() const { return port_; }
 
     /// @returns the path a client opens to reach a serial slave, valid after start.
-    std::string serial_port() const { return serial_port_; }
+    std::string serial_port() const { return terminal_.path(); }
 
     // Add getters that read directly from the mapping
     uint8_t get_coil(int addr) const {

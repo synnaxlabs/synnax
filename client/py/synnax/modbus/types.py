@@ -7,12 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
+from typing import Literal, get_args
 from uuid import uuid4
 
 from pydantic import JsonValue
 
 from synnax import device, task
+from synnax.exceptions import PathError, ValidationError
 from synnax.modbus.types_gen import (
     ReadChannel,
     ReadConfig,
@@ -38,6 +39,11 @@ _WRITE_NAME_TYPES = {
     "coil": "coil_output",
     "holding_register": "holding_register_output",
 }
+
+# The rates libmodbus sets on Linux, macOS, and Windows. The Driver and the Console
+# accept the same list.
+_BaudRate = Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400]
+_BAUD_RATES: tuple[int, ...] = get_args(_BaudRate)
 
 
 class ReadTask(
@@ -178,7 +184,8 @@ class Device(device.Device):
     :param port: The TCP port number, typically 502. Required for TCP.
     :param serial_port: The serial port, such as /dev/ttyUSB0 or COM3. Required for
         RTU.
-    :param baud_rate: The baud rate of the serial line.
+    :param baud_rate: The baud rate of the serial line: 1200, 2400, 4800, 9600, 19200,
+        38400, 57600, 115200, or 230400.
     :param parity: The parity of the serial line.
     :param stop_bits: The stop bits of each character on the serial line.
     :param swap_bytes: Whether register channels swap the byte order within each
@@ -203,6 +210,9 @@ class Device(device.Device):
     :param rack: Rack key this device belongs to.
     :param key: Unique key for the device. Auto-generated if empty.
     :param configured: Whether the device has been configured.
+    :raises ValueError: If a field of the other transport is set, or a required field
+        of this one is missing.
+    :raises PathError: If baud_rate is not one of the supported rates.
     """
 
     def __init__(
@@ -212,7 +222,7 @@ class Device(device.Device):
         host: str | None = None,
         port: int | None = None,
         serial_port: str | None = None,
-        baud_rate: int = 19200,
+        baud_rate: _BaudRate = 19200,
         parity: Literal["none", "even", "odd"] = "even",
         stop_bits: Literal[1, 2] = 1,
         swap_bytes: bool = False,
@@ -246,6 +256,9 @@ class Device(device.Device):
                 raise ValueError("an RTU device needs a serial port")
             if host is not None or port is not None:
                 raise ValueError("an RTU device has no host or port")
+            if baud_rate not in _BAUD_RATES:
+                rates = ", ".join(str(rate) for rate in _BAUD_RATES)
+                raise PathError("baud_rate", ValidationError(f"must be one of {rates}"))
             connection.update(
                 serial_port=serial_port,
                 baud_rate=baud_rate,

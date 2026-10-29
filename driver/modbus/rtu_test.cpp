@@ -10,6 +10,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <filesystem>
 #include <thread>
 #include <vector>
 
@@ -133,6 +134,27 @@ TEST(RTU, SharesPortAmongUnits) {
     EXPECT_EQ(slave.unit_requests(2), requests);
 }
 
+/// @brief it should share one connection between a serial port and a link to it.
+TEST(RTU, SharesConnectionAcrossLinks) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    const auto link = std::filesystem::temp_directory_path() /
+                      ("modbus-rtu-" + x::uuid::create().to_string());
+    std::filesystem::create_symlink(slave.serial_port(), link);
+    x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
+    device::Manager manager;
+    auto by_path = ASSERT_NIL_P(manager.acquire(rtu(slave, 1)));
+    auto link_cfg = rtu(slave, 1);
+    link_cfg.serial.port = link.string();
+    auto by_link = ASSERT_NIL_P(manager.acquire(link_cfg));
+
+    uint16_t reg = 0;
+    ASSERT_NIL(by_path->read_registers(device::HoldingRegister, 0, 1, &reg));
+    EXPECT_NE(by_link->last_reply(), device::Connection::Clock::time_point{});
+    EXPECT_EQ(by_link->last_reply(), by_path->last_reply());
+}
+
 /// @brief it should demote a silent unit while another unit on the port answers.
 TEST(RTU, DemotesSilentUnitWhileOthersAnswer) {
     auto cfg = serial_slave();
@@ -156,7 +178,7 @@ TEST(RTU, DemotesSilentUnitWhileOthersAnswer) {
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
     EXPECT_EQ(
         err.data,
-        "unit 3 timed out 3 times in a row, so its requests fail for 10 s"
+        "unit 3 timed out 3 times in a row, so its requests fail for 10s"
     );
     EXPECT_EQ(slave.unit_requests(3), device::DEMOTE_AFTER);
     ASSERT_NIL(live->read_registers(device::HoldingRegister, 0, 1, &reg));

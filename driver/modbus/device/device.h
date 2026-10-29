@@ -121,12 +121,18 @@ enum class Transport {
     RTU,
 };
 
-/// @brief the baud rates libmodbus maps on Linux. On POSIX, libmodbus opens any other
-/// rate at 9600 without an error.
-const std::array<int, 23> BAUD_RATES = {
-    110,     300,     600,     1200,    2400,    4800,    9600,    19200,
-    38400,   57600,   115200,  230400,  460800,  500000,  576000,  921600,
-    1000000, 1152000, 1500000, 2500000, 3000000, 3500000, 4000000,
+/// @brief the baud rates libmodbus sets on Linux, macOS, and Windows. On POSIX,
+/// libmodbus opens any other rate at 9600 without an error.
+const std::array<int, 9> BAUD_RATES = {
+    1200,
+    2400,
+    4800,
+    9600,
+    19200,
+    38400,
+    57600,
+    115200,
+    230400,
 };
 
 /// @brief the line settings of a serial port.
@@ -142,8 +148,6 @@ struct Serial {
     char parity = 'E';
     /// @brief the stop bits of each character, 1 or 2.
     std::uint8_t stop_bits = 1;
-
-    bool operator==(const Serial &) const = default;
 
     /// @returns the parity as JSON stores it: none, even, or odd.
     [[nodiscard]] std::string parity_name() const {
@@ -182,6 +186,10 @@ inline std::string serial_path(const std::string &port) {
         if (std::isdigit(static_cast<unsigned char>(port[i])) == 0) return port;
     return R"(\\.\)" + port;
 }
+
+/// @returns the name that every spelling of a serial port shares: on POSIX, the path
+/// with its links resolved, and on Windows, the device path in upper case.
+std::string canonical_port(const std::string &port);
 
 /// @brief the link to a Modbus server and the unit a device addresses on it.
 struct ConnectionConfig {
@@ -279,9 +287,9 @@ struct ConnectionConfig {
     }
 
     /// @returns the key of the link that devices on it share a connection to: the host
-    /// and port for TCP, or the serial port for RTU.
+    /// and port for TCP, or the canonical serial port for RTU.
     [[nodiscard]] std::string endpoint() const {
-        if (this->transport == Transport::RTU) return this->serial.port;
+        if (this->transport == Transport::RTU) return canonical_port(this->serial.port);
         return host + ":" + std::to_string(port);
     }
 
@@ -291,10 +299,14 @@ private:
         if (parser.has("serial_port") && this->serial.port.empty())
             parser.field_err("serial_port", "must not be empty");
         const auto baud_rate = parser.field<int>("baud_rate", 19200);
-        if (std::ranges::find(BAUD_RATES, baud_rate) == BAUD_RATES.end())
-            parser.field_err("baud_rate", "unsupported baud rate");
-        else
+        if (std::ranges::find(BAUD_RATES, baud_rate) == BAUD_RATES.end()) {
+            std::string rates;
+            for (const int rate: BAUD_RATES)
+                rates += (rates.empty() ? "" : ", ") + std::to_string(rate);
+            parser.field_err("baud_rate", "must be one of " + rates);
+        } else {
             this->serial.baud_rate = static_cast<std::uint32_t>(baud_rate);
+        }
         if (const auto parity = parser.field<std::string>("parity", "even");
             parity == "none")
             this->serial.parity = 'N';
@@ -687,7 +699,8 @@ class Manager {
     x::telem::TimeSpan demotion;
 
     /// @returns a new connection, or nullptr with errno set.
-    std::shared_ptr<Connection> connect(const ConnectionConfig &cfg) const {
+    [[nodiscard]] std::shared_ptr<Connection>
+    connect(const ConnectionConfig &cfg) const {
         if (cfg.transport == Transport::RTU) {
             const auto &serial = cfg.serial;
             auto *ctx = modbus_new_rtu(
@@ -731,7 +744,9 @@ public:
             conn = connect(cfg);
             if (conn == nullptr) return {nullptr, classify(errno)};
             entry = conn;
-        } else if (cfg.transport == Transport::RTU && conn->serial != cfg.serial)
+        } else if (
+            cfg.transport == Transport::RTU && conn->serial.line() != cfg.serial.line()
+        )
             return {
                 nullptr,
                 {CRITICAL_ERROR,
