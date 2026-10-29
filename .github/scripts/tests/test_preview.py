@@ -183,6 +183,12 @@ class TestSweep:
         assert not host.site(12).exists()
         assert host.site(13).exists()
 
+    def test_prunes_images_without_expired(self, host: Host) -> None:
+        host.containers((13, int(time.time())))
+        result = host.run("sweep")
+        assert result.returncode == 0, result.stderr
+        assert host.docker()[-1] == "docker image prune --all --force"
+
 
 class TestArguments:
     """Tests for rejected arguments."""

@@ -90,6 +90,8 @@ sweep() {
         | while read -r pr deployed; do
             if ((deployed < cutoff)); then down "$pr"; fi
         done
+    # A failed deploy can leave a pulled image that no container uses.
+    prune_images
 }
 
 case "${1:-}" in
