@@ -17,7 +17,6 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.layout import LayoutClient
-from framework.run_dir import resolve_results_path
 from framework.utils import read_latest_value
 
 PageType = Literal[
@@ -56,6 +55,7 @@ class ConsolePage:
     @classmethod
     def from_open_page(
         cls,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         name: str,
@@ -76,14 +76,16 @@ class ConsolePage:
         pane = layout.page.locator(cls.pluto_label)
         pane.first.wait_for(state="visible", timeout=10000)
 
-        return cls(layout, client, name, pane_locator=pane.first)
+        return cls(
+            layout=layout, client=client, page_name=name, pane_locator=pane.first
+        )
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a page wrapper around an existing UI page.
@@ -328,7 +330,7 @@ class ConsolePage:
                 export_button.dispatch_event("click")
 
         download = download_info.value
-        save_path = resolve_results_path(f"{self.page_name}.json")
+        save_path = str(self.layout.results_dir / f"{self.page_name}.json")
         download.save_as(save_path)
         with open(save_path, encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)

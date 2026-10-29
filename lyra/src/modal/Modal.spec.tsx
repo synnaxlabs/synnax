@@ -36,7 +36,7 @@ describe("Modal", () => {
           <span>frame body</span>
         </Modal.Frame>,
       );
-      const el = baseElement.querySelector(".pluto-modal");
+      const el = baseElement.querySelector(".lyra-modal");
       expect(el).not.toBeNull();
       expect(el?.className).toContain("extra");
       expect(screen.getByText("frame body")).toBeTruthy();
@@ -56,11 +56,22 @@ describe("Modal", () => {
       expect(screen.getByText("user.name")).toBeTruthy();
     });
 
-    it("should render a leading icon segment only when an icon is provided", () => {
+    it("should draw the last segment at full contrast", () => {
+      renderModal(<Modal.Header>Channel.Create</Modal.Header>);
+      expect(screen.getByText("Channel").className).toContain("lyra--color-9");
+      expect(screen.getByText("Create").className).toContain("lyra--color-11");
+    });
+
+    it("should frame the icon in a tile, with no separator after it", () => {
       const withIcon = renderModal(
         <Modal.Header icon={<Icon.Add className="test-icon" />}>Title</Modal.Header>,
       );
-      expect(withIcon.baseElement.querySelector(".test-icon")).not.toBeNull();
+      expect(
+        withIcon.baseElement.querySelector(".lyra-icon-tile > .test-icon"),
+      ).not.toBeNull();
+      expect(
+        withIcon.baseElement.querySelector(".lyra-breadcrumb__separator"),
+      ).toBeNull();
       withIcon.unmount();
       const withoutIcon = renderModal(<Modal.Header>Title</Modal.Header>);
       expect(withoutIcon.baseElement.querySelector(".test-icon")).toBeNull();
@@ -76,7 +87,7 @@ describe("Modal", () => {
       close.getBoundingClientRect = () => new DOMRect(100, 100, 24, 24);
       fireEvent.pointerOver(close, { pointerType: "mouse" });
       const tip = await waitFor(() => {
-        const el = document.querySelector<HTMLElement>(".pluto-tooltip");
+        const el = document.querySelector<HTMLElement>(".lyra-tooltip");
         if (el == null) throw new Error("tooltip did not open");
         return el;
       });
@@ -100,10 +111,29 @@ describe("Modal", () => {
       const { baseElement } = renderModal(
         <Modal.Body className="extra">body content</Modal.Body>,
       );
-      const el = baseElement.querySelector(".pluto-modal__body");
+      const el = baseElement.querySelector(".lyra-modal__body");
       expect(el?.className).toContain("extra");
       expect(screen.getByText("body content")).toBeTruthy();
     });
+
+    it("should stack its children one field gap apart by default", () => {
+      const { baseElement } = renderModal(<Modal.Body>body</Modal.Body>);
+      const el = baseElement.querySelector(".lyra-modal__body");
+      expect(el?.className).toContain("lyra--field-gap");
+    });
+
+    it.each([
+      ["gap", { gap: "small" }],
+      ["pack", { pack: true }],
+      ["empty", { empty: true }],
+    ] as const)(
+      "should leave the spacing to %s when the caller sets it",
+      (_, props) => {
+        const { baseElement } = renderModal(<Modal.Body {...props}>body</Modal.Body>);
+        const el = baseElement.querySelector(".lyra-modal__body");
+        expect(el?.className).not.toContain("lyra--field-gap");
+      },
+    );
   });
 
   describe("Footer", () => {
@@ -111,7 +141,7 @@ describe("Modal", () => {
       const { baseElement } = renderModal(
         <Modal.Footer className="extra">footer content</Modal.Footer>,
       );
-      const el = baseElement.querySelector(".pluto-modal__footer");
+      const el = baseElement.querySelector(".lyra-modal__footer");
       expect(el?.className).toContain("extra");
       expect(screen.getByText("footer content")).toBeTruthy();
     });

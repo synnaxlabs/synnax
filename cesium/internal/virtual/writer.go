@@ -35,7 +35,7 @@ type WriterConfig struct {
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
-	DefaultWriterConfig                             = WriterConfig{
+	defaultWriterConfig                             = WriterConfig{
 		ErrOnUnauthorizedOpen: new(false),
 	}
 )
@@ -92,7 +92,7 @@ func (db *DB) OpenWriter(
 		err = ErrDBClosed
 		return nil, transfer, db.wrapError(err)
 	}
-	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	cfg, err := config.New(defaultWriterConfig, cfgs...)
 	if err != nil {
 		return nil, transfer, db.wrapError(err)
 	}

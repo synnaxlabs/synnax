@@ -40,7 +40,7 @@ const selected = (frame: Element): (string | undefined)[] =>
   );
 
 const frames = (): HTMLElement[] => [
-  ...document.querySelectorAll<HTMLElement>(".pluto-tabs"),
+  ...document.querySelectorAll<HTMLElement>(".lyra-tabs"),
 ];
 
 const tab = (frame: Element, key: string): HTMLElement =>

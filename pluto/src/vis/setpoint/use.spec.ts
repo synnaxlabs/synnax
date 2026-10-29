@@ -11,7 +11,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { renderHook } from "@/testutil/render";
 import { Setpoint } from "@/vis/setpoint";
 import { setpoint } from "@/vis/setpoint/aether";
