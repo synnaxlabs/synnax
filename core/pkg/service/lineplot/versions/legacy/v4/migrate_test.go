@@ -20,6 +20,7 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v4"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // nonZeroV3 builds a v3.Data with every model field populated so passthrough
@@ -106,7 +107,7 @@ func nonZeroV3() v3.Data {
 			{
 				Key:            "y1-rng1-ch10",
 				Label:          &label,
-				Color:          color.MustFromHex("#ff0000"),
+				Color:          MustSucceed(color.FromHex("#ff0000")),
 				StrokeWidth:    2,
 				Downsample:     1,
 				DownsampleMode: "decimate",
@@ -116,7 +117,7 @@ func nonZeroV3() v3.Data {
 			{
 				Key:       "r1",
 				Label:     "max",
-				Color:     color.MustFromHex("#0000ff"),
+				Color:     MustSucceed(color.FromHex("#0000ff")),
 				Axis:      "y1",
 				LineWidth: 1,
 				LineDash:  0,
