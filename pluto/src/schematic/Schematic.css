@@ -9,6 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
+/* stylelint-disable declaration-no-important -- restyles React Flow, which styles these
+   parts in its own stylesheet and inline */
+
 .pluto-schematic__empty {
     position: absolute;
     inset: 0;
@@ -52,6 +55,7 @@
         border-color: transparent !important;
         pointer-events: none !important;
         border-radius: 50%;
+
         /* React Flow pins the opposite edge (bottom/right) for handles facing those
            directions. Pluto positions every handle via top/left, so the extra pin
            stretches the element across the node and throws off the edge anchor. */
@@ -71,7 +75,8 @@
     .react-flow__edge {
         & .react-flow__edge-path {
             stroke-width: 2px !important;
-            &.pluto--thin {
+
+            &.lyra--thin {
                 stroke-width: 1px !important;
             }
         }
@@ -80,10 +85,12 @@
     .react-flow__edges {
         z-index: 6 !important;
     }
-    &.pluto--editable {
+
+    &.lyra--editable {
         .react-flow__pane.selection {
             cursor: pointer !important;
         }
+
         & .pluto-symbol-primitive,
         .pluto-control-chip {
             pointer-events: none;
@@ -122,6 +129,7 @@
             .react-flow__handle {
                 border-color: var(--pluto-primary-z) !important;
                 background: var(--pluto-text-color) !important;
+
                 &:hover {
                     background: var(--pluto-primary-z) !important;
                 }
@@ -132,6 +140,7 @@
             & .react-flow__handle {
                 border-color: var(--pluto-primary-z) !important;
                 background: var(--pluto-text-color) !important;
+
                 &:hover {
                     background: var(--pluto-primary-z) !important;
                 }

@@ -31,12 +31,14 @@ const { title, effective } = Astro.props;
         font-family: var(--pluto-font-family);
         color: var(--pluto-gray-l9);
     }
+
     .legal-title {
         margin-bottom: 2rem;
         font-size: var(--pluto-h1-size);
         line-height: var(--pluto-h1-line-height);
         font-weight: var(--pluto-h1-weight);
         color: var(--pluto-gray-l10);
+
         &::after {
             content: "";
             display: block;
@@ -46,41 +48,49 @@ const { title, effective } = Astro.props;
             background: var(--pluto-primary-z);
         }
     }
+
     .legal-effective {
         margin-bottom: 6rem;
         font-size: var(--pluto-h5-size);
         line-height: var(--pluto-h5-line-height);
         color: var(--pluto-gray-l8);
     }
+
     .legal :global(h2) {
         margin: 6rem 0 2rem;
         font-size: var(--pluto-h4-size);
         line-height: var(--pluto-h4-line-height);
         font-weight: var(--pluto-h4-weight);
     }
+
     .legal :global(h3) {
         margin: 4rem 0 1.5rem;
         font-size: var(--pluto-h5-size);
         line-height: var(--pluto-h5-line-height);
         font-weight: var(--pluto-h5-weight);
     }
+
     .legal :global(:is(p, li)) {
         font-size: var(--pluto-p-size);
         line-height: var(--pluto-p-line-height);
     }
+
     .legal :global(p) {
         margin: 0 0 2rem;
     }
+
     /* Drawn like the docs site bullets, so the two never stack. */
     .legal :global(ul) {
         margin: 0 0 2rem;
         padding-left: 0;
         list-style: none;
     }
+
     .legal :global(li) {
         position: relative;
         margin-bottom: 1rem;
         padding-left: 20px;
+
         &::before {
             content: "";
             position: absolute;
@@ -92,8 +102,10 @@ const { title, effective } = Astro.props;
             background: var(--pluto-gray-l8);
         }
     }
+
     .legal :global(a) {
         color: var(--pluto-primary-z);
-        word-break: break-word;
+        word-break: normal;
+        overflow-wrap: anywhere;
     }
 </style>

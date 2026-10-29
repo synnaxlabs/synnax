@@ -41,7 +41,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.type(NAME);
   await session.hold(400);
   await session.click(
-    modal.locator(".pluto-dialog__trigger").filter({ hasText: "float32" }).first(),
+    modal.locator(".lyra-dialog__trigger").filter({ hasText: "float32" }).first(),
   );
   // Boolean sits below the list's visible end, so filter to it.
   await session.hold(400);
