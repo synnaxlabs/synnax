@@ -71,13 +71,13 @@ The write channel to change. Leave it out to change all write channels.
 
 </Field.List>
 
-- Input -> optional. An upstream value must be `u8`, such as a `u8` channel or
+- Trigger -> optional. The value must be `u8`, such as a `u8` channel or
   `time.interval`. A `bool` value, such as a comparison, is an error.
 - Output -> none.
-- Runs -> once each time its stage starts. Later input values have no effect until the
-  stage starts again. At the top level, it needs an input, such as
-  `start_cmd -> control.set_authority{value=200}`, and runs once, on the first input
-  value. Without an input, a top-level call is a syntax error.
+- Runs -> once each time its stage starts. Later trigger values have no effect until the
+  stage starts again. At the top level, it needs an upstream trigger, such as
+  `start_cmd -> control.set_authority(value=200)`, and runs once, on the first trigger
+  value. Without a trigger, a top-level call is a syntax error.
 
 The change goes out before the writes of the same cycle. A value of 0 does not release
 the channel. The automation keeps control at authority 0 until a writer with a higher
@@ -92,12 +92,12 @@ authority 100
 
 sequence fill {
     stage pressurize {
-        control.set_authority{value=220, channel=press_vlv_cmd}
+        control.set_authority(value=220, channel=press_vlv_cmd)
         1 -> press_vlv_cmd
         tank_pt > 300 => next
     }
     stage hold {
-        control.set_authority{value=100}
+        control.set_authority(value=100)
         0 -> press_vlv_cmd
     }
 }

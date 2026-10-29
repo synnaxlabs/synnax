@@ -85,7 +85,7 @@ if (wrap) className += " wrap";
             transition: opacity 0.2s ease-in-out;
             z-index: 2;
 
-            & .pluto-icon {
+            & .lyra-icon {
                 width: 1em !important;
                 height: 1em !important;
             }
@@ -142,7 +142,7 @@ if (wrap) className += " wrap";
 
     /* In a pane, a code block is a band across the full pane, split from the prose by
        hairlines, and its code lines up with the prose. */
-    article :is(.pluto-tabs__content, .docs-details > .content) > .astro-code-wrapper {
+    article :is(.lyra-tabs__content, .docs-details > .content) > .astro-code-wrapper {
         --band: var(--docs-block-padding);
 
         margin: var(--band) calc(-1 * var(--band));
@@ -171,7 +171,7 @@ if (wrap) className += " wrap";
     }
 
     article
-        :is(.pluto-tabs__content, .docs-details > .content)
+        :is(.lyra-tabs__content, .docs-details > .content)
         > p:has(+ .astro-code-wrapper) {
         margin-bottom: 0;
     }
@@ -182,7 +182,7 @@ if (wrap) className += " wrap";
     }
 
     p + .astro-code-wrapper,
-    .pluto-note + .astro-code-wrapper,
+    .lyra-note + .astro-code-wrapper,
     :is(h2, h3, h4, h5, h6) + .astro-code-wrapper {
         margin-top: 0;
     }

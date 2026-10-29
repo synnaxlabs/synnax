@@ -114,7 +114,7 @@ describe("Input.Table", () => {
 
   it("should show the remove button of every row at all times", () => {
     renderTable();
-    expect(removeButton(0).classList.contains("pluto--reveal")).toBe(false);
+    expect(removeButton(0).classList.contains("lyra--reveal")).toBe(false);
   });
 
   it("should name the row in the add button", () => {
@@ -124,8 +124,8 @@ describe("Input.Table", () => {
 
   it("should render every cell as a shadow input", () => {
     renderTable();
-    const chassis = cell("Raw", "1").closest(".pluto-input");
-    expect(chassis?.classList.contains("pluto--shadow")).toBe(true);
+    const chassis = cell("Raw", "1").closest(".lyra-input");
+    expect(chassis?.classList.contains("lyra--shadow")).toBe(true);
   });
 
   it("should render no row header until a labeler asks for one", () => {

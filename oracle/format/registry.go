@@ -70,13 +70,6 @@ func (r *Registry) Format(
 	return current, nil
 }
 
-// Has reports whether at least one formatter is registered for the given
-// extension.
-func (r *Registry) Has(ext string) bool {
-	_, ok := r.byExt[ext]
-	return ok
-}
-
 // FormatBatch formats a slice of files in parallel and returns a new slice
 // with the canonical bytes. Worker count defaults to GOMAXPROCS; pass 0 for
 // the default. Files with no registered formatter pass through unchanged.
