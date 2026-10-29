@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { describe, expect, it } from "vitest";
+
 import { Modbus } from "@/feature/modbus";
 import { testPropertiesSchema } from "@/platform/device/testutil";
 
@@ -21,3 +23,52 @@ testPropertiesSchema(
     ],
   ],
 );
+
+describe("Modbus.Device.SCHEMAS", () => {
+  it("should fill the unit, timing, and request fields of a stored device", () => {
+    const props = Modbus.Device.SCHEMAS.properties.parse({
+      connection: { host: "10.0.0.7", port: 502, swapBytes: true, swapWords: false },
+    });
+    expect(props.connection).toEqual({
+      transport: "tcp",
+      host: "10.0.0.7",
+      port: 502,
+      swapBytes: true,
+      swapWords: false,
+      unitId: 255,
+      timeoutMs: 1000,
+      retries: 1,
+    });
+    expect(props.requests).toEqual({
+      maxRegisters: 125,
+      maxGap: 125,
+      writeCodes: "multiple",
+      delayMs: 0,
+    });
+  });
+
+  it("should reject a write code the Driver does not know", () => {
+    expect(
+      Modbus.Device.SCHEMAS.properties.safeParse({ requests: { writeCodes: "both" } })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("Modbus.Device byte order", () => {
+  it.each([
+    ["ABCD", { swapBytes: false, swapWords: true }],
+    ["BADC", { swapBytes: true, swapWords: true }],
+    ["CDAB", { swapBytes: false, swapWords: false }],
+    ["DCBA", { swapBytes: true, swapWords: false }],
+  ] as const)("should map %s to the Driver's swap settings", (order, swaps) => {
+    expect(Modbus.Device.swapsOf(order)).toEqual(swaps);
+    expect(Modbus.Device.byteOrderOf(swaps)).toBe(order);
+  });
+
+  it("should give the low word first for a device with no swaps", () => {
+    expect(Modbus.Device.byteOrderOf(Modbus.Device.ZERO_PROPERTIES.connection)).toBe(
+      "CDAB",
+    );
+  });
+});

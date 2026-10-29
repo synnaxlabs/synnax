@@ -12,13 +12,23 @@ import "@/feature/modbus/device/Connect.css";
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Select } from "@synnaxlabs/lyra/select";
+import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import {
+  BYTE_ORDERS,
+  type ByteOrder,
+  byteOrderOf,
   type Device,
   INTEGRATION,
   SCHEMAS,
+  swapsOf,
+  type WriteCodes,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
 import {
@@ -104,7 +114,7 @@ export const Connect = ({
   const { capture } = Analytics.use();
   const {
     form,
-    save,
+    saveAsync,
     status: stat,
     variant,
   } = useForm({
@@ -127,6 +137,21 @@ export const Connect = ({
     name: "Modbus",
     rack: rackKey,
   });
+  const [tab, setTab] = useState("unit");
+
+  const handleConnect = async () => {
+    if (await saveAsync()) return;
+    const errorPaths = form
+      .getStatuses()
+      .flatMap(({ key, variant }) => (variant === "error" && key != null ? [key] : []));
+    const holdsError = (tabKey: string) =>
+      TAB_PATHS[tabKey].some((tabPath) =>
+        errorPaths.some((path) => deep.pathsMatch(path, tabPath)),
+      );
+    if (holdsError(tab)) return;
+    const next = Object.keys(TAB_PATHS).find(holdsError);
+    if (next != null) setTab(next);
+  };
 
   return (
     <Modal.Frame className={CSS.B("modbus-connect")}>
@@ -150,26 +175,84 @@ export const Connect = ({
               />
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
-            <Form.Section title="Byte order">
-              <Form.SwitchField
-                path="properties.connection.swapBytes"
-                label="Swap bytes"
-                padHelpText={false}
-              />
-              <Form.SwitchField
-                path="properties.connection.swapWords"
-                label="Swap words"
-                padHelpText={false}
-              />
-            </Form.Section>
           </Form.Sections>
+          <Tabs.Frame
+            value={tab}
+            onChange={setTab}
+            className={CSS.BE("modbus-connect", "tabs")}
+            empty={false}
+            gap="large"
+          >
+            <Tabs.Selector variant="chip">
+              <Tabs.Tab itemKey="unit">Unit</Tabs.Tab>
+              <Tabs.Tab itemKey="advanced">Advanced</Tabs.Tab>
+            </Tabs.Selector>
+            <Tabs.Content itemKey="unit">
+              <Form.Sections>
+                <Form.Section>
+                  <Form.NumericField
+                    path="properties.connection.unitId"
+                    label="Unit ID"
+                    padHelpText={false}
+                    inputProps={UNIT_ID_INPUT_PROPS}
+                  />
+                  <ByteOrderField />
+                </Form.Section>
+              </Form.Sections>
+            </Tabs.Content>
+            <Tabs.Content itemKey="advanced">
+              <Form.Sections>
+                <Form.Section title="Timing">
+                  <Form.NumericField
+                    path="properties.connection.timeoutMs"
+                    label="Timeout"
+                    padHelpText={false}
+                    inputProps={TIMEOUT_INPUT_PROPS}
+                  />
+                  <Form.NumericField
+                    path="properties.connection.retries"
+                    label="Retries"
+                    padHelpText={false}
+                    inputProps={RETRIES_INPUT_PROPS}
+                  />
+                  <Form.NumericField
+                    path="properties.requests.delayMs"
+                    label="Request delay"
+                    padHelpText={false}
+                    inputProps={DELAY_INPUT_PROPS}
+                  />
+                </Form.Section>
+                <Form.Section title="Requests">
+                  <Form.NumericField
+                    path="properties.requests.maxRegisters"
+                    label="Max registers"
+                    padHelpText={false}
+                    inputProps={MAX_REGISTERS_INPUT_PROPS}
+                  />
+                  <Form.NumericField
+                    path="properties.requests.maxGap"
+                    label="Max gap"
+                    padHelpText={false}
+                    inputProps={MAX_GAP_INPUT_PROPS}
+                  />
+                  <Form.Field<WriteCodes>
+                    path="properties.requests.writeCodes"
+                    label="Write codes"
+                    padHelpText={false}
+                  >
+                    {(props) => <SelectWriteCodes {...props} />}
+                  </Form.Field>
+                </Form.Section>
+              </Form.Sections>
+            </Tabs.Content>
+          </Tabs.Frame>
         </Form.Form>
       </Modal.Body>
       <PlatformDevice.ConnectFooter
         reason={reason}
         variant={variant}
         message={stat.description}
-        onConnect={() => save()}
+        onConnect={() => void handleConnect()}
         onBack={onBack}
       />
     </Modal.Frame>
@@ -193,3 +276,106 @@ const PORT_INPUT_PROPS = {
   bounds: { lower: 1, upper: 65535 },
   style: { width: "23rem" },
 } as const;
+
+// The paths each tab edits, so a failed Connect can open the tab with the error.
+const TAB_PATHS: Record<string, string[]> = {
+  unit: [
+    "properties.connection.unitId",
+    "properties.connection.swapBytes",
+    "properties.connection.swapWords",
+  ],
+  advanced: [
+    "properties.connection.timeoutMs",
+    "properties.connection.retries",
+    "properties.requests",
+  ],
+};
+
+const UNIT_ID_INPUT_PROPS = {
+  bounds: { lower: 0, upper: 255 },
+  style: { width: "23rem" },
+} as const;
+
+const TIMEOUT_INPUT_PROPS = {
+  bounds: { lower: 1, upper: 60000 },
+  endContent: "ms",
+  style: { width: "23rem" },
+} as const;
+
+const RETRIES_INPUT_PROPS = {
+  bounds: { lower: 0, upper: 10 },
+  style: { width: "23rem" },
+} as const;
+
+const DELAY_INPUT_PROPS = {
+  bounds: { lower: 0, upper: 60000 },
+  endContent: "ms",
+  style: { width: "23rem" },
+} as const;
+
+const MAX_REGISTERS_INPUT_PROPS = {
+  bounds: { lower: 1, upper: 125 },
+  style: { width: "23rem" },
+} as const;
+
+const MAX_GAP_INPUT_PROPS = {
+  bounds: { lower: 0, upper: 65535 },
+  style: { width: "23rem" },
+} as const;
+
+const SWAP_BYTES_PATH = "properties.connection.swapBytes";
+const SWAP_WORDS_PATH = "properties.connection.swapWords";
+
+const BYTE_ORDER_NAMES: Record<ByteOrder, string> = {
+  ABCD: "Big-endian",
+  BADC: "Byte swap",
+  CDAB: "Word swap",
+  DCBA: "Little-endian",
+};
+
+// One select over the two stored swap settings.
+const ByteOrderField = (): ReactElement => {
+  const ctx = Form.useContext();
+  const swapBytes = Form.useFieldValue<boolean>(SWAP_BYTES_PATH);
+  const swapWords = Form.useFieldValue<boolean>(SWAP_WORDS_PATH);
+  const handleChange = (order: ByteOrder) => {
+    const swaps = swapsOf(order);
+    ctx.set(SWAP_BYTES_PATH, swaps.swapBytes);
+    ctx.set(SWAP_WORDS_PATH, swaps.swapWords);
+  };
+  return (
+    <Input.Item label="Byte order" padHelpText={false}>
+      <Select.Simple<ByteOrder>
+        value={byteOrderOf({ swapBytes, swapWords })}
+        onChange={handleChange}
+        allowNone={false}
+        resourceName="byte order"
+      >
+        {BYTE_ORDERS.map((order) => (
+          <Select.Item<ByteOrder> key={order} itemKey={order}>
+            {`${BYTE_ORDER_NAMES[order]} (${order})`}
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </Input.Item>
+  );
+};
+
+const SelectWriteCodes = (props: Select.ButtonsProps<WriteCodes>) => (
+  <Select.Buttons<WriteCodes> {...props}>
+    <Select.Item<WriteCodes>
+      itemKey="multiple"
+      tooltip="Writes each run of adjacent addresses with FC15 or FC16"
+      tooltipLocation="top"
+    >
+      Multiple
+    </Select.Item>
+    <Select.Item<WriteCodes>
+      itemKey="single"
+      tooltip="Writes each coil with FC05 and each register with FC06"
+      tooltipLocation="top"
+    >
+      Single
+    </Select.Item>
+  </Select.Buttons>
+);
