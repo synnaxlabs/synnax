@@ -131,6 +131,14 @@ var _ = Describe("Compile", func() {
 		mod.AddImport("env", "host", wasm.FunctionType{})
 		Expect(Compile(ctx, mod).ImportedFunctions()).To(HaveLen(1))
 	})
+
+	It("Should fail the spec when the module is not valid WASM", func(ctx SpecContext) {
+		mod := wasm.NewModule()
+		typeIdx := mod.AddType(wasm.FunctionType{Results: []wasm.ValueType{wasm.I32}})
+		mod.AddFunction(typeIdx, nil, nil)
+		Expect(InterceptGomegaFailures(func() { Compile(ctx, mod) })).
+			To(ConsistOf(ContainSubstring("not enough results")))
+	})
 })
 
 var _ = Describe("ImportNames", func() {
