@@ -49,6 +49,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		statusSvc     *status.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
+		channelGraph  *calcgraph.Graph
 	)
 	open := func(
 		ctx context.Context,
@@ -144,7 +145,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Framer:  dist.Framer,
 			Channel: channelSvc,
 		}))
-		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		channelGraph = MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:      dist.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
@@ -1036,6 +1037,64 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expect(channelWriter.Create(ctx, &sibling)).To(Succeed())
 					rm := c.OpenRequestManager()
 					Expect(rm.Set(ctx, channel.Keys{sibling.Key()})).To(Succeed())
+					DeferCleanup(func(ctx SpecContext) {
+						Expect(rm.Close(ctx)).To(Succeed())
+					})
+					writeGood()
+					Eventually(written).
+						Should(HaveExactElements(failure(), success))
+				},
+			)
+
+			// flushChanges returns after the Service handles each channel change made
+			// before the call: the channel graph notifies one batch at a time.
+			flushChanges := func(ctx context.Context) {
+				GinkgoHelper()
+				name := UniqueChannelName()
+				seen := make(chan struct{})
+				disconnect := channelGraph.Observe().OnChange(func(
+					_ context.Context,
+					r calcgraph.Changes,
+				) {
+					for ch := range r {
+						if ch.Value.Name == name {
+							close(seen)
+						}
+					}
+				})
+				defer disconnect()
+				Expect(channelWriter.Create(ctx, &channel.Channel{
+					Name:     name,
+					DataType: telem.Int64T,
+					Virtual:  true,
+				})).To(Succeed())
+				Eventually(seen).Should(BeClosed())
+			}
+
+			It(
+				"Should keep a failure after a rename of the channel",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					Expect(channelWriter.Rename(
+						ctx, calc.Key(), UniqueChannelName(), false,
+					)).To(Succeed())
+					flushChanges(ctx)
+					writeGood()
+					Eventually(written).
+						Should(HaveExactElements(failure(), success))
+				},
+			)
+
+			It(
+				"Should keep a failure after a second request of the channel",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					rm := c.OpenRequestManager()
+					Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 					DeferCleanup(func(ctx SpecContext) {
 						Expect(rm.Close(ctx)).To(Succeed())
 					})

@@ -192,6 +192,16 @@ func (s *Service) clearStatus(ctx context.Context, key channel.Key) {
 	}
 }
 
+func (s *Service) acceptDefinition(ctx context.Context, key channel.Key) {
+	if err := s.cfg.ChannelGraph.AcceptDefinition(ctx, key); err != nil {
+		s.cfg.L.Error(
+			"failed to clear status",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
+	}
+}
+
 func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
 	for cg := range reader {
 		ch := cg.Value
@@ -208,7 +218,7 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.rejectDefinition(ctx, ch, "Failed to compile calculation", err)
 		} else {
-			s.clearStatus(ctx, ch.Key())
+			s.acceptDefinition(ctx, ch.Key())
 		}
 		s.mu.Unlock()
 	}
@@ -376,13 +386,15 @@ func (s *Service) updateRequests(
 			graphChanged = true
 		}
 	}
+	// A calculation that already runs owns its status, so only a new one clears it.
+	running := s.mu.graph.CalculatedKeys()
 	for _, ch := range channels {
 		if !ch.IsCalculated() {
 			continue
 		}
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
 			s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
-		} else {
+		} else if !running.Contains(ch.Key()) {
 			s.clearStatus(ctx, ch.Key())
 		}
 		graphChanged = true
