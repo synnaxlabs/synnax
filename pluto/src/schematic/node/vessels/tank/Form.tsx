@@ -11,6 +11,7 @@ import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement } from "react";
 
+import { Border } from "@/schematic/node/common/border";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
@@ -64,18 +65,21 @@ export const TankForm = ({
       <Base.Section title="Appearance">
         <Form.ColorField path="strokeColor" label="Stroke" />
         <Form.FillField />
-        <Form.RadiusFields path="borderRadius" />
-        {showBorderRadius && (
-          <Base.NumericField
+        {showBorderRadius ? (
+          <Form.NumericField
             path="borderRadius"
             label="Border radius"
+            fallback={Form.DEFAULT_BOX_BORDER_RADIUS}
             inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
+        ) : (
+          <Form.RadiusFields path="borderRadius" fallback={Border.DEFAULT_RADIUS} />
         )}
         {showStrokeWidth && (
-          <Base.NumericField
+          <Form.NumericField
             path="strokeWidth"
             label="Border width"
+            fallback={Form.DEFAULT_STROKE_WIDTH}
             inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           />
         )}

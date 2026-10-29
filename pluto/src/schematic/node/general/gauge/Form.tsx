@@ -72,7 +72,11 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
         </Base.Section>
         <Base.Section title="Range">
           <Form.UnitsField />
-          <Form.BoundsFields path="bounds" padHelpText={false} />
+          <Form.BoundsFields
+            path="bounds"
+            fallback={Form.DEFAULT_BOUNDS}
+            padHelpText={false}
+          />
         </Base.Section>
       </Base.Sections>
     </Tabs.Content>

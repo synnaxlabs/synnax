@@ -17,26 +17,28 @@ import { z } from "zod";
 import { Form } from "@/schematic/node/common/form";
 
 const schema = z.object({
-  bounds: z.object({ lower: z.number(), upper: z.number() }),
+  bounds: z.object({ lower: z.number(), upper: z.number() }).optional(),
 });
 
+const FALLBACK: bounds.Bounds = { lower: 0, upper: 100 };
+
 interface Handle {
-  get: () => bounds.Bounds;
+  get: () => bounds.Bounds | undefined;
 }
 
 interface HostProps {
-  initial: bounds.Bounds;
+  initial?: bounds.Bounds;
   ref?: React.Ref<Handle>;
 }
 
 const Host = ({ initial, ref }: HostProps): ReactElement => {
   const methods = Base.use({ values: { bounds: initial }, schema });
   useImperativeHandle(ref, () => ({
-    get: () => methods.get<bounds.Bounds>("bounds").value,
+    get: () => methods.get<bounds.Bounds | undefined>("bounds").value,
   }));
   return (
     <Base.Form<typeof schema> {...methods}>
-      <Form.BoundsFields path="bounds" />
+      <Form.BoundsFields path="bounds" fallback={FALLBACK} />
     </Base.Form>
   );
 };
@@ -44,13 +46,12 @@ const Host = ({ initial, ref }: HostProps): ReactElement => {
 interface Fields {
   lower: HTMLInputElement;
   upper: HTMLInputElement;
-  get: () => bounds.Bounds;
+  get: () => bounds.Bounds | undefined;
 }
 
-const setup = (initial: bounds.Bounds): Fields => {
+const setup = (initial?: bounds.Bounds): Fields => {
   const ref: { current: Handle | null } = { current: null };
   const c = render(<Host initial={initial} ref={ref} />);
-  // The label carries a required indicator, so the accessible name is not exact.
   const field = (label: string): HTMLInputElement => {
     const el = c.getByLabelText(new RegExp(label));
     assert(el instanceof HTMLInputElement);
@@ -81,32 +82,44 @@ describe("Form.BoundsFields", () => {
   it("should cap the minimum at the current maximum", () => {
     const f = setup({ lower: 0, upper: 100 });
     commit(f.lower, "150");
-    expect(f.get().lower).toBe(100);
+    expect(f.get()?.lower).toBe(100);
   });
 
   it("should cap the maximum at the current minimum", () => {
     const f = setup({ lower: 20, upper: 100 });
     commit(f.upper, "-50");
-    expect(f.get().upper).toBe(20);
+    expect(f.get()?.upper).toBe(20);
   });
 
   it("should accept a minimum below the maximum untouched", () => {
     const f = setup({ lower: 0, upper: 100 });
     commit(f.lower, "40");
-    expect(f.get().lower).toBe(40);
+    expect(f.get()?.lower).toBe(40);
   });
 
   it("should follow the maximum after it moves", () => {
     const f = setup({ lower: 0, upper: 100 });
     commit(f.upper, "50");
-    expect(f.get().upper).toBe(50);
+    expect(f.get()?.upper).toBe(50);
     commit(f.lower, "80");
-    expect(f.get().lower).toBe(50);
+    expect(f.get()?.lower).toBe(50);
+  });
+
+  it("should show the fallback while the bounds are absent", () => {
+    const { lower, upper } = setup();
+    expect(lower.value).toBe("0");
+    expect(upper.value).toBe("100");
+  });
+
+  it("should store the pair when an absent bound is edited", () => {
+    const f = setup();
+    commit(f.upper, "0");
+    expect(f.get()).toEqual({ lower: 0, upper: 0 });
   });
 
   it("should allow negative bounds", () => {
     const f = setup({ lower: 0, upper: 100 });
     commit(f.lower, "-200");
-    expect(f.get().lower).toBe(-200);
+    expect(f.get()?.lower).toBe(-200);
   });
 });

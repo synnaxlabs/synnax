@@ -24,6 +24,8 @@ interface Drag {
   points: xy.XY[];
 }
 
+const DEFAULT_END: xy.XY = { x: 100, y: 0 };
+
 // Snaps to horizontal or vertical, whichever is closer.
 const snap = (p: xy.XY, to: xy.XY): xy.XY =>
   Math.abs(p.x - to.x) >= Math.abs(p.y - to.y) ? { ...p, y: to.y } : { ...p, x: to.x };
@@ -34,7 +36,7 @@ export const Symbol = ({
   selected,
   draggable,
   position = xy.ZERO,
-  config: { strokeColor, start, end, strokeWidth },
+  config: { strokeColor, start, end = DEFAULT_END, strokeWidth },
 }: NodeProps<schematic.LineNodeConfig>): ReactElement => {
   const store = useStoreApi();
   const dragRef = useRef<Drag | null>(null);

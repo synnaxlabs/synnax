@@ -8,49 +8,49 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
-import { type Input } from "@synnaxlabs/lyra/input";
+import { Input } from "@synnaxlabs/lyra/input";
 import { bounds } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 const STEP = 10;
 
-export interface BoundsFieldsProps extends Pick<
-  Partial<Form.NumericFieldProps>,
-  "padHelpText"
-> {
+export interface BoundsFieldsProps extends Pick<Input.ItemProps, "padHelpText"> {
   /** Path to the bounds within the symbol's config. */
   path: string;
+  /** The range the symbol maps while the field is absent. */
+  fallback: bounds.Bounds;
 }
 
 /**
  * The minimum and maximum of a range, each capped by the other so the pair cannot
- * cross.
+ * cross. Editing either one stores the pair.
  */
-export const BoundsFields = ({ path, ...rest }: BoundsFieldsProps): ReactElement => {
-  const value = Form.useField<bounds.Bounds>(path, { optional: true })?.value;
-  const { lower, upper } = value ?? bounds.INFINITE;
-  const lowerProps: Partial<Input.NumericProps> = {
-    step: STEP,
-    bounds: { ...bounds.INFINITE, upper },
-  };
-  const upperProps: Partial<Input.NumericProps> = {
-    step: STEP,
-    bounds: { ...bounds.INFINITE, lower },
-  };
+export const BoundsFields = ({
+  path,
+  fallback,
+  padHelpText,
+}: BoundsFieldsProps): ReactElement | null => {
+  const field = Form.useField<bounds.Bounds | undefined>(path, { optional: true });
+  if (field == null) return null;
+  const value = field.value ?? fallback;
   return (
     <>
-      <Form.NumericField
-        path={`${path}.lower`}
-        label="Min value"
-        inputProps={lowerProps}
-        {...rest}
-      />
-      <Form.NumericField
-        path={`${path}.upper`}
-        label="Max value"
-        inputProps={upperProps}
-        {...rest}
-      />
+      <Input.Item label="Min value" padHelpText={padHelpText}>
+        <Input.Numeric
+          value={value.lower}
+          step={STEP}
+          bounds={{ ...bounds.INFINITE, upper: value.upper }}
+          onChange={(lower) => field.onChange({ ...value, lower })}
+        />
+      </Input.Item>
+      <Input.Item label="Max value" padHelpText={padHelpText}>
+        <Input.Numeric
+          value={value.upper}
+          step={STEP}
+          bounds={{ ...bounds.INFINITE, lower: value.lower }}
+          onChange={(upper) => field.onChange({ ...value, upper })}
+        />
+      </Input.Item>
     </>
   );
 };

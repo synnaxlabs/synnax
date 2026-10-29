@@ -164,8 +164,8 @@ export const numericTelemConfigZ = z.object({
   channel: channel.keyZ.optional(),
   /** rollingAverage is the sample window for rolling-average smoothing. */
   rollingAverage: z.int32().optional(),
-  /** precision is the number of decimal places shown. */
-  precision: z.number().default(2),
+  /** precision is the number of decimal places shown. Absent shows the default of 2. */
+  precision: z.number().optional(),
   /** notation is the numeric notation used to format the value. */
   notation: notation.notationZ.default("standard"),
 });
@@ -218,7 +218,7 @@ export interface LabeledConfig extends z.infer<typeof labeledConfigZ> {}
 export const scaleIndicatorConfigZ = numericTelemConfigZ
   .extend(stalenessConfigZ.shape)
   .extend({
-    bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+    bounds: spatial.boundsZ().optional(),
     levelColor: color.colorZ.optional(),
     axisColor: color.colorZ.optional(),
     textColor: color.colorZ.optional(),
@@ -511,10 +511,15 @@ export const boxNodeConfigZ = labeledConfigZ.extend({
   fillColor: color.colorZ.optional(),
   /** dimensions is the rendered size of the box in pixels. */
   dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
-  /** borderRadius is the uniform corner radius of the box in pixels. */
-  borderRadius: z.number().default(3),
-  /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  /**
+   * borderRadius is the uniform corner radius of the box in pixels. Absent draws the
+   * default of 3.
+   */
+  borderRadius: z.number().optional(),
+  /**
+   * strokeWidth is the border stroke width in pixels. Absent draws the default of 2.
+   */
+  strokeWidth: z.number().optional(),
 });
 export interface BoxNodeConfig extends z.infer<typeof boxNodeConfigZ> {}
 
@@ -547,8 +552,10 @@ export const circleNodeConfigZ = labeledConfigZ.extend({
   strokeColor: color.colorZ.optional(),
   /** fillColor is the fill color of the circle. */
   fillColor: color.colorZ.optional(),
-  /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  /**
+   * strokeWidth is the border stroke width in pixels. Absent draws the default of 2.
+   */
+  strokeWidth: z.number().optional(),
 });
 export interface CircleNodeConfig extends z.infer<typeof circleNodeConfigZ> {}
 
@@ -562,8 +569,8 @@ export const gaugeNodeConfigZ = labeledConfigZ
     position: spatial.xyZ.optional(),
     /** strokeColor is the color of the gauge arc. */
     strokeColor: color.colorZ.optional(),
-    /** bounds is the numeric range displayed by the gauge. */
-    bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+    /** bounds is the numeric range displayed by the gauge. Absent displays 0 to 100. */
+    bounds: spatial.boundsZ().optional(),
     /** barWidth is the thickness of the gauge arc in pixels. */
     barWidth: z.number().default(10),
     /** location is the anchor of the value within the gauge. */
@@ -623,10 +630,16 @@ export const lineNodeConfigZ = z.object({
   strokeColor: color.colorZ.optional(),
   /** start is the first endpoint, offset from the node position. */
   start: spatial.xyZ.prefault({ x: 0, y: 0 }),
-  /** end is the second endpoint, offset from the node position. */
-  end: spatial.xyZ.prefault({ x: 100, y: 0 }),
-  /** strokeWidth is the stroke width of the line in pixels. */
-  strokeWidth: z.number().default(2),
+  /**
+   * end is the second endpoint, offset from the node position. Absent places it at { x
+   * = 100, y = 0 }.
+   */
+  end: spatial.xyZ.optional(),
+  /**
+   * strokeWidth is the stroke width of the line in pixels. Absent draws the default of
+   * 2.
+   */
+  strokeWidth: z.number().optional(),
 });
 export interface LineNodeConfig extends z.infer<typeof lineNodeConfigZ> {}
 
@@ -664,8 +677,10 @@ export const polygonNodeConfigZ = labeledConfigZ.extend({
   strokeColor: color.colorZ.optional(),
   /** fillColor is the fill color of the polygon. */
   fillColor: color.colorZ.optional(),
-  /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  /**
+   * strokeWidth is the border stroke width in pixels. Absent draws the default of 2.
+   */
+  strokeWidth: z.number().optional(),
 });
 export interface PolygonNodeConfig extends z.infer<typeof polygonNodeConfigZ> {}
 
@@ -1232,13 +1247,11 @@ export const tankNodeConfigZ = labeledConfigZ
     fillColor: color.colorZ.optional(),
     /** dimensions is the rendered size of the tank in pixels. */
     dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
-    /** borderRadius is the corner radius of the tank. */
-    borderRadius: border.radiusZ.prefault({
-      topLeft: { x: 50, y: 10 },
-      topRight: { x: 50, y: 10 },
-      bottomLeft: { x: 50, y: 10 },
-      bottomRight: { x: 50, y: 10 },
-    }),
+    /**
+     * borderRadius is the corner radius of the tank. Absent rounds each corner by the
+     * default of 50 by 10.
+     */
+    borderRadius: border.radiusZ.optional(),
     /** caretVisible shows the caret marking the current level. */
     caretVisible: z.boolean().default(false),
     /** scaleVisible shows the axis and its tick labels. */
@@ -1903,10 +1916,15 @@ export const boxElementConfigZ = labeledConfigZ.extend({
   fillColor: color.colorZ.optional(),
   /** dimensions is the rendered size of the box in pixels. */
   dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
-  /** borderRadius is the uniform corner radius of the box in pixels. */
-  borderRadius: z.number().default(3),
-  /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  /**
+   * borderRadius is the uniform corner radius of the box in pixels. Absent draws the
+   * default of 3.
+   */
+  borderRadius: z.number().optional(),
+  /**
+   * strokeWidth is the border stroke width in pixels. Absent draws the default of 2.
+   */
+  strokeWidth: z.number().optional(),
 });
 export interface BoxElementConfig extends z.infer<typeof boxElementConfigZ> {}
 
@@ -1939,8 +1957,10 @@ export const circleElementConfigZ = labeledConfigZ.extend({
   strokeColor: color.colorZ.optional(),
   /** fillColor is the fill color of the circle. */
   fillColor: color.colorZ.optional(),
-  /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  /**
+   * strokeWidth is the border stroke width in pixels. Absent draws the default of 2.
+   */
+  strokeWidth: z.number().optional(),
 });
 export interface CircleElementConfig extends z.infer<typeof circleElementConfigZ> {}
 
@@ -1954,8 +1974,8 @@ export const gaugeElementConfigZ = labeledConfigZ
     position: spatial.xyZ.optional(),
     /** strokeColor is the color of the gauge arc. */
     strokeColor: color.colorZ.optional(),
-    /** bounds is the numeric range displayed by the gauge. */
-    bounds: spatial.boundsZ().prefault({ lower: 0, upper: 100 }),
+    /** bounds is the numeric range displayed by the gauge. Absent displays 0 to 100. */
+    bounds: spatial.boundsZ().optional(),
     /** barWidth is the thickness of the gauge arc in pixels. */
     barWidth: z.number().default(10),
     /** location is the anchor of the value within the gauge. */
@@ -2017,10 +2037,16 @@ export const lineElementConfigZ = z.object({
   strokeColor: color.colorZ.optional(),
   /** start is the first endpoint, offset from the node position. */
   start: spatial.xyZ.prefault({ x: 0, y: 0 }),
-  /** end is the second endpoint, offset from the node position. */
-  end: spatial.xyZ.prefault({ x: 100, y: 0 }),
-  /** strokeWidth is the stroke width of the line in pixels. */
-  strokeWidth: z.number().default(2),
+  /**
+   * end is the second endpoint, offset from the node position. Absent places it at { x
+   * = 100, y = 0 }.
+   */
+  end: spatial.xyZ.optional(),
+  /**
+   * strokeWidth is the stroke width of the line in pixels. Absent draws the default of
+   * 2.
+   */
+  strokeWidth: z.number().optional(),
 });
 export interface LineElementConfig extends z.infer<typeof lineElementConfigZ> {}
 
@@ -2060,8 +2086,10 @@ export const polygonElementConfigZ = labeledConfigZ.extend({
   strokeColor: color.colorZ.optional(),
   /** fillColor is the fill color of the polygon. */
   fillColor: color.colorZ.optional(),
-  /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  /**
+   * strokeWidth is the border stroke width in pixels. Absent draws the default of 2.
+   */
+  strokeWidth: z.number().optional(),
 });
 export interface PolygonElementConfig extends z.infer<typeof polygonElementConfigZ> {}
 
@@ -2665,13 +2693,11 @@ export const tankElementConfigZ = labeledConfigZ
     fillColor: color.colorZ.optional(),
     /** dimensions is the rendered size of the tank in pixels. */
     dimensions: spatial.dimensionsZ.prefault({ width: 125, height: 200 }),
-    /** borderRadius is the corner radius of the tank. */
-    borderRadius: border.radiusZ.prefault({
-      topLeft: { x: 50, y: 10 },
-      topRight: { x: 50, y: 10 },
-      bottomLeft: { x: 50, y: 10 },
-      bottomRight: { x: 50, y: 10 },
-    }),
+    /**
+     * borderRadius is the corner radius of the tank. Absent rounds each corner by the
+     * default of 50 by 10.
+     */
+    borderRadius: border.radiusZ.optional(),
     /** caretVisible shows the caret marking the current level. */
     caretVisible: z.boolean().default(false),
     /** scaleVisible shows the axis and its tick labels. */

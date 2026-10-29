@@ -107,6 +107,17 @@ type LabelConfig = v9.LabelConfig
 // LabeledConfig is the base configuration for any symbol that carries a label.
 type LabeledConfig = v9.LabeledConfig
 
+// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
+type ScaledConfig = v9.ScaledConfig
+
+// StalenessConfig is the staleness detection shared by every symbol that reads a
+// channel.
+type StalenessConfig = v9.StalenessConfig
+
+// NumericTelemConfig is the numeric read and formatting shared by symbols that display
+// a channel's value as a number.
+type NumericTelemConfig = v9.NumericTelemConfig
+
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
 type ControlStateConfig = v9.ControlStateConfig
@@ -125,8 +136,25 @@ type ToggleSymbolConfig = v9.ToggleSymbolConfig
 // from local state without binding to telemetry.
 type DummyToggleSymbolConfig = v9.DummyToggleSymbolConfig
 
+// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
+// symbols that show a level against a numeric range.
+type ScaleIndicatorConfig = v9.ScaleIndicatorConfig
+
 // StateMapping maps a numeric channel value to a named, colored state.
 type StateMapping = v9.StateMapping
+
+// PageType names the kinds of page an off-page reference can link to.
+type PageType = v9.PageType
+
+const (
+	PageTypeSchematic PageType = v9.PageTypeSchematic
+	PageTypeLineplot  PageType = v9.PageTypeLineplot
+	PageTypeLog       PageType = v9.PageTypeLog
+	PageTypeTable     PageType = v9.PageTypeTable
+)
+
+// Page identifies a page an off-page reference links to.
+type Page = v9.Page
 
 type NodeConfigType string
 
@@ -9001,37 +9029,8 @@ func (s *Schematic) ApplyDefaults() {
 // schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
-	v.NotEmptyString("name", s.Name)
 	for key, value := range s.Configs {
 		v.Exec(func() error { return validate.PathedError(value.Validate(), "configs", key) })
 	}
 	return v.Error()
 }
-
-// ScaleIndicatorConfig is a live level indicator driven by a channel, extended by
-// symbols that show a level against a numeric range.
-type ScaleIndicatorConfig = v9.ScaleIndicatorConfig
-
-// PageType names the kinds of page an off-page reference can link to.
-type PageType = v9.PageType
-
-const (
-	PageTypeSchematic PageType = v9.PageTypeSchematic
-	PageTypeLineplot  PageType = v9.PageTypeLineplot
-	PageTypeLog       PageType = v9.PageTypeLog
-	PageTypeTable     PageType = v9.PageTypeTable
-)
-
-// Page identifies a page an off-page reference links to.
-type Page = v9.Page
-
-// StalenessConfig is the staleness detection shared by every symbol that reads a
-// channel.
-type StalenessConfig = v9.StalenessConfig
-
-// NumericTelemConfig is the numeric read and formatting shared by symbols that display
-// a channel's value as a number.
-type NumericTelemConfig = v9.NumericTelemConfig
-
-// ScaledConfig is the base configuration for any symbol drawn at a scale multiplier.
-type ScaledConfig = v9.ScaledConfig

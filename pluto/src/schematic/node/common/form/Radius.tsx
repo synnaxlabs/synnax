@@ -16,6 +16,8 @@ import { PERCENT_BORDER_RADIUS_INPUT_PROPS } from "@/schematic/node/common/form/
 
 export interface RadiusFieldsProps {
   path: string;
+  /** The radius the symbol draws while the field is absent. */
+  fallback?: border.Radius;
 }
 
 /**
@@ -23,10 +25,13 @@ export interface RadiusFieldsProps {
  * writing the pair into every corner. The stored shape carries corners because the
  * renderer clips against them; no symbol has ever varied the radius by corner.
  */
-export const RadiusFields = ({ path }: RadiusFieldsProps): ReactElement | null => {
+export const RadiusFields = ({
+  path,
+  fallback,
+}: RadiusFieldsProps): ReactElement | null => {
   const field = Base.useField<border.Radius | undefined>(path, { optional: true });
   if (field == null) return null;
-  const corner = field.value?.topLeft ?? xy.ZERO;
+  const corner = (field.value ?? fallback)?.topLeft ?? xy.ZERO;
   const set = (next: xy.XY): void =>
     field.onChange({
       topLeft: next,
