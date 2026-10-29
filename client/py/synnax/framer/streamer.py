@@ -89,7 +89,7 @@ class _Liveness:
         return Unreachable(message=f"streamer received no response for {self.deadline}")
 
 
-class WSStreamerCodec(WSCodec):
+class _WSStreamerCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
@@ -139,7 +139,7 @@ class Streamer:
         keep_alive = TimeSpan.from_seconds(keep_alive)
         self._liveness = _Liveness(keep_alive)
         self._adapter = adapter
-        client = client.with_codec(WSStreamerCodec(self._adapter.codec))
+        client = client.with_codec(_WSStreamerCodec(self._adapter.codec))
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
@@ -304,7 +304,7 @@ class AsyncStreamer:
         self._liveness = _Liveness(TimeSpan.from_seconds(keep_alive))
 
     async def _open(self) -> None:
-        client = self._client.with_codec(WSStreamerCodec(self._adapter.codec))
+        client = self._client.with_codec(_WSStreamerCodec(self._adapter.codec))
         self._stream = await client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
             _Request(

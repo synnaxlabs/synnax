@@ -25,6 +25,7 @@
 .pluto-dialog__dialog.console-project-selector-dialog {
     min-height: 200px;
     width: 400px;
+
     --pluto-dialog-max-height: 412px;
 
     .pluto-list__scroll > .pluto-list__virtualizer {

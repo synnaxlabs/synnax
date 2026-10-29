@@ -4,6 +4,7 @@
   "main": "index.ts",
   "type": "module",
   "dependencies": {
+    "postcss-html": "catalog:",
     "stylelint-config-standard": "catalog:"
   },
   "scripts": {

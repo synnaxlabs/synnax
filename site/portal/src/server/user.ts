@@ -16,6 +16,7 @@ import {
   lt,
   max,
   min,
+  notInArray,
   type SQL,
   sql,
 } from "drizzle-orm";
@@ -28,7 +29,7 @@ import {
   organization,
   referral,
 } from "@/server/db/schema";
-import { type Account, type Directory } from "@/server/directory";
+import { type Account, type Directory, isInternal } from "@/server/directory";
 import { notFound } from "@/server/errors";
 import { type Machine, machinesFor } from "@/server/license/desktop";
 import { mirrorTeams, purge } from "@/server/organization";
@@ -232,7 +233,10 @@ export interface Summary {
   firstLogins: number;
 }
 
-/** summarize counts the use of the UTC day that holds `day`. */
+/**
+ * summarize counts the use of the UTC day that holds `day`, leaving out Synnax Labs
+ * users.
+ */
 export const summarize = async (
   store: Store,
   directory: Directory,
@@ -240,15 +244,22 @@ export const summarize = async (
 ): Promise<Summary> => {
   const start = dayOf(day);
   const end = new Date(start.getTime() + DAY_MS);
+  const accounts = await directory.users();
+  const external = notInArray(
+    organization.ownerUserID,
+    accounts.filter((a) => isInternal(a.email)).map((a) => a.userID),
+  );
   const activeIn = async (period: Period): Promise<number> => {
     const [row] = await store.query
       .select({ n: countDistinct(organization.ownerUserID) })
       .from(event)
       .innerJoin(organization, eq(event.organization, organization.key))
-      .where(desktopEvents(gte(event.at, since(period, start)), lt(event.at, end)));
+      .where(
+        desktopEvents(external, gte(event.at, since(period, start)), lt(event.at, end)),
+      );
     return row.n;
   };
-  const [daily, weekly, monthly, firsts, accounts] = await Promise.all([
+  const [daily, weekly, monthly, firsts] = await Promise.all([
     activeIn("day"),
     activeIn("week"),
     activeIn("month"),
@@ -256,15 +267,16 @@ export const summarize = async (
       .select({ userID: organization.ownerUserID })
       .from(event)
       .innerJoin(organization, eq(event.organization, organization.key))
-      .where(and(eq(organization.kind, "personal"), eq(event.kind, "link")))
+      .where(and(eq(organization.kind, "personal"), eq(event.kind, "link"), external))
       .groupBy(organization.ownerUserID)
       .having(and(gte(min(event.at), start), lt(min(event.at), end))),
-    directory.users(),
   ]);
   return {
     day: start,
     active: { day: daily, week: weekly, month: monthly },
-    accounts: accounts.filter((a) => a.joinedAt >= start && a.joinedAt < end).length,
+    accounts: accounts.filter(
+      (a) => !isInternal(a.email) && a.joinedAt >= start && a.joinedAt < end,
+    ).length,
     firstLogins: firsts.length,
   };
 };
