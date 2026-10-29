@@ -16,6 +16,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -200,21 +201,41 @@ func Check(ctx context.Context, cfg Config) ([]Finding, error) {
 		}
 	}
 	baseCfg := Config{GOOS: cfg.GOOS}
-	for _, m := range cfg.Modules {
-		baseCfg.Modules = append(baseCfg.Modules, filepath.Join(cfg.Base, m))
+	var err error
+	if baseCfg.Modules, err = inBase(cfg.Base, cfg.Modules); err != nil {
+		return nil, err
 	}
-	for _, m := range cfg.Workspace {
-		baseCfg.Workspace = append(baseCfg.Workspace, filepath.Join(cfg.Base, m))
+	if baseCfg.Workspace, err = inBase(cfg.Base, cfg.Workspace); err != nil {
+		return nil, err
 	}
 	head, err := check(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
-	base, err := check(ctx, baseCfg)
-	if err != nil {
-		return nil, err
+	var base []Finding
+	if len(baseCfg.Modules) > 0 {
+		if base, err = check(ctx, baseCfg); err != nil {
+			return nil, err
+		}
 	}
 	return failing(base, head, cfg.Gated), nil
+}
+
+// inBase returns the directories under base of the modules that base holds. A module
+// that the base lacks is new, so each of its findings is new.
+func inBase(base string, modules []string) ([]string, error) {
+	var found []string
+	for _, m := range modules {
+		dir := filepath.Join(base, m)
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				continue
+			}
+			return nil, errors.Wrapf(err, "exports: find module %s in base", m)
+		}
+		found = append(found, dir)
+	}
+	return found, nil
 }
 
 func check(ctx context.Context, cfg Config) (findings []Finding, err error) {
