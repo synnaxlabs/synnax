@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -40,7 +41,9 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
 	node        mock.Node
+	otg         *ontology.Ontology
 	authSvc     *auth.Service
+	apikeySvc   *apikey.Service
 	passwordSvc *password.Service
 	rbacSvc     *rbac.Service
 	oidcSvc     *oidc.Service
@@ -55,7 +58,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = mock.NewNode(ctx)
 	db := node.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
@@ -70,7 +73,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		User:     userSvc,
 	}))
-	provider = MustSucceed(testutil.NewProvider())
+	apikeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
+	provider = testutil.NewProvider()
 	DeferCleanup(provider.Close)
 	oidcSvc = MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
 		DB:          db,
@@ -88,6 +92,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
 			auth.MethodOIDC:     oidcSvc,
+			auth.MethodAPIKey:   apikeySvc,
 		},
 	}))
 	apiSvc = newService(authSvc)
