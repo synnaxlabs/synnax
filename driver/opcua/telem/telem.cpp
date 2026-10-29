@@ -29,7 +29,7 @@
 #include "driver/opcua/telem/telem.h"
 
 namespace driver::opcua::telem {
-x::telem::DataType ua_to_data_type(const UA_DataType *dt) {
+x::telem::DataType to_data_type(const UA_DataType *dt) {
     if (dt == nullptr) return x::telem::UNKNOWN_T;
     switch (dt->typeKind) {
         case UA_DATATYPEKIND_BOOLEAN:
@@ -69,7 +69,7 @@ x::telem::DataType ua_to_data_type(const UA_DataType *dt) {
 }
 
 x::telem::DataType to_data_type(const UA_NodeId &data_type) {
-    return ua_to_data_type(UA_findDataType(&data_type));
+    return to_data_type(UA_findDataType(&data_type));
 }
 
 UA_DataType *data_type_to_ua(const x::telem::DataType &data_type) {
@@ -171,8 +171,8 @@ x::telem::Series to_series(
 }
 
 namespace {
-// A TimeStamp counts nanoseconds from 1970 in an int64, so it holds only DateTimes
-// from 1677 to 2262.
+// A TimeStamp counts nanoseconds from 1970 in an int64, so it holds only DateTimes from
+// 1677 to 2262.
 constexpr UA_DateTime MIN_DATETIME = UA_DATETIME_UNIX_EPOCH +
                                      std::numeric_limits<int64_t>::min() / 100;
 constexpr UA_DateTime MAX_DATETIME = UA_DATETIME_UNIX_EPOCH +
@@ -225,11 +225,7 @@ write(x::telem::Series &series, const std::vector<x::telem::SampleValue> &sample
 }
 
 std::string type_name(const UA_DataType *type) {
-#ifdef UA_ENABLE_TYPEDESCRIPTION
     return type->typeName;
-#else
-    return "value";
-#endif
 }
 
 x::errors::Error cannot_convert(const UA_DataType *type, const x::telem::DataType &dt) {
@@ -283,7 +279,7 @@ to_sample(const UA_Variant &v, const x::telem::DataType &dt) {
             return {{}, cannot_convert(v.type, dt)};
         }
         default: {
-            const auto src = ua_to_data_type(v.type);
+            const auto src = to_data_type(v.type);
             if (src == x::telem::UNKNOWN_T) return {{}, cannot_convert(v.type, dt)};
             sample = src.cast(v.data, src);
         }
@@ -328,7 +324,7 @@ std::pair<size_t, x::errors::Error> ua_array_write_to_series(
             x::errors::Error(x::errors::VALIDATION, "cannot convert scalar to series")
         };
 
-    const auto src = ua_to_data_type(val->type);
+    const auto src = to_data_type(val->type);
     if (src.matches(NUMERIC_TYPES) && series.data_type().matches(NUMERIC_TYPES))
         return {series.write_casted(val->data, size, src), x::errors::NIL};
 
@@ -427,6 +423,19 @@ conversion_error(const x::telem::SampleValue &sample, const UA_DataType *target)
     return x::errors::Error(x::errors::VALIDATION, reason);
 }
 
+/// @returns whether the sample is a finite number with a fraction.
+bool fractional(const x::telem::SampleValue &sample) {
+    return std::visit(
+        []<typename V>(const V &v) {
+            if constexpr (std::is_floating_point_v<V>)
+                return std::isfinite(v) && std::trunc(v) != v;
+            else
+                return false;
+        },
+        sample
+    );
+}
+
 /// @returns the text with its letters in lower case.
 std::string lower(std::string text) {
     std::ranges::transform(text, text.begin(), [](const unsigned char c) {
@@ -520,7 +529,17 @@ struct Conversion {
 
     template<typename T>
     [[nodiscard]] std::pair<UA_Variant, x::errors::Error> integer() const {
-        return this->scalar(to_integer<T>(sample));
+        if (!fractional(sample)) return this->scalar(to_integer<T>(sample));
+        UA_Variant v;
+        UA_Variant_init(&v);
+        return {
+            v,
+            x::errors::Error(
+                x::errors::VALIDATION,
+                describe(sample) + " is not a whole number, so a " + type_name(target) +
+                    " node cannot hold it"
+            )
+        };
     }
 };
 
@@ -646,12 +665,5 @@ to_variant(const x::telem::Series &s, const UA_DataType *target) {
     }
     const auto sample = s.at(-1);
     return sample_to_variant({.sample = sample, .target = target, .builtin = builtin});
-}
-
-std::pair<size_t, x::errors::Error>
-write_to_series(x::telem::Series &s, const UA_Variant &v) {
-    auto [sample, err] = to_sample(v, s.data_type());
-    if (err) return {0, err};
-    return {write(s, {sample}), x::errors::NIL};
 }
 }

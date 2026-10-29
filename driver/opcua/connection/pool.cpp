@@ -58,17 +58,13 @@ bool trusts(UA_Client *client, const Config &cfg) {
     return trusted_certificate(client) == cfg.server_certificate;
 }
 
-bool active(UA_Client *client) {
-    return !connected(client);
-}
-
-/// @brief handles the client's pending network events, then reads the server's clock
-/// to check that the server still answers.
+/// @brief handles the client's pending network events, then reads the server's clock to
+/// check that the server still answers.
 x::errors::Error probe(UA_Client *client) {
     if (const auto status = UA_Client_run_iterate(client, 0);
         status != UA_STATUSCODE_GOOD)
         return errors::parse(status);
-    if (const auto err = connected(client)) return err;
+    if (const auto err = lost(client)) return err;
     UA_Variant value;
     UA_Variant_init(&value);
     const auto status = UA_Client_readValueAttribute(
@@ -88,8 +84,7 @@ uint32_t uint32_value(const UA_DataValue &result) {
     return *static_cast<const UA_UInt32 *>(result.value.data);
 }
 
-/// @returns an error if the server answered a request for nodes nodes with a different
-/// number of results.
+/// @returns an error if the number of results does not match the number of nodes.
 x::errors::Error check_results(const size_t results, const size_t nodes) {
     if (results == nodes) return x::errors::NIL;
     return x::errors::Error(
@@ -102,7 +97,7 @@ x::errors::Error check_results(const size_t results, const size_t nodes) {
 /// @brief reads the value of one node in namespace 0, in a request of its own.
 std::pair<types::ReadResponse, x::errors::Error>
 read_value(UA_Client *client, const UA_UInt32 node) {
-    if (const auto err = connected(client)) return {types::ReadResponse(), err};
+    if (const auto err = lost(client)) return {types::ReadResponse(), err};
     UA_ReadValueId id;
     UA_ReadValueId_init(&id);
     id.nodeId = UA_NODEID_NUMERIC(0, node);
@@ -232,7 +227,7 @@ struct Pending {
     /// against the server's limit until the session closes. Does nothing when the
     /// connection is lost, since the server then frees them itself.
     void release(UA_Client *client) {
-        if (this->empty() || connected(client)) return;
+        if (this->empty() || lost(client)) return;
         req.releaseContinuationPoints = true;
         const Response<UA_BrowseNextResponse> res(
             UA_Client_Service_browseNext(client, req),
@@ -284,13 +279,12 @@ Pool::Connection::read(const UA_ReadRequest &req) const {
     const size_t limit = this->server_->max_nodes_per_read;
     const size_t total = req.nodesToReadSize;
     if (limit == 0 || total <= limit) {
-        if (const auto err = connected(this->get()))
-            return {types::ReadResponse(), err};
+        if (const auto err = lost(this->get())) return {types::ReadResponse(), err};
         types::ReadResponse res(UA_Client_Service_read(this->get(), req));
         const auto &raw = res.get();
         if (auto err = errors::parse(raw.responseHeader.serviceResult))
             return {std::move(res), err};
-        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        this->pool_->replied(this->key_);
         auto err = check_results(raw.resultsSize, total);
         return {std::move(res), err};
     }
@@ -318,13 +312,12 @@ Pool::Connection::write(const UA_WriteRequest &req) const {
     const size_t limit = this->server_->max_nodes_per_write;
     const size_t total = req.nodesToWriteSize;
     if (limit == 0 || total <= limit) {
-        if (const auto err = connected(this->get()))
-            return {types::WriteResponse(), err};
+        if (const auto err = lost(this->get())) return {types::WriteResponse(), err};
         types::WriteResponse res(UA_Client_Service_write(this->get(), req));
         const auto &raw = res.get();
         if (auto err = errors::parse(raw.responseHeader.serviceResult))
             return {std::move(res), err};
-        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        this->pool_->replied(this->key_);
         auto err = check_results(raw.resultsSize, total);
         return {std::move(res), err};
     }
@@ -381,14 +374,14 @@ x::errors::Error Pool::Connection::browse(
     UA_BrowseRequest_init(&req);
     req.nodesToBrowse = descriptions.data();
     req.nodesToBrowseSize = count;
-    if (auto err = connected(this->get())) return err;
+    if (auto err = lost(this->get())) return err;
     Response<UA_BrowseResponse> res(
         UA_Client_Service_browse(this->get(), req),
         &UA_TYPES[UA_TYPES_BROWSERESPONSE]
     );
     auto &raw = res.get();
     if (auto err = errors::parse(raw.responseHeader.serviceResult)) return err;
-    if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+    this->pool_->replied(this->key_);
     const auto &namespaces = this->server_->namespaces;
     std::vector<size_t> indexes(count);
     for (size_t i = 0; i < count; ++i)
@@ -402,7 +395,7 @@ x::errors::Error Pool::Connection::browse(
     for (size_t i = 0; i < count; ++i)
         add_references(raw.results[i], results[i], namespaces);
     while (!pending->empty()) {
-        if (auto err = connected(this->get())) return err;
+        if (auto err = lost(this->get())) return err;
         Response<UA_BrowseNextResponse> next(
             UA_Client_Service_browseNext(this->get(), pending->req),
             &UA_TYPES[UA_TYPES_BROWSENEXTRESPONSE]
@@ -412,7 +405,7 @@ x::errors::Error Pool::Connection::browse(
             pending->release(this->get());
             return err;
         }
-        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        this->pool_->replied(this->key_);
         const size_t asked = pending->results.size();
         const size_t got = std::min(next_raw.resultsSize, asked);
         auto following = std::make_unique<Pending>(
@@ -503,7 +496,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     // The probe runs outside the lock, since it waits on the server.
-    if (client != nullptr && active(client.get())) {
+    if (client != nullptr && !lost(client.get())) {
         if (const auto err = probe(client.get()); !err) {
             std::shared_ptr<const Server> server;
             {
@@ -535,7 +528,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         VLOG(1) << log_prefix << "Waiting for another connection attempt";
         this->connect_cv.wait(lock, [&breaker] { return !breaker.connecting; });
         auto other = this->take(key, cfg);
-        if (other != nullptr && active(other.get())) {
+        if (other != nullptr && !lost(other.get())) {
             if (client != nullptr) this->put_back(key, client);
             auto server = this->entry(key, other).server;
             return {Connection(other, this, key, std::move(server)), x::errors::NIL};
@@ -651,18 +644,18 @@ void Pool::replied(const std::string &key) {
 std::shared_ptr<UA_Client> Pool::take(const std::string &key, const Config &cfg) {
     const auto it = this->connections_.find(key);
     if (it == this->connections_.end()) return nullptr;
-    Entry *lost = nullptr;
+    Entry *dropped = nullptr;
     for (auto &entry: it->second) {
         if (entry.in_use || entry.retired || !trusts(entry.client.get(), cfg)) continue;
-        if (active(entry.client.get())) {
+        if (!lost(entry.client.get())) {
             entry.in_use = true;
             return entry.client;
         }
-        if (lost == nullptr) lost = &entry;
+        if (dropped == nullptr) dropped = &entry;
     }
-    if (lost == nullptr) return nullptr;
-    lost->in_use = true;
-    return lost->client;
+    if (dropped == nullptr) return nullptr;
+    dropped->in_use = true;
+    return dropped->client;
 }
 
 void Pool::put_back(const std::string &key, const std::shared_ptr<UA_Client> &client) {

@@ -212,8 +212,8 @@ public:
     }
 
     /// @brief writes the command to the server. A connection that breaks gets one new
-    /// connection and one more attempt, so a Session the server closed while idle
-    /// does not drop the command.
+    /// connection and one more attempt, so a Session the server closed while idle does
+    /// not drop the command.
     x::errors::Error write(::x::telem::Frame &frame) override {
         if (!this->connection)
             if (const auto err = this->connect()) return err;
@@ -243,7 +243,8 @@ private:
             const auto id = ch.node.resolve(namespaces);
             if (!id.has_value()) {
                 problems.push_back(
-                    errors::channel_status(ch.ch.name, UA_STATUSCODE_BADNODEIDUNKNOWN)
+                    ch.ch.name + ": the server has no namespace " +
+                    ch.node.namespace_uri() + "."
                 );
                 continue;
             }

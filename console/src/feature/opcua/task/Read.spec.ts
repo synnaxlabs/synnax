@@ -15,8 +15,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
-import { createOPCDevice } from "@/feature/opcua/testutil";
-import { createRunningRack } from "@/platform/device/testutil";
+import {
+  createMember,
+  createOPCDevice,
+  createScannedDevice,
+  createVariableNode,
+  dragNode,
+} from "@/feature/opcua/testutil";
 import {
   answerNextCommand,
   awaitEditableForm,
@@ -109,14 +114,8 @@ const renderWithFolder = async (
   folder: OPCUA.Task.ScannedNode,
   channels: OPCUA.Task.ReadChannel[],
 ) => {
-  const rack = await createRunningRack(client, "opc");
-  const scan = await rack.createTask({
-    name: uniqueName("opcua_scan"),
-    type: OPCUA.Task.SCAN_TYPE,
-    config: {},
-  });
-  const dev = await createOPCDevice(client, { rack: rack.key });
-  const draft = await createDraft(client, createReadConfig(dev.key, channels));
+  const { scan, device } = await createScannedDevice(client);
+  const draft = await createDraft(client, createReadConfig(device.key, channels));
   const root = await answerNextCommand(client, scan, {
     type: OPCUA.Task.BROWSE_COMMAND_TYPE,
     data: { channels: [folder] },
@@ -129,11 +128,6 @@ const renderWithFolder = async (
   });
   await root.answered;
   return { scan, draft, statuses };
-};
-
-const dropFolder = async (folder: OPCUA.Task.ScannedNode, target: string) => {
-  fireEvent.dragStart(await screen.findByText(folder.name));
-  fireEvent.drop(await screen.findByText(new RegExp(target)));
 };
 
 const importCSV = async (rows: string[]) => {
@@ -451,7 +445,7 @@ describe("Read", () => {
         truncated: false,
       },
     });
-    await dropFolder(folder, held.nodeName);
+    await dragNode(folder.name, held.nodeName);
     expect((await search.answered).args).toMatchObject({ nodeId: folder.nodeId });
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
@@ -481,7 +475,7 @@ describe("Read", () => {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
       data: { channels: [], truncated: false },
     });
-    await dropFolder(folder, held.nodeName);
+    await dragNode(folder.name, held.nodeName);
     await search.answered;
     await waitFor(() =>
       expect(statuses).toContainEqual(
@@ -518,5 +512,45 @@ describe("Read", () => {
       ),
     );
     expect(await retrieveChannels(draft.key)).toEqual([held]);
+  });
+});
+
+describe("Read structure members", () => {
+  it("should add each dropped member of a node once", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const held = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(device.key, [held]));
+    const motor = createVariableNode();
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [motor] },
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await root.answered;
+    const members = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: {
+        channels: [
+          createMember(motor, "Speed", "float64"),
+          createMember(motor, "Torque", "float32"),
+        ],
+      },
+    });
+    fireEvent.click(await screen.findByText(motor.name));
+    await members.answered;
+    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await dragNode(`${motor.name}.Torque`, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await waitFor(async () => {
+      const { config } = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.READ_SCHEMAS,
+      });
+      expect(config.channels.map(({ nodeId, field }) => ({ nodeId, field }))).toEqual([
+        { nodeId: held.nodeId, field: "" },
+        { nodeId: motor.nodeId, field: "Speed" },
+        { nodeId: motor.nodeId, field: "Torque" },
+      ]);
+    });
   });
 });

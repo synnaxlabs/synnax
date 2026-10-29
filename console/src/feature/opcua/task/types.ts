@@ -40,7 +40,10 @@ const validateNodeIDs = ({
     issues.push({
       code: "custom",
       path: [i, "nodeId"],
-      message: "This node ID has already been used elsewhere in the configuration",
+      message:
+        "field" in ch && ch.field !== ""
+          ? "This field has already been used elsewhere in the configuration"
+          : "This node ID has already been used elsewhere in the configuration",
       params: { variant: "warning" },
       input: channels,
     });
@@ -245,10 +248,10 @@ export interface Endpoint extends z.infer<typeof endpointZ> {}
 
 export const endpointsResponseZ = z.object({ endpoints: z.array(endpointZ) });
 
-// Each command replies with its own shape, and the client drops a reply that fails
-// this schema, so the union must cover every one. The first match wins and drops the
-// keys it does not name, so a reply comes before any reply whose keys it extends. The
-// test connection reply matches any object, so it comes last.
+// Each command replies with its own shape, and the client drops a reply that fails this
+// schema, so the union must cover every one. The first match wins and drops the keys it
+// does not name, so a reply comes before any reply whose keys it extends. The test
+// connection reply matches any object, so it comes last.
 const scanCommandResponseZ = z
   .union([
     browseVariablesResponseZ,

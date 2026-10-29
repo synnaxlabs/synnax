@@ -248,8 +248,8 @@ std::pair<Types, x::errors::Error> Types::read(
         responses.push_back(std::move(res));
     }
 
-    // A type builds once the types of its members exist, so each pass builds the
-    // types whose members the earlier passes built.
+    // A type builds once the types of its members exist, so each pass builds the types
+    // whose members the earlier passes built.
     std::vector<bool> done(definitions.size(), false);
     for (bool progress = true; progress;) {
         progress = false;

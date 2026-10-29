@@ -34,7 +34,6 @@ import {
   BASIC128_RSA15_SECURITY_POLICY,
   BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
-  type ConnectionConfig,
   type Device,
   INTEGRATION,
   NO_SECURITY_MODE,
@@ -157,11 +156,6 @@ export const Connect = ({
   });
 
   const { get: getField, set: setField } = form;
-  const connection = Form.useFieldValue<
-    ConnectionConfig,
-    ConnectionConfig,
-    PDevice.FormSchema<typeof SCHEMAS>
-  >("properties.connection", { ctx: form });
   const hasSecurity =
     Form.useFieldValue<SecurityMode, SecurityMode, PDevice.FormSchema<typeof SCHEMAS>>(
       "properties.connection.securityMode",
@@ -253,11 +247,7 @@ export const Connect = ({
             </Form.Section>
             <Form.Section title="Security">
               <Input.Item label="Endpoint security">
-                <Endpoints
-                  rack={rackKey}
-                  connection={connection}
-                  onSelect={handleEndpointSelect}
-                />
+                <Endpoints rack={rackKey} onSelect={handleEndpointSelect} />
               </Input.Item>
               <Form.Field<SecurityMode>
                 path="properties.connection.securityMode"
