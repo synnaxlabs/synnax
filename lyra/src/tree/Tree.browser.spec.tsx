@@ -37,21 +37,28 @@ const Component = (): ReactElement => {
   );
 };
 
-/** @returns the box of the row's content, which moves with its indent. */
 const renderTree = async (): Promise<(key: string) => DOMRect> => {
   const { getByText } = await renderThemed(<Component />);
   return (key) => {
+    const row = getByText(key, { exact: true }).element();
+    const text = Array.from(row.childNodes).find(
+      (node) => node.nodeType === Node.TEXT_NODE,
+    )!;
     const range = document.createRange();
-    range.selectNodeContents(getByText(key, { exact: true }).element());
+    range.selectNode(text);
     return range.getBoundingClientRect();
   };
 };
 
 describe("Tree", () => {
-  it("should indent each level past its parent", async () => {
+  it("should indent a child's text past its parent's text", async () => {
     const rect = await renderTree();
     expect(rect("child").left).toBeGreaterThan(rect("parent").left);
-    expect(rect("grandchild").left).toBeGreaterThan(rect("child").left);
+  });
+
+  it("should line up a leaf's text with its parent's text", async () => {
+    const rect = await renderTree();
+    expect(rect("grandchild").left).toBe(rect("child").left);
   });
 
   it("should stack rows at one pitch without gaps or overlaps", async () => {

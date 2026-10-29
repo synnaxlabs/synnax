@@ -10,21 +10,15 @@
  */
 
 .lyra-tree {
-    &.lyra--show-rules .lyra-tree__item::after {
-        content: "";
-        position: absolute;
-        left: calc(var(--pluto-tree-item-offset) - 2.25rem);
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background-color: var(--pluto-gray-l6);
-        opacity: 0;
-        transition: opacity 0.2s ease-in-out;
-    }
-
     .lyra-tree__item {
+        /* A caret's footprint plus the small gap. */
+        --pluto-tree-item-step: 2.5rem;
+        --pluto-tree-item-indent: calc(
+            var(--pluto-tree-item-depth) * var(--pluto-tree-item-step)
+        );
+
         min-height: 4.5rem;
-        padding-right: 1.5rem;
+        padding: 0 1.5rem 0 calc(1.5rem + var(--pluto-tree-item-indent));
 
         &:is(a) {
             text-decoration: none;
@@ -43,16 +37,22 @@
             margin-left: -0.5rem;
             margin-right: -0.5rem;
         }
+    }
 
-        &.lyra--margin {
-            margin-left: var(--pluto-tree-item-offset);
-        }
-
-        &:not(.lyra--margin) {
-            padding-top: 0;
-            padding-bottom: 0;
-            padding-left: var(--pluto-tree-item-offset);
-        }
+    &.lyra--show-rules .lyra-tree__item::after {
+        content: "";
+        position: absolute;
+        left: calc(2.25rem - 1px);
+        top: 0;
+        bottom: 0;
+        width: var(--pluto-tree-item-indent);
+        background: repeating-linear-gradient(
+            to right,
+            var(--pluto-gray-l6) 0 2px,
+            transparent 2px var(--pluto-tree-item-step)
+        );
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
     }
 
     &.lyra-list__scroll--virtual .lyra-tree__item {
@@ -62,7 +62,7 @@
         flex-shrink: 0;
     }
 
-    &:hover .lyra-tree__item.lyra--show-rules::after {
+    &:hover .lyra-tree__item::after {
         opacity: 1;
     }
 }
