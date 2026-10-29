@@ -97,7 +97,7 @@ class _TestConductor:
             name=self.name,
             mode=LogMode.REALTIME,
             persistent_sinks=[
-                SynnaxChannelSink(self.client, f"{self.name}_log"),
+                SynnaxChannelSink(client=self.client, channel_name=f"{self.name}_log"),
             ],
         )
 
@@ -259,7 +259,7 @@ class _TestConductor:
             server_log.copy_range(
                 self._server_log_path,
                 self.run_dir / "server.log",
-                self._server_log_start_offset,
+                start=self._server_log_start_offset,
             )
         except Exception as e:
             self.log(f"Warning: failed to capture server log: {e}")
@@ -271,7 +271,7 @@ class _TestConductor:
             (self.run_dir / "README.md").write_text(_BUNDLE_README, encoding="utf-8")
         except Exception as e:
             self.log(f"Warning: failed to write README.md: {e}")
-        report_path = failure_report.safe_render(self.run_dir, self.tests)
+        report_path = failure_report.safe_render(self.run_dir, tests=self.tests)
         if report_path is not None:
             self.log(f"→ failure report: {report_path}")
 

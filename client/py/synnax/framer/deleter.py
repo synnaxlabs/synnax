@@ -32,7 +32,9 @@ class Deleter:
     _client: UnaryClient
     instrumentation: Instrumentation
 
-    def __init__(self, client: UnaryClient, instrumentation: Instrumentation) -> None:
+    def __init__(
+        self, *, client: UnaryClient, instrumentation: Instrumentation
+    ) -> None:
         self._client = client
         self.instrumentation = instrumentation
 

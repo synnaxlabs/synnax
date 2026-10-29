@@ -53,7 +53,7 @@ def keyring() -> MemoryKeyring:
 
 @pytest.fixture
 def clusters(tmp_path: Path, keyring: MemoryKeyring) -> Clusters:
-    return Clusters(File(tmp_path), keyring)
+    return Clusters(File(config_dir=tmp_path), keyring)
 
 
 def save_legacy_password(
@@ -321,7 +321,7 @@ class TestFromClusters:
         host, port, username, password = login_info
         before = {k.key for k in client.auth.api_keys.retrieve()}
         keyring = UndeletableKeyring()
-        clusters = Clusters(File(tmp_path), keyring)
+        clusters = Clusters(File(config_dir=tmp_path), keyring)
         save_legacy_password(
             clusters,
             keyring,

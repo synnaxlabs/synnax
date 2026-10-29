@@ -45,12 +45,12 @@ class SimulatorCase(HardwareCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         name: str,
         **params: object,
     ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+        super().__init__(synnax_connection=synnax_connection, name=name, **params)
         self.sims = {}
 
     def setup(self) -> None:
@@ -86,7 +86,7 @@ class SimulatorCase(HardwareCase):
             self.sim = new_sim
 
     def cleanup_simulator(
-        self, log: bool = False, device_name: str | None = None
+        self, *, log: bool = False, device_name: str | None = None
     ) -> None:
         """Stop a simulator.
 
