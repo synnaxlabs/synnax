@@ -106,7 +106,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("prints diagnostics and fails generation", func() {
-			Expect(fail(1, "sync")).To(ContainSubstring("generation failed"))
+			Expect(fail(1, "sync")).To(printOnce("generation failed"))
 		})
 	})
 
@@ -116,7 +116,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("errors when no schema files exist", func() {
-			Expect(fail(1, "sync")).To(ContainSubstring("no schema files found"))
+			Expect(fail(1, "sync")).To(printOnce("no schema files found"))
 		})
 	})
 })
