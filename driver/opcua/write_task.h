@@ -183,12 +183,47 @@ public:
     }
 
 private:
-    /// @brief sends the built request. When the server rejects the whole request after
-    /// the client certificate changed, connects again with the new certificate and
-    /// sends it again.
-    std::pair<types::WriteResponse, x::errors::Error> send() {
-        const auto &req = this->builder.build();
-        auto [res, err] = this->connection.write(req);
+    /// @brief fills builder with the frame's values, with the namespace indexes of
+    /// the current connection.
+    /// @returns a problem for each value that the Driver cannot convert or whose
+    /// namespace the server lacks.
+    std::vector<std::string> build(const ::x::telem::Frame &frame) {
+        this->builder.clear();
+        this->written_keys.clear();
+        std::vector<std::string> problems;
+        const auto &namespaces = this->connection.server().namespaces;
+        for (const auto &[key, s]: frame) {
+            auto it = this->cfg.channels.find(key);
+            if (it == this->cfg.channels.end()) continue;
+            const auto &ch = *it->second;
+            const auto id = ch.node.resolve(namespaces);
+            if (!id.has_value()) {
+                problems.push_back(
+                    errors::channel_status(ch.ch.name, UA_STATUSCODE_BADNODEIDUNKNOWN)
+                );
+                continue;
+            }
+            if (auto err = this->builder.add_value(id.value(), s)) {
+                problems.push_back(ch.ch.name + ": " + err.data + ".");
+                continue;
+            }
+            this->written_keys.push_back(key);
+        }
+        return problems;
+    }
+
+    /// @brief writes the frame's values and sets problems from build. When the server
+    /// rejects the whole request after the client certificate changed, connects again
+    /// with the new certificate and writes again.
+    std::pair<types::WriteResponse, x::errors::Error>
+    send(const ::x::telem::Frame &frame, std::vector<std::string> &problems) {
+        const auto attempt =
+            [&]() -> std::pair<types::WriteResponse, x::errors::Error> {
+            problems = this->build(frame);
+            if (this->builder.empty()) return {types::WriteResponse(), x::errors::NIL};
+            return this->connection.write(this->builder.build());
+        };
+        auto [res, err] = attempt();
         if (!err || err.matches(errors::UNREACHABLE)) return {std::move(res), err};
         auto [refreshed, refresh_err] = this->pool->refresh(
             this->connection,
@@ -197,33 +232,20 @@ private:
         );
         if (refresh_err) return {std::move(res), refresh_err};
         if (!refreshed) return {std::move(res), err};
-        return this->connection.write(req);
+        return attempt();
     }
 
     /// @brief writes the frame's values. A value that the Driver cannot convert, or
     /// that the server rejects, is not written, and the other values still are.
     x::errors::Error perform_write(const ::x::telem::Frame &frame) {
-        this->builder.clear();
-        this->written_keys.clear();
         std::vector<std::string> problems;
-        for (const auto &[key, s]: frame) {
-            auto it = this->cfg.channels.find(key);
-            if (it == this->cfg.channels.end()) continue;
-            if (auto err = this->builder.add_value(it->second->node, s)) {
-                problems.push_back(it->second->ch.name + ": " + err.data + ".");
-                continue;
-            }
-            this->written_keys.push_back(key);
-        }
-        if (!this->builder.empty()) {
-            auto [res, send_err] = this->send();
-            if (send_err) return send_err;
-            for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
-                const auto status = res.get().results[i];
-                if (!UA_StatusCode_isBad(status)) continue;
-                const auto &ch = this->cfg.channels.at(this->written_keys[i]);
-                problems.push_back(errors::channel_status(ch->ch.name, status));
-            }
+        auto [res, send_err] = this->send(frame, problems);
+        if (send_err) return send_err;
+        for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
+            const auto status = res.get().results[i];
+            if (!UA_StatusCode_isBad(status)) continue;
+            const auto &ch = this->cfg.channels.at(this->written_keys[i]);
+            problems.push_back(errors::channel_status(ch->ch.name, status));
         }
         if (problems.empty()) return x::errors::NIL;
         return {errors::COMMAND_REJECTED, x::strings::join(problems, " ")};

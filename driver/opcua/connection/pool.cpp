@@ -8,6 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cstring>
+#include <memory>
+#include <new>
+#include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -74,24 +79,160 @@ x::errors::Error probe(UA_Client *client) {
     UA_Variant_clear(&value);
     return errors::parse(status);
 }
+
+/// @returns the UInt32 value of a read result, or 0 if the server has no such value.
+uint32_t uint32_value(const UA_DataValue &result) {
+    if (!result.hasValue ||
+        !UA_Variant_hasScalarType(&result.value, &UA_TYPES[UA_TYPES_UINT32]))
+        return 0;
+    return *static_cast<const UA_UInt32 *>(result.value.data);
+}
+
+/// @returns an error if the server answered a request for nodes nodes with a different
+/// number of results.
+x::errors::Error check_results(const size_t results, const size_t nodes) {
+    if (results == nodes) return x::errors::NIL;
+    return x::errors::Error(
+        errors::CRITICAL,
+        "the server returned " + std::to_string(results) + " results for " +
+            std::to_string(nodes) + " nodes"
+    );
+}
+
+/// @brief reads the value of one node in namespace 0, in a request of its own.
+std::pair<types::ReadResponse, x::errors::Error>
+read_value(UA_Client *client, const UA_UInt32 node) {
+    if (const auto err = connected(client)) return {types::ReadResponse(), err};
+    UA_ReadValueId id;
+    UA_ReadValueId_init(&id);
+    id.nodeId = UA_NODEID_NUMERIC(0, node);
+    id.attributeId = UA_ATTRIBUTEID_VALUE;
+    UA_ReadRequest req;
+    UA_ReadRequest_init(&req);
+    req.nodesToRead = &id;
+    req.nodesToReadSize = 1;
+    types::ReadResponse res(UA_Client_Service_read(client, req));
+    const auto &raw = res.get();
+    auto err = errors::parse(raw.responseHeader.serviceResult);
+    if (!err) err = check_results(raw.resultsSize, 1);
+    return {std::move(res), err};
+}
+
+/// @brief reads what the Driver needs to know about the client's server, which also
+/// checks that the server answers. A server that lacks an operation limit has none.
+/// Each node gets its own request, since a server can allow fewer nodes per request
+/// than the Driver reads here.
+std::pair<Server, x::errors::Error> read_server(UA_Client *client) {
+    if (const auto status = UA_Client_run_iterate(client, 0);
+        status != UA_STATUSCODE_GOOD)
+        return {Server{}, errors::parse(status)};
+    Server server;
+    const auto [namespaces, ns_err] = read_value(
+        client,
+        UA_NS0ID_SERVER_NAMESPACEARRAY
+    );
+    if (ns_err) return {Server{}, ns_err};
+    if (const auto &value = namespaces.get().results[0];
+        value.hasValue &&
+        UA_Variant_hasArrayType(&value.value, &UA_TYPES[UA_TYPES_STRING])) {
+        const auto *uris = static_cast<const UA_String *>(value.value.data);
+        for (size_t i = 0; i < value.value.arrayLength; ++i)
+            server.namespaces.emplace_back(
+                reinterpret_cast<const char *>(uris[i].data),
+                uris[i].length
+            );
+    }
+    const auto [read_limit, read_err] = read_value(
+        client,
+        UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERREAD
+    );
+    if (read_err) return {Server{}, read_err};
+    server.max_nodes_per_read = uint32_value(read_limit.get().results[0]);
+    const auto [write_limit, write_err] = read_value(
+        client,
+        UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERWRITE
+    );
+    if (write_err) return {Server{}, write_err};
+    server.max_nodes_per_write = uint32_value(write_limit.get().results[0]);
+    return {std::move(server), x::errors::NIL};
+}
+
+/// @brief moves the results of a response to one part of a request into results.
+template<typename T>
+void move_results(T *results, T *&part, size_t &part_size) {
+    std::memcpy(results, part, part_size * sizeof(T));
+    UA_free(part);
+    part = nullptr;
+    part_size = 0;
+}
 }
 
 std::pair<types::ReadResponse, x::errors::Error>
 Pool::Connection::read(const UA_ReadRequest &req) const {
-    if (const auto err = connected(this->get())) return {types::ReadResponse(), err};
-    types::ReadResponse res(UA_Client_Service_read(this->get(), req));
-    auto err = errors::parse(res.get().responseHeader.serviceResult);
-    if (!err && this->pool_ != nullptr) this->pool_->replied(this->key_);
-    return {std::move(res), err};
+    const size_t limit = this->server_->max_nodes_per_read;
+    const size_t total = req.nodesToReadSize;
+    if (limit == 0 || total <= limit) {
+        if (const auto err = connected(this->get()))
+            return {types::ReadResponse(), err};
+        types::ReadResponse res(UA_Client_Service_read(this->get(), req));
+        const auto &raw = res.get();
+        if (auto err = errors::parse(raw.responseHeader.serviceResult))
+            return {std::move(res), err};
+        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        auto err = check_results(raw.resultsSize, total);
+        return {std::move(res), err};
+    }
+    types::ReadResponse merged;
+    auto &out = *merged.ptr();
+    out.results = static_cast<UA_DataValue *>(
+        UA_Array_new(total, &UA_TYPES[UA_TYPES_DATAVALUE])
+    );
+    if (out.results == nullptr) throw std::bad_alloc();
+    out.resultsSize = total;
+    for (size_t offset = 0; offset < total; offset += limit) {
+        UA_ReadRequest part = req;
+        part.nodesToRead = req.nodesToRead + offset;
+        part.nodesToReadSize = std::min(limit, total - offset);
+        auto [res, err] = this->read(part);
+        if (err) return {types::ReadResponse(), err};
+        auto &raw = *res.ptr();
+        move_results(out.results + offset, raw.results, raw.resultsSize);
+    }
+    return {std::move(merged), x::errors::NIL};
 }
 
 std::pair<types::WriteResponse, x::errors::Error>
 Pool::Connection::write(const UA_WriteRequest &req) const {
-    if (const auto err = connected(this->get())) return {types::WriteResponse(), err};
-    types::WriteResponse res(UA_Client_Service_write(this->get(), req));
-    auto err = errors::parse(res.get().responseHeader.serviceResult);
-    if (!err && this->pool_ != nullptr) this->pool_->replied(this->key_);
-    return {std::move(res), err};
+    const size_t limit = this->server_->max_nodes_per_write;
+    const size_t total = req.nodesToWriteSize;
+    if (limit == 0 || total <= limit) {
+        if (const auto err = connected(this->get()))
+            return {types::WriteResponse(), err};
+        types::WriteResponse res(UA_Client_Service_write(this->get(), req));
+        const auto &raw = res.get();
+        if (auto err = errors::parse(raw.responseHeader.serviceResult))
+            return {std::move(res), err};
+        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        auto err = check_results(raw.resultsSize, total);
+        return {std::move(res), err};
+    }
+    types::WriteResponse merged;
+    auto &out = *merged.ptr();
+    out.results = static_cast<UA_StatusCode *>(
+        UA_Array_new(total, &UA_TYPES[UA_TYPES_STATUSCODE])
+    );
+    if (out.results == nullptr) throw std::bad_alloc();
+    out.resultsSize = total;
+    for (size_t offset = 0; offset < total; offset += limit) {
+        UA_WriteRequest part = req;
+        part.nodesToWrite = req.nodesToWrite + offset;
+        part.nodesToWriteSize = std::min(limit, total - offset);
+        auto [res, err] = this->write(part);
+        if (err) return {types::WriteResponse(), err};
+        auto &raw = *res.ptr();
+        move_results(out.results + offset, raw.results, raw.resultsSize);
+    }
+    return {std::move(merged), x::errors::NIL};
 }
 
 Pool::Pool(
@@ -154,12 +295,14 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     // The probe runs outside the lock, since it waits on the server.
     if (client != nullptr && active(client.get())) {
         if (const auto err = probe(client.get()); !err) {
+            std::shared_ptr<const Server> server;
             {
                 std::lock_guard lock(this->mutex_);
                 this->breakers[key].succeeded();
+                server = this->entry(key, client).server;
             }
             this->replied(key);
-            return {Connection(client, this, key), x::errors::NIL};
+            return {Connection(client, this, key, std::move(server)), x::errors::NIL};
         }
         VLOG(1) << log_prefix << "Idle connection stopped answering";
     }
@@ -184,7 +327,8 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         auto other = this->take(key, cfg);
         if (other != nullptr && active(other.get())) {
             if (client != nullptr) this->put_back(key, client);
-            return {Connection(other, this, key), x::errors::NIL};
+            auto server = this->entry(key, other).server;
+            return {Connection(other, this, key, std::move(server)), x::errors::NIL};
         }
         if (other == nullptr) continue;
         if (client == nullptr)
@@ -205,7 +349,12 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         VLOG(1) << log_prefix << "Connecting a lost connection again";
         err = reconnect(client, cfg.endpoint);
     }
-    if (!err) err = probe(client.get());
+    std::shared_ptr<const Server> server;
+    if (!err) {
+        auto [read, read_err] = read_server(client.get());
+        err = read_err;
+        server = std::make_shared<const Server>(std::move(read));
+    }
 
     lock.lock();
     breaker.connecting = false;
@@ -222,15 +371,20 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     if (created) {
         // Another caller can replace the certificate while this one connects.
         const bool replaced = this->current_keys[settings] != key;
-        this->connections_[key].push_back(
-            {.client = client, .in_use = true, .retired = replaced, .idle_since = {}}
-        );
-    }
+        this->connections_[key].push_back({
+            .client = client,
+            .server = server,
+            .in_use = true,
+            .retired = replaced,
+            .idle_since = {},
+        });
+    } else
+        this->entry(key, client).server = server;
     lock.unlock();
     this->connect_cv.notify_all();
     this->replied(key);
     VLOG(1) << log_prefix << "Connected to " << cfg.endpoint;
-    return {Connection(client, this, key), x::errors::NIL};
+    return {Connection(client, this, key, std::move(server)), x::errors::NIL};
 }
 
 std::pair<bool, x::errors::Error>
@@ -310,6 +464,13 @@ void Pool::put_back(const std::string &key, const std::shared_ptr<UA_Client> &cl
             entry.idle_since = std::chrono::steady_clock::now();
             return;
         }
+}
+
+Pool::Entry &
+Pool::entry(const std::string &key, const std::shared_ptr<UA_Client> &client) {
+    for (auto &e: this->connections_.at(key))
+        if (e.client == client) return e;
+    throw std::logic_error("no pool entry for an acquired connection");
 }
 
 void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {

@@ -23,6 +23,7 @@ import {
   DriverCertificate,
   ServerCertificate,
 } from "@/feature/opcua/device/Certificate";
+import { Endpoints } from "@/feature/opcua/device/Endpoints";
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import {
   SelectSecurityMode,
@@ -33,6 +34,7 @@ import {
   BASIC128_RSA15_SECURITY_POLICY,
   BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
+  type ConnectionConfig,
   type Device,
   INTEGRATION,
   NO_SECURITY_MODE,
@@ -155,6 +157,11 @@ export const Connect = ({
   });
 
   const { get: getField, set: setField } = form;
+  const connection = Form.useFieldValue<
+    ConnectionConfig,
+    ConnectionConfig,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("properties.connection", { ctx: form });
   const hasSecurity =
     Form.useFieldValue<SecurityMode, SecurityMode, PDevice.FormSchema<typeof SCHEMAS>>(
       "properties.connection.securityMode",
@@ -186,6 +193,11 @@ export const Connect = ({
     if (next !== "driver") return;
     setField("properties.connection.clientCertificate", "");
     setField("properties.connection.clientPrivateKey", "");
+  };
+
+  const handleEndpointSelect = (mode: SecurityMode, policy: SecurityPolicy) => {
+    setField("properties.connection.securityMode", mode);
+    setField("properties.connection.securityPolicy", policy);
   };
 
   const handleTrust = (offer: CertificateInfo) => {
@@ -240,6 +252,13 @@ export const Connect = ({
               />
             </Form.Section>
             <Form.Section title="Security">
+              <Input.Item label="Endpoint security">
+                <Endpoints
+                  rack={rackKey}
+                  connection={connection}
+                  onSelect={handleEndpointSelect}
+                />
+              </Input.Item>
               <Form.Field<SecurityMode>
                 path="properties.connection.securityMode"
                 label="Mode"
@@ -303,6 +322,26 @@ export const Connect = ({
                 </>
               )}
             </Form.Section>
+            <Form.Section title="Advanced">
+              <Form.NumericField
+                path="properties.connection.clientTimeoutMs"
+                label="Request timeout"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path="properties.connection.sessionTimeoutMs"
+                label="Session timeout"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path="properties.connection.secureChannelLifetimeMs"
+                label="Secure channel lifetime"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
+            </Form.Section>
           </Form.Sections>
         </Form.Form>
       </Modal.Body>
@@ -363,3 +402,5 @@ const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
 
 const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+
+const MS_INPUT_PROPS = { endContent: "ms" } as const;

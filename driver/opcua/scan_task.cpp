@@ -104,6 +104,10 @@ bool Scanner::exec(
         this->test_connection(cmd);
         return true;
     }
+    if (cmd.type == GET_ENDPOINTS_CMD_TYPE) {
+        this->endpoints(cmd);
+        return true;
+    }
     if (cmd.type == GET_CERTIFICATE_CMD_TYPE) {
         this->certificates(cmd, false);
         return true;
@@ -265,6 +269,8 @@ void Scanner::certificates(
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
+    /// @brief the namespace URIs of the server, by index.
+    const std::vector<std::string> &namespaces;
     std::shared_ptr<std::vector<types::Node>> channels;
     /// @brief the error of a request that failed during the browse.
     x::errors::Error err;
@@ -317,7 +323,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     ctx->channels->emplace_back(
         data_type,
         name,
-        types::NodeId::to_string(child_id),
+        types::NodeId::to_string(child_id, ctx->namespaces),
         types::node_class_to_string(cls),
         is_array
     );
@@ -352,14 +358,24 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
+    const auto &namespaces = connection.server().namespaces;
+    const auto start = args.node.resolve(namespaces);
+    if (!start.has_value()) {
+        status.message = "Failed to browse nodes";
+        status.description = "The server has no namespace " +
+                             args.node.namespace_uri() + ".";
+        ctx->set_status(status);
+        return;
+    }
     const auto scan_ctx = std::make_unique<ScanContext>(ScanContext{
-        connection.shared(),
-        std::make_shared<std::vector<types::Node>>(),
+        .client = connection.shared(),
+        .namespaces = namespaces,
+        .channels = std::make_shared<std::vector<types::Node>>(),
     });
 
     auto browse_err = errors::parse(UA_Client_forEachChildNodeCall(
         scan_ctx->client.get(),
-        args.node.get(),
+        start.value(),
         node_iter,
         scan_ctx.get()
     ));
@@ -428,6 +444,43 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     }
     status.variant = synnax::status::VARIANT_SUCCESS;
     status.message = "Connected to server";
+    ctx->set_status(status);
+}
+
+void Scanner::endpoints(const synnax::task::Command &cmd) const {
+    x::json::Parser parser(cmd.args);
+    const connection::Config cfg(parser.child("connection"));
+    synnax::task::Status status{
+        .key = synnax::task::status_key(this->task),
+        .name = this->task.name,
+        .variant = synnax::status::VARIANT_ERROR,
+        .details = synnax::task::StatusDetails{
+            .task = task.key,
+            .running = true,
+            .cmd = cmd.key,
+            .config_hash = task.config_hash,
+        }
+    };
+    if (!parser.ok()) {
+        status.message = "Failed to parse endpoints command";
+        status.description = common::config_err_description(parser.error());
+        status.details.data = parser.error_json();
+        ctx->set_status(status);
+        return;
+    }
+    auto [endpoints, err] = connection::endpoints(cfg);
+    if (err) {
+        status.message = "Failed to get endpoints";
+        status.description = err.data;
+        ctx->set_status(status);
+        return;
+    }
+    x::json::json data = x::json::json::array();
+    for (const auto &endpoint: endpoints)
+        data.push_back(endpoint.to_json());
+    status.variant = synnax::status::VARIANT_SUCCESS;
+    status.message = "Received endpoints";
+    status.details.data = {{"endpoints", data}};
     ctx->set_status(status);
 }
 }

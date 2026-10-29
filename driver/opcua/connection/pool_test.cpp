@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -39,6 +41,14 @@ protected:
 
     void TearDown() override {
         if (server_) { server_->stop(); }
+    }
+
+    /// @brief starts the server again with server_cfg_.
+    void restart_server() {
+        server_->stop();
+        server_ = std::make_unique<testutil::Server>(server_cfg_);
+        server_->start();
+        ASSERT_TRUE(server_->wait_until_ready());
     }
 
     testutil::ServerConfig server_cfg_;
@@ -535,6 +545,113 @@ TEST_F(ConnectionPoolTest, CustomSessionAndChannelTimeouts) {
     auto *config = UA_Client_getConfig(conn.get());
     EXPECT_EQ(config->secureChannelLifeTime, 30000);
     EXPECT_EQ(config->requestedSessionTimeout, 60000);
+}
+
+/// @brief it should read the namespace array and operation limits of the server.
+TEST_F(ConnectionPoolTest, ReadsServerFacts) {
+    server_cfg_.namespaces = {"urn:synnax:test"};
+    server_cfg_.max_nodes_per_read = 7;
+    server_cfg_.max_nodes_per_write = 3;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto &server = conn.server();
+    EXPECT_EQ(
+        server.namespaces,
+        std::vector<std::string>(
+            {"http://opcfoundation.org/UA/",
+             "urn:open62541.server.application",
+             "urn:synnax:test"}
+        )
+    );
+    EXPECT_EQ(server.max_nodes_per_read, 7);
+    EXPECT_EQ(server.max_nodes_per_write, 3);
+}
+
+/// @brief it should keep the server facts of an idle connection that it reuses.
+TEST_F(ConnectionPoolTest, ReuseKeepsServerFacts) {
+    server_cfg_.namespaces = {"urn:synnax:test"};
+    restart_server();
+    Pool pool(testutil::create_store());
+    { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_EQ(pool.size(), 1);
+    ASSERT_EQ(conn.server().namespaces.size(), 3);
+    EXPECT_EQ(conn.server().namespaces[2], "urn:synnax:test");
+}
+
+/// @brief it should read the server facts again when it connects a lost connection
+/// again, since a restarted server can order its namespaces differently.
+TEST_F(ConnectionPoolTest, ReconnectReadsServerFactsAgain) {
+    server_cfg_.namespaces = {"urn:a", "urn:b"};
+    restart_server();
+    Pool pool(testutil::create_store());
+    {
+        const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        EXPECT_EQ(conn.server().namespaces[2], "urn:a");
+    }
+    server_cfg_.namespaces = {"urn:b", "urn:a"};
+    restart_server();
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_EQ(pool.size(), 1);
+    ASSERT_EQ(conn.server().namespaces.size(), 4);
+    EXPECT_EQ(conn.server().namespaces[2], "urn:b");
+    EXPECT_EQ(conn.server().namespaces[3], "urn:a");
+}
+
+/// @brief it should split a read that names more nodes than the server allows, and
+/// return the results in the order of the request.
+TEST_F(ConnectionPoolTest, ReadSplitsAtServerLimit) {
+    server_cfg_.max_nodes_per_read = 2;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const std::vector<std::string> names = {
+        "TestUInt16",
+        "TestUInt32",
+        "TestInt16",
+        "TestInt32",
+        "TestDouble",
+    };
+    std::vector<types::NodeId> ids;
+    ids.reserve(names.size());
+    types::ReadRequestBuilder builder;
+    for (const auto &name: names) {
+        ids.push_back(ASSERT_NIL_P(types::NodeId::parse("ns=1;s=" + name)));
+        builder.add_node(ids.back().get());
+    }
+    const auto res = ASSERT_NIL_P(conn.read(builder.build()));
+    const auto &raw = res.get();
+    ASSERT_EQ(raw.resultsSize, names.size());
+    for (size_t i = 0; i < raw.resultsSize; ++i)
+        EXPECT_EQ(raw.results[i].status, UA_STATUSCODE_GOOD) << names[i];
+    EXPECT_EQ(*static_cast<UA_UInt16 *>(raw.results[0].value.data), 42);
+    EXPECT_EQ(*static_cast<UA_UInt32 *>(raw.results[1].value.data), 12345);
+    EXPECT_EQ(*static_cast<UA_Int16 *>(raw.results[2].value.data), 42);
+    EXPECT_EQ(*static_cast<UA_Int32 *>(raw.results[3].value.data), 12345);
+    EXPECT_DOUBLE_EQ(*static_cast<UA_Double *>(raw.results[4].value.data), 2.71828);
+}
+
+/// @brief it should split a write that names more nodes than the server allows.
+TEST_F(ConnectionPoolTest, WriteSplitsAtServerLimit) {
+    server_cfg_.max_nodes_per_write = 2;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto id = ASSERT_NIL_P(types::NodeId::parse("ns=1;s=TestUInt32"));
+    types::WriteRequestBuilder builder;
+    for (const uint32_t value: {1U, 2U, 3U})
+        ASSERT_NIL(
+            builder.add_value(id.get(), x::telem::Series(value, x::telem::UINT32_T))
+        );
+    const auto res = ASSERT_NIL_P(conn.write(builder.build()));
+    ASSERT_EQ(res.get().resultsSize, 3);
+    for (size_t i = 0; i < 3; ++i)
+        EXPECT_EQ(res.get().results[i], UA_STATUSCODE_GOOD);
+    const auto value = ASSERT_NIL_P(
+        testutil::simple_read(conn.shared(), "NS=1;S=TestUInt32")
+    );
+    EXPECT_EQ(value.at<uint32_t>(0), 3);
 }
 
 class SessionLimitPoolTest : public ::testing::Test {

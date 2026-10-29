@@ -194,14 +194,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-/// @brief Helper to create a ReadRequestBuilder from config.
-/// The builder borrows NodeIds from cfg, so cfg must outlive the builder.
-static types::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) {
-    types::ReadRequestBuilder builder;
-    for (const auto &ch: cfg.channels)
-        builder.add_node(ch->node, UA_ATTRIBUTEID_VALUE);
-    return builder;
-}
+/// @brief the result of a channel whose namespace the server lacks.
+inline const UA_DataValue UNKNOWN_NAMESPACE = [] {
+    UA_DataValue value;
+    UA_DataValue_init(&value);
+    value.hasStatus = true;
+    value.status = UA_STATUSCODE_BADNODEIDUNKNOWN;
+    return value;
+}();
 
 /// @brief the problems with the values of one read, reported as one task warning.
 class Quality {
@@ -246,7 +246,42 @@ protected:
     /// @brief the error of the connection attempt at start, which the first read
     /// returns instead of connecting again.
     x::errors::Error start_err;
+    /// @brief reads the channels on the current connection. It borrows the node IDs
+    /// of cfg.
     types::ReadRequestBuilder request_builder;
+    /// @brief the place of each channel's result in a response to request_builder, or
+    /// nothing when the server lacks the channel's namespace.
+    std::vector<std::optional<std::size_t>> positions;
+
+    /// @brief reads the channels on conn from now on, with the namespace indexes of
+    /// its server.
+    void use(connection::Pool::Connection conn) {
+        this->connection = std::move(conn);
+        this->build_request();
+    }
+
+    void build_request() {
+        this->request_builder = types::ReadRequestBuilder();
+        this->positions.clear();
+        const auto &namespaces = this->connection.server().namespaces;
+        for (const auto &ch: this->cfg.channels) {
+            const auto id = ch->node.resolve(namespaces);
+            if (!id.has_value()) {
+                this->positions.emplace_back(std::nullopt);
+                continue;
+            }
+            this->positions.emplace_back(this->request_builder.size());
+            this->request_builder.add_node(id.value(), UA_ATTRIBUTEID_VALUE);
+        }
+    }
+
+    /// @returns the result of channel i in res, a response to request_builder.
+    [[nodiscard]] const UA_DataValue &
+    result(const UA_ReadResponse &res, const std::size_t i) const {
+        const auto pos = this->positions[i];
+        if (!pos.has_value()) return UNKNOWN_NAMESPACE;
+        return res.results[pos.value()];
+    }
 
     /// @brief connects with the device's current settings, so a corrected endpoint or
     /// login takes effect without a restart. Keeps the last settings while the Core is
@@ -262,7 +297,7 @@ protected:
             return retrieve_err;
         auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.read] ");
         if (err) return err;
-        this->connection = std::move(c);
+        this->use(std::move(c));
         return x::errors::NIL;
     }
 
@@ -279,15 +314,19 @@ protected:
                 };
             if (auto err = this->connect()) return {types::ReadResponse(), err};
         }
-        const auto &req = this->request_builder.build();
-        auto [res, err] = this->connection.read(req);
+        if (this->request_builder.empty())
+            return {types::ReadResponse(), x::errors::NIL};
+        auto [res, err] = this->connection.read(this->request_builder.build());
         if (!err) return {std::move(res), x::errors::NIL};
         auto [refreshed, refresh_err] = this->pool->refresh(
             this->connection,
             this->conn_cfg,
             "[opc.read] "
         );
-        if (refreshed) std::tie(res, err) = this->connection.read(req);
+        if (refreshed) {
+            this->build_request();
+            std::tie(res, err) = this->connection.read(this->request_builder.build());
+        }
         if (refresh_err) err = refresh_err;
         if (err.matches(errors::UNREACHABLE))
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
@@ -302,8 +341,7 @@ protected:
         cfg(std::move(cfg)),
         client(std::move(client)),
         pool(std::move(pool)),
-        connection(nullptr, nullptr, ""),
-        request_builder(create_read_request(this->cfg)) {}
+        connection(nullptr, nullptr, "") {}
 
 public:
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
@@ -326,7 +364,7 @@ public:
             return x::errors::NIL;
         }
         if (err) return err;
-        this->connection = std::move(c);
+        this->use(std::move(c));
         return x::errors::NIL;
     }
 
@@ -377,7 +415,7 @@ public:
         const auto &results = ua_res.get();
         for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
             const auto &ch = *this->cfg.channels[i];
-            const auto &result = results.results[i];
+            const auto &result = this->result(results, i);
             x::telem::Series s(ch.ch.data_type, this->cfg.array_size);
             x::errors::Error err;
             if (UA_StatusCode_isBad(result.status))
@@ -448,7 +486,7 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
         std::set<synnax::channel::Key> skipped;
         for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
             const auto &ch = *this->cfg.channels[i];
-            const auto &result = res.results[i];
+            const auto &result = this->result(res, i);
             if (UA_StatusCode_isBad(result.status)) {
                 q.add_bad(errors::channel_status(ch.ch.name, result.status));
                 values.emplace_back(std::nullopt);

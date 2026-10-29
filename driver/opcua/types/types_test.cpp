@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -459,11 +461,81 @@ TEST(TypesTest, ParseMalformedNodeId) {
              "NS=1;X=5",
              "NS=1;G=xyz",
              "NS=1;G=12345678-1234-5678-9abc-123456789abg",
+             "nsu=;i=5",
+             "nsu=urn:a",
+             "nsu=urn:a%G1;i=5",
+             "nsu=urn:a%4;i=5",
+             "nsu=urn:a;x=5",
          }) {
         auto [node_id, err] = NodeId::parse(input);
         ASSERT_MATCHES(err, x::errors::VALIDATION);
         EXPECT_EQ(err.data, "Invalid NodeId format") << input;
         EXPECT_TRUE(node_id.is_null()) << input;
+    }
+}
+
+/// @brief it should parse a namespace URI, decoding its escapes, in any case.
+TEST(TypesTest, ParseNamespaceURINodeId) {
+    for (const auto &[input, uri]: std::vector<std::pair<std::string, std::string>>{
+             {"nsu=urn:synnax:test;s=Tank1", "urn:synnax:test"},
+             {"NSU=urn:synnax:test;S=Tank1", "urn:synnax:test"},
+             {"nsu=urn:a%3Bb%25c;s=Tank1", "urn:a;b%c"},
+         }) {
+        auto node_id = ASSERT_NIL_P(NodeId::parse(input));
+        EXPECT_EQ(node_id.namespace_uri(), uri) << input;
+        EXPECT_EQ(NodeId::to_string(node_id.get()), "NS=0;S=Tank1") << input;
+    }
+}
+
+/// @brief it should parse a node ID with no namespace as a node in namespace 0.
+TEST(TypesTest, ParseNodeIdWithoutNamespace) {
+    auto numeric = ASSERT_NIL_P(NodeId::parse("i=85"));
+    EXPECT_EQ(NodeId::to_string(numeric.get()), "NS=0;I=85");
+    auto str = ASSERT_NIL_P(NodeId::parse("S=Tank1"));
+    EXPECT_EQ(NodeId::to_string(str.get()), "NS=0;S=Tank1");
+    EXPECT_TRUE(str.namespace_uri().empty());
+}
+
+/// @brief it should give a namespace URI the server's index for it, and leave a node
+/// ID with an index unchanged.
+TEST(TypesTest, ResolveNodeId) {
+    const std::vector<std::string> namespaces = {
+        "http://opcfoundation.org/UA/",
+        "urn:server",
+        "urn:synnax:test",
+    };
+    auto by_uri = ASSERT_NIL_P(NodeId::parse("nsu=urn:synnax:test;s=Tank1"));
+    const auto resolved = by_uri.resolve(namespaces);
+    ASSERT_TRUE(resolved.has_value());
+    EXPECT_EQ(NodeId::to_string(resolved.value()), "NS=2;S=Tank1");
+    auto by_index = ASSERT_NIL_P(NodeId::parse("NS=5;I=7"));
+    EXPECT_EQ(NodeId::to_string(by_index.resolve(namespaces).value()), "NS=5;I=7");
+    auto missing = ASSERT_NIL_P(NodeId::parse("nsu=urn:other;i=7"));
+    EXPECT_FALSE(missing.resolve(namespaces).has_value());
+}
+
+/// @brief it should print a node ID with its namespace URI, and parse it back to the
+/// same node.
+TEST(TypesTest, NodeIdToStringWithNamespaceURI) {
+    const std::vector<std::string> namespaces = {
+        "http://opcfoundation.org/UA/",
+        "urn:server",
+        "urn:a;b%c",
+    };
+    for (const auto &[input, expected]:
+         std::vector<std::pair<std::string, std::string>>{
+             {"NS=0;I=85", "i=85"},
+             {"NS=1;I=42", "nsu=urn:server;i=42"},
+             {"NS=2;S=Tank1", "nsu=urn:a%3Bb%25c;s=Tank1"},
+             {"NS=7;G=12345678-1234-5678-9abc-123456789abc",
+              "ns=7;g=12345678-1234-5678-9abc-123456789abc"},
+             {"NS=1;B=AAEC", "nsu=urn:server;b=AAEC"},
+         }) {
+        auto node_id = ASSERT_NIL_P(NodeId::parse(input));
+        const auto printed = NodeId::to_string(node_id.get(), namespaces);
+        EXPECT_EQ(printed, expected);
+        auto parsed = ASSERT_NIL_P(NodeId::parse(printed));
+        EXPECT_EQ(NodeId::to_string(parsed.resolve(namespaces).value()), input);
     }
 }
 

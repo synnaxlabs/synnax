@@ -140,6 +140,13 @@ struct ServerConfig {
     /// @brief the client certificates that the server trusts. Empty trusts every
     /// client.
     std::vector<certificate::Certificate> trusted_clients;
+    /// @brief the namespace URIs that the server adds after its own, in order. The
+    /// first gets index 2.
+    std::vector<std::string> namespaces;
+    /// @brief the most nodes that one Read request can name. 0 means no limit.
+    std::uint32_t max_nodes_per_read = 0;
+    /// @brief the most nodes that one Write request can name. 0 means no limit.
+    std::uint32_t max_nodes_per_write = 0;
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -414,10 +421,18 @@ public:
                 UA_CertificateGroup_AcceptAll(&server_config->secureChannelPKI);
                 UA_CertificateGroup_AcceptAll(&server_config->sessionPKI);
             }
-        } else
+        } else {
             UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
+            auto &uri = server_config->applicationDescription.applicationUri;
+            UA_String_clear(&uri);
+            uri = UA_STRING_ALLOC(SERVER_APPLICATION_URI.c_str());
+        }
         server_config->maxSessionTimeout = 3600000;
         if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
+        server_config->maxNodesPerRead = cfg.max_nodes_per_read;
+        server_config->maxNodesPerWrite = cfg.max_nodes_per_write;
+        for (const auto &uri: cfg.namespaces)
+            UA_Server_addNamespace(server, uri.c_str());
 
         for (const auto &node: cfg.test_nodes) {
             UA_VariableAttributes attr = UA_VariableAttributes_default;
