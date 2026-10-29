@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { CSS } from "@/css";
 import { Form } from "@/form";
 import { Input } from "@/input";
-import { computed, renderThemed, resolve } from "@/testutil/style";
+import { computed, renderThemed, resolve } from "@/styletest";
 
 const renderSections = async (
   x: boolean,

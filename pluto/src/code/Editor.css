@@ -9,6 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
+/* stylelint-disable declaration-no-important -- Monaco styles its editor inline */
+
 :root {
     --editor-token-keyword: #cc255f;
     --editor-token-delimiter-parenthesis: #cc255f;

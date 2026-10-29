@@ -10,8 +10,8 @@
     "check-types": "tsc --noEmit",
     "watch": "vite build --watch",
     "test": "vitest",
-    "cov": "vitest --coverage",
-    "install-chromium": "playwright install chromium",
+    "cov": "vitest --coverage --project jsdom --project chromium",
+    "install-browsers": "playwright install chromium webkit",
     "lint": "eslint && stylelint \"src/**/*.css\"",
     "fix": "eslint --fix && stylelint --fix \"src/**/*.css\"",
     "exports": "tsx scripts/exports.ts",
@@ -35,13 +35,17 @@
     "@testing-library/react": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vitest-browser-react": "catalog:"
   },
   "peerDependenciesMeta": {
     "@testing-library/react": {
       "optional": true
     },
     "vitest": {
+      "optional": true
+    },
+    "vitest-browser-react": {
       "optional": true
     }
   },
@@ -232,6 +236,10 @@
     "./store": {
       "types": "./dist/store/index.d.ts",
       "default": "./dist/store/index.js"
+    },
+    "./styletest": {
+      "types": "./dist/styletest/index.d.ts",
+      "default": "./dist/styletest/index.js"
     },
     "./tabs": {
       "types": "./dist/tabs/index.d.ts",

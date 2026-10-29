@@ -13,7 +13,7 @@ import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Status } from "@/status";
-import { computed, renderThemed, resolve } from "@/testutil/style";
+import { computed, renderThemed, resolve } from "@/styletest";
 
 const MESSAGE = "Failed to start the task because the device did not answer in time";
 

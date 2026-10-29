@@ -10,8 +10,9 @@
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import clerk from "@clerk/astro";
-import { layers } from "@synnaxlabs/vite-plugin";
+import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
+import path from "path";
 
 const secret = envField.string({ context: "server", access: "secret" });
 
@@ -25,7 +26,9 @@ export default defineConfig({
   vite: {
     ssr: { noExternal: ["@synnaxlabs/lyra"] },
     css: {
-      postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+      postcss: {
+        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
+      },
     },
   },
   env: {

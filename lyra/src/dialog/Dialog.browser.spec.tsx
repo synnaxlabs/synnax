@@ -13,7 +13,7 @@ import { page, userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
-import { computed, renderThemed, resolve } from "@/testutil/style";
+import { computed, renderThemed, resolve } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const TALL = <div style={{ height: 2000, flexShrink: 0 }}>Tall</div>;

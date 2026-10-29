@@ -89,44 +89,6 @@ th,
     font-weight: var(--pluto-p-weight);
 }
 
-.pluto--pack .pluto-btn:is(:focus, :focus-within, :active, :hover) {
-    z-index: 3;
-}
-
-/* Wins the negative-margin border collapse against unselected neighbors. */
-.pluto--pack .pluto-btn.pluto--selected {
-    z-index: 2;
-}
-
-/* A pluto--reveals container hides marked child actions until hovered. Keyboard
-   focus always shows one, so reveal never hides the only keyboard path. */
-.pluto--reveals .pluto--reveal {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.1s ease-out;
-}
-
-.pluto--reveals:hover .pluto--reveal {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-/* Reveal comes from the nearest container: an un-hovered inner one (a tag in a
-   hovered row) keeps its own actions hidden. */
-.pluto--reveals:not(:hover) .pluto--reveal {
-    opacity: 0;
-    pointer-events: none;
-}
-
-.pluto--reveals .pluto--reveal:focus-visible {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.pluto-input {
-    z-index: 4;
-}
-
 @keyframes fade-in-zoom {
     0% {
         opacity: 0;
@@ -280,46 +242,4 @@ th,
 
 html {
     font-size: var(--pluto-base-size);
-}
-
-.pluto--bordered-right {
-    border-right: var(--pluto-border);
-}
-
-.pluto--bordered-left {
-    border-left: var(--pluto-border);
-}
-
-.pluto--bordered-top {
-    border-top: var(--pluto-border);
-}
-
-.pluto--bordered-bottom {
-    border-bottom: var(--pluto-border);
-}
-
-.pluto--direction-x > .pluto--bordered-start {
-    border-right: var(--pluto-border);
-}
-
-.pluto--direction-x > .pluto--bordered-end {
-    border-left: var(--pluto-border);
-}
-
-.pluto--direction-y > .pluto--bordered-start {
-    border-bottom: var(--pluto-border);
-}
-
-.pluto--direction-y > .pluto--bordered-end {
-    border-top: var(--pluto-border);
-}
-
-.pluto--no-select {
-    -webkit-user-select: none;
-    user-select: none;
-}
-
-.pluto--inherit-dims {
-    height: inherit;
-    width: inherit;
 }

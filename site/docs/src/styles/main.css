@@ -17,12 +17,12 @@
  */
 
 /* Declare layer order - later layers win */
-@layer pluto, base, overrides;
+@layer lyra, base, overrides;
 
-/* Lyra's component CSS arrives through each module's own import and lands in the
- * same layer through the PostCSS plugin in astro.config.ts. */
-@import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
-@import url("@synnaxlabs/lyra/dist/theme.css") layer(pluto);
+/* Lyra's component CSS arrives through each module's own import and lands in
+ * lyra.components, above lyra.base, through the PostCSS plugin in astro.config.ts. */
+@import url("@synnaxlabs/lyra/dist/base.css") layer(lyra.base);
+@import url("@synnaxlabs/lyra/dist/theme.css") layer(lyra.base);
 
 /* Import our CSS into higher priority layers */
 @import url("@synnaxlabs/site-common/base.css") layer(base);

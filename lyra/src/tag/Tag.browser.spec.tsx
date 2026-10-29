@@ -10,8 +10,8 @@
 import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
+import { computed, renderThemed, resolve } from "@/styletest";
 import { Tag } from "@/tag";
-import { computed, renderThemed, resolve } from "@/testutil/style";
 
 const renderTag = async (label: string): Promise<Element> =>
   (await renderThemed(<Tag.Tag>{label}</Tag.Tag>)).container.querySelector(

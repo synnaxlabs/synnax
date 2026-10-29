@@ -11,7 +11,7 @@
 
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
-import { lib } from "@synnaxlabs/vite-plugin";
+import { layers, lib, lyraLayers } from "@synnaxlabs/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
 import { copyFileSync, mkdirSync } from "fs";
@@ -58,6 +58,12 @@ export default defineConfig({
       },
       {
         extends: true,
+        // Specs see the cascade layers of production.
+        css: {
+          postcss: {
+            plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "..")))],
+          },
+        },
         test: {
           name: "browser",
           setupFiles: ["src/testutil/browser.ts"],
@@ -66,7 +72,11 @@ export default defineConfig({
             enabled: true,
             headless: true,
             provider: playwright(),
-            instances: [{ browser: "chromium" }],
+            // V8 coverage reads only Chromium, so `cov` leaves out WebKit.
+            instances: [
+              { browser: "chromium", name: "chromium" },
+              { browser: "webkit", name: "webkit" },
+            ],
           },
         },
       },

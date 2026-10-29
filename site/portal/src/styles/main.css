@@ -9,12 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-/* Lyra's CSS sits in the pluto layer, below the portal's unlayered styles. Its
-   component CSS lands there through the PostCSS plugin in astro.config.ts. */
-@layer pluto;
+/* Lyra's CSS sits in the lyra layer, below the portal's unlayered styles. Its
+   component CSS lands in lyra.components through the PostCSS plugin in
+   astro.config.ts. */
+@layer lyra;
 
-@import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
-@import url("@synnaxlabs/lyra/dist/theme.css") layer(pluto);
+@import url("@synnaxlabs/lyra/dist/base.css") layer(lyra.base);
+@import url("@synnaxlabs/lyra/dist/theme.css") layer(lyra.base);
 
 * {
     box-sizing: border-box;

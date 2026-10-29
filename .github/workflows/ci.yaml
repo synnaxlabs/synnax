@@ -762,7 +762,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'lyra')
     uses: ./.github/workflows/test.ts.yaml
     with:
-      chromium: true
+      browsers: true
       coverage_flag: lyra
       directory: lyra
       macos: *full
@@ -813,6 +813,7 @@ jobs:
       == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'pluto')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: pluto
       directory: pluto

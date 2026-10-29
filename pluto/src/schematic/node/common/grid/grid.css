@@ -98,6 +98,8 @@
     overflow-wrap: break-word;
     width: max-content;
     height: max-content;
+    /* stylelint-disable-next-line declaration-no-important -- a label sits flush
+       whatever padding its style sets */
     padding: 0 !important;
 
     &.pluto--direction-y {

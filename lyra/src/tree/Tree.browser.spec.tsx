@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { List } from "@/list";
-import { renderThemed } from "@/testutil/style";
+import { renderThemed } from "@/styletest";
 import { Tree } from "@/tree";
 
 const NODES: Tree.Node[] = [
