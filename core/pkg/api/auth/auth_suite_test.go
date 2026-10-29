@@ -70,7 +70,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		User:     userSvc,
 	}))
-	provider = MustSucceed(testutil.NewProvider())
+	provider = testutil.NewProvider()
 	DeferCleanup(provider.Close)
 	oidcSvc = MustOpen(oidc.OpenService(ctx, oidc.ServiceConfig{
 		DB:          db,
