@@ -22,7 +22,9 @@ std::string canonical_port(const std::string &port) {
     return path;
 }
 
-int lock_port(int) {
+int PortLock::lock(const std::string &) {
     return 0;
 }
+
+void PortLock::unlock() {}
 }
