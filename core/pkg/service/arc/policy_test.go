@@ -107,6 +107,22 @@ var _ = Describe("Policy", func() {
 				To(MatchError(ContainSubstring("already used")))
 		})
 		It(
+			"Should reject two entries of one name added together",
+			func(ctx SpecContext) {
+				a := MustSucceed(groups.Create(ctx, "dir_a", arcs))
+				b := MustSucceed(groups.Create(ctx, "dir_b", arcs))
+				x1 := MustSucceed(groups.Create(ctx, "x", a.OntologyID()))
+				x2 := MustSucceed(groups.Create(ctx, "x", b.OntologyID()))
+				Expect(otgW.DefineRelationships(
+					ctx,
+					arcs,
+					ontology.RelationshipTypeParentOf,
+					x1.OntologyID(),
+					x2.OntologyID(),
+				)).To(MatchError(ContainSubstring("already used")))
+			},
+		)
+		It(
 			"Should reject a group rename that duplicates a name",
 			func(ctx SpecContext) {
 				MustSucceed(groups.Create(ctx, "g1", arcs))

@@ -36,7 +36,7 @@ func (renamePolicy) ValidateParent(
 	context.Context,
 	gorp.Tx,
 	ontology.ID,
-	ontology.ID,
+	...ontology.ID,
 ) error {
 	return nil
 }

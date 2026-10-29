@@ -76,10 +76,13 @@ var _ ontology.Policy = rejectPolicy{}
 func (rejectPolicy) ValidateParent(
 	_ context.Context,
 	_ gorp.Tx,
-	_, child ontology.ID,
+	_ ontology.ID,
+	children ...ontology.ID,
 ) error {
-	if child.Key == "rejected" {
-		return errRejected
+	for _, child := range children {
+		if child.Key == "rejected" {
+			return errRejected
+		}
 	}
 	return nil
 }

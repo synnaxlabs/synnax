@@ -18,9 +18,9 @@ import (
 // Policy guards one part of the ontology and returns nil outside it. Register it with
 // [Ontology.RegisterPolicy].
 type Policy interface {
-	// ValidateParent is called before parent gains child as a parent_of child. Both
-	// resources exist on tx.
-	ValidateParent(ctx context.Context, tx gorp.Tx, parent, child ID) error
+	// ValidateParent is called before parent gains children as parent_of children, all
+	// of them in one call. Every resource exists on tx.
+	ValidateParent(ctx context.Context, tx gorp.Tx, parent ID, children ...ID) error
 	// ValidateName is called before the resource with id takes name.
 	ValidateName(ctx context.Context, tx gorp.Tx, id ID, name string) error
 }

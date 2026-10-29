@@ -42,9 +42,9 @@ func (w Writer) ValidateName(ctx context.Context, id ID, name string) error {
 	return nil
 }
 
-func (w Writer) validateParent(ctx context.Context, parent, child ID) error {
+func (w Writer) validateParent(ctx context.Context, parent ID, children ...ID) error {
 	for _, p := range w.policies {
-		if err := p.ValidateParent(ctx, w.tx, parent, child); err != nil {
+		if err := p.ValidateParent(ctx, w.tx, parent, children...); err != nil {
 			return err
 		}
 	}
@@ -124,12 +124,13 @@ func (w Writer) DefineRelationships(
 		if _, cyclic := descendants[from]; cyclic {
 			return graph.ErrCyclicDependency
 		}
-		if relationshipType == RelationshipTypeParentOf {
-			if err = w.validateParent(ctx, from, id); err != nil {
-				return err
-			}
-		}
 		rels = append(rels, rel)
+	}
+	if relationshipType == RelationshipTypeParentOf && len(rels) > 0 {
+		children := lo.Map(rels, func(rel Relationship, _ int) ID { return rel.To })
+		if err := w.validateParent(ctx, from, children...); err != nil {
+			return err
+		}
 	}
 	return w.relationshipTable.NewCreate().Entries(&rels).Exec(ctx, w.tx)
 }
