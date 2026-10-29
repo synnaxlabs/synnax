@@ -77,11 +77,11 @@ An [Arc automation](/reference/control/arc) sets a status when a condition is tr
 ```arc channels="tank_pressure"
 import status
 
-tank_pressure > 600.0 => status.set{
+tank_pressure > 600.0 => status.set(
     key_or_name="tank-pressure",
     variant="warning",
     message="Tank pressure is above 600 psi",
-}
+)
 ```
 
 To set the status once for each change, and to clear it, see

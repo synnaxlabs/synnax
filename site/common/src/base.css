@@ -34,7 +34,7 @@ html {
 }
 
 /* The lighter blue is too faint on a light page. */
-a:not(.pluto-btn) {
+a:not(.lyra-btn) {
     color: light-dark(var(--pluto-primary-z), var(--pluto-primary-p1));
     text-decoration: none;
 

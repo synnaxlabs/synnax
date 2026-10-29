@@ -233,7 +233,7 @@ class Symbol(ABC):
     @property
     def colored(self) -> Locator:
         """The element that carries the symbol's `--pluto-symbol-color` style."""
-        return self.locator.locator(".pluto-symbol-colored").first
+        return self.locator.locator(".lyra-symbol-colored").first
 
     def delete(self) -> None:
         self.click()
