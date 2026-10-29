@@ -29,7 +29,7 @@ const renderMetaData = async (rangeKey: string): Promise<void> => {
 const getAddButton = (): HTMLElement => {
   const button = screen
     .getAllByRole("button")
-    .find((b) => b.querySelector("svg.pluto-icon--add"));
+    .find((b) => b.querySelector("svg.lyra-icon--add"));
   if (button == null) throw new Error("add button not found");
   return button;
 };
@@ -62,7 +62,7 @@ describe("Range.MetaData", () => {
 
     const saveButton = screen
       .getAllByRole("button")
-      .find((b) => b.querySelector("svg.pluto-icon--check"));
+      .find((b) => b.querySelector("svg.lyra-icon--check"));
     if (saveButton == null) throw new Error("save button not found");
     fireEvent.click(saveButton);
 

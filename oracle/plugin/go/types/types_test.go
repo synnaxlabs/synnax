@@ -158,7 +158,7 @@ var _ = Describe("Go Types Plugin", func() {
 					tags string[]
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+				table, diag := Analyze(ctx, source, "ranger", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -190,7 +190,7 @@ var _ = Describe("Go Types Plugin", func() {
 					my_long_field_name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+					table, diag := Analyze(ctx, source, "ranger", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -218,7 +218,7 @@ var _ = Describe("Go Types Plugin", func() {
 					CPU_ID uint32
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"compiler",
@@ -303,7 +303,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -330,7 +330,7 @@ var _ = Describe("Go Types Plugin", func() {
 						name string
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -356,7 +356,7 @@ var _ = Describe("Go Types Plugin", func() {
 					key uuid
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -387,7 +387,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -409,7 +409,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Empty struct {
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "empty", loader)
+				table, diag := Analyze(ctx, source, "empty", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -435,7 +435,7 @@ var _ = Describe("Go Types Plugin", func() {
 					count int32
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "simple", loader)
+					table, diag := Analyze(ctx, source, "simple", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -469,7 +469,7 @@ var _ = Describe("Go Types Plugin", func() {
 					first_name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -510,7 +510,7 @@ var _ = Describe("Go Types Plugin", func() {
 					message string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -546,7 +546,7 @@ var _ = Describe("Go Types Plugin", func() {
 					rtd_type RTDType
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+					table, diag := Analyze(ctx, source, "ni", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -582,7 +582,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"priority",
@@ -618,7 +618,7 @@ var _ = Describe("Go Types Plugin", func() {
 					@doc value "indicates a compass direction."
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "direction", loader)
+				table, diag := Analyze(ctx, source, "direction", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -646,7 +646,7 @@ var _ = Describe("Go Types Plugin", func() {
 						error = "error"
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					resp := MustSucceed(
@@ -680,7 +680,7 @@ var _ = Describe("Go Types Plugin", func() {
 						high = 2
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"priority",
@@ -718,7 +718,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 					AxisKey enum extends XAxisKey, YAxisKey {}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"lineplot",
@@ -751,7 +751,7 @@ var _ = Describe("Go Types Plugin", func() {
 					counts map<string, int32>
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -778,7 +778,7 @@ var _ = Describe("Go Types Plugin", func() {
 					label string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -809,7 +809,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -842,7 +842,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -916,7 +916,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 			DescribeTable(
 				"Should reject a type that ToAny cannot convert",
 				func(ctx SpecContext, source, msg string) {
-					table, diag := analyzer.AnalyzeSource(ctx, source, "box", loader)
+					table, diag := Analyze(ctx, source, "box", loader)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 					req := &plugin.Request{Resolutions: table}
 					Expect(goPlugin.Generate(req)).Error().To(MatchError(
@@ -1023,7 +1023,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				Alias = Original
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "alias", loader)
+				table, diag := Analyze(ctx, source, "alias", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1043,7 +1043,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				Stratum = string[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+				table, diag := Analyze(ctx, source, "ir", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1068,7 +1068,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					@doc value "is a numeric value representing control authority."
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"control",
@@ -1098,7 +1098,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					@doc value "is the unique identifier for the label."
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "label", loader)
+				table, diag := Analyze(ctx, source, "label", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1133,7 +1133,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					address Address
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1172,7 +1172,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					status status.Status
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+					table, diag := Analyze(ctx, source, "task", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1224,7 +1224,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					variant status.Variant
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+					table, diag := Analyze(ctx, source, "task", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1266,7 +1266,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1305,7 +1305,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1541,7 +1541,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "child", loader)
+					table, diag := Analyze(ctx, source, "child", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1587,7 +1587,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					timestamp int64
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1619,7 +1619,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					timestamp int64
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1657,7 +1657,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					c bool
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"entities",
@@ -1700,7 +1700,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					c bool
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"entities",
@@ -1745,7 +1745,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					ripe bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+				table, diag := Analyze(ctx, source, "animals", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1772,7 +1772,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					mango bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+				table, diag := Analyze(ctx, source, "order", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1804,7 +1804,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					age int32?
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1840,7 +1840,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					counts int32[]?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1868,7 +1868,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					settings map<string, string>?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1895,7 +1895,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					blob bytes
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+					table, diag := Analyze(ctx, source, "config", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1941,7 +1941,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						targetKey string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"compiler",
@@ -1989,7 +1989,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						axis_3_label string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"lineplot",
@@ -2033,7 +2033,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						details Details
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+					table, diag := Analyze(ctx, source, "rack", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2063,7 +2063,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						name string
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+				table, diag := Analyze(ctx, source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2104,7 +2104,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						name string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "module", loader)
+					table, diag := Analyze(ctx, source, "module", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2149,7 +2149,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						metadata string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+					table, diag := Analyze(ctx, source, "ir", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2254,7 +2254,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						@go imports "github.com/synnaxlabs/synnax/arc/go/types"
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+					table, diag := Analyze(ctx, source, "ir", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{

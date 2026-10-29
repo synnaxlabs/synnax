@@ -41,7 +41,7 @@ const createRange = async (): Promise<ranger.Range> => await createTestRange(cli
 const buttonWithIcon = (label: string): HTMLElement => {
   const button = screen
     .getAllByRole("button")
-    .find((b) => b.querySelector(`svg.pluto-icon--${label}`));
+    .find((b) => b.querySelector(`svg.lyra-icon--${label}`));
   if (button == null) throw new Error(`button with icon ${label} not found`);
   return button;
 };
@@ -203,7 +203,7 @@ describe("Range.Details", () => {
       await renderDetails(range.key, viewer);
       await waitFor(() => {
         const name = screen.getByText(range.name);
-        expect(name.closest(".pluto-btn--preview")).not.toBeNull();
+        expect(name.closest(".lyra-btn--preview")).not.toBeNull();
       });
       expect(screen.queryByDisplayValue(range.name)).toBeNull();
     });

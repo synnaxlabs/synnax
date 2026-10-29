@@ -18,11 +18,13 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/legacy/v2"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // nonZeroV1 builds a v1.Data with every model field populated so passthrough
 // regressions in v2.Migrate surface.
 func nonZeroV1() v1.Data {
+	GinkgoHelper()
 	label := "pressure"
 	return v1.Data{
 		Version: v1.Version,
@@ -102,7 +104,7 @@ func nonZeroV1() v1.Data {
 			{
 				Key:            "y1-rng1-ch10",
 				Label:          &label,
-				Color:          color.MustFromHex("#ff0000"),
+				Color:          MustSucceed(color.FromHex("#ff0000")),
 				StrokeWidth:    2,
 				Downsample:     1,
 				DownsampleMode: "decimate",
@@ -112,7 +114,7 @@ func nonZeroV1() v1.Data {
 			{
 				Key:       "r1",
 				Label:     "max",
-				Color:     color.MustFromHex("#0000ff"),
+				Color:     MustSucceed(color.FromHex("#0000ff")),
 				Axis:      "y1",
 				LineWidth: 1,
 				LineDash:  0,

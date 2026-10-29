@@ -54,7 +54,7 @@ const clickWhenEnabled = async (text: string): Promise<void> => {
 describe("Range.useCreateModal", () => {
   it("should disable Save to Core when there is no connected client", async () => {
     await openModal();
-    expect(findButton("Save to Core").className).toContain("pluto--disabled");
+    expect(findButton("Save to Core").className).toContain("lyra--disabled");
   });
 
   it("should prefill the form from the initial params", async () => {

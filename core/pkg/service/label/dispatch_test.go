@@ -47,7 +47,7 @@ var _ = Describe("Dispatch", func() {
 			Ontology: otg,
 			Group:    g,
 		}))
-		nominal = label.Label{Name: "Nominal", Color: color.MustFromHex("#00ff00")}
+		nominal = label.Label{Name: "Nominal", Color: MustSucceed(color.FromHex("#00ff00"))}
 		Expect(svc.NewWriter(nil).Create(ctx, &nominal)).To(Succeed())
 	})
 	record := func() *Recorder[label.Key, label.Action] {
@@ -76,7 +76,7 @@ var _ = Describe("Dispatch", func() {
 		Expect(retrieve(ctx)).To(Equal(label.Label{
 			Key:   nominal.Key,
 			Name:  "Anomaly",
-			Color: color.MustFromHex("#ff0000"),
+			Color: MustSucceed(color.FromHex("#ff0000")),
 		}))
 	})
 
@@ -130,7 +130,7 @@ var _ = Describe("Dispatch", func() {
 			ctx SpecContext,
 		) {
 			rec := record()
-			l := label.Label{Name: "Anomaly", Color: color.MustFromHex("#ff0000")}
+			l := label.Label{Name: "Anomaly", Color: MustSucceed(color.FromHex("#ff0000"))}
 			tx := DeferClose(db.OpenTx())
 			w := svc.NewWriter(tx).WithDispatchKey("dk-create")
 			Expect(w.Create(ctx, &l)).To(Succeed())

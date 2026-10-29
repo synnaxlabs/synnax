@@ -980,7 +980,7 @@ var _ = Describe("Path actions", func() {
 				state,
 				set([]string{"configs", "n1", "stroke_color"}, "#ff0000"),
 			))
-			Expect(tank(next).StrokeColor).To(Equal(new(color.MustFromHex("#ff0000"))))
+			Expect(tank(next).StrokeColor).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
 		})
 
 		It("Should do nothing when the variant guard fails", func() {

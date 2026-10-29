@@ -450,6 +450,53 @@ describe("Form", () => {
     });
   });
 
+  describe("useStatuses", () => {
+    const renderStatuses = (path: string) =>
+      renderHook(() => ({ ctx: Form.useContext(), statuses: Form.useStatuses(path) }), {
+        wrapper,
+      });
+
+    it("should read the statuses at and under the path", () => {
+      const { result } = renderStatuses("nested");
+      act(() => {
+        result.current.ctx.setStatus("nested.ssn", {
+          variant: "error",
+          message: "SSN is taken",
+        });
+        result.current.ctx.setStatus("name", { variant: "error", message: "Taken" });
+      });
+      expect(result.current.statuses).toEqual([
+        { key: "nested.ssn", variant: "error", message: "SSN is taken" },
+      ]);
+    });
+
+    it("should leave out success statuses", () => {
+      const { result } = renderHook(
+        () => {
+          Form.useFieldState("nested.ssn");
+          return Form.useStatuses("nested");
+        },
+        { wrapper },
+      );
+      expect(result.current).toEqual([]);
+    });
+
+    it("should keep its result when a status outside the path changes", () => {
+      const { result } = renderStatuses("nested");
+      act(() =>
+        result.current.ctx.setStatus("nested.ssn", {
+          variant: "error",
+          message: "Bad",
+        }),
+      );
+      const before = result.current.statuses;
+      act(() =>
+        result.current.ctx.setStatus("name", { variant: "error", message: "" }),
+      );
+      expect(result.current.statuses).toBe(before);
+    });
+  });
+
   describe("Field", () => {
     it("should render its value on the server", () => {
       const html = renderToString(

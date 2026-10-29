@@ -24,6 +24,7 @@ import { Task } from "@/platform/task";
 import {
   awaitCommand,
   clickDeploy,
+  commitFieldInput,
   renderTaskFormHook,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -111,7 +112,7 @@ describe("wrapForm", () => {
     // grants resolve; until then the form renders in preview mode.
     await waitFor(findNameInput);
     await waitFor(() =>
-      expect(container.querySelector(".pluto-icon--play")).toBeTruthy(),
+      expect(container.querySelector(".lyra-icon--play")).toBeTruthy(),
     );
   });
 
@@ -124,7 +125,7 @@ describe("wrapForm", () => {
       taskKey: tsk.key,
     });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
-    expect(container.querySelector(".pluto-icon--play")).toBeNull();
+    expect(container.querySelector(".lyra-icon--play")).toBeNull();
   });
 
   it("should keep the controls on the driver status through an edit", async () => {
@@ -133,8 +134,7 @@ describe("wrapForm", () => {
     const Renderer = createRenderer();
     await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
     const input = await waitFor(findNameInput);
-    fireEvent.change(input, { target: { value: "Renamed Test Task" } });
-    fireEvent.blur(input);
+    await act(async () => commitFieldInput(input, "Renamed Test Task"));
     await waitFor(async () => {
       const updated = await client.tasks.retrieve({ key: tsk.key });
       expect(updated.name).toBe("Renamed Test Task");
@@ -252,11 +252,11 @@ describe("wrapForm", () => {
         client,
         taskKey: draft.key,
       });
-      fireEvent.click(screen.getByText("invalid"));
+      await act(async () => fireEvent.click(screen.getByText("invalid")));
       await clickDeploy(container);
       await act(async () => {});
       expect(onConfigure).not.toHaveBeenCalled();
-      fireEvent.click(screen.getByText("valid"));
+      await act(async () => fireEvent.click(screen.getByText("valid")));
       await clickDeploy(container);
       await waitFor(() => expect(onConfigure).toHaveBeenCalledOnce());
       expect(onConfigure.mock.calls[0][1]).toMatchObject({ device: "valid" });
@@ -280,8 +280,7 @@ describe("wrapForm", () => {
         expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
       );
       const input = findNameInput();
-      fireEvent.change(input, { target: { value: "Renamed Test Task" } });
-      fireEvent.blur(input);
+      await act(async () => commitFieldInput(input, "Renamed Test Task"));
       await waitFor(async () => {
         const updated = await client.tasks.retrieve({ key: draft.key });
         expect(updated.name).toBe("Renamed Test Task");

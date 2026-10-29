@@ -672,7 +672,7 @@ var _ = Describe("Path actions", func() {
 		It("Should remove a field from a cell config", func() {
 			state := create2x2()
 			text := asText(textCfg(""))
-			text.FillColor = new(color.MustFromHex("#ff0000"))
+			text.FillColor = new(MustSucceed(color.FromHex("#ff0000")))
 			state.Cells["a"] = table.CellConfig{Variant: text}
 			next := MustSucceed(table.Reduce(state, table.NewRemoveAction(
 				table.RemovePayload{Path: []string{"cells", "a"}, Key: "fill_color"},

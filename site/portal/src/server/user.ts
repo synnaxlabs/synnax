@@ -16,13 +16,20 @@ import {
   lt,
   max,
   min,
+  notInArray,
   type SQL,
   sql,
 } from "drizzle-orm";
 
 import { type Reader, type Store, type Tx } from "@/server/db/db";
-import { event, invitation, type Organization, organization } from "@/server/db/schema";
-import { type Account, type Directory } from "@/server/directory";
+import {
+  event,
+  invitation,
+  type Organization,
+  organization,
+  referral,
+} from "@/server/db/schema";
+import { type Account, type Directory, isInternal } from "@/server/directory";
 import { notFound } from "@/server/errors";
 import { type Machine, machinesFor } from "@/server/license/desktop";
 import { mirrorTeams, purge } from "@/server/organization";
@@ -44,7 +51,7 @@ const desktopEvents = (...where: (SQL | undefined)[]): SQL | undefined =>
  * usageOf reads the Desktop usage of every user, or of `userIDs`, at `now`. A user
  * with no usage is left out.
  */
-const usageOf = async (
+export const usageOf = async (
   db: Reader,
   now: Date,
   userIDs?: string[],
@@ -142,18 +149,20 @@ export const retrieve = async (
   };
 };
 
-const purgePersonal = async (tx: Tx, userID: string): Promise<void> => {
+/** purgeRecords deletes a user's personal organization and claimed referral. */
+const purgeRecords = async (tx: Tx, userID: string): Promise<void> => {
   const [personal] = await tx
     .select()
     .from(organization)
     .where(eq(organization.ownerUserID, userID));
   if (personal != null) await purge(tx, personal);
+  await tx.delete(referral).where(eq(referral.userID, userID));
 };
 
 /**
  * remove deletes a user from Clerk, which takes them off their teams, and deletes their
- * personal organization and the invitations sent to their addresses. Their events on a
- * team stay. Nothing is deleted when Clerk fails.
+ * personal organization, the referral they claimed, and the invitations sent to their
+ * addresses. Their events on a team stay. Nothing is deleted when Clerk fails.
  */
 export const remove = async (
   store: Store,
@@ -162,7 +171,7 @@ export const remove = async (
 ): Promise<void> => {
   const addresses = await directory.addresses(userID);
   await store.transact(async (tx) => {
-    await purgePersonal(tx, userID);
+    await purgeRecords(tx, userID);
     await tx.delete(invitation).where(inArray(invitation.email, addresses));
     await directory.deleteAccount(userID);
   });
@@ -170,11 +179,11 @@ export const remove = async (
 
 /**
  * forget deletes the personal organization of a user Clerk deleted, with its Desktop
- * licenses, machines, and history. It also deletes what a request in flight wrote after
- * {@link remove}.
+ * licenses, machines, and history, and the referral they claimed. It also deletes what
+ * a request in flight wrote after {@link remove}.
  */
 export const forget = async (store: Store, userID: string): Promise<void> =>
-  await store.transact(async (tx) => await purgePersonal(tx, userID));
+  await store.transact(async (tx) => await purgeRecords(tx, userID));
 
 export interface ArrivalArgs {
   userID: string;
@@ -224,7 +233,10 @@ export interface Summary {
   firstLogins: number;
 }
 
-/** summarize counts the use of the UTC day that holds `day`. */
+/**
+ * summarize counts the use of the UTC day that holds `day`, leaving out Synnax Labs
+ * users.
+ */
 export const summarize = async (
   store: Store,
   directory: Directory,
@@ -232,15 +244,22 @@ export const summarize = async (
 ): Promise<Summary> => {
   const start = dayOf(day);
   const end = new Date(start.getTime() + DAY_MS);
+  const accounts = await directory.users();
+  const external = notInArray(
+    organization.ownerUserID,
+    accounts.filter((a) => isInternal(a.email)).map((a) => a.userID),
+  );
   const activeIn = async (period: Period): Promise<number> => {
     const [row] = await store.query
       .select({ n: countDistinct(organization.ownerUserID) })
       .from(event)
       .innerJoin(organization, eq(event.organization, organization.key))
-      .where(desktopEvents(gte(event.at, since(period, start)), lt(event.at, end)));
+      .where(
+        desktopEvents(external, gte(event.at, since(period, start)), lt(event.at, end)),
+      );
     return row.n;
   };
-  const [daily, weekly, monthly, firsts, accounts] = await Promise.all([
+  const [daily, weekly, monthly, firsts] = await Promise.all([
     activeIn("day"),
     activeIn("week"),
     activeIn("month"),
@@ -248,15 +267,16 @@ export const summarize = async (
       .select({ userID: organization.ownerUserID })
       .from(event)
       .innerJoin(organization, eq(event.organization, organization.key))
-      .where(and(eq(organization.kind, "personal"), eq(event.kind, "link")))
+      .where(and(eq(organization.kind, "personal"), eq(event.kind, "link"), external))
       .groupBy(organization.ownerUserID)
       .having(and(gte(min(event.at), start), lt(min(event.at), end))),
-    directory.users(),
   ]);
   return {
     day: start,
     active: { day: daily, week: weekly, month: monthly },
-    accounts: accounts.filter((a) => a.joinedAt >= start && a.joinedAt < end).length,
+    accounts: accounts.filter(
+      (a) => !isInternal(a.email) && a.joinedAt >= start && a.joinedAt < end,
+    ).length,
     firstLogins: firsts.length,
   };
 };

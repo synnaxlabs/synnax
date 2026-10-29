@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
@@ -562,7 +563,7 @@ var _ = Describe("Writer", func() {
 					).To(Succeed())
 					keep := lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
 						Key:   "y1---x1---r1---10---5",
-						Color: new(color.MustFromHex("#ff0000")),
+						Color: new(MustSucceed(color.FromHex("#ff0000"))),
 					})
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{keep}),
@@ -589,7 +590,7 @@ var _ = Describe("Writer", func() {
 					Expect(res.Lines).To(HaveLen(1))
 					Expect(
 						res.Lines[0].Color,
-					).To(Equal(new(color.MustFromHex("#ff0000"))))
+					).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
 				},
 			)
 
@@ -955,7 +956,7 @@ var _ = Describe("Writer", func() {
 							lineplot.NewSetLineColorAction(
 								lineplot.SetLineColorPayload{
 									Key:   key,
-									Color: new(color.MustFromHex("#ff0000")),
+									Color: new(MustSucceed(color.FromHex("#ff0000"))),
 								},
 							),
 							lineplot.NewSetLineAggregationAction(
@@ -986,7 +987,7 @@ var _ = Describe("Writer", func() {
 					Expect(res.Lines[0].Detail).To(Equal(lineplot.DetailLow))
 					Expect(
 						res.Lines[0].Color,
-					).To(Equal(new(color.MustFromHex("#ff0000"))))
+					).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
 
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d2", []lineplot.Action{
@@ -1041,7 +1042,7 @@ var _ = Describe("Writer", func() {
 									Aggregation: lineplot.AggregationAverage,
 									Detail:      lineplot.DetailHigh,
 									Color: new(
-										color.MustFromHex("#0000ff"),
+										MustSucceed(color.FromHex("#0000ff")),
 									),
 								}},
 							),
@@ -1062,7 +1063,7 @@ var _ = Describe("Writer", func() {
 					Expect(res.Lines[0].Detail).To(Equal(lineplot.DetailHigh))
 					Expect(
 						res.Lines[0].Color,
-					).To(Equal(new(color.MustFromHex("#0000ff"))))
+					).To(Equal(new(MustSucceed(color.FromHex("#0000ff")))))
 				},
 			)
 
@@ -1072,7 +1073,7 @@ var _ = Describe("Writer", func() {
 				rule := lineplot.Rule{
 					Key:       "r1",
 					Label:     "ceiling",
-					Color:     new(color.MustFromHex("#888888")),
+					Color:     new(MustSucceed(color.FromHex("#888888"))),
 					Axis:      lineplot.AxisKeyY1,
 					LineWidth: 1,
 					LineDash:  4,

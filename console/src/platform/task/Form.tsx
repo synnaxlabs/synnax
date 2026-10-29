@@ -156,7 +156,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             result.error.issues.forEach((issue) => {
               const variant = issueVariant(issue);
               if (variant !== "warning") blocked = true;
-              const path = ["config", ...issue.path].join(".");
+              // Fields address array items by their key, not by their index.
+              const path = deep.resolvePath(
+                ["config", ...issue.path].join("."),
+                form.value(),
+              );
               form.setStatus(path, { key: path, variant, message: issue.message });
             });
             if (blocked) return;

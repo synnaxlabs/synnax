@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -56,7 +57,7 @@ var _ = Describe("Dispatch", func() {
 		res := retrieve(ctx, hotFire.Key)
 		Expect(res.Name).To(Equal("Cold flow"))
 		Expect(res.TimeRange).To(Equal(telem.NewRangeSeconds(1, 9)))
-		Expect(res.Color).To(Equal(new(color.MustFromHex("#ff0000"))))
+		Expect(res.Color).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
 	})
 
 	It("Should broadcast the actions with the dispatch key", func(ctx SpecContext) {

@@ -747,7 +747,7 @@ var _ = Describe("Task", Ordered, func() {
 			other := &rack.Rack{Name: "Other Rack"}
 			Expect(rackService.NewWriter(db).Create(ctx, other)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(rackService.NewWriter(db).Delete(ctx, other.Key)).To(Succeed())
+				Expect(rackService.NewWriter(db).DeleteGuard(ctx, other.Key, nil)).To(Succeed())
 			})
 			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"rack"}, other.Key),

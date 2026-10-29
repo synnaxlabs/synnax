@@ -1425,18 +1425,28 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$s.Receiver}}.{{.GoName}})
 {{- end}}
 {{- range $s.ConstraintChecks}}
+{{- $val := printf "%s.%s" $s.Receiver .GoName}}
+{{- if .Deref}}
+{{- $val = printf "*%s" $val}}
+{{- end}}
+{{- if .Opens}}
+	if {{$s.Receiver}}.{{.GoName}} != nil {
+{{- end}}
 {{- if eq .Kind "non_empty_string"}}
-	v.NotEmptyString("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+	v.NotEmptyString("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "non_zero"}}
-	v.NonZero("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}})
+	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+	v.Ternaryf("{{.FieldName}}", len({{$val}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
 {{- else if eq .Kind "max_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$s.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+	v.Ternaryf("{{.FieldName}}", len({{$val}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
 {{- else if eq .Kind "ge"}}
-	v.GreaterThanEq("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
-	v.LessThanEq("{{.FieldName}}", {{$s.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- end}}
+{{- if .Closes}}
+	}
 {{- end}}
 {{- end}}
 {{- range $s.ValidateRecurse}}
@@ -1565,18 +1575,28 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.Ternaryf("{{.FieldName}}", !{{$vt.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$vt.Receiver}}.{{.GoName}})
 {{- end}}
 {{- range $vt.ConstraintChecks}}
+{{- $val := printf "%s.%s" $vt.Receiver .GoName}}
+{{- if .Deref}}
+{{- $val = printf "*%s" $val}}
+{{- end}}
+{{- if .Opens}}
+	if {{$vt.Receiver}}.{{.GoName}} != nil {
+{{- end}}
 {{- if eq .Kind "non_empty_string"}}
-	v.NotEmptyString("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+	v.NotEmptyString("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "non_zero"}}
-	v.NonZero("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}})
+	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
+	v.Ternaryf("{{.FieldName}}", len({{$val}}) < {{.Arg}}, "must be at least {{.Arg}} characters long")
 {{- else if eq .Kind "max_len"}}
-	v.Ternaryf("{{.FieldName}}", len({{$vt.Receiver}}.{{.GoName}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
+	v.Ternaryf("{{.FieldName}}", len({{$val}}) > {{.Arg}}, "must be at most {{.Arg}} characters long")
 {{- else if eq .Kind "ge"}}
-	v.GreaterThanEq("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "le"}}
-	v.LessThanEq("{{.FieldName}}", {{$vt.Receiver}}.{{.GoName}}, {{.Arg}})
+	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- end}}
+{{- if .Closes}}
+	}
 {{- end}}
 {{- end}}
 {{- range $vt.ValidateRecurse}}

@@ -69,7 +69,7 @@ var _ = Describe("Actions", func() {
 		})
 		It("Should set a color the range does not have", func() {
 			res := MustSucceed(ranger.Reduce(base, set([]string{"color"}, "#ff0000")))
-			Expect(res.Color).To(Equal(new(color.MustFromHex("#ff0000"))))
+			Expect(res.Color).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
 		})
 		It("Should keep the key, labels, and parent", func() {
 			base.Labels = []label.Label{{Key: uuid.New(), Name: "Nominal"}}
@@ -100,7 +100,7 @@ var _ = Describe("Actions", func() {
 
 	Describe("RemovePayload", func() {
 		It("Should remove the color", func() {
-			base.Color = new(color.MustFromHex("#00ff00"))
+			base.Color = new(MustSucceed(color.FromHex("#00ff00")))
 			res := MustSucceed(ranger.Reduce(
 				base,
 				ranger.NewRemoveAction(ranger.RemovePayload{Key: "color"}),

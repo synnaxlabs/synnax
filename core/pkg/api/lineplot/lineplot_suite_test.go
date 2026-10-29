@@ -56,7 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func newCreator(ctx SpecContext) user.User {
 	GinkgoHelper()
 	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
-		Username: "user-" + uuid.New().String(),
+		Name: "user-" + uuid.New().String(),
 	}))
 	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
 	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
