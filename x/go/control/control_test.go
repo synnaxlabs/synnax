@@ -127,38 +127,6 @@ var _ = Describe("State", func() {
 			})
 		})
 
-		Describe("IsTransfer", func() {
-			It("Should return false when from is not nil and to is nil", func() {
-				Expect(
-					control.Transfer[string]{From: &state1, To: nil}.IsTransfer(),
-				).To(BeFalse())
-			})
-
-			It("Should return false when both from and to is nil and is nil", func() {
-				Expect(
-					control.Transfer[string]{From: nil, To: nil}.IsTransfer(),
-				).To(BeFalse())
-			})
-
-			It("Should return false when from is nil and to is not nil", func() {
-				Expect(
-					control.Transfer[string]{From: nil, To: &state2}.IsTransfer(),
-				).To(BeFalse())
-			})
-
-			It("Should return true when both from and to are not nil", func() {
-				Expect(
-					control.Transfer[string]{From: &state1, To: &state2}.IsTransfer(),
-				).To(BeTrue())
-			})
-
-			It("Should return false when both from and to are the same", func() {
-				Expect(
-					control.Transfer[string]{From: &state2, To: &state2}.IsTransfer(),
-				).To(BeFalse())
-			})
-		})
-
 		Describe("Occurred", func() {
 			It("Should return false when both to and from are nil", func() {
 				Expect(

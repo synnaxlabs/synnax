@@ -56,7 +56,7 @@ const selectChannel = async (name: string): Promise<void> => {
 
 const goToConfirmStep = async (): Promise<void> => {
   const next = findButton("Next");
-  expect(next.className).not.toContain("pluto--disabled");
+  expect(next.className).not.toContain("lyra--disabled");
   await act(async () => {
     fireEvent.click(next);
   });
@@ -68,7 +68,7 @@ describe("DeleteModal", () => {
     it("should disable the Next button while no channels are selected", async () => {
       await openModal();
       await waitFor(() =>
-        expect(findButton("Next").className).toContain("pluto--disabled"),
+        expect(findButton("Next").className).toContain("lyra--disabled"),
       );
     });
 
@@ -143,7 +143,7 @@ describe("DeleteModal", () => {
       });
       await screen.findByText("Delete data");
       expect(screen.getByText(data.name)).toBeTruthy();
-      expect(findButton("Next").className).not.toContain("pluto--disabled");
+      expect(findButton("Next").className).not.toContain("lyra--disabled");
 
       const after = await client.read(TimeRange.MAX, data.key);
       expect(after.data.length).toEqual(SAMPLES.length);

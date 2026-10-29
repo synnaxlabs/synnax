@@ -37,7 +37,7 @@ export const INTEGRATIONS = ["opc", "modbus", "http"];
 
 /** switchField returns the switch with the given label. */
 const switchField = (modal: Locator, label: string): Locator =>
-  fieldItem(modal, label).locator(".pluto-input__switch").first();
+  fieldItem(modal, label).locator(".lyra-input__switch").first();
 
 export const MODBUS: Server = {
   server: { protocol: "modbus", port: 5020 },

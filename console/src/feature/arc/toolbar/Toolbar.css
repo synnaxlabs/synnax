@@ -10,7 +10,7 @@
  */
 
 .console-arc-toolbar {
-    .pluto-list__item {
+    .lyra-list__item {
         .console-arc__metadata {
             flex-shrink: 1;
             text-overflow: ellipsis;

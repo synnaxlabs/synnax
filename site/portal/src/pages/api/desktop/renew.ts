@@ -11,6 +11,7 @@ import { type APIRoute } from "astro";
 
 import { preflight, readSecret, withCORS } from "@/bearer";
 import { handle } from "@/respond";
+import { isInternal } from "@/server/directory";
 import { renew, resolve } from "@/server/license/desktop";
 import { check } from "@/server/ratelimit";
 import { active, announce } from "@/server/slack";
@@ -20,8 +21,8 @@ export const OPTIONS = preflight;
 
 /**
  * POST renews the desktop license of the machine whose renewal secret is the bearer
- * token, and answers `{ key }`. No portal session is involved. The user's first Desktop
- * use of a day is posted to Slack.
+ * token, and answers `{ key }`. No portal session is involved. The first Desktop use of
+ * a day is posted to Slack, unless the user is from Synnax Labs.
  */
 export const POST: APIRoute = async (context) =>
   withCORS(
@@ -45,7 +46,9 @@ export const POST: APIRoute = async (context) =>
           previous,
           now,
         });
-        return arrived == null ? null : active(arrived);
+        return arrived == null || isInternal(arrived.account.email)
+          ? null
+          : active(arrived);
       });
       return Response.json({ key });
     }),

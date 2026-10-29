@@ -12,13 +12,12 @@
     "preview": "astro preview",
     "astro": "astro",
     "algolia": "node src/util/algoliasearch.ts",
-    "lint": "eslint",
-    "fix": "eslint --fix",
+    "lint": "eslint && stylelint \"src/**/*.{css,astro}\"",
+    "fix": "eslint --fix && stylelint --fix \"src/**/*.{css,astro}\"",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
     "test": "vitest",
-    "cov": "vitest --coverage",
-    "stylelint": "stylelint \"src/**/*.css\""
+    "cov": "vitest --coverage"
   },
   "dependencies": {
     "@astrojs/markdown-satteri": "catalog:",

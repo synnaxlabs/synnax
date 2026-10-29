@@ -149,16 +149,16 @@ import LazyVideo from "@/components/common/LazyVideo.astro";
         overflow: hidden;
         background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
         box-shadow:
-            0 2px 4px rgba(0, 0, 0, 0.3),
-            0 8px 24px rgba(0, 0, 0, 0.4),
-            0 24px 64px rgba(0, 0, 0, 0.5);
+            0 2px 4px rgb(0 0 0 / 30%),
+            0 8px 24px rgb(0 0 0 / 40%),
+            0 24px 64px rgb(0 0 0 / 50%);
     }
 
     .visualize-lineplot-detail-image-area {
         position: relative;
         background-image:
-            linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            linear-gradient(rgb(255 255 255 / 2%) 1px, transparent 1px),
+            linear-gradient(90deg, rgb(255 255 255 / 2%) 1px, transparent 1px);
         background-size: 5rem 5rem;
     }
 
@@ -178,7 +178,7 @@ import LazyVideo from "@/components/common/LazyVideo.astro";
         margin-bottom: -7%;
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .visualize-lineplot-detail-container {
             display: none;
         }
