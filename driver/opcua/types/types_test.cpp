@@ -496,8 +496,8 @@ TEST(TypesTest, ParseNodeIdWithoutNamespace) {
     EXPECT_TRUE(str.namespace_uri().empty());
 }
 
-/// @brief it should give a namespace URI the server's index for it, and leave a node
-/// ID with an index unchanged.
+/// @brief it should give a namespace URI the server's index for it, and leave a node ID
+/// with an index unchanged.
 TEST(TypesTest, ResolveNodeId) {
     const std::vector<std::string> namespaces = {
         "http://opcfoundation.org/UA/",
@@ -650,8 +650,8 @@ TEST(EventFilterTest, PassesOneEventType) {
     EXPECT_EQ(of_type(where.elements[0]).identifier.numeric, 2782);
 }
 
-/// @brief it should chain an Or for each event type after the first, with operands
-/// that point forward to an OfType for each type.
+/// @brief it should chain an Or for each event type after the first, with operands that
+/// point forward to an OfType for each type.
 TEST(EventFilterTest, ChainsEventTypesWithOr) {
     const EventFilter filter(
         {"Message"},

@@ -144,6 +144,17 @@ describe("CSV", () => {
       );
     });
 
+    it("should leave out method channels", () => {
+      const method = createWriteChannel({
+        nodeId: "ns=2;s=Pump.Start",
+        nodeName: "Start",
+        dataType: "uint8",
+        type: "method",
+        objectId: "ns=2;s=Pump",
+      });
+      expect(CSV.encode([method, ...WRITE_CHANNELS])).toBe(CSV.encode(WRITE_CHANNELS));
+    });
+
     it("should write only the header for an empty channel list", () => {
       expect(CSV.encode([], { indexed: true })).toBe(
         "name,node_id,field,data_type,enabled,index\n",

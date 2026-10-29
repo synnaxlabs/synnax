@@ -21,6 +21,7 @@ import {
   CaptureStatuses,
   createConsoleWrapper,
   getIconButton,
+  getIconButtons,
   uniqueName,
 } from "@/testutil";
 
@@ -180,10 +181,10 @@ const renderBrowser = async () => {
     data: { channels: [TANK, PUMP] },
   });
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<OPCUA.Device.Browser device={dev} />, { wrapper });
+  const { container } = render(<OPCUA.Device.Browser device={dev} />, { wrapper });
   await root.answered;
   await screen.findByText("TankPressure");
-  return { client, scan };
+  return { client, scan, container };
 };
 
 describe("Browser search", () => {
@@ -226,6 +227,26 @@ describe("Browser details", () => {
     expect(screen.getByText("Scalar")).toBeTruthy();
     expect(screen.getByText("2.5")).toBeTruthy();
     expect(screen.getByText("Good")).toBeTruthy();
+  });
+
+  it("should read the node again when Read again is clicked", async () => {
+    const { client, scan, container } = await renderBrowser();
+    const first = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: DETAILS,
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await first.answered;
+    await screen.findByText("2.5");
+    const second = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: { ...DETAILS, value: "3.5" },
+    });
+    const [, readAgain] = getIconButtons(container, "refresh");
+    fireEvent.click(readAgain);
+    await second.answered;
+    await screen.findByText("3.5");
+    expect(screen.queryByText("2.5")).toBeNull();
   });
 
   it("should mark a node whose browse fails and keep the rest of the tree", async () => {

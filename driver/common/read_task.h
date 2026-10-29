@@ -88,9 +88,10 @@ last_stamps(synnax::Synnax &client, const std::vector<synnax::channel::Key> &ind
     auto [iter, err] = client.telem.open_iterator({
         .channels = indexes,
         .bounds = {x::telem::TimeStamp(0), x::telem::TimeStamp::max()},
+        .chunk_size = 1,
     });
     if (err) return {{}, err};
-    // Each channel steps back on its own, so the frame holds the last span of each.
+    // Each channel steps back on its own, so the frame holds the last sample of each.
     auto [found, seek_err] = iter.seek_last();
     if (!seek_err && found)
         std::tie(found, seek_err) = iter.prev(synnax::framer::AUTO_SPAN);

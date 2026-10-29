@@ -79,10 +79,6 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
 
 const isIndexItem = Component.renderProp(IsIndexItem);
 
-const NAN_FILL_INPUT_PROPS = {
-  tooltip: "Write NaN for bad float values instead of skipping the sample",
-} as const;
-
 const HISTORY_BACKFILL_INPUT_PROPS = {
   tooltip:
     "When the task starts, read the history of each node from the last stored value",
@@ -154,11 +150,7 @@ const Properties = (): ReactElement => {
             inputProps={HISTORY_BACKFILL_INPUT_PROPS}
           />
         ) : (
-          <PForm.SwitchField
-            label="NaN fill"
-            path="config.nanFillEnabled"
-            inputProps={NAN_FILL_INPUT_PROPS}
-          />
+          <Task.Fields.NaNFill />
         )}
       </Flex.Box>
     </>

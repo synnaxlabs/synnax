@@ -29,8 +29,8 @@ struct Node {
     std::string name;
     std::string node_id;
     bool is_array;
-    /// @brief the path to a member of the node's structure value, or empty for the
-    /// node itself.
+    /// @brief the path to a member of the node's structure value, or empty for the node
+    /// itself.
     std::string field;
 
     Node(
@@ -69,8 +69,8 @@ struct Node {
 
 class NodeId {
     UA_NodeId id_{};
-    /// @brief the namespace of the node when the node ID names it by URI. The
-    /// namespace index of id_ is then not used.
+    /// @brief the namespace of the node when the node ID names it by URI. The namespace
+    /// index of id_ is then not used.
     std::string namespace_uri_;
 
 public:
@@ -115,8 +115,8 @@ public:
     resolve(const std::vector<std::string> &namespaces) const;
 
     /// @brief parses `nsu=<uri>;<id>`, `ns=<index>;<id>`, or `<id>` in namespace 0,
-    /// where `<id>` is `i=`, `s=`, `g=`, or `b=` with its identifier. Prefixes match
-    /// in any case.
+    /// where `<id>` is `i=`, `s=`, `g=`, or `b=` with its identifier. Prefixes match in
+    /// any case.
     static NodeId parse(const std::string &field_name, x::json::Parser &parser);
     static std::pair<NodeId, x::errors::Error> parse(const std::string &node_id_str);
     /// @returns the node ID as `NS=<index>;<id>`.
@@ -326,8 +326,8 @@ public:
         return *this;
     }
 
-    /// @brief adds the last sample of series, converted to target, the data type of
-    /// the node. A null target converts to the type that matches the series.
+    /// @brief adds the last sample of series, converted to target, the data type of the
+    /// node. A null target converts to the type that matches the series.
     /// @returns x::errors::VALIDATION if the sample does not convert to target.
     x::errors::Error add_value(
         const UA_NodeId &node_id,
@@ -506,8 +506,8 @@ class EventFilter {
 
 public:
     /// @param fields the browse path of each field to select, from the event, such as
-    /// "Message" or "2:Pump/2:Speed". A name with a number and a colon before it is
-    /// in the namespace with that index. Other names are in namespace 0.
+    /// "Message" or "2:Pump/2:Speed". A name with a number and a colon before it is in
+    /// the namespace with that index. Other names are in namespace 0.
     /// @param types the event types to pass, with their subtypes. Empty passes every
     /// event.
     EventFilter(

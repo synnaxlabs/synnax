@@ -18,7 +18,7 @@ export const retrieveScanTask = async (
 ): Promise<task.Task<typeof SCAN_SCHEMAS>> =>
   await client.tasks.retrieve<typeof SCAN_SCHEMAS>({ type: SCAN_TYPE, rack });
 
-export interface ExecuteScanCommandParams {
+interface ExecuteScanCommandParams {
   type: string;
   args: record.Unknown;
   timeout?: TimeSpan;

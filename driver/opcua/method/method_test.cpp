@@ -16,8 +16,8 @@
 #include "driver/opcua/testutil/testutil.h"
 
 namespace driver::opcua::method {
-/// @brief it should read the declared input arguments of each method, none for a
-/// method without the property, and nothing for a method that does not exist.
+/// @brief it should read the declared input arguments of each method, none for a method
+/// without the property, and nothing for a method that does not exist.
 TEST(MethodTest, ReadsInputArguments) {
     auto server_cfg = testutil::ServerConfig::create_default();
     server_cfg.port = 4865;

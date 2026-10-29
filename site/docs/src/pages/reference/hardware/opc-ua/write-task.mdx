@@ -231,12 +231,12 @@ The table shows the Console label of each setting, with its Python field under i
 
 Each argument has these settings:
 
-| Setting                         | Default | Notes                                                                         |
-| ------------------------------- | ------- | ----------------------------------------------------------------------------- |
-| Command <small>`source`</small> | `value` | `command` gives the argument the value of the command.                        |
-| Value <small>`value`</small>    | Empty   | The value of the argument when `source` is `value`, as text.                  |
-| <small>`name`</small>           | Empty   | The name that the method declares. For display only.                          |
-| <small>`data_type`</small>      | Empty   | The Synnax type of the argument. The Console gives it to the command channel. |
+| Setting                         | Default | Notes                                                                                                             |
+| ------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| Command <small>`source`</small> | `value` | `command` gives the argument the value of the command.                                                            |
+| <small>`value`</small>          | Empty   | The value of the argument when `source` is `value`, as text. The Console shows it under the name of the argument. |
+| <small>`name`</small>           | Empty   | The name that the method declares. For display only.                                                              |
+| <small>`data_type`</small>      | Empty   | The Synnax type of the argument. The Console gives it to the command channel.                                     |
 
 ### Data types
 
@@ -307,12 +307,26 @@ Use the data type from the [table](#data-types). For example, a Double node need
 <Problem.Item message={"... returned BadNodeIdUnknown. The node id refers to a node that does not exist in the server address space."}>
 <Problem.Cause>
 
-The server has no node with that ID, or no namespace with that URI.
+The server has no node with that ID.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Drag the node from the **Browser** again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... the server has no namespace ..."}>
+<Problem.Cause>
+
+The server has no namespace with the URI in the node ID of the channel. The server can
+add the namespace later, for example when a PLC loads its program.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that the server loaded its program, or drag the node from the **Browser** again.
 
 </Problem.Fix>
 </Problem.Item>

@@ -365,8 +365,8 @@ protected:
     /// @brief the error of the connection attempt at start, which the first read
     /// returns instead of connecting again.
     x::errors::Error start_err;
-    /// @brief reads the channels on the current connection. It borrows the node IDs
-    /// of cfg.
+    /// @brief reads the channels on the current connection. It borrows the node IDs of
+    /// cfg.
     types::ReadRequestBuilder request_builder;
     /// @brief the place of each channel's result in a response to request_builder, or
     /// nothing when the server lacks the channel's namespace. Channels on the same node
@@ -409,10 +409,10 @@ protected:
         return true;
     }
 
-    /// @brief reads the channels on conn from now on, with the namespace indexes of
-    /// its server.
-    /// @returns the error of reading the structure types, after which the source has
-    /// no connection.
+    /// @brief reads the channels on conn from now on, with the namespace indexes of its
+    /// server.
+    /// @returns the error of reading the structure types, after which the source has no
+    /// connection.
     virtual x::errors::Error use(connection::Pool::Connection conn) {
         this->connection = std::move(conn);
         this->build_request();
@@ -441,8 +441,8 @@ protected:
         }
     }
 
-    /// @brief reads the structure types of the nodes of field channels, so their
-    /// values decode.
+    /// @brief reads the structure types of the nodes of field channels, so their values
+    /// decode.
     /// @returns only an error that loses the connection. When the server refuses the
     /// read for another reason, the fields fail to read.
     x::errors::Error read_types() {
@@ -474,6 +474,17 @@ protected:
         return res.results[pos.value()];
     }
 
+    /// @returns the text of a bad status of channel i, which names the namespace when
+    /// the server lacks it.
+    [[nodiscard]] std::string
+    bad_status(const std::size_t i, const UA_StatusCode status) const {
+        const auto &ch = *this->cfg.channels[i];
+        if (!this->positions[i].has_value())
+            return ch.ch.name + ": the server has no namespace " +
+                   ch.node.namespace_uri() + ".";
+        return errors::channel_status(ch.ch.name, status);
+    }
+
     /// @brief connects with the device's current settings, so a corrected endpoint or
     /// login takes effect without a restart. Keeps the last settings while the Core is
     /// unavailable.
@@ -492,9 +503,9 @@ protected:
     }
 
     /// @brief reads the value of every channel. Connects first when the task has no
-    /// connection, and drops a connection that is lost so the next read connects
-    /// again. When the read fails after the client certificate changed, connects again
-    /// with the new certificate and reads again.
+    /// connection, and drops a connection that is lost so the next read connects again.
+    /// When the read fails after the client certificate changed, connects again with
+    /// the new certificate and reads again.
     std::pair<types::ReadResponse, x::errors::Error> read_values() {
         if (!this->connection) {
             if (this->start_err)
@@ -623,7 +634,7 @@ public:
             x::telem::Series s(ch.ch.data_type, this->cfg.array_size);
             x::errors::Error err;
             if (UA_StatusCode_isBad(result.status))
-                quality.add_bad(errors::channel_status(ch.ch.name, result.status));
+                quality.add_bad(this->bad_status(i, result.status));
             else {
                 if (UA_StatusCode_isUncertain(result.status))
                     quality.add_uncertain(
@@ -693,8 +704,8 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
     /// @brief the stamps of each generated index in the current read.
     std::map<synnax::channel::Key, std::vector<x::telem::TimeStamp>> stamps;
 
-    /// @brief adds the value of each channel at ts, skipping every channel on the
-    /// index of a channel with a bad value.
+    /// @brief adds the value of each channel at ts, skipping every channel on the index
+    /// of a channel with a bad value.
     void
     collect(const UA_ReadResponse &res, const x::telem::TimeStamp ts, Problems &q) {
         std::vector<std::optional<x::telem::SampleValue>> values;
@@ -704,7 +715,7 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
             const auto &ch = *this->cfg.channels[i];
             const auto &result = this->result(res, i);
             if (UA_StatusCode_isBad(result.status)) {
-                q.add_bad(errors::channel_status(ch.ch.name, result.status));
+                q.add_bad(this->bad_status(i, result.status));
                 values.emplace_back(std::nullopt);
             } else {
                 if (UA_StatusCode_isUncertain(result.status))

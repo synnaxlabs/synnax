@@ -64,8 +64,7 @@ struct ScanCommandArgs {
 };
 
 const std::string BROWSE_CMD_TYPE = "browse";
-/// @brief lists the variables under a node at any depth, for adding a folder to a
-/// task.
+/// @brief lists the variables under a node at any depth, for adding a folder to a task.
 const std::string BROWSE_VARIABLES_CMD_TYPE = "browse_variables";
 /// @brief reads the attributes and the value of one node.
 const std::string READ_NODE_CMD_TYPE = "read_node";
@@ -132,8 +131,8 @@ private:
     /// @brief Browse child nodes of a given OPC UA node.
     void browse_nodes(const synnax::task::Command &cmd) const;
 
-    /// @brief replies with the variables under the command's node, each with its
-    /// browse path from below the node, and whether the search stopped at a limit.
+    /// @brief replies with the variables under the command's node, each with its browse
+    /// path from below the node, and whether the search stopped at a limit.
     void browse_variables(const synnax::task::Command &cmd) const;
 
     /// @brief replies with the attributes and the value of the command's node, or of

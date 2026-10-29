@@ -47,7 +47,10 @@ const validateNodeIDs = ({
     issues.push({
       code: "custom",
       path: [i, "nodeId"],
-      message: "This node ID has already been used elsewhere in the configuration",
+      message:
+        "field" in ch && ch.field !== ""
+          ? "This field has already been used elsewhere in the configuration"
+          : "This node ID has already been used elsewhere in the configuration",
       params: { variant: "warning" },
       input: channels,
     });
@@ -212,12 +215,19 @@ const STANDARD_EVENT_KEYS = [
 export const deployEventConfigZ = opcua.eventConfigZ.extend({
   device: Task.deviceKeyZ,
   fields: opcua.eventFieldZ.array().check(({ value: fields, issues }) => {
-    const names = new Set(STANDARD_EVENT_KEYS);
+    const names = new Set<string>();
     fields.forEach(({ name, browsePath }, i) => {
       if (name.length === 0)
         issues.push({
           code: "custom",
           message: "Field must have a name",
+          path: [i, "name"],
+          input: fields,
+        });
+      else if (STANDARD_EVENT_KEYS.includes(name))
+        issues.push({
+          code: "custom",
+          message: "A standard field has this name",
           path: [i, "name"],
           input: fields,
         });
@@ -274,7 +284,7 @@ const inputArgumentZ = z.object({
 });
 
 /** An input argument of a method, as the server declares it. */
-export interface InputArgument extends z.infer<typeof inputArgumentZ> {}
+interface InputArgument extends z.infer<typeof inputArgumentZ> {}
 
 export interface ScannedNode extends z.infer<typeof scannedNodeZ> {
   /** The node ID of the node that the browser found this one under. */
@@ -352,10 +362,10 @@ export interface Endpoint extends z.infer<typeof endpointZ> {}
 
 export const endpointsResponseZ = z.object({ endpoints: z.array(endpointZ) });
 
-// Each command replies with its own shape, and the client drops a reply that fails
-// this schema, so the union must cover every one. The first match wins and drops the
-// keys it does not name, so a reply comes before any reply whose keys it extends. The
-// test connection reply matches any object, so it comes last.
+// Each command replies with its own shape, and the client drops a reply that fails this
+// schema, so the union must cover every one. The first match wins and drops the keys it
+// does not name, so a reply comes before any reply whose keys it extends. The test
+// connection reply matches any object, so it comes last.
 const scanCommandResponseZ = z
   .union([
     browseVariablesResponseZ,

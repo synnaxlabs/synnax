@@ -603,8 +603,8 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     ASSERT_NIL(sink->stop());
 }
 
-/// @brief it should warn about a node that the server rejects and still write the
-/// other nodes in the command.
+/// @brief it should warn about a node that the server rejects and still write the other
+/// nodes in the command.
 TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     const auto bad_cmd = ASSERT_NIL_P(ctx->client->channels.create(
         make_unique_channel_name("bad_node_cmd"),
@@ -720,9 +720,7 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
     ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
     EXPECT_EQ(
         err.data,
-        this->uint32_cmd_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space."
+        this->uint32_cmd_channel.name + ": the server has no namespace urn:missing."
     );
     ASSERT_NIL(sink->stop());
 }
@@ -971,6 +969,41 @@ TEST_F(TestWriteTask, testRejectsFailedMethod) {
         this->double_cmd_channel.name + " returned BadInvalidState. " +
             errors::parse(UA_STATUSCODE_BADINVALIDSTATE).data
     );
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should not call a method again when the call times out, since the server
+/// might have run it.
+TEST_F(TestWriteTask, testDoesNotResendTimedOutCall) {
+    auto timeout_cfg = conn_cfg;
+    timeout_cfg.client_timeout_ms = 500;
+    auto dev = ASSERT_NIL_P(ctx->client->devices.retrieve("abc123"));
+    dev.properties = x::json::json::object(
+        {{"connection", testutil::connection_json(timeout_cfg)}}
+    );
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "command"}}}
+    );
+    ASSERT_NIL(sink->start());
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    server->probe_delay = 2 * x::telem::SECOND;
+    // The server waits for a request before it starts the delay, so send one first.
+    ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    auto fr = this->method_command(42);
+    const auto err = sink->write(fr);
+    server->probe_delay = x::telem::TimeSpan{};
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        this->double_cmd_channel.name +
+            ": lost the connection during the call, so the method might not have run."
+    );
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 42);
+    EXPECT_EQ(server->method_calls, 1);
     ASSERT_NIL(sink->stop());
 }
 

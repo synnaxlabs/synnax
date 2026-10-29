@@ -99,6 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:             versions.WriteConfigLadder,
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
+			ValidateEntry:      (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

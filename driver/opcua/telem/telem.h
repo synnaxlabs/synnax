@@ -18,11 +18,11 @@
 #include "x/cpp/telem/telem.h"
 
 namespace driver::opcua::telem {
-/// @brief converts an OPC UA data type to the Synnax data type that holds its values.
-/// A subtype, such as Duration, converts as its builtin type, and an enumeration as
+/// @brief converts an OPC UA data type to the Synnax data type that holds its values. A
+/// subtype, such as Duration, converts as its builtin type, and an enumeration as
 /// int32.
 /// @returns x::telem::UNKNOWN_T for a type that no Synnax data type holds.
-x::telem::DataType ua_to_data_type(const UA_DataType *dt);
+x::telem::DataType to_data_type(const UA_DataType *dt);
 
 /// @brief converts the DataType attribute of a node to a Synnax data type.
 /// @returns x::telem::UNKNOWN_T for an abstract type, a structure, or a type that the
@@ -44,11 +44,6 @@ x::telem::Series to_series(
     const x::telem::DataType &dt,
     const std::vector<x::telem::SampleValue> &samples
 );
-
-/// @brief writes a scalar variant to a telemetry series.
-/// @return a pair containing the number of samples written and any error.
-std::pair<size_t, x::errors::Error>
-write_to_series(x::telem::Series &s, const UA_Variant &v);
 
 /// @brief converts the last sample of a series to a variant of the builtin type of
 /// target, the data type of the node that the variant goes to. A null target, for a

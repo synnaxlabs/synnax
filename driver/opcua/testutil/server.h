@@ -195,8 +195,8 @@ constexpr UA_UInt32 POINT_ENCODING_ID = 4243;
 constexpr UA_UInt32 MOTOR_TYPE_ID = 4244;
 constexpr UA_UInt32 MOTOR_ENCODING_ID = 4245;
 
-/// @brief the open62541 descriptions of Point and Motor. Motor points at Point, so
-/// the descriptions never move.
+/// @brief the open62541 descriptions of Point and Motor. Motor points at Point, so the
+/// descriptions never move.
 class StructureTypes {
     std::array<UA_DataTypeMember, 2> point_members{};
     std::array<UA_DataTypeMember, 3> motor_members{};
@@ -340,14 +340,16 @@ struct ServerConfig {
     /// @brief the most values that the server returns for a node in one history read
     /// before it returns a continuation point.
     std::size_t max_history_values = 1000;
-    /// @brief the most children that the server returns for a node before it
-    /// returns a continuation point. 0 means no limit.
+    /// @brief the most children that the server returns for a node before it returns a
+    /// continuation point. 0 means no limit.
     std::uint32_t max_references_per_node = 0;
     /// @brief the number of Double variables V0, V1, ... in the NS=1;S=Generated
     /// folder. The folder also holds NS=1;S=Generated.Inner, a folder that holds the
     /// variable Deep and organizes the Generated folder again. The server adds the
-    /// folders only when this is more than 0.
+    /// folders only when this or generated_folders is more than 0.
     std::uint32_t generated_variables = 0;
+    /// @brief the number of empty folders F0, F1, ... in the NS=1;S=Generated folder.
+    std::uint32_t generated_folders = 0;
     /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
     /// server adds the node only when it is set.
     std::optional<Motor> motor;
@@ -577,6 +579,12 @@ public:
     /// @brief whether the server stops answering, as a hung server does. Its
     /// connections stay open.
     std::atomic<bool> frozen{false};
+    /// @brief the secure channels open on the server as of its last iterate.
+    std::atomic<size_t> channels{0};
+    /// @brief the Sessions that the server created since it started.
+    std::atomic<size_t> sessions_created{0};
+    /// @brief the calls of the methods of the Pump object that the server ran.
+    std::atomic<size_t> method_calls{0};
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -654,7 +662,7 @@ public:
         const UA_NodeId *,
         void *,
         const UA_NodeId *method,
-        void *,
+        void *calls,
         const UA_NodeId *,
         void *,
         const size_t input_size,
@@ -662,6 +670,7 @@ public:
         size_t,
         UA_Variant *
     ) {
+        ++*static_cast<std::atomic<size_t> *>(calls);
         if (UA_NodeId_equal(method, &PUMP_FAIL)) return UA_STATUSCODE_BADINVALIDSTATE;
         const auto &speed = input[input_size - 1];
         UA_Server_writeValue(
@@ -679,12 +688,13 @@ public:
     }
 
     /// @brief adds a method named name to the Pump object, with the input arguments
-    /// args.
+    /// args, that counts each call in calls.
     static void add_pump_method(
         UA_Server *server,
         const UA_NodeId &id,
         const char *name,
-        const std::vector<std::pair<const char *, const UA_DataType *>> &args
+        const std::vector<std::pair<const char *, const UA_DataType *>> &args,
+        std::atomic<size_t> &calls
     ) {
         std::vector<UA_Argument> inputs(args.size());
         for (size_t i = 0; i < args.size(); ++i) {
@@ -712,13 +722,13 @@ public:
             inputs.data(),
             0,
             nullptr,
-            nullptr,
+            &calls,
             nullptr
         );
     }
 
     /// @brief adds the object that ServerConfig::pump describes.
-    static void add_pump(UA_Server *server, const Pump &pump) {
+    void add_pump(UA_Server *server, const Pump &pump) {
         UA_ObjectAttributes attr = UA_ObjectAttributes_default;
         attr.displayName = UA_LOCALIZEDTEXT(
             const_cast<char *>("en-US"),
@@ -741,14 +751,16 @@ public:
         add_pump_variable(server, "Mode", &mode, UA_TYPES[UA_TYPES_STRING]);
         const auto *dbl = &UA_TYPES[UA_TYPES_DOUBLE];
         const auto *str = &UA_TYPES[UA_TYPES_STRING];
-        add_pump_method(server, PUMP_SET_SPEED, "SetSpeed", {{"speed", dbl}});
+        auto &calls = this->method_calls;
+        add_pump_method(server, PUMP_SET_SPEED, "SetSpeed", {{"speed", dbl}}, calls);
         add_pump_method(
             server,
             PUMP_CONFIGURE,
             "Configure",
-            {{"mode", str}, {"speed", dbl}}
+            {{"mode", str}, {"speed", dbl}},
+            calls
         );
-        add_pump_method(server, PUMP_FAIL, "Fail", {});
+        add_pump_method(server, PUMP_FAIL, "Fail", {}, calls);
     }
 
     /// @brief adds TEST_EVENT_TYPE.
@@ -877,20 +889,24 @@ public:
         }
     }
 
-    /// @brief adds a folder named name under parent.
-    static void
-    add_folder(UA_Server *server, const char *name, const UA_NodeId &parent) {
+    /// @brief adds a folder with the browse name name under parent.
+    static void add_folder(
+        UA_Server *server,
+        const std::string &id,
+        const std::string &name,
+        const UA_NodeId &parent
+    ) {
         UA_ObjectAttributes attr = UA_ObjectAttributes_default;
         attr.displayName = UA_LOCALIZEDTEXT(
             const_cast<char *>("en-US"),
-            const_cast<char *>(name)
+            const_cast<char *>(name.c_str())
         );
         UA_Server_addObjectNode(
             server,
-            UA_NODEID_STRING(1, const_cast<char *>(name)),
+            UA_NODEID_STRING(1, const_cast<char *>(id.c_str())),
             parent,
             UA_NS0ID(ORGANIZES),
-            UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
+            UA_QUALIFIEDNAME(1, const_cast<char *>(name.c_str())),
             UA_NS0ID(FOLDERTYPE),
             attr,
             nullptr,
@@ -924,31 +940,25 @@ public:
         );
     }
 
-    /// @brief adds the folders that ServerConfig::generated_variables describes.
-    static void add_generated(UA_Server *server, const std::uint32_t count) {
+    /// @brief adds the folders that ServerConfig::generated_variables and
+    /// ServerConfig::generated_folders describe.
+    static void add_generated(
+        UA_Server *server,
+        const std::uint32_t variables,
+        const std::uint32_t folders
+    ) {
         const auto generated = UA_NODEID_STRING(1, const_cast<char *>("Generated"));
         const auto inner = UA_NODEID_STRING(1, const_cast<char *>("Generated.Inner"));
-        add_folder(server, "Generated", UA_NS0ID(OBJECTSFOLDER));
-        for (std::uint32_t i = 0; i < count; ++i) {
+        add_folder(server, "Generated", "Generated", UA_NS0ID(OBJECTSFOLDER));
+        for (std::uint32_t i = 0; i < variables; ++i) {
             const auto name = "V" + std::to_string(i);
             add_double(server, "Generated." + name, name, generated);
         }
-        UA_ObjectAttributes attr = UA_ObjectAttributes_default;
-        attr.displayName = UA_LOCALIZEDTEXT(
-            const_cast<char *>("en-US"),
-            const_cast<char *>("Inner")
-        );
-        UA_Server_addObjectNode(
-            server,
-            inner,
-            generated,
-            UA_NS0ID(ORGANIZES),
-            UA_QUALIFIEDNAME(1, const_cast<char *>("Inner")),
-            UA_NS0ID(FOLDERTYPE),
-            attr,
-            nullptr,
-            nullptr
-        );
+        for (std::uint32_t i = 0; i < folders; ++i) {
+            const auto name = "F" + std::to_string(i);
+            add_folder(server, "Generated." + name, name, generated);
+        }
+        add_folder(server, "Generated.Inner", "Inner", generated);
         add_double(server, "Generated.Inner.Deep", "Deep", inner);
         UA_ExpandedNodeId target = UA_EXPANDEDNODEID_NULL;
         target.nodeId = generated;
@@ -1132,7 +1142,8 @@ public:
             }
         }
 
-        if (cfg.generated_variables > 0) add_generated(server, cfg.generated_variables);
+        if (cfg.generated_variables > 0 || cfg.generated_folders > 0)
+            add_generated(server, cfg.generated_variables, cfg.generated_folders);
         if (cfg.pump.has_value()) add_pump(server, *cfg.pump);
         add_event_type(server);
 
@@ -1158,6 +1169,9 @@ public:
             this->emit_events(server);
             this->apply_changes(server);
             UA_Server_run_iterate(server, true);
+            const auto stats = UA_Server_getStatistics(server);
+            this->channels = stats.scs.currentChannelCount;
+            this->sessions_created = stats.ss.cumulatedSessionCount;
         }
 
         ready = false;

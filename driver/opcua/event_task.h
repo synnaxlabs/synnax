@@ -55,10 +55,13 @@ constexpr std::size_t TIME_FIELD = 3;
 /// @brief how long a read waits for events.
 const auto EVENT_WAIT = 100 * x::telem::MILLISECOND;
 
+/// @brief the configuration of an OPC UA event task.
 struct EventTaskConfig {
     /// @brief the device representing the OPC UA server.
     const std::string device_key;
+    /// @brief whether the task streams events without storing them.
     const bool data_saving_disabled;
+    /// @brief whether the task starts each time the Driver starts.
     const bool auto_start;
     /// @brief the JSON channel that each event writes to, on its index.
     synnax::channel::Channel channel;
@@ -97,14 +100,17 @@ struct EventTaskConfig {
         };
         parse_ids("notifiers", parsed.notifiers, this->notifiers);
         parse_ids("event_types", parsed.event_types, this->event_types);
-        std::set<std::string> names;
+        std::set<std::string> standard;
         for (const auto &[_, key]: STANDARD_EVENT_FIELDS)
-            names.insert(key);
+            standard.insert(key);
+        std::set<std::string> names;
         for (std::size_t i = 0; i < this->fields.size(); ++i) {
             const auto &f = this->fields[i];
             const auto prefix = "fields." + std::to_string(i) + ".";
             if (f.name.empty())
                 parser.field_err(prefix + "name", "Field must have a name");
+            else if (standard.contains(f.name))
+                parser.field_err(prefix + "name", "A standard field has this name");
             else if (!names.insert(f.name).second)
                 parser.field_err(prefix + "name", "Another field has this name");
             const auto &path = f.browse_path;
@@ -170,9 +176,9 @@ struct EventTaskConfig {
 ///
 /// An event writes at its Time, or at the time the Driver received it when it has none.
 /// Each event must write after the last sample on the index. At start, the task asks
-/// the server to send the state of each condition again. A replayed event at or
-/// before the last stored sample was written before, so the task drops it. Another
-/// event at or before the last sample writes 1 ns after it.
+/// the server to send the state of each condition again. A replayed event at or before
+/// the last stored sample was written before, so the task drops it. Another event at or
+/// before the last sample writes 1 ns after it.
 class EventTaskSource final : public common::Source {
     /// @brief an event that the subscription delivered.
     struct Event {
@@ -272,7 +278,8 @@ class EventTaskSource final : public common::Source {
 
     /// @brief asks the server to send the state of each condition again. A server
     /// without conditions refuses, which is normal.
-    void replay() {
+    /// @returns errors::UNREACHABLE when the server did not answer.
+    x::errors::Error replay() {
         this->replay_required = false;
         UA_UInt32 id = this->connection.subscription_id();
         UA_Variant arg;
@@ -284,12 +291,14 @@ class EventTaskSource final : public common::Source {
         req.inputArguments = &arg;
         req.inputArgumentsSize = 1;
         auto [res, err] = this->connection.call(req);
+        if (err.matches(opcua::errors::UNREACHABLE)) return err;
         if (!err) err = opcua::errors::parse(res.get().results[0].statusCode);
         if (err) VLOG(1) << "[opc.event] the server did not replay conditions: " << err;
+        return x::errors::NIL;
     }
 
-    /// @brief subscribes to the events of the notifiers on conn, and reads on conn
-    /// from now on.
+    /// @brief subscribes to the events of the notifiers on conn, and reads on conn from
+    /// now on.
     x::errors::Error subscribe(connection::Pool::Connection conn) {
         this->namespaces = conn.server().namespaces;
         const auto &namespaces = this->namespaces;
@@ -337,7 +346,10 @@ class EventTaskSource final : public common::Source {
                 .description = x::strings::join(problems, " "),
             };
         this->connection = std::move(conn);
-        this->replay();
+        if (const auto err = this->replay()) {
+            this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+            return err;
+        }
         return x::errors::NIL;
     }
 
@@ -443,7 +455,7 @@ public:
             if (res.error = this->connect(); res.error) return res;
         }
         res.error = this->connection.iterate(EVENT_WAIT);
-        if (!res.error && this->replay_required) this->replay();
+        if (!res.error && this->replay_required) res.error = this->replay();
         if (res.error) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
             return res;

@@ -115,10 +115,14 @@ describe("OPC UA Read Task Config Validation", () => {
         { nodeId: "ns=1;s=motor", field: "Speed" },
       ]),
     );
-    expect(result.error?.issues.map(({ path }) => path)).toEqual([
-      ["channels", 0, "nodeId"],
-      ["channels", 1, "nodeId"],
-    ]);
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "nodeId"],
+          message: "This field has already been used elsewhere in the configuration",
+        }),
+      ),
+    );
   });
 
   it("should reject each channel marked as index when there are several", () => {
@@ -306,7 +310,7 @@ describe("OPC UA event task config validation", () => {
         { name: "level", browsePath: "Level" },
       ]),
     ).toEqual([
-      { message: "Another field has this name", path: ["fields", 0, "name"] },
+      { message: "A standard field has this name", path: ["fields", 0, "name"] },
       { message: "Another field has this name", path: ["fields", 2, "name"] },
     ]);
   });
