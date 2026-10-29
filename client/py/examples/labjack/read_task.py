@@ -121,7 +121,8 @@ try:
 
                     sample_count += 1
                     print(
-                        f"{sample_count:<10} {elapsed:<10.1f} {val0:>12.3f} {val1:>12.3f}",
+                        f"{sample_count:<10} {elapsed:<10.1f} {val0:>12.3f} "
+                        f"{val1:>12.3f}",
                         end="\r",
                         flush=True,
                     )

@@ -26,7 +26,7 @@ describe("Input", () => {
       it("should render with medium size by default", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--height-medium");
+        expect(container?.className).toContain("lyra--height-medium");
       });
     });
 
@@ -34,25 +34,25 @@ describe("Input", () => {
       it("should render a small input if the size is small", () => {
         const c = render(<Input.Text size="small" value="" onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--height-small");
+        expect(container?.className).toContain("lyra--height-small");
       });
 
       it("should render a large input if the size is large", () => {
         const c = render(<Input.Text size="large" value="" onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--height-large");
+        expect(container?.className).toContain("lyra--height-large");
       });
 
       it("should render a huge input if the size is huge", () => {
         const c = render(<Input.Text size="huge" value="" onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--height-huge");
+        expect(container?.className).toContain("lyra--height-huge");
       });
 
       it("should render a tiny input if the size is tiny", () => {
         const c = render(<Input.Text size="tiny" value="" onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--height-tiny");
+        expect(container?.className).toContain("lyra--height-tiny");
       });
     });
 
@@ -60,13 +60,13 @@ describe("Input", () => {
       it("should render an outlined input by default", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto-btn--outlined");
+        expect(container?.className).toContain("lyra-btn--outlined");
       });
 
       it("should render a text variant input", () => {
         const c = render(<Input.Text variant="text" value="" onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto-btn--text");
+        expect(container?.className).toContain("lyra-btn--text");
       });
     });
 
@@ -75,7 +75,7 @@ describe("Input", () => {
         const c = render(<Input.Text disabled value="" onChange={vi.fn()} />);
         const input = c.getByRole("textbox");
         const container = input.parentElement;
-        expect(container?.className).toContain("pluto--disabled");
+        expect(container?.className).toContain("lyra--disabled");
         expect((input as HTMLInputElement).disabled).toBe(true);
       });
 
@@ -209,23 +209,39 @@ describe("Input", () => {
       });
     });
 
+    describe("preview", () => {
+      it("should show the value as text", () => {
+        const c = render(<Input.Text value="Hello" onChange={vi.fn()} preview />);
+        expect(c.getByText("Hello")).toBeTruthy();
+        expect(c.queryByRole("textbox")).toBeNull();
+      });
+
+      it("should keep a password hidden", () => {
+        const c = render(
+          <Input.Text value="hunter2" onChange={vi.fn()} preview type="password" />,
+        );
+        expect(c.queryByText("hunter2")).toBeNull();
+        expect(c.getByRole("textbox").getAttribute("type")).toBe("password");
+      });
+    });
+
     describe("status", () => {
       it("should add status class when status is provided", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} status="error" />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--error");
+        expect(container?.className).toContain("lyra--error");
       });
 
       it("should add success status class", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} status="success" />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--success");
+        expect(container?.className).toContain("lyra--success");
       });
 
       it("should add warning status class", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} status="warning" />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--warning");
+        expect(container?.className).toContain("lyra--warning");
       });
     });
 
@@ -245,7 +261,7 @@ describe("Input", () => {
       it("should apply custom outline color", () => {
         const c = render(<Input.Text value="" onChange={vi.fn()} color="#ff0000" />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto-btn--custom-color");
+        expect(container?.className).toContain("lyra-btn--custom-color");
         expect(container?.style.getPropertyValue("--pluto-btn-color")).toBe(
           "255, 0, 0",
         );
@@ -265,12 +281,12 @@ describe("Input", () => {
       it("should render with medium size by default", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--height-medium");
+        expect(container?.className).toContain("lyra--height-medium");
       });
 
       it("should show drag handle by default", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} />);
-        const dragButton = c.container.querySelector(".pluto-icon--drag")!;
+        const dragButton = c.container.querySelector(".lyra-icon--drag")!;
         expect(dragButton).toBeTruthy();
       });
     });
@@ -279,13 +295,13 @@ describe("Input", () => {
       it("should render a small numeric input", () => {
         const c = render(<Input.Numeric size="small" value={0} onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--height-small");
+        expect(container?.className).toContain("lyra--height-small");
       });
 
       it("should render a large numeric input", () => {
         const c = render(<Input.Numeric size="large" value={0} onChange={vi.fn()} />);
         const container = c.getByRole("textbox").parentElement;
-        expect(container?.className).toContain("pluto--height-large");
+        expect(container?.className).toContain("lyra--height-large");
       });
     });
 
@@ -363,7 +379,7 @@ describe("Input", () => {
     describe("disabled", () => {
       it("should still show drag handle when disabled", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} disabled />);
-        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        const dragButton = c.container.querySelector(".lyra-input__drag-btn");
         expect(dragButton).toBeTruthy();
       });
 
@@ -375,7 +391,7 @@ describe("Input", () => {
 
       it("should pass disabled to the drag button", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} disabled />);
-        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        const dragButton = c.container.querySelector(".lyra-input__drag-btn");
         expect(dragButton?.className).toContain("--disabled");
       });
 
@@ -403,7 +419,7 @@ describe("Input", () => {
         );
         const c = render(<Input.Numeric value={5} onChange={onChange} disabled />);
         const dragBtn = c.container.querySelector(
-          ".pluto-input__drag-btn",
+          ".lyra-input__drag-btn",
         ) as HTMLElement;
         expect(dragBtn).toBeTruthy();
         fireEvent.pointerDown(dragBtn, { pointerId: 1, clientX: 0, clientY: 0 });
@@ -418,13 +434,13 @@ describe("Input", () => {
         const c = render(
           <Input.Numeric value={0} onChange={vi.fn()} showDragHandle={false} />,
         );
-        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        const dragButton = c.container.querySelector(".lyra-input__drag-btn");
         expect(dragButton).not.toBeTruthy();
       });
 
       it("should hide drag handle when variant is preview", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} preview />);
-        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        const dragButton = c.container.querySelector(".lyra-input__drag-btn");
         expect(dragButton).not.toBeTruthy();
       });
     });
@@ -525,7 +541,7 @@ describe("Input", () => {
       it("should render with medium size by default", () => {
         const c = render(<Input.Checkbox value={false} onChange={vi.fn()} />);
         const container = c.container.querySelector("label");
-        expect(container?.className).toContain("pluto--height-medium");
+        expect(container?.className).toContain("lyra--height-medium");
       });
     });
 
@@ -535,7 +551,7 @@ describe("Input", () => {
           <Input.Checkbox size="small" value={false} onChange={vi.fn()} />,
         );
         const container = c.container.querySelector("label");
-        expect(container?.className).toContain("pluto--height-small");
+        expect(container?.className).toContain("lyra--height-small");
       });
 
       it("should render a large checkbox", () => {
@@ -543,7 +559,7 @@ describe("Input", () => {
           <Input.Checkbox size="large" value={false} onChange={vi.fn()} />,
         );
         const container = c.container.querySelector("label");
-        expect(container?.className).toContain("pluto--height-large");
+        expect(container?.className).toContain("lyra--height-large");
       });
     });
 
@@ -591,12 +607,12 @@ describe("Input", () => {
       it("should apply checkbox CSS classes", () => {
         const c = render(<Input.Checkbox value={false} onChange={vi.fn()} />);
         const container = c.container.querySelector("label");
-        expect(container?.className).toContain("pluto-input__checkbox");
+        expect(container?.className).toContain("lyra-input__checkbox");
       });
 
       it("should render checkmark element", () => {
         const c = render(<Input.Checkbox value={false} onChange={vi.fn()} />);
-        const checkmark = c.container.querySelector(".pluto-input__checkbox-indicator");
+        const checkmark = c.container.querySelector(".lyra-input__checkbox-indicator");
         expect(checkmark).toBeTruthy();
       });
     });
@@ -613,7 +629,7 @@ describe("Input", () => {
 
       it("should render switch track element", () => {
         const c = render(<Input.Switch value={false} onChange={vi.fn()} />);
-        const track = c.container.querySelector(".pluto-input__switch-indicator");
+        const track = c.container.querySelector(".lyra-input__switch-indicator");
         expect(track).toBeTruthy();
       });
     });
@@ -624,7 +640,7 @@ describe("Input", () => {
           <Input.Switch size="small" value={false} onChange={vi.fn()} />,
         );
         const container = c.container.querySelector("label");
-        expect(container?.className).toContain("pluto--height-small");
+        expect(container?.className).toContain("lyra--height-small");
       });
 
       it("should render a large switch", () => {
@@ -632,7 +648,7 @@ describe("Input", () => {
           <Input.Switch size="large" value={false} onChange={vi.fn()} />,
         );
         const container = c.container.querySelector("label");
-        expect(container?.className).toContain("pluto--height-large");
+        expect(container?.className).toContain("lyra--height-large");
       });
     });
 
@@ -680,7 +696,7 @@ describe("Input", () => {
       it("should apply switch CSS classes", () => {
         const c = render(<Input.Switch value={false} onChange={vi.fn()} />);
         const container = c.container.querySelector("label");
-        expect(container?.className).toContain("pluto-input__switch");
+        expect(container?.className).toContain("lyra-input__switch");
       });
     });
   });

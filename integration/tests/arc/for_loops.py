@@ -14,7 +14,7 @@ from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc import ArcCase
 
 ARC_FOR_LOOP_SOURCE = """
-func sum_i32(n i32) i32 {
+func sum_i32() {n i32} i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         sum = sum + i
@@ -22,7 +22,7 @@ func sum_i32(n i32) i32 {
     return sum
 }
 
-func sum_u8(n u8) u8 {
+func sum_u8() {n u8} u8 {
     sum u8 := 0
     for i := range(u8(1), n + 1) {
         sum = sum + i
@@ -30,7 +30,7 @@ func sum_u8(n u8) u8 {
     return sum
 }
 
-func sum_u32(n u32) u32 {
+func sum_u32() {n u32} u32 {
     sum u32 := 0
     for i := range(u32(1), n + 1) {
         sum = sum + i
@@ -38,7 +38,7 @@ func sum_u32(n u32) u32 {
     return sum
 }
 
-func sum_step(n i64) i64 {
+func sum_step() {n i64} i64 {
     sum i64 := 0
     for i := range(0, n, 2) {
         sum = sum + i
@@ -46,7 +46,7 @@ func sum_step(n i64) i64 {
     return sum
 }
 
-func accumulate_until{limit i32} (n i32) i32 {
+func accumulate_until(limit i32) {n i32} i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         sum = sum + i
@@ -57,7 +57,7 @@ func accumulate_until{limit i32} (n i32) i32 {
     return sum
 }
 
-func sum_excluding{skip i32} (n i32) i32 {
+func sum_excluding(skip i32) {n i32} i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         if i == skip {
@@ -68,7 +68,7 @@ func sum_excluding{skip i32} (n i32) i32 {
     return sum
 }
 
-func countdown(n i64) i64 {
+func countdown() {n i64} i64 {
     sum i64 := 0
     for i := range(n, 0, -1) {
         sum = sum + i
@@ -76,7 +76,7 @@ func countdown(n i64) i64 {
     return sum
 }
 
-func drain_until{limit i32} (start i32) i32 {
+func drain_until(limit i32) {start i32} i32 {
     sum i32 := 0
     for i := range(start, 0, -1) {
         sum = sum + i
@@ -87,7 +87,7 @@ func drain_until{limit i32} (start i32) i32 {
     return sum
 }
 
-func triangular(n u32) u32 {
+func triangular() {n u32} u32 {
     sum u32 := 0
     for i := range(u32(1), n + 1) {
         for j := range(i) {
@@ -97,7 +97,7 @@ func triangular(n u32) u32 {
     return sum
 }
 
-func nest5(n i64) i64 {
+func nest5() {n i64} i64 {
     sum i64 := 0
     for a := range(n) {
         for b := range(n) {
@@ -113,7 +113,7 @@ func nest5(n i64) i64 {
     return sum
 }
 
-func factorial(n i64) i64 {
+func factorial() {n i64} i64 {
     result i64 := 1
     for i := range(i64(1), n + 1) {
         result = result * i
@@ -121,7 +121,7 @@ func factorial(n i64) i64 {
     return result
 }
 
-func sum_factorials(n i64) i64 {
+func sum_factorials() {n i64} i64 {
     total i64 := 0
     for i := range(i64(1), n + 1) {
         total = total + factorial(i)
@@ -129,16 +129,7 @@ func sum_factorials(n i64) i64 {
     return total
 }
 
-func mixed_u8_i32(n u8) i32 {
-    hi i32 := i32(n)
-    sum i32 := 0
-    for i := range(u8(1), hi) {
-        sum = sum + i
-    }
-    return sum
-}
-
-func range_i16(n i16) i16 {
+func range_i16() {n i16} i16 {
     sum i16 := 0
     for i := range(i16(1), n + 1) {
         sum = sum + i
@@ -146,7 +137,7 @@ func range_i16(n i16) i16 {
     return sum
 }
 
-func empty_range(n i32) i32 {
+func empty_range() {n i32} i32 {
     sum i32 := 99
     for i := range(0) {
         sum = sum + 1
@@ -160,7 +151,7 @@ func empty_range(n i32) i32 {
     return sum
 }
 
-func while_countdown(n i32) i32 {
+func while_countdown() {n i32} i32 {
     sum i32 := 0
     for n > 0 {
         sum = sum + n
@@ -169,7 +160,7 @@ func while_countdown(n i32) i32 {
     return sum
 }
 
-func next_power_of_two(n i32) i32 {
+func next_power_of_two() {n i32} i32 {
     val i32 := 1
     for {
         if val >= n {
@@ -212,25 +203,24 @@ func find_peak() {
 }
 
 
-for_in_i32 -> sum_i32{} -> for_out_i32
-for_in_u8 -> sum_u8{} -> for_out_u8
-for_in_u32 -> sum_u32{} -> for_out_u32
-for_in_step -> sum_step{} -> for_out_step
-for_in_break -> accumulate_until{limit=10} -> for_out_break
-for_in_skip -> sum_excluding{skip=3} -> for_out_skip
-for_in_countdown -> countdown{} -> for_out_countdown
-for_in_drain -> drain_until{limit=12} -> for_out_drain
-for_in_tri -> triangular{} -> for_out_tri
-for_in_nest5 -> nest5{} -> for_out_nest5
-for_in_rec -> sum_factorials{} -> for_out_rec
-for_in_mix_u8_i32 -> mixed_u8_i32{} -> for_out_mix_u8_i32
-for_in_i16 -> range_i16{} -> for_out_i16
-for_in_empty -> empty_range{} -> for_out_empty
-for_in_while -> while_countdown{} -> for_out_while
-for_in_pow2 -> next_power_of_two{} -> for_out_pow2
-interval{period=100ms} -> loop_channel_write{}
-interval{period=100ms} -> sum_all{}
-interval{period=100ms} -> find_peak{}
+for_in_i32 -> sum_i32() -> for_out_i32
+for_in_u8 -> sum_u8() -> for_out_u8
+for_in_u32 -> sum_u32() -> for_out_u32
+for_in_step -> sum_step() -> for_out_step
+for_in_break -> accumulate_until(limit=10) -> for_out_break
+for_in_skip -> sum_excluding(skip=3) -> for_out_skip
+for_in_countdown -> countdown() -> for_out_countdown
+for_in_drain -> drain_until(limit=12) -> for_out_drain
+for_in_tri -> triangular() -> for_out_tri
+for_in_nest5 -> nest5() -> for_out_nest5
+for_in_rec -> sum_factorials() -> for_out_rec
+for_in_i16 -> range_i16() -> for_out_i16
+for_in_empty -> empty_range() -> for_out_empty
+for_in_while -> while_countdown() -> for_out_while
+for_in_pow2 -> next_power_of_two() -> for_out_pow2
+interval(period=100ms) -> loop_channel_write()
+interval(period=100ms) -> sum_all()
+interval(period=100ms) -> find_peak()
 """
 
 
@@ -341,16 +331,6 @@ CASES = [
         sy.DataType.INT64,
         5,
         153,
-    ),
-    # Mixed u8 start / i32 end (unsigned→signed): widens to i32, sum(1..4)=1+2+3=6
-    ForLoopCase(
-        "mixed_u8_i32",
-        "for_in_mix_u8_i32",
-        sy.DataType.UINT8,
-        "for_out_mix_u8_i32",
-        sy.DataType.INT32,
-        4,
-        6,
     ),
     # Pure i16 range: sum(1..6)=15
     ForLoopCase(

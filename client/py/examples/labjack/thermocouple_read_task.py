@@ -135,7 +135,8 @@ try:
 
                     sample_count += 1
                     print(
-                        f"{sample_count:<10} {elapsed:<10.1f} {temp_c:>12.1f} {temp_f:>12.1f}",
+                        f"{sample_count:<10} {elapsed:<10.1f} {temp_c:>12.1f} "
+                        f"{temp_f:>12.1f}",
                         end="\r",
                         flush=True,
                     )

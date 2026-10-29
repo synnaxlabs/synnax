@@ -62,8 +62,9 @@ opcua_time = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Create Synnax channels to store the my_float_0 and my_float_1 node data from the server.
-# These floats are continuously updated with sine wave values by the OPC UA server.
+# Create Synnax channels to store the my_float_0 and my_float_1 node data from the
+# server. These floats are continuously updated with sine wave values by the OPC UA
+# server.
 my_float_0 = client.channels.create(
     name="my_float_0",
     index=opcua_time.key,
@@ -132,7 +133,8 @@ try:
 
                     sample_count += 1
                     print(
-                        f"{sample_count:<8} {elapsed:<12.1f} {val0:>12.4f} {val1:>12.4f}",
+                        f"{sample_count:<8} {elapsed:<12.1f} {val0:>12.4f} "
+                        f"{val1:>12.4f}",
                         end="\r",
                         flush=True,
                     )

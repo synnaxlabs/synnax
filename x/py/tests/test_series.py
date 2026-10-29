@@ -156,7 +156,9 @@ class TestSeries:
         assert list(as_float64) == [1.0, 0.0, 1.0, 1.0]
 
     def test_numeric_to_bool_cast_normalizes_nonzero(self) -> None:
-        """Casting a numeric series to BOOLEAN via to_numpy should normalize nonzero values"""
+        """Casting a numeric series to BOOLEAN via to_numpy should normalize nonzero
+        values
+        """
         s = telem.Series([0, 1, 42, -3, 0], data_type=telem.DataType.INT32)
         as_bool = s.to_numpy(dtype=np.dtype(np.bool_))
         assert list(as_bool) == [False, True, True, True, False]
@@ -562,7 +564,9 @@ class TestVariableLengthSeries:
 @pytest.mark.series
 class TestMultiSeries:
     def test_construction_from_multiple_series(self) -> None:
-        """Should correctly construct a telem.MultiSeries from multiple telem.Series :)"""
+        """Should correctly construct a telem.MultiSeries from multiple
+        telem.Series :)
+        """
         s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
         s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT8)
         s = telem.MultiSeries([s1, s2])

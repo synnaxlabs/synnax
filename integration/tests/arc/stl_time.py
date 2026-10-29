@@ -19,25 +19,25 @@ func write_now() {
     time_now_int_out = time.now()
     time_now_ts_out = time.now()
 }
-time_trigger -> write_now{}
+time_trigger -> write_now()
 
-// time.now{} as a flow node: triggered by any upstream, outputs timestamp.
-time_now_flow_ts_trigger -> time.now{} -> time_now_flow_ts_out
-time_now_flow_int_trigger -> time.now{} -> time_now_flow_int_out
+// time.now() as a flow node: triggered by any upstream, outputs timestamp.
+time_now_flow_ts_trigger -> time.now() -> time_now_flow_ts_out
+time_now_flow_int_trigger -> time.now() -> time_now_flow_int_out
 
 // ─────────────────────────── time.interval ──────────────────────────
 // interval is inherently time-triggered (that's the point of the function).
-// We use time.interval{} (qualified syntax) to verify module syntax works.
+// We use time.interval() (qualified syntax) to verify module syntax works.
 // standalone
 func count_intervals() {
     interval_count = interval_count + 1
 }
-interval{period=100ms} -> count_intervals{}
+interval(period=100ms) -> count_intervals()
 // module-qualified
 func count_intervals_mod() {
     interval_count_mod = interval_count_mod + 1
 }
-time.interval{period=100ms} -> count_intervals_mod{}
+time.interval(period=100ms) -> count_intervals_mod()
 // ──────────────────────────── time.wait ─────────────────────────────
 // Regression test: wait{3s} previously took 5-7s due to a runtime bug.
 // 3 seconds was chosen because it's long enough to measure accurately
@@ -48,7 +48,7 @@ time.interval{period=100ms} -> count_intervals_mod{}
 sequence main_standalone {
     stage stage1 {
         1 -> toggle_cmd
-        wait{3s} => stage2
+        wait(3s) => stage2
     }
     stage stage2 {
         0 -> toggle_cmd
@@ -59,7 +59,7 @@ start_wait_cmd => main_standalone
 sequence main_module {
     stage stage1 {
         1 -> toggle_cmd_mod
-        time.wait{3s} => stage2
+        time.wait(3s) => stage2
     }
     stage stage2 {
         0 -> toggle_cmd_mod
@@ -90,12 +90,12 @@ WAIT_CASES = (
 
 
 class StlTime(ArcCase):
-    """Test time module with qualified syntax: time.now(), time.interval{},
-    time.wait{}.
+    """Test time module with qualified syntax: time.now(), time.interval(),
+    time.wait().
 
     time.now() is verified by checking the returned timestamp is a valid
-    nanosecond value. time.interval{} is verified by measuring its firing
-    rate over 1 second. time.wait{} is a regression test migrated from
+    nanosecond value. time.interval() is verified by measuring its firing
+    rate over 1 second. time.wait() is a regression test migrated from
     wait_timing.py verifying that a 3-second wait completes in ~3 seconds.
     """
 
@@ -145,7 +145,7 @@ class StlTime(ArcCase):
         self.log("time.now() wrote successfully to a timestamp channel")
 
     def _test_now_flow(self) -> None:
-        self.log("=== time.now{} [Flow] ===")
+        self.log("=== time.now() [Flow] ===")
         self.writer.write("time_now_flow_ts_trigger", 1.0)
         self.wait_for_gt("time_now_flow_ts_out", 0)
         ts = self.read_tlm("time_now_flow_ts_out")
