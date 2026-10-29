@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import z from "zod";
 
 export const SLICE_NAME = "github";
+
+/** Whether the GitHub CLI can star Synnax, unchecked until the CLI answers. */
+export const cliZ = z.enum(["unchecked", "ready", "unavailable"]);
+export type CLI = z.infer<typeof cliZ>;
 
 export const sliceStateZ = z
   .object({
     version: z.literal(0).default(0),
     /** True once the user starred Synnax on GitHub, or opened its page to star it. */
     starred: z.boolean().default(false),
+    /** Checked again on each launch, so never persisted. */
+    cli: cliZ.default("unchecked"),
   })
   .prefault({});
 
@@ -35,9 +41,19 @@ export const { actions, reducer } = createSlice({
     markStarred: (state) => {
       state.starred = true;
     },
+    setCLI: (state, { payload }: PayloadAction<CLI>) => {
+      state.cli = payload;
+    },
   },
 });
 
-export const { markStarred } = actions;
+export const { markStarred, setCLI } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
+
+const purgeSliceState = <S extends StoreState>(state: S): S => {
+  state[SLICE_NAME].cli = "unchecked";
+  return state;
+};
+
+export const PERSIST_EXCLUDE = [purgeSliceState];

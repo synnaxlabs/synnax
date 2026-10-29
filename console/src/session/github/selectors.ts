@@ -7,9 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { SLICE_NAME, type StoreState } from "@/session/github/slice";
+import { type CLI, SLICE_NAME, type StoreState } from "@/session/github/slice";
 import { Select } from "@/session/select";
 
 const selectStarred = (state: StoreState): boolean => state[SLICE_NAME].starred;
 
 export const useSelectStarred = (): boolean => Select.useMemo(selectStarred, []);
+
+const selectCLI = (state: StoreState): CLI => state[SLICE_NAME].cli;
+
+export const useSelectCLI = (): CLI => Select.useMemo(selectCLI, []);

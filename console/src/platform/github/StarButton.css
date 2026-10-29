@@ -18,8 +18,6 @@
 }
 
 .console-github-star {
-    --console-github-star-gold: #f6b93b;
-
     position: relative;
     display: inline-flex;
     flex-shrink: 0;
@@ -115,7 +113,7 @@
 }
 
 .console-github-star__fill {
-    color: var(--console-github-star-gold);
+    color: var(--pluto-warning-z);
     opacity: 0;
 }
 
@@ -141,8 +139,8 @@
 
 /* A star from the CLI: the star pops, the field floods gold, then the button leaves. */
 .console-github-star--starred {
-    border-color: color-mix(in srgb, var(--console-github-star-gold) 60%, transparent);
-    color: var(--console-github-star-gold);
+    border-color: var(--pluto-warning-z-60);
+    color: var(--pluto-warning-z);
     animation: console-github-star-leave 0.4s ease-in 1.5s forwards;
 
     .console-github-star__fill {
@@ -156,7 +154,7 @@
     .console-github-star__field {
         background-image: radial-gradient(
             circle,
-            var(--console-github-star-gold) 0.85px,
+            var(--pluto-warning-z) 0.85px,
             transparent 1.2px
         );
         animation: console-github-star-flood 1.2s cubic-bezier(0.2, 0.7, 0.2, 1)

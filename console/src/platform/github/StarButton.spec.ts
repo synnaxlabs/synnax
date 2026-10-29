@@ -8,24 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { scheduler } from "@synnaxlabs/x";
-import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, screen } from "@testing-library/react";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { GitHub } from "@/platform/github";
-import { renderWithConsole } from "@/testutil";
+import { mockCLI, renderStar } from "@/platform/github/testutil";
 
 describe("GitHub.StarButton", () => {
   it("should not ask for a star outside Synnax Desktop", async () => {
-    const commands = vi.fn<(cmd: string) => void>();
-    mockIPC((cmd) => {
-      commands(cmd);
-      return cmd === "github_star_status" ? "not_starred" : undefined;
-    });
-    onTestFinished(clearMocks);
-    await renderWithConsole(<GitHub.StarButton />);
+    const commands = mockCLI("not_starred");
+    await renderStar();
     await act(async () => await scheduler.flushTaskQueue());
-    expect(commands).not.toHaveBeenCalledWith("github_star_status");
+    expect(commands).not.toHaveBeenCalledWith("github_star_status", expect.anything());
     expect(screen.queryByRole("button", { name: /star/i })).toBeNull();
   });
 });

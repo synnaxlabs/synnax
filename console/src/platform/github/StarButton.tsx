@@ -9,43 +9,37 @@
 
 import "@/platform/github/StarButton.css";
 
-import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type AnimationEvent, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { retrieveStatus, star, URL } from "@/platform/github/star";
+import { star, URL } from "@/platform/github/star";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
 const LEAVE_ANIMATION = "console-github-star-leave";
 
-const Prompt = (): ReactElement | null => {
+/**
+ * Asks the user to star Synnax on GitHub. A click stars it through the GitHub CLI when
+ * the CLI is signed in, and opens the repository page otherwise. Renders nothing until
+ * useSyncStatus checks the CLI, so nothing outside Synnax Desktop, and nothing once the
+ * user starred Synnax.
+ */
+export const StarButton = (): ReactElement | null => {
   const dispatch = Session.useDispatch();
   const starred = Session.GitHub.useSelectStarred();
+  const cli = Session.GitHub.useSelectCLI();
   const handleError = Status.useErrorHandler();
-  // Null until the CLI answers.
-  const [cliReady, setCLIReady] = useState<boolean | null>(null);
   const [starring, setStarring] = useState(false);
   // True while a star made from this button plays out, so it outlives the stored star.
   const [celebrating, setCelebrating] = useState(false);
-  useAsyncEffect(
-    async (signal) => {
-      if (starred) return;
-      const status = await retrieveStatus();
-      if (signal.aborted) return;
-      if (status === "starred") dispatch(Session.GitHub.markStarred());
-      else setCLIReady(status === "not_starred");
-    },
-    [starred],
-  );
-  if ((starred && !celebrating) || cliReady == null) return null;
+  if ((starred && !celebrating) || cli === "unchecked") return null;
   const handleClick = async (): Promise<void> => {
     setStarring(true);
     let starredByCLI = false;
     try {
-      if (cliReady) starredByCLI = await star();
+      if (cli === "ready") starredByCLI = await star();
       if (!starredByCLI) await Runtime.openExternal(URL);
     } catch (e) {
       setStarring(false);
@@ -83,10 +77,3 @@ const Prompt = (): ReactElement | null => {
     </button>
   );
 };
-
-/**
- * Asks the user to star Synnax on GitHub, in Synnax Desktop only. A click stars it
- * through the GitHub CLI when the CLI is signed in, and opens the repository page
- * otherwise. Renders nothing once the user starred Synnax.
- */
-export const StarButton = (): ReactElement | null => (DESKTOP ? <Prompt /> : null);

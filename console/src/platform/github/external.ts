@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/github/StarButton";
+export * from "@/platform/github/useSyncStatus";

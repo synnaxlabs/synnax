@@ -45,6 +45,7 @@ import { Window } from "@/session/window";
 
 const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
   ...Arc.PERSIST_EXCLUDE,
+  ...GitHub.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
   ...Panel.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
