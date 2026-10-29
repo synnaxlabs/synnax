@@ -9,13 +9,58 @@
 
 """Modbus-specific task test cases."""
 
+import struct
 from abc import abstractmethod
 
 from examples.modbus import ModbusSim
+from examples.modbus.server import SLAVE_ID
+from pymodbus.client import ModbusTcpClient
 
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase
+
+
+def float32_words(value: float) -> list[int]:
+    """Return the register words of a float32, low word first as the Driver writes by
+    default."""
+    high, low = struct.unpack(">HH", struct.pack(">f", value))
+    return [low, high]
+
+
+def assert_sim_registers(address: int, expected: list[int]) -> None:
+    """Assert the simulator's holding registers from ``address`` are ``expected``."""
+    with ModbusTcpClient(ModbusSim.host, port=ModbusSim.port) as sim:
+        res = sim.read_holding_registers(
+            address, count=len(expected), device_id=SLAVE_ID
+        )
+    assert not res.isError(), res
+    assert res.registers == expected, (
+        f"Holding registers from {address} should be {expected}, got {res.registers}"
+    )
+
+
+def set_sim_register(address: int, value: int) -> None:
+    """Write one holding register on the simulator, as another client would."""
+    with ModbusTcpClient(ModbusSim.host, port=ModbusSim.port) as sim:
+        res = sim.write_register(address, value, device_id=SLAVE_ID)
+    assert not res.isError(), res
+
+
+def set_sim_coil(address: int, value: bool) -> None:
+    """Write one coil on the simulator, as another client would."""
+    with ModbusTcpClient(ModbusSim.host, port=ModbusSim.port) as sim:
+        res = sim.write_coil(address, value, device_id=SLAVE_ID)
+    assert not res.isError(), res
+
+
+def assert_sim_coils(address: int, expected: list[bool]) -> None:
+    """Assert the simulator's coils from ``address`` are ``expected``."""
+    with ModbusTcpClient(ModbusSim.host, port=ModbusSim.port) as sim:
+        res = sim.read_coils(address, count=len(expected), device_id=SLAVE_ID)
+    assert not res.isError(), res
+    coils = res.bits[: len(expected)]
+    assert coils == expected, f"Coils from {address} should be {expected}, got {coils}"
 
 
 class ModbusReadTaskCase(SimulatorCase, ReadTaskCase[sy.modbus.ReadTask]):
