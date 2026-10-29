@@ -72,7 +72,7 @@ export const STRING_LENGTH_BOUNDS = { lower: 1, upper: 250 };
  * bits of its data type, a string spans one address per two characters, and every
  * other channel spans one.
  */
-export const nextAddress = (channel: ReadChannel | WriteChannel): number => {
+const nextAddress = (channel: ReadChannel | WriteChannel): number => {
   if (!("dataType" in channel)) return channel.address + 1;
   if ("stringLength" in channel && isStringChannel(channel))
     return channel.address + Math.ceil(channel.stringLength / 2);
