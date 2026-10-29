@@ -12,6 +12,7 @@
 #include <functional>
 #include <future>
 #include <unordered_map>
+#include <utility>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
@@ -1517,6 +1518,7 @@ class HoldingSetClient final : public synnax::status::SetClient {
     std::mutex mu;
     std::condition_variable cv;
     bool released = false;
+    x::errors::Error held_err = x::errors::NIL;
     std::vector<std::vector<std::string>> requests;
 
 public:
@@ -1539,6 +1541,8 @@ public:
         else if (held) {
             this->holding = true;
             this->cv.wait(lock, [this] { return this->released; });
+            if (const auto err = std::exchange(this->held_err, x::errors::NIL); err)
+                return {{}, err};
         }
         grpc::status::SetResponse res;
         *res.mutable_statuses() = req.statuses();
@@ -1551,10 +1555,12 @@ public:
         return this->requests;
     }
 
-    void release() {
+    /// @brief lets held writes go on. The first one fails with err.
+    void release(const x::errors::Error &err = x::errors::NIL) {
         {
             std::lock_guard lock{this->mu};
             this->released = true;
+            this->held_err = err;
         }
         this->cv.notify_all();
     }
@@ -1594,9 +1600,9 @@ TEST_F(SynnaxContextTest, WriteDoesNotWaitOnAnotherTask) {
     ASSERT_EQ(written.wait_for(std::chrono::seconds(2)), std::future_status::ready);
 }
 
-/// @brief it should skip a task that is writing its own status when it sends statuses
-/// again, and send the others without waiting for that write.
-TEST_F(SynnaxContextTest, ResendSkipsTaskThatIsWriting) {
+/// @brief it should wait for a write of a task's own status in progress, then send the
+/// status again, so a write that failed is repaired.
+TEST_F(SynnaxContextTest, ResendRepairsAWriteInProgress) {
     const auto held = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
     const auto free = synnax::task::Task{.key = x::uuid::create(), .name = "free"};
     const auto transport = std::make_shared<HoldingSetClient>(
@@ -1626,9 +1632,20 @@ TEST_F(SynnaxContextTest, ResendSkipsTaskThatIsWriting) {
     });
     ASSERT_EVENTUALLY_TRUE(transport->holding.load());
     resent = std::async(std::launch::async, [&] { return ctx->resend_statuses(); });
+    ASSERT_EQ(
+        resent.wait_for(std::chrono::milliseconds(200)),
+        std::future_status::timeout
+    );
+    transport->release(freighter::UNREACHABLE);
     ASSERT_EQ(resent.wait_for(std::chrono::seconds(2)), std::future_status::ready);
     ASSERT_NIL(resent.get());
-    EXPECT_EQ(transport->sent().back(), std::vector{synnax::task::status_key(free)});
+    EXPECT_EQ(
+        std::ranges::count(
+            transport->sent(),
+            std::vector{synnax::task::status_key(held)}
+        ),
+        2
+    );
 }
 
 /// @brief it should write the status of a task while the re-send of another task's
@@ -1719,6 +1736,48 @@ TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     EXPECT_EQ(resent_failed.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(resent_failed.message, "Failed to start task");
     EXPECT_EQ(resent_failed.details.cmd, NO_COMMAND);
+}
+
+/// @brief it should not send the status of a task moved to another rack again.
+TEST_F(TaskManagerTest, RackMoveDropsStatusFromResend) {
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto kept = synnax::task::Task{
+        .rack = rack.key,
+        .name = "kept",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto moved = synnax::task::Task{
+        .rack = rack.key,
+        .name = "moved",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(kept));
+    ASSERT_NIL(rack.tasks.create(moved));
+    send_start(client, kept);
+    WAIT_FOR_TASK_STATUS(streamer, kept, [](const synnax::task::Status &s) {
+        return s.details.running;
+    });
+    send_start(client, moved);
+    WAIT_FOR_TASK_STATUS(streamer, moved, [](const synnax::task::Status &s) {
+        return s.message == "Failed to configure task";
+    });
+
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    moved.rack = other.key;
+    ASSERT_NIL(other.tasks.create(moved));
+    // The set event that moves the task carries no signal that it was handled.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_NIL(f->captured_ctx->resend_statuses());
+    const auto statuses = read_statuses_since(since, [&](const auto &s) {
+        return s.contains(kept.key);
+    });
+    EXPECT_TRUE(statuses.at(kept.key).details.running);
+    EXPECT_FALSE(statuses.contains(moved.key));
+    expect_no_driver_status(moved);
 }
 
 /// @brief it should not send the status of a deleted task again.
