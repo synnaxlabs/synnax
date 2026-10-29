@@ -189,7 +189,8 @@ class Device(device.Device):
         0 reads only addresses that channels cover.
     :param write_codes: "multiple" writes with function codes 15 and 16. "single" writes
         each coil with 05 and each register with 06.
-    :param delay_ms: The wait in milliseconds between requests on the connection.
+    :param delay_ms: The wait in milliseconds between requests on the connection,
+        from 0 to 5000.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.

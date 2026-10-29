@@ -43,7 +43,7 @@ const x::errors::Error UNREACHABLE = TEMPORARY_ERROR.sub("unreachable");
 
 /// @brief the timed-out attempts in a row that demote a unit.
 const std::size_t DEMOTE_AFTER = 3;
-/// @brief how long the requests of a demoted unit fail at once.
+/// @brief the default time that the requests of a demoted unit fail at once.
 const x::telem::TimeSpan DEMOTION = x::telem::SECOND * 10;
 
 /// @brief classifies a libmodbus or system error number.
@@ -222,8 +222,8 @@ struct RequestConfig {
         else if (codes != "multiple")
             parser.field_err("write_codes", "must be multiple or single");
         const auto delay_ms = parser.field<int>("delay_ms", 0);
-        if (delay_ms < 0 || delay_ms > 60000)
-            parser.field_err("delay_ms", "must be between 0 and 60000");
+        if (delay_ms < 0 || delay_ms > 5000)
+            parser.field_err("delay_ms", "must be between 0 and 5000");
         else
             this->delay = x::telem::MILLISECOND * delay_ms;
     }
@@ -264,6 +264,8 @@ private:
     };
 
     modbus_t *ctx;
+    /// @brief how long the requests of a demoted unit fail at once.
+    x::telem::TimeSpan demotion;
     /// @brief guards busy, waiting_writes, and units.
     std::mutex mu;
     std::condition_variable released;
@@ -348,7 +350,7 @@ private:
             "unit " + std::to_string(unit_id) + " timed out " +
                 std::to_string(DEMOTE_AFTER) +
                 " times in a row, so its requests fail for " +
-                std::to_string(static_cast<int>(DEMOTION.seconds())) + " s"
+                this->demotion.to_string()
         };
     }
 
@@ -368,13 +370,15 @@ private:
         auto &unit = this->units[unit_id];
         if (++unit.timeouts < DEMOTE_AFTER) return false;
         unit.timeouts = 0;
-        unit.demoted_until = Clock::now() + DEMOTION.chrono();
+        unit.demoted_until = Clock::now() + this->demotion.chrono();
         return true;
     }
 
 public:
     /// @brief takes ownership of a context created by modbus_new_tcp_pi.
-    explicit Connection(modbus_t *ctx): ctx(ctx) {}
+    /// @param demotion how long the requests of a demoted unit fail at once.
+    Connection(modbus_t *ctx, const x::telem::TimeSpan demotion):
+        ctx(ctx), demotion(demotion) {}
 
     ~Connection() {
         modbus_close(this->ctx);
@@ -387,7 +391,7 @@ public:
     /// @brief runs a request for a unit, connecting first if needed. A temporary fault
     /// retries at once, up to cfg.retries times. After a timeout, the next request
     /// first discards any late reply. Any other lost connection closes the socket. A
-    /// unit with DEMOTE_AFTER timed-out attempts in a row is demoted for DEMOTION.
+    /// unit with DEMOTE_AFTER timed-out attempts in a row is demoted.
     /// @param cfg the unit, timeout, and retries of the request.
     /// @param delay the wait after the previous request on the connection.
     /// @param write whether the request goes before waiting reads.
@@ -533,9 +537,13 @@ public:
 class Manager {
     std::mutex mu;
     std::unordered_map<std::string, std::weak_ptr<Connection>> connections;
+    /// @brief how long the requests of a demoted unit fail at once.
+    x::telem::TimeSpan demotion;
 
 public:
-    Manager() = default;
+    /// @param demotion how long the requests of a demoted unit fail at once.
+    explicit Manager(const x::telem::TimeSpan demotion = DEMOTION):
+        demotion(demotion) {}
 
     /// @brief returns a device on the shared connection to its endpoint. The connection
     /// lives while any device on it does. Acquiring does not connect: the first request
@@ -555,7 +563,7 @@ public:
             auto *ctx = modbus_new_tcp_pi(cfg.host.c_str(), port.c_str());
             if (ctx == nullptr) return {nullptr, classify(errno)};
             modbus_enable_quirks(ctx, MODBUS_QUIRK_MAX_SLAVE);
-            conn = std::make_shared<Connection>(ctx);
+            conn = std::make_shared<Connection>(ctx, this->demotion);
             entry = conn;
         }
         return {std::make_shared<Device>(conn, cfg, requests), x::errors::NIL};

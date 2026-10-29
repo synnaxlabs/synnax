@@ -666,7 +666,7 @@ TEST(RequestConfigTest, RejectsInvalidFields) {
             {"max_registers", 126},
             {"max_gap", -1},
             {"write_codes", "both"},
-            {"delay_ms", 60001},
+            {"delay_ms", 5001},
         }
     );
     const RequestConfig requests(parser);
@@ -680,7 +680,7 @@ TEST(RequestConfigTest, RejectsInvalidFields) {
     EXPECT_EQ(errs[2]["path"], "write_codes");
     EXPECT_EQ(errs[2]["message"], "must be multiple or single");
     EXPECT_EQ(errs[3]["path"], "delay_ms");
-    EXPECT_EQ(errs[3]["message"], "must be between 0 and 60000");
+    EXPECT_EQ(errs[3]["message"], "must be between 0 and 5000");
 }
 
 namespace {
@@ -715,7 +715,7 @@ TEST(DeviceTest, DemotesSilentUnit) {
     ASSERT_OCCURRED_AS(err, UNREACHABLE);
     EXPECT_EQ(
         err.data,
-        "unit 9 timed out 3 times in a row, so its requests fail for 10 s"
+        "unit 9 timed out 3 times in a row, so its requests fail for 10s"
     );
     EXPECT_EQ(slave.unit_requests(9), 3);
 
@@ -726,6 +726,41 @@ TEST(DeviceTest, DemotesSilentUnit) {
     EXPECT_EQ(slave.unit_requests(9), 3);
     ASSERT_NIL(healthy->read_registers(HoldingRegister, 0, 1, &reg));
     EXPECT_EQ(slave.connections(), 1);
+    slave.stop();
+}
+
+/// @brief it should send the requests of a demoted unit again once the demotion time
+/// passes.
+TEST(DeviceTest, ServesUnitAfterDemotion) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1654;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager(x::telem::MILLISECOND * 100);
+    auto cfg = unit(1654, 6);
+    cfg.retries = 0;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+    uint16_t reg = 0;
+
+    slave.set_silent(6, true);
+    for (int i = 0; i < 2; i++)
+        ASSERT_OCCURRED_AS(
+            dev->read_registers(HoldingRegister, 0, 1, &reg),
+            UNREACHABLE
+        );
+    const auto err = dev->read_registers(HoldingRegister, 0, 1, &reg);
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(
+        err.data,
+        "unit 6 timed out 3 times in a row, so its requests fail for 100ms"
+    );
+    slave.set_silent(6, false);
+    ASSERT_OCCURRED_AS(dev->read_registers(HoldingRegister, 0, 1, &reg), UNREACHABLE);
+    EXPECT_EQ(slave.unit_requests(6), 3);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(slave.unit_requests(6), 4);
     slave.stop();
 }
 

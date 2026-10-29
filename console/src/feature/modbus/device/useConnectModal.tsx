@@ -17,7 +17,6 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import {
@@ -114,7 +113,7 @@ export const Connect = ({
   const { capture } = Analytics.use();
   const {
     form,
-    saveAsync,
+    save,
     status: stat,
     variant,
   } = useForm({
@@ -138,20 +137,6 @@ export const Connect = ({
     rack: rackKey,
   });
   const [tab, setTab] = useState("unit");
-
-  const handleConnect = async () => {
-    if (await saveAsync()) return;
-    const errorPaths = form
-      .getStatuses()
-      .flatMap(({ key, variant }) => (variant === "error" && key != null ? [key] : []));
-    const holdsError = (tabKey: string) =>
-      TAB_PATHS[tabKey].some((tabPath) =>
-        errorPaths.some((path) => deep.pathsMatch(path, tabPath)),
-      );
-    if (holdsError(tab)) return;
-    const next = Object.keys(TAB_PATHS).find(holdsError);
-    if (next != null) setTab(next);
-  };
 
   return (
     <Modal.Frame className={CSS.B("modbus-connect")}>
@@ -252,7 +237,7 @@ export const Connect = ({
         reason={reason}
         variant={variant}
         message={stat.description}
-        onConnect={() => void handleConnect()}
+        onConnect={() => save()}
         onBack={onBack}
       />
     </Modal.Frame>
@@ -277,20 +262,6 @@ const PORT_INPUT_PROPS = {
   style: { width: "23rem" },
 } as const;
 
-// The paths each tab edits, so a failed Connect can open the tab with the error.
-const TAB_PATHS: Record<string, string[]> = {
-  unit: [
-    "properties.connection.unitId",
-    "properties.connection.swapBytes",
-    "properties.connection.swapWords",
-  ],
-  advanced: [
-    "properties.connection.timeoutMs",
-    "properties.connection.retries",
-    "properties.requests",
-  ],
-};
-
 const UNIT_ID_INPUT_PROPS = {
   bounds: { lower: 0, upper: 255 },
   style: { width: "23rem" },
@@ -308,7 +279,7 @@ const RETRIES_INPUT_PROPS = {
 } as const;
 
 const DELAY_INPUT_PROPS = {
-  bounds: { lower: 0, upper: 60000 },
+  bounds: { lower: 0, upper: 5000 },
   endContent: "ms",
   style: { width: "23rem" },
 } as const;

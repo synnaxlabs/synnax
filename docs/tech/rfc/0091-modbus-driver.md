@@ -62,7 +62,7 @@ follow the HTTP device's `timeout_ms` (`driver/http/device/device.h:91`).
 | `requests.max_gap`                  | 125                    | Widest gap between channels in a block    |
 | `requests.write_codes`              | `"multiple"`           | FC15/16, or `"single"` for FC05/06        |
 | `requests.mask_write_supported`     | `false`                | Bit writes use FC22                       |
-| `requests.delay_ms`                 | 0                      | Wait between requests on one connection   |
+| `requests.delay_ms`                 | 0                      | Wait between requests, up to 5000 ms      |
 
 Bit reads stay at the protocol limit of 2000 for each request.
 
@@ -173,9 +173,10 @@ silent and a stalled reply in Phase 2, and an RTU mode on a pseudo-terminal pair
 - **Phase 5: Diagnostics.** §2.7 counters, after RFC 0081 gives the Modbus server its
   own `StatusDetails`.
 
-Compatibility: every new field is optional. Phase 1 stops writing gap addresses, and
-Phase 2 raises the timeout from 500 ms to 1000 ms and starts tasks while their server is
-off. These go in the release notes.
+Compatibility: every new field is optional. Phase 1 stops writing gap addresses. Phase 2
+raises the timeout from 500 ms to 1000 ms, starts tasks while their server is off, and
+splits coil and discrete input reads at gaps over 125 addresses. These go in the release
+notes.
 
 | Phase | Scope                                                       | Touches                                                                                          | Depends on |
 | ----- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------- |
@@ -214,8 +215,9 @@ fails on devices with write-only coils. No product checked writes addresses that
 command does not name, except for a bit inside a register.
 
 **5.4 Read blocks span gaps by default.** Ignition and PLC4X span gaps, and Neuron never
-does. A `max_gap` of 125 keeps today's request count. A device that rejects reads of
-unmapped addresses sets it to 0.
+does. A `max_gap` of 125 keeps today's register requests, because one read holds at most
+125 registers. Coil and discrete input reads now split at gaps over 125 addresses. A
+device that rejects reads of unmapped addresses sets it to 0.
 
 **5.5 A timeout demotes the unit.** Kepware closes the socket on a timeout, and Ignition
 reconnects after three. Behind a gateway, that drops every unit when one is down.
