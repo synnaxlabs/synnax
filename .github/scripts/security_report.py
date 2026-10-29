@@ -143,10 +143,17 @@ def read_agents(jobs: dict[str, Any], key: str) -> list[Scan]:
     scans = []
     # A short home, since the gpg-agent socket path has a length limit.
     with tempfile.TemporaryDirectory(dir="/tmp") as home:
-        gpg(home, "--import", text=key)
+        try:
+            gpg(home, "--import", text=key)
+            imported = ""
+        except RuntimeError as e:
+            imported = str(e)
         for area, job in sorted(jobs.items()):
             name = f"agent-{area}"
             armor = job.get("outputs", {}).get("report", "")
+            if imported:
+                scans.append(Scan(name, 1, [], imported))
+                continue
             if job["result"] != "success" or not armor:
                 log = f"The agent job ended with {job['result']} and no report."
                 scans.append(Scan(name, 1, [], log))

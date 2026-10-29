@@ -214,3 +214,16 @@ class TestAgents:
         assert "## agent-tls: failed" in text
         assert "## agent-ci: failed" in text
         assert "## zizmor: 0 findings" in text
+
+    def test_should_report_every_agent_failed_when_the_key_is_bad(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should keep the scanner results when the private key does not import."""
+        jobs = {"authn": {"result": "success", "outputs": {"report": "x"}}}
+        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", "not a key")
+        write_scan(tmp_path, "gitleaks", 0, result("private-key", "error", "k.pem", 1))
+        assert main([str(tmp_path), "--agents"]) == 1
+        text = (tmp_path / "report.md").read_text()
+        assert "## agent-authn: failed" in text
+        assert "## gitleaks: 1 findings" in text
