@@ -273,6 +273,8 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'ci-scripts')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: ci-scripts
+      coverage_module: .
       directory: .github/scripts
     secrets: inherit
 
@@ -399,6 +401,12 @@ jobs:
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
 
       - name: Create an empty frontend
         # The Tauri context embeds the frontend directory, so it must exist.
@@ -406,7 +414,16 @@ jobs:
 
       - name: Test
         working-directory: console/src-tauri
-        run: cargo test --features desktop
+        run: cargo llvm-cov --features desktop --lcov --output-path lcov.info
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v7
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: console/src-tauri/lcov.info
+          flags: desktop-shell
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   docs:
     needs: changes
@@ -490,6 +507,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'eslint-config')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: eslint-config
       directory: configs/eslint
       package: eslint-config
     secrets: inherit
@@ -557,6 +575,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'foundation')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: foundation
       directory: site/foundation
       macos: *full
       package: foundation
@@ -730,6 +749,8 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'lint-integration')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: integration
+      coverage_module: framework
       directory: integration
     secrets: inherit
 
@@ -795,7 +816,6 @@ jobs:
       coverage_flag: pluto
       directory: pluto
       package: pluto
-      test_args: --no-file-parallelism
     secrets: inherit
 
   portal:
@@ -846,6 +866,8 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'scripts')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: scripts
+      coverage_module: .
       directory: scripts
     secrets: inherit
 
@@ -856,6 +878,8 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'runners')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: runners
+      coverage_module: .
       directory: scripts/runners
     secrets: inherit
 
@@ -907,6 +931,7 @@ jobs:
       contains(fromJSON(needs.changes.outputs.ci), 'vite-plugin')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: vite-plugin
       directory: configs/vite
       macos: *full
       package: vite-plugin
