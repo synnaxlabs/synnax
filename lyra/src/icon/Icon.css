@@ -42,6 +42,7 @@
 
     .pluto-sub {
         --pluto-scale: scale(calc(var(--pluto-base-scale, 1) * 0.8));
+
         &.pluto-icon--add * {
             stroke-width: 0.5rem;
         }

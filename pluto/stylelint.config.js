@@ -9,4 +9,5 @@
 
 import cfg from "@synnaxlabs/stylelint-config";
 
-export default cfg;
+// The showcase is a dev-only page.
+export default { ...cfg, ignoreFiles: ["src/showcase/**"] };

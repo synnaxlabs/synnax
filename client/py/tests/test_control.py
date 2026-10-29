@@ -490,7 +490,7 @@ class TestController:
         "wait",
         [
             lambda auto: auto.wait_until(lambda _: False, timeout=BLOCKED_WAIT),
-            lambda auto: auto.remains_true_for(lambda _: True, BLOCKED_WAIT),
+            lambda auto: auto.remains_true_for(lambda _: True, duration=BLOCKED_WAIT),
         ],
         ids=["wait_until", "remains_true_for"],
     )
@@ -520,6 +520,8 @@ class TestController:
             waiter.start()
             deadline = time.monotonic() + HANDSHAKE_TIMEOUT
             while not receiver.processors:
+                if errors:
+                    raise errors[0]
                 assert time.monotonic() < deadline, "waiter never registered"
                 time.sleep(0.01)
             asyncio.run_coroutine_threadsafe(

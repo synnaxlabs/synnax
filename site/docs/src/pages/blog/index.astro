@@ -46,14 +46,11 @@ import ArcTile from "@/components/blog/ArcTile.astro";
     }
 
     .blog {
-        flex-basis: 840px;
-        flex-shrink: 1;
-        flex-grow: 1;
+        flex: 1 1 840px;
         min-width: 0;
         padding: 5rem 8rem;
 
         .header {
-            width: 100%;
             min-height: 200px;
             height: 25vh;
             margin: 0 -8rem;
@@ -91,9 +88,9 @@ import ArcTile from "@/components/blog/ArcTile.astro";
         }
     }
 
-    @media (max-width: 800px) {
+    @media (width <= 800px) {
         .blog {
-            padding: 3rem 3rem;
+            padding: 3rem;
 
             .header {
                 margin: 0 -3rem;

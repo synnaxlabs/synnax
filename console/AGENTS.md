@@ -1,5 +1,7 @@
 TypeScript development rules: @../docs/claude/toolchains/typescript.md
 
+CSS rules: @../docs/claude/toolchains/css.md
+
 # Console application
 
 Cross-platform desktop app: Tauri 2.8+ (Rust) + React 19 + TypeScript, Redux Toolkit for

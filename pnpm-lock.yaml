@@ -504,6 +504,9 @@ catalogs:
     postcss:
       specifier: ^8.5.30
       version: 8.5.30
+    postcss-html:
+      specifier: ^1.8.1
+      version: 1.8.1
     posthog-js:
       specifier: 1.438.12
       version: 1.438.12
@@ -805,6 +808,9 @@ importers:
 
   configs/stylelint:
     dependencies:
+      postcss-html:
+        specifier: 'catalog:'
+        version: 1.8.1
       stylelint-config-standard:
         specifier: 'catalog:'
         version: 40.0.0(stylelint@17.16.0(supports-color@10.2.2)(typescript@7.0.2))
@@ -6832,6 +6838,9 @@ packages:
   html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
 
+  htmlparser2@8.0.2:
+    resolution: {integrity: sha512-GYdjWKDkbRLkZ5geuHs5NY1puJ+PXwP7+fHPRz06Eirsb9ugf6d8kkXav6ADhcODhFFPMIXyxkxSuMf3D6NCFA==}
+
   http-cache-semantics@4.3.0:
     resolution: {integrity: sha512-M5t5LlJpS1UHMjvwRQVdFHvPISGeLAxNcrWuJkeGh0KxsqCHZ1O3NXZU/8x7cD0BDcGW8kapxMKTvwlqrNkHkA==}
 
@@ -7002,6 +7011,9 @@ packages:
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
+
+  js-tokens@9.0.1:
+    resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
 
   js-yaml@3.15.1:
     resolution: {integrity: sha512-S99WuO3HlhO3XN41EtYUNl9zzXjoJx7QvmipxsJVxtCBT0YHEFy+iOJhjSvrmV12nYhWpZaM8lPHkJm0yUMbag==}
@@ -7822,6 +7834,10 @@ packages:
   postal-mime@2.7.6:
     resolution: {integrity: sha512-UUlyE2KlxmvwMGq060onF/VWU3zD6dVW31FwokQ5v26jWd35fbs2MoTFzh+jXnPwAyV2MULMKXcBInGOl5TO6Q==}
 
+  postcss-html@1.8.1:
+    resolution: {integrity: sha512-OLF6P7qctfAWayOhLpcVnTGqVeJzu2W3WpIYelfz2+JV5oGxfkcEvweN9U4XpeqE0P98dcD9ssusGwlF0TK0uQ==}
+    engines: {node: ^12 || >=14}
+
   postcss-modules-extract-imports@3.1.0:
     resolution: {integrity: sha512-k3kNe0aNFQDAZGbin48pL2VNidTF0w4/eASDsxlyspobzU3wZQLOGj7L9gfRe0Jo9/4uud09DsjFNH7winGv8Q==}
     engines: {node: ^10 || ^12 || >= 14}
@@ -7845,6 +7861,12 @@ packages:
     engines: {node: ^10 || ^12 || >= 14}
     peerDependencies:
       postcss: ^8.1.0
+
+  postcss-safe-parser@6.0.0:
+    resolution: {integrity: sha512-FARHN8pwH+WiS2OPCxJI8FuRJpTVnn6ZNFiqAM2aeW2LwTHWWmWgIyKC6cUo0L8aeKiF/14MNvnpls6R2PBeMQ==}
+    engines: {node: '>=12.0'}
+    peerDependencies:
+      postcss: ^8.3.3
 
   postcss-safe-parser@7.0.1:
     resolution: {integrity: sha512-0AioNCJZ2DPYz5ABT6bddIqlhgwhpHZ/l65YAYo0BCIn0xiDpsnTHz0gnoTGk0OXZW0JRs+cDwL8u/teRdz+8A==}
@@ -14130,6 +14152,13 @@ snapshots:
 
   html-void-elements@3.0.0: {}
 
+  htmlparser2@8.0.2:
+    dependencies:
+      domelementtype: 2.3.0
+      domhandler: 5.0.3
+      domutils: 3.2.2
+      entities: 4.5.0
+
   http-cache-semantics@4.3.0: {}
 
   http-proxy-agent@7.0.2(supports-color@10.2.2):
@@ -14263,6 +14292,8 @@ snapshots:
   js-tokens@10.0.0: {}
 
   js-tokens@4.0.0: {}
+
+  js-tokens@9.0.1: {}
 
   js-yaml@3.15.1:
     dependencies:
@@ -15231,6 +15262,13 @@ snapshots:
 
   postal-mime@2.7.6: {}
 
+  postcss-html@1.8.1:
+    dependencies:
+      htmlparser2: 8.0.2
+      js-tokens: 9.0.1
+      postcss: 8.5.30
+      postcss-safe-parser: 6.0.0(postcss@8.5.30)
+
   postcss-modules-extract-imports@3.1.0(postcss@8.5.30):
     dependencies:
       postcss: 8.5.30
@@ -15250,6 +15288,10 @@ snapshots:
   postcss-modules-values@4.0.0(postcss@8.5.30):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.30)
+      postcss: 8.5.30
+
+  postcss-safe-parser@6.0.0(postcss@8.5.30):
+    dependencies:
       postcss: 8.5.30
 
   postcss-safe-parser@7.0.1(postcss@8.5.30):

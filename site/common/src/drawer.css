@@ -47,6 +47,7 @@
     background: var(--pluto-gray-l1);
     z-index: 50;
     transform: translateX(100%);
+
     /* Hidden once closed, so its links leave the tab order and the accessibility
        tree. */
     visibility: hidden;

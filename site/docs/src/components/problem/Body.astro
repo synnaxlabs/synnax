@@ -36,7 +36,7 @@ import { Description } from "@synnaxlabs/lyra/description";
     }
 
     /* A phone puts each label above its value, so the value keeps the full width. */
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         .problem__body {
             grid-template-columns: minmax(0, 1fr);
             row-gap: 2rem;
