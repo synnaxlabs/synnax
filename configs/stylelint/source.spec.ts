@@ -136,11 +136,29 @@ describe("read", () => {
         "lyra/src/a.tsx": `
           import { CSS } from "@/css";
           const style = { [CSS.variable("pack-br")]: 1, "--pluto-x": 2 };
+          const hue = { [\`--pluto-hue-\${name}\`]: 3 };
+          el.style.setProperty("--pluto-y", "1px");
         `,
+        "console/index.html": `<div style="--console-z: 1px"></div>`,
       });
       const source = read(root);
       expect(source.defined("--pluto-pack-br")).toBe(true);
       expect(source.defined("--pluto-x")).toBe(true);
+      expect(source.defined("--pluto-hue-1")).toBe(true);
+      expect(source.defined("--pluto-y")).toBe(true);
+      expect(source.defined("--console-z")).toBe(true);
+    });
+
+    it("should not count a property that code only reads or names", () => {
+      write({
+        "lyra/src/a.tsx": `
+          /** Sized by \`--pluto-size\`. */
+          getComputedStyle(el).getPropertyValue("--pluto-gray-l0");
+        `,
+      });
+      const source = read(root);
+      expect(source.defined("--pluto-gray-l0")).toBe(false);
+      expect(source.defined("--pluto-size")).toBe(false);
     });
 
     it("should read the keys that Astro defines through define:vars", () => {

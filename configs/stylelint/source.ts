@@ -60,7 +60,10 @@ const HELPER = /(?<![\w.])(?:CSS\.)?(BEM|BE|BM|B|E|M|variable)\(/g;
 const QUALIFIED_HELPER = /\bCSS\.(BEM|BE|BM|B|E|M|variable)\(/g;
 // A name after a dot is a selector that reads the class, not one that sets it.
 const CLASS_LITERAL = /(?<![\w.-])((?:pluto|console)(?:-|--|__)[a-z0-9][\w-]*)(\$\{)?/g;
-const PROPERTY_LITERAL = /["'`](--[a-z][\w-]*)(\$\{)?/g;
+// A property that code sets: a setProperty call, a style key, or an inline declaration.
+// A read such as getPropertyValue("--x") defines nothing.
+const PROPERTY_LITERAL =
+  /(setProperty\(\s*)?["'`](--[a-z][\w-]*)(\$\{[^}]*\}[\w-]*)?(["'`]\s*\]?\s*:|\s*:)?/g;
 const STRING_LITERAL = /(["'`])([\w-]+)\1/g;
 const PROPERTY_DECLARATION = /(?<![\w-])(--[\w-]+)\s*:/g;
 const PROPERTY_REGISTRATION = /@property\s+(--[\w-]+)/g;
@@ -252,9 +255,10 @@ const scanCode = (pkg: Package, text: string, out: Emitted): void => {
     out.classes.push(toName(escape(m[1]) + tail, tail === ""));
   }
   for (const m of text.matchAll(PROPERTY_LITERAL))
-    out.properties.push(
-      toName(escape(m[1]) + (m[2] != null ? DYNAMIC : ""), m[2] == null),
-    );
+    if (m[1] != null || m[4] != null)
+      out.properties.push(
+        toName(escape(m[2]) + (m[3] != null ? DYNAMIC : ""), m[3] == null),
+      );
   for (const m of text.matchAll(STRING_LITERAL)) out.literals.add(m[2]);
 };
 
