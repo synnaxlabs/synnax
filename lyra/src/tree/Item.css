@@ -11,13 +11,18 @@
 
 .lyra-tree {
     &.lyra--show-rules .lyra-tree__item::after {
+        /* One rule per ancestor, starting under the depth 0 caret. */
         content: "";
         position: absolute;
-        left: calc(var(--pluto-tree-item-offset) - 2.25rem);
+        left: calc(2.25rem - 0.5px);
         top: 0;
         bottom: 0;
-        width: 2px;
-        background-color: var(--pluto-gray-l6);
+        width: var(--pluto-tree-item-rules-width);
+        background: repeating-linear-gradient(
+            to right,
+            var(--pluto-gray-l6) 0 1px,
+            transparent 1px var(--pluto-tree-item-step)
+        );
         opacity: 0;
         transition: opacity 0.2s ease-in-out;
     }
@@ -46,6 +51,10 @@
 
         &.lyra--margin {
             margin-left: var(--pluto-tree-item-offset);
+
+            &::after {
+                left: calc(2.25rem - 0.5px - var(--pluto-tree-item-offset));
+            }
         }
 
         &:not(.lyra--margin) {
