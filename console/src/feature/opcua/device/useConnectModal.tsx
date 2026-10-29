@@ -13,9 +13,16 @@ import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
+import { useState } from "react";
 
+import {
+  DriverCertificate,
+  ServerCertificate,
+} from "@/feature/opcua/device/Certificate";
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import {
   SelectSecurityMode,
@@ -23,6 +30,8 @@ import {
 } from "@/feature/opcua/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/feature/opcua/device/SelectSecurityPolicy";
 import {
+  BASIC128_RSA15_SECURITY_POLICY,
+  BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
   type Device,
   INTEGRATION,
@@ -33,11 +42,13 @@ import {
   type SecurityPolicy,
   ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types";
-import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/opcua/task/types";
+import {
+  type CertificateInfo,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { FS } from "@/platform/fs";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
@@ -62,35 +73,12 @@ const beforeValidate = ({
   PDevice.FormSchema<typeof SCHEMAS>
 >) => set("location", get("properties.connection.endpoint").value);
 
-const beforeSave = async ({
-  client,
-  get,
-  set,
-}: Flux.FormBeforeSaveParams<
-  PDevice.RetrieveQuery,
-  PDevice.FormSchema<typeof SCHEMAS>
->) => {
-  const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
-  const scanStatus = await scanTask.executeCommandSync({
-    type: TEST_CONNECTION_COMMAND_TYPE,
-    timeout: TEST_CONNECTION_TIMEOUT,
-    args: { connection: get("properties.connection").value },
-  });
-  if (scanStatus.variant === "error") throw status.toError(scanStatus);
-  // Since we just scanned successfully, we create a default healthy status for the
-  // device that can then be overwritten by the scanner if we lose connection.
-  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
-    name: get<string>("name").value,
-    message: "Server connected",
-    variant: "success",
-    details: {
-      rack: get<rack.Key>("rack").value,
-      device: get<device.Key>("key").value,
-    },
-  });
-  set("status", devStatus, { notifyOnChange: false, markTouched: false });
-  return true;
-};
+type ClientCertificateSource = "driver" | "files";
+
+const DEPRECATED_SECURITY_POLICIES = new Set<SecurityPolicy>([
+  BASIC256_SECURITY_POLICY,
+  BASIC128_RSA15_SECURITY_POLICY,
+]);
 
 export const Connect = ({
   deviceKey,
@@ -99,6 +87,47 @@ export const Connect = ({
   onBack,
 }: PlatformDevice.ConnectProps) => {
   const { capture } = Analytics.use();
+  const [serverCertificateOffer, setServerCertificateOffer] =
+    useState<CertificateInfo | null>(null);
+  const [clientCertificateSource, setClientCertificateSource] =
+    useState<ClientCertificateSource | null>(null);
+
+  const beforeSave = async ({
+    client,
+    get,
+    set,
+  }: Flux.FormBeforeSaveParams<
+    PDevice.RetrieveQuery,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >) => {
+    setServerCertificateOffer(null);
+    const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
+    const scanStatus = await scanTask.executeCommandSync({
+      type: TEST_CONNECTION_COMMAND_TYPE,
+      timeout: TEST_CONNECTION_TIMEOUT,
+      args: { connection: get("properties.connection").value },
+    });
+    if (scanStatus.variant === "error") {
+      const data = scanStatus.details?.data;
+      if (data != null && "serverCertificate" in data && data.serverCertificate != null)
+        setServerCertificateOffer(data.serverCertificate);
+      throw status.toError(scanStatus);
+    }
+    // Since we just scanned successfully, we create a default healthy status for the
+    // device that can then be overwritten by the scanner if we lose connection.
+    const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+      name: get<string>("name").value,
+      message: "Server connected",
+      variant: "success",
+      details: {
+        rack: get<rack.Key>("rack").value,
+        device: get<device.Key>("key").value,
+      },
+    });
+    set("status", devStatus, { notifyOnChange: false, markTouched: false });
+    return true;
+  };
+
   const {
     form,
     save,
@@ -131,6 +160,38 @@ export const Connect = ({
       "properties.connection.securityMode",
       { ctx: form },
     ) != NO_SECURITY_MODE;
+  const clientCertificate = Form.useFieldValue<
+    string | undefined,
+    string | undefined,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("properties.connection.clientCertificate", { ctx: form });
+  const clientPrivateKey = Form.useFieldValue<
+    string | undefined,
+    string | undefined,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("properties.connection.clientPrivateKey", { ctx: form });
+  const serverCertificate =
+    Form.useFieldValue<
+      string | undefined,
+      string | undefined,
+      PDevice.FormSchema<typeof SCHEMAS>
+    >("properties.connection.serverCertificate", { ctx: form }) ?? "";
+  // Empty paths select the Driver certificate, so a device that names files has chosen
+  // them until the user picks again.
+  const hasFiles = (clientCertificate ?? "") !== "" || (clientPrivateKey ?? "") !== "";
+  const source = clientCertificateSource ?? (hasFiles ? "files" : "driver");
+
+  const handleSourceChange = (next: ClientCertificateSource) => {
+    setClientCertificateSource(next);
+    if (next !== "driver") return;
+    setField("properties.connection.clientCertificate", "");
+    setField("properties.connection.clientPrivateKey", "");
+  };
+
+  const handleTrust = (offer: CertificateInfo) => {
+    setField("properties.connection.serverCertificate", offer.pem);
+    save();
+  };
 
   const renderSecurityMode = ({
     onChange,
@@ -193,30 +254,51 @@ export const Connect = ({
                     label="Policy"
                     padHelpText={false}
                   >
-                    {({ value, onChange }) => (
-                      <SelectSecurityPolicy value={value} onChange={onChange} />
-                    )}
+                    {renderSecurityPolicy}
                   </Form.Field>
-                  <Form.Field<string>
-                    path="properties.connection.clientCertificate"
-                    label="Client certificate"
+                  <Input.Item label="Client certificate">
+                    <Select.Buttons<ClientCertificateSource>
+                      value={source}
+                      onChange={handleSourceChange}
+                    >
+                      <Select.Item<ClientCertificateSource> itemKey="driver">
+                        Driver certificate
+                      </Select.Item>
+                      <Select.Item<ClientCertificateSource> itemKey="files">
+                        Files on the Driver computer
+                      </Select.Item>
+                    </Select.Buttons>
+                    {source === "driver" && <DriverCertificate rack={rackKey} />}
+                  </Input.Item>
+                  {source === "files" && (
+                    <>
+                      <Form.TextField
+                        path="properties.connection.clientCertificate"
+                        label="Certificate file"
+                        padHelpText={false}
+                        inputProps={PATH_INPUT_PROPS}
+                      />
+                      <Form.TextField
+                        path="properties.connection.clientPrivateKey"
+                        label="Private key file"
+                        padHelpText={false}
+                        inputProps={PATH_INPUT_PROPS}
+                      />
+                    </>
+                  )}
+                  <Input.Item label="Server certificate">
+                    <ServerCertificate
+                      pem={serverCertificate}
+                      offer={serverCertificateOffer}
+                      onTrust={handleTrust}
+                    />
+                  </Input.Item>
+                  <Form.Field<boolean>
+                    path="properties.connection.certificateValidationDisabled"
+                    label="Validate server certificate"
                     padHelpText={false}
                   >
-                    {clientCertField}
-                  </Form.Field>
-                  <Form.Field<string>
-                    path="properties.connection.clientPrivateKey"
-                    label="Client private key"
-                    padHelpText={false}
-                  >
-                    {clientPrivateKeyField}
-                  </Form.Field>
-                  <Form.Field<string>
-                    path="properties.connection.serverCertificate"
-                    label="Server certificate"
-                    padHelpText={false}
-                  >
-                    {serverCertField}
+                    {renderValidation}
                   </Form.Field>
                 </>
               )}
@@ -237,17 +319,30 @@ export const Connect = ({
 
 export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
-const clientCertField = Component.renderProp(({ value, onChange }) => (
-  <FS.InputPath value={value} onChange={onChange} title="Select a client certificate" />
-));
+const SecurityPolicyField = ({ value, onChange }: Input.Control<SecurityPolicy>) => (
+  <>
+    <SelectSecurityPolicy value={value} onChange={onChange} />
+    {DEPRECATED_SECURITY_POLICIES.has(value) && (
+      <Input.HelpText variant="warning">
+        Use only if the server supports nothing newer.
+      </Input.HelpText>
+    )}
+  </>
+);
 
-const clientPrivateKeyField = Component.renderProp(({ value, onChange }) => (
-  <FS.InputPath value={value} onChange={onChange} title="Select a client private key" />
-));
+const renderSecurityPolicy = Component.renderProp(SecurityPolicyField);
 
-const serverCertField = Component.renderProp(({ value, onChange }) => (
-  <FS.InputPath value={value} onChange={onChange} title="Select a server certificate" />
-));
+// The field stores the non-default condition, so the switch shows its inverse.
+const ValidationField = ({ value, onChange }: Input.Control<boolean>) => (
+  <>
+    <Input.Switch value={!value} onChange={(v) => onChange(!v)} />
+    <Input.HelpText variant={value ? "warning" : undefined}>
+      Turn off only to troubleshoot. The Driver then accepts any server certificate.
+    </Input.HelpText>
+  </>
+);
+
+const renderValidation = Component.renderProp(ValidationField);
 
 const HEADER = ["Device", "Connect", "OPC UA server"];
 
@@ -264,5 +359,7 @@ const ENDPOINT_INPUT_PROPS = {
 } as const;
 
 const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
+
+const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
 
 const PASSWORD_INPUT_PROPS = { type: "password" } as const;

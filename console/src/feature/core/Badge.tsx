@@ -17,7 +17,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Synnax, User as PUser } from "@synnaxlabs/pluto";
 import { location, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -179,7 +179,7 @@ const Content = (): ReactElement => {
 export const Badge = (): ReactElement => {
   const status = Synnax.useConnectionStatus();
   const { variant } = status;
-  const name = User.useDisplayName();
+  const { data: name } = PUser.useResultName({});
   return (
     <Dialog.Frame>
       <Tooltip.Dialog location={location.BOTTOM_LEFT}>
