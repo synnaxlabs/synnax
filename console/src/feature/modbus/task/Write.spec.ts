@@ -290,6 +290,19 @@ describe("Write", () => {
         cmd.key,
       );
     });
+
+    it("should create a command channel when a legacy key names a deleted channel", async () => {
+      const cmd = await createCommand("float32");
+      await client.channels.delete(cmd.key);
+      const { channel, updated } = await deployFloat(
+        "holding-register-output-0",
+        cmd.key,
+      );
+      expect(channel).not.toBe(cmd.key);
+      expect(
+        updated.properties.write.channels["holding-register-output-0-float32"],
+      ).toBe(channel);
+    });
   });
 
   it("should create a new command channel when the data type changes", async () => {
