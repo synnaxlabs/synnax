@@ -183,9 +183,11 @@ export interface CheckboxFieldProps extends BuiltFieldProps<
 export const CheckboxField = ({
   inverted = false,
   inputProps,
+  path,
+  fieldKey,
   ...rest
 }: CheckboxFieldProps): ReactElement | null => (
-  <Field<boolean> {...rest}>
+  <Field<boolean> {...rest} path={fieldKey ? `${path}.${fieldKey}` : path}>
     {({ value, onChange, ...p }) => (
       <Input.Checkbox
         {...p}

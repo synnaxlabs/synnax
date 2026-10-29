@@ -628,13 +628,17 @@ describe("Form", () => {
   });
 
   describe("CheckboxField", () => {
-    const flagsSchema = z.object({ enabled: z.boolean(), disabled: z.boolean() });
+    const flagsSchema = z.object({
+      enabled: z.boolean(),
+      disabled: z.boolean(),
+      config: z.object({ autoStart: z.boolean() }),
+    });
 
     const flagsWrapper =
       (field?: ReactElement) =>
       ({ children }: PropsWithChildren): ReactElement => {
         const methods = Form.use<typeof flagsSchema>({
-          values: { enabled: true, disabled: false },
+          values: { enabled: true, disabled: false, config: { autoStart: false } },
           schema: flagsSchema,
         });
         return (
@@ -646,11 +650,9 @@ describe("Form", () => {
       };
 
     it("should check the box when the stored value is true", () => {
-      const c = render(<Form.CheckboxField path="enabled" />, {
-        wrapper: flagsWrapper(),
-      });
+      render(<Form.CheckboxField path="enabled" />, { wrapper: flagsWrapper() });
       expect(
-        c.getByRole<HTMLInputElement>("checkbox", { name: "Enabled" }).checked,
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Enabled" }).checked,
       ).toBe(true);
     });
 
@@ -662,11 +664,11 @@ describe("Form", () => {
     });
 
     it("should check the box when an inverted flag is false", () => {
-      const c = render(<Form.CheckboxField path="disabled" label="Saving" inverted />, {
+      render(<Form.CheckboxField path="disabled" label="Saving" inverted />, {
         wrapper: flagsWrapper(),
       });
       expect(
-        c.getByRole<HTMLInputElement>("checkbox", { name: "Saving" }).checked,
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Saving" }).checked,
       ).toBe(true);
     });
 
@@ -679,6 +681,25 @@ describe("Form", () => {
       expect(result.current).toBe(false);
       act(() => {
         fireEvent.click(screen.getByRole("checkbox", { name: "Saving" }));
+      });
+      expect(result.current).toBe(true);
+    });
+
+    it("should bind to the field key under the path", () => {
+      const { result } = renderHook(
+        () => Form.useFieldValue<boolean>("config.autoStart"),
+        {
+          wrapper: flagsWrapper(
+            <Form.CheckboxField
+              path="config"
+              fieldKey="autoStart"
+              label="Auto start"
+            />,
+          ),
+        },
+      );
+      act(() => {
+        fireEvent.click(screen.getByRole("checkbox", { name: "Auto start" }));
       });
       expect(result.current).toBe(true);
     });
