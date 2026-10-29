@@ -32,8 +32,10 @@ import (
 )
 
 type rackState struct {
-	lastUpdated    telem.TimeStamp
-	deadCheckCount int
+	lastUpdated telem.TimeStamp
+	// dead is true from the write of an outage until the rack reports healthy again, so
+	// each outage is written once.
+	dead bool
 }
 
 type monitor struct {
@@ -60,26 +62,20 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	m.L.Debug("checking health of racks")
 	m.mu.Lock()
 	now := m.svc.Now()
-	var toAlert []Key
+	var stale []Key
 	for k, state := range m.mu.racks {
-		if telem.TimeSpan(now-state.lastUpdated) < m.svc.HealthCheckInterval {
-			continue
-		}
-		state.deadCheckCount++
-		m.mu.racks[k] = state
-		if state.deadCheckCount == 1 ||
-			state.deadCheckCount%m.svc.AlertEveryNChecks == 0 {
-			toAlert = append(toAlert, k)
+		if m.outageStarted(state, now) {
+			stale = append(stale, k)
 		}
 	}
 	m.mu.Unlock()
 
-	if len(toAlert) == 0 {
+	if len(stale) == 0 {
 		return nil
 	}
-	racks := make([]Rack, 0, len(toAlert))
+	racks := make([]Rack, 0, len(stale))
 	if err := m.svc.NewRetrieve().
-		Where(MatchKeys(toAlert...)).
+		Where(MatchKeys(stale...)).
 		Entries(&racks).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return err
@@ -87,33 +83,34 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 
 	m.mu.Lock()
 	now = m.svc.Now()
-	var statuses []Status
+	var (
+		statuses    []Status
+		lastUpdated = make(map[Key]telem.TimeStamp, len(racks))
+	)
 	for _, r := range racks {
 		state := m.mu.racks[r.Key]
-		if telem.TimeSpan(now-state.lastUpdated) < m.svc.HealthCheckInterval {
+		if !m.outageStarted(state, now) {
 			continue
 		}
-		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
-		stat := Status{
+		lastUpdated[r.Key] = state.lastUpdated
+		statuses = append(statuses, Status{
 			Key:     r.OntologyID().String(),
 			Name:    r.Name,
 			Variant: status.VariantWarning,
 			Time:    state.lastUpdated,
 			Message: "Driver not running",
 			Description: fmt.Sprintf(
-				"The Core has not heard from the Driver on %s for %s. Check that "+
-					"the Driver is running and can reach the Core.",
+				"The Core has not heard from the Driver on %s. Check that the "+
+					"Driver is running and can reach the Core.",
 				r.Name,
-				timeSinceAlive.Truncate(telem.Second),
 			),
 			Details: StatusDetails{Rack: r.Key},
-		}
+		})
 		m.L.Warn(
 			"driver not running",
 			zap.String("rack", r.Name),
-			zap.Stringer("time_since_alive", timeSinceAlive),
+			zap.Stringer("time_since_alive", telem.TimeSpan(now-state.lastUpdated)),
 		)
-		statuses = append(statuses, stat)
 	}
 	m.mu.Unlock()
 
@@ -125,10 +122,26 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	m.mu.Lock()
+	for k, at := range lastUpdated {
+		// A healthy report that landed during the write starts a new period.
+		if state, ok := m.mu.racks[k]; ok && state.lastUpdated == at {
+			state.dead = true
+			m.mu.racks[k] = state
+		}
+	}
+	m.mu.Unlock()
 	for _, stat := range statuses {
 		m.Notify(ctx, stat)
 	}
 	return nil
+}
+
+// outageStarted returns true when a rack has been silent for a health check interval
+// and its outage is not yet written.
+func (m *monitor) outageStarted(state rackState, now telem.TimeStamp) bool {
+	return !state.dead &&
+		telem.TimeSpan(now-state.lastUpdated) >= m.svc.HealthCheckInterval
 }
 
 func (m *monitor) handleChange(
@@ -153,7 +166,7 @@ func (m *monitor) handleChange(
 		isHealthy := ch.Value.Variant == status.VariantSuccess ||
 			ch.Value.Variant == status.VariantInfo
 		if isHealthy || !lo.HasKey(m.mu.racks, key) {
-			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now(), deadCheckCount: 0}
+			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now()}
 		}
 	}
 }

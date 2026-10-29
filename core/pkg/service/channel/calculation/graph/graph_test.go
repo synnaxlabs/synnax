@@ -1324,6 +1324,64 @@ var _ = Describe("Graph", func() {
 		})
 
 		It(
+			"Should drop a report for a channel it holds as invalid",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				calc := createBrokenCalc(ctx, "rt_invalid", "rt_invalid_dep")
+				expectStatus(ctx, calc.Key())
+
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_invalid",
+					Variant: status.VariantSuccess,
+					Message: "Calculation running",
+					Time:    telem.Now(),
+				})).To(Succeed())
+
+				s, ok := fetchStatus(ctx, calc.Key())
+				Expect(ok).To(BeTrue())
+				Expect(s.Message).To(Equal("Failed to compile calculation"))
+			},
+		)
+
+		It(
+			"Should drop reports for a rejected definition until the rejection clears",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_reject_dep")
+				calc := channel.Channel{
+					Name: "rt_reject", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_reject_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				report := func(message string) *calculation.Status {
+					return &calculation.Status{
+						Name:    "rt_reject",
+						Variant: status.VariantError,
+						Message: message,
+						Time:    telem.Now(),
+					}
+				}
+
+				Expect(g.RejectDefinition(
+					ctx, calc.Key(), report("Failed to compile calculation"),
+				)).To(Succeed())
+				Expect(g.SetRuntimeStatus(
+					ctx, calc.Key(), report("Failed to run calculation"),
+				)).To(Succeed())
+				Expect(expectStatus(ctx, calc.Key()).Message).
+					To(Equal("Failed to compile calculation"))
+
+				By("Clearing the rejection")
+				Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
+				Expect(g.SetRuntimeStatus(
+					ctx, calc.Key(), report("Failed to run calculation"),
+				)).To(Succeed())
+				Expect(expectStatus(ctx, calc.Key()).Message).
+					To(Equal("Failed to run calculation"))
+			},
+		)
+
+		It(
 			"Should keep a report made from an Observe subscriber on the same batch",
 			func(ctx SpecContext) {
 				g := openGraph(ctx)
