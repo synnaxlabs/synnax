@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
@@ -90,6 +89,9 @@ func (r configResolver) RetrieveDataTypes(
 func (r configResolver) RetrieveName(context.Context, channel.Key) string {
 	return r.name
 }
+
+// leadingDomain is where Cesium starts the alignment domains of unpersisted writes.
+const leadingDomain uint32 = 1 << 31
 
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(
@@ -398,7 +400,7 @@ var _ = Describe("Codec", func() {
 				s3.TimeRange = telem.NewRangeSeconds(1, 5)
 				s3.Alignment = 5
 				s4 := telem.MakeSeries(telem.Uint8T, 5000)
-				s4.Alignment = cesium.LeadingAlignment(5000, 5)
+				s4.Alignment = telem.NewAlignment(leadingDomain+5000, 5)
 				s4.TimeRange = telem.NewRangeSeconds(9999999, 999999999)
 				originalFrame := frame.NewMulti(
 					keys,
@@ -423,11 +425,11 @@ var _ = Describe("Codec", func() {
 				// which is what the accumulation throttle produces when it batches
 				// several writes into one streamed frame.
 				s1a := telem.NewSeriesV[int64](1, 2)
-				s1a.Alignment = cesium.LeadingAlignment(4, 100) // [100, 102)
+				s1a.Alignment = telem.NewAlignment(leadingDomain+4, 100) // [100, 102)
 				s1b := telem.NewSeriesV[int64](3, 4)
-				s1b.Alignment = cesium.LeadingAlignment(4, 102) // [102, 104)
+				s1b.Alignment = telem.NewAlignment(leadingDomain+4, 102) // [102, 104)
 				s2 := telem.NewSeriesV[int64](5, 6)
-				s2.Alignment = cesium.LeadingAlignment(4, 100)
+				s2.Alignment = telem.NewAlignment(leadingDomain+4, 100)
 				fr := frame.NewMulti(
 					channel.Keys{1, 1, 2},
 					[]telem.Series{s1a, s1b, s2},
@@ -457,7 +459,7 @@ var _ = Describe("Codec", func() {
 				// next.Lower.
 				Expect(
 					ch1[0].AlignmentBounds().Lower,
-				).To(Equal(cesium.LeadingAlignment(4, 100)))
+				).To(Equal(telem.NewAlignment(leadingDomain+4, 100)))
 				var total int64
 				for i, s := range ch1 {
 					total += s.Len()
@@ -469,7 +471,7 @@ var _ = Describe("Codec", func() {
 				}
 				Expect(total).To(Equal(int64(4)))
 				Expect(ch1[len(ch1)-1].AlignmentBounds().Upper).To(
-					Equal(cesium.LeadingAlignment(4, 104)),
+					Equal(telem.NewAlignment(leadingDomain+4, 104)),
 				)
 			},
 		)
@@ -721,7 +723,7 @@ var _ = Describe("Codec", func() {
 						Expect(enc.Update(ctx, only)).To(Succeed())
 					}
 					s := telem.NewSeriesV(float32(i))
-					s.Alignment = cesium.LeadingAlignment(1, sample)
+					s.Alignment = telem.NewAlignment(leadingDomain+1, sample)
 					fr := frame.NewUnary(dataCh, s)
 					decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
 					for k, ds := range decoded.Entries() {
@@ -1745,15 +1747,6 @@ func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 			}
 		}
 	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
 }
 
 // Benchmark alignment compression with two contiguous series
@@ -1770,15 +1763,6 @@ func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1806,15 +1790,6 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1850,15 +1825,6 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1907,15 +1873,6 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 			}
 		}
 	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
 }
 
 // Benchmark bandwidth savings - measure encoded size
@@ -1937,20 +1894,6 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		encoded, err := cd.Encode(b.Context(), frame)
-		if err != nil {
-			b.Fatalf("failed to encode: %v", err)
-		}
-		b.ReportMetric(float64(len(encoded)), "bytes")
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		encoded, err := cd.Encode(b.Context(), frame)
 		if err != nil {
 			b.Fatalf("failed to encode: %v", err)
