@@ -18,6 +18,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -104,9 +105,14 @@ public:
     /// other tasks. Call it again on error.
     [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
 
-    /// @brief forgets the latest status of the task, so that a later re-send does not
-    /// write it. Call it once the task has left this Driver. Never waits on a write.
+    /// @brief forgets the latest status of the task and discards its later statuses, so
+    /// that neither a re-send nor a late report writes one. Call it once the task has
+    /// left this Driver. Never waits on a write.
     virtual void drop_status(const synnax::task::Key &key) = 0;
+
+    /// @brief writes and keeps the statuses of the task again after drop_status. Call
+    /// it before the task runs on this Driver.
+    virtual void claim_status(const synnax::task::Key &key) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -129,6 +135,8 @@ public:
 
     void drop_status(const synnax::task::Key &) override {}
 
+    void claim_status(const synnax::task::Key &) override {}
+
     /// @brief returns a copy of the statuses, safe to read while tasks send more.
     std::vector<synnax::task::Status> snapshot() {
         std::lock_guard lock(this->mu);
@@ -150,14 +158,18 @@ class SynnaxContext final : public Context {
         /// never waits on a write.
         std::atomic<bool> dropped = false;
     };
-    /// @brief guards statuses. Never held during a write, so a task never waits on the
-    /// write of another task.
+    /// @brief guards statuses and released. Never held during a write, so a task never
+    /// waits on the write of another task.
     std::mutex statuses_mu;
     std::unordered_map<synnax::task::Key, std::shared_ptr<Entry>> statuses;
+    /// @brief the tasks that left this Driver and were not claimed again.
+    std::unordered_set<synnax::task::Key> released;
 
-    /// @brief returns the entry for key, creating it if absent.
+    /// @brief returns the entry for key, creating it if absent. Returns null for a
+    /// released task.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key) {
         std::lock_guard lock{this->statuses_mu};
+        if (this->released.contains(key)) return nullptr;
         auto &entry = this->statuses[key];
         if (entry == nullptr) entry = std::make_shared<Entry>();
         return entry;
@@ -187,7 +199,10 @@ public:
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
         const auto entry = this->entry_for(status.details.task);
+        if (entry == nullptr) return;
         std::lock_guard lock{entry->mu};
+        // drop_status can run between the lookup and the lock.
+        if (entry->dropped) return;
         entry->status = status;
         entry->status.details.cmd.clear();
         if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
@@ -222,10 +237,16 @@ public:
 
     void drop_status(const synnax::task::Key &key) override {
         std::lock_guard lock{this->statuses_mu};
+        this->released.insert(key);
         const auto it = this->statuses.find(key);
         if (it == this->statuses.end()) return;
         it->second->dropped = true;
         this->statuses.erase(it);
+    }
+
+    void claim_status(const synnax::task::Key &key) override {
+        std::lock_guard lock{this->statuses_mu};
+        this->released.erase(key);
     }
 };
 
