@@ -73,11 +73,9 @@ class Slave {
     std::map<int, std::size_t> requests_;
     /// @brief the number of requests received, by unit. Guarded by mutex_.
     std::map<int, std::size_t> unit_requests_;
-    /// @brief the function codes of the requests received, in order. Guarded by
-    /// mutex_.
+    /// @brief the function codes of the requests received, in order. Guarded by mutex_.
     std::vector<int> log_;
-    /// @brief the one-time delay before the next reply to each unit. Guarded by
-    /// mutex_.
+    /// @brief the one-time delay before the next reply to each unit. Guarded by mutex_.
     std::map<int, std::chrono::milliseconds> stalls_;
     /// @brief the number of client connections accepted. Guarded by mutex_.
     std::size_t connections_ = 0;
@@ -279,8 +277,8 @@ class Slave {
                     const int rc = modbus_receive(ctx_, query);
 
                     if (rc > 0) {
-                        // The unit is at offset 6 and the function code at offset 7
-                        // of a TCP ADU.
+                        // The unit is at offset 6 and the function code at offset 7 of
+                        // a TCP ADU.
                         const uint8_t unit = query[6];
                         const uint8_t function_code = query[7];
                         VLOG(1) << "Received Modbus request on socket " << master_socket

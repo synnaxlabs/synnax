@@ -35,8 +35,8 @@ struct Block {
 /// @brief groups channels into blocks of at most limit registers or bits.
 /// @param channels channels sorted by address, each with an address and a width.
 /// @param limit the most registers or bits one request can hold.
-/// @param max_gap the most addresses that no channel covers between two channels of
-/// a block. A block with a max_gap of 0 holds only channels that touch end to end.
+/// @param max_gap the most addresses that no channel covers between two channels of a
+/// block. A block with a max_gap of 0 holds only channels that touch end to end.
 /// @returns the blocks in address order. Each channel is in exactly one block.
 template<typename Channel>
 std::vector<Block> plan(

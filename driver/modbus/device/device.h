@@ -190,7 +190,7 @@ struct ConnectionConfig {
 struct RequestConfig {
     /// @brief the most registers one read covers.
     std::size_t max_registers = MODBUS_MAX_READ_REGISTERS;
-    /// @brief the most unused addresses one read can span.
+    /// @brief the most unused addresses one read can span between two channels.
     std::size_t max_gap = MODBUS_MAX_READ_REGISTERS;
     /// @brief the function codes writes use.
     WriteCodes write_codes = WriteCodes::Multiple;
@@ -238,6 +238,7 @@ struct Properties {
 
     Properties() = default;
 
+    /// @brief parses the properties from their JSON representation.
     explicit Properties(const x::json::Parser &parser):
         connection(parser.child("connection")),
         requests(parser.optional_child("requests")) {}
@@ -248,6 +249,7 @@ struct Properties {
 /// concurrent use.
 class Connection {
 public:
+    /// @brief the clock of request, reply, and demotion times.
     using Clock = std::chrono::steady_clock;
 
 private:
@@ -344,9 +346,9 @@ private:
         return {
             UNREACHABLE,
             "unit " + std::to_string(unit_id) + " timed out " +
-                std::to_string(DEMOTE_AFTER) + " times in a row, so its requests " +
-                "fail for " + std::to_string(static_cast<int>(DEMOTION.seconds())) +
-                " s"
+                std::to_string(DEMOTE_AFTER) +
+                " times in a row, so its requests fail for " +
+                std::to_string(static_cast<int>(DEMOTION.seconds())) + " s"
         };
     }
 
@@ -358,8 +360,8 @@ private:
         unit.last_reply = Clock::now();
     }
 
-    /// @brief records a timed-out attempt and demotes the unit after DEMOTE_AFTER in
-    /// a row.
+    /// @brief records a timed-out attempt and demotes the unit after DEMOTE_AFTER in a
+    /// row.
     /// @returns true if the unit is now demoted.
     bool timed_out(const std::uint8_t unit_id) {
         std::lock_guard lock(this->mu);
@@ -433,6 +435,7 @@ class Device {
     }
 
 public:
+    /// @brief creates a device that sends its requests on a shared connection.
     Device(
         std::shared_ptr<Connection> conn,
         ConnectionConfig cfg,
@@ -473,8 +476,8 @@ public:
         });
     }
 
-    /// @brief writes to the coils of the device, with function code 15, or 05 for
-    /// each coil when the device writes with single codes.
+    /// @brief writes to the coils of the device, with function code 15, or 05 for each
+    /// coil when the device writes with single codes.
     /// @param addr the address to start writing to.
     /// @param nb the number of bits to write.
     /// @param src the source buffer, at least nb bytes long.
@@ -508,8 +511,7 @@ public:
         });
     }
 
-    /// @brief checks that the unit answers by reading the holding register at
-    /// address 0.
+    /// @brief checks that the unit answers by reading holding register 0.
     /// @returns NIL if the unit replied, an exception included, and the error of the
     /// request otherwise.
     x::errors::Error probe() {
@@ -526,8 +528,8 @@ public:
     }
 };
 
-/// @brief shares one connection among the devices on each endpoint. Safe for
-/// concurrent use.
+/// @brief shares one connection among the devices on each endpoint. Safe for concurrent
+/// use.
 class Manager {
     std::mutex mu;
     std::unordered_map<std::string, std::weak_ptr<Connection>> connections;
@@ -535,9 +537,9 @@ class Manager {
 public:
     Manager() = default;
 
-    /// @brief returns a device on the shared connection to its endpoint. The
-    /// connection lives while any device on it does. Acquiring does not connect: the
-    /// first request does.
+    /// @brief returns a device on the shared connection to its endpoint. The connection
+    /// lives while any device on it does. Acquiring does not connect: the first request
+    /// does.
     /// @param cfg the endpoint and unit of the device.
     /// @param requests how the device plans and paces its requests.
     std::pair<std::shared_ptr<Device>, x::errors::Error>

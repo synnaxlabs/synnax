@@ -16,7 +16,11 @@ import { createModbusDevice } from "@/feature/modbus/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand, commitFieldInput } from "@/platform/task/testutil";
+import {
+  answerNextCommand,
+  commitFieldInput,
+  selectFromDropdown,
+} from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -48,7 +52,7 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(screen.getByText("Little-endian (DCBA)")).toBeTruthy();
   });
 
-  it("should save the unit ID entered for a new server", async () => {
+  it("should save the unit and byte order entered for a new server", async () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
       name: uniqueName("modbus_scan"),
@@ -64,6 +68,7 @@ describe("Modbus.Device.useConnectModal", () => {
       target: { value: "gateway.local" },
     });
     commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("255"), "12");
+    await selectFromDropdown("Word swap (CDAB)", "Big-endian (ABCD)");
     const { answered } = await answerNextCommand(client, scan);
     pressSaveTrigger();
     await answered;
@@ -71,6 +76,8 @@ describe("Modbus.Device.useConnectModal", () => {
     if (key == null) throw new Error("the modal closed without a device");
     const dev = await client.devices.retrieve({ key, schemas: Modbus.Device.SCHEMAS });
     expect(dev.properties.connection.unitId).toBe(12);
+    expect(dev.properties.connection.swapBytes).toBe(false);
+    expect(dev.properties.connection.swapWords).toBe(true);
     expect(dev.properties.connection.timeoutMs).toBe(1000);
     expect(dev.properties.requests.writeCodes).toBe("multiple");
   });

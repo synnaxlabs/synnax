@@ -46,8 +46,8 @@ TEST(ManagerTest, SharesConnectionPerEndpoint) {
     slave.stop();
 }
 
-/// @brief it should close the connection when its last device is released, and open
-/// a new one for the next device.
+/// @brief it should close the connection when its last device is released, and open a
+/// new one for the next device.
 TEST(ManagerTest, ClosesConnectionWithLastDevice) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1521;
@@ -101,6 +101,8 @@ TEST(ManagerTest, ConcurrentRequestsShareConnection) {
     slave.stop();
 }
 
+/// @brief it should open one connection for each endpoint when threads acquire and read
+/// at once.
 TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
     std::vector<std::unique_ptr<testutil::Slave>> slaves;
     for (int i = 0; i < 4; i++) {
@@ -115,20 +117,18 @@ TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     Manager manager;
-    std::atomic<int> success_count{0};
     std::atomic<int> error_count{0};
+    std::vector<std::shared_ptr<Device>> devs(20);
 
     std::vector<std::thread> threads;
     threads.reserve(20);
     for (int i = 0; i < 20; i++) {
-        threads.emplace_back([&manager, &success_count, &error_count, i]() {
+        threads.emplace_back([&manager, &error_count, &devs, i]() {
             ConnectionConfig config{"127.0.0.1", static_cast<uint16_t>(1510 + (i % 4))};
             auto [dev, err] = manager.acquire(config);
-            if (err) {
-                error_count++;
-            } else if (dev != nullptr) {
-                success_count++;
-            }
+            uint16_t reg = 0;
+            if (err || dev->read_registers(HoldingRegister, 0, 1, &reg)) error_count++;
+            devs[i] = std::move(dev);
         });
     }
 
@@ -137,9 +137,8 @@ TEST(ManagerTest, ConcurrentAcquireIsThreadSafe) {
     }
 
     EXPECT_EQ(error_count.load(), 0);
-    EXPECT_EQ(success_count.load(), 20);
-
     for (auto &slave: slaves) {
+        EXPECT_EQ(slave->connections(), 1);
         slave->stop();
     }
 }
@@ -311,15 +310,15 @@ TEST(DeviceTest, ServerStopsWhileConnected) {
     ConnectionConfig config{"127.0.0.1", 1547};
 
     auto dev = ASSERT_NIL_P(manager.acquire(config));
+    uint8_t bits[1];
+    ASSERT_NIL(dev->read_bits(Coil, 0, 1, bits));
 
     slave->stop();
     slave.reset();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    uint8_t bits[1];
-    auto read_err = dev->read_bits(Coil, 0, 1, bits);
-    EXPECT_TRUE(read_err);
+    ASSERT_OCCURRED_AS(dev->read_bits(Coil, 0, 1, bits), UNREACHABLE);
 }
 
 TEST(DeviceTest, ReconnectAfterServerRestart) {
@@ -406,8 +405,8 @@ INSTANTIATE_TEST_SUITE_P(
     )
 );
 
-/// @brief it should retry a request on a new connection after the server drops the
-/// old one.
+/// @brief it should retry a request on a new connection after the server drops the old
+/// one.
 TEST(DeviceTest, ReconnectsAfterDroppedConnection) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1620;
@@ -427,8 +426,8 @@ TEST(DeviceTest, ReconnectsAfterDroppedConnection) {
     slave.stop();
 }
 
-/// @brief it should fail the request after a dropped connection when the device has
-/// no retries, and reconnect on the next one.
+/// @brief it should fail the request after a dropped connection when the device has no
+/// retries, and reconnect on the next one.
 TEST(DeviceTest, ReconnectsOnNextRequestWithoutRetries) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1626;
@@ -663,16 +662,25 @@ TEST(RequestConfigTest, ParsesFields) {
 /// @brief it should reject a request field out of range, naming the field.
 TEST(RequestConfigTest, RejectsInvalidFields) {
     x::json::Parser parser(
-        x::json::json{{"max_registers", 126}, {"write_codes", "both"}}
+        x::json::json{
+            {"max_registers", 126},
+            {"max_gap", -1},
+            {"write_codes", "both"},
+            {"delay_ms", 60001},
+        }
     );
     const RequestConfig requests(parser);
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
     const auto errs = parser.error_json()["errors"];
-    ASSERT_EQ(errs.size(), 2);
+    ASSERT_EQ(errs.size(), 4);
     EXPECT_EQ(errs[0]["path"], "max_registers");
     EXPECT_EQ(errs[0]["message"], "must be between 1 and 125");
-    EXPECT_EQ(errs[1]["path"], "write_codes");
-    EXPECT_EQ(errs[1]["message"], "must be multiple or single");
+    EXPECT_EQ(errs[1]["path"], "max_gap");
+    EXPECT_EQ(errs[1]["message"], "must be between 0 and 65535");
+    EXPECT_EQ(errs[2]["path"], "write_codes");
+    EXPECT_EQ(errs[2]["message"], "must be multiple or single");
+    EXPECT_EQ(errs[3]["path"], "delay_ms");
+    EXPECT_EQ(errs[3]["message"], "must be between 0 and 60000");
 }
 
 namespace {
@@ -814,8 +822,8 @@ TEST(DeviceTest, WriteGoesBeforeWaitingReads) {
     slave.stop();
 }
 
-/// @brief it should write each coil and register with its own request when the
-/// device writes with single function codes.
+/// @brief it should write each coil and register with its own request when the device
+/// writes with single function codes.
 TEST(DeviceTest, WritesWithSingleCodes) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1651;
@@ -865,15 +873,19 @@ TEST(DeviceTest, WaitsDelayBetweenRequests) {
 struct ProbeCase {
     std::string name;
     testutil::SlaveConfig slave;
-    bool alive;
+    /// @brief the error of the probe, or NIL when the unit answers.
+    x::errors::Error expected;
+    /// @brief the error number whose message the expected error carries.
+    int errnum = 0;
 };
 
 class ProbeTest : public ::testing::TestWithParam<ProbeCase> {};
 
-/// @brief it should treat any reply from the unit as alive, an exception included,
-/// and a timeout or a gateway exception as unreachable.
+/// @brief it should treat any reply from the unit as alive, an exception included, and
+/// a timeout or a gateway exception as unreachable.
 TEST_P(ProbeTest, Probes) {
-    auto slave_config = GetParam().slave;
+    const auto &param = GetParam();
+    auto slave_config = param.slave;
     slave_config.port = 1653;
     testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
@@ -881,10 +893,13 @@ TEST_P(ProbeTest, Probes) {
     auto cfg = unit(1653, 3);
     cfg.retries = 0;
     auto dev = ASSERT_NIL_P(manager.acquire(cfg));
-    if (GetParam().alive)
-        ASSERT_NIL(dev->probe());
-    else
-        ASSERT_OCCURRED_AS(dev->probe(), TEMPORARY_ERROR);
+    const auto err = dev->probe();
+    if (!param.expected)
+        ASSERT_NIL(err);
+    else {
+        ASSERT_OCCURRED_AS(err, param.expected);
+        EXPECT_EQ(err.data, modbus_strerror(param.errnum));
+    }
     slave.stop();
 }
 
@@ -892,14 +907,14 @@ INSTANTIATE_TEST_SUITE_P(
     Outcomes,
     ProbeTest,
     ::testing::Values(
-        ProbeCase{"Answers", {}, true},
+        ProbeCase{"Answers", {}, x::errors::NIL},
         ProbeCase{
             "Exception",
             {.reject_function_codes = {MODBUS_FC_READ_HOLDING_REGISTERS}},
-            true
+            x::errors::NIL
         },
-        ProbeCase{"Silent", {.silent_units = {3}}, false},
-        ProbeCase{"Gateway", {.gateway_failed_units = {3}}, false}
+        ProbeCase{"Silent", {.silent_units = {3}}, UNREACHABLE, ETIMEDOUT},
+        ProbeCase{"Gateway", {.gateway_failed_units = {3}}, TEMPORARY_ERROR, EMBXGTAR}
     ),
     [](const auto &info) { return info.param.name; }
 );

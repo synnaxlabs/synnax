@@ -85,8 +85,8 @@ private:
     /// @brief Test connection to a Modbus server.
     void test_connection(const synnax::task::Command &cmd) const;
 
-    /// @brief sets the status of a device. A device that answered a task since the
-    /// last scan is healthy. Otherwise the scanner probes it.
+    /// @brief sets the status of a device. A device that answered a task since the last
+    /// scan is healthy. Otherwise the scanner probes it.
     /// @param dev the device to check.
     /// @param next the checks of the current scan, which the device's check joins.
     void check_device_health(

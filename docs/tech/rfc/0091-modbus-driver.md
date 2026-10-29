@@ -59,7 +59,7 @@ follow the HTTP device's `timeout_ms` (`driver/http/device/device.h:91`).
 | `connection.timeout_ms`             | 1000                   | Connect and response timeout              |
 | `connection.retries`                | 1                      | Immediate retries after a temporary error |
 | `requests.max_registers`            | 125                    | Registers in one read                     |
-| `requests.max_gap`                  | 125                    | Unused addresses a read block can span    |
+| `requests.max_gap`                  | 125                    | Widest gap between channels in a block    |
 | `requests.write_codes`              | `"multiple"`           | FC15/16, or `"single"` for FC05/06        |
 | `requests.mask_write_supported`     | `false`                | Bit writes use FC22                       |
 | `requests.delay_ms`                 | 0                      | Wait between requests on one connection   |

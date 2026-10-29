@@ -246,8 +246,8 @@ TEST(ScanTask, testScanSkipsProbeAfterTaskReply) {
     EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 2);
 }
 
-/// @brief it should report a device whose unit does not answer, even though its
-/// server accepts the connection.
+/// @brief it should report a device whose unit does not answer, even though its server
+/// accepts the connection.
 TEST(ScanTask, testScanReportsSilentUnit) {
     testutil::SlaveConfig slave_cfg;
     slave_cfg.port = 1662;

@@ -185,10 +185,10 @@ class Device(device.Device):
     :param retries: The immediate retries of a request after a timeout or another
         temporary fault, from 0 to 10.
     :param max_registers: The most registers one read covers, from 1 to 125.
-    :param max_gap: The most unused addresses one read can span. 0 reads only
-        addresses that channels cover.
-    :param write_codes: "multiple" writes with function codes 15 and 16. "single"
-        writes each coil with 05 and each register with 06.
+    :param max_gap: The most unused addresses one read can span between two channels.
+        0 reads only addresses that channels cover.
+    :param write_codes: "multiple" writes with function codes 15 and 16. "single" writes
+        each coil with 05 and each register with 06.
     :param delay_ms: The wait in milliseconds between requests on the connection.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.

@@ -17,7 +17,7 @@ export const INTEGRATION = "modbus";
 const makeZ = z.literal(MAKE);
 const modelZ = z.literal("Modbus");
 
-export const WRITE_CODES = ["multiple", "single"] as const;
+const WRITE_CODES = ["multiple", "single"] as const;
 export const writeCodesZ = z.enum(WRITE_CODES);
 export type WriteCodes = z.infer<typeof writeCodesZ>;
 
@@ -99,8 +99,8 @@ export const SCHEMAS = {
 >;
 
 /**
- * The order of the four bytes of a two-register value as the device sends them, with
- * A the most significant byte. A one-register value uses the first two letters.
+ * The order of the four bytes of a two-register value as the device sends them, with A
+ * the most significant byte. A one-register value uses the first two letters.
  */
 export const BYTE_ORDERS = ["ABCD", "BADC", "CDAB", "DCBA"] as const;
 export const byteOrderZ = z.enum(BYTE_ORDERS);
