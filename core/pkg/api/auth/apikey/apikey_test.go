@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package auth_test
+package apikey_test
 
 import (
 	"context"
@@ -16,8 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	apiapikey "github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -70,6 +71,79 @@ func grant(
 	).To(Succeed())
 }
 
+var _ = Describe("ServiceConfig", func() {
+	full := func() apiapikey.ServiceConfig {
+		return apiapikey.ServiceConfig{
+			Auth:     &auth.Service{},
+			APIKey:   &apikey.Service{},
+			Ontology: &ontology.Ontology{},
+			RBAC:     &rbac.Service{},
+		}
+	}
+	It("Should succeed when every service is set", func() {
+		Expect(full().Validate()).To(Succeed())
+	})
+	DescribeTable(
+		"Should fail when a service is missing",
+		func(clear func(*apiapikey.ServiceConfig), msg string) {
+			cfg := full()
+			clear(&cfg)
+			Expect(cfg.Validate()).To(MatchError(msg))
+		},
+		Entry(
+			"auth",
+			func(c *apiapikey.ServiceConfig) { c.Auth = nil },
+			"auth: must be non-nil",
+		),
+		Entry(
+			"api key",
+			func(c *apiapikey.ServiceConfig) { c.APIKey = nil },
+			"api_key: must be non-nil",
+		),
+		Entry(
+			"ontology",
+			func(c *apiapikey.ServiceConfig) { c.Ontology = nil },
+			"ontology: must be non-nil",
+		),
+		Entry(
+			"rbac",
+			func(c *apiapikey.ServiceConfig) { c.RBAC = nil },
+			"rbac: must be non-nil",
+		),
+	)
+	It("Should take the other config's services when set", func() {
+		cfg := full()
+		merged := apiapikey.ServiceConfig{}.Override(cfg)
+		Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
+		Expect(merged.APIKey).To(BeIdenticalTo(cfg.APIKey))
+		Expect(merged.Ontology).To(BeIdenticalTo(cfg.Ontology))
+		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+	})
+})
+
+var _ = Describe("NewService", func() {
+	It("Should return an error when the config is invalid", func() {
+		Expect(apiapikey.NewService(apiapikey.ServiceConfig{})).Error().
+			To(MatchError(ContainSubstring("auth: must be non-nil")))
+	})
+})
+
+var _ = Describe("Disabled API key method", func() {
+	It("Should refuse a new API key", func(ctx SpecContext) {
+		disabled := newService(MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB: node.DB,
+			Authenticators: map[auth.Method]auth.Authenticator{
+				auth.MethodPassword: passwordSvc,
+			},
+		})))
+		Expect(disabled.Create(
+			requestCtx(ctx),
+			nil,
+			apiapikey.CreateRequest{Name: "ci"},
+		)).Error().To(MatchError(validate.ErrValidation))
+	})
+})
+
 var _ = Describe("API keys", func() {
 	var (
 		bob, eng           user.User
@@ -77,22 +151,15 @@ var _ = Describe("API keys", func() {
 		rootToken          string
 		rack               ontology.ID
 	)
-	login := func(ctx context.Context, proof auth.Proof) string {
-		GinkgoHelper()
-		return MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: proof},
-		)).Token
-	}
 	create := func(
 		ctx context.Context,
 		token string,
 		subject ontology.ID,
-	) (apiauth.APIKeyCreateResponse, error) {
-		return apiSvc.CreateAPIKey(
+	) (apiapikey.CreateResponse, error) {
+		return apiSvc.Create(
 			authed(ctx, token),
 			nil,
-			apiauth.APIKeyCreateRequest{Subject: subject, Name: "ci"},
+			apiapikey.CreateRequest{Subject: subject, Name: "ci"},
 		)
 	}
 	BeforeEach(func(ctx SpecContext) {
@@ -105,7 +172,7 @@ var _ = Describe("API keys", func() {
 		rack = ontology.ID{Type: ontology.ResourceTypeRack, Key: uuid.New().String()}
 		Expect(otg.NewWriter(nil).DefineResources(ctx, rack)).To(Succeed())
 	})
-	Describe("CreateAPIKey", func() {
+	Describe("Create", func() {
 		It("Should create a key for the caller that logs in as the caller", func(
 			ctx SpecContext,
 		) {
@@ -170,31 +237,31 @@ var _ = Describe("API keys", func() {
 				To(MatchError(validate.ErrValidation))
 		})
 	})
-	Describe("RetrieveAPIKeys", func() {
+	Describe("Retrieve", func() {
 		It("Should list the caller's own keys by default", func(ctx SpecContext) {
 			own := MustSucceed(create(ctx, bobToken, ontology.ID{})).Key
 			MustSucceed(create(ctx, rootToken, ontology.ID{}))
-			res := MustSucceed(apiSvc.RetrieveAPIKeys(
+			res := MustSucceed(apiSvc.Retrieve(
 				authed(ctx, bobToken),
-				apiauth.APIKeyRetrieveRequest{},
+				apiapikey.RetrieveRequest{},
 			))
 			Expect(res.Keys).To(ConsistOf(own))
 		})
 		It("Should deny a user listing another subject's keys", func(ctx SpecContext) {
-			Expect(apiSvc.RetrieveAPIKeys(
+			Expect(apiSvc.Retrieve(
 				authed(ctx, bobToken),
-				apiauth.APIKeyRetrieveRequest{
+				apiapikey.RetrieveRequest{
 					Subjects: []ontology.ID{root.OntologyID()},
 				},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
-	Describe("DeleteAPIKeys", func() {
+	Describe("Delete", func() {
 		del := func(ctx context.Context, token string, keys ...apikey.Key) error {
-			_, err := apiSvc.DeleteAPIKeys(
+			_, err := apiSvc.Delete(
 				authed(ctx, token),
 				nil,
-				apiauth.APIKeyDeleteRequest{Keys: keys},
+				apiapikey.DeleteRequest{Keys: keys},
 			)
 			return err
 		}
@@ -207,18 +274,13 @@ var _ = Describe("API keys", func() {
 			Expect(authSvc.Authenticate(ctx, keyToken)).Error().
 				To(MatchError(auth.ErrInvalidToken))
 			MustSucceed(authSvc.Authenticate(ctx, bobToken))
-			Expect(apiSvc.CreateSession(
-				requestCtx(ctx),
-				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
-			)).Error().To(MatchError(auth.ErrInvalidCredentials))
+			Expect(authSvc.Login(ctx, keyProof(res.Token))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should deny a user deleting another subject's key", func(ctx SpecContext) {
 			res := MustSucceed(create(ctx, rootToken, ontology.ID{}))
 			Expect(del(ctx, bobToken, res.Key.Key)).To(MatchError(access.ErrDenied))
-			MustSucceed(apiSvc.CreateSession(
-				requestCtx(ctx),
-				apiauth.SessionCreateRequest{Proof: keyProof(res.Token)},
-			))
+			login(ctx, keyProof(res.Token))
 		})
 		It("Should ignore unknown keys", func(ctx SpecContext) {
 			Expect(del(ctx, bobToken, uuid.New())).To(Succeed())

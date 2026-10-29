@@ -15,6 +15,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
@@ -50,7 +54,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 	framerServerOption := framer.WithCodec(layer.Channel)
 	layer.BindTo(api.Transport{
 		// AUTH
-		AuthLogin: unary[auth.LoginRequest, auth.LoginResponse](
+		AuthLogin: unary[session.LoginRequest, session.LoginResponse](
 			router,
 			"/api/v1/auth/login",
 		),
@@ -58,63 +62,63 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/methods",
 		),
-		AuthChangePassword: unary[auth.ChangePasswordRequest, struct{}](
+		AuthChangePassword: unary[password.ChangeRequest, struct{}](
 			router,
 			"/api/v1/auth/change-password",
 		),
-		AuthSessionCreate: unary[auth.SessionCreateRequest, auth.SessionCreateResponse](
+		AuthSessionCreate: unary[session.CreateRequest, session.CreateResponse](
 			router,
 			"/api/v1/auth/session/create",
 		),
-		AuthSessionRenew: unary[struct{}, auth.SessionRenewResponse](
+		AuthSessionRenew: unary[struct{}, session.RenewResponse](
 			router,
 			"/api/v1/auth/session/renew",
 		),
-		AuthSessionRetrieve: unary[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse](
+		AuthSessionRetrieve: unary[session.RetrieveRequest, session.RetrieveResponse](
 			router,
 			"/api/v1/auth/session/retrieve",
 		),
-		AuthSessionDelete: unary[auth.SessionDeleteRequest, struct{}](
+		AuthSessionDelete: unary[session.DeleteRequest, struct{}](
 			router,
 			"/api/v1/auth/session/delete",
 		),
-		AuthAPIKeyCreate: unary[auth.APIKeyCreateRequest, auth.APIKeyCreateResponse](
+		AuthAPIKeyCreate: unary[apikey.CreateRequest, apikey.CreateResponse](
 			router,
 			"/api/v1/auth/api-key/create",
 		),
-		AuthAPIKeyRetrieve: unary[auth.APIKeyRetrieveRequest, auth.APIKeyRetrieveResponse](
+		AuthAPIKeyRetrieve: unary[apikey.RetrieveRequest, apikey.RetrieveResponse](
 			router,
 			"/api/v1/auth/api-key/retrieve",
 		),
-		AuthAPIKeyDelete: unary[auth.APIKeyDeleteRequest, struct{}](
+		AuthAPIKeyDelete: unary[apikey.DeleteRequest, struct{}](
 			router,
 			"/api/v1/auth/api-key/delete",
 		),
-		AuthOIDCLink: unary[auth.OIDCLinkRequest, auth.OIDCLinkResponse](
+		AuthOIDCLink: unary[oidc.LinkRequest, oidc.LinkResponse](
 			router,
 			"/api/v1/auth/oidc/link",
 		),
-		AuthOIDCRetrieve: unary[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse](
+		AuthOIDCRetrieve: unary[oidc.RetrieveRequest, oidc.RetrieveResponse](
 			router,
 			"/api/v1/auth/oidc/retrieve",
 		),
-		AuthOIDCUnlink: unary[auth.OIDCUnlinkRequest, struct{}](
+		AuthOIDCUnlink: unary[oidc.UnlinkRequest, struct{}](
 			router,
 			"/api/v1/auth/oidc/unlink",
 		),
-		AuthPasswordCreate: unary[auth.PasswordCreateRequest, struct{}](
+		AuthPasswordCreate: unary[password.CreateRequest, struct{}](
 			router,
 			"/api/v1/auth/password/create",
 		),
 		AuthPasswordRetrieve: unary[
-			auth.PasswordRetrieveRequest,
-			auth.PasswordRetrieveResponse,
+			password.RetrieveRequest,
+			password.RetrieveResponse,
 		](router, "/api/v1/auth/password/retrieve"),
-		AuthPasswordRename: unary[auth.PasswordRenameRequest, struct{}](
+		AuthPasswordRename: unary[password.RenameRequest, struct{}](
 			router,
 			"/api/v1/auth/password/rename",
 		),
-		AuthPasswordSet: unary[auth.PasswordSetRequest, struct{}](
+		AuthPasswordSet: unary[password.SetRequest, struct{}](
 			router,
 			"/api/v1/auth/password/set",
 		),

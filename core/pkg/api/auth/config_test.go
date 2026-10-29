@@ -13,26 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiauth.ServiceConfig {
 		return apiauth.ServiceConfig{
-			Auth:     &auth.Service{},
-			Password: &password.Service{},
-			APIKey:   &apikey.Service{},
-			OIDC:     &oidc.Service{},
-			Ontology: &ontology.Ontology{},
-			User:     &user.Service{},
-			RBAC:     &rbac.Service{},
-			Cluster:  node.Cluster,
+			Auth: &auth.Service{},
+			OIDC: &oidc.Service{},
 		}
 	}
 
@@ -54,39 +43,9 @@ var _ = Describe("ServiceConfig", func() {
 				"auth: must be non-nil",
 			),
 			Entry(
-				"password",
-				func(c *apiauth.ServiceConfig) { c.Password = nil },
-				"password: must be non-nil",
-			),
-			Entry(
-				"api key",
-				func(c *apiauth.ServiceConfig) { c.APIKey = nil },
-				"api_key: must be non-nil",
-			),
-			Entry(
 				"oidc",
 				func(c *apiauth.ServiceConfig) { c.OIDC = nil },
 				"oidc: must be non-nil",
-			),
-			Entry(
-				"ontology",
-				func(c *apiauth.ServiceConfig) { c.Ontology = nil },
-				"ontology: must be non-nil",
-			),
-			Entry(
-				"user",
-				func(c *apiauth.ServiceConfig) { c.User = nil },
-				"user: must be non-nil",
-			),
-			Entry(
-				"rbac",
-				func(c *apiauth.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
-			Entry(
-				"cluster",
-				func(c *apiauth.ServiceConfig) { c.Cluster = nil },
-				"cluster: must be non-nil",
 			),
 		)
 	})
@@ -96,18 +55,14 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := full()
 			merged := apiauth.ServiceConfig{}.Override(cfg)
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
-			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
-			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Cluster).To(BeIdenticalTo(cfg.Cluster))
+			Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiauth.ServiceConfig{})
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
-			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
-			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Cluster).To(BeIdenticalTo(cfg.Cluster))
+			Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
 		})
 	})
 })

@@ -42,9 +42,6 @@ var (
 	apiKeySvc   *apikey.Service
 	oidcSvc     *oidc.Service
 	provider    *testutil.Provider
-	rbacSvc     *rbac.Service
-	otg         *ontology.Ontology
-	userSvc     *user.Service
 	apiSvc      *apiauth.Service
 	root        user.User
 	creds       = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
@@ -54,17 +51,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = mock.NewNode(ctx)
 	db := node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
-	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB: db, Ontology: otg, Group: groupSvc,
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
 	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
-	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -92,13 +89,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
-		Auth:     authSvc,
-		Password: passwordSvc,
-		APIKey:   apiKeySvc,
-		OIDC:     oidcSvc,
-		Ontology: otg,
-		User:     userSvc,
-		RBAC:     rbacSvc,
-		Cluster:  node.Cluster,
+		Auth: authSvc,
+		OIDC: oidcSvc,
 	}))
 })

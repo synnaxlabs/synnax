@@ -24,6 +24,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
@@ -60,30 +64,30 @@ var DefaultLayerConfig = config.DefaultLayerConfig
 
 type Transport struct {
 	// AUTH
-	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
+	AuthLogin           freighter.UnaryServer[session.LoginRequest, session.LoginResponse]
 	AuthMethods         freighter.UnaryServer[struct{}, auth.MethodsResponse]
-	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
-	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
-	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
-	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
-	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
-	AuthAPIKeyCreate    freighter.UnaryServer[auth.APIKeyCreateRequest, auth.APIKeyCreateResponse]
-	AuthAPIKeyRetrieve  freighter.UnaryServer[auth.APIKeyRetrieveRequest, auth.APIKeyRetrieveResponse]
-	AuthAPIKeyDelete    freighter.UnaryServer[auth.APIKeyDeleteRequest, struct{}]
+	AuthChangePassword  freighter.UnaryServer[password.ChangeRequest, struct{}]
+	AuthSessionCreate   freighter.UnaryServer[session.CreateRequest, session.CreateResponse]
+	AuthSessionRenew    freighter.UnaryServer[struct{}, session.RenewResponse]
+	AuthSessionRetrieve freighter.UnaryServer[session.RetrieveRequest, session.RetrieveResponse]
+	AuthSessionDelete   freighter.UnaryServer[session.DeleteRequest, struct{}]
+	AuthAPIKeyCreate    freighter.UnaryServer[apikey.CreateRequest, apikey.CreateResponse]
+	AuthAPIKeyRetrieve  freighter.UnaryServer[apikey.RetrieveRequest, apikey.RetrieveResponse]
+	AuthAPIKeyDelete    freighter.UnaryServer[apikey.DeleteRequest, struct{}]
 	// AuthOIDCLink links a provider account to the caller.
-	AuthOIDCLink freighter.UnaryServer[auth.OIDCLinkRequest, auth.OIDCLinkResponse]
+	AuthOIDCLink freighter.UnaryServer[oidc.LinkRequest, oidc.LinkResponse]
 	// AuthOIDCRetrieve lists provider links.
-	AuthOIDCRetrieve freighter.UnaryServer[auth.OIDCRetrieveRequest, auth.OIDCRetrieveResponse]
+	AuthOIDCRetrieve freighter.UnaryServer[oidc.RetrieveRequest, oidc.RetrieveResponse]
 	// AuthOIDCUnlink removes provider links and ends their sessions.
-	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
+	AuthOIDCUnlink freighter.UnaryServer[oidc.UnlinkRequest, struct{}]
 	// AuthPasswordCreate gives the caller or another user its first password.
-	AuthPasswordCreate freighter.UnaryServer[auth.PasswordCreateRequest, struct{}]
+	AuthPasswordCreate freighter.UnaryServer[password.CreateRequest, struct{}]
 	// AuthPasswordRetrieve lists passwords by subject or username, without hashes.
-	AuthPasswordRetrieve freighter.UnaryServer[auth.PasswordRetrieveRequest, auth.PasswordRetrieveResponse]
+	AuthPasswordRetrieve freighter.UnaryServer[password.RetrieveRequest, password.RetrieveResponse]
 	// AuthPasswordRename changes the username of the caller's password or another's.
-	AuthPasswordRename freighter.UnaryServer[auth.PasswordRenameRequest, struct{}]
+	AuthPasswordRename freighter.UnaryServer[password.RenameRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
-	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, struct{}]
+	AuthPasswordSet freighter.UnaryServer[password.SetRequest, struct{}]
 	// USER
 	UserRename   freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserCreate   freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
@@ -254,6 +258,10 @@ type Layer struct {
 	Group        *group.Service
 	Log          *log.Service
 	Auth         *auth.Service
+	Session      *session.Service
+	APIKey       *apikey.Service
+	Password     *password.Service
+	OIDC         *oidc.Service
 	Schematic    *schematic.Service
 	Symbol       *symbol.Service
 	View         *view.Service
@@ -493,33 +501,29 @@ func (l *Layer) BindTo(t Transport) {
 	db := l.config.Distribution.DB
 
 	// AUTH
-	t.AuthLogin.BindHandler(l.Auth.Login)
+	t.AuthLogin.BindHandler(l.Session.Login)
 	t.AuthMethods.BindHandler(l.Auth.Methods)
 	t.AuthChangePassword.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
+		fgorp.CreateWriteUnaryHandler(db, l.Password.Change),
 	)
-	t.AuthSessionCreate.BindHandler(l.Auth.CreateSession)
-	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
-	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
-	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
-	t.AuthAPIKeyCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateAPIKey),
-	)
-	t.AuthAPIKeyRetrieve.BindHandler(l.Auth.RetrieveAPIKeys)
-	t.AuthAPIKeyDelete.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteAPIKeys),
-	)
-	t.AuthOIDCLink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.LinkOIDC))
-	t.AuthOIDCRetrieve.BindHandler(l.Auth.RetrieveOIDCLinks)
-	t.AuthOIDCUnlink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.UnlinkOIDC))
+	t.AuthSessionCreate.BindHandler(l.Session.Create)
+	t.AuthSessionRenew.BindHandler(l.Session.Renew)
+	t.AuthSessionRetrieve.BindHandler(l.Session.Retrieve)
+	t.AuthSessionDelete.BindHandler(l.Session.Delete)
+	t.AuthAPIKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.APIKey.Create))
+	t.AuthAPIKeyRetrieve.BindHandler(l.APIKey.Retrieve)
+	t.AuthAPIKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.APIKey.Delete))
+	t.AuthOIDCLink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.OIDC.Link))
+	t.AuthOIDCRetrieve.BindHandler(l.OIDC.Retrieve)
+	t.AuthOIDCUnlink.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.OIDC.Unlink))
 	t.AuthPasswordCreate.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.CreatePassword),
+		fgorp.CreateWriteUnaryHandler(db, l.Password.Create),
 	)
-	t.AuthPasswordRetrieve.BindHandler(l.Auth.RetrievePasswords)
+	t.AuthPasswordRetrieve.BindHandler(l.Password.Retrieve)
 	t.AuthPasswordRename.BindHandler(
-		fgorp.CreateWriteUnaryHandler(db, l.Auth.RenamePassword),
+		fgorp.CreateWriteUnaryHandler(db, l.Password.Rename),
 	)
-	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
+	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Password.Set))
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
@@ -735,14 +739,39 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	l := &Layer{config: cfg}
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
+		Auth: cfg.Service.Auth,
+		OIDC: cfg.Service.OIDC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Session, err = session.NewService(session.ServiceConfig{
+		Auth:    cfg.Service.Auth,
+		User:    cfg.Service.User,
+		RBAC:    cfg.Service.RBAC,
+		Cluster: cfg.Distribution.Cluster,
+	}); err != nil {
+		return nil, err
+	}
+	if l.APIKey, err = apikey.NewService(apikey.ServiceConfig{
+		Auth:     cfg.Service.Auth,
+		APIKey:   cfg.Service.APIKey,
+		Ontology: cfg.Service.Ontology,
+		RBAC:     cfg.Service.RBAC,
+	}); err != nil {
+		return nil, err
+	}
+	if l.Password, err = password.NewService(password.ServiceConfig{
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
-		APIKey:   cfg.Service.APIKey,
-		OIDC:     cfg.Service.OIDC,
 		Ontology: cfg.Service.Ontology,
-		User:     cfg.Service.User,
 		RBAC:     cfg.Service.RBAC,
-		Cluster:  cfg.Distribution.Cluster,
+	}); err != nil {
+		return nil, err
+	}
+	if l.OIDC, err = oidc.NewService(oidc.ServiceConfig{
+		Auth: cfg.Service.Auth,
+		OIDC: cfg.Service.OIDC,
+		RBAC: cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
