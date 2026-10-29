@@ -100,6 +100,7 @@ class Checker:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         poll_freq: CrudeTimeSpan = TimeSpan.SECOND * 30,
         client_version: str = "",

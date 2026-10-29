@@ -154,7 +154,7 @@ class TestWriteFrameAdapter:
             virtual=True,
             data_type=sy.DataType.FLOAT64,
         )
-        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
         adapter.update(ch.name)
 
         return adapter, ch
@@ -280,7 +280,7 @@ class TestWriteFrameAdapter:
                 data_type=sy.DataType.TIMESTAMP,
             )
         )
-        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
         adapter.update(ch.key)
         o = adapter.adapt({ch.name: sy.TimeStamp.now()})
         assert len(o.channels) == 1
@@ -404,7 +404,7 @@ class TestWriteFrameAdapter:
             virtual=True,
             data_type=sy.DataType.STRING,
         )
-        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
         adapter.update(ch.name)
         adapted = adapter.adapt({ch.name: "hello"})
         assert adapted[ch.key][0] == "hello"
@@ -415,7 +415,7 @@ class TestWriteFrameAdapter:
             virtual=True,
             data_type=sy.DataType.STRING,
         )
-        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
         adapter.update(ch.name)
         adapted = adapter.adapt(ch.name, "hello")
         assert adapted[ch.key][0] == "hello"
