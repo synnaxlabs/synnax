@@ -75,16 +75,16 @@ const { privacy, userID, sensitive = false } = Astro.props;
         <a href={privacy}>Privacy policy</a>
     </Text.Text>
     <div class="consent-actions">
-        <Button.Button size="small" data-consent="reject">
+        <Button.Button size="small" className="consent-button" data-consent="reject">
             Reject
         </Button.Button>
-        <Button.Button size="small" data-consent="accept">
+        <Button.Button size="small" className="consent-button" data-consent="accept">
             Accept
         </Button.Button>
     </div>
 </div>
 
-<style is:global>
+<style>
     /* The Console's notification card, in the corner. Sizes are fixed, so the card
        reads the same on sites with different type scales. */
     .consent {
@@ -104,46 +104,49 @@ const { privacy, userID, sensitive = false } = Astro.props;
         &[hidden] {
             display: none;
         }
+    }
 
-        .pluto-text {
-            display: block;
-            font-size: 14px;
-            line-height: 20px;
-        }
+    /* The Astro compiler misses most :global() selectors in nested rules. */
+    .consent :global(.consent-name),
+    .consent :global(.consent-message),
+    .consent :global(.consent-description) {
+        display: block;
+        font-size: 14px;
+        line-height: 20px;
+    }
 
-        .consent-name,
-        .consent-description {
-            color: var(--pluto-gray-l9);
-            font-size: 13px;
-        }
+    .consent :global(.consent-name),
+    .consent :global(.consent-description) {
+        color: var(--pluto-gray-l9);
+        font-size: 13px;
+    }
 
-        .consent-name {
-            margin-bottom: 4px;
-        }
+    .consent :global(.consent-name) {
+        margin-bottom: 4px;
+    }
 
-        .consent-message {
-            font-weight: 500;
-            text-wrap: balance;
-        }
+    .consent :global(.consent-message) {
+        font-weight: 500;
+        text-wrap: balance;
+    }
 
-        .consent-description {
-            margin-top: 4px;
+    .consent :global(.consent-description) {
+        margin-top: 4px;
+    }
 
-            a {
-                white-space: nowrap;
-            }
-        }
+    .consent :global(.consent-description) a {
+        white-space: nowrap;
+    }
 
-        .consent-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 16px;
+    .consent-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+    }
 
-            .pluto-btn {
-                flex: 1;
-                justify-content: center;
-            }
-        }
+    .consent-actions :global(.consent-button) {
+        flex: 1;
+        justify-content: center;
     }
 
     @media (width <= 700px) {
