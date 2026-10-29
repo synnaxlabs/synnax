@@ -23,44 +23,73 @@ const AGENTS: Record<string, string> = {
 };
 
 describe("Mark", () => {
-  let html: string;
   let script: string;
 
   beforeAll(async () => {
     const container = await AstroContainer.create();
-    html = await container.renderToString(Mark);
+    const html = await container.renderToString(Mark);
     script = html.match(/<script[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? "";
   });
 
-  // Runs the page's script against a stand-in browser and returns the mark it leaves.
-  const run = (agent: string, search: string = ""): string | undefined => {
+  interface Page {
+    /** The mark the script leaves on the page it loads in. */
+    os: string | undefined;
+    /** Fires the router's swap to the URL and returns the mark on the next page. */
+    swapTo: (url: string) => string | undefined;
+  }
+
+  // Runs the page's script against a stand-in browser.
+  const load = (agent: string, href: string = "https://docs.synnaxlabs.com/"): Page => {
     const root = { dataset: {} as Record<string, string> };
+    const listeners = new Map<string, (e: unknown) => void>();
     runInNewContext(script, {
-      document: { documentElement: root },
+      document: {
+        documentElement: root,
+        addEventListener: (type: string, listener: (e: unknown) => void) =>
+          listeners.set(type, listener),
+      },
       navigator: { userAgent: agent },
-      location: { search },
-      URLSearchParams,
+      location: { href },
+      URL,
     });
-    return root.dataset.os;
+    return {
+      os: root.dataset.os,
+      swapTo: (url) => {
+        const next = { dataset: {} as Record<string, string> };
+        listeners.get("astro:before-swap")?.({
+          newDocument: { documentElement: next },
+          to: new URL(url),
+        });
+        return next.dataset.os;
+      },
+    };
   };
 
   it.each(Object.entries(AGENTS))("should mark %s for its readers", (os, agent) => {
-    expect(run(agent)).toBe(os);
+    expect(load(agent).os).toBe(os);
   });
 
   it("should leave an unknown system unmarked", () => {
-    expect(run("Mozilla/5.0 (PlayStation)")).toBeUndefined();
+    expect(load("Mozilla/5.0 (PlayStation)").os).toBeUndefined();
   });
 
   it("should mark the platform the URL names over the reader's own", () => {
-    expect(run(AGENTS.macOS, "?platform=Windows")).toBe("Windows");
+    expect(load(AGENTS.macOS, "https://docs.synnaxlabs.com/?platform=Windows").os).toBe(
+      "Windows",
+    );
   });
 
   it("should keep the reader's own platform when the URL names Docker", () => {
-    expect(run(AGENTS.Linux, "?platform=Docker")).toBe("Linux");
+    expect(load(AGENTS.Linux, "https://docs.synnaxlabs.com/?platform=Docker").os).toBe(
+      "Linux",
+    );
   });
 
-  it("should mark the platform again after each client-side navigation", () => {
-    expect(html).toContain("data-astro-rerun");
+  it("should mark the next page before the router swaps it in", () => {
+    const page = load(AGENTS.Windows, "https://docs.synnaxlabs.com/?platform=Linux");
+    expect(page.swapTo("https://docs.synnaxlabs.com/reference/")).toBe("Windows");
+    expect(page.swapTo("https://docs.synnaxlabs.com/reference/?platform=macOS")).toBe(
+      "macOS",
+    );
   });
 });

@@ -26,11 +26,10 @@ export type TextProps<E extends Generic.ElementType = "p"> = Base.TextProps<E> &
   os?: runtime.OS;
 };
 
-// Windows and Linux print modifiers as words. An unknown platform prints macOS symbols.
+// Windows and Linux spell modifiers out. An unknown platform prints macOS symbols.
 const isMac = (os?: runtime.OS): boolean => os !== "Windows" && os !== "Linux";
 
 const SHARED_TEXT: Partial<Record<Key, ReactElement | string>> = {
-  Shift: <Icon.Keyboard.Shift key="shift" />,
   MouseLeft: <Icon.Click key="mouse" />,
   MouseRight: <Icon.Click key="mouse" />,
   MouseMiddle: <Icon.Click key="mouse" />,
@@ -56,14 +55,16 @@ const MAC_TEXT: Partial<Record<Key, ReactElement | string>> = {
   ...SHARED_TEXT,
   Control: <Icon.Keyboard.Command key="control" />,
   Alt: <Icon.Keyboard.Option key="alt" />,
+  Shift: <Icon.Keyboard.Shift key="shift" />,
   // Apple labels the backspace key "delete".
   Backspace: "Delete",
 };
 
 const PC_TEXT: Partial<Record<Key, ReactElement | string>> = {
   ...SHARED_TEXT,
-  Control: <Icon.Keyboard.Control key="control" />,
+  Control: "Ctrl",
   Alt: "Alt",
+  Shift: "Shift",
   Backspace: "Backspace",
 };
 

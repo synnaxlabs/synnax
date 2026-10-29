@@ -90,7 +90,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Menus and the palette show a shortcut as plain glyph text at gray step 8 ("⌘E"), with
   no chip.
 - The label comes first, and the keys follow it. Word keys start with a capital (Esc,
-  Tab). On macOS, modifiers follow Apple's order: ⌃ ⌥ ⇧ ⌘.
+  Tab). On macOS, modifiers follow Apple's order: ⌃ ⌥ ⇧ ⌘. Windows and Linux spell them
+  out: Ctrl, Alt, Shift.
 - A modal shows its commit shortcut in its primary button ("Create ⌘↵"), never as a hint
   in the footer.
 

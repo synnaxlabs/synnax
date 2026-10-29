@@ -18,9 +18,8 @@ describe("Keys", () => {
     const mac = container.querySelector(".docs-keys__mac");
     const pc = container.querySelector(".docs-keys__pc");
     expect(mac?.querySelector(".lyra-icon--keyboard-command")).not.toBeNull();
-    expect(pc?.querySelector(".lyra-icon--keyboard-control")).not.toBeNull();
     expect(mac?.textContent).toBe("G");
-    expect(pc?.textContent).toBe("G");
+    expect(pc?.textContent).toBe("CtrlG");
   });
 
   it("should give its own attributes to its root", () => {

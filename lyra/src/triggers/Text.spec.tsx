@@ -58,7 +58,9 @@ describe("Text", () => {
 
   it("should put the label before the keys", () => {
     const { container } = render(
-      <Triggers.Text trigger={["Control", "S"]}>Save</Triggers.Text>,
+      <Triggers.Text trigger={["Control", "S"]} os="macOS">
+        Save
+      </Triggers.Text>,
     );
     expect(container.textContent).toBe("SaveS");
   });
@@ -94,12 +96,12 @@ describe("Text", () => {
 
     it("should keep the declared order on Windows, with the mouse last", () => {
       const { container } = render(<Triggers.Text trigger={MIXED} os="Windows" />);
-      expect(capsOf(container)).toEqual(["control", "K", "shift", "Alt", "click"]);
+      expect(capsOf(container)).toEqual(["Ctrl", "K", "Shift", "Alt", "click"]);
     });
 
     it("should print Linux keys the way Windows prints them", () => {
       const { container } = render(<Triggers.Text trigger={MIXED} os="Linux" />);
-      expect(capsOf(container)).toEqual(["control", "K", "shift", "Alt", "click"]);
+      expect(capsOf(container)).toEqual(["Ctrl", "K", "Shift", "Alt", "click"]);
     });
 
     it("should name the backspace key the way each platform labels it", () => {
