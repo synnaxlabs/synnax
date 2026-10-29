@@ -18,7 +18,9 @@ describe("logOut", () => {
 
   it("should make PostHog forget the user before it moves on", async () => {
     const calls: string[] = [];
-    vi.stubGlobal("window", { posthog: { reset: () => calls.push("reset") } });
+    vi.stubGlobal("window", {
+      posthog: { __loaded: true, reset: () => calls.push("reset") },
+    });
     const clerk = {
       signOut: async (after: () => Promise<void>) => {
         calls.push("sign out");

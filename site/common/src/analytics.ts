@@ -18,6 +18,17 @@ const API_HOST = "https://t.synnaxlabs.com";
 /** The visitor's answer, in a cookie that every synnaxlabs.com site shares. */
 const CHOICE = "synnax_consent";
 
+/**
+ * A reset that PostHog has not run yet, in a cookie that every synnaxlabs.com site
+ * shares. A call queued before PostHog loads is lost when the page leaves.
+ */
+const PENDING_RESET = "synnax_reset";
+
+/** As long as PostHog keeps the visitor's identity. */
+const YEAR_SECONDS = 365 * 24 * 60 * 60;
+
+const SITES = "synnaxlabs.com";
+
 /** The parts of PostHog that the sites call. */
 export interface PostHog {
   init: (key: string, config: Config) => void;
@@ -31,6 +42,8 @@ export interface PostHog {
   opt_out_capturing: () => void;
   reset: () => void;
   get_explicit_consent_status: () => "granted" | "denied" | "pending";
+  /** True once PostHog has loaded. The loader's queue has no such field. */
+  __loaded?: boolean;
 }
 
 interface Config {
@@ -74,12 +87,29 @@ declare global {
   }
 }
 
+const hasCookie = (name: string): boolean =>
+  document.cookie.split("; ").some((c) => c.startsWith(`${name}=`));
+
+/** Sets a cookie for every synnaxlabs.com site, or for this host elsewhere. */
+const setCookie = (name: string, maxAge: number): void => {
+  const { hostname } = document.location;
+  const shared = hostname === SITES || hostname.endsWith(`.${SITES}`);
+  const domain = shared ? `; domain=${SITES}` : "";
+  document.cookie = `${name}=1; path=/; max-age=${maxAge}; samesite=lax${domain}`;
+};
+
 /** Sends an event to PostHog. It survives a click that leaves the page. */
 export const capture = (event: string, properties?: Record<string, string>): void =>
   window.posthog.capture(event, properties, { transport: "sendBeacon" });
 
-/** Makes PostHog forget the visitor, so later visits in this browser start anonymous. */
-export const reset = (): void => window.posthog.reset();
+/**
+ * Makes PostHog forget the visitor, so later visits in this browser start anonymous.
+ * Before PostHog loads, the next page that loads it forgets them instead.
+ */
+export const reset = (): void => {
+  if (window.posthog.__loaded === true) window.posthog.reset();
+  else setCookie(PENDING_RESET, YEAR_SECONDS);
+};
 
 export interface Options {
   posthog: () => PostHog;
@@ -124,9 +154,6 @@ const scrubProperties = (properties: Properties): Properties => {
   return scrubbed;
 };
 
-const chosen = (): boolean =>
-  document.cookie.split("; ").some((c) => c.startsWith(`${CHOICE}=`));
-
 const fetchMode = async (fetch: Options["fetch"]): Promise<Mode> => {
   const mode = await (await fetch("/consent")).text();
   if (mode !== "ask" && mode !== "notice")
@@ -150,7 +177,7 @@ export const start = async ({
   const identify = (to: PostHog): void => {
     if (userID != null) to.identify(userID);
   };
-  let answered = chosen();
+  let answered = hasCookie(CHOICE);
   document.addEventListener("click", (e) => {
     if (!(e.target instanceof Element)) return;
     const action = e.target.closest<HTMLElement>("[data-consent]")?.dataset.consent;
@@ -198,6 +225,10 @@ export const start = async ({
         }),
       },
       loaded: (loaded) => {
+        if (hasCookie(PENDING_RESET)) {
+          loaded.reset();
+          setCookie(PENDING_RESET, 0);
+        }
         if (loaded.get_explicit_consent_status() === "granted") identify(loaded);
       },
     });

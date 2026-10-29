@@ -270,6 +270,55 @@ describe("analytics", () => {
       });
     });
 
+    describe("a visitor who logs out before PostHog loads", () => {
+      /** Resets through the loader's queue, which dies with the page. */
+      const logOut = (): string[] => {
+        const queue = recorder();
+        vi.stubGlobal("window", { posthog: queue.posthog });
+        reset();
+        return queue.calls;
+      };
+
+      it("should make PostHog forget them on the next page that loads it", async () => {
+        expect(logOut()).toEqual([]);
+        answered();
+        const { posthog, calls, configured } = await begin();
+        configured().loaded(posthog);
+        expect(calls).toEqual(["init", "reset"]);
+      });
+
+      it("should forget them before it links an account", async () => {
+        logOut();
+        answered();
+        const { posthog, calls, configured } = await begin({
+          userID: "user_1",
+          consent: "granted",
+        });
+        configured().loaded(posthog);
+        expect(calls).toEqual(["init", "reset", "identify user_1"]);
+      });
+
+      it("should forget them only once", async () => {
+        logOut();
+        answered();
+        const first = await begin();
+        first.configured().loaded(first.posthog);
+        const second = await begin();
+        second.configured().loaded(second.posthog);
+        expect(second.calls).toEqual(["init"]);
+      });
+
+      it("should forget them on a host outside synnaxlabs.com", async () => {
+        const { window } = new JSDOM(markup, { url: "http://localhost:4321/" });
+        vi.stubGlobal("document", window.document);
+        logOut();
+        answered();
+        const { posthog, calls, configured } = await begin();
+        configured().loaded(posthog);
+        expect(calls).toEqual(["init", "reset"]);
+      });
+    });
+
     it("should open the card from the cookie settings", async () => {
       answered();
       await begin();
@@ -379,9 +428,9 @@ describe("analytics", () => {
       );
     });
 
-    it("should make PostHog forget the visitor", () => {
+    it("should make PostHog forget the visitor once it has loaded", () => {
       const forgot = vi.fn();
-      vi.stubGlobal("window", { posthog: { reset: forgot } });
+      vi.stubGlobal("window", { posthog: { __loaded: true, reset: forgot } });
       reset();
       expect(forgot).toHaveBeenCalledOnce();
     });
