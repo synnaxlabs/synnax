@@ -138,6 +138,19 @@ export const { use: useChildren } = Flux.createRetrieve<
     client.ontology.children.getCached({ ids: id, ...options }),
 });
 
+export type RetrieveRootChildQuery = { name: string };
+
+export const { use: useRootChildID } = Flux.createRetrieve<
+  RetrieveRootChildQuery,
+  ontology.ID | undefined
+>({
+  name: "root child",
+  retrieve: async ({ client, query: { name } }) => {
+    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
+    return res.find((r) => r.name === name)?.id;
+  },
+});
+
 type RetrieveResourceQuery = {
   ids: ontology.ID[];
 };

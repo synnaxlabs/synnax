@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, project, query, type Synnax } from "@synnaxlabs/client";
+import { type ontology, project, query, type Synnax } from "@synnaxlabs/client";
 import { array, type record, verbs } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -69,19 +69,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
       onOptimistic: async () => await onOptimisticComplete(data),
     });
     return data;
-  },
-});
-
-export type RetrieveGroupQuery = Record<string, never>;
-
-export const { use: useGroupID } = Flux.createRetrieve<
-  RetrieveGroupQuery,
-  ontology.ID | undefined
->({
-  name: "project group",
-  retrieve: async ({ client }) => {
-    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-    return res.find((r) => r.name === "Projects")?.id;
   },
 });
 

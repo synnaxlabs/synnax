@@ -349,4 +349,26 @@ describe("Ontology Queries", () => {
       await waitFor(() => expect(result.current).toHaveLength(2));
     });
   });
+
+  describe("useRootChildID", () => {
+    it("should resolve a root child by name", async () => {
+      const name = `root-child-${id.create()}`;
+      const created = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const { result } = await renderHookSuspended(
+        () => Ontology.useRootChildID({ name }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current).toEqual(group.ontologyID(created.key)),
+      );
+    });
+
+    it("should return undefined when the root has no child with the name", async () => {
+      const { result } = await renderHookSuspended(
+        () => Ontology.useRootChildID({ name: `missing-${id.create()}` }),
+        { wrapper },
+      );
+      expect(result.current).toBeUndefined();
+    });
+  });
 });

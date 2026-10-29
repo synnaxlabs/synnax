@@ -9,7 +9,7 @@
 
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Device } from "@synnaxlabs/pluto";
+import { Access, Ontology } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useConnectModal } from "@/feature/device/Connect";
@@ -21,7 +21,7 @@ import { Tree } from "@/platform/tree";
 const Content = (): ReactElement => {
   const openConnect = useConnectModal();
   const canCreate = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
-  const groupID = Device.useGroupID({});
+  const groupID = Ontology.useRootChildID({ name: "Devices" });
   return (
     <Toolbar.Content>
       <Toolbar.Header>

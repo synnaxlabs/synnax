@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, ontology, user } from "@synnaxlabs/client";
+import { access, user } from "@synnaxlabs/client";
 import { array, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -44,19 +44,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>(
       onOptimistic: async () => await onOptimisticComplete(data),
     });
     return data;
-  },
-});
-
-export type UseRetrieveGroupParams = Record<string, never>;
-
-export const { use: useGroupID } = Flux.createRetrieve<
-  UseRetrieveGroupParams,
-  ontology.ID | undefined
->({
-  name: "user group",
-  retrieve: async ({ client }) => {
-    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-    return res.find((r) => r.name === "Users")?.id;
   },
 });
 
