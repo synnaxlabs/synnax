@@ -24,7 +24,7 @@ def load_options() -> Options | None:
     """Loads the connection parameters from a configuration file.
     :return: The options to connect to a Synnax server.
     """
-    cluster = Clusters(File(CONFIG_FILE_PATH)).get()
+    cluster = Clusters(File(config_dir=CONFIG_FILE_PATH)).get()
     return None if cluster is None else cluster.options
 
 
@@ -34,6 +34,7 @@ NO_OPTIONS_MSG = """No options provided and no configuration file was found. Ple
 
 
 def try_load_options_if_none_provided(
+    *,
     host: str = "",
     port: int = 0,
     username: str = "",

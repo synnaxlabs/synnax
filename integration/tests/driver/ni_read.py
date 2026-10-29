@@ -212,7 +212,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             )
 
             # Execute tare on all channels (async — tare doesn't send an ACK)
-            self.tsk._internal.execute_command("tare", {"keys": channel_keys})
+            self.tsk._internal.execute_command("tare", args={"keys": channel_keys})
             self.log("  Tare command sent")
 
             # Capture post-tare values
