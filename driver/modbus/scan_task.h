@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -79,11 +80,17 @@ private:
     std::shared_ptr<task::Context> ctx;
     synnax::task::Task task;
     std::shared_ptr<device::Manager> devices;
-    /// @brief the devices of the last scan, by key. Touched only by scan.
+    /// @brief serializes scans and connection tests, which run on different threads.
+    std::mutex mu;
+    /// @brief the devices of the last scan, by key.
     std::unordered_map<std::string, Check> checks;
 
     /// @brief Test connection to a Modbus server.
-    void test_connection(const synnax::task::Command &cmd) const;
+    void test_connection(const synnax::task::Command &cmd);
+
+    /// @brief releases the checks that hold the serial port of cfg open with other line
+    /// settings, so that a device can change them.
+    void release_stale(const device::ConnectionConfig &cfg);
 
     /// @brief sets the status of a device. A device that answered a task since the last
     /// scan is healthy. Otherwise the scanner probes it.
@@ -92,6 +99,6 @@ private:
     void check_device_health(
         synnax::device::Device &dev,
         std::unordered_map<std::string, Check> &next
-    ) const;
+    );
 };
 }
