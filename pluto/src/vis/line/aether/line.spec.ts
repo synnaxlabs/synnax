@@ -27,12 +27,12 @@ import {
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
 import { Line, type LineProps, type State } from "@/vis/line/aether/line";
-import { lineTest } from "@/vis/line/aether/test";
-import { canvasTest } from "@/vis/render/test";
+import { lineTest } from "@/vis/line/aether/testutil";
+import { canvasTest } from "@/vis/render/testutil";
 
 describe("line", () => {
   describe("Line", () => {

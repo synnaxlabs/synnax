@@ -20,7 +20,7 @@ start_seq_cmd => main
 sequence main {
     stage pressurize {
         1 -> press_vlv_cmd
-        wait{100ms} => pressurize
+        wait(100ms) => pressurize
     }
 }
 """
@@ -67,7 +67,7 @@ class AuthorityPythonOverride(ArcCase):
         self._override_writer = self.client.open_writer(
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],
-            255,
+            authorities=255,
         )
         self._override_writer.write(
             {

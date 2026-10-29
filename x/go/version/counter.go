@@ -12,9 +12,6 @@ package version
 // Counter is a simple monotonic counter that tracks a version.
 type Counter int64
 
-// Increment increments the Counter.
-func (c Counter) Increment() Counter { return c + 1 }
-
 // NewerThan returns true if the Counter is higher than other.
 func (c Counter) NewerThan(other Counter) bool { return c > other }
 

@@ -38,8 +38,6 @@
         }
 
         .pluto-error-fallback__name {
-            overflow: hidden;
-            text-overflow: ellipsis;
             width: 100%;
         }
 
@@ -48,9 +46,13 @@
             max-height: 250px;
             overflow: auto;
             white-space: pre-wrap;
-            word-break: break-word;
+            word-break: normal;
+            overflow-wrap: anywhere;
+            /* stylelint-disable declaration-no-important -- outranks the Console's
+               global user-select: none !important */
             user-select: text !important;
             -webkit-user-select: text !important;
+            /* stylelint-enable declaration-no-important */
         }
 
         .pluto-error-fallback__message--multiline {
@@ -65,9 +67,13 @@
             max-height: 150px;
             overflow: auto;
             white-space: pre-wrap;
-            word-break: break-word;
+            word-break: normal;
+            overflow-wrap: anywhere;
+            /* stylelint-disable declaration-no-important -- outranks the Console's
+               global user-select: none !important */
             user-select: text !important;
             -webkit-user-select: text !important;
+            /* stylelint-enable declaration-no-important */
         }
 
         .pluto-error-fallback__stack-container {
@@ -79,10 +85,14 @@
         }
 
         .pluto-error-fallback__stack {
+            /* stylelint-disable declaration-no-important -- outranks the Console's
+               global user-select: none !important */
             user-select: text !important;
             -webkit-user-select: text !important;
+            /* stylelint-enable declaration-no-important */
             white-space: pre-wrap;
-            word-break: break-word;
+            word-break: normal;
+            overflow-wrap: anywhere;
         }
 
         .synnax-logo {
@@ -93,7 +103,7 @@
 
 @container (max-width: 400px) {
     .pluto-error-fallback__header-text,
-    .pluto-error-fallback__content .pluto-breadcrumb__separator {
+    .pluto-error-fallback__content .lyra-breadcrumb__separator {
         display: none;
     }
 }

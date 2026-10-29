@@ -61,7 +61,8 @@ opcua_bool_time = client.channels.create(
 )
 
 # Create Synnax channels to store the my_bool_0 and my_bool_1 node data from the server.
-# These booleans are continuously updated with sequential square wave patterns by the OPC UA server.
+# These booleans are continuously updated with sequential square wave patterns by the
+# OPC UA server.
 my_bool_0 = client.channels.create(
     name="my_bool_0",
     index=opcua_bool_time.key,
@@ -77,7 +78,8 @@ my_bool_1 = client.channels.create(
 
 # Create the OPC UA Read Task
 # Using node IDs to reference the OPC UA boolean variables.
-# The server creates booleans with sequential square wave patterns offset by 0.2 seconds.
+# The server creates booleans with sequential square wave patterns offset by 0.2
+# seconds.
 tsk = sy.opcua.ReadTask(
     name="OPC UA Py - Read Task (Boolean)",
     device=dev.key,

@@ -33,7 +33,7 @@ describe("OffPageReference", () => {
         </ThemeWrapper>,
       );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
-      expect(arrow?.getAttribute("class")).toContain("pluto-symbol-colored");
+      expect(arrow?.getAttribute("class")).toContain("lyra-symbol-colored");
       // The source var carries the alpha channel so transparency survives the transform.
       expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe(
         `${color.rgbString("#3774d0")}, ${color.aValue("#3774d0")}`,
@@ -68,7 +68,7 @@ describe("OffPageReference", () => {
           <OffPageReference linked pageType="lineplot" />
         </ThemeWrapper>,
       );
-      expect(container.querySelector(".pluto-icon--line-plot")).not.toBeNull();
+      expect(container.querySelector(".lyra-icon--line-plot")).not.toBeNull();
     });
 
     it("should render the schematic icon by default when linked", () => {
@@ -77,7 +77,7 @@ describe("OffPageReference", () => {
           <OffPageReference linked />
         </ThemeWrapper>,
       );
-      expect(container.querySelector(".pluto-icon--schematic")).not.toBeNull();
+      expect(container.querySelector(".lyra-icon--schematic")).not.toBeNull();
     });
 
     it("should not render an icon when not linked", () => {
@@ -86,7 +86,7 @@ describe("OffPageReference", () => {
           <OffPageReference pageType="lineplot" />
         </ThemeWrapper>,
       );
-      expect(container.querySelector(".pluto-icon")).toBeNull();
+      expect(container.querySelector(".lyra-icon")).toBeNull();
     });
   });
 
@@ -133,7 +133,7 @@ describe("Symbol", () => {
 
   it("should render linked with the page type's icon for a typed page", () => {
     const { container } = renderSymbol({ type: "lineplot", key: "abc" });
-    expect(container.querySelector(".pluto-icon--line-plot")).not.toBeNull();
+    expect(container.querySelector(".lyra-icon--line-plot")).not.toBeNull();
     expect(container.querySelector(".pluto-arrow")?.getAttribute("class")).toContain(
       "pluto--linked",
     );
@@ -141,7 +141,7 @@ describe("Symbol", () => {
 
   it("should render unlinked with no icon when the page is unset", () => {
     const { container } = renderSymbol();
-    expect(container.querySelector(".pluto-icon")).toBeNull();
+    expect(container.querySelector(".lyra-icon")).toBeNull();
     const cls = container.querySelector(".pluto-arrow")?.getAttribute("class") ?? "";
     expect(cls.includes("pluto--linked")).toBe(false);
   });

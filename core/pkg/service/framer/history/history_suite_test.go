@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	xtime "github.com/synnaxlabs/x/time"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
 func TestHistory(t *testing.T) {
@@ -41,7 +41,7 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	// clock only advances when a spec flushes, so every change before it merges.
-	clock = xtime.NewFake(time.Now())
+	clock = timetestutil.NewClock(time.Now())
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
