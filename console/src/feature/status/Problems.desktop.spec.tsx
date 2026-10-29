@@ -9,9 +9,9 @@
 
 import { rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { sleep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Status } from "@/feature/status";
@@ -115,6 +115,10 @@ const findBadge = async (): Promise<HTMLElement | null> =>
   ).querySelector<HTMLElement>(".console-main-nav__badge");
 
 describe("Status.TOOLBAR problems", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("should show that no problem is open", async () => {
     // The forwarder would list the problems that other specs leave on the Core.
     const { wrapper } = await createConsoleWrapper({ client });
@@ -149,14 +153,18 @@ describe("Status.TOOLBAR problems", () => {
   });
 
   it("should show how long a problem has been open", async () => {
+    vi.useFakeTimers({
+      toFake: ["Date", "setTimeout", "clearTimeout"],
+      shouldAdvanceTime: true,
+    });
     const { mine, createTaskKey } = createProblems();
     const key = createTaskKey();
     await renderProblems(mine);
     await write(key, "error");
-    await sleep.sleep(TimeSpan.milliseconds(1500));
+    act(() => void vi.advanceTimersByTime(TimeSpan.milliseconds(1500).milliseconds));
     const last = await write(key, "error");
-    const problem = await findProblem(last);
-    await waitFor(() => expect(within(problem).getByText(/^\d+s$/)).toBeTruthy());
+    // A start at the last write would show "< 1s".
+    expect(within(await findProblem(last)).getByText(/^\d+s$/)).toBeTruthy();
   });
 
   it("should list a problem under the open problem that covers it", async () => {
