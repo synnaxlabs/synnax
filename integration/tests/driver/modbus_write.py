@@ -28,8 +28,7 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
     task_name = "Modbus Write Coil"
     command_values = [[1, 0, 1], [0, 1, 0]]
 
-    def run(self) -> None:
-        super().run()
+    def assert_written(self) -> None:
         assert_sim_coils(10, [False, True, False])
 
     @staticmethod
@@ -53,8 +52,7 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
     task_name = "Modbus Write Holding Register"
     command_values = [[1.5, 2.5, 3.5], [100, 101, 102]]
 
-    def run(self) -> None:
-        super().run()
+    def assert_written(self) -> None:
         words = [w for v in (100, 101, 102) for w in float32_words(v)]
         assert_sim_registers(10, words)
 
@@ -80,8 +78,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
     task_name = "Modbus Write Mixed"
     command_values = [[1, 0, 1.5, 2.5], [0, 1, 100, 101]]
 
-    def run(self) -> None:
-        super().run()
+    def assert_written(self) -> None:
         assert_sim_coils(20, [False, True])
         assert_sim_registers(20, [*float32_words(100), *float32_words(101)])
 
@@ -146,8 +143,7 @@ class ModbusWriteWordOrder(ModbusWriteTaskCase):
             for i, words_swapped in enumerate([None, False])
         ]
 
-    def run(self) -> None:
-        super().run()
+    def assert_written(self) -> None:
         assert_sim_registers(40, [0x3FC0, 0x0000, 0x0000, 0x3FC0])
 
 
@@ -195,8 +191,8 @@ class ModbusWriteGap(ModbusWriteTaskCase):
             set_sim_register(121, 7)
             set_sim_coil(111, False)
             self.send_commands([[5, 6, 1, 0], [5, 6, 1, 0]])
-        assert_sim_registers(120, [5, 7, 6])
-        assert_sim_coils(110, [True, False, False])
+            assert_sim_registers(120, [5, 7, 6])
+            assert_sim_coils(110, [True, False, False])
 
 
 class ModbusWriteCoilFloat(ModbusWriteTaskCase):
@@ -220,8 +216,7 @@ class ModbusWriteCoilFloat(ModbusWriteTaskCase):
             )
         ]
 
-    def run(self) -> None:
-        super().run()
+    def assert_written(self) -> None:
         assert_sim_coils(130, [True])
 
 
