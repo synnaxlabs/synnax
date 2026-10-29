@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+	"github.com/samber/lo"
 )
 
 // ClientID is the client ID the fake provider issues ID tokens to.
@@ -52,12 +53,11 @@ type Provider struct {
 }
 
 // NewProvider starts a Provider. Close it when done.
-func NewProvider() (*Provider, error) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
+func NewProvider() *Provider {
+	p := &Provider{
+		key:    lo.Must(rsa.GenerateKey(rand.Reader, 2048)),
+		grants: make(map[string]Grant),
 	}
-	p := &Provider{key: key, grants: make(map[string]Grant)}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /.well-known/openid-configuration", p.discovery)
 	mux.HandleFunc("GET /keys", p.keys)
@@ -65,7 +65,7 @@ func NewProvider() (*Provider, error) {
 	p.server = httptest.NewUnstartedServer(mux)
 	p.server.Config.SetKeepAlivesEnabled(false)
 	p.server.Start()
-	return p, nil
+	return p
 }
 
 // Issuer returns the provider's issuer URL.
@@ -101,66 +101,41 @@ func (p *Provider) keys(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (p *Provider) token(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		writeJSON(
-			w,
-			http.StatusBadRequest,
-			map[string]string{"error": "invalid_request"},
-		)
-		return
-	}
 	p.mu.Lock()
-	g, ok := p.grants[r.Form.Get("code")]
+	g, ok := p.grants[r.PostFormValue("code")]
 	p.mu.Unlock()
 	if !ok ||
-		g.Verifier != r.Form.Get("code_verifier") ||
-		g.RedirectURI != r.Form.Get("redirect_uri") {
+		g.Verifier != r.PostFormValue("code_verifier") ||
+		g.RedirectURI != r.PostFormValue("redirect_uri") {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_grant"})
 		return
 	}
 	res := map[string]any{"access_token": "access", "token_type": "Bearer"}
 	if !g.IDTokenOmitted {
-		idToken, err := p.sign(g)
-		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{
-				"error": "server_error",
-			})
-			return
-		}
-		res["id_token"] = idToken
+		res["id_token"] = p.sign(g)
 	}
 	writeJSON(w, http.StatusOK, res)
 }
 
-func (p *Provider) sign(g Grant) (string, error) {
+func (p *Provider) sign(g Grant) string {
 	audience := g.Audience
 	if audience == "" {
 		audience = ClientID
 	}
-	signer, err := jose.NewSigner(
+	signer := lo.Must(jose.NewSigner(
 		jose.SigningKey{Algorithm: jose.RS256, Key: p.key},
 		(&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", "key"),
-	)
-	if err != nil {
-		return "", err
-	}
+	))
 	now := time.Now()
-	claims, err := json.Marshal(map[string]any{
+	claims := lo.Must(json.Marshal(map[string]any{
 		"iss":  p.Issuer(),
 		"sub":  g.Subject,
 		"aud":  audience,
 		"iat":  now.Unix(),
 		"exp":  now.Add(time.Hour).Unix(),
 		"name": g.Name,
-	})
-	if err != nil {
-		return "", err
-	}
-	signed, err := signer.Sign(claims)
-	if err != nil {
-		return "", err
-	}
-	return signed.CompactSerialize()
+	}))
+	return lo.Must(lo.Must(signer.Sign(claims)).CompactSerialize())
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

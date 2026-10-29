@@ -14,6 +14,7 @@ import { type auth, AuthError, connection } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { expectAlways } from "@synnaxlabs/x/testutil";
+import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import { fireEvent, render, screen } from "@testing-library/react";
 import {
   afterEach,
@@ -32,15 +33,27 @@ vi.mock("@/platform/core/detectConnection", () => ({
   detectConnection: () => null,
 }));
 
+const runtime = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, runtime);
+});
+
 import { Login } from "@/feature/auth/Login";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
 import {
   CaptureStatuses,
+  createConsoleWrapper,
   createSessionConsoleWrapper,
   createStatusConsoleWrapper,
+  disableActEnvironment,
   getBySelector,
 } from "@/testutil";
+
+// the local auth server answers outside any act
+disableActEnvironment();
 
 // Dead ports: the list checks each Core, and no assertion here reads the result.
 const ALPHA = createCore("alpha", { name: "Alpha", port: 9098, username: "ada" });
@@ -48,16 +61,23 @@ const BETA = createCore("beta", { name: "Beta", port: 9099, username: "grace" })
 
 // No test Core turns passwords off or accepts a provider, so a local server answers the
 // methods request. The Console asks once for the methods and again for the providers;
-// null providers fail that second request.
+// null providers fail that second request. A token opens a session for any code, and
+// without one the server rejects every code.
 const serveAuth = async (
   methods: string[],
   providers: auth.OIDCLogin[] | null = [],
   onServed?: () => void,
+  token?: string,
 ): Promise<Session.Core.Core> => {
   let methodsRequests = 0;
   const server = createServer((req, res) => {
     req.resume();
     req.on("end", () => {
+      if (token != null && req.url?.endsWith("/auth/session/create") === true) {
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ token, session: SESSION }));
+        return;
+      }
       const isMethods = req.url?.endsWith("/auth/methods") === true;
       if (isMethods) methodsRequests += 1;
       if (!isMethods || (providers == null && methodsRequests > 1)) {
@@ -76,6 +96,19 @@ const serveAuth = async (
   return { ...ALPHA, host: "127.0.0.1", port: (server.address() as AddressInfo).port };
 };
 
+const SESSION = {
+  key: "8b7c3e52-6f0a-4c1d-9e2b-3a4f5d6e7f80",
+  subject: { type: "user", key: "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f" },
+  credential: "2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f60",
+  lastActive: 0,
+};
+
+const PROVIDER: auth.OIDCLogin = {
+  provider: "company-sso",
+  authorizationEndpoint: "https://sso.example.com/authorize",
+  clientId: "synnax",
+};
+
 const REJECTED: connection.Status = {
   ...connection.DEFAULT_STATUS,
   variant: "error",
@@ -92,8 +125,14 @@ const REJECTED: connection.Status = {
 const BACK = ".console-login__back";
 const USERNAME_PLACEHOLDER = "synnax";
 
-const renderLogin = async (alpha = ALPHA): Promise<HTMLElement> => {
-  const { wrapper } = await createSessionConsoleWrapper({
+// The desktop specs leave out the session's client: it connects through the keychain,
+// which the session wrapper bypasses.
+const renderLogin = async (
+  alpha = ALPHA,
+  createWrapper = createSessionConsoleWrapper,
+) => {
+  let statuses: Status.NotificationSpec[] = [];
+  const { wrapper, store } = await createWrapper({
     client: null,
     preloadedState: {
       [Session.Core.SLICE_NAME]: {
@@ -103,8 +142,42 @@ const renderLogin = async (alpha = ALPHA): Promise<HTMLElement> => {
       },
     },
   });
-  const { container } = render(<Login />, { wrapper });
-  return container;
+  const { container } = render(
+    <>
+      <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+      <Login />
+    </>,
+    { wrapper },
+  );
+  return { container, store, statuses: () => statuses };
+};
+
+// The desktop shell of a dev build: its main window, keychain, loopback listener, and
+// the browser a login hands the provider page to. The browser returns at once with the
+// state the Console waits for.
+const fakeDesktop = (onWait?: () => void) => {
+  const ipc = { listens: 0, saved: new Map<string, string>() };
+  mockWindows("main");
+  mockIPC((cmd, args) => {
+    const { account, secret, state } = args as Record<string, string>;
+    switch (cmd) {
+      case "plugin:app|version":
+        return "0.0.0";
+      case "keychain_set":
+        ipc.saved.set(account, secret);
+        return undefined;
+      case "oidc_listen":
+        ipc.listens += 1;
+        return 4242;
+      case "oidc_wait":
+        onWait?.();
+        return `code=abc&state=${state}`;
+      default:
+        return undefined;
+    }
+  });
+  onTestFinished(clearMocks);
+  return ipc;
 };
 
 describe("auth/Login", () => {
@@ -258,7 +331,7 @@ describe("auth/Login", () => {
   });
 
   it("should return to the Core list from the credentials", async () => {
-    const container = await renderLogin();
+    const { container } = await renderLogin();
     fireEvent.click(await screen.findByText(ALPHA.name));
     await screen.findByPlaceholderText(USERNAME_PLACEHOLDER);
     fireEvent.click(getBySelector(container, BACK));
@@ -281,5 +354,66 @@ describe("auth/Login", () => {
     render(<Login />, { wrapper });
     expect(await screen.findByText("Failed to authenticate")).toBeTruthy();
     expect(screen.getByText("invalid credentials")).toBeTruthy();
+  });
+
+  describe("on desktop", () => {
+    beforeEach(() => {
+      runtime.engine = "tauri";
+    });
+
+    afterEach(() => {
+      runtime.engine = "web";
+    });
+
+    const FAILED = "Failed to log in with company-sso";
+
+    it("should save the session and log in through a provider", async () => {
+      const core = await serveAuth(["oidc"], [PROVIDER], undefined, "sys_token");
+      const ipc = fakeDesktop();
+      const { store } = await renderLogin(core, createConsoleWrapper);
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await vi.waitFor(() =>
+        expect(store.getState().core.cores[core.key].lastLogin).toBeDefined(),
+      );
+      expect(store.getState().core.selected).toBe(core.key);
+      expect(Object.fromEntries(ipc.saved)).toEqual({
+        [`http://@127.0.0.1:${core.port}#${core.key}`]: "sys_token",
+      });
+    });
+
+    it("should let the user retry a login the Core rejects", async () => {
+      const core = await serveAuth(["oidc"], [PROVIDER]);
+      const ipc = fakeDesktop();
+      const { store, statuses } = await renderLogin(core, createConsoleWrapper);
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await vi.waitFor(() =>
+        expect(statuses().map((s) => s.message)).toContain(FAILED),
+      );
+      fireEvent.click(screen.getByText("Log in with company-sso"));
+      await vi.waitFor(() => expect(ipc.listens).toBe(2));
+      expect(ipc.saved.size).toBe(0);
+      expect(store.getState().core.cores[core.key].lastLogin).toBeUndefined();
+    });
+
+    it("should refuse a login when the Core's address changed during it", async () => {
+      const core = await serveAuth(["oidc"], [PROVIDER], undefined, "sys_token");
+      let move = (): void => {};
+      fakeDesktop(() => move());
+      const { store, statuses } = await renderLogin(core, createConsoleWrapper);
+      move = () => store.dispatch(Session.Core.set({ ...core, port: core.port + 1 }));
+      fireEvent.click(await screen.findByText(ALPHA.name));
+      fireEvent.click(await screen.findByText("Log in with company-sso"));
+      await vi.waitFor(() =>
+        expect(statuses()).toContainEqual(
+          expect.objectContaining({
+            message: FAILED,
+            description: expect.stringContaining("address changed"),
+          }),
+        ),
+      );
+      expect(store.getState().core.cores[core.key].lastLogin).toBeUndefined();
+    });
   });
 });

@@ -230,6 +230,39 @@ var _ = Describe("Service", func() {
 			Expect(down.Verify(ctx, credentials("down", "c", "v"))).Error().
 				To(MatchError(ContainSubstring(`discover provider "down"`)))
 		})
+		It("Should stop waiting on another discovery when its context ends", func(
+			ctx SpecContext,
+		) {
+			reached := make(chan struct{})
+			release := make(chan struct{})
+			stalled := httptest.NewServer(http.HandlerFunc(
+				func(http.ResponseWriter, *http.Request) {
+					close(reached)
+					<-release
+				},
+			))
+			DeferCleanup(stalled.Close)
+			stalledSvc := open(ctx, oidc.Provider{
+				Name:     "stalled",
+				Issuer:   stalled.URL,
+				ClientID: testutil.ClientID,
+			})
+			creds := credentials("stalled", "c", "v")
+			discovered := make(chan struct{})
+			go func() {
+				defer GinkgoRecover()
+				defer close(discovered)
+				Expect(stalledSvc.Verify(ctx, creds)).Error().
+					To(MatchError(ContainSubstring(`discover provider "stalled"`)))
+			}()
+			Eventually(reached).Should(BeClosed())
+			cancelled, cancel := context.WithCancel(ctx)
+			cancel()
+			Expect(stalledSvc.Verify(cancelled, creds)).Error().
+				To(MatchError(context.Canceled))
+			close(release)
+			Eventually(discovered).Should(BeClosed())
+		})
 	})
 
 	Describe("Logins", func() {
