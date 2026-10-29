@@ -64,7 +64,7 @@ sequence press {
         tank_pt > 300 => next
     }
     0 -> press_vlv_cmd
-    time.wait{duration=10s}
+    time.wait(duration=10s)
     stage vent {
         1 -> vent_vlv_cmd
         tank_pt < 5 => next

@@ -25,27 +25,25 @@ const { direction } = Astro.props;
     <path d={PATHS[direction]}></path>
 </svg>
 
-<style is:global>
+<style>
     /* Sized to the label, with a stroke that matches a 550 weight. */
     .arrow {
         width: 1em;
         height: 1em;
         flex-shrink: 0;
         fill: none;
-        stroke: currentColor;
+        stroke: currentcolor;
         stroke-width: 1.6;
         stroke-linecap: round;
         stroke-linejoin: round;
         transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .pluto-btn:hover {
-        .arrow--right {
-            transform: translateX(2px);
-        }
+    :global(:is(a, button):hover) .arrow--right {
+        transform: translateX(2px);
+    }
 
-        .arrow--down {
-            transform: translateY(2px);
-        }
+    :global(:is(a, button):hover) .arrow--down {
+        transform: translateY(2px);
     }
 </style>

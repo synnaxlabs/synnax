@@ -89,7 +89,7 @@ class _Liveness:
         return Unreachable(message=f"streamer received no response for {self.deadline}")
 
 
-class WSStreamerCodec(WSCodec):
+class _WSStreamerCodec(WSCodec):
     def encode(self, data: BaseModel) -> bytes:
         return self.lower_perf_codec.encode(data)
 
@@ -139,7 +139,7 @@ class Streamer:
         keep_alive = TimeSpan.from_seconds(keep_alive)
         self._liveness = _Liveness(keep_alive)
         self._adapter = adapter
-        client = client.with_codec(WSStreamerCodec(self._adapter.codec))
+        client = client.with_codec(_WSStreamerCodec(self._adapter.codec))
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
@@ -179,10 +179,11 @@ class Streamer:
         """
 
     def read(self, timeout: float | None = None) -> Frame | None:
-        """Reads the next frame of telemetry from the streamer. If a timeout is provided,
-        this method will wait for the specified amount of time for a frame to be received.
-        If no frame is received within the timeout, this method will return None. If no
-        timeout is provided, this method will block until a frame is received.
+        """Reads the next frame of telemetry from the streamer. If a timeout is
+        provided, this method will wait for the specified amount of time for a frame to
+        be received. If no frame is received within the timeout, this method will return
+        None. If no timeout is provided, this method will block until a frame is
+        received.
 
         If an error occurs while reading the frame, an exception will be raised.
 
@@ -271,15 +272,16 @@ class AsyncStreamer:
     frames of telemetry in real-time from a Synnax cluster. It should not be constructed
     directly, and should instead be created using the client's `open_streamer` method.
 
-    To open an async streamer, use the `open_async_streamer` method on the client and pass
-    in the list of channels you'd like to stream. Once a new async streamer has been opened,
-    you can call the `read` method to read the next frame of telemetry. Once done, call the
-    `close` method to close the streamer and free all necessary resources. We recommend
-    using the async streamer as an async context manager to ensure that it is closed properly.
+    To open an async streamer, use the `open_async_streamer` method on the client and
+    pass in the list of channels you'd like to stream. Once a new async streamer has
+    been opened, you can call the `read` method to read the next frame of telemetry.
+    Once done, call the `close` method to close the streamer and free all necessary
+    resources. We recommend using the async streamer as an async context manager to
+    ensure that it is closed properly.
 
-    Async streamers also support the async iterator protocol, allowing you to iterate over
-    the frames of telemetry as they are received. This is useful when you want to process
-    each frame as it is received.
+    Async streamers also support the async iterator protocol, allowing you to iterate
+    over the frames of telemetry as they are received. This is useful when you want to
+    process each frame as it is received.
     """
 
     _stream: AsyncStream[_Request, _Response]
@@ -304,7 +306,7 @@ class AsyncStreamer:
         self._liveness = _Liveness(TimeSpan.from_seconds(keep_alive))
 
     async def _open(self) -> None:
-        client = self._client.with_codec(WSStreamerCodec(self._adapter.codec))
+        client = self._client.with_codec(_WSStreamerCodec(self._adapter.codec))
         self._stream = await client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
             _Request(

@@ -21,7 +21,7 @@ describe("User.useAssignRoleModal", () => {
       params: { userKey: uniqueName("user"), title: "Change Permissions" },
     });
     await waitFor(() => expect(screen.getByText("Change Permissions")).toBeTruthy());
-    expect(findButton("Assign").className).toContain("pluto--disabled");
+    expect(findButton("Assign").className).toContain("lyra--disabled");
   });
 
   it("should fall back to the default title and enable Assign against a live Core", async () => {
@@ -33,7 +33,7 @@ describe("User.useAssignRoleModal", () => {
     });
     await waitFor(() => expect(screen.getAllByText("Role").length).toBeGreaterThan(1));
     await waitFor(() =>
-      expect(findButton("Assign").className).not.toContain("pluto--disabled"),
+      expect(findButton("Assign").className).not.toContain("lyra--disabled"),
     );
   });
 
@@ -45,7 +45,7 @@ describe("User.useAssignRoleModal", () => {
       params: { userKey: subject.key },
     });
     await waitFor(() =>
-      expect(findButton("Assign").className).not.toContain("pluto--disabled"),
+      expect(findButton("Assign").className).not.toContain("lyra--disabled"),
     );
     // The footer advertises the shortcut, so it has to reach the same submit path the
     // button does. Submitting with no role selected fails validation, and that error is
