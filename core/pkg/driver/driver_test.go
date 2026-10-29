@@ -161,7 +161,9 @@ var _ = Describe("Open", func() {
 			"Should return nil driver on config validation failure",
 			func(ctx SpecContext) {
 				d, err := driver.Open(ctx, driver.Config{})
-				Expect(err).To(HaveOccurred())
+				Expect(
+					err,
+				).To(MatchError(ContainSubstring("insecure: must be non-nil")))
 				Expect(d).To(BeNil())
 			},
 		)

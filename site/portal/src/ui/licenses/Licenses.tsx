@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -16,8 +17,8 @@ import { type Organization } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
 import { channels, term } from "@/server/license/limits";
 import { type Held } from "@/server/license/list";
+import { activatePath } from "@/shell";
 import { date, edition, statusOf } from "@/ui/format";
-import { ActivateDialog } from "@/ui/licenses/ActivateDialog";
 import { StatusTag } from "@/ui/licenses/StatusTag";
 import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
@@ -42,11 +43,16 @@ export const Licenses = ({
       title="Licenses"
       subtitle={organization.name}
       actions={
-        activatable.length === 1 && (
-          <ActivateDialog
-            licenseKey={activatable[0].license.key}
-            label={activatable[0].license.label}
-          />
+        activatable.length > 0 && (
+          <Button.Button
+            variant="filled"
+            href={activatePath(
+              activatable.length === 1 ? activatable[0].license.key : undefined,
+            )}
+          >
+            <Icon.Add />
+            Activate a machine
+          </Button.Button>
         )
       }
     >
@@ -64,7 +70,7 @@ export const Licenses = ({
           {licenses.map(({ license: lic, seats }) => (
             <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
               <Flex.Box y gap="tiny" className="portal-list__stack">
-                <Text.Text level="p" weight={500} overflow="ellipsis">
+                <Text.Text level="p" weight={500} overflow="fade">
                   {lic.label}
                 </Text.Text>
                 <Text.Text level="small" color={9}>
@@ -77,7 +83,7 @@ export const Licenses = ({
               <Text.Text level="p" color={9}>
                 {seats} of {lic.nodes}
               </Text.Text>
-              <Text.Text level="p" color={9} overflow="ellipsis">
+              <Text.Text level="p" color={9} overflow="fade">
                 {term(lic)}
               </Text.Text>
               <Text.Text level="p" color={9}>

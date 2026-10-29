@@ -63,7 +63,6 @@ var _ = Describe("SearchIndex", func() {
 		createIndexed(ctx, db, searchEntries...)
 		idx = newTextIndex()
 		table = DeferClose(openIndexedTable(ctx, db, idx))
-		Expect(table.WaitForIndexes(ctx)).To(Succeed())
 	})
 
 	stage := func(ctx SpecContext, tx gorp.Tx, entry indexedEntry) {
@@ -166,6 +165,17 @@ var _ = Describe("SearchIndex", func() {
 			Entry("past the end", 3, 2, []int32{}),
 		)
 
+		DescribeTable("Should keep the rank when keys narrow the matches",
+			func(ctx SpecContext, limit int, expected []int32) {
+				Expect(retrieveIDs(ctx, db, table.NewRetrieve().
+					Where(gorp.MatchKeys[int32, indexedEntry](4, 3, 2, 1)).
+					Where(idx.Filter("sensor")).
+					Limit(limit))).To(Equal(expected))
+			},
+			Entry("every match", 0, []int32{1, 4}),
+			Entry("the closest match", 1, []int32{1}),
+		)
+
 		It("Should count the matches", func(ctx SpecContext) {
 			Expect(table.NewRetrieve().
 				Where(idx.Filter("sensor")).
@@ -224,8 +234,9 @@ var _ = Describe("SearchIndex", func() {
 			categories = gorp.NewLookupIndex(
 				"category", func(e *indexedEntry) string { return e.Category },
 			)
-			t := DeferClose(openIndexedTable(ctx, failing, categories, failed))
-			Expect(t.WaitForIndexes(ctx)).To(MatchError(ContainSubstring("boom")))
+			DeferClose(openIndexedTable(ctx, failing, categories, failed))
+			Expect(categories.Get(nil, "x")).Error().
+				To(MatchError(gorp.ErrIndexInvalid))
 		})
 
 		It("Should search by scanning every entry", func(ctx SpecContext) {

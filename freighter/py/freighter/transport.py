@@ -101,7 +101,7 @@ class MiddlewareCollector:
         """Use implements the Transport protocol."""
         self._middleware.extend(args)
 
-    def exec(self, ctx: Context, finalizer: Finalizer) -> Context:
+    def exec(self, ctx: Context, *, finalizer: Finalizer) -> Context:
         """
         Executes the middleware in order, passing metadata to each middleware until the
         end of the chain is reached. It then calls the finalizer with the metadata.
@@ -133,7 +133,7 @@ class AsyncMiddlewareCollector:
         """Use implements the Transport protocol."""
         self._middleware.extend(args)
 
-    async def exec(self, md: Context, finalizer: AsyncFinalizer) -> Context:
+    async def exec(self, md: Context, *, finalizer: AsyncFinalizer) -> Context:
         """
         Executes the middleware in order, passing metadata to each middleware until the
         end of the chain is reached. It then calls the finalizer with the metadata.
