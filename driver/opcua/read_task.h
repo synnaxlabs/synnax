@@ -24,7 +24,6 @@
 #include "open62541/common.h"
 #include "open62541/types.h"
 
-#include "client/cpp/errors/errors.h"
 #include "client/cpp/opcua/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
@@ -238,10 +237,7 @@ inline std::optional<x::telem::SampleValue> nan(const x::telem::DataType &dt) {
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
-    std::shared_ptr<synnax::Synnax> client;
-    std::shared_ptr<connection::Pool> pool;
-    /// @brief the device's connection settings as of the last retrieve.
-    connection::Config conn_cfg;
+    device::Connector connector;
     connection::Pool::Connection connection;
     /// @brief the error of the connection attempt at start, which the first read
     /// returns instead of connecting again.
@@ -294,22 +290,41 @@ protected:
         return errors::channel_status(ch.ch.name, status);
     }
 
-    /// @brief connects with the device's current settings, so a corrected endpoint or
-    /// login takes effect without a restart. Keeps the last settings while the Core is
-    /// unavailable.
     x::errors::Error connect() {
-        auto [conn_cfg, retrieve_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device_key
-        );
-        if (!retrieve_err)
-            this->conn_cfg = std::move(conn_cfg);
-        else if (!synnax::errors::is_temporarily_unavailable(retrieve_err))
-            return retrieve_err;
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.read] ");
+        auto [conn, err] = this->connector.connect();
         if (err) return err;
-        this->use(std::move(c));
+        this->use(std::move(conn));
         return x::errors::NIL;
+    }
+
+    /// @returns the value of channel i that convert gives from result, or nothing when
+    /// the value is bad or fails to convert. Adds the problems of the value to q.
+    template<typename T, typename Convert>
+    std::optional<T> value(
+        const std::size_t i,
+        const UA_DataValue &result,
+        Quality &q,
+        const Convert &convert
+    ) const {
+        const auto &name = this->cfg.channels[i]->ch.name;
+        if (UA_StatusCode_isBad(result.status)) {
+            q.add_bad(this->bad_status(i, result.status));
+            return std::nullopt;
+        }
+        if (UA_StatusCode_isUncertain(result.status))
+            q.add_uncertain(errors::channel_status(name, result.status));
+        auto [v, err] = convert(result.value);
+        if (!err) return std::move(v);
+        q.add_bad(name + ": " + err.data + ".");
+        return std::nullopt;
+    }
+
+    /// @returns the NaN that replaces a bad value of channel i, or nothing when NaN
+    /// fill is off or the channel's data type holds no NaN, which skips the channel's
+    /// index.
+    [[nodiscard]] std::optional<x::telem::SampleValue> fill(const std::size_t i) const {
+        if (!this->cfg.nan_fill_enabled) return std::nullopt;
+        return nan(this->cfg.channels[i]->ch.data_type);
     }
 
     /// @brief reads the value of every channel. Connects first when the task has no
@@ -329,11 +344,7 @@ protected:
             return {types::ReadResponse(), x::errors::NIL};
         auto [res, err] = this->connection.read(this->request_builder.build());
         if (!err) return {std::move(res), x::errors::NIL};
-        auto [refreshed, refresh_err] = this->pool->refresh(
-            this->connection,
-            this->conn_cfg,
-            "[opc.read] "
-        );
+        auto [refreshed, refresh_err] = this->connector.refresh(this->connection);
         if (refreshed) {
             this->build_request();
             std::tie(res, err) = this->connection.read(this->request_builder.build());
@@ -350,8 +361,12 @@ protected:
         ReadTaskConfig cfg
     ):
         cfg(std::move(cfg)),
-        client(std::move(client)),
-        pool(std::move(pool)),
+        connector(
+            std::move(client),
+            std::move(pool),
+            this->cfg.device_key,
+            "[opc.read] "
+        ),
         connection(nullptr, nullptr, "") {}
 
 public:
@@ -363,13 +378,7 @@ public:
     /// effect on restart. A server that is off or refuses Sessions does not stop the
     /// start, since the reads connect again.
     x::errors::Error start() override {
-        auto [conn_cfg, conn_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device_key
-        );
-        if (conn_err) return conn_err;
-        this->conn_cfg = std::move(conn_cfg);
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.read] ");
+        auto [c, err] = this->connector.start();
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR)) {
             this->start_err = err;
             return x::errors::NIL;
@@ -425,41 +434,31 @@ public:
         std::set<synnax::channel::Key> skipped;
         const auto &results = ua_res.get();
         for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
-            const auto &ch = *this->cfg.channels[i];
-            const auto &result = this->result(results, i);
-            x::telem::Series s(ch.ch.data_type, this->cfg.array_size);
-            x::errors::Error err;
-            if (UA_StatusCode_isBad(result.status))
-                quality.add_bad(this->bad_status(i, result.status));
-            else {
-                if (UA_StatusCode_isUncertain(result.status))
-                    quality.add_uncertain(
-                        errors::channel_status(ch.ch.name, result.status)
-                    );
-                err = telem::ua_array_write_to_series(
-                          s,
-                          &result.value,
-                          this->cfg.array_size,
-                          ch.ch.name
-                )
-                          .second;
-                if (err) quality.add_bad(ch.ch.name + ": " + err.data + ".");
-            }
-            if (!UA_StatusCode_isBad(result.status) && !err) {
-                values.emplace_back(std::move(s));
-                continue;
-            }
-            const auto fill = this->cfg.nan_fill_enabled ? nan(ch.ch.data_type)
-                                                         : std::nullopt;
-            if (!fill.has_value()) {
-                skipped.insert(this->cfg.indexes[i]);
-                values.emplace_back(std::nullopt);
-                continue;
-            }
-            x::telem::Series filled(ch.ch.data_type, this->cfg.array_size);
-            for (std::size_t j = 0; j < this->cfg.array_size; ++j)
-                filled.write(*fill);
-            values.emplace_back(std::move(filled));
+            const auto &ch = this->cfg.channels[i]->ch;
+            auto series = this->value<x::telem::Series>(
+                i,
+                this->result(results, i),
+                quality,
+                [&](const UA_Variant &v) {
+                    x::telem::Series s(ch.data_type, this->cfg.array_size);
+                    auto err = telem::ua_array_write_to_series(
+                                   s,
+                                   &v,
+                                   this->cfg.array_size,
+                                   ch.name
+                    )
+                                   .second;
+                    return std::pair{std::move(s), err};
+                }
+            );
+            if (!series.has_value())
+                if (const auto fill = this->fill(i); fill.has_value()) {
+                    series.emplace(ch.data_type, this->cfg.array_size);
+                    for (std::size_t j = 0; j < this->cfg.array_size; ++j)
+                        series->write(*fill);
+                }
+            if (!series.has_value()) skipped.insert(this->cfg.indexes[i]);
+            values.push_back(std::move(series));
         }
         for (std::size_t i = 0; i < values.size(); ++i)
             if (values[i].has_value() && !skipped.contains(this->cfg.indexes[i]))
@@ -496,24 +495,16 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
         values.reserve(this->cfg.channels.size());
         std::set<synnax::channel::Key> skipped;
         for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
-            const auto &ch = *this->cfg.channels[i];
-            const auto &result = this->result(res, i);
-            if (UA_StatusCode_isBad(result.status)) {
-                q.add_bad(this->bad_status(i, result.status));
-                values.emplace_back(std::nullopt);
-            } else {
-                if (UA_StatusCode_isUncertain(result.status))
-                    q.add_uncertain(errors::channel_status(ch.ch.name, result.status));
-                auto [sample, err] = telem::to_sample(result.value, ch.ch.data_type);
-                if (err) {
-                    q.add_bad(ch.ch.name + ": " + err.data + ".");
-                    values.emplace_back(std::nullopt);
-                } else
-                    values.emplace_back(std::move(sample));
-            }
-            if (values.back().has_value()) continue;
-            if (this->cfg.nan_fill_enabled) values.back() = nan(ch.ch.data_type);
-            if (!values.back().has_value()) skipped.insert(this->cfg.indexes[i]);
+            const auto &dt = this->cfg.channels[i]->ch.data_type;
+            auto sample = this->value<x::telem::SampleValue>(
+                i,
+                this->result(res, i),
+                q,
+                [&dt](const UA_Variant &v) { return telem::to_sample(v, dt); }
+            );
+            if (!sample.has_value()) sample = this->fill(i);
+            if (!sample.has_value()) skipped.insert(this->cfg.indexes[i]);
+            values.push_back(std::move(sample));
         }
         for (std::size_t i = 0; i < values.size(); ++i)
             if (!skipped.contains(this->cfg.indexes[i]))

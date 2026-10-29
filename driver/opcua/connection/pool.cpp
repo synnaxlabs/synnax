@@ -11,6 +11,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -162,6 +163,15 @@ void move_results(T *results, T *&part, size_t &part_size) {
 }
 }
 
+x::errors::Error Pool::Connection::check(const UA_StatusCode result) const {
+    auto err = errors::parse(result);
+    if (err.matches(errors::UNREACHABLE))
+        UA_Client_disconnectSecureChannel(this->get());
+    else
+        this->pool_->replied(this->key_);
+    return err;
+}
+
 std::pair<types::ReadResponse, x::errors::Error>
 Pool::Connection::read(const UA_ReadRequest &req) const {
     const size_t limit = this->server_->max_nodes_per_read;
@@ -170,9 +180,8 @@ Pool::Connection::read(const UA_ReadRequest &req) const {
         if (const auto err = lost(this->get())) return {types::ReadResponse(), err};
         types::ReadResponse res(UA_Client_Service_read(this->get(), req));
         const auto &raw = res.get();
-        if (auto err = errors::parse(raw.responseHeader.serviceResult))
+        if (auto err = this->check(raw.responseHeader.serviceResult))
             return {std::move(res), err};
-        this->pool_->replied(this->key_);
         auto err = check_results(raw.resultsSize, total);
         return {std::move(res), err};
     }
@@ -203,9 +212,8 @@ Pool::Connection::write(const UA_WriteRequest &req) const {
         if (const auto err = lost(this->get())) return {types::WriteResponse(), err};
         types::WriteResponse res(UA_Client_Service_write(this->get(), req));
         const auto &raw = res.get();
-        if (auto err = errors::parse(raw.responseHeader.serviceResult))
+        if (auto err = this->check(raw.responseHeader.serviceResult))
             return {std::move(res), err};
-        this->pool_->replied(this->key_);
         auto err = check_results(raw.resultsSize, total);
         return {std::move(res), err};
     }
@@ -228,11 +236,19 @@ Pool::Connection::write(const UA_WriteRequest &req) const {
     return {std::move(merged), x::errors::NIL};
 }
 
-Pool::Pool(
-    std::shared_ptr<certificate::Store> store,
-    const std::chrono::milliseconds idle_timeout
-):
-    store(std::move(store)), idle_timeout(idle_timeout) {}
+Pool::Pool(std::shared_ptr<certificate::Store> store): Pool(std::move(store), {}) {}
+
+Pool::Pool(std::shared_ptr<certificate::Store> store, const Timing timing):
+    store(std::move(store)), timing(timing), evictor([this] { this->evict(); }) {}
+
+Pool::~Pool() {
+    {
+        std::lock_guard lock(this->mutex_);
+        this->closing = true;
+    }
+    this->idle_cv.notify_all();
+    this->evictor.join();
+}
 
 x::errors::Error Pool::BreakerState::open_error() const {
     return this->last_error.matches(errors::SECURITY) ? this->last_error
@@ -246,20 +262,22 @@ bool Pool::BreakerState::open() const {
 
 void Pool::BreakerState::failed(
     const x::errors::Error &err,
+    const Timing &timing,
     const std::string &log_prefix
 ) {
     this->last_error = err;
     if (++this->consecutive_failures < BREAKER_THRESHOLD) return;
-    this->cooldown_until = std::chrono::steady_clock::now() + this->cooldown;
+    const auto pause = std::max(this->cooldown, timing.min_cooldown);
+    this->cooldown_until = std::chrono::steady_clock::now() + pause;
     LOG(WARNING) << log_prefix << "pausing connections to the server for "
-                 << this->cooldown.count() << " s after " << this->consecutive_failures
+                 << pause.count() << " ms after " << this->consecutive_failures
                  << " failed attempts in a row";
-    this->cooldown = std::min(this->cooldown * 2, MAX_COOLDOWN);
+    this->cooldown = std::min(pause * 2, timing.max_cooldown);
 }
 
 void Pool::BreakerState::succeeded() {
     this->consecutive_failures = 0;
-    this->cooldown = MIN_COOLDOWN;
+    this->cooldown = {};
     this->last_error = x::errors::NIL;
 }
 
@@ -306,7 +324,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     if (breaker.trusted != cfg.server_certificate) {
         breaker.trusted = cfg.server_certificate;
         breaker.consecutive_failures = 0;
-        breaker.cooldown = MIN_COOLDOWN;
+        breaker.cooldown = {};
     }
     while (true) {
         if (breaker.open()) {
@@ -348,11 +366,16 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         err = read_err;
         server = std::make_shared<const Server>(std::move(read));
     }
+    // A kept connection must read as lost so the next attempt connects again and reads
+    // the server's facts again, and a server that stopped answering gets no
+    // CloseSession to wait on.
+    if (err && (!created || err.matches(errors::UNREACHABLE)))
+        UA_Client_disconnectSecureChannel(client.get());
 
     lock.lock();
     breaker.connecting = false;
     if (err) {
-        breaker.failed(err, log_prefix);
+        breaker.failed(err, this->timing, log_prefix);
         // A lost connection keeps its entry, so its Session is activated again on the
         // next attempt instead of being left on the server.
         if (!created) this->put_back(key, client);
@@ -395,24 +418,42 @@ Pool::refresh(Connection &conn, const Config &cfg, const std::string &log_prefix
     return {true, x::errors::NIL};
 }
 
-void Pool::close_idle() {
-    std::vector<std::shared_ptr<UA_Client>> closed;
-    {
-        std::lock_guard lock(this->mutex_);
-        const auto deadline = std::chrono::steady_clock::now() - this->idle_timeout;
+void Pool::evict() {
+    std::unique_lock lock(this->mutex_);
+    while (!this->closing) {
+        const auto now = std::chrono::steady_clock::now();
+        std::optional<std::chrono::steady_clock::time_point> next;
+        std::vector<Entry> closed;
         for (auto it = this->connections_.begin(); it != this->connections_.end();) {
-            for (auto &entry: it->second)
-                if (!entry.in_use && (entry.retired || entry.idle_since <= deadline))
-                    closed.push_back(std::move(entry.client));
-            std::erase_if(it->second, [](const Entry &e) { return !e.client; });
+            std::vector<Entry> kept;
+            for (auto &entry: it->second) {
+                const auto expiry = entry.idle_since + this->timing.idle_timeout;
+                if (!entry.in_use && (entry.retired || expiry <= now)) {
+                    closed.push_back(std::move(entry));
+                    continue;
+                }
+                if (!entry.in_use && (!next.has_value() || expiry < *next))
+                    next = expiry;
+                kept.push_back(std::move(entry));
+            }
+            it->second = std::move(kept);
             if (it->second.empty())
                 it = this->connections_.erase(it);
             else
                 ++it;
         }
+        if (!closed.empty()) {
+            lock.unlock();
+            VLOG(1) << "[opc.pool] Closing " << closed.size() << " idle connections";
+            closed.clear();
+            lock.lock();
+            continue;
+        }
+        if (next.has_value())
+            this->idle_cv.wait_until(lock, *next);
+        else
+            this->idle_cv.wait(lock);
     }
-    if (!closed.empty())
-        VLOG(1) << "[opc.pool] Closing " << closed.size() << " idle connections";
 }
 
 x::telem::TimeStamp Pool::last_reply(const Config &cfg) const {
@@ -455,6 +496,7 @@ void Pool::put_back(const std::string &key, const std::shared_ptr<UA_Client> &cl
         if (entry.client == client) {
             entry.in_use = false;
             entry.idle_since = std::chrono::steady_clock::now();
+            this->idle_cv.notify_all();
             return;
         }
 }

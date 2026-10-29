@@ -20,7 +20,6 @@
 #include "open62541/client.h"
 #include "open62541/types.h"
 
-#include "client/cpp/errors/errors.h"
 #include "client/cpp/opcua/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
@@ -106,29 +105,15 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    std::shared_ptr<synnax::Synnax> client;
-    std::shared_ptr<connection::Pool> pool;
-    /// @brief the device's connection settings as of the last retrieve.
-    connection::Config conn_cfg;
+    device::Connector connector;
     connection::Pool::Connection connection;
     types::WriteRequestBuilder builder;
     std::vector<synnax::channel::Key> written_keys;
 
-    /// @brief connects with the device's current settings, so a corrected endpoint or
-    /// login takes effect without a restart. Keeps the last settings while the Core is
-    /// unavailable.
     x::errors::Error connect() {
-        auto [conn_cfg, retrieve_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device
-        );
-        if (!retrieve_err)
-            this->conn_cfg = std::move(conn_cfg);
-        else if (!synnax::errors::is_temporarily_unavailable(retrieve_err))
-            return retrieve_err;
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
+        auto [conn, err] = this->connector.connect();
         if (err) return err;
-        this->connection = std::move(c);
+        this->connection = std::move(conn);
         return x::errors::NIL;
     }
 
@@ -140,21 +125,14 @@ public:
     ):
         Sink(cfg.cmd_keys()),
         cfg(std::move(cfg)),
-        client(std::move(client)),
-        pool(std::move(pool)),
+        connector(std::move(client), std::move(pool), this->cfg.device, "[opc.write] "),
         connection(nullptr, nullptr, "") {}
 
     /// @brief retrieves the device again, so a changed trusted server certificate takes
     /// effect on restart. A server that is off or refuses Sessions does not stop the
     /// start, since each command connects again.
     x::errors::Error start() override {
-        auto [conn_cfg, conn_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device
-        );
-        if (conn_err) return conn_err;
-        this->conn_cfg = std::move(conn_cfg);
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
+        auto [c, err] = this->connector.start();
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR))
             return x::errors::NIL;
         if (err) return err;
@@ -226,11 +204,7 @@ private:
         };
         auto [res, err] = attempt();
         if (!err || err.matches(errors::UNREACHABLE)) return {std::move(res), err};
-        auto [refreshed, refresh_err] = this->pool->refresh(
-            this->connection,
-            this->conn_cfg,
-            "[opc.write] "
-        );
+        auto [refreshed, refresh_err] = this->connector.refresh(this->connection);
         if (refresh_err) return {std::move(res), refresh_err};
         if (!refreshed) return {std::move(res), err};
         return attempt();
