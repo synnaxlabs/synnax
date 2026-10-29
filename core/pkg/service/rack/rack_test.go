@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
@@ -999,10 +1000,11 @@ var _ = Describe("Rack", Ordered, func() {
 					}
 				}
 			}))
-			DeferCleanup(svc.OnSuspect(func(_ context.Context, s rack.Status) {
+			DeferCleanup(svc.OnSuspect(func(_ context.Context, s rack.Status) error {
 				if s.Name == name {
 					alerts.Add(1)
 				}
+				return nil
 			}))
 			r := rack.Rack{Name: name}
 			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
@@ -1013,6 +1015,38 @@ var _ = Describe("Rack", Ordered, func() {
 				g.Expect(alerts.Load()).To(BeEquivalentTo(1))
 			}, 300*time.Millisecond, 10*time.Millisecond).Should(Succeed())
 		})
+
+		It(
+			"Should copy an outage again on the next check after a failed copy",
+			func(ctx SpecContext) {
+				const name = "copy retry test rack"
+				var failing, succeeding atomic.Int32
+				DeferCleanup(
+					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+						if s.Name == name && failing.Add(1) == 1 {
+							return errors.New("copy failed")
+						}
+						return nil
+					}),
+				)
+				DeferCleanup(
+					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+						if s.Name == name {
+							succeeding.Add(1)
+						}
+						return nil
+					}),
+				)
+				r := rack.Rack{Name: name}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+
+				Eventually(failing.Load).Should(BeEquivalentTo(2))
+				Consistently(func(g Gomega) {
+					g.Expect(failing.Load()).To(BeEquivalentTo(2))
+					g.Expect(succeeding.Load()).To(BeEquivalentTo(1))
+				}, 300*time.Millisecond, 10*time.Millisecond).Should(Succeed())
+			},
+		)
 
 		It(
 			"Should write a new outage after the rack reports healthy",
@@ -1029,13 +1063,16 @@ var _ = Describe("Rack", Ordered, func() {
 					defer alertMu.Unlock()
 					return alertCount
 				}
-				disconnect := svc.OnSuspect(func(_ context.Context, s rack.Status) {
-					if s.Details.Rack == r.Key {
-						alertMu.Lock()
-						alertCount++
-						alertMu.Unlock()
-					}
-				})
+				disconnect := svc.OnSuspect(
+					func(_ context.Context, s rack.Status) error {
+						if s.Details.Rack == r.Key {
+							alertMu.Lock()
+							alertCount++
+							alertMu.Unlock()
+						}
+						return nil
+					},
+				)
 				defer disconnect()
 
 				Eventually(getCount).Should(Equal(1))
