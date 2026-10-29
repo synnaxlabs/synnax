@@ -58,6 +58,24 @@ func (c changingPassword) Authenticate(
 	return identity, err
 }
 
+// renewingPassword runs renew once, before the next read of a credential's version.
+type renewingPassword struct {
+	*password.Service
+	renew func(context.Context)
+}
+
+func (r *renewingPassword) Version(
+	ctx context.Context,
+	tx gorp.Tx,
+	credential uuid.UUID,
+) (telem.TimeStamp, error) {
+	if renew := r.renew; renew != nil {
+		r.renew = nil
+		renew(ctx)
+	}
+	return r.Service.Version(ctx, tx, credential)
+}
+
 var _ = Describe("ServiceConfig", func() {
 	var (
 		cfg   auth.ServiceConfig
@@ -140,6 +158,34 @@ var _ = Describe("Service", func() {
 	login := func(ctx SpecContext) (auth.Session, string) {
 		GinkgoHelper()
 		return MustSucceed2(svc.Login(ctx, proof(username, "secret")))
+	}
+	// openRenewing opens a service whose next version read first changes alice's
+	// password from the session the returned arm function is given, keeping it.
+	openRenewing := func(ctx SpecContext) (*auth.Service, func(auth.Session)) {
+		GinkgoHelper()
+		renewing := &renewingPassword{Service: pw}
+		racing := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB: db,
+			Authenticators: map[auth.Method]auth.Authenticator{
+				auth.MethodPassword: renewing,
+			},
+			Clock: clock,
+		}))
+		return racing, func(session auth.Session) {
+			renewing.renew = func(ctx context.Context) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := pw.NewWriter(tx).
+						ChangePassword(ctx, alice, "changed"); err != nil {
+						return err
+					}
+					return racing.NewWriter(tx).RevokeCredential(
+						ctx,
+						[]auth.SessionKey{session.Key},
+						session.Credential,
+					)
+				})).To(Succeed())
+			}
+		}
 	}
 	BeforeEach(func(ctx SpecContext) {
 		// Every spec gets its own db so sweeps and clocks never cross.
@@ -356,6 +402,18 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
+			"Should keep a session its password change renewed during the check",
+			func(ctx SpecContext) {
+				racing, arm := openRenewing(ctx)
+				session, token := MustSucceed2(
+					racing.Login(ctx, proof(username, "secret")),
+				)
+				arm(session)
+				MustSucceed(racing.Authenticate(ctx, token))
+				MustSucceed(racing.Authenticate(ctx, token))
+			},
+		)
+		It(
 			"Should reject the token of a session that was logged out",
 			func(ctx SpecContext) {
 				session, token := login(ctx)
@@ -462,6 +520,21 @@ var _ = Describe("Service", func() {
 					To(Succeed())
 				Expect(svc.CheckHolds(ctx)).To(Succeed())
 				Eventually(ended).Should(BeClosed())
+			},
+		)
+		It(
+			"Should keep a hold its password change renewed during the check",
+			func(ctx SpecContext) {
+				racing, arm := openRenewing(ctx)
+				session, token := MustSucceed2(
+					racing.Login(ctx, proof(username, "secret")),
+				)
+				ended, release := MustSucceed2(racing.Hold(ctx, session.Key))
+				defer release()
+				arm(session)
+				Expect(racing.CheckHolds(ctx)).To(Succeed())
+				Expect(ended).ToNot(BeClosed())
+				MustSucceed(racing.Authenticate(ctx, token))
 			},
 		)
 		It("Should check holds when nothing is held", func(ctx SpecContext) {
