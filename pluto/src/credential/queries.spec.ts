@@ -17,13 +17,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import {
-  useCreateKey,
-  useDeleteKey,
-  useResultKeys,
-  useResultSessions,
-  useSetPassword,
-} from "@/credential/queries";
+import { Credential } from "@/credential";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("Credential queries", () => {
@@ -49,15 +43,15 @@ describe("Credential queries", () => {
       password: "p",
     });
     const subject = user.ontologyID(u.key);
-    const create = renderHook(() => useCreateKey(), { wrapper });
+    const create = renderHook(() => Credential.useCreateKey(), { wrapper });
     await act(async () => {
       await create.result.current.updateAsync({ subject, name: "ci" });
     });
-    const keys = renderHook(() => useResultKeys({ subject }), { wrapper });
+    const keys = renderHook(() => Credential.useResultKeys({ subject }), { wrapper });
     await waitFor(() => expect(keys.result.current.data).toHaveLength(1));
     const [key] = keys.result.current.data ?? [];
     expect(key.name).toEqual("ci");
-    const del = renderHook(() => useDeleteKey(), { wrapper });
+    const del = renderHook(() => Credential.useDeleteKey(), { wrapper });
     await act(async () => {
       await del.result.current.updateAsync(key.key);
     });
@@ -66,7 +60,9 @@ describe("Credential queries", () => {
 
   it("should list a subject's sessions", async () => {
     const { subject } = await loginAsViewer();
-    const sessions = renderHook(() => useResultSessions({ subject }), { wrapper });
+    const sessions = renderHook(() => Credential.useResultSessions({ subject }), {
+      wrapper,
+    });
     await waitFor(() => expect(sessions.result.current.data).toHaveLength(1));
   });
 
@@ -74,7 +70,7 @@ describe("Credential queries", () => {
     const { viewer, subject, username } = await loginAsViewer();
     // ending a live client's session here would make it log a failed login
     await viewer.close();
-    const set = renderHook(() => useSetPassword(), { wrapper });
+    const set = renderHook(() => Credential.useSetPassword(), { wrapper });
     await act(async () => {
       await set.result.current.updateAsync({ subject, password: "new" });
     });
