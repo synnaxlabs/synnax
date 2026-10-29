@@ -52,6 +52,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB: db, Ontology: otg, Group: groupSvc, User: userSvc,
 	}))
-	provider = MustSucceed(testutil.NewProvider())
+	provider = testutil.NewProvider()
 	DeferCleanup(provider.Close)
 })
