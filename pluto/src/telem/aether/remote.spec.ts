@@ -31,6 +31,7 @@ import {
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { createFactory } from "@/telem/aether/factory";
+import { sourcePipeline } from "@/telem/aether/pipeline";
 import {
   ChannelData,
   type ChannelDataProps,
@@ -45,6 +46,7 @@ import {
   type ValueProps,
 } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/testutil";
+import { rollingAverage } from "@/telem/aether/transformers";
 import { line } from "@/vis/line/aether";
 
 const RATE = Rate.hz(100);
@@ -89,6 +91,12 @@ describe("remote", () => {
     closers.push(async () => await client.feed.close());
     return client;
   };
+
+  // Returns the client with its channel retrievals run through retrieve.
+  const withRetrieve = (
+    client: Client,
+    retrieve: Client["channels"]["retrieve"],
+  ): Client => ({ ...client, channels: { retrieve } });
 
   describe("channel values", () => {
     const createNumber = (client: Client | null, ch: channel.Key): NumberSource => {
@@ -341,6 +349,37 @@ describe("remote", () => {
         description: `You do not have permission to do that. access to channel ${key} denied`,
       });
       expect(source.value().data).toBeNaN();
+    });
+
+    it("should average from the first sample after a retrieval recovers", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      const client = connect(core);
+      let failures = 1;
+      const flaky = withRetrieve(client, async (ch) => {
+        if (failures-- > 0) throw new Error("connection refused");
+        return await client.channels.retrieve(ch);
+      });
+      const source = createFactory(flaky).create(
+        sourcePipeline("number", {
+          connections: [{ from: "valueStream", to: "average" }],
+          segments: {
+            valueStream: streamChannelValue({ channel: key }),
+            average: rollingAverage({ windowSize: 3 }),
+          },
+          outlet: "average",
+        }),
+      ) as NumberSource;
+      closers.push(() => source.cleanup?.());
+      const statuses: cstatus.Status[] = [];
+      source.onChange(() => statuses.push(source.value().status));
+      source.value();
+      const latest = newest(core, key).at(-1);
+      await expect.poll(() => source.value().data, POLL).toBe(latest);
+      expect(statuses[0]).toMatchObject({
+        variant: "error",
+        description: "connection refused",
+      });
     });
   });
 
@@ -711,12 +750,6 @@ describe("remote", () => {
         .toBe(newest(core, props.channel).at(-1));
       expect(handler).not.toHaveBeenCalled();
     });
-
-    // Returns the client with its channel retrievals run through retrieve.
-    const withRetrieve = (
-      client: Client,
-      retrieve: Client["channels"]["retrieve"],
-    ): Client => ({ ...client, channels: { retrieve } });
 
     it("should retry a channel retrieval that fails to connect", async () => {
       const core = createCore();

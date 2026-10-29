@@ -464,6 +464,14 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
+    it("should not count a change that appends no samples", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      append(leaf, 0, TimeStamp.now());
+      leaf.received();
+      vi.advanceTimersByTime(6000);
+      expect(leaf.transitions).toEqual([]);
+    });
+
     it("should count a change that grows the appended count while its time holds", () => {
       const { leaf } = mount({ timeouts: [5] });
       const time = TimeStamp.now();
