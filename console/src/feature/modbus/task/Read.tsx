@@ -27,6 +27,7 @@ import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChan
 import {
   deployReadConfigZ,
   isVariableDensityReadChannel,
+  nextAddress,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
@@ -128,7 +129,7 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
     ...channelToCopy,
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
-    address: channelToCopy.address + 1,
+    address: nextAddress(channelToCopy),
   };
 };
 
