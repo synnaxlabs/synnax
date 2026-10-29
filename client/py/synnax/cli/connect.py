@@ -58,7 +58,7 @@ def from_clusters(ctx: Context, clusters: Clusters) -> Synnax | None:
 
     :param ctx: The context of the current flow.
     :param clusters: The saved connection parameters.
-    :return: The connected Synnax py, or None if the connection failed.
+    :returns: The connected client, or None if the connection failed.
     """
     cluster = clusters.get()
     if cluster is None:
