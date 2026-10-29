@@ -18,8 +18,12 @@
 #include <winsock2.h>
 #endif
 
+#include <algorithm>
 #include <filesystem>
 #include <functional>
+#include <iterator>
+#include <string>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -31,9 +35,6 @@
 #include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
-#endif
-#ifndef __APPLE__
-#include "driver/ni/ni.h"
 #endif
 
 #include "driver/common/sample_clock.h"
@@ -67,6 +68,15 @@ struct RemoteInfo {
     }
 };
 
+/// @brief returns the integrations that this platform's build adds to the ones every
+/// build has. Each platform defines it in its own source.
+std::vector<std::string> platform_integrations();
+
+/// @brief returns false when this platform's build leaves the integration out or its
+/// SDK libraries do not load on this computer, and true otherwise. Each platform
+/// defines it in its own source.
+bool platform_libraries_loaded(const std::string &integration);
+
 inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
         opcua::INTEGRATION_NAME,
@@ -75,9 +85,7 @@ inline std::vector<std::string> default_integrations() {
         ethercat::INTEGRATION_NAME,
         http::INTEGRATION_NAME
     };
-#ifndef __APPLE__
-    integrations.push_back(ni::INTEGRATION_NAME);
-#endif
+    std::ranges::copy(platform_integrations(), std::back_inserter(integrations));
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);
 #endif
@@ -119,14 +127,8 @@ struct Config {
     /// computer.
     std::function<bool(const std::string &)> libraries_loaded =
         [](const std::string &i) {
-#ifdef __APPLE__
-            // The macOS build leaves NI out.
-            if (i == "ni") return false;
-#else
-            if (i == ni::INTEGRATION_NAME) return ni::integration_supported();
-#endif
             if (i == labjack::INTEGRATION_NAME) return labjack::integration_supported();
-            return true;
+            return platform_libraries_loaded(i);
         };
 
     /// @brief returns a new task factory to use for creating tasks in the task

@@ -16,40 +16,16 @@
 #endif
 
 #include "driver/arc/arc.h"
-#include "driver/common/factory.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
+#include "driver/rack/factories.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
 
 namespace driver::rack {
-using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
-
 bool Config::integration_supported(const std::string &i) const {
     return std::ranges::find(this->integrations, i) != this->integrations.end() &&
            this->libraries_loaded(i);
-}
-
-template<typename F>
-void configure_integration(
-    const Config &config,
-    FactoryList &factories,
-    const std::string &integration_name,
-    F factory_creator
-) {
-    if (std::ranges::find(config.integrations, integration_name) ==
-        config.integrations.end()) {
-        VLOG(1) << "[" << integration_name << "] integration not enabled";
-        return;
-    }
-    if (!config.libraries_loaded(integration_name)) {
-        LOG(WARNING) << "[" << integration_name
-                     << "] integration is enabled, but its libraries do not load on "
-                        "this computer";
-        return;
-    }
-    VLOG(1) << "[" << integration_name << "] integration supported";
-    factories.push_back(factory_creator());
 }
 
 void configure_opcua(const Config &config, FactoryList &factories) {
@@ -63,43 +39,6 @@ void configure_opcua(const Config &config, FactoryList &factories) {
         );
     });
 }
-
-#ifdef __APPLE__
-/// @brief deletes the NI scanner that a Driver built with NI left on the rack, as the
-/// macOS build has no NI integration to run it.
-class LegacyNIFactory final : public task::Factory {
-public:
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
-    configure_initial_tasks(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::rack::Rack &rack
-    ) override {
-        const auto err = common::delete_legacy_task_by_type(rack, "ni_scanner", "ni");
-        if (err) LOG(ERROR) << "[ni] failed to retrieve the legacy NI scanner: " << err;
-        return {};
-    }
-
-    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task,
-        const std::string &cmd_key
-    ) override {
-        return {nullptr, false};
-    }
-
-    std::string name() override { return "ni"; }
-};
-
-void configure_ni(const Config &, FactoryList &factories) {
-    factories.push_back(std::make_unique<LegacyNIFactory>());
-}
-#else
-void configure_ni(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, ni::INTEGRATION_NAME, [&config]() {
-        return ni::Factory::create(config.timing);
-    });
-}
-#endif
 
 void configure_labjack(const Config &config, FactoryList &factories) {
     configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {

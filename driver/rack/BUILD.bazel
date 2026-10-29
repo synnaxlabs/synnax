@@ -23,11 +23,15 @@ cc_library(
         "args.cpp",
         "env.cpp",
         "factories.cpp",
+        "factories.h",
         "file.cpp",
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
-    ],
+    ] + select({
+        "@platforms//os:macos": ["factories_darwin.cpp"],
+        "//conditions:default": ["factories_default.cpp"],
+    }),
     hdrs = ["rack.h"],
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
