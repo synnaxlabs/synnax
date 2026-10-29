@@ -189,7 +189,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
             value={arcItem?.name ?? ""}
             onChange={hasUpdatePermission ? handleRename : undefined}
             allowDoubleClick={false}
-            overflow="ellipsis"
+            overflow="fade"
             weight={500}
           />
           {drifted && (

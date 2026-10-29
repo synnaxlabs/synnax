@@ -95,10 +95,7 @@
       "lyra-status-indicator__core",
       "lyra-status-indicator__track"
     ],
-    "console/src/platform/connection/Target.css": [
-      "lyra-icon",
-      "lyra-text--overflow-ellipsis"
-    ],
+    "console/src/platform/connection/Target.css": ["lyra-icon"],
     "console/src/platform/device/Configure.css": [
       "lyra--end",
       "lyra--start",
@@ -115,7 +112,6 @@
       "pluto-error-fallback__container",
       "pluto-error-fallback__content"
     ],
-    "console/src/platform/fs/PickerRow.css": ["lyra-text"],
     "console/src/platform/label/Edit.css": ["lyra--hidden", "lyra-input", "lyra-modal"],
     "console/src/platform/multiedit/Sections.css": ["lyra-input-label"],
     "console/src/platform/nav/Nav.css": [
@@ -140,8 +136,7 @@
       "lyra--square",
       "lyra-header",
       "lyra-list__item",
-      "lyra-orbital__stage",
-      "lyra-text--overflow-ellipsis"
+      "lyra-orbital__stage"
     ],
     "console/src/platform/task/Form.css": ["lyra-header", "lyra-list__scroll"],
     "console/src/platform/task/views/GroupTree.css": [

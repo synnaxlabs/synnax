@@ -102,18 +102,10 @@ span.lyra-text {
         }
     }
 
-    /* Both axes, since a lone overflow-x computes the unmentioned overflow-y to auto
-       and a crushed line-height then grows a scrollbar on a one-line label. */
-    &.lyra-text--overflow-ellipsis {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: block;
-    }
-
-    /* Overflowing text fades out at the right edge, Chrome-style, instead of
-       ellipsizing. The self scroll timeline is inactive until the text actually
-       overflows, so fitted text never fades. */
+    /* Cut text fades out at its end. The self scroll timeline is inactive until the
+       text overflows, so fitted text never fades. Both axes are hidden, since a lone
+       overflow-x computes overflow-y to auto and a crushed line-height then grows a
+       scrollbar on a one-line label. */
     &.lyra-text--overflow-fade {
         white-space: nowrap;
         overflow: hidden;
@@ -121,13 +113,6 @@ span.lyra-text {
         animation-name: text-fade;
         animation-timing-function: linear;
         animation-timeline: scroll(self x);
-    }
-
-    /* Engines without scroll timelines (Safari < 26, Firefox < 156) ellipsize. */
-    @supports not (animation-timeline: scroll(self x)) {
-        &.lyra-text--overflow-fade {
-            text-overflow: ellipsis;
-        }
     }
 
     &.lyra-text--overflow-clip {
@@ -144,11 +129,22 @@ span.lyra-text {
         white-space: wrap;
     }
 
+    /* Clamped text fades out at the end of its last line. */
     &.lyra-text--line-clamp {
         display: -webkit-box;
         -webkit-box-orient: vertical;
         overflow: hidden;
-        text-overflow: ellipsis;
+        animation-name: text-fade-lines;
+        animation-timing-function: linear;
+        animation-timeline: scroll(self y);
+    }
+
+    /* Engines without scroll timelines (Safari < 26, Firefox < 156) ellipsize. */
+    @supports not (animation-timeline: scroll(self x)) {
+        &.lyra-text--overflow-fade,
+        &.lyra-text--line-clamp {
+            text-overflow: ellipsis;
+        }
     }
 }
 
@@ -158,5 +154,16 @@ span.lyra-text {
     0%,
     100% {
         mask-image: linear-gradient(to right, black calc(100% - 2.25rem), transparent);
+    }
+}
+
+/* Every line but the last stays whole, and the last one fades like a cut label. */
+@keyframes text-fade-lines {
+    0%,
+    100% {
+        mask:
+            linear-gradient(black, black) top / 100% calc(100% - 1lh) no-repeat,
+            linear-gradient(to right, black calc(100% - 2.25rem), transparent) bottom /
+                100% 1lh no-repeat;
     }
 }
