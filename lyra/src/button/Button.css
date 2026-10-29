@@ -69,7 +69,7 @@
             .pluto-menu-item,
             .pluto-tabs__tab,
             .pluto-dialog__trigger,
-            :is(.pluto-tabs-selector, .pluto-select-btns) *
+            .pluto-select-btns *
         )
     ) {
     font-weight: 450;
@@ -420,8 +420,11 @@
     }
 
     &.pluto-haul-drop-region {
+        /* stylelint-disable declaration-no-important -- a drop target keeps its drop
+           colors while hovered or pressed */
         --pluto-btn-bg: var(--haul-background) !important;
         --pluto-btn-border-color: var(--haul-border-color) !important;
+        /* stylelint-enable declaration-no-important */
     }
 
     /* We use the flex selector that is always present in order to increase specificity
@@ -442,4 +445,38 @@
             --pluto-btn-border-color: var(--pluto-active-border-color);
         }
     }
+}
+
+.pluto--pack .pluto-btn:is(:focus, :focus-within, :active, :hover) {
+    z-index: 3;
+}
+
+/* Wins the negative-margin border collapse against unselected neighbors. */
+.pluto--pack .pluto-btn.pluto--selected {
+    z-index: 2;
+}
+
+/* A pluto--reveals container hides marked child actions until hovered. Keyboard
+   focus always shows one, so reveal never hides the only keyboard path. */
+.pluto--reveals .pluto--reveal {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.1s ease-out;
+}
+
+.pluto--reveals:hover .pluto--reveal {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Reveal comes from the nearest container: an un-hovered inner one (a tag in a
+   hovered row) keeps its own actions hidden. */
+.pluto--reveals:not(:hover) .pluto--reveal {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pluto--reveals .pluto--reveal:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
 }

@@ -9,6 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
+/* stylelint-disable declaration-no-important -- restyles React Flow, which styles these
+   parts in its own stylesheet and inline */
+
 .pluto-arc {
     .react-flow__handle {
         width: round(1.25rem, 1px);

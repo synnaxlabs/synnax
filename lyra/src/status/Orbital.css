@@ -75,7 +75,7 @@
 }
 
 .pluto-orbital__ring {
-    --orbital-ring-width: var(--pluto-orbital-ring-width, 2px);
+    --orbital-ring-width: 2px;
 
     position: absolute;
     inset: 0;

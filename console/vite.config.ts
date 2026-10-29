@@ -9,7 +9,7 @@
 
 /// <reference types="vitest/config" />
 
-import { layers, reactCompiler } from "@synnaxlabs/vite-plugin";
+import { layers, plutoLayers, reactCompiler } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import * as fs from "node:fs/promises";
 import * as path from "path";
@@ -25,17 +25,6 @@ const desktop = process.env.VITE_DESKTOP === "true";
 const release = process.env.VITE_RELEASE === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
-
-const under = (dir: string): RegExp =>
-  new RegExp(`^${RegExp.escape(normalizePath(path.join(repoRoot, dir)))}/`);
-
-// Lyra styles bare elements, so third-party CSS sits above it. Pluto overrides both,
-// and the Console's own CSS, left unlayered, overrides everything.
-const CSS_LAYERS = [
-  { name: "lyra", files: under("lyra") },
-  { name: "vendor", files: /\/node_modules\// },
-  { name: "pluto", files: under("pluto") },
-];
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
 // the Console's map would bottom out at pluto/dist/pluto.js and friends. Loading the
@@ -111,7 +100,8 @@ export default defineConfig({
       : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
-  css: { postcss: { plugins: [layers(CSS_LAYERS)] } },
+  // The Console's own CSS, left unlayered, overrides every layer.
+  css: { postcss: { plugins: [layers(plutoLayers(repoRoot))] } },
   plugins: [react(), reactCompiler(), workspaceSourcemaps(), stripSourcesContent()],
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome111" : "safari16.4",

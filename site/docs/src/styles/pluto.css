@@ -117,9 +117,7 @@ article .pluto-tabs__selector {
         width: unset;
 
         &:hover:not(.pluto--selected) {
-            &:not(.pluto--has-children) {
-                box-shadow: inset 2px 0 0 0 var(--pluto-text-color);
-            }
+            box-shadow: inset 2px 0 0 0 var(--pluto-text-color);
 
             & .pluto-text {
                 color: var(--pluto-text-color);
@@ -140,13 +138,9 @@ article .pluto-tabs__selector {
             }
         }
 
-        &:not(.pluto--has-children, .pluto--selected) {
+        &:not(.pluto--selected) {
             box-shadow: inset 1px 0 0 0 var(--pluto-gray-l2);
         }
-    }
-
-    .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-        fill: var(--pluto-gray-l5);
     }
 
     .page-nav-section-header {

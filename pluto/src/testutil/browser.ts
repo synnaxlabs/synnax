@@ -7,19 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package base64_test
+import "zod/compile";
+import "@synnaxlabs/lyra/dist/base.css";
 
-import (
-	"testing"
+import { setupBrowser } from "@synnaxlabs/lyra/styletest";
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
-)
-
-func TestBase64(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Encoding Base64 Suite", SuiteConfig())
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
+failOnConsoleOutput();
+setupBrowser();
