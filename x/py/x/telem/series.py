@@ -440,12 +440,12 @@ class Series(ArrayOperators, Generic[T]):
 
     @overload
     def to_numpy(
-        self: Series[_N], dtype: None = None, copy: bool | None = None
+        self: Series[_N], dtype: None = None, *, copy: bool | None = None
     ) -> npt.NDArray[_N]: ...
 
     @overload
     def to_numpy(
-        self, dtype: np.dtype | None = None, copy: bool | None = None
+        self, dtype: np.dtype | None = None, *, copy: bool | None = None
     ) -> np.ndarray: ...
 
     def to_numpy(
