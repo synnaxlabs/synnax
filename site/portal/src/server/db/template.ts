@@ -23,10 +23,7 @@ declare module "vitest" {
 
 const MIGRATIONS = path.resolve(import.meta.dirname, "../../../drizzle");
 
-/**
- * setup is a Vitest global setup. It migrates one Postgres and dumps it, so each spec
- * file loads the dump instead of running initdb and the migrations again.
- */
+/** setup provides a fully migrated Postgres dump to the spec files. */
 export const setup = async (project: TestProject): Promise<void> => {
   const pg = new PGlite();
   try {
