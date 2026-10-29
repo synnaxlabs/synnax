@@ -26,6 +26,7 @@
 
 #include "driver/opcua/device/device.h"
 #include "driver/opcua/errors/errors.h"
+#include "driver/opcua/method/method.h"
 #include "driver/opcua/scan_task.h"
 #include "driver/opcua/structure/structure.h"
 #include "driver/opcua/telem/telem.h"
@@ -759,6 +760,23 @@ void Scanner::read_node(const synnax::task::Command &cmd) const {
             out["description"] = text(v->text);
         auto data_type = x::telem::UNKNOWN_T;
         auto is_array = false;
+        if (cls == UA_NODECLASS_METHOD) {
+            auto [inputs, inputs_err] = method::read_inputs(connection, {id.value()});
+            if (inputs_err) return {{}, inputs_err};
+            if (inputs[0].has_value()) {
+                auto args = x::json::json::array();
+                for (const auto &arg: *inputs[0]) {
+                    auto [name, name_err] = type_name(connection, arg.data_type.get());
+                    if (name_err) return {{}, name_err};
+                    args.push_back({
+                        {"name", arg.name},
+                        {"type_name", name},
+                        {"data_type", telem::to_data_type(arg.data_type.get()).name()},
+                    });
+                }
+                out["input_arguments"] = args;
+            }
+        }
         if (cls == UA_NODECLASS_VARIABLE) {
             const auto type_id = scalar<UA_NodeId>(r[4], UA_TYPES[UA_TYPES_NODEID]);
             const auto rank = scalar<UA_Int32>(r[5], UA_TYPES[UA_TYPES_INT32]);

@@ -48,6 +48,7 @@ const ICONS: Record<string, ReactElement> = {
   Variable: <Icon.Variable />,
   ObjectType: <Icon.Type />,
   Object: <Icon.Group />,
+  Method: <Icon.Function />,
 };
 
 // A node can sit under more than one parent, so its key names the parent too.
@@ -202,6 +203,7 @@ export const Browser = ({ device }: BrowserProps) => {
             ? node.name
             : `${parent.name}.${node.name}`,
         key: nodeKey(node, parent),
+        parent: parent?.nodeId,
       }));
       opcNodesStore.setItem(nodes);
       const newNodes = nodes.map(({ key }): Tree.Node => ({ key, children: [] }));

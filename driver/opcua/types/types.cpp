@@ -267,4 +267,111 @@ x::errors::Error WriteRequestBuilder::add_value(
     add_value(node_id, variant);
     return x::errors::NIL;
 }
+
+namespace {
+/// @returns the qualified name of one element of a browse path.
+UA_QualifiedName qualified_name(const std::string_view element) {
+    const auto colon = element.find(':');
+    UA_UInt16 ns = 0;
+    if (colon == std::string_view::npos || !parse_number(element.substr(0, colon), ns))
+        return UA_QUALIFIEDNAME_ALLOC(0, std::string(element).c_str());
+    return UA_QUALIFIEDNAME_ALLOC(ns, std::string(element.substr(colon + 1)).c_str());
+}
+
+UA_SimpleAttributeOperand select_clause(const std::string &field) {
+    std::vector<std::string_view> elements;
+    std::string_view rest = field;
+    while (true) {
+        const auto slash = rest.find('/');
+        elements.push_back(rest.substr(0, slash));
+        if (slash == std::string_view::npos) break;
+        rest = rest.substr(slash + 1);
+    }
+    UA_SimpleAttributeOperand op;
+    UA_SimpleAttributeOperand_init(&op);
+    op.typeDefinitionId = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE);
+    op.attributeId = UA_ATTRIBUTEID_VALUE;
+    op.browsePath = static_cast<UA_QualifiedName *>(
+        UA_Array_new(elements.size(), &UA_TYPES[UA_TYPES_QUALIFIEDNAME])
+    );
+    op.browsePathSize = elements.size();
+    for (size_t i = 0; i < elements.size(); ++i)
+        op.browsePath[i] = qualified_name(elements[i]);
+    return op;
+}
+
+/// @brief sets element to op, with operands that it copies.
+template<typename Operand>
+void set_operands(
+    UA_ContentFilterElement &element,
+    const UA_FilterOperator op,
+    const std::vector<Operand> &operands,
+    const UA_DataType &type
+) {
+    element.filterOperator = op;
+    element.filterOperands = static_cast<UA_ExtensionObject *>(
+        UA_Array_new(operands.size(), &UA_TYPES[UA_TYPES_EXTENSIONOBJECT])
+    );
+    element.filterOperandsSize = operands.size();
+    for (size_t i = 0; i < operands.size(); ++i)
+        UA_ExtensionObject_setValueCopy(
+            &element.filterOperands[i],
+            const_cast<Operand *>(&operands[i]),
+            &type
+        );
+}
+
+UA_ElementOperand element_operand(const size_t index) {
+    UA_ElementOperand op;
+    UA_ElementOperand_init(&op);
+    op.index = static_cast<UA_UInt32>(index);
+    return op;
+}
+}
+
+EventFilter::EventFilter(
+    const std::vector<std::string> &fields,
+    const std::vector<UA_NodeId> &types
+) {
+    UA_EventFilter_init(&filter_);
+    filter_.selectClauses = static_cast<UA_SimpleAttributeOperand *>(
+        UA_Array_new(fields.size(), &UA_TYPES[UA_TYPES_SIMPLEATTRIBUTEOPERAND])
+    );
+    filter_.selectClausesSize = fields.size();
+    for (size_t i = 0; i < fields.size(); ++i)
+        filter_.selectClauses[i] = select_clause(fields[i]);
+    if (types.empty()) return;
+    // The where clause chains an Or for each type after the first, then holds an
+    // OfType for each type. Operands may only point forward.
+    const size_t ors = types.size() - 1;
+    auto &where = filter_.whereClause;
+    where.elements = static_cast<UA_ContentFilterElement *>(
+        UA_Array_new(ors + types.size(), &UA_TYPES[UA_TYPES_CONTENTFILTERELEMENT])
+    );
+    where.elementsSize = ors + types.size();
+    for (size_t i = 0; i < ors; ++i) {
+        const size_t left = i + 1 < ors ? i + 1 : ors + types.size() - 1;
+        set_operands(
+            where.elements[i],
+            UA_FILTEROPERATOR_OR,
+            std::vector{element_operand(left), element_operand(ors + i)},
+            UA_TYPES[UA_TYPES_ELEMENTOPERAND]
+        );
+    }
+    for (size_t i = 0; i < types.size(); ++i) {
+        UA_LiteralOperand type;
+        UA_LiteralOperand_init(&type);
+        UA_Variant_setScalar(
+            &type.value,
+            const_cast<UA_NodeId *>(&types[i]),
+            &UA_TYPES[UA_TYPES_NODEID]
+        );
+        set_operands(
+            where.elements[ors + i],
+            UA_FILTEROPERATOR_OFTYPE,
+            std::vector{type},
+            UA_TYPES[UA_TYPES_LITERALOPERAND]
+        );
+    }
+}
 }

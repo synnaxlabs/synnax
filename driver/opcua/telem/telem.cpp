@@ -177,6 +177,7 @@ constexpr UA_DateTime MIN_DATETIME = UA_DATETIME_UNIX_EPOCH +
                                      std::numeric_limits<int64_t>::min() / 100;
 constexpr UA_DateTime MAX_DATETIME = UA_DATETIME_UNIX_EPOCH +
                                      std::numeric_limits<int64_t>::max() / 100;
+}
 
 std::pair<x::telem::TimeStamp, x::errors::Error> to_timestamp(const UA_DateTime t) {
     if (t < MIN_DATETIME || t > MAX_DATETIME)
@@ -190,6 +191,7 @@ std::pair<x::telem::TimeStamp, x::errors::Error> to_timestamp(const UA_DateTime 
     return {x::telem::TimeStamp((t - UA_DATETIME_UNIX_EPOCH) * 100), x::errors::NIL};
 }
 
+namespace {
 const std::vector NUMERIC_TYPES = {
     x::telem::FLOAT64_T,
     x::telem::FLOAT32_T,
@@ -653,5 +655,40 @@ write_to_series(x::telem::Series &s, const UA_Variant &v) {
     auto [sample, err] = to_sample(v, s.data_type());
     if (err) return {0, err};
     return {write(s, {sample}), x::errors::NIL};
+}
+namespace {
+/// @returns one value of a type as JSON text.
+std::pair<std::string, x::errors::Error>
+json(const void *data, const UA_DataType *type) {
+    UA_EncodeJsonOptions options{};
+    options.stringNodeIds = true;
+    UA_ByteString out = UA_BYTESTRING_NULL;
+    if (const auto status = UA_encodeJson(data, type, &out, &options);
+        status != UA_STATUSCODE_GOOD)
+        return {
+            "",
+            x::errors::Error(
+                x::errors::VALIDATION,
+                std::string("the value does not encode: ") + UA_StatusCode_name(status)
+            )
+        };
+    std::string text(reinterpret_cast<const char *>(out.data), out.length);
+    UA_ByteString_clear(&out);
+    return {std::move(text), x::errors::NIL};
+}
+}
+
+std::pair<std::string, x::errors::Error> to_json(const UA_Variant &value) {
+    if (value.type == nullptr) return {"null", x::errors::NIL};
+    if (UA_Variant_isScalar(&value)) return json(value.data, value.type);
+    std::string text = "[";
+    const auto *data = static_cast<const char *>(value.data);
+    for (std::size_t i = 0; i < value.arrayLength; ++i) {
+        auto [element, err] = json(data + i * value.type->memSize, value.type);
+        if (err) return {"", err};
+        if (i > 0) text += ", ";
+        text += element;
+    }
+    return {text + "]", x::errors::NIL};
 }
 }

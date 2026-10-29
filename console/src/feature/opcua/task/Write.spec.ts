@@ -15,7 +15,9 @@ import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
+import { createRunningRack } from "@/platform/device/testutil";
 import {
+  answerNextCommand,
   awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
@@ -53,8 +55,30 @@ const createWriteChannel = (): OPCUA.Task.WriteChannel => {
     disabled: false,
     dataType: "float32",
     name: "",
+    type: "node",
+    objectId: "",
+    arguments: [],
   };
 };
+
+// The Core holds one channel per name, so each method takes its own name.
+const createMethodName = (): string => uniqueName("SetSpeed").replace(/_/g, "");
+
+const createMethodChannel = (
+  nodeName: string,
+  args: OPCUA.Task.MethodArgument[],
+): OPCUA.Task.WriteChannel => ({
+  key: uniqueName("method"),
+  nodeId: `ns=1;s=Pump.${nodeName}`,
+  nodeName,
+  cmdChannel: 0,
+  disabled: false,
+  dataType: args.find(({ source }) => source === "command")?.dataType ?? "uint8",
+  name: "",
+  type: "method",
+  objectId: "ns=1;s=Pump",
+  arguments: args,
+});
 
 const createWriteConfig = (
   device: string,
@@ -248,8 +272,185 @@ describe("Write", () => {
           cmdChannel: 0,
           disabled: true,
           dataType: "float32",
+          type: "node",
+          objectId: "",
+          arguments: [],
         },
       ]);
+    });
+  });
+
+  describe("methods", () => {
+    const SPEED: OPCUA.Task.MethodArgument = {
+      source: "command",
+      value: "",
+      name: "speed",
+      dataType: "float64",
+    };
+    const MODE: OPCUA.Task.MethodArgument = {
+      source: "value",
+      value: "auto",
+      name: "mode",
+      dataType: "string",
+    };
+
+    it("should give a method channel a command channel of the command argument's type", async () => {
+      const dev = await createOPCDevice(client);
+      const ch = createMethodChannel(createMethodName(), [MODE, SPEED]);
+      const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(`Call ${ch.nodeName}`);
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      const cmd = await client.channels.retrieve(config.channels[0].cmdChannel);
+      expect(cmd.name).toBe(`${ch.nodeName}_cmd`);
+      expect(cmd.dataType.toString()).toBe("float64");
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: OPCUA.Device.SCHEMAS,
+      });
+      expect(updated.properties.write.channels[ch.nodeId]).toBeUndefined();
+    });
+
+    it("should give each channel of one method its own command channel, with a free name", async () => {
+      const dev = await createOPCDevice(client);
+      const nodeName = createMethodName();
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          createMethodChannel(nodeName, [MODE, SPEED]),
+          createMethodChannel(nodeName, [MODE, SPEED]),
+        ]),
+      );
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(`Call ${nodeName}`);
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      const commands = await client.channels.retrieve(
+        config.channels.map(({ cmdChannel }) => cmdChannel),
+      );
+      expect(commands.map(({ name }) => name).sort()).toEqual([
+        `${nodeName}_cmd`,
+        `${nodeName}_cmd_2`,
+      ]);
+    });
+
+    it("should replace the command channel when the command moves to an argument of another type", async () => {
+      const dev = await createOPCDevice(client);
+      const ch = createMethodChannel(createMethodName(), [MODE, SPEED]);
+      const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
+      const first = await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(`Call ${ch.nodeName}`);
+      const deployed = await deployAndAwaitTask(
+        client,
+        first.container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      const before = deployed.config.channels[0].cmdChannel;
+      await reportTaskStopped(client, deployed.payload);
+      first.unmount();
+      const second = await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(`Call ${ch.nodeName}`);
+      const [modeSwitch] = screen.getAllByRole("checkbox", { name: "Command" });
+      fireEvent.click(modeSwitch);
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: OPCUA.Task.WRITE_SCHEMAS,
+        });
+        const [savedCh] = saved.config.channels;
+        expect(savedCh.dataType).toBe("string");
+        expect(savedCh.arguments.map(({ source }) => source)).toEqual([
+          "command",
+          "value",
+        ]);
+      });
+      const { config } = await deployAndAwaitTask(
+        client,
+        second.container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      const after = config.channels[0].cmdChannel;
+      expect(after).not.toBe(before);
+      const cmd = await client.channels.retrieve(after);
+      expect(cmd.name).toBe(`${ch.nodeName}_cmd_2`);
+      expect(cmd.dataType.toString()).toBe("string");
+    });
+
+    it("should add a dropped method with its arguments, the first taking the command", async () => {
+      const rack = await createRunningRack(client, "opc");
+      const scan = await rack.createTask({
+        name: uniqueName("opcua_scan"),
+        type: OPCUA.Task.SCAN_TYPE,
+        config: {},
+      });
+      const dev = await createOPCDevice(client, { rack: rack.key });
+      const held = createWriteChannel();
+      const draft = await createDraft(client, createWriteConfig(dev.key, [held]));
+      const method: OPCUA.Task.ScannedNode = {
+        key: "ns=1;s=Pump.Configure",
+        nodeId: "ns=1;s=Pump.Configure",
+        name: "Configure",
+        nodeClass: "Method",
+        dataType: "",
+        isArray: false,
+        field: "",
+      };
+      const root = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+        data: { channels: [method] },
+      });
+      await renderWrite({ client, taskKey: draft.key });
+      await root.answered;
+      const read = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        data: {
+          node: method,
+          nodeClass: "Method",
+          browseName: "Configure",
+          inputArguments: [
+            { name: "mode", typeName: "String", dataType: "string" },
+            { name: "speed", typeName: "Double", dataType: "float64" },
+          ],
+        },
+      });
+      fireEvent.dragStart(await screen.findByText("Configure"));
+      fireEvent.drop(await screen.findByText(new RegExp(held.nodeName)));
+      expect((await read.answered).args).toMatchObject({ nodeId: method.nodeId });
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: OPCUA.Task.WRITE_SCHEMAS,
+        });
+        expect(saved.config.channels).toEqual([
+          held,
+          {
+            key: expect.any(String),
+            nodeName: "Configure",
+            nodeId: method.nodeId,
+            name: "",
+            cmdChannel: 0,
+            disabled: false,
+            type: "method",
+            objectId: "",
+            dataType: "string",
+            arguments: [
+              { source: "command", value: "", name: "mode", dataType: "string" },
+              { source: "value", value: "", name: "speed", dataType: "float64" },
+            ],
+          },
+        ]);
+      });
     });
   });
 });

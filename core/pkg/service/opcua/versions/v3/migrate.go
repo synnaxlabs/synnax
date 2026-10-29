@@ -28,3 +28,22 @@ func MigrateReadConfig(ctx context.Context, old v2.ReadConfig) (ReadConfig, erro
 
 // ReadMigration lifts stored read configs to v3.
 var ReadMigration = migrate.NewEntry("v61_structure_fields", MigrateReadConfig)
+
+// MigrateWriteChannel lifts a v2 write channel to v3, where it writes the value of its
+// node.
+func MigrateWriteChannel(
+	ctx context.Context,
+	old v2.WriteChannel,
+) (WriteChannel, error) {
+	ch, err := autoMigrateWriteChannel(ctx, old)
+	ch.Type = WriteTypeNode
+	return ch, err
+}
+
+// MigrateWriteConfig lifts a v2 write config to v3.
+func MigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, error) {
+	return autoMigrateWriteConfig(ctx, old)
+}
+
+// WriteMigration lifts stored write configs to v3.
+var WriteMigration = migrate.NewEntry("v61_method_channels", MigrateWriteConfig)

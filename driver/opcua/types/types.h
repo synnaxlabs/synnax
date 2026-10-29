@@ -234,6 +234,32 @@ public:
     UA_WriteResponse *ptr() { return &res_; }
 };
 
+class CallResponse {
+    UA_CallResponse res_{};
+
+public:
+    CallResponse() { UA_CallResponse_init(&res_); }
+    explicit CallResponse(const UA_CallResponse &res): res_(res) {}
+    ~CallResponse() { UA_CallResponse_clear(&res_); }
+
+    CallResponse(const CallResponse &) = delete;
+    CallResponse &operator=(const CallResponse &) = delete;
+
+    CallResponse(CallResponse &&other) noexcept: res_(other.res_) {
+        UA_CallResponse_init(&other.res_);
+    }
+    CallResponse &operator=(CallResponse &&other) noexcept {
+        if (this != &other) {
+            UA_CallResponse_clear(&res_);
+            res_ = other.res_;
+            UA_CallResponse_init(&other.res_);
+        }
+        return *this;
+    }
+
+    [[nodiscard]] const UA_CallResponse &get() const { return res_; }
+};
+
 class WriteRequestBuilder {
     std::vector<UA_Variant> owned_variants_;
     std::vector<UA_WriteValue> values_;
@@ -445,4 +471,29 @@ public:
     UA_ByteString *ptr() { return &str_; }
 };
 // NOLINTEND(misc-explicit-constructor)
+
+/// @brief an EventFilter that selects fields of each event and passes only the events
+/// of some event types.
+class EventFilter {
+    UA_EventFilter filter_{};
+
+public:
+    /// @param fields the browse path of each field to select, from the event, such as
+    /// "Message" or "2:Pump/2:Speed". A name with a number and a colon before it is
+    /// in the namespace with that index. Other names are in namespace 0.
+    /// @param types the event types to pass, with their subtypes. Empty passes every
+    /// event.
+    EventFilter(
+        const std::vector<std::string> &fields,
+        const std::vector<UA_NodeId> &types
+    );
+    ~EventFilter() { UA_EventFilter_clear(&filter_); }
+
+    EventFilter(const EventFilter &) = delete;
+    EventFilter &operator=(const EventFilter &) = delete;
+    EventFilter(EventFilter &&) = delete;
+    EventFilter &operator=(EventFilter &&) = delete;
+
+    [[nodiscard]] const UA_EventFilter &get() const { return filter_; }
+};
 }

@@ -79,6 +79,12 @@ inline WriteChannel WriteChannel::parse(x::json::Parser parser) {
         "cmd_channel",
         ::synnax::channel::Key(0)
     );
+    result.type = parser.field<std::string>("type", "node");
+    result.object_id = parser.field<std::string>("object_id", "");
+    result.arguments = parser.field<std::vector<MethodArgument>>(
+        "arguments",
+        std::vector<MethodArgument>{}
+    );
     return result;
 }
 
@@ -87,6 +93,9 @@ inline x::json::json WriteChannel::to_json() const {
     for (auto &[k, v]: BaseChannel::to_json().items())
         j[k] = v;
     j["cmd_channel"] = this->cmd_channel;
+    j["type"] = this->type;
+    j["object_id"] = this->object_id;
+    j["arguments"] = x::json::to_array(this->arguments);
     return j;
 }
 
@@ -160,6 +169,77 @@ inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
     for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
         j[k] = v;
+    return j;
+}
+
+inline MethodArgument MethodArgument::parse(x::json::Parser parser) {
+    return MethodArgument{
+        .source = parser.field<std::string>("source", "value"),
+        .value = parser.field<std::string>("value", ""),
+        .name = parser.field<std::string>("name", ""),
+        .data_type = parser.field<std::string>("data_type", ""),
+    };
+}
+
+inline x::json::json MethodArgument::to_json() const {
+    x::json::json j;
+    j["source"] = this->source;
+    j["value"] = this->value;
+    j["name"] = this->name;
+    j["data_type"] = this->data_type;
+    return j;
+}
+
+inline EventField EventField::parse(x::json::Parser parser) {
+    return EventField{
+        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
+        .name = parser.field<std::string>("name", ""),
+        .browse_path = parser.field<std::string>("browse_path", ""),
+    };
+}
+
+inline x::json::json EventField::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["name"] = this->name;
+    j["browse_path"] = this->browse_path;
+    return j;
+}
+
+inline EventConfig EventConfig::parse(x::json::Parser parser) {
+    EventConfig result;
+    static_cast<::synnax::task::PersistConfig &>(
+        result
+    ) = ::synnax::task::PersistConfig::parse(parser);
+    result.device = parser.field<::synnax::device::Key>("device", "");
+    result.channel = parser.field<::synnax::channel::Key>(
+        "channel",
+        ::synnax::channel::Key(0)
+    );
+    result.notifiers = parser.field<std::vector<std::string>>(
+        "notifiers",
+        std::vector<std::string>{}
+    );
+    result.event_types = parser.field<std::vector<std::string>>(
+        "event_types",
+        std::vector<std::string>{}
+    );
+    result.fields = parser.field<std::vector<EventField>>(
+        "fields",
+        std::vector<EventField>{}
+    );
+    return result;
+}
+
+inline x::json::json EventConfig::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
+        j[k] = v;
+    j["device"] = this->device;
+    j["channel"] = this->channel;
+    j["notifiers"] = this->notifiers;
+    j["event_types"] = this->event_types;
+    j["fields"] = x::json::to_array(this->fields);
     return j;
 }
 

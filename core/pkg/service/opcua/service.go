@@ -57,7 +57,9 @@ type Service struct {
 	// Write stores opc_write task configuration records.
 	Write *config.Service[WriteConfig]
 	// Scan stores opc_scan task configuration records.
-	Scan   *config.Service[ScanConfig]
+	Scan *config.Service[ScanConfig]
+	// Event stores opc_event task configuration records.
+	Event  *config.Service[EventConfig]
 	closer xio.MultiCloser
 }
 
@@ -92,6 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "opc_write",
+			Migrations:         []gorp.Migration{v3.WriteMigration},
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.WriteConfigLadder,
 			SetEntryKey:        (*WriteConfig).SetKey,
@@ -114,6 +117,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	); !ok(err, s.Scan) {
 		return nil, err
 	}
+	if s.Event, err = config.OpenService(
+		ctx, config.ServiceConfig[EventConfig]{
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "opc_event",
+			Ladder:          versions.EventConfigLadder,
+			SetEntryKey:     (*EventConfig).SetKey,
+		},
+	); !ok(err, s.Event) {
+		return nil, err
+	}
 	return s, nil
 }
 
@@ -123,5 +137,5 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
-	return []config.Store{s.Read, s.Write, s.Scan}
+	return []config.Store{s.Read, s.Write, s.Scan, s.Event}
 }

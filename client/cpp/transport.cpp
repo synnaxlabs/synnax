@@ -65,6 +65,10 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::framer::WriterRequest,
         grpc::framer::WriterResponse,
         grpc::framer::FrameWriterService>>(pool, base_target);
+    this->frame_iterate = std::make_unique<freighter::grpc::StreamClient<
+        grpc::framer::IteratorRequest,
+        grpc::framer::IteratorResponse,
+        grpc::framer::FrameIteratorService>>(pool, base_target);
     this->chan_create = std::make_unique<freighter::grpc::UnaryClient<
         grpc::channel::CreateRequest,
         grpc::channel::CreateResponse,
@@ -174,6 +178,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
 void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     frame_stream->use(mw);
     frame_write->use(mw);
+    frame_iterate->use(mw);
     chan_create->use(mw);
     chan_retrieve->use(mw);
     range_retrieve->use(mw);

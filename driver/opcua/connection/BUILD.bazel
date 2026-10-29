@@ -43,6 +43,7 @@ cc_test(
         "pool_test.cpp",
         "security_test.cpp",
     ],
+    timeout = "long",
     deps = [
         ":connection",
         "//driver/opcua/certificate",

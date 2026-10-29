@@ -16,6 +16,14 @@ import { channel } from "@/channel";
 import { device } from "@/device";
 import { task } from "@/task";
 
+export const WRITE_TYPES = ["node", "method"] as const;
+export const writeTypeZ = z.enum(WRITE_TYPES);
+export type WriteType = z.infer<typeof writeTypeZ>;
+
+export const ARGUMENT_SOURCES = ["value", "command"] as const;
+export const argumentSourceZ = z.enum(ARGUMENT_SOURCES);
+export type ArgumentSource = z.infer<typeof argumentSourceZ>;
+
 /** BaseChannel carries the fields every OPC UA channel shares. */
 export const baseChannelZ = z.object({
   /** key uniquely identifies the channel within the task. */
@@ -36,6 +44,40 @@ export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
+/** MethodArgument is an input argument of an OPC UA method call. */
+export const methodArgumentZ = z.object({
+  /** source is where the value of the argument comes from. */
+  source: argumentSourceZ.default("value"),
+  /**
+   * value is the value of the argument when source is value, as text that the Driver
+   * converts to the declared type of the argument.
+   */
+  value: z.string().default(""),
+  /** name is the name of the argument, as the method declares it. */
+  name: z.string().default(""),
+  /**
+   * dataType is the Synnax data type of the argument, which a command channel that
+   * gives the argument takes.
+   */
+  dataType: z.string().default(""),
+});
+export interface MethodArgument extends z.infer<typeof methodArgumentZ> {}
+
+/** EventField is an event field that the task records beyond the standard fields. */
+export const eventFieldZ = z.object({
+  /** key uniquely identifies the field within the task. */
+  key: z.string().default(id.create),
+  /** name is the key of the field in the JSON sample of each event. */
+  name: z.string().default(""),
+  /**
+   * browsePath is the path to the field from the event type, as browse names joined
+   * with '/', such as 'EnabledState/Id'. A name can start with a namespace index, as in
+   * '2:Level'.
+   */
+  browsePath: z.string().default(""),
+});
+export interface EventField extends z.infer<typeof eventFieldZ> {}
+
 export const readChannelZ = baseChannelZ.extend({
   channel: channel.keyZ.default(0),
   isIndex: z.boolean().default(false),
@@ -45,8 +87,26 @@ export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
 export const writeChannelZ = baseChannelZ.extend({
   cmdChannel: channel.keyZ.default(0),
+  type: writeTypeZ.default("node"),
+  objectId: z.string().default(""),
+  arguments: methodArgumentZ.array().default(() => []),
 });
 export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
+
+export const eventConfigZ = task.persistConfigZ.extend({
+  device: device.keyZ.default(""),
+  channel: channel.keyZ.default(0),
+  notifiers: z
+    .string()
+    .array()
+    .default(() => []),
+  eventTypes: z
+    .string()
+    .array()
+    .default(() => []),
+  fields: eventFieldZ.array().default(() => []),
+});
+export interface EventConfig extends z.infer<typeof eventConfigZ> {}
 
 export const readConfigZ = task.readConfigZ
   .omit({ sampleRate: true, streamRate: true })

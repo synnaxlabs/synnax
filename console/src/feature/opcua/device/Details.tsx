@@ -140,6 +140,12 @@ export const Details = ({
               : `${details.minimumSamplingInterval} ms minimum`
           }
         />
+        <Row
+          label="Arguments"
+          value={details.inputArguments
+            ?.map(({ name, typeName }) => `${name} (${typeName})`)
+            .join(", ")}
+        />
         <Row label="Value" value={details.value} />
         <Row label="Status" value={details.status} />
         <Row label="Source time" value={details.sourceTimestamp} />
@@ -147,7 +153,10 @@ export const Details = ({
       </Flex.Box>
     );
   const draggable =
-    details?.nodeClass === "Variable" || details?.nodeClass === "Object";
+    details?.nodeClass === "Variable" ||
+    details?.nodeClass === "Object" ||
+    details?.nodeClass === "ObjectType" ||
+    details?.nodeClass === "Method";
   const handleDragStart = () => {
     if (details != null) onDragStart(details.node);
   };

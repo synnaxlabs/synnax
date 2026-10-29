@@ -11,25 +11,36 @@ from synnax.opcua.types import (
     MAKE,
     MODEL,
     Device,
+    EventTask,
     ReadTask,
     SecurityMode,
     SecurityPolicy,
     WriteTask,
 )
 from synnax.opcua.types_gen import (
+    ArgumentSource,
     BaseChannel,
+    EventConfig,
+    EventField,
+    MethodArgument,
     ReadChannel,
     ReadConfig,
     ScanConfig,
     WriteChannel,
     WriteConfig,
+    WriteType,
 )
 
 __all__ = [
     "MAKE",
     "MODEL",
+    "ArgumentSource",
     "BaseChannel",
     "Device",
+    "EventConfig",
+    "EventField",
+    "EventTask",
+    "MethodArgument",
     "ReadChannel",
     "ReadConfig",
     "ReadTask",
@@ -39,4 +50,5 @@ __all__ = [
     "WriteChannel",
     "WriteConfig",
     "WriteTask",
+    "WriteType",
 ]

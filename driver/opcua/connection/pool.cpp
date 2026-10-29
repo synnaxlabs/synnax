@@ -18,6 +18,7 @@
 
 #include "absl/log/log.h"
 #include "open62541/client_highlevel.h"
+#include "open62541/client_subscriptions.h"
 
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/errors/errors.h"
@@ -729,5 +730,152 @@ size_t Pool::available_count(const std::string &endpoint) const {
             for (const auto &entry: entries)
                 if (!entry.in_use && entry.client) count++;
     return count;
+}
+namespace {
+/// @brief how often the server publishes the events of a subscription.
+constexpr double EVENT_PUBLISHING_INTERVAL_MS = 250;
+/// @brief the publishing intervals with no events after which the server sends a
+/// keep-alive.
+constexpr UA_UInt32 EVENT_KEEP_ALIVE_COUNT = 10;
+/// @brief the publishing intervals with no publish request after which the server ends
+/// the subscription: three keep-alives.
+constexpr UA_UInt32 EVENT_LIFETIME_COUNT = 3 * EVENT_KEEP_ALIVE_COUNT;
+/// @brief the most events that the server holds for one notifier between publishes.
+constexpr UA_UInt32 EVENT_QUEUE_SIZE = 1000;
+
+void on_event(
+    UA_Client *,
+    UA_UInt32,
+    void *subscription,
+    UA_UInt32,
+    void *,
+    const UA_KeyValueMap fields
+) {
+    static_cast<Subscription *>(subscription)->handle(fields);
+}
+
+void on_status_change(
+    UA_Client *,
+    UA_UInt32,
+    void *subscription,
+    UA_StatusChangeNotification *notification
+) {
+    if (notification != nullptr && UA_StatusCode_isBad(notification->status))
+        static_cast<Subscription *>(subscription)->status = notification->status;
+}
+}
+
+std::pair<types::CallResponse, x::errors::Error>
+Pool::Connection::call(const UA_CallMethodRequest &method) const {
+    if (const auto err = connected(this->get())) return {types::CallResponse(), err};
+    UA_CallRequest req;
+    UA_CallRequest_init(&req);
+    req.methodsToCall = const_cast<UA_CallMethodRequest *>(&method);
+    req.methodsToCallSize = 1;
+    types::CallResponse res(UA_Client_Service_call(this->get(), req));
+    const auto &raw = res.get();
+    if (auto err = errors::parse(raw.responseHeader.serviceResult))
+        return {std::move(res), err};
+    if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+    auto err = check_results(raw.resultsSize, 1);
+    return {std::move(res), err};
+}
+
+std::pair<std::vector<x::errors::Error>, x::errors::Error> Pool::Connection::subscribe(
+    const std::vector<UA_NodeId> &notifiers,
+    const UA_EventFilter &filter,
+    EventHandler handle
+) {
+    this->unsubscribe();
+    if (const auto err = connected(this->get())) return {{}, err};
+    auto sub = std::make_unique<Subscription>();
+    sub->handle = std::move(handle);
+    auto req = UA_CreateSubscriptionRequest_default();
+    req.requestedPublishingInterval = EVENT_PUBLISHING_INTERVAL_MS;
+    req.requestedMaxKeepAliveCount = EVENT_KEEP_ALIVE_COUNT;
+    req.requestedLifetimeCount = EVENT_LIFETIME_COUNT;
+    const auto res = UA_Client_Subscriptions_create(
+        this->get(),
+        req,
+        sub.get(),
+        on_status_change,
+        nullptr
+    );
+    if (auto err = errors::parse(res.responseHeader.serviceResult)) return {{}, err};
+    sub->id = res.subscriptionId;
+    this->subscription_ = std::move(sub);
+    std::vector<x::errors::Error> results;
+    results.reserve(notifiers.size());
+    for (const auto &notifier: notifiers) {
+        if (const auto err = connected(this->get())) {
+            this->unsubscribe();
+            return {{}, err};
+        }
+        UA_MonitoredItemCreateRequest item;
+        UA_MonitoredItemCreateRequest_init(&item);
+        item.itemToMonitor.nodeId = notifier;
+        item.itemToMonitor.attributeId = UA_ATTRIBUTEID_EVENTNOTIFIER;
+        item.monitoringMode = UA_MONITORINGMODE_REPORTING;
+        item.requestedParameters.queueSize = EVENT_QUEUE_SIZE;
+        item.requestedParameters.discardOldest = true;
+        item.requestedParameters.filter.encoding = UA_EXTENSIONOBJECT_DECODED;
+        item.requestedParameters.filter.content.decoded
+            .type = &UA_TYPES[UA_TYPES_EVENTFILTER];
+        item.requestedParameters.filter.content.decoded
+            .data = const_cast<UA_EventFilter *>(&filter);
+        auto created = UA_Client_MonitoredItems_createEvent(
+            this->get(),
+            this->subscription_->id,
+            UA_TIMESTAMPSTORETURN_BOTH,
+            item,
+            nullptr,
+            on_event,
+            nullptr
+        );
+        results.push_back(errors::parse(created.statusCode));
+        UA_MonitoredItemCreateResult_clear(&created);
+    }
+    return {std::move(results), x::errors::NIL};
+}
+
+UA_UInt32 Pool::Connection::subscription_id() const {
+    return this->subscription_ == nullptr ? 0 : this->subscription_->id;
+}
+
+x::errors::Error Pool::Connection::iterate(const x::telem::TimeSpan timeout) const {
+    if (const auto err = connected(this->get())) return err;
+    const auto status = UA_Client_run_iterate(
+        this->get(),
+        static_cast<UA_UInt32>(timeout.milliseconds())
+    );
+    if (const auto err = connected(this->get())) return err;
+    if (status != UA_STATUSCODE_GOOD) return errors::parse(status);
+    if (this->subscription_ != nullptr &&
+        UA_StatusCode_isBad(this->subscription_->status))
+        return errors::parse(this->subscription_->status);
+    return x::errors::NIL;
+}
+
+void Pool::Connection::close() {
+    this->unsubscribe();
+    if (this->pool_ && this->client_) this->pool_->release(this->key_, this->client_);
+}
+
+void Pool::Connection::unsubscribe() {
+    if (this->subscription_ == nullptr) return;
+    // The handle stays alive until the client lets go of it, since a delete processes
+    // the notifications that arrive before its response.
+    const auto sub = std::move(this->subscription_);
+    if (this->client_ == nullptr) return;
+    if (!connected(this->get()))
+        UA_Client_Subscriptions_deleteSingle(this->get(), sub->id);
+    void *context = nullptr;
+    if (UA_Client_Subscriptions_getContext(this->get(), sub->id, &context) !=
+        UA_STATUSCODE_GOOD)
+        return;
+    LOG(WARNING) << "[opc.connection] closing the Session, since the server did not "
+                    "delete subscription "
+                 << sub->id;
+    UA_Client_disconnect(this->get());
 }
 }

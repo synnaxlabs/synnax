@@ -204,6 +204,102 @@ describe("OPC UA Write Task Config Validation", () => {
   });
 });
 
+describe("OPC UA method channel validation", () => {
+  const method = (overrides: Partial<OPCUA.Task.WriteChannel> = {}): unknown => ({
+    key: "k0",
+    nodeId: "ns=1;s=Pump.SetSpeed",
+    nodeName: "SetSpeed",
+    cmdChannel: 0,
+    disabled: false,
+    dataType: "float64",
+    name: "",
+    type: "method",
+    objectId: "ns=1;s=Pump",
+    arguments: [{ source: "command", value: "", name: "speed", dataType: "float64" }],
+    ...overrides,
+  });
+  const issues = (...channels: unknown[]) =>
+    OPCUA.Task.deployWriteConfigZ
+      .safeParse({ device: "dev", channels })
+      .error?.issues.map(({ message, path }) => ({ message, path })) ?? [];
+
+  it("should accept a method channel", () => {
+    expect(issues(method())).toEqual([]);
+  });
+
+  it("should require an object", () => {
+    expect(issues(method({ objectId: "" }))).toEqual([
+      { message: "Method must have an object", path: ["channels", 0, "objectId"] },
+    ]);
+  });
+
+  it("should allow only one argument to take the command", () => {
+    const arg = {
+      source: "command",
+      value: "",
+      name: "a",
+      dataType: "float64",
+    } as const;
+    expect(issues(method({ arguments: [arg, { ...arg, name: "b" }] }))).toEqual([
+      {
+        message: "Only one argument can take the command",
+        path: ["channels", 0, "arguments"],
+      },
+    ]);
+  });
+
+  it("should not warn about two channels that call one method", () => {
+    expect(issues(method(), method({ key: "k1" }))).toEqual([]);
+  });
+});
+
+describe("OPC UA event task config validation", () => {
+  const issues = (fields: Partial<OPCUA.Task.EventField>[]) =>
+    OPCUA.Task.deployEventConfigZ
+      .safeParse({
+        device: "dev",
+        fields: fields.map((f, i) => ({
+          key: `f${i}`,
+          name: "",
+          browsePath: "",
+          ...f,
+        })),
+      })
+      .error?.issues.map(({ message, path }) => ({ message, path })) ?? [];
+
+  it("should accept fields with unique names and full browse paths", () => {
+    expect(issues([{ name: "level", browsePath: "2:Pump/2:Level" }])).toEqual([]);
+  });
+
+  it("should reject a field without a name", () => {
+    expect(issues([{ browsePath: "Level" }])).toEqual([
+      { message: "Field must have a name", path: ["fields", 0, "name"] },
+    ]);
+  });
+
+  it("should reject a field that repeats a standard or earlier name", () => {
+    expect(
+      issues([
+        { name: "severity", browsePath: "Level" },
+        { name: "level", browsePath: "Level" },
+        { name: "level", browsePath: "Level" },
+      ]),
+    ).toEqual([
+      { message: "Another field has this name", path: ["fields", 0, "name"] },
+      { message: "Another field has this name", path: ["fields", 2, "name"] },
+    ]);
+  });
+
+  it("should reject a browse path with an empty element", () => {
+    expect(issues([{ name: "id", browsePath: "EnabledState//Id" }])).toEqual([
+      {
+        message: "Browse path must name each element",
+        path: ["fields", 0, "browsePath"],
+      },
+    ]);
+  });
+});
+
 describe("Scanned Nodes", () => {
   it("should default a scanned node's key to its node ID", () => {
     const result = OPCUA.Task.SCAN_SCHEMAS.statusData.parse({

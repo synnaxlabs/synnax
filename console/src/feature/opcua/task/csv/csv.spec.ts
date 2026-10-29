@@ -37,6 +37,9 @@ const convertWrite = ({
         cmdChannel: 0,
         disabled: false,
         name: "",
+        type: "node",
+        objectId: "",
+        arguments: [],
       };
 
 const decodeRead = (text: string, existing: OPCUA.Task.ReadChannel[] = []) =>
@@ -82,6 +85,9 @@ const createWriteChannel = (
     cmdChannel: 0,
     disabled: false,
     name: "",
+    type: "node",
+    objectId: "",
+    arguments: [],
     ...overrides,
   };
   return { ...ch, key: ch.nodeId };

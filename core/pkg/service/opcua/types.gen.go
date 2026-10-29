@@ -30,3 +30,28 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = versions.ScanConfig
+
+// WriteType is what the commands of a write channel do on the server.
+type WriteType = versions.WriteType
+
+const (
+	WriteTypeNode   WriteType = versions.WriteTypeNode
+	WriteTypeMethod WriteType = versions.WriteTypeMethod
+)
+
+// ArgumentSource is where the value of a method argument comes from.
+type ArgumentSource = versions.ArgumentSource
+
+const (
+	ArgumentSourceValue   ArgumentSource = versions.ArgumentSourceValue
+	ArgumentSourceCommand ArgumentSource = versions.ArgumentSourceCommand
+)
+
+// MethodArgument is an input argument of an OPC UA method call.
+type MethodArgument = versions.MethodArgument
+
+// EventField is an event field that the task records beyond the standard fields.
+type EventField = versions.EventField
+
+// EventConfig configures an OPC UA event task.
+type EventConfig = versions.EventConfig

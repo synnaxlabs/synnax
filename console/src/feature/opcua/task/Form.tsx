@@ -40,7 +40,10 @@ import {
   BROWSE_VARIABLES_COMMAND_TYPE,
   browseVariablesResponseZ,
   type Channel,
+  isMethod,
+  nodeDetailsZ,
   nodeIdentity,
+  READ_NODE_COMMAND_TYPE,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -93,7 +96,7 @@ const ChannelListItem = <C extends Channel>({
           namePath={`${path}.name`}
         />
         <Flex.Box x align="center" gap="tiny">
-          <Icon.Variable color={9} />
+          {isMethod(item) ? <Icon.Function color={9} /> : <Icon.Variable color={9} />}
           <Text.Text
             level="small"
             weight={350}
@@ -210,6 +213,7 @@ const EmptyContent = () => (
 
 const VARIABLE_NODE_CLASS = "Variable";
 const OBJECT_NODE_CLASS = "Object";
+const METHOD_NODE_CLASS = "Method";
 
 const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
   isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
@@ -217,8 +221,8 @@ const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
 const isFolderHaulItem = (item: Haul.Item): item is HaulItem =>
   isHaulItem(item) && item.data.nodeClass === OBJECT_NODE_CLASS;
 
-const canDrop = ({ items }: Haul.DraggingState): boolean =>
-  items.some((item) => isVariableHaulItem(item) || isFolderHaulItem(item));
+const isMethodHaulItem = (item: Haul.Item): item is HaulItem =>
+  isHaulItem(item) && item.data.nodeClass === METHOD_NODE_CLASS;
 
 const SEARCH_TIMEOUT = TimeSpan.seconds(30);
 
@@ -247,6 +251,8 @@ interface ChannelListProps<C extends Channel> extends Pick<
   "contextMenuItems" | "resolve"
 > {
   children: Component.RenderProp<ExtraItemProps>;
+  /** Renders the details of the one selected channel, under the list. */
+  details?: Component.RenderProp<ExtraItemProps>;
   device: Device;
   /** @returns the channel of a dropped node, or null if the task cannot hold it. */
   convertHaulItemToChannel: (item: HaulItem) => C | null;
@@ -258,6 +264,7 @@ interface ChannelListProps<C extends Channel> extends Pick<
 const ChannelList = <C extends Channel>({
   device,
   children,
+  details,
   convertHaulItemToChannel,
   getChannelKeyAndID,
   indexed,
@@ -310,12 +317,45 @@ const ChannelList = <C extends Channel>({
       if (confirmed !== true) return;
       push(newChannels(found));
     }, "Failed to add the variables of a folder");
+  // A method can take more than one channel, so a drop always adds one.
+  const addMethods = (methods: HaulItem[]) =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const channels: C[] = [];
+      for (const method of methods) {
+        const { inputArguments } = nodeDetailsZ.parse(
+          await executeScanCommand(client, device.rack, {
+            type: READ_NODE_COMMAND_TYPE,
+            args: {
+              connection: device.properties.connection,
+              node_id: method.data.nodeId,
+              field: "",
+            },
+          }),
+        );
+        const ch = convertHaulItemToChannel({
+          ...method,
+          data: { ...method.data, inputArguments },
+        });
+        if (ch != null) channels.push(ch);
+      }
+      push(channels);
+    }, "Failed to add a method");
+  const isMethodChannelItem = (item: Haul.Item): item is HaulItem =>
+    isMethodHaulItem(item) && convertHaulItemToChannel(item) != null;
+  const canDrop = ({ items }: Haul.DraggingState): boolean =>
+    items.some(
+      (item) =>
+        isVariableHaulItem(item) || isFolderHaulItem(item) || isMethodChannelItem(item),
+    );
   const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
     const variables = items.filter(isVariableHaulItem);
     const folders = items.filter(isFolderHaulItem);
+    const methods = items.filter(isMethodChannelItem);
     push(newChannels(variables));
     if (folders.length > 0) addFolders(folders);
-    return [...variables, ...folders];
+    if (methods.length > 0) addMethods(methods);
+    return [...variables, ...folders, ...methods];
   };
 
   const haulProps = Haul.useDrop({
@@ -336,7 +376,7 @@ const ChannelList = <C extends Channel>({
       {children}
     </ChannelListItem>
   );
-  return (
+  const list = (
     <Task.ChannelList
       onSelect={setSelected}
       path={CHANNELS_PATH}
@@ -357,6 +397,13 @@ const ChannelList = <C extends Channel>({
       {...fieldListReturn}
     />
   );
+  if (details == null) return list;
+  return (
+    <Flex.Box y empty grow className={CSS.B("opc-task-channels")}>
+      {list}
+      {selected.length === 1 && details({ path: `${CHANNELS_PATH}.${selected[0]}` })}
+    </Flex.Box>
+  );
 };
 
 export interface FormProps<C extends Channel>
@@ -364,7 +411,7 @@ export interface FormProps<C extends Channel>
     Required<
       Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
     >,
-    Pick<ChannelListProps<C>, "indexed"> {
+    Pick<ChannelListProps<C>, "indexed" | "details"> {
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
@@ -382,6 +429,7 @@ const Body = <C extends Channel>({
   contextMenuItems,
   resolve,
   indexed,
+  details,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
   const resolveOnDevice = (channel: C) => resolve(device, channel);
@@ -395,6 +443,7 @@ const Body = <C extends Channel>({
         contextMenuItems={contextMenuItems}
         resolve={resolveOnDevice}
         indexed={indexed}
+        details={details}
       >
         {children}
       </ChannelList>

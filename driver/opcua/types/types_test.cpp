@@ -593,4 +593,81 @@ TEST(TypesTest, NodeIdRoundTripConversion) {
         EXPECT_EQ(nodeIdStr, "NS=3;G=12345678-1234-5678-9abc-123456789abc");
     }
 }
+
+namespace {
+/// @returns the index that operand i of element points to.
+UA_UInt32 operand_index(const UA_ContentFilterElement &element, const size_t i) {
+    return static_cast<const UA_ElementOperand *>(
+               element.filterOperands[i].content.decoded.data
+    )
+        ->index;
+}
+
+/// @returns the event type that the OfType element passes.
+UA_NodeId of_type(const UA_ContentFilterElement &element) {
+    return *static_cast<const UA_NodeId *>(
+        static_cast<const UA_LiteralOperand *>(
+            element.filterOperands[0].content.decoded.data
+        )
+            ->value.data
+    );
+}
+
+std::string to_string(const UA_QualifiedName &name) {
+    return std::to_string(name.namespaceIndex) + ":" +
+           std::string(
+               reinterpret_cast<const char *>(name.name.data),
+               name.name.length
+           );
+}
+}
+
+/// @brief it should select each field by its browse path, with namespace 0 for a name
+/// without a namespace index.
+TEST(EventFilterTest, SelectsFieldsByBrowsePath) {
+    const EventFilter filter({"Message", "2:Pump/2:Speed", "a:b"}, {});
+    const auto &f = filter.get();
+    ASSERT_EQ(f.selectClausesSize, 3);
+    for (size_t i = 0; i < f.selectClausesSize; ++i) {
+        EXPECT_EQ(f.selectClauses[i].attributeId, UA_ATTRIBUTEID_VALUE);
+        EXPECT_EQ(f.selectClauses[i].typeDefinitionId.identifier.numeric, 2041);
+    }
+    ASSERT_EQ(f.selectClauses[0].browsePathSize, 1);
+    EXPECT_EQ(to_string(f.selectClauses[0].browsePath[0]), "0:Message");
+    ASSERT_EQ(f.selectClauses[1].browsePathSize, 2);
+    EXPECT_EQ(to_string(f.selectClauses[1].browsePath[0]), "2:Pump");
+    EXPECT_EQ(to_string(f.selectClauses[1].browsePath[1]), "2:Speed");
+    EXPECT_EQ(to_string(f.selectClauses[2].browsePath[0]), "0:a:b");
+    EXPECT_EQ(f.whereClause.elementsSize, 0);
+}
+
+/// @brief it should pass the events of one event type with a single OfType.
+TEST(EventFilterTest, PassesOneEventType) {
+    const EventFilter filter({"Message"}, {UA_NODEID_NUMERIC(0, 2782)});
+    const auto &where = filter.get().whereClause;
+    ASSERT_EQ(where.elementsSize, 1);
+    EXPECT_EQ(where.elements[0].filterOperator, UA_FILTEROPERATOR_OFTYPE);
+    EXPECT_EQ(of_type(where.elements[0]).identifier.numeric, 2782);
+}
+
+/// @brief it should chain an Or for each event type after the first, with operands
+/// that point forward to an OfType for each type.
+TEST(EventFilterTest, ChainsEventTypesWithOr) {
+    const EventFilter filter(
+        {"Message"},
+        {UA_NODEID_NUMERIC(0, 1), UA_NODEID_NUMERIC(0, 2), UA_NODEID_NUMERIC(0, 3)}
+    );
+    const auto &where = filter.get().whereClause;
+    ASSERT_EQ(where.elementsSize, 5);
+    EXPECT_EQ(where.elements[0].filterOperator, UA_FILTEROPERATOR_OR);
+    EXPECT_EQ(operand_index(where.elements[0], 0), 1);
+    EXPECT_EQ(operand_index(where.elements[0], 1), 2);
+    EXPECT_EQ(where.elements[1].filterOperator, UA_FILTEROPERATOR_OR);
+    EXPECT_EQ(operand_index(where.elements[1], 0), 4);
+    EXPECT_EQ(operand_index(where.elements[1], 1), 3);
+    for (size_t i = 0; i < 3; ++i) {
+        EXPECT_EQ(where.elements[2 + i].filterOperator, UA_FILTEROPERATOR_OFTYPE);
+        EXPECT_EQ(of_type(where.elements[2 + i]).identifier.numeric, i + 1);
+    }
+}
 }

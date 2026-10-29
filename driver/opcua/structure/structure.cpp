@@ -58,40 +58,6 @@ find_member(const UA_DataType &type, const std::string &name) {
     return {place, x::errors::NIL};
 }
 
-/// @returns one value of a type as JSON text.
-std::pair<std::string, x::errors::Error>
-json(const void *data, const UA_DataType *type) {
-    UA_EncodeJsonOptions options{};
-    options.stringNodeIds = true;
-    UA_ByteString out = UA_BYTESTRING_NULL;
-    if (const auto status = UA_encodeJson(data, type, &out, &options);
-        status != UA_STATUSCODE_GOOD)
-        return {
-            "",
-            invalid(
-                std::string("the value does not encode: ") + UA_StatusCode_name(status)
-            )
-        };
-    std::string text(reinterpret_cast<const char *>(out.data), out.length);
-    UA_ByteString_clear(&out);
-    return {std::move(text), x::errors::NIL};
-}
-
-/// @returns the value as JSON text, where an array is a JSON array of its elements.
-std::pair<std::string, x::errors::Error> json(const UA_Variant &value) {
-    if (value.type == nullptr) return {"null", x::errors::NIL};
-    if (UA_Variant_isScalar(&value)) return json(value.data, value.type);
-    std::string text = "[";
-    const auto *data = static_cast<const char *>(value.data);
-    for (std::size_t i = 0; i < value.arrayLength; ++i) {
-        auto [element, err] = json(data + i * value.type->memSize, value.type);
-        if (err) return {"", err};
-        if (i > 0) text += ", ";
-        text += element;
-    }
-    return {text + "]", x::errors::NIL};
-}
-
 bool contains(const std::vector<types::NodeId> &ids, const UA_NodeId &id) {
     for (const auto &seen: ids)
         if (UA_NodeId_equal(&seen.get(), &id)) return true;
@@ -430,9 +396,9 @@ std::pair<std::string, x::errors::Error>
 Types::print(const UA_Variant &value, const Path &path) const {
     if (path.empty() && (value.type == nullptr || !UA_Variant_isScalar(&value) ||
                          value.type->typeKind != UA_DATATYPEKIND_EXTENSIONOBJECT))
-        return json(value);
+        return telem::to_json(value);
     return this->visit<std::string>(value, path, [](const UA_Variant &member) {
-        return json(member);
+        return telem::to_json(member);
     });
 }
 }

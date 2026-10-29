@@ -44,6 +44,7 @@ var _ = Describe("Service", func() {
 				"opc_read",
 				"opc_write",
 				"opc_scan",
+				"opc_event",
 			))
 		})
 	})

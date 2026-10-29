@@ -25,10 +25,19 @@ namespace synnax::opcua {
 
 struct BaseChannel;
 struct ScanConfig;
+struct EventField;
 struct ReadChannel;
-struct WriteChannel;
+struct EventConfig;
+struct MethodArgument;
 struct ReadConfig;
+struct WriteChannel;
 struct WriteConfig;
+
+constexpr const char *WRITE_TYPE_NODE = "node";
+constexpr const char *WRITE_TYPE_METHOD = "method";
+
+constexpr const char *ARGUMENT_SOURCE_VALUE = "value";
+constexpr const char *ARGUMENT_SOURCE_COMMAND = "command";
 
 /// @brief BaseChannel carries the fields every OPC UA channel shares.
 struct BaseChannel {
@@ -56,6 +65,22 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief EventField is an event field that the task records beyond the standard
+/// fields.
+struct EventField {
+    /// @brief key uniquely identifies the field within the task.
+    std::string key;
+    /// @brief name is the key of the field in the JSON sample of each event.
+    std::string name = "";
+    /// @brief browse_path is the path to the field from the event type, as browse names
+    /// joined with '/', such as 'EnabledState/Id'. A name can start with a namespace
+    /// index, as in '2:Level'.
+    std::string browse_path = "";
+
+    static EventField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief ReadChannel is a single OPC UA node the task reads from.
 struct ReadChannel : public BaseChannel {
     /// @brief channel is the Synnax channel that samples are written to.
@@ -70,12 +95,39 @@ struct ReadChannel : public BaseChannel {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteChannel is a single OPC UA node the task drives.
-struct WriteChannel : public BaseChannel {
-    /// @brief cmd_channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
+/// @brief EventConfig configures an OPC UA event task.
+struct EventConfig : public ::synnax::task::PersistConfig {
+    /// @brief device is the key of the device representing the OPC UA server.
+    ::synnax::device::Key device = "";
+    /// @brief channel is the JSON channel that each event is written to.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief notifiers are the node IDs of the objects whose events the task records.
+    /// Empty records the events of the Server object.
+    std::vector<std::string> notifiers;
+    /// @brief event_types are the node IDs of the event types the task keeps, with
+    /// their subtypes. Empty keeps every event.
+    std::vector<std::string> event_types;
+    /// @brief fields are the event fields the task records beyond the standard fields.
+    std::vector<EventField> fields;
 
-    static WriteChannel parse(x::json::Parser parser);
+    static EventConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief MethodArgument is an input argument of an OPC UA method call.
+struct MethodArgument {
+    /// @brief source is where the value of the argument comes from.
+    std::string source = ARGUMENT_SOURCE_VALUE;
+    /// @brief value is the value of the argument when source is value, as text that the
+    /// Driver converts to the declared type of the argument.
+    std::string value = "";
+    /// @brief name is the name of the argument, as the method declares it.
+    std::string name = "";
+    /// @brief data_type is the Synnax data type of the argument, which a command
+    /// channel that gives the argument takes.
+    std::string data_type = "";
+
+    static MethodArgument parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -101,6 +153,22 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     }
 
     static ReadConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannel is a single OPC UA node the task drives.
+struct WriteChannel : public BaseChannel {
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
+    /// @brief type is node to write each command to the value of the node, or method to
+    /// call the node as a method with each command.
+    std::string type = WRITE_TYPE_NODE;
+    /// @brief object_id is the node ID of the object that holds the method.
+    std::string object_id = "";
+    /// @brief arguments are the input arguments of the method, in order.
+    std::vector<MethodArgument> arguments;
+
+    static WriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

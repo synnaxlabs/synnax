@@ -69,4 +69,42 @@ var _ = Describe("Migration", func() {
 			Expect(got.Channels[0].Field).To(BeEmpty())
 		},
 	)
+
+	It(
+		"Should keep every write config field and write node values",
+		func(ctx SpecContext) {
+			stored := v2.WriteConfig{
+				Key:    uuid.New(),
+				Device: "dev",
+				Channels: []v2.WriteChannel{
+					{Key: "ch", NodeID: "NS=2;I=8", CmdChannel: 7},
+				},
+			}
+			stored.AutoStart = true
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			MustSucceed(
+				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.WriteConfig]{DB: db}),
+			)
+			Expect(
+				gorp.NewCreate[uuid.UUID, v2.WriteConfig]().Entry(&stored).Exec(ctx, db),
+			).
+				To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "opc_write_config",
+				Migrations: []gorp.Migration{v3.WriteMigration},
+			})).To(Succeed())
+			var got v3.WriteConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, v3.WriteConfig]().
+				Where(gorp.MatchKeys[uuid.UUID, v3.WriteConfig](stored.Key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			Expect(got.WriteConfig).To(Equal(stored.WriteConfig))
+			Expect(got.Channels).To(HaveLen(1))
+			Expect(got.Channels[0].BaseChannel).To(Equal(stored.Channels[0].BaseChannel))
+			Expect(got.Channels[0].CmdChannel).To(Equal(stored.Channels[0].CmdChannel))
+			Expect(got.Channels[0].Type).To(Equal(v3.WriteTypeNode))
+			Expect(got.Channels[0].ObjectID).To(BeEmpty())
+			Expect(got.Channels[0].Arguments).To(BeEmpty())
+		},
+	)
 })

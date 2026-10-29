@@ -207,6 +207,7 @@ protected:
 
         // Use the comprehensive default server configuration
         auto server_cfg = testutil::ServerConfig::create_default();
+        server_cfg.pump = testutil::Pump{};
 
         ctx = std::make_shared<task::MockContext>(client);
         auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
@@ -294,6 +295,42 @@ protected:
             nullptr,
             mock_factory
         );
+    }
+
+    /// @returns a sink that calls method on the Pump object with arguments, with the
+    /// commands of the double command channel.
+    [[nodiscard]] std::unique_ptr<WriteTaskSink> create_method_sink(
+        const std::string &method,
+        const x::json::json &arguments
+    ) const {
+        x::json::json task_cfg = {
+            {"device", "abc123"},
+            {"channels",
+             x::json::json::array({
+                 {{"type", "method"},
+                  {"node_id", method},
+                  {"object_id", "NS=1;S=Pump"},
+                  {"arguments", arguments},
+                  {"cmd_channel", this->double_cmd_channel.key}},
+                 {{"node_id", "NS=1;S=TestFloat"},
+                  {"cmd_channel", this->float_cmd_channel.key}},
+             })}
+        };
+        auto p = x::json::Parser(task_cfg);
+        auto write_cfg = WriteTaskConfig(ctx->client, p);
+        EXPECT_FALSE(p.error()) << p.error().message();
+        return std::make_unique<WriteTaskSink>(
+            ctx->client,
+            conn_pool,
+            std::move(write_cfg)
+        );
+    }
+
+    /// @returns a frame that commands the double channel with value.
+    [[nodiscard]] x::telem::Frame method_command(const double value) const {
+        auto fr = x::telem::Frame(1);
+        fr.emplace(this->double_cmd_channel.key, x::telem::Series(value));
+        return fr;
     }
 
     static constexpr std::uint16_t SECURED_PORT = 4862;
@@ -882,4 +919,117 @@ TEST_F(TestWriteTask, testUnboundDisabledChannel) {
     EXPECT_TRUE(parsed->channels.contains(this->bool_cmd_channel.key));
 }
 
+/// @brief it should call a method with the command as its argument, and write the
+/// values of node channels in the same frame.
+TEST_F(TestWriteTask, testCallsMethodWithCommand) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "command"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(42);
+    fr.emplace(this->float_cmd_channel.key, x::telem::Series(1.5f));
+    ASSERT_NIL(sink->write(fr));
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 42);
+    const auto value = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=TestFloat"));
+    EXPECT_FLOAT_EQ(value.at<float>(0), 1.5f);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should convert fixed arguments and the command to the declared types of
+/// the method's arguments.
+TEST_F(TestWriteTask, testCallsMethodWithFixedArguments) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.Configure",
+        {{{"source", "value"}, {"value", "auto"}}, {{"source", "command"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(7);
+    ASSERT_NIL(sink->write(fr));
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 7);
+    const auto mode = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Mode"));
+    EXPECT_EQ(mode.at<std::string>(0), "auto");
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a command when the method fails, naming the channel.
+TEST_F(TestWriteTask, testRejectsFailedMethod) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.Fail",
+        x::json::json::array()
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        this->double_cmd_channel.name + " returned BadInvalidState. " +
+            errors::parse(UA_STATUSCODE_BADINVALIDSTATE).data
+    );
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a command when the channel gives a different number of
+/// arguments than the method takes.
+TEST_F(TestWriteTask, testRejectsArgumentCount) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        x::json::json::array()
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        this->double_cmd_channel.name +
+            ": the method takes 1 argument, but the channel gives 0 arguments."
+    );
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a command when a fixed argument does not convert to the
+/// declared type of its argument.
+TEST_F(TestWriteTask, testRejectsFixedArgumentThatDoesNotConvert) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.Configure",
+        {{{"source", "value"}, {"value", "auto"}},
+         {{"source", "value"}, {"value", "fast"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_TRUE(err.data.starts_with(this->double_cmd_channel.name + ": argument 2: "))
+        << err.data;
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should reject a method channel that takes the command as more than one
+/// argument, or names no object.
+TEST_F(TestWriteTask, testRejectsInvalidMethodChannel) {
+    x::json::json task_cfg = {
+        {"device", "abc123"},
+        {"channels",
+         x::json::json::array({
+             {{"type", "method"},
+              {"node_id", "NS=1;S=Pump.Configure"},
+              {"arguments", {{{"source", "command"}}, {{"source", "command"}}}},
+              {"cmd_channel", this->double_cmd_channel.key}},
+         })}
+    };
+    auto p = x::json::Parser(task_cfg);
+    const auto parsed = WriteTaskConfig(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    EXPECT_NE(
+        p.error().data.find("Only one argument can take the command"),
+        std::string::npos
+    );
+    EXPECT_NE(p.error().data.find("object_id"), std::string::npos);
+}
 }

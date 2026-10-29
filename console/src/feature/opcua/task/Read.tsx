@@ -120,17 +120,20 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
-  key: data.field === "" ? data.nodeId : nodeIdentity(data),
-  nodeName: data.name,
-  nodeId: data.nodeId,
-  field: data.field,
-  channel: 0,
-  disabled: false,
-  isIndex: false,
-  dataType: data.dataType,
-  name: "",
-});
+const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel | null =>
+  data.nodeClass !== "Variable"
+    ? null
+    : {
+        key: data.field === "" ? data.nodeId : nodeIdentity(data),
+        nodeName: data.name,
+        nodeId: data.nodeId,
+        field: data.field,
+        channel: 0,
+        disabled: false,
+        isIndex: false,
+        dataType: data.dataType,
+        name: "",
+      };
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }) => ({
   key: channel,

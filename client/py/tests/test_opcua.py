@@ -358,3 +358,91 @@ class TestOPCWriteTask:
             assert retr_ch.node_id == orig_ch.node_id
             assert retr_ch.cmd_channel == orig_ch.cmd_channel
             assert retr_ch.disabled == orig_ch.disabled
+
+    def test_method_channel_round_trip(self, client: sy.Synnax) -> None:
+        """Should keep the object and the arguments of a method channel."""
+        task = sy.opcua.WriteTask(
+            name="test-method",
+            device="some-device-key",
+            channels=[
+                sy.opcua.WriteChannel(
+                    node_id="ns=1;s=Pump.Configure",
+                    cmd_channel=1234,
+                    type="method",
+                    object_id="ns=1;s=Pump",
+                    arguments=[
+                        sy.opcua.MethodArgument(
+                            source="value", value="auto", name="mode"
+                        ),
+                        sy.opcua.MethodArgument(
+                            source="command", name="speed", data_type="float64"
+                        ),
+                    ],
+                )
+            ],
+        )
+        created = client.tasks.create(
+            name="test-method", type="opc_write", config=task.config
+        )
+        [ch] = sy.opcua.WriteTask(created).config.channels
+        assert ch.type == "method"
+        assert ch.object_id == "ns=1;s=Pump"
+        assert [(a.source, a.value, a.name) for a in ch.arguments] == [
+            ("value", "auto", "mode"),
+            ("command", "", "speed"),
+        ]
+
+    def test_update_device_properties_skips_methods(self, client: sy.Synnax) -> None:
+        """Should bind node channels to the device and leave method channels out."""
+        rack = client.racks.retrieve_embedded_rack()
+        dev = sy.opcua.Device(
+            endpoint="opc.tcp://localhost:4840",
+            name="Test OPC UA Device",
+            location="opc.tcp://localhost:4840",
+            rack=rack.key,
+        )
+        client.devices.create(dev)
+        task = sy.opcua.WriteTask(
+            name="test-task",
+            device=dev.key,
+            channels=[
+                sy.opcua.WriteChannel(node_id="NS=1;S=Valve", cmd_channel=21),
+                sy.opcua.WriteChannel(
+                    node_id="NS=1;S=Pump.Start",
+                    cmd_channel=22,
+                    type="method",
+                    object_id="NS=1;S=Pump",
+                ),
+            ],
+        )
+        task.update_device_properties(client.devices)
+        write = client.devices.retrieve(key=dev.key).properties["write"]
+        assert isinstance(write, dict)
+        assert write["channels"] == {"NS=1;S=Valve": 21}
+
+
+@pytest.mark.opcua
+class TestOPCEventTask:
+    def test_create_and_retrieve_event_task(self, client: sy.Synnax) -> None:
+        """Should keep the sources, event types, and fields of an event task."""
+        task = sy.opcua.EventTask(
+            name="test-event-task",
+            device="some-device-key",
+            channel=1234,
+            notifiers=["ns=1;s=Pump"],
+            event_types=["ns=1;s=TestEventType"],
+            fields=[sy.opcua.EventField(name="level", browse_path="1:Level")],
+            data_saving_disabled=True,
+        )
+        created = client.tasks.create(
+            name="test-event-task", type=sy.opcua.EventTask.TYPE, config=task.config
+        )
+        config = sy.opcua.EventTask(created).config
+        assert config.channel == 1234
+        assert config.notifiers == ["ns=1;s=Pump"]
+        assert config.event_types == ["ns=1;s=TestEventType"]
+        assert [(f.name, f.browse_path) for f in config.fields] == [
+            ("level", "1:Level")
+        ]
+        assert config.fields[0].key != ""
+        assert config.data_saving_disabled is True

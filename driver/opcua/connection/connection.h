@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -183,6 +184,19 @@ struct Server {
     uint32_t max_nodes_per_browse = 0;
 };
 
+/// @brief handles one event of a subscription: the values of the select clauses of its
+/// filter, in order.
+using EventHandler = std::function<void(const UA_KeyValueMap &fields)>;
+
+/// @brief the event subscription that a connection holds. Its address stays fixed for
+/// the life of the subscription, since the client passes it to each callback.
+struct Subscription {
+    UA_UInt32 id = 0;
+    EventHandler handle;
+    /// @brief the bad status with which the server ended the subscription.
+    UA_StatusCode status = UA_STATUSCODE_GOOD;
+};
+
 class Pool {
 public:
     class Connection {
@@ -198,9 +212,7 @@ public:
             key_(std::move(key)),
             server_(std::move(server)) {}
 
-        ~Connection() {
-            if (pool_ && client_) { pool_->release(key_, client_); }
-        }
+        ~Connection() { this->close(); }
 
         Connection(const Connection &) = delete;
         Connection &operator=(const Connection &) = delete;
@@ -209,17 +221,19 @@ public:
             client_(std::move(other.client_)),
             pool_(other.pool_),
             key_(std::move(other.key_)),
-            server_(std::move(other.server_)) {
+            server_(std::move(other.server_)),
+            subscription_(std::move(other.subscription_)) {
             other.pool_ = nullptr;
         }
 
         Connection &operator=(Connection &&other) noexcept {
             if (this != &other) {
-                if (pool_ && client_) { pool_->release(key_, client_); }
+                this->close();
                 client_ = std::move(other.client_);
                 pool_ = other.pool_;
                 key_ = std::move(other.key_);
                 server_ = std::move(other.server_);
+                subscription_ = std::move(other.subscription_);
                 other.pool_ = nullptr;
             }
             return *this;
@@ -260,7 +274,46 @@ public:
         [[nodiscard]] std::pair<std::vector<types::BrowseResult>, x::errors::Error>
         browse(const std::vector<UA_NodeId> &nodes) const;
 
+        /// @brief calls one method on the server.
+        /// @returns errors::NO_CONNECTION without sending the call when the connection
+        /// is lost, the error of the service result, or errors::CRITICAL when the
+        /// server returns other than one result.
+        [[nodiscard]] std::pair<types::CallResponse, x::errors::Error>
+        call(const UA_CallMethodRequest &method) const;
+
+        /// @brief subscribes to the events of each notifier that pass filter, and
+        /// replaces the earlier subscription of the connection. handle runs for each
+        /// event, on the thread that calls iterate or another method of the connection.
+        /// The subscription ends when the connection goes back to its pool.
+        /// @returns the error of each notifier the server did not monitor, in order,
+        /// and an error when the subscription failed. Returns errors::NO_CONNECTION
+        /// when the connection is lost.
+        [[nodiscard]] std::pair<std::vector<x::errors::Error>, x::errors::Error>
+        subscribe(
+            const std::vector<UA_NodeId> &notifiers,
+            const UA_EventFilter &filter,
+            EventHandler handle
+        );
+
+        /// @returns the ID of the subscription of the connection, or 0 when it has
+        /// none.
+        [[nodiscard]] UA_UInt32 subscription_id() const;
+
+        /// @brief handles the notifications that the server sent, waiting up to
+        /// timeout for the first one.
+        /// @returns errors::NO_CONNECTION when the connection is lost, or the status
+        /// with which the server ended the subscription.
+        [[nodiscard]] x::errors::Error iterate(x::telem::TimeSpan timeout) const;
+
     private:
+        /// @brief ends the subscription, then gives the client back to the pool.
+        void close();
+
+        /// @brief ends the subscription of the connection. When the server does not
+        /// delete it, closes the Session, since a client that the pool hands out again
+        /// must not deliver events to a handler that no longer exists.
+        void unsubscribe();
+
         /// @brief browses count nodes in one request, and fills count results.
         [[nodiscard]] x::errors::Error browse(
             const UA_NodeId *nodes,
@@ -272,6 +325,7 @@ public:
         Pool *pool_;
         std::string key_;
         std::shared_ptr<const Server> server_;
+        std::unique_ptr<Subscription> subscription_;
 
         friend class Pool;
     };
