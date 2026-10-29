@@ -551,7 +551,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					func(ctx SpecContext) {
 						By("Replacing the DB with a recorder-wrapped FS")
 						Expect(db.Close()).To(Succeed())
-						rec := xfs.NewRecorder(fs)
+						rec := NewRecorder(fs)
 						db = MustSucceed(domain.Open(domain.Config{
 							FS:              rec,
 							Instrumentation: PanicLogger(),
@@ -581,8 +581,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						)
 						Expect(
 							rec.Count(
-								xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-								xfs.MatchName("index.domain"),
+								MatchOp(OpWrite, OpWriteAt),
+								MatchName("index.domain"),
 							),
 						).
 							To(BeZero())
@@ -596,8 +596,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Asserting the post-interval commit wrote the index file")
 						Expect(
 							rec.Count(
-								xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-								xfs.MatchName("index.domain"),
+								MatchOp(OpWrite, OpWriteAt),
+								MatchName("index.domain"),
 							),
 						).
 							To(BeNumerically(">", 0))
@@ -739,7 +739,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not write the index file on commits within the persist interval",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						rec := xfs.NewRecorder(fs)
+						rec := NewRecorder(fs)
 						db = MustSucceed(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
@@ -760,8 +760,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						// touched by commits. Snapshot the count before Close since
 						// Close itself flushes any unpersisted state.
 						indexWrites := rec.Count(
-							xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-							xfs.MatchName("index.domain"),
+							MatchOp(OpWrite, OpWriteAt),
+							MatchName("index.domain"),
 						)
 						Expect(w.Close()).To(Succeed())
 						Expect(indexWrites).To(BeZero())
