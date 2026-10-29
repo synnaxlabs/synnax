@@ -106,15 +106,7 @@ type Service struct {
 		groups      map[int]*group
 		sync.Mutex
 	}
-	// reports holds the failure last written for each calculation. It is held across
-	// status writes so they land in the order it records them.
-	reports struct {
-		failures map[channel.Key]failure
-		sync.Mutex
-	}
 }
-
-type failure struct{ message, description string }
 
 // OpenService opens the service with the provided configuration. The service must be
 // closed when it is no longer needed.
@@ -136,7 +128,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
-	s.reports.failures = make(map[channel.Key]failure)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
@@ -153,55 +144,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-// setStatus writes each runtime status that changes the reported state of its
-// calculation: a failure that is new or has new text, or a success after a failure.
-func (s *Service) setStatus(
-	ctx context.Context,
-	statuses ...calculator.Status,
-) {
-	s.reports.Lock()
-	defer s.reports.Unlock()
-	for _, st := range statuses {
-		chKey, err := channel.ParseKey(st.Key)
-		if err != nil {
-			s.cfg.L.Error(
-				"failed to parse channel key from status",
-				zap.Error(err),
-				zap.String("key", st.Key),
-			)
-			continue
-		}
-		prev, failed := s.reports.failures[chKey]
-		next := failure{message: st.Message, description: st.Description}
-		bad := st.Variant == status.VariantError
-		if (bad && failed && prev == next) || (!bad && !failed) {
-			continue
-		}
-		if bad {
-			s.cfg.L.Warn(st.String())
-		} else {
-			s.cfg.L.Info(st.String())
-		}
-		if err = s.cfg.ChannelGraph.SetRuntimeStatus(ctx, chKey, &Status{
-			Name:        st.Name,
-			Variant:     st.Variant,
-			Message:     st.Message,
-			Description: st.Description,
-			Time:        telem.Now(),
-		}); err != nil {
-			s.cfg.L.Error(
-				"failed to set status",
-				zap.Error(err),
-				zap.Stringer("channel", chKey),
-			)
-			continue
-		}
-		if bad {
-			s.reports.failures[chKey] = next
-		} else {
-			delete(s.reports.failures, chKey)
-		}
+// report saves a status a calculator reports for the channel with the given key.
+func (s *Service) report(ctx context.Context, key channel.Key, st Status) bool {
+	st.Time = telem.Now()
+	if err := s.cfg.ChannelGraph.SetRuntimeStatus(ctx, key, &st); err != nil {
+		s.cfg.L.Error(
+			"failed to set status",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
+		return false
 	}
+	return true
 }
 
 // rejectDefinition reports that the Service cannot compile or request ch.
@@ -229,17 +183,13 @@ func (s *Service) rejectDefinition(
 }
 
 func (s *Service) clearStatus(ctx context.Context, key channel.Key) {
-	s.reports.Lock()
-	defer s.reports.Unlock()
 	if err := s.cfg.ChannelGraph.ClearRuntimeStatus(ctx, key); err != nil {
 		s.cfg.L.Error(
 			"failed to clear status",
 			zap.Error(err),
 			zap.Stringer("channel", key),
 		)
-		return
 	}
-	delete(s.reports.failures, key)
 }
 
 func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
@@ -279,9 +229,10 @@ func (s *Service) openOrGetCalculator(
 	ctx context.Context,
 	mod compiler.Module,
 ) (*calculator.Calculator, error) {
-	s.reports.Lock()
-	_, failed := s.reports.failures[mod.Channel.Key()]
-	s.reports.Unlock()
+	failed, err := s.cfg.ChannelGraph.Failed(ctx, mod.Channel.Key())
+	if err != nil {
+		return nil, err
+	}
 	calc, err := calculator.Open(ctx, calculator.Config{Module: mod, Failed: failed})
 	if err != nil {
 		return nil, errors.Wrapf(
@@ -338,7 +289,7 @@ func (s *Service) updateGroup(
 		groupConfig{
 			Instrumentation: s.cfg.Child("group"),
 			calculators:     calculators,
-			onStatusChange:  s.setStatus,
+			report:          s.report,
 			framer:          s.cfg.Framer,
 			writer:          s.cfg.Writer,
 		},

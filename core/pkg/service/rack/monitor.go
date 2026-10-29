@@ -13,6 +13,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -26,39 +28,68 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
+// SuspectHandler copies the outage of a rack onto what the rack runs. When it returns
+// an error, the monitor calls it again with the same outage on the next health check.
+type SuspectHandler = func(ctx context.Context, outage Status) error
+
 type rackState struct {
 	lastUpdated telem.TimeStamp
-	// dead is true from the write of an outage until the rack reports healthy again, so
-	// each outage is written once.
-	dead bool
+	// outage is set from the write of an outage until the rack reports healthy again,
+	// so each outage is written once.
+	outage *Status
+	// pending holds the keys of the handlers that have not copied the outage.
+	pending set.Set[int]
 }
 
 type monitor struct {
-	observe.Observer[Status]
 	shutdownRoutines         io.Closer
 	svc                      *Service
 	disconnectStatusObserver observe.Disconnect
 	alamos.Instrumentation
 	mu struct {
-		racks map[Key]rackState
+		racks       map[Key]rackState
+		handlers    map[int]SuspectHandler
+		nextHandler int
 		sync.Mutex
 	}
 }
 
+// onSuspect calls handler for each outage written after the call, until the returned
+// function removes it.
+func (m *monitor) onSuspect(handler SuspectHandler) observe.Disconnect {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	key := m.mu.nextHandler
+	m.mu.nextHandler++
+	m.mu.handlers[key] = handler
+	return func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		delete(m.mu.handlers, key)
+	}
+}
+
 func (m *monitor) Close() error {
-	// Shutdown background routines first to stop checkAlive from triggering
-	// new observer notifications, then disconnect the observer to avoid deadlock
+	// Shut down background routines first so checkAlive stops calling suspect handlers,
+	// then disconnect the status observer to avoid a deadlock.
 	err := m.shutdownRoutines.Close()
 	m.disconnectStatusObserver()
 	return err
 }
 
 func (m *monitor) checkAlive(ctx context.Context) error {
+	err := m.writeOutages(ctx)
+	m.copyOutages(ctx)
+	return err
+}
+
+func (m *monitor) writeOutages(ctx context.Context) error {
 	m.L.Debug("checking health of racks")
 	m.mu.Lock()
 	now := m.svc.Now()
@@ -123,24 +154,71 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		return err
 	}
 	m.mu.Lock()
-	for k, at := range lastUpdated {
+	defer m.mu.Unlock()
+	for i := range statuses {
+		k := statuses[i].Details.Rack
 		// A healthy report that landed during the write starts a new period.
-		if state, ok := m.mu.racks[k]; ok && state.lastUpdated == at {
-			state.dead = true
+		if state, ok := m.mu.racks[k]; ok && state.lastUpdated == lastUpdated[k] {
+			state.outage = &statuses[i]
+			state.pending = set.New(slices.Collect(maps.Keys(m.mu.handlers))...)
 			m.mu.racks[k] = state
 		}
 	}
-	m.mu.Unlock()
-	for _, stat := range statuses {
-		m.Notify(ctx, stat)
-	}
 	return nil
+}
+
+// copyOutages calls each handler that has not copied the outage of a rack. A handler
+// that succeeds is not called again for that outage.
+func (m *monitor) copyOutages(ctx context.Context) {
+	type copyJob struct {
+		rack     Key
+		outage   Status
+		handlers map[int]SuspectHandler
+	}
+	m.mu.Lock()
+	var jobs []copyJob
+	for k, state := range m.mu.racks {
+		if len(state.pending) == 0 {
+			continue
+		}
+		job := copyJob{
+			rack:     k,
+			outage:   *state.outage,
+			handlers: make(map[int]SuspectHandler),
+		}
+		for h := range state.pending {
+			if handler, ok := m.mu.handlers[h]; ok {
+				job.handlers[h] = handler
+			} else {
+				state.pending.Remove(h)
+			}
+		}
+		jobs = append(jobs, job)
+	}
+	m.mu.Unlock()
+	for _, job := range jobs {
+		var copied []int
+		for h, handler := range job.handlers {
+			if err := handler(ctx, job.outage); err != nil {
+				m.L.Error(
+					"failed to copy rack outage",
+					zap.String("rack", job.outage.Name),
+					zap.Error(err),
+				)
+				continue
+			}
+			copied = append(copied, h)
+		}
+		m.mu.Lock()
+		m.mu.racks[job.rack].pending.Remove(copied...)
+		m.mu.Unlock()
+	}
 }
 
 // outageStarted returns true when a rack has been silent for a health check interval
 // and its outage is not yet written.
 func (m *monitor) outageStarted(state rackState, now telem.TimeStamp) bool {
-	return !state.dead &&
+	return state.outage == nil &&
 		telem.TimeSpan(now-state.lastUpdated) >= m.svc.HealthCheckInterval
 }
 
@@ -194,13 +272,13 @@ func openMonitor(
 	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
-		Observer:         observe.New[Status](),
 		Instrumentation:  ins,
 		svc:              svc,
 		shutdownRoutines: signal.NewHardShutdown(sCtx, cancel),
 	}
 	now := svc.Now()
 	s.mu.racks = make(map[Key]rackState, len(racks))
+	s.mu.handlers = make(map[int]SuspectHandler)
 	for _, r := range racks {
 		s.mu.racks[r.Key] = rackState{lastUpdated: now}
 	}
