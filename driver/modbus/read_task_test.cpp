@@ -1276,6 +1276,30 @@ TEST_F(ModbusReadTest, testStringAndBitRead) {
     }
 }
 
+/// @brief it should reject a register value wider than one request of the device.
+TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
+    device.properties["requests"] = {{"max_registers", 1}};
+    ASSERT_NIL(client->devices.create(device));
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("wide"),
+        x::telem::FLOAT32_T,
+        true
+    ));
+    auto cfg = create_base_config();
+    cfg["channels"].push_back(create_channel_config("holding_register", ch, 0));
+    cfg["channels"][0]["data_type"] = "float32";
+    auto p = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "needs 2 registers, but the device reads at most 1 per request"
+    );
+}
+
 /// @brief it should reject a Synnax channel that cannot hold a number.
 TEST_F(ModbusReadTest, testStringChannelRejected) {
     auto ch = ASSERT_NIL_P(client->channels.create(

@@ -281,6 +281,19 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         std::set<synnax::channel::Key> keys;
         std::vector<std::pair<x::json::Parser, synnax::channel::Key>> bindings;
         std::vector<std::pair<x::json::Parser, synnax::channel::Key>> strings;
+        const auto max_registers = this->props.requests.max_registers;
+        const auto fits =
+            [max_registers](x::json::Parser &ch, const channel::InputRegister &reg) {
+                if (reg.width() <= max_registers) return true;
+                ch.field_err(
+                    reg.value_type == x::telem::STRING_T ? "string_length"
+                                                         : "data_type",
+                    "needs " + std::to_string(reg.width()) +
+                        " registers, but the device reads at most " +
+                        std::to_string(max_registers) + " per request"
+                );
+                return false;
+            };
         cfg.iter("channels", [&, this](x::json::Parser &ch) {
             const auto parsed = ::synnax::modbus::parse_read_channel(ch);
             const auto &base = std::visit(
@@ -302,16 +315,20 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterReadChannel>(&parsed)) {
                 if (!valid_value(ch, *c, c->string_length)) return;
+                channel::InputRegister reg(*c, this->props.connection);
+                if (!fits(ch, reg)) return;
                 if (c->data_type == x::telem::STRING_T) bound = &strings;
-                holding_registers.emplace_back(*c, this->props.connection);
+                holding_registers.push_back(std::move(reg));
             } else if (
                 const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
                     &parsed
                 )
             ) {
                 if (!valid_value(ch, *c, c->string_length)) return;
+                channel::InputRegister reg(*c, this->props.connection);
+                if (!fits(ch, reg)) return;
                 if (c->data_type == x::telem::STRING_T) bound = &strings;
-                input_registers.emplace_back(*c, this->props.connection);
+                input_registers.push_back(std::move(reg));
             } else if (
                 const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterBitReadChannel>(&parsed)

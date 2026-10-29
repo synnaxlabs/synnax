@@ -46,7 +46,15 @@ import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
-const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
+// The base covers the command round trip. Each attempt can spend one timeout to connect
+// and one to wait for the reply.
+const testConnectionTimeout = (
+  { timeoutMs, retries }: Connection,
+  delayMs: number,
+): TimeSpan =>
+  TimeSpan.seconds(10).add(
+    TimeSpan.milliseconds((retries + 1) * (2 * timeoutMs + delayMs)),
+  );
 
 const INITIAL_CONNECTIONS = {
   tcp: { ...ZERO_CONNECTIONS.tcp, port: 502 },
@@ -96,10 +104,14 @@ const beforeSave = async ({
     includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
+  const connection = get<Connection>("properties.connection").value;
   const state = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
-    timeout: TEST_CONNECTION_TIMEOUT,
-    args: { connection: get("properties.connection").value },
+    timeout: testConnectionTimeout(
+      connection,
+      get<number>("properties.requests.delayMs").value,
+    ),
+    args: { connection },
   });
   if (state.variant === "error") throw status.toError(state);
   // Since we just scanned successfully, we create a default healthy status for the

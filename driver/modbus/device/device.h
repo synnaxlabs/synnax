@@ -717,6 +717,9 @@ public:
     [[nodiscard]] Connection::Clock::time_point last_reply() const {
         return this->conn->last_reply(this->cfg.unit_id);
     }
+
+    /// @returns the endpoint and unit of the device.
+    [[nodiscard]] const ConnectionConfig &config() const { return this->cfg; }
 };
 
 /// @brief shares one connection among the devices on each endpoint: a TCP host and
