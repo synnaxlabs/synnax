@@ -29,7 +29,7 @@ to start a config that the operator did not see.
 
 Ana and Ben open the same NI analog read task. Ana sets the sample rate to 1 kHz. A
 moment later, Ben moves channel `c3` to port 4. Each form autosaves its whole config
-(`console/src/platform/task/Form.tsx:148-152`):
+(`console/src/platform/task/Form.tsx:145-149`):
 
 1. Ana's form saves a sample rate of 1 kHz, with `c3` on port 3.
 2. Ben's form saves the old sample rate, with `c3` on port 4.
@@ -171,7 +171,7 @@ either, because one place, the Core, orders the edits.
 A client applies its own dispatch at once, so typing feels instant. For a document with
 pending dispatches, the client keeps a base, the document as the Core holds it, and
 shows the base with the pending dispatches on top
-(`client/ts/src/actions/controller.ts:226-234`). A remote action applies to the base,
+(`client/ts/src/actions/controller.ts:228-233`). A remote action applies to the base,
 and then the pending dispatches apply again on top. An echo moves its dispatch into the
 base. So the shown document always follows the Core's order: remote edits first, then
 the user's own pending edits. A remote edit never moves text under the cursor, because
@@ -248,7 +248,7 @@ task keeps the config it was deployed with (RFC 0056 §4.1).
 ### 8.1 Deploy pins the start
 
 The play button deploys the task. It runs these steps
-(`console/src/platform/task/Form.tsx:146-189`):
+(`console/src/platform/task/Form.tsx:146-194`):
 
 1. Send every pending edit. Stop if a field holds an invalid value.
 2. Check the config against the deploy schema.
@@ -261,7 +261,7 @@ The Driver fetches the stored config before it starts a pinned task. If the hash
 differs, another user changed the config after the operator last saw it. Both Drivers
 then refuse with the status "Config changed", which asks the operator to review the task
 and start again (`driver/task/manager.cpp:692-720`,
-`core/pkg/service/driver/driver.go:310`). A running instance keeps running.
+`core/pkg/service/driver/driver.go:308`). A running instance keeps running.
 
 Example: Ana presses play while Ben changes the range of a channel. Without the pin, Ana
 starts a config with Ben's change, which she never saw. With the pin, the Driver
