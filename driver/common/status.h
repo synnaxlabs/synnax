@@ -54,20 +54,26 @@ struct StatusHandler {
         this->status.message = "Task configured";
     }
 
-    /// @brief drops a pending status. A task that stops without a stop status is being
-    /// deleted, moved, or rebuilt, so it must write nothing more.
     ~StatusHandler() {
+        this->close();
+        if (this->flusher.joinable()) this->flusher.join();
+    }
+
+    StatusHandler(const StatusHandler &) = delete;
+    StatusHandler &operator=(const StatusHandler &) = delete;
+
+    /// @brief drops a pending status and sends no more statuses that answer no command.
+    /// Call it when a stop without a stop status starts. Such a task is being deleted,
+    /// moved, or rebuilt, so it must write nothing more while its stop waits on
+    /// hardware.
+    void close() {
         {
             std::lock_guard lock(this->mu);
             this->closed = true;
             this->pending.reset();
         }
         this->cv.notify_one();
-        if (this->flusher.joinable()) this->flusher.join();
     }
-
-    StatusHandler(const StatusHandler &) = delete;
-    StatusHandler &operator=(const StatusHandler &) = delete;
 
     /// @brief resets the state handler to its initial state.
     void reset() {
@@ -180,7 +186,7 @@ private:
     synnax::task::Status sent;
     /// @brief when the current window started.
     std::chrono::steady_clock::time_point sent_at;
-    /// @brief true once the handler is being destroyed.
+    /// @brief true once close is called.
     bool closed = false;
     /// @brief sends the pending status when its window ends. Started on first use.
     std::thread flusher;
@@ -218,6 +224,7 @@ private:
     /// equal to the last one sent is not sent again inside the window.
     void maybe_set_status() {
         std::lock_guard lock(this->mu);
+        if (this->closed) return;
         const auto now = std::chrono::steady_clock::now();
         if (now - this->sent_at >= this->window) {
             this->pending.reset();
@@ -246,11 +253,12 @@ private:
                 this->cv.wait(lock);
                 continue;
             }
+            // Another thread can start a new window while the flusher waits.
             const auto deadline = this->sent_at + this->window;
-            if (this->cv.wait_until(lock, deadline, [this] {
-                    return this->closed || !this->pending.has_value();
-                }))
+            if (std::chrono::steady_clock::now() < deadline) {
+                this->cv.wait_until(lock, deadline);
                 continue;
+            }
             this->sent_at = std::chrono::steady_clock::now();
             auto status = std::move(*this->pending);
             this->pending.reset();

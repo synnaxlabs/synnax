@@ -38,6 +38,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/task",
         "//freighter/cpp:freighter",
+        "//x/cpp/defer",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],

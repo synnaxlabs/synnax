@@ -170,10 +170,11 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
 	return s.table.Observe()
 }
 
-func (s *Service) OnSuspect(
-	handler func(ctx context.Context, status Status),
-) observe.Disconnect {
-	return s.monitor.OnChange(handler)
+// OnSuspect calls handler with the outage of each rack that stops reporting, once for
+// each outage. A handler that returns an error is called again on the next health check
+// until it succeeds or the rack reports healthy.
+func (s *Service) OnSuspect(handler SuspectHandler) observe.Disconnect {
+	return s.monitor.onSuspect(handler)
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {

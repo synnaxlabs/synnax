@@ -119,7 +119,10 @@ struct Config {
     /// computer.
     std::function<bool(const std::string &)> libraries_loaded =
         [](const std::string &i) {
-#ifndef __APPLE__
+#ifdef __APPLE__
+            // The macOS build leaves NI out.
+            if (i == "ni") return false;
+#else
             if (i == ni::INTEGRATION_NAME) return ni::integration_supported();
 #endif
             if (i == labjack::INTEGRATION_NAME) return labjack::integration_supported();

@@ -18,17 +18,26 @@
 #include "driver/rack/status/status.h"
 
 namespace driver::rack::status {
-/// @brief a status set transport that fails its first request and echoes the statuses
-/// of every later one.
-class FailOnceSetClient final : public synnax::status::SetClient {
+/// @brief a status set transport that fails the first rack heartbeat and the first
+/// re-send of task statuses, and echoes every other write.
+class ScriptedSetClient final : public synnax::status::SetClient {
+    const std::string rack_key;
+
 public:
-    std::atomic<int> requests = 0;
+    std::atomic<int> beats = 0;
+    std::atomic<int> task_writes = 0;
+
+    explicit ScriptedSetClient(std::string rack_key): rack_key(std::move(rack_key)) {}
 
     void use(std::shared_ptr<freighter::Middleware>) override {}
 
     std::pair<grpc::status::SetResponse, x::errors::Error>
     send(const std::string &, grpc::status::SetRequest &req) override {
-        if (this->requests++ == 0) return {{}, freighter::UNREACHABLE};
+        // The first task write is the started status, and the second is a re-send.
+        if (req.statuses(0).key() == this->rack_key) {
+            if (this->beats++ == 0) return {{}, freighter::UNREACHABLE};
+        } else if (this->task_writes++ == 1)
+            return {{}, freighter::UNREACHABLE};
         grpc::status::SetResponse res;
         *res.mutable_statuses() = req.statuses();
         return {res, x::errors::NIL};
@@ -175,25 +184,31 @@ TEST(stateTests, TaskRunningTransitions) {
     ASSERT_NIL(streamer.close());
 }
 
-/// @brief it should send task statuses again on the first heartbeat that succeeds
-/// after a failed one, and not on the heartbeats after it.
-TEST(stateTests, ResendsTaskStatusesAfterFailedHeartbeat) {
+/// @brief it should send task statuses again on the first heartbeat that succeeds after
+/// a failed one, try again on the next heartbeat when the re-send fails, and stop once
+/// a re-send succeeds.
+TEST(stateTests, ResendsTaskStatusesUntilTheyReachTheCore) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    const auto set_client = std::make_shared<FailOnceSetClient>();
-    client->statuses = synnax::status::Client(nullptr, set_client, nullptr, nullptr);
-    const auto ctx = std::make_shared<driver::task::MockContext>(client);
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<ScriptedSetClient>(
+        synnax::rack::ontology_id(rack.key).string()
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
     Task hb(
-        synnax::rack::Rack{.key = 1, .name = "test_rack"},
+        rack,
         synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
         ctx
     );
     x::defer::defer stop([&hb]() { hb.stop(false); });
+    // Beat 1 fails, the re-send after beat 2 fails, beat 3 re-sends, and beat 4 sends
+    // nothing. Beat 5 starts once beat 4 is done.
     ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
-        set_client->requests.load(),
-        4,
+        transport->beats.load(),
+        5,
         std::chrono::seconds(10),
         std::chrono::milliseconds(10)
     );
-    EXPECT_EQ(ctx->resends.load(), 1);
+    EXPECT_EQ(transport->task_writes.load(), 3);
 }
 }
