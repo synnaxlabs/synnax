@@ -157,12 +157,6 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return errors.Skip(w.status.Rename(ctx, StatusKey(key), name), query.ErrNotFound)
 }
 
-// Delete deletes the rack with the provided key and its associated status. Delete is
-// idempotent, and deleting a non-existent rack will not return an error.
-func (w Writer) Delete(ctx context.Context, key Key) error {
-	return w.DeleteGuard(ctx, key, nil)
-}
-
 // DeleteGuard deletes the rack with the given key and its associated status if the
 // provided guard function returns nil.
 func (w Writer) DeleteGuard(

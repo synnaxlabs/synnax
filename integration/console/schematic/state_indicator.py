@@ -29,7 +29,8 @@ class StateIndicator(Symbol):
         Args:
             label: Display label for the symbol
             channel_name: Channel name for the state input
-            options: List of option dicts with "name", "value", and optional "color" keys
+            options: List of option dicts with "name", "value", and optional "color"
+                keys
         """
         super().__init__(label, symbol_type="State indicator", rotatable=False)
         self.channel_name = channel_name
@@ -63,7 +64,7 @@ class StateIndicator(Symbol):
                     self.page.get_by_text("Add an option").click()
                 else:
                     self.page.get_by_text("Add option", exact=True).click()
-                items = self.page.locator(".pluto-list__item").all()
+                items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
                 name_input.fill(option["name"])
