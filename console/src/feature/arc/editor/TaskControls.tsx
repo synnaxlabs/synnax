@@ -25,6 +25,7 @@ const RACK_TRIGGER_PROPS = { collapsible: true };
 export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useName();
+  const type = Arc.useType();
   const captureDeploy = PlatformArc.useCaptureDeploy();
   const { running, taskRack, taskPerformance, taskStatus, onStart, onStop } =
     Arc.useTaskControls(key, name, { afterSuccess: captureDeploy });
@@ -32,6 +33,7 @@ export const TaskControls = () => {
   const canControl = Framer.useCanCommand();
   const { update: updateTask } = Arc.useUpdateTask();
   const bound = primitive.isNonZero(taskRack);
+  if (type === "module") return null;
 
   const handleRackChange = (rackKey: rack.Key) => updateTask({ key, rack: rackKey });
   const handlePerformanceChange = (performance: arc.task.Performance) =>

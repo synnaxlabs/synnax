@@ -114,6 +114,8 @@ export const useHasText = Scope.bindHook(
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
+export const useType = Scope.bindHook(createSelector(({ type }) => type));
+
 export interface AddNodeProps {
   key: string;
   type: string;

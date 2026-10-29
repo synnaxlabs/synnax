@@ -152,6 +152,28 @@ describe("TaskControls", () => {
     });
   });
 
+  it("should show no controls for a module", async () => {
+    const a = await client.arcs.create({
+      name: uniqueName("mod"),
+      mode: "text",
+      type: "module",
+    });
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { container } = await renderSuspended(
+      <Analytics.Provider sink={Analytics.NOOP}>
+        <Suspense fallback={null}>
+          <Arc.Suspended arcKey={a.key}>
+            <TaskControls />
+            <p>module loaded</p>
+          </Arc.Suspended>
+        </Suspense>
+      </Analytics.Provider>,
+      { wrapper },
+    );
+    await screen.findByText("module loaded");
+    expect(container.querySelector(".console-arc-editor__controls")).toBeNull();
+  });
+
   describe("performance", () => {
     it("should disable the select while no rack is bound", async () => {
       const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
