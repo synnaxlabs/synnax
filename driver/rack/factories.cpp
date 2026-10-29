@@ -48,7 +48,7 @@ void configure_opcua(const Config &config, FactoryList &factories) {
         auto [host, _] = x::os::get_hostname();
         return std::make_unique<opcua::Factory>(
             std::make_shared<opcua::certificate::Store>(opcua::certificate::StoreConfig{
-                .dir = config.state_dir / "opcua" / "pki",
+                .dir = config.state_dir / OPCUA_STATE_DIR / "pki",
                 .host = host,
             })
         );
