@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	"github.com/synnaxlabs/aspen/internal/kv/kvmock"
+	"github.com/synnaxlabs/aspen/internal/kv/testutil"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/change"
 	xkv "github.com/synnaxlabs/x/kv"
@@ -36,10 +36,10 @@ import (
 )
 
 var _ = Describe("txn", func() {
-	var builder *kvmock.Builder
+	var builder *testutil.Builder
 
 	BeforeEach(func() {
-		builder = DeferClose(kvmock.NewBuilder(
+		builder = DeferClose(testutil.NewBuilder(
 			kv.Config{
 				RecoveryThreshold: 12,
 				GossipInterval:    10 * time.Millisecond,
@@ -503,7 +503,7 @@ var _ = Describe("txn", func() {
 	})
 })
 
-func waitForClusterStateToConverge(builder *kvmock.Builder) {
+func waitForClusterStateToConverge(builder *testutil.Builder) {
 	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		_, err := builder.ClusterAPIs[1].Resolve(2)

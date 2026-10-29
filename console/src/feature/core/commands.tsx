@@ -10,14 +10,14 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { Command } from "@/platform/command";
-import { Session } from "@/session";
+import { Core } from "@/platform/core";
 
 const LogoutCommand = Command.create({
   key: "logout",
   name: "Log out",
   icon: <Icon.Logout />,
   useVisible: () => true,
-  useOnSelect: Session.useLogout,
+  useOnSelect: Core.useLogout,
 });
 
 export const COMMANDS = [LogoutCommand];

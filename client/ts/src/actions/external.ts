@@ -12,6 +12,7 @@ export {
   Controller,
   type ControllerParams,
   type Domain,
+  type Edit,
   type Options,
   type Preprocess,
   type Reducer,

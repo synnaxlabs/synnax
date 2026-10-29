@@ -29,14 +29,14 @@ describe("edge Base", () => {
     expect(path.style.getPropertyValue("--pluto-symbol-color")).toMatch(
       /255\s*,\s*0\s*,\s*0/,
     );
-    expect(path.getAttribute("class")).toContain("pluto-symbol-colored");
+    expect(path.getAttribute("class")).toContain("lyra-symbol-colored");
   });
 
   it("should leave the symbol-color variable unset when no color is given", () => {
     const { container } = renderEdge(<Base.Base path="M0 0 L10 10" />);
     const path = queryPath(container);
     expect(path.style.getPropertyValue("--pluto-symbol-color")).toBe("");
-    expect(path.getAttribute("class")).toContain("pluto-symbol-colored");
+    expect(path.getAttribute("class")).toContain("lyra-symbol-colored");
   });
 
   it("should pass a fully transparent color through as a choice", () => {

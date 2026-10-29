@@ -34,6 +34,7 @@ const readConfigZ = ethercat.readConfigZ;
 
 export const deployReadConfigZ = ethercat.readConfigZ
   .extend({
+    channels: ethercat.readConfigZ.shape.channels.check(Task.validateEnabledChannel),
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
   })
@@ -56,13 +57,12 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = ethercat.writeConfigZ;
 
 export const deployWriteConfigZ = ethercat.writeConfigZ.extend({
+  channels: ethercat.writeConfigZ.shape.channels.check(Task.validateEnabledChannel),
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
 });
@@ -83,8 +83,6 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export type EntryReadChannel = ethercat.EntryReadChannel;
 

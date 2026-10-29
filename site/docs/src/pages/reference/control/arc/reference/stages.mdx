@@ -2,161 +2,100 @@
 layout: "@/layouts/Reference.astro"
 title: "Stages"
 description:
-  "Arc stage reference for stage declaration, entry semantics, parallel monitoring, and
-  inline sequences"
-prev: "Sequences"
-prevURL: "/reference/control/arc/reference/sequences"
-next: "Functions"
-nextURL: "/reference/control/arc/reference/functions"
+  "Syntax of Arc stages: the declaration, what a stage body can contain, and transitions
+  to other stages and sequences."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
 
-## Stage declaration
+A stage runs all of its items at the same time, while it is active. Newlines or commas
+separate the items. To learn what happens when a stage starts and stops, see
+[entering a stage](/reference/control/arc/execution-model#entering-a-stage).
 
-```arc
-stage name {
-    flow_statement
-    flow_statement
-    flow_statement
-}
+```text
+stage = "stage" name? "{" item* "}"
 ```
 
-Stage bodies contain flow statements. All flow statements in a stage run concurrently
-while the stage is active.
+```arc channels="start_cmd, abort_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="press, pressurize, hold, vent, abort"
+import time
 
-### Stage body syntax
-
-```arc channels="press_vlv_cmd, sensor, pressure, abort_btn", bodies="abort"
-stage pressurize {
-    // Conditional transitions (propagate while truthy)
-    pressure > 500 => next
-    abort_btn => abort
-
-    // Continuous flows
-    true -> press_vlv_cmd    // once on entry
-    sensor -> controller{}   // every sample
-}
-```
-
-Conditional flows whose target is a stage or sequence name are
-[transitions](/reference/control/arc/reference/flow#transition-targets): `next`,
-named-stage jumps, or cross-sequence jumps.
-
-<Divider.Divider x />
-
-## Stage entry semantics
-
-When entering a stage:
-
-1. Local variables (`:=`) reset to their initial values; stateful variables (`$=`) keep
-   their state
-2. Continuous flows (`->`) start fresh
-3. Timing nodes (`time.wait`, `time.interval`) reset their countdowns
-4. Inline sub-sequences restart from their first item
-5. Channel triggers only react to new writes. Values written before stage activation are
-   ignored
-
-Aside from stateful variables (`$=`), a stage holds no state between entries.
-
-### Resumable controllers
-
-Stage entry semantics enable a common pattern: a controller that parks in a `yield`
-stage and waits for a fresh command to re-enter:
-
-```arc channels="stop_cmd, valve_cmd, start_cmd", bodies="stop, yield, run, controller"
-sequence controller {
-    stage run {
-        // ... control logic ...
-        stop_cmd => stop
+sequence press {
+    stage pressurize {
+        abort_cmd == 1 => abort
+        tank_pt > 500 => abort
+        1 -> press_vlv_cmd
+        tank_pt > 300 => next
     }
-    stage stop {
-        false -> valve_cmd
-        time.wait{duration=250ms} => yield
+    stage hold {
+        abort_cmd == 1 => abort
+        0 -> press_vlv_cmd
+        time.wait(duration=30s) => next
     }
-    stage yield {
-        // Only a new write to start_cmd will re-enter run.
-        start_cmd => run
+    stage vent {
+        1 -> vent_vlv_cmd
+    }
+    stage abort {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
     }
 }
 
-start_cmd => controller
-```
-
-Because channel triggers only react to new writes after stage entry, a held-truthy
-`start_cmd` won't immediately re-enter `run`. The operator has to issue a fresh start.
-
-<Divider.Divider x />
-
-## Parallel monitoring
-
-All flow statements in a stage run concurrently:
-
-```arc channels="sensor, ox_pt_1, fuel_pt_1, abort_btn, pressure", bodies="abort"
-stage pressurize {
-    // ALL of these run simultaneously
-    ox_pt_1 > 600 => abort   // monitor
-    fuel_pt_1 > 400 => abort // monitor
-    abort_btn => abort       // listen
-    pressure > 500 => next   // advance
-
-    sensor -> controller{target=500} // control loop
-}
-```
-
-### Line order and priority
-
-When multiple conditional transitions (`=>`) are truthy in the same cycle, the first one
-listed wins:
-
-```arc channels="ox_pt_1, fuel_pt_1, abort_btn, pressure", bodies="abort"
-stage pressurize {
-    // Safety conditions first (higher priority)
-    ox_pt_1 > 600 => abort   // 1st priority
-    fuel_pt_1 > 400 => abort // 2nd priority
-    abort_btn => abort       // 3rd priority
-
-    // Success condition after safety
-    pressure > 500 => next // only if no abort
-}
-```
-
-Between a stage and a sequence declared inside it, the line written first wins only when
-both lines jump to a top-level sequence or stage. A transition inside the inner
-sequence, such as `=> next`, does not compete with the stage's jump: it acts first, then
-the jump acts in the same cycle, so the stage the inner sequence entered stops at once.
-
-For continuous flows (`->`), if multiple flows write to the same channel, last write
-wins based on line order.
-
-<Divider.Divider x />
-
-## Inline sequences in a stage
-
-An anonymous `sequence { ... }` inside a stage runs its items in order while the stage's
-parallel flows continue. The inline sequence restarts from its first item every time the
-parent stage is entered.
-
-```arc channels="chamber_temp, igniter_cmd, ox_main_vlv_cmd", bodies="abort"
-stage fire {
-    chamber_temp > 2000 => abort
-    sequence {
-        true -> igniter_cmd
-        time.wait{200ms}
-        true -> ox_main_vlv_cmd
-    }
-}
+start_cmd == 1 => press
 ```
 
 <Divider.Divider x />
 
-## Restrictions
+## Stage body
 
-| Restriction                 | Description                                            |
-| --------------------------- | ------------------------------------------------------ |
-| Acyclic continuous flows    | Continuous flows (`->`) within a stage must be acyclic |
-| Stage transitions can cycle | Conditional transitions (`=>`) can form cycles         |
+| Item                 | Example                                    |
+| -------------------- | ------------------------------------------ |
+| Flow                 | `tank_pt -> scale(k=6.895) -> tank_pt_kpa` |
+| Transition           | `tank_pt > 500 => abort`                   |
+| Function call        | `monitor()`                                |
+| Variable declaration | `peak $= 0.0`                              |
+| Assignment           | `target = 400.0`                           |
+| Sequence             | `sequence { ... }`                         |
+
+A sequence in a stage runs its steps in order, while the other items of the stage keep
+running. A stage cannot contain a stage. When more than one transition is true in the
+same cycle, the first one in the code wins. See
+[conditions and transitions](/reference/control/arc/execution-model#conditions-and-transitions).
+
+<Divider.Divider x />
+
+## Transitions
+
+| Transition | Effect                                                                    |
+| ---------- | ------------------------------------------------------------------------- |
+| `=> next`  | Moves to the next step of the sequence.                                   |
+| `=> name`  | Moves to the named step of the same sequence, also an earlier step.       |
+| `=> other` | Stops this sequence, then starts the top-level sequence or stage `other`. |
+
+A stage of a different sequence is not a valid target: `undefined symbol: name`. A
+`=> next` in the last step fails with `'next' in last stage 'abort' has no next stage`.
+
+A transition to a top-level target stops the whole top-level sequence or stage that
+holds it, including all nested items. Nothing in that scope resumes. A running target
+does not restart, except when a transition inside it targets itself. Several flows can
+target the same stage or sequence.
+
+<Divider.Divider x />
+
+## Top-level stages
+
+A named top-level stage runs only after a `=> name` starts it. An anonymous top-level
+stage runs for as long as the automation runs.
+
+```arc channels="tank_pt, alarm_cmd" bodies="alarm"
+func alarm() {
+    alarm_cmd = 1
+}
+
+stage {
+    tank_pt > 500 => alarm()
+}
+```
+
+A top-level stage cannot use `next`: `'next' used outside of a sequence`.

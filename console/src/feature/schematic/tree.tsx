@@ -60,7 +60,7 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
     });
 };
 
-export const useRangeSnapshot = () => {
+const useRangeSnapshot = () => {
   const addStatus = Status.useAdder();
   const rng = Range.useResolve();
   const { update } = Base.useSnapshot({

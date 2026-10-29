@@ -17,7 +17,14 @@ import { type FC } from "react";
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
-import * as Device from "@/feature/labjack/device/types";
+import {
+  AI_PORT_TYPE,
+  type Device,
+  DI_PORT_TYPE,
+  type Model,
+  PORTS,
+  SCHEMAS,
+} from "@/feature/labjack/device/types";
 import {
   convertPortTypeToReadChannelType,
   convertReadChannelTypeToPortType,
@@ -56,19 +63,15 @@ const Properties = () => (
   </>
 );
 
-const getRenderedPort = (
-  port: string,
-  deviceModel: Device.Model,
-  type: ReadChannelType,
-) => {
+const getRenderedPort = (port: string, deviceModel: Model, type: ReadChannelType) => {
   const portType = convertReadChannelTypeToPortType(type);
-  const portInfo = Device.PORTS[deviceModel][portType].find(({ key }) => key === port);
+  const portInfo = PORTS[deviceModel][portType].find(({ key }) => key === port);
   return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
 };
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
-  deviceModel: Device.Model;
+  deviceModel: Model;
 }
 
 const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps) => {
@@ -97,7 +100,7 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
 };
 
 interface ChannelDetailsProps extends Task.Views.DetailsProps {
-  deviceModel: Device.Model;
+  deviceModel: Model;
 }
 
 const DetailsTitle = ({ path, deviceModel }: ChannelDetailsProps) => {
@@ -131,7 +134,7 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
             const nextPortType = convertReadChannelTypeToPortType(value);
             let nextPort = nextParent.port;
             if (prevPortType !== nextPortType)
-              nextPort = Device.PORTS[deviceModel][nextPortType][0].key;
+              nextPort = PORTS[deviceModel][nextPortType][0].key;
             set(parentPath, { ...nextParent, type: next.type });
             // Need to explicitly set port to cause select port field to rerender
             set(`${parentPath}.port`, nextPort);
@@ -163,21 +166,23 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   );
 };
 
+const createFirstChannel = (): ReadChannel => ({
+  ...createReadChannel("analog"),
+  key: id.create(),
+});
+
 const getOpenChannel = (
   channels: ReadChannel[],
-  deviceModel: Device.Model,
+  deviceModel: Model,
   channelKeyToCopy?: string,
 ) => {
-  if (channelKeyToCopy == null)
-    return { ...createReadChannel("analog"), key: id.create() };
+  if (channelKeyToCopy == null) return createFirstChannel();
   const channelToCopy = channels.find(({ key }) => key === channelKeyToCopy);
   if (channelToCopy == null) return null;
   // preferredPortType is AI or DI
   const preferredPortType = convertReadChannelTypeToPortType(channelToCopy.type);
   const backupPortType =
-    preferredPortType === Device.DI_PORT_TYPE
-      ? Device.AI_PORT_TYPE
-      : Device.DI_PORT_TYPE;
+    preferredPortType === DI_PORT_TYPE ? AI_PORT_TYPE : DI_PORT_TYPE;
   const port = getOpenPort(channels, deviceModel, [preferredPortType, backupPortType]);
   if (port == null) return null;
   // Now we need to determine what channel type we use the schema and zero channel
@@ -200,7 +205,7 @@ const getOpenChannel = (
 };
 
 interface ChannelsFormProps {
-  device: Device.Device;
+  device: Device;
 }
 
 const isChannelTareable = (channel: ReadChannel) => channel.type === "analog";
@@ -249,13 +254,14 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createFirstChannel()];
   return { name: "LabJack read task", type: READ_TYPE, config: cfg };
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let shouldCreateIndex = false;
@@ -308,7 +314,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels.forEach(
     (c) =>

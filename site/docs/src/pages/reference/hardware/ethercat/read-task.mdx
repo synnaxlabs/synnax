@@ -1,0 +1,321 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "EtherCAT read task"
+description: "Read the input PDOs of EtherCAT modules into channels."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Channel } from "@/components/channel";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An EtherCAT read task reads the input PDOs of one or more modules on one network into
+channels. For example, it can record the two analog inputs of an EL3102 module at 1 kHz.
+
+Before you start, you need
+[configured modules](/reference/hardware/ethercat/configure-device).
+
+<Divider.Divider x />
+
+## PDO channels
+
+Each channel reads one entry of an input PDO, such as the value of one analog input. The
+channel selects the entry by its CoE address: an index and a sub-index, such as
+`0x3101:02`. The Console lists the entries of a module with their addresses. The entries
+come from the scan and depend on the revision of the module. For example, an EL3102 can
+show a `Value` entry at `0x3101:02` and another at `0x3102:02`, one for each input.
+
+The data type of a channel must be a number type of the same size as its entry, in whole
+bytes. For example, a 16-bit entry takes `int16` or `uint16`.
+
+All modules in a task must be on the same port. The **Sample rate** sets how often the
+task takes a sample from the network. The network on a port cycles at a multiple of the
+sample rate of each read task, from 100 Hz to 10 kHz. If no such rate exists, for
+example for read tasks at 3 kHz and 4 kHz, the task does not start. See
+[how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
+
+Each sample has the time of the network cycle that read it. Without IgH, if a module on
+the network has a distributed clock, the Driver measures that time with the distributed
+clock. The timestamps then show when the EtherCAT frame passed the modules, without the
+jitter of the computer clock, and they stay in line with the computer clock. When the
+computer is busy, a cycle can still run late, and its timestamp shows the delay. See
+[timing](/reference/hardware/tasks#timing).
+
+<Divider.Divider x />
+
+## Create an EtherCAT read task
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click a module and select **Create read task**.
+2. Set **Sample rate** and **Stream rate**.
+3. Click **Add channel**, then select the module in **Slave device**. A new channel
+   starts with the module of the last channel.
+4. Select an entry in **Entry**. **Data type** then shows the type of the entry.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates the channels and names them after the identifier of the module and
+the name of the entry, such as `ai1_Value` for a module with the identifier `ai1`. If
+the module has more than one entry with that name, the Console adds the PDO name, or the
+address when the module gives no PDO name, such as `ai1_Value_3101_02`. The index
+channel is `ai1_time`.
+
+Starting or stopping a task does not restart the network. The other tasks on the port
+keep running.
+
+<Video id="hardware/ethercat/read-task" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Python does not create channels. Create them first.
+
+```python
+import synnax as sy
+from synnax import ethercat
+
+module = client.devices.retrieve(key="<module key>")
+time = client.channels.create(
+    name="ai1_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+ch1 = client.channels.create(
+    name="ai1_ch1", index=time.key, data_type=sy.DataType.INT16
+)
+ch2 = client.channels.create(
+    name="ai1_ch2", index=time.key, data_type=sy.DataType.INT16
+)
+
+task = ethercat.ReadTask(
+    name="Analog inputs",
+    sample_rate=1000,
+    stream_rate=25,
+    channels=[
+        ethercat.EntryReadChannel(
+            device=module.key,
+            index=0x3101,
+            sub_index=0x02,
+            data_type=sy.DataType.INT16,
+            channel=ch1.key,
+        ),
+        ethercat.EntryReadChannel(
+            device=module.key,
+            index=0x3102,
+            sub_index=0x02,
+            data_type=sy.DataType.INT16,
+            channel=ch2.key,
+        ),
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+To find an entry by its name, use `ethercat.find_entry(module, "<name>")`. It returns
+the `index`, `sub_index`, and `data_type` of the entry. It raises `sy.NotFoundError` if
+no entry has the name, and `sy.MultipleFoundError` if entries at more than one address
+have it. To select one of them, also pass `pdo_name`, the name of the PDO that holds the
+entry, such as `"Channel 1"`.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+TypeScript does not create channels. Create them first.
+
+```typescript
+import { ethercat } from "@synnaxlabs/client";
+
+const module = await client.devices.retrieve({ key: "<module key>" });
+const time = await client.channels.create({
+  name: "ai1_time",
+  isIndex: true,
+  dataType: "timestamp",
+});
+const ch1 = await client.channels.create({
+  name: "ai1_ch1",
+  index: time.key,
+  dataType: "int16",
+});
+
+const task = await client.tasks.create({
+  name: "Analog inputs",
+  rack: module.rack,
+  type: "ethercat_read",
+  config: ethercat.readConfigZ.parse({
+    sampleRate: 1000,
+    streamRate: 25,
+    channels: [
+      {
+        type: "entry",
+        device: module.key,
+        index: 0x3101,
+        subIndex: 0x02,
+        dataType: "int16",
+        channel: ch1.key,
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+To find an entry by its name, use `ethercat.findEntry(inputs, "<name>")`, where `inputs`
+is `pdos.inputs` of the device properties. It throws `NotFoundError` if no entry has the
+name, and `MultipleFoundError` if entries at more than one address have it. To select
+one of them, pass the name of the PDO that holds the entry as the third argument.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Task options
+
+| Console label | Python field           | Default | Notes                                                     |
+| ------------- | ---------------------- | ------- | --------------------------------------------------------- |
+| Sample rate   | `sample_rate`          | 10 Hz   | Up to 10 kHz. A whole multiple of the stream rate.        |
+| Stream rate   | `stream_rate`          | 5 Hz    | See [read tasks](/reference/hardware/tasks#read-tasks).   |
+| Data saving   | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start    | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+
+<Divider.Divider x />
+
+## Channel reference
+
+Each channel has a `device`, the key of the module (**Slave device**), and a `channel`,
+the Synnax channel that records the value. Each table shows the Console label of a
+setting, with its Python field under it.
+
+<Channel.Types>
+
+<Channel.Type
+  name="Entry"
+  type="entry"
+  python="EntryReadChannel"
+>
+
+Reads one input entry at its CoE address.
+
+| Setting                                   | Default | Notes                                                              |
+| ----------------------------------------- | ------- | ------------------------------------------------------------------ |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x3101:02`.                              |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.                       |
+| Scale <small>`scale`</small>              | None    | Converts raw values into engineering units. See [scales](#scales). |
+
+</Channel.Type>
+
+</Channel.Types>
+
+A task from an earlier release can also hold an `unresolved` channel
+(`UnresolvedReadChannel`). It has the name of an entry, but no address. See
+[troubleshooting](#a-channel-from-an-earlier-release-has-no-entry).
+
+### Scales
+
+A scale converts the raw value of an entry into engineering units:
+
+| Scale type | Parameters                                                     | Result                                              |
+| ---------- | -------------------------------------------------------------- | --------------------------------------------------- |
+| `"none"`   | -                                                              | The raw value                                       |
+| `"linear"` | `slope`, `offset`                                              | `raw × slope + offset`                              |
+| `"map"`    | `pre_scaled_min`, `pre_scaled_max`, `scaled_min`, `scaled_max` | The raw range mapped linearly onto the scaled range |
+
+A scaled channel writes float values, so its Synnax channel must be `float32` or
+`float64`. The Console creates a `float64` channel for it, apart from the raw channel.
+
+<Client.Tabs exclude={["console"]}>
+  <Fragment slot="python">
+
+```python
+ethercat.EntryReadChannel(
+    device=module.key,
+    index=0x3101,
+    sub_index=0x02,
+    data_type=sy.DataType.INT16,
+    channel=volts.key,  # a float64 channel
+    # Counts to volts for a ±10 V input
+    scale=ethercat.LinearScale(slope=10 / 32767, offset=0),
+)
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const channel = {
+  type: "entry",
+  device: module.key,
+  index: 0x3101,
+  subIndex: 0x02,
+  dataType: "int16",
+  channel: volts.key, // a float64 channel
+  // Counts to volts for a ±10 V input
+  scale: { type: "linear", slope: 10 / 32767, offset: 0 },
+};
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### A channel from an earlier release has no entry
+
+Earlier releases could select an entry by its name. If the module has more than one
+entry with that name, or none, the upgrade cannot find the address of the entry. The
+Console marks the channel with an error, and the task does not start. The error reads
+"... matches more than one input entry ..." or "... matches no input entry ...".
+
+Select an entry for the channel in **Entry**. The first entry in the list with that name
+is the one that the task read before, and it keeps the old channel.
+
+### "All slaves must be on the same network"
+
+The task uses modules on two ports. Create one task for each port.
+
+### "sample_rate must be divisible by stream_rate"
+
+Set a sample rate that is a whole multiple of the stream rate, such as 1000 Hz and 25
+Hz.
+
+### "no bus rate at or below 10000 Hz ..."
+
+The sample rates of the read tasks on the port have no common multiple at or below 10
+kHz. Use sample rates with a small common multiple, such as 250 Hz and 1 kHz.
+
+### "Failed to read data"
+
+A module on the port stopped responding, so every network cycle fails. Every read task
+on the port shows this warning and pauses. The
+[module status](/reference/hardware/ethercat/configure-device#module-status) shows which
+module is lost. Check its power and its cable.
+
+The task keeps trying, at most 5 seconds apart, and its data starts again when the
+module responds. You do not need to restart the task.
+
+### "Slave ... has no input entry at ..."
+
+The module has no input entry at the address of the channel. Select an entry from the
+list again. In code, use an address that the Console lists, or find the entry by its
+name.
+
+### "Data type ... does not fit entry ..."
+
+The data type of the channel has a different size from the entry. Select a number type
+of the same size, such as `int16` for a 16-bit entry. From code, the Driver reports
+"data type ... is ... but entry ... holds ...".
+
+### "More than one channel uses entry ..."
+
+Two channels of the task use the same entry. Select a different entry for one of them.
+From code, the Driver reports "another channel already uses entry ...".
+
+For other problems, see
+[Configure an EtherCAT device](/reference/hardware/ethercat/configure-device#troubleshooting)
+and [Troubleshoot hardware](/reference/hardware/troubleshooting).

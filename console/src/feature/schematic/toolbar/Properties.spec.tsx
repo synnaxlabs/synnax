@@ -92,17 +92,17 @@ const setRoleColor = (label: string, hex: string): void => {
 // Picks Auto in the role control's picker.
 const clearRoleColor = (label: string): void => {
   const swatch = roleInput(label)
-    .closest(".pluto-color-input")
-    ?.querySelector<HTMLElement>(".pluto-color-swatch");
+    .closest(".lyra-color-input")
+    ?.querySelector<HTMLElement>(".lyra-color-swatch");
   assertDefined(swatch);
   fireEvent.click(swatch);
   fireEvent.click(screen.getByLabelText("Auto"));
 };
 
 const selectionSwatches = (): HTMLElement[] => {
-  const item = screen.getByText("Selection").closest(".pluto-input__item");
+  const item = screen.getByText("Selection").closest(".lyra-input__item");
   assertDefined(item);
-  return Array.from(item.querySelectorAll<HTMLElement>(".pluto-color-swatch"));
+  return Array.from(item.querySelectorAll<HTMLElement>(".lyra-color-swatch"));
 };
 
 const hexOf = (value: unknown): string | undefined =>
@@ -337,8 +337,8 @@ describe("Schematic toolbar Properties", () => {
       await screen.findByText("Colors");
       expect(roleInput("Fill").placeholder).toBe("Auto");
       const swatch = roleInput("Fill")
-        .closest(".pluto-color-input")
-        ?.querySelector<HTMLElement>(".pluto-color-swatch");
+        .closest(".lyra-color-input")
+        ?.querySelector<HTMLElement>(".lyra-color-swatch");
       assertDefined(swatch);
       expect(swatch.style.getPropertyValue("--pluto-swatch-color")).not.toBe(
         "rgba(0, 0, 0, 0)",

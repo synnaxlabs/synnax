@@ -12,11 +12,11 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, id, primitive, strings, unique } from "@synnaxlabs/x";
+import { errors, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
-import * as Device from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -33,7 +33,6 @@ import {
   analogReadConfigZ,
   type AnalogReadSchemas,
   channelPort,
-  createAIChannel,
   deployAnalogReadConfigZ,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -134,8 +133,11 @@ const getInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
   config,
 }) => {
   const cfg = analogReadConfigZ.parse(config ?? {});
-  if (config == null && deviceKey != null)
-    cfg.channels = [{ ...createAIChannel(), device: deviceKey, key: id.create() }];
+  if (config == null) {
+    const first = createNextAIChannel([]);
+    if (deviceKey != null) first.device = deviceKey;
+    cfg.channels = [first];
+  }
   return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
 };
 
@@ -144,11 +146,10 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   config,
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
-  if (devices.length === 0) throw new Error("No devices selected");
   let rackKey: rack.Key | undefined;
   const allDevices = await client.devices.retrieve({
     keys: devices,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
@@ -213,7 +214,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         });
       }
     } finally {
-      if (modified) await client.devices.create(dev, Device.SCHEMAS);
+      if (modified) await client.devices.create(dev, SCHEMAS);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;

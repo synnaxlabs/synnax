@@ -17,7 +17,7 @@ func control_tpc() {
             ox_press_cmd = 0
         }
     } else if ox_pt_1 < 20 {
-        if not ox_press_state {
+        if ox_press_state == 0 {
             ox_press_cmd = 1
         }
     }
@@ -46,12 +46,12 @@ sequence main {
     }
     stage hold {
         0 -> gas_booster_iso_cmd
-        wait{duration=2s} => next
+        wait(duration=2s) => next
     }
     stage tpc {
         1 -> ox_mpv_cmd
         1 -> press_iso_cmd
-        interval{period=100ms} -> control_tpc{}
+        interval(period=100ms) -> control_tpc()
         ox_pt_1 < 15 => next
     }
     stage safe {

@@ -1,0 +1,117 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`math`"
+description:
+  "Look up math.avg, math.min, math.max, and math.derivative, the running statistics of
+  the Arc math module."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `math` module gives running statistics and rates of change of a numeric value.
+Import it with `import math`. All `math` functions are flow functions: a function body
+cannot call them.
+
+`avg`, `min`, and `max` share these parameters:
+
+<Field.List>
+
+<Field.Item name="duration" type="i64 ns" default="0">
+
+Start again when this much time has passed, measured on trigger timestamps.
+
+</Field.Item>
+
+<Field.Item name="count" type="i64" default="0">
+
+Start again on the next trigger after this many values.
+
+</Field.Item>
+
+<Field.Item name="reset" type="bool" default="false">
+
+Has no effect in text mode, which cannot wire a trigger to it.
+
+</Field.Item>
+
+</Field.List>
+
+With `duration` and `count` at 0, the value covers every trigger since the stage
+started. A window starts again with the trigger that ends the old window. Synnax reads
+`duration` and `count` once, when the automation starts.
+
+<Divider.Divider x />
+
+## `avg`
+
+Gives the average of all trigger values since the window started.
+
+- Trigger -> a numeric value.
+- Output -> one value for each trigger batch, of the same type as the trigger. It has
+  the timestamp of the last value in the batch. It is not a moving average.
+- Runs -> on each new trigger. Its window starts again when its stage starts.
+
+```arc channels="tank_pt, tank_pt_avg"
+import math
+
+tank_pt -> math.avg(duration=5s) -> tank_pt_avg
+```
+
+An integer trigger gives an integer average, rounded toward zero. On the Core, the sum
+uses the trigger type, so it can overflow and loses precision. Use a float trigger. A
+Driver sums in `f64`.
+
+<Divider.Divider x />
+
+## `derivative`
+
+Gives the rate of change of the trigger, in units per second.
+
+- Trigger -> a numeric value.
+- Output -> one `f64` value for each trigger value, with the same timestamp. The rate is
+  the change from the previous value, divided by the time between their timestamps.
+- Runs -> on each new trigger. The first value, and a value with a timestamp that is not
+  later than the one before it, give 0. It starts again when its stage starts.
+
+`derivative` has no parameters.
+
+```arc channels="tank_pt, tank_pt_rate"
+import math
+
+tank_pt -> math.derivative() -> tank_pt_rate
+```
+
+<Divider.Divider x />
+
+## `max`
+
+Gives the largest trigger value since the window started.
+
+- Trigger -> a numeric value.
+- Output -> one value for each trigger batch, of the same type as the trigger.
+- Runs -> on each new trigger. Its window starts again when its stage starts.
+
+```arc channels="tank_pt, tank_pt_max"
+import math
+
+tank_pt -> math.max() -> tank_pt_max
+```
+
+<Divider.Divider x />
+
+## `min`
+
+Gives the smallest trigger value since the window started.
+
+- Trigger -> a numeric value.
+- Output -> one value for each trigger batch, of the same type as the trigger.
+- Runs -> on each new trigger. Its window starts again when its stage starts.
+
+```arc channels="tank_pt, tank_pt_min"
+import math
+
+tank_pt -> math.min(count=1000) -> tank_pt_min
+```

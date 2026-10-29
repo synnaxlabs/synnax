@@ -12,10 +12,10 @@ import { box, color, scale, xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { stringValue } from "@/vis/stringValue/aether";
 
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);

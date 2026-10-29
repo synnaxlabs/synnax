@@ -94,11 +94,11 @@ class LogLifecycle(ConsoleCase):
         assert not log.is_open, "Log should be closed after close()"
 
         # Resources Toolbar
-        self.test_open_log_from_resources(log_name, log_link)
-        self.test_drag_log_onto_mosaic(log_name, log_link)
+        self.test_open_log_from_resources(log_name, expected_link=log_link)
+        self.test_drag_log_onto_mosaic(log_name, expected_link=log_link)
 
         # Search and Command Palette
-        self.test_open_log_from_search(log_name, log_link)
+        self.test_open_log_from_search(log_name, expected_link=log_link)
 
         # Clean up shared log before ctx tests to prevent accumulation
         self.console.pages.delete(log_name)
@@ -233,7 +233,7 @@ class LogLifecycle(ConsoleCase):
 
         link = log.copy_link()
 
-        assert_link_format(link, "log")
+        assert_link_format(link, resource_type="log")
 
     def test_pause_resume_scrolling(self, log: Log) -> None:
         """Test pausing and resuming log scrolling."""
@@ -249,7 +249,9 @@ class LogLifecycle(ConsoleCase):
             "Log should not be paused after resume_scrolling()"
         )
 
-    def test_open_log_from_resources(self, log_name: str, expected_link: str) -> None:
+    def test_open_log_from_resources(
+        self, log_name: str, *, expected_link: str
+    ) -> None:
         """Test opening a log by double-clicking it in the project resources toolbar."""
         self.log("Testing open log from resources toolbar")
 
@@ -266,7 +268,7 @@ class LogLifecycle(ConsoleCase):
         log.close()
         assert not log.is_open, "Log should be closed after close()"
 
-    def test_drag_log_onto_mosaic(self, log_name: str, expected_link: str) -> None:
+    def test_drag_log_onto_mosaic(self, log_name: str, *, expected_link: str) -> None:
         """Test dragging a log from the resources toolbar onto the mosaic."""
         self.log("Testing drag log onto mosaic")
 
@@ -283,7 +285,7 @@ class LogLifecycle(ConsoleCase):
         log.close()
         assert not log.is_open, "Log should be closed after close()"
 
-    def test_open_log_from_search(self, log_name: str, expected_link: str) -> None:
+    def test_open_log_from_search(self, log_name: str, *, expected_link: str) -> None:
         """Test opening a log by searching its name in the command palette."""
         self.log("Testing open log from search palette")
 

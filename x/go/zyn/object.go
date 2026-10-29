@@ -94,18 +94,6 @@ func (o ObjectZ) initializeFields() ObjectZ {
 	return o
 }
 
-// Field adds a field to the object schema. The field name can be in PascalCase,
-// camelCase, or snake_case. The shape parameter defines the validation rules for the
-// field.
-func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
-	o = o.initializeFields()
-	o.fields[name] = shape
-	o.caseConversions.snake[name] = lo.SnakeCase(name)
-	o.caseConversions.pascal[name] = lo.PascalCase(name)
-	o.caseConversions.camel[name] = lo.CamelCase(name)
-	return o
-}
-
 // validateDestination validates that the destination is compatible with object data
 func (o ObjectZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {

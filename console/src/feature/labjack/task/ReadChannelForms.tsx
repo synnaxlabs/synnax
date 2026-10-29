@@ -12,7 +12,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import * as Device from "@/feature/labjack/device/types";
+import { AI_PORT_TYPE, type Model, PORTS } from "@/feature/labjack/device/types";
 import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,
@@ -69,11 +69,11 @@ interface SelectCJCSourceFieldProps extends Omit<
   Select.SingleSimpleProps<string>,
   "children" | "resourceName"
 > {
-  model: Device.Model;
+  model: Model;
 }
 
 const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => {
-  const ports: record.KeyedNamed[] = Device.PORTS[model][Device.AI_PORT_TYPE];
+  const ports: record.KeyedNamed[] = PORTS[model][AI_PORT_TYPE];
   return (
     <Select.Simple<string> allowNone={false} {...rest} resourceName="CJC source">
       <Select.Item itemKey={DEVICE_CJC_SOURCE}>Device</Select.Item>
@@ -89,7 +89,7 @@ const SelectCJCSourceField = ({ model, ...rest }: SelectCJCSourceFieldProps) => 
 
 interface FormProps {
   path: string;
-  deviceModel: Device.Model;
+  deviceModel: Model;
 }
 
 /** The signal fields for each channel type, or null for a type that has none. */
