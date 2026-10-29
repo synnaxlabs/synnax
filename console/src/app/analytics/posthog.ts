@@ -57,9 +57,9 @@ export interface Params {
 }
 
 /**
- * The PostHog session that every window of a launch reports in. PostHog reads the
- * session from storage only at init, so windows that start together would otherwise
- * each start their own.
+ * The PostHog session that every window of a launch reports in. PostHog reads another
+ * window's session from storage only at init and after an idle time, so windows would
+ * otherwise each move to sessions of their own.
  */
 export interface SharedSession {
   /** Resolves to the session once the main window has started one. */
@@ -68,6 +68,8 @@ export interface SharedSession {
   current: () => string | undefined;
   /** Shares a session that PostHog moved this window to, such as after an idle time. */
   share: (id: string) => void;
+  /** Calls the listener on each change to the shared session, until unsubscribed. */
+  subscribe: (listener: (id: string) => void) => () => void;
 }
 
 const importPostHog = async () => {
@@ -185,6 +187,12 @@ export const create = (params: Promise<Params>, session: SharedSession): Transpo
       if (started) {
         init(posthog, installID, sessionID);
         posthog.onSessionId(session.share);
+        // Setting the session calls no onSessionId listener, so a move made in another
+        // window is not shared back.
+        session.subscribe((id) => {
+          if (id !== posthog.get_session_id())
+            posthog.sessionManager?.setBootstrapSessionId(id);
+        });
         const next = { posthog, installID };
         loaded = next;
         waiting.forEach((run) => run(next));
