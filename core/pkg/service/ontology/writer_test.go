@@ -117,6 +117,33 @@ var _ = Describe("Writer", func() {
 					Expect(res).To(BeEmpty())
 				},
 			)
+			It("Should reject a parent_of removal a policy refuses",
+				func(ctx SpecContext) {
+					pinned := newSampleType("pinned")
+					Expect(w.DefineResources(ctx, pinned)).To(Succeed())
+					DeferCleanup(func(ctx SpecContext) {
+						Expect(w.DeleteResources(ctx, pinned)).To(Succeed())
+					})
+					Expect(w.DefineRelationships(
+						ctx,
+						idOne,
+						ontology.RelationshipTypeParentOf,
+						pinned,
+					)).To(Succeed())
+					Expect(w.DeleteRelationships(ctx, ontology.Relationship{
+						From: idOne,
+						Type: ontology.RelationshipTypeParentOf,
+						To:   pinned,
+					})).To(MatchError(errRejected))
+					var res []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(idOne).
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					Expect(res).To(HaveLen(1))
+				},
+			)
 			It("Should reject a name a policy refuses", func(ctx SpecContext) {
 				Expect(
 					w.ValidateName(ctx, idOne, "rejected"),

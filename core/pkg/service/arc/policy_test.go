@@ -45,12 +45,14 @@ var _ = Describe("Policy", func() {
 
 	move := func(ctx SpecContext, from, to, child ontology.ID) error {
 		GinkgoHelper()
-		Expect(otgW.DeleteRelationships(ctx, ontology.Relationship{
-			From: from, Type: ontology.RelationshipTypeParentOf, To: child,
-		})).To(Succeed())
-		return otgW.DefineRelationships(
+		if err := otgW.DefineRelationships(
 			ctx, to, ontology.RelationshipTypeParentOf, child,
-		)
+		); err != nil {
+			return err
+		}
+		return otgW.DeleteRelationships(ctx, ontology.Relationship{
+			From: from, Type: ontology.RelationshipTypeParentOf, To: child,
+		})
 	}
 
 	Describe("Names", func() {
@@ -155,6 +157,71 @@ var _ = Describe("Policy", func() {
 				Expect(svc.Dispatch(ctx, b.Key, "", []arc.Action{
 					arc.NewRenameAction(arc.RenamePayload{Name: "d1"}),
 				})).To(MatchError(ContainSubstring("already used")))
+			},
+		)
+	})
+
+	Describe("Leaving a directory", func() {
+		detach := func(ctx SpecContext, parent, child ontology.ID) error {
+			GinkgoHelper()
+			return otgW.DeleteRelationships(ctx, ontology.Relationship{
+				From: parent, Type: ontology.RelationshipTypeParentOf, To: child,
+			})
+		}
+		It("Should reject removing an Arc from its directory", func(ctx SpecContext) {
+			a := createArc(ctx, "o1")
+			Expect(detach(ctx, arcs, a.OntologyID())).
+				To(MatchError(ContainSubstring("can only go under Arcs")))
+		})
+		It(
+			"Should reject removing a group holding an Arc from Arcs",
+			func(ctx SpecContext) {
+				sub := MustSucceed(groups.Create(ctx, "sub", arcs))
+				a := createArc(ctx, "o2")
+				Expect(move(ctx, arcs, sub.OntologyID(), a.OntologyID())).To(Succeed())
+				Expect(detach(ctx, arcs, sub.OntologyID())).
+					To(MatchError(ContainSubstring("holding an Arc")))
+			},
+		)
+		It("Should let a group without Arcs leave", func(ctx SpecContext) {
+			sub := MustSucceed(groups.Create(ctx, "sub", arcs))
+			Expect(detach(ctx, arcs, sub.OntologyID())).To(Succeed())
+		})
+		It("Should let an Arc leave one of two directories", func(ctx SpecContext) {
+			sub := MustSucceed(groups.Create(ctx, "sub", arcs))
+			a := createArc(ctx, "o3")
+			Expect(otgW.DefineRelationships(
+				ctx,
+				sub.OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				a.OntologyID(),
+			)).To(Succeed())
+			Expect(detach(ctx, arcs, a.OntologyID())).To(Succeed())
+		})
+		It(
+			"Should reject removing an Arc from both directories at once",
+			func(ctx SpecContext) {
+				sub := MustSucceed(groups.Create(ctx, "sub", arcs))
+				a := createArc(ctx, "o4")
+				Expect(otgW.DefineRelationships(
+					ctx,
+					sub.OntologyID(),
+					ontology.RelationshipTypeParentOf,
+					a.OntologyID(),
+				)).To(Succeed())
+				Expect(otgW.DeleteRelationships(
+					ctx,
+					ontology.Relationship{
+						From: arcs,
+						Type: ontology.RelationshipTypeParentOf,
+						To:   a.OntologyID(),
+					},
+					ontology.Relationship{
+						From: sub.OntologyID(),
+						Type: ontology.RelationshipTypeParentOf,
+						To:   a.OntologyID(),
+					},
+				)).To(MatchError(ContainSubstring("can only go under Arcs")))
 			},
 		)
 	})

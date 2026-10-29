@@ -87,6 +87,18 @@ func (rejectPolicy) ValidateParent(
 	return nil
 }
 
+func (rejectPolicy) ValidateDetach(
+	_ context.Context,
+	_ gorp.Tx,
+	child ontology.ID,
+	_ ...ontology.ID,
+) error {
+	if child.Key == "pinned" {
+		return errRejected
+	}
+	return nil
+}
+
 func (rejectPolicy) ValidateName(
 	_ context.Context,
 	_ gorp.Tx,

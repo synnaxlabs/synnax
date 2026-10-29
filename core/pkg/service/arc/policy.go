@@ -71,6 +71,26 @@ func (s *Service) ValidateParent(
 	return nil
 }
 
+// ValidateDetach implements ontology.Policy. An Arc, or a group holding one, keeps a
+// directory parent.
+func (s *Service) ValidateDetach(
+	ctx context.Context,
+	tx gorp.Tx,
+	child ontology.ID,
+	parents ...ontology.ID,
+) error {
+	for _, parent := range parents {
+		directory, err := s.isDirectory(ctx, tx, parent)
+		if err != nil {
+			return err
+		}
+		if directory {
+			return nil
+		}
+	}
+	return s.validateOutside(ctx, tx, child)
+}
+
 // ValidateName implements ontology.Policy.
 func (s *Service) ValidateName(
 	ctx context.Context,

@@ -41,6 +41,15 @@ func (renamePolicy) ValidateParent(
 	return nil
 }
 
+func (renamePolicy) ValidateDetach(
+	context.Context,
+	gorp.Tx,
+	ontology.ID,
+	...ontology.ID,
+) error {
+	return nil
+}
+
 func (renamePolicy) ValidateName(
 	_ context.Context,
 	_ gorp.Tx,

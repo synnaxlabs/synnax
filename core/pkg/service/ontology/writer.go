@@ -136,8 +136,12 @@ func (w Writer) DefineRelationships(
 }
 
 // DeleteRelationships deletes the given relationships. Relationships that do not exist
-// are silently skipped.
+// are silently skipped. Returns the error of a registered [Policy] that refuses a child
+// the parent_of parents it would keep. Nothing is deleted when any child is refused.
 func (w Writer) DeleteRelationships(ctx context.Context, rels ...Relationship) error {
+	if err := w.validateDetach(ctx, rels); err != nil {
+		return err
+	}
 	keys := lo.Map(rels, func(rel Relationship, _ int) string { return rel.GorpKey() })
 	return w.relationshipTable.NewDelete().
 		Where(gorp.MatchKeys[string, Relationship](keys...)).
@@ -192,6 +196,55 @@ func (w Writer) DeleteIncomingRelationshipsOfType(
 			return bytes.HasSuffix(key, suffix), nil
 		}).
 		Exec(ctx, w.tx)
+}
+
+// validateDetach asks every policy about each child that loses a parent_of parent.
+func (w Writer) validateDetach(ctx context.Context, rels []Relationship) error {
+	removed := make(map[ID]set.Set[ID])
+	for _, rel := range rels {
+		if rel.Type != RelationshipTypeParentOf {
+			continue
+		}
+		if removed[rel.To] == nil {
+			removed[rel.To] = set.New[ID]()
+		}
+		removed[rel.To].Add(rel.From)
+	}
+	for child, parents := range removed {
+		current, err := w.retrieveParents(ctx, child)
+		if err != nil {
+			return err
+		}
+		kept := lo.Filter(
+			current,
+			func(p ID, _ int) bool { return !parents.Contains(p) },
+		)
+		if len(kept) == len(current) {
+			continue
+		}
+		for _, p := range w.policies {
+			if err = p.ValidateDetach(ctx, w.tx, child, kept...); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// retrieveParents returns the From of every parent_of relationship into child.
+func (w Writer) retrieveParents(ctx context.Context, child ID) ([]ID, error) {
+	suffix := []byte(relationshipKeySep + string(RelationshipTypeParentOf) +
+		relationshipKeySep + child.String())
+	var rels []Relationship
+	if err := w.relationshipTable.NewRetrieve().
+		WhereRaw(func(key, _ []byte) (bool, error) {
+			return bytes.HasSuffix(key, suffix), nil
+		}).
+		Entries(&rels).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	return lo.Map(rels, func(rel Relationship, _ int) ID { return rel.From }), nil
 }
 
 func (w Writer) retrieveOutgoingRelationships(
