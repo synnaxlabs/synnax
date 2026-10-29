@@ -58,11 +58,13 @@ class ChangeSymbol(ConsoleCase):
         schematic.connect_symbols(valve_a, "right", valve_b, "left")
         assert schematic.get_edge_count() == 1, "Expected one edge between the valves"
 
-        self.test_change_keeps_settings(schematic, valve_a)
-        self.test_change_selection(schematic, valve_a, valve_b)
-        self.test_undo_restores_selection(schematic, valve_a, valve_b)
+        self.test_change_keeps_settings(schematic, valve=valve_a)
+        self.test_change_selection(schematic, valve_a=valve_a, valve_b=valve_b)
+        self.test_undo_restores_selection(schematic, valve_a=valve_a, valve_b=valve_b)
 
-    def test_change_keeps_settings(self, schematic: Schematic, valve: Symbol) -> None:
+    def test_change_keeps_settings(
+        self, schematic: Schematic, *, valve: Symbol
+    ) -> None:
         """Test that a changed symbol keeps its label, channels, and edges."""
         self.log("Testing that a change keeps the symbol's settings")
 
@@ -83,7 +85,7 @@ class ChangeSymbol(ConsoleCase):
         assert schematic.get_edge_count() == 1, "Expected the edge to survive"
 
     def test_change_selection(
-        self, schematic: Schematic, valve_a: Symbol, valve_b: Symbol
+        self, schematic: Schematic, *, valve_a: Symbol, valve_b: Symbol
     ) -> None:
         """Test that a change applies to every selected symbol."""
         self.log("Testing a change of several selected symbols")
@@ -95,7 +97,7 @@ class ChangeSymbol(ConsoleCase):
         assert schematic.get_edge_count() == 1, "Expected the edge to survive"
 
     def test_undo_restores_selection(
-        self, schematic: Schematic, valve_a: Symbol, valve_b: Symbol
+        self, schematic: Schematic, *, valve_a: Symbol, valve_b: Symbol
     ) -> None:
         """Test that one undo restores every symbol a change touched."""
         self.log("Testing that one undo restores the changed symbols")
