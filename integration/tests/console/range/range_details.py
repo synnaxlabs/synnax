@@ -8,6 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 
+from urllib.parse import urlparse
+
 import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import Schematic
@@ -254,8 +256,9 @@ class RangeDetails(HardwareCase, ConsoleCase):
             self.console.ranges.overview.open_metadata_link("test_key")
 
         popup = popup_info.value
-        assert "synnaxlabs.com" in popup.url, (
-            f"Popup URL should contain 'synnaxlabs.com', got '{popup.url}'"
+        host = urlparse(popup.url).hostname or ""
+        assert host == "synnaxlabs.com" or host.endswith(".synnaxlabs.com"), (
+            f"Popup URL should be on 'synnaxlabs.com', got '{popup.url}'"
         )
         popup.close()
 
