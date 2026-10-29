@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
@@ -788,6 +790,64 @@ class TestModbusDevicePropertyUpdates:
             "write_codes": "single",
             "delay_ms": 20,
         }
+
+    def test_device_rtu_defaults(self) -> None:
+        """Should store an RTU connection at 19200 8E1 that addresses unit 1."""
+        dev = sy.modbus.Device(transport="rtu", serial_port="/dev/ttyUSB0")
+        assert dev.properties["connection"] == {
+            "transport": "rtu",
+            "serial_port": "/dev/ttyUSB0",
+            "baud_rate": 19200,
+            "parity": "even",
+            "data_bits": 8,
+            "stop_bits": 1,
+            "swap_bytes": False,
+            "swap_words": False,
+            "unit_id": 1,
+            "timeout_ms": 1000,
+            "retries": 1,
+        }
+
+    def test_device_rtu_line_settings(self) -> None:
+        """Should store the line settings and unit it is given."""
+        dev = sy.modbus.Device(
+            transport="rtu",
+            serial_port="COM3",
+            baud_rate=9600,
+            parity="none",
+            data_bits=8,
+            stop_bits=2,
+            unit_id=17,
+        )
+        connection = obj(dev.properties["connection"])
+        assert connection["serial_port"] == "COM3"
+        assert connection["baud_rate"] == 9600
+        assert connection["parity"] == "none"
+        assert connection["stop_bits"] == 2
+        assert connection["unit_id"] == 17
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({}, "a tcp device needs a host and a port"),
+            ({"host": "10.0.0.7"}, "a tcp device needs a host and a port"),
+            (
+                {"host": "10.0.0.7", "port": 502, "serial_port": "COM3"},
+                "a tcp device has no serial port",
+            ),
+            ({"transport": "rtu"}, "an rtu device needs a serial port"),
+            (
+                {"transport": "rtu", "serial_port": "COM3", "host": "10.0.0.7"},
+                "an rtu device has no host or port",
+            ),
+        ],
+    )
+    def test_device_rejects_fields_of_other_transport(
+        self, kwargs: dict[str, Any], message: str
+    ) -> None:
+        """Should reject a connection that lacks or mixes the fields of a transport."""
+        with pytest.raises(ValueError, match=f"^{message}$"):
+            sy.modbus.Device(**kwargs)
 
     def test_device_property_key_format(self) -> None:
         """Test that map keys keep the released type spellings after the rename."""

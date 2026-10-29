@@ -170,17 +170,25 @@ class WriteTask(
 
 
 class Device(device.Device):
-    """A unit on a Modbus TCP server. Devices with the same host and port share one
-    connection.
+    """A unit on a Modbus TCP server or a Modbus RTU serial line. Devices with the
+    same host and port, or the same serial port, share one connection.
 
-    :param host: The IP address or hostname of the Modbus server.
-    :param port: The TCP port number, typically 502.
+    :param transport: "tcp" for Modbus TCP, or "rtu" for Modbus RTU on a serial port.
+    :param host: The IP address or hostname of the Modbus server. Required for TCP.
+    :param port: The TCP port number, typically 502. Required for TCP.
+    :param serial_port: The serial port, such as /dev/ttyUSB0 or COM3. Required for
+        RTU.
+    :param baud_rate: The baud rate of the serial line.
+    :param parity: The parity of the serial line.
+    :param data_bits: The data bits of each character on the serial line.
+    :param stop_bits: The stop bits of each character on the serial line.
     :param swap_bytes: Whether register channels swap the byte order within each
         16-bit word. A channel's bytes_swapped overrides it.
     :param swap_words: Whether register channels swap the word order of 32-bit and
         larger values. A channel's words_swapped overrides it.
-    :param unit_id: The unit the device addresses, from 0 to 255. 255 addresses the
-        server itself; a gateway needs the unit behind it.
+    :param unit_id: The unit the device addresses. For TCP, from 0 to 255, and 255 by
+        default: 255 addresses the server itself, and a gateway needs the unit behind
+        it. For RTU, from 1 to 247, and 1 by default.
     :param timeout_ms: The connect and response timeout in milliseconds.
     :param retries: The immediate retries of a request after a timeout or another
         temporary fault, from 0 to 10.
@@ -201,11 +209,17 @@ class Device(device.Device):
     def __init__(
         self,
         *,
-        host: str,
-        port: int,
+        transport: Literal["tcp", "rtu"] = "tcp",
+        host: str | None = None,
+        port: int | None = None,
+        serial_port: str | None = None,
+        baud_rate: int = 19200,
+        parity: Literal["none", "even", "odd"] = "even",
+        data_bits: Literal[7, 8] = 8,
+        stop_bits: Literal[1, 2] = 1,
         swap_bytes: bool = False,
         swap_words: bool = False,
-        unit_id: int = 255,
+        unit_id: int | None = None,
         timeout_ms: int = 1000,
         retries: int = 1,
         max_registers: int = 125,
@@ -220,17 +234,38 @@ class Device(device.Device):
     ):
         if not key:
             key = str(uuid4())
+        connection: dict[str, JsonValue] = {"transport": transport}
+        if transport == "tcp":
+            if host is None or port is None:
+                raise ValueError("a tcp device needs a host and a port")
+            if serial_port is not None:
+                raise ValueError("a tcp device has no serial port")
+            connection.update(host=host, port=port)
+            if unit_id is None:
+                unit_id = 255
+        else:
+            if serial_port is None:
+                raise ValueError("an rtu device needs a serial port")
+            if host is not None or port is not None:
+                raise ValueError("an rtu device has no host or port")
+            connection.update(
+                serial_port=serial_port,
+                baud_rate=baud_rate,
+                parity=parity,
+                data_bits=data_bits,
+                stop_bits=stop_bits,
+            )
+            if unit_id is None:
+                unit_id = 1
+        connection.update(
+            swap_bytes=swap_bytes,
+            swap_words=swap_words,
+            unit_id=unit_id,
+            timeout_ms=timeout_ms,
+            retries=retries,
+        )
         props: dict[str, JsonValue] = {
-            "connection": {
-                "transport": "tcp",
-                "host": host,
-                "port": port,
-                "swap_bytes": swap_bytes,
-                "swap_words": swap_words,
-                "unit_id": unit_id,
-                "timeout_ms": timeout_ms,
-                "retries": retries,
-            },
+            "connection": connection,
             "requests": {
                 "max_registers": max_registers,
                 "max_gap": max_gap,
