@@ -153,8 +153,7 @@ server's `StatusDetails` (RFC 0081 §4.2).
 The test slave (`driver/modbus/testutil/slave.h`) gets the faults each phase handles:
 rejected function codes and dropped connections in Phase 1, several units with one
 silent and a stalled reply in Phase 2, and an RTU mode on a pseudo-terminal pair from
-`openpty` in Phase 3. The Python simulator used by the integration tests gets the same
-units. Every write spec reads the device back, never the Synnax echo.
+`openpty` in Phase 3. Every write spec reads the device back, never the Synnax echo.
 
 ## 3 Implementation phases
 
