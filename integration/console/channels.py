@@ -282,7 +282,7 @@ class ChannelClient(ResourceClient):
         self._ctx_menu_action(name, "Set alias under", exact=False)
         self.layout.type_text(alias)
         self.layout.press_enter()
-        self.layout.wait_for_selector_hidden("input.pluto-text--editable")
+        self.layout.wait_for_selector_hidden("input.lyra-text--editable")
         self.hide_channels()
 
     def clear_alias(self, name: str) -> None:
@@ -502,7 +502,7 @@ class ChannelClient(ResourceClient):
     def _rename_single_channel(self, *, old_name: str, new_name: str) -> None:
         """Rename a single channel via the context menu."""
         item = self._ctx_menu_action(old_name, "Rename")
-        channel_name_element = item.locator("p.pluto-text--editable")
+        channel_name_element = item.locator("p.lyra-text--editable")
         channel_name_element.click()
         channel_name_element.fill(new_name)
         self.layout.press_enter()

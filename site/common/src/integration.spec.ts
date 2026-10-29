@@ -24,16 +24,19 @@ describe("integration", () => {
     });
   });
 
-  it("should inject the favicons and the robots.txt", () => {
+  it("should inject the favicons, the robots.txt, and the consent route", () => {
     expect(routes.map(({ pattern }) => pattern)).toEqual([
       "/favicon.ico",
       "/favicon.svg",
       "/robots.txt",
+      "/consent",
     ]);
   });
 
-  it("should prerender every route", () => {
-    routes.forEach(({ prerender }) => expect(prerender).toBe(true));
+  it("should prerender every route but the consent route", () => {
+    routes.forEach(({ pattern, prerender }) =>
+      expect(prerender).toBe(pattern !== "/consent"),
+    );
   });
 
   it("should point every route at an existing entry point", () => {
