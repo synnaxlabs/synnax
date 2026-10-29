@@ -30,8 +30,8 @@ __all__ = [
     "Proof",
     "Session",
     "SessionKey",
-    "apikey",
     "api_key_id",
+    "apikey",
     "password",
     "session",
 ]
