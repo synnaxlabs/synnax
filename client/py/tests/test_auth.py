@@ -252,9 +252,10 @@ class TestAPIKeys:
         """Should create a key, log in with it, list it, and delete it."""
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
-        user = admin.users.create(username=str(uuid4()), password="seldon")
+        new_username = str(uuid4())
+        admin.users.create(username=new_username, password="seldon")
         owner = sy.Synnax(
-            host=host, port=port, username=user.username, password="seldon"
+            host=host, port=port, username=new_username, password="seldon"
         )
         token, key = owner.auth.create_key("script")
         assert token.startswith("syk_")
