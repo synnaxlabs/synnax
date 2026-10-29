@@ -79,6 +79,7 @@
     .console-schematic__symbols-group {
         overflow: auto;
         height: 100%;
+
         --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 
         & > .pluto-list__virtualizer {

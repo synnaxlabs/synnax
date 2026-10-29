@@ -1,5 +1,7 @@
 TypeScript development rules for this package: @../docs/claude/toolchains/typescript.md
 
+CSS rules: @../docs/claude/toolchains/css.md
+
 ## Namespace casing encodes thread safety
 
 - **lowercase** namespaces (`aether`, `flux`, `lineplot` from `@/lineplot/aether`) are

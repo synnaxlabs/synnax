@@ -9,6 +9,10 @@
 
 package main
 
-import "github.com/synnaxlabs/oracle/cmd"
+import (
+	"os"
 
-func main() { cmd.Execute() }
+	"github.com/synnaxlabs/oracle/cmd"
+)
+
+func main() { os.Exit(cmd.Execute(os.Args[1:])) }

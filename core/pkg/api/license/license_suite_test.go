@@ -75,7 +75,7 @@ func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
 		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Username: "anon-" + uuid.New().String()}),
+			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
 	)
 }
 

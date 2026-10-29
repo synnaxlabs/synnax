@@ -13,10 +13,9 @@
     "cov": "vitest --coverage",
     "bench": "vitest bench --config vitest.bench.config.ts",
     "dev": "vite",
-    "lint": "eslint",
-    "fix": "eslint --fix",
-    "preview": "vite preview",
-    "stylelint": "stylelint \"src/**/*.css\""
+    "lint": "eslint && stylelint \"src/**/*.css\"",
+    "fix": "eslint --fix && stylelint --fix \"src/**/*.css\"",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@codingame/monaco-vscode-editor-api": "catalog:",

@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("AuthedCtx", func() {
 	It("Should install the user as the request subject", func(ctx SpecContext) {
-		u := user.User{Key: uuid.New(), Username: "author"}
+		u := user.User{Key: uuid.New(), Name: "author"}
 		Expect(auth.GetSubject(AuthedCtx(ctx, u))).To(Equal(u.OntologyID()))
 	})
 })
