@@ -35,8 +35,8 @@ class Console:
     Console UI automation interface - thin orchestration layer.
 
     Composes specialized clients for interacting with the Synnax Console application.
-    Layout operations are accessed through self.layout (LayoutClient).
-    Each client imports and instantiates its own utilities (notifications, ctx_menu, tree).
+    Layout operations are accessed through self.layout (LayoutClient). Each client
+    imports and instantiates its own utilities (notifications, ctx_menu, tree).
     """
 
     access: AccessClient

@@ -302,7 +302,7 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("QualifiedNameParts and QualifiedName", func() {
+	Describe("QualifiedNameParts", func() {
 		qualified := func(code string) parser.IQualifiedIdentifierContext {
 			primary := parser.GetPrimaryExpression(parseExpr(code))
 			Expect(primary).ToNot(BeNil())
@@ -321,10 +321,6 @@ var _ = Describe("AST Utilities", func() {
 			head, tail := parser.QualifiedNameParts(qualified("authority.absolute"))
 			Expect(head).To(Equal("authority"))
 			Expect(tail).To(Equal("absolute"))
-		})
-
-		It("Should join head and tail with a dot", func() {
-			Expect(parser.QualifiedName(qualified("math.avg"))).To(Equal("math.avg"))
 		})
 	})
 

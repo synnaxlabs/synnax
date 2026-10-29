@@ -34,7 +34,7 @@ package or needing broader context:
 - `docs/claude/architecture.md` — system design, layering, data flow, gotchas
 - `docs/claude/testing.md` — cross-language testing + integration conductor (tc)
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
-- `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
+- `docs/claude/toolchains/{typescript,go,python,cpp,css}.md` — language rules
 - `scripts/AGENTS.md` — repo scripts: formatting, copyright headers, codegen checks,
   versioning (also auto-loads)
 - `docs/tech/rfc/AGENTS.md` — RFC file names, front matter, headings, definition lists,

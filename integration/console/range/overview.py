@@ -134,7 +134,7 @@ class Overview(Surface):
         timeline = self.layout.page.locator(".pluto-range-timeline").visible
         cell = timeline.get_by_role("button", name=re.compile(rf"^{bound}, "))
         cell.click(timeout=5000)
-        editor = self.layout.page.locator(".pluto-time-editor__dialog input")
+        editor = self.layout.page.locator(".lyra-time-editor__dialog input")
         editor.fill(
             f"{year:04d}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}:{second:02d}",
             timeout=5000,
@@ -167,7 +167,7 @@ class Overview(Surface):
         # The add button only renders once a label is set. Before that, the
         # placeholder is the trigger.
         add_button = labels_row.locator("button").last
-        placeholder = labels_row.locator(".pluto-select-multiple-trigger-placeholder")
+        placeholder = labels_row.locator(".lyra-select-multiple-trigger-placeholder")
         trigger = add_button.or_(placeholder).first
         trigger.wait_for(state="visible", timeout=2000)
         trigger.click()
@@ -213,7 +213,7 @@ class Overview(Surface):
         labels_row = self.layout.page.locator(
             ".console-range-overview__labels-select"
         ).visible
-        label_chips = labels_row.locator(".pluto-tag")
+        label_chips = labels_row.locator(".lyra-tag")
         labels = []
         for i in range(label_chips.count()):
             text = label_chips.nth(i).inner_text()
@@ -237,26 +237,26 @@ class Overview(Surface):
 
     def copy_python_code(self) -> None:
         """Click the Python code copy button in the range overview."""
-        python_btn = self.layout.page.locator("button:has(svg.pluto-icon--python)")
+        python_btn = self.layout.page.locator("button:has(svg.lyra-icon--python)")
         python_btn.wait_for(state="visible", timeout=5000)
         python_btn.click(timeout=5000)
 
     def copy_typescript_code(self) -> None:
         """Click the TypeScript code copy button in the range overview."""
-        ts_btn = self.layout.page.locator("button:has(svg.pluto-icon--typescript)")
+        ts_btn = self.layout.page.locator("button:has(svg.lyra-icon--typescript)")
         ts_btn.wait_for(state="visible", timeout=5000)
         ts_btn.click(timeout=5000)
 
     def copy_link(self) -> None:
         """Click the copy link button in the range overview."""
-        link_btn = self.layout.page.locator("button:has(svg.pluto-icon--link)")
+        link_btn = self.layout.page.locator("button:has(svg.lyra-icon--link)")
         link_btn.wait_for(state="visible", timeout=5000)
         link_btn.click(timeout=5000)
 
     def open_csv_download_modal(self) -> None:
         """Click the CSV download button in the range overview and wait for
         modal."""
-        csv_btn = self.layout.page.locator("button:has(svg.pluto-icon--csv)")
+        csv_btn = self.layout.page.locator("button:has(svg.lyra-icon--csv)")
         csv_btn.click(timeout=5000)
         self.layout.page.get_by_text("Download data for").wait_for(
             state="visible", timeout=5000
@@ -264,7 +264,7 @@ class Overview(Surface):
 
     def close_csv_download_modal(self) -> None:
         """Close the CSV download modal."""
-        close_btn = self.layout.page.locator("button:has(svg.pluto-icon--close)").first
+        close_btn = self.layout.page.locator("button:has(svg.lyra-icon--close)").first
         close_btn.click(timeout=2000)
         self.layout.page.get_by_text("Download data for").wait_for(
             state="hidden", timeout=5000
@@ -339,11 +339,11 @@ class Overview(Surface):
         :param value: The metadata value.
         """
         section = self._get_metadata_section()
-        add_btn = section.locator("button:has(svg.pluto-icon--add)")
+        add_btn = section.locator("button:has(svg.lyra-icon--add)")
         add_btn.click(timeout=5000)
 
         create_form = section.locator(
-            f"{self.METADATA_CREATE_SELECTOR}:not(.pluto--hidden)"
+            f"{self.METADATA_CREATE_SELECTOR}:not(.lyra--hidden)"
         )
         create_form.wait_for(state="visible", timeout=5000)
 
@@ -393,7 +393,7 @@ class Overview(Surface):
         """
         item = self.get_metadata_item(key)
         item.wait_for(state="visible", timeout=5000)
-        copy_btn = item.locator("button:has(svg.pluto-icon--copy)")
+        copy_btn = item.locator("button:has(svg.lyra-icon--copy)")
         copy_btn.click(timeout=5000)
 
     def delete_metadata(self, key: str) -> None:
@@ -475,7 +475,7 @@ class Overview(Surface):
         """
         self.notifications.close_all()
         section = self._get_child_ranges_section()
-        add_btn = section.locator("button:has(svg.pluto-icon--add)")
+        add_btn = section.locator("button:has(svg.lyra-icon--add)")
         add_btn.click(timeout=5000)
         modal = self.layout.page.locator(CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
@@ -491,15 +491,15 @@ class Overview(Surface):
         item.wait_for(state="visible", timeout=5000)
         stage_button = (
             item.locator("button")
-            .filter(has=self.layout.page.locator("svg.pluto-icon--to-do"))
+            .filter(has=self.layout.page.locator("svg.lyra-icon--to-do"))
             .or_(
                 item.locator("button").filter(
-                    has=self.layout.page.locator("svg.pluto-icon--in-progress")
+                    has=self.layout.page.locator("svg.lyra-icon--in-progress")
                 )
             )
             .or_(
                 item.locator("button").filter(
-                    has=self.layout.page.locator("svg.pluto-icon--completed")
+                    has=self.layout.page.locator("svg.lyra-icon--completed")
                 )
             )
             .first
