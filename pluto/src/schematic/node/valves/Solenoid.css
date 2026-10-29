@@ -12,11 +12,16 @@
 .pluto-solenoid-valve.pluto--normally-open {
     &:hover {
         & svg {
+            /* stylelint-disable declaration-no-important -- toggle state colors win
+               over a symbol's own fill and stroke */
             stroke: oklch(from var(--pluto-symbol-display) l c h / 95%) !important;
             fill: oklch(from var(--pluto-symbol-display) l c h / 95%) !important;
+            /* stylelint-enable declaration-no-important */
         }
 
         &:not(.pluto--enabled) svg {
+            /* stylelint-disable-next-line declaration-no-important -- toggle state
+               colors win over a symbol's own fill and stroke */
             fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
         }
     }

@@ -46,14 +46,11 @@ import ArcTile from "@/components/blog/ArcTile.astro";
     }
 
     .blog {
-        flex-basis: 840px;
-        flex-shrink: 1;
-        flex-grow: 1;
+        flex: 1 1 840px;
         min-width: 0;
         padding: 5rem 8rem;
 
         .header {
-            width: 100%;
             min-height: 200px;
             height: 25vh;
             margin: 0 -8rem;
@@ -77,23 +74,11 @@ import ArcTile from "@/components/blog/ArcTile.astro";
 
     a.blog-entry {
         text-decoration: none !important;
-
-        & > .pluto-flex-box {
-            padding: 3rem 4rem;
-            transition: all 0.2s;
-            cursor: pointer;
-            border-color: var(--pluto-gray-l4);
-
-            &:hover {
-                background-color: var(--pluto-gray-l2);
-                border-color: var(--pluto-gray-l5);
-            }
-        }
     }
 
-    @media (max-width: 800px) {
+    @media (width <= 800px) {
         .blog {
-            padding: 3rem 3rem;
+            padding: 3rem;
 
             .header {
                 margin: 0 -3rem;
