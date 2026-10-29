@@ -34,12 +34,12 @@ class NoDevice(HardwareCase, ConsoleCase):
 
         rack_name = f"TestRack_{rand_int}"
         dev_name = f"USB-6000_{rand_int}"
-        self.create_rack(rack_name, dev_name)
+        self.create_rack(rack_name, dev_name=dev_name)
         self.initial_assertion(ni_ai)
         self.configure_without_channels(ni_ai)
-        self.nominal_configuration(ni_ai, rack_name, dev_name)
+        self.nominal_configuration(ni_ai, rack_name=rack_name, dev_name=dev_name)
 
-    def create_rack(self, rack_name: str, dev_name: str) -> None:
+    def create_rack(self, rack_name: str, *, dev_name: str) -> None:
         self.log(f"Creating {rack_name} and devices")
 
         rack = self.create_test_rack(rack_name)
@@ -87,7 +87,7 @@ class NoDevice(HardwareCase, ConsoleCase):
         self.initial_assertion(ni_ai)
 
     def nominal_configuration(
-        self, ni_ai: AnalogRead, rack_name: str, dev_name: str
+        self, ni_ai: AnalogRead, *, rack_name: str, dev_name: str
     ) -> None:
         """Nominal configuration of task"""
         # Add channel
