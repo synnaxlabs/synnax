@@ -39,13 +39,13 @@ void expect_block(
 
 /// @brief it should return no blocks for no channels.
 TEST(Plan, Empty) {
-    EXPECT_TRUE(plan(std::vector<Range>{}, 125, true).empty());
+    EXPECT_TRUE(plan(std::vector<Range>{}, 125, 125).empty());
 }
 
-/// @brief it should span gaps between channels when gaps are allowed.
+/// @brief it should span gaps between channels that fit the gap limit.
 TEST(Plan, SpansGaps) {
     const std::vector<Range> chs{{0, 1}, {10, 2}, {50, 4}};
-    const auto blocks = plan(chs, 125, true);
+    const auto blocks = plan(chs, 125, 125);
     ASSERT_EQ(blocks.size(), 1);
     expect_block(blocks[0], 0, 54, 0, 3);
 }
@@ -53,7 +53,7 @@ TEST(Plan, SpansGaps) {
 /// @brief it should split a block that would pass the limit.
 TEST(Plan, SplitsAtLimit) {
     const std::vector<Range> chs{{0, 1}, {124, 1}, {125, 1}, {300, 2}};
-    const auto blocks = plan(chs, 125, true);
+    const auto blocks = plan(chs, 125, 125);
     ASSERT_EQ(blocks.size(), 3);
     expect_block(blocks[0], 0, 125, 0, 2);
     expect_block(blocks[1], 125, 1, 2, 3);
@@ -63,7 +63,7 @@ TEST(Plan, SplitsAtLimit) {
 /// @brief it should split a block when a multi-register channel crosses the limit.
 TEST(Plan, SplitsWideChannelAtLimit) {
     const std::vector<Range> chs{{0, 1}, {123, 4}};
-    const auto blocks = plan(chs, 125, true);
+    const auto blocks = plan(chs, 125, 125);
     ASSERT_EQ(blocks.size(), 2);
     expect_block(blocks[0], 0, 1, 0, 1);
     expect_block(blocks[1], 123, 4, 1, 2);
@@ -73,31 +73,48 @@ TEST(Plan, SplitsWideChannelAtLimit) {
 /// last.
 TEST(Plan, SizesByFurthestEnd) {
     const std::vector<Range> chs{{10, 4}, {11, 1}};
-    const auto blocks = plan(chs, 125, true);
+    const auto blocks = plan(chs, 125, 125);
     ASSERT_EQ(blocks.size(), 1);
     expect_block(blocks[0], 10, 4, 0, 2);
 }
 
-/// @brief it should merge only channels that touch end to end when gaps are not
-/// allowed.
+/// @brief it should merge only channels that touch end to end with a gap limit of 0.
 TEST(Plan, NoGaps) {
     const std::vector<Range> chs{{0, 2}, {2, 1}, {3, 4}, {8, 1}, {9, 1}};
-    const auto blocks = plan(chs, 123, false);
+    const auto blocks = plan(chs, 123, 0);
     ASSERT_EQ(blocks.size(), 2);
     expect_block(blocks[0], 0, 7, 0, 3);
     expect_block(blocks[1], 8, 2, 3, 5);
 }
 
-/// @brief it should split adjacent channels at the limit when gaps are not allowed.
+/// @brief it should split adjacent channels at the limit with a gap limit of 0.
 TEST(Plan, NoGapsSplitsAtLimit) {
     std::vector<Range> chs;
     chs.reserve(1970);
     for (std::uint16_t i = 0; i < 1970; i++)
         chs.push_back({i, 1});
-    const auto blocks = plan(chs, 1968, false);
+    const auto blocks = plan(chs, 1968, 0);
     ASSERT_EQ(blocks.size(), 2);
     expect_block(blocks[0], 0, 1968, 0, 1968);
     expect_block(blocks[1], 1968, 2, 1968, 1970);
+}
+
+/// @brief it should start a new block at a gap wider than the gap limit.
+TEST(Plan, SplitsAtGapLimit) {
+    const std::vector<Range> chs{{0, 2}, {5, 1}, {20, 1}, {24, 2}};
+    const auto blocks = plan(chs, 125, 3);
+    ASSERT_EQ(blocks.size(), 2);
+    expect_block(blocks[0], 0, 6, 0, 2);
+    expect_block(blocks[1], 20, 6, 2, 4);
+}
+
+/// @brief it should split a span of channels at the limit even when every gap fits.
+TEST(Plan, SplitsAtLimitWithinGapLimit) {
+    const std::vector<Range> chs{{0, 1}, {9, 1}, {18, 1}};
+    const auto blocks = plan(chs, 10, 10);
+    ASSERT_EQ(blocks.size(), 2);
+    expect_block(blocks[0], 0, 10, 0, 2);
+    expect_block(blocks[1], 18, 1, 2, 3);
 }
 
 /// @brief it should print one address or a range.

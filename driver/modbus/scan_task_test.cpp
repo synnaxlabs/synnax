@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cerrno>
+
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
@@ -157,5 +159,137 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.value().variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(devices[0].status.value().message, "Failed to reach device");
+}
+
+namespace {
+/// @returns a Modbus device on the local test slave.
+synnax::device::Device local_device(
+    const std::string &key,
+    const int port,
+    const int unit_id = MODBUS_TCP_SLAVE
+) {
+    synnax::device::Device dev;
+    dev.key = key;
+    dev.name = key;
+    dev.make = MAKE;
+    dev.properties = x::json::json{
+        {"connection",
+         {{"host", "127.0.0.1"},
+          {"port", port},
+          {"swap_bytes", false},
+          {"swap_words", false},
+          {"unit_id", unit_id},
+          {"timeout_ms", 50},
+          {"retries", 0}}}
+    };
+    return dev;
+}
+
+/// @returns the devices of one scan of a single device, with their statuses.
+std::vector<synnax::device::Device>
+scan(Scanner &scanner, const synnax::device::Device &dev) {
+    std::unordered_map<std::string, synnax::device::Device> devices{{dev.key, dev}};
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    auto [out, err] = scanner.scan(scan_ctx);
+    EXPECT_FALSE(err) << err;
+    return out;
+}
+}
+
+/// @brief it should keep the connection to a device open between scans.
+TEST(ScanTask, testScanKeepsConnectionOpen) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1660;
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    const auto dev = local_device("kept", 1660);
+
+    for (int i = 0; i < 3; i++)
+        EXPECT_EQ(
+            scan(scanner, dev)[0].status.value().variant,
+            synnax::status::VARIANT_SUCCESS
+        );
+    EXPECT_EQ(slave.connections(), 1);
+    EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 3);
+}
+
+/// @brief it should skip the probe of a device that answered a task since the last
+/// scan.
+TEST(ScanTask, testScanSkipsProbeAfterTaskReply) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1661;
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    auto devs = std::make_shared<device::Manager>();
+    Scanner scanner(ctx, t, devs);
+    const auto dev = local_device("busy", 1661, 2);
+    device::ConnectionConfig task_conn{"127.0.0.1", 1661};
+    task_conn.unit_id = 2;
+    auto task_dev = ASSERT_NIL_P(devs->acquire(task_conn));
+
+    scan(scanner, dev);
+    EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 1);
+    uint8_t bit = 0;
+    ASSERT_NIL(task_dev->read_bits(device::Coil, 0, 1, &bit));
+    const auto statuses = scan(scanner, dev);
+    EXPECT_EQ(statuses[0].status.value().variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 1);
+    scan(scanner, dev);
+    EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 2);
+}
+
+/// @brief it should report a device whose unit does not answer, even though its
+/// server accepts the connection.
+TEST(ScanTask, testScanReportsSilentUnit) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1662;
+    slave_cfg.silent_units = {5};
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+
+    const auto status = scan(scanner, local_device("silent", 1662, 5))[0]
+                            .status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Failed to reach device");
+    EXPECT_EQ(status.description, modbus_strerror(ETIMEDOUT));
+}
+
+/// @brief it should fail a connection test when the unit does not answer.
+TEST(ScanTask, testConnectionFailsForSilentUnit) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1663;
+    slave_cfg.silent_units = {5};
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    const auto dev = local_device("silent", 1663, 5);
+    synnax::task::Command cmd{
+        .task = t.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "test",
+        .args = {{"connection", dev.properties.at("connection")}},
+    };
+
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to connect to device");
+    EXPECT_EQ(ctx->statuses[0].description, modbus_strerror(ETIMEDOUT));
 }
 }

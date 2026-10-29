@@ -187,4 +187,50 @@ TEST(BitReader, UnreachableOmitsChannels) {
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
     EXPECT_EQ(err.data.find("valve"), std::string::npos);
 }
+
+/// @brief it should split registers into requests of at most the device's maximum.
+TEST(RegisterReader, SplitsAtMaxRegisters) {
+    testutil::SlaveConfig cfg;
+    cfg.port = 1636;
+    cfg.holding_registers[2] = static_cast<uint16_t>(33);
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1636}));
+
+    device::RequestConfig requests;
+    requests.max_registers = 2;
+    RegisterReader reader(
+        device::HoldingRegister,
+        {holding(1, 0, x::telem::UINT16_T, "a"),
+         holding(2, 1, x::telem::UINT16_T, "b"),
+         holding(3, 2, x::telem::UINT16_T, "c")},
+        requests
+    );
+    const auto [fr, err] = read_once(reader, dev);
+    ASSERT_NIL(err);
+    EXPECT_EQ(fr.at<uint16_t>(3, 0), 33);
+    EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 2);
+    slave.stop();
+}
+
+/// @brief it should split bits at a gap wider than the device's maximum gap.
+TEST(BitReader, SplitsAtMaxGap) {
+    testutil::SlaveConfig cfg;
+    cfg.port = 1637;
+    cfg.coils[0] = 1;
+    cfg.coils[10] = 1;
+    testutil::Slave slave(cfg);
+    ASSERT_NIL(slave.start());
+    auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1637}));
+
+    device::RequestConfig requests;
+    requests.max_gap = 5;
+    BitReader reader(device::Coil, {coil(1, 0, "a"), coil(2, 10, "b")}, requests);
+    const auto [fr, err] = read_once(reader, dev);
+    ASSERT_NIL(err);
+    EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
+    EXPECT_EQ(fr.at<uint8_t>(2, 0), 1);
+    EXPECT_EQ(slave.requests(MODBUS_FC_READ_COILS), 2);
+    slave.stop();
+}
 }

@@ -99,11 +99,12 @@ class RegisterReader final : public BaseReader<channel::InputRegister> {
 public:
     explicit RegisterReader(
         const device::RegisterType register_type,
-        const std::vector<channel::InputRegister> &chs
+        const std::vector<channel::InputRegister> &chs,
+        const device::RequestConfig &requests = {}
     ):
         BaseReader(chs),
         register_type(register_type),
-        blocks(block::plan(this->channels, MODBUS_MAX_READ_REGISTERS, true)),
+        blocks(block::plan(this->channels, requests.max_registers, requests.max_gap)),
         buffer(max_count(this->blocks)) {}
 
     x::errors::Error read(
@@ -153,11 +154,12 @@ class BitReader final : public BaseReader<channel::InputDiscrete> {
 public:
     explicit BitReader(
         const device::BitType bit_type,
-        const std::vector<channel::InputDiscrete> &channels
+        const std::vector<channel::InputDiscrete> &channels,
+        const device::RequestConfig &requests = {}
     ):
         BaseReader(channels),
         bit_type(bit_type),
-        blocks(block::plan(this->channels, MODBUS_MAX_READ_BITS, true)),
+        blocks(block::plan(this->channels, MODBUS_MAX_READ_BITS, requests.max_gap)),
         buffer(max_count(this->blocks)) {}
 
     x::errors::Error read(
@@ -199,9 +201,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     std::set<synnax::channel::Key> indexes;
     /// @brief the list of readers to use for reading data from the device.
     std::vector<std::unique_ptr<Reader>> readers;
-    /// @brief the connection configuration for the device.
-    /// Dynamically populated from device properties.
-    device::ConnectionConfig conn;
+    /// @brief the properties of the device. Dynamically populated at configure.
+    device::Properties props;
     /// @brief the number of samples per channel to read on each read() call.
     std::size_t samples_per_chan;
 
@@ -211,7 +212,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         device_key(std::move(other.device_key)),
         indexes(std::move(other.indexes)),
         readers(std::move(other.readers)),
-        conn(std::move(other.conn)),
+        props(std::move(other.props)),
         samples_per_chan(other.samples_per_chan) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
@@ -236,12 +237,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
-        auto conn_parser = x::json::Parser(dev.properties);
-        this->conn = device::ConnectionConfig(conn_parser.child("connection"));
-        if (conn_parser.error()) {
+        auto props_parser = x::json::Parser(dev.properties);
+        this->props = device::Properties(props_parser);
+        if (props_parser.error()) {
             cfg.field_err(
                 "device",
-                common::config_err_description(conn_parser.error())
+                common::config_err_description(props_parser.error())
             );
             return;
         }
@@ -274,7 +275,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     );
                     return;
                 }
-                holding_registers.emplace_back(*c, this->conn);
+                holding_registers.emplace_back(*c, this->props.connection);
             } else if (
                 const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
                     &parsed
@@ -287,7 +288,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     );
                     return;
                 }
-                input_registers.emplace_back(*c, this->conn);
+                input_registers.emplace_back(*c, this->props.connection);
             } else if (
                 const auto *c = std::get_if<::synnax::modbus::CoilReadChannel>(&parsed)
             )
@@ -328,29 +329,33 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         for (auto &ch: discrete_inputs)
             ch.ch = by_key.at(ch.synnax_key);
 
+        const auto &requests = this->props.requests;
         if (!holding_registers.empty())
             readers.push_back(
                 std::make_unique<RegisterReader>(
                     device::HoldingRegister,
-                    std::move(holding_registers)
+                    std::move(holding_registers),
+                    requests
                 )
             );
         if (!input_registers.empty())
             readers.push_back(
                 std::make_unique<RegisterReader>(
                     device::InputRegister,
-                    std::move(input_registers)
+                    std::move(input_registers),
+                    requests
                 )
             );
         if (!coils.empty())
             readers.push_back(
-                std::make_unique<BitReader>(device::Coil, std::move(coils))
+                std::make_unique<BitReader>(device::Coil, std::move(coils), requests)
             );
         if (!discrete_inputs.empty())
             readers.push_back(
                 std::make_unique<BitReader>(
                     device::DiscreteInput,
-                    std::move(discrete_inputs)
+                    std::move(discrete_inputs),
+                    requests
                 )
             );
     }
@@ -400,7 +405,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 class ReadTaskSource final : public common::Source {
     /// @brief the configuration for the task.
     const ReadTaskConfig config;
-    /// @brief creates the device connection on each start.
+    /// @brief shares the connection to the device with other tasks.
     const std::shared_ptr<device::Manager> devs;
     /// @brief the device to read from. Populated on start.
     std::shared_ptr<device::Device> dev;
@@ -414,10 +419,11 @@ public:
     ):
         config(std::move(cfg)), devs(devs), sample_clock(this->config.sample_rate) {}
 
-    /// @brief connects on every start so a server restart between runs cannot
-    /// leave the task reading from a dead socket.
     x::errors::Error start() override {
-        auto [d, err] = this->devs->acquire(this->config.conn);
+        auto [d, err] = this->devs->acquire(
+            this->config.props.connection,
+            this->config.props.requests
+        );
         if (err) return err;
         this->dev = std::move(d);
         return x::errors::NIL;

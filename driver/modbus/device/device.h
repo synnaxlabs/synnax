@@ -9,10 +9,16 @@
 
 #pragma once
 
+#include <chrono>
+#include <condition_variable>
+#include <cstdint>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <unordered_map>
 #include <utility>
 
-#include "absl/log/log.h"
 #ifdef _WIN32
 #include "vendor/libmodbus/modbus/modbus.h"
 #else
@@ -21,6 +27,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/errors/errors.h"
 
@@ -30,9 +37,14 @@ const x::errors::Error CRITICAL_ERROR = errors::CRITICAL_HARDWARE_ERROR.sub("mod
 /// @brief a fault that can clear on retry, such as a busy server or a gateway that
 /// cannot reach its target.
 const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub("modbus");
-/// @brief the connection failed, timed out, or lost sync. The device reconnects on the
-/// next request.
+/// @brief the unit did not answer: the connection failed, timed out, or lost sync, or
+/// the unit is demoted. The next request after a lost connection reconnects.
 const x::errors::Error UNREACHABLE = TEMPORARY_ERROR.sub("unreachable");
+
+/// @brief the timed-out attempts in a row that demote a unit.
+const std::size_t DEMOTE_AFTER = 3;
+/// @brief how long the requests of a demoted unit fail at once.
+const x::telem::TimeSpan DEMOTION = x::telem::SECOND * 10;
 
 /// @brief classifies a libmodbus or system error number.
 /// @param errnum the value of errno after a failed libmodbus call.
@@ -62,6 +74,24 @@ inline x::errors::Error classify(const int errnum) {
     }
 }
 
+/// @returns true if the error number is an exception response from the unit itself.
+/// Gateway exceptions 0A and 0B mean the unit did not answer.
+inline bool answered(const int errnum) {
+    switch (errnum) {
+        case EMBXILFUN:
+        case EMBXILADD:
+        case EMBXILVAL:
+        case EMBXSFAIL:
+        case EMBXACK:
+        case EMBXSBUSY:
+        case EMBXNACK:
+        case EMBXMEMPAR:
+            return true;
+        default:
+            return false;
+    }
+}
+
 /// @brief register tables of a Modbus server.
 enum RegisterType {
     InputRegister,
@@ -71,54 +101,344 @@ enum RegisterType {
 /// @brief bit tables of a Modbus server.
 enum BitType { Coil, DiscreteInput };
 
-/// @brief a connection to one Modbus TCP server. After a request fails with
-/// UNREACHABLE, the device closes its socket and reconnects on the next request. Not
-/// safe for concurrent use.
-class Device {
-    modbus_t *ctx;
-    bool connected = false;
+/// @brief the function codes a device writes with.
+enum class WriteCodes {
+    /// @brief FC15 and FC16, one request for each run of adjacent addresses.
+    Multiple,
+    /// @brief FC05 and FC06, one request for each coil or register.
+    Single,
+};
 
-    /// @brief runs the request, and runs it once more after a temporary fault. A
-    /// server drops idle sockets, so the first request on one can fail.
-    template<typename Request>
-    x::errors::Error exec(const Request &request) {
-        auto err = this->attempt(request);
-        if (err.matches(TEMPORARY_ERROR)) err = this->attempt(request);
-        return err;
+/// @brief the endpoint of a Modbus TCP server and the unit a device addresses on it.
+struct ConnectionConfig {
+    /// @brief the hostname, IPv4 address, or IPv6 address of the server.
+    std::string host;
+    /// @brief the TCP port of the server.
+    std::uint16_t port = 0;
+    /// @brief whether to swap the byte order within each 16-bit word.
+    bool swap_bytes = false;
+    /// @brief whether to swap the word order of 32-bit and larger values.
+    bool swap_words = false;
+    /// @brief the unit the device addresses. 255 addresses the server itself.
+    std::uint8_t unit_id = MODBUS_TCP_SLAVE;
+    /// @brief the connect and response timeout.
+    x::telem::TimeSpan timeout = x::telem::SECOND;
+    /// @brief the immediate retries of a request after a temporary fault.
+    std::size_t retries = 1;
+
+    ConnectionConfig() = default;
+
+    ConnectionConfig(
+        std::string host,
+        const std::uint16_t port,
+        const bool swap_bytes = false,
+        const bool swap_words = false
+    ):
+        host(std::move(host)),
+        port(port),
+        swap_bytes(swap_bytes),
+        swap_words(swap_words) {}
+
+    /// @brief parses the connection from its JSON representation. Absent optional
+    /// fields take their defaults.
+    explicit ConnectionConfig(x::json::Parser parser):
+        host(parser.field<std::string>("host")),
+        port(parser.field<std::uint16_t>("port")),
+        swap_bytes(parser.field<bool>("swap_bytes")),
+        swap_words(parser.field<bool>("swap_words")) {
+        if (const auto transport = parser.field<std::string>("transport", "tcp");
+            transport != "tcp")
+            parser.field_err("transport", "unsupported transport: " + transport);
+        const auto unit_id = parser.field<int>("unit_id", MODBUS_TCP_SLAVE);
+        if (unit_id < 0 || unit_id > 255)
+            parser.field_err("unit_id", "must be between 0 and 255");
+        else
+            this->unit_id = static_cast<std::uint8_t>(unit_id);
+        const auto timeout_ms = parser.field<int>("timeout_ms", 1000);
+        if (timeout_ms < 1 || timeout_ms > 60000)
+            parser.field_err("timeout_ms", "must be between 1 and 60000");
+        else
+            this->timeout = x::telem::MILLISECOND * timeout_ms;
+        const auto retries = parser.field<int>("retries", 1);
+        if (retries < 0 || retries > 10)
+            parser.field_err("retries", "must be between 0 and 10");
+        else
+            this->retries = static_cast<std::size_t>(retries);
     }
 
-    /// @brief connects if needed, runs the request, and closes the socket when the
-    /// request leaves the connection unusable.
-    template<typename Request>
-    x::errors::Error attempt(const Request &request) {
-        if (!this->connected) {
-            if (modbus_connect(this->ctx) == -1) return classify(errno);
-            this->connected = true;
+    /// @returns the JSON representation of the connection.
+    [[nodiscard]] x::json::json to_json() const {
+        return {
+            {"transport", "tcp"},
+            {"host", host},
+            {"port", port},
+            {"swap_bytes", swap_bytes},
+            {"swap_words", swap_words},
+            {"unit_id", unit_id},
+            {"timeout_ms", static_cast<int>(timeout.milliseconds())},
+            {"retries", retries},
+        };
+    }
+
+    /// @returns the key of the server that devices on it share a connection to.
+    [[nodiscard]] std::string endpoint() const {
+        return host + ":" + std::to_string(port);
+    }
+};
+
+/// @brief how a device plans and paces its requests.
+struct RequestConfig {
+    /// @brief the most registers one read covers.
+    std::size_t max_registers = MODBUS_MAX_READ_REGISTERS;
+    /// @brief the most unused addresses one read can span.
+    std::size_t max_gap = MODBUS_MAX_READ_REGISTERS;
+    /// @brief the function codes writes use.
+    WriteCodes write_codes = WriteCodes::Multiple;
+    /// @brief the wait between the end of one request on the connection and the start
+    /// of the next.
+    x::telem::TimeSpan delay;
+
+    RequestConfig() = default;
+
+    /// @brief parses the requests from their JSON representation. A missing object
+    /// takes every default.
+    explicit RequestConfig(x::json::Parser parser) {
+        const auto max_registers = parser.field<int>(
+            "max_registers",
+            MODBUS_MAX_READ_REGISTERS
+        );
+        if (max_registers < 1 || max_registers > MODBUS_MAX_READ_REGISTERS)
+            parser.field_err("max_registers", "must be between 1 and 125");
+        else
+            this->max_registers = static_cast<std::size_t>(max_registers);
+        const auto max_gap = parser.field<int>("max_gap", MODBUS_MAX_READ_REGISTERS);
+        if (max_gap < 0 || max_gap > 65535)
+            parser.field_err("max_gap", "must be between 0 and 65535");
+        else
+            this->max_gap = static_cast<std::size_t>(max_gap);
+        if (const auto codes = parser.field<std::string>("write_codes", "multiple");
+            codes == "single")
+            this->write_codes = WriteCodes::Single;
+        else if (codes != "multiple")
+            parser.field_err("write_codes", "must be multiple or single");
+        const auto delay_ms = parser.field<int>("delay_ms", 0);
+        if (delay_ms < 0 || delay_ms > 60000)
+            parser.field_err("delay_ms", "must be between 0 and 60000");
+        else
+            this->delay = x::telem::MILLISECOND * delay_ms;
+    }
+};
+
+/// @brief the properties of a Modbus server device.
+struct Properties {
+    /// @brief the endpoint and unit of the device.
+    ConnectionConfig connection;
+    /// @brief how the device plans and paces its requests.
+    RequestConfig requests;
+
+    Properties() = default;
+
+    explicit Properties(const x::json::Parser &parser):
+        connection(parser.child("connection")),
+        requests(parser.optional_child("requests")) {}
+};
+
+/// @brief a connection to one Modbus TCP endpoint, shared by every device on it.
+/// Requests take turns, and a waiting write goes before waiting reads. Safe for
+/// concurrent use.
+class Connection {
+public:
+    using Clock = std::chrono::steady_clock;
+
+private:
+    /// @brief the state of one unit behind the endpoint.
+    struct Unit {
+        /// @brief the timed-out attempts since the unit last answered.
+        std::size_t timeouts = 0;
+        /// @brief requests to the unit fail at once until this time.
+        Clock::time_point demoted_until;
+        /// @brief when the unit last answered, an exception included.
+        Clock::time_point last_reply;
+    };
+
+    modbus_t *ctx;
+    /// @brief guards busy, waiting_writes, and units.
+    std::mutex mu;
+    std::condition_variable released;
+    /// @brief whether a request holds the turn.
+    bool busy = false;
+    std::size_t waiting_writes = 0;
+    std::unordered_map<std::uint8_t, Unit> units;
+    /// @brief whether the socket is open. Touched only while holding the turn.
+    bool connected = false;
+    /// @brief whether a late reply to a timed-out request can still arrive. Touched
+    /// only while holding the turn.
+    bool stale = false;
+    /// @brief when the last request ended. Touched only while holding the turn.
+    Clock::time_point last_request;
+
+    /// @brief holds the connection for one request and its retries.
+    class Turn {
+        Connection &conn;
+
+    public:
+        Turn(Connection &conn, const bool write): conn(conn) {
+            std::unique_lock lock(conn.mu);
+            if (write) conn.waiting_writes++;
+            conn.released.wait(lock, [&] {
+                return !conn.busy && (write || conn.waiting_writes == 0);
+            });
+            if (write) conn.waiting_writes--;
+            conn.busy = true;
         }
-        if (request() != -1) return x::errors::NIL;
-        auto err = classify(errno);
-        if (err.matches(UNREACHABLE)) {
+
+        ~Turn() {
+            {
+                std::lock_guard lock(conn.mu);
+                conn.busy = false;
+            }
+            conn.released.notify_all();
+        }
+
+        Turn(const Turn &) = delete;
+        Turn &operator=(const Turn &) = delete;
+    };
+
+    /// @brief sends one attempt of a request.
+    /// @returns 0 on success, or the error number.
+    template<typename Request>
+    int attempt(const ConnectionConfig &cfg, const Request &request) {
+        const auto timeout = std::chrono::duration_cast<std::chrono::microseconds>(
+            cfg.timeout.chrono()
+        );
+        modbus_set_response_timeout(
+            this->ctx,
+            static_cast<std::uint32_t>(timeout.count() / 1000000),
+            static_cast<std::uint32_t>(timeout.count() % 1000000)
+        );
+        if (!this->connected) {
+            if (modbus_connect(this->ctx) == -1) return errno;
+            this->connected = true;
+            this->stale = false;
+        }
+        if (this->stale) {
+            modbus_flush(this->ctx);
+            this->stale = false;
+        }
+        if (modbus_set_slave(this->ctx, cfg.unit_id) == -1) return errno;
+        if (request(this->ctx) != -1) return 0;
+        const int errnum = errno;
+        if (errnum == ETIMEDOUT)
+            this->stale = true;
+        else if (classify(errnum).matches(UNREACHABLE)) {
             modbus_close(this->ctx);
             this->connected = false;
         }
-        return err;
+        return errnum;
+    }
+
+    /// @returns UNREACHABLE if the unit is demoted, and NIL otherwise.
+    x::errors::Error demoted(const std::uint8_t unit_id) {
+        std::lock_guard lock(this->mu);
+        if (Clock::now() >= this->units[unit_id].demoted_until) return x::errors::NIL;
+        return {
+            UNREACHABLE,
+            "unit " + std::to_string(unit_id) + " timed out " +
+                std::to_string(DEMOTE_AFTER) + " times in a row, so its requests " +
+                "fail for " + std::to_string(static_cast<int>(DEMOTION.seconds())) +
+                " s"
+        };
+    }
+
+    /// @brief records a reply from the unit.
+    void replied(const std::uint8_t unit_id) {
+        std::lock_guard lock(this->mu);
+        auto &unit = this->units[unit_id];
+        unit.timeouts = 0;
+        unit.last_reply = Clock::now();
+    }
+
+    /// @brief records a timed-out attempt and demotes the unit after DEMOTE_AFTER in
+    /// a row.
+    /// @returns true if the unit is now demoted.
+    bool timed_out(const std::uint8_t unit_id) {
+        std::lock_guard lock(this->mu);
+        auto &unit = this->units[unit_id];
+        if (++unit.timeouts < DEMOTE_AFTER) return false;
+        unit.timeouts = 0;
+        unit.demoted_until = Clock::now() + DEMOTION.chrono();
+        return true;
     }
 
 public:
     /// @brief takes ownership of a context created by modbus_new_tcp_pi.
-    /// @param ctx the libmodbus context.
-    /// @param connected whether the context has an open connection.
-    explicit Device(modbus_t *ctx, const bool connected):
-        ctx(ctx), connected(connected) {}
+    explicit Connection(modbus_t *ctx): ctx(ctx) {}
 
-    ~Device() {
+    ~Connection() {
         modbus_close(this->ctx);
         modbus_free(this->ctx);
     }
 
-    Device(const Device &) = delete;
+    Connection(const Connection &) = delete;
+    Connection &operator=(const Connection &) = delete;
 
-    Device &operator=(const Device &) = delete;
+    /// @brief runs a request for a unit, connecting first if needed. A temporary fault
+    /// retries at once, up to cfg.retries times. After a timeout, the next request
+    /// first discards any late reply. Any other lost connection closes the socket. A
+    /// unit with DEMOTE_AFTER timed-out attempts in a row is demoted for DEMOTION.
+    /// @param cfg the unit, timeout, and retries of the request.
+    /// @param delay the wait after the previous request on the connection.
+    /// @param write whether the request goes before waiting reads.
+    /// @param request sends the request on the context and returns -1 on failure.
+    /// @returns NIL, or the classified error of the last attempt.
+    template<typename Request>
+    x::errors::Error exec(
+        const ConnectionConfig &cfg,
+        const x::telem::TimeSpan delay,
+        const bool write,
+        const Request &request
+    ) {
+        Turn turn(*this, write);
+        if (auto err = this->demoted(cfg.unit_id)) return err;
+        for (std::size_t i = 0;; i++) {
+            if (delay > x::telem::TimeSpan(0))
+                std::this_thread::sleep_until(this->last_request + delay.chrono());
+            const int errnum = this->attempt(cfg, request);
+            this->last_request = Clock::now();
+            if (errnum == 0 || answered(errnum)) this->replied(cfg.unit_id);
+            if (errnum == 0) return x::errors::NIL;
+            if (errnum == ETIMEDOUT && this->timed_out(cfg.unit_id))
+                return this->demoted(cfg.unit_id);
+            auto err = classify(errnum);
+            if (!err.matches(TEMPORARY_ERROR) || i >= cfg.retries) return err;
+        }
+    }
+
+    /// @returns when the unit last answered a request, an exception included.
+    Clock::time_point last_reply(const std::uint8_t unit_id) {
+        std::lock_guard lock(this->mu);
+        return this->units[unit_id].last_reply;
+    }
+};
+
+/// @brief one unit on a shared connection. Safe for concurrent use.
+class Device {
+    std::shared_ptr<Connection> conn;
+    ConnectionConfig cfg;
+    RequestConfig requests;
+
+    template<typename Request>
+    x::errors::Error exec(const bool write, const Request &request) {
+        return this->conn->exec(this->cfg, this->requests.delay, write, request);
+    }
+
+public:
+    Device(
+        std::shared_ptr<Connection> conn,
+        ConnectionConfig cfg,
+        RequestConfig requests
+    ):
+        conn(std::move(conn)), cfg(std::move(cfg)), requests(requests) {}
 
     /// @brief reads from the bit-address space of the device.
     /// @param type the table to read from.
@@ -128,9 +448,9 @@ public:
     x::errors::Error
     read_bits(const BitType type, const int addr, const size_t nb, uint8_t *dest) {
         const int n = static_cast<int>(nb);
-        return this->exec([&] {
-            if (type == Coil) return modbus_read_bits(this->ctx, addr, n, dest);
-            return modbus_read_input_bits(this->ctx, addr, n, dest);
+        return this->exec(false, [&](modbus_t *ctx) {
+            if (type == Coil) return modbus_read_bits(ctx, addr, n, dest);
+            return modbus_read_input_bits(ctx, addr, n, dest);
         });
     }
 
@@ -146,99 +466,97 @@ public:
         uint16_t *dest
     ) {
         const int n = static_cast<int>(nb);
-        return this->exec([&] {
+        return this->exec(false, [&](modbus_t *ctx) {
             if (type == HoldingRegister)
-                return modbus_read_registers(this->ctx, addr, n, dest);
-            return modbus_read_input_registers(this->ctx, addr, n, dest);
+                return modbus_read_registers(ctx, addr, n, dest);
+            return modbus_read_input_registers(ctx, addr, n, dest);
         });
     }
 
-    /// @brief writes to the coils of the device with function code 15.
+    /// @brief writes to the coils of the device, with function code 15, or 05 for
+    /// each coil when the device writes with single codes.
     /// @param addr the address to start writing to.
     /// @param nb the number of bits to write.
     /// @param src the source buffer, at least nb bytes long.
     x::errors::Error write_bits(const int addr, const size_t nb, const uint8_t *src) {
-        return this->exec([&] {
-            return modbus_write_bits(this->ctx, addr, static_cast<int>(nb), src);
+        const bool single = this->requests.write_codes == WriteCodes::Single;
+        return this->exec(true, [&](modbus_t *ctx) {
+            if (!single) return modbus_write_bits(ctx, addr, static_cast<int>(nb), src);
+            for (std::size_t i = 0; i < nb; i++)
+                if (modbus_write_bit(ctx, addr + static_cast<int>(i), src[i]) == -1)
+                    return -1;
+            return static_cast<int>(nb);
         });
     }
 
-    /// @brief writes to the holding registers of the device with function code 16.
+    /// @brief writes to the holding registers of the device, with function code 16, or
+    /// 06 for each register when the device writes with single codes.
     /// @param addr the address to start writing to.
     /// @param nb the number of registers to write.
     /// @param src the source buffer, at least nb registers long.
     x::errors::Error
     write_registers(const int addr, const size_t nb, const uint16_t *src) {
-        return this->exec([&] {
-            return modbus_write_registers(this->ctx, addr, static_cast<int>(nb), src);
+        const bool single = this->requests.write_codes == WriteCodes::Single;
+        return this->exec(true, [&](modbus_t *ctx) {
+            if (!single)
+                return modbus_write_registers(ctx, addr, static_cast<int>(nb), src);
+            for (std::size_t i = 0; i < nb; i++)
+                if (modbus_write_register(ctx, addr + static_cast<int>(i), src[i]) ==
+                    -1)
+                    return -1;
+            return static_cast<int>(nb);
         });
     }
-};
 
-/// @brief Configuration for a Modbus TCP/IP connection
-struct ConnectionConfig {
-    /// @brief The hostname or IP address of the Modbus server
-    std::string host;
-    /// @brief The TCP port of the Modbus server (default is 502)
-    uint16_t port = 0;
-    /// @brief Whether to swap the byte order within each 16-bit word (endianness)
-    bool swap_bytes = false;
-    /// @brief Whether to swap the word order for 32-bit and larger values
-    bool swap_words = false;
+    /// @brief checks that the unit answers by reading the holding register at
+    /// address 0.
+    /// @returns NIL if the unit replied, an exception included, and the error of the
+    /// request otherwise.
+    x::errors::Error probe() {
+        const auto start = Connection::Clock::now();
+        std::uint16_t value = 0;
+        const auto err = this->read_registers(HoldingRegister, 0, 1, &value);
+        if (!err || this->last_reply() >= start) return x::errors::NIL;
+        return err;
+    }
 
-    ConnectionConfig() = default;
-
-    ConnectionConfig(
-        std::string host,
-        const uint16_t port,
-        const bool swap_bytes = false,
-        const bool swap_words = false
-    ):
-        host(std::move(host)),
-        port(port),
-        swap_bytes(swap_bytes),
-        swap_words(swap_words) {}
-
-    /// @brief constructs a ConnectionConfig from a JSON object.
-    explicit ConnectionConfig(x::json::Parser parser):
-        host(parser.field<std::string>("host")),
-        port(parser.field<uint16_t>("port")),
-        swap_bytes(parser.field<bool>("swap_bytes")),
-        swap_words(parser.field<bool>("swap_words")) {}
-
-    /// @brief returns the JSON representation of the configuration.
-    [[nodiscard]] x::json::json to_json() const {
-        return {
-            {"host", host},
-            {"port", port},
-            {"swap_bytes", swap_bytes},
-            {"swap_words", swap_words}
-        };
+    /// @returns when the unit last answered a request on the shared connection.
+    [[nodiscard]] Connection::Clock::time_point last_reply() const {
+        return this->conn->last_reply(this->cfg.unit_id);
     }
 };
 
-/// @brief creates connections to Modbus servers.
+/// @brief shares one connection among the devices on each endpoint. Safe for
+/// concurrent use.
 class Manager {
+    std::mutex mu;
+    std::unordered_map<std::string, std::weak_ptr<Connection>> connections;
+
 public:
     Manager() = default;
 
-    /// @brief acquires a new connection to a Modbus server, returning an error if the
-    /// server could not be connected to.
-    /// @param config - the configuration for the connection.
-    /// @note Each call creates a fresh connection. Connections are not cached or shared
-    /// to avoid thread-safety issues (libmodbus is not thread-safe) and stale
-    /// connection problems when servers restart.
+    /// @brief returns a device on the shared connection to its endpoint. The
+    /// connection lives while any device on it does. Acquiring does not connect: the
+    /// first request does.
+    /// @param cfg the endpoint and unit of the device.
+    /// @param requests how the device plans and paces its requests.
     std::pair<std::shared_ptr<Device>, x::errors::Error>
-    acquire(const ConnectionConfig &config) {
-        const auto port = std::to_string(config.port);
-        auto *ctx = modbus_new_tcp_pi(config.host.c_str(), port.c_str());
-        if (ctx == nullptr) return {nullptr, classify(errno)};
-        if (modbus_connect(ctx) == -1) {
-            auto err = classify(errno);
-            modbus_free(ctx);
-            return {nullptr, err};
+    acquire(const ConnectionConfig &cfg, const RequestConfig &requests = {}) {
+        std::lock_guard lock(this->mu);
+        std::erase_if(this->connections, [](const auto &entry) {
+            return entry.second.expired();
+        });
+        auto &entry = this->connections[cfg.endpoint()];
+        auto conn = entry.lock();
+        if (conn == nullptr) {
+            const auto port = std::to_string(cfg.port);
+            auto *ctx = modbus_new_tcp_pi(cfg.host.c_str(), port.c_str());
+            if (ctx == nullptr) return {nullptr, classify(errno)};
+            modbus_enable_quirks(ctx, MODBUS_QUIRK_MAX_SLAVE);
+            conn = std::make_shared<Connection>(ctx);
+            entry = conn;
         }
-        return {std::make_shared<Device>(ctx, true), x::errors::NIL};
+        return {std::make_shared<Device>(conn, cfg, requests), x::errors::NIL};
     }
 };
 }

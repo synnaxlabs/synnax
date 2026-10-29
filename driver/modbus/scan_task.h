@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -41,8 +42,9 @@ struct ScanCommandArgs {
         connection(device::ConnectionConfig(parser.child("connection"))) {}
 };
 
-/// @brief Modbus scanner implementing the common::Scanner interface.
-/// Handles device health monitoring for Modbus devices.
+/// @brief Modbus scanner implementing the common::Scanner interface. It checks each
+/// device on the connection its tasks share, and keeps that connection open between
+/// scans.
 class Scanner final : public common::Scanner {
 public:
     Scanner(
@@ -66,15 +68,30 @@ public:
     ) override;
 
 private:
+    /// @brief a device the scanner checks, held between scans.
+    struct Check {
+        /// @brief the device on its shared connection.
+        std::shared_ptr<device::Device> dev;
+        /// @brief when the scanner last checked the device.
+        device::Connection::Clock::time_point time;
+    };
+
     std::shared_ptr<task::Context> ctx;
     synnax::task::Task task;
     std::shared_ptr<device::Manager> devices;
+    /// @brief the devices of the last scan, by key. Touched only by scan.
+    std::unordered_map<std::string, Check> checks;
 
     /// @brief Test connection to a Modbus server.
     void test_connection(const synnax::task::Command &cmd) const;
 
-    /// @brief Check health of a single device by testing its connection.
-    /// Sets dev.status based on connection result.
-    void check_device_health(synnax::device::Device &dev) const;
+    /// @brief sets the status of a device. A device that answered a task since the
+    /// last scan is healthy. Otherwise the scanner probes it.
+    /// @param dev the device to check.
+    /// @param next the checks of the current scan, which the device's check joins.
+    void check_device_health(
+        synnax::device::Device &dev,
+        std::unordered_map<std::string, Check> &next
+    ) const;
 };
 }

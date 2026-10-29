@@ -668,7 +668,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     wt->stop("stop_cmd", true);
 }
 
-/// @brief it should retry a command once on a new connection after the server drops the
+/// @brief it should retry a command on a new connection after the server drops the
 /// old one.
 TEST_F(ModbusWriteTest, testRetriesAfterDroppedConnection) {
     this->setup_task_config();
