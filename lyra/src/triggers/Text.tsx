@@ -80,8 +80,9 @@ export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
   sortTriggers(trigger).map(getCustomText);
 
 /**
- * Renders a label followed by its shortcut as one chip of keys, with the platform's own modifier
- * symbols. A trigger the {@link Provider} reserves shows only its label, or nothing.
+ * Renders a label followed by its shortcut as one chip of keys, with the platform's
+ * own modifier symbols. A trigger the {@link Provider} reserves shows only its label,
+ * or nothing.
  *
  * @example <Triggers.Text trigger={["Control", "S"]}>Save</Triggers.Text>
  */

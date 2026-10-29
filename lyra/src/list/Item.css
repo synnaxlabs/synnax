@@ -55,8 +55,9 @@
         background: var(--pluto-gray-l4);
     }
 
-    /* A list prints its shortcuts as plain text, a step dimmer than the label. */
-    & .pluto-triggers__keys {
+    /* A list prints its shortcuts as plain text, a step dimmer than the label. The
+       extra .pluto-text outranks the chip and gap defaults. */
+    & .pluto-triggers__keys.pluto-text {
         --pluto-keycap-bg: none;
         --pluto-keycap-border-color: transparent;
         --pluto-keycap-color: var(--pluto-gray-l8);
@@ -66,7 +67,7 @@
         padding: 0;
     }
 
-    & .pluto-text--keyboard {
+    & .pluto-text.pluto-text--keyboard {
         min-width: 0;
     }
 }
