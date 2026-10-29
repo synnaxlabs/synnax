@@ -143,7 +143,7 @@ A series is a list of values of one primitive type, such as `series f64`.
 | Arithmetic     | `data * 2.0`         | A new series, element by element |
 | Comparison     | `data > 2.0`         | A `series bool`                  |
 | Logical        | `not mask`           | A `series bool`                  |
-| Loop           | `for x := data( )`   | Each element in turn             |
+| Loop           | `for x := data { }`  | Each element in turn             |
 
 ```arc bodies="peak"
 func peak() f64 {

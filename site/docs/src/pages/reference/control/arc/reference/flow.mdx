@@ -47,13 +47,13 @@ transition fires, see
 
 The first node of a flow is its source.
 
-| Source                              | Example                                                                     |
-| ----------------------------------- | --------------------------------------------------------------------------- |
-| Channel                             | `tank_pt -> tank_pt_copy`                                                   |
-| Expression, function calls included | `(ox_pt + fuel_pt) / 2.0 -> avg_pt`, `median3(pt_1, pt_2, pt_3) -> tank_pt` |
-| Literal                             | `1 -> press_vlv_cmd`                                                        |
-| Variable                            | `target -> setpoint_cmd`                                                    |
-| Function instance                   | `time.interval(period=1s) -> tick`                                          |
+| Source                              | Example                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| Channel                             | `tank_pt -> tank_pt_copy`                                                     |
+| Expression, function calls included | `(ox_pt + fuel_pt) / 2.0 -> avg_pt`, `(median3(pt_1, pt_2, pt_3)) -> tank_pt` |
+| Literal                             | `1 -> press_vlv_cmd`                                                          |
+| Variable                            | `target -> setpoint_cmd`                                                      |
+| Function instance                   | `time.interval(period=1s) -> tick`                                            |
 
 An expression source reads each channel in it. A literal source runs once when the
 automation starts, or each time its stage starts. See

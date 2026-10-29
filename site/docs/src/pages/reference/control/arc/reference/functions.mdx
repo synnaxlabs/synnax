@@ -114,13 +114,14 @@ the body never assigns gives the warning
 
 ## Calls
 
-| Where                | Example                                | Arguments                                                        |
-| -------------------- | -------------------------------------- | ---------------------------------------------------------------- |
-| Flow                 | `tank_pt -> scale(k=6.895)`            | Upstream fills the first trigger. The parentheses fill the rest. |
-| Expression in a flow | `median3(pt_1, pt_2, pt_3) -> tank_pt` | By position: inputs, then triggers.                              |
-| Function body        | `scale(6.895, v)`                      | By position: inputs, then triggers.                              |
+| Where                | Example                                  | Arguments                                                        |
+| -------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
+| Flow                 | `tank_pt -> scale(k=6.895)`              | Upstream fills the first trigger. The parentheses fill the rest. |
+| Expression in a flow | `(median3(pt_1, pt_2, pt_3)) -> tank_pt` | By position: inputs, then triggers.                              |
+| Function body        | `scale(6.895, v)`                        | By position: inputs, then triggers.                              |
 
-An expression call reads each channel in its arguments:
+In a flow, a bare `name(...)` is a function instance. Put an expression call in
+parentheses. It reads each channel in its arguments:
 
 ```arc channels="pt_1, pt_2, pt_3, tank_pt" bodies="median3"
 func median3() {a f64, b f64, c f64} f64 {
@@ -132,7 +133,7 @@ func median3() {a f64, b f64, c f64} f64 {
     return c
 }
 
-median3(pt_1, pt_2, pt_3) -> tank_pt
+(median3(pt_1, pt_2, pt_3)) -> tank_pt
 ```
 
 A function can call itself. The compiler finds some recursion that never ends, such as
