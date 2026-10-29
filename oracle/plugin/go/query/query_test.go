@@ -1008,8 +1008,6 @@ var _ = Describe("Go Query Plugin", func() {
 							"var indexes",
 							"newUsernameIndex",
 							"ByUsername",
-							"OrderByUsername",
-							"gorp.NewSortedIndex",
 							"slices.Contains(vals",
 						)
 				},
@@ -1049,7 +1047,7 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 
 			It(
-				"Should generate a sorted index with Order closure type and OrderByX free function",
+				"Should reject a sorted index",
 				func(ctx SpecContext) {
 					source := `
 					@go output "core/pkg/service/event"
@@ -1059,36 +1057,16 @@ var _ = Describe("Go Query Plugin", func() {
 							@key
 						}
 						created_at int64 {
-							@filter scalar
 							@index sorted
 						}
 						@ontology type "event"
 						@retrieve
 					}
 				`
-					resp := MustGenerate(ctx, source, "event", loader, p)
-					ExpectContent(resp, "retrieve.gen.go").
-						ToContain(
-							"createdAt *gorp.SortedIndex[uuid.UUID, Event, int64]",
-							"createdAt: gorp.NewSortedIndex[uuid.UUID, Event, int64](",
-							"\"created_at\"",
-							"func(e *Event) int64 { return e.CreatedAt }",
-							"func MatchCreatedAt(v int64) Filter",
-							"return r.indexes.createdAt.Filter(v)",
-							"type Order func(r Retrieve) gorp.OrderQuery[uuid.UUID, Event]",
-							"func (r Retrieve) OrderBy(o Order) Retrieve",
-							"r.gorp = r.gorp.OrderBy(o(r))",
-							"func OrderByCreatedAt(dir gorp.Direction, cursor ...int64) Order",
-							"q := r.indexes.createdAt.Ordered(dir)",
-							"q = q.After(cursor[0])",
-						).
-						ToNotContain(
-							"newCreatedAtIndex",
-							"var createdAtIndex",
-							"func ByCreatedAt(",
-							"func (r Retrieve) OrderByCreatedAt",
-							"func OrderByCreatedAt(dir gorp.Direction) gorp.OrderBy",
-						)
+					req := MustGenerateRequest(ctx, source, "event", loader)
+					Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+						"@index sorted is not supported (created_at)",
+					)))
 				},
 			)
 
