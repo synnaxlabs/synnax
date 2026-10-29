@@ -1,0 +1,30 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+---
+
+<script is:inline data-astro-rerun>
+    // Marks the reader's platform on the root before the body paints, so keys print in
+    // its own symbols. A platform the URL names wins over the browser's own. The client
+    // router skips an inline script whose text already ran, so data-astro-rerun runs it
+    // after every navigation.
+    (() => {
+        const named = new URLSearchParams(location.search).get("platform");
+        const agent = navigator.userAgent.toLowerCase();
+        const own = agent.includes("mac")
+            ? "macOS"
+            : agent.includes("win")
+              ? "Windows"
+              : agent.includes("linux")
+                ? "Linux"
+                : null;
+        const os = ["macOS", "Windows", "Linux"].includes(named) ? named : own;
+        if (os != null) document.documentElement.dataset.os = os;
+    })();
+</script>

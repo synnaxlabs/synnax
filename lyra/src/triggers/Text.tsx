@@ -22,16 +22,14 @@ import { type Key, type Trigger } from "@/triggers/triggers";
 /** Props for {@link Text}. */
 export type TextProps<E extends Generic.ElementType = "p"> = Base.TextProps<E> & {
   trigger: Trigger;
+  /** The platform whose keys to print. Defaults to the platform the page runs on. */
+  os?: runtime.OS;
 };
 
-const isWindows = runtime.getOS() == "Windows";
+// Windows and Linux print modifiers as words. An unknown platform prints macOS symbols.
+const isMac = (os?: runtime.OS): boolean => os !== "Windows" && os !== "Linux";
 
-const Control = isWindows ? Icon.Keyboard.Control : Icon.Keyboard.Command;
-const Alt = isWindows ? () => "Alt" : Icon.Keyboard.Option;
-
-const CUSTOM_TEXT: Partial<Record<Key, ReactElement | string>> = {
-  Control: <Control key="control" />,
-  Alt: <Alt key="alt" />,
+const SHARED_TEXT: Partial<Record<Key, ReactElement | string>> = {
   Shift: <Icon.Keyboard.Shift key="shift" />,
   MouseLeft: <Icon.Click key="mouse" />,
   MouseRight: <Icon.Click key="mouse" />,
@@ -43,8 +41,6 @@ const CUSTOM_TEXT: Partial<Record<Key, ReactElement | string>> = {
   ArrowRight: <Icon.Keyboard.Arrow.Right key="arrow-right" />,
   Escape: "Esc",
   Delete: "Delete",
-  // Apple labels the backspace key "delete".
-  Backspace: isWindows ? "Backspace" : "Delete",
   Tab: "Tab",
   Space: "Space",
   CapsLock: "Caps Lock",
@@ -56,28 +52,45 @@ const CUSTOM_TEXT: Partial<Record<Key, ReactElement | string>> = {
   Minus: "-",
 };
 
-const getCustomText = (trigger: Key): ReactElement | string =>
-  CUSTOM_TEXT[trigger] ?? trigger;
+const MAC_TEXT: Partial<Record<Key, ReactElement | string>> = {
+  ...SHARED_TEXT,
+  Control: <Icon.Keyboard.Command key="control" />,
+  Alt: <Icon.Keyboard.Option key="alt" />,
+  // Apple labels the backspace key "delete".
+  Backspace: "Delete",
+};
+
+const PC_TEXT: Partial<Record<Key, ReactElement | string>> = {
+  ...SHARED_TEXT,
+  Control: <Icon.Keyboard.Control key="control" />,
+  Alt: "Alt",
+  Backspace: "Backspace",
+};
 
 const isMouseTrigger = (trigger: Key): boolean =>
   trigger === "MouseLeft" || trigger === "MouseRight" || trigger === "MouseMiddle";
 
 // macOS modifiers lead in Apple's order, ⌃ ⌥ ⇧ ⌘, where Control prints as ⌘. Windows
-// keeps the declared order. Mouse buttons always trail.
+// and Linux keep the declared order. Mouse buttons always trail.
 const MAC_MODIFIERS: Key[] = ["Alt", "Shift", "Control"];
 
-const rank = (key: Key): number => {
+const rank = (key: Key, mac: boolean): number => {
   if (isMouseTrigger(key)) return MAC_MODIFIERS.length + 1;
-  const i = isWindows ? -1 : MAC_MODIFIERS.indexOf(key);
+  const i = mac ? MAC_MODIFIERS.indexOf(key) : -1;
   return i === -1 ? MAC_MODIFIERS.length : i;
 };
 
-const sortTriggers = (trigger: Trigger): Trigger =>
-  [...trigger].sort((a, b) => rank(a) - rank(b));
-
-/** @returns the icons and letters a trigger reads as, per the current platform. */
-export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
-  sortTriggers(trigger).map(getCustomText);
+/** @returns the icons and letters a trigger reads as on the platform. */
+export const toSymbols = (
+  trigger: Trigger,
+  os: runtime.OS | undefined = runtime.getOS(),
+): (ReactElement | string)[] => {
+  const mac = isMac(os);
+  const text = mac ? MAC_TEXT : PC_TEXT;
+  return [...trigger]
+    .sort((a, b) => rank(a, mac) - rank(b, mac))
+    .map((key) => text[key] ?? key);
+};
 
 /**
  * Renders a label followed by its shortcut as one chip of keys, with the platform's
@@ -90,6 +103,7 @@ export const Text = <E extends Generic.ElementType = "p">({
   trigger,
   children,
   level,
+  os = runtime.getOS(),
   ...rest
 }: TextProps<E>): ReactElement | null => {
   const reserved = useReserved(trigger);
@@ -104,9 +118,9 @@ export const Text = <E extends Generic.ElementType = "p">({
           el="span"
           gap="tiny"
         >
-          {sortTriggers(trigger).map((t) => (
-            <Base.Text key={t} el="span" variant="keyboard" level={level}>
-              {getCustomText(t)}
+          {toSymbols(trigger, os).map((symbol, i) => (
+            <Base.Text key={i} el="span" variant="keyboard" level={level}>
+              {symbol}
             </Base.Text>
           ))}
         </Base.Text>

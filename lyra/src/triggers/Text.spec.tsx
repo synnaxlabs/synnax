@@ -68,7 +68,7 @@ describe("Text", () => {
     expect(container.textContent).toBe("Esc");
   });
 
-  describe("modifier order", () => {
+  describe("platform", () => {
     afterEach(() => {
       vi.restoreAllMocks();
       vi.resetModules();
@@ -82,37 +82,39 @@ describe("Text", () => {
       cap.textContent ??
       "";
 
-    const renderOn = async (
-      userAgent: string,
-      trigger: Triggers.Trigger,
-    ): Promise<string[]> => {
-      vi.resetModules();
-      vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
-      const reloaded = await import("@/triggers");
-      const { container } = render(<reloaded.Triggers.Text trigger={trigger} />);
-      return Array.from(container.querySelectorAll(".lyra-text--keyboard"), capName);
-    };
+    const capsOf = (container: HTMLElement): string[] =>
+      Array.from(container.querySelectorAll(".lyra-text--keyboard"), capName);
 
     const MIXED: Triggers.Trigger = ["MouseLeft", "Control", "K", "Shift", "Alt"];
 
-    it("should follow Apple's order on macOS", async () => {
-      expect(await renderOn("Macintosh", MIXED)).toEqual([
-        "option",
-        "shift",
-        "command",
-        "K",
-        "click",
-      ]);
+    it("should follow Apple's order and symbols on macOS", () => {
+      const { container } = render(<Triggers.Text trigger={MIXED} os="macOS" />);
+      expect(capsOf(container)).toEqual(["option", "shift", "command", "K", "click"]);
     });
 
-    it("should keep the declared order on Windows, with the mouse last", async () => {
-      expect(await renderOn("Windows", MIXED)).toEqual([
-        "control",
-        "K",
-        "shift",
-        "Alt",
-        "click",
-      ]);
+    it("should keep the declared order on Windows, with the mouse last", () => {
+      const { container } = render(<Triggers.Text trigger={MIXED} os="Windows" />);
+      expect(capsOf(container)).toEqual(["control", "K", "shift", "Alt", "click"]);
+    });
+
+    it("should print Linux keys the way Windows prints them", () => {
+      const { container } = render(<Triggers.Text trigger={MIXED} os="Linux" />);
+      expect(capsOf(container)).toEqual(["control", "K", "shift", "Alt", "click"]);
+    });
+
+    it("should name the backspace key the way each platform labels it", () => {
+      const mac = render(<Triggers.Text trigger={["Backspace"]} os="macOS" />);
+      expect(mac.container.textContent).toBe("Delete");
+      const windows = render(<Triggers.Text trigger={["Backspace"]} os="Windows" />);
+      expect(windows.container.textContent).toBe("Backspace");
+    });
+
+    it("should print the keys of the platform the page runs on by default", async () => {
+      vi.resetModules();
+      vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue("Macintosh");
+      const reloaded = await import("@/triggers");
+      const { container } = render(<reloaded.Triggers.Text trigger={MIXED} />);
+      expect(capsOf(container)).toEqual(["option", "shift", "command", "K", "click"]);
     });
   });
 });
