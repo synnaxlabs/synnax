@@ -18,7 +18,7 @@ const makeZ = z.literal(MAKE);
 const modelZ = z.literal("Modbus");
 
 const WRITE_CODES = ["multiple", "single"] as const;
-export const writeCodesZ = z.enum(WRITE_CODES);
+const writeCodesZ = z.enum(WRITE_CODES);
 export type WriteCodes = z.infer<typeof writeCodesZ>;
 
 const ZERO_CONNECTION = {
@@ -106,8 +106,7 @@ export const SCHEMAS = {
  * the most significant byte. A one-register value uses the first two letters.
  */
 export const BYTE_ORDERS = ["ABCD", "BADC", "CDAB", "DCBA"] as const;
-export const byteOrderZ = z.enum(BYTE_ORDERS);
-export type ByteOrder = z.infer<typeof byteOrderZ>;
+export type ByteOrder = (typeof BYTE_ORDERS)[number];
 
 interface Swaps {
   swapBytes: boolean;
