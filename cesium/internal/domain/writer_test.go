@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -621,7 +622,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								ctx,
 								domain.WriterConfig{
 									Start:                    10 * telem.SecondTS,
-									AutoIndexPersistInterval: domain.AlwaysIndexPersistOnAutoCommit,
+									AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 								},
 							),
 						)
