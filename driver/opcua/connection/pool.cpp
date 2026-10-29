@@ -790,8 +790,8 @@ void on_change(
         ->handle_change(*static_cast<const std::size_t *>(node), *value);
 }
 
-/// @brief runs when the client gets no publish response for a keep-alive period and
-/// its request timeout.
+/// @brief runs when the client gets no publish response for a keep-alive period and its
+/// request timeout.
 void on_inactive(UA_Client *, UA_UInt32, void *subscription) {
     static_cast<Subscription *>(subscription)->status = UA_STATUSCODE_BADTIMEOUT;
 }
@@ -1002,8 +1002,8 @@ Pool::Connection::read_history(const UA_HistoryReadRequest &req) const {
         if (auto err = errors::parse(raw.responseHeader.serviceResult))
             return {std::move(res), err};
         this->pool_->replied(this->key_);
-        this->release(raw);
         auto err = check_results(raw.resultsSize, total);
+        if (!err) this->release(req, raw);
         return {std::move(res), err};
     }
     types::HistoryReadResponse merged;
@@ -1025,13 +1025,16 @@ Pool::Connection::read_history(const UA_HistoryReadRequest &req) const {
     return {std::move(merged), x::errors::NIL};
 }
 
-void Pool::Connection::release(const UA_HistoryReadResponse &res) const {
+void Pool::Connection::release(
+    const UA_HistoryReadRequest &req,
+    const UA_HistoryReadResponse &res
+) const {
     if (lost(this->get())) return;
     std::vector<UA_HistoryReadValueId> held;
     for (size_t i = 0; i < res.resultsSize; ++i)
         if (res.results[i].continuationPoint.length > 0) {
-            UA_HistoryReadValueId id;
-            UA_HistoryReadValueId_init(&id);
+            // A server can check the node before it finds the point.
+            UA_HistoryReadValueId id = req.nodesToRead[i];
             id.continuationPoint = res.results[i].continuationPoint;
             held.push_back(id);
         }
@@ -1039,20 +1042,23 @@ void Pool::Connection::release(const UA_HistoryReadResponse &res) const {
     // Releasing needs no details, but the request must name their type.
     UA_ReadRawModifiedDetails details;
     UA_ReadRawModifiedDetails_init(&details);
-    UA_HistoryReadRequest req;
-    UA_HistoryReadRequest_init(&req);
+    UA_HistoryReadRequest release_req;
+    UA_HistoryReadRequest_init(&release_req);
     UA_ExtensionObject_setValueNoDelete(
-        &req.historyReadDetails,
+        &release_req.historyReadDetails,
         &details,
         &UA_TYPES[UA_TYPES_READRAWMODIFIEDDETAILS]
     );
-    req.releaseContinuationPoints = true;
-    req.nodesToRead = held.data();
-    req.nodesToReadSize = held.size();
-    auto released = UA_Client_Service_historyRead(this->get(), req);
-    if (const auto err = errors::parse(released.responseHeader.serviceResult))
-        VLOG(1) << "[opc.connection] failed to release history continuation points: "
-                << err;
+    release_req.releaseContinuationPoints = true;
+    release_req.nodesToRead = held.data();
+    release_req.nodesToReadSize = held.size();
+    auto released = UA_Client_Service_historyRead(this->get(), release_req);
+    auto err = errors::parse(released.responseHeader.serviceResult);
+    for (size_t i = 0; !err && i < released.resultsSize; ++i)
+        err = errors::parse(released.results[i].statusCode);
+    if (err)
+        LOG(WARNING) << "[opc.connection] failed to release continuation points: "
+                     << err;
     UA_HistoryReadResponse_clear(&released);
 }
 

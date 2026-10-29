@@ -639,8 +639,8 @@ TEST_F(TestReadTask, testDateTimeIndexChecksStamps) {
     ASSERT_NIL(src->stop());
 }
 
-/// @brief it should drop the stamp that the Core stores last without a warning when
-/// the task starts again.
+/// @brief it should drop the stamp that the Core stores last without a warning when the
+/// task starts again.
 TEST_F(TestReadTask, testDateTimeIndexDropsStoredStampAtStart) {
     const auto [idx, ch] = this->create_stamped_channels();
     const auto stored = now_us();
@@ -693,9 +693,10 @@ TEST_F(TestReadTask, testUnknownNamespaceIsMissingNode) {
     const auto res = source->read(breaker, fr);
     ASSERT_NIL(res.error);
     EXPECT_EQ(res.warning.message, "Received bad values");
-    const auto problem = this->float_channel.name +
-                         ": the server has no namespace urn:missing.";
-    EXPECT_EQ(res.warning.description, problem + " " + problem);
+    EXPECT_EQ(
+        res.warning.description,
+        this->float_channel.name + ": the server has no namespace urn:missing."
+    );
     EXPECT_TRUE(fr.empty());
     ASSERT_NIL(source->stop());
 }

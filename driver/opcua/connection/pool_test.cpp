@@ -1516,8 +1516,8 @@ History read_history(
     return history;
 }
 
-/// @brief it should read history a page at a time, so the next request starts after
-/// the last value of the page before.
+/// @brief it should read history a page at a time, so the next request starts after the
+/// last value of the page before.
 TEST_F(ConnectionPoolTest, ReadHistoryPagesByTime) {
     server_cfg_.historizing = true;
     server_cfg_.max_history_values = 2;

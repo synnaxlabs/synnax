@@ -336,8 +336,8 @@ public:
         /// @brief subscribes to the changes of the values of nodes, and replaces the
         /// earlier subscription of the connection. Each node keeps the changes of one
         /// publishing interval, and drops the oldest past that. handle runs for each
-        /// change, as for events, and first for the current value of each node.
-        /// Creates the nodes in as many requests as the server's limit needs.
+        /// change, as for events, and first for the current value of each node. Creates
+        /// the nodes in as many requests as the server's limit needs.
         /// @returns errors::NO_CONNECTION when the connection is lost, or the error of
         /// a service result. A lost server ends the subscription with BadTimeout, which
         /// iterate returns as errors::UNREACHABLE.
@@ -347,11 +347,10 @@ public:
             ChangeHandler handle
         );
 
-        /// @brief reads the history that req names, in as many requests as the
-        /// server's limit needs. Releases each continuation point that the server
-        /// returns, so the Session holds none after the call. A result that keeps a
-        /// continuation point has more history, which a later request must read by
-        /// time.
+        /// @brief reads the history that req names, in as many requests as the server's
+        /// limit needs. Releases each continuation point that the server returns, so
+        /// the Session holds none after the call. A result that keeps a continuation
+        /// point has more history, which a later request must read by time.
         /// @returns errors::NO_CONNECTION without sending req when the connection is
         /// lost, the error of the service result, or errors::CRITICAL when the server
         /// returns a result count that does not match req.
@@ -377,8 +376,12 @@ public:
         [[nodiscard]] std::pair<x::telem::TimeSpan, x::errors::Error>
         create(std::unique_ptr<Subscription> sub, x::telem::TimeSpan publishing);
 
-        /// @brief releases the continuation points of res on the server.
-        void release(const UA_HistoryReadResponse &res) const;
+        /// @brief releases on the server the continuation points of res, the response
+        /// to req.
+        void release(
+            const UA_HistoryReadRequest &req,
+            const UA_HistoryReadResponse &res
+        ) const;
 
         /// @brief ends the subscription of the connection. When the server does not
         /// delete it, closes the Session, since a client that the pool hands out again

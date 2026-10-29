@@ -611,14 +611,14 @@ public:
     /// @brief makes the server emit event on its next cycle. Safe to call from any
     /// thread.
     void emit(Event event) {
-        std::lock_guard lock(this->events_mutex);
+        std::lock_guard lock(this->queue_mutex);
         this->events.push_back(std::move(event));
     }
 
     /// @brief makes the server apply change on its next cycle. Safe to call from any
     /// thread.
     void change(Change change) {
-        std::lock_guard lock(this->events_mutex);
+        std::lock_guard lock(this->queue_mutex);
         this->changes.push_back(std::move(change));
     }
 
@@ -782,7 +782,6 @@ public:
         );
     }
 
-    /// @brief emits the events that emit queued.
     /// @brief adds the MaxNodesPerHistoryReadData node, which open62541 removes.
     static void add_history_limit(UA_Server *server, UA_UInt32 limit) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -803,10 +802,11 @@ public:
         );
     }
 
+    /// @brief applies the changes that change queued.
     void apply_changes(UA_Server *server) {
         std::vector<Change> queued;
         {
-            std::lock_guard lock(this->events_mutex);
+            std::lock_guard lock(this->queue_mutex);
             queued.swap(this->changes);
         }
         for (auto &change: queued) {
@@ -845,10 +845,11 @@ public:
         }
     }
 
+    /// @brief emits the events that emit queued.
     void emit_events(UA_Server *server) {
         std::vector<Event> queued;
         {
-            std::lock_guard lock(this->events_mutex);
+            std::lock_guard lock(this->queue_mutex);
             queued.swap(this->events);
         }
         for (const auto &event: queued) {
@@ -1181,7 +1182,7 @@ public:
     }
 
 private:
-    std::mutex events_mutex;
+    std::mutex queue_mutex;
     std::vector<Event> events;
     std::vector<Change> changes;
 };

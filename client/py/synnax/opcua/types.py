@@ -62,7 +62,8 @@ class ReadTask(
         to the changes of each node and writes each change at its source time, so each
         channel needs an index of its own.
     :param history_backfill_enabled: Whether an "on_change" task reads the history of
-        each node from the last stored value when it starts.
+        each node from the last stored value each time it subscribes, so it fills the
+        gap of a stop or an outage.
     """
 
     TYPE = "opc_read"

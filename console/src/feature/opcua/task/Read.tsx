@@ -80,8 +80,7 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
 const isIndexItem = Component.renderProp(IsIndexItem);
 
 const HISTORY_BACKFILL_INPUT_PROPS = {
-  tooltip:
-    "When the task starts, read the history of each node from the last stored value",
+  tooltip: "Fill the gap of a stop or an outage from the history of each node",
 } as const;
 
 const MODE_NAMES: Record<opcua.ReadMode, string> = {
@@ -101,7 +100,8 @@ const renderMode = Component.renderProp((p: PSelect.ButtonsProps<opcua.ReadMode>
 
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
-  const onChange = PForm.useFieldValue<opcua.ReadMode>("config.mode") === "on_change";
+  const onChangeMode =
+    PForm.useFieldValue<opcua.ReadMode>("config.mode") === "on_change";
   return (
     <>
       <Select />
@@ -120,7 +120,7 @@ const Properties = (): ReactElement => {
           {renderMode}
         </PForm.Field>
         <Task.Fields.SampleRate />
-        {!onChange && (
+        {!onChangeMode && (
           <PForm.SwitchField
             label="Array sampling"
             path="config.arrayMode"
@@ -143,7 +143,7 @@ const Properties = (): ReactElement => {
         )}
         <Task.Fields.DataSaving />
         <Task.Fields.AutoStart />
-        {onChange ? (
+        {onChangeMode ? (
           <PForm.SwitchField
             label="History backfill"
             path="config.historyBackfillEnabled"

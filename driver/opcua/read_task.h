@@ -96,6 +96,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief whether a bad value of a float channel writes NaN. Otherwise, a bad value
     /// skips the read for every channel on the same index.
     const bool nan_fill_enabled;
+    /// @brief how the task reads its nodes: sampled or on_change.
+    const std::string mode;
     /// @brief whether the task subscribes to the changes of its nodes instead of
     /// reading them at the sample rate.
     const bool on_change;
@@ -123,6 +125,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         array_mode(other.array_mode),
         array_size(other.array_size),
         nan_fill_enabled(other.nan_fill_enabled),
+        mode(other.mode),
         on_change(other.on_change),
         history_backfill_enabled(other.history_backfill_enabled),
         index_keys(std::move(other.index_keys)),
@@ -150,18 +153,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         array_mode(parser.field<bool>("array_mode", false)),
         array_size(parser.field<std::size_t>("array_size", 1)),
         nan_fill_enabled(parser.field<bool>("nan_fill_enabled", false)),
-        on_change(
-            parser.field<std::string>("mode", ::synnax::opcua::READ_MODE_SAMPLED) ==
-            ::synnax::opcua::READ_MODE_ON_CHANGE
-        ),
+        mode(parser.field<std::string>("mode", ::synnax::opcua::READ_MODE_SAMPLED)),
+        on_change(this->mode == ::synnax::opcua::READ_MODE_ON_CHANGE),
         history_backfill_enabled(parser.field<bool>("history_backfill_enabled", false)),
         // Array mode never uses samples_per_chan and its stream rate may be zero.
         samples_per_chan(this->array_mode ? 0 : this->sample_rate / this->stream_rate) {
-        if (const auto mode = parser.field<std::string>(
-                "mode",
-                ::synnax::opcua::READ_MODE_SAMPLED
-            );
-            mode != ::synnax::opcua::READ_MODE_SAMPLED && !this->on_change)
+        if (this->mode != ::synnax::opcua::READ_MODE_SAMPLED && !this->on_change)
             parser.field_err("mode", "Mode must be sampled or on_change");
         if (this->on_change && this->array_mode)
             parser.field_err("array_mode", "On change mode cannot read arrays");
@@ -623,7 +620,7 @@ public:
         auto [ua_res, read_err] = this->read_values();
         if (res.error = read_err; res.error) return res;
         fr.clear();
-        Problems quality;
+        Problems problems;
         std::vector<std::optional<x::telem::Series>> values;
         values.reserve(this->cfg.channels.size());
         std::set<synnax::channel::Key> skipped;
@@ -634,10 +631,10 @@ public:
             x::telem::Series s(ch.ch.data_type, this->cfg.array_size);
             x::errors::Error err;
             if (UA_StatusCode_isBad(result.status))
-                quality.add_bad(this->bad_status(i, result.status));
+                problems.add_bad(this->bad_status(i, result.status));
             else {
                 if (UA_StatusCode_isUncertain(result.status))
-                    quality.add_uncertain(
+                    problems.add_uncertain(
                         errors::channel_status(ch.ch.name, result.status)
                     );
                 err = telem::ua_array_write_to_series(
@@ -647,7 +644,7 @@ public:
                           ch.ch.name
                 )
                           .second;
-                if (err) quality.add_bad(ch.ch.name + ": " + err.data + ".");
+                if (err) problems.add_bad(ch.ch.name + ": " + err.data + ".");
             }
             if (!UA_StatusCode_isBad(result.status) && !err) {
                 values.emplace_back(std::move(s));
@@ -674,7 +671,7 @@ public:
             stamps.reserve(series->size());
             for (std::size_t j = 0; j < series->size(); ++j)
                 stamps.push_back(series->at<x::telem::TimeStamp>(static_cast<int>(j)));
-            if (!this->accept(ch, stamps, quality)) skipped.insert(ch.key);
+            if (!this->accept(ch, stamps, problems)) skipped.insert(ch.key);
         }
         for (std::size_t i = 0; i < values.size(); ++i)
             if (values[i].has_value() && !skipped.contains(this->cfg.indexes[i]))
@@ -691,7 +688,7 @@ public:
                     idx,
                     x::telem::Series::linspace(start, end, this->cfg.array_size)
                 );
-        res.warning = quality.warning();
+        res.warning = problems.warning();
         return res;
     }
 };
@@ -771,13 +768,17 @@ public:
             s.clear();
         for (auto &[_, s]: this->stamps)
             s.clear();
-        Problems quality;
+        Problems problems;
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::x::telem::TimeStamp::now();
             auto [ua_res, read_err] = this->read_values();
             if (res.error = read_err; res.error) return res;
             const auto end = ::x::telem::TimeStamp::now();
-            this->collect(ua_res, ::x::telem::TimeStamp::midpoint(start, end), quality);
+            this->collect(
+                ua_res,
+                ::x::telem::TimeStamp::midpoint(start, end),
+                problems
+            );
             this->timer.wait(breaker);
         }
         fr.clear();
@@ -792,7 +793,7 @@ public:
                 );
         for (const auto &[idx, idx_stamps]: this->stamps)
             if (!idx_stamps.empty()) fr.emplace(idx, x::telem::Series(idx_stamps));
-        res.warning = quality.warning();
+        res.warning = problems.warning();
         return res;
     }
 
@@ -806,8 +807,8 @@ const auto CHANGE_WAIT = 100 * x::telem::MILLISECOND;
 /// @brief the most history values that one request reads for each node.
 constexpr UA_UInt32 HISTORY_VALUES_PER_NODE = 1000;
 
-/// @returns the time of value: its source time, or its server time when it has none,
-/// or the time now when it has neither.
+/// @returns the time of value: its source time, or its server time when it has none, or
+/// the time now when it has neither.
 inline x::telem::TimeStamp change_time(const UA_DataValue &value) {
     if (value.hasSourceTimestamp)
         if (const auto [ts, err] = telem::to_timestamp(value.sourceTimestamp); !err)
@@ -1143,8 +1144,8 @@ public:
 
     /// @brief reads a page of history while a backfill runs, then waits up to
     /// CHANGE_WAIT for changes and writes them. Connects and subscribes first when the
-    /// task has no connection, and drops the connection when it fails, so the next
-    /// read subscribes again.
+    /// task has no connection, and drops the connection when it fails, so the next read
+    /// subscribes again.
     common::ReadResult read(x::breaker::Breaker &, x::telem::Frame &fr) override {
         common::ReadResult res;
         fr.clear();

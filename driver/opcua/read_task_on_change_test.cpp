@@ -140,8 +140,8 @@ protected:
         ));
     }
 
-    /// @returns the config of an On change task that reads each node into each
-    /// channel, sampling every 50 ms and publishing every 100 ms.
+    /// @returns the config of an On change task that reads each node into each channel,
+    /// sampling every 50 ms and publishing every 100 ms.
     [[nodiscard]] x::json::json config(
         const std::vector<std::pair<std::string, synnax::channel::Key>> &channels
     ) const {
@@ -317,8 +317,8 @@ TEST_F(TestOnChangeReadTask, testWarnsAboutQuality) {
     ASSERT_NIL(src->stop());
 }
 
-/// @brief it should read the nodes that exist, and warn about each node that the
-/// server does not monitor.
+/// @brief it should read the nodes that exist, and warn about each node that the server
+/// does not monitor.
 TEST_F(TestOnChangeReadTask, testWarnsAboutUnmonitoredNode) {
     const auto missing = this->create_channel("missing");
     const auto src = this->source(this->config({
@@ -375,8 +375,8 @@ TEST_F(TestOnChangeReadTask, testSubscribesAgainAfterServerRestart) {
     ASSERT_NIL(src->stop());
 }
 
-/// @brief it should write the history of a node from the last stored value to the
-/// start of the subscription, a page at a time, before its live changes.
+/// @brief it should write the history of a node from the last stored value to the start
+/// of the subscription, a page at a time, before its live changes.
 TEST_F(TestOnChangeReadTask, testBackfillsHistory) {
     this->server_cfg.historizing = true;
     this->server_cfg.max_history_values = 2;
@@ -406,6 +406,71 @@ TEST_F(TestOnChangeReadTask, testBackfillsHistory) {
     const auto live = read_values(*src, this->value, 1);
     EXPECT_EQ(live.values, std::vector<double>({4}));
     EXPECT_EQ(live.stamps, std::vector({time}));
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should hold a change that arrives during a backfill until the history
+/// before it is written.
+TEST_F(TestOnChangeReadTask, testHoldsChangesDuringBackfill) {
+    this->server_cfg.historizing = true;
+    this->server_cfg.max_history_values = 1;
+    this->start_server();
+    const auto stored = at(-1 * x::telem::MINUTE);
+    this->store(stored, 0);
+    for (int i = 1; i <= 3; ++i)
+        this->change(i, stored + x::telem::SECOND * i);
+    // A current value after the start of the subscription arrives with the first
+    // notification, while the backfill still has pages to read.
+    const auto time = at(10 * x::telem::SECOND);
+    this->change(4, time);
+    this->wait_for(4);
+    auto cfg = this->config();
+    cfg["history_backfill_enabled"] = true;
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    const auto written = read_values(*src, this->value, 4);
+    EXPECT_EQ(written.values, std::vector<double>({1, 2, 3, 4}));
+    EXPECT_EQ(written.stamps.back(), time);
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should fill the gap of an outage from the history when it subscribes
+/// again.
+TEST_F(TestOnChangeReadTask, testBackfillsOutageAfterReconnect) {
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = ENDPOINT;
+    conn_cfg.security_mode = "None";
+    conn_cfg.security_policy = "None";
+    conn_cfg.client_timeout_ms = 1000;
+    auto dev = ASSERT_NIL_P(this->client->devices.retrieve(DEVICE_KEY));
+    dev.properties = x::json::json::object(
+        {{"connection", testutil::connection_json(conn_cfg)}}
+    );
+    ASSERT_NIL(this->client->devices.create(dev));
+    this->server_cfg.historizing = true;
+    this->start_server();
+    this->change(1, at(-10 * x::telem::SECOND));
+    this->wait_for(1);
+    auto cfg = this->config();
+    cfg["history_backfill_enabled"] = true;
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    ASSERT_EQ(read_values(*src, this->value, 1).values, std::vector<double>({1}));
+    this->server->frozen = true;
+    this->change(2, at(-5 * x::telem::SECOND));
+    this->change(3, at(-4 * x::telem::SECOND));
+    x::breaker::Breaker breaker;
+    x::errors::Error err;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (!err && std::chrono::steady_clock::now() < deadline) {
+        x::telem::Frame fr;
+        err = src->read(breaker, fr).error;
+        EXPECT_FALSE(fr.contains(this->value.key));
+    }
+    this->server->frozen = false;
+    ASSERT_OCCURRED_AS(err, errors::UNREACHABLE);
+    const auto written = read_values(*src, this->value, 2, 10 * x::telem::SECOND);
+    EXPECT_EQ(written.values, std::vector<double>({2, 3}));
     ASSERT_NIL(src->stop());
 }
 
@@ -450,6 +515,7 @@ TEST_F(TestOnChangeReadTask, testRejectsInvalidConfig) {
     errs = this->errors_of(cfg);
     ASSERT_EQ(errs.size(), 1);
     EXPECT_EQ(errs[0]["path"], "array_mode");
+    EXPECT_EQ(errs[0]["message"], "On change mode cannot read arrays");
     cfg = this->config();
     cfg["mode"] = "sometimes";
     errs = this->errors_of(cfg);
