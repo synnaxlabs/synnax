@@ -114,7 +114,7 @@ var _ = Describe("check command flag paths", func() {
 		It("rejects an invalid --format value", func() {
 			Expect(
 				fail(1, "check", "--format=yaml"),
-			).To(ContainSubstring(`invalid --format "yaml"`))
+			).To(printOnce(`invalid --format "yaml"`))
 		})
 
 		It("runs only the requested gates", func() {

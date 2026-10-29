@@ -60,12 +60,10 @@ func runFmt(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		rel, err := pipeline.DiscoverSchemas(repoRoot)
 		if err != nil {
-			printError(err.Error())
 			return err
 		}
 		chains, err := versions.Discover(repoRoot)
 		if err != nil {
-			printError(err.Error())
 			return err
 		}
 		for _, chain := range chains {
@@ -81,7 +79,6 @@ func runFmt(cmd *cobra.Command, args []string) error {
 	} else {
 		files, err = expandGlobs(args, repoRoot)
 		if err != nil {
-			printError(err.Error())
 			return err
 		}
 	}

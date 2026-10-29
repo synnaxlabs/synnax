@@ -234,7 +234,7 @@ var _ = Describe("fmt command with nested schema folders", Ordered, func() {
 	It("discovers and flags unformatted schemas in subdirectories", func() {
 		Expect(
 			fail(1, "fmt", "--check"),
-		).To(ContainSubstring("file(s) need formatting"))
+		).To(printOnce("file(s) need formatting"))
 	})
 
 	It("formats nested schemas in place", func() {
@@ -266,7 +266,7 @@ var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
 	It("leaves files not named in the arguments untouched", func() {
 		Expect(
 			fail(1, "fmt", "--check", "schemas/x/other.oracle"),
-		).To(ContainSubstring("file(s) need formatting"))
+		).To(printOnce("file(s) need formatting"))
 	})
 })
 
@@ -283,7 +283,7 @@ var _ = Describe("fmt command discovery error", Ordered, func() {
 	})
 
 	It("propagates the recursive-discovery error when no arguments are given", func() {
-		Expect(fail(1, "fmt")).To(ContainSubstring("walk schema directory"))
+		Expect(fail(1, "fmt")).To(printOnce("walk schema directory"))
 	})
 })
 
@@ -297,7 +297,7 @@ var _ = Describe("fmt command argument error", Ordered, func() {
 	})
 
 	It("propagates the glob error for a malformed pattern argument", func() {
-		Expect(fail(1, "fmt", "schemas/[")).To(ContainSubstring("invalid glob pattern"))
+		Expect(fail(1, "fmt", "schemas/[")).To(printOnce("invalid glob pattern"))
 	})
 })
 
@@ -380,7 +380,7 @@ var _ = Describe("fmt command with file patterns", func() {
 
 	It("Should fail when no file matches a pattern", func() {
 		Expect(fail(1, "fmt", "nonexistent/*.xyz")).
-			To(ContainSubstring("no schema files found"))
+			To(printOnce("no schema files found"))
 	})
 })
 
