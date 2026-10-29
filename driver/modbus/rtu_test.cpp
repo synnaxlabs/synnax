@@ -272,8 +272,9 @@ TEST(RTU, ScannerAcceptsNewLineSettings) {
     devices["dev"].properties = {{"connection", cfg.to_json()}};
     const auto scanned = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(scanned.size(), 1);
-    EXPECT_EQ(scanned[0].status->variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(scanned[0].status->message, "Device connected");
+    const auto status = scanned[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Device connected");
 }
 
 /// @brief it should fail a connection test at new line settings for a serial port that
