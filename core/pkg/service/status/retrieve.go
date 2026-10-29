@@ -43,6 +43,35 @@ func Match[D any](
 	}
 }
 
+// And returns a filter that matches when all provided filters match.
+func And[D any](fs ...Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return gorp.And(inner...)
+	}
+}
+
+// Or returns a filter that matches when any provided filter matches.
+func Or[D any](fs ...Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return gorp.Or(inner...)
+	}
+}
+
+// Not returns a filter that inverts the provided filter.
+func Not[D any](f Filter[D]) Filter[D] {
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		return gorp.Not(f(r))
+	}
+}
+
 // Entry binds the Status that Retrieve will fill results into. If multiple results
 // match the query, only the first result will be filled into the provided Status.
 func (r Retrieve[D]) Entry(s *Status[D]) Retrieve[D] {
