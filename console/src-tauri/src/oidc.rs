@@ -32,33 +32,43 @@ const PAGE: &str = "<!doctype html><title>Synnax</title>\
 #[derive(Default)]
 pub struct Loopback(Mutex<Option<TcpListener>>);
 
+impl Loopback {
+    fn listen(&self) -> Result<u16, String> {
+        let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+        let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+        *self.0.lock().map_err(|e| e.to_string())? = Some(listener);
+        Ok(port)
+    }
+
+    async fn wait(&self, state: String, timeout: Duration) -> Result<String, String> {
+        let listener = self
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .take()
+            .ok_or("no login is waiting for a redirect")?;
+        tauri::async_runtime::spawn_blocking(move || accept(&listener, &state, timeout))
+            .await
+            .map_err(|e| e.to_string())?
+    }
+}
+
 /// Listens on a free port of 127.0.0.1 and returns it. A later call replaces the
 /// listener of an earlier login.
 #[tauri::command]
-pub fn oidc_listen(state: tauri::State<'_, Loopback>) -> Result<u16, String> {
-    let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
-    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
-    *state.0.lock().map_err(|e| e.to_string())? = Some(listener);
-    Ok(port)
+pub fn oidc_listen(loopback: tauri::State<'_, Loopback>) -> Result<u16, String> {
+    loopback.listen()
 }
 
 /// Waits for the browser to return to the listener with the given login state, and
 /// returns the query string of the redirect, which carries the code and state. Fails
-/// after five minutes.
+/// after five minutes, or at once when no login is listening.
 #[tauri::command]
 pub async fn oidc_wait(
     loopback: tauri::State<'_, Loopback>,
     state: String,
 ) -> Result<String, String> {
-    let listener = loopback
-        .0
-        .lock()
-        .map_err(|e| e.to_string())?
-        .take()
-        .ok_or("no login is waiting for a redirect")?;
-    tauri::async_runtime::spawn_blocking(move || accept(&listener, &state, TIMEOUT))
-        .await
-        .map_err(|e| e.to_string())?
+    loopback.wait(state, TIMEOUT).await
 }
 
 /// Accepts connections until one requests the callback path with the given state,
@@ -266,5 +276,53 @@ mod tests {
         drop(stalled);
         assert_eq!(err, "the login timed out");
         assert!(start.elapsed() < REQUEST_TIMEOUT);
+    }
+
+    #[test]
+    fn waits_for_the_redirect_to_the_listening_port() {
+        let loopback = Loopback::default();
+        let port = loopback.listen().unwrap();
+        let target = "/callback?code=abc&state=xyz";
+        let client = std::thread::spawn(move || get(port, target));
+        let wait = loopback.wait("xyz".into(), Duration::from_secs(5));
+        let query = tauri::async_runtime::block_on(wait).unwrap();
+        assert_eq!(query, "code=abc&state=xyz");
+        assert!(client.join().unwrap().starts_with("HTTP/1.1 200"));
+    }
+
+    #[test]
+    fn fails_to_wait_without_a_listening_login() {
+        let loopback = Loopback::default();
+        let wait = loopback.wait("xyz".into(), Duration::from_secs(5));
+        let err = tauri::async_runtime::block_on(wait).unwrap_err();
+        assert_eq!(err, "no login is waiting for a redirect");
+    }
+
+    #[test]
+    fn waits_only_once_for_one_listen() {
+        let loopback = Loopback::default();
+        loopback.listen().unwrap();
+        let first = loopback.wait("xyz".into(), Duration::from_millis(100));
+        assert_eq!(
+            tauri::async_runtime::block_on(first).unwrap_err(),
+            "the login timed out"
+        );
+        let second = loopback.wait("xyz".into(), Duration::from_millis(100));
+        assert_eq!(
+            tauri::async_runtime::block_on(second).unwrap_err(),
+            "no login is waiting for a redirect"
+        );
+    }
+
+    #[test]
+    fn replaces_the_listener_of_an_earlier_login() {
+        let loopback = Loopback::default();
+        let first = loopback.listen().unwrap();
+        let second = loopback.listen().unwrap();
+        assert!(TcpStream::connect(("127.0.0.1", first)).is_err());
+        let client = std::thread::spawn(move || get(second, "/callback?state=xyz"));
+        let wait = loopback.wait("xyz".into(), Duration::from_secs(5));
+        assert_eq!(tauri::async_runtime::block_on(wait).unwrap(), "state=xyz");
+        client.join().unwrap();
     }
 }
