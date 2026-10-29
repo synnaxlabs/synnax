@@ -10,7 +10,7 @@
 import { rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -159,12 +159,20 @@ describe("Status.TOOLBAR problems", () => {
     });
     const { mine, createTaskKey } = createProblems();
     const key = createTaskKey();
-    await renderProblems(mine);
-    await write(key, "error");
-    act(() => void vi.advanceTimersByTime(TimeSpan.milliseconds(1500).milliseconds));
+    const { since } = await client.statuses.set({
+      key,
+      name: uniqueName("name"),
+      variant: "error",
+      message: uniqueName("message"),
+      time: TimeStamp.now(),
+    });
+    if (since == null) throw new Error("the Core must stamp when the problem started");
+    // The Core stamps since by its own clock, which the fake clock lags under load.
+    vi.setSystemTime(since.add(TimeSpan.milliseconds(1500)).date());
     const last = await write(key, "error");
-    // A start at the last write would show "< 1s".
-    expect(within(await findProblem(last)).getByText(/^\d+s$/)).toBeTruthy();
+    await renderProblems(mine);
+    // A start at the last write would show "0s" or "< 1s".
+    expect(within(await findProblem(last)).getByText(/^[1-9]\d*s$/)).toBeTruthy();
   });
 
   it("should list a problem under the open problem that covers it", async () => {
