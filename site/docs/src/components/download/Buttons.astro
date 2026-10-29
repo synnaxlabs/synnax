@@ -82,12 +82,12 @@ const { product, version, platforms, label, prominent = false } = Astro.props;
     })();
 </script>
 
-<style is:global>
-    .docs-download {
+<style>
+    :global(.docs-download) {
         margin: 6rem 0;
     }
 
-    .docs-download--prominent {
+    :global(.docs-download--prominent) {
         margin: 10rem 0;
     }
 </style>
