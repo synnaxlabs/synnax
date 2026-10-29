@@ -50,6 +50,22 @@ std::string failure_message(
         return "Failed to load the Driver certificate";
     return fallback;
 }
+
+/// @returns an error status for the reply to cmd, which each handler fills in.
+synnax::task::Status
+command_status(const synnax::task::Task &task, const synnax::task::Command &cmd) {
+    return {
+        .key = synnax::task::status_key(task),
+        .name = task.name,
+        .variant = synnax::status::VARIANT_ERROR,
+        .details = synnax::task::StatusDetails{
+            .task = task.key,
+            .running = true,
+            .cmd = cmd.key,
+            .config_hash = task.config_hash,
+        }
+    };
+}
 }
 
 Scanner::Scanner(
@@ -141,14 +157,13 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
         return parser.error();
     }
     const auto &cfg = props.connection;
-    const auto previous = std::exchange(
-        this->checked[dev.key],
-        x::telem::TimeStamp::now()
-    );
+    const auto previous = this->checked[dev.key];
     const bool pin = cfg.secured() && !cfg.certificate_validation_disabled &&
                      !cfg.server_certificate.has_value();
     if (pin || this->conn_pool->last_reply(cfg) <= previous) {
         auto [conn, conn_err] = this->conn_pool->acquire(cfg, SCAN_LOG_PREFIX);
+        // Marked after the acquire, so its own reply does not skip the next probe.
+        this->checked[dev.key] = x::telem::TimeStamp::now();
         if (conn_err) {
             status.message = failure_message(conn_err, cfg, "Failed to reach server");
             status.variant = conn_err.matches(errors::SECURITY)
@@ -164,7 +179,8 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
                           << cert->thumbprint() << " for " << dev.name;
                 dev.properties["connection"]["server_certificate"] = cert->pem();
             }
-    }
+    } else
+        this->checked[dev.key] = x::telem::TimeStamp::now();
 
     const auto accepted = this->renewal.accepted.find(dev.key);
     if (cfg.secured() && cfg.certificate_validation_disabled) {
@@ -237,17 +253,7 @@ void Scanner::certificates(
     const synnax::task::Command &cmd,
     const bool regenerate
 ) const {
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     x::errors::Error err = x::errors::NIL;
     if (regenerate) err = this->store->regenerate().second;
     auto [current, current_err] = this->store->current();
@@ -286,7 +292,7 @@ std::pair<types::ReadResponse, x::errors::Error> read_attributes(
     const UA_NodeId &id,
     const std::vector<UA_AttributeId> &attributes
 ) {
-    if (auto err = connection::connected(client)) return {types::ReadResponse(), err};
+    if (auto err = connection::lost(client)) return {types::ReadResponse(), err};
     types::ReadRequestBuilder req;
     for (const auto attribute: attributes)
         req.add_node(id, attribute);
@@ -435,16 +441,7 @@ std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
 void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
         status.description = common::config_err_description(parser.error());
@@ -515,17 +512,7 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
 void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse test command";
         status.description = common::config_err_description(parser.error());
@@ -566,17 +553,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
 void Scanner::endpoints(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const connection::Config cfg(parser.child("connection"));
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse endpoints command";
         status.description = common::config_err_description(parser.error());

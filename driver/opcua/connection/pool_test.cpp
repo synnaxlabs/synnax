@@ -178,7 +178,7 @@ TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
     EXPECT_EQ(conn2.get(), client_ptr.get());
-    ASSERT_NIL(connected(conn2.get()));
+    ASSERT_NIL(lost(conn2.get()));
     EXPECT_EQ(pool.size(), 1);
 }
 
@@ -268,7 +268,7 @@ TEST_F(ConnectionPoolTest, RunIterateFailureFallsThrough) {
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
     EXPECT_EQ(conn2.get(), client1_ptr.get());
-    ASSERT_NIL(connected(conn2.get()));
+    ASSERT_NIL(lost(conn2.get()));
     EXPECT_EQ(pool.size(), 1);
 }
 
@@ -294,8 +294,8 @@ TEST_F(ConnectionPoolTest, AllCachedFailCreateNew) {
     EXPECT_EQ(pool.size(), 2);
 }
 
-/// @brief it should return an error when the server stops, and keep the lost
-/// connection to connect it again later.
+/// @brief it should return an error when the server stops, and keep the lost connection
+/// to connect it again later.
 TEST_F(ConnectionPoolTest, ServerStopsDuringAcquire) {
     Pool pool(testutil::create_store());
 
@@ -715,9 +715,9 @@ TEST_F(SessionLimitPoolTest, ReusePreventsSessionExhaustion) {
     EXPECT_EQ(pool.size(), 2);
 }
 
-/// @brief it should exhaust sessions when connections are discarded and
-/// recreated rapidly (documents the churn problem).
-TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
+/// @brief it should connect lost connections again in place after the server restarts,
+/// so the pool stays within the server's Session limit.
+TEST_F(SessionLimitPoolTest, ReconnectKeepsSessionCount) {
     Pool pool(testutil::create_store());
 
     // Acquire and release 2 connections — they go back to pool as cached
@@ -738,11 +738,9 @@ TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
-    // First acquire: health probe on cached connection fails, pool discards
-    // it and creates a new connection (session 1 on new server)
+    // Each acquire connects one lost entry again, which opens one Session on the new
+    // server.
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
-
-    // Second acquire: same thing — discard cached, create new (session 2)
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
     // Both should work since we're within the limit
@@ -758,8 +756,8 @@ TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
     EXPECT_EQ(pool.size(), 2);
 }
 
-/// @brief it should activate the same Session again after the channel drops, so a
-/// flaky network does not fill the server's Session table.
+/// @brief it should activate the same Session again after the channel drops, so a flaky
+/// network does not fill the server's Session table.
 TEST_F(SessionLimitPoolTest, ReconnectKeepsSession) {
     Pool pool(testutil::create_store());
     auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -772,6 +770,22 @@ TEST_F(SessionLimitPoolTest, ReconnectKeepsSession) {
     }
     auto other = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief it should leave a connection that the server dropped lost while the client
+/// handles network events, so only the Pool connects again.
+TEST_F(SessionLimitPoolTest, DroppedConnectionStaysLost) {
+    Pool pool(testutil::create_store());
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    server_->stop();
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
+    server_->start();
+    ASSERT_TRUE(server_->wait_until_ready());
+    for (int i = 0; i < 20; ++i)
+        UA_Client_run_iterate(conn.get(), 50);
+    const auto err = lost(conn.get());
+    ASSERT_OCCURRED_AS(err, errors::NO_CONNECTION);
+    EXPECT_EQ(err.data, "The connection to the server is lost.");
 }
 
 /// @brief it should double the cooldown each time the breaker opens again.
@@ -827,7 +841,7 @@ TEST_F(SessionLimitPoolTest, ReadOnLostConnection) {
     );
     builder.add_node(node, UA_ATTRIBUTEID_VALUE);
     ASSERT_OCCURRED_AS_P(conn.read(builder.build()), errors::NO_CONNECTION);
-    ASSERT_OCCURRED_AS(connected(conn.get()), errors::NO_CONNECTION);
+    ASSERT_OCCURRED_AS(lost(conn.get()), errors::NO_CONNECTION);
 }
 
 /// @brief After 3 consecutive connection failures, the circuit breaker trips
@@ -872,16 +886,9 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
     EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
-/// @brief After the circuit breaker trips, acquire() must reject instantly
-/// even when there is a stale cached connection in the pool.
-///
-/// The risk: cleanup_stale_entries() calls UA_Client_disconnect() which blocks
-/// on a TCP timeout (~5s) when the server is unreachable. If cleanup runs
-/// before the breaker check, a tripped breaker offers no latency protection.
-///
-/// This test primes the pool with a cached connection, stops the server, trips
-/// the breaker via BREAKER_THRESHOLD failures, then verifies the next acquire()
-/// returns in <500ms — proving cleanup was skipped, not blocking the caller.
+/// @brief it should reject an acquire at once after the breaker opens, even when the
+/// pool holds a lost connection, since connecting that connection again waits on the
+/// network.
 TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     Pool pool(testutil::create_store());
 
@@ -900,9 +907,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
         ASSERT_TRUE(err) << "Attempt " << i << " should fail (server is down)";
     }
 
-    // Breaker is now tripped. The pool still holds the original stale entry.
-    // acquire() must reject instantly — cleanup_stale_entries (which calls
-    // UA_Client_disconnect over a dead network) must NOT run before the check.
+    // The breaker is open, and the pool still holds the lost entry.
     auto start = std::chrono::steady_clock::now();
     auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -912,8 +917,8 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     ASSERT_TRUE(err);
     EXPECT_FALSE(conn);
     EXPECT_LT(elapsed.count(), 500)
-        << "Breaker should reject before cleanup_stale_entries, but took "
-        << elapsed.count() << "ms";
+        << "Breaker should reject before reconnecting, but took " << elapsed.count()
+        << "ms";
     EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 

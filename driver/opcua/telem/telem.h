@@ -45,11 +45,6 @@ x::telem::Series to_series(
     const std::vector<x::telem::SampleValue> &samples
 );
 
-/// @brief writes a scalar variant to a telemetry series.
-/// @return a pair containing the number of samples written and any error.
-std::pair<size_t, x::errors::Error>
-write_to_series(x::telem::Series &s, const UA_Variant &v);
-
 /// @brief converts the last sample of a series to a variant of the builtin type of
 /// target, the data type of the node that the variant goes to. A null target, for a
 /// node of an unknown type, and a Variant target, for a node of BaseDataType, convert

@@ -171,8 +171,8 @@ x::telem::Series to_series(
 }
 
 namespace {
-// A TimeStamp counts nanoseconds from 1970 in an int64, so it holds only DateTimes
-// from 1677 to 2262.
+// A TimeStamp counts nanoseconds from 1970 in an int64, so it holds only DateTimes from
+// 1677 to 2262.
 constexpr UA_DateTime MIN_DATETIME = UA_DATETIME_UNIX_EPOCH +
                                      std::numeric_limits<int64_t>::min() / 100;
 constexpr UA_DateTime MAX_DATETIME = UA_DATETIME_UNIX_EPOCH +
@@ -646,12 +646,5 @@ to_variant(const x::telem::Series &s, const UA_DataType *target) {
     }
     const auto sample = s.at(-1);
     return sample_to_variant({.sample = sample, .target = target, .builtin = builtin});
-}
-
-std::pair<size_t, x::errors::Error>
-write_to_series(x::telem::Series &s, const UA_Variant &v) {
-    auto [sample, err] = to_sample(v, s.data_type());
-    if (err) return {0, err};
-    return {write(s, {sample}), x::errors::NIL};
 }
 }
