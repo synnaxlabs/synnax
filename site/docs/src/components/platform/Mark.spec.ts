@@ -28,7 +28,7 @@ describe("Mark", () => {
   beforeAll(async () => {
     const container = await AstroContainer.create();
     const html = await container.renderToString(Mark);
-    script = html.match(/<script[^>]*>([\s\S]*?)<\/script>/)?.[1] ?? "";
+    script = html.slice(html.indexOf(">") + 1, html.lastIndexOf("</script>"));
   });
 
   interface Page {
