@@ -90,7 +90,7 @@ var _ = Describe("Go Query Plugin", func() {
 			It("Should skip missing keys when a filter targets the table", func(
 				ctx SpecContext,
 			) {
-				loader.Add("schemas/x/filter", FilterSchema)
+				AddFilterSchema(loader)
 				resp := MustGenerate(ctx, `
 					import "schemas/x/filter"
 
@@ -224,7 +224,7 @@ var _ = Describe("Go Query Plugin", func() {
 			)
 
 			It("Should read the tag through the tag method", func(ctx SpecContext) {
-				loader.Add("schemas/x/filter", FilterSchema)
+				AddFilterSchema(loader)
 				source := `
 					import "schemas/x/filter"
 
@@ -726,7 +726,7 @@ var _ = Describe("Go Query Plugin", func() {
 		})
 
 		Context("filter definitions", func() {
-			BeforeEach(func() { loader.Add("schemas/x/filter", FilterSchema) })
+			BeforeEach(func() { AddFilterSchema(loader) })
 
 			It(
 				"Should generate a matcher for each bare line",

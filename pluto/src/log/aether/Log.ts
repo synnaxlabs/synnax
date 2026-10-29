@@ -65,10 +65,16 @@ export const logStateZ = log.logZ
     computedLineHeight: z.number().default(0),
   });
 
+/**
+ * A selection end that follows the newest entry, so select-all needs no entry count
+ * from the worker.
+ */
+export const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
+
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const SCROLLBAR_WIDTH = 6;
-// Floor on the thumb so it stays visible at the 100k entry cap, where the
-// proportional height falls below a pixel.
+// Floor on the thumb so it stays visible at the entry cap, where the proportional
+// height falls below a pixel.
 const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
 const CONTENT_PADDING = 6;
@@ -110,6 +116,13 @@ interface ScrollbackState {
   awayFromEnd: boolean;
 }
 
+// The entries at the selection ends and at the bottom of the paused view.
+interface Anchors {
+  start?: LogEntry;
+  end?: LogEntry;
+  scroll?: LogEntry;
+}
+
 const ZERO_SCROLLBACK: ScrollbackState = {
   offset: 0,
   offsetRef: 0,
@@ -137,6 +150,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   scrollState: ScrollbackState = { ...ZERO_SCROLLBACK };
   // Render key for requestRender — allocated once, not per call.
   private renderKey: string = "";
+  // A source change can insert or evict entries before the anchors, so their positions
+  // are found again by identity.
+  private anchors: Anchors = {};
 
   get lineHeight(): number {
     return this.internal.lineHeight;
@@ -251,21 +267,12 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     }
 
     this.entries = this.internal.telem.value().data;
+    this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
     this.checkEmpty();
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      const { evictedCount } = this.internal.telem.wrapped;
       this.entries = this.internal.telem.value().data;
-      // When old entries are evicted, adjust scroll offset and selection indices
-      // so they still point at the same logical entries.
-      if (evictedCount > 0) {
-        if (this.state.scrolling)
-          this.scrollState.offset = Math.max(
-            this.calcVisibleLineCount(this.internal.lineHeight),
-            this.scrollState.offset - evictedCount,
-          );
-        this.clampSelection(evictedCount);
-      }
+      this.reanchor();
       this.checkEmpty();
       if (this.state.visible) this.requestRender();
     });
@@ -370,25 +377,75 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
   }
 
-  private clampSelection(evictedCount: number): void {
+  // A selection endpoint past the last entry anchors to the last entry, unless it is
+  // SELECT_ALL_END, which stays open.
+  private setAnchors(selectionStart: number, selectionEnd: number): void {
+    const last = this.entries.length - 1;
+    const anchor = (i: number): LogEntry | undefined =>
+      i === SELECT_ALL_END ? undefined : this.entries[Math.min(i, last)];
+    this.anchors = {
+      start: anchor(selectionStart),
+      end: anchor(selectionEnd),
+      scroll: this.state.scrolling
+        ? this.entries[this.scrollState.offset - 1]
+        : undefined,
+    };
+  }
+
+  // Returns the position of the entry, or -1 when it was evicted.
+  private locate(entry: LogEntry): number {
+    const time = entry.timestamp.valueOf();
+    let [lo, hi] = [0, this.entries.length];
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this.entries[mid].timestamp.valueOf() < time) lo = mid + 1;
+      else hi = mid;
+    }
+    for (let i = lo; i < this.entries.length; i++) {
+      if (this.entries[i] === entry) return i;
+      if (this.entries[i].timestamp.valueOf() !== time) break;
+    }
+    return -1;
+  }
+
+  // Moves the paused view and the selection back onto their anchored entries. An
+  // evicted anchor maps to the oldest entry.
+  private reanchor(): void {
+    const { start, end, scroll } = this.anchors;
+    if (scroll != null && this.state.scrolling) {
+      const offset = Math.max(
+        this.calcVisibleLineCount(this.internal.lineHeight),
+        this.locate(scroll) + 1,
+      );
+      // Wheel moves count from offsetRef, so it shifts with the anchored entry.
+      this.scrollState.offsetRef += offset - this.scrollState.offset;
+      this.scrollState.offset = offset;
+      this.anchors.scroll = this.entries[offset - 1];
+    }
     const { selectionStart, selectionEnd } = this.state;
-    if (selectionStart < 0) return;
-    const newStart = selectionStart - evictedCount;
-    const newEnd = selectionEnd - evictedCount;
-    if (newEnd < 0)
+    if (selectionStart < 0 || selectionEnd < 0 || (start == null && end == null))
+      return;
+    const newStart = start == null ? selectionStart : this.locate(start);
+    const newEnd = end == null ? selectionEnd : this.locate(end);
+    if (newStart < 0 && newEnd < 0) {
+      this.anchors = { scroll: this.anchors.scroll };
       this.setState((s) => ({
         ...s,
         selectionStart: -1,
         selectionEnd: -1,
         selectedText: "",
       }));
-    else
-      this.setState((s) => ({
-        ...s,
-        selectionStart: Math.max(0, newStart),
-        selectionEnd: newEnd,
-        selectedText: "",
-      }));
+      return;
+    }
+    const [nextStart, nextEnd] = [Math.max(0, newStart), Math.max(0, newEnd)];
+    this.setAnchors(nextStart, nextEnd);
+    if (nextStart === selectionStart && nextEnd === selectionEnd) return;
+    this.setState((s) => ({
+      ...s,
+      selectionStart: nextStart,
+      selectionEnd: nextEnd,
+      selectedText: "",
+    }));
   }
 
   private renderSelection(
@@ -447,12 +504,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
-    } else if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
+    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard")) {
       const num = parseFloat(value);
-      if (!isNaN(num)) {
-        const precision = cfg.precision >= 0 ? cfg.precision : 0;
-        value = notation.stringifyNumber(num, precision, cfg.notation);
-      }
+      if (!isNaN(num))
+        value = notation.stringifyNumber(num, cfg.precision ?? 0, cfg.notation);
     }
     const { displayNames, namePadding } = this.internal;
     const name = displayNames[chKeyStr] ?? chKeyStr;

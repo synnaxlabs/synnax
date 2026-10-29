@@ -15,10 +15,16 @@ COPY aspen/go.mod aspen/go.sum ./aspen/
 COPY arc/go/go.mod arc/go/go.sum ./arc/go/
 COPY gorp/go.mod gorp/go.sum ./gorp/
 
-# Download dependencies with cache mount for go modules
+# The modules go into a layer, not a cache mount, because the GitHub Actions cache
+# keeps layers and drops cache mounts. The proxy drops streams at times, so a failed
+# fetch falls back to the source and the download runs again.
+ENV GOPROXY=https://proxy.golang.org|direct
 WORKDIR /workspace/core
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+RUN for attempt in 1 2 3; do \
+      go mod download && exit 0; \
+      [ "$attempt" -lt 3 ] && sleep $((attempt * 15)); \
+    done; \
+    exit 1
 WORKDIR /workspace
 
 # Stage 2: Build the binary
@@ -35,7 +41,6 @@ COPY arc/go ./arc/go
 COPY gorp ./gorp
 COPY core ./core
 
-# Build with cache mounts for both go modules and build cache
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 ARG DRIVER_ENABLED=false
@@ -66,8 +71,9 @@ RUN if [ "$CONSOLE_ENABLED" = "true" ]; then \
       ls pkg/console/dist/ | head -10; \
     fi
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+# GOPROXY=off makes a module that the download missed fail the build.
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    export GOPROXY=off; \
     TAGS=""; \
     if [ "$DRIVER_ENABLED" = "true" ]; then \
     TAGS="${TAGS}driver"; \
