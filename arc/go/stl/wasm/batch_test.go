@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 )
 
 func stamps(n int64) telem.Series {
@@ -225,6 +226,6 @@ var _ = Describe("Batched execution", func() {
 		h.SetInput("lhs", 0, telem.NewSeriesV[int64](1, 2, 3), stamps(3))
 		h.SetInput("rhs", 0, telem.NewSeriesV[int64](10), stamps(1))
 		h.Execute(ctx, "add")
-		Expect(h.OutputTime("add", 0)).To(telem.MatchSeries(stamps(3)))
+		Expect(h.OutputTime("add", 0)).To(MatchSeries(stamps(3)))
 	})
 })

@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
@@ -255,7 +256,7 @@ var _ = Describe("Series", func() {
 			s.Alignment = telem.NewAlignment(2, 5)
 			s.TimeRange = telem.TimeRange{Start: 10, End: 40}
 			last := s.Last()
-			Expect(last).To(telem.MatchSeriesDataV[int32](3))
+			Expect(last).To(MatchSeriesDataV[int32](3))
 			Expect(last.Alignment).To(Equal(telem.NewAlignment(2, 7)))
 			Expect(last.TimeRange).To(Equal(s.TimeRange))
 		})
@@ -271,7 +272,7 @@ var _ = Describe("Series", func() {
 			s := telem.NewSeriesV("a", "bc", "def")
 			last := s.Last()
 			Expect(last.DataType).To(Equal(telem.StringT))
-			Expect(last).To(telem.MatchSeriesDataV("def"))
+			Expect(last).To(MatchSeriesDataV("def"))
 		})
 
 		It("Should panic when the series is empty", func() {
@@ -620,7 +621,7 @@ var _ = Describe("Series", func() {
 					original.Alignment = telem.NewAlignment(1, 5)
 					downsampled := original.Downsample(2)
 
-					Expect(downsampled).To(telem.MatchSeriesDataV[int64](2, 4, 6))
+					Expect(downsampled).To(MatchSeriesDataV[int64](2, 4, 6))
 					Expect(downsampled.Alignment).To(Equal(telem.NewAlignment(1, 6)))
 				},
 			)
@@ -634,8 +635,8 @@ var _ = Describe("Series", func() {
 
 					Expect(
 						whole.Downsample(3),
-					).To(telem.MatchSeriesDataV[int64](0, 3, 6))
-					Expect(part.Downsample(3)).To(telem.MatchSeriesDataV[int64](3, 6))
+					).To(MatchSeriesDataV[int64](0, 3, 6))
+					Expect(part.Downsample(3)).To(MatchSeriesDataV[int64](3, 6))
 				},
 			)
 

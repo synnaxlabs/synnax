@@ -25,6 +25,7 @@ import (
 	grpcframer "github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	"github.com/synnaxlabs/x/telem"
 	telempb "github.com/synnaxlabs/x/telem/pb"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -156,7 +157,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(channel.Keys(write.Frame.KeysSlice())).To(Equal(keys))
 			Expect(
 				write.Frame.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			).To(MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 
 		It("Should decode a protobuf frame", func(ctx SpecContext) {
@@ -176,7 +177,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(channel.Keys(write.Frame.KeysSlice())).To(Equal(keys))
 			Expect(
 				write.Frame.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](4, 5, 6)))
+			).To(MatchSeriesData(telem.NewSeriesV[int32](4, 5, 6)))
 		})
 
 		It("Should fail to receive a buffer that does not decode", func(
@@ -241,7 +242,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(channel.Keys(fr.KeysSlice())).To(Equal(keys))
 			Expect(
 				fr.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int64](10, 20, 30)))
+			).To(MatchSeriesData(telem.NewSeriesV[int64](10, 20, 30)))
 		})
 
 		It("Should keep the codec when a later request names no keys", func(
@@ -263,7 +264,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 			fr := MustSucceed(newClientCodec(ctx, keys).Decode(res.Buffer))
 			Expect(
 				fr.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1, 2, 3)))
+			).To(MatchSeriesData(telem.NewSeriesV[int64](1, 2, 3)))
 		})
 
 		It("Should send a protobuf frame before a request names keys", func(
@@ -286,7 +287,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(fr.KeysSlice()).To(Equal([]channel.Key(keys)))
 			Expect(
 				fr.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int64](7, 8, 9)))
+			).To(MatchSeriesData(telem.NewSeriesV[int64](7, 8, 9)))
 		})
 
 		It("Should receive a request for an ack", func(ctx SpecContext) {
@@ -356,7 +357,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(channel.Keys(fr.KeysSlice())).To(Equal(keys))
 			Expect(
 				fr.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+			).To(MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
 		})
 
 		It("Should send an ack without a buffer", func(ctx SpecContext) {
@@ -415,7 +416,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(fr.KeysSlice()).To(Equal([]channel.Key(keys)))
 			Expect(
 				fr.SeriesAt(0),
-			).To(telem.MatchSeriesData(telem.NewSeriesV[int32](4, 5, 6)))
+			).To(MatchSeriesData(telem.NewSeriesV[int32](4, 5, 6)))
 		})
 	})
 

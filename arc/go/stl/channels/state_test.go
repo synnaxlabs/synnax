@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -234,7 +235,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should buffer ingested frame data for later reads", func() {
 			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](1.5, 2.5)))
 			ser := MustBeOk(s.ReadValue(1))
-			Expect(ser).To(telem.MatchSeries(telem.NewSeriesV[float32](1.5, 2.5)))
+			Expect(ser).To(MatchSeries(telem.NewSeriesV[float32](1.5, 2.5)))
 		})
 
 		It("Should accumulate multiple ingestions into MultiSeries", func() {
@@ -252,17 +253,17 @@ var _ = Describe("ProgramState", func() {
 			fr = fr.Append(3, telem.NewSeriesV[int32](42))
 			s.Ingest(fr)
 			Expect(MustBeOk(s.ReadValue(1))).To(
-				telem.MatchSeries(telem.NewSeriesV[float32](10.0)),
+				MatchSeries(telem.NewSeriesV[float32](10.0)),
 			)
 			Expect(MustBeOk(s.ReadValue(3))).To(
-				telem.MatchSeries(telem.NewSeriesV[int32](42)),
+				MatchSeries(telem.NewSeriesV[int32](42)),
 			)
 		})
 
 		It("Should handle ingestion of channels not in digests", func() {
 			s.Ingest(telem.UnaryFrame[uint32](999, telem.NewSeriesV(1.0)))
 			ser := MustBeOk(s.ReadValue(999))
-			Expect(ser).To(telem.MatchSeries(telem.NewSeriesV(1.0)))
+			Expect(ser).To(MatchSeries(telem.NewSeriesV(1.0)))
 		})
 
 		It("Should handle an empty frame without panicking", func() {
@@ -317,7 +318,7 @@ var _ = Describe("ProgramState", func() {
 			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](1.0)))
 			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](2.0)))
 			ser := MustBeOk(s.ReadValue(1))
-			Expect(ser).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
+			Expect(ser).To(MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
 		It("Should return false for an unknown channel", func() {
@@ -351,7 +352,7 @@ var _ = Describe("ProgramState", func() {
 			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(3).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV[int32](100)),
+				MatchSeries(telem.NewSeriesV[int32](100)),
 			)
 		})
 
@@ -376,7 +377,7 @@ var _ = Describe("ProgramState", func() {
 			writeValue(s, 3, telem.NewSeriesV[int32](2))
 			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(3).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV[int32](1, 2)),
+				MatchSeries(telem.NewSeriesV[int32](1, 2)),
 			)
 		})
 
@@ -385,7 +386,7 @@ var _ = Describe("ProgramState", func() {
 			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
 			Expect(fr.Get(888).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV(3.14)),
+				MatchSeries(telem.NewSeriesV(3.14)),
 			)
 		})
 	})
@@ -395,7 +396,7 @@ var _ = Describe("ProgramState", func() {
 			writeValue(s, 1, telem.NewSeriesV[float32](1, 2, 3))
 			fr, highest, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
-			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
+			Expect(fr.Get(2).Series[0]).To(MatchSeries(telem.NewSeriesV(
 				telem.TimeStamp(flushNow),
 				telem.TimeStamp(flushNow+1),
 				telem.TimeStamp(flushNow+2),
@@ -412,7 +413,7 @@ var _ = Describe("ProgramState", func() {
 			writeValue(grouped, 3, telem.NewSeriesV[float32](3, 4))
 			fr, _, _ := grouped.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(2).Series).To(HaveLen(1))
-			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
+			Expect(fr.Get(2).Series[0]).To(MatchSeries(telem.NewSeriesV(
 				telem.TimeStamp(flushNow),
 				telem.TimeStamp(flushNow+1),
 			)))
@@ -427,7 +428,7 @@ var _ = Describe("ProgramState", func() {
 			)
 			fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(2).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesSecondsTSV(7, 8)),
+				MatchSeries(telem.NewSeriesSecondsTSV(7, 8)),
 			)
 			Expect(highest).To(Equal(telem.TimeStamp(0)))
 		})
@@ -463,10 +464,10 @@ var _ = Describe("ProgramState", func() {
 				}
 				fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(fr.Get(1).Series[0]).To(
-					telem.MatchSeries(telem.NewSeriesV[float32](1, 2)),
+					MatchSeries(telem.NewSeriesV[float32](1, 2)),
 				)
 				Expect(fr.Get(2).Series[0]).To(
-					telem.MatchSeries(telem.NewSeriesV(supplied, flushNow)),
+					MatchSeries(telem.NewSeriesV(supplied, flushNow)),
 				)
 				Expect(highest).To(Equal(flushNow))
 			},
@@ -480,10 +481,10 @@ var _ = Describe("ProgramState", func() {
 			s.WriteChannelF32(1, 2)
 			fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(1).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV[float32](2, 1)),
+				MatchSeries(telem.NewSeriesV[float32](2, 1)),
 			)
 			Expect(fr.Get(2).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV(flushNow, later)),
+				MatchSeries(telem.NewSeriesV(flushNow, later)),
 			)
 			Expect(highest).To(Equal(flushNow))
 		})
@@ -508,10 +509,10 @@ var _ = Describe("ProgramState", func() {
 				}
 				fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(fr.Get(1).Series[0]).To(
-					telem.MatchSeries(telem.NewSeriesV(values...)),
+					MatchSeries(telem.NewSeriesV(values...)),
 				)
 				Expect(fr.Get(2).Series[0]).To(
-					telem.MatchSeries(telem.NewSeriesV(flushNow, flushNow+1)),
+					MatchSeries(telem.NewSeriesV(flushNow, flushNow+1)),
 				)
 				Expect(highest).To(Equal(flushNow + 1))
 			},
@@ -524,10 +525,10 @@ var _ = Describe("ProgramState", func() {
 			writeChannel(s, 1, telem.NewSeriesV[float32](2), telem.NewSeriesV(flushNow))
 			fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(1).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV[float32](1, 2)),
+				MatchSeries(telem.NewSeriesV[float32](1, 2)),
 			)
 			Expect(fr.Get(2).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV(flushNow, flushNow+1)),
+				MatchSeries(telem.NewSeriesV(flushNow, flushNow+1)),
 			)
 			Expect(highest).To(Equal(flushNow + 1))
 		})
@@ -547,10 +548,10 @@ var _ = Describe("ProgramState", func() {
 			)
 			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(1).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV[float32](2, 1)),
+				MatchSeries(telem.NewSeriesV[float32](2, 1)),
 			)
 			Expect(fr.Get(2).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesSecondsTSV(10, 20)),
+				MatchSeries(telem.NewSeriesSecondsTSV(10, 20)),
 			)
 		})
 
@@ -561,7 +562,7 @@ var _ = Describe("ProgramState", func() {
 			s.WriteChannelF32(1, 2)
 			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(2).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV(later + 1)),
+				MatchSeries(telem.NewSeriesV(later + 1)),
 			)
 		})
 
@@ -585,9 +586,9 @@ var _ = Describe("ProgramState", func() {
 			writeChannel(str, 7, telem.NewSeriesV("tie"), telem.NewSeriesV(flushNow))
 			fr, _, _ := str.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(7).Series[0]).To(
-				telem.MatchSeries(telem.NewSeriesV("early", "late", "body", "tie")),
+				MatchSeries(telem.NewSeriesV("early", "late", "body", "tie")),
 			)
-			Expect(fr.Get(8).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(
+			Expect(fr.Get(8).Series[0]).To(MatchSeries(telem.NewSeriesV(
 				10*telem.SecondTS,
 				20*telem.SecondTS,
 				flushNow,
@@ -672,7 +673,7 @@ var _ = Describe("ProgramState", func() {
 				s.WriteChannelF64(5, 0)
 				fr, _, _ = s.Flush(telem.Frame[uint32]{}, now+1)
 				Expect(fr.Get(6).Series[0]).
-					To(telem.MatchSeries(telem.NewSeriesV(max(now+1, last+1))))
+					To(MatchSeries(telem.NewSeriesV(max(now+1, last+1))))
 			},
 			writeOrders(),
 		)
@@ -698,7 +699,7 @@ var _ = Describe("ProgramState", func() {
 			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			s.WriteChannelF32(1, 2)
 			s.Flush(telem.Frame[uint32]{}, flushNow)
-			Expect(fr.Get(1).Series[0]).To(telem.MatchSeriesDataV[float32](1))
+			Expect(fr.Get(1).Series[0]).To(MatchSeriesDataV[float32](1))
 		})
 
 		It("Should append to an existing frame", func() {
@@ -725,7 +726,7 @@ var _ = Describe("ProgramState", func() {
 			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1, 2)))
 			data, _ := readSeries(s, 3)
 			Expect(data).To(HaveLen(1))
-			Expect(data[0]).To(telem.MatchSeries(telem.NewSeriesV[int32](1, 2)))
+			Expect(data[0]).To(MatchSeries(telem.NewSeriesV[int32](1, 2)))
 		})
 
 		It("Should read the data and time of an indexed channel", func() {
@@ -736,7 +737,7 @@ var _ = Describe("ProgramState", func() {
 			data, time := readSeries(s, 1)
 			Expect(data).To(HaveLen(1))
 			Expect(time).To(HaveLen(1))
-			Expect(time[0]).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(10, 20)))
+			Expect(time[0]).To(MatchSeries(telem.NewSeriesSecondsTSV(10, 20)))
 		})
 
 		It("Should read nothing when index data is missing", func() {
@@ -770,8 +771,8 @@ var _ = Describe("ProgramState", func() {
 			writeChannel(s, 1, data, time)
 			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(changed).To(BeTrue())
-			Expect(fr.Get(1).Series[0]).To(telem.MatchSeries(data))
-			Expect(fr.Get(2).Series[0]).To(telem.MatchSeries(time))
+			Expect(fr.Get(1).Series[0]).To(MatchSeries(data))
+			Expect(fr.Get(2).Series[0]).To(MatchSeries(time))
 		})
 
 		It("Should write time to index channel", func() {
@@ -803,7 +804,7 @@ var _ = Describe("ProgramState", func() {
 			s.ClearReads()
 			data, _ := readSeries(s, 3)
 			Expect(data).To(HaveLen(1))
-			Expect(data[0]).To(telem.MatchSeriesDataV[int32](3))
+			Expect(data[0]).To(MatchSeriesDataV[int32](3))
 		})
 
 		It("Should be a no-op for channels with a single series", func() {
@@ -829,7 +830,7 @@ var _ = Describe("ProgramState", func() {
 			s.ClearReads()
 			d3, _ := readSeries(s, 3)
 			Expect(d3).To(HaveLen(1))
-			Expect(d3[0]).To(telem.MatchSeriesDataV[int32](2))
+			Expect(d3[0]).To(MatchSeriesDataV[int32](2))
 			d1, _ := readSeries(s, 1)
 			Expect(d1).To(HaveLen(1))
 		})

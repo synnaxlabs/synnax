@@ -22,6 +22,7 @@ import (
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -171,7 +172,7 @@ var _ = Describe("Read", func() {
 			fr := MustSucceed(c.Decode(data[0]))
 			Expect(fr.Count()).To(Equal(1))
 			Expect(fr.Get(channels[0].Key()).Series[0]).
-				To(telem.MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
+				To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
 		})
 
 		It("Should encode the alignment multiples of a limited read", func(
@@ -203,7 +204,7 @@ var _ = Describe("Read", func() {
 			series := MustSucceed(c.Decode(data[0])).Get(channels[0].Key()).Series
 			Expect(series).To(HaveLen(1))
 			Expect(series[0].AlignmentMultiple).To(BeEquivalentTo(2))
-			Expect(series[0]).To(telem.MatchSeriesDataV[float32](1, 4, 5, 8))
+			Expect(series[0]).To(MatchSeriesDataV[float32](1, 4, 5, 8))
 		})
 
 		It("Should encode a read with no data as a single terminator", func(

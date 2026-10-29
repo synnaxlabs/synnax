@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 )
 
 // flushNow stands in for the cycle stamp a runtime loop passes to Flush.
@@ -231,7 +232,7 @@ var _ = Describe("Stat Flow Chains", func() {
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(out.Get(200).Series).To(HaveLen(1))
-				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV(20.0))
+				Expect(out.Get(200).Series[0]).To(MatchSeriesDataV(20.0))
 			},
 		)
 
@@ -262,7 +263,7 @@ var _ = Describe("Stat Flow Chains", func() {
 				out, _, changed := h.ChannelState().
 					Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
-				Expect(out.Get(200).Series[0]).To(telem.MatchSeriesDataV(10.0))
+				Expect(out.Get(200).Series[0]).To(MatchSeriesDataV(10.0))
 			},
 		)
 	})

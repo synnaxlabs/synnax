@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -337,7 +338,7 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(f.Count()).To(Equal(1))
 						Expect(
 							f.SeriesAt(0),
-						).To(telem.MatchWrittenSeries(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 20, 21, 22)))
+						).To(MatchWrittenSeries(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 20, 21, 22)))
 
 						var (
 							subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
