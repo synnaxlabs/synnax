@@ -31,7 +31,7 @@ const codeHtmls = CALC_EXAMPLES.map((example) => highlight(example.code));
     <Button.Button
         slot="action"
         variant="text"
-        href="https://docs.synnaxlabs.com/reference/client/calculated-channels"
+        href="https://docs.synnaxlabs.com/reference/channels/calculated"
     >
         Learn more →
     </Button.Button>
@@ -48,7 +48,7 @@ const codeHtmls = CALC_EXAMPLES.map((example) => highlight(example.code));
         grid-template-columns: 2fr 3fr;
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .calc-visualizer .viz-content {
             grid-template-columns: 1fr;
         }
@@ -133,6 +133,7 @@ const codeHtmls = CALC_EXAMPLES.map((example) => highlight(example.code));
         100% {
             opacity: 1;
         }
+
         50% {
             opacity: 0.6;
         }

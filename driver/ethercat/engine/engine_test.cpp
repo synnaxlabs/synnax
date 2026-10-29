@@ -14,12 +14,12 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/errors/errors.h"
-#include "driver/ethercat/mock/master.h"
+#include "driver/ethercat/testutil/master.h"
 
 namespace driver::ethercat::engine {
 namespace {
@@ -93,12 +93,12 @@ Config quick_start_config() {
 
 class EngineTest : public ::testing::Test {
 protected:
-    std::shared_ptr<mock::Master> master;
+    std::shared_ptr<testutil::Master> master;
     std::shared_ptr<Engine> engine;
     x::breaker::Breaker brk;
 
     void SetUp() override {
-        this->master = std::make_shared<mock::Master>("eth0");
+        this->master = std::make_shared<testutil::Master>("eth0");
         this->master->add_slave(io_slave(0));
         this->engine = std::make_shared<Engine>(this->master);
         this->brk.start();
@@ -865,10 +865,10 @@ TEST_F(EngineTest, InterfaceNameReturnsCorrect) {
 }
 
 TEST(PoolTest, DiscoverSlavesCreatesEngine) {
-    auto master = std::make_shared<mock::Master>("eth0");
+    auto master = std::make_shared<testutil::Master>("eth0");
     master->add_slave(io_slave(0));
     master->add_slave(io_slave(1));
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
     Pool pool(std::move(manager));
     const auto slaves = ASSERT_NIL_P(pool.discover_slaves("eth0"));
@@ -878,10 +878,10 @@ TEST(PoolTest, DiscoverSlavesCreatesEngine) {
 }
 
 TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
-    auto master = std::make_shared<mock::Master>("eth0");
+    auto master = std::make_shared<testutil::Master>("eth0");
     master->add_slave(io_slave(0));
     master->add_slave(io_slave(1));
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
     Pool pool(std::move(manager));
     const auto engine = ASSERT_NIL_P(pool.acquire("eth0"));
@@ -896,11 +896,11 @@ TEST(PoolTest, DiscoverSlavesReturnsFromRunningEngine) {
 }
 
 TEST(PoolTest, DiscoverSlavesInitErrorNotCached) {
-    auto master = std::make_shared<mock::Master>("eth0");
+    auto master = std::make_shared<testutil::Master>("eth0");
     master->inject_init_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "no interface")
     );
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", master);
     Pool pool(std::move(manager));
     const auto slaves = ASSERT_OCCURRED_AS_P(

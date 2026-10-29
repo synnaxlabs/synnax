@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
@@ -135,10 +135,12 @@ var _ = Describe("Router", func() {
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{DisableKeepalive: true})
 				router := MustSucceed(fhttp.NewRouter())
-				server := router.NewUnaryServer[test.Request, test.Response]("/echo")
+				server := router.NewUnaryServer[testutil.Request, testutil.Response](
+					"/echo",
+				)
 				server.BindHandler(
-					func(_ context.Context, req test.Request) (test.Response, error) {
-						return test.Response(req), nil
+					func(_ context.Context, req testutil.Request) (testutil.Response, error) {
+						return testutil.Response(req), nil
 					},
 				)
 				router.BindTo(app)
@@ -149,20 +151,22 @@ var _ = Describe("Router", func() {
 						To(Succeed())
 				}).WithPolling(time.Millisecond).Should(Succeed())
 
-				client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-					fhttp.UnaryClientConfig{
-						Encoder:  json.Codec,
-						Decoders: []xhttp.Decoder{json.Codec},
-					},
-				))
+				client := MustSucceed(
+					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
+						fhttp.UnaryClientConfig{
+							Encoder:  json.Codec,
+							Decoders: []xhttp.Decoder{json.Codec},
+						},
+					),
+				)
 				res := MustSucceed(
 					client.Send(
 						specCtx,
 						addr+"/echo",
-						test.Request{ID: 1, Message: "hi"},
+						testutil.Request{ID: 1, Message: "hi"},
 					),
 				)
-				Expect(res).To(Equal(test.Response{ID: 1, Message: "hi"}))
+				Expect(res).To(Equal(testutil.Response{ID: 1, Message: "hi"}))
 			},
 		)
 
@@ -174,10 +178,12 @@ var _ = Describe("Router", func() {
 
 				handlerEntered := make(chan struct{})
 				handlerCtxDone := make(chan struct{})
-				server := router.NewStreamServer[test.Request, test.Response]("/stream")
+				server := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/stream",
+				)
 				server.BindHandler(func(
 					ctx context.Context,
-					_ freighter.ServerStream[test.Request, test.Response],
+					_ freighter.ServerStream[testutil.Request, testutil.Response],
 				) error {
 					close(handlerEntered)
 					<-ctx.Done()
@@ -195,7 +201,7 @@ var _ = Describe("Router", func() {
 				}).WithPolling(time.Millisecond).Should(Succeed())
 
 				client := MustSucceed(
-					fhttp.NewStreamClient[test.Request, test.Response](
+					fhttp.NewStreamClient[testutil.Request, testutil.Response](
 						fhttp.StreamClientConfig{Codec: json.Codec},
 					),
 				)
@@ -213,7 +219,9 @@ var _ = Describe("Router", func() {
 			func(specCtx SpecContext) {
 				app := newFiberApp(fiber.Config{})
 				router := MustSucceed(fhttp.NewRouter())
-				server := router.NewStreamServer[test.Request, test.Response]("/stream")
+				server := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/stream",
+				)
 				server.Use(freighter.MiddlewareFunc(func(
 					ctx freighter.Context,
 					next freighter.Next,
@@ -225,13 +233,13 @@ var _ = Describe("Router", func() {
 				}))
 				server.BindHandler(func(
 					_ context.Context,
-					stream freighter.ServerStream[test.Request, test.Response],
+					stream freighter.ServerStream[testutil.Request, testutil.Response],
 				) error {
 					req, err := stream.Receive()
 					if err != nil {
 						return err
 					}
-					return stream.Send(test.Response(req))
+					return stream.Send(testutil.Response(req))
 				})
 				router.BindTo(app)
 				addr := serveApp(app)
@@ -240,14 +248,16 @@ var _ = Describe("Router", func() {
 						To(Succeed())
 				}).WithPolling(time.Millisecond).Should(Succeed())
 				client := MustSucceed(
-					fhttp.NewStreamClient[test.Request, test.Response](
+					fhttp.NewStreamClient[testutil.Request, testutil.Response](
 						fhttp.StreamClientConfig{Codec: json.Codec},
 					),
 				)
 				stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
-				Expect(stream.Send(test.Request{ID: 7, Message: "hello"})).To(Succeed())
+				Expect(
+					stream.Send(testutil.Request{ID: 7, Message: "hello"}),
+				).To(Succeed())
 				Expect(MustSucceed(stream.Receive())).
-					To(Equal(test.Response{ID: 7, Message: "hello"}))
+					To(Equal(testutil.Response{ID: 7, Message: "hello"}))
 				Expect(stream.Receive()).Error().To(MatchError(freighter.EOF))
 			},
 		)
@@ -259,7 +269,9 @@ var _ = Describe("Router", func() {
 				router := MustSucceed(fhttp.NewRouter())
 				errEnded := errors.New("session ended")
 				endSession := make(chan struct{})
-				server := router.NewStreamServer[test.Request, test.Response]("/stream")
+				server := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/stream",
+				)
 				server.Use(freighter.MiddlewareFunc(func(
 					ctx freighter.Context,
 					next freighter.Next,
@@ -284,7 +296,7 @@ var _ = Describe("Router", func() {
 				received := make(chan error, 1)
 				server.BindHandler(func(
 					_ context.Context,
-					stream freighter.ServerStream[test.Request, test.Response],
+					stream freighter.ServerStream[testutil.Request, testutil.Response],
 				) error {
 					close(handlerEntered)
 					_, err := stream.Receive()
@@ -299,7 +311,7 @@ var _ = Describe("Router", func() {
 					).To(Succeed())
 				}).WithPolling(time.Millisecond).Should(Succeed())
 				client := MustSucceed(
-					fhttp.NewStreamClient[test.Request, test.Response](
+					fhttp.NewStreamClient[testutil.Request, testutil.Response](
 						fhttp.StreamClientConfig{Codec: json.Codec},
 					),
 				)
@@ -321,10 +333,12 @@ var _ = Describe("Router", func() {
 				router := MustSucceed(fhttp.NewRouter())
 
 				var calls int
-				server := router.NewUnaryServer[test.Request, test.Response]("/echo")
+				server := router.NewUnaryServer[testutil.Request, testutil.Response](
+					"/echo",
+				)
 				server.BindHandler(
-					func(_ context.Context, req test.Request) (test.Response, error) {
-						return test.Response(req), nil
+					func(_ context.Context, req testutil.Request) (testutil.Response, error) {
+						return testutil.Response(req), nil
 					},
 				)
 				router.Use(freighter.MiddlewareFunc(func(
@@ -343,17 +357,19 @@ var _ = Describe("Router", func() {
 					).To(Succeed())
 				}).WithPolling(time.Millisecond).Should(Succeed())
 
-				client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-					fhttp.UnaryClientConfig{
-						Encoder:  json.Codec,
-						Decoders: []xhttp.Decoder{json.Codec},
-					},
-				))
+				client := MustSucceed(
+					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
+						fhttp.UnaryClientConfig{
+							Encoder:  json.Codec,
+							Decoders: []xhttp.Decoder{json.Codec},
+						},
+					),
+				)
 				MustSucceed(
 					client.Send(
 						specCtx,
 						addr+"/echo",
-						test.Request{ID: 1, Message: "hi"},
+						testutil.Request{ID: 1, Message: "hi"},
 					),
 				)
 				Expect(calls).To(Equal(1))
@@ -374,10 +390,12 @@ var _ = Describe("Router", func() {
 					calls++
 					return next(ctx)
 				}))
-				server := router.NewUnaryServer[test.Request, test.Response]("/echo")
+				server := router.NewUnaryServer[testutil.Request, testutil.Response](
+					"/echo",
+				)
 				server.BindHandler(
-					func(_ context.Context, req test.Request) (test.Response, error) {
-						return test.Response(req), nil
+					func(_ context.Context, req testutil.Request) (testutil.Response, error) {
+						return testutil.Response(req), nil
 					},
 				)
 				router.BindTo(app)
@@ -389,19 +407,21 @@ var _ = Describe("Router", func() {
 					).To(Succeed())
 				}).WithPolling(time.Millisecond).Should(Succeed())
 
-				client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-					fhttp.UnaryClientConfig{
-						Encoder:  json.Codec,
-						Decoders: []xhttp.Decoder{json.Codec},
-					},
-				))
+				client := MustSucceed(
+					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
+						fhttp.UnaryClientConfig{
+							Encoder:  json.Codec,
+							Decoders: []xhttp.Decoder{json.Codec},
+						},
+					),
+				)
 				Expect(
 					client.Send(
 						specCtx,
 						addr+"/echo",
-						test.Request{ID: 1, Message: "hi"},
+						testutil.Request{ID: 1, Message: "hi"},
 					),
-				).To(Equal(test.Response{
+				).To(Equal(testutil.Response{
 					ID:      1,
 					Message: "hi",
 				}))
@@ -416,11 +436,13 @@ var _ = Describe("Router", func() {
 				router := MustSucceed(fhttp.NewRouter())
 
 				var order []string
-				server := router.NewUnaryServer[test.Request, test.Response]("/echo")
+				server := router.NewUnaryServer[testutil.Request, testutil.Response](
+					"/echo",
+				)
 				server.BindHandler(
-					func(_ context.Context, req test.Request) (test.Response, error) {
+					func(_ context.Context, req testutil.Request) (testutil.Response, error) {
 						order = append(order, "handler")
-						return test.Response(req), nil
+						return testutil.Response(req), nil
 					},
 				)
 				router.Use(
@@ -448,19 +470,21 @@ var _ = Describe("Router", func() {
 					).To(Succeed())
 				}).WithPolling(time.Millisecond).Should(Succeed())
 
-				client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-					fhttp.UnaryClientConfig{
-						Encoder:  json.Codec,
-						Decoders: []xhttp.Decoder{json.Codec},
-					},
-				))
+				client := MustSucceed(
+					fhttp.NewUnaryClient[testutil.Request, testutil.Response](
+						fhttp.UnaryClientConfig{
+							Encoder:  json.Codec,
+							Decoders: []xhttp.Decoder{json.Codec},
+						},
+					),
+				)
 				Expect(
 					client.Send(
 						specCtx,
 						addr+"/echo",
-						test.Request{ID: 1, Message: "hi"},
+						testutil.Request{ID: 1, Message: "hi"},
 					),
-				).To(Equal(test.Response{
+				).To(Equal(testutil.Response{
 					ID:      1,
 					Message: "hi",
 				}))

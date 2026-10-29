@@ -17,7 +17,7 @@
 .pluto-arc__select-icon {
     width: 7rem;
     height: 7rem;
-    color: rgba(255, 138, 0, 1);
+    color: rgb(255 138 0 / 100%);
     stroke-width: 1px;
     transform: translateX(-20%);
 }

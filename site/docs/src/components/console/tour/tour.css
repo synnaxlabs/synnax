@@ -1,0 +1,359 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* The tour: stills of the Console, a spotlight on the active part, a card that points
+   at it, and a progress bar of every step. */
+.docs-tour {
+    --docs-tour-dim: color-mix(in srgb, var(--pluto-gray-l0) 58%, transparent);
+
+    container-type: inline-size;
+    align-items: stretch;
+    margin: 5rem 0;
+    font-family: var(--pluto-font-family);
+
+    [hidden] {
+        display: none !important;
+    }
+}
+
+.docs-tour__frame {
+    position: relative;
+}
+
+.docs-tour__stage {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l5);
+    border-radius: 1.5rem;
+    background: var(--pluto-gray-l1);
+    box-shadow:
+        0 1px 2px rgb(0 0 0 / 4%),
+        0 12px 32px -8px rgb(0 0 0 / 14%);
+
+    @media (prefers-color-scheme: dark) {
+        box-shadow: 0 12px 40px -8px rgb(0 0 0 / 50%);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pluto-primary-z);
+        outline-offset: 2px;
+    }
+}
+
+/* The base still always shows under the others, so a still that is still loading
+   reveals the Console instead of a blank stage. A still fades in over the one it
+   replaces, which hides when the fade ends. */
+.docs-tour__still {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0s 0.25s;
+
+    &.docs-tour--active {
+        z-index: 2;
+        opacity: 1;
+        transition: opacity 0.25s ease;
+    }
+
+    &.docs-tour__still--base {
+        z-index: 0;
+        opacity: 1;
+    }
+
+    /* Back on the base, the closing still fades out over it. */
+    .docs-tour__still--base.docs-tour--active ~ & {
+        transition: opacity 0.25s ease;
+    }
+
+    /* The other stills load only once the reader reaches for the tour. */
+    .docs-tour:not(.docs-tour--warm) &:not(.docs-tour__still--base) {
+        display: none;
+    }
+
+    img.docs-tour__image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        user-select: none;
+    }
+}
+
+.docs-tour__spotlight {
+    position: absolute;
+    z-index: 3;
+    border-radius: 1.25rem;
+    pointer-events: none;
+    opacity: 0;
+    box-shadow:
+        0 0 0 2px var(--pluto-primary-z),
+        0 0 0 200vmax var(--docs-tour-dim);
+    transition:
+        left 0.3s ease,
+        top 0.3s ease,
+        width 0.3s ease,
+        height 0.3s ease,
+        opacity 0.2s ease;
+
+    &.docs-tour--active {
+        opacity: 1;
+    }
+}
+
+.docs-tour__hotspots {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+}
+
+.docs-tour__hotspot,
+.docs-tour__blocker {
+    position: absolute;
+}
+
+.docs-tour__hotspot {
+    padding: 0;
+    border: none;
+    border-radius: 1rem;
+    background: none;
+    cursor: pointer;
+    transition:
+        background 0.15s,
+        box-shadow 0.15s;
+
+    &:hover,
+    &:focus-visible {
+        outline: none;
+        background: oklch(from var(--pluto-primary-z) l c h / 6%);
+        box-shadow: inset 0 0 0 2px oklch(from var(--pluto-primary-z) l c h / 55%);
+    }
+}
+
+.docs-tour__card {
+    position: absolute;
+    z-index: 1;
+    width: 300px;
+    padding: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l5);
+    border-radius: 1.5rem;
+    background: var(--pluto-gray-l1);
+    box-shadow: var(--pluto-shadow-overlay);
+    text-align: left;
+    font-style: normal;
+    transition:
+        left 0.3s ease,
+        top 0.3s ease;
+}
+
+.docs-tour__card-arrow {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: var(--pluto-gray-l1);
+    border: var(--pluto-border);
+    border-color: var(--pluto-gray-l5);
+    rotate: 45deg;
+    translate: -50% -50%;
+
+    &[data-side=""] {
+        display: none;
+    }
+
+    &[data-side="left"] {
+        left: 0;
+        border-top-color: transparent;
+        border-right-color: transparent;
+    }
+
+    &[data-side="right"] {
+        left: 100%;
+        border-bottom-color: transparent;
+        border-left-color: transparent;
+    }
+
+    &[data-side="top"] {
+        top: 0;
+        border-right-color: transparent;
+        border-bottom-color: transparent;
+    }
+
+    &[data-side="bottom"] {
+        top: 100%;
+        border-top-color: transparent;
+        border-left-color: transparent;
+    }
+}
+
+.docs-tour__card-meta {
+    color: var(--pluto-gray-l8);
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+
+    &:empty {
+        display: none;
+    }
+}
+
+.docs-tour__step {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    color: var(--docs-body-color);
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+
+    h2.docs-tour__step-title {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin: 0;
+        padding: 0;
+        border: none;
+        color: var(--pluto-gray-l11);
+        font-size: var(--pluto-h5-size);
+        font-weight: 500;
+        line-height: var(--pluto-h5-line-height);
+    }
+
+    :is(p, ul, li, .edition-block) {
+        margin: 0;
+        font: inherit;
+        color: inherit;
+    }
+
+    ul {
+        padding-left: 2.5rem;
+    }
+
+    .lyra-icon {
+        vertical-align: middle;
+    }
+}
+
+.docs-tour__card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 0.5rem;
+}
+
+.docs-tour__progress {
+    display: flex;
+    align-items: flex-end;
+    gap: 2rem;
+    margin-top: 3rem;
+    padding: 0 0.5rem;
+
+    > .docs-tour__toggle {
+        flex-shrink: 0;
+    }
+}
+
+.docs-tour__progress-group {
+    display: flex;
+    flex-direction: column;
+    flex-basis: 0;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.docs-tour__progress-label {
+    color: var(--pluto-gray-l8);
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+    white-space: nowrap;
+    transition: color 0.2s;
+
+    .docs-tour__progress-group.docs-tour--active > & {
+        color: var(--pluto-gray-l11);
+    }
+}
+
+.docs-tour__progress-steps {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* The hit area is taller than the bar it draws. */
+.docs-tour__progress-step {
+    flex: 1;
+    height: 3rem;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+
+    @media (pointer: coarse) {
+        height: 6rem;
+    }
+
+    &::before {
+        content: "";
+        display: block;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--pluto-gray-l4);
+        transition: background 0.2s;
+    }
+
+    &:hover::before {
+        background: var(--pluto-gray-l7);
+    }
+
+    &.docs-tour--done::before {
+        background: oklch(from var(--pluto-primary-z) l c h / 45%);
+    }
+
+    &.docs-tour--active::before {
+        background: var(--pluto-primary-z);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pluto-primary-z);
+        outline-offset: 2px;
+        border-radius: 2px;
+    }
+}
+
+/* Below this width the card no longer fits beside a part, so it sits under the
+   stills. */
+@container (max-width: 720px) {
+    .docs-tour__card {
+        position: static;
+        width: auto;
+        margin-top: 2rem;
+        box-shadow: none;
+    }
+
+    .docs-tour__progress {
+        gap: 1rem;
+    }
+
+    .docs-tour__progress-label {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .docs-tour * {
+        transition: none !important;
+    }
+}

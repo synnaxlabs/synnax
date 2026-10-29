@@ -82,12 +82,12 @@ The research behind these rules is in `docs/tech/video-automation/decisions.md`.
 
 ## Traps
 
-- The window panel bar renders `.pluto-tabs__tab` too. Scope mosaic tab locators to
+- The window panel bar renders `.lyra-tabs__tab` too. Scope mosaic tab locators to
   `.console-mosaic`.
 - Menu items carry a shortcut indicator, so `getByText("Close", { exact: true })`
   misses. Match a prefix regex.
-- The inline editable class is `pluto-text--editable`. `CSS.BM` is `block--modifier`,
-  not `__`.
+- The inline editable class is `lyra-text--editable`. `CSS.BM` is `block--modifier`, not
+  `__`.
 - The range overview's own title input answers `getByPlaceholder("Name")`. Scope modal
   locators to `capture.MODAL`.
 - The Axes tab opens on X1, the time axis. Click Y1 before setting bounds.
@@ -96,6 +96,8 @@ The research behind these rules is in `docs/tech/video-automation/decisions.md`.
   pause.
 - Live data moves in wall time while the video runs in virtual time, so a point pinned
   early scrolls off before a later beat. Pause the plot, or place the interaction late.
+- An Arc automation runs on wall time, so its test runs ahead of the video. Wait on
+  streamed values with a `waitFor` condition, not on a fixed hold.
 - `session.hold` advances the virtual clock only. `session.settleWall` waits real time,
   which is what live telemetry buffers need.
 - The `console/workspaces/*` ids embed on the Projects page: workspaces are projects on

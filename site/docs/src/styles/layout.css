@@ -18,18 +18,24 @@
 
 /* Main content area */
 main {
+    --docs-page-nav-width: 45rem;
+
     position: relative;
     min-height: calc(100vh - 30rem);
     display: flex;
     flex-direction: row;
 
     & > section {
+        /* Width spare beside the 1100 px section widens the gap to the outline, so
+           wide media in the article keeps clear of it. */
+        --docs-outline-gap: clamp(2rem, (100vw - 1100px) / 2, 8rem);
+
         display: flex;
         flex-direction: row;
         flex: 1;
         padding: 0 2rem;
-        gap: 2rem;
-        max-width: 1100px;
+        gap: var(--docs-outline-gap);
+        max-width: calc(1100px - 2rem + var(--docs-outline-gap));
         margin: 0 auto;
         justify-content: center;
         min-width: 0;
@@ -37,10 +43,15 @@ main {
     }
 }
 
-@media (max-width: 800px) {
+@media (width <= 800px) {
     main > section {
         padding: 0 1rem;
     }
+}
+
+/* A legal page has no outline, so it keeps the gutter of a reference article. */
+main > section.legal-page {
+    padding: 0 3rem;
 }
 
 /* Sticky navigation */
@@ -56,18 +67,23 @@ nav {
 
 /* Page navigation sidebar. Collapsed, it narrows to a rail of section icons. Every
    icon keeps its x position in both states, centered in the rail. */
-main {
-    --docs-page-nav-width: 45rem;
-}
-
 :root[data-page-nav-collapsed] main {
     --docs-page-nav-width: 8rem;
+}
+
+.page-nav ~ section {
+    --docs-outline-gap: clamp(
+        2rem,
+        (100vw - var(--docs-page-nav-width) - 1100px) / 2,
+        8rem
+    );
 }
 
 .page-nav {
     /* Icons center 4rem from the left edge, half the rail width. */
     --docs-page-nav-padding: 0.75rem;
     --docs-page-nav-rail-item: 5.3333rem;
+
     position: sticky;
     top: var(--nav-height);
     align-self: flex-start;
@@ -75,7 +91,12 @@ main {
     min-width: var(--docs-page-nav-width);
     height: calc(100vh - var(--nav-height));
     overflow: hidden;
-    background: var(--pluto-gray-l2-20);
+
+    /* Opaque, so art that runs past the text column, such as the landing hero's grid,
+       stays behind it. */
+    background:
+        linear-gradient(var(--pluto-gray-l2-20), var(--pluto-gray-l2-20)),
+        var(--pluto-gray-l0);
     border-right: var(--pluto-border);
     transition:
         width 0.2s ease,
@@ -103,21 +124,15 @@ main {
     padding-top: 1.5rem;
 }
 
-.page-nav .pluto-tree.reference-tree {
+.page-nav .lyra-tree.reference-tree {
     flex: 1;
+
     /* Padding, not a margin, so the current section's bar at the rail edge stays
        inside the tree's clip. */
     padding-left: var(--docs-page-nav-padding);
     min-height: 0;
     padding-top: 2rem;
     mask-image: linear-gradient(
-        to bottom,
-        transparent 0,
-        black 2rem,
-        black calc(100% - 5rem),
-        transparent 100%
-    );
-    -webkit-mask-image: linear-gradient(
         to bottom,
         transparent 0,
         black 2rem,
@@ -138,7 +153,7 @@ main {
 
     /* A square Console nav button: the icon sits where it sits in the open sidebar,
        and the label clips at the right edge. */
-    .pluto-tree .page-nav-section-header {
+    .lyra-tree .page-nav-section-header {
         position: relative;
         width: var(--docs-page-nav-rail-item);
         height: var(--docs-page-nav-rail-item);
@@ -160,15 +175,15 @@ main {
             background: var(--pluto-hover-bg);
         }
 
-        > .pluto-text {
+        > .lyra-text {
             flex-shrink: 0;
             white-space: nowrap;
         }
 
         /* The section of the current page: no section header sits between it and the
            selected page. It takes the Console's selected nav item style. */
-        &:has(~ .pluto--selected):not(
-                :has(~ .page-nav-section-header ~ .pluto--selected)
+        &:has(~ .lyra--selected):not(
+                :has(~ .page-nav-section-header ~ .lyra--selected)
             ) {
             --pluto-bg: var(--pluto-selected-list-bg);
             --pluto-hover-bg: var(--pluto-selected-list-hover-bg);
@@ -196,31 +211,31 @@ main {
         display: none;
     }
 
-    .pluto-text {
+    .lyra-text {
         font-size: calc(var(--pluto-small-size) * 0.8);
         line-height: 1.5;
     }
 }
 
-.on-this-page .pluto-btn.pluto-text--p {
+.on-this-page .lyra-btn.lyra-text--p {
     font-size: var(--pluto-small-size);
     line-height: var(--pluto-small-line-height);
 }
 
-.pluto-dialog__dialog .pluto-list__item.pluto-text--p {
+.lyra-dialog__dialog .lyra-list__item.lyra-text--p {
     font-size: var(--pluto-small-size);
     line-height: var(--pluto-small-line-height);
 }
 
 /* Below this width, the header menu opens the page list. */
-@media (max-width: 1023px) {
+@media (width <= 1023px) {
     .page-nav {
         display: none;
     }
 }
 
 /* On this page sidebar - hide when left sidebar is present (reference pages) */
-@media (max-width: 1279px) {
+@media (width <= 1279px) {
     .page-nav ~ section nav.on-this-page,
     .page-nav ~ section .on-this-page {
         display: none !important;
@@ -228,7 +243,7 @@ main {
 }
 
 /* On this page sidebar - hide on pages without left sidebar (blog, releases) */
-@media (max-width: 900px) {
+@media (width <= 900px) {
     nav.on-this-page,
     .on-this-page {
         display: none !important;
@@ -241,13 +256,13 @@ main {
     display: none;
 }
 
-@media (max-width: 1023px) {
+@media (width <= 1023px) {
     body:has(.page-nav) .outline-bar {
         display: block;
     }
 }
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
     .outline-bar {
         display: block;
     }
@@ -256,14 +271,14 @@ main {
 /* Article content */
 article {
     h1,
-    h1.pluto-text {
+    h1.lyra-text {
         margin-top: 5rem;
         margin-bottom: 3rem;
         letter-spacing: var(--pluto-h1-letter-spacing);
     }
 
     h2,
-    h2.pluto-text {
+    h2.lyra-text {
         margin-top: 12rem;
         margin-bottom: 3rem;
         letter-spacing: var(--pluto-h2-letter-spacing);
@@ -272,34 +287,34 @@ article {
             "calt" 1;
     }
 
-    h2:has(+ .pluto-divider),
-    h2.pluto-text:has(+ .pluto-divider) {
+    h2:has(+ .lyra-divider),
+    h2.lyra-text:has(+ .lyra-divider) {
         margin-bottom: 4rem;
     }
 
-    .pluto-divider + h2,
-    .pluto-divider + h2.pluto-text {
+    .lyra-divider + h2,
+    .lyra-divider + h2.lyra-text {
         margin-top: 4rem;
     }
 
     /* Block flow collapses margins in a panel exactly as in the article body. */
-    .pluto-tabs__content {
+    .lyra-tabs__content {
         display: block;
     }
 
-    .pluto-tabs__content h2:first-of-type {
+    .lyra-tabs__content h2:first-of-type {
         margin-top: 4rem;
     }
 
     h3,
-    h3.pluto-text {
+    h3.lyra-text {
         margin-top: 8rem;
         margin-bottom: 2.5rem;
         letter-spacing: -0.015em;
     }
 
     h4,
-    h4.pluto-text {
+    h4.lyra-text {
         margin-top: 4rem;
         margin-bottom: 2rem;
     }
@@ -340,17 +355,17 @@ article {
         }
     }
 
-    :is(h2, h2.pluto-text) + :is(h3, h3.pluto-text) {
+    :is(h2, h2.lyra-text) + :is(h3, h3.lyra-text) {
         margin-top: 3rem;
     }
 
-    :is(h3, h3.pluto-text) + :is(h4, h4.pluto-text) {
+    :is(h3, h3.lyra-text) + :is(h4, h4.lyra-text) {
         margin-top: 2rem;
     }
 
     /* A heading owns the gap below it. */
-    :is(h2, h2.pluto-text, h3, h3.pluto-text, h4, h4.pluto-text)
-        + :is(table, .table-wrapper, .pluto-tabs, .docs-entry-list) {
+    :is(h2, h2.lyra-text, h3, h3.lyra-text, h4, h4.lyra-text)
+        + :is(table, .table-wrapper, .lyra-tabs, .docs-entry-list) {
         margin-top: 0;
     }
 
@@ -367,15 +382,24 @@ article {
     }
 
     /* Media shares the note and code block geometry. */
-    video,
+    video:not(.docs-hero video),
     iframe,
-    img:not(.diagram img, .blog-author__photo, figure img) {
+    img:not(
+        .diagram img,
+        .docs-hero img,
+        .docs-landing img,
+        .blog-author__photo,
+        figure img
+    ) {
         display: block;
         width: 100%;
         margin: 5rem 0 var(--docs-block-gap);
     }
 
-    :is(video, img:not(.diagram img, .blog-author__photo)) {
+    :is(
+        video:not(.docs-hero video),
+        img:not(.diagram img, .docs-hero img, .docs-landing img, .blog-author__photo)
+    ) {
         border: var(--pluto-border);
         border-radius: 1rem;
         box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
@@ -402,12 +426,12 @@ article {
     /* A lead-in sentence sits close to the block it introduces. Themed images render
        inside a picture, and videos inside a play button wrapper. A table keeps the full
        gap: its header is text, so a close lead-in reads as one more line. */
-    p:has(+ :is(video, img, .docs-picture, .docs-video, .pluto-tabs)),
+    p:has(+ :is(video, img, .docs-picture, .docs-video, .lyra-tabs)),
     p:has(+ .docs-entry-list) {
         margin-bottom: 2rem;
     }
 
-    p + :is(video, img, .pluto-tabs),
+    p + :is(video, img, .lyra-tabs),
     p + .docs-entry-list,
     p + .docs-picture > img,
     p + .docs-video > video {
@@ -416,7 +440,7 @@ article {
 
     /* In a pane, media is a band across the full pane, the same as a code block, so it
        does not draw a frame inside the frame of the pane. */
-    :is(.pluto-tabs__content, .docs-details > .content) {
+    :is(.lyra-tabs__content, .docs-details > .content) {
         & > :is(video, img),
         & > .docs-picture > img,
         & > .docs-video > video {
@@ -479,7 +503,7 @@ article {
         border-radius: 1rem;
         pointer-events: none;
 
-        & > .pluto-progress {
+        & > .lyra-progress {
             position: absolute;
             bottom: 0;
         }
@@ -551,7 +575,7 @@ article {
         border: var(--pluto-border);
     }
 
-    :is(h1, h2, h3, h4).pluto-text {
+    :is(h1, h2, h3, h4).lyra-text {
         display: flex;
         align-items: center;
         gap: 1.5rem;

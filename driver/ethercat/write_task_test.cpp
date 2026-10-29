@@ -10,12 +10,12 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/ethercat.h"
-#include "driver/ethercat/mock/master.h"
+#include "driver/ethercat/testutil/master.h"
 #include "driver/ethercat/write_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 #include "engine/engine.h"
 
 namespace driver::ethercat {
@@ -23,7 +23,7 @@ class EtherCATWriteTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<mock::Master> mock_master;
+    std::shared_ptr<testutil::Master> mock_master;
     std::shared_ptr<engine::Engine> engine;
     synnax::channel::Channel index_channel;
     synnax::rack::Rack rack;
@@ -62,7 +62,7 @@ protected:
               {"data_type", "int32"}}}
         );
 
-        mock_master = std::make_shared<mock::Master>(NETWORK_INTERFACE);
+        mock_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
         mock_master->add_slave(
             slave::Properties{
                 .position = 0,
@@ -228,7 +228,7 @@ TEST_F(EtherCATWriteTest, ConfigurePassesSavedSlaveSettingsOnTheNetworkToTheMast
     cfg["channels"].push_back(
         this->create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16")
     );
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure(NETWORK_INTERFACE, this->mock_master);
     Factory factory(std::move(manager));
     auto [write_task, ok] = factory.configure_task(
@@ -782,7 +782,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsOnTopologyMismatch) {
     WriteTaskConfig task_cfg(this->client, parser);
     ASSERT_NIL(parser.error());
 
-    auto mismatched_master = std::make_shared<mock::Master>(NETWORK_INTERFACE);
+    auto mismatched_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
     mismatched_master->add_slave(
         slave::Properties{
             .position = 0,
@@ -812,7 +812,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsWhenTheBusLacksAnEntry) {
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
 
-    auto remapped_master = std::make_shared<mock::Master>(NETWORK_INTERFACE);
+    auto remapped_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
     remapped_master->add_slave(
         slave::Properties{
             .position = 0,
@@ -854,7 +854,7 @@ TEST_F(EtherCATWriteTest, SinkStartFailsWhenAnEntryChangedBitLength) {
     WriteTaskConfig task_cfg(client, parser);
     ASSERT_NIL(parser.error());
 
-    auto remapped_master = std::make_shared<mock::Master>(NETWORK_INTERFACE);
+    auto remapped_master = std::make_shared<testutil::Master>(NETWORK_INTERFACE);
     remapped_master->add_slave(
         slave::Properties{
             .position = 0,

@@ -1,0 +1,111 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+interface Props {
+    title: string;
+    /** The date the current text took effect, such as "October 27, 2026". */
+    effective: string;
+}
+
+const { title, effective } = Astro.props;
+---
+
+<article class="legal">
+    <h1 class="legal-title">{title}</h1>
+    <p class="legal-effective">Effective {effective}</p>
+    <slot />
+</article>
+
+<style>
+    .legal {
+        max-width: 840px;
+        margin: 0 auto;
+        padding: 10rem 0 15rem;
+        font-family: var(--pluto-font-family);
+        color: var(--pluto-gray-l9);
+    }
+
+    .legal-title {
+        margin-bottom: 2rem;
+        font-size: var(--pluto-h1-size);
+        line-height: var(--pluto-h1-line-height);
+        font-weight: var(--pluto-h1-weight);
+        color: var(--pluto-gray-l10);
+
+        &::after {
+            content: "";
+            display: block;
+            width: 100px;
+            height: 2px;
+            margin-top: 2rem;
+            background: var(--pluto-primary-z);
+        }
+    }
+
+    .legal-effective {
+        margin-bottom: 6rem;
+        font-size: var(--pluto-h5-size);
+        line-height: var(--pluto-h5-line-height);
+        color: var(--pluto-gray-l8);
+    }
+
+    .legal :global(h2) {
+        margin: 6rem 0 2rem;
+        font-size: var(--pluto-h4-size);
+        line-height: var(--pluto-h4-line-height);
+        font-weight: var(--pluto-h4-weight);
+    }
+
+    .legal :global(h3) {
+        margin: 4rem 0 1.5rem;
+        font-size: var(--pluto-h5-size);
+        line-height: var(--pluto-h5-line-height);
+        font-weight: var(--pluto-h5-weight);
+    }
+
+    .legal :global(:is(p, li)) {
+        font-size: var(--pluto-p-size);
+        line-height: var(--pluto-p-line-height);
+    }
+
+    .legal :global(p) {
+        margin: 0 0 2rem;
+    }
+
+    /* Drawn like the docs site bullets, so the two never stack. */
+    .legal :global(ul) {
+        margin: 0 0 2rem;
+        padding-left: 0;
+        list-style: none;
+    }
+
+    .legal :global(li) {
+        position: relative;
+        margin-bottom: 1rem;
+        padding-left: 20px;
+
+        &::before {
+            content: "";
+            position: absolute;
+            top: calc(0.5lh - 2.5px);
+            left: 3px;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--pluto-gray-l8);
+        }
+    }
+
+    .legal :global(a) {
+        color: var(--pluto-primary-z);
+        word-break: normal;
+        overflow-wrap: anywhere;
+    }
+</style>

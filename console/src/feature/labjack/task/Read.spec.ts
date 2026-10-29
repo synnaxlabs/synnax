@@ -11,6 +11,7 @@ import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { LabJack } from "@/feature/labjack";
 import {
@@ -21,6 +22,7 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
+  createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
   renderTaskFormTab,
@@ -41,7 +43,7 @@ const renderRead = async (options: RenderTaskFormTabOptions = {}) => {
 const createConfig = (
   device: string,
   channels: LabJack.Task.ReadChannel[],
-): LabJack.Task.ReadPayload["config"] => ({
+): z.infer<LabJack.Task.ReadSchemas["config"]> => ({
   ...LabJack.Task.READ_SCHEMAS.config.parse({}),
   device,
   channels,
@@ -56,7 +58,7 @@ const ZERO_DRAFT: task.New<LabJack.Task.ReadSchemas> = {
 
 const createDraft = async (
   client: Synnax,
-  config: LabJack.Task.ReadPayload["config"],
+  config: z.infer<LabJack.Task.ReadSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.READ_SCHEMAS);
 
 describe("Read", () => {
@@ -326,5 +328,13 @@ describe("Read", () => {
     expect(updated.properties.readIndex).not.toBe(999999999);
     const index = await client.channels.retrieve(updated.properties.readIndex);
     expect(index.isIndex).toBe(true);
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      LabJack.Task.useCreateRead,
+      LabJack.Task.READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });
