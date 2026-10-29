@@ -10,6 +10,8 @@
 #include <memory>
 #include <utility>
 
+#include "absl/log/log.h"
+
 #include "x/cpp/json/json.h"
 
 #include "driver/modbus/scan_task.h"
@@ -81,6 +83,8 @@ void Scanner::check_device_health(
                              d->last_reply() >= prev->second.time;
         if (!replied) err = d->probe();
         next[dev.key] = Check{.dev = d, .time = device::Connection::Clock::now()};
+        VLOG(1) << SCAN_LOG_PREFIX << " " << dev.name << ": "
+                << d->stats().to_json().dump();
     }
     if (err)
         dev.status = synnax::device::Status{

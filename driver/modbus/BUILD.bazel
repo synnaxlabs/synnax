@@ -36,6 +36,7 @@ cc_library(
         "//x/cpp/defer",
         "//x/cpp/errors",
         "//x/cpp/telem",
+        "@abseil-cpp//absl/log",
     ],
 )
 
