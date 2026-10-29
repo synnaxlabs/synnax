@@ -12,7 +12,7 @@ import { experimental_AstroContainer as AstroContainer } from "astro/container";
 import { JSDOM } from "jsdom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type PostHog, start } from "./analytics";
+import { capture, type PostHog, reset, start } from "./analytics";
 import Analytics from "./Analytics.astro";
 
 type Init = Parameters<PostHog["init"]>[1];
@@ -222,6 +222,30 @@ describe("analytics", () => {
       await expect(begin({ mode: "maybe" })).rejects.toThrow(
         "unknown consent mode: maybe",
       );
+    });
+  });
+
+  describe("calls", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("should send an event that survives a click leaving the page", () => {
+      const sent = vi.fn();
+      vi.stubGlobal("window", { posthog: { capture: sent } });
+      capture("desktop_download_clicked", { location: "hero" });
+      expect(sent).toHaveBeenCalledExactlyOnceWith(
+        "desktop_download_clicked",
+        { location: "hero" },
+        { transport: "sendBeacon" },
+      );
+    });
+
+    it("should make PostHog forget the visitor", () => {
+      const forgot = vi.fn();
+      vi.stubGlobal("window", { posthog: { reset: forgot } });
+      reset();
+      expect(forgot).toHaveBeenCalledOnce();
     });
   });
 });

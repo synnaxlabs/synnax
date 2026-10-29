@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { $clerkStore, $isLoadedStore, $userStore } from "@clerk/astro/client";
-import type {} from "@synnaxlabs/site-common/analytics";
+import { reset } from "@synnaxlabs/site-common/analytics";
 import { useEffect, useState } from "react";
 
 import { reload } from "@/ui/api";
@@ -47,7 +47,7 @@ export const useClerk = (): Clerk | null => {
  */
 export const logOut = (clerk: Clerk, then: () => void): void => {
   void clerk.signOut(() => {
-    window.posthog.reset();
+    reset();
     then();
     return Promise.resolve();
   });

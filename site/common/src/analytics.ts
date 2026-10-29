@@ -56,6 +56,13 @@ declare global {
   }
 }
 
+/** Sends an event to PostHog. It survives a click that leaves the page. */
+export const capture = (event: string, properties?: Record<string, string>): void =>
+  window.posthog.capture(event, properties, { transport: "sendBeacon" });
+
+/** Makes PostHog forget the visitor, so later visits in this browser start anonymous. */
+export const reset = (): void => window.posthog.reset();
+
 export interface Options {
   posthog: () => PostHog;
   fetch: typeof fetch;
