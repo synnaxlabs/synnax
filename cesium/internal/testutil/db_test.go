@@ -19,14 +19,19 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Domain", func() {
-	var db *domain.DB
+	var (
+		faulty *fstestutil.FaultyFS
+		db     *domain.DB
+	)
 	BeforeEach(func() {
-		db = MustOpen(domain.Open(domain.Config{FS: fs.NewMem()}))
+		faulty = fstestutil.WrapFaultyFS(fs.NewMem())
+		db = MustOpen(domain.Open(domain.Config{FS: faulty}))
 	})
 
 	Describe("WriteDomain", func() {
@@ -65,12 +70,25 @@ var _ = Describe("Domain", func() {
 		It("Should return no data for a range with no domains", func(ctx SpecContext) {
 			Expect(testutil.ReadDomain(ctx, db, telem.TimeRangeMax)).To(BeEmpty())
 		})
+
+		DescribeTable("Should return an error when the data cannot be read",
+			func(ctx SpecContext, opt fstestutil.FaultyFSOption) {
+				tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
+				Expect(testutil.WriteDomain(ctx, db, tr, []byte{1, 2})).To(Succeed())
+				faulty.SetOptions(opt)
+				Expect(testutil.ReadDomain(ctx, db, tr)).Error().
+					To(MatchError(fstestutil.ErrFault))
+			},
+			Entry("open", fstestutil.WithFailOpen()),
+			Entry("read", fstestutil.WithFailReadAt()),
+		)
 	})
 })
 
 var _ = Describe("ReadUnary", func() {
-	It("Should return the samples that overlap the range", func(ctx SpecContext) {
-		db := MustOpen(unary.Open(ctx, unary.Config{
+	open := func(ctx SpecContext) *unary.DB {
+		GinkgoHelper()
+		return MustSucceed(unary.Open(ctx, unary.Config{
 			FS:        fs.NewMem(),
 			MetaCodec: json.Codec,
 			Channel: channel.Channel{
@@ -81,6 +99,10 @@ var _ = Describe("ReadUnary", func() {
 				Index:    1,
 			},
 		}))
+	}
+
+	It("Should return the samples that overlap the range", func(ctx SpecContext) {
+		db := DeferClose(open(ctx))
 		w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 			Start:     10 * telem.SecondTS,
 			Authority: control.AuthorityAbsolute,
@@ -96,5 +118,17 @@ var _ = Describe("ReadUnary", func() {
 		))
 		Expect(frame.SeriesAt(0).Data).
 			To(Equal(telem.NewSeriesSecondsTSV(11, 12).Data))
+	})
+
+	It("Should return an empty frame when the DB has no data", func(ctx SpecContext) {
+		db := DeferClose(open(ctx))
+		Expect(testutil.ReadUnary(ctx, db, telem.TimeRangeMax)).To(BeZero())
+	})
+
+	It("Should return an error when the DB is closed", func(ctx SpecContext) {
+		db := open(ctx)
+		Expect(db.Close()).To(Succeed())
+		Expect(testutil.ReadUnary(ctx, db, telem.TimeRangeMax)).Error().
+			To(MatchError(unary.ErrDBClosed))
 	})
 })
