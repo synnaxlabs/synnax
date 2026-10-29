@@ -127,6 +127,7 @@ jobs:
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
         # Records the removed previews even when the deploy fails after removing them.
         run: |
+          echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
           status=0
           .github/scripts/run_preview_command.sh | tee deploy.log || status=$?
           evicted=$(sed -n 's/^evicted //p' deploy.log | xargs)
@@ -139,6 +140,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVICTED: ${{ steps.deploy.outputs.evicted }}
+          STARTED: ${{ steps.deploy.outputs.started }}
+        # A comment updated after this deploy started belongs to a newer deploy of that
+        # preview, so the notice leaves it.
         run: |
           marker="<!-- Sticky Pull Request Commentpreview -->"
           issues="repos/$GITHUB_REPOSITORY/issues"
@@ -148,9 +152,10 @@ jobs:
               "Evicted to make room for the preview of #$PR, so the link no longer" \
               "works. To bring it back, re-run the **Preview** workflow from the" \
               "[checks]($checks), or push a commit." "$marker")
-            id=$(gh api --paginate "$issues/$pr/comments" \
-              --jq ".[] | select(.body | contains(\"$marker\")) | .id")
-            if [ -n "$id" ]; then
+            comment=$(gh api --paginate "$issues/$pr/comments" --jq \
+              ".[] | select(.body | contains(\"$marker\")) | \"\(.id) \(.updated_at)\"")
+            read -r id updated <<< "$comment"
+            if [[ -n $id && $updated < $STARTED ]]; then
               gh api -X PATCH "$issues/comments/$id" -f body="$body"
             fi
           done
