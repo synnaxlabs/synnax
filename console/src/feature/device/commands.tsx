@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device } from "@synnaxlabs/client";
+import { device, rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
 import { useConnectModal } from "@/feature/device/Connect";
 import { HARDWARE } from "@/feature/device/integrations";
 import { Command } from "@/platform/command";
+import { Rack } from "@/platform/rack";
 
 const useVisible = () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
 
@@ -47,3 +48,11 @@ export const CONNECT_COMMANDS: Command.Command[] = [
   ConnectCommand,
   ...HARDWARE_COMMANDS,
 ];
+
+export const CREATE_RACK_COMMAND = Command.create({
+  key: "rack_create",
+  name: "Create rack",
+  icon: <Icon.Rack />,
+  useOnSelect: Rack.useCreateModal,
+  useVisible: () => Access.useCreateGranted(rack.TYPE_ONTOLOGY_ID),
+});
