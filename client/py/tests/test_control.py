@@ -490,7 +490,7 @@ class TestController:
         "wait",
         [
             lambda auto: auto.wait_until(lambda _: False, timeout=BLOCKED_WAIT),
-            lambda auto: auto.remains_true_for(lambda _: True, BLOCKED_WAIT),
+            lambda auto: auto.remains_true_for(lambda _: True, duration=BLOCKED_WAIT),
         ],
         ids=["wait_until", "remains_true_for"],
     )
