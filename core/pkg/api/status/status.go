@@ -262,12 +262,10 @@ func (s *Service) Retrieve(
 				exists, existsErr := s.ontology.NewRetrieve().
 					WhereIDs(stat.OntologyID()).
 					Exists(ctx, nil)
-				if existsErr != nil {
-					return RetrieveResponse{}, existsErr
-				}
-				if !exists {
+				if existsErr == nil && !exists {
 					continue
 				}
+				err = errors.Join(err, existsErr)
 			}
 			if err != nil {
 				return RetrieveResponse{}, err
