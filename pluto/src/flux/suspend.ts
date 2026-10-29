@@ -170,14 +170,17 @@ export interface FetchErrorParams<Data> {
   generation: number;
 }
 
-export interface EnsureFetchParams<Query extends query.Params, Data> {
+export interface EnsureFetchParams<
+  Query extends query.Params,
+  Data extends query.Data,
+> {
   name: string;
   retrieve: (params: RetrieveParams<Query>) => Promise<Data>;
   /**
    * Reports whether the fetched answer lands somewhere the next render reads.
    * An answer that does not is kept in `settled` instead.
    */
-  getCached?: (params: RetrieveParams<Query>) => unknown;
+  getCached?: (params: RetrieveParams<Query>) => query.Cached<Data> | undefined;
   /**
    * Offers a failed fetch a second chance, returning a promise that supersedes
    * the failure or null to settle it.
@@ -190,7 +193,7 @@ export interface EnsureFetchParams<Query extends query.Params, Data> {
 }
 
 /** Joins the query's in-flight fetch, starting one when none exists. */
-export const ensureFetch = <Query extends query.Params, Data>(
+export const ensureFetch = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
   fetchParams: EnsureFetchParams<Query, Data>,
 ): Promise<Data> => {
@@ -198,15 +201,16 @@ export const ensureFetch = <Query extends query.Params, Data>(
   const hash = query.hash(params.query);
   // A reader waiting on a fetch that invalidate discarded gets the answer that replaced
   // it, starting a fetch when no other reader has.
-  const follow = async (stale: () => Promise<Data>): Promise<Data> => {
+  const follow = async (): Promise<Data> => {
     const settled = local.settled.get(hash);
     if (settled != null) {
       if ("error" in settled) throw settled.error;
       return settled.data;
     }
-    if (local.inFlight.has(hash) || getCached?.(params) === undefined)
+    const cached = getCached?.(params);
+    if (local.inFlight.has(hash) || !query.isLive(cached))
       return await ensureFetch(params, fetchParams);
-    return await stale();
+    return cached;
   };
   let promise = local.inFlight.get(hash);
   if (promise == null) {
@@ -215,8 +219,7 @@ export const ensureFetch = <Query extends query.Params, Data>(
     const release = holdGeneration(local, hash);
     promise = retrieve(params).then(
       async (data) => {
-        if (generationOf(local, hash) !== generation)
-          return await follow(async () => data);
+        if (generationOf(local, hash) !== generation) return await follow();
         // An answer the domain cache serves is read from there; one that never
         // reaches it is kept locally instead.
         if (getCached?.(params) === undefined) setSettled(local, hash, { data });
@@ -226,10 +229,7 @@ export const ensureFetch = <Query extends query.Params, Data>(
       },
       async (cause: unknown) => {
         const error = new Error(`Failed to retrieve ${name}`, { cause });
-        if (generationOf(local, hash) !== generation)
-          return await follow(async () => {
-            throw error;
-          });
+        if (generationOf(local, hash) !== generation) return await follow();
         const retried = onFetchError?.(params, {
           cause,
           error,
@@ -303,7 +303,7 @@ export const fulfilled = <Data>(value: Data): Promise<Data> =>
  * suspended on, the settled answer, or a new fetch.
  * @throws the error the query last settled to.
  */
-export const promiseFor = <Query extends query.Params, Data>(
+export const promiseFor = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
   fetchParams: EnsureFetchParams<Query, Data>,
   pending: PendingFetch<Data>,
