@@ -197,5 +197,31 @@ var _ = Describe("ImEx", func() {
 				}))
 			},
 		)
+
+		It("Should keep a line stroke width of 0", func(ctx SpecContext) {
+			original := lineplot.LinePlot{
+				Name:     "zero-stroke",
+				Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+				Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+				Lines: []lineplot.Line{
+					{Key: "y1---x1---r1---10---5", StrokeWidth: new(0.0)},
+				},
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &original)).To(Succeed())
+			env := MustSucceed(svc.Export(ctx, lineplot.OntologyID(original.Key)))
+			id := MustSucceed(imexSvc.Import(
+				ctx,
+				db,
+				WireRoundTrip(env),
+				imex.ImportOptions{Parent: proj.OntologyID()},
+			))
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().
+				Where(lineplot.MatchKeys(MustSucceed(uuid.Parse(id.Key)))).
+				Entry(&res).
+				Exec(ctx, db)).To(Succeed())
+			Expect(res.Lines).To(HaveLen(1))
+			Expect(res.Lines[0].StrokeWidth).To(HaveValue(Equal(0.0)))
+		})
 	})
 })

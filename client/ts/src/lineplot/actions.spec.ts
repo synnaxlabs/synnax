@@ -508,11 +508,8 @@ describe("lineplot reducer", () => {
         ranges: { x1: [r1], x2: [] },
       });
       const out = apply(state, lineplot.addChannel({ axisKey: "y1", channel: 5 }));
-      expect(out.lines[0]).toMatchObject({
-        strokeWidth: 2,
-        aggregation: "min_max",
-        detail: "medium",
-      });
+      expect(out.lines[0]).toMatchObject({ aggregation: "min_max", detail: "medium" });
+      expect(out.lines[0].strokeWidth).toBeUndefined();
     });
 
     it("should create no lines when there are no ranges (partial selection)", () => {
@@ -696,6 +693,11 @@ describe("lineplot reducer", () => {
         expected: { strokeWidth: 5 },
       },
       {
+        label: "setLineStrokeWidth with 0",
+        action: lineplot.setLineStrokeWidth({ key: "l1", strokeWidth: 0 }),
+        expected: { strokeWidth: 0 },
+      },
+      {
         label: "setLineAggregation",
         action: lineplot.setLineAggregation({ key: "l1", aggregation: "average" }),
         expected: { aggregation: "average" },
@@ -729,6 +731,15 @@ describe("lineplot reducer", () => {
       expect(roundTrip(state, lineplot.setLineColor({ key: "l1" })).lines[0]).toEqual(
         state.lines[0],
       );
+    });
+
+    it("clears the stroke width when absent and restores it on undo", () => {
+      const state = createEmpty({
+        lines: [{ ...createLine("l1", "#ff0000"), strokeWidth: 3 }],
+      });
+      const action = lineplot.setLineStrokeWidth({ key: "l1" });
+      expect(apply(state, action).lines[0].strokeWidth).toBeUndefined();
+      expect(roundTrip(state, action).lines[0]).toEqual(state.lines[0]);
     });
 
     it("restores a previously-unset field on undo", () => {

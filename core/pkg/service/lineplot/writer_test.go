@@ -71,6 +71,24 @@ var _ = Describe("Writer", func() {
 				).To(ConsistOf("y1---x1---r1---10---5", "y1---x1---r1---10---6"))
 			},
 		)
+		It("Should keep a line stroke width of 0", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{
+				Name:     "test",
+				Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+				Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+				Lines: []lineplot.Line{
+					{Key: "y1---x1---r1---10---5", StrokeWidth: new(0.0)},
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().
+				Where(lineplot.MatchKeys(plot.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res.Lines).To(HaveLen(1))
+			Expect(res.Lines[0].StrokeWidth).To(HaveValue(Equal(0.0)))
+		})
 	})
 
 	Describe("CreateMany", func() {
@@ -145,7 +163,7 @@ var _ = Describe("Writer", func() {
 				).
 					To(Succeed())
 				Expect(res.Lines).To(HaveLen(1))
-				Expect(res.Lines[0].StrokeWidth).To(Equal(float64(2)))
+				Expect(res.Lines[0].StrokeWidth).To(BeNil())
 				Expect(res.Lines[0].Aggregation).To(Equal(lineplot.AggregationMinMax))
 				Expect(res.Lines[0].Detail).To(Equal(lineplot.DetailMedium))
 			},
@@ -879,14 +897,14 @@ var _ = Describe("Writer", func() {
 					).
 						To(Succeed())
 					Expect(res.Lines).To(HaveLen(1))
-					Expect(res.Lines[0].StrokeWidth).To(Equal(2.0))
+					Expect(res.Lines[0].StrokeWidth).To(BeNil())
 					key := res.Lines[0].Key
 
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetLineStrokeWidthAction(
 								lineplot.SetLineStrokeWidthPayload{
-									Key: key, StrokeWidth: 5.0,
+									Key: key, StrokeWidth: new(0.0),
 								},
 							),
 							lineplot.NewSetLineColorAction(
@@ -916,7 +934,7 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, tx),
 					).
 						To(Succeed())
-					Expect(res.Lines[0].StrokeWidth).To(Equal(5.0))
+					Expect(res.Lines[0].StrokeWidth).To(HaveValue(Equal(0.0)))
 					Expect(
 						res.Lines[0].Aggregation,
 					).To(Equal(lineplot.AggregationAverage))
@@ -974,7 +992,7 @@ var _ = Describe("Writer", func() {
 							lineplot.NewSetLineAction(
 								lineplot.SetLinePayload{Line: lineplot.Line{
 									Key:         key,
-									StrokeWidth: 4,
+									StrokeWidth: new(4.0),
 									Aggregation: lineplot.AggregationAverage,
 									Detail:      lineplot.DetailHigh,
 									Color: new(
@@ -992,7 +1010,7 @@ var _ = Describe("Writer", func() {
 					).
 						To(Succeed())
 					Expect(res.Lines).To(HaveLen(1))
-					Expect(res.Lines[0].StrokeWidth).To(Equal(4.0))
+					Expect(res.Lines[0].StrokeWidth).To(HaveValue(Equal(4.0)))
 					Expect(
 						res.Lines[0].Aggregation,
 					).To(Equal(lineplot.AggregationAverage))

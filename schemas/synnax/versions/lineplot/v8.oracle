@@ -1,0 +1,52 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/x/versions/color/v0"
+
+Key = v0.Key
+
+TickType = v5.TickType
+
+Aggregation = v7.Aggregation
+
+Detail = v7.Detail
+
+XAxisKey = v5.XAxisKey
+
+YAxisKey = v5.YAxisKey
+
+AxisKey = v5.AxisKey
+
+Title = v5.Title
+
+Legend = v5.Legend
+
+Channels = v5.Channels
+
+CustomRange = v6.CustomRange
+
+Ranges = v6.Ranges
+
+ManualBounds = v5.ManualBounds
+
+Axis = v5.Axis
+
+Axes = v5.Axes
+
+Line struct extends v7.Line {
+    stroke_width float64? {
+        @doc value """
+            is the line stroke width in pixels. Absent draws the default width of 2.
+        """
+    }
+}
+
+Rule = v5.Rule
+
+LinePlot struct extends v7.LinePlot {}

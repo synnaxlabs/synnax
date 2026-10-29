@@ -682,6 +682,45 @@ describe("lineplot queries", () => {
       expect(line.current.pickedColor).toEqual(color.construct("#00aaff"));
     });
 
+    it("useLines / useLine keep a 0 stroke width and default an absent one", async () => {
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        lines: LinePlot.useLines({ key: created.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [
+            lineplotClient.setLine({
+              line: {
+                key: "ln-0",
+                strokeWidth: 0,
+                aggregation: "min_max",
+                detail: "medium",
+              },
+            }),
+            lineplotClient.setLine({
+              line: { key: "ln-d", aggregation: "min_max", detail: "medium" },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.lines).toHaveLength(2));
+      const widths = Object.fromEntries(
+        result.current.lines.map((l) => [l.key, l.strokeWidth]),
+      );
+      expect(widths).toEqual({
+        "ln-0": 0,
+        "ln-d": lineplotClient.DEFAULT_STROKE_WIDTH,
+      });
+      const { result: line } = renderHook(
+        () => LinePlot.useLine({ key: created.key, lineKey: "ln-0" }),
+        { wrapper },
+      );
+      expect(line.current.strokeWidth).toEqual(0);
+    });
+
     it("useRules / useRule reflect setRule and removeRule", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({

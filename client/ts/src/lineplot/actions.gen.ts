@@ -248,10 +248,11 @@ export type SetLineColorPayload = z.infer<typeof setLineColorPayloadZ>;
 
 /**
  * SetLineStrokeWidth sets the stroke width, in pixels, of the line identified by key.
+ * Absent clears it, so the line draws the default width.
  */
 export const setLineStrokeWidthPayloadZ = z.object({
   key: z.string(),
-  strokeWidth: z.number(),
+  strokeWidth: z.number().optional(),
 });
 
 export type SetLineStrokeWidthPayload = z.infer<typeof setLineStrokeWidthPayloadZ>;
