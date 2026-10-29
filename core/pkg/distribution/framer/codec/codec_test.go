@@ -1745,15 +1745,6 @@ func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 			}
 		}
 	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
 }
 
 // Benchmark alignment compression with two contiguous series
@@ -1770,15 +1761,6 @@ func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1806,15 +1788,6 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1850,15 +1823,6 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1907,15 +1871,6 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 			}
 		}
 	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
 }
 
 // Benchmark bandwidth savings - measure encoded size
@@ -1937,20 +1892,6 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		encoded, err := cd.Encode(b.Context(), frame)
-		if err != nil {
-			b.Fatalf("failed to encode: %v", err)
-		}
-		b.ReportMetric(float64(len(encoded)), "bytes")
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		encoded, err := cd.Encode(b.Context(), frame)
 		if err != nil {
 			b.Fatalf("failed to encode: %v", err)
