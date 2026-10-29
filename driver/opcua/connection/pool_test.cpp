@@ -671,31 +671,62 @@ TEST_F(SessionLimitPoolTest, DroppedConnectionStaysLost) {
 
 /// @brief it should double the cooldown each time the breaker opens again.
 TEST_F(SessionLimitPoolTest, CooldownDoubles) {
-    Pool pool(testutil::create_store());
+    Pool pool(
+        testutil::create_store(),
+        {.min_cooldown = std::chrono::milliseconds(200),
+         .max_cooldown = std::chrono::seconds(1)}
+    );
     server_->stop();
     server_.reset();
-    for (int i = 0; i < Pool::BREAKER_THRESHOLD; ++i)
+    for (int i = 0; i < 3; ++i)
         ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
-    std::this_thread::sleep_for(Pool::MIN_COOLDOWN + std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
     ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
-    std::this_thread::sleep_for(Pool::MIN_COOLDOWN + std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
     auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
     EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
-/// @brief it should close a connection that no one used for the idle timeout.
-TEST_F(SessionLimitPoolTest, CloseIdle) {
-    Pool pool(testutil::create_store(), std::chrono::milliseconds(200));
-    { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+/// @brief it should close a connection that no one used for the idle timeout, with no
+/// call to the Pool.
+TEST_F(SessionLimitPoolTest, ClosesIdleConnections) {
+    Pool pool(
+        testutil::create_store(),
+        {.idle_timeout = std::chrono::milliseconds(200)}
+    );
     auto held = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
-    pool.close_idle();
     EXPECT_EQ(pool.size(), 2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-    pool.close_idle();
-    EXPECT_EQ(pool.size(), 1);
+    ASSERT_EVENTUALLY_EQ(pool.size(), 1);
     held = Pool::Connection(nullptr, nullptr, "");
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    ASSERT_EVENTUALLY_EQ(pool.size(), 0);
+}
+
+/// @brief it should close the channel of a call that the server does not answer in
+/// time, so the next acquire connects again with the same Session instead of probing
+/// first.
+TEST_F(SessionLimitPoolTest, TimeoutClosesChannel) {
+    Pool pool(testutil::create_store());
+    conn_cfg_.client_timeout_ms = 250;
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto client = conn.shared();
+    types::ReadRequestBuilder builder;
+    const types::NodeId node(
+        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME)
+    );
+    builder.add_node(node, UA_ATTRIBUTEID_VALUE);
+    server_->probe_delay = x::telem::SECOND;
+    // The server answers this read, then waits before it handles the next one.
+    ASSERT_NIL_P(conn.read(builder.build()));
+    ASSERT_OCCURRED_AS_P(conn.read(builder.build()), errors::UNREACHABLE);
+    ASSERT_OCCURRED_AS(lost(conn.get()), errors::NO_CONNECTION);
+    server_->probe_delay = x::telem::TimeSpan();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+    conn = Pool::Connection(nullptr, nullptr, "");
+    conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_EQ(conn.get(), client.get());
+    EXPECT_EQ(pool.size(), 1);
 }
 
 /// @brief it should record the time of the last reply from the server.
@@ -731,8 +762,8 @@ TEST_F(SessionLimitPoolTest, ReadOnLostConnection) {
 /// On main: no circuit breaker exists, so every acquire() attempts connect()
 /// even when the server is down, hammering the endpoint.
 ///
-/// With the update: after BREAKER_THRESHOLD (3) failures, the breaker opens
-/// and acquire() returns an error instantly during the cooldown window.
+/// With the update: after three failures, the breaker opens and acquire() returns an
+/// error instantly during the cooldown window.
 TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
     Pool pool(testutil::create_store());
 
@@ -782,7 +813,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     server_.reset();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // Trip the breaker via BREAKER_THRESHOLD consecutive failures
+    // Trip the breaker via three consecutive failures
     for (int i = 0; i < 3; ++i) {
         auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
         ASSERT_TRUE(err) << "Attempt " << i << " should fail (server is down)";
@@ -810,7 +841,10 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
 /// On main: no breaker, so this test structure doesn't apply — but it
 /// validates that the breaker doesn't permanently lock out an endpoint.
 TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
-    Pool pool(testutil::create_store());
+    Pool pool(
+        testutil::create_store(),
+        {.min_cooldown = std::chrono::milliseconds(200)}
+    );
 
     // Stop server to trip the breaker
     server_->stop();
@@ -836,8 +870,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
-    // Wait for breaker cooldown to expire (BREAKER_COOLDOWN = 5s)
-    std::this_thread::sleep_for(std::chrono::milliseconds(5500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     // Now acquire should succeed — breaker enters half-open, probe succeeds,
     // breaker resets
