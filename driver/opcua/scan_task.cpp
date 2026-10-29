@@ -612,9 +612,9 @@ std::pair<x::json::json, x::errors::Error> read_details(
     if (cls == UA_NODECLASS_METHOD) {
         auto [inputs, inputs_err] = method::read_inputs(conn, {id});
         if (inputs_err) return {{}, inputs_err};
-        if (inputs[0].has_value()) {
+        if (const auto &declared = inputs[0]; declared.has_value()) {
             auto args = x::json::json::array();
-            for (const auto &arg: *inputs[0]) {
+            for (const auto &arg: *declared) {
                 auto [arg_type, name_err] = type_name(conn, arg.data_type.get());
                 if (name_err) return {{}, name_err};
                 args.push_back({
