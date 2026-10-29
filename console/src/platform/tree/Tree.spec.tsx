@@ -373,7 +373,7 @@ describe("Tree.Tree", () => {
     it("should render only the rows inside the window", async () => {
       const { container } = await renderTree(parentID);
       await screen.findByText(names[0]);
-      const rendered = container.querySelectorAll(".pluto-tree__item");
+      const rendered = container.querySelectorAll(".lyra-tree__item");
       expect(rendered.length).toBeGreaterThan(0);
       expect(rendered.length).toBeLessThan(CHILD_COUNT);
       expect(screen.queryByText(names[CHILD_COUNT - 1])).toBeNull();
@@ -384,7 +384,7 @@ describe("Tree.Tree", () => {
       await screen.findByText(names[0]);
       const last = names[CHILD_COUNT - 1];
       expect(screen.queryByText(last)).toBeNull();
-      const scroller = container.querySelector<HTMLElement>(".pluto-list__scroll");
+      const scroller = container.querySelector<HTMLElement>(".lyra-list__scroll");
       if (scroller == null) throw new Error("list scroll container not found");
       scroller.scrollTop = CHILD_COUNT * ITEM_HEIGHT;
       fireEvent.scroll(scroller);
@@ -395,7 +395,7 @@ describe("Tree.Tree", () => {
       const { container } = await renderTree(parentID);
       await screen.findByText(names[0]);
       const offsets = Array.from(
-        container.querySelectorAll<HTMLElement>(".pluto-tree__item"),
+        container.querySelectorAll<HTMLElement>(".lyra-tree__item"),
       ).map((row) => row.style.top);
       offsets.forEach((top, index) => expect(top).toBe(`${index * ITEM_HEIGHT}px`));
     });
@@ -404,7 +404,7 @@ describe("Tree.Tree", () => {
       const { container } = await renderTree(parentID);
       await findTreeRow(names[CHILD_COUNT - 1]);
       expect(screen.queryByText(names[0])).toBeNull();
-      const tree = container.querySelector(".pluto-tree");
+      const tree = container.querySelector(".lyra-tree");
       if (tree == null) throw new Error("tree not found");
       fireEvent.contextMenu(tree);
       fireEvent.click(await screen.findByText("New group"));
@@ -426,7 +426,7 @@ describe("Tree.Tree", () => {
       await client.groups.create({ parent: group.ontologyID(root.key), name });
       const { container } = await renderTree(group.ontologyID(root.key));
       await screen.findByText(name);
-      const tree = container.querySelector(".pluto-tree");
+      const tree = container.querySelector(".lyra-tree");
       expect(tree).not.toBeNull();
       fireEvent.contextMenu(tree as Element);
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());

@@ -164,7 +164,10 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Enter moves down, Shift+Enter moves up, and Tab moves right.
 - Esc puts back the value the cell held when it took focus. A second Esc leaves the
   cell. Esc never commits typed text.
-- Paste keeps the values that parse and marks the cells that do not.
+- A cell with an error has a red frame, and its message shows on hover.
+- Paste keeps the values that parse. A cell whose text does not parse keeps its value
+  and shows the error until an edit. A first row in which no number parses is a heading,
+  and paste drops it.
 
 ### Status and toasts
 

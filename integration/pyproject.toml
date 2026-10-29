@@ -36,6 +36,7 @@ tc = "framework.test_conductor:main"
 dev = [
     "mypy>=2.4.0,<3",
     "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
     "ruff>=0.17.1,<1",
     "types-psutil>=7.2.2.20260906,<8",
 ]
@@ -53,6 +54,7 @@ select = [
     "I",
     "B",
     "DTZ",
+    "E501",
     "E7",
     "E9",
     "PLE",
@@ -98,6 +100,9 @@ warn_required_dynamic_aliases = true
 # unit tests.
 [tool.pytest.ini_options]
 testpaths = ["framework/tests"]
+
+[tool.coverage.run]
+omit = ["framework/tests/*"]
 
 [build-system]
 requires = ["hatchling"]

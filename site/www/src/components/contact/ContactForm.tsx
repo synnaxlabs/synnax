@@ -13,10 +13,9 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
+import { capture } from "@synnaxlabs/site-common/analytics";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
-
-import { capture } from "@/analytics";
 
 const formSchema = z.object({
   name: z.string().min(1, "Please enter your name"),

@@ -39,7 +39,7 @@ const ZERO_RECT = {
 } as DOMRect;
 
 const getFrame = (): HTMLElement | null =>
-  document.querySelector<HTMLElement>(".pluto-tooltip");
+  document.querySelector<HTMLElement>(".lyra-tooltip");
 
 const createAnchor = (rect: DOMRect = ANCHOR_RECT): HTMLElement => {
   const el = document.createElement("div");

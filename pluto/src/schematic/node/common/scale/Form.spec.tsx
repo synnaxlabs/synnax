@@ -44,10 +44,10 @@ const checked = (el: HTMLElement): boolean => {
 
 // The color the swatch of the field with the label shows.
 const swatchColor = (container: HTMLElement, label: string): string => {
-  const item = Array.from(container.querySelectorAll(".pluto-input__item")).find(
+  const item = Array.from(container.querySelectorAll(".lyra-input__item")).find(
     (el) => el.querySelector("label")?.textContent?.trim() === label,
   );
-  const swatch = item?.querySelector<HTMLElement>(".pluto-color-swatch");
+  const swatch = item?.querySelector<HTMLElement>(".lyra-color-swatch");
   assert(swatch != null, `no color field labeled ${label}`);
   return swatch.style.getPropertyValue("--pluto-swatch-color");
 };
