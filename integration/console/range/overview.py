@@ -106,7 +106,9 @@ class Overview(Surface):
         second: int = 0,
     ) -> None:
         """Set the start time in the range overview, in local time."""
-        self._set_time("Start", year, month, day, hour, minute, second)
+        self._set_time(
+            "Start", year, month, day, hour=hour, minute=minute, second=second
+        )
 
     def set_end_time(
         self,
@@ -119,7 +121,7 @@ class Overview(Surface):
         second: int = 0,
     ) -> None:
         """Set the end time in the range overview, in local time."""
-        self._set_time("End", year, month, day, hour, minute, second)
+        self._set_time("End", year, month, day, hour=hour, minute=minute, second=second)
 
     def _set_time(
         self,
@@ -127,6 +129,7 @@ class Overview(Surface):
         year: int,
         month: int,
         day: int,
+        *,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
