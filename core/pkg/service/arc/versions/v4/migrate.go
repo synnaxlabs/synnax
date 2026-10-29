@@ -55,10 +55,11 @@ func NewGroupMigration(cfg MigrationConfig) gorp.Migration {
 			defer func() { err = errors.Combine(err, iter.Close()) }()
 			var orphans []ontology.ID
 			for iter.First(); iter.Valid(); iter.Next() {
-				id := iter.Value(ctx).OntologyID()
+				a := iter.Value(ctx)
 				if err = iter.Error(); err != nil {
 					return err
 				}
+				id := a.OntologyID()
 				var parents []ontology.Resource
 				// The Arc ontology service is not registered yet, so field data must
 				// stay excluded.

@@ -50,6 +50,16 @@ type Writer struct {
 	taskSync   *debounce.Keyed[Key]
 }
 
+// validateType rejects a change of type between the stored Arc and its replacement.
+func validateType(stored, next Type) error {
+	if stored == next {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation, "type cannot change from %s to %s", stored, next,
+	)
+}
+
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
@@ -77,17 +87,14 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = a.Validate(); err != nil {
 		return err
 	}
-	if exists && existing.Type != a.Type {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"type cannot change from %s to %s",
-			existing.Type,
-			a.Type,
-		)
-	}
-	if exists && existing.Name != a.Name {
-		if err = w.otgWriter.ValidateName(ctx, a.OntologyID(), a.Name); err != nil {
+	if exists {
+		if err = validateType(existing.Type, a.Type); err != nil {
 			return err
+		}
+		if existing.Name != a.Name {
+			if err = w.otgWriter.ValidateName(ctx, a.OntologyID(), a.Name); err != nil {
+				return err
+			}
 		}
 	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {

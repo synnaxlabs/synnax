@@ -26,6 +26,19 @@ import (
 )
 
 var _ = Describe("Dispatch", func() {
+	It("Should reject a create action that changes the type", func(ctx SpecContext) {
+		a := arc.Arc{Name: "dispatch_type", Type: arc.TypeModule, Mode: arc.ModeText}
+		Expect(writer.Create(ctx, &a)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(writer.Delete(ctx, a.Key)).To(Succeed())
+		})
+		replacement := a
+		replacement.Type = arc.TypeAutomation
+		Expect(svc.Dispatch(ctx, a.Key, "session-1", []arc.Action{
+			arc.NewCreateAction(arc.CreatePayload{Arc: replacement}),
+		})).To(MatchError(ContainSubstring("type cannot change")))
+	})
+
 	It(
 		"Should apply a single SetNodePosition action to the target Arc",
 		func(ctx SpecContext) {
