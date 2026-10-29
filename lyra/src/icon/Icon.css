@@ -22,8 +22,11 @@
     }
 
     & *:is(path, circle):is(:not([fill="none"]), [stroke="#000"]):not(.pluto-sub__bg) {
+        /* stylelint-disable declaration-no-important -- paths take the icon's color
+           whatever rule targets them */
         stroke: inherit !important;
         fill: inherit !important;
+        /* stylelint-enable declaration-no-important */
     }
 
     & .pluto-icon__halo {
@@ -37,6 +40,8 @@
 
     & .pluto-sub__bg {
         transition: var(--pluto-btn-transition);
+        /* stylelint-disable-next-line declaration-no-important -- the badge backing
+           matches the button behind it whatever rule targets it */
         fill: var(--pluto-btn-bg, var(--pluto-gray-l0)) !important;
     }
 

@@ -23,6 +23,7 @@
 
 .pluto-input {
     position: relative;
+    z-index: 4;
     display: inline-flex;
     align-items: center;
     max-height: fit-content;

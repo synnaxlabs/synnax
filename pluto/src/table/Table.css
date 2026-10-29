@@ -131,6 +131,9 @@
                 background: var(--pluto-primary-z-30);
 
                 .pluto-text {
+                    /* stylelint-disable-next-line declaration-no-important -- a
+                       selected row's resizer text keeps this color whatever the text
+                       sets */
                     color: var(--pluto-gray-l11) !important;
                 }
             }

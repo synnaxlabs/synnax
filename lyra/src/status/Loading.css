@@ -24,6 +24,6 @@
 .pluto-status__loading {
     overflow: hidden;
     opacity: 0;
-    animation: pluto-status-loading-in var(--pluto-loading-fade, 150ms) ease-out
-        var(--pluto-loading-delay, 300ms) forwards;
+    animation: pluto-status-loading-in 150ms ease-out var(--pluto-loading-delay, 300ms)
+        forwards;
 }

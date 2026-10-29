@@ -9,6 +9,49 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The rules behind CSS.bordered, CSS.noSelect, and CSS.inheritDims. */
+.pluto--bordered-right {
+    border-right: var(--pluto-border);
+}
+
+.pluto--bordered-left {
+    border-left: var(--pluto-border);
+}
+
+.pluto--bordered-top {
+    border-top: var(--pluto-border);
+}
+
+.pluto--bordered-bottom {
+    border-bottom: var(--pluto-border);
+}
+
+.pluto--direction-x > .pluto--bordered-start {
+    border-right: var(--pluto-border);
+}
+
+.pluto--direction-x > .pluto--bordered-end {
+    border-left: var(--pluto-border);
+}
+
+.pluto--direction-y > .pluto--bordered-start {
+    border-bottom: var(--pluto-border);
+}
+
+.pluto--direction-y > .pluto--bordered-end {
+    border-top: var(--pluto-border);
+}
+
+.pluto--no-select {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.pluto--inherit-dims {
+    height: inherit;
+    width: inherit;
+}
+
 .pluto-flex {
     display: flex;
     flex-flow: column nowrap;

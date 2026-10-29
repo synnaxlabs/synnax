@@ -153,15 +153,10 @@ span.pluto-text {
 }
 
 /* Identical 0% and 100% frames make the mask a constant that applies only while
-   the scroll timeline is active. Contexts tune the width via
-   --pluto-text-fade-width. */
+   the scroll timeline is active. */
 @keyframes text-fade {
     0%,
     100% {
-        mask-image: linear-gradient(
-            to right,
-            black calc(100% - var(--pluto-text-fade-width, 2.25rem)),
-            transparent
-        );
+        mask-image: linear-gradient(to right, black calc(100% - 2.25rem), transparent);
     }
 }

@@ -28,7 +28,9 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
                 <Nav />
             </div>
             <Flex.Box x gap="small" align="center" className="header-actions">
-                <Button.Button href="/#contact">Talk to an engineer</Button.Button>
+                <Button.Button href="/#contact" className="header-contact">
+                    Talk to an engineer
+                </Button.Button>
                 <Button.Button
                     variant="filled"
                     href="https://docs.synnaxlabs.com/releases/desktop/download"
@@ -327,7 +329,7 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 
     /* The pair crowds the nav at this width, so only Download stays. */
     @media (width <= 900px) {
-        .header-actions .pluto-btn--outlined {
+        .header-actions .header-contact {
             display: none;
         }
     }
