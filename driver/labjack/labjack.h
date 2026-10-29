@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "driver/common/lazy.h"
 #include "driver/common/sample_clock.h"
 #include "driver/labjack/device/device.h"
 #include "driver/task/task.h"
@@ -44,25 +45,22 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
     return err;
 }
 
-/// @brief returns true if the LabJack LJM library is available on this system.
-inline bool integration_supported() {
-    auto [ljm, ljm_err] = ljm::API::load();
-    return ljm != nullptr;
-}
-
 /// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {
-    std::shared_ptr<device::Manager> dev_manager;
+    std::shared_ptr<common::Lazy<device::Manager>> dev_manager;
     common::TimingConfig timing_cfg;
 
 public:
     explicit Factory(
-        const std::shared_ptr<device::Manager> &dev_manager,
-        const common::TimingConfig timing_cfg
+        common::Lazy<device::Manager>::Loader load_dev_manager,
+        const common::TimingConfig timing_cfg = common::TimingConfig()
     ):
-        dev_manager(dev_manager), timing_cfg(timing_cfg) {}
+        dev_manager(
+            std::make_shared<common::Lazy<device::Manager>>(std::move(load_dev_manager))
+        ),
+        timing_cfg(timing_cfg) {}
 
-    /// @brief creates a new LabJack factory, loading the LJM library.
+    /// @brief creates a new LabJack factory that loads the LJM library on first use.
     static std::unique_ptr<Factory>
     create(common::TimingConfig timing_cfg = common::TimingConfig());
 
