@@ -17,13 +17,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import {
-  useCreateAPIKey,
-  useDeleteAPIKey,
-  useResultAPIKeys,
-  useResultSessions,
-  useSetPassword,
-} from "@/credential/queries";
+import { Credential } from "@/credential";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("Credential queries", () => {
@@ -46,15 +40,17 @@ describe("Credential queries", () => {
   it("should create a key, list it, and delete it", async () => {
     const u = await client.users.create({ name: `credential-${id.create()}` });
     const subject = user.ontologyID(u.key);
-    const create = renderHook(() => useCreateAPIKey(), { wrapper });
+    const create = renderHook(() => Credential.useCreateAPIKey(), { wrapper });
     await act(async () => {
       await create.result.current.updateAsync({ subject, name: "ci" });
     });
-    const keys = renderHook(() => useResultAPIKeys({ subject }), { wrapper });
+    const keys = renderHook(() => Credential.useResultAPIKeys({ subject }), {
+      wrapper,
+    });
     await waitFor(() => expect(keys.result.current.data).toHaveLength(1));
     const [key] = keys.result.current.data ?? [];
     expect(key.name).toEqual("ci");
-    const del = renderHook(() => useDeleteAPIKey(), { wrapper });
+    const del = renderHook(() => Credential.useDeleteAPIKey(), { wrapper });
     await act(async () => {
       await del.result.current.updateAsync(key.key);
     });
@@ -63,7 +59,9 @@ describe("Credential queries", () => {
 
   it("should list a subject's sessions", async () => {
     const { subject } = await loginAsViewer();
-    const sessions = renderHook(() => useResultSessions({ subject }), { wrapper });
+    const sessions = renderHook(() => Credential.useResultSessions({ subject }), {
+      wrapper,
+    });
     await waitFor(() => expect(sessions.result.current.data).toHaveLength(1));
   });
 
@@ -71,7 +69,7 @@ describe("Credential queries", () => {
     const { viewer, subject, username } = await loginAsViewer();
     // ending a live client's session here would make it log a failed login
     await viewer.close();
-    const set = renderHook(() => useSetPassword(), { wrapper });
+    const set = renderHook(() => Credential.useSetPassword(), { wrapper });
     await act(async () => {
       await set.result.current.updateAsync({ subject, password: "new" });
     });
