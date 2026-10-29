@@ -169,8 +169,8 @@ TEST(RTU, SharesConnectionAcrossLinks) {
     EXPECT_EQ(by_link->last_reply(), by_path->last_reply());
 }
 
-/// @brief it should let one connection at a time use a serial port, even when a link
-/// to it appeared after the other connection was acquired.
+/// @brief it should let one connection at a time use a serial port, as when another
+/// program holds it, even through a link to the port.
 TEST(RTU, LocksPortToOneConnection) {
     testutil::Slave slave(serial_slave());
     ASSERT_NIL(slave.start());
@@ -178,9 +178,10 @@ TEST(RTU, LocksPortToOneConnection) {
     const auto link = std::filesystem::temp_directory_path() /
                       ("modbus-rtu-" + x::uuid::create().to_string());
     device::Manager manager;
+    device::Manager other;
     auto link_cfg = rtu(slave, 1);
     link_cfg.serial.port = link.string();
-    auto by_link = ASSERT_NIL_P(manager.acquire(link_cfg));
+    auto by_link = ASSERT_NIL_P(other.acquire(link_cfg));
     std::filesystem::create_symlink(slave.serial_port(), link);
     x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
     auto by_path = ASSERT_NIL_P(manager.acquire(rtu(slave, 1)));
@@ -203,10 +204,11 @@ TEST(RTU, RefusesPortBeforeChangingLineSettings) {
     const auto link = std::filesystem::temp_directory_path() /
                       ("modbus-rtu-" + x::uuid::create().to_string());
     device::Manager manager;
+    device::Manager other;
     auto link_cfg = rtu(slave, 1);
     link_cfg.serial.port = link.string();
     link_cfg.serial.baud_rate = 9600;
-    auto by_link = ASSERT_NIL_P(manager.acquire(link_cfg));
+    auto by_link = ASSERT_NIL_P(other.acquire(link_cfg));
     std::filesystem::create_symlink(slave.serial_port(), link);
     x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
     auto by_path = ASSERT_NIL_P(manager.acquire(rtu(slave, 1)));
@@ -335,6 +337,39 @@ TEST(RTU, RecoversAfterUnplug) {
     reg = 0;
     ASSERT_NIL(dev->read_registers(device::HoldingRegister, 0, 1, &reg));
     EXPECT_EQ(reg, 1234);
+}
+
+/// @brief it should share the connection of a link that moved to a new port, as after
+/// a replug, with a device acquired after the move.
+TEST(RTU, SharesConnectionAfterPortMoves) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    testutil::Slave moved(serial_slave());
+    ASSERT_NIL(moved.start());
+    x::defer::defer stop_moved([&moved] { moved.stop(); });
+    const auto link = std::filesystem::temp_directory_path() /
+                      ("modbus-rtu-" + x::uuid::create().to_string());
+    std::filesystem::create_symlink(slave.serial_port(), link);
+    x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
+    device::Manager manager;
+    auto link_cfg = rtu(slave, 1);
+    link_cfg.serial.port = link.string();
+    auto first = ASSERT_NIL_P(manager.acquire(link_cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(first->read_registers(device::HoldingRegister, 0, 1, &reg));
+
+    slave.stop();
+    ASSERT_OCCURRED_AS(
+        first->read_registers(device::HoldingRegister, 0, 1, &reg),
+        device::UNREACHABLE
+    );
+    std::filesystem::remove(link);
+    std::filesystem::create_symlink(moved.serial_port(), link);
+    ASSERT_NIL(first->read_registers(device::HoldingRegister, 0, 1, &reg));
+    auto second = ASSERT_NIL_P(manager.acquire(link_cfg));
+    ASSERT_NIL(second->read_registers(device::HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(moved.unit_requests(1), 2);
 }
 
 /// @brief it should return an unreachable error when the serial port does not exist.
