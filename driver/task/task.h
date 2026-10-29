@@ -97,10 +97,10 @@ public:
 
     /// @brief sends the latest status of each task again, stamped now and with no
     /// command key, to repair statuses lost while the Driver could not reach the Core.
-    /// Skips a task that is writing its own status, as that write is newer. Blocks for
-    /// at most one write.
-    /// @returns the error of the write. Nothing was repaired on error, so call it
-    /// again.
+    /// Skips a task that is writing its own status, as that write is newer. Writes one
+    /// task at a time, so a task waits on at most one re-send write.
+    /// @returns the first error of the writes. An error does not stop the writes of the
+    /// other tasks. Call it again on error.
     [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
 
     /// @brief forgets the latest status of the task, so that a later re-send does not
@@ -203,21 +203,19 @@ public:
             for (const auto &[_, entry]: this->statuses)
                 entries.push_back(entry);
         }
-        // The locks stay held until the batch is written, so no task writes a newer
-        // status before it.
-        std::vector<std::unique_lock<std::mutex>> locks;
-        std::vector<synnax::task::Status> batch;
-        const auto now = x::telem::TimeStamp::now();
+        x::errors::Error first_err = x::errors::NIL;
         for (const auto &entry: entries) {
             std::unique_lock lock{entry->mu, std::try_to_lock};
             // drop_status can run between the copy and the lock.
             if (!lock.owns_lock() || entry->dropped) continue;
-            batch.push_back(entry->status);
-            batch.back().time = now;
-            locks.push_back(std::move(lock));
+            auto status = entry->status;
+            status.time = x::telem::TimeStamp::now();
+            if (const auto err = this->client->statuses
+                                     .set<synnax::task::StatusDetails>(status);
+                err && !first_err)
+                first_err = err;
         }
-        if (batch.empty()) return x::errors::NIL;
-        return this->client->statuses.set<synnax::task::StatusDetails>(batch);
+        return first_err;
     }
 
     void drop_status(const synnax::task::Key &key) override {
