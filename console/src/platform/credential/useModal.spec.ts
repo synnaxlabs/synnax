@@ -13,11 +13,11 @@ import {
   createTestClientWithRole,
   createTestUser,
 } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { useModal } from "@/platform/credential/useModal";
-import { findButton, openModal } from "@/platform/modals/testutil";
+import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
 import {
   createTestClientWithGrants,
   getIconButton,
@@ -50,6 +50,34 @@ describe("useModal", () => {
     await screen.findByText("No API keys");
     expect(screen.queryByDisplayValue(/^syk_/)).toBeNull();
     expect(await client.auth.apiKeys.retrieve([id])).toHaveLength(0);
+  });
+
+  it("should delete a key whose creation ends after the dialog closes", async () => {
+    const client = createTestClient();
+    const { user: subject } = await createTestUser(client);
+    const id = user.ontologyID(subject.key);
+    const create = client.auth.apiKeys.create.bind(client.auth.apiKeys);
+    let release = (): void => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let createdKey: string | undefined;
+    vi.spyOn(client.auth.apiKeys, "create").mockImplementation(async (params) => {
+      await gate;
+      const res = await create(params);
+      createdKey = res.key.key;
+      return res;
+    });
+    await openModal(useModal, { client, params: { subject: id } });
+    await screen.findByText("No API keys");
+    await type("Key name", uniqueName("key"));
+    fireEvent.click(findButton("Create key"));
+    fireEvent.click(findDismissButton());
+    release();
+    await waitFor(() => expect(createdKey).toBeDefined());
+    await waitFor(async () =>
+      expect(
+        (await client.auth.apiKeys.retrieve([id])).map((k) => k.key),
+      ).not.toContain(createdKey),
+    );
   });
 
   it("should manage a rack's keys and offer no password", async () => {
