@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <string>
 
 #include <sys/select.h>
@@ -68,5 +69,18 @@ PseudoTerminal::read_frame(std::uint8_t *frame, const std::size_t size) const {
         length += static_cast<std::size_t>(n);
     } while (length < size && readable(this->controller_, 5000));
     return length;
+}
+
+void PseudoTerminal::write_damaged(const std::function<void(int)> &write) const {
+    int fds[2];
+    if (pipe(fds) == -1) return;
+    write(fds[1]);
+    ::close(fds[1]);
+    std::uint8_t frame[256];
+    const auto n = read(fds[0], frame, sizeof(frame));
+    ::close(fds[0]);
+    if (n <= 0) return;
+    frame[n - 1] ^= 0xFF;
+    ::write(this->controller_, frame, static_cast<std::size_t>(n));
 }
 }
