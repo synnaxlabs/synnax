@@ -15,6 +15,13 @@
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
+/// @brief it should not report NI as supported when a config names it.
+TEST(RackFactoriesTest, NamedNIIsNotSupported) {
+    const Config cfg{.integrations = {"ni", http::INTEGRATION_NAME}};
+    EXPECT_FALSE(cfg.integration_supported("ni"));
+    EXPECT_EQ(cfg.supported_integrations(), std::vector{http::INTEGRATION_NAME});
+}
+
 /// @brief it should leave NI out of the default integrations and delete the NI scanner
 /// that a Driver built with NI left on the rack.
 TEST(RackFactoriesTest, DeletesLegacyNIScanner) {
