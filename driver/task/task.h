@@ -94,6 +94,14 @@ public:
 
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
+
+    /// @brief sends the latest status of each task again, stamped now and with no
+    /// command key, to repair statuses lost while the Driver could not reach the Core.
+    virtual void resend_statuses() = 0;
+
+    /// @brief forgets the latest status of the task, so that a later re-send does not
+    /// write it. Call it once the task has left this Driver.
+    virtual void drop_status(const synnax::task::Key &key) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -102,6 +110,8 @@ class MockContext final : public Context {
 
 public:
     std::vector<synnax::task::Status> statuses;
+    /// @brief the number of calls to resend_statuses.
+    std::atomic<int> resends = 0;
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
@@ -111,6 +121,10 @@ public:
         statuses.push_back(status);
         mu.unlock();
     }
+
+    void resend_statuses() override { ++this->resends; }
+
+    void drop_status(const synnax::task::Key &) override {}
 
     /// @brief returns a copy of the statuses, safe to read while tasks send more.
     std::vector<synnax::task::Status> snapshot() {
@@ -123,6 +137,27 @@ class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bus_;
     std::shared_ptr<control::States> control_states_;
     synnax::rack::Key rack_key_;
+    /// @brief the latest status of one task, with no command key.
+    struct Entry {
+        /// @brief guards status and dropped, and orders the task's writes, so a re-send
+        /// never lands after a newer status.
+        std::mutex mu;
+        synnax::task::Status status;
+        /// @brief true once the task has left this Driver.
+        bool dropped = false;
+    };
+    /// @brief guards statuses. Never held during a write, so a task never waits on the
+    /// write of another task.
+    std::mutex statuses_mu;
+    std::unordered_map<synnax::task::Key, std::shared_ptr<Entry>> statuses;
+
+    /// @brief returns the entry for key, creating it if absent.
+    std::shared_ptr<Entry> entry_for(const synnax::task::Key &key) {
+        std::lock_guard lock{this->statuses_mu};
+        auto &entry = this->statuses[key];
+        if (entry == nullptr) entry = std::make_shared<Entry>();
+        return entry;
+    }
 
 public:
     explicit SynnaxContext(
@@ -147,11 +182,50 @@ public:
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
+        const auto entry = this->entry_for(status.details.task);
+        std::lock_guard lock{entry->mu};
+        entry->status = status;
+        entry->status.details.cmd.clear();
         if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
                 status
             );
             err)
             LOG(ERROR) << "[task.context] failed to write task status update: " << err;
+    }
+
+    void resend_statuses() override {
+        std::vector<std::shared_ptr<Entry>> entries;
+        {
+            std::lock_guard lock{this->statuses_mu};
+            entries.reserve(this->statuses.size());
+            for (const auto &[_, entry]: this->statuses)
+                entries.push_back(entry);
+        }
+        for (const auto &entry: entries) {
+            std::lock_guard lock{entry->mu};
+            // The task can leave while the re-send writes the statuses before it.
+            if (entry->dropped) continue;
+            auto status = entry->status;
+            status.time = x::telem::TimeStamp::now();
+            if (const auto err = this->client->statuses
+                                     .set<synnax::task::StatusDetails>(status);
+                err)
+                LOG(ERROR) << "[task.context] failed to send task status again: "
+                           << err;
+        }
+    }
+
+    void drop_status(const synnax::task::Key &key) override {
+        std::shared_ptr<Entry> entry;
+        {
+            std::lock_guard lock{this->statuses_mu};
+            const auto it = this->statuses.find(key);
+            if (it == this->statuses.end()) return;
+            entry = it->second;
+            this->statuses.erase(it);
+        }
+        std::lock_guard lock{entry->mu};
+        entry->dropped = true;
     }
 };
 

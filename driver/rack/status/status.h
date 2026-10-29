@@ -72,6 +72,7 @@ public:
             }
         };
         this->ctx->set_status(stat);
+        bool failed = false;
         while (breaker.running()) {
             this->loop.wait(breaker);
             synnax::rack::Status status{
@@ -84,11 +85,16 @@ public:
             };
             if (const auto err = this->ctx->client->statuses
                                      .set<synnax::rack::StatusDetails>(status);
-                err)
+                err) {
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
-            else
-                VLOG(1) << "[rack_status] successfully set status for rack "
-                        << this->rack_key;
+                failed = true;
+                continue;
+            }
+            VLOG(1) << "[rack_status] successfully set status for rack "
+                    << this->rack_key;
+            // Task status writes also fail while the Core is out of reach.
+            if (failed) this->ctx->resend_statuses();
+            failed = false;
         }
         stat.message = "Stopped";
         stat.time = x::telem::TimeStamp::now();

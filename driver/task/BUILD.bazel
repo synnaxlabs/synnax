@@ -37,6 +37,7 @@ cc_test(
         "//client/cpp/status",
         "//client/cpp/testutil",
         "//driver/task",
+        "//freighter/cpp:freighter",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
