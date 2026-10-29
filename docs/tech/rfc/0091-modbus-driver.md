@@ -86,9 +86,9 @@ temporary error, so it cannot slow the other units.
 ### 2.2 Reads
 
 The read task plans blocks for each table at configure. A channel covers
-`[address, address + width)`. A block grows while its span fits `max_registers` or
-`max_bits` and each gap fits `max_gap`. Each block is one request, and its buffer covers
-the largest end in the block.
+`[address, address + width)`. A block grows while its span fits `max_registers`, or 2000
+bits, and each gap fits `max_gap`. Each block is one request, and its buffer covers the
+largest end in the block. Each value is cast into the data type of its Synnax channel.
 
 ### 2.3 Writes
 
@@ -115,10 +115,14 @@ that outlasts it.
 
 ### 2.5 Data types
 
-- **Strings**: `string_length` characters, two per register, high byte first.
-  `bytes_swapped` puts the low byte first.
-- **Bits**: A `bit` field from 0 to 15 on holding and input register channels. The
-  channel is a `uint8` of 0 or 1.
+- **Strings**: `string_length` characters, from 1 to 250, two per register, high byte
+  first. `bytes_swapped` puts the low byte first. The first NUL ends the string. The
+  Synnax channel must be a `string` channel.
+- **Bits**: New channel types `holding_register_bit` and `input_register_bit` (read) and
+  `holding_register_bit` (write), each with a `bit` from 0 to 15. The channel is a
+  `uint8` of 0 or 1. Bits share read requests with the register channels of their table.
+  Write channels can share a register only on different bits, and the Driver writes each
+  register once per command.
 - **Default**: New register channels default to `uint16`. 8-bit types stay the low byte.
 
 ### 2.6 Addresses
@@ -218,7 +222,12 @@ codes.
 per-device address base. That adds a stored field that every view must convert, for an
 entry that the six-digit form already makes unambiguous.
 
-**5.9 libmodbus stays.** It covers TCP and RTU, and it has many years of field use.
+**5.9 A bit is its own channel type, not a field.** Kepware (`40001.5`) and Ignition
+give a register bit its own address form. A separate type keeps the bit out of the
+numeric register channel, where it would have to be ignored for every data type wider
+than one register.
+
+**5.10 libmodbus stays.** It covers TCP and RTU, and it has many years of field use.
 Kepware writes its own stack. A new stack would add pipelined requests and RTU over TCP,
 and this design needs neither. The trade is real: libmodbus is not thread-safe, which is
 one more reason for one connection per endpoint behind a lock.
