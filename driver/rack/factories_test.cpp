@@ -7,52 +7,43 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
-/// @brief it should build no NI or LabJack factory when their libraries do not load,
-/// and still build the factory of an integration whose libraries load.
-TEST(RackFactoriesTest, testSkipsIntegrationsWithoutLibraries) {
-    // The NI names are literals because the macOS build leaves NI out.
-    const Config cfg{
-        .integrations = {"ni", labjack::INTEGRATION_NAME, http::INTEGRATION_NAME},
-        .libraries_loaded = [](const std::string &i) {
-            return i != "ni" && i != labjack::INTEGRATION_NAME;
-        },
+/// @brief it should build a factory for each integration in the build whether or not
+/// its library loads, and no factory for an integration the build leaves out.
+TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
+    // The names are literals because a build can leave either integration out.
+    const std::vector<std::pair<std::string, std::string>> scanners = {
+        {"ni", "ni_scanner"},
+        {"labjack", "labjack_scan"},
     };
-    ASSERT_EQ(cfg.supported_integrations(), std::vector{http::INTEGRATION_NAME});
+    const Config cfg{.integrations = {"ni", "labjack"}};
     const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    const std::vector<std::string> types = {
-        "ni_scanner",
-        "ni_analog_read",
-        labjack::SCAN_TASK_TYPE,
-        labjack::READ_TASK_TYPE,
-    };
-    for (const auto &type: types) {
+    const auto built = default_integrations();
+    for (const auto &[integration, type]: scanners) {
+        // An invalid config stops the configure before it loads a library or builds a
+        // scanner, which needs a client.
         const auto [tsk, handled] = factory->configure_task(
             ctx,
-            synnax::task::Task{.name = type, .type = type},
+            synnax::task::Task{
+                .name = type,
+                .type = type,
+                .config = {{"rate", "fast"}}
+            },
             task::NO_COMMAND
         );
-        EXPECT_FALSE(handled) << type;
+        EXPECT_EQ(handled, std::ranges::find(built, integration) != built.end())
+            << type;
         EXPECT_EQ(tsk, nullptr) << type;
     }
-    // An invalid config stops the configure before it builds a scanner, which needs a
-    // client.
-    const auto [scanner, handled] = factory->configure_task(
-        ctx,
-        synnax::task::Task{
-            .name = "http_scan",
-            .type = "http_scan",
-            .config = {{"rate", "fast"}},
-        },
-        task::NO_COMMAND
-    );
-    EXPECT_TRUE(handled);
-    EXPECT_EQ(scanner, nullptr);
-    EXPECT_TRUE(ctx->statuses.empty());
 }
 }

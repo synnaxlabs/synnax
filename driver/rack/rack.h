@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <functional>
 #include <iterator>
 #include <string>
 #include <vector>
@@ -72,11 +71,6 @@ struct RemoteInfo {
 /// build has. Each platform defines it in its own source.
 std::vector<std::string> platform_integrations();
 
-/// @brief returns false when this platform's build leaves the integration out or its
-/// SDK libraries do not load on this computer, and true otherwise. Each platform
-/// defines it in its own source.
-bool platform_libraries_loaded(const std::string &integration);
-
 inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
         opcua::INTEGRATION_NAME,
@@ -123,16 +117,9 @@ struct Config {
     /// @brief the directory that holds the persisted state file. Integrations keep
     /// their own files, such as certificates, inside it.
     std::filesystem::path state_dir;
-    /// @brief returns true if the SDK libraries of the named integration load on this
-    /// computer.
-    std::function<bool(const std::string &)> libraries_loaded =
-        [](const std::string &i) {
-            if (i == labjack::INTEGRATION_NAME) return labjack::integration_supported();
-            return platform_libraries_loaded(i);
-        };
 
     /// @brief returns a new task factory to use for creating tasks in the task
-    /// manager. It holds a factory only for each supported integration.
+    /// manager.
     [[nodiscard]] std::unique_ptr<task::Factory>
     new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const;
 
@@ -141,16 +128,8 @@ struct Config {
         return std::make_shared<synnax::Synnax>(this->connection);
     }
 
-    /// @brief returns true if the integration is enabled and its SDK libraries load.
-    [[nodiscard]] bool integration_supported(const std::string &i) const;
-
-    /// @brief returns the enabled integrations whose SDK libraries load.
-    [[nodiscard]] std::vector<std::string> supported_integrations() const {
-        std::vector<std::string> result;
-        for (const auto &i: this->integrations)
-            if (this->libraries_loaded(i)) result.push_back(i);
-        return result;
-    }
+    /// @brief returns true if the integration with the given name is enabled.
+    [[nodiscard]] bool integration_enabled(const std::string &i) const;
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "configuration:\n"

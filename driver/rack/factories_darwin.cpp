@@ -17,11 +17,6 @@ std::vector<std::string> platform_integrations() {
     return {};
 }
 
-bool platform_libraries_loaded(const std::string &integration) {
-    // The macOS build leaves NI out, so its name is a literal.
-    return integration != "ni";
-}
-
 /// @brief deletes the NI scanner that a Driver built with NI left on the rack, as the
 /// macOS build has no NI integration to run it.
 class LegacyNIFactory final : public task::Factory {

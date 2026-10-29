@@ -12,10 +12,9 @@
 #include "absl/log/log.h"
 
 #include "driver/common/common.h"
+#include "driver/common/lazy.h"
 #include "driver/common/sample_clock.h"
-#include "driver/ni/daqmx/prod.h"
 #include "driver/ni/daqmx/sugared.h"
-#include "driver/ni/syscfg/prod.h"
 #include "driver/ni/syscfg/sugared.h"
 #include "driver/task/task.h"
 
@@ -53,33 +52,24 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
     return err.skip(daqmx::ANALOG_WRITE_OUT_OF_BOUNDS);
 }
 
-/// @brief returns true if the NI SDK libraries (DAQmx and SysCfg) are available on this
-/// system.
-inline bool integration_supported() {
-    auto [dmx, dmx_err] = daqmx::ProdAPI::load();
-    auto [sc, sc_err] = syscfg::ProdAPI::load();
-    return dmx != nullptr && sc != nullptr;
-}
-
 /// @brief a factory for instantiating and operating NI data acquisition, control,
 /// and device scanning tasks.
 class Factory final : public task::Factory {
-    /// @brief the daqmx library used to communicate with NI hardware.
-    std::shared_ptr<daqmx::SugaredAPI> dmx;
-    /// @brief the system configuration library used to get information
-    /// about devices.
-    std::shared_ptr<syscfg::SugaredAPI> syscfg;
+    /// @brief the DAQmx library that read and write tasks use.
+    std::shared_ptr<common::Lazy<daqmx::SugaredAPI>> dmx;
+    /// @brief the System Configuration library that the scanner uses.
+    std::shared_ptr<common::Lazy<syscfg::SugaredAPI>> syscfg;
     common::TimingConfig timing_cfg;
 
 public:
     Factory(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-        common::TimingConfig timing_cfg
+        common::Lazy<daqmx::SugaredAPI>::Loader load_dmx,
+        common::Lazy<syscfg::SugaredAPI>::Loader load_syscfg,
+        common::TimingConfig timing_cfg = common::TimingConfig{}
     );
 
-    /// @brief creates a new NI factory, loading the DAQmx and system configuration
-    /// libraries.
+    /// @brief creates a new NI factory that loads the DAQmx and System Configuration
+    /// libraries on first use.
     static std::unique_ptr<Factory>
     create(common::TimingConfig timing_cfg = common::TimingConfig{});
 
@@ -106,10 +96,13 @@ public:
         common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
+        result.auto_start = cfg.auto_start;
+        auto [dmx, dmx_err] = this->dmx->get();
+        if (dmx_err) return {std::move(result), dmx_err};
         const std::string dmx_task_name = task.name + " (" + task.key.to_string() + ")";
         using Hardware = SourceSinkT::Hardware;
         typename SourceSinkT::MakeHardware make_hw =
-            [dmx = this->dmx, dmx_task_name](
+            [dmx, dmx_task_name](
                 const ConfigT &run_cfg
             ) -> std::pair<std::unique_ptr<Hardware>, x::errors::Error> {
             TaskHandle handle = nullptr;
@@ -121,7 +114,6 @@ public:
             if (const auto err = run_cfg.apply(dmx, handle)) return {nullptr, err};
             return {std::move(hw), x::errors::NIL};
         };
-        result.auto_start = cfg.auto_start;
         result.task = std::make_unique<TaskT>(
             task,
             ctx,

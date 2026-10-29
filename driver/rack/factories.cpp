@@ -23,9 +23,8 @@
 #include "driver/rack/status/status.h"
 
 namespace driver::rack {
-bool Config::integration_supported(const std::string &i) const {
-    return std::ranges::find(this->integrations, i) != this->integrations.end() &&
-           this->libraries_loaded(i);
+bool Config::integration_enabled(const std::string &i) const {
+    return std::ranges::find(integrations, i) != integrations.end();
 }
 
 void configure_opcua(const Config &config, FactoryList &factories) {
@@ -52,7 +51,7 @@ void configure_state(FactoryList &factories) {
 
 #ifndef SYNNAX_NILINUXRT
 void configure_modbus(const Config &config, FactoryList &factories) {
-    if (!config.integration_supported(modbus::INTEGRATION_NAME)) return;
+    if (!config.integration_enabled(modbus::INTEGRATION_NAME)) return;
     factories.push_back(std::make_unique<modbus::Factory>());
 }
 #endif
