@@ -24,7 +24,11 @@ READ_TYPE_NAMES = {
     "holding_register": "Holding register",
     "input_register": "Register",
 }
-WRITE_TYPE_NAMES = {"coil": "Coil", "holding_register": "Holding register"}
+WRITE_TYPE_NAMES = {
+    "coil": "Coil",
+    "holding_register": "Holding register",
+    "holding_register_bit": "Holding register bit",
+}
 
 
 class ModbusTask(TaskPage):
@@ -55,12 +59,13 @@ class ModbusTask(TaskPage):
         modal.wait_for(state="hidden", timeout=15000)
 
     def add_channel(
-        self, type_name: str, address: int, data_type: str | None = None
+        self, type_name: str, address: int | str, data_type: str | None = None
     ) -> None:
         """Append a channel row and fill it in.
 
         :param type_name: Type as shown in the type dropdown, e.g. "Register".
-        :param address: Modbus address.
+        :param address: Modbus address, or a six-digit Modicon address such as
+            "400001".
         :param data_type: Register data type, e.g. "float32". Registers only.
         """
         index = self._rows().count()
@@ -69,17 +74,29 @@ class ModbusTask(TaskPage):
         self.set_channel_type(index, type_name)
         self.set_address(index, address)
         if data_type is not None:
-            self._fields(index).get_by_role("button").nth(1).click()
-            self.layout.select_from_dropdown(data_type, exact=True)
+            self.set_data_type(index, data_type)
 
     def set_channel_type(self, index: int, type_name: str) -> None:
         """Set the type of the channel row at ``index``."""
         self._fields(index).get_by_role("button").first.click()
         self.layout.select_from_dropdown(type_name, exact=True)
 
-    def set_address(self, index: int, address: int) -> None:
+    def set_data_type(self, index: int, data_type: str) -> None:
+        """Set the data type of the register channel row at ``index``."""
+        self._fields(index).get_by_role("button").nth(1).click()
+        self.layout.select_from_dropdown(data_type, exact=True)
+
+    def set_address(self, index: int, address: int | str) -> None:
         """Set the address of the channel row at ``index``."""
-        self._fields(index).locator("input").first.fill(str(address))
+        field = self._fields(index).locator("input").first
+        field.fill(str(address))
+        field.press("Enter")
+
+    def set_bit(self, index: int, bit: int) -> None:
+        """Set the bit of the register bit channel row at ``index``."""
+        field = self._fields(index).locator("input").nth(1)
+        field.fill(str(bit))
+        field.press("Enter")
 
     def channels(self) -> list[tuple[str, int]]:
         """Return the (type name, address) of each listed channel, in order."""
