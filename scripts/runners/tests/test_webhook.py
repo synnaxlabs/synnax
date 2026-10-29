@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import http.client
 import json
+import socket
 from collections.abc import Iterator
 
 import pytest
@@ -66,3 +67,10 @@ class TestWebhook:
         headers = {"Content-Length": str(MAX_BODY + 1)}
         assert post(hook, body=b"", headers=headers) == 413
         assert hook.rejected == 1
+
+    def test_should_queue_a_burst_of_connections(self, hook: Webhook) -> None:
+        hook.server.shutdown()
+        address = ("127.0.0.1", hook.server.server_address[1])
+        conns = [socket.create_connection(address, timeout=1) for _ in range(64)]
+        for conn in conns:
+            conn.close()

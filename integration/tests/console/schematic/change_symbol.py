@@ -55,7 +55,12 @@ class ChangeSymbol(ConsoleCase):
             )
         )
         valve_b.move(delta_x=150, delta_y=0)
-        schematic.connect_symbols(valve_a, "right", valve_b, "left")
+        schematic.connect_symbols(
+            source_symbol=valve_a,
+            source_handle="right",
+            target_symbol=valve_b,
+            target_handle="left",
+        )
         assert schematic.get_edge_count() == 1, "Expected one edge between the valves"
 
         self.test_change_keeps_settings(schematic, valve=valve_a)
