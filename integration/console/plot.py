@@ -174,7 +174,10 @@ class Plot(ConsolePage):
         icon_direction: Literal["arrow-up", "arrow-right"] = (
             "arrow-up" if direction == "vertical" else "arrow-right"
         )
-        selector = f"label:has-text('Label direction') + div button:has(svg.lyra-icon--{icon_direction})"
+        selector = (
+            "label:has-text('Label direction') + div "
+            f"button:has(svg.lyra-icon--{icon_direction})"
+        )
         self.page.locator(selector).click(timeout=5000)
 
     def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:

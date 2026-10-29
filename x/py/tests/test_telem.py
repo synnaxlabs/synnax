@@ -163,7 +163,9 @@ class TestTimeStamp:
         assert ts >= sy.TimeSpan.MICROSECOND
 
     def test_after_eq_before(self) -> None:
-        """Should return true if the timestamp is after or equal to the given timestamp"""
+        """Should return true if the timestamp is after or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(100)
         assert not ts >= sy.TimeSpan.MICROSECOND
 
@@ -178,12 +180,16 @@ class TestTimeStamp:
         assert ts < sy.TimeSpan.MICROSECOND
 
     def test_before_eq_before(self) -> None:
-        """Should return true if the timestamp is before or equal to the given timestamp"""
+        """Should return true if the timestamp is before or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(100)
         assert ts <= sy.TimeSpan.MICROSECOND
 
     def test_before_eq_after(self) -> None:
-        """Should return true if the timestamp is before or equal to the given timestamp"""
+        """Should return true if the timestamp is before or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(1000)
         assert ts <= sy.TimeSpan.MICROSECOND
 
@@ -266,13 +272,17 @@ class TestTimeRange:
         assert tr.contains(sy.TimeStamp(0))
 
     def test_range_not_contains_range(self) -> None:
-        """Should return true if the ranges overlap but a smaller range is not contained"""
+        """Should return true if the ranges overlap but a smaller range is not
+        contained
+        """
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 1500)
         assert not tr.contains(tr2)
 
     def test_range_contains_range(self) -> None:
-        """Should return true if the ranges overlap and the smaller range is contained"""
+        """Should return true if the ranges overlap and the smaller range is
+        contained
+        """
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 900)
         assert tr.contains(tr2)
@@ -732,7 +742,9 @@ class TestRate:
         assert sy.Rate(rate).span(count) == expected
 
     def test_byte_span_invalid(self) -> None:
-        """Should raise a contiguity error if the size is not a multiple of the density"""
+        """Should raise a contiguity error if the size is not a multiple of the
+        density
+        """
         with pytest.raises(ContiguityError):
             sy.Rate(1.0).size_span(sy.Size(41), density=sy.Density.BIT64)
 

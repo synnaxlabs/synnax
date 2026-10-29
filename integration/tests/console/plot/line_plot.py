@@ -275,7 +275,9 @@ class LinePlot(ConsoleCase):
     def test_open_plot_from_resources(
         self, plot_name: str, *, expected_link: str
     ) -> None:
-        """Test opening a plot by double-clicking it in the project resources toolbar."""
+        """Test opening a plot by double-clicking it in the project resources
+        toolbar.
+        """
         self.log("Testing open plot from resources toolbar")
 
         plot = self.console.pages.open(Plot, plot_name)
@@ -286,7 +288,8 @@ class LinePlot(ConsoleCase):
         opened_link = plot.copy_link()
         # Verify link is the same between resources and visualization toolbars
         assert opened_link == expected_link, (
-            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+            f"Opened plot link should match: expected {expected_link}, got "
+            f"{opened_link}"
         )
 
         plot.close()
@@ -302,7 +305,8 @@ class LinePlot(ConsoleCase):
 
         opened_link = plot.copy_link()
         assert opened_link == expected_link, (
-            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+            f"Opened plot link should match: expected {expected_link}, got "
+            f"{opened_link}"
         )
 
         plot.close()
@@ -357,7 +361,9 @@ class LinePlot(ConsoleCase):
             self._cleanup_pages.remove(name)
 
     def test_open_plot_by_name(self, plot_name: str, *, expected_link: str) -> None:
-        """Test opening an existing plot by searching its name in the command palette."""
+        """Test opening an existing plot by searching its name in the command
+        palette.
+        """
         self.log("Testing open plot by name via command palette")
 
         plot = self.console.pages.open_from_search(Plot, plot_name)
@@ -367,7 +373,8 @@ class LinePlot(ConsoleCase):
 
         opened_link = plot.copy_link()
         assert opened_link == expected_link, (
-            f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+            f"Opened plot link should match: expected {expected_link}, got "
+            f"{opened_link}"
         )
 
         plot.close()

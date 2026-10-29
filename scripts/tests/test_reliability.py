@@ -46,7 +46,9 @@ FILES = {
     "client/py/test_frame.py": (
         "def test_reads():\n    pass\n\n\nasync def test_streams():\n    pass\n"
     ),
-    "integration/tests/console/plot.py": "import x\n\n\nclass Plot(TestCase):\n    pass\n",
+    "integration/tests/console/plot.py": (
+        "import x\n\n\nclass Plot(TestCase):\n    pass\n"
+    ),
 }
 
 # A scratch repo holding FILES, and the SHA of its only commit.

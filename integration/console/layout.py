@@ -194,7 +194,9 @@ class LayoutClient:
         error_prefix: str,
         retries: int,
     ) -> None:
-        """Internal palette implementation used by command_palette and search_palette."""
+        """Internal palette implementation used by command_palette and
+        search_palette.
+        """
         for attempt in range(retries):
             palette_btn = self.page.locator(".console-palette button").first
             palette_btn.wait_for(state="visible", timeout=5000)
@@ -327,7 +329,9 @@ class LayoutClient:
         nav_drawer.wait_for(state="visible", timeout=5000)
 
     def close_left_toolbar(self) -> None:
-        """Close any open side nav drawer (left/right, not bottom visualization toolbar)."""
+        """Close any open side nav drawer (left/right, not bottom visualization
+        toolbar).
+        """
         nav_drawer = self.page.locator(
             ".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)"
         )

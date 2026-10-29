@@ -101,7 +101,7 @@ class SymbolEditor:
 
                 if (!onContentsChange) throw new Error('onContentsChange not found');
                 onContentsChange(svgContent, properName);
-            }""",
+            }""",  # noqa: E501
             [svg_content, proper_name],
         )
         self.wait_for_form_visible()

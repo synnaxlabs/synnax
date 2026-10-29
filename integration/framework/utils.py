@@ -250,7 +250,8 @@ def assert_link_format(
 
     :param link: The link to validate.
     :param resource_type: The resource type (e.g., "lineplot", "log", "channel").
-    :param resource_id: Optional specific resource ID to match. If None, validates as UUID.
+    :param resource_id: Optional specific resource ID to match. If None, validates as
+        UUID.
     """
     match = _LINK_PATTERN.match(link)
     assert match, f"Link should match synnax://cluster/<uuid>/<type>/<id>, got: {link}"

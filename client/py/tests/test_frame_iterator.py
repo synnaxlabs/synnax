@@ -395,7 +395,8 @@ class TestIterator:
 
         # Read latest 4 samples - should get the last 4 available
         result = client.read_latest(data_ch.key, n=4)
-        # Should get [3.0, 10.0, 11.0, 12.0] or just [10.0, 11.0, 12.0] depending on implementation
+        # Should get [3.0, 10.0, 11.0, 12.0] or just [10.0, 11.0, 12.0] depending on
+        # implementation
         assert len(result) >= 3  # At minimum should get the last chunk
         assert 12.0 in result  # Should definitely include the latest value
 

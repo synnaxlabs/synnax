@@ -407,7 +407,10 @@ class TestCodec:
         encoded[0] |= 1 << _EXTENDED_FLAG_POS
         with pytest.raises(
             sy.ValidationError,
-            match=r"^remote sent an extended flags byte, which this codec does not support$",
+            match=(
+                r"^remote sent an extended flags byte, "
+                r"which this codec does not support$"
+            ),
         ):
             codec.decode(bytes(encoded))
 
@@ -428,7 +431,9 @@ class TestCodec:
             decoder.decode(stale)
 
     def test_dynamic_codec_update(self) -> None:
-        """Tests that the codec can be updated with new channels and correctly encode/decode after update"""
+        """Tests that the codec can be updated with new channels and correctly
+        encode/decode after update
+        """
         codec = Codec()
         # First update and verification
         codec.update(keys=[1], data_types=[sy.DataType.INT32])
@@ -513,7 +518,9 @@ class TestCodec:
         assert encoded[0] in (ord("{"), ord("["))
 
     def test_out_of_sync_codecs(self) -> None:
-        """Tests correct behavior when encoder and decoder are out of sync with different states"""
+        """Tests correct behavior when encoder and decoder are out of sync with
+        different states
+        """
         encoder = Codec()
         decoder = Codec()
 

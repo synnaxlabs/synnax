@@ -117,7 +117,8 @@ class ExecutionClient:
                 True,
             )
             self._log(
-                f"Executing {len(sequence.tests)} tests with {sequence.order} order...\n",
+                f"Executing {len(sequence.tests)} tests with {sequence.order} "
+                "order...\n",
                 True,
             )
 

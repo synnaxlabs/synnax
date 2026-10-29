@@ -82,7 +82,9 @@ class UserRegister(ConsoleCase):
         )
 
     def test_role_change_affects_permissions(self) -> None:
-        """Log in as the user (now Engineer) and verify they gained Engineer permissions."""
+        """Log in as the user (now Engineer) and verify they gained Engineer
+        permissions.
+        """
         self.log("Logging in as changed user to verify permissions")
         self.console.access.logout()
         self.console.access.login(username=self.username, password=PASSWORD)

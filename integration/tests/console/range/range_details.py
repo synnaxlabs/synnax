@@ -24,7 +24,9 @@ NI_ANALOG_READ_CONFIG = {
 
 
 class RangeDetails(HardwareCase, ConsoleCase):
-    """Test Range Details: child range context menu, metadata, and snapshot operations."""
+    """Test Range Details: child range context menu, metadata, and snapshot
+    operations.
+    """
 
     suffix: str
     parent_range_name: str

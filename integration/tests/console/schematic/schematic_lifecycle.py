@@ -215,20 +215,24 @@ class SchematicLifecycle(ConsoleCase):
         )
 
     def test_open_schematic_from_resources(self) -> None:
-        """Test opening a schematic by double-clicking it in the project resources toolbar."""
+        """Test opening a schematic by double-clicking it in the project resources
+        toolbar.
+        """
         assert self.main_schematic_name is not None
         self.log("Testing open schematic from resources toolbar")
 
         schematic = self.console.pages.open(Schematic, self.main_schematic_name)
 
         assert schematic.is_pane_visible, (
-            f"Schematic '{self.main_schematic_name}' pane not visible after opening from resources toolbar"
+            f"Schematic '{self.main_schematic_name}' pane not visible after opening "
+            "from resources toolbar"
         )
 
         # Assert the link we used to open is the same link we get.
         opened_link = schematic.copy_link()
         assert opened_link == self.main_schematic_link, (
-            f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+            f"Opened schematic link should match: expected {self.main_schematic_link}, "
+            f"got {opened_link}"
         )
 
         schematic.close()
@@ -243,12 +247,14 @@ class SchematicLifecycle(ConsoleCase):
         )
 
         assert schematic.is_pane_visible, (
-            f"Schematic '{self.main_schematic_name}' pane not visible after dragging to mosaic"
+            f"Schematic '{self.main_schematic_name}' pane not visible after dragging "
+            "to mosaic"
         )
 
         opened_link = schematic.copy_link()
         assert opened_link == self.main_schematic_link, (
-            f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+            f"Opened schematic link should match: expected {self.main_schematic_link}, "
+            f"got {opened_link}"
         )
 
         schematic.close()
@@ -263,12 +269,14 @@ class SchematicLifecycle(ConsoleCase):
         )
 
         assert schematic.is_pane_visible, (
-            f"Schematic '{self.main_schematic_name}' pane not visible after opening from search"
+            f"Schematic '{self.main_schematic_name}' pane not visible after opening "
+            "from search"
         )
 
         opened_link = schematic.copy_link()
         assert opened_link == self.main_schematic_link, (
-            f"Opened schematic link should match: expected {self.main_schematic_link}, got {opened_link}"
+            f"Opened schematic link should match: expected {self.main_schematic_link}, "
+            f"got {opened_link}"
         )
 
         schematic.close()
@@ -375,7 +383,8 @@ class SchematicLifecycle(ConsoleCase):
         snapshot_names = self.console.ranges.overview.get_snapshot_names()
         self.log(f"Snapshots found in overview: {snapshot_names}")
         assert self.console.ranges.overview.snapshot_exists(snapshot_name), (
-            f"Snapshot '{snapshot_name}' should exist in Range Details Overview. Found: {snapshot_names}"
+            f"Snapshot '{snapshot_name}' should exist in Range Details Overview. "
+            f"Found: {snapshot_names}"
         )
 
         self.console.ranges.overview.open_snapshot(snapshot_name)

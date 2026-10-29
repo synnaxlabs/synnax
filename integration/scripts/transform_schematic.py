@@ -114,7 +114,9 @@ def transform_schematic(
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Transform schematic by replacing config channel keys with Synnax keys.",
+        description=(
+            "Transform schematic by replacing config channel keys with Synnax keys."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -131,7 +133,7 @@ The script will:
   3. Replace config keys with Synnax keys
   4. Replace unknown keys (>1000000) with 0
   5. Save the transformed schematic with '_transformed' suffix
-        """,
+        """,  # noqa: E501
     )
     parser.add_argument(
         "schematic", type=str, help="Path to schematic JSON file to transform"
@@ -140,7 +142,10 @@ The script will:
     parser.add_argument(
         "--output",
         type=str,
-        help="Output path for transformed schematic (default: <schematic>_transformed.json)",
+        help=(
+            "Output path for transformed schematic "
+            "(default: <schematic>_transformed.json)"
+        ),
     )
 
     args = parser.parse_args()

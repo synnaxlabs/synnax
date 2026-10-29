@@ -111,7 +111,9 @@ class Series(ArrayOperators):
     data: bytes
     """The underlying buffer"""
     alignment: Alignment
-    """The alignment of the Series, representing the position within an array of arrays"""
+    """The alignment of the Series, representing the position within an array of
+    arrays
+    """
     alignment_multiple: int
     """The number of alignment steps between consecutive samples. Above one when the
     Core reduced the Series from a longer one."""
@@ -167,7 +169,8 @@ class Series(ArrayOperators):
                     alignment_multiple = data.series[0].alignment_multiple
             else:
                 raise ValueError(
-                    "[Series] - MultiSeries with more than one series cannot be converted to a Series"
+                    "[Series] - MultiSeries with more than one series cannot be "
+                    "converted to a Series"
                 )
             data_type = data_type or data.data_type
         elif isinstance(data, pd.Series):
@@ -224,8 +227,9 @@ class Series(ArrayOperators):
         https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
         """
         if not self.data_type.has_np:
+            dt = self.data_type
             raise ValueError(f"""
-                [Series] - {self.data_type} does not have a numpy equivalent, so it can't
+                [Series] - {dt} does not have a numpy equivalent, so it can't
                 be interpreted as a numpy array.
                 """)
 
@@ -464,8 +468,8 @@ class MultiSeries(ArrayOperators):
     def alignment_bounds(self) -> Bounds:
         """:returns: The bounds of alignments covered by this MultiSeries.
 
-        The lower bound is the alignment of the first sample in the first series,
-        and the upper bound is the alignment just after the last sample in the last series.
+        The lower bound is the alignment of the first sample in the first series, and
+        the upper bound is the alignment just after the last sample in the last series.
         If the MultiSeries is empty, returns Bounds(0, 0).
         """
         if len(self.series) == 0:

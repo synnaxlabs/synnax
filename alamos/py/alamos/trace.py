@@ -37,8 +37,8 @@ class Span(Protocol):
     """
     The key identifying the span. This is the name of the key passed into `trace`
     combined with the path of the instrumentation that started the span. For example,
-    take instrumentation titled \"synnax\" and a call to trace with \"test\". The span key
-    would be \"synnax.test\".
+    take instrumentation titled \"synnax\" and a call to trace with \"test\". The span
+    key would be \"synnax.test\".
     """
 
     def record_exception(self, exc: Exception | None) -> None:

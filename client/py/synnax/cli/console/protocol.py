@@ -89,8 +89,8 @@ class Print(Protocol):
         """Prints a table to the console.
 
         :param columns: A list of column names.
-        :param rows: A list of dictionaries, where each dictionary represents a row.py. The
-        keys of the dictionary should match the column names.
+        :param rows: A list of dictionaries, where each dictionary represents a row.py.
+        The keys of the dictionary should match the column names.
         """
         ...
 

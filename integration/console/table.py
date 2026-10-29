@@ -210,14 +210,18 @@ class Table(ConsolePage):
         return self.page.locator(f'td[id^="resizer-{direction}-"]').nth(index)
 
     def get_row_count(self) -> int:
-        """Get the number of data rows in the table (excludes the column resizer row)."""
+        """Get the number of data rows in the table (excludes the column resizer
+        row).
+        """
         self.page.locator(_DATA_ROW_SELECTOR).first.wait_for(
             state="visible", timeout=5000
         )
         return self.page.locator(_DATA_ROW_SELECTOR).count()
 
     def get_column_count(self) -> int:
-        """Get the number of data columns in the table (excludes the row resizer cell)."""
+        """Get the number of data columns in the table (excludes the row resizer
+        cell).
+        """
         data_row = self.page.locator(_DATA_ROW_SELECTOR).first
         data_row.wait_for(state="visible", timeout=5000)
         return data_row.locator(".pluto-table__cell").count()
@@ -239,7 +243,9 @@ class Table(ConsolePage):
         self._get_indicator("y", row).click()
 
     def select_col_via_header(self, col: int) -> None:
-        """Click the column indicator (top header) to select every cell in the column."""
+        """Click the column indicator (top header) to select every cell in the
+        column.
+        """
         self._get_indicator("x", col).click()
 
     def add_row_above(self, row: int, *, col: int = 0) -> None:

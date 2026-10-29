@@ -115,7 +115,7 @@ sequence one_shot_seq {
         range_one_shot_tick -> range_one_shot_echo // For verification
     }
 }
-"""
+"""  # noqa: E501
 
 
 class Case(NamedTuple):

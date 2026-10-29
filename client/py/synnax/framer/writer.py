@@ -152,12 +152,12 @@ class Writer:
     successfully, the caller is then free to write frames to the writer.
 
     2. To write a frame, the caller can use the write method and follow the validation
-    rules described in the method's documentation. This process is asynchronous,
-    meaning that write will return before the frame has been written to the cluster. This
-    also means that the writer can accumulate an error after write is called. If the
-    writer accumulates an error, subsequent calls to `write` will repeatedly throw that
-    error. If write throws an error, the writer can no longer be used, and it must
-    be closed and re-opened to continue writing.
+    rules described in the method's documentation. This process is asynchronous, meaning
+    that write will return before the frame has been written to the cluster. This also
+    means that the writer can accumulate an error after write is called. If the writer
+    accumulates an error, subsequent calls to `write` will repeatedly throw that error.
+    If write throws an error, the writer can no longer be used, and it must be closed
+    and re-opened to continue writing.
 
     3. To commit the written frames to the database, the caller can call the commit
     method. Unlike write, commit is synchronous, meaning that it will not return until

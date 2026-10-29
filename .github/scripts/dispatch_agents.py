@@ -10,9 +10,10 @@
 """Selects the agent-ready Linear issues an agent can start now.
 
 An issue is ready when it is in Backlog or Todo, every blocker is Done, no open pull
-request names it, and its project has fewer than the cap in flight. In flight means
-In Progress or In Review, or named by an open pull request in any state. Without --dry-run, moves
-each selected issue to In Progress and writes the agent workflow matrix to --output.
+request names it, and its project has fewer than the cap in flight. In flight means In
+Progress or In Review, or named by an open pull request in any state. Without --dry-run,
+moves each selected issue to In Progress and writes the agent workflow matrix to
+--output.
 
 Needs LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET for a Linear OAuth app with client
 credentials on, and gh authenticated for the repository. Linear shows its changes as the

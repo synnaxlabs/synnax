@@ -90,5 +90,6 @@ class IntervalPress(ArcCase):
             self.log(f"[Cycle {cycle}] Cycle complete!")
 
         self.log(
-            "All 3 cycles completed - interval-triggered hysteresis control verified successfully"
+            "All 3 cycles completed - interval-triggered hysteresis control verified "
+            "successfully"
         )
