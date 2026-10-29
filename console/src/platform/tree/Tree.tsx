@@ -38,7 +38,10 @@ import { useStore } from "react-redux";
 import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
-import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
+import {
+  DefaultContextMenu,
+  type DefaultContextMenuProps,
+} from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
 import { useItems } from "@/platform/tree/Provider";
@@ -54,6 +57,7 @@ import { type Action, type State } from "@/session/store";
 interface InternalProps {
   root: ontology.ID;
   emptyContent?: ReactNode;
+  rootContextMenu: FC<DefaultContextMenuProps>;
 }
 
 interface ContextValue {
@@ -183,7 +187,11 @@ const toNodes = (
       children: resolveItem(r.id.type).hasChildren ? [] : undefined,
     }));
 
-const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
+const Internal = ({
+  root,
+  emptyContent,
+  rootContextMenu: RootContextMenu,
+}: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
@@ -468,7 +476,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const renderContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     if (client == null) return <FallbackContextMenu />;
-    if (keys.length === 0) return <DefaultContextMenu root={root} state={state} />;
+    if (keys.length === 0) return <RootContextMenu root={root} state={state} />;
     const rightClickedButNotSelected = keys.find((v) => !selected.includes(v));
     // In the case where we right clicked the menu, but it's not in the current
     // selection, we only display a context menu for that item.
@@ -549,9 +557,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 export interface TreeProps {
   root?: ontology.ID | null;
   emptyContent?: ReactNode;
+  /** The menu for a right-click on empty space. */
+  rootContextMenu?: FC<DefaultContextMenuProps>;
 }
 
-export const Tree = ({ root, ...rest }: TreeProps): ReactElement | null => {
+export const Tree = ({
+  root,
+  rootContextMenu = DefaultContextMenu,
+  ...rest
+}: TreeProps): ReactElement | null => {
   if (root == null) return null;
-  return <Internal root={root} {...rest} />;
+  return <Internal root={root} rootContextMenu={rootContextMenu} {...rest} />;
 };

@@ -10,6 +10,7 @@
 export * from "@/platform/tree/CopyPropertiesContextMenuItem";
 export * from "@/platform/tree/createUseDelete";
 export * from "@/platform/tree/createUseRename";
+export * from "@/platform/tree/DefaultContextMenu";
 export * from "@/platform/tree/item";
 export * from "@/platform/tree/Provider";
 export * from "@/platform/tree/Tree";

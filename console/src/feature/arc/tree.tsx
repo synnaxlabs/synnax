@@ -43,6 +43,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids },
     state: { getResource },
+    openTab,
   } = props;
   const keys = ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -73,7 +74,17 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       <Menu.Divider />
       {hasUpdatePermission && singleResource && (
-        <ContextMenu.RenameItem onClick={rename} />
+        <>
+          <Menu.Item
+            itemKey="edit"
+            onClick={() => openTab({ variant: "resource", resource: firstID })}
+          >
+            <Icon.Edit />
+            Edit
+          </Menu.Item>
+          <Menu.Divider />
+          <ContextMenu.RenameItem onClick={rename} />
+        </>
       )}
       <Menu.Divider />
       {singleResource && (

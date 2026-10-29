@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { Explorer } from "@/feature/arc/explorer/Explorer";
 import { Group } from "@/feature/group";
+import { retrieveArcsGroupID } from "@/platform/arc/testutil";
 import { renderToolbar } from "@/platform/tree/menuTestutil";
 import { findTreeRow, openTreeRootContextMenu } from "@/platform/tree/treeTestutil";
 import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
@@ -27,13 +27,6 @@ const createArc = async () =>
     mode: "graph",
     graph: { nodes: [], edges: [] },
   });
-
-const retrieveArcsGroupID = async (): Promise<ontology.ID> => {
-  const children = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-  const arcs = children.find((r) => r.name === "Arcs");
-  if (arcs == null) throw new Error("Arcs group not found");
-  return arcs.id;
-};
 
 const renderExplorer = async (): Promise<void> => {
   await renderToolbar(<Explorer />, {
@@ -51,7 +44,7 @@ describe("arc/Explorer", () => {
 
   it("creates a new group under the Arcs group from the root context menu", async () => {
     const arc = await createArc();
-    const arcsID = await retrieveArcsGroupID();
+    const arcsID = await retrieveArcsGroupID(client);
     await renderExplorer();
     await findTreeRow(arc.name);
     await openTreeRootContextMenu();
@@ -62,5 +55,22 @@ describe("arc/Explorer", () => {
       const children = await client.ontology.children.retrieve({ ids: arcsID });
       expect(children.some((r) => r.name === name)).toBe(true);
     });
+  });
+
+  it("opens the create modal from Create arc, listed above New group", async () => {
+    const arc = await createArc();
+    await renderExplorer();
+    await findTreeRow(arc.name);
+    await openTreeRootContextMenu();
+    const createArcItem = await screen.findByText("Create arc");
+    const newGroupItem = await screen.findByText("New group");
+    expect(
+      createArcItem.compareDocumentPosition(newGroupItem) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(createArcItem);
+    });
+    expect(await screen.findByPlaceholderText("Name")).toBeTruthy();
   });
 });
