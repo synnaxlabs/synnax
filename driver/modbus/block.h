@@ -39,11 +39,8 @@ struct Block {
 /// without gaps holds only channels whose ranges touch end to end.
 /// @returns the blocks in address order. Each channel is in exactly one block.
 template<typename Channel>
-std::vector<Block> plan(
-    const std::vector<Channel> &channels,
-    const std::size_t limit,
-    const bool gaps
-) {
+std::vector<Block>
+plan(const std::vector<Channel> &channels, const std::size_t limit, const bool gaps) {
     std::vector<Block> blocks;
     std::size_t end = 0;
     for (std::size_t i = 0; i < channels.size(); i++) {

@@ -182,6 +182,8 @@ TEST(BitReader, ReconnectsAfterDroppedConnection) {
     auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1633}));
 
     BitReader reader(device::Coil, {coil(1, 3, "valve")});
+    // The slave drops only accepted connections, so read once to get accepted first.
+    ASSERT_NIL(read_once(reader, dev).second);
     slave.drop_connections();
     const auto [dropped, drop_err] = read_once(reader, dev);
     ASSERT_OCCURRED_AS(drop_err, device::UNREACHABLE);
