@@ -27,10 +27,10 @@ def run(ctx: Context, clusters: config.Clusters) -> None:
     logged-in user to clusters.
     """
     options = connect.prompt_client_options(ctx)
-    synnax = connect.from_context(ctx, options)
+    synnax = connect.from_context(ctx, opts=options)
     if synnax is None:
         return
-    connect.save_api_key(synnax, options, clusters)
+    connect.save_api_key(synnax, opts=options, clusters=clusters)
     ctx.console.info(_SUCCESSFUL_LOGIN)
 
 

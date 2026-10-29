@@ -35,8 +35,8 @@ class ModbusReadTask(ModbusCase):
     def test_create_task(self) -> ModbusRead:
         """A new task is not deployed; select the server."""
         self.log("Testing: Create Modbus read task")
-        page = self.create_page(ModbusRead, "Modbus Console Read")
-        self.assert_not_deployed(page, "new task")
+        page = self.create_page(ModbusRead, prefix="Modbus Console Read")
+        self.assert_not_deployed(page, label="new task")
         page.select_server(self.device_name)
         return page
 
@@ -44,7 +44,7 @@ class ModbusReadTask(ModbusCase):
         """One channel of each type is listed."""
         self.log("Testing: Add channels")
         for config_type, address in CHANNELS:
-            page.add_channel(READ_TYPE_NAMES[config_type], address)
+            page.add_channel(READ_TYPE_NAMES[config_type], address=address)
         self.assert_rows(page, LISTED)
 
     def test_data_flow(self, page: ModbusRead) -> None:
@@ -57,4 +57,4 @@ class ModbusReadTask(ModbusCase):
         )
         keys = self.channel_keys(task)
         assert len(keys) == len(CHANNELS), f"Every channel needs a key, got {keys}"
-        self.assert_sample_count(page, keys)
+        self.assert_sample_count(page, keys=keys)

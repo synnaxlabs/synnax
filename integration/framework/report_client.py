@@ -22,6 +22,7 @@ class ReportClient:
 
     def __init__(
         self,
+        *,
         tests: list[Test],
         tests_lock: threading.Lock,
         test_definitions: list[TestDefinition],

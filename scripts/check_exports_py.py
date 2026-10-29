@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Package:
     """A distribution whose modules the check reads."""
 
@@ -47,20 +47,23 @@ class Package:
 
 
 PACKAGES = (
-    Package("alamos/py", ("alamos",)),
-    Package("client/py", ("synnax",)),
-    Package("freighter/py", ("freighter",)),
+    Package(root="alamos/py", checked=("alamos",)),
+    Package(root="client/py", checked=("synnax",)),
+    Package(root="freighter/py", checked=("freighter",)),
     Package(
-        "integration", ("console", "framework"), ("framework/tests", "tests"), True
+        root="integration",
+        checked=("console", "framework"),
+        tests=("framework/tests", "tests"),
+        test_utility=True,
     ),
-    Package("x/py", ("x",)),
+    Package(root="x/py", checked=("x",)),
 )
 
 SKIPPED_DIRS = {".venv", "node_modules", "build", "__pycache__"}
 TEST_UTILITY_DIRS = {"testutil", "test", "mock"}
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Module:
     name: str
     path: Path
@@ -77,7 +80,7 @@ class Module:
     differently refers to each of them."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Finding:
     """A top-level name that is public but that no other module imports."""
 
@@ -93,21 +96,21 @@ class Finding:
         return f"{self.path}:{self.line}: {self.name} is public but {users}"
 
 
-def module_name(root: Path, path: Path) -> str:
+def module_name(root: Path, *, path: Path) -> str:
     parts = list(path.relative_to(root).with_suffix("").parts)
     if parts[-1] == "__init__":
         parts.pop()
     return ".".join(parts)
 
 
-def is_generated(path: Path, source: str) -> bool:
+def is_generated(path: Path, *, source: str) -> bool:
     return (
         path.name.endswith(("_gen.py", "_pb2.py", "_pb2_grpc.py"))
         or "Code generated" in source[:500]
     )
 
 
-def parse(source: str, path: Path) -> ast.Module:
+def parse(source: str, *, path: Path) -> ast.Module:
     # A bad escape in a string is a warning, not an error, and is not this check's.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", SyntaxWarning)
@@ -118,7 +121,7 @@ def is_test_file(path: Path) -> bool:
     return path.name == "conftest.py" or path.name.startswith("test_")
 
 
-def load(repo: Path, packages: tuple[Package, ...]) -> list[Module]:
+def load(repo: Path, *, packages: tuple[Package, ...]) -> list[Module]:
     modules = []
     for pkg in packages:
         root = repo / pkg.root
@@ -133,14 +136,14 @@ def load(repo: Path, packages: tuple[Package, ...]) -> list[Module]:
             source = path.read_text()
             modules.append(
                 Module(
-                    name=module_name(root, path),
+                    name=module_name(root, path=path),
                     path=path,
                     package=pkg,
                     test=in_tests or utility or is_test_file(path),
                     utility=utility,
                     checked=not in_tests and rel.parts[0] in pkg.checked,
-                    tree=parse(source, path),
-                    generated=is_generated(path, source),
+                    tree=parse(source, path=path),
+                    generated=is_generated(path, source=source),
                 )
             )
     return modules
@@ -163,7 +166,7 @@ def top_level_names(node: ast.stmt) -> list[str]:
     return []
 
 
-def resolve(mod: Module, level: int, target: str | None) -> str:
+def resolve(mod: Module, *, level: int, target: str | None) -> str:
     if level == 0:
         return target or ""
     base = mod.name.split(".")
@@ -173,7 +176,7 @@ def resolve(mod: Module, level: int, target: str | None) -> str:
     return ".".join(base + ([target] if target else []))
 
 
-def imports(mod: Module, known: set[str]) -> Iterator[tuple[str, str]]:
+def imports(mod: Module, *, known: set[str]) -> Iterator[tuple[str, str]]:
     """Yields each (module, name) pair that mod reads from another module."""
     for node in ast.walk(mod.tree):
         if isinstance(node, ast.Import):
@@ -182,7 +185,7 @@ def imports(mod: Module, known: set[str]) -> Iterator[tuple[str, str]]:
                 target = a.name if a.asname else local
                 mod.aliases.setdefault(local, set()).add(target)
         elif isinstance(node, ast.ImportFrom):
-            source = resolve(mod, node.level, node.module)
+            source = resolve(mod, level=node.level, target=node.module)
             for a in node.names:
                 if a.name == "*":
                     yield source, "*"
@@ -211,7 +214,7 @@ def imports(mod: Module, known: set[str]) -> Iterator[tuple[str, str]]:
 
 
 def entry_points(
-    repo: Path, packages: tuple[Package, ...]
+    repo: Path, *, packages: tuple[Package, ...]
 ) -> Iterator[tuple[str, str]]:
     for pkg in packages:
         with (repo / pkg.root / "pyproject.toml").open("rb") as f:
@@ -306,9 +309,9 @@ def walk(tree: ast.AST) -> Iterator[ast.AST]:
             yield from walk(quoted.body)
 
 
-def check(repo: Path, packages: tuple[Package, ...] = PACKAGES) -> list[Finding]:
+def check(repo: Path, *, packages: tuple[Package, ...] = PACKAGES) -> list[Finding]:
     """Returns the wrongly public names in packages, sorted by path and line."""
-    modules = load(repo, packages)
+    modules = load(repo, packages=packages)
     known = {m.name for m in modules if not m.test or m.utility}
     defs: dict[tuple[str, str], tuple[Module, ast.stmt]] = {}
     for m in modules:
@@ -318,10 +321,10 @@ def check(repo: Path, packages: tuple[Package, ...] = PACKAGES) -> list[Finding]
             for name in top_level_names(node):
                 if not name.startswith("_"):
                     defs[(m.name, name)] = (m, node)
-    used: set[tuple[str, str]] = set(entry_points(repo, packages))
+    used: set[tuple[str, str]] = set(entry_points(repo, packages=packages))
     tested: set[tuple[str, str]] = set()
     for m in modules:
-        for source, name in imports(m, known):
+        for source, name in imports(m, known=known):
             if source == m.name:
                 continue
             keys = (
