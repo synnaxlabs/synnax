@@ -15,12 +15,12 @@ interface Props {
     /** The privacy policy, as the site links to it. */
     privacy: string;
     /** The account to link the visitor to once cookies are on. */
-    user?: string;
+    userID?: string;
     /** Hides all text in recordings, for pages that show other people's data. */
     textMasked?: boolean;
 }
 
-const { privacy, user, textMasked = false } = Astro.props;
+const { privacy, userID, textMasked = false } = Astro.props;
 ---
 
 <script is:inline>
@@ -82,7 +82,7 @@ const { privacy, user, textMasked = false } = Astro.props;
 <div
     class="consent"
     hidden
-    data-user={user}
+    data-user-id={userID}
     data-text-masked={textMasked ? "" : undefined}
     transition:persist
 >
@@ -179,7 +179,7 @@ const { privacy, user, textMasked = false } = Astro.props;
         posthog: () => window.posthog,
         fetch: window.fetch.bind(window),
         card,
-        user: card.dataset.user ?? null,
+        userID: card.dataset.userId ?? null,
         textMasked: card.dataset.textMasked != null,
     });
 </script>

@@ -7,13 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// @vitest-environment jsdom
-
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import reactRenderer from "@astrojs/react/server.js";
+import { experimental_AstroContainer as AstroContainer } from "astro/container";
+import { JSDOM } from "jsdom";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type PostHog, start } from "./analytics";
+import Analytics from "./Analytics.astro";
 
 type Init = Parameters<PostHog["init"]>[1];
+
+const render = async (props: Record<string, unknown>): Promise<string> => {
+  const container = await AstroContainer.create();
+  container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
+  return await container.renderToString(Analytics, { props });
+};
 
 /** Records what the sites ask of PostHog, the way the loader queues it. */
 const recorder = (consent: "granted" | "denied" | "pending" = "pending") => {
@@ -39,14 +47,6 @@ const recorder = (consent: "granted" | "denied" | "pending" = "pending") => {
   return { posthog, calls, configured };
 };
 
-const CARD = `
-  <div class="consent" hidden>
-    <button data-consent="reject"></button>
-    <button data-consent="accept"></button>
-  </div>
-  <button class="settings" data-consent="settings"></button>
-`;
-
 const answered = (): void => {
   document.cookie = "synnax_consent=1";
 };
@@ -60,119 +60,168 @@ const card = (): HTMLElement => document.querySelector(".consent") as HTMLElemen
 
 const begin = async ({
   mode = "ask",
-  user = null,
+  userID = null,
   textMasked = false,
   consent,
 }: {
   mode?: string;
-  user?: string | null;
+  userID?: string | null;
   textMasked?: boolean;
   consent?: "granted" | "denied" | "pending";
 } = {}) => {
   const rec = recorder(consent);
   const fetch = country(mode);
-  await start({ posthog: () => rec.posthog, fetch, card: card(), user, textMasked });
+  await start({ posthog: () => rec.posthog, fetch, card: card(), userID, textMasked });
   return { ...rec, fetch };
 };
 
 describe("analytics", () => {
-  beforeEach(() => {
-    document.cookie = "synnax_consent=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-    document.body.innerHTML = CARD;
+  describe("server render", () => {
+    const rendered = async (props: Record<string, unknown>): Promise<HTMLElement> => {
+      const { document } = new JSDOM(await render(props)).window;
+      const el = document.querySelector<HTMLElement>(".consent");
+      if (el == null) throw new Error("the consent card did not render");
+      return el;
+    };
+
+    it("should hide the card until the script decides to show it", async () => {
+      expect((await rendered({ privacy: "/privacy" })).hidden).toBe(true);
+    });
+
+    it("should link the card to the privacy policy", async () => {
+      const el = await rendered({ privacy: "/privacy-policy" });
+      expect(el.querySelector("a")?.getAttribute("href")).toBe("/privacy-policy");
+    });
+
+    it("should hand the account and the text masking to the script", async () => {
+      const el = await rendered({
+        privacy: "/privacy",
+        userID: "user_1",
+        textMasked: true,
+      });
+      expect(el.dataset.userId).toBe("user_1");
+      expect(el.dataset.textMasked).toBe("");
+    });
+
+    it("should hand neither to the script by default", async () => {
+      const el = await rendered({ privacy: "/privacy" });
+      expect(el.dataset.userId).toBeUndefined();
+      expect(el.dataset.textMasked).toBeUndefined();
+    });
   });
 
-  describe("a visitor in Europe who has not answered", () => {
-    it("should count them without cookies and show the card", async () => {
-      const { calls, configured } = await begin({ mode: "ask" });
-      expect(calls).toEqual(["init"]);
-      expect(configured().cookieless_mode).toBe("on_reject");
-      expect(configured().opt_out_capturing_by_default).toBe(true);
+  describe("browser", () => {
+    let markup: string;
+
+    beforeAll(async () => {
+      // The footer holds the settings button.
+      markup = `${await render({ privacy: "/privacy" })}
+        <button class="settings" data-consent="settings"></button>`;
+    });
+
+    beforeEach(() => {
+      const { window } = new JSDOM(markup, { url: "https://www.synnaxlabs.com/" });
+      vi.stubGlobal("document", window.document);
+      vi.stubGlobal("Element", window.Element);
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    describe("a visitor in Europe who has not answered", () => {
+      it("should count them without cookies and show the card", async () => {
+        const { calls, configured } = await begin({ mode: "ask" });
+        expect(calls).toEqual(["init"]);
+        expect(configured().cookieless_mode).toBe("on_reject");
+        expect(configured().opt_out_capturing_by_default).toBe(true);
+        expect(card().hidden).toBe(false);
+      });
+
+      it("should turn cookies on and link the account when they accept", async () => {
+        const { calls } = await begin({ mode: "ask", userID: "user_1" });
+        click("[data-consent=accept]");
+        expect(calls).toEqual(["init", "opt_in", "identify user_1"]);
+        expect(card().hidden).toBe(true);
+      });
+
+      it("should keep counting without cookies when they reject", async () => {
+        const { calls } = await begin({ mode: "ask", userID: "user_1" });
+        click("[data-consent=reject]");
+        expect(calls).toEqual(["init", "opt_out"]);
+        expect(card().hidden).toBe(true);
+      });
+    });
+
+    describe("a visitor elsewhere who has not answered", () => {
+      it("should turn cookies on without showing the card", async () => {
+        const { calls, configured } = await begin({ mode: "notice" });
+        expect(calls).toEqual(["init", "opt_in silent"]);
+        expect(configured().opt_out_capturing_by_default).toBe(false);
+        expect(card().hidden).toBe(true);
+      });
+
+      it("should link the account", async () => {
+        const { calls } = await begin({ mode: "notice", userID: "user_1" });
+        expect(calls).toEqual(["init", "opt_in silent", "identify user_1"]);
+      });
+    });
+
+    describe("a visitor who has answered", () => {
+      it("should keep their answer without asking the country", async () => {
+        answered();
+        const { calls, fetch } = await begin();
+        expect(fetch).not.toHaveBeenCalled();
+        expect(calls).toEqual(["init"]);
+        expect(card().hidden).toBe(true);
+      });
+
+      it("should link the account once PostHog loads with cookies on", async () => {
+        answered();
+        const { posthog, calls, configured } = await begin({
+          userID: "user_1",
+          consent: "granted",
+        });
+        configured().loaded(posthog);
+        expect(calls).toEqual(["init", "identify user_1"]);
+      });
+
+      it("should not link the account when they rejected", async () => {
+        answered();
+        const { posthog, calls, configured } = await begin({
+          userID: "user_1",
+          consent: "denied",
+        });
+        configured().loaded(posthog);
+        expect(calls).toEqual(["init"]);
+      });
+    });
+
+    it("should open the card from the cookie settings", async () => {
+      answered();
+      await begin();
+      click(".settings");
       expect(card().hidden).toBe(false);
     });
 
-    it("should turn cookies on and link the account when they accept", async () => {
-      const { calls } = await begin({ mode: "ask", user: "user_1" });
-      click("[data-consent=accept]");
-      expect(calls).toEqual(["init", "opt_in", "identify user_1"]);
-      expect(card().hidden).toBe(true);
+    it("should send to our own address and share the answer in a cookie", async () => {
+      const { configured } = await begin();
+      expect(configured().api_host).toBe("https://t.synnaxlabs.com");
+      expect(configured().consent_persistence_name).toBe("synnax_consent");
+      expect(configured().opt_out_capturing_persistence_type).toBe("cookie");
     });
 
-    it("should keep counting without cookies when they reject", async () => {
-      const { calls } = await begin({ mode: "ask", user: "user_1" });
-      click("[data-consent=reject]");
-      expect(calls).toEqual(["init", "opt_out"]);
-      expect(card().hidden).toBe(true);
-    });
-  });
-
-  describe("a visitor elsewhere who has not answered", () => {
-    it("should turn cookies on without showing the card", async () => {
-      const { calls, configured } = await begin({ mode: "notice" });
-      expect(calls).toEqual(["init", "opt_in silent"]);
-      expect(configured().opt_out_capturing_by_default).toBe(false);
-      expect(card().hidden).toBe(true);
+    it("should hide all text in recordings only when asked", async () => {
+      expect((await begin()).configured().session_recording).toEqual({});
+      expect(
+        (await begin({ textMasked: true })).configured().session_recording,
+      ).toEqual({ maskTextSelector: "*" });
     });
 
-    it("should link the account", async () => {
-      const { calls } = await begin({ mode: "notice", user: "user_1" });
-      expect(calls).toEqual(["init", "opt_in silent", "identify user_1"]);
+    it("should reject an unknown mode from the country route", async () => {
+      await expect(begin({ mode: "maybe" })).rejects.toThrow(
+        "unknown consent mode: maybe",
+      );
     });
-  });
-
-  describe("a visitor who has answered", () => {
-    it("should keep their answer without asking the country", async () => {
-      answered();
-      const { calls, fetch } = await begin();
-      expect(fetch).not.toHaveBeenCalled();
-      expect(calls).toEqual(["init"]);
-      expect(card().hidden).toBe(true);
-    });
-
-    it("should link the account once PostHog loads with cookies on", async () => {
-      answered();
-      const { posthog, calls, configured } = await begin({
-        user: "user_1",
-        consent: "granted",
-      });
-      configured().loaded(posthog);
-      expect(calls).toEqual(["init", "identify user_1"]);
-    });
-
-    it("should not link the account when they rejected", async () => {
-      answered();
-      const { posthog, calls, configured } = await begin({
-        user: "user_1",
-        consent: "denied",
-      });
-      configured().loaded(posthog);
-      expect(calls).toEqual(["init"]);
-    });
-  });
-
-  it("should open the card from the cookie settings", async () => {
-    answered();
-    await begin();
-    click(".settings");
-    expect(card().hidden).toBe(false);
-  });
-
-  it("should send to our own address and share the answer in a cookie", async () => {
-    const { configured } = await begin();
-    expect(configured().api_host).toBe("https://t.synnaxlabs.com");
-    expect(configured().consent_persistence_name).toBe("synnax_consent");
-    expect(configured().opt_out_capturing_persistence_type).toBe("cookie");
-  });
-
-  it("should hide all text in recordings only when asked", async () => {
-    expect((await begin()).configured().session_recording).toEqual({});
-    expect((await begin({ textMasked: true })).configured().session_recording).toEqual({
-      maskTextSelector: "*",
-    });
-  });
-
-  it("should reject an unknown mode from the country route", async () => {
-    await expect(begin({ mode: "maybe" })).rejects.toThrow(
-      "unknown consent mode: maybe",
-    );
   });
 });

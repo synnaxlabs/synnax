@@ -60,7 +60,7 @@ describe("Footer", () => {
     expect(company?.querySelector("a")).toBeNull();
   });
 
-  it("should open the consent card from the cookie settings button", () => {
+  it("should mark the cookie settings button to open the consent card", () => {
     const button = doc.querySelector("button.footer-cookies");
     expect(button?.textContent?.trim()).toBe("Cookie settings");
     expect(button?.getAttribute("data-consent")).toBe("settings");

@@ -62,7 +62,7 @@ export interface Options {
   /** The card that asks for consent. */
   card: HTMLElement;
   /** The account to link the visitor to once cookies are on. */
-  user: string | null;
+  userID: string | null;
   /** Hides all text in recordings, for pages that show other people's data. */
   textMasked: boolean;
 }
@@ -70,7 +70,7 @@ export interface Options {
 const chosen = (): boolean =>
   document.cookie.split("; ").some((c) => c.startsWith(`${CHOICE}=`));
 
-const modeOf = async (fetch: Options["fetch"]): Promise<Mode> => {
+const fetchMode = async (fetch: Options["fetch"]): Promise<Mode> => {
   const mode = await (await fetch("/consent")).text();
   if (mode !== "ask" && mode !== "notice")
     throw new Error(`unknown consent mode: ${mode}`);
@@ -86,35 +86,32 @@ export const start = async ({
   posthog,
   fetch,
   card,
-  user,
+  userID,
   textMasked,
 }: Options): Promise<void> => {
   const identify = (to: PostHog): void => {
-    if (user != null) to.identify(user);
-  };
-  const show = (shown: boolean): void => {
-    card.hidden = !shown;
+    if (userID != null) to.identify(userID);
   };
   document.addEventListener("click", (e) => {
     if (!(e.target instanceof Element)) return;
     const action = e.target.closest<HTMLElement>("[data-consent]")?.dataset.consent;
     if (action == null) return;
-    if (action === "settings") show(true);
+    if (action === "settings") card.hidden = false;
     else if (action === "accept") {
       posthog().opt_in_capturing();
       identify(posthog());
-      show(false);
+      card.hidden = true;
     } else if (action === "reject") {
       posthog().opt_out_capturing();
-      show(false);
+      card.hidden = true;
     } else throw new Error(`unknown consent action: ${action}`);
   });
   const init = (notice: boolean): void =>
     posthog().init(KEY, {
       api_host: API_HOST,
       ui_host: "https://us.posthog.com",
-      // Counts a page view on each client-side navigation in the docs, and keeps a
-      // PostHog release from changing what the sites record.
+      // Pinned, so a PostHog release cannot change what the sites record. This date
+      // counts a page view on each client-side navigation in the docs.
       defaults: "2026-08-30",
       person_profiles: "identified_only",
       cookieless_mode: "on_reject",
@@ -130,9 +127,9 @@ export const start = async ({
     init(false);
     return;
   }
-  const mode = await modeOf(fetch);
+  const mode = await fetchMode(fetch);
   init(mode === "notice");
-  if (mode === "ask") show(true);
+  if (mode === "ask") card.hidden = false;
   else {
     posthog().opt_in_capturing({ captureEventName: false });
     identify(posthog());

@@ -17,7 +17,7 @@ import { type Analytics } from "@/platform/analytics";
  */
 const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
-/** Our own address for PostHog, which blockers of known trackers do not know. */
+/** Our own address for PostHog, which ad blockers do not know. */
 const API_HOST = "https://t.synnaxlabs.com";
 
 /** Pinned, so a PostHog release cannot change the behavior of a shipped install. */

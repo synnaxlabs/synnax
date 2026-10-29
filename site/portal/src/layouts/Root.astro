@@ -37,7 +37,7 @@ const { title, userID } = Astro.props;
         {/* Pages show other people's names and emails, so recordings hide all text. */}
         <Analytics
             privacy="https://www.synnaxlabs.com/privacy"
-            user={userID}
+            userID={userID}
             textMasked
         />
     </body>
