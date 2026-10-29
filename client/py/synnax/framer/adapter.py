@@ -45,7 +45,9 @@ class ReadFrameAdapter:
         # The Core counts every update that carries keys, and both sides must agree on
         # the sequence number of each codec state.
         if len(new_keys) > 0:
-            self.codec.update(new_keys, [ch.data_type for ch in fetched])
+            self.codec.update(
+                keys=new_keys, data_types=[ch.data_type for ch in fetched]
+            )
         self._names = {ch.key: ch.name for ch in fetched}
         self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
@@ -94,6 +96,7 @@ class WriteFrameAdapter:
 
     def __init__(
         self,
+        *,
         retriever: ChannelRetriever,
         err_on_extra_chans: bool = True,
         strict_data_types: bool = False,
@@ -114,8 +117,8 @@ class WriteFrameAdapter:
         self._channels = {ch.key: ch for ch in results}
         self._keys = [ch.key for ch in results]
         self.codec.update(
-            self._keys,
-            [ch.data_type for ch in results],
+            keys=self._keys,
+            data_types=[ch.data_type for ch in results],
         )
 
     def adapt_dict_keys(

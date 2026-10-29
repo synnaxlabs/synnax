@@ -155,6 +155,7 @@ class ScopedChannel(ArrayOperators):
 
     def __init__(
         self,
+        *,
         query: str,
         internal: list[_InternalScopedChannel],
     ):
@@ -258,12 +259,12 @@ class Range(Payload):
 
     def __init__(
         self,
+        *,
         name: str,
         time_range: TimeRange,
         key: UUID = NIL,
         color: str | None = "",
         parent: Range | Payload | None = None,
-        *,
         _frame_client: framer.Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
         _kv: kv.Client | None = None,
@@ -323,7 +324,7 @@ class Range(Payload):
     ) -> ScopedChannel:
         if len(channels) == 0:
             raise QueryError(f"Channel matching {query} not found")
-        return ScopedChannel(query, self._splice_cached(channels))
+        return ScopedChannel(query=query, internal=self._splice_cached(channels))
 
     def __getattr__(self, query: str) -> ScopedChannel:
         try:
@@ -518,6 +519,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         unary_client: UnaryClient,
         frame_client: framer.Client,
         writer: Writer,
@@ -772,8 +774,8 @@ class Client:
                 **r.model_dump(exclude={"labels", "parent"}),
                 _frame_client=self._frame_client,
                 _channel_retriever=self._channels,
-                _kv=kv.Client(r.key, self._unary_client),
-                _aliaser=alias_.Client(r.key, self._unary_client),
+                _kv=kv.Client(rng=r.key, client=self._unary_client),
+                _aliaser=alias_.Client(rng=r.key, client=self._unary_client),
                 _client=self,
                 _ontology=self._ontology,
                 _tasks=self._tasks,
@@ -789,4 +791,4 @@ class Client:
         def wrapper(state: Latest) -> None:
             f(self._sugar([Payload.model_validate(state[_RANGE_SET_CHANNEL])])[0])
 
-        return self._signals.on([_RANGE_SET_CHANNEL], lambda s: True)(wrapper)
+        return self._signals.on([_RANGE_SET_CHANNEL], filter_f=lambda s: True)(wrapper)

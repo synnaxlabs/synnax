@@ -189,7 +189,7 @@ class TestTaskClient:
         t.start()
         tsk = client.tasks.create(name="test", type="pagerduty_alert")
         ev.wait()
-        tsk.execute_command_sync("test", {"key": "value"})
+        tsk.execute_command_sync("test", args={"key": "value"})
         t.join()
 
     def test_execute_command_sync_timeout_is_a_deadline(
@@ -245,7 +245,7 @@ class TestTaskClient:
         tsk = client.tasks.create(name="test", type="pagerduty_alert")
         target = uuid4()
         with client.open_streamer("sy_task_cmd") as s:
-            key = tsk.execute_command("test", {"target": target})
+            key = tsk.execute_command("test", args={"target": target})
             for _ in range(10):
                 f = s.read(timeout=1)
                 assert f is not None, "timed out waiting for the command"
