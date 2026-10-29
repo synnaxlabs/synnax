@@ -24,6 +24,8 @@ Before running this example:
 This example reads from two analog input channels at 100 Hz.
 """
 
+import numpy as np
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
@@ -113,8 +115,8 @@ try:
                 frame = streamer.read()
                 # Print the latest values from both channels
                 if "labjack_ain0" in frame and len(frame["labjack_ain0"]) > 0:
-                    val0 = frame["labjack_ain0"][-1]
-                    val1 = frame["labjack_ain1"][-1]
+                    val0 = frame["labjack_ain0"].as_(np.float32)[-1]
+                    val1 = frame["labjack_ain1"].as_(np.float32)[-1]
                     elapsed = sy.TimeStamp.now().span(start_time).seconds
 
                     sample_count += 1

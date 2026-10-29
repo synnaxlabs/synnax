@@ -25,6 +25,8 @@ The mock server exposes GET /api/v1/data returning:
     {"temperature": 23.5, "pressure": 101.3, "humidity": 45.0}
 """
 
+import numpy as np
+
 import synnax as sy
 from synnax import http
 
@@ -126,9 +128,9 @@ try:
         while True:
             frame = streamer.read()
             if "http_temperature" in frame:
-                temp = frame["http_temperature"][-1]
-                pres = frame["http_pressure"][-1]
-                hum = frame["http_humidity"][-1]
+                temp = frame["http_temperature"].as_(np.float64)[-1]
+                pres = frame["http_pressure"].as_(np.float64)[-1]
+                hum = frame["http_humidity"].as_(np.float64)[-1]
                 sample_count += 1
                 print(
                     f"{sample_count:<10} {temp:>12.2f} {pres:>16.2f} {hum:>14.2f}",

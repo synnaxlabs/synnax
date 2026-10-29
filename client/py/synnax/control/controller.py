@@ -19,7 +19,7 @@ import numpy as np
 from synnax import channel as channel_
 from synnax import framer
 from synnax.exceptions import UnexpectedError, ValidationError
-from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
+from synnax.telem import CrudeSample, CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.timing import sleep
 from x.control import CrudeAuthority
 from x.thread import AsyncThread
@@ -41,7 +41,7 @@ class _WaitUntil(_Processor):
     exc: Exception | None
     reverse: bool
 
-    def __init__(self, callback: Condition, reverse: bool = False):
+    def __init__(self, callback: Condition, *, reverse: bool = False):
         self.event = Event()
         self.callback = callback
         self.exc = None
@@ -162,23 +162,23 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, channel: channel_.Key | str, value: SampleValue) -> None: ...
+    def set(self, channel: channel_.Key | str, value: CrudeSample) -> None: ...
 
     @overload
-    def set(self, channel: dict[channel_.Key, SampleValue]) -> None: ...
+    def set(self, channel: dict[channel_.Key, CrudeSample]) -> None: ...
 
     @overload
-    def set(self, channel: dict[str, SampleValue]) -> None: ...
+    def set(self, channel: dict[str, CrudeSample]) -> None: ...
 
     def set(
         self,
         channel: (
             channel_.Key
             | str
-            | dict[channel_.Key, SampleValue]
-            | dict[str, SampleValue]
+            | dict[channel_.Key, CrudeSample]
+            | dict[str, CrudeSample]
         ),
-        value: SampleValue | None = None,
+        value: CrudeSample | None = None,
     ) -> None:
         """Sets the provided channel(s) to the provided value(s).
 
@@ -208,7 +208,7 @@ class Controller:
             return
         ch = self._resolve(channel)
         assert value is not None
-        to_write: dict[channel_.Key, SampleValue] = {ch.key: value}
+        to_write: dict[channel_.Key, CrudeSample] = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
         self._writer.write(to_write)
@@ -329,7 +329,7 @@ class Controller:
     ) -> bool:
         if not callable(cond):
             raise ValueError("First argument to wait_until must be a callable.")
-        processor = _WaitUntil(cond, reverse)
+        processor = _WaitUntil(cond, reverse=reverse)
         self._receiver.add_processor(processor)
         try:
             timeout_seconds = (
@@ -445,7 +445,7 @@ class Controller:
         """
         return self._receiver.state
 
-    def __setattr__(self, key: str, value: SampleValue) -> None:
+    def __setattr__(self, key: str, value: CrudeSample) -> None:
         """Commands the channel named key, unless key is private or a class
         attribute.
         """
@@ -615,14 +615,14 @@ class ScheduledCommand:
     """
 
     channel: channel_.Key | str
-    value: SampleValue
+    value: CrudeSample
     delay: TimeSpan
 
     def __init__(
         self,
         *,
         channel: channel_.Key | str,
-        value: SampleValue,
+        value: CrudeSample,
         delay: float | int | TimeSpan,
     ):
         self.channel = channel

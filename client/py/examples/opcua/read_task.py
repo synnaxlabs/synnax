@@ -25,6 +25,8 @@ Use --tls to target the TLS-encrypted server instead.
 
 import argparse
 
+import numpy as np
+
 import synnax as sy
 
 parser = argparse.ArgumentParser(description="Read float data from OPC UA server")
@@ -124,8 +126,8 @@ try:
                 frame = streamer.read()
                 # Print the latest values from each channel
                 if "my_float_0" in frame and len(frame["my_float_0"]) > 0:
-                    val0 = frame["my_float_0"][-1]
-                    val1 = frame["my_float_1"][-1]
+                    val0 = frame["my_float_0"].as_(np.float32)[-1]
+                    val1 = frame["my_float_1"].as_(np.float32)[-1]
 
                     elapsed = sy.TimeStamp.now().span(start_time).seconds
 
