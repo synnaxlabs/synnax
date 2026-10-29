@@ -107,13 +107,18 @@ oracle: &oracle
   - oracle/**
   - scripts/install_antlr4.sh
 
-arc_go: &arc_go
+arc_go_module: &arc_go_module
   - *alamos_go
   - *freighter_go
   - *go
   - *x_go
   - arc/go/**
   - scripts/install_antlr4.sh
+
+# The Arc tests compile every .arc file in the repository.
+arc_go:
+  - *arc_go_module
+  - "**/*.arc"
 
 aspen: &aspen
   - *alamos_go
@@ -131,7 +136,7 @@ freighter_integration: &freighter_integration
 
 core: &core
   - *alamos_go
-  - *arc_go
+  - *arc_go_module
   - *aspen
   - *cesium
   - *freighter_go

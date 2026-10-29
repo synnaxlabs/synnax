@@ -335,6 +335,13 @@ blockquote {
     margin-left: 3rem;
 }
 
+/* A large button that leads the reader to the next step. */
+.docs-cta {
+    --pluto-height-large: 6.5rem;
+
+    padding: 0 4rem;
+}
+
 /* Scrollbar styling utility */
 .styled-scrollbar {
     /* Firefox */
