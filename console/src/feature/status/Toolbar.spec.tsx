@@ -15,7 +15,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Status } from "@/feature/status";
 import { Modals } from "@/platform/modals";
-import { Notifications } from "@/platform/notifications";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -56,14 +55,13 @@ const renderToolbar = async (
     },
   });
   const { container } = render(
-    <Notifications.Provider>
+    <>
       <Synchronizers />
       {Status.TOOLBAR.content}
       <Modals.Stack />
-    </Notifications.Provider>,
+    </>,
     { wrapper },
   );
-  fireEvent.click(screen.getByRole("tab", { name: "Favorites" }));
   return { store, container };
 };
 
@@ -73,6 +71,13 @@ const createStatus = async (message = "") =>
   );
 
 describe("status toolbar", () => {
+  it("should show only the favorites in the Console build", async () => {
+    await renderToolbar();
+    expect(screen.getByText("Statuses")).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(Status.TOOLBAR.badge).toBeUndefined();
+  });
+
   it("should open the explorer from the empty state action", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),

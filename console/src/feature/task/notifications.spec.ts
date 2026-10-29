@@ -10,10 +10,12 @@
 import { rack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
+import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Task } from "@/feature/task";
 import { createTestDevice } from "@/platform/device/testutil";
+import { renderForward, settleWrites } from "@/platform/notifications/testutil";
 import { createTaskStatus } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -93,6 +95,33 @@ describe("Task.createNotificationRule", () => {
 
     it("should not hold a task that no longer exists in use", async () => {
       expect(await checkInUse(uuid.create())).toBe(false);
+    });
+  });
+
+  describe("onUseChange", () => {
+    it("should hold a scanner problem once it scans a configured device", async () => {
+      const r = await createRack();
+      const { result } = await renderForward(client, { task: RULE });
+      const scanner = await createTask(r, {});
+      const dev = await createTestDevice(client, {
+        make: SCANNER.make,
+        rack: r.key,
+        configured: false,
+      });
+      const { key, message } = await client.statuses.set(
+        createTaskStatus({
+          key: task.statusKey(scanner.key),
+          variant: "error",
+          message: uniqueName("message"),
+          details: { task: scanner.key },
+        }),
+      );
+      await settleWrites(client);
+      await client.devices.create({ ...dev, configured: true });
+      await waitFor(() =>
+        expect(result.current.map(({ status: s }) => s.key)).toContain(key),
+      );
+      expect(screen.queryByText(message)).toBeNull();
     });
   });
 

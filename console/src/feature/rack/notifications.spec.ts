@@ -14,19 +14,14 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Rack } from "@/feature/rack";
-import { renderForward, settleWrites } from "@/platform/notifications/testutil";
+import {
+  createRackKey,
+  renderForward,
+  settleWrites,
+} from "@/platform/notifications/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-/** @returns the status key of a new rack, without the status that the Core gives it. */
-const createRackKey = async (): Promise<status.Key> => {
-  const r = await client.racks.create({ name: uniqueName("rack") });
-  const key = rack.statusKey(r.key);
-  // The Core gives a new rack an open "Rack status unknown" problem.
-  await client.statuses.delete(key);
-  return key;
-};
 
 /** @returns the message of the status. */
 const writeStatus = async (
@@ -45,7 +40,7 @@ const writeStatus = async (
 
 describe("Rack.NOTIFICATION_RULE", () => {
   it("should notify a rack warning at once", async () => {
-    const key = await createRackKey();
+    const key = rack.statusKey(await createRackKey(client));
     await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
     const message = await writeStatus(key, "warning");
     await settleWrites(client);
@@ -53,7 +48,7 @@ describe("Rack.NOTIFICATION_RULE", () => {
   });
 
   it("should not notify a rack status that is not a problem", async () => {
-    const key = await createRackKey();
+    const key = rack.statusKey(await createRackKey(client));
     await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
     const message = await writeStatus(key, "info");
     await settleWrites(client);
