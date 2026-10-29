@@ -24,7 +24,7 @@
 namespace driver::modbus {
 /// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
-    auto slave = testutil::Slave(testutil::SlaveConfig{});
+    auto slave = testutil::Slave(testutil::SlaveConfig{.port = 1664});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -44,7 +44,7 @@ TEST(ScanTask, testConnection) {
         cfg.rate
     );
 
-    auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
+    auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1664};
     auto cmd_args = x::json::json{{"connection", conn_cfg.to_json()}};
     auto cmd = synnax::task::Command{
         .task = t.key,
@@ -90,7 +90,7 @@ TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
 }
 
 TEST(ScanTask, testScanChecksDeviceHealth) {
-    auto slave = testutil::Slave(testutil::SlaveConfig{});
+    auto slave = testutil::Slave(testutil::SlaveConfig{.port = 1665});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -111,7 +111,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     dev.properties = x::json::json{
         {"connection",
          {{"host", "127.0.0.1"},
-          {"port", 1502},
+          {"port", 1665},
           {"swap_bytes", false},
           {"swap_words", false}}}
     };
