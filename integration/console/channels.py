@@ -96,7 +96,7 @@ class ChannelClient(ResourceClient):
             data_type = sy.DataType.TIMESTAMP
 
         self.open_create_modal()
-        self.layout.fill_input_field("Name", name)
+        self.layout.locator("input[placeholder='Channel name']").fill(name)
         if virtual:
             self.layout.click_checkbox("Virtual")
         if is_index:
@@ -161,7 +161,7 @@ class ChannelClient(ResourceClient):
                         "Modal closed between channel creations despite 'Create more'"
                     )
 
-            self.layout.fill_input_field("Name", name)
+            self.layout.locator("input[placeholder='Channel name']").fill(name)
 
             if virtual:
                 self.layout.click_checkbox("Virtual")
@@ -214,7 +214,7 @@ class ChannelClient(ResourceClient):
         """
         self.open_create_calculated_modal()
 
-        name_input = self.layout.locator("input[placeholder='Name']")
+        name_input = self.layout.locator("input[placeholder='Channel name']")
         name_input.fill(name)
 
         editor = self.layout.locator(".monaco-editor")
@@ -282,7 +282,7 @@ class ChannelClient(ResourceClient):
         self._ctx_menu_action(name, "Set alias under", exact=False)
         self.layout.type_text(alias)
         self.layout.press_enter()
-        self.layout.wait_for_selector_hidden("input.pluto-text--editable")
+        self.layout.wait_for_selector_hidden("input.lyra-text--editable")
         self.hide_channels()
 
     def clear_alias(self, name: str) -> None:
@@ -502,7 +502,7 @@ class ChannelClient(ResourceClient):
     def _rename_single_channel(self, *, old_name: str, new_name: str) -> None:
         """Rename a single channel via the context menu."""
         item = self._ctx_menu_action(old_name, "Rename")
-        channel_name_element = item.locator("p.pluto-text--editable")
+        channel_name_element = item.locator("p.lyra-text--editable")
         channel_name_element.click()
         channel_name_element.fill(new_name)
         self.layout.press_enter()
@@ -545,10 +545,10 @@ class ChannelClient(ResourceClient):
     def open_create_modal(self) -> None:
         """Open the Create Channel modal via command palette."""
         self.layout.open_modal("Create channel", self.layout.MODAL_SELECTOR)
-        self.layout.wait_for_selector_visible("input[placeholder='Name']")
+        self.layout.wait_for_selector_visible("input[placeholder='Channel name']")
 
     def open_create_calculated_modal(self) -> None:
         """Open the Create Calculated Channel modal via command palette."""
         self.layout.open_modal("Create calculated channel", self.layout.MODAL_SELECTOR)
-        self.layout.wait_for_selector_visible("input[placeholder='Name']")
+        self.layout.wait_for_selector_visible("input[placeholder='Channel name']")
         self.layout.wait_for_selector_visible(".monaco-editor")

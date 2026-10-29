@@ -12,7 +12,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/http/testutil/server.h"
 // Disable GCC 13 false positive warning in <regex> header (included by httplib.h)

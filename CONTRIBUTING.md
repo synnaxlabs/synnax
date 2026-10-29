@@ -20,6 +20,9 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
 - One review tier label. Answer every Greptile comment with a fix or a reason. A
   `review/bot` PR that is not a draft merges by itself once CI and the gate pass. The
   author merges a `review/human` PR once the gate passes.
+- The `preview` label deploys a live Core with the Console for the PR, and each push
+  while the label stays deploys it again. Add it when the PR changes the Console UI or
+  needs a live Core to review. `preview/docs` does the same for the docs site.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 
@@ -42,14 +45,22 @@ answering the comments. The gate does not wait for a human approval on either ti
 Greptile skips Dependabot, so a pull request Dependabot opened and wrote every commit of
 passes the gate without a review. `OK` is the CI workflow's last job: it fails when any
 check the PR's paths select failed. A merge into `main` goes through a merge queue,
-which reruns CI on the merged result with the integration suite added before the branch
-moves. GitHub refuses a queue on a wildcard branch pattern, so a `release/**` merge goes
-in directly, and CI runs again on the pushed commit. The queue also runs the gate again.
-A release runs the integration suite itself. Admins bypass when Greptile is down. The
-gate script is `.github/scripts/check_review.sh`, the rulesets
-`.github/rulesets/main.json` and `.github/rulesets/release.json`. An admin applies a
-changed ruleset file by hand; the `Check - Rulesets` workflow fails each day until
-GitHub matches the files.
+which reruns CI with the integration suite added before the branch moves. A queue
+entry's CI builds `main` with the entries ahead of it and the entry itself, but selects
+checks from the entry's own changes. Each entry merges only when its own CI passes: an
+entry that fails leaves the queue, and GitHub rebuilds the entries behind it. GitHub
+refuses a queue on a wildcard branch pattern, so a `release/**` merge goes in directly,
+and CI runs again on the pushed commit. The queue also runs the gate again. A release
+runs the integration suite itself. Admins bypass when Greptile is down. The gate script
+is `.github/scripts/check_review.sh`, the rulesets `.github/rulesets/main.json` and
+`.github/rulesets/release.json`. An admin applies a changed ruleset file by hand; the
+`Check - Rulesets` workflow fails each day until GitHub matches the files.
+
+A pull request into `main` also cannot merge while CodeQL finds a new alert in its
+changes with a security severity of medium or higher, or a severity of error. Alerts
+already on `main` do not block. The rule waits for the CodeQL scan of each language, so
+every pull request scans all of them. GitHub does not apply the rule to a merge queue
+group.
 
 ## Size
 

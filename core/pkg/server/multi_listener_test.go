@@ -15,6 +15,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -74,8 +75,8 @@ var _ = Describe("MultiListener", func() {
 		autoSrc := MustSucceed(auto.NewSource(ca, "localhost:0"))
 		fileSrc := MustSucceed(file.NewSource(
 			fs,
-			l.Config().AbsoluteNodeCertPath(),
-			l.Config().AbsoluteNodeKeyPath(),
+			cert.DefaultLoaderConfig.AbsoluteNodeCertPath(),
+			cert.DefaultLoaderConfig.AbsoluteNodeKeyPath(),
 		))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{
@@ -93,7 +94,7 @@ var _ = Describe("MultiListener", func() {
 		// The node certificate anchors only itself, so on its own it cannot verify the
 		// separate certificate the auto source signs for its listener.
 		nodeOnly := certPool(
-			MustSucceed(readFile(fs, l.Config().AbsoluteNodeCertPath())),
+			MustSucceed(readFile(fs, cert.DefaultLoaderConfig.AbsoluteNodeCertPath())),
 		)
 		Expect(handshake(s.Addresses()[0], nodeOnly)).
 			To(MatchError(ContainSubstring("certificate signed by unknown authority")))
@@ -108,19 +109,19 @@ var _ = Describe("MultiListener", func() {
 		// disk that signed nothing the listeners serve.
 		foreign := xfs.NewMem()
 		mock.GenerateCerts(foreign)
-		foreignL := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: foreign}))
-		writeFile(fs, l.Config().AbsoluteCACertPath(), MustSucceed(readFile(
-			foreign,
-			foreignL.Config().AbsoluteCACertPath(),
-		)))
+		caCertPath := path.Join(
+			cert.DefaultLoaderConfig.CertsDir,
+			cert.DefaultLoaderConfig.CACertPath,
+		)
+		writeFile(fs, caCertPath, MustSucceed(readFile(foreign, caCertPath)))
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
 			Insecure: new(false),
 		}))
 		src := MustSucceed(file.NewSource(
 			fs,
-			l.Config().AbsoluteNodeCertPath(),
-			l.Config().AbsoluteNodeKeyPath(),
+			cert.DefaultLoaderConfig.AbsoluteNodeCertPath(),
+			cert.DefaultLoaderConfig.AbsoluteNodeKeyPath(),
 		))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{

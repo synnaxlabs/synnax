@@ -14,6 +14,7 @@ import { renderToString } from "react-dom/server";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Icon } from "@/icon";
+import { type Input } from "@/input";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { disableActEnvironment } from "@/testutil/act";
@@ -112,8 +113,8 @@ describe("Select.Simple", () => {
     fireEvent.click(c.getByText("Third Item"));
     const label = c
       .getByRole("button", { name: "Test Item Third Item" })
-      .querySelector(".pluto-select__label");
-    expect(label?.classList).toContain("pluto-text--overflow-fade");
+      .querySelector(".lyra-select__label");
+    expect(label?.classList).toContain("lyra-text--overflow-fade");
     expect(label?.textContent).toBe("Third Item");
   });
 
@@ -247,7 +248,7 @@ describe("Select.Simple", () => {
       fireEvent.click(c.getByText("Level"));
       fireEvent.click(c.getByText(option));
       const trigger = c.getByRole("button", { name: `Level ${option}` });
-      const label = trigger.querySelector<HTMLElement>(".pluto-select__label");
+      const label = trigger.querySelector<HTMLElement>(".lyra-select__label");
       if (label != null) label.style.display = "none";
       vi.useFakeTimers();
       fireEvent.pointerOver(trigger, { pointerType: "mouse" });
@@ -259,7 +260,7 @@ describe("Select.Simple", () => {
     };
 
     const tooltip = (): string | null | undefined =>
-      document.querySelector(".pluto-tooltip")?.textContent;
+      document.querySelector(".lyra-tooltip")?.textContent;
 
     it("should show an item's text value in a collapsed trigger's tooltip", () => {
       const c = render(<Collapsible />);
@@ -285,6 +286,40 @@ describe("Select.Simple", () => {
     });
   });
 
+  describe("variant", () => {
+    const trigger = (variant?: Input.Variant): HTMLElement => {
+      const c = render(
+        <Select.Simple<string>
+          value="high"
+          onChange={vi.fn()}
+          resourceName="Level"
+          triggerProps={{ variant }}
+        >
+          <Select.Item itemKey="high">High</Select.Item>
+        </Select.Simple>,
+      );
+      return c.getByRole("button", { name: "Level High" });
+    };
+
+    it("should draw an outlined trigger by default", () => {
+      const { classList } = trigger();
+      expect(classList.contains("lyra-btn--outlined")).toBe(true);
+      expect(classList.contains("lyra--shadow")).toBe(false);
+    });
+
+    it("should draw a shadow trigger on the outlined chassis", () => {
+      const { classList } = trigger("shadow");
+      expect(classList.contains("lyra-btn--outlined")).toBe(true);
+      expect(classList.contains("lyra--shadow")).toBe(true);
+    });
+
+    it("should draw a text trigger without the shadow modifier", () => {
+      const { classList } = trigger("text");
+      expect(classList.contains("lyra-btn--text")).toBe(true);
+      expect(classList.contains("lyra--shadow")).toBe(false);
+    });
+  });
+
   describe("server rendering", () => {
     it("should hydrate the server HTML of a selected fixed item", async () => {
       const container = document.createElement("div");
@@ -295,7 +330,7 @@ describe("Select.Simple", () => {
         hydrateRoot(container, <Fixed />, { onRecoverableError }),
       );
       expect(onRecoverableError).not.toHaveBeenCalled();
-      const trigger = container.querySelector(".pluto-dialog__trigger");
+      const trigger = container.querySelector(".lyra-dialog__trigger");
       expect(trigger?.textContent).toBe("First Item");
       act(() => root.unmount());
       container.remove();
@@ -345,7 +380,7 @@ describe("Select.Simple multiple", () => {
     const c = render(<SelectMultiple onChange={vi.fn()} />);
     fireEvent.click(c.getByText("Modes"));
     fireEvent.click(c.getByText("Fast"));
-    const tag = c.getByRole("button", { name: "Modes" }).querySelector(".pluto-tag");
+    const tag = c.getByRole("button", { name: "Modes" }).querySelector(".lyra-tag");
     expect(tag?.textContent).toBe("Fast");
     expect(tag?.querySelector("[aria-label='trigger icon']")).toBeNull();
   });
@@ -386,7 +421,7 @@ describe("Select.Simple multiple", () => {
       document.body.appendChild(container);
       const seen: string[] = [];
       const read = (): string => {
-        const trigger = container.querySelector(".pluto-dialog__trigger");
+        const trigger = container.querySelector(".lyra-dialog__trigger");
         const empty = document.body.textContent?.includes("No Test Items found");
         return `${trigger?.textContent}${empty === true ? " + empty" : ""}`;
       };

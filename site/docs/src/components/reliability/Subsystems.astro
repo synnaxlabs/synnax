@@ -204,7 +204,7 @@ const share = (n: number) => Math.round(Math.min(1, Math.sqrt(n / max)) * 100) /
             );
     }
 
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         .reliability-layer {
             flex-direction: column;
         }
@@ -214,7 +214,7 @@ const share = (n: number) => Math.round(Math.min(1, Math.sqrt(n / max)) * 100) /
         }
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .reliability-node {
             padding: 2rem;
         }

@@ -24,7 +24,7 @@ sequence main {
         press_pt > 50 => emergency
     }
     stage emergency {
-       control.set_authority{255}
+       control.set_authority(255)
         0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
         press_pt < 5 => safed
@@ -38,7 +38,7 @@ sequence main {
 
 
 class AuthorityEmergency(ArcCase):
-    """Test that Arc can escalate authority with set_authority{value=255}
+    """Test that Arc can escalate authority with set_authority(value=255)
     to reclaim control from a higher-authority external writer during an
     emergency condition."""
 
@@ -94,7 +94,7 @@ class AuthorityEmergency(ArcCase):
         self.log("Phase 2: Python writer holding authority 200 with valve open")
 
         # Phase 3: Pressure rises past 50 -> Arc enters emergency stage
-        # set_authority{value=255} fires first (flushed before writes),
+        # set_authority(value=255) fires first (flushed before writes),
         # then 0 -> press_vlv_cmd succeeds because 255 > 200.
         self.log("Phase 3: Waiting for emergency escalation...")
         self.wait_for_eq("press_vlv_state", 0)

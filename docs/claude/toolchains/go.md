@@ -13,6 +13,10 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 ## Commands
 
 - Build: `cd <module> && go build ./...`
+- Exports: `cd x/go && go run ./cmd/exports ../../core ../../x/go ...` prints the
+  exported identifiers that no other package's non-test code uses. Unexport them, or
+  move a helper that other packages' tests need into a `testutil` package. Pass every
+  module that can import the package.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
 
@@ -242,7 +246,7 @@ different setup or assertions.
 `HaveOccurred()`, `Not(Succeed())`, `Not(BeNil())` on errors are forbidden — they pass
 when the code fails for the wrong reason. Always identify the error:
 `MatchError(sentinel)`, `MatchError(ContainSubstring("..."))`, or both via
-`SatisfyAll(...)`.
+`SatisfyAll(...)`. The `errmatch` linter enforces it.
 
 ### Rule 9: No export_test.go
 

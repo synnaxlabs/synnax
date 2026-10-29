@@ -15,16 +15,20 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "absl/log/log.h"
+#include "open62541/plugin/pki_default.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
 
 #include "x/cpp/telem/telem.h"
 
+#include "driver/opcua/certificate/certificate.h"
 #include "driver/opcua/types/types.h"
 
 namespace driver::opcua::testutil {
@@ -112,10 +116,30 @@ struct TestNode {
     }
 };
 
+/// @brief the ApplicationUri of the mock server, which its certificate must carry.
+const std::string SERVER_APPLICATION_URI = "urn:open62541.server.application";
+
+/// @brief makes a certificate for the mock server.
+inline std::pair<certificate::Identity, x::errors::Error>
+create_server_identity(const x::telem::TimeSpan validity = x::telem::DAY) {
+    return certificate::create(
+        SERVER_APPLICATION_URI,
+        "Synnax Test Server",
+        "localhost",
+        validity
+    );
+}
+
 struct ServerConfig {
     std::vector<TestNode> test_nodes;
     std::uint16_t port = 4840; // Default OPC UA port
     std::uint16_t max_sessions = 0; // 0 = unlimited (open62541 default)
+    /// @brief the certificate and key that the server presents. Without one, the
+    /// server offers only the None security policy.
+    std::optional<certificate::Identity> identity;
+    /// @brief the client certificates that the server trusts. Empty trusts every
+    /// client.
+    std::vector<certificate::Certificate> trusted_clients;
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -355,7 +379,43 @@ public:
     void run() {
         UA_Server *server = UA_Server_new();
         auto *server_config = UA_Server_getConfig(server);
-        UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
+        if (cfg.identity.has_value()) {
+            const auto bytes = [](const std::string &data) {
+                return UA_ByteString{
+                    data.size(),
+                    reinterpret_cast<UA_Byte *>(const_cast<char *>(data.data()))
+                };
+            };
+            std::vector<UA_ByteString> trust_list;
+            trust_list.reserve(cfg.trusted_clients.size());
+            for (const auto &c: cfg.trusted_clients)
+                trust_list.push_back(bytes(c.der()));
+            const auto cert = bytes(cfg.identity->certificate.der());
+            const auto key = bytes(cfg.identity->private_key);
+            const auto status = UA_ServerConfig_setDefaultWithSecurityPolicies(
+                server_config,
+                cfg.port,
+                &cert,
+                &key,
+                trust_list.data(),
+                trust_list.size(),
+                nullptr,
+                0,
+                nullptr,
+                0
+            );
+            if (status != UA_STATUSCODE_GOOD) {
+                LOG(WARNING) << "Mock OPC UA server failed to configure security: "
+                             << UA_StatusCode_name(status);
+                UA_Server_delete(server);
+                return;
+            }
+            if (cfg.trusted_clients.empty()) {
+                UA_CertificateVerification_AcceptAll(&server_config->secureChannelPKI);
+                UA_CertificateVerification_AcceptAll(&server_config->sessionPKI);
+            }
+        } else
+            UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
         server_config->maxSessionTimeout = 3600000;
         if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
 

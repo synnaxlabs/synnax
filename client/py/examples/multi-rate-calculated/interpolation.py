@@ -89,8 +89,8 @@ with client.open_writer(
             # the next frame.
             if len(current_values.items()) < 4:
                 continue
-            # Interpolate the values for each channel, and get the timestamps for the average
-            # channel.
+            # Interpolate the values for each channel, and get the timestamps for the
+            # average channel.
             sensor_1, sensor_2, time = interpolate(
                 current_values["time_ch_1"],
                 current_values["data_ch_1"],

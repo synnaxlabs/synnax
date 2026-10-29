@@ -63,7 +63,7 @@ type (
 const errInvalidUUID = "invalid uuid"
 
 var (
-	bob     = user.User{Key: uuid.New(), Username: "bob"}
+	bob     = user.User{Key: uuid.New()}
 	session = svcauth.Session{
 		Key:        uuid.New(),
 		Subject:    bob.OntologyID(),

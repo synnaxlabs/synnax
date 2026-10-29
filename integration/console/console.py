@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from pathlib import Path
+
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -26,7 +28,6 @@ from console.project import ProjectClient
 from console.range import Client as RangesClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
-from framework.run_dir import resolve_results_path
 
 
 class Console:
@@ -34,8 +35,8 @@ class Console:
     Console UI automation interface - thin orchestration layer.
 
     Composes specialized clients for interacting with the Synnax Console application.
-    Layout operations are accessed through self.layout (LayoutClient).
-    Each client imports and instantiates its own utilities (notifications, ctx_menu, tree).
+    Layout operations are accessed through self.layout (LayoutClient). Each client
+    imports and instantiates its own utilities (notifications, ctx_menu, tree).
     """
 
     access: AccessClient
@@ -56,10 +57,10 @@ class Console:
     panels: PanelsClient
     page: Page
 
-    def __init__(self, page: Page, client: sy.Synnax):
+    def __init__(self, page: Page, client: sy.Synnax, results_dir: Path):
         self.page = page
         self.client = client
-        self.layout = LayoutClient(page)
+        self.layout = LayoutClient(page, results_dir)
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(self.layout)
@@ -91,7 +92,7 @@ class Console:
             name = name + ".png"
 
         self.page.screenshot(
-            path=resolve_results_path(name),
+            path=str(self.layout.results_dir / name),
             full_page=True,
             animations="disabled",
             type="png",

@@ -15,7 +15,6 @@ ReadTaskCase: Read-specific lifecycle (sample counting, data saving, rate change
 WriteTaskCase: Write-specific lifecycle (command sending).
 """
 
-import os
 import sys
 from abc import abstractmethod
 from collections.abc import Callable
@@ -212,7 +211,8 @@ def send_and_verify_commands(
             return
         if attempt < max_attempts - 1:
             print(
-                f">>> Retrying command send and verify... ({attempt + 1}/{max_attempts})"
+                ">>> Retrying command send and verify... "
+                f"({attempt + 1}/{max_attempts})"
             )
             sy.sleep(2)
     raise AssertionError(
@@ -512,7 +512,6 @@ class TaskCase(TestCase, Generic[TaskT]):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
-    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
     @abstractmethod
     def create(
@@ -692,7 +691,8 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             try:
                 self.client.channels.delete(ch.key)
                 raise AssertionError(
-                    f"Channel '{ch.name}' deletion should have been rejected while task is running"
+                    f"Channel '{ch.name}' deletion should have been rejected while "
+                    "task is running"
                 )
             except AssertionError:
                 raise

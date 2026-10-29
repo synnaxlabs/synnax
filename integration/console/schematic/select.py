@@ -66,7 +66,7 @@ class Select(Symbol):
                     self.page.get_by_text("Add option", exact=True).dispatch_event(
                         "click"
                     )
-                items = self.page.locator(".pluto-list__item").all()
+                items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
                 name_input.fill(option["name"])
@@ -86,7 +86,7 @@ class Select(Symbol):
         self.notifications.close_all()
         self.page.wait_for_timeout(300)
 
-        trigger = self.locator.locator(".pluto-dialog__trigger").first
+        trigger = self.locator.locator(".lyra-dialog__trigger").first
         trigger.click()
         self.layout.select_from_dropdown(option_name)
 
