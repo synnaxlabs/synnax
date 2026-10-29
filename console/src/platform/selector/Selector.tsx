@@ -17,6 +17,7 @@ import { Eraser, Panel as PPanel } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { GitHub } from "@/platform/github";
 import { Panel } from "@/platform/panel";
 
 /** OnSelectParams is passed to a selectable's onSelect hook when it is chosen. */
@@ -78,6 +79,7 @@ export const create = ({
               <Selectable key={Selectable.type} tabKey={tabKey} />
             ))}
           </Flex.Box>
+          <GitHub.StarButton />
         </Flex.Box>
       </Eraser.Eraser>
     );

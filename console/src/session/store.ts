@@ -25,6 +25,7 @@ import { Account } from "@/session/account";
 import { Arc } from "@/session/arc";
 import { Color } from "@/session/color";
 import { Core } from "@/session/core";
+import { GitHub } from "@/session/github";
 import { Haul } from "@/session/haul";
 import { Legacy } from "@/session/legacy";
 import { LinePlot } from "@/session/lineplot";
@@ -58,6 +59,7 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
     [Account.SLICE_NAME]: Account.sliceStateZ,
     [Core.SLICE_NAME]: Core.sliceStateZ,
     [Color.SLICE_NAME]: Color.sliceStateZ,
+    [GitHub.SLICE_NAME]: GitHub.sliceStateZ,
     [Theme.SLICE_NAME]: Theme.sliceStateZ,
   },
   // Statuses and ranges belong to the cluster, not to a project under it.
@@ -103,6 +105,7 @@ export const ZERO_STATE: State = {
   [Core.SLICE_NAME]: Core.ZERO_SLICE_STATE,
   [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
+  [GitHub.SLICE_NAME]: GitHub.ZERO_SLICE_STATE,
   [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
@@ -124,6 +127,7 @@ const combinedReducer = combineReducers({
   [Core.SLICE_NAME]: Core.reducer,
   [Color.SLICE_NAME]: Color.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
+  [GitHub.SLICE_NAME]: GitHub.reducer,
   [Haul.SLICE_NAME]: Haul.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
   [Panel.SLICE_NAME]: Panel.reducer,
@@ -158,6 +162,7 @@ export interface State {
   [Core.SLICE_NAME]: Core.SliceState;
   [Color.SLICE_NAME]: Color.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
+  [GitHub.SLICE_NAME]: GitHub.SliceState;
   [Haul.SLICE_NAME]: Haul.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
@@ -179,6 +184,7 @@ export type Action =
   | Core.Action
   | Color.Action
   | Drift.Action
+  | GitHub.Action
   | Haul.Action
   | Log.Action
   | LinePlot.Action
