@@ -9,7 +9,6 @@
 
 import "@/platform/notifications/Feed.css";
 
-import { type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -29,8 +28,6 @@ export type Matcher = (
 
 export interface Notification extends FC<NotificationProps> {
   match: Matcher;
-  /** Marks a renderer that never displays, so the feed skips it when counting. */
-  suppress?: boolean;
 }
 
 const Default: Notification = ({ status, silence }) => (
@@ -38,35 +35,10 @@ const Default: Notification = ({ status, silence }) => (
 );
 Default.match = () => true;
 
-const createSuppressed = (match: Matcher): Notification => {
-  const Suppressed: Notification = () => null;
-  Suppressed.match = match;
-  Suppressed.suppress = true;
-  return Suppressed;
-};
-
-const matchVariants =
-  (...variants: status.Variant[]): Matcher =>
-  (stat: Status.NotificationSpec) =>
-    variants.includes(stat.variant);
-
 export const matchPrefix =
   (prefix: string): Matcher =>
   (stat: Status.NotificationSpec) =>
     stat.key.startsWith(prefix);
-
-const composeMatchers =
-  (...matchers: Matcher[]): Matcher =>
-  (stat: Status.NotificationSpec) =>
-    matchers.every((m) => m(stat));
-
-export const createSuppressRoutineForPrefix = (prefix: string): Notification =>
-  createSuppressed(
-    composeMatchers(
-      matchPrefix(prefix),
-      matchVariants("success", "loading", "disabled"),
-    ),
-  );
 
 interface FeedProps {
   notifications: Notification[];
@@ -77,12 +49,10 @@ const VISIBLE_CAP = 4;
 export const Feed = ({ notifications }: FeedProps): ReactElement => {
   const { statuses, silence, silenceAll } = Status.useNotifications();
   const [expanded, setExpanded] = useState(false);
-  const rendered = statuses
-    .map((status) => ({
-      status,
-      Render: notifications.find((n) => n.match(status)) ?? Default,
-    }))
-    .filter(({ Render }) => Render.suppress !== true);
+  const rendered = statuses.map((status) => ({
+    status,
+    Render: notifications.find((n) => n.match(status)) ?? Default,
+  }));
   const overflow = rendered.length - VISIBLE_CAP;
   const showAll = expanded && overflow > 0;
   useEffect(() => {

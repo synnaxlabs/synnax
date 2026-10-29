@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Notifications } from "@/platform/notifications";
+import { type Notifications } from "@/platform/notifications";
 
-export const NOTIFICATIONS: Notifications.Notification[] = [
-  Notifications.createSuppressRoutineForPrefix("rack"),
-];
+/** The notification rule for rack statuses. A rack is always in use. */
+export const NOTIFICATION_RULE: Notifications.Rule = { kind: () => "state" };

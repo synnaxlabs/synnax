@@ -9,8 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { INTEGRATION } from "@/feature/http/device/types";
+import { INTEGRATION, MAKE } from "@/feature/http/device/types";
 import { Connect } from "@/feature/http/device/useConnectModal";
+import { SCAN_TYPE } from "@/feature/http/task/types";
 import { type Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
@@ -19,5 +20,7 @@ export const NETWORK: Device.Network = {
   title: "HTTP server",
   description: "Poll and send JSON to an HTTP API.",
   icon: <Icon.Logo.HTTP />,
+  make: MAKE,
+  scanType: SCAN_TYPE,
   Connect,
 };

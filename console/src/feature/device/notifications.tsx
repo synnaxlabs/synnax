@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { NotFoundError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
+import { errors } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { getIcon, getMake, type Make, useConfigureModal } from "@/feature/device/make";
 import { getKeyFromStatus } from "@/feature/device/useListenForChanges";
-import { Notifications } from "@/platform/notifications";
+import { type Notifications } from "@/platform/notifications";
 
 const shouldShowConfigureButton = (make: Make): boolean =>
   make === "NI" || make === "LabJack" || make === "ethercat";
@@ -48,7 +50,18 @@ const Notification: Notifications.Notification = ({ status, silence }) => {
 };
 Notification.match = (status) => getKeyFromStatus(status) != null;
 
-export const NOTIFICATIONS: Notifications.Notification[] = [
-  Notifications.createSuppressRoutineForPrefix("device"),
-  Notification,
-];
+export const NOTIFICATIONS: Notifications.Notification[] = [Notification];
+
+/** The notification rule for device statuses. A device is in use when configured. */
+export const NOTIFICATION_RULE: Notifications.Rule = {
+  kind: () => "state",
+  inUse: async ({ client, key }) => {
+    try {
+      return (await client.devices.retrieve({ key })).configured;
+    } catch (e) {
+      if (NotFoundError.matches(e)) return false;
+      throw errors.fromUnknown(e);
+    }
+  },
+  warningsDelayed: true,
+};

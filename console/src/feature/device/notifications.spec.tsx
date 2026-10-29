@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type status } from "@synnaxlabs/client";
+import { type device, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -99,37 +99,29 @@ describe("device/notifications", () => {
     });
   });
 
-  describe("NOTIFICATIONS", () => {
-    it("suppresses a routine loading status for a device", async () => {
-      await addStatus({
-        key: "device:1",
-        variant: "loading",
-        message: "Device connecting",
+  describe("NOTIFICATION_RULE", () => {
+    const checkInUse = async (key: device.Key): Promise<boolean> => {
+      const { inUse } = Device.NOTIFICATION_RULE;
+      if (inUse == null) throw new Error("the device rule must check use");
+      return await inUse({
+        client,
+        key,
+        status: status.create({ variant: "warning", message: "Device disconnected" }),
       });
-      expect(screen.queryByText("Device connecting")).toBeNull();
+    };
+
+    it("should hold a configured device in use", async () => {
+      const dev = await createTestDevice(client, { configured: true });
+      expect(await checkInUse(dev.key)).toBe(true);
     });
 
-    it("suppresses a routine success status for a device", async () => {
-      await addStatus({
-        key: "device:1",
-        variant: "success",
-        message: "Device connected",
-      });
-      expect(screen.queryByText("Device connected")).toBeNull();
+    it("should not hold a device that is not configured in use", async () => {
+      const dev = await createTestDevice(client, { configured: false });
+      expect(await checkInUse(dev.key)).toBe(false);
     });
 
-    it("does not suppress a device error status", async () => {
-      await addStatus({
-        key: "device:1",
-        variant: "error",
-        message: "Device disconnected",
-      });
-      expect(screen.getByText("Device disconnected")).toBeTruthy();
-    });
-
-    it("does not suppress a routine status for a non-device key", async () => {
-      await addStatus({ key: "rack:1", variant: "success", message: "Rack ok" });
-      expect(screen.getByText("Rack ok")).toBeTruthy();
+    it("should not hold a device that no longer exists in use", async () => {
+      expect(await checkInUse(uniqueName("device"))).toBe(false);
     });
   });
 });

@@ -31,3 +31,5 @@ export const HARDWARE: Hardware[] = [
   { ...LabJack.Device.HARDWARE, useCreateRead: LabJack.Task.useCreateRead },
   { ...EtherCAT.Device.HARDWARE, useCreateRead: EtherCAT.Task.useCreateRead },
 ];
+
+export const INTEGRATIONS: PlatformDevice.Integration[] = [...NETWORK, ...HARDWARE];
