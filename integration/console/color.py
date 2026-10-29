@@ -10,7 +10,7 @@
 from playwright.sync_api import Locator, Page
 
 
-def pick(page: Page, swatch: Locator, hex_color: str) -> None:
+def pick(page: Page, swatch: Locator, *, hex_color: str) -> None:
     """Opens the color picker of a swatch, enters a color, and closes the picker.
 
     :param swatch: The swatch that opens the picker.

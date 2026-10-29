@@ -29,7 +29,7 @@ class OffPageReference(Symbol):
             label: Display label for the symbol
             page_name: Name of the target schematic page to navigate to
         """
-        super().__init__(label, symbol_type="Off page", rotatable=False)
+        super().__init__(label=label, symbol_type="Off page", rotatable=False)
         self._page_name = page_name
 
     def set_label(self, label: str) -> None:
@@ -51,6 +51,7 @@ class OffPageReference(Symbol):
 
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
         page_name: str | None = None,
         **kwargs: Any,
