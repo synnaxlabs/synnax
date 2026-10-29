@@ -12,12 +12,13 @@ import { z } from "zod";
 import { type Analytics } from "@/platform/analytics";
 
 /**
- * The Desktop project. The key is public, and every install carries it: it grants
- * nothing but writing events into that one project.
+ * The Synnax project, which the websites share. The key is public, and every install
+ * carries it: it grants nothing but writing events into that one project.
  */
 const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
-const API_HOST = "https://us.i.posthog.com";
+/** Our own address for PostHog, which ad blockers do not know. */
+const API_HOST = "https://t.synnaxlabs.com";
 
 /** Pinned, so a PostHog release cannot change the behavior of a shipped install. */
 const DEFAULTS = "2026-08-30";
@@ -85,10 +86,10 @@ type PostHog = Awaited<ReturnType<typeof importPostHog>>;
 
 /** Tags every later event with the environment and the install. A reset clears both. */
 const attach = (posthog: PostHog, installID: string): void => {
-  // A dev run reports as an ordinary install otherwise, so every count needs this to
-  // separate the two.
+  // Local and test builds otherwise report as ordinary installs, so every count needs
+  // this to leave them out.
   posthog.register({
-    environment: IS_DEV ? "development" : "production",
+    environment: RELEASE ? "production" : "development",
     install_id: installID,
   });
 };
@@ -103,7 +104,11 @@ const resume = (posthog: PostHog, installID: string): void => {
 const init = (posthog: PostHog, installID: string, sessionID: string): void => {
   posthog.init(KEY, {
     api_host: API_HOST,
+    ui_host: "https://us.posthog.com",
     defaults: DEFAULTS,
+    // The defaults mark a `localhost` host as a test user, and macOS serves the app
+    // from `tauri://localhost`.
+    internal_or_test_user_hostname: null,
     // Logs every event to the console of the window, so a dev run can be read without
     // waiting for the project to ingest it.
     debug: IS_DEV,
