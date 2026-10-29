@@ -2166,24 +2166,33 @@ var _ = Describe("Task", Ordered, func() {
 					Keys:  []channel.Key{src.Key()},
 					Start: telem.Now(),
 				}))
-				for range 2 {
+				defer func() { Expect(w.Close()).To(Succeed()) }()
+				write := func() {
 					Expect(w.Write(frame.NewUnary(
 						src.Key(), telem.NewSeriesV[int64](1, 2, 3),
 					))).To(BeTrue())
 				}
-				Expect(w.Close()).To(Succeed())
-
 				var streamed []telem.TimeStamp
-				for len(streamed) < 6 {
-					var fr framer.StreamerResponse
-					Eventually(responses).Should(Receive(&fr))
+				collect := func(fr framer.StreamerResponse) {
 					for _, ser := range fr.Frame.Get(idxCh.Key()).Series {
 						streamed = append(
 							streamed, ser.Unmarshal[telem.TimeStamp]()...,
 						)
 					}
 				}
-				Expect(streamed).To(HaveLen(6))
+				// The task's streamer subscribes after start returns, so the first
+				// write repeats until the task forwards it.
+				var fr framer.StreamerResponse
+				Eventually(func(g Gomega) {
+					write()
+					g.Expect(responses).To(Receive(&fr))
+				}).Should(Succeed())
+				collect(fr)
+				write()
+				for len(streamed) < 6 {
+					Eventually(responses).Should(Receive(&fr))
+					collect(fr)
+				}
 				for i := 1; i < len(streamed); i++ {
 					Expect(streamed[i]).To(BeNumerically(">", streamed[i-1]))
 				}
