@@ -353,9 +353,9 @@ INSTANTIATE_TEST_SUITE_P(
     )
 );
 
-/// @brief it should reconnect on the next request after the server drops the
-/// connection, without a new acquire.
-TEST(DeviceTest, ReconnectsAfterDroppedConnection) {
+/// @brief it should retry a request once on a new connection after the server drops
+/// the connection, without a new acquire.
+TEST(DeviceTest, RetriesAfterDroppedConnection) {
     testutil::SlaveConfig slave_config;
     slave_config.port = 1620;
     slave_config.coils[0] = 1;
@@ -367,7 +367,6 @@ TEST(DeviceTest, ReconnectsAfterDroppedConnection) {
     ASSERT_NIL(dev->read_bits(Coil, 0, 1, &bit));
 
     slave.drop_connections();
-    ASSERT_OCCURRED_AS(dev->read_bits(Coil, 0, 1, &bit), UNREACHABLE);
     bit = 0;
     ASSERT_NIL(dev->read_bits(Coil, 0, 1, &bit));
     EXPECT_EQ(bit, 1);

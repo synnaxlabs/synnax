@@ -294,16 +294,7 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief writes the commands in the frame. The first request after the server
-    /// drops the connection fails, so a command is retried once on a new one.
     x::errors::Error write(x::telem::Frame &frame) override {
-        auto err = this->write_once(frame);
-        if (err.matches(device::UNREACHABLE)) err = this->write_once(frame);
-        return err;
-    }
-
-private:
-    [[nodiscard]] x::errors::Error write_once(const x::telem::Frame &frame) const {
         for (const auto &writer: this->config.writers)
             if (auto err = writer->write(this->dev, frame)) return err;
         return x::errors::NIL;

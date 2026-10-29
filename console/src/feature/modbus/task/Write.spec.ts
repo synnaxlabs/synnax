@@ -94,7 +94,7 @@ describe("Write", () => {
     expect(coilIndex.isIndex).toBe(true);
 
     const holdingCmd = await client.channels.retrieve(holding.channel);
-    expect(holdingCmd.name).toBe(`${dev.name}_holding_register_output_1_cmd`);
+    expect(holdingCmd.name).toBe(`${dev.name}_holding_register_output_1_u8_cmd`);
     expect(holdingCmd.dataType.toString()).toBe("uint8");
 
     const updated = await client.devices.retrieve({
@@ -211,12 +211,45 @@ describe("Write", () => {
       schemas: Modbus.Device.SCHEMAS,
     });
     expect(Object.keys(updated.properties.write.channels)).toEqual([
-      "holding-register-output-0",
+      "holding-register-output-0-uint16",
     ]);
     const matches = await client.channels.retrieve([
-      `${dev.name}_holding_register_output_0_cmd`,
+      `${dev.name}_holding_register_output_0_u16_cmd`,
     ]);
     expect(matches).toHaveLength(1);
+  });
+
+  it("should create a new command channel when the data type changes", async () => {
+    const dev = await createModbusDevice(client);
+    const deployRegister = async (dataType: string) => {
+      const draft = await createDraft(client, {
+        ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [
+          Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+            type: "holding_register",
+            key: id.create(),
+            dataType,
+          }),
+        ],
+      });
+      const { container, unmount } = await renderWrite({ client, taskKey: draft.key });
+      const deployed = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        Modbus.Task.WRITE_SCHEMAS,
+      );
+      await reportTaskStopped(client, deployed.payload);
+      unmount();
+      return deployed.config.channels[0].channel;
+    };
+    const first = await deployRegister("uint16");
+    const second = await deployRegister("float32");
+    expect(second).not.toBe(first);
+    const cmd = await client.channels.retrieve(second);
+    expect(cmd.dataType.toString()).toBe("float32");
+    expect(await deployRegister("uint16")).toBe(first);
   });
 
   it("should rename and remove a channel through the context menu", async () => {

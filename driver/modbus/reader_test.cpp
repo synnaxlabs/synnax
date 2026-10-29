@@ -128,6 +128,7 @@ TEST(RegisterReader, IllegalAddressNamesChannels) {
     const auto [fr, err] = read_once(reader, dev);
     ASSERT_OCCURRED_AS(err, device::CRITICAL_ERROR);
     EXPECT_EQ(err.data, "pressure (holding registers 500-501): Illegal data address");
+    EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 1);
     slave.stop();
 }
 
@@ -172,26 +173,18 @@ TEST(BitReader, CastsToChannelDataType) {
 }
 
 /// @brief it should return an unreachable error without channel names when the server
-/// drops the connection, then read again on a new connection.
-TEST(BitReader, ReconnectsAfterDroppedConnection) {
+/// is gone.
+TEST(BitReader, UnreachableOmitsChannels) {
     testutil::SlaveConfig cfg;
     cfg.port = 1633;
-    cfg.coils[3] = 1;
     testutil::Slave slave(cfg);
     ASSERT_NIL(slave.start());
     auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1633}));
+    slave.stop();
 
     BitReader reader(device::Coil, {coil(1, 3, "valve")});
-    // The slave drops only accepted connections, so read once to get accepted first.
-    ASSERT_NIL(read_once(reader, dev).second);
-    slave.drop_connections();
-    const auto [dropped, drop_err] = read_once(reader, dev);
-    ASSERT_OCCURRED_AS(drop_err, device::UNREACHABLE);
-    EXPECT_EQ(drop_err.data.find("valve"), std::string::npos);
-
     const auto [fr, err] = read_once(reader, dev);
-    ASSERT_NIL(err);
-    EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
-    slave.stop();
+    ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
+    EXPECT_EQ(err.data.find("valve"), std::string::npos);
 }
 }

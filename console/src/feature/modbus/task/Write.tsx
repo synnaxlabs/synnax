@@ -171,8 +171,18 @@ const NAME_TYPES: Record<WriteChannelType, string> = {
   holding_register: "holding_register_output",
 };
 
-const writeMapKey = (channel: WriteChannel) =>
-  `${NAME_TYPES[channel.type]}-${channel.address.toString()}`.replaceAll("_", "-");
+const writeMapKey = (channel: WriteChannel) => {
+  let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
+  if (channel.type === "holding_register") s += `-${channel.dataType}`;
+  return s.replaceAll("_", "-");
+};
+
+const commandName = (deviceName: string, channel: WriteChannel) => {
+  let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
+  if (channel.type === "holding_register")
+    s += `_${new DataType(channel.dataType).toString(true)}`;
+  return `${s}_cmd`;
+};
 
 const commandDataType = (channel: WriteChannel): string =>
   channel.type === "holding_register" ? channel.dataType : DataType.UINT8.toString();
@@ -200,9 +210,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       continue;
     }
     try {
-      const cmd = await client.channels.retrieve(existing);
-      if (!cmd.dataType.equals(commandDataType(channel)))
-        commandsToCreate.push(channel);
+      await client.channels.retrieve(existing);
     } catch (e) {
       if (NotFoundError.matches(e)) commandsToCreate.push(channel);
       else throw errors.fromUnknown(e);
@@ -215,16 +223,14 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       commandsToCreate.map((c) => ({
         name: primitive.isNonZero(c.name)
           ? `${c.name}_time`
-          : `${safeName}_${NAME_TYPES[c.type]}_${c.address}_cmd_time`,
+          : `${commandName(safeName, c)}_time`,
         dataType: "timestamp",
         isIndex: true,
       })),
     );
     const commands = await client.channels.create(
       commandsToCreate.map((c, i) => ({
-        name: primitive.isNonZero(c.name)
-          ? c.name
-          : `${safeName}_${NAME_TYPES[c.type]}_${c.address}_cmd`,
+        name: primitive.isNonZero(c.name) ? c.name : commandName(safeName, c),
         dataType: commandDataType(c),
         index: commandIndexes[i].key,
       })),

@@ -31,6 +31,28 @@ export const isVariableDensityReadChannel = (
   channel: ReadChannel,
 ): channel is TypedReadChannel => VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
 
+// Auto-generated channel names and device map keys keep the released type
+// spellings, so channels created before the labels were renamed keep matching.
+const NAME_TYPES: Record<ReadChannelType, string> = {
+  coil: "coil_input",
+  discrete_input: "discrete_input",
+  holding_register: "holding_register_input",
+  input_register: "register_input",
+};
+
+export const readMapKey = (channel: ReadChannel) => {
+  let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
+  if (isVariableDensityReadChannel(channel)) s += `-${channel.dataType}`;
+  return s.replaceAll("_", "-");
+};
+
+export const readChannelName = (deviceName: string, channel: ReadChannel) => {
+  let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
+  if (isVariableDensityReadChannel(channel))
+    s += `_${new DataType(channel.dataType).toString(true)}`;
+  return s;
+};
+
 export type WriteChannel = modbus.WriteChannel;
 export type WriteChannelType = modbus.WriteChannelType;
 
@@ -89,8 +111,7 @@ const validateReadChannels = ({
     if (ch.disabled) return;
     const rangeIssue = addressRangeIssue(channels, ch, i);
     if (rangeIssue != null) issues.push(rangeIssue);
-    const dataType = "dataType" in ch ? ch.dataType : "";
-    const binding = `${ch.type}-${ch.address}-${dataType}`;
+    const binding = readMapKey(ch);
     if (!bindings.has(binding)) {
       bindings.add(binding);
       return;

@@ -78,10 +78,19 @@ class Device {
     modbus_t *ctx;
     bool connected = false;
 
+    /// @brief runs the request, and runs it once more after a temporary fault. A
+    /// server drops idle sockets, so the first request on one can fail.
+    template<typename Request>
+    x::errors::Error exec(const Request &request) {
+        auto err = this->attempt(request);
+        if (err.matches(TEMPORARY_ERROR)) err = this->attempt(request);
+        return err;
+    }
+
     /// @brief connects if needed, runs the request, and closes the socket when the
     /// request leaves the connection unusable.
     template<typename Request>
-    x::errors::Error exec(const Request &request) {
+    x::errors::Error attempt(const Request &request) {
         if (!this->connected) {
             if (modbus_connect(this->ctx) == -1) return classify(errno);
             this->connected = true;
