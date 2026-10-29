@@ -41,7 +41,7 @@ const RECONNECTING: problem.Problem = {
 };
 
 const tooltip = (): HTMLElement | null =>
-  document.querySelector<HTMLElement>(".pluto-tooltip");
+  document.querySelector<HTMLElement>(".lyra-tooltip");
 
 describe("Problem.Mark", () => {
   beforeEach(() => {
@@ -59,14 +59,14 @@ describe("Problem.Mark", () => {
   it("should show the glyph of the worst problem", () => {
     render(<Problem.Mark problems={[RECONNECTING, FAILED]} />, { wrapper: Wrapper });
     const mark = screen.getByRole("img", { name: "Failed to read channel data" });
-    expect(mark.querySelector(".pluto-icon--error")).not.toBeNull();
-    expect(mark.querySelector(".pluto-icon--warning")).toBeNull();
+    expect(mark.querySelector(".lyra-icon--error")).not.toBeNull();
+    expect(mark.querySelector(".lyra-icon--warning")).toBeNull();
   });
 
   it("should show the warning glyph when every problem is a warning", () => {
     render(<Problem.Mark problems={[RECONNECTING]} />, { wrapper: Wrapper });
     const mark = screen.getByRole("img", { name: "Stream reconnecting" });
-    expect(mark.querySelector(".pluto-icon--warning")).not.toBeNull();
+    expect(mark.querySelector(".lyra-icon--warning")).not.toBeNull();
   });
 
   it("should set the classes of its size and placement", () => {

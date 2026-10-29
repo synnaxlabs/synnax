@@ -9,7 +9,6 @@
 
 import "@/vis/problem/Mark.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -17,6 +16,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { problem } from "@/vis/problem/aether";
 
 const ICONS: Record<problem.Variant, Icon.FC> = {
