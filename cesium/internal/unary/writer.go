@@ -65,7 +65,7 @@ type WriterConfig struct {
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
-	DefaultWriterConfig                             = WriterConfig{
+	defaultWriterConfig                             = WriterConfig{
 		Persist:                  new(true),
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -73,8 +73,6 @@ var (
 	}
 	ErrWriterClosed = resource.NewClosedError("unary.writer")
 )
-
-const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
@@ -192,7 +190,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	if db.closed.Load() {
 		return nil, transfer, db.wrapError(ErrDBClosed)
 	}
-	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	cfg, err := config.New(defaultWriterConfig, cfgs...)
 	if err != nil {
 		return nil, transfer, err
 	}

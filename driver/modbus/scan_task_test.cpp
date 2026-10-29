@@ -12,17 +12,17 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/scan_task.h"
-#include "driver/modbus/mock/slave.h"
 #include "driver/modbus/scan_task.h"
+#include "driver/modbus/testutil/slave.h"
 
 namespace driver::modbus {
 /// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
-    auto slave = mock::Slave(mock::SlaveConfig{});
+    auto slave = testutil::Slave(testutil::SlaveConfig{});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
     auto ctx = std::make_shared<task::MockContext>(nullptr);
@@ -88,7 +88,7 @@ TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
 }
 
 TEST(ScanTask, testScanChecksDeviceHealth) {
-    auto slave = mock::Slave(mock::SlaveConfig{});
+    auto slave = testutil::Slave(testutil::SlaveConfig{});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 

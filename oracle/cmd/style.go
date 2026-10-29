@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -60,9 +61,14 @@ func printSuccess(msg string) {
 	fmt.Printf("%s %s\n", sym, successStyle.Render(msg))
 }
 
+// printError writes msg to stderr, styling only its first line.
 func printError(msg string) {
+	first, rest, _ := strings.Cut(strings.TrimRight(msg, "\n"), "\n")
 	sym := errorStyle.Render(symbolError)
-	fmt.Printf("%s %s\n", sym, errorStyle.Render(msg))
+	fmt.Fprintf(os.Stderr, "%s %s\n", sym, errorStyle.Render(first))
+	if rest != "" {
+		fmt.Fprintln(os.Stderr, rest)
+	}
 }
 
 func printInfo(msg string) {

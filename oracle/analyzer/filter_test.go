@@ -37,7 +37,7 @@ var _ = Describe("Filter definitions", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
-		loader.Add("schemas/x/filter", FilterSchema)
+		AddFilterSchema(loader)
 	})
 
 	Describe("Expansion", func() {
@@ -82,7 +82,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should expand the tree fields and lines in declared order", func(
 			ctx SpecContext,
 		) {
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.Where").Form.(resolution.StructForm)
 			Expect(fieldNames(form)).To(Equal([]string{
@@ -97,7 +97,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should pick each bare line's operator from its field type", func(
 			ctx SpecContext,
 		) {
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			types := fieldTypes(
 				table.MustGet("test.Where").Form.(resolution.StructForm),
@@ -133,7 +133,7 @@ var _ = Describe("Filter definitions", func() {
 		})
 
 		It("Should record the target and lines", func(ctx SpecContext) {
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			where := table.MustGet("test.Where")
 			Expect(where.Filter).ToNot(BeNil())
@@ -156,7 +156,7 @@ var _ = Describe("Filter definitions", func() {
 		})
 
 		It("Should keep a line's doc and give a bare line one", func(ctx SpecContext) {
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.Where").Form.(resolution.StructForm)
 			doc := func(name string) string {
@@ -172,14 +172,14 @@ var _ = Describe("Filter definitions", func() {
 		})
 
 		It("Should mark the expanded struct recursive", func(ctx SpecContext) {
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
 			form := table.MustGet("test.Where").Form.(resolution.StructForm)
 			Expect(form.IsRecursive).To(BeTrue())
 		})
 
 		It("Should expand over the base fields of a union", func(ctx SpecContext) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Base struct {
@@ -205,7 +205,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should type the tag line of a union by its borrowed enum", func(
 			ctx SpecContext,
 		) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Kind enum {
@@ -236,7 +236,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should reject the tag line of a union with an unnamed enum", func(
 			ctx SpecContext,
 		) {
-			_, diag := analyzer.AnalyzeSource(ctx, `
+			_, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Base struct {
@@ -258,7 +258,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should type a bare line by its type parameter's default", func(
 			ctx SpecContext,
 		) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Kind enum {
@@ -284,7 +284,7 @@ var _ = Describe("Filter definitions", func() {
 		})
 
 		It("Should type a key line by a computed retrieve key", func(ctx SpecContext) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Key uint32
@@ -310,7 +310,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should count the filter import as used by a filter", func(
 			ctx SpecContext,
 		) {
-			_, diag := analyzer.AnalyzeSource(ctx, `
+			_, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Thing struct {
@@ -326,7 +326,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should not need the filter import for typed lines only", func(
 			ctx SpecContext,
 		) {
-			_, diag := analyzer.AnalyzeSource(ctx, `
+			_, diag := Analyze(ctx, `
 				Thing struct {
 					key uuid { @key }
 				}
@@ -341,7 +341,7 @@ var _ = Describe("Filter definitions", func() {
 	Describe("Errors", func() {
 		DescribeTable("Should reject an invalid definition",
 			func(ctx SpecContext, body, message string) {
-				_, diag := analyzer.AnalyzeSource(ctx, `
+				_, diag := Analyze(ctx, `
 					import "schemas/x/filter"
 
 					Span struct {
@@ -411,7 +411,7 @@ var _ = Describe("Filter definitions", func() {
 
 		DescribeTable("Should reject a type-level @key outside a distinct type",
 			func(ctx SpecContext, declaration string) {
-				_, diag := analyzer.AnalyzeSource(ctx, declaration, "test", loader)
+				_, diag := Analyze(ctx, declaration, "test", loader)
 				Expect(diag.String()).To(ContainSubstring(
 					"test.Key has @key, which marks only a distinct type such as " +
 						"Key uint32",
@@ -425,7 +425,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should reject bare lines without the filter import", func(
 			ctx SpecContext,
 		) {
-			_, diag := analyzer.AnalyzeSource(ctx, `
+			_, diag := Analyze(ctx, `
 				Thing struct {
 					key uuid { @key }
 				}
@@ -441,7 +441,7 @@ var _ = Describe("Filter definitions", func() {
 
 		It("Should reject a target in another schema", func(ctx SpecContext) {
 			loader.Add("schemas/dep", "Thing struct {\n key uuid { @key }\n}\n")
-			_, diag := analyzer.AnalyzeSource(ctx, `
+			_, diag := Analyze(ctx, `
 				import "schemas/dep"
 				import "schemas/x/filter"
 
@@ -458,7 +458,7 @@ var _ = Describe("Filter definitions", func() {
 
 	Describe("Retrieve request", func() {
 		It("Should derive the request and response", func(ctx SpecContext) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				@go output "out"
@@ -520,7 +520,7 @@ var _ = Describe("Filter definitions", func() {
 				ctx SpecContext,
 				name string,
 			) {
-				table, diag := analyzer.AnalyzeSource(ctx, `
+				table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				@go output "out"
@@ -548,7 +548,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should leave out search_term when no field has @search", func(
 			ctx SpecContext,
 		) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Thing struct {
@@ -564,7 +564,7 @@ var _ = Describe("Filter definitions", func() {
 		})
 
 		It("Should derive no order from sorted fields", func(ctx SpecContext) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Thing struct {
@@ -583,7 +583,7 @@ var _ = Describe("Filter definitions", func() {
 		})
 
 		It("Should hold a generic target over any", func(ctx SpecContext) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Kind enum {
@@ -612,7 +612,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should take the response type and its outputs from @response", func(
 			ctx SpecContext,
 		) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				@go output "service"
@@ -649,7 +649,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should place the request and response at the request output", func(
 			ctx SpecContext,
 		) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				@go output "service"
@@ -678,7 +678,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should take the include fields from the @response type", func(
 			ctx SpecContext,
 		) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Thing struct {
@@ -702,7 +702,7 @@ var _ = Describe("Filter definitions", func() {
 		})
 
 		It("Should reject a @response type without fields", func(ctx SpecContext) {
-			_, diag := analyzer.AnalyzeSource(ctx, `
+			_, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Kind enum {
@@ -724,7 +724,7 @@ var _ = Describe("Filter definitions", func() {
 
 		DescribeTable("Should reject an invalid @response",
 			func(ctx SpecContext, response, message string) {
-				_, diag := analyzer.AnalyzeSource(ctx, `
+				_, diag := Analyze(ctx, `
 					import "schemas/x/filter"
 
 					Thing struct {
@@ -747,7 +747,7 @@ var _ = Describe("Filter definitions", func() {
 
 		DescribeTable("Should reject an invalid @go request_output",
 			func(ctx SpecContext, output string) {
-				_, diag := analyzer.AnalyzeSource(ctx, `
+				_, diag := Analyze(ctx, `
 					import "schemas/x/filter"
 
 					Thing struct {
@@ -771,7 +771,7 @@ var _ = Describe("Filter definitions", func() {
 		It("Should reject a derived name the schema already declares", func(
 			ctx SpecContext,
 		) {
-			_, diag := analyzer.AnalyzeSource(ctx, `
+			_, diag := Analyze(ctx, `
 				import "schemas/x/filter"
 
 				Thing struct {
