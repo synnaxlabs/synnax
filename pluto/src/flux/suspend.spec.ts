@@ -112,6 +112,50 @@ describe("invalidate", () => {
     expect([...local.settled.values()]).toEqual([{ data: 2 }]);
   });
 
+  describe("with a domain cache", () => {
+    const cachedFetcher = (local: LocalCache<number>) => {
+      const cache: { value?: number } = {};
+      const answers: Array<{ resolve: (n: number) => void; reject: () => void }> = [];
+      const fetch = async (): Promise<number> =>
+        await ensureFetch(params, {
+          name: "number",
+          retrieve: async () =>
+            await new Promise<number>((resolve, reject) =>
+              answers.push({ resolve, reject: () => reject(new Error("stale")) }),
+            ),
+          getCached: () => cache.value,
+          local,
+        });
+      return { answers, cache, fetch };
+    };
+
+    it("should give a discarded fetch's reader the cached replacement", async () => {
+      const local = newLocal();
+      const { answers, cache, fetch } = cachedFetcher(local);
+      const first = fetch();
+      invalidate(local, query.hash(params.query));
+      const second = fetch();
+      cache.value = 2;
+      answers[1].resolve(2);
+      expect(await second).toBe(2);
+      answers[0].resolve(1);
+      expect(await first).toBe(2);
+    });
+
+    it("should give the cached replacement when the discarded fetch fails", async () => {
+      const local = newLocal();
+      const { answers, cache, fetch } = cachedFetcher(local);
+      const first = fetch();
+      invalidate(local, query.hash(params.query));
+      const second = fetch();
+      cache.value = 2;
+      answers[1].resolve(2);
+      expect(await second).toBe(2);
+      answers[0].reject();
+      expect(await first).toBe(2);
+    });
+  });
+
   it("drops the settled answer", () => {
     const local = newLocal();
     setSettled(local, "q", { data: 1 });

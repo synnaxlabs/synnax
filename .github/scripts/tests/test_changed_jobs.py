@@ -77,8 +77,8 @@ docs:
 ALL = ["alamos-go", "changes", "client-py", "core-image", "docs", "fail-fast", "ok"]
 
 
-def run(ci: str = CI, filters: str = FILTERS) -> list[str]:
-    return select(CI, ci, FILTERS, filters)
+def run(ci: str = CI, *, filters: str = FILTERS) -> list[str]:
+    return select(CI, ci, old_filters=FILTERS, new_filters=filters)
 
 
 class TestWorkflowEdits:
@@ -110,7 +110,7 @@ class TestWorkflowEdits:
             "    needs: [alamos-go, changes, client-py, core-image, docs]\n",
             "    needs: [changes, client-py, core-image, docs]\n",
         )
-        assert select(ci, CI, FILTERS, FILTERS) == ["alamos-go"]
+        assert select(ci, CI, old_filters=FILTERS, new_filters=FILTERS) == ["alamos-go"]
 
     def test_should_select_nothing_for_a_job_removed_from_ok(self) -> None:
         ci = CI.replace(

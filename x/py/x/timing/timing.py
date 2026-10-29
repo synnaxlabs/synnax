@@ -40,7 +40,7 @@ def _sleep_until(deadline: int, precise: bool) -> None:
         pass
 
 
-def sleep(dur: Rate | TimeSpan | float | int, precise: bool = False) -> None:
+def sleep(dur: Rate | TimeSpan | float | int, *, precise: bool = False) -> None:
     """Sleeps for the given duration.
 
     :param dur: The duration to sleep for. A float or int is a number of seconds, and a
@@ -101,7 +101,9 @@ class Loop:
     _last: int
     _deadline: int
 
-    def __init__(self, interval: Rate | TimeSpan | float | int, precise: bool = False):
+    def __init__(
+        self, interval: Rate | TimeSpan | float | int, *, precise: bool = False
+    ):
         """Creates a new Loop object with the given interval and precision.
 
         :param interval: The interval at which to run the loop. A float or int is a
@@ -160,6 +162,7 @@ class Loop:
 
 def poll(
     func: Callable[[], T | None],
+    *,
     timeout: CrudeTimeSpan,
     interval: CrudeTimeSpan = TimeSpan.SECOND,
 ) -> T | None:
