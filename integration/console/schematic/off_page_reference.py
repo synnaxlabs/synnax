@@ -72,7 +72,7 @@ class OffPageReference(Symbol):
         if page_name is not None:
             page_trigger = (
                 self.layout.form_section("Navigation")
-                .locator(".pluto-dialog__trigger")
+                .locator(".lyra-dialog__trigger")
                 .first
             )
             page_trigger.wait_for(state="visible", timeout=5000)

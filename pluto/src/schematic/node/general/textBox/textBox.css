@@ -21,11 +21,11 @@
         color: var(--pluto-symbol-display);
     }
 
-    &.pluto--location-top {
+    &.lyra--location-top {
         writing-mode: vertical-rl;
     }
 
-    &.pluto--location-bottom {
+    &.lyra--location-bottom {
         writing-mode: vertical-rl;
         transform: rotate(180deg);
     }

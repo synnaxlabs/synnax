@@ -43,6 +43,13 @@ func summarize(findings []exports.Finding) []finding {
 
 var modules = []string{"testdata/a", "testdata/b"}
 
+// setTempDir points os.TempDir at dir: TMPDIR on Unix, TMP and TEMP on Windows.
+func setTempDir(dir string) {
+	for _, key := range []string{"TMPDIR", "TMP", "TEMP"} {
+		GinkgoT().Setenv(key, dir)
+	}
+}
+
 var _ = Describe("Check", func() {
 	It(
 		"Should report exported identifiers no other package uses",
@@ -77,6 +84,32 @@ var _ = Describe("Check", func() {
 				finding{File: "shared.go", Kind: "func", Name: "UsedOnWindows"},
 			))
 			Expect(findings).ToNot(ContainElement(HaveField("Name", "WindowsOnly")))
+		},
+	)
+
+	It(
+		"Should return an error when it cannot create the workspace",
+		func(ctx SpecContext) {
+			notDir := filepath.Join(GinkgoT().TempDir(), "file")
+			Expect(os.WriteFile(notDir, nil, 0o644)).To(Succeed())
+			setTempDir(notDir)
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+			})).Error().To(MatchError(ContainSubstring("exports: create workspace directory")))
+		},
+	)
+
+	It(
+		"Should remove its workspace when a package fails to load",
+		func(ctx SpecContext) {
+			tmp := GinkgoT().TempDir()
+			setTempDir(tmp)
+			Expect(exports.Check(ctx, exports.Config{
+				Modules: []string{"testdata/missing"},
+				GOOS:    []string{"linux"},
+			})).Error().To(MatchError(ContainSubstring("exports: load packages")))
+			Expect(os.ReadDir(tmp)).To(BeEmpty())
 		},
 	)
 

@@ -29,7 +29,7 @@ describe("line symbol", () => {
     it("should carry the symbol-colored class and set the source color", () => {
       const { container } = render(<Line strokeColor="#ff0000" />);
       const root = getRoot(container);
-      expect(root.getAttribute("class")).toContain("pluto-symbol-colored");
+      expect(root.getAttribute("class")).toContain("lyra-symbol-colored");
       expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
     });
 

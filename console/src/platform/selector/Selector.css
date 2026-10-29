@@ -15,19 +15,19 @@
     justify-content: safe center;
     padding-block: 5rem;
 
-    & > .pluto-icon {
+    & > .lyra-icon {
         height: var(--pluto-height-medium);
-        width: var(--pluto-width-medium);
+        width: var(--pluto-height-medium);
     }
 
-    & .pluto-btn {
+    & .lyra-btn {
         width: 100px;
     }
 
     .console-layout-selector__items {
         max-width: 500px;
 
-        & .pluto-btn {
+        & .lyra-btn {
             flex-basis: 185px;
         }
     }
