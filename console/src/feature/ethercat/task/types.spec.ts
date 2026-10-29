@@ -13,8 +13,6 @@ import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createEntryReadChannel,
-  createEntryWriteChannel,
   createRepeatedNamePDOs,
   createUnresolvedReadChannel,
   createUnresolvedWriteChannel,
@@ -184,10 +182,11 @@ describe("createReadChannel", () => {
   });
 
   it("should copy the slave of the last channel but reset its entry and binding", () => {
-    const last = createEntryReadChannel("dev", STATUS_ENTRY, {
+    const last = {
+      ...EtherCAT.Task.createEntryReadChannel("dev", STATUS_ENTRY),
       channel: 42,
       name: "copied",
-    });
+    };
     const ch = EtherCAT.Task.createReadChannel([last]);
     expect(ch).toMatchObject({
       type: "entry",
@@ -219,13 +218,14 @@ describe("createWriteChannel", () => {
   });
 
   it("should copy the last channel but reset names, bindings, and the entry", () => {
-    const last = createEntryWriteChannel("dev", STATUS_ENTRY, {
+    const last = {
+      ...EtherCAT.Task.createEntryWriteChannel("dev", STATUS_ENTRY),
       cmdChannel: 5,
       stateChannel: 6,
       cmdChannelName: "cmd",
       stateChannelName: "state",
       name: "copied",
-    });
+    };
     const ch = EtherCAT.Task.createWriteChannel([last]);
     expect(ch).toMatchObject({
       device: "dev",
@@ -250,7 +250,10 @@ describe("createWriteChannel", () => {
 
 describe("getPortLabel", () => {
   it("should label a channel with the address of its entry", () => {
-    const ch = createEntryReadChannel("dev", { ...STATUS_ENTRY, index: 0x6010 });
+    const ch = EtherCAT.Task.createEntryReadChannel("dev", {
+      ...STATUS_ENTRY,
+      index: 0x6010,
+    });
     expect(EtherCAT.Task.getPortLabel(ch)).toBe("0x6010:01");
   });
 

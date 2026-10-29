@@ -20,8 +20,6 @@ import {
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
 import {
-  type EntryReadChannel,
-  type EntryWriteChannel,
   READ_CHANNEL_SCHEMAS,
   WRITE_CHANNEL_SCHEMAS,
 } from "@/feature/ethercat/task/types";
@@ -73,21 +71,6 @@ export const createRepeatedNamePDOs = (): PDOs => {
   };
 };
 
-/** Builds an input channel bound to an entry on a slave device. */
-export const createEntryReadChannel = (
-  device: string,
-  { index, subIndex, dataType }: ethercat.PDOEntry,
-  overrides: Partial<EntryReadChannel> = {},
-): EntryReadChannel =>
-  READ_CHANNEL_SCHEMAS.entry.parse({
-    type: "entry",
-    device,
-    index,
-    subIndex,
-    dataType,
-    ...overrides,
-  });
-
 /** Builds an input channel whose entry name matched no single entry. */
 export const createUnresolvedReadChannel = (
   device: string,
@@ -98,21 +81,6 @@ export const createUnresolvedReadChannel = (
     type: "unresolved",
     device,
     pdo,
-    ...overrides,
-  });
-
-/** Builds an output channel bound to an entry on a slave device. */
-export const createEntryWriteChannel = (
-  device: string,
-  { index, subIndex, dataType }: ethercat.PDOEntry,
-  overrides: Partial<EntryWriteChannel> = {},
-): EntryWriteChannel =>
-  WRITE_CHANNEL_SCHEMAS.entry.parse({
-    type: "entry",
-    device,
-    index,
-    subIndex,
-    dataType,
     ...overrides,
   });
 
