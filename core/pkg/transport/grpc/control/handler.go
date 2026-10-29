@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	xcontrol "github.com/synnaxlabs/x/control"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/unsafe"
 )
@@ -33,6 +32,8 @@ type (
 	]
 )
 
+// The Core only serves this service. Request Forward and response Backward exist only
+// to satisfy grpc.Translator.
 var (
 	_ grpc.Translator[control.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
@@ -43,12 +44,10 @@ var (
 )
 
 func (retrieveRequestTranslator) Forward(
-	_ context.Context,
-	msg control.RetrieveRequest,
+	context.Context,
+	control.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	return &RetrieveRequest{
-		Keys: unsafe.ReinterpretSlice[channel.Key, uint32](msg.Keys),
-	}, nil
+	panic("unreachable")
 }
 
 func (retrieveRequestTranslator) Backward(
@@ -85,24 +84,10 @@ func (retrieveResponseTranslator) Forward(
 }
 
 func (retrieveResponseTranslator) Backward(
-	_ context.Context,
-	msg *RetrieveResponse,
+	context.Context,
+	*RetrieveResponse,
 ) (control.RetrieveResponse, error) {
-	states, err := lo.MapErr(msg.States, func(s *State, _ int) (control.State, error) {
-		subject, err := controlpb.SubjectFromPB(s.Subject)
-		if err != nil {
-			return control.State{}, err
-		}
-		return control.State{
-			Subject:   subject,
-			Resource:  channel.Key(s.Resource),
-			Authority: xcontrol.Authority(s.Authority),
-		}, nil
-	})
-	if err != nil {
-		return control.RetrieveResponse{}, err
-	}
-	return control.RetrieveResponse{States: states}, nil
+	panic("unreachable")
 }
 
 // New binds the control retrieve server onto t and returns it for gRPC registration.

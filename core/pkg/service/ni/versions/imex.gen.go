@@ -16,13 +16,14 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Latest is the portable schema version stamped on exported bodies of every type in
 // this package and the highest version import accepts. It equals the current schema
 // version.
-const Latest = v2.Version
+const Latest = v3.Version
 
 // AnalogReadConfigLadder decodes AnalogReadConfig bodies stamped at any exported version and
 // migrates them to the current shape.
@@ -39,6 +40,12 @@ func decodeAnalogReadConfig(
 ) (AnalogReadConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.AnalogReadConfig](data, "ni.AnalogReadConfig", version)
+		if err != nil {
+			return AnalogReadConfig{}, err
+		}
+		return t2, nil
+	case v3.Version:
 		return imex.DecodeBlob[AnalogReadConfig](data, "ni.AnalogReadConfig", version)
 	}
 	return AnalogReadConfig{}, imex.NewErrUnsupportedVersion("ni.AnalogReadConfig", version, Latest)
@@ -59,6 +66,12 @@ func decodeCounterReadConfig(
 ) (CounterReadConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.CounterReadConfig](data, "ni.CounterReadConfig", version)
+		if err != nil {
+			return CounterReadConfig{}, err
+		}
+		return t2, nil
+	case v3.Version:
 		return imex.DecodeBlob[CounterReadConfig](data, "ni.CounterReadConfig", version)
 	}
 	return CounterReadConfig{}, imex.NewErrUnsupportedVersion("ni.CounterReadConfig", version, Latest)
@@ -79,6 +92,12 @@ func decodeAnalogWriteConfig(
 ) (AnalogWriteConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.AnalogWriteConfig](data, "ni.AnalogWriteConfig", version)
+		if err != nil {
+			return AnalogWriteConfig{}, err
+		}
+		return t2, nil
+	case v3.Version:
 		return imex.DecodeBlob[AnalogWriteConfig](data, "ni.AnalogWriteConfig", version)
 	}
 	return AnalogWriteConfig{}, imex.NewErrUnsupportedVersion("ni.AnalogWriteConfig", version, Latest)
@@ -99,6 +118,12 @@ func decodeDigitalReadConfig(
 ) (DigitalReadConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.DigitalReadConfig](data, "ni.DigitalReadConfig", version)
+		if err != nil {
+			return DigitalReadConfig{}, err
+		}
+		return t2, nil
+	case v3.Version:
 		return imex.DecodeBlob[DigitalReadConfig](data, "ni.DigitalReadConfig", version)
 	}
 	return DigitalReadConfig{}, imex.NewErrUnsupportedVersion("ni.DigitalReadConfig", version, Latest)
@@ -119,6 +144,12 @@ func decodeDigitalWriteConfig(
 ) (DigitalWriteConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.DigitalWriteConfig](data, "ni.DigitalWriteConfig", version)
+		if err != nil {
+			return DigitalWriteConfig{}, err
+		}
+		return t2, nil
+	case v3.Version:
 		return imex.DecodeBlob[DigitalWriteConfig](data, "ni.DigitalWriteConfig", version)
 	}
 	return DigitalWriteConfig{}, imex.NewErrUnsupportedVersion("ni.DigitalWriteConfig", version, Latest)
@@ -139,6 +170,16 @@ func decodeScanConfig(
 ) (ScanConfig, error) {
 	switch version {
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "ni.ScanConfig", version)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		t3, err := v3.MigrateScanConfig(ctx, t2)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		return t3, nil
+	case v3.Version:
 		return imex.DecodeBlob[ScanConfig](data, "ni.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("ni.ScanConfig", version, Latest)

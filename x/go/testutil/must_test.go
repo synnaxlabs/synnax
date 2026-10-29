@@ -10,10 +10,9 @@
 package testutil_test
 
 import (
-	stderrors "errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -47,8 +46,19 @@ var _ = Describe("MustOpen", func() {
 
 	It("should fail the assertion when the error is non-nil", func() {
 		failures := InterceptGomegaFailures(func() {
-			MustOpen(&fakeCloser{}, stderrors.New("boom"))
+			MustOpen(&fakeCloser{}, errors.New("boom"))
 		})
 		Expect(failures).ToNot(BeEmpty())
+	})
+})
+
+var _ = Describe("MustBeOk", func() {
+	It("should return the value when ok is true", func() {
+		Expect(MustBeOk(42, true)).To(Equal(42))
+	})
+
+	It("should fail the assertion when ok is false", func() {
+		failures := InterceptGomegaFailures(func() { MustBeOk(42, false) })
+		Expect(failures).To(ConsistOf(ContainSubstring("to be true")))
 	})
 })

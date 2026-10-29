@@ -7,10 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal
 
 from freighter import FileTransport
 from synnax import ontology
 from x.fs import FilePath
+
+Encoding = Literal["JSON"]
+"""The serialization of an exported resource. Only ``"JSON"`` is supported."""
 
 
 class Client:
@@ -41,7 +45,7 @@ class Client:
         :returns: the new resource's ontology ID.
         """
         return self._file_transport.upload(
-            "/imex/import", source, ontology.ID, {"parent": str(parent)}
+            "/imex/import", source, ontology.ID, params={"parent": str(parent)}
         )
 
     def export(self, id: ontology.ID, dest: FilePath) -> None:
@@ -53,4 +57,4 @@ class Client:
         :param id: the ontology ID of the resource to export.
         :param dest: a file path to stream the response body into.
         """
-        self._file_transport.download("/imex/export", id, dest)
+        self._file_transport.download("/imex/export", id, dest=dest)

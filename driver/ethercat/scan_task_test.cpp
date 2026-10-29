@@ -10,13 +10,13 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ethercat/engine/pool.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/ethercat.h"
-#include "driver/ethercat/mock/master.h"
 #include "driver/ethercat/scan_task.h"
+#include "driver/ethercat/testutil/master.h"
 
 namespace driver::ethercat {
 class EtherCATScanTest : public ::testing::Test {
@@ -44,13 +44,13 @@ protected:
 class EtherCATScanStatusTest : public EtherCATScanTest {
 protected:
     const pdo::Entry entry{0, 0x6000, 1, 16, true, x::telem::INT16_T};
-    std::shared_ptr<mock::Master> master;
+    std::shared_ptr<testutil::Master> master;
     std::shared_ptr<engine::Pool> pool;
     std::unique_ptr<Scanner> scanner;
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<mock::Master>("eth0");
+        this->master = std::make_shared<testutil::Master>("eth0");
         this->master->add_slave(
             slave::Properties{
                 .position = 0,
@@ -68,7 +68,7 @@ protected:
                 },
             }
         );
-        auto manager = std::make_unique<mock::Manager>();
+        auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", this->master);
         this->pool = std::make_shared<engine::Pool>(std::move(manager));
         this->scanner = std::make_unique<Scanner>(
@@ -192,7 +192,7 @@ TEST_F(EtherCATScanTest, UnknownCommandNotHandled) {
 }
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
-    auto mock_master = std::make_shared<mock::Master>("eth0");
+    auto mock_master = std::make_shared<testutil::Master>("eth0");
     mock_master->add_slave(
         slave::Properties{
             .position = 0,
@@ -203,7 +203,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
         }
     );
 
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
@@ -229,7 +229,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
 }
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
-    auto mock_master = std::make_shared<mock::Master>("enp3s0");
+    auto mock_master = std::make_shared<testutil::Master>("enp3s0");
     mock_master->add_slave(
         slave::Properties{
             .position = 0,
@@ -258,7 +258,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
         }
     );
 
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure("enp3s0", mock_master);
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
@@ -286,11 +286,11 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
 /// @brief it should return a permission error from a scan, so the error reaches the
 /// status of the scan task.
 TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
-    auto mock_master = std::make_shared<mock::Master>("eth0");
+    auto mock_master = std::make_shared<testutil::Master>("eth0");
     mock_master->inject_init_error(
         x::errors::Error(errors::PERMISSION_DENIED, "permission denied opening eth0")
     );
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
     synnax::task::Task task{
@@ -304,12 +304,12 @@ TEST_F(EtherCATScanTest, ScanReturnsPermissionDenied) {
 }
 
 TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
-    auto mock_master = std::make_shared<mock::Master>("eth0");
+    auto mock_master = std::make_shared<testutil::Master>("eth0");
     mock_master->inject_init_error(
         x::errors::Error(errors::MASTER_INIT_ERROR, "no interface")
     );
 
-    auto manager = std::make_unique<mock::Manager>();
+    auto manager = std::make_unique<testutil::Manager>();
     manager->configure("eth0", mock_master);
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
@@ -338,14 +338,14 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
 /// @brief a scanner over a mock bus on eth0, for scan specs.
 class EtherCATScanProbeTest : public EtherCATScanTest {
 protected:
-    std::shared_ptr<mock::Master> master;
+    std::shared_ptr<testutil::Master> master;
     std::unique_ptr<Scanner> scanner;
     std::size_t scans = 0;
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<mock::Master>("eth0");
-        auto manager = std::make_unique<mock::Manager>();
+        this->master = std::make_shared<testutil::Master>("eth0");
+        auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", this->master);
         this->scanner = std::make_unique<Scanner>(
             this->ctx,
@@ -510,14 +510,14 @@ TEST_F(EtherCATScanStatusTest, SlaveLeavingOpShowsAWarning) {
 /// @brief a scanner over a mock bus with one slave, for device set specs.
 class EtherCATScanDeviceSetTest : public EtherCATScanTest {
 protected:
-    std::shared_ptr<mock::Master> master;
+    std::shared_ptr<testutil::Master> master;
     std::unique_ptr<Scanner> scanner;
 
     void SetUp() override {
         EtherCATScanTest::SetUp();
-        this->master = std::make_shared<mock::Master>("eth0");
+        this->master = std::make_shared<testutil::Master>("eth0");
         this->master->add_slave(slave::Properties{.position = 0, .name = "EL3102"});
-        auto manager = std::make_unique<mock::Manager>();
+        auto manager = std::make_unique<testutil::Manager>();
         manager->configure("eth0", this->master);
         this->scanner = std::make_unique<Scanner>(
             this->ctx,

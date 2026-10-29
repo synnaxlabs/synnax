@@ -304,7 +304,7 @@ var _ = Describe("Parser", func() {
 		It("Should parse authority before function declarations", func() {
 			prog := mustParseProgram(`
 authority 200
-func test{} () {}`)
+func test() {}`)
 			Expect(prog.AllTopLevelItem()).To(HaveLen(2))
 			Expect(prog.TopLevelItem(0).AuthorityBlock()).NotTo(BeNil())
 			Expect(prog.TopLevelItem(1).FunctionDeclaration()).NotTo(BeNil())
@@ -321,7 +321,7 @@ func test{} () {}`)
 	Describe("Functions", func() {
 		It("Should parse basic function declaration", func() {
 			prog := mustParseProgram(`
-func add(x f64, y f64) f64 {
+func add() {x f64, y f64} f64 {
     return x + y
 }`)
 
@@ -364,7 +364,7 @@ func add(x f64, y f64) f64 {
 
 		It("Should parse function with channel parameters", func() {
 			prog := mustParseProgram(`
-func process(input chan f64, output chan f64) {
+func process() {input chan f64, output chan f64} {
     value := input
     output = value
 }`)
@@ -390,16 +390,90 @@ func process(input chan f64, output chan f64) {
 			Expect(param2.IDENTIFIER().GetText()).To(Equal("output"))
 			Expect(param2.Type_().ChannelType().CHAN()).NotTo(BeNil())
 		})
+
+		It("Should parse inputs in parens and triggers in braces", func() {
+			prog := mustParseProgram(`
+func scale(factor f64) {value f64} f64 {
+    return value * factor
+}`)
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			inputs := funcDecl.InputList()
+			Expect(inputs.AllInput()).To(HaveLen(1))
+			Expect(inputs.Input(0).IDENTIFIER().GetText()).To(Equal("factor"))
+			triggers := funcDecl.TriggerList()
+			Expect(triggers.AllTrigger()).To(HaveLen(1))
+			Expect(triggers.Trigger(0).IDENTIFIER().GetText()).To(Equal("value"))
+		})
+
+		It("Should parse a declaration without triggers", func() {
+			prog := mustParseProgram(`func tick() { x := 1 }`)
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			Expect(funcDecl.InputList()).To(BeNil())
+			Expect(funcDecl.LBRACE()).To(BeNil())
+			Expect(funcDecl.TriggerList()).To(BeNil())
+			Expect(funcDecl.Block().AllStatement()).To(HaveLen(1))
+		})
+
+		It("Should parse empty trigger braces before the body", func() {
+			prog := mustParseProgram(`func tick() {} {}`)
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			Expect(funcDecl.LBRACE()).NotTo(BeNil())
+			Expect(funcDecl.TriggerList()).To(BeNil())
+			Expect(funcDecl.Block()).NotTo(BeNil())
+		})
+
+		It("Should parse an output type without triggers", func() {
+			prog := mustParseProgram(`func one() f64 { return 1.0 }`)
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			Expect(funcDecl.LBRACE()).To(BeNil())
+			Expect(funcDecl.OutputType()).NotTo(BeNil())
+			Expect(funcDecl.Block().AllStatement()).To(HaveLen(1))
+		})
+
+		It("Should take the last block as the body", func() {
+			prog := mustParseProgram(`func f(x f64) {y f64} { return x }`)
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			Expect(funcDecl.InputList().AllInput()).To(HaveLen(1))
+			Expect(funcDecl.TriggerList().AllTrigger()).To(HaveLen(1))
+			Expect(funcDecl.Block().AllStatement()).To(HaveLen(1))
+		})
+
+		It("Should parse multiple outputs after the trigger braces", func() {
+			prog := mustParseProgram(`
+func split() {value f64} (high f64, low f64) {
+    high = value
+}`)
+			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
+			outputs := funcDecl.OutputType().MultiOutputBlock().AllNamedOutput()
+			Expect(outputs).To(HaveLen(2))
+		})
+
+		DescribeTable("Should reject inputs outside parens",
+			func(code, message string) {
+				Expect(parser.Parse(code)).Error().
+					To(MatchError(ContainSubstring(message)))
+			},
+			Entry(
+				"missing input parens",
+				"func f {x f64} f64 { return x }",
+				"1:7 error: mismatched input '{' expecting '('",
+			),
+			Entry(
+				"inputs in braces",
+				"func f{x f64} (y f64) f64 { return x }",
+				"1:6 error: mismatched input '{' expecting '('",
+			),
+		)
 	})
 
 	Describe("Tasks", func() {
 		It("Should parse function with input block", func() {
 			prog := mustParseProgram(`
-func controller{
+func controller(
     setpoint f64,
     sensor chan f64,
     actuator chan f64
-} (enable u8) {
+) {enable u8} {
     error := setpoint - sensor
     actuator = error
 }`)
@@ -410,11 +484,9 @@ func controller{
 			Expect(taskDecl.FUNC()).NotTo(BeNil())
 			Expect(taskDecl.IDENTIFIER().GetText()).To(Equal("controller"))
 
-			// Input block
-			inputBlock := taskDecl.InputBlock()
-			Expect(inputBlock).NotTo(BeNil())
-			Expect(inputBlock.InputList()).NotTo(BeNil())
-			Expect(inputBlock.InputList().AllInput()).To(HaveLen(3))
+			// Inputs
+			Expect(taskDecl.InputList()).NotTo(BeNil())
+			Expect(taskDecl.InputList().AllInput()).To(HaveLen(3))
 
 			// Triggers
 			triggers := taskDecl.TriggerList()
@@ -430,9 +502,9 @@ func controller{
 
 		It("Should parse function with return type", func() {
 			prog := mustParseProgram(`
-func doubler{
+func doubler(
     input chan f64,
-} () f64 {
+) f64 {
     return (input) * 2
 }`)
 
@@ -448,7 +520,7 @@ func doubler{
 
 	Describe("Inter-func Flow", func() {
 		It("Should parse simple channel to funcflow", func() {
-			prog := mustParseProgram(`sensor -> controller{} -> actuator`)
+			prog := mustParseProgram(`sensor -> controller() -> actuator`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			Expect(flow).NotTo(BeNil())
@@ -471,11 +543,11 @@ func doubler{
 
 		It("Should parse func invocation with named input", func() {
 			prog := mustParseProgram(`
-controller{
+controller(
     setpoint=100,
     sensor=temp_sensor,
     period=100ms
-} -> output`)
+) -> output`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
@@ -491,7 +563,7 @@ controller{
 		})
 
 		It("Should parse func invocation with anonymous input", func() {
-			prog := mustParseProgram(`any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
+			prog := mustParseProgram(`any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
@@ -513,11 +585,11 @@ controller{
 
 		It("Should parse func invocation with anonymous input in flow", func() {
 			prog := mustParseProgram(`
-func average {} (first chan f64, second chan f64) chan f64 {
+func average () {first chan f64, second chan f64} chan f64 {
     return (first + second) / 2
 }
 
-any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
+any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 
 			// Check func declaration
 			taskDecl := prog.TopLevelItem(0).FunctionDeclaration()
@@ -546,7 +618,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 		})
 
 		It("Should parse expression in flow", func() {
-			prog := mustParseProgram(`ox_pt_1 > 100 -> alarm{}`)
+			prog := mustParseProgram(`ox_pt_1 > 100 -> alarm()`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
@@ -559,11 +631,11 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		It("Should parse empty input in flow chains", func() {
 			prog := mustParseProgram(`
-func average {} (first chan f64, second chan f64) chan f64 {
+func average () {first chan f64, second chan f64} chan f64 {
     return (first + second) / 2
 }
 
-any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
+any(ox_pt_1, ox_pt_2) -> average() -> ox_pt_avg`)
 
 			// Check func declaration
 			taskDecl := prog.TopLevelItem(0).FunctionDeclaration()
@@ -585,8 +657,8 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			// Verify average has empty input
 			avgInput := node2.Function().InputValues()
 			Expect(avgInput).NotTo(BeNil())
-			Expect(avgInput.LBRACE()).NotTo(BeNil())
-			Expect(avgInput.RBRACE()).NotTo(BeNil())
+			Expect(avgInput.LPAREN()).NotTo(BeNil())
+			Expect(avgInput.RPAREN()).NotTo(BeNil())
 			Expect(avgInput.NamedInputValues()).To(BeNil())
 			Expect(avgInput.AnonymousInputValues()).To(BeNil())
 
@@ -600,10 +672,89 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			// Note: 'stage' is now a reserved keyword, so we use a different function
 			// name
 			Expect(
-				parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`),
+				parser.Parse(`myfunc(ox_pt_1, second: ox_pt_2) -> output`),
 			).Error().
 				To(MatchError(ContainSubstring("1:22 error: mismatched input")))
 		})
+
+		It("Should parse a name touching its paren as a function node", func() {
+			prog := mustParseProgram(`sensor -> filter(50.0) -> out`)
+			Expect(prog.AllTopLevelItem()).To(HaveLen(1))
+			nodes := prog.TopLevelItem(0).FlowStatement().AllFlowNode()
+			Expect(nodes).To(HaveLen(3))
+			fn := nodes[1].Function()
+			Expect(fn).NotTo(BeNil())
+			values := fn.InputValues().AnonymousInputValues().AllExpression()
+			Expect(values).To(HaveLen(1))
+		})
+
+		DescribeTable("Should read a name apart from its paren as two items",
+			func(code string) {
+				prog := mustParseProgram(code)
+				items := prog.AllTopLevelItem()
+				Expect(items).To(HaveLen(2))
+				first := items[0].FlowStatement().AllFlowNode()
+				Expect(first).To(HaveLen(2))
+				Expect(first[1].Identifier().IDENTIFIER().GetText()).To(Equal("filter"))
+				second := items[1].FlowStatement().AllFlowNode()
+				Expect(second[0].Expression()).NotTo(BeNil())
+			},
+			Entry("same line", "sensor -> filter (50.0) -> out"),
+			Entry("next line", "sensor -> filter\n(50.0) -> out"),
+		)
+
+		It("Should parse a dotted name touching its paren as a function node", func() {
+			prog := mustParseProgram(`time.interval(1s) -> tick`)
+			nodes := prog.TopLevelItem(0).FlowStatement().AllFlowNode()
+			Expect(nodes[0].Function()).NotTo(BeNil())
+			Expect(parser.FunctionName(nodes[0].Function())).To(Equal("time.interval"))
+		})
+
+		It("Should parse a bare call as a function node", func() {
+			prog := mustParseProgram(`len(ch) -> out`)
+			nodes := prog.TopLevelItem(0).FlowStatement().AllFlowNode()
+			Expect(nodes[0].Function()).NotTo(BeNil())
+		})
+
+		It("Should parse a call inside a larger expression as an expression", func() {
+			prog := mustParseProgram(`len(ch) * 2 -> out`)
+			nodes := prog.TopLevelItem(0).FlowStatement().AllFlowNode()
+			Expect(nodes[0].Function()).To(BeNil())
+			Expect(nodes[0].Expression()).NotTo(BeNil())
+		})
+
+		It("Should parse a parenthesized call as an expression", func() {
+			prog := mustParseProgram(`(len(ch)) -> out`)
+			nodes := prog.TopLevelItem(0).FlowStatement().AllFlowNode()
+			Expect(nodes[0].Function()).To(BeNil())
+			Expect(nodes[0].Expression()).NotTo(BeNil())
+		})
+
+		It("Should parse a stage item call as a function", func() {
+			prog := mustParseProgram(`stage s { time.wait(2s) }`)
+			body := prog.TopLevelItem(0).StageDeclaration().StageBody()
+			Expect(body.StageItem(0).SingleInvocation().Function()).NotTo(BeNil())
+		})
+
+		It("Should reject the brace instantiation form", func() {
+			Expect(parser.Parse(`sensor -> scale{factor=2.0} -> out`)).Error().
+				To(MatchError(ContainSubstring("1:22 error: mismatched input '=' expecting ':'")))
+		})
+
+		DescribeTable("CalleeTouchesParen",
+			func(code string, want bool) {
+				stream := antlr.NewCommonTokenStream(
+					parser.NewLexer(code, parser.Config{}),
+					antlr.TokenDefaultChannel,
+				)
+				Expect(parser.NewArcParser(stream).CalleeTouchesParen()).To(Equal(want))
+			},
+			Entry("bare name touching", "filter(50.0)", true),
+			Entry("bare name apart", "filter (50.0)", false),
+			Entry("dotted name touching", "time.interval(1s)", true),
+			Entry("dotted name apart", "time.interval (1s)", false),
+			Entry("no paren", "filter -> out", false),
+		)
 	})
 
 	Describe("Statements", func() {
@@ -1049,7 +1200,7 @@ func broken() {
     x := := 5
     y = = 10
 }`)
-				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("extraneous input ':='")))
 				Expect(err).To(MatchError(ContainSubstring("3:9 error")))
 				Expect(err).To(MatchError(ContainSubstring("4:8 error")))
 			})
@@ -1070,7 +1221,7 @@ func broken() {
 
 			It("Should report error for missing function body", func() {
 				Expect(parser.Parse(`func test()`)).
-					Error().To(MatchError(ContainSubstring("mismatched input")))
+					Error().To(MatchError(ContainSubstring("no viable alternative")))
 			})
 
 			It("Should reject a flow statement inside a function body", func() {
@@ -1173,8 +1324,10 @@ func broken() {
 			})
 
 			It("Should return error for invalid expression", func() {
-				_, err := parser.ParseExpression("2 + + 3")
-				Expect(err).To(HaveOccurred())
+				Expect(
+					parser.ParseExpression("2 + + 3"),
+				).Error().
+					To(MatchError(ContainSubstring("extraneous input '+'")))
 			})
 
 			It("Should handle empty expression", func() {
@@ -1238,7 +1391,7 @@ func broken() {
 				prog := MustSucceed(parser.Parse(`
 func test1() { x := 1 }
 func test2() { y := 2 }
-sensor -> controller{}`))
+sensor -> controller()`))
 				Expect(prog).NotTo(BeNil())
 				Expect(prog.AllTopLevelItem()).To(HaveLen(3))
 			})
@@ -1277,9 +1430,9 @@ func test() {
 		Context("Multi-Output func Declarations", func() {
 			It("Should parse func with multiple named outputs", func() {
 				prog := mustParseProgram(`
-func demux{
+func demux(
     threshold f64,
-} (value f32) (high f32, low f32) {
+) {value f32} (high f32, low f32) {
     if (value > f32(threshold)) {
         high = value
     } else {
@@ -1317,10 +1470,10 @@ func demux{
 
 			It("Should parse func with three named outputs", func() {
 				prog := mustParseProgram(`
-func range_classifier{
+func range_classifier(
     low f64,
     high f64,
-} (value f32) (below_range f32, in_range f32, above_range f32) {
+) {value f32} (below_range f32, in_range f32, above_range f32) {
     // Logic
 }`)
 
@@ -1336,7 +1489,7 @@ func range_classifier{
 
 			It("Should still parse stages with single return type", func() {
 				prog := mustParseProgram(`
-func simple{} (value f32) f32 {
+func simple() {value f32} f32 {
     return value * 2.0
 }`)
 
@@ -1353,9 +1506,9 @@ func simple{} (value f32) f32 {
 		Context("Routing Tables", func() {
 			It("Should parse simple routing table", func() {
 				prog := mustParseProgram(`
-sensor -> demux{threshold=100} -> {
-    high: alarm{},
-    low: logger{}
+sensor -> demux(threshold=100) -> {
+    high: alarm(),
+    low: logger()
 }`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -1396,7 +1549,7 @@ sensor -> demux{threshold=100} -> {
 
 			It("Should parse a => transition inside a routing case body", func() {
 				prog := mustParseProgram(`
-sensor -> select{} -> {
+sensor -> select() -> {
     true: value > 450 => restore_helium
 }`)
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -1412,10 +1565,10 @@ sensor -> select{} -> {
 
 			It("Should parse routing table with three outputs", func() {
 				prog := mustParseProgram(`
-sensor -> range_classifier{} -> {
-    below_range: low_alarm{},
-    in_range: controller{},
-    above_range: high_alarm{}
+sensor -> range_classifier() -> {
+    below_range: low_alarm(),
+    in_range: controller(),
+    above_range: high_alarm()
 }`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -1433,7 +1586,7 @@ sensor -> range_classifier{} -> {
 
 			It("Should parse routing table to channels", func() {
 				prog := mustParseProgram(`
-processor -> splitter{} -> {
+processor -> splitter() -> {
     output_a: channel_a,
     output_b: channel_b
 }`)
@@ -1457,7 +1610,7 @@ processor -> splitter{} -> {
 			})
 
 			It("Should parse flow without routing table", func() {
-				prog := mustParseProgram(`sensor -> controller{} -> actuator`)
+				prog := mustParseProgram(`sensor -> controller() -> actuator`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
 				Expect(flow).NotTo(BeNil())
@@ -1468,9 +1621,9 @@ processor -> splitter{} -> {
 
 			It("Should parse routing table with chained nodes", func() {
 				prog := mustParseProgram(`
-sensor -> state_router{} -> {
-    idle_out: processor{} -> idle_display{},
-    active_out: controller{} -> actuator
+sensor -> state_router() -> {
+    idle_out: processor() -> idle_display(),
+    active_out: controller() -> actuator
 }`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -1511,9 +1664,9 @@ sensor -> state_router{} -> {
 				"Should parse routing table with chained nodes via => transition",
 				func() {
 					prog := mustParseProgram(`
-sensor -> state_router{} -> {
-    idle_out: processor{} => idle_display{},
-    active_out: controller{} => actuator
+sensor -> state_router() -> {
+    idle_out: processor() => idle_display(),
+    active_out: controller() => actuator
 }`)
 
 					flow := prog.TopLevelItem(0).FlowStatement()
@@ -1552,10 +1705,10 @@ sensor -> state_router{} -> {
 
 			It("Should parse routing table with parameter mapping", func() {
 				prog := mustParseProgram(`
-first{} -> {
-    outputA: processor{}: paramC,
+first() -> {
+    outputA: processor(): paramC,
     outputB: paramD
-} -> second{}`)
+} -> second()`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
 				allRoutingTables := flow.AllRoutingTable()
@@ -1593,10 +1746,10 @@ first{} -> {
 				"Should parse routing table with chained processing and parameter mapping",
 				func() {
 					prog := mustParseProgram(`
-stage1{} -> {
-    out1: filter{} -> amplifier{}: input,
-    out2: processor{} -> converter{}: value
-} -> stage2{}`)
+stage1() -> {
+    out1: filter() -> amplifier(): input,
+    out2: processor() -> converter(): value
+} -> stage2()`)
 
 					flow := prog.TopLevelItem(0).FlowStatement()
 					routingTable := flow.AllRoutingTable()[0]
@@ -1625,10 +1778,10 @@ stage1{} -> {
 				"Should parse routing table with => chained processing and parameter mapping",
 				func() {
 					prog := mustParseProgram(`
-stage1{} -> {
-    out1: filter{} => amplifier{}: input,
-    out2: processor{} => converter{}: value
-} -> stage2{}`)
+stage1() -> {
+    out1: filter() => amplifier(): input,
+    out2: processor() => converter(): value
+} -> stage2()`)
 
 					flow := prog.TopLevelItem(0).FlowStatement()
 					entries := flow.AllRoutingTable()[0].AllRoutingEntry()
@@ -1662,9 +1815,9 @@ stage1{} -> {
 				"Should parse complete example with multi-output func and routing",
 				func() {
 					prog := mustParseProgram(`
-func demux{
+func demux(
     threshold f64,
-} (value f32) (high f32, low f32) {
+) {value f32} (high f32, low f32) {
     if (value > f32(threshold)) {
         high = value
     } else {
@@ -1672,9 +1825,9 @@ func demux{
     }
 }
 
-sensor -> demux{threshold=100.0} -> {
-    high: alarm{},
-    low: logger{}
+sensor -> demux(threshold=100.0) -> {
+    high: alarm(),
+    low: logger()
 }`)
 
 					// Check func declaration
@@ -1701,7 +1854,7 @@ sensor -> demux{threshold=100.0} -> {
 {
     sensor1: a,
     sensor2: b
-} -> add{}`)
+} -> add()`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
 				Expect(flow).NotTo(BeNil())
@@ -1736,9 +1889,9 @@ sensor -> demux{threshold=100.0} -> {
 			It("Should parse input routing with flow chains", func() {
 				prog := mustParseProgram(`
 {
-    sensor1: lowpass{cutoff=0.5} -> a,
-    sensor2: scale{factor=2.0} -> b
-} -> add{}`)
+    sensor1: lowpass(cutoff=0.5) -> a,
+    sensor2: scale(factor=2.0) -> b
+} -> add()`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
 				allRoutingTables := flow.AllRoutingTable()
@@ -1781,9 +1934,9 @@ sensor -> demux{threshold=100.0} -> {
 			It("Should parse input routing with => flow chains", func() {
 				prog := mustParseProgram(`
 {
-    sensor1: lowpass{cutoff=0.5} => a,
-    sensor2: scale{factor=2.0} => b
-} -> add{}`)
+    sensor1: lowpass(cutoff=0.5) => a,
+    sensor2: scale(factor=2.0) => b
+} -> add()`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
 				entries := flow.AllRoutingTable()[0].AllRoutingEntry()
@@ -1805,8 +1958,8 @@ sensor -> demux{threshold=100.0} -> {
 
 			It("Should parse a case body mixing -> and => operators in order", func() {
 				prog := mustParseProgram(`
-sensor -> demux{} -> {
-    out: filter{} -> amplify{} => sink
+sensor -> demux() -> {
+    out: filter() -> amplify() => sink
 }`)
 
 				flow := prog.TopLevelItem(0).FlowStatement()
@@ -1964,7 +2117,7 @@ sequence seq {
 sequence seq {
     stage settle {
         0 -> vent_cmd
-        wait{duration=2s}
+        wait(duration=2s)
         pressure < LOW => done
     }
 }`, 3),
@@ -2031,7 +2184,7 @@ sequence main {
 				Entry("mixed flows and invocations with commas", `
 sequence main {
     1 -> valve_a,
-    wait{duration=2s},
+    wait(duration=2s),
     0 -> valve_a
 }`, 3),
 			)
@@ -2058,7 +2211,7 @@ sequence main {
 			primary := postfix.PrimaryExpression()
 			qid := primary.QualifiedIdentifier()
 			Expect(qid).ToNot(BeNil())
-			Expect(parser.QualifiedName(qid)).To(Equal("math.avg"))
+			Expect(qid.GetText()).To(Equal("math.avg"))
 			funcCalls := postfix.AllFunctionCallSuffix()
 			Expect(funcCalls).To(HaveLen(1))
 			args := funcCalls[0].ArgumentList().AllExpression()
@@ -2084,7 +2237,7 @@ sequence main {
 		})
 
 		It("Should parse qualified identifier in flow function", func() {
-			prog := mustParseProgram("sensor -> error.panic{msg=\"fail\"}")
+			prog := mustParseProgram("sensor -> error.panic(msg=\"fail\")")
 			items := prog.AllTopLevelItem()
 			Expect(items).To(HaveLen(1))
 			flow := items[0].FlowStatement()
@@ -2112,7 +2265,7 @@ sequence main {
 		})
 
 		It("Should use FunctionName for bare function", func() {
-			prog := mustParseProgram("sensor -> set_point{value=50}")
+			prog := mustParseProgram("sensor -> set_point(value=50)")
 			flow := prog.AllTopLevelItem()[0].FlowStatement()
 			fn := flow.AllFlowNode()[1].Function()
 			Expect(fn).ToNot(BeNil())

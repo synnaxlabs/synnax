@@ -15,6 +15,8 @@ declare const IS_DEV: boolean;
  * layers stay the same for both apps.
  */
 declare const DESKTOP: boolean;
+/** True only in a Desktop release that CI builds. Local and test builds leave it off. */
+declare const RELEASE: boolean;
 /** True in dev, Desktop, and spec builds, where every flag in `flags.ts` is on. */
 declare const FLAGS_ON: boolean;
 

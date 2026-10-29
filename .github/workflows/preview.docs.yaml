@@ -1,0 +1,83 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Deploys a Vercel preview of the docs for each pull request with the preview/docs
+# label, and again on each push while the label stays. Fork pull requests never deploy:
+# their code must not reach the Vercel token.
+
+name: Preview - Docs
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+# A new push cancels the run it replaces. Any other label gets a group of its own, so
+# it skips without cancelling a deploy.
+concurrency:
+  group:
+    preview-docs-${{ github.event.pull_request.number }}${{ github.event.action ==
+    'labeled' && github.event.label.name != 'preview/docs' && format('-{0}',
+    github.run_id) || '' }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  deploy:
+    if:
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'preview/docs') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'preview/docs')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-pnpm
+
+      - name: Build
+        run: pnpm build:docs
+
+      # The CLI joins the project's root directory, site/docs, to --cwd, so it reads the
+      # output from the repository root. It runs outside the repository: npm rejects the
+      # repository's devEngines, and pnpm's trust policy rejects the CLI's dependencies.
+      - name: Deploy the preview
+        id: deploy
+        working-directory: ${{ runner.temp }}
+        env:
+          VERCEL_ORG_ID: team_Ct3QPGNmHHaqBqa5BBIAv2x9
+          VERCEL_PROJECT_ID: prj_G9x2ZoIrsFQym5DqbqZIM8jUsSer
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          [ -n "$VERCEL_TOKEN" ] || { echo "::error::VERCEL_TOKEN is not set"; exit 1; }
+          ws=$GITHUB_WORKSPACE
+          mkdir -p "$ws/.vercel"
+          mv "$ws/site/docs/.vercel/output" "$ws/.vercel/output"
+          deployment=$(npx --yes vercel@63.1.2 deploy --cwd "$ws" \
+            --prebuilt --archive=tgz --format=json)
+          url=$(jq -er '.deployment.url // .url' <<< "$deployment")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview-docs
+          message: |
+            ### Docs preview
+
+            ${{ steps.deploy.outputs.url }}
+
+            Built from ${{ github.event.pull_request.head.sha }}. Each push while
+            the `preview/docs` label stays deploys a new preview.

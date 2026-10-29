@@ -10,7 +10,6 @@
 import "@/schematic/Tooltip.css";
 
 import { channel } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Description } from "@synnaxlabs/lyra/description";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -20,6 +19,7 @@ import { caseconv, type color, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 
 import { Channel } from "@/channel";
+import { CSS } from "@/css";
 import { type Node } from "@/schematic/node";
 import { Staleness } from "@/vis/staleness";
 

@@ -15,6 +15,18 @@
     { "type": "deletion" },
     { "type": "non_fast_forward" },
     {
+      "type": "code_scanning",
+      "parameters": {
+        "code_scanning_tools": [
+          {
+            "tool": "CodeQL",
+            "security_alerts_threshold": "medium_or_higher",
+            "alerts_threshold": "errors"
+          }
+        ]
+      }
+    },
+    {
       "type": "pull_request",
       "parameters": {
         "required_approving_review_count": 0,
@@ -45,7 +57,7 @@
         "max_entries_to_merge": 10,
         "min_entries_to_merge": 1,
         "min_entries_to_merge_wait_minutes": 5,
-        "check_response_timeout_minutes": 240
+        "check_response_timeout_minutes": 150
       }
     }
   ]

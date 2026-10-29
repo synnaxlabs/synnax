@@ -129,13 +129,13 @@ const StartupParameters = ({
         {error != null && <Text.Text status="error">{error}</Text.Text>}
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Save" />
         <Nav.Bar.End>
           <Button.Button
             status={status.keepVariants(variant, "loading")}
             onClick={handleSave}
             variant="filled"
             trigger={Triggers.SAVE}
+            triggerIndicator
             type="submit"
           >
             Save
