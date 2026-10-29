@@ -160,7 +160,7 @@ export const SCHEMAS = {
 >;
 
 /** The request counters of a server, as the Driver reports them in its status. */
-export const statsZ = z.object({
+const statsZ = z.object({
   requests: z.number(),
   retries: z.number(),
   timeouts: z.number(),
