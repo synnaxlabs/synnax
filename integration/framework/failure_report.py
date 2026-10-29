@@ -428,7 +428,7 @@ def _truncate(text: str, limit: int) -> str:
     return text[: limit - 1] + "…"
 
 
-def safe_render(run_dir: Path, tests: list[Test]) -> Path | None:
+def safe_render(run_dir: Path, *, tests: list[Test]) -> Path | None:
     """Render the report, swallowing any unexpected error.
 
     Failure-report generation must never break the run's exit path. On any

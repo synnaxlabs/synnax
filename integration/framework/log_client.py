@@ -80,7 +80,7 @@ class StdoutSink:
 class SynnaxChannelSink:
     """Writes log entries to a virtual STRING channel in Synnax."""
 
-    def __init__(self, client: sy.Synnax, channel_name: str) -> None:
+    def __init__(self, *, client: sy.Synnax, channel_name: str) -> None:
         self._channel = client.channels.create(
             name=channel_name,
             virtual=True,
@@ -116,6 +116,7 @@ class LogClient:
 
     def __init__(
         self,
+        *,
         name: str,
         mode: LogMode = LogMode.REALTIME,
         sinks: list[LogSink] | None = None,
