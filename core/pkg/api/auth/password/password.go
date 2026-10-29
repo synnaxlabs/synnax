@@ -256,15 +256,6 @@ func (s *Service) Set(
 	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, keep, current.Key)
 }
 
-// Password is a password as the API returns it: its subject and username, without its
-// hash.
-type Password struct {
-	// Subject is the user the password logs in as.
-	Subject ontology.ID `json:"subject" msgpack:"subject"`
-	// Username is the name the password logs in with.
-	Username string `json:"username" msgpack:"username"`
-}
-
 // RetrieveRequest selects passwords to list. Empty fields mean the caller's.
 type RetrieveRequest struct {
 	// Subjects limits the result to these subjects' passwords.

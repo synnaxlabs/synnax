@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/auth/apikey/client";
+export * from "@/auth/apikey/types.gen";

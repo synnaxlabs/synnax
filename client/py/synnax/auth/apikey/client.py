@@ -13,21 +13,8 @@ from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import ontology
+from synnax.auth.apikey.types_gen import APIKey
 from synnax.util.send_required import send_required
-from x.telem import TimeStamp
-
-
-class APIKey(BaseModel):
-    """An API key as the API returns it: the stored record without its hash."""
-
-    key: UUID
-    """The unique identifier for this API key."""
-    subject: ontology.ID
-    """The user or rack the key logs in as."""
-    name: str
-    """A label that tells the subject's keys apart."""
-    created: TimeStamp
-    """When the key was created."""
 
 
 class _CreateRequest(BaseModel):

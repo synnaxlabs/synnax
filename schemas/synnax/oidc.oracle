@@ -10,6 +10,7 @@
 import "schemas/synnax/ontology"
 
 @go output "core/pkg/service/auth/oidc"
+@ts output "client/ts/src/auth/oidc"
 
 Key = uuid {
     @doc value "is a unique identifier for a provider link."

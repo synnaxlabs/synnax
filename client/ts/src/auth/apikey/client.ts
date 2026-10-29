@@ -8,26 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type APIKey, apiKeyZ, type Key, keyZ } from "@/auth/apikey/types.gen";
 import { ontology } from "@/ontology";
-
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
-export const apiKeyZ = z.object({
-  /** key is the unique identifier for this API key. */
-  key: keyZ,
-  /** subject is the user or rack the key logs in as. */
-  subject: ontology.idZ,
-  /** name is a label that tells the subject's keys apart. */
-  name: z.string(),
-  /** created is when the key was created. */
-  created: TimeStamp.z,
-});
-/** APIKey is an API key as the API returns it: the stored record without its hash. */
-export interface APIKey extends z.infer<typeof apiKeyZ> {}
 
 export interface New {
   /** The user or rack the key logs in as. Defaults to the caller. */

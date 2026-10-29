@@ -10,30 +10,15 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
+import { type Key, keyZ, type Link, linkZ } from "@/auth/oidc/types.gen";
 import { type OIDCCredentials, oidcCredentialsZ } from "@/auth/types.gen";
 import { ontology } from "@/ontology";
-
-export const linkKeyZ = z.uuid();
-export type LinkKey = z.infer<typeof linkKeyZ>;
-
-export const linkZ = z.object({
-  /** key is the unique identifier for this link. */
-  key: linkKeyZ,
-  /** subject is the user the provider account logs in as. */
-  subject: ontology.idZ,
-  /** provider is the name of the provider in the Core's settings. */
-  provider: z.string(),
-  /** account is the provider's permanent ID for the account, its `sub` claim. */
-  account: z.string(),
-});
-/** Link links an OpenID Connect provider account to a user. */
-export interface Link extends z.infer<typeof linkZ> {}
 
 const linkReqZ = z.object({ credentials: oidcCredentialsZ });
 const linkResZ = z.object({ link: linkZ });
 const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
 const retrieveResZ = z.object({ links: linkZ.array() });
-const unlinkReqZ = z.object({ keys: linkKeyZ.array() });
+const unlinkReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 
 const LINK_ENDPOINT = "/auth/oidc/link";
@@ -84,7 +69,7 @@ export class Client {
    * ignored.
    * @throws {AccessDeniedError} when the caller may not remove another user's links.
    */
-  async unlink(...keys: LinkKey[]): Promise<void> {
+  async unlink(...keys: Key[]): Promise<void> {
     await this.client.send(UNLINK_ENDPOINT, { keys }, unlinkReqZ, emptyResZ);
   }
 }
