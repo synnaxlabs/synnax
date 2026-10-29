@@ -1183,17 +1183,13 @@ var _ = Describe("Graph", func() {
 			)
 			createDep(ctx, "st_ow_a")
 			deleteDep(ctx, "st_ow_b")
-			var s2 calculation.Status
-			Eventually(func() bool {
+			Eventually(func(g Gomega) {
 				s, ok := fetchStatus(ctx, calc.Key())
-				if ok && s.Description != s1.Description {
-					s2 = s
-					return true
-				}
-				return false
-			}, 2*time.Second, 10*time.Millisecond).Should(BeTrue(),
-				"expected status description to change")
-			Expect(s2.Variant).To(Equal(status.VariantError))
+				g.Expect(ok).To(BeTrue())
+				g.Expect(s.Variant).To(Equal(status.VariantError))
+				g.Expect(s.Description).ToNot(Equal(s1.Description))
+				g.Expect(s.Description).To(ContainSubstring("st_ow_b"))
+			}, 2*time.Second, 10*time.Millisecond).Should(Succeed())
 		})
 
 		It(
