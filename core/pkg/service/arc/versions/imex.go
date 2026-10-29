@@ -56,7 +56,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Arc, error) {
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
 	a.Name = env.Name
-	// From v4 on the type header names the Arc's type.
+	// From v4 on the type header names the Arc's type; a file written before holds an
+	// automation.
+	a.Type = TypeAutomation
 	if t, ok := v4.TypeFromFileType(env.Type); ok {
 		a.Type = t
 	}

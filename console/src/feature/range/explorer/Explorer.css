@@ -9,14 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-explorer {
-    container-type: size;
-}
-
 .console-range__explorer-list {
     & > .pluto-list__virtualizer {
         display: grid;
-        grid-template-columns: 1fr auto auto auto;
+        grid-template-columns: auto 1fr auto auto auto;
         align-items: center;
     }
 
@@ -33,7 +29,7 @@
     }
 
     & .console-range__list-item-trailing {
-        grid-column: 2 / -1;
+        grid-column: 3 / -1;
         column-gap: 0;
     }
 

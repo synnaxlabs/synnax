@@ -20,10 +20,6 @@
 .console-schematic__symbol-create-layout {
     overflow: hidden;
 
-    .console-schematic__create-symbol-content {
-        padding: 2rem;
-    }
-
     .console-schematic__sidebar {
         box-shadow: var(--pluto-shadow-overlay);
         min-width: 300px;
@@ -109,10 +105,6 @@
 
         &:hover {
             transform: scale(1.1) translate(-50%, -50%);
-        }
-
-        &.console--dragging {
-            cursor: grabbing;
         }
     }
 

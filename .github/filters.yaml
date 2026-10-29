@@ -14,10 +14,6 @@
 # that needs a running Core also keys on core in ci.yaml rather than here, which keeps
 # the *_build keys free of server dependencies.
 
-ci: &ci
-  - .github/filters.yaml
-  - .github/workflows/ci.yaml
-
 actionlint:
   - .github/actionlint.yaml
   - .github/actions/**
@@ -33,7 +29,6 @@ bazel: &bazel
 
 cpp: &cpp
   - *bazel
-  - *ci
   - .clang-format
   - .clang-format-ignore
   - .clang-tidy
@@ -46,21 +41,18 @@ cpp: &cpp
   - scripts/sanitizers/**
 
 go: &go
-  - *ci
   - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
   - scripts/check_go_generate.sh
 
 py: &py
-  - *ci
   - .github/workflows/test.py.yaml
   - .python-version
   - pyproject.toml
   - uv.lock
 
 ts: &ts
-  - *ci
   - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
   - configs/**
@@ -71,6 +63,17 @@ ts: &ts
   - turbo.json
 
 eslint_config:
+  - *ts
+
+stylelint:
+  - *ts
+  - console/index.html
+  - console/src/**
+  - lyra/src/**
+  - pluto/src/**
+  - site/*/src/**
+
+stylelint_config:
   - *ts
 
 vite_plugin:
@@ -112,13 +115,18 @@ oracle: &oracle
   - oracle/**
   - scripts/install_antlr4.sh
 
-arc_go: &arc_go
+arc_go_module: &arc_go_module
   - *alamos_go
   - *freighter_go
   - *go
   - *x_go
   - arc/go/**
   - scripts/install_antlr4.sh
+
+# The Arc tests compile every .arc file in the repository.
+arc_go:
+  - *arc_go_module
+  - "**/*.arc"
 
 aspen: &aspen
   - *alamos_go
@@ -136,7 +144,7 @@ freighter_integration: &freighter_integration
 
 core: &core
   - *alamos_go
-  - *arc_go
+  - *arc_go_module
   - *aspen
   - *cesium
   - *freighter_go
@@ -347,12 +355,16 @@ soem:
   - *cpp
   - vendor/soem/**
 
+# Every path that changes a C++ CodeQL analysis.
+codeql_cpp:
+  - *driver
+  - .github/workflows/codeql.yaml
+
 buildifier:
   - "**/*.bzl"
   - "**/BUILD"
   - "**/BUILD.bazel"
   - *bazel
-  - *ci
   - .github/workflows/lint.buildifier.yaml
   - WORKSPACE
   - WORKSPACE.bazel
@@ -381,7 +393,6 @@ oracle_check:
 
 protobuf:
   - "**/*.proto"
-  - *ci
   - .github/workflows/test.protobuf.yaml
   - buf.gen.yaml
   - buf.yaml
@@ -389,6 +400,7 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
+  - .github/workflows/ci.yaml
   - deploy/preview/**
 
 scripts:

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Drift } from "@synnaxlabs/drift";
 import { scheduler } from "@synnaxlabs/x";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -15,9 +16,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   let optedOut = false;
+  let label = "some-child-window";
   return {
     engine: "tauri" as const,
     setOptedOut: (next: boolean) => (optedOut = next),
+    label: () => label,
+    setLabel: (next: string) => (label = next),
     posthog: {
       init: vi.fn(),
       set_config: vi.fn(),
@@ -28,6 +32,7 @@ const mocks = vi.hoisted(() => {
       has_opted_out_capturing: vi.fn(() => optedOut),
       opt_in_capturing: vi.fn(() => (optedOut = false)),
       opt_out_capturing: vi.fn(() => (optedOut = true)),
+      onSessionId: vi.fn<(share: (id: string) => void) => void>(),
     },
   };
 });
@@ -37,10 +42,11 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-// A window other than main, so only the account and the usage data choice report.
+// A window other than main unless a spec says so, so only the account and the usage
+// data choice report.
 vi.mock("@tauri-apps/api/window", async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  getCurrentWindow: () => ({ label: "some-child-window" }),
+  getCurrentWindow: () => ({ label: mocks.label() }),
 }));
 
 // PostHog sends from init on, so it is the network boundary of this spec.
@@ -63,13 +69,22 @@ const INSTALL = {
   arch: "aarch64",
 };
 
+const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
 const LINK = { secret: "shh", email: "a@example.com", user: "user_a" };
 
-const renderProvider = async (account: Partial<Session.Account.SliceState>) => {
+/** The session the main window started, as a UUIDv7. */
+const SESSION = "019a2b3c-4d5e-7f60-8a1b-2c3d4e5f6a7b";
+
+const renderProvider = async (
+  account: Partial<Session.Account.SliceState>,
+  analytics: Session.Analytics.SliceState = { sessionID: SESSION },
+) => {
   const { wrapper: Base, store } = await createConsoleWrapper({
     client: null,
     preloadedState: {
       [Session.Account.SLICE_NAME]: { ...Session.Account.ZERO_SLICE_STATE, ...account },
+      [Session.Analytics.SLICE_NAME]: analytics,
     },
   });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -85,6 +100,7 @@ describe("Analytics.Provider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.setOptedOut(false);
+    mocks.setLabel("some-child-window");
     mockIPC((cmd) => (cmd === "install_info" ? INSTALL : undefined));
   });
 
@@ -217,12 +233,94 @@ describe("Analytics.Provider", () => {
         }),
       );
     });
-    expect(mocks.posthog.reset).toHaveBeenCalledOnce();
+    expect(mocks.posthog.reset).toHaveBeenCalledExactlyOnceWith({
+      bootstrap: { distinctID: "install_a", sessionID: SESSION },
+    });
     expect(mocks.posthog.identify).toHaveBeenLastCalledWith("user_b", {
       email: "b@example.com",
     });
     expect(mocks.posthog.reset.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.posthog.identify.mock.invocationCallOrder[1],
     );
+  });
+
+  describe("session", () => {
+    it("should join the session that the main window started", async () => {
+      await renderProvider({ link: LINK, analyticsAllowed: true });
+      await waitFor(() => expect(mocks.posthog.init).toHaveBeenCalledOnce());
+      expect(mocks.posthog.init).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          bootstrap: { distinctID: "install_a", sessionID: SESSION },
+        }),
+      );
+    });
+
+    it("should wait for the main window to start a session", async () => {
+      const { store } = await renderProvider(
+        { link: LINK, analyticsAllowed: true },
+        {},
+      );
+      await act(async () => await scheduler.flushTaskQueue());
+      expect(mocks.posthog.init).not.toHaveBeenCalled();
+      act(() => {
+        store.dispatch(Session.Analytics.setSessionID(SESSION));
+      });
+      await waitFor(() => expect(mocks.posthog.init).toHaveBeenCalledOnce());
+      expect(mocks.posthog.init).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          bootstrap: { distinctID: "install_a", sessionID: SESSION },
+        }),
+      );
+    });
+
+    it("should start a new session in the main window", async () => {
+      mocks.setLabel(Drift.MAIN_WINDOW);
+      mockIPC((cmd) => {
+        if (cmd === "install_info") return INSTALL;
+        if (cmd === "plugin:app|version") return "1.0.0";
+        if (cmd === "supervisor_history")
+          return {
+            starts: 0,
+            exits: 0,
+            failures: 0,
+            readies: 0,
+            readyAt: null,
+            timeToReadyMs: null,
+            lastExit: null,
+          };
+        return undefined;
+      });
+      const { store } = await renderProvider({ analyticsAllowed: true }, {});
+      await waitFor(() => expect(mocks.posthog.init).toHaveBeenCalledOnce());
+      const sessionID = Session.Analytics.selectSessionID(store.getState());
+      expect(sessionID).toMatch(UUID_V7);
+      expect(mocks.posthog.init).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ bootstrap: { distinctID: "install_a", sessionID } }),
+      );
+    });
+
+    it("should share a session that PostHog moves to", async () => {
+      const { store } = await renderProvider({ link: LINK, analyticsAllowed: true });
+      await waitFor(() => expect(mocks.posthog.onSessionId).toHaveBeenCalledOnce());
+      const share = mocks.posthog.onSessionId.mock.calls[0][0];
+      act(() => share("019a2b3c-4d5e-7f60-8a1b-000000000000"));
+      expect(Session.Analytics.selectSessionID(store.getState())).toBe(
+        "019a2b3c-4d5e-7f60-8a1b-000000000000",
+      );
+    });
+
+    it("should keep the shared session when the user refuses usage data", async () => {
+      const { store } = await renderProvider({ link: LINK, analyticsAllowed: true });
+      await waitFor(() => expect(mocks.posthog.identify).toHaveBeenCalled());
+      act(() => {
+        store.dispatch(Session.Account.setAnalyticsAllowed(false));
+      });
+      expect(mocks.posthog.reset).toHaveBeenCalledExactlyOnceWith({
+        bootstrap: { distinctID: "install_a", sessionID: SESSION },
+      });
+    });
   });
 });

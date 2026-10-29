@@ -23,6 +23,7 @@
 
 .pluto-input {
     position: relative;
+    z-index: 4;
     display: inline-flex;
     align-items: center;
     max-height: fit-content;
@@ -33,12 +34,16 @@
         padding: 0;
     }
 
-    &:focus-within:not(.pluto-btn--text):not(.pluto--status-warning):not(
-            .pluto--status-error
-        ):not(.pluto--flush) {
+    &:focus-within:not(
+            .pluto-btn--text,
+            .pluto--status-warning,
+            .pluto--status-error,
+            .pluto--flush
+        ) {
         --pluto-btn-border-color: rgb(
             var(--pluto-btn-color, var(--pluto-primary-z-rgb))
         );
+
         border-color: var(--pluto-btn-border-color);
         box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-btn-border-color);
     }
@@ -83,8 +88,7 @@
         line-height: inherit;
         color: inherit;
 
-        &::placeholder,
-        &::-webkit-input-placeholder {
+        &::placeholder {
             color: var(--pluto-text-placeholder);
             text-overflow: ellipsis;
             max-width: 100%;
@@ -94,11 +98,12 @@
     & textarea {
         resize: none;
         align-self: stretch;
+
         /* A one-line input centers its text in the fixed height; a textarea
            grows from the top, so it pads its own block edges. */
         padding-block: 1rem;
-        &::placeholder,
-        &::-webkit-input-placeholder {
+
+        &::placeholder {
             padding-left: 2px;
         }
     }
@@ -113,21 +118,19 @@
     }
 
     .pluto-input__placeholder {
+        position: absolute;
+        padding-left: 1.5rem;
+        width: calc(100% - 1.5rem);
         color: var(--pluto-text-placeholder);
     }
 
     .pluto-input__end-content {
+        padding-right: 1.5rem;
         color: var(--pluto-gray-l9);
     }
 
     .pluto-input__start-content {
         padding-left: 1rem;
-    }
-
-    .pluto-input__placeholder {
-        position: absolute;
-        padding-left: 1.5rem;
-        width: calc(100% - 1.5rem);
     }
 
     &.pluto--disabled {
@@ -136,10 +139,6 @@
         & input::placeholder {
             color: var(--pluto-text-disabled);
         }
-    }
-
-    .pluto-input__end-content {
-        padding-right: 1.5rem;
     }
 
     &.pluto-btn.pluto--shadow {
@@ -156,6 +155,7 @@
         background: none;
         border-radius: 0;
         border: none;
+
         & input,
         & .pluto-input__preview-value {
             padding: 0 0.5rem;
@@ -168,7 +168,7 @@
     }
 
     input[type="number"]::-webkit-inner-spin-button {
-        -webkit-appearance: none;
+        appearance: none;
     }
 }
 

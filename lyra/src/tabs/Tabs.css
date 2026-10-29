@@ -25,6 +25,8 @@
 
     /* Find in page can still reach the text of a panel hidden until found. */
     &[hidden]:not([hidden="until-found"]) {
+        /* stylelint-disable-next-line declaration-no-important -- a hidden panel stays
+           hidden whatever display a rule sets */
         display: none !important;
     }
 }
@@ -32,12 +34,11 @@
 .pluto-tabs__selector {
     position: relative;
     max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: auto hidden;
     scrollbar-width: none;
+
     /* The scrollport clips an outset halo, so rings in the strip draw inset. */
     --pluto-focus-ring-offset: -2px;
-
     --pluto-tabs-tab-width: 25rem;
     --pluto-tabs-tab-min-width: 11rem;
     --pluto-tabs-selected-min-width: var(--pluto-tabs-tab-min-width);
@@ -47,6 +48,8 @@
     }
 
     &.pluto--direction-x:not(.pluto--wrap) {
+        /* stylelint-disable-next-line declaration-no-important -- the strip's height is
+           its min-height whatever Box modifiers it carries */
         height: 0 !important;
     }
 }
@@ -70,7 +73,7 @@
     &::before {
         content: "";
         position: absolute;
-        inset: round(-0.75rem, 1px) 0 0 0;
+        inset: round(-0.75rem, 1px) 0 0;
     }
 
     &:hover,
@@ -88,18 +91,18 @@
 }
 
 /* Registered so the mask's edge widths transition; unregistered custom properties
-   snap discretely. rem is not computationally independent, so the initial values
-   are px. */
+   snap discretely. rem is not computationally independent, so an initial value cannot
+   use it. */
 @property --pluto-tabs-fade-start {
     syntax: "<length>";
     inherits: false;
-    initial-value: 0px;
+    initial-value: 0;
 }
 
 @property --pluto-tabs-fade-end {
     syntax: "<length>";
     inherits: false;
-    initial-value: 0px;
+    initial-value: 0;
 }
 
 /* The Selector toggles the clipped classes from its scroll measurements, so an edge
@@ -107,6 +110,7 @@
 .pluto-tabs__selector.pluto--direction-x {
     --pluto-tabs-fade-start: 0px;
     --pluto-tabs-fade-end: 0px;
+
     transition:
         --pluto-tabs-fade-start 0.1s ease-out,
         --pluto-tabs-fade-end 0.1s ease-out;
@@ -120,11 +124,11 @@
 
     /* Nested so the clipped states outrank the two-class base rule above. */
     &.pluto-tabs__selector--clipped-start {
-        --pluto-tabs-fade-start: var(--pluto-tabs-fade-width, 6rem);
+        --pluto-tabs-fade-start: 6rem;
     }
 
     &.pluto-tabs__selector--clipped-end {
-        --pluto-tabs-fade-end: var(--pluto-tabs-fade-width, 6rem);
+        --pluto-tabs-fade-end: 6rem;
     }
 }
 
@@ -175,8 +179,8 @@
    after the sizing rules so it wins their ties. */
 .pluto-tabs__selector.pluto--direction-y {
     flex-shrink: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden auto;
+
     --pluto-tabs-tab-width: 100%;
 
     .pluto-tabs__tab {
@@ -241,29 +245,35 @@
     user-select: none;
 }
 
-/* Contexts re-point these vars; a focused tab re-points its own selected color to
-   primary, which wins over any inherited value. */
+/* Contexts re-point the selected color; a focused tab re-points its own to primary,
+   which wins over any inherited value. */
 .pluto-tabs__selector > .pluto-tabs__tab {
-    color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+    color: var(--pluto-gray-l9);
+
     .pluto-text {
-        color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+        color: var(--pluto-gray-l9);
     }
+
     &.pluto--selected {
         color: var(
             --pluto-tabs-selected-text-color,
             var(--pluto-selected-subtle-color)
         );
+
         .pluto-text {
             color: var(
                 --pluto-tabs-selected-text-color,
                 var(--pluto-selected-subtle-color)
             );
         }
+
         &.pluto--alt-color {
             --pluto-tabs-selected-text-color: var(--pluto-primary-z);
+
             .pluto-text {
                 font-weight: 500;
             }
+
             > .pluto-icon {
                 color: var(--pluto-primary-z);
                 font-weight: 500;
@@ -294,7 +304,7 @@
             flex-shrink: 0;
             margin-left: 1.5rem;
             margin-right: 1rem;
-            color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+            color: var(--pluto-gray-l9);
             transition: opacity 0.1s ease-in-out;
         }
 
@@ -302,6 +312,7 @@
             &:hover {
                 background: var(--pluto-fill-hover);
             }
+
             &:active:not(:has(.pluto-tabs__close:active)) {
                 background: var(--pluto-fill-press);
             }
@@ -335,6 +346,7 @@
 
     &.pluto--direction-x {
         padding: 0 0.75rem;
+
         .pluto-tabs__tab {
             min-height: 0;
             height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
@@ -387,7 +399,7 @@
     & > .pluto-icon {
         flex-shrink: 0;
         margin-right: 1rem;
-        color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+        color: var(--pluto-gray-l9);
     }
 
     &.pluto--selected > .pluto-icon {
@@ -397,6 +409,7 @@
 
 .pluto-tabs__selector--pill .pluto-tabs__tab:not(.pluto--selected) {
     border-color: var(--pluto-gray-l5);
+
     --pluto-bg: var(--pluto-gray-l4);
 }
 
@@ -430,18 +443,12 @@
     }
 }
 
-.pluto-tabs__tab .pluto-tabs__unsaved {
-    flex-shrink: 0;
-    height: round(0.9em, 1px);
-    width: round(0.9em, 1px);
-    fill: var(--pluto-gray-l9);
-}
-
-/* A warning-status name (a deleted resource's corpse) escalates to the whole tab.
-   !important outranks the selected and focused text tiers above. */
+/* A warning-status name (a deleted resource's corpse) escalates to the whole tab. */
 .pluto-tabs__selector > .pluto-tabs__tab:has(.pluto-text.pluto--status-warning) {
     .pluto-text,
     > .pluto-icon {
+        /* stylelint-disable-next-line declaration-no-important -- outranks the selected
+           and focused text tiers above */
         color: var(--pluto-warning-z) !important;
     }
 
@@ -458,21 +465,8 @@
             var(--pluto-warning-z) 20%,
             var(--pluto-gray-l1)
         );
+
         box-shadow: inset 0 0 0 var(--pluto-border-width)
             color-mix(in srgb, var(--pluto-warning-z) 65%, var(--pluto-gray-l1));
-    }
-}
-
-.pluto-tabs__tab:has(.pluto-tabs__unsaved):has(.pluto-tabs__close) {
-    .pluto-tabs__close {
-        display: none;
-    }
-    &:hover {
-        .pluto-tabs__unsaved {
-            display: none;
-        }
-        .pluto-tabs__close {
-            display: flex;
-        }
     }
 }

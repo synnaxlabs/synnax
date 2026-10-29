@@ -33,14 +33,14 @@ export type RetrieveQuery = {
   key: user.Key;
 };
 
-export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"> {}
+export interface RenameParams extends Pick<user.User, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
-    const { key, username } = data;
-    await client.users.changeUsername(key, username, {
+    const { key, name } = data;
+    await client.users.rename(key, name, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
     return data;
@@ -48,9 +48,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>(
 });
 
 export const formSchema = user.newZ.extend({
+  username: z.string().min(1, "username is required"),
   password: z.string().min(1, "Password is required"),
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  name: z.string().min(1, "Name is required"),
   role: access.role.keyZ,
 });
 
@@ -60,8 +60,7 @@ export type FormQuery = {
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   username: "",
-  firstName: "",
-  lastName: "",
+  name: "",
   password: "",
   role: "",
 };
@@ -70,11 +69,6 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: "user",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key } }) => ({
-    ...(await client.users.retrieve(key)),
-    password: "",
-    role: "",
-  }),
   update: async ({ client, value }) => {
     const v = value();
     const createdUser = await client.users.create({ key: uuid.create(), ...v });
@@ -105,8 +99,4 @@ export const { use, useResult, createResultSelector } = Flux.createRetrieve<
 
 export const useResultKey = createResultSelector(({ key }) => key);
 
-export const useResultUsername = createResultSelector(({ username }) => username);
-
-export const useResultFirstName = createResultSelector(({ firstName }) => firstName);
-
-export const useResultLastName = createResultSelector(({ lastName }) => lastName);
+export const useResultName = createResultSelector(({ name }) => name);

@@ -77,22 +77,16 @@
     }
 
     & .pluto-table-frame__add-col {
-        grid-column-start: 2;
-        grid-column-end: 2;
-        grid-row-start: 1;
-        grid-row-end: 1;
-        justify-self: start;
-        align-self: start;
+        grid-column: 2 / 2;
+        grid-row: 1 / 1;
+        place-self: start start;
         margin-top: 1.5rem;
     }
 
     & .pluto-table-frame__add-row {
-        grid-column-start: 1;
-        grid-column-end: 1;
-        grid-row-start: 2;
-        grid-row-end: 2;
-        justify-self: start;
-        align-self: start;
+        grid-column: 1 / 1;
+        grid-row: 2 / 2;
+        place-self: start start;
         margin-left: 1.5rem;
     }
 }
@@ -135,7 +129,11 @@
         &:has(.pluto--selected) {
             .pluto-table__resizer {
                 background: var(--pluto-primary-z-30);
+
                 .pluto-text {
+                    /* stylelint-disable-next-line declaration-no-important -- a
+                       selected row's resizer text keeps this color whatever the text
+                       sets */
                     color: var(--pluto-gray-l11) !important;
                 }
             }
@@ -156,6 +154,7 @@
             position: absolute;
             inset: 0;
         }
+
         &.pluto--selected {
             background: var(--pluto-primary-z-15);
         }
@@ -193,6 +192,7 @@
                 cursor: col-resize;
                 height: 100%;
                 width: 6px;
+
                 &::after {
                     content: "";
                     position: absolute;
@@ -203,6 +203,7 @@
                 }
             }
         }
+
         & button {
             border: none;
             z-index: 10;
@@ -242,6 +243,7 @@
             width: 100%;
             height: 100%;
         }
+
         &::after {
             content: "";
             box-sizing: content-box;
@@ -254,9 +256,11 @@
             border-radius: inherit;
             z-index: 7;
         }
+
         &.pluto--selected {
             border: none;
             z-index: 8;
+
             &::after {
                 opacity: 1;
                 border-color: var(--pluto-primary-z);
@@ -275,6 +279,7 @@
             border-bottom: var(--pluto-border-l6);
             background: var(--pluto-gray-l2);
         }
+
         & > .pluto-table__select-all.pluto--selected {
             background: var(--pluto-primary-z-15);
         }

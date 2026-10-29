@@ -55,6 +55,20 @@ export interface Params {
   installID: string;
 }
 
+/**
+ * The PostHog session that every window of a launch reports in. PostHog reads the
+ * session from storage only at init, so windows that start together would otherwise
+ * each start their own.
+ */
+export interface SharedSession {
+  /** Resolves to the session once the main window has started one. */
+  join: () => Promise<string>;
+  /** Returns the session that the windows share now. */
+  current: () => string | undefined;
+  /** Shares a session that PostHog moved this window to, such as after an idle time. */
+  share: (id: string) => void;
+}
+
 const importPostHog = async () => {
   const [{ default: posthog }] = await Promise.all([
     import("posthog-js/dist/module.no-external"),
@@ -86,7 +100,7 @@ const resume = (posthog: PostHog, installID: string): void => {
   attach(posthog, installID);
 };
 
-const init = (posthog: PostHog, installID: string): void => {
+const init = (posthog: PostHog, installID: string, sessionID: string): void => {
   posthog.init(KEY, {
     api_host: API_HOST,
     defaults: DEFAULTS,
@@ -97,7 +111,7 @@ const init = (posthog: PostHog, installID: string): void => {
     persistence: "localStorage",
     // The install starts anonymous. Signing in identifies the account, which merges the
     // events before it into the account's person.
-    bootstrap: { distinctID: installID },
+    bootstrap: { distinctID: installID, sessionID },
     // Element text is channel, device, and schematic names, so autocapture keeps the
     // shape of an interaction and drops every string in it.
     autocapture: true,
@@ -130,6 +144,13 @@ interface Loaded {
   installID: string;
 }
 
+/**
+ * Makes PostHog forget the account. The session stays the shared one: a plain reset
+ * goes back to the session this window joined at init.
+ */
+const forget = ({ posthog, installID }: Loaded, session: SharedSession): void =>
+  posthog.reset({ bootstrap: { distinctID: installID, sessionID: session.current() } });
+
 /** A transport that loads nothing and sends nothing until it starts. */
 export interface Transport extends Analytics.Transport {
   /** Loads PostHog on the first call, then sends every call until {@link stop}. */
@@ -144,7 +165,7 @@ export interface Transport extends Analytics.Transport {
  * report like any other. The import is dynamic, so the Console build, where this module
  * is unreachable, carries no analytics code at all.
  */
-export const create = (params: Promise<Params>): Transport => {
+export const create = (params: Promise<Params>, session: SharedSession): Transport => {
   let started = false;
   let loading = false;
   let failed = false;
@@ -154,9 +175,11 @@ export const create = (params: Promise<Params>): Transport => {
     loading = true;
     try {
       const [{ installID }, posthog] = await Promise.all([params, importPostHog()]);
+      const sessionID = await session.join();
       // PostHog sends from init on, and the user can refuse while the bundles load.
       if (started) {
-        init(posthog, installID);
+        init(posthog, installID, sessionID);
+        posthog.onSessionId(session.share);
         const next = { posthog, installID };
         loaded = next;
         waiting.forEach((run) => run(next));
@@ -194,16 +217,16 @@ export const create = (params: Promise<Params>): Transport => {
       // A reset reloads feature flags, which PostHog requests even while opted out.
       posthog.set_config({ advanced_disable_flags: true });
       // A reset clears the opt-out that PostHog stores, so the reset goes first.
-      posthog.reset();
+      forget(loaded, session);
       posthog.opt_out_capturing();
     },
     capture: (event, properties) =>
       run(({ posthog }) => posthog.capture(event, properties)),
     identify: ({ id, email }) => run(({ posthog }) => posthog.identify(id, { email })),
     reset: () =>
-      run(({ posthog, installID }) => {
-        posthog.reset();
-        attach(posthog, installID);
+      run((loaded) => {
+        forget(loaded, session);
+        attach(loaded.posthog, loaded.installID);
       }),
   };
 };

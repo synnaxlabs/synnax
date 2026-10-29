@@ -10,13 +10,18 @@
  */
 
 .pluto-input__drag-btn {
+    /* stylelint-disable-next-line declaration-no-important -- outranks every other
+       cursor rule, the direction ones below included */
     cursor: move !important;
+
     &.pluto-input__drag-btn--direction-x {
         cursor: col-resize;
+
         & > svg {
             transform: rotate(90deg);
         }
     }
+
     &.pluto-input__drag-btn--direction-y {
         cursor: row-resize;
     }

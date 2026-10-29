@@ -11,9 +11,9 @@ import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/text/v1"
 
-Key = v0.Key
+Key = v1.Key
 
-Mode = v0.Mode
+Mode = v1.Mode
 
 Type enum {
     automation = "automation"

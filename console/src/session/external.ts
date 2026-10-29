@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/session/account";
+export * from "@/session/analytics";
 export * from "@/session/arc";
 export * from "@/session/color";
 export * from "@/session/Context";

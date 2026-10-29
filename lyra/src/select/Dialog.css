@@ -17,20 +17,20 @@
 
 .pluto-select__dialog.pluto--visible {
     --pluto-dialog-max-height: 250px;
+
     min-height: 60px;
     height: fit-content;
+
     & .pluto-list__scroll--empty {
         min-height: 20rem;
     }
 
     &.pluto--modal {
         max-height: var(--pluto-dialog-max-height);
+        /* stylelint-disable declaration-no-important -- outranks the dialog's own
+           border and clip */
         border: none !important;
         overflow: visible !important;
-
-        .pluto-input:first-child .pluto-input__internal {
-            border-top-left-radius: var(--pluto-border-radius-small) !important;
-            border-top-right-radius: var(--pluto-border-radius-small) !important;
-        }
+        /* stylelint-enable declaration-no-important */
     }
 }

@@ -31,6 +31,7 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 			v3.Migration,
 			v3.ModeMigration,
 			v4.Migration,
+			v4.TypeMigration,
 			v4.NewGroupMigration(cfg),
 		},
 	)

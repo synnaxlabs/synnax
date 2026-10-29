@@ -223,8 +223,8 @@ func irNode(key string, outputs ...string) ir.Node {
 // twoStepSeq builds `sequence main { stage first; stage second }` whose
 // transition to second fires on first_node's output with the given kind.
 func twoStepSeq(kind ir.EdgeKind) ir.IR {
-	first := parallelScope("first", stratum(ir.NodeMember("first_node")))
-	second := parallelScope("second", stratum(ir.NodeMember("second_node")))
+	first := parallelScope("first", stratum(ir.Member{NodeKey: new("first_node")}))
+	second := parallelScope("second", stratum(ir.Member{NodeKey: new("second_node")}))
 	main := sequentialScope("main", []ir.Member{
 		{Scope: &first},
 		{Scope: &second},
@@ -242,7 +242,7 @@ func twoStepSeq(kind ir.EdgeKind) ir.IR {
 			irNode("second_node"),
 		},
 		nil,
-		rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+		rootScope(ir.Member{NodeKey: new("trigger")}, ir.Member{Scope: new(main)}),
 	)
 }
 
@@ -309,9 +309,9 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A"), irNode("B"), irNode("C")},
 					nil,
 					rootScope(
-						ir.NodeMember("A"),
-						ir.NodeMember("B"),
-						ir.NodeMember("C"),
+						ir.Member{NodeKey: new("A")},
+						ir.Member{NodeKey: new("B")},
+						ir.Member{NodeKey: new("C")},
 					),
 				)
 				s := build(prog)
@@ -337,7 +337,7 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("A")},
 					nil,
-					rootScope(ir.NodeMember("A")),
+					rootScope(ir.Member{NodeKey: new("A")}),
 				)
 				s := build(prog)
 				s.Next(
@@ -375,8 +375,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{continuousEdge("A", "output", "B", "input")},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -402,8 +402,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{continuousEdge("A", "output", "B", "input")},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -433,8 +433,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{conditionalEdge("A", "output", "B", "input")},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -484,8 +484,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("trigger", "kick"), irNode("A")},
 					[]ir.Edge{continuousEdge("trigger", "kick", "A", "in")},
 					rootWithStrata(
-						stratum(ir.NodeMember("trigger")),
-						stratum(ir.NodeMember("A")),
+						stratum(ir.Member{NodeKey: new("trigger")}),
+						stratum(ir.Member{NodeKey: new("A")}),
 					),
 				)
 				s := build(prog)
@@ -526,7 +526,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A")},
 				nil,
-				rootScope(ir.NodeMember("A")),
+				rootScope(ir.Member{NodeKey: new("A")}),
 			)
 			s := build(prog)
 			s.Next(
@@ -556,7 +556,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A"), irNode("B")},
 				nil,
-				rootScope(ir.NodeMember("A"), ir.NodeMember("B")),
+				rootScope(ir.Member{NodeKey: new("A")}, ir.Member{NodeKey: new("B")}),
 			)
 			s := build(prog)
 			s.Next(
@@ -573,7 +573,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A")},
 				nil,
-				rootScope(ir.NodeMember("A")),
+				rootScope(ir.Member{NodeKey: new("A")}),
 			)
 			s := build(prog)
 			h := &MockErrorHandler{}
@@ -595,14 +595,20 @@ var _ = Describe("Scheduler", func() {
 				trigger := mock("trigger")
 				stage := mock("stage_node")
 				act := ir.Handle{Node: "trigger", Param: "output"}
-				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
+				gated := parallelScope(
+					"stage",
+					stratum(ir.Member{NodeKey: new("stage_node")}),
+				)
 				gated.Activations = []ir.Activation{
 					{On: act, Kind: ir.EdgeKindConditional},
 				}
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(gated)},
+					),
 				)
 				s := build(prog)
 				s.Next(
@@ -623,14 +629,20 @@ var _ = Describe("Scheduler", func() {
 				mock("trigger", true)
 				stage := mock("stage_node")
 				act := ir.Handle{Node: "trigger", Param: "output"}
-				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
+				gated := parallelScope(
+					"stage",
+					stratum(ir.Member{NodeKey: new("stage_node")}),
+				)
 				gated.Activations = []ir.Activation{
 					{On: act, Kind: ir.EdgeKindConditional},
 				}
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(gated)},
+					),
 				)
 				s := build(prog)
 				s.Next(
@@ -702,7 +714,10 @@ var _ = Describe("Scheduler", func() {
 			mock("trigger", true)
 			firstNode := mock("first_node")
 			firstNode.OnNext = func(c node.Context) { c.MarkSelfChanged() }
-			first := parallelScope("first", stratum(ir.NodeMember("first_node")))
+			first := parallelScope(
+				"first",
+				stratum(ir.Member{NodeKey: new("first_node")}),
+			)
 			main := sequentialScope("main",
 				[]ir.Member{{Scope: &first}},
 				ir.Transition{
@@ -718,7 +733,10 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("first_node", "output")},
 				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				rootScope(
+					ir.Member{NodeKey: new("trigger")},
+					ir.Member{Scope: new(main)},
+				),
 			)
 			s := build(prog)
 			s.Next(
@@ -756,9 +774,12 @@ var _ = Describe("Scheduler", func() {
 				// Two transitions from first, in source order: first jumps to
 				// `a`, the second would jump to `b`. Both are truthy at the
 				// same cycle.
-				first := parallelScope("first", stratum(ir.NodeMember("first_node")))
-				aScope := parallelScope("a", stratum(ir.NodeMember("a_node")))
-				bScope := parallelScope("b", stratum(ir.NodeMember("b_node")))
+				first := parallelScope(
+					"first",
+					stratum(ir.Member{NodeKey: new("first_node")}),
+				)
+				aScope := parallelScope("a", stratum(ir.Member{NodeKey: new("a_node")}))
+				bScope := parallelScope("b", stratum(ir.Member{NodeKey: new("b_node")}))
 				main := sequentialScope("main",
 					[]ir.Member{
 						{Scope: &first},
@@ -790,7 +811,10 @@ var _ = Describe("Scheduler", func() {
 						irNode("b_node"),
 					},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				)
 				s := build(prog)
 				s.Next(
@@ -824,7 +848,7 @@ var _ = Describe("Scheduler", func() {
 				s2 := mock("s2", true)
 				s3 := mock("s3")
 				mkStep := func(key, nodeKey string) ir.Scope {
-					return parallelScope(key, stratum(ir.NodeMember(nodeKey)))
+					return parallelScope(key, stratum(ir.Member{NodeKey: new(nodeKey)}))
 				}
 				scope1 := mkStep("s1", "s1")
 				scope2 := mkStep("s2", "s2")
@@ -858,7 +882,10 @@ var _ = Describe("Scheduler", func() {
 						irNode("s3"),
 					},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				)
 				s := build(prog)
 				// Cycle 1 activates s1 and runs it. In that same cycle the
@@ -897,7 +924,7 @@ var _ = Describe("Scheduler", func() {
 			return n
 		}
 		step := func(key, nodeKey string) ir.Scope {
-			return parallelScope(key, stratum(ir.NodeMember(nodeKey)))
+			return parallelScope(key, stratum(ir.Member{NodeKey: new(nodeKey)}))
 		}
 
 		It(
@@ -921,7 +948,10 @@ var _ = Describe("Scheduler", func() {
 						irNode("second_node"),
 					},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				))
 				s.Next(ctx, cycle)
 				Expect(first.NextCalled).To(Equal(1))
@@ -947,7 +977,10 @@ var _ = Describe("Scheduler", func() {
 				s := build(programOf(
 					[]ir.Node{irNode("trigger", "output"), readerNode("only_node")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				))
 				s.Next(ctx, cycle)
 				Expect(only.NextCalled).To(Equal(1))
@@ -975,7 +1008,10 @@ var _ = Describe("Scheduler", func() {
 			s := build(programOf(
 				[]ir.Node{irNode("trigger", "output"), readerNode("only_node")},
 				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				rootScope(
+					ir.Member{NodeKey: new("trigger")},
+					ir.Member{Scope: new(main)},
+				),
 			))
 			s.Next(ctx, cycle)
 			Expect(only.NextCalled).To(Equal(1))
@@ -1000,8 +1036,8 @@ var _ = Describe("Scheduler", func() {
 				sink := mock("sink")
 				second := mock("second_node")
 				firstStep := parallelScope("first",
-					stratum(ir.NodeMember("src")),
-					stratum(ir.NodeMember("sink")),
+					stratum(ir.Member{NodeKey: new("src")}),
+					stratum(ir.Member{NodeKey: new("sink")}),
 				)
 				secondStep := step("second", "second_node")
 				main := sequentialScope("main",
@@ -1017,7 +1053,10 @@ var _ = Describe("Scheduler", func() {
 						irNode("second_node"),
 					},
 					[]ir.Edge{conditionalEdge("src", "output", "sink", "input")},
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				))
 				s.Next(ctx, cycle)
 				Expect(sink.NextCalled).To(Equal(0))
@@ -1050,7 +1089,10 @@ var _ = Describe("Scheduler", func() {
 						irNode("after_node"),
 					},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				))
 				s.Next(ctx, cycle)
 				Expect(sink.NextCalled).To(Equal(1))
@@ -1085,7 +1127,10 @@ var _ = Describe("Scheduler", func() {
 						readerNode("c_node"),
 					},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				))
 				s.Next(ctx, cycle)
 				Expect(a.NextCalled).To(Equal(1))
@@ -1123,7 +1168,10 @@ var _ = Describe("Scheduler", func() {
 						irNode("second_node"),
 					},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				))
 				s.Next(ctx, cycle)
 				Expect(first.NextCalled).To(Equal(1))
@@ -1171,7 +1219,10 @@ var _ = Describe("Scheduler", func() {
 					irNode("last_node"),
 				},
 				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				rootScope(
+					ir.Member{NodeKey: new("trigger")},
+					ir.Member{Scope: new(main)},
+				),
 			))
 			s.Next(ctx, cycle)
 			Expect(first.NextCalled).To(Equal(1))
@@ -1192,12 +1243,15 @@ var _ = Describe("Scheduler", func() {
 			mock("trigger", true)
 			stageNode := mock("n")
 			act := ir.Handle{Node: "trigger", Param: "output"}
-			stage := parallelScope("stage", stratum(ir.NodeMember("n")))
+			stage := parallelScope("stage", stratum(ir.Member{NodeKey: new("n")}))
 			stage.Activations = []ir.Activation{{On: act, Kind: ir.EdgeKindConditional}}
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("n")},
 				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(stage)),
+				rootScope(
+					ir.Member{NodeKey: new("trigger")},
+					ir.Member{Scope: new(stage)},
+				),
 			)
 			s := build(prog)
 			s.Next(
@@ -1212,8 +1266,11 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				mock("trigger", true)
 				inner := mock("inner")
-				nested := alwaysScope("nested", stratum(ir.NodeMember("inner")))
-				outer := parallelScope("outer", stratum(ir.ScopeMember(nested)))
+				nested := alwaysScope(
+					"nested",
+					stratum(ir.Member{NodeKey: new("inner")}),
+				)
+				outer := parallelScope("outer", stratum(ir.Member{Scope: new(nested)}))
 				act := ir.Handle{Node: "trigger", Param: "output"}
 				outer.Activations = []ir.Activation{
 					{On: act, Kind: ir.EdgeKindConditional},
@@ -1221,7 +1278,10 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("inner")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(outer)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(outer)},
+					),
 				)
 				s := build(prog)
 				s.Next(
@@ -1244,11 +1304,11 @@ var _ = Describe("Scheduler", func() {
 				// them as program entrypoints. The parallel cascade activates
 				// every always-live child of an active parent.
 				inner := mock("n")
-				stage := alwaysScope("anon", stratum(ir.NodeMember("n")))
+				stage := alwaysScope("anon", stratum(ir.Member{NodeKey: new("n")}))
 				prog := programOf(
 					[]ir.Node{irNode("n")},
 					nil,
-					rootScope(ir.ScopeMember(stage)),
+					rootScope(ir.Member{Scope: new(stage)}),
 				)
 				s := build(prog)
 				s.Next(
@@ -1271,11 +1331,11 @@ var _ = Describe("Scheduler", func() {
 				// `=> main` trigger exists anywhere in source. It must stay
 				// inert — the only way to activate it is an external trigger.
 				inner := mock("n")
-				stage := parallelScope("main", stratum(ir.NodeMember("n")))
+				stage := parallelScope("main", stratum(ir.Member{NodeKey: new("n")}))
 				prog := programOf(
 					[]ir.Node{irNode("n")},
 					nil,
-					rootScope(ir.ScopeMember(stage)),
+					rootScope(ir.Member{Scope: new(stage)}),
 				)
 				s := build(prog)
 				s.Next(
@@ -1297,13 +1357,13 @@ var _ = Describe("Scheduler", func() {
 				// (Always) → outer (Always) → middle (Always) → leaf node. Any
 				// break in the rule would leave the leaf unactivated.
 				leaf := mock("leaf")
-				inner := alwaysScope("inner", stratum(ir.NodeMember("leaf")))
-				middle := alwaysScope("middle", stratum(ir.ScopeMember(inner)))
-				outer := alwaysScope("outer", stratum(ir.ScopeMember(middle)))
+				inner := alwaysScope("inner", stratum(ir.Member{NodeKey: new("leaf")}))
+				middle := alwaysScope("middle", stratum(ir.Member{Scope: new(inner)}))
+				outer := alwaysScope("outer", stratum(ir.Member{Scope: new(middle)}))
 				prog := programOf(
 					[]ir.Node{irNode("leaf")},
 					nil,
-					rootScope(ir.ScopeMember(outer)),
+					rootScope(ir.Member{Scope: new(outer)}),
 				)
 				s := build(prog)
 				s.Next(
@@ -1335,8 +1395,11 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("A", "y", "C", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B"), ir.NodeMember("C")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(
+							ir.Member{NodeKey: new("B")},
+							ir.Member{NodeKey: new("C")},
+						),
 					),
 				)
 				s := build(prog)
@@ -1366,8 +1429,11 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("A", "output", "C", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B"), ir.NodeMember("C")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(
+							ir.Member{NodeKey: new("B")},
+							ir.Member{NodeKey: new("C")},
+						),
 					),
 				)
 				s := build(prog)
@@ -1402,8 +1468,11 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("B", "output", "C", "b"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A"), ir.NodeMember("B")),
-						stratum(ir.NodeMember("C")),
+						stratum(
+							ir.Member{NodeKey: new("A")},
+							ir.Member{NodeKey: new("B")},
+						),
+						stratum(ir.Member{NodeKey: new("C")}),
 					),
 				)
 				s := build(prog)
@@ -1439,9 +1508,9 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("B", "output", "C", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
-						stratum(ir.NodeMember("C")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
+						stratum(ir.Member{NodeKey: new("C")}),
 					),
 				)
 				s := build(prog)
@@ -1477,9 +1546,9 @@ var _ = Describe("Scheduler", func() {
 					continuousEdge("C", "output", "D", "b"),
 				},
 				rootWithStrata(
-					stratum(ir.NodeMember("A")),
-					stratum(ir.NodeMember("B"), ir.NodeMember("C")),
-					stratum(ir.NodeMember("D")),
+					stratum(ir.Member{NodeKey: new("A")}),
+					stratum(ir.Member{NodeKey: new("B")}, ir.Member{NodeKey: new("C")}),
+					stratum(ir.Member{NodeKey: new("D")}),
 				),
 			)
 			s := build(prog)
@@ -1500,8 +1569,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					nil,
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -1529,8 +1598,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{conditionalEdge("A", "output", "B", "in")},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -1569,8 +1638,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{conditionalEdge("A", "output", "B", "in")},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -1607,8 +1676,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A", "output"), irNode("B")},
 					[]ir.Edge{continuousEdge("A", "output", "B", "in")},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -1643,8 +1712,11 @@ var _ = Describe("Scheduler", func() {
 						conditionalEdge("A", "y", "C", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B"), ir.NodeMember("C")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(
+							ir.Member{NodeKey: new("B")},
+							ir.Member{NodeKey: new("C")},
+						),
 					),
 				)
 				s := build(prog)
@@ -1690,8 +1762,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("trigger", "kick"), irNode("A")},
 					[]ir.Edge{continuousEdge("trigger", "kick", "A", "in")},
 					rootWithStrata(
-						stratum(ir.NodeMember("trigger")),
-						stratum(ir.NodeMember("A")),
+						stratum(ir.Member{NodeKey: new("trigger")}),
+						stratum(ir.Member{NodeKey: new("A")}),
 					),
 				)
 				s := build(prog)
@@ -1744,8 +1816,14 @@ var _ = Describe("Scheduler", func() {
 				}
 			}
 
-			first := parallelScope("first", stratum(ir.NodeMember("stage_node")))
-			second := parallelScope("second", stratum(ir.NodeMember("second_node")))
+			first := parallelScope(
+				"first",
+				stratum(ir.Member{NodeKey: new("stage_node")}),
+			)
+			second := parallelScope(
+				"second",
+				stratum(ir.Member{NodeKey: new("second_node")}),
+			)
 			main := sequentialScope("main",
 				[]ir.Member{{Scope: &first}, {Scope: &second}},
 				ir.Transition{
@@ -1766,7 +1844,10 @@ var _ = Describe("Scheduler", func() {
 					irNode("second_node"),
 				},
 				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				rootScope(
+					ir.Member{NodeKey: new("trigger")},
+					ir.Member{Scope: new(main)},
+				),
 			)
 			s := build(prog)
 			s.Next(
@@ -1797,7 +1878,7 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("A")},
 					nil,
-					rootScope(ir.NodeMember("A")),
+					rootScope(ir.Member{NodeKey: new("A")}),
 				)
 				s := build(prog)
 				s.Next(
@@ -1826,7 +1907,7 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("A")},
 					nil,
-					rootScope(ir.NodeMember("A")),
+					rootScope(ir.Member{NodeKey: new("A")}),
 				)
 				s := build(prog)
 				s.Next(
@@ -1855,14 +1936,20 @@ var _ = Describe("Scheduler", func() {
 				stageNode := mock("stage_node")
 				stageNode.OnNext = func(c node.Context) { c.SetDeadline(2 * telem.Second) }
 				act := ir.Handle{Node: "trigger", Param: "output"}
-				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
+				gated := parallelScope(
+					"stage",
+					stratum(ir.Member{NodeKey: new("stage_node")}),
+				)
 				gated.Activations = []ir.Activation{
 					{On: act, Kind: ir.EdgeKindConditional},
 				}
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(gated)},
+					),
 				)
 				s := build(prog)
 				s.Next(
@@ -1891,9 +1978,9 @@ var _ = Describe("Scheduler", func() {
 					nil,
 					rootWithStrata(
 						stratum(
-							ir.NodeMember("A"),
-							ir.NodeMember("B"),
-							ir.NodeMember("C"),
+							ir.Member{NodeKey: new("A")},
+							ir.Member{NodeKey: new("B")},
+							ir.Member{NodeKey: new("C")},
 						),
 					),
 				)
@@ -1922,7 +2009,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A"), irNode("B")},
 				nil,
-				rootScope(ir.NodeMember("A"), ir.NodeMember("B")),
+				rootScope(ir.Member{NodeKey: new("A")}, ir.Member{NodeKey: new("B")}),
 			)
 			s := build(prog)
 			h := &MockErrorHandler{}
@@ -1942,7 +2029,7 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("A")},
 					nil,
-					rootScope(ir.NodeMember("A")),
+					rootScope(ir.Member{NodeKey: new("A")}),
 				)
 				s := build(prog)
 				Expect(func() {
@@ -1965,7 +2052,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A")},
 				nil,
-				rootScope(ir.NodeMember("A")),
+				rootScope(ir.Member{NodeKey: new("A")}),
 			)
 			s := build(prog)
 			s.Next(ctx, node.Cycle{Elapsed: 0, Reason: node.ReasonTimerTick})
@@ -1980,7 +2067,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A")},
 				nil,
-				rootScope(ir.NodeMember("A")),
+				rootScope(ir.Member{NodeKey: new("A")}),
 			)
 			s := build(prog)
 			s.Next(
@@ -1999,7 +2086,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A"), irNode("B")},
 				nil,
-				rootScope(ir.NodeMember("A"), ir.NodeMember("B")),
+				rootScope(ir.Member{NodeKey: new("A")}, ir.Member{NodeKey: new("B")}),
 			)
 			s := build(prog)
 			highest := s.Next(ctx, node.Cycle{Now: 100, Reason: node.ReasonTimerTick})
@@ -2018,7 +2105,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A")},
 				nil,
-				rootScope(ir.NodeMember("A")),
+				rootScope(ir.Member{NodeKey: new("A")}),
 			)
 			s := build(prog)
 			s.Next(ctx, node.Cycle{Now: 100, Reason: node.ReasonTimerTick})
@@ -2032,7 +2119,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A")},
 				nil,
-				rootScope(ir.NodeMember("A")),
+				rootScope(ir.Member{NodeKey: new("A")}),
 			)
 			s := build(prog)
 			Expect(
@@ -2046,7 +2133,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output")},
 				[]ir.Edge{continuousEdge("A", "output", "A", "in")},
-				rootScope(ir.NodeMember("A")),
+				rootScope(ir.Member{NodeKey: new("A")}),
 			)
 			s := build(prog)
 			s.Next(
@@ -2073,7 +2160,10 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output")},
 				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+				rootScope(
+					ir.Member{NodeKey: new("trigger")},
+					ir.Member{Scope: new(main)},
+				),
 			)
 			s := build(prog)
 			Expect(func() {
@@ -2097,14 +2187,20 @@ var _ = Describe("Scheduler", func() {
 				trigger.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 				stageNode := mock("stage_node")
 				act := ir.Handle{Node: "trigger", Param: "output"}
-				gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
+				gated := parallelScope(
+					"stage",
+					stratum(ir.Member{NodeKey: new("stage_node")}),
+				)
 				gated.Activations = []ir.Activation{
 					{On: act, Kind: ir.EdgeKindConditional},
 				}
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(gated)},
+					),
 				)
 				s := build(prog)
 				s.Next(
@@ -2141,12 +2237,12 @@ var _ = Describe("Scheduler", func() {
 			a := mock("A")
 			b := mock("B")
 			// trigger_b stays falsy — only `a` should activate.
-			stageA := parallelScope("stage_a", stratum(ir.NodeMember("A")))
+			stageA := parallelScope("stage_a", stratum(ir.Member{NodeKey: new("A")}))
 			actA := ir.Handle{Node: "trigger_a", Param: "output"}
 			stageA.Activations = []ir.Activation{
 				{On: actA, Kind: ir.EdgeKindConditional},
 			}
-			stageB := parallelScope("stage_b", stratum(ir.NodeMember("B")))
+			stageB := parallelScope("stage_b", stratum(ir.Member{NodeKey: new("B")}))
 			actB := ir.Handle{Node: "trigger_b", Param: "output"}
 			stageB.Activations = []ir.Activation{
 				{On: actB, Kind: ir.EdgeKindConditional},
@@ -2160,10 +2256,10 @@ var _ = Describe("Scheduler", func() {
 				},
 				nil,
 				rootScope(
-					ir.NodeMember("trigger_a"),
-					ir.NodeMember("trigger_b"),
-					ir.ScopeMember(stageA),
-					ir.ScopeMember(stageB),
+					ir.Member{NodeKey: new("trigger_a")},
+					ir.Member{NodeKey: new("trigger_b")},
+					ir.Member{Scope: new(stageA)},
+					ir.Member{Scope: new(stageB)},
 				),
 			)
 			s := build(prog)
@@ -2192,8 +2288,11 @@ var _ = Describe("Scheduler", func() {
 						conditionalEdge("A", "trigger", "C", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B"), ir.NodeMember("C")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(
+							ir.Member{NodeKey: new("B")},
+							ir.Member{NodeKey: new("C")},
+						),
 					),
 				)
 				s := build(prog)
@@ -2225,7 +2324,10 @@ var _ = Describe("Scheduler", func() {
 						c.MarkChanged(0)
 					}
 				}
-				first := parallelScope("first", stratum(ir.NodeMember("first_node")))
+				first := parallelScope(
+					"first",
+					stratum(ir.Member{NodeKey: new("first_node")}),
+				)
 				main := sequentialScope("main",
 					[]ir.Member{{Scope: &first}},
 					ir.Transition{
@@ -2244,7 +2346,10 @@ var _ = Describe("Scheduler", func() {
 						irNode("first_node", "output"),
 					},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				)
 				s := build(prog)
 				s.Next(
@@ -2297,7 +2402,10 @@ var _ = Describe("Scheduler", func() {
 				worker := mock("worker")
 				worker.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 
-				body := parallelScope("body", stratum(ir.NodeMember("worker")))
+				body := parallelScope(
+					"body",
+					stratum(ir.Member{NodeKey: new("worker")}),
+				)
 				main := sequentialScope("main", []ir.Member{
 					{Scope: &body},
 				}, ir.Transition{
@@ -2318,9 +2426,9 @@ var _ = Describe("Scheduler", func() {
 					},
 					nil,
 					rootScope(
-						ir.NodeMember("trigger"),
-						ir.NodeMember("latch"),
-						ir.ScopeMember(main),
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{NodeKey: new("latch")},
+						ir.Member{Scope: new(main)},
 					),
 				)
 				s := build(prog)
@@ -2370,8 +2478,8 @@ var _ = Describe("Scheduler", func() {
 				workerB := mock("worker_b")
 				workerB.OnNext = func(c node.Context) { c.MarkSelfChanged() }
 
-				a := parallelScope("a", stratum(ir.NodeMember("worker_a")))
-				b := parallelScope("b", stratum(ir.NodeMember("worker_b")))
+				a := parallelScope("a", stratum(ir.Member{NodeKey: new("worker_a")}))
+				b := parallelScope("b", stratum(ir.Member{NodeKey: new("worker_b")}))
 				main := sequentialScope("main", []ir.Member{
 					{Scope: &a},
 					{Scope: &b},
@@ -2394,9 +2502,9 @@ var _ = Describe("Scheduler", func() {
 					},
 					nil,
 					rootScope(
-						ir.NodeMember("trigger"),
-						ir.NodeMember("latch"),
-						ir.ScopeMember(main),
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{NodeKey: new("latch")},
+						ir.Member{Scope: new(main)},
 					),
 				)
 				s := build(prog)
@@ -2463,8 +2571,8 @@ var _ = Describe("Scheduler", func() {
 				mock("worker_a")
 				mock("worker_b")
 
-				a := parallelScope("a", stratum(ir.NodeMember("worker_a")))
-				b := parallelScope("b", stratum(ir.NodeMember("worker_b")))
+				a := parallelScope("a", stratum(ir.Member{NodeKey: new("worker_a")}))
+				b := parallelScope("b", stratum(ir.Member{NodeKey: new("worker_b")}))
 				main := sequentialScope("main", []ir.Member{
 					{Scope: &a},
 					{Scope: &b},
@@ -2487,9 +2595,9 @@ var _ = Describe("Scheduler", func() {
 					},
 					nil,
 					rootScope(
-						ir.NodeMember("trigger"),
-						ir.NodeMember("latch"),
-						ir.ScopeMember(main),
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{NodeKey: new("latch")},
+						ir.Member{Scope: new(main)},
 					),
 				)
 				s := build(prog)
@@ -2526,7 +2634,10 @@ var _ = Describe("Scheduler", func() {
 				// forever within a cycle.
 				mock("trigger", true)
 				loopNode := mock("loop_node", true)
-				loop := parallelScope("loop", stratum(ir.NodeMember("loop_node")))
+				loop := parallelScope(
+					"loop",
+					stratum(ir.Member{NodeKey: new("loop_node")}),
+				)
 				main := sequentialScope("main",
 					[]ir.Member{{Scope: &loop}},
 					ir.Transition{
@@ -2545,7 +2656,10 @@ var _ = Describe("Scheduler", func() {
 						irNode("loop_node", "output"),
 					},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				)
 				s := build(prog)
 				done := make(chan struct{})
@@ -2592,8 +2706,8 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("B", "output", "A", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -2636,8 +2750,8 @@ var _ = Describe("Scheduler", func() {
 						conditionalEdge("B", "output", "A", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -2672,7 +2786,7 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("A", "output")},
 					[]ir.Edge{continuousEdge("A", "output", "A", "in")},
-					rootScope(ir.NodeMember("A")),
+					rootScope(ir.Member{NodeKey: new("A")}),
 				)
 				s := build(prog)
 				s.Next(
@@ -2708,8 +2822,8 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("B", "output", "A", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
 					),
 				)
 				s := build(prog)
@@ -2744,8 +2858,14 @@ var _ = Describe("Scheduler", func() {
 				nodeV.OnNext = func(node.Context) { order = append(order, "V") }
 				firstNode.OnNext = func(node.Context) { order = append(order, "first") }
 				secondNode.OnNext = func(node.Context) { order = append(order, "second") }
-				first := parallelScope("first", stratum(ir.NodeMember("first_node")))
-				second := parallelScope("second", stratum(ir.NodeMember("second_node")))
+				first := parallelScope(
+					"first",
+					stratum(ir.Member{NodeKey: new("first_node")}),
+				)
+				second := parallelScope(
+					"second",
+					stratum(ir.Member{NodeKey: new("second_node")}),
+				)
 				main := sequentialScope("main", []ir.Member{
 					{Scope: &first},
 					{Scope: &second},
@@ -2768,9 +2888,9 @@ var _ = Describe("Scheduler", func() {
 					// first_node writes back to V, which ran earlier in the pass.
 					[]ir.Edge{continuousEdge("first_node", "output", "V", "in")},
 					rootScope(
-						ir.NodeMember("trigger"),
-						ir.NodeMember("V"),
-						ir.ScopeMember(main),
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{NodeKey: new("V")},
+						ir.Member{Scope: new(main)},
 					),
 				)
 				s := build(prog)
@@ -2801,7 +2921,7 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("A")},
 					nil,
-					rootScope(ir.NodeMember("A")),
+					rootScope(ir.Member{NodeKey: new("A")}),
 				)
 				s := build(prog)
 				s.Next(
@@ -2839,7 +2959,7 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{n},
 					nil,
-					rootScope(ir.NodeMember("reader")),
+					rootScope(ir.Member{NodeKey: new("reader")}),
 				)
 				s := build(prog)
 				s.Next(
@@ -2875,7 +2995,7 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("A")},
 					nil,
-					rootScope(ir.NodeMember("A")),
+					rootScope(ir.Member{NodeKey: new("A")}),
 				)
 				s := build(prog)
 				s.Next(
@@ -2916,7 +3036,7 @@ var _ = Describe("Scheduler", func() {
 					}
 				}
 				entryNode := mock("A", true)
-				first := parallelScope("first", stratum(ir.NodeMember("A")))
+				first := parallelScope("first", stratum(ir.Member{NodeKey: new("A")}))
 				main := sequentialScope("main",
 					[]ir.Member{{Scope: &first}},
 					ir.Transition{
@@ -2932,7 +3052,10 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("A", "output")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				)
 				s := build(prog)
 				// Cycle 1: main activates; A runs once and exits the sequence.
@@ -2969,7 +3092,7 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				mock("trigger", true)
 				step := mock("step")
-				main := sequentialScope("main", []ir.Member{ir.NodeMember("step")})
+				main := sequentialScope("main", []ir.Member{{NodeKey: new("step")}})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activations = []ir.Activation{
 					{On: triggerH, Kind: ir.EdgeKindConditional},
@@ -2977,7 +3100,10 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("step")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				)
 				s := build(prog)
 				s.Next(
@@ -3041,8 +3167,14 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("B", "output", "A", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("trigger"), ir.NodeMember("A")),
-						stratum(ir.NodeMember("worker"), ir.NodeMember("B")),
+						stratum(
+							ir.Member{NodeKey: new("trigger")},
+							ir.Member{NodeKey: new("A")},
+						),
+						stratum(
+							ir.Member{NodeKey: new("worker")},
+							ir.Member{NodeKey: new("B")},
+						),
 					),
 				)
 				s := build(prog)
@@ -3080,9 +3212,9 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("C", "output", "A", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
-						stratum(ir.NodeMember("C")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
+						stratum(ir.Member{NodeKey: new("C")}),
 					),
 				)
 				s := build(prog)
@@ -3111,8 +3243,8 @@ var _ = Describe("Scheduler", func() {
 				markOnce(nodeA)
 				markOnce(nodeB)
 				stage := parallelScope("stage",
-					stratum(ir.NodeMember("entry")),
-					stratum(ir.NodeMember("creator")),
+					stratum(ir.Member{NodeKey: new("entry")}),
+					stratum(ir.Member{NodeKey: new("creator")}),
 				)
 				main := sequentialScope("main", []ir.Member{{Scope: &stage}})
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -3133,8 +3265,14 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("B", "output", "A", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("trigger"), ir.NodeMember("A")),
-						stratum(ir.NodeMember("B"), ir.ScopeMember(main)),
+						stratum(
+							ir.Member{NodeKey: new("trigger")},
+							ir.Member{NodeKey: new("A")},
+						),
+						stratum(
+							ir.Member{NodeKey: new("B")},
+							ir.Member{Scope: new(main)},
+						),
 					),
 				)
 				s := build(prog)
@@ -3172,9 +3310,9 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("C", "output", "B", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("B")),
-						stratum(ir.NodeMember("C")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("B")}),
+						stratum(ir.Member{NodeKey: new("C")}),
 					),
 				)
 				s := build(prog)
@@ -3213,8 +3351,14 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("B", "output", "A", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("quiet"), ir.NodeMember("A")),
-						stratum(ir.NodeMember("silent"), ir.NodeMember("B")),
+						stratum(
+							ir.Member{NodeKey: new("quiet")},
+							ir.Member{NodeKey: new("A")},
+						),
+						stratum(
+							ir.Member{NodeKey: new("silent")},
+							ir.Member{NodeKey: new("B")},
+						),
 					),
 				)
 				s := build(prog)
@@ -3255,8 +3399,14 @@ var _ = Describe("Scheduler", func() {
 						continuousEdge("B", "output", "A", "in"),
 					},
 					rootWithStrata(
-						stratum(ir.NodeMember("starter"), ir.NodeMember("A")),
-						stratum(ir.NodeMember("looper"), ir.NodeMember("B")),
+						stratum(
+							ir.Member{NodeKey: new("starter")},
+							ir.Member{NodeKey: new("A")},
+						),
+						stratum(
+							ir.Member{NodeKey: new("looper")},
+							ir.Member{NodeKey: new("B")},
+						),
 					),
 				)
 				s := build(prog)
@@ -3285,8 +3435,8 @@ var _ = Describe("Scheduler", func() {
 					[]ir.Node{irNode("A", "output"), irNode("worker")},
 					[]ir.Edge{continuousEdge("A", "output", "worker", "in")},
 					rootWithStrata(
-						stratum(ir.NodeMember("A")),
-						stratum(ir.NodeMember("worker")),
+						stratum(ir.Member{NodeKey: new("A")}),
+						stratum(ir.Member{NodeKey: new("worker")}),
 					),
 				)
 				s := build(prog)
@@ -3317,9 +3467,9 @@ var _ = Describe("Scheduler", func() {
 				mock("trigger", true)
 				nodeV := mock("V")
 				stageNode := mock("M")
-				stage := parallelScope("stage", stratum(ir.NodeMember("M")))
+				stage := parallelScope("stage", stratum(ir.Member{NodeKey: new("M")}))
 				main := sequentialScope("main", []ir.Member{{Scope: &stage}})
-				main.Strata = []ir.Members{stratum(ir.NodeMember("V"))}
+				main.Strata = []ir.Members{stratum(ir.Member{NodeKey: new("V")})}
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activations = []ir.Activation{
 					{On: triggerH, Kind: ir.EdgeKindConditional},
@@ -3327,7 +3477,10 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("V"), irNode("M")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				)
 				s := build(prog)
 				base := nodeV.ResetCalled
@@ -3367,8 +3520,8 @@ var _ = Describe("Scheduler", func() {
 				stageNode := mock("A")
 				stageNode.OnNext = func(ctx node.Context) { ctx.MarkSelfChanged() }
 				first := parallelScope("first",
-					stratum(ir.NodeMember("A")),
-					stratum(ir.NodeMember("V")),
+					stratum(ir.Member{NodeKey: new("A")}),
+					stratum(ir.Member{NodeKey: new("V")}),
 				)
 				main := sequentialScope("main",
 					[]ir.Member{{Scope: &first}},
@@ -3391,9 +3544,9 @@ var _ = Describe("Scheduler", func() {
 					},
 					[]ir.Edge{continuousEdge("src", "output", "V", "in")},
 					rootScope(
-						ir.NodeMember("trigger"),
-						ir.NodeMember("src"),
-						ir.ScopeMember(main),
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{NodeKey: new("src")},
+						ir.Member{Scope: new(main)},
 					),
 				)
 				s := build(prog)
@@ -3438,9 +3591,9 @@ var _ = Describe("Scheduler", func() {
 			func(ctx SpecContext) {
 				mock("trigger", true)
 				mock("M")
-				stage := parallelScope("stage", stratum(ir.NodeMember("M")))
+				stage := parallelScope("stage", stratum(ir.Member{NodeKey: new("M")}))
 				main := sequentialScope("main", []ir.Member{{Scope: &stage}})
-				main.Strata = []ir.Members{stratum(ir.NodeMember("ghost"))}
+				main.Strata = []ir.Members{stratum(ir.Member{NodeKey: new("ghost")})}
 				triggerH := ir.Handle{Node: "trigger", Param: "output"}
 				main.Activations = []ir.Activation{
 					{On: triggerH, Kind: ir.EdgeKindConditional},
@@ -3448,7 +3601,10 @@ var _ = Describe("Scheduler", func() {
 				prog := programOf(
 					[]ir.Node{irNode("trigger", "output"), irNode("M")},
 					nil,
-					rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
 				)
 				s := build(prog)
 				Expect(func() {
@@ -3470,12 +3626,18 @@ var _ = Describe("Scheduler", func() {
 		// the given kind.
 		gatedStage := func(kind ir.EdgeKind) ir.IR {
 			act := ir.Handle{Node: "trigger", Param: "output"}
-			gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
+			gated := parallelScope(
+				"stage",
+				stratum(ir.Member{NodeKey: new("stage_node")}),
+			)
 			gated.Activations = []ir.Activation{{On: act, Kind: kind}}
 			return programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
+				rootScope(
+					ir.Member{NodeKey: new("trigger")},
+					ir.Member{Scope: new(gated)},
+				),
 			)
 		}
 
@@ -3528,7 +3690,10 @@ var _ = Describe("Scheduler", func() {
 			Entry(
 				"transition in a nested step",
 				func() ir.IR {
-					leaf := parallelScope("leaf", stratum(ir.NodeMember("leaf_node")))
+					leaf := parallelScope(
+						"leaf",
+						stratum(ir.Member{NodeKey: new("leaf_node")}),
+					)
 					inner := sequentialScope(
 						"inner",
 						[]ir.Member{{Scope: &leaf}},
@@ -3540,7 +3705,7 @@ var _ = Describe("Scheduler", func() {
 					return programOf(
 						[]ir.Node{irNode("leaf_node", "output")},
 						nil,
-						rootScope(ir.ScopeMember(outer)),
+						rootScope(ir.Member{Scope: new(outer)}),
 					)
 				},
 				"scope inner has a transition with no kind: "+
@@ -3575,7 +3740,7 @@ var _ = Describe("Scheduler", func() {
 		mainSeq := func(keys []string, transitions ...ir.Transition) ir.Scope {
 			members := make([]ir.Member, len(keys))
 			for i, k := range keys {
-				members[i] = ir.NodeMember(k)
+				members[i] = ir.Member{NodeKey: new(k)}
 			}
 			s := parallelScope("s", stratum(members...))
 			main := sequentialScope("main", []ir.Member{{Scope: &s}}, transitions...)
@@ -3584,7 +3749,7 @@ var _ = Describe("Scheduler", func() {
 		}
 		// target builds a gated top-level stage holding one node.
 		target := func(key string) ir.Scope {
-			return parallelScope(key, stratum(ir.NodeMember(key+"_node")))
+			return parallelScope(key, stratum(ir.Member{NodeKey: new(key + "_node")}))
 		}
 		// program puts trigger first in the root, then scopes in the given order.
 		program := func(nodeKeys []string, scopes ...ir.Scope) ir.IR {
@@ -3592,9 +3757,9 @@ var _ = Describe("Scheduler", func() {
 			for _, k := range nodeKeys {
 				irNodes = append(irNodes, irNode(k, "output"))
 			}
-			members := []ir.Member{ir.NodeMember("trigger")}
+			members := []ir.Member{{NodeKey: new("trigger")}}
 			for i := range scopes {
-				members = append(members, ir.ScopeMember(scopes[i]))
+				members = append(members, ir.Member{Scope: new(scopes[i])})
 			}
 			return programOf(irNodes, nil, rootScope(members...))
 		}
@@ -3645,7 +3810,7 @@ var _ = Describe("Scheduler", func() {
 			flight := mock("flight_node")
 			idle := parallelScope(
 				"idle",
-				stratum(ir.NodeMember("body"), ir.NodeMember("j")),
+				stratum(ir.Member{NodeKey: new("body")}, ir.Member{NodeKey: new("j")}),
 			)
 			idle.Activations = triggered
 			idle.Transitions = []ir.Transition{jump("j", "flight")}
@@ -3668,7 +3833,10 @@ var _ = Describe("Scheduler", func() {
 				flight := mock("flight_node")
 				idle := parallelScope(
 					"idle",
-					stratum(ir.NodeMember("j1"), ir.NodeMember("j2")),
+					stratum(
+						ir.Member{NodeKey: new("j1")},
+						ir.Member{NodeKey: new("j2")},
+					),
 				)
 				idle.Activations = triggered
 				idle.Transitions = []ir.Transition{
@@ -3724,15 +3892,18 @@ var _ = Describe("Scheduler", func() {
 					}
 				}
 				body := alive("body")
-				inner := parallelScope("inner", stratum(ir.NodeMember("body")))
+				inner := parallelScope(
+					"inner",
+					stratum(ir.Member{NodeKey: new("body")}),
+				)
 				inner.Activations = []ir.Activation{{
 					On:   ir.Handle{Node: "start", Param: "output"},
 					Kind: ir.EdgeKindConditional,
 				}}
 				outer := parallelScope("outer", stratum(
-					ir.NodeMember("start"),
-					ir.NodeMember("j"),
-					ir.ScopeMember(inner),
+					ir.Member{NodeKey: new("start")},
+					ir.Member{NodeKey: new("j")},
+					ir.Member{Scope: new(inner)},
 				))
 				outer.Activations = triggered
 				outer.Transitions = []ir.Transition{jump("j", "outer")}
@@ -3784,9 +3955,9 @@ var _ = Describe("Scheduler", func() {
 					},
 					nil,
 					rootScope(
-						ir.NodeMember("a1"),
-						ir.NodeMember("a2"),
-						ir.ScopeMember(gated),
+						ir.Member{NodeKey: new("a1")},
+						ir.Member{NodeKey: new("a2")},
+						ir.Member{Scope: new(gated)},
 					),
 				)).Next(ctx, cycle)
 				Expect(stage.NextCalled).To(Equal(1))

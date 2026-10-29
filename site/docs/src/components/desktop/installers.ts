@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/lyra/icon";
+
 import { type Platform } from "@/components/download/Buttons.astro";
 import { appVersion } from "@/util/releases";
 
@@ -14,11 +16,17 @@ import { appVersion } from "@/util/releases";
 export const installers = (version: string): Platform[] => {
   const app = appVersion(version);
   return [
-    { name: "macOS", asset: `Synnax-Desktop_${app}_aarch64.dmg`, agent: /Macintosh/ },
+    {
+      name: "macOS",
+      asset: `Synnax-Desktop_${app}_aarch64.dmg`,
+      agent: /Macintosh/,
+      icon: Icon.Logo.Apple,
+    },
     {
       name: "Windows",
       asset: `Synnax-Desktop_${app}_x64-setup.exe`,
       agent: /Windows NT/,
+      icon: Icon.Logo.Windows,
     },
   ];
 };
