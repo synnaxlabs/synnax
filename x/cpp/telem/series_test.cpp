@@ -2011,6 +2011,16 @@ TEST(SeriesWrite, StringAfterClear) {
     ASSERT_EQ(s.byte_cap(), 64);
 }
 
+/// @brief it should grow the buffer to fit a vector of strings written after a clear.
+TEST(SeriesWrite, StringVectorAfterClear) {
+    auto s = Series(STRING_T, 4);
+    s.write(std::string("a"));
+    s.clear();
+    const std::vector strs{std::string(64, 'x'), std::string(32, 'y')};
+    ASSERT_EQ(s.write(strs), 2);
+    ASSERT_EQ(s.strings(), strs);
+}
+
 /// @brief it should not change the source of a shallow copy when writing a string.
 TEST(SeriesWrite, StringLeavesShallowCopyIntact) {
     auto s = Series(std::vector<std::string>{"a"}, STRING_T);

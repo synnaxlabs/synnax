@@ -871,39 +871,23 @@ public:
         this->set(d.data_(), index, d.size());
     }
 
-    /// @brief writes the given vector of numeric data to the series.
-    /// @param d the vector of numeric data to be written.
-    /// @returns the number of samples written. If the capacity of the series is
-    /// exceeded, it will only write as many samples as it can hold.
+    /// @brief writes the given vector of numbers or strings to the series. A string or
+    /// JSON series grows its buffer to fit the strings.
+    /// @param d the vector of data to be written.
+    /// @returns the number of samples written. A numeric series writes only as many
+    /// samples as its capacity holds.
     template<typename T>
     size_t write(const std::vector<T> &d) {
-        this->ensure_exclusive();
         if constexpr (std::is_same_v<T, std::string>) {
-            if (!this->data_type().matches({STRING_T, JSON_T}))
-                throw std::runtime_error(
-                    "cannot write strings to non-string/JSON series"
-                );
-            const size_t count = std::min(d.size(), this->cap() - this->size());
-            if (count == 0) return 0;
-            size_t offset = this->cached_byte_size;
-            for (size_t i = 0; i < count; i++) {
-                const auto &s = d[i];
-                write_u32_le(
-                    this->data_.get() + offset,
-                    static_cast<uint32_t>(s.size())
-                );
-                offset += 4;
-                memcpy(this->data_.get() + offset, s.data(), s.size());
-                offset += s.size();
-            }
-            this->cached_byte_size = offset;
-            this->size_ += count;
-            return count;
+            for (const auto &s: d)
+                this->write(s);
+            return d.size();
         } else {
             static_assert(
                 std::is_arithmetic_v<T>,
                 "T must be a numeric type or string"
             );
+            this->ensure_exclusive();
             const size_t count = std::min(d.size(), this->cap() - this->size());
             if (count == 0) return 0;
             memcpy(

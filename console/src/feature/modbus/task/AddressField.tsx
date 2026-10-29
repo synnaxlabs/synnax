@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import {
   type ChannelType,
@@ -25,32 +25,31 @@ export interface AddressFieldProps {
 /**
  * The address of a channel. It takes a zero-based offset or a six-digit Modicon address
  * such as 400001, and shows the Modicon form after the offset. Text that does not parse
- * keeps the stored address and marks the field until the next edit.
+ * keeps the stored address and marks the field until a valid entry.
  */
 export const AddressField = ({ path }: AddressFieldProps): ReactElement => {
   const type = Form.useFieldValue<ChannelType>(`${path}.type`);
-  const [error, setError] = useState<string | null>(null);
+  const field = Form.useField<number>(`${path}.address`);
+  const invalid = field.status.variant !== "success";
   return (
-    <Form.Field<number> path={`${path}.address`} showLabel={false} showHelpText={false}>
-      {({ value, onChange, preview }) => (
-        <Input.Text
-          value={value.toString()}
-          onChange={(raw) => {
-            const parsed = parseAddress(type, raw);
-            if ("error" in parsed) return setError(parsed.error);
-            setError(null);
-            onChange(parsed.address);
-          }}
-          onlyChangeOnBlur
-          selectOnFocus
-          preview={preview}
-          status={error == null ? undefined : "error"}
-          tooltip={error ?? ""}
-          hideTooltip={error == null}
-          endContent={toModicon(type, value)}
-          aria-label="Address"
-        />
-      )}
-    </Form.Field>
+    <Input.Text
+      value={field.value.toString()}
+      onChange={(raw) => {
+        const parsed = parseAddress(type, raw);
+        if ("error" in parsed)
+          return field.setStatus({ variant: "error", message: parsed.error });
+        // The status clears on its own only when the value changes.
+        if (invalid) field.setStatus({ variant: "success", message: "" });
+        field.onChange(parsed.address);
+      }}
+      onlyChangeOnBlur
+      selectOnFocus
+      preview={field.preview}
+      status={invalid ? field.status.variant : undefined}
+      tooltip={field.status.message}
+      hideTooltip={!invalid}
+      endContent={toModicon(type, field.value)}
+      aria-label="Address"
+    />
   );
 };

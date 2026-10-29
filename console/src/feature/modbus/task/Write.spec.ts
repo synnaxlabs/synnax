@@ -413,6 +413,16 @@ describe("Write", () => {
       expect(input.value).toBe("0");
       screen.getByText("400001");
     });
+
+    it("should clear the mark when a valid entry keeps the stored address", async () => {
+      const { input } = await renderRegister();
+      const marked = () =>
+        input.closest(".pluto-input")?.classList.contains("pluto--error");
+      enter(input, "300004");
+      await waitFor(() => expect(marked()).toBe(true));
+      enter(input, "400001");
+      await waitFor(() => expect(marked()).toBe(false));
+    });
   });
 
   describe("add channel", () => {

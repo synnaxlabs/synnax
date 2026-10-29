@@ -42,7 +42,10 @@ func MigrateReadChannel(ctx context.Context, old v1.ReadChannel) (ReadChannel, e
 }
 
 // MigrateWriteChannel lifts a v1 write channel to v2. Every v1 variant exists in v2.
-func MigrateWriteChannel(ctx context.Context, old v1.WriteChannel) (WriteChannel, error) {
+func MigrateWriteChannel(
+	ctx context.Context,
+	old v1.WriteChannel,
+) (WriteChannel, error) {
 	return autoMigrateWriteChannel(ctx, old)
 }
 
