@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
@@ -23,7 +24,6 @@ import (
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/rand"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -74,7 +74,7 @@ var _ = Describe("Convergence", func() {
 				for range values.clusterSize {
 					gossipT := gossipNet.UnaryServer("")
 					pledgeT := pledgeNet.UnaryServer(gossipT.Address())
-					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
+					peerAddresses := lo.Samples(addresses, values.peerAddrCount)
 					cluster := MustOpen(cluster.Open(
 						ctx,
 						cluster.Config{

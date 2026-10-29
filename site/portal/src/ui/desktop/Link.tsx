@@ -12,9 +12,9 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
+import { type Mode } from "@synnaxlabs/site-common/consent";
 import { type ReactElement, useId, useState } from "react";
 
-import { type Mode } from "@/server/consent";
 import { post, save } from "@/ui/api";
 import { Auth } from "@/ui/auth";
 import { useLogOut } from "@/ui/clerk";

@@ -9,11 +9,11 @@
 
 import "@/table/cells/ChangeVariant.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { REGISTRY, type Variant } from "@/table/cells/registry";
 
 export interface ChangeVariantProps {
