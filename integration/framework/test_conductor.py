@@ -164,7 +164,7 @@ class _TestConductor:
         self.telemetry_client.start()
         sy.sleep(1)
 
-    def log(self, message: str, use_name: bool = True) -> None:
+    def log(self, message: str, *, use_name: bool = True) -> None:
         """Log message with real-time output."""
         if use_name:
             self.log_client.info(message)
@@ -235,7 +235,9 @@ class _TestConductor:
         return self.execution_client.is_running
 
     def get_current_status(self) -> dict[str, Any]:
-        return self.report_client.get_current_status(self.execution_client.is_running)
+        return self.report_client.get_current_status(
+            is_running=self.execution_client.is_running
+        )
 
     def _get_test_statistics(self) -> dict[str, int]:
         return self.report_client.get_statistics()
@@ -566,7 +568,8 @@ All matching is case-insensitive substring.
                 os._exit(1)
             else:
                 conductor.log(
-                    f"\nAll {stats['total']} tests passed successfully", False
+                    f"\nAll {stats['total']} tests passed successfully",
+                    use_name=False,
                 )
                 conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(0)

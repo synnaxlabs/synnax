@@ -26,6 +26,8 @@ Use --tls to target the TLS-encrypted server instead.
 
 import argparse
 
+import numpy as np
+
 import synnax as sy
 
 parser = argparse.ArgumentParser(description="Read array data from OPC UA server")
@@ -137,10 +139,18 @@ try:
 
                     # Format arrays for display by iterating directly over MultiSeries
                     arr0_str = (
-                        "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_0"]) + "]"
+                        "["
+                        + ",".join(
+                            f"{v:5.2f}" for v in frame["my_array_0"].as_(np.float32)
+                        )
+                        + "]"
                     )
                     arr1_str = (
-                        "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_1"]) + "]"
+                        "["
+                        + ",".join(
+                            f"{v:5.2f}" for v in frame["my_array_1"].as_(np.float32)
+                        )
+                        + "]"
                     )
 
                     print(
