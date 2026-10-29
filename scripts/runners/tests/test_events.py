@@ -12,11 +12,15 @@ from conftest import Client, core
 from events import MAX_PENDING, Events
 
 RUNNER = "ubuntu-build-bot-i-0f44"
-CHANNEL = channel_name("events", RUNNER)
+CHANNEL = channel_name("events", runner=RUNNER)
 
 
 def events(client: Client) -> Events:
-    return Events(core(client), Channels(core(client), False), {RUNNER})
+    return Events(
+        client=core(client),
+        channels=Channels(client=core(client), enabled=False),
+        runners={RUNNER},
+    )
 
 
 class TestEvents:

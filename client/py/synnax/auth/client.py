@@ -74,6 +74,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         transport: UnaryClient,
         username: str,
         password: str,

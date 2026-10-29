@@ -33,7 +33,7 @@ class Overview(Surface):
     METADATA_CREATE_SELECTOR = ".console-metadata__list-item.console--create"
     METADATA_DELETE_SELECTOR = ".console-metadata__delete"
 
-    def __init__(self, layout: LayoutClient, toolbar: Toolbar, explorer: Explorer):
+    def __init__(self, *, layout: LayoutClient, toolbar: Toolbar, explorer: Explorer):
         super().__init__(layout)
         self.toolbar = toolbar
         self.explorer = explorer
@@ -100,6 +100,7 @@ class Overview(Surface):
         year: int,
         month: int,
         day: int,
+        *,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
@@ -112,6 +113,7 @@ class Overview(Surface):
         year: int,
         month: int,
         day: int,
+        *,
         hour: int = 0,
         minute: int = 0,
         second: int = 0,
@@ -270,7 +272,7 @@ class Overview(Surface):
             state="hidden", timeout=5000
         )
 
-    def download_csv(self, range_name: str, channel: str) -> str:
+    def download_csv(self, range_name: str, *, channel: str) -> str:
         """Download CSV data for a range with specified channel.
 
         :param range_name: The name of the range (used for file naming).
@@ -439,7 +441,7 @@ class Overview(Surface):
         section = self._get_child_ranges_section()
         return section.locator(".console-range__list-item").filter(has_text=name).first
 
-    def wait_for_child_ranges(self, names: list[str], parent_name: str) -> None:
+    def wait_for_child_ranges(self, names: list[str], *, parent_name: str) -> None:
         """Wait for child ranges to appear, reopening the overview as a
         fallback.
 
@@ -570,12 +572,12 @@ class Overview(Surface):
         """Deselect all child ranges by dispatching click on their checkbox
         labels."""
         self.layout.deselect_all_items(
-            self._get_child_ranges_section(), ".console-range__list-item"
+            self._get_child_ranges_section(), item_selector=".console-range__list-item"
         )
 
     def _select_child_ranges(self, names: list[str]) -> Locator:
         """Select multiple child ranges via their checkbox labels."""
-        return self.layout.select_items(names, self.get_child_range)
+        return self.layout.select_items(names, get_item_fn=self.get_child_range)
 
     def delete_child_ranges(self, names: list[str]) -> None:
         """Delete multiple child ranges via multi-select and context menu."""

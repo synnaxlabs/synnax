@@ -31,7 +31,7 @@ class AsyncStreamReceiver(Protocol[RS]):
 class StreamReceiver(Protocol[RS]):
     """Protocol for an entity that receives a stream of responses."""
 
-    def receive(self, timeout: float | None = None) -> RS:
+    def receive(self, *, timeout: float | None = None) -> RS:
         """
         Receives a response from the stream. It's not safe to call receive concurrently.
 

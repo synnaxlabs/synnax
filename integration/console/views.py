@@ -28,6 +28,7 @@ class ViewsClient(ResourceClient):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         search_placeholder: str,
         static_view_name: str,
