@@ -52,8 +52,7 @@ type Identity struct {
 	Subject ontology.ID
 	// Credential is the key of the credential record the proof matched.
 	Credential uuid.UUID
-	// Version is when the credential's secret was set. A session lasts only while the
-	// credential keeps this version.
+	// Version is when the credential's secret was set.
 	Version telem.TimeStamp
 }
 
