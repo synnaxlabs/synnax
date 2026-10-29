@@ -10,7 +10,7 @@
 """What the scaler and the gate share: a writer over one command channel per runner,
 and a memory of what was sent to whom."""
 
-from collections.abc import Callable
+from typing import Protocol
 
 import synnax as sy
 
@@ -24,7 +24,9 @@ from common import (
 from log import Log
 from publisher import Publisher
 
-Describe = Callable[[str, bool, sy.TimeStamp], str]
+
+class Describe(Protocol):
+    def __call__(self, runner: str, /, *, value: bool, now: sy.TimeStamp) -> str: ...
 
 
 class Commander:
@@ -43,7 +45,7 @@ class Commander:
     ) -> None:
         self.command_name = command
         self.log = log
-        self.describe = describe or (lambda r, v, _: f"{self.channel(r)}={v}")
+        self.describe = describe or self._describe
         # Time and value of the last command that landed on each runner.
         self.commanded: dict[str, tuple[sy.TimeStamp, bool]] = {}
         self.commands = Publisher(
@@ -53,6 +55,9 @@ class Commander:
             authority=RELEASED_AUTHORITY,
             report=log.error,
         )
+
+    def _describe(self, runner: str, /, *, value: bool, now: sy.TimeStamp) -> str:
+        return f"{self.channel(runner)}={value}"
 
     def channel(self, runner: str) -> str:
         return channel_name(self.command_name, runner=runner)
@@ -105,4 +110,6 @@ class Commander:
         return True
 
     def lines(self, commands: dict[str, bool], *, now: sy.TimeStamp) -> str:
-        return ", ".join(self.describe(r, v, now) for r, v in sorted(commands.items()))
+        return ", ".join(
+            self.describe(r, value=v, now=now) for r, v in sorted(commands.items())
+        )
