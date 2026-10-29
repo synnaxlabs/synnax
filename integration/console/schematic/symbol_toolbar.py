@@ -157,7 +157,7 @@ class SymbolToolbar:
             has_text=name
         )
 
-    def symbol_exists(self, name: str, select_group: str | None = None) -> bool:
+    def symbol_exists(self, name: str, *, select_group: str | None = None) -> bool:
         """Check if a symbol exists in the current group.
 
         Args:
@@ -275,7 +275,7 @@ class SymbolToolbar:
         canvas = self.page.locator(".react-flow__pane").first
         self.layout.drag(symbol, canvas)
 
-    def add_symbol(self, symbol_type: str, group: str | None = None) -> str:
+    def add_symbol(self, symbol_type: str, *, group: str | None = None) -> str:
         """Add any symbol to the schematic and return its ID.
 
         This is the universal factory method for adding both built-in and custom

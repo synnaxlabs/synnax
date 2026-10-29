@@ -55,6 +55,7 @@ class ConsolePage:
     @classmethod
     def from_open_page(
         cls,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         name: str,
@@ -75,14 +76,16 @@ class ConsolePage:
         pane = layout.page.locator(cls.pluto_label)
         pane.first.wait_for(state="visible", timeout=10000)
 
-        return cls(layout, client, name, pane_locator=pane.first)
+        return cls(
+            layout=layout, client=client, page_name=name, pane_locator=pane.first
+        )
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a page wrapper around an existing UI page.

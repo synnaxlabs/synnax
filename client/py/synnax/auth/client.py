@@ -143,6 +143,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         transport: UnaryClient,
         proof: Proof,
     ) -> None:
