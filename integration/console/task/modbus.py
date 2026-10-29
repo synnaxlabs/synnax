@@ -57,15 +57,13 @@ class ModbusTask(TaskPage):
     def add_channel(
         self, type_name: str, *, address: int, data_type: str | None = None
     ) -> None:
-        """Append a channel row and fill it in.
+        """Fill in the next channel row.
 
         :param type_name: Type as shown in the type dropdown, e.g. "Register".
         :param address: Modbus address.
         :param data_type: Register data type, e.g. "float32". Registers only.
         """
-        index = self._rows().count()
-        self.add_channel_row()
-        self._rows().nth(index).wait_for(state="visible", timeout=5000)
+        index = self.next_channel_row()
         self.set_channel_type(index, type_name)
         self.set_address(index, address)
         if data_type is not None:
