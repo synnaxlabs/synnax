@@ -39,6 +39,8 @@ const ZERO_REQUESTS = {
   delayMs: 0,
 } as const;
 
+const wholeNumberZ = (name: string) => z.int(`${name} must be a whole number`);
+
 const propertiesZ = z.object({
   connection: z
     .object({
@@ -47,17 +49,17 @@ const propertiesZ = z.object({
       port: z.number().default(ZERO_CONNECTION.port),
       swapBytes: z.boolean().default(ZERO_CONNECTION.swapBytes),
       swapWords: z.boolean().default(ZERO_CONNECTION.swapWords),
-      unitId: z.number().default(ZERO_CONNECTION.unitId),
-      timeoutMs: z.number().default(ZERO_CONNECTION.timeoutMs),
-      retries: z.number().default(ZERO_CONNECTION.retries),
+      unitId: wholeNumberZ("Unit ID").default(ZERO_CONNECTION.unitId),
+      timeoutMs: wholeNumberZ("Timeout").default(ZERO_CONNECTION.timeoutMs),
+      retries: wholeNumberZ("Retries").default(ZERO_CONNECTION.retries),
     })
     .default(() => ({ ...ZERO_CONNECTION })),
   requests: z
     .object({
-      maxRegisters: z.number().default(ZERO_REQUESTS.maxRegisters),
-      maxGap: z.number().default(ZERO_REQUESTS.maxGap),
+      maxRegisters: wholeNumberZ("Max registers").default(ZERO_REQUESTS.maxRegisters),
+      maxGap: wholeNumberZ("Max gap").default(ZERO_REQUESTS.maxGap),
       writeCodes: writeCodesZ.default(ZERO_REQUESTS.writeCodes),
-      delayMs: z.number().default(ZERO_REQUESTS.delayMs),
+      delayMs: wholeNumberZ("Request delay").default(ZERO_REQUESTS.delayMs),
     })
     .default(() => ({ ...ZERO_REQUESTS })),
   read: z

@@ -47,6 +47,18 @@ describe("Modbus.Device.SCHEMAS", () => {
     });
   });
 
+  it.each([
+    [{ connection: { unitId: 12.5 } }, "Unit ID must be a whole number"],
+    [{ connection: { timeoutMs: 1000.5 } }, "Timeout must be a whole number"],
+    [{ connection: { retries: 1.5 } }, "Retries must be a whole number"],
+    [{ requests: { maxRegisters: 60.5 } }, "Max registers must be a whole number"],
+    [{ requests: { maxGap: 0.5 } }, "Max gap must be a whole number"],
+    [{ requests: { delayMs: 2.5 } }, "Request delay must be a whole number"],
+  ])("should reject a fraction in %j", (props, message) => {
+    const result = Modbus.Device.SCHEMAS.properties.safeParse(props);
+    expect(result.error?.issues.map((i) => i.message)).toEqual([message]);
+  });
+
   it("should reject a write code the Driver does not know", () => {
     expect(
       Modbus.Device.SCHEMAS.properties.safeParse({ requests: { writeCodes: "both" } })
