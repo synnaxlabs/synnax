@@ -53,6 +53,15 @@ const storeSession = (store: Session.Store): SharedSession => {
   const share = (id: string): void => {
     if (id !== current()) store.dispatch(Session.Analytics.setSessionID(id));
   };
+  const subscribe = (listener: (id: string) => void): (() => void) => {
+    let last = current();
+    return store.subscribe(() => {
+      const next = current();
+      if (next == null || next === last) return;
+      last = next;
+      listener(next);
+    });
+  };
   const join = async (): Promise<string> => {
     if (Session.Runtime.isMainWindow()) {
       // PostHog takes only a UUIDv7, since it reads the start of the session from it.
@@ -63,15 +72,13 @@ const storeSession = (store: Session.Store): SharedSession => {
     const id = current();
     if (id != null) return id;
     return await new Promise((resolve) => {
-      const unsubscribe = store.subscribe(() => {
-        const next = current();
-        if (next == null) return;
+      const unsubscribe = subscribe((next) => {
         unsubscribe();
         resolve(next);
       });
     });
   };
-  return { join, current, share };
+  return { join, current, share, subscribe };
 };
 
 /**
