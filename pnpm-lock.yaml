@@ -507,6 +507,12 @@ catalogs:
     postcss-html:
       specifier: ^1.8.1
       version: 1.8.1
+    postcss-selector-parser:
+      specifier: ^7.1.6
+      version: 7.1.6
+    postcss-value-parser:
+      specifier: ^4.2.0
+      version: 4.2.0
     posthog-js:
       specifier: 1.438.12
       version: 1.438.12
@@ -808,9 +814,18 @@ importers:
 
   configs/stylelint:
     dependencies:
+      postcss:
+        specifier: 'catalog:'
+        version: 8.5.30
       postcss-html:
         specifier: 'catalog:'
         version: 1.8.1
+      postcss-selector-parser:
+        specifier: 'catalog:'
+        version: 7.1.6
+      postcss-value-parser:
+        specifier: 'catalog:'
+        version: 4.2.0
       stylelint-config-standard:
         specifier: 'catalog:'
         version: 40.0.0(stylelint@17.16.0(supports-color@10.2.2)(typescript@7.0.2))
@@ -821,6 +836,12 @@ importers:
       '@synnaxlabs/tsconfig':
         specifier: 'catalog:'
         version: link:../ts
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(vitest@5.0.5)
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)(supports-color@10.2.2)
@@ -830,6 +851,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@24.19.2)(@vitest/coverage-v8@5.0.5)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   configs/ts:
     devDependencies:
