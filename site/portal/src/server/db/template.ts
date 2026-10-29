@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { PGlite } from "@electric-sql/pglite";
@@ -18,7 +16,7 @@ import { type TestProject } from "vitest/node";
 
 declare module "vitest" {
   export interface ProvidedContext {
-    /** dbTemplate is the path of a Postgres data directory dump, fully migrated. */
+    /** dbTemplate is a gzipped, base64 dump of a fully migrated Postgres. */
     dbTemplate: string;
   }
 }
@@ -29,14 +27,16 @@ const MIGRATIONS = path.resolve(import.meta.dirname, "../../../drizzle");
  * setup is a Vitest global setup. It migrates one Postgres and dumps it, so each spec
  * file loads the dump instead of running initdb and the migrations again.
  */
-export const setup = async (project: TestProject): Promise<() => Promise<void>> => {
-  const dir = await mkdtemp(path.join(tmpdir(), "portal-db-"));
-  const file = path.join(dir, "template.tar");
+export const setup = async (project: TestProject): Promise<void> => {
   const pg = new PGlite();
-  await migrate(drizzle(pg), { migrationsFolder: MIGRATIONS });
-  const dump = await pg.dumpDataDir("none");
-  await writeFile(file, new Uint8Array(await dump.arrayBuffer()));
-  await pg.close();
-  project.provide("dbTemplate", file);
-  return async () => await rm(dir, { recursive: true, force: true });
+  try {
+    await migrate(drizzle(pg), { migrationsFolder: MIGRATIONS });
+    const dump = await pg.dumpDataDir("gzip");
+    project.provide(
+      "dbTemplate",
+      Buffer.from(await dump.arrayBuffer()).toString("base64"),
+    );
+  } finally {
+    await pg.close();
+  }
 };

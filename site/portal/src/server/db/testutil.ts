@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { readFile } from "node:fs/promises";
-
 import { PGlite } from "@electric-sql/pglite";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
@@ -25,7 +23,7 @@ export interface Memory extends Store {
 
 /** openMemory opens an in-process Postgres with the portal's migrations applied. */
 export const openMemory = async (): Promise<Memory> => {
-  const dump = new Blob([await readFile(inject("dbTemplate"))]);
+  const dump = new Blob([Buffer.from(inject("dbTemplate"), "base64")]);
   const db = drizzle(new PGlite({ loadDataDir: dump }), { schema });
   return {
     query: db,
