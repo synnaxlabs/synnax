@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_python//python:py_binary.bzl", "py_binary")
 load("@rules_python//python:py_library.bzl", "py_library")
 load(":codegen.bzl", "generate")
@@ -65,6 +66,11 @@ py_library(
 py_binary(
     name = "configure",
     srcs = ["configure.py"],
+)
+
+py_binary(
+    name = "patch",
+    srcs = ["patch.py"],
 )
 
 py_binary(
@@ -197,10 +203,24 @@ generate(
     tool = ":nodeset_compiler",
 )
 
+generate(
+    name = "client_connect",
+    srcs = ["open62541/src/client/ua_client_connect.c"],
+    outs = ["src_patched/ua_client_connect.c"],
+    arguments = [
+        "$(execpath open62541/src/client/ua_client_connect.c)",
+        "{out}",
+    ],
+    stem = "ua_client_connect.c",
+    tool = ":patch",
+)
+
+# src/client resolves the includes of the patched copy of ua_client_connect.c.
 PRIVATE_INCLUDES = [
     "deps",
     "plugins",
     "src",
+    "src/client",
     "src/pubsub",
 ]
 
@@ -235,6 +255,8 @@ cc_library(
             # UA_ENABLE_DISCOVERY_MULTICAST
             "open62541/src/server/ua_discovery_mdns.c",
             "open62541/src/server/ua_discovery_mdns_avahi.c",
+            # Patched by patch.py
+            "open62541/src/client/ua_client_connect.c",
         ],
     ) + [
         GENERATED + "namespace0_generated.c",
@@ -243,6 +265,7 @@ cc_library(
         GENERATED + "transport_generated.c",
         GENERATED + "transport_generated.h",
         GENERATED + "types_generated.c",
+        "src_patched/ua_client_connect.c",
     ] + select({
         "@platforms//os:windows": [],
         "//conditions:default": ["open62541/plugins/ua_log_syslog.c"],
@@ -293,4 +316,13 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = ["@mbedtls"],
+)
+
+cc_test(
+    name = "patch_test",
+    srcs = ["patch_test.cpp"],
+    deps = [
+        ":open62541",
+        "@googletest//:gtest_main",
+    ],
 )
