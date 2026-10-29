@@ -158,9 +158,12 @@ func (s *Service) Dispatch(
 			ChangeErr(func(_ gorp.Context, l Log) (Log, error) {
 				reduced, err := Reduce(l, acts...)
 				if err != nil {
-					return reduced, err
+					return Log{}, err
 				}
-				return reduced, reduced.Validate()
+				if err = reduced.Validate(); err != nil {
+					return Log{}, err
+				}
+				return reduced, nil
 			}).Exec(ctx, tx)
 	})
 }

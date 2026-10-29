@@ -163,12 +163,15 @@ func (s *Service) Dispatch(
 			ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
 				reduced, err := Reduce(t, acts...)
 				if err != nil {
-					return reduced, err
+					return Table{}, err
 				}
 				if err = reduced.Validate(); err != nil {
-					return reduced, err
+					return Table{}, err
 				}
-				return reduced, validateUniqueKeys(reduced)
+				if err = validateUniqueKeys(reduced); err != nil {
+					return Table{}, err
+				}
+				return reduced, nil
 			}).Exec(ctx, tx)
 	})
 }

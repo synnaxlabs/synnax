@@ -162,9 +162,12 @@ func (s *Service) Dispatch(
 			ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
 				reduced, err := Reduce(p, acts...)
 				if err != nil {
-					return reduced, err
+					return LinePlot{}, err
 				}
-				return reduced, reduced.Validate()
+				if err = reduced.Validate(); err != nil {
+					return LinePlot{}, err
+				}
+				return reduced, nil
 			}).Exec(ctx, tx)
 	})
 }

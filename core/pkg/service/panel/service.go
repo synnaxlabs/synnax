@@ -137,12 +137,15 @@ func (s *Service) Dispatch(
 			ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
 				reduced, err := Reduce(p, acts...)
 				if err != nil {
-					return reduced, err
+					return Panel{}, err
 				}
 				if err = validateTree(reduced.Root); err != nil {
-					return reduced, err
+					return Panel{}, err
 				}
-				return reduced, reduced.Validate()
+				if err = reduced.Validate(); err != nil {
+					return Panel{}, err
+				}
+				return reduced, nil
 			}).Exec(ctx, tx)
 	})
 }
