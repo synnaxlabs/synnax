@@ -36,6 +36,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Label *label.Service
+	// Ontology tells whether a status still exists.
+	//
+	// [REQUIRED]
+	Ontology *ontology.Ontology
 	// RBAC enforces access control on every request.
 	//
 	// [REQUIRED]
@@ -52,6 +56,7 @@ var (
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -61,6 +66,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.status")
 	v.NotNil("status", c.Status)
 	v.NotNil("label", c.Label)
+	v.NotNil("ontology", c.Ontology)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -69,6 +75,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *status.Service
 	label    *label.Service
+	ontology *ontology.Ontology
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -79,6 +86,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{
 		internal: cfg.Status,
 		label:    cfg.Label,
+		ontology: cfg.Ontology,
 		access:   cfg.RBAC,
 	}, nil
 }
@@ -248,9 +256,18 @@ func (s *Service) Retrieve(
 		kept := res.Statuses[:0]
 		for _, stat := range res.Statuses {
 			labels, err := s.label.RetrieveFor(ctx, stat.OntologyID(), nil)
-			// A status deleted after the read above is missing, like any other.
+			// A status deleted after the read above is missing, like any other. A
+			// missing label is still an error.
 			if req.IgnoreNotFoundError && errors.Is(err, query.ErrNotFound) {
-				continue
+				exists, existsErr := s.ontology.NewRetrieve().
+					WhereIDs(stat.OntologyID()).
+					Exists(ctx, nil)
+				if existsErr != nil {
+					return RetrieveResponse{}, existsErr
+				}
+				if !exists {
+					continue
+				}
 			}
 			if err != nil {
 				return RetrieveResponse{}, err
