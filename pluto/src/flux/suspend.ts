@@ -124,12 +124,10 @@ const holdGeneration = <Data>(local: LocalCache<Data>, hash: string): (() => voi
   };
 };
 
-/** Returns the query's generation, which {@link invalidate} advances. */
-export const generationOf = <Data>(local: LocalCache<Data>, hash: string): number =>
+const generationOf = <Data>(local: LocalCache<Data>, hash: string): number =>
   local.generations.get(hash) ?? 0;
 
-/** Tells the query's readers to re-read the domain cache and the settled entry. */
-export const notifyReaders = <Data>(local: LocalCache<Data>, hash: string): void =>
+const notifyReaders = <Data>(local: LocalCache<Data>, hash: string): void =>
   local.listeners.get(hash)?.forEach((l) => l());
 
 export const localFor = <Data>(
@@ -161,13 +159,9 @@ export const localFor = <Data>(
   return existing;
 };
 
-export interface FetchErrorParams<Data> {
+export interface FetchErrorParams {
   cause: unknown;
   error: Error;
-  hash: string;
-  local: LocalCache<Data>;
-  /** The query's generation when the fetch started. */
-  generation: number;
 }
 
 export interface EnsureFetchParams<
@@ -183,11 +177,11 @@ export interface EnsureFetchParams<
   getCached?: (params: RetrieveParams<Query>) => query.Cached<Data> | undefined;
   /**
    * Offers a failed fetch a second chance, returning a promise that supersedes
-   * the failure or null to settle it.
+   * the failure or null to settle it. The fetch settles the promise's answer.
    */
   onFetchError?: (
     params: RetrieveParams<Query>,
-    errorParams: FetchErrorParams<Data>,
+    errorParams: FetchErrorParams,
   ) => Promise<Data> | null;
   local: LocalCache<Data>;
 }
@@ -217,36 +211,33 @@ export const ensureFetch = <Query extends query.Params, Data extends query.Data>
     const epoch = local.epoch;
     const generation = generationOf(local, hash);
     const release = holdGeneration(local, hash);
-    promise = retrieve(params).then(
-      async (data) => {
-        if (generationOf(local, hash) !== generation) return await follow();
-        // An answer the domain cache serves is read from there; one that never
-        // reaches it is kept locally instead.
-        if (getCached?.(params) === undefined) setSettled(local, hash, { data });
-        else notifyReaders(local, hash);
-        local.inFlight.delete(hash);
-        return data;
-      },
-      async (cause: unknown) => {
-        const error = new Error(`Failed to retrieve ${name}`, { cause });
-        if (generationOf(local, hash) !== generation) return await follow();
-        const retried = onFetchError?.(params, {
-          cause,
-          error,
-          hash,
-          local,
-          generation,
-        });
-        if (retried != null) return await retried;
-        // A failed fetch writes nothing getCached can serve, so the error must
-        // settle locally or the next render refetches forever. A later cache
-        // hit short-circuits before this entry is read. A reconnect that
-        // landed mid-fetch discards the failure instead.
-        if (local.epoch === epoch) setSettled(local, hash, { error });
-        local.inFlight.delete(hash);
-        throw error;
-      },
-    );
+    const current = (): boolean => generationOf(local, hash) === generation;
+    const land = async (data: Data): Promise<Data> => {
+      if (!current()) return await follow();
+      // An answer the domain cache serves is read from there; one that never
+      // reaches it is kept locally instead.
+      if (getCached?.(params) === undefined) setSettled(local, hash, { data });
+      else notifyReaders(local, hash);
+      local.inFlight.delete(hash);
+      return data;
+    };
+    const fail = async (error: Error): Promise<Data> => {
+      if (!current()) return await follow();
+      // A failed fetch writes nothing getCached can serve, so the error must
+      // settle locally or the next render refetches forever. A later cache
+      // hit short-circuits before this entry is read. A reconnect that
+      // landed mid-fetch discards the failure instead.
+      if (local.epoch === epoch) setSettled(local, hash, { error });
+      local.inFlight.delete(hash);
+      throw error;
+    };
+    promise = retrieve(params).then(land, async (cause: unknown) => {
+      const error = new Error(`Failed to retrieve ${name}`, { cause });
+      if (!current()) return await follow();
+      const retried = onFetchError?.(params, { cause, error });
+      if (retried == null) return await fail(error);
+      return await retried.then(land, fail);
+    });
     promise = promise.finally(release);
     local.inFlight.set(hash, promise);
   }
