@@ -221,7 +221,7 @@ var _ = Describe("Inheritance", func() {
 					port string = ""
 				}
 			`, "Solo")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeFalse())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeFalse())
 		})
 
 		It("Should be true for a plain extension", func(ctx SpecContext) {
@@ -236,7 +236,7 @@ var _ = Describe("Inheritance", func() {
 					range float64 = 10
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeTrue())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
 		})
 
 		It("Should stay true when a field restates only a default", func(
@@ -253,7 +253,7 @@ var _ = Describe("Inheritance", func() {
 					port string = "AIN0"
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeTrue())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
 		})
 
 		It("Should be false when a field restates an inherited type", func(
@@ -270,7 +270,7 @@ var _ = Describe("Inheritance", func() {
 					port int32 = 4
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeFalse())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeFalse())
 		})
 
 		It("Should be true when the parents are disjoint", func(
@@ -291,7 +291,93 @@ var _ = Describe("Inheritance", func() {
 					range float64 = 10
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeTrue())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
+		})
+
+		It("Should be false when a parent is omitted in the language", func(
+			ctx SpecContext,
+		) {
+			form, table := analyze(ctx, `
+				@go output "pkg/test"
+				@ts output "ts/test"
+
+				Base struct {
+					port string = ""
+					@ts omit
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+				}
+			`, "Child")
+			Expect(resolver.CanUseInheritance(form, "ts", table)).To(BeFalse())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
+		})
+	})
+
+	Describe("ParentsExist", func() {
+		It("Should be true when every parent has an output", func(ctx SpecContext) {
+			form, table := analyze(ctx, `
+				@ts output "ts/test"
+
+				Base struct {
+					port string = ""
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+				}
+			`, "Child")
+			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeTrue())
+		})
+
+		It("Should be true for a hand-written parent", func(ctx SpecContext) {
+			form, table := analyze(ctx, `
+				@ts output "ts/test"
+
+				Base struct {
+					port string = ""
+					@ts hand
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+				}
+			`, "Child")
+			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeTrue())
+		})
+
+		It("Should be false when a parent omits the language", func(ctx SpecContext) {
+			form, table := analyze(ctx, `
+				@ts output "ts/test"
+
+				Base struct {
+					port string = ""
+					@ts omit
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+				}
+			`, "Child")
+			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeFalse())
+		})
+
+		It("Should be false when a parent has no output in the language", func(
+			ctx SpecContext,
+		) {
+			form, table := analyze(ctx, `
+				Base struct {
+					port string = ""
+					@go output "pkg/test"
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+					@ts output "ts/test"
+				}
+			`, "Child")
+			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeFalse())
 		})
 	})
 

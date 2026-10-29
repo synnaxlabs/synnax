@@ -13,6 +13,7 @@ import (
 	"slices"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -104,14 +105,36 @@ func sameTypeRef(a, b resolution.TypeRef) bool {
 	return true
 }
 
-// CanUseInheritance checks if a struct can use language inheritance/embedding.
+// ParentsExist reports whether every type in extends exists in lang. A struct that
+// extends a type absent from its language cannot inherit from it, so it declares the
+// inherited fields itself.
+func ParentsExist(
+	extends []resolution.TypeRef,
+	lang string,
+	table *resolution.Table,
+) bool {
+	return !slices.ContainsFunc(extends, func(ref resolution.TypeRef) bool {
+		parent, ok := ref.Resolve(table)
+		return ok && omit.IsAbsent(parent, lang)
+	})
+}
+
+// CanUseInheritance checks if a struct can use language inheritance/embedding in lang.
 // Returns false if:
 // - There are no parent types (Extends is empty)
+// - A parent does not exist in lang
 // - There are omitted fields (can't omit fields with inheritance)
 // - A field removes an inherited domain (must flatten to drop it)
 // - A field restates an inherited field's type or optionality
-func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
+func CanUseInheritance(
+	form resolution.StructForm,
+	lang string,
+	table *resolution.Table,
+) bool {
 	if len(form.Extends) == 0 {
+		return false
+	}
+	if !ParentsExist(form.Extends, lang, table) {
 		return false
 	}
 	if len(form.OmittedFields) > 0 {
