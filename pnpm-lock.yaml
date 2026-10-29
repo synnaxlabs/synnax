@@ -513,6 +513,9 @@ catalogs:
     postcss-selector-parser:
       specifier: ^7.1.6
       version: 7.1.6
+    postcss-value-parser:
+      specifier: ^4.2.0
+      version: 4.2.0
     posthog-js:
       specifier: 1.438.12
       version: 1.438.12
@@ -826,6 +829,9 @@ importers:
       postcss-selector-parser:
         specifier: 'catalog:'
         version: 7.1.6
+      postcss-value-parser:
+        specifier: 'catalog:'
+        version: 4.2.0
       stylelint-config-standard:
         specifier: 'catalog:'
         version: 40.0.0(stylelint@17.16.0(supports-color@10.2.2)(typescript@7.0.2))
