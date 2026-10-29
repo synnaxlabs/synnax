@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <condition_variable>
+#include <functional>
 #include <future>
+#include <unordered_map>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
@@ -383,6 +386,35 @@ protected:
         streamer.close_send();
         reader.join();
         ASSERT_FALSE(received);
+    }
+
+    /// @brief reads the statuses that a Driver on this rack stamped at or after since,
+    /// keyed by task, until done returns true for them.
+    std::unordered_map<synnax::task::Key, synnax::task::Status> read_statuses_since(
+        const x::telem::TimeStamp since,
+        const std::function<
+            bool(const std::unordered_map<synnax::task::Key, synnax::task::Status> &)>
+            &done
+    ) {
+        std::unordered_map<synnax::task::Key, synnax::task::Status> statuses;
+        x::testutil::eventually(
+            [&] {
+                auto [frame, err] = streamer.read();
+                if (err) return false;
+                for (const auto &j: frame.series->at(0).json_values()) {
+                    auto parser = x::json::Parser(j);
+                    auto s = synnax::task::Status::parse(parser);
+                    if (s.details.rack == rack.key && s.time >= since)
+                        statuses[s.details.task] = s;
+                }
+                return done(statuses);
+            },
+            [] { return "Timed out waiting for task statuses"; },
+            __FILE__,
+            __LINE__,
+            std::chrono::seconds(5)
+        );
+        return statuses;
     }
 
     void TearDown() override {
@@ -1461,5 +1493,171 @@ TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
     ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
 
     ASSERT_NIL(writer.close());
+}
+
+using SynnaxContextTest = TaskManagerTest;
+
+/// @brief a status set transport that holds each write of one status key until
+/// released, and echoes every write.
+class HoldingSetClient final : public synnax::status::SetClient {
+    const std::string held_key;
+    std::mutex mu;
+    std::condition_variable cv;
+    bool released = false;
+
+public:
+    std::atomic<bool> holding = false;
+
+    explicit HoldingSetClient(std::string held_key): held_key(std::move(held_key)) {}
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::status::SetResponse, x::errors::Error>
+    send(const std::string &, grpc::status::SetRequest &req) override {
+        if (req.statuses(0).key() == this->held_key) {
+            std::unique_lock lock{this->mu};
+            this->holding = true;
+            this->cv.wait(lock, [this] { return this->released; });
+        }
+        grpc::status::SetResponse res;
+        *res.mutable_statuses() = req.statuses();
+        return {res, x::errors::NIL};
+    }
+
+    void release() {
+        {
+            std::lock_guard lock{this->mu};
+            this->released = true;
+        }
+        this->cv.notify_all();
+    }
+};
+
+/// @brief it should write the status of a task while the write of another task's
+/// status hangs.
+TEST_F(SynnaxContextTest, WriteDoesNotWaitOnAnotherTask) {
+    const auto held = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
+    const auto free = synnax::task::Task{.key = x::uuid::create(), .name = "free"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::status_key(held)
+    );
+    const auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    sy->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<SynnaxContext>(sy, nullptr, nullptr, rack.key);
+    synnax::task::Status held_status{
+        .key = synnax::task::status_key(held),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .details = {.task = held.key},
+    };
+    std::thread hung([&] { ctx->set_status(held_status); });
+    ASSERT_EVENTUALLY_TRUE(transport->holding.load());
+    synnax::task::Status free_status{
+        .key = synnax::task::status_key(free),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .details = {.task = free.key},
+    };
+    auto written = std::async(std::launch::async, [&] {
+        ctx->set_status(free_status);
+    });
+    const auto status = written.wait_for(std::chrono::seconds(2));
+    transport->release();
+    hung.join();
+    written.wait();
+    ASSERT_EQ(status, std::future_status::ready);
+}
+
+/// @brief it should send the latest status of each task again, with no command key.
+TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
+    const auto
+        ctx = std::make_shared<SynnaxContext>(client, nullptr, nullptr, rack.key);
+    auto running = synnax::task::Task{
+        .rack = rack.key,
+        .name = "running",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto failed = synnax::task::Task{
+        .rack = rack.key,
+        .name = "failed",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(running));
+    ASSERT_NIL(rack.tasks.create(failed));
+    synnax::task::Status configured{
+        .key = synnax::task::status_key(running),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .details = {.task = running.key},
+    };
+    ctx->set_status(configured);
+    synnax::task::Status started{
+        .key = synnax::task::status_key(running),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task started",
+        .details = {.task = running.key, .running = true, .cmd = "start-cmd"},
+    };
+    ctx->set_status(started);
+    synnax::task::Status error{
+        .key = synnax::task::status_key(failed),
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Failed to start task",
+        .details = {.task = failed.key, .cmd = "start-cmd"},
+    };
+    ctx->set_status(error);
+
+    const auto since = x::telem::TimeStamp::now();
+    ctx->resend_statuses();
+    auto statuses = read_statuses_since(since, [](const auto &s) {
+        return s.size() == 2;
+    });
+    const auto &resent_running = statuses.at(running.key);
+    EXPECT_EQ(resent_running.message, "Task started");
+    EXPECT_TRUE(resent_running.details.running);
+    EXPECT_EQ(resent_running.details.cmd, NO_COMMAND);
+    const auto &resent_failed = statuses.at(failed.key);
+    EXPECT_EQ(resent_failed.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(resent_failed.message, "Failed to start task");
+    EXPECT_EQ(resent_failed.details.cmd, NO_COMMAND);
+}
+
+/// @brief it should not send the status of a deleted task again.
+TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto kept = synnax::task::Task{
+        .rack = rack.key,
+        .name = "kept",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto deleted = synnax::task::Task{
+        .rack = rack.key,
+        .name = "deleted",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(kept));
+    ASSERT_NIL(rack.tasks.create(deleted));
+    const auto is_running = [](const synnax::task::Status &s) {
+        return s.details.running;
+    };
+    send_start(client, kept);
+    WAIT_FOR_TASK_STATUS(streamer, kept, is_running);
+    send_start(client, deleted);
+    WAIT_FOR_TASK_STATUS(streamer, deleted, is_running);
+
+    ASSERT_NIL(rack.tasks.del(deleted.key));
+    WAIT_FOR_TASK_STATUS(streamer, deleted, [](const synnax::task::Status &s) {
+        return s.message == "stopped";
+    });
+    // The worker drops the status after the instance stops and is destroyed.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    const auto since = x::telem::TimeStamp::now();
+    f->captured_ctx->resend_statuses();
+    const auto statuses = read_statuses_since(since, [&](const auto &s) {
+        return s.contains(kept.key);
+    });
+    EXPECT_TRUE(statuses.at(kept.key).details.running);
+    EXPECT_FALSE(statuses.contains(deleted.key));
+    expect_no_driver_status(deleted, true);
 }
 }

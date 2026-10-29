@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -16,6 +18,23 @@
 #include "driver/rack/status/status.h"
 
 namespace driver::rack::status {
+/// @brief a status set transport that fails its first request and echoes the statuses
+/// of every later one.
+class FailOnceSetClient final : public synnax::status::SetClient {
+public:
+    std::atomic<int> requests = 0;
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::status::SetResponse, x::errors::Error>
+    send(const std::string &, grpc::status::SetRequest &req) override {
+        if (this->requests++ == 0) return {{}, freighter::UNREACHABLE};
+        grpc::status::SetResponse res;
+        *res.mutable_statuses() = req.statuses();
+        return {res, x::errors::NIL};
+    }
+};
+
 /// @brief it should report nominal driver status via state streamer.
 TEST(stateTests, Nominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -154,5 +173,27 @@ TEST(stateTests, TaskRunningTransitions) {
     }
     EXPECT_TRUE(stopped);
     ASSERT_NIL(streamer.close());
+}
+
+/// @brief it should send task statuses again on the first heartbeat that succeeds
+/// after a failed one, and not on the heartbeats after it.
+TEST(stateTests, ResendsTaskStatusesAfterFailedHeartbeat) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto set_client = std::make_shared<FailOnceSetClient>();
+    client->statuses = synnax::status::Client(nullptr, set_client, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::MockContext>(client);
+    Task hb(
+        synnax::rack::Rack{.key = 1, .name = "test_rack"},
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        set_client->requests.load(),
+        4,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(ctx->resends.load(), 1);
 }
 }
