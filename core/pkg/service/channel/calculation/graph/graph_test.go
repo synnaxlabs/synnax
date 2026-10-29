@@ -1539,6 +1539,61 @@ var _ = Describe("Graph", func() {
 		)
 	})
 
+	Describe("AcceptDefinition", func() {
+		It("Should keep a status the runtime reported", func(ctx SpecContext) {
+			g := openGraph(ctx)
+			createDep(ctx, "rt_accept_keep_dep")
+			calc := channel.Channel{
+				Name: "rt_accept_keep", DataType: telem.Int64T, Virtual: true,
+				Expression: "return rt_accept_keep_dep + 1",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+				Name:    "rt_accept_keep",
+				Variant: status.VariantError,
+				Message: "Failed to run calculation",
+				Time:    telem.Now(),
+			})).To(Succeed())
+
+			Expect(g.AcceptDefinition(ctx, calc.Key())).To(Succeed())
+
+			Expect(expectStatus(ctx, calc.Key()).Message).
+				To(Equal("Failed to run calculation"))
+		})
+
+		It(
+			"Should remove a rejection and resume runtime reports",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_accept_dep")
+				calc := channel.Channel{
+					Name: "rt_accept", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_accept_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(g.RejectDefinition(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_accept",
+					Variant: status.VariantError,
+					Message: "Failed to compile calculation",
+					Time:    telem.Now(),
+				})).To(Succeed())
+
+				Expect(g.AcceptDefinition(ctx, calc.Key())).To(Succeed())
+				_, ok := fetchStatus(ctx, calc.Key())
+				Expect(ok).To(BeFalse())
+
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_accept",
+					Variant: status.VariantError,
+					Message: "Failed to run calculation",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				Expect(expectStatus(ctx, calc.Key()).Message).
+					To(Equal("Failed to run calculation"))
+			},
+		)
+	})
+
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			Expect(MustOpen(graph.Open(ctx, graph.Config{
