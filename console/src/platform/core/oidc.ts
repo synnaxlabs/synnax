@@ -105,7 +105,7 @@ export const loginDesktop = async (
   await Runtime.openExternal(authorizeURL({ login, redirectUri, challenge, state }));
   const query = await invoke<string>("oidc_wait", { state });
   const code = parseCallback(query, state);
-  const { token } = await auth.createSession(core, {
+  const { token } = await auth.createSession(auth.createTokenlessClient(core), {
     method: "oidc",
     provider: login.provider,
     code,

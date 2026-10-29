@@ -60,25 +60,32 @@ const DEFAULT_ACCEPTED: Accepted = { password: true, oidc: false, providers: [] 
 
 // An unreachable Core, or one older than the methods endpoint, keeps the password
 // form: the connection status reports the first, and the second accepts passwords.
-const useAccepted = (core?: auth.MethodsParams): Accepted => {
+const useAccepted = (core?: auth.TokenlessParams): Accepted => {
+  const host = core?.host;
+  const port = core?.port;
+  const secure = core?.secure;
+  const tokenless =
+    host == null || port == null
+      ? null
+      : auth.createTokenlessClient({ host, port, secure });
   const [accepted, setAccepted] = useState<Accepted>(DEFAULT_ACCEPTED);
   const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async (signal) => {
       setAccepted(DEFAULT_ACCEPTED);
-      if (core == null) return;
-      const methods = await auth.retrieveMethods(core).catch(() => null);
+      if (tokenless == null) return;
+      const methods = await auth.retrieveMethods(tokenless).catch(() => null);
       if (methods == null || signal.aborted) return;
       const oidc = methods.includes("oidc");
       const password = methods.includes("password");
       setAccepted({ password, oidc, providers: [] });
       if (!oidc) return;
       handleError(async () => {
-        const providers = await auth.retrieveProviders(core);
+        const providers = await auth.retrieveProviders(tokenless);
         if (!signal.aborted) setAccepted({ password, oidc, providers });
       }, "Failed to retrieve the login providers");
     },
-    [core?.host, core?.port, core?.secure],
+    [host, port, secure],
   );
   return accepted;
 };

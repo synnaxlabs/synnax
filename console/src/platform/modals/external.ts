@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/modals/factory";
+export { useLock } from "@/platform/modals/Modal";
 export * from "@/platform/modals/Stack";
 export * from "@/platform/modals/useConfirm";
 export * from "@/platform/modals/useConfirmDelete";
