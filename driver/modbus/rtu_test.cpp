@@ -183,8 +183,7 @@ TEST(RTU, WaitsFrameGapBetweenRequests) {
     );
 }
 
-/// @brief it should return an unreachable error when the serial port does not
-/// exist.
+/// @brief it should return an unreachable error when the serial port does not exist.
 TEST(RTU, MissingPortIsUnreachable) {
     device::Manager manager;
     auto dev = ASSERT_NIL_P(

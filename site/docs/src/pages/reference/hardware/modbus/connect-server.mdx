@@ -53,8 +53,8 @@ port, or on the same serial port, share one connection, and their requests take 
 4. For TCP, enter the IP address or hostname of the server in **Host**, such as
    `192.168.1.20`, and its port in **Port**. The default port is `502`.
 5. For serial, enter the port in **Serial port**, such as `/dev/ttyUSB0` on Linux or
-   `COM3` on Windows. Then select the **Baud rate**, **Parity**, **Data bits**, and
-   **Stop bits** of the device.
+   `COM3` on Windows. Then select the **Baud rate**, **Parity**, and **Stop bits** of
+   the device.
 6. In **Connect from**, select the Driver that connects to the server. If only one
    running Driver has Modbus enabled, the Console selects it for you.
 7. On the **Unit** tab, enter the **Unit ID**. Keep `255` for a TCP server you reach
@@ -140,7 +140,6 @@ connection: {
   serialPort: "/dev/ttyUSB0",
   baudRate: 9600,
   parity: "none",
-  dataBits: 8,
   stopBits: 1,
   unitId: 3,
   swapBytes: false,
@@ -170,7 +169,6 @@ register 0. See [device statuses](/reference/hardware/devices#statuses).
 | Serial port   | `serial_port`              |                       | RTU only. Such as `/dev/ttyUSB0` or `COM3`.                                |
 | Baud rate     | `baud_rate`                | `19200`               | RTU only.                                                                  |
 | Parity        | `parity`                   | `even`                | RTU only. `none`, `even`, or `odd`.                                        |
-| Data bits     | `data_bits`                | `8`                   | RTU only. `7` or `8`.                                                      |
 | Stop bits     | `stop_bits`                | `1`                   | RTU only. `1` or `2`.                                                      |
 | Connect from  | `rack`                     |                       | The Driver that connects to the server.                                    |
 | Unit ID       | `unit_id`                  | `255`, or `1` for RTU | The unit that requests go to: 0 to 255 for TCP, and 1 to 247 for RTU.      |
@@ -204,8 +202,9 @@ other units on the connection.
 
 All servers on one serial port must use the same line settings. When a task or a check
 uses a server whose settings differ from the settings in use on the port, it fails with
-an error that names both. Between two requests, the Driver waits for the silence of 3.5
-characters that Modbus RTU requires, or 1.75 ms above 19200 baud.
+an error that names both. The Driver always uses 8 data bits, as Modbus RTU requires.
+Between two requests, the Driver waits for the silence of 3.5 characters that Modbus RTU
+requires, or 1.75 ms above 19200 baud.
 
 On Linux, the user that runs the Driver needs access to the serial port. This usually
 means that the user is in the `dialout` group.
@@ -242,8 +241,8 @@ the `dialout` group.
 
 ### A serial device does not answer
 
-Check that the baud rate, parity, data bits, and stop bits match the device. On an
-RS-485 line, check that the A and B wires are not swapped.
+Check that the baud rate, parity, and stop bits match the device, and that the device
+uses 8 data bits. On an RS-485 line, check that the A and B wires are not swapped.
 
 For other problems, see
 [Troubleshoot hardware](/reference/hardware/troubleshooting#failed-to-reach-device-or-failed-to-reach-server).

@@ -105,6 +105,27 @@ describe("Modbus.Device.useConnectModal", () => {
     expect(screen.queryByPlaceholderText("localhost")).toBeNull();
   });
 
+  it("should reset the unit but keep the byte order on a new transport", async () => {
+    const dev = await createModbusDevice(client, {
+      properties: { connection: { unitId: 7, swapBytes: true, swapWords: false } },
+    });
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByDisplayValue(dev.name);
+    fireEvent.click(screen.getByText("Serial"));
+    expect(await screen.findByDisplayValue("1")).toBeTruthy();
+    expect(screen.getByText("Little-endian (DCBA)")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("localhost")).toBeNull();
+  });
+
+  it("should keep the unit ID of a serial device from 1 to 247", async () => {
+    await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
+    fireEvent.click(await screen.findByText("Serial"));
+    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("1"), "300");
+    expect(await screen.findByDisplayValue("247")).toBeTruthy();
+  });
+
   it("should save a serial device with the line settings entered", async () => {
     const rack = await createRunningRack(client, "modbus");
     const scan = await rack.createTask({
@@ -137,7 +158,6 @@ describe("Modbus.Device.useConnectModal", () => {
       serialPort: "/dev/ttyUSB1",
       baudRate: 9600,
       parity: "none",
-      dataBits: 8,
       stopBits: 1,
       swapBytes: false,
       swapWords: false,

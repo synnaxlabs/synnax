@@ -21,7 +21,7 @@ const WRITE_CODES = ["multiple", "single"] as const;
 export const writeCodesZ = z.enum(WRITE_CODES);
 export type WriteCodes = z.infer<typeof writeCodesZ>;
 
-export const TRANSPORTS = ["tcp", "rtu"] as const;
+const TRANSPORTS = ["tcp", "rtu"] as const;
 export const transportZ = z.enum(TRANSPORTS);
 export type Transport = z.infer<typeof transportZ>;
 
@@ -34,7 +34,6 @@ export const PARITIES = ["none", "even", "odd"] as const;
 export const parityZ = z.enum(PARITIES);
 export type Parity = z.infer<typeof parityZ>;
 
-export const DATA_BITS = [7, 8] as const;
 export const STOP_BITS = [1, 2] as const;
 
 const ZERO_COMMON_CONNECTION = {
@@ -58,7 +57,6 @@ const ZERO_RTU_CONNECTION = {
   serialPort: "",
   baudRate: 19200,
   parity: "even",
-  dataBits: 8,
   stopBits: 1,
   unitId: 1,
 } as const;
@@ -89,7 +87,6 @@ const rtuConnectionZ = commonConnectionZ.extend({
   serialPort: z.string().default(ZERO_RTU_CONNECTION.serialPort),
   baudRate: z.number().default(ZERO_RTU_CONNECTION.baudRate),
   parity: parityZ.default(ZERO_RTU_CONNECTION.parity),
-  dataBits: z.number().default(ZERO_RTU_CONNECTION.dataBits),
   stopBits: z.number().default(ZERO_RTU_CONNECTION.stopBits),
   unitId: z.number().default(ZERO_RTU_CONNECTION.unitId),
 });

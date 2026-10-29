@@ -630,7 +630,6 @@ TEST(ConnectionConfigTest, ParsesSerial) {
             {"serial_port", "/dev/ttyUSB0"},
             {"baud_rate", 9600},
             {"parity", "none"},
-            {"data_bits", 8},
             {"stop_bits", 2},
             {"swap_bytes", false},
             {"swap_words", false},
@@ -643,7 +642,6 @@ TEST(ConnectionConfigTest, ParsesSerial) {
     EXPECT_EQ(config.serial.port, "/dev/ttyUSB0");
     EXPECT_EQ(config.serial.baud_rate, 9600);
     EXPECT_EQ(config.serial.parity, 'N');
-    EXPECT_EQ(config.serial.data_bits, 8);
     EXPECT_EQ(config.serial.stop_bits, 2);
     EXPECT_EQ(config.unit_id, 17);
     EXPECT_EQ(config.endpoint(), "/dev/ttyUSB0");
@@ -652,9 +650,9 @@ TEST(ConnectionConfigTest, ParsesSerial) {
     EXPECT_EQ(j["serial_port"], "/dev/ttyUSB0");
     EXPECT_EQ(j["baud_rate"], 9600);
     EXPECT_EQ(j["parity"], "none");
-    EXPECT_EQ(j["data_bits"], 8);
     EXPECT_EQ(j["stop_bits"], 2);
     EXPECT_EQ(j["unit_id"], 17);
+    EXPECT_FALSE(j.contains("data_bits"));
     EXPECT_FALSE(j.contains("host"));
     EXPECT_FALSE(j.contains("port"));
 }
@@ -704,15 +702,47 @@ INSTANTIATE_TEST_SUITE_P(
         InvalidConnectionCase{"serial_port", "", "must not be empty"},
         InvalidConnectionCase{"baud_rate", 14400, "unsupported baud rate"},
         InvalidConnectionCase{"parity", "mark", "must be none, even, or odd"},
-        InvalidConnectionCase{"data_bits", 6, "must be 7 or 8"},
         InvalidConnectionCase{"stop_bits", 3, "must be 1 or 2"},
         InvalidConnectionCase{"unit_id", 0, "must be between 1 and 247"},
         InvalidConnectionCase{"unit_id", 248, "must be between 1 and 247"}
     )
 );
 
-/// @brief it should prefix a Windows COM port with the device namespace and leave
-/// every other path as it is.
+/// @brief it should reject an empty serial port when another field is also invalid.
+TEST(ConnectionConfigTest, RejectsEmptySerialPortWithOtherErrors) {
+    x::json::Parser parser(
+        x::json::json{
+            {"transport", "rtu"},
+            {"serial_port", ""},
+            {"swap_words", false},
+        }
+    );
+    const ConnectionConfig config(parser);
+    const auto errs = parser.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 2);
+    EXPECT_EQ(errs[0]["path"], "swap_bytes");
+    EXPECT_EQ(errs[1]["path"], "serial_port");
+    EXPECT_EQ(errs[1]["message"], "must not be empty");
+}
+
+/// @brief it should report a missing serial port once.
+TEST(ConnectionConfigTest, RejectsMissingSerialPortOnce) {
+    x::json::Parser parser(
+        x::json::json{
+            {"transport", "rtu"},
+            {"swap_bytes", false},
+            {"swap_words", false}
+        }
+    );
+    const ConnectionConfig config(parser);
+    const auto errs = parser.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "serial_port");
+    EXPECT_EQ(errs[0]["message"], "This field is required");
+}
+
+/// @brief it should prefix a Windows COM port with the device namespace and leave every
+/// other path as it is.
 TEST(SerialPathTest, PrefixesComPorts) {
     EXPECT_EQ(serial_path("COM3"), R"(\\.\COM3)");
     EXPECT_EQ(serial_path("com12"), R"(\\.\com12)");
@@ -723,8 +753,7 @@ TEST(SerialPathTest, PrefixesComPorts) {
     EXPECT_EQ(serial_path("/dev/ttyUSB0"), "/dev/ttyUSB0");
 }
 
-/// @brief it should wait 3.5 characters between frames, and 1.75 ms above 19200
-/// baud.
+/// @brief it should wait 3.5 characters between frames, and 1.75 ms above 19200 baud.
 TEST(SerialTest, FrameGap) {
     EXPECT_EQ(
         (Serial{.baud_rate = 9600, .parity = 'E'}).frame_gap(),
@@ -748,7 +777,7 @@ TEST(ManagerTest, RejectsMismatchedLineSettings) {
     const auto same_line = ASSERT_NIL_P(manager.acquire(second));
     second.serial.baud_rate = 9600;
     second.serial.parity = 'N';
-    const auto [mismatched, err] = manager.acquire(second);
+    const auto err = manager.acquire(second).second;
     ASSERT_OCCURRED_AS(err, CRITICAL_ERROR);
     EXPECT_EQ(
         err.data,

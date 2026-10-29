@@ -60,7 +60,6 @@ describe("Modbus.Device.SCHEMAS", () => {
       serialPort: "/dev/ttyUSB0",
       baudRate: 19200,
       parity: "even",
-      dataBits: 8,
       stopBits: 1,
       swapBytes: false,
       swapWords: false,

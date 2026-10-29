@@ -799,7 +799,6 @@ class TestModbusDevicePropertyUpdates:
             "serial_port": "/dev/ttyUSB0",
             "baud_rate": 19200,
             "parity": "even",
-            "data_bits": 8,
             "stop_bits": 1,
             "swap_bytes": False,
             "swap_words": False,
@@ -815,7 +814,6 @@ class TestModbusDevicePropertyUpdates:
             serial_port="COM3",
             baud_rate=9600,
             parity="none",
-            data_bits=8,
             stop_bits=2,
             unit_id=17,
         )
@@ -829,16 +827,16 @@ class TestModbusDevicePropertyUpdates:
     @pytest.mark.parametrize(
         ("kwargs", "message"),
         [
-            ({}, "a tcp device needs a host and a port"),
-            ({"host": "10.0.0.7"}, "a tcp device needs a host and a port"),
+            ({}, "a TCP device needs a host and a port"),
+            ({"host": "10.0.0.7"}, "a TCP device needs a host and a port"),
             (
                 {"host": "10.0.0.7", "port": 502, "serial_port": "COM3"},
-                "a tcp device has no serial port",
+                "a TCP device has no serial port",
             ),
-            ({"transport": "rtu"}, "an rtu device needs a serial port"),
+            ({"transport": "rtu"}, "an RTU device needs a serial port"),
             (
                 {"transport": "rtu", "serial_port": "COM3", "host": "10.0.0.7"},
-                "an rtu device has no host or port",
+                "an RTU device has no host or port",
             ),
         ],
     )

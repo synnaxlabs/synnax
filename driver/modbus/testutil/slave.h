@@ -62,8 +62,8 @@ struct SlaveConfig {
     std::set<int> silent_units;
     /// @brief units the slave answers with a gateway target exception (0B).
     std::set<int> gateway_failed_units;
-    /// @brief whether the slave serves Modbus RTU on a pseudo-terminal instead of
-    /// TCP. Not on Windows.
+    /// @brief whether the slave serves Modbus RTU on a pseudo-terminal instead of TCP.
+    /// Not on Windows.
     bool serial = false;
 };
 
@@ -90,8 +90,8 @@ class Slave {
     std::size_t connections_ = 0;
     /// @brief set to ask the server loop to close every client connection.
     std::atomic<bool> drop_requested_{false};
-    /// @brief the terminal side of the pseudo-terminal of a serial slave. Held open
-    /// so that the line outlives each client.
+    /// @brief the terminal side of the pseudo-terminal of a serial slave. Held open so
+    /// that the line outlives each client.
     int terminal_{-1};
     /// @brief the path a client opens to reach a serial slave.
     std::string serial_port_;
@@ -273,8 +273,8 @@ class Slave {
     }
 
     /// @brief serves RTU frames from the pseudo-terminal. libmodbus drops each RTU
-    /// request for a unit other than its own, so the loop splits frames itself to
-    /// serve every unit. A frame ends at the first 5 ms of silence.
+    /// request for a unit other than its own, so the loop splits frames itself to serve
+    /// every unit. A frame ends at the first 5 ms of silence.
     void serial_loop() {
 #ifndef _WIN32
         uint8_t frame[MODBUS_RTU_MAX_ADU_LENGTH];
@@ -395,8 +395,8 @@ public:
     /// @param config The slave configuration
     explicit Slave(const SlaveConfig &config):
         running_(false), ip_address_(config.host), port_(config.port), config_(config) {
-        // A serial slave reads and writes the pseudo-terminal it opens at start, so
-        // the device name and line settings of its context go unused.
+        // A serial slave reads and writes the pseudo-terminal it opens at start, so the
+        // device name and line settings of its context go unused.
         ctx_ = config.serial ? modbus_new_rtu("pty", 19200, 'E', 8, 1)
                              : modbus_new_tcp(ip_address_.c_str(), port_);
         if (ctx_ == nullptr) {
@@ -425,8 +425,7 @@ public:
             if (const auto err = this->open_terminal()) return err;
         } else {
             // Concurrent tests connect faster than the loop accepts. macOS drops the
-            // connects past the backlog, and libmodbus gives up before the
-            // retransmit.
+            // connects past the backlog, and libmodbus gives up before the retransmit.
             socket_ = modbus_tcp_listen(ctx_, SOMAXCONN);
             if (socket_ == -1) {
                 return x::errors::Error(

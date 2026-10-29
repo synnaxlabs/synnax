@@ -180,7 +180,6 @@ class Device(device.Device):
         RTU.
     :param baud_rate: The baud rate of the serial line.
     :param parity: The parity of the serial line.
-    :param data_bits: The data bits of each character on the serial line.
     :param stop_bits: The stop bits of each character on the serial line.
     :param swap_bytes: Whether register channels swap the byte order within each
         16-bit word. A channel's bytes_swapped overrides it.
@@ -215,7 +214,6 @@ class Device(device.Device):
         serial_port: str | None = None,
         baud_rate: int = 19200,
         parity: Literal["none", "even", "odd"] = "even",
-        data_bits: Literal[7, 8] = 8,
         stop_bits: Literal[1, 2] = 1,
         swap_bytes: bool = False,
         swap_words: bool = False,
@@ -237,22 +235,21 @@ class Device(device.Device):
         connection: dict[str, JsonValue] = {"transport": transport}
         if transport == "tcp":
             if host is None or port is None:
-                raise ValueError("a tcp device needs a host and a port")
+                raise ValueError("a TCP device needs a host and a port")
             if serial_port is not None:
-                raise ValueError("a tcp device has no serial port")
+                raise ValueError("a TCP device has no serial port")
             connection.update(host=host, port=port)
             if unit_id is None:
                 unit_id = 255
         else:
             if serial_port is None:
-                raise ValueError("an rtu device needs a serial port")
+                raise ValueError("an RTU device needs a serial port")
             if host is not None or port is not None:
-                raise ValueError("an rtu device has no host or port")
+                raise ValueError("an RTU device has no host or port")
             connection.update(
                 serial_port=serial_port,
                 baud_rate=baud_rate,
                 parity=parity,
-                data_bits=data_bits,
                 stop_bits=stop_bits,
             )
             if unit_id is None:

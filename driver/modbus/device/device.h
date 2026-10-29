@@ -121,8 +121,8 @@ enum class Transport {
     RTU,
 };
 
-/// @brief the baud rates libmodbus maps on POSIX. Linux opens any other rate at 9600
-/// without an error.
+/// @brief the baud rates libmodbus maps on Linux. On POSIX, libmodbus opens any other
+/// rate at 9600 without an error.
 const std::array<int, 23> BAUD_RATES = {
     110,     300,     600,     1200,    2400,    4800,    9600,    19200,
     38400,   57600,   115200,  230400,  460800,  500000,  576000,  921600,
@@ -131,12 +131,16 @@ const std::array<int, 23> BAUD_RATES = {
 
 /// @brief the line settings of a serial port.
 struct Serial {
+    /// @brief the data bits of each character. Modbus RTU requires 8.
+    static constexpr int DATA_BITS = 8;
+
     /// @brief the serial port, such as /dev/ttyUSB0 or COM3.
     std::string port;
+    /// @brief the bits per second on the line.
     std::uint32_t baud_rate = 19200;
     /// @brief 'N' for no parity, 'E' for even, or 'O' for odd.
     char parity = 'E';
-    std::uint8_t data_bits = 8;
+    /// @brief the stop bits of each character, 1 or 2.
     std::uint8_t stop_bits = 1;
 
     bool operator==(const Serial &) const = default;
@@ -150,7 +154,7 @@ struct Serial {
 
     /// @returns the line settings in their usual short form, such as "19200 8E1".
     [[nodiscard]] std::string line() const {
-        return std::to_string(this->baud_rate) + " " + std::to_string(this->data_bits) +
+        return std::to_string(this->baud_rate) + " " + std::to_string(DATA_BITS) +
                this->parity + std::to_string(this->stop_bits);
     }
 
@@ -158,7 +162,7 @@ struct Serial {
     /// above 19200 baud, as the Modbus serial line specification fixes it.
     [[nodiscard]] x::telem::TimeSpan frame_gap() const {
         if (this->baud_rate > 19200) return x::telem::MICROSECOND * 1750;
-        const auto bits = 1 + this->data_bits + (this->parity == 'N' ? 0 : 1) +
+        const auto bits = 1 + DATA_BITS + (this->parity == 'N' ? 0 : 1) +
                           this->stop_bits;
         return x::telem::TimeSpan(
             static_cast<std::int64_t>(3.5 * bits * 1e9 / this->baud_rate)
@@ -166,8 +170,8 @@ struct Serial {
     }
 };
 
-/// @returns the path libmodbus opens for a serial port. Windows opens COM10 and up
-/// only through the \\.\ device namespace, so every COM port gets that prefix.
+/// @returns the path libmodbus opens for a serial port. Windows opens COM10 and up only
+/// through the \\.\ device namespace, so every COM port gets that prefix.
 inline std::string serial_path(const std::string &port) {
     if (port.size() < 4 || port.size() > 6) return port;
     const auto upper = [&](const std::size_t i) {
@@ -181,6 +185,7 @@ inline std::string serial_path(const std::string &port) {
 
 /// @brief the link to a Modbus server and the unit a device addresses on it.
 struct ConnectionConfig {
+    /// @brief the link the device connects over.
     Transport transport = Transport::TCP;
     /// @brief the hostname, IPv4 address, or IPv6 address of a TCP server.
     std::string host;
@@ -269,13 +274,12 @@ struct ConnectionConfig {
         j["serial_port"] = serial.port;
         j["baud_rate"] = serial.baud_rate;
         j["parity"] = serial.parity_name();
-        j["data_bits"] = serial.data_bits;
         j["stop_bits"] = serial.stop_bits;
         return j;
     }
 
-    /// @returns the key of the link that devices on it share a connection to: the
-    /// host and port for TCP, or the serial port for RTU.
+    /// @returns the key of the link that devices on it share a connection to: the host
+    /// and port for TCP, or the serial port for RTU.
     [[nodiscard]] std::string endpoint() const {
         if (this->transport == Transport::RTU) return this->serial.port;
         return host + ":" + std::to_string(port);
@@ -284,7 +288,7 @@ struct ConnectionConfig {
 private:
     void parse_serial(x::json::Parser &parser) {
         this->serial.port = parser.field<std::string>("serial_port");
-        if (parser.ok() && this->serial.port.empty())
+        if (parser.has("serial_port") && this->serial.port.empty())
             parser.field_err("serial_port", "must not be empty");
         const auto baud_rate = parser.field<int>("baud_rate", 19200);
         if (std::ranges::find(BAUD_RATES, baud_rate) == BAUD_RATES.end())
@@ -298,11 +302,6 @@ private:
             this->serial.parity = 'O';
         else if (parity != "even")
             parser.field_err("parity", "must be none, even, or odd");
-        const auto data_bits = parser.field<int>("data_bits", 8);
-        if (data_bits != 7 && data_bits != 8)
-            parser.field_err("data_bits", "must be 7 or 8");
-        else
-            this->serial.data_bits = static_cast<std::uint8_t>(data_bits);
         const auto stop_bits = parser.field<int>("stop_bits", 1);
         if (stop_bits != 1 && stop_bits != 2)
             parser.field_err("stop_bits", "must be 1 or 2");
@@ -377,7 +376,7 @@ public:
     /// @brief the clock of request, reply, and demotion times.
     using Clock = std::chrono::steady_clock;
 
-    /// @brief the line settings of a serial connection. Empty for TCP.
+    /// @brief the line settings of a serial connection. Unused for TCP.
     const Serial serial;
 
 private:
@@ -403,8 +402,7 @@ private:
     bool busy = false;
     std::size_t waiting_writes = 0;
     std::unordered_map<std::uint8_t, Unit> units;
-    /// @brief whether the socket or port is open. Touched only while holding the
-    /// turn.
+    /// @brief whether the socket or port is open. Touched only while holding the turn.
     bool connected = false;
     /// @brief whether a late reply or the rest of a garbled frame can still arrive.
     /// Touched only while holding the turn.
@@ -529,10 +527,9 @@ public:
     Connection &operator=(const Connection &) = delete;
 
     /// @brief runs a request for a unit, connecting first if needed. A temporary fault
-    /// retries at once, up to cfg.retries times. After a timeout or a bad CRC, the
-    /// next request first discards any late bytes. Any other lost connection closes
-    /// the socket or port. A unit with DEMOTE_AFTER timed-out attempts in a row is
-    /// demoted.
+    /// retries at once, up to cfg.retries times. After a timeout or a bad CRC, the next
+    /// request first discards any late bytes. Any other lost connection closes the
+    /// socket or port. A unit with DEMOTE_AFTER timed-out attempts in a row is demoted.
     /// @param cfg the unit, timeout, and retries of the request.
     /// @param delay the wait after the previous request on the connection. A serial
     /// connection waits at least its frame gap.
@@ -697,7 +694,7 @@ class Manager {
                 serial_path(serial.port).c_str(),
                 static_cast<int>(serial.baud_rate),
                 serial.parity,
-                serial.data_bits,
+                Serial::DATA_BITS,
                 serial.stop_bits
             );
             if (ctx == nullptr) return nullptr;

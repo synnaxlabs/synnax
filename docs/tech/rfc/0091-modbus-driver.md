@@ -45,24 +45,26 @@ Ignition.
 The device properties get these optional fields. Each default keeps today's behavior,
 except the timeout. RFC 0081 moves them into `modbus.Server`. `connection` becomes a
 union on `transport`, and an existing device without the field is TCP. The serial
-defaults are the ones the Modbus serial line specification requires. Millisecond fields
-follow the HTTP device's `timeout_ms` (`driver/http/device/device.h:91`).
+defaults are the ones the Modbus serial line specification requires. Modbus RTU requires
+8 data bits, and only ASCII uses 7, so the line always opens with 8 and no field stores
+them. Millisecond fields follow the HTTP device's `timeout_ms`
+(`driver/http/device/device.h:91`).
 
-| Field                               | Default                | Meaning                                   |
-| ----------------------------------- | ---------------------- | ----------------------------------------- |
-| `connection.transport`              | `"tcp"`                | `"tcp"` or `"rtu"`                        |
-| `connection.host`, `port`           | none                   | TCP: hostname, IPv4, or IPv6 address      |
-| `connection.serial_port`            | none                   | RTU: `/dev/ttyUSB0`, `COM3`               |
-| `connection.baud_rate`, `parity`    | `19200`, `"even"`      | RTU line settings                         |
-| `connection.data_bits`, `stop_bits` | `8`, `1`               | RTU line settings                         |
-| `connection.unit_id`                | 255 for TCP, 1 for RTU | The unit the device addresses             |
-| `connection.timeout_ms`             | 1000                   | Connect and response timeout              |
-| `connection.retries`                | 1                      | Immediate retries after a temporary error |
-| `requests.max_registers`            | 125                    | Registers in one read                     |
-| `requests.max_gap`                  | 125                    | Widest gap between channels in a block    |
-| `requests.write_codes`              | `"multiple"`           | FC15/16, or `"single"` for FC05/06        |
-| `requests.mask_write_supported`     | `false`                | Bit writes use FC22                       |
-| `requests.delay_ms`                 | 0                      | Wait between requests, up to 5000 ms      |
+| Field                            | Default                | Meaning                                   |
+| -------------------------------- | ---------------------- | ----------------------------------------- |
+| `connection.transport`           | `"tcp"`                | `"tcp"` or `"rtu"`                        |
+| `connection.host`, `port`        | none                   | TCP: hostname, IPv4, or IPv6 address      |
+| `connection.serial_port`         | none                   | RTU: `/dev/ttyUSB0`, `COM3`               |
+| `connection.baud_rate`, `parity` | `19200`, `"even"`      | RTU line settings                         |
+| `connection.stop_bits`           | `1`                    | RTU line settings                         |
+| `connection.unit_id`             | 255 for TCP, 1 for RTU | The unit the device addresses             |
+| `connection.timeout_ms`          | 1000                   | Connect and response timeout              |
+| `connection.retries`             | 1                      | Immediate retries after a temporary error |
+| `requests.max_registers`         | 125                    | Registers in one read                     |
+| `requests.max_gap`               | 125                    | Widest gap between channels in a block    |
+| `requests.write_codes`           | `"multiple"`           | FC15/16, or `"single"` for FC05/06        |
+| `requests.mask_write_supported`  | `false`                | Bit writes use FC22                       |
+| `requests.delay_ms`              | 0                      | Wait between requests, up to 5000 ms      |
 
 Bit reads stay at the protocol limit of 2000 for each request.
 

@@ -25,7 +25,6 @@ import {
   type ByteOrder,
   byteOrderOf,
   type Connection,
-  DATA_BITS,
   type Device,
   INTEGRATION,
   PARITIES,
@@ -213,52 +212,9 @@ export const Connect = ({
                     padHelpText={false}
                     inputProps={SERIAL_PORT_INPUT_PROPS}
                   />
-                  <Form.Field<number>
-                    path="properties.connection.baudRate"
-                    label="Baud rate"
-                    padHelpText={false}
-                  >
-                    {(p) => (
-                      <SelectNumber
-                        {...p}
-                        values={BAUD_RATES}
-                        resourceName="baud rate"
-                      />
-                    )}
-                  </Form.Field>
-                  <Form.Field<Parity>
-                    path="properties.connection.parity"
-                    label="Parity"
-                    padHelpText={false}
-                  >
-                    {(p) => <SelectParity {...p} />}
-                  </Form.Field>
-                  <Form.Field<number>
-                    path="properties.connection.dataBits"
-                    label="Data bits"
-                    padHelpText={false}
-                  >
-                    {(p) => (
-                      <SelectNumber
-                        {...p}
-                        values={DATA_BITS}
-                        resourceName="data bits"
-                      />
-                    )}
-                  </Form.Field>
-                  <Form.Field<number>
-                    path="properties.connection.stopBits"
-                    label="Stop bits"
-                    padHelpText={false}
-                  >
-                    {(p) => (
-                      <SelectNumber
-                        {...p}
-                        values={STOP_BITS}
-                        resourceName="stop bits"
-                      />
-                    )}
-                  </Form.Field>
+                  <BaudRateField path="properties.connection.baudRate" />
+                  <ParityField path="properties.connection.parity" />
+                  <StopBitsField path="properties.connection.stopBits" />
                 </>
               )}
               <PlatformDevice.RackField integration={INTEGRATION} />
@@ -282,7 +238,7 @@ export const Connect = ({
                     path="properties.connection.unitId"
                     label="Unit ID"
                     padHelpText={false}
-                    inputProps={UNIT_ID_INPUT_PROPS}
+                    inputProps={UNIT_ID_INPUT_PROPS[transport]}
                   />
                   <ByteOrderField />
                 </Form.Section>
@@ -371,8 +327,8 @@ const SERIAL_PORT_INPUT_PROPS = {
 } as const;
 
 const UNIT_ID_INPUT_PROPS = {
-  bounds: { lower: 0, upper: 255 },
-  style: { width: "23rem" },
+  tcp: { bounds: { lower: 0, upper: 255 }, style: { width: "23rem" } },
+  rtu: { bounds: { lower: 1, upper: 247 }, style: { width: "23rem" } },
 } as const;
 
 const TIMEOUT_INPUT_PROPS = {
@@ -447,46 +403,49 @@ const SelectTransport = (props: Select.ButtonsProps<Transport>) => (
   </Select.Buttons>
 );
 
+const numberItems = (values: readonly number[]): ReactElement[] =>
+  values.map((v) => (
+    <Select.Item<number> key={v} itemKey={v}>
+      {v.toString()}
+    </Select.Item>
+  ));
+
+const BaudRateField = Form.buildSelectField<number>({
+  fieldProps: { label: "Baud rate", padHelpText: false },
+  inputProps: {
+    resourceName: "baud rate",
+    allowNone: false,
+    children: numberItems(BAUD_RATES),
+  },
+});
+
 const PARITY_NAMES: Record<Parity, string> = {
   none: "None",
   even: "Even",
   odd: "Odd",
 };
 
-const SelectParity = ({ value, onChange }: Input.Control<Parity>) => (
-  <Select.Simple<Parity>
-    value={value}
-    onChange={onChange}
-    allowNone={false}
-    resourceName="parity"
-  >
-    {PARITIES.map((parity) => (
+const ParityField = Form.buildSelectField<Parity>({
+  fieldProps: { label: "Parity", padHelpText: false },
+  inputProps: {
+    resourceName: "parity",
+    allowNone: false,
+    children: PARITIES.map((parity) => (
       <Select.Item<Parity> key={parity} itemKey={parity}>
         {PARITY_NAMES[parity]}
       </Select.Item>
-    ))}
-  </Select.Simple>
-);
+    )),
+  },
+});
 
-interface SelectNumberProps extends Input.Control<number> {
-  values: readonly number[];
-  resourceName: string;
-}
-
-const SelectNumber = ({ value, onChange, values, resourceName }: SelectNumberProps) => (
-  <Select.Simple<number>
-    value={value}
-    onChange={onChange}
-    allowNone={false}
-    resourceName={resourceName}
-  >
-    {values.map((v) => (
-      <Select.Item<number> key={v} itemKey={v}>
-        {v.toString()}
-      </Select.Item>
-    ))}
-  </Select.Simple>
-);
+const StopBitsField = Form.buildSelectField<number>({
+  fieldProps: { label: "Stop bits", padHelpText: false },
+  inputProps: {
+    resourceName: "stop bits",
+    allowNone: false,
+    children: numberItems(STOP_BITS),
+  },
+});
 
 const SelectWriteCodes = (props: Select.ButtonsProps<WriteCodes>) => (
   <Select.Buttons<WriteCodes> {...props}>
