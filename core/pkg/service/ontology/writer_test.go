@@ -144,6 +144,12 @@ var _ = Describe("Writer", func() {
 					Expect(res).To(HaveLen(1))
 				},
 			)
+			It("Should reject a deletion a policy refuses", func(ctx SpecContext) {
+				kept := newSampleType("kept")
+				Expect(w.DefineResources(ctx, kept)).To(Succeed())
+				Expect(w.DeleteResources(ctx, kept)).To(MatchError(errRejected))
+				Expect(otg.NewRetrieve().WhereIDs(kept).Exec(ctx, tx)).To(Succeed())
+			})
 			It("Should reject a name a policy refuses", func(ctx SpecContext) {
 				Expect(
 					w.ValidateName(ctx, idOne, "rejected"),

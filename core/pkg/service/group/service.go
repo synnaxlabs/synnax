@@ -181,6 +181,9 @@ func (w Writer) CreateWithKey(
 		return Group{}, err
 	}
 	id := g.OntologyID()
+	if err := w.otgWriter.ValidateName(ctx, id, name); err != nil {
+		return Group{}, err
+	}
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
 	}

@@ -99,6 +99,13 @@ func (rejectPolicy) ValidateDetach(
 	return nil
 }
 
+func (rejectPolicy) ValidateDelete(_ context.Context, _ gorp.Tx, id ontology.ID) error {
+	if id.Key == "kept" {
+		return errRejected
+	}
+	return nil
+}
+
 func (rejectPolicy) ValidateName(
 	_ context.Context,
 	_ gorp.Tx,

@@ -70,8 +70,16 @@ func (w Writer) DefineResources(ctx context.Context, ids ...ID) error {
 }
 
 // DeleteResources deletes one or more resources with the given [ID]s along with all of
-// their incoming and outgoing [Relationship]s.
+// their incoming and outgoing [Relationship]s. It returns the error of a registered
+// [Policy] that refuses a deletion, and then deletes nothing.
 func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
+	for _, id := range ids {
+		for _, p := range w.policies {
+			if err := p.ValidateDelete(ctx, w.tx, id); err != nil {
+				return err
+			}
+		}
+	}
 	keys, err := lo.MapErr(ids, func(id ID, _ int) (string, error) {
 		if err := w.deleteIncomingRelationships(ctx, id); err != nil {
 			return "", err

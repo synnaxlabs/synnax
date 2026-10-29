@@ -80,6 +80,24 @@ var _ = Describe("Policy", func() {
 		It("Should reject renaming the root Arcs group", func(ctx SpecContext) {
 			Expect(groups.Rename(ctx, root.Key, "Automations")).
 				To(MatchError(ContainSubstring("cannot be renamed")))
+			Expect(groups.CreateWithKey(ctx, root.Key, "Automations", ontology.RootID)).
+				Error().To(MatchError(ContainSubstring("cannot be renamed")))
+		})
+		It(
+			"Should check the name of a group created again with its key",
+			func(ctx SpecContext) {
+				MustSucceed(groups.Create(ctx, "lib", arcs))
+				other := MustSucceed(groups.Create(ctx, "other", arcs))
+				Expect(groups.CreateWithKey(ctx, other.Key, "lib", arcs)).Error().
+					To(MatchError(ContainSubstring("already used")))
+			},
+		)
+	})
+
+	Describe("Deleting", func() {
+		It("Should reject deleting the root Arcs group", func(ctx SpecContext) {
+			Expect(otgW.DeleteResources(ctx, arcs)).
+				To(MatchError(ContainSubstring("cannot be deleted")))
 		})
 	})
 

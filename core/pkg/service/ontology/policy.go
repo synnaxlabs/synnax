@@ -26,4 +26,6 @@ type Policy interface {
 	ValidateDetach(ctx context.Context, tx gorp.Tx, child ID, parents ...ID) error
 	// ValidateName is called before the resource with id takes name.
 	ValidateName(ctx context.Context, tx gorp.Tx, id ID, name string) error
+	// ValidateDelete is called before the resource with id is deleted.
+	ValidateDelete(ctx context.Context, tx gorp.Tx, id ID) error
 }

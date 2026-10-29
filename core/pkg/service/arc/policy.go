@@ -112,6 +112,17 @@ func (s *Service) ValidateDetach(
 	return s.validateOutside(ctx, tx, child)
 }
 
+// ValidateDelete implements ontology.Policy. The Arcs group is never deleted.
+func (s *Service) ValidateDelete(_ context.Context, _ gorp.Tx, id ontology.ID) error {
+	if id == s.group.OntologyID() {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"the root Arcs group cannot be deleted",
+		)
+	}
+	return nil
+}
+
 // ValidateName implements ontology.Policy. The Arcs group keeps its name.
 func (s *Service) ValidateName(
 	ctx context.Context,

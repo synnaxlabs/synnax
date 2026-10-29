@@ -50,6 +50,10 @@ func (renamePolicy) ValidateDetach(
 	return nil
 }
 
+func (renamePolicy) ValidateDelete(context.Context, gorp.Tx, ontology.ID) error {
+	return nil
+}
+
 func (renamePolicy) ValidateName(
 	_ context.Context,
 	_ gorp.Tx,
