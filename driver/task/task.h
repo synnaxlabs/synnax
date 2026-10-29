@@ -97,7 +97,11 @@ public:
 
     /// @brief sends the latest status of each task again, stamped now and with no
     /// command key, to repair statuses lost while the Driver could not reach the Core.
-    virtual void resend_statuses() = 0;
+    /// Skips a task that is writing its own status, as that write is newer. Blocks for
+    /// at most one write.
+    /// @returns the error of the write. Nothing was repaired on error, so call it
+    /// again.
+    [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
 
     /// @brief forgets the latest status of the task, so that a later re-send does not
     /// write it. Call it once the task has left this Driver.
@@ -110,8 +114,6 @@ class MockContext final : public Context {
 
 public:
     std::vector<synnax::task::Status> statuses;
-    /// @brief the number of calls to resend_statuses.
-    std::atomic<int> resends = 0;
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
@@ -122,7 +124,7 @@ public:
         mu.unlock();
     }
 
-    void resend_statuses() override { ++this->resends; }
+    x::errors::Error resend_statuses() override { return x::errors::NIL; }
 
     void drop_status(const synnax::task::Key &) override {}
 
@@ -193,7 +195,7 @@ public:
             LOG(ERROR) << "[task.context] failed to write task status update: " << err;
     }
 
-    void resend_statuses() override {
+    x::errors::Error resend_statuses() override {
         std::vector<std::shared_ptr<Entry>> entries;
         {
             std::lock_guard lock{this->statuses_mu};
@@ -201,18 +203,21 @@ public:
             for (const auto &[_, entry]: this->statuses)
                 entries.push_back(entry);
         }
+        // The locks stay held until the batch is written, so no task writes a newer
+        // status before it.
+        std::vector<std::unique_lock<std::mutex>> locks;
+        std::vector<synnax::task::Status> batch;
+        const auto now = x::telem::TimeStamp::now();
         for (const auto &entry: entries) {
-            std::lock_guard lock{entry->mu};
-            // The task can leave while the re-send writes the statuses before it.
-            if (entry->dropped) continue;
-            auto status = entry->status;
-            status.time = x::telem::TimeStamp::now();
-            if (const auto err = this->client->statuses
-                                     .set<synnax::task::StatusDetails>(status);
-                err)
-                LOG(ERROR) << "[task.context] failed to send task status again: "
-                           << err;
+            std::unique_lock lock{entry->mu, std::try_to_lock};
+            // drop_status can run between the copy and the lock.
+            if (!lock.owns_lock() || entry->dropped) continue;
+            batch.push_back(entry->status);
+            batch.back().time = now;
+            locks.push_back(std::move(lock));
         }
+        if (batch.empty()) return x::errors::NIL;
+        return this->client->statuses.set<synnax::task::StatusDetails>(batch);
     }
 
     void drop_status(const synnax::task::Key &key) override {
