@@ -182,6 +182,43 @@ describe("Write", () => {
     expect(matches).toHaveLength(1);
   });
 
+  it("should reuse a holding register command channel when redeploying", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+          type: "holding_register",
+          key: id.create(),
+          dataType: "uint16",
+        }),
+      ],
+    });
+    for (let i = 0; i < 2; i++) {
+      const { container, unmount } = await renderWrite({ client, taskKey: draft.key });
+      const deployed = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        Modbus.Task.WRITE_SCHEMAS,
+      );
+      await reportTaskStopped(client, deployed.payload);
+      unmount();
+    }
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: Modbus.Device.SCHEMAS,
+    });
+    expect(Object.keys(updated.properties.write.channels)).toEqual([
+      "holding-register-output-0",
+    ]);
+    const matches = await client.channels.retrieve([
+      `${dev.name}_holding_register_output_0_cmd`,
+    ]);
+    expect(matches).toHaveLength(1);
+  });
+
   it("should rename and remove a channel through the context menu", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {

@@ -737,13 +737,13 @@ class TestModbusDevicePropertyUpdates:
         # Verify channel keys match Console format (type-address, no dataType for write)
         channels = obj(updated_device.properties, "write", "channels")
 
-        # Check coil output mapping (type-address, first underscore replaced)
+        # Check coil output mapping (type-address, underscores replaced with hyphens)
         assert "coil-output-10" in channels
         assert channels["coil-output-10"] == coil_cmd.key
 
         # Check holding register output mapping
-        assert "holding-register_output-20" in channels
-        assert channels["holding-register_output-20"] == holding_cmd.key
+        assert "holding-register-output-20" in channels
+        assert channels["holding-register-output-20"] == holding_cmd.key
 
     def test_device_property_key_format(self) -> None:
         """Test that map keys keep the released type spellings after the rename."""

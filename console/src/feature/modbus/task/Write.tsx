@@ -172,7 +172,7 @@ const NAME_TYPES: Record<WriteChannelType, string> = {
 };
 
 const writeMapKey = (channel: WriteChannel) =>
-  `${NAME_TYPES[channel.type]}-${channel.address.toString()}`.replace("_", "-");
+  `${NAME_TYPES[channel.type]}-${channel.address.toString()}`.replaceAll("_", "-");
 
 const commandDataType = (channel: WriteChannel): string =>
   channel.type === "holding_register" ? channel.dataType : DataType.UINT8.toString();

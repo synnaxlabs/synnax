@@ -153,15 +153,14 @@ class WriteTask(
         """Update device properties before task configuration.
 
         The key format follows Console's writeMapKey convention: "{type}-{address}"
-        with the first underscore replaced by a hyphen, such as
-        "holding-register_output-5". Write channels omit the dataType because the
-        driver converts values based on register type.
+        with underscores replaced by hyphens. Write channels omit the dataType because
+        the driver converts values based on register type.
         """
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
         channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
-            key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}".replace("_", "-", 1)
+            key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}".replace("_", "-")
             channels[key] = ch.channel
         dev.properties = props
         return device_client.create(dev)
