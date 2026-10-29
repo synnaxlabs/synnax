@@ -75,7 +75,8 @@ the server.
 1. In the devices toolbar, right-click the server and select **Create read task**.
 2. Set **Sample rate** and **Stream rate**.
 3. Click **Add channel**. Select the type, then enter the address. For a register,
-   select the **Data type**.
+   select the **Data type**, and for a string, set the **String length**. For a bit, set
+   the **Bit**.
 4. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For the server `Pump skid PLC`, a `float32` holding
@@ -184,6 +185,11 @@ await task.start();
 Each channel has an `address`, from 0 to 65535, and a `channel`, the Synnax channel that
 records the value. Each table shows the Console label of a setting, with its Python
 field under it.
+
+The Console also accepts a six-digit Modicon address, such as 300001 for input
+register 0. The first digit is the table: 0 for coils, 1 for discrete inputs, 3 for
+input registers, and 4 for holding registers. The Console shows the Modicon form next to
+each address.
 
 <Channel.Types>
 

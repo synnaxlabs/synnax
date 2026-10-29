@@ -102,6 +102,21 @@ describe("deploy configs", () => {
     ]);
   });
 
+  it.each([0, 251])("should reject a string of %d characters", (stringLength) => {
+    const result = Modbus.Task.deployReadConfigZ.safeParse(
+      readConfig([
+        { type: "input_register", address: 0, dataType: "string", stringLength },
+        { type: "input_register", address: 200, dataType: "uint16", stringLength },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 0, "stringLength"],
+        message: "String length must be from 1 to 250",
+      },
+    ]);
+  });
+
   it("should reject read channels that bind to one Synnax channel", () => {
     const result = Modbus.Task.deployReadConfigZ.safeParse(
       readConfig([
