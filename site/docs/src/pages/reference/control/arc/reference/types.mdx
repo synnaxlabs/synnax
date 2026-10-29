@@ -109,8 +109,8 @@ of a channel is `chan T`, where `T` is its data type, such as `chan f64`.
 The zero value is `0` for numbers and `false` for `bool`. For when each part runs, see
 the [execution model](/reference/control/arc/execution-model).
 
-In a function body, write to a channel with `=`. A function can also take a channel as a
-config parameter of type `chan T`:
+In a function body, write to a channel with `=`. A function can also take a channel as
+an input of type `chan T`:
 
 ```arc channels="tank_pt, press_vlv_cmd" bodies="regulate"
 func regulate(valve chan u8, limit f64) {p f64} {

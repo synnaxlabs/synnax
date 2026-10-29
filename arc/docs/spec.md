@@ -298,7 +298,7 @@ current := now() // current timestamp (i64 ns)
 Arc has two execution contexts with different function syntax:
 
 - **Reactive scope** (flow statements): Functions are instantiated as nodes using
-  `func(...)` syntax, with an upstream edge feeding the trigger input
+  `func(...)` syntax, with an upstream edge feeding the first trigger
 - **Imperative scope** (function bodies): Functions are called using `func(args)` syntax
 
 ### Function declaration
@@ -320,17 +320,21 @@ NamedOutput ::= Identifier Type
 
 ### Inputs
 
-A function declares a single list of **inputs**. Each input has a name, a type, and an
-optional default value (`= literal`, trailing only).
+A function declares a single list of parameters. Each parameter has a name, a type, and
+an optional default value (`= literal`, trailing only).
 
-Inputs are written in two bracket groups after the function name. Both contribute to the
-same inputs list, in brace-then-parens order:
+Parameters are written in two bracket groups after the function name. Both contribute to
+the same list, in parens-then-braces order:
 
-- The **brace block** `{}` holds inputs set when the function is instantiated as a node.
-- The **parens block** `()` holds the **trigger** input (see [Triggers](#triggers)).
+- The **parens** `()` hold the **inputs**: values set when the function is instantiated
+  as a node. The parens are required and may be empty.
+- The **braces** `{}` hold the **triggers**: the parameters that upstream edges feed
+  (see [Triggers](#triggers)). The braces are optional. A declaration with no braces has
+  no triggers.
 
-The two-group split is transitional, not semantic: `()` will eventually carry all
-inputs, and `{}` is kept (and bridged during analysis) until that merge completes.
+The last brace block of a declaration is the body. A `{...}` between the parens and
+another block is the trigger list: `func f() { ... }` has no triggers, and
+`func f() {x f64} { ... }` has one.
 
 ```arc
 func controller(
@@ -342,7 +346,7 @@ func controller(
 }
 ```
 
-A function with no brace block is just a parens list:
+A function with no inputs has empty parens:
 
 ```arc
 func add() {x f64, y f64} f64 {
@@ -350,7 +354,7 @@ func add() {x f64, y f64} f64 {
 }
 ```
 
-**Optional inputs** carry a default value and may be omitted (must be trailing):
+**Optional parameters** carry a default value and may be omitted (must be trailing):
 
 ```arc
 func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
@@ -364,7 +368,7 @@ func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
 }
 ```
 
-**Supplying brace-block inputs:**
+**Supplying inputs:**
 
 - By name with `=`: `controller(setpoint=100.0)`
 - Positionally by declaration order: `filter(50.0)` sets the first input;
@@ -374,13 +378,14 @@ func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
 
 ### Triggers
 
-In reactive scope, an incoming edge connects to a node. A function's **trigger** names
-which input that edge feeds:
+In reactive scope, an incoming edge connects to a node. A function's **triggers** name
+the parameters that edges feed:
 
-- A function with a parens-block input takes its first such input as the trigger
-  (`enable` in `controller` above, `value` in `clamp`). The upstream value binds to it.
-- A function with no parens-block input is **trigger-only**: the edge activates the node
-  without binding a value.
+- A single upstream edge feeds the first trigger (`enable` in `controller` above,
+  `value` in `clamp`). The upstream value binds to it. An input routing table maps
+  several sources to the triggers by name (see Flow Layer).
+- A function with no triggers has only inputs: the edge activates the node without
+  binding a value. `func f(x f64) { }` declares an input `x`, not a trigger.
 
 ### Calling functions (imperative scope)
 
@@ -395,14 +400,15 @@ func process() {x f64} f64 {
 
 ### Instantiating functions (reactive scope)
 
-In flow statements, instantiate functions as nodes using brace block syntax:
+In flow statements, instantiate functions as nodes with parens after the name. The paren
+must touch the name:
 
 ```arc
 sensor -> controller(setpoint=100.0, sensor=temp, actuator=valve)
 ```
 
-The upstream edge feeds the function's trigger input. Mapping multiple upstream sources
-to named inputs requires routing tables (see Flow Layer).
+The upstream edge feeds the function's first trigger. Mapping multiple upstream sources
+to named triggers requires routing tables (see Flow Layer).
 
 ### Multi-output functions
 
@@ -523,8 +529,8 @@ FlowNode ::= Identifier           // channel, variable, stage, or sequence name
 
 An output routing entry's case body must be a full flow statement (at least two nodes)
 or an inline stage/sequence body. The routed output only decides that the entry runs; it
-feeds no value into it. A trailing `: Identifier` maps the entry's own result to an
-input of the function after the table.
+feeds no value into it. A trailing `: Identifier` maps the entry's own result to a
+trigger of the function after the table.
 
 ### Simple pipelines
 
@@ -545,7 +551,7 @@ sensor -> demux() -> {
 
 ### Input routing tables
 
-Map multiple sources to named input parameters:
+Map multiple sources to named triggers:
 
 ```arc
  {
@@ -580,7 +586,7 @@ pressure > 100 or emergency -> shutdown() // logical (emergency is a chan bool)
 
 ### Selecting on a boolean
 
-`select()` runs the `true` or `false` entry for each `bool` input. No value flows into
+`select()` runs the `true` or `false` entry for each `bool` trigger. No value flows into
 the entry; each case body is a full flow statement.
 
 ```arc
@@ -712,7 +718,7 @@ it leaves and re-enters it.
 
 **Entry nodes**: Fire once per scope activation, and again on re-entry. A node is an
 entry node when nothing flows into it and it reads no channels: a literal, or a call
-taking only `{...}` inputs.
+taking only `(...)` inputs.
 
 ### Scope entry semantics
 
@@ -777,8 +783,8 @@ These simplify implementation while maintaining expressiveness:
    time
 3. **No assignment in expressions**: Separate statements required
 4. **No partial function application**: Must provide all required arguments
-5. **Brace-block inputs are compile-time constants**: Only literals, global constants,
-   or channel IDs may be supplied in the `{}` block
+5. **Inputs are compile-time constants**: Only literals, global constants, or channel
+   IDs may be supplied in the `()` of a flow call
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
 
@@ -789,7 +795,7 @@ These simplify implementation while maintaining expressiveness:
 - **Type errors**: Mismatches, invalid casts, bare `[]` without type
 - **Name resolution**: Undefined identifiers, duplicates, shadowing
 - **Structural**: Missing returns, unreachable code, wrong argument count
-- **Flow graph**: Cycles in non-transition flows, unconnected inputs, type mismatches
+- **Flow graph**: Cycles in non-transition flows, unconnected triggers, type mismatches
 - **Dimensional**: Incompatible units in operations, non-literal exponent with
   dimensioned base
 - **Operands**: Non-`bool` logical operands

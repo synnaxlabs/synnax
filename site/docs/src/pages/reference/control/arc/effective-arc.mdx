@@ -123,12 +123,12 @@ stops and waits for the next click.
 
 ## Functions
 
-### Keep side effects out of functions with no input
+### Keep side effects out of functions with no upstream trigger
 
-A function call with no input that reads a channel runs in every cycle while its stage
-is active. A call to `ranges.end` or `status.set` inside such a function repeats in
-every cycle. Call those functions directly in the stage, with literal or variable
-arguments: `ranges.end(key=range_key)`. See
+A function call with no upstream trigger that reads a channel runs in every cycle while
+its stage is active. A call to `ranges.end` or `status.set` inside such a function
+repeats in every cycle. Call those functions directly in the stage, with literal or
+variable arguments: `ranges.end(key=range_key)`. See
 [mark each run with a range](/reference/control/arc/test-sequences#mark-each-run-with-a-range).
 
 ### Keep state in the right place

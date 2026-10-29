@@ -16,9 +16,9 @@ runs. Import it with `import ranges`. Each function works in a flow and in a fun
 body. When a call fails, Synnax shows a warning, gives an empty key, and the automation
 keeps running. For worked examples, see [create ranges in Arc](/reference/ranges/arc).
 
-Both functions are trigger-only: each new input value runs them, whatever the value. To
-run one only when a condition is true, use `=>`. With no input, a function in a stage
-runs once each time the stage starts.
+Each new trigger runs both functions, whatever the value. To run one only when a
+condition is true, use `=>`. With no upstream trigger, a function in a stage runs once
+each time the stage starts.
 
 <Divider.Divider x />
 

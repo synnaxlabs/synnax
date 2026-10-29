@@ -2,8 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "Flow"
 description:
-  "Syntax of Arc flow statements: the -> and => operators, sources, sinks, config
-  values, and routing tables."
+  "Syntax of Arc flow statements: the -> and => operators, sources, sinks, input values,
+  and routing tables."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -70,14 +70,14 @@ flow.
 | ------------------------ | --------------------- | --------------------------------------------------------------------- |
 | Channel                  | `-> press_vlv_cmd`    | Writes the value to the channel.                                      |
 | Variable                 | `-> peak`             | Sets a variable of the enclosing sequence or stage.                   |
-| Function instance        | `-> scale(k=6.895)`   | Passes the value to the first input of the function.                  |
+| Function instance        | `-> scale(k=6.895)`   | Passes the value to the first trigger of the function.                |
 | Stage or sequence        | `=> vent`             | Starts the stage or the sequence.                                     |
 | `next`                   | `=> next`             | Moves to the next step of the enclosing sequence.                     |
 | Routing table            | `-> { ... }`          | Runs an entry for each output. See [routing tables](#routing-tables). |
 | Inline stage or sequence | `=> sequence { ... }` | Starts an anonymous stage or sequence.                                |
 
 - A top-level variable is not a sink: `cannot write to top-level variable 'peak'`.
-- A function name without braces is not a sink: `f is not a channel`. Write `f()`.
+- A function name without parentheses is not a sink: `f is not a channel`. Write `f()`.
 - `=> name` finds a stage or sequence with that name in the enclosing sequences, from
   the innermost out, then at the top level. A stage of a different sequence is not
   found: `undefined symbol: name`.
@@ -91,11 +91,12 @@ flow.
 
 <Divider.Divider x />
 
-## Config values
+## Input values
 
-Braces after a function name set its config parameters, by name or by position. Do not
-mix the two forms in one pair of braces. Values by position fill the parameters in
-order, and skip the input that the flow feeds.
+Parentheses after a function name set its inputs, by name or by position. The opening
+parenthesis must touch the name. Do not mix the two forms in one pair of parentheses.
+Values by position fill the parameters in order, and skip the trigger that the flow
+feeds.
 
 | Parameter type | Value                                                                      |
 | -------------- | -------------------------------------------------------------------------- |
@@ -119,7 +120,7 @@ time.interval(1s) -> tick
 ```
 
 For required parameters and defaults, see
-[config parameters](/reference/control/arc/reference/functions#config-parameters).
+[inputs](/reference/control/arc/reference/functions#inputs).
 
 <Divider.Divider x />
 
