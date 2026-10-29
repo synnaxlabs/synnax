@@ -9,21 +9,22 @@
 
 #pragma once
 
-#include <algorithm>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/log/log.h"
 
+#include "driver/common/factory.h"
 #include "driver/rack/rack.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
 
-/// @brief adds the factory that factory_creator returns when the integration is enabled
-/// and its SDK libraries load.
+/// @brief adds the factory that factory_creator returns when the integration is
+/// enabled.
 template<typename F>
 void configure_integration(
     const Config &config,
@@ -31,21 +32,53 @@ void configure_integration(
     const std::string &integration_name,
     F factory_creator
 ) {
-    if (std::ranges::find(config.integrations, integration_name) ==
-        config.integrations.end()) {
-        VLOG(1) << "[" << integration_name << "] integration not enabled";
+    if (!config.integration_enabled(integration_name)) {
+        VLOG(1) << "[" << integration_name << "] integration disabled";
         return;
     }
-    if (!config.libraries_loaded(integration_name)) {
-        LOG(WARNING) << "[" << integration_name
-                     << "] integration is enabled, but its libraries do not load on "
-                        "this computer";
-        return;
-    }
-    VLOG(1) << "[" << integration_name << "] integration supported";
+    VLOG(1) << "[" << integration_name << "] integration enabled";
     factories.push_back(factory_creator());
 }
 
+/// @brief deletes the scanner that a Driver built with the integration left on the
+/// rack, for a build that leaves the integration out. Runs no tasks.
+class LegacyFactory final : public task::Factory {
+    const std::string integration;
+    const std::string scanner_type;
+
+public:
+    LegacyFactory(std::string integration, std::string scanner_type):
+        integration(std::move(integration)), scanner_type(std::move(scanner_type)) {}
+
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
+    configure_initial_tasks(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::rack::Rack &rack
+    ) override {
+        if (const auto err = common::delete_legacy_task_by_type(
+                rack,
+                this->scanner_type,
+                this->integration
+            ))
+            LOG(ERROR) << "[" << this->integration << "] failed to retrieve the legacy "
+                       << this->scanner_type << " task: " << err;
+        return {};
+    }
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &cmd_key
+    ) override {
+        return {nullptr, false};
+    }
+
+    std::string name() override { return this->integration; }
+};
+
 /// @brief adds the NI factory that this platform's build runs.
 void configure_ni(const Config &config, FactoryList &factories);
+
+/// @brief adds the LabJack factory that this platform's build runs.
+void configure_labjack(const Config &config, FactoryList &factories);
 }
