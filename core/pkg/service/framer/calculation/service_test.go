@@ -936,10 +936,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					To(HaveField("Message", "Failed to request calculation"))
 				Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
 					To(Succeed())
-				Eventually(func() error {
-					_, err := stored()
-					return err
-				}).Should(MatchError(query.ErrNotFound))
+				Eventually(stored).Should(HaveField("Message", "Calculation ready"))
 				reader := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
