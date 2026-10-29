@@ -12,6 +12,7 @@ export * from "@/session/arc";
 export * from "@/session/color";
 export * from "@/session/Context";
 export * from "@/session/core";
+export * from "@/session/github";
 export * from "@/session/haul";
 export * from "@/session/lineplot";
 export * from "@/session/link";

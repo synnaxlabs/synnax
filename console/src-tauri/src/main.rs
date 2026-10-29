@@ -11,6 +11,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 #[cfg(feature = "desktop")]
+mod github;
+#[cfg(feature = "desktop")]
 mod install;
 #[cfg(feature = "desktop")]
 mod supervisor;
@@ -36,6 +38,8 @@ fn main() {
     let builder = tauri::Builder::default();
     #[cfg(feature = "desktop")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        github::github_star_status,
+        github::github_star,
         supervisor::commands::supervisor_status,
         supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,

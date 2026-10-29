@@ -1,0 +1,199 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* How far the halftone field reaches from the star, as a share of the gradient ray.
+   Registered so it can animate. */
+@property --console-github-star-reach {
+    syntax: "<percentage>";
+    inherits: false;
+    initial-value: 38%;
+}
+
+.console-github-star {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 1.33rem;
+    height: var(--pluto-height-medium);
+    padding: 0 2rem 0 1.75rem;
+    overflow: hidden;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5);
+    border-radius: var(--pluto-border-radius-small);
+    background: var(--pluto-gray-l1);
+    color: var(--pluto-gray-l9);
+    font-family: var(--pluto-code-font-family);
+    font-size: var(--pluto-small-size);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        color 0.2s ease;
+
+    &:hover,
+    &:focus-visible {
+        border-color: var(--pluto-gray-l7);
+        color: var(--pluto-gray-l11);
+    }
+
+    &:disabled {
+        cursor: default;
+    }
+}
+
+/* The Synnax halftone, gathered around the star and fading toward the label. */
+.console-github-star__field {
+    --console-github-star-reach: 38%;
+
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(
+        circle,
+        var(--pluto-gray-l8) 0.75px,
+        transparent 1.1px
+    );
+    background-size: 5.5px 5.5px;
+    opacity: 0.6;
+    mask-image: radial-gradient(
+        circle at 2.92rem 50%,
+        #000 0%,
+        transparent var(--console-github-star-reach)
+    );
+    pointer-events: none;
+    transition:
+        --console-github-star-reach 0.6s cubic-bezier(0.2, 0.7, 0.2, 1),
+        opacity 0.3s ease;
+}
+
+/* :where keeps these hover rules below the starred ones. */
+:where(
+        .console-github-star:hover,
+        .console-github-star:focus-visible,
+        .console-github-star--starring
+    )
+    .console-github-star__field {
+    --console-github-star-reach: 115%;
+
+    opacity: 0.85;
+    animation: console-github-star-flow 1.4s linear infinite;
+}
+
+/* One pitch per loop, so the dots stream toward the label without a jump. */
+@keyframes console-github-star-flow {
+    to {
+        background-position: 11px 0;
+    }
+}
+
+.console-github-star__icon {
+    position: relative;
+    display: grid;
+    flex-shrink: 0;
+    width: 2.33rem;
+    height: 2.33rem;
+
+    & > .pluto-icon {
+        grid-area: 1 / 1;
+        width: 100%;
+        height: 100%;
+        transition:
+            opacity 0.2s ease,
+            color 0.2s ease;
+    }
+}
+
+.console-github-star__fill {
+    color: var(--pluto-warning-z);
+    opacity: 0;
+}
+
+:where(.console-github-star:hover, .console-github-star:focus-visible)
+    .console-github-star__fill {
+    opacity: 0.75;
+}
+
+.console-github-star__label {
+    position: relative;
+    white-space: nowrap;
+}
+
+.console-github-star--starring .console-github-star__icon {
+    animation: console-github-star-pulse 0.9s ease-in-out infinite;
+}
+
+@keyframes console-github-star-pulse {
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* A star from the CLI: the star pops, the field floods gold, then the button leaves. */
+.console-github-star--starred {
+    border-color: var(--pluto-warning-z-60);
+    color: var(--pluto-warning-z);
+    animation: console-github-star-leave 0.4s ease-in 1.5s forwards;
+
+    .console-github-star__fill {
+        opacity: 1;
+    }
+
+    .console-github-star__icon {
+        animation: console-github-star-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+    }
+
+    .console-github-star__field {
+        background-image: radial-gradient(
+            circle,
+            var(--pluto-warning-z) 0.85px,
+            transparent 1.2px
+        );
+        animation: console-github-star-flood 1.2s cubic-bezier(0.2, 0.7, 0.2, 1)
+            forwards;
+    }
+}
+
+@keyframes console-github-star-pop {
+    40% {
+        transform: scale(1.35);
+    }
+}
+
+@keyframes console-github-star-flood {
+    0% {
+        --console-github-star-reach: 0%;
+
+        opacity: 1;
+    }
+
+    100% {
+        --console-github-star-reach: 160%;
+
+        opacity: 0.35;
+    }
+}
+
+@keyframes console-github-star-leave {
+    to {
+        opacity: 0;
+        transform: scale(0.97);
+        filter: blur(2px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .console-github-star,
+    .console-github-star * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}

@@ -29,6 +29,7 @@ import { TabMenuItems } from "@/feature/panel/ContextMenu";
 import { useCreate } from "@/feature/panel/useCreate";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
+import { GitHub } from "@/platform/github";
 import { type Import } from "@/platform/import";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { ResourceGuard, useTab } from "@/platform/panel/tab";
@@ -246,6 +247,7 @@ const EmptyTabContent = ({
         trigger={Panel.CREATE_TAB_TRIGGER}
         onClick={handleCreate}
       />
+      <GitHub.StarButton />
     </Flex.Box>
   );
 };
@@ -339,6 +341,7 @@ const EmptyContent = ({ onFileDrop }: EmptyContentProps): ReactElement => {
           action={canCreate ? "Create panel" : undefined}
           onClick={createPanel}
         />
+        <GitHub.StarButton />
       </Flex.Box>
     </Flex.Box>
   );

@@ -22,10 +22,12 @@ import { Device } from "@/feature/device";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
 import { CSS } from "@/platform/css";
+import { GitHub } from "@/platform/github";
 import { Session } from "@/session";
 
 const SideEffect = (): null => {
   Device.useListenForChanges();
+  GitHub.useSyncStatus();
   Link.useDeep();
   Persist.useStoreStatus();
   Triggers.use();

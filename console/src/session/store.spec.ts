@@ -142,6 +142,19 @@ describe("createStore", () => {
     });
   });
 
+  it("should keep a GitHub star across launches but check the GitHub CLI again", async () => {
+    const store = await createStore();
+    store.dispatch(Session.GitHub.setCLI("ready"));
+    store.dispatch(Session.GitHub.markStarred());
+    await Session.Persist.flush(store.dispatch);
+    const reloaded = await createStore();
+    expect(reloaded.getState()[Session.GitHub.SLICE_NAME]).toEqual({
+      version: 0,
+      starred: true,
+      cli: "unchecked",
+    });
+  });
+
   it("should keep a pending login across launches", async () => {
     const store = await createStore();
     store.dispatch(Session.Account.beginLogin("minted"));
