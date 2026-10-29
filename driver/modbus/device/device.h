@@ -9,9 +9,13 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -109,17 +113,86 @@ enum class WriteCodes {
     Single,
 };
 
-/// @brief the endpoint of a Modbus TCP server and the unit a device addresses on it.
+/// @brief the links a Modbus device can connect over.
+enum class Transport {
+    /// @brief Modbus TCP to a server or a gateway.
+    TCP,
+    /// @brief Modbus RTU on a serial port.
+    RTU,
+};
+
+/// @brief the baud rates libmodbus maps on POSIX. Linux opens any other rate at 9600
+/// without an error.
+const std::array<int, 23> BAUD_RATES = {
+    110,     300,     600,     1200,    2400,    4800,    9600,    19200,
+    38400,   57600,   115200,  230400,  460800,  500000,  576000,  921600,
+    1000000, 1152000, 1500000, 2500000, 3000000, 3500000, 4000000,
+};
+
+/// @brief the line settings of a serial port.
+struct Serial {
+    /// @brief the serial port, such as /dev/ttyUSB0 or COM3.
+    std::string port;
+    std::uint32_t baud_rate = 19200;
+    /// @brief 'N' for no parity, 'E' for even, or 'O' for odd.
+    char parity = 'E';
+    std::uint8_t data_bits = 8;
+    std::uint8_t stop_bits = 1;
+
+    bool operator==(const Serial &) const = default;
+
+    /// @returns the parity as JSON stores it: none, even, or odd.
+    [[nodiscard]] std::string parity_name() const {
+        if (this->parity == 'N') return "none";
+        if (this->parity == 'O') return "odd";
+        return "even";
+    }
+
+    /// @returns the line settings in their usual short form, such as "19200 8E1".
+    [[nodiscard]] std::string line() const {
+        return std::to_string(this->baud_rate) + " " + std::to_string(this->data_bits) +
+               this->parity + std::to_string(this->stop_bits);
+    }
+
+    /// @returns the silence of 3.5 characters that must separate two frames: 1.75 ms
+    /// above 19200 baud, as the Modbus serial line specification fixes it.
+    [[nodiscard]] x::telem::TimeSpan frame_gap() const {
+        if (this->baud_rate > 19200) return x::telem::MICROSECOND * 1750;
+        const auto bits = 1 + this->data_bits + (this->parity == 'N' ? 0 : 1) +
+                          this->stop_bits;
+        return x::telem::TimeSpan(
+            static_cast<std::int64_t>(3.5 * bits * 1e9 / this->baud_rate)
+        );
+    }
+};
+
+/// @returns the path libmodbus opens for a serial port. Windows opens COM10 and up
+/// only through the \\.\ device namespace, so every COM port gets that prefix.
+inline std::string serial_path(const std::string &port) {
+    if (port.size() < 4 || port.size() > 6) return port;
+    const auto upper = [&](const std::size_t i) {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(port[i])));
+    };
+    if (upper(0) != 'C' || upper(1) != 'O' || upper(2) != 'M') return port;
+    for (std::size_t i = 3; i < port.size(); i++)
+        if (std::isdigit(static_cast<unsigned char>(port[i])) == 0) return port;
+    return R"(\\.\)" + port;
+}
+
+/// @brief the link to a Modbus server and the unit a device addresses on it.
 struct ConnectionConfig {
-    /// @brief the hostname, IPv4 address, or IPv6 address of the server.
+    Transport transport = Transport::TCP;
+    /// @brief the hostname, IPv4 address, or IPv6 address of a TCP server.
     std::string host;
-    /// @brief the TCP port of the server.
+    /// @brief the TCP port of a TCP server.
     std::uint16_t port = 0;
+    /// @brief the serial port and line settings of an RTU device.
+    Serial serial;
     /// @brief whether to swap the byte order within each 16-bit word.
     bool swap_bytes = false;
     /// @brief whether to swap the word order of 32-bit and larger values.
     bool swap_words = false;
-    /// @brief the unit the device addresses. 255 addresses the server itself.
+    /// @brief the unit the device addresses. 255 addresses a TCP server itself.
     std::uint8_t unit_id = MODBUS_TCP_SLAVE;
     /// @brief the connect and response timeout.
     x::telem::TimeSpan timeout = x::telem::SECOND;
@@ -139,18 +212,29 @@ struct ConnectionConfig {
         swap_bytes(swap_bytes),
         swap_words(swap_words) {}
 
+    /// @brief an RTU device on a serial port, addressing unit 1.
+    explicit ConnectionConfig(Serial serial):
+        transport(Transport::RTU), serial(std::move(serial)), unit_id(1) {}
+
     /// @brief parses the connection from its JSON representation. Absent optional
-    /// fields take their defaults.
+    /// fields take their defaults, and an absent transport is TCP.
     explicit ConnectionConfig(x::json::Parser parser):
-        host(parser.field<std::string>("host")),
-        port(parser.field<std::uint16_t>("port")),
         swap_bytes(parser.field<bool>("swap_bytes")),
         swap_words(parser.field<bool>("swap_words")) {
         if (const auto transport = parser.field<std::string>("transport", "tcp");
-            transport != "tcp")
-            parser.field_err("transport", "unsupported transport: " + transport);
-        const auto unit_id = parser.field<int>("unit_id", MODBUS_TCP_SLAVE);
-        if (unit_id < 0 || unit_id > 255)
+            transport == "tcp") {
+            this->host = parser.field<std::string>("host");
+            this->port = parser.field<std::uint16_t>("port");
+        } else if (transport == "rtu") {
+            this->transport = Transport::RTU;
+            this->parse_serial(parser);
+        } else
+            parser.field_err("transport", "must be tcp or rtu");
+        const bool rtu = this->transport == Transport::RTU;
+        const auto unit_id = parser.field<int>("unit_id", rtu ? 1 : MODBUS_TCP_SLAVE);
+        if (rtu && (unit_id < 1 || unit_id > 247))
+            parser.field_err("unit_id", "must be between 1 and 247");
+        else if (unit_id < 0 || unit_id > 255)
             parser.field_err("unit_id", "must be between 0 and 255");
         else
             this->unit_id = static_cast<std::uint8_t>(unit_id);
@@ -168,21 +252,62 @@ struct ConnectionConfig {
 
     /// @returns the JSON representation of the connection.
     [[nodiscard]] x::json::json to_json() const {
-        return {
-            {"transport", "tcp"},
-            {"host", host},
-            {"port", port},
+        x::json::json j = {
             {"swap_bytes", swap_bytes},
             {"swap_words", swap_words},
             {"unit_id", unit_id},
             {"timeout_ms", static_cast<int>(timeout.milliseconds())},
             {"retries", retries},
         };
+        if (this->transport == Transport::TCP) {
+            j["transport"] = "tcp";
+            j["host"] = host;
+            j["port"] = port;
+            return j;
+        }
+        j["transport"] = "rtu";
+        j["serial_port"] = serial.port;
+        j["baud_rate"] = serial.baud_rate;
+        j["parity"] = serial.parity_name();
+        j["data_bits"] = serial.data_bits;
+        j["stop_bits"] = serial.stop_bits;
+        return j;
     }
 
-    /// @returns the key of the server that devices on it share a connection to.
+    /// @returns the key of the link that devices on it share a connection to: the
+    /// host and port for TCP, or the serial port for RTU.
     [[nodiscard]] std::string endpoint() const {
+        if (this->transport == Transport::RTU) return this->serial.port;
         return host + ":" + std::to_string(port);
+    }
+
+private:
+    void parse_serial(x::json::Parser &parser) {
+        this->serial.port = parser.field<std::string>("serial_port");
+        if (parser.ok() && this->serial.port.empty())
+            parser.field_err("serial_port", "must not be empty");
+        const auto baud_rate = parser.field<int>("baud_rate", 19200);
+        if (std::ranges::find(BAUD_RATES, baud_rate) == BAUD_RATES.end())
+            parser.field_err("baud_rate", "unsupported baud rate");
+        else
+            this->serial.baud_rate = static_cast<std::uint32_t>(baud_rate);
+        if (const auto parity = parser.field<std::string>("parity", "even");
+            parity == "none")
+            this->serial.parity = 'N';
+        else if (parity == "odd")
+            this->serial.parity = 'O';
+        else if (parity != "even")
+            parser.field_err("parity", "must be none, even, or odd");
+        const auto data_bits = parser.field<int>("data_bits", 8);
+        if (data_bits != 7 && data_bits != 8)
+            parser.field_err("data_bits", "must be 7 or 8");
+        else
+            this->serial.data_bits = static_cast<std::uint8_t>(data_bits);
+        const auto stop_bits = parser.field<int>("stop_bits", 1);
+        if (stop_bits != 1 && stop_bits != 2)
+            parser.field_err("stop_bits", "must be 1 or 2");
+        else
+            this->serial.stop_bits = static_cast<std::uint8_t>(stop_bits);
     }
 };
 
@@ -244,13 +369,16 @@ struct Properties {
         requests(parser.optional_child("requests")) {}
 };
 
-/// @brief a connection to one Modbus TCP endpoint, shared by every device on it.
-/// Requests take turns, and a waiting write goes before waiting reads. Safe for
-/// concurrent use.
+/// @brief a connection to one Modbus TCP endpoint or serial port, shared by every
+/// device on it. Requests take turns, and a waiting write goes before waiting reads.
+/// Safe for concurrent use.
 class Connection {
 public:
     /// @brief the clock of request, reply, and demotion times.
     using Clock = std::chrono::steady_clock;
+
+    /// @brief the line settings of a serial connection. Empty for TCP.
+    const Serial serial;
 
 private:
     /// @brief the state of one unit behind the endpoint.
@@ -266,6 +394,8 @@ private:
     modbus_t *ctx;
     /// @brief how long the requests of a demoted unit fail at once.
     x::telem::TimeSpan demotion;
+    /// @brief the shortest silence between two requests.
+    const x::telem::TimeSpan frame_gap;
     /// @brief guards busy, waiting_writes, and units.
     std::mutex mu;
     std::condition_variable released;
@@ -273,10 +403,11 @@ private:
     bool busy = false;
     std::size_t waiting_writes = 0;
     std::unordered_map<std::uint8_t, Unit> units;
-    /// @brief whether the socket is open. Touched only while holding the turn.
+    /// @brief whether the socket or port is open. Touched only while holding the
+    /// turn.
     bool connected = false;
-    /// @brief whether a late reply to a timed-out request can still arrive. Touched
-    /// only while holding the turn.
+    /// @brief whether a late reply or the rest of a garbled frame can still arrive.
+    /// Touched only while holding the turn.
     bool stale = false;
     /// @brief when the last request ended. Touched only while holding the turn.
     Clock::time_point last_request;
@@ -332,7 +463,7 @@ private:
         if (modbus_set_slave(this->ctx, cfg.unit_id) == -1) return errno;
         if (request(this->ctx) != -1) return 0;
         const int errnum = errno;
-        if (errnum == ETIMEDOUT)
+        if (errnum == ETIMEDOUT || errnum == EMBBADCRC)
             this->stale = true;
         else if (classify(errnum).matches(UNREACHABLE)) {
             modbus_close(this->ctx);
@@ -378,7 +509,16 @@ public:
     /// @brief takes ownership of a context created by modbus_new_tcp_pi.
     /// @param demotion how long the requests of a demoted unit fail at once.
     Connection(modbus_t *ctx, const x::telem::TimeSpan demotion):
-        ctx(ctx), demotion(demotion) {}
+        ctx(ctx), demotion(demotion), frame_gap(0) {}
+
+    /// @brief takes ownership of a context created by modbus_new_rtu with the line
+    /// settings.
+    /// @param demotion how long the requests of a demoted unit fail at once.
+    Connection(modbus_t *ctx, Serial serial, const x::telem::TimeSpan demotion):
+        serial(std::move(serial)),
+        ctx(ctx),
+        demotion(demotion),
+        frame_gap(this->serial.frame_gap()) {}
 
     ~Connection() {
         modbus_close(this->ctx);
@@ -389,11 +529,13 @@ public:
     Connection &operator=(const Connection &) = delete;
 
     /// @brief runs a request for a unit, connecting first if needed. A temporary fault
-    /// retries at once, up to cfg.retries times. After a timeout, the next request
-    /// first discards any late reply. Any other lost connection closes the socket. A
-    /// unit with DEMOTE_AFTER timed-out attempts in a row is demoted.
+    /// retries at once, up to cfg.retries times. After a timeout or a bad CRC, the
+    /// next request first discards any late bytes. Any other lost connection closes
+    /// the socket or port. A unit with DEMOTE_AFTER timed-out attempts in a row is
+    /// demoted.
     /// @param cfg the unit, timeout, and retries of the request.
-    /// @param delay the wait after the previous request on the connection.
+    /// @param delay the wait after the previous request on the connection. A serial
+    /// connection waits at least its frame gap.
     /// @param write whether the request goes before waiting reads.
     /// @param request sends the request on the context and returns -1 on failure.
     /// @returns NIL, or the classified error of the last attempt.
@@ -406,9 +548,10 @@ public:
     ) {
         Turn turn(*this, write);
         if (auto err = this->demoted(cfg.unit_id)) return err;
+        const auto wait = std::max(delay, this->frame_gap);
         for (std::size_t i = 0;; i++) {
-            if (delay > x::telem::TimeSpan(0))
-                std::this_thread::sleep_until(this->last_request + delay.chrono());
+            if (wait > x::telem::TimeSpan(0))
+                std::this_thread::sleep_until(this->last_request + wait.chrono());
             const int errnum = this->attempt(cfg, request);
             this->last_request = Clock::now();
             if (errnum == 0 || answered(errnum)) this->replied(cfg.unit_id);
@@ -538,13 +681,34 @@ public:
     }
 };
 
-/// @brief shares one connection among the devices on each endpoint. Safe for concurrent
-/// use.
+/// @brief shares one connection among the devices on each endpoint: a TCP host and
+/// port, or a serial port. Safe for concurrent use.
 class Manager {
     std::mutex mu;
-    std::unordered_map<std::string, std::weak_ptr<Connection>> connections;
+    std::map<std::pair<Transport, std::string>, std::weak_ptr<Connection>> connections;
     /// @brief how long the requests of a demoted unit fail at once.
     x::telem::TimeSpan demotion;
+
+    /// @returns a new connection, or nullptr with errno set.
+    std::shared_ptr<Connection> connect(const ConnectionConfig &cfg) const {
+        if (cfg.transport == Transport::RTU) {
+            const auto &serial = cfg.serial;
+            auto *ctx = modbus_new_rtu(
+                serial_path(serial.port).c_str(),
+                static_cast<int>(serial.baud_rate),
+                serial.parity,
+                serial.data_bits,
+                serial.stop_bits
+            );
+            if (ctx == nullptr) return nullptr;
+            return std::make_shared<Connection>(ctx, serial, this->demotion);
+        }
+        const auto port = std::to_string(cfg.port);
+        auto *ctx = modbus_new_tcp_pi(cfg.host.c_str(), port.c_str());
+        if (ctx == nullptr) return nullptr;
+        modbus_enable_quirks(ctx, MODBUS_QUIRK_MAX_SLAVE);
+        return std::make_shared<Connection>(ctx, this->demotion);
+    }
 
 public:
     /// @param demotion how long the requests of a demoted unit fail at once.
@@ -556,22 +720,28 @@ public:
     /// does.
     /// @param cfg the endpoint and unit of the device.
     /// @param requests how the device plans and paces its requests.
+    /// @returns CRITICAL_ERROR if the serial port is already open with other line
+    /// settings.
     std::pair<std::shared_ptr<Device>, x::errors::Error>
     acquire(const ConnectionConfig &cfg, const RequestConfig &requests = {}) {
         std::lock_guard lock(this->mu);
         std::erase_if(this->connections, [](const auto &entry) {
             return entry.second.expired();
         });
-        auto &entry = this->connections[cfg.endpoint()];
+        auto &entry = this->connections[{cfg.transport, cfg.endpoint()}];
         auto conn = entry.lock();
         if (conn == nullptr) {
-            const auto port = std::to_string(cfg.port);
-            auto *ctx = modbus_new_tcp_pi(cfg.host.c_str(), port.c_str());
-            if (ctx == nullptr) return {nullptr, classify(errno)};
-            modbus_enable_quirks(ctx, MODBUS_QUIRK_MAX_SLAVE);
-            conn = std::make_shared<Connection>(ctx, this->demotion);
+            conn = connect(cfg);
+            if (conn == nullptr) return {nullptr, classify(errno)};
             entry = conn;
-        }
+        } else if (cfg.transport == Transport::RTU && conn->serial != cfg.serial)
+            return {
+                nullptr,
+                {CRITICAL_ERROR,
+                 "serial port " + cfg.serial.port + " is open at " +
+                     conn->serial.line() + ", but this device uses " +
+                     cfg.serial.line()}
+            };
         return {std::make_shared<Device>(conn, cfg, requests), x::errors::NIL};
     }
 };

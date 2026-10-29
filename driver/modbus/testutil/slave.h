@@ -29,7 +29,13 @@
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <termios.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <util.h>
+#else
+#include <pty.h>
+#endif
 #endif
 
 #include "absl/log/log.h"
@@ -56,6 +62,9 @@ struct SlaveConfig {
     std::set<int> silent_units;
     /// @brief units the slave answers with a gateway target exception (0B).
     std::set<int> gateway_failed_units;
+    /// @brief whether the slave serves Modbus RTU on a pseudo-terminal instead of
+    /// TCP. Not on Windows.
+    bool serial = false;
 };
 
 /// @brief A simple mock Modbus slave server using libmodbus
@@ -81,6 +90,11 @@ class Slave {
     std::size_t connections_ = 0;
     /// @brief set to ask the server loop to close every client connection.
     std::atomic<bool> drop_requested_{false};
+    /// @brief the terminal side of the pseudo-terminal of a serial slave. Held open
+    /// so that the line outlives each client.
+    int terminal_{-1};
+    /// @brief the path a client opens to reach a serial slave.
+    std::string serial_port_;
 
     /// @brief closes a socket. A Winsock socket is not a CRT file descriptor, so
     /// close() aborts on Windows.
@@ -205,6 +219,87 @@ class Slave {
         return mb_mapping;
     }
 
+    /// @brief counts a request and answers it on the context's socket as the
+    /// configuration says.
+    void handle(
+        const uint8_t *query,
+        const int length,
+        const uint8_t unit,
+        const uint8_t function_code
+    ) {
+        VLOG(1) << "Request length: " << length << ", function code: 0x" << std::hex
+                << static_cast<int>(function_code);
+        std::chrono::milliseconds stall{0};
+        {
+            std::lock_guard lock(mutex_);
+            if (const auto it = stalls_.find(unit); it != stalls_.end()) {
+                stall = it->second;
+                stalls_.erase(it);
+            }
+        }
+        std::this_thread::sleep_for(stall);
+        std::lock_guard lock(mutex_);
+        requests_[function_code]++;
+        unit_requests_[unit]++;
+        log_.push_back(function_code);
+        if (config_.silent_units.contains(unit)) return;
+        if (config_.gateway_failed_units.contains(unit))
+            modbus_reply_exception(ctx_, query, MODBUS_EXCEPTION_GATEWAY_TARGET);
+        else if (config_.reject_function_codes.contains(function_code))
+            modbus_reply_exception(ctx_, query, MODBUS_EXCEPTION_ILLEGAL_FUNCTION);
+        else
+            modbus_reply(ctx_, query, length, mb_mapping_);
+    }
+
+    /// @brief opens the pseudo-terminal of a serial slave.
+    x::errors::Error open_terminal() {
+#ifdef _WIN32
+        return x::errors::Error("a serial slave needs a POSIX pseudo-terminal");
+#else
+        int controller = -1;
+        if (openpty(&controller, &terminal_, nullptr, nullptr, nullptr) == -1)
+            return x::errors::Error(
+                "Failed to open a pseudo-terminal: " + std::string(strerror(errno))
+            );
+        termios tios{};
+        tcgetattr(terminal_, &tios);
+        cfmakeraw(&tios);
+        tcsetattr(terminal_, TCSANOW, &tios);
+        serial_port_ = ttyname(terminal_);
+        socket_ = controller;
+        modbus_set_socket(ctx_, controller);
+        return x::errors::NIL;
+#endif
+    }
+
+    /// @brief serves RTU frames from the pseudo-terminal. libmodbus drops each RTU
+    /// request for a unit other than its own, so the loop splits frames itself to
+    /// serve every unit. A frame ends at the first 5 ms of silence.
+    void serial_loop() {
+#ifndef _WIN32
+        uint8_t frame[MODBUS_RTU_MAX_ADU_LENGTH];
+        const auto readable = [this](const int timeout_us) {
+            fd_set set;
+            FD_ZERO(&set);
+            FD_SET(socket_, &set);
+            timeval timeout{.tv_sec = 0, .tv_usec = timeout_us};
+            return select(socket_ + 1, &set, nullptr, nullptr, &timeout) > 0;
+        };
+        while (running_) {
+            if (!readable(100000)) continue;
+            std::size_t length = 0;
+            do {
+                const auto n = read(socket_, frame + length, sizeof(frame) - length);
+                if (n <= 0) break;
+                length += static_cast<std::size_t>(n);
+            } while (length < sizeof(frame) && readable(5000));
+            // The shortest RTU frame holds a unit, a function code, and a CRC.
+            if (length < 4) continue;
+            this->handle(frame, static_cast<int>(length), frame[0], frame[1]);
+        }
+#endif
+    }
+
     void server_loop() {
         uint8_t query[MODBUS_TCP_MAX_ADU_LENGTH];
         fd_set ref_set, rd_set;
@@ -277,50 +372,11 @@ class Slave {
                     const int rc = modbus_receive(ctx_, query);
 
                     if (rc > 0) {
+                        VLOG(1)
+                            << "Received Modbus request on socket " << master_socket;
                         // The unit is at offset 6 and the function code at offset 7 of
                         // a TCP ADU.
-                        const uint8_t unit = query[6];
-                        const uint8_t function_code = query[7];
-                        VLOG(1) << "Received Modbus request on socket " << master_socket
-                                << ", length: " << rc << ", function code: 0x"
-                                << std::hex << static_cast<int>(function_code);
-
-                        std::chrono::milliseconds stall{0};
-                        {
-                            std::lock_guard lock(mutex_);
-                            if (const auto it = stalls_.find(unit);
-                                it != stalls_.end()) {
-                                stall = it->second;
-                                stalls_.erase(it);
-                            }
-                        }
-                        std::this_thread::sleep_for(stall);
-                        std::lock_guard lock(mutex_);
-                        requests_[function_code]++;
-                        unit_requests_[unit]++;
-                        log_.push_back(function_code);
-                        if (config_.silent_units.contains(unit)) continue;
-                        if (config_.gateway_failed_units.contains(unit))
-                            modbus_reply_exception(
-                                ctx_,
-                                query,
-                                MODBUS_EXCEPTION_GATEWAY_TARGET
-                            );
-                        else if (config_.reject_function_codes.contains(function_code))
-                            modbus_reply_exception(
-                                ctx_,
-                                query,
-                                MODBUS_EXCEPTION_ILLEGAL_FUNCTION
-                            );
-                        else
-                            modbus_reply(ctx_, query, rc, mb_mapping_);
-                        VLOG(1) << "Replied to request on socket " << master_socket;
-
-                        VLOG(1) << "Response data:";
-                        for (int i = 0; i < rc; i++) {
-                            VLOG(1) << "  byte[" << i << "] = 0x" << std::hex
-                                    << static_cast<int>(query[i]);
-                        }
+                        this->handle(query, rc, query[6], query[7]);
                     } else if (rc == -1) {
                         LOG(INFO) << "Connection closed on socket " << master_socket;
                         close_socket(master_socket);
@@ -335,11 +391,14 @@ class Slave {
     }
 
 public:
-    /// @brief Create a new Modbus TCP slave with the given configuration
+    /// @brief Create a new Modbus TCP or RTU slave with the given configuration
     /// @param config The slave configuration
     explicit Slave(const SlaveConfig &config):
         running_(false), ip_address_(config.host), port_(config.port), config_(config) {
-        ctx_ = modbus_new_tcp(ip_address_.c_str(), port_);
+        // A serial slave reads and writes the pseudo-terminal it opens at start, so
+        // the device name and line settings of its context go unused.
+        ctx_ = config.serial ? modbus_new_rtu("pty", 19200, 'E', 8, 1)
+                             : modbus_new_tcp(ip_address_.c_str(), port_);
         if (ctx_ == nullptr) {
             throw std::runtime_error("Failed to create modbus context");
         }
@@ -362,20 +421,30 @@ public:
     x::errors::Error start() {
         if (running_) { return x::errors::NIL; }
 
-        // Concurrent tests connect faster than the loop accepts. macOS drops the
-        // connects past the backlog, and libmodbus gives up before the retransmit.
-        socket_ = modbus_tcp_listen(ctx_, SOMAXCONN);
-        if (socket_ == -1) {
-            return x::errors::Error(
-                "Failed to listen on modbus socket: " +
-                std::string(modbus_strerror(errno))
-            );
+        if (config_.serial) {
+            if (const auto err = this->open_terminal()) return err;
+        } else {
+            // Concurrent tests connect faster than the loop accepts. macOS drops the
+            // connects past the backlog, and libmodbus gives up before the
+            // retransmit.
+            socket_ = modbus_tcp_listen(ctx_, SOMAXCONN);
+            if (socket_ == -1) {
+                return x::errors::Error(
+                    "Failed to listen on modbus socket: " +
+                    std::string(modbus_strerror(errno))
+                );
+            }
         }
 
         modbus_set_debug(ctx_, FALSE);
         running_ = true;
 
-        server_thread_ = std::thread([this] { server_loop(); });
+        server_thread_ = std::thread([this] {
+            if (config_.serial)
+                serial_loop();
+            else
+                server_loop();
+        });
         return x::errors::NIL;
     }
 
@@ -391,6 +460,12 @@ public:
             close_socket(socket_);
             socket_ = -1;
         }
+#ifndef _WIN32
+        if (terminal_ != -1) {
+            close(terminal_);
+            terminal_ = -1;
+        }
+#endif
     }
 
     /// @brief Get the IP address this slave is bound to
@@ -398,6 +473,9 @@ public:
 
     /// @brief Get the port this slave is listening on
     int port() const { return port_; }
+
+    /// @returns the path a client opens to reach a serial slave, valid after start.
+    std::string serial_port() const { return serial_port_; }
 
     // Add getters that read directly from the mapping
     uint8_t get_coil(int addr) const {
@@ -464,8 +542,10 @@ public:
     }
 
     /// @brief closes every client connection, as a server restart or a network fault
-    /// would, and blocks until the server loop has closed them. Keeps listening.
+    /// would, and blocks until the server loop has closed them. Keeps listening. A
+    /// serial slave has no connections to close.
     void drop_connections() {
+        if (config_.serial) return;
         drop_requested_ = true;
         while (drop_requested_ && running_)
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
