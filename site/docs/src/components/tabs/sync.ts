@@ -26,9 +26,9 @@ const TAB = '[role="tab"]';
 const STRIP = '[role="tablist"]';
 const PANEL = '[role="tabpanel"]';
 const OPTION = "[data-tab-key]";
-const SELECTED_CLASS = "pluto--selected";
-const CLIPPED_START_CLASS = "pluto-tabs__selector--clipped-start";
-const CLIPPED_END_CLASS = "pluto-tabs__selector--clipped-end";
+const SELECTED_CLASS = "lyra--selected";
+const CLIPPED_START_CLASS = "lyra-tabs__selector--clipped-start";
+const CLIPPED_END_CLASS = "lyra-tabs__selector--clipped-end";
 
 /** Resolves and reacts to the choice for one query key. */
 export interface Query {

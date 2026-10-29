@@ -187,7 +187,7 @@ describe("Core List", () => {
     );
     const addButton = screen
       .getAllByRole("button")
-      .find((b) => b.querySelector("svg.pluto-icon--add"));
+      .find((b) => b.querySelector("svg.lyra-icon--add"));
     if (addButton == null) throw new Error("add button not found");
     fireEvent.click(addButton);
     await waitFor(() => {
