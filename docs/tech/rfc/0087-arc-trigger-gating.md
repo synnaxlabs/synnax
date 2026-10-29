@@ -105,7 +105,7 @@ Start: `ch1` is 1, `ch2` is 2, `ch3` has no data. Cells show what `out` receives
 - **Fix, self write behind a trigger**: `trig -> v + 1 -> v` runs on the first `trig`
   after stage entry today. After the change it runs on every `trig`.
 
-## 1 Implementation
+## 1 Implementation phases
 
 The compiler applies the §0 rules once, per edge. The runtime only obeys.
 
@@ -128,6 +128,11 @@ The compiler applies the §0 rules once, per edge. The runtime only obeys.
 - **Phase 1: Go.** `arc/go/text` wires edges and run-time reads as above, and
   `arc/go/runtime` gates on edges. The IR schema does not change.
 - **Phase 2: C++.** `arc/cpp/runtime` applies the same gate to the same IR.
+
+| Phase | Scope                                                   | Touches                                       | Depends on |
+| ----- | ------------------------------------------------------- | --------------------------------------------- | ---------- |
+| 1     | Gate Arc flow nodes on every trigger in the Go runtime  | `arc/go/text`, `arc/go/runtime`, `arc/go/stl` | -          |
+| 2     | Gate Arc flow nodes on every trigger in the C++ runtime | `arc/cpp/runtime`                             | 1          |
 
 ## 2 Out of scope
 
