@@ -28,7 +28,7 @@ _CELL_SPLIT = re.compile(r"(?<!\\)\|")
 _SEPARATOR = re.compile(r":?-+:?")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Phase:
     number: int
     scope: str
@@ -65,7 +65,9 @@ def _parse_row(cells: list[str], expected: int) -> tuple[Phase | None, list[str]
             else:
                 depends_on.append(int(dep))
     paths = [m.group(1) for p in touches if (m := _PATH.fullmatch(p))]
-    return Phase(expected, scope, paths, depends_on), errors
+    return Phase(
+        number=expected, scope=scope, touches=paths, depends_on=depends_on
+    ), errors
 
 
 def parse(markdown: str) -> list[Phase]:

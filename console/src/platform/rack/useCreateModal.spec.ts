@@ -32,7 +32,7 @@ describe("useCreateModal", () => {
     const keys = await client.auth.retrieveAPIKeys([rack.ontologyID(created.key)]);
     expect(keys).toHaveLength(1);
     expect(shown.getAttribute("value")?.startsWith("syk_")).toBe(true);
-    expect(findButton("Create").className).toContain("pluto--disabled");
+    expect(findButton("Create").getAttribute("aria-disabled")).toBe("true");
   });
 
   it("should block closing while the key is being created", async () => {
