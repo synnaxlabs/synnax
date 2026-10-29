@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"golang.org/x/oauth2"
 )
@@ -284,6 +285,16 @@ func (s *Service) Authenticate(
 		return auth.Identity{}, err
 	}
 	return auth.Identity{Subject: link.Subject, Credential: link.Key}, nil
+}
+
+// Version implements [auth.Authenticator]. A link keeps one version for life.
+func (s *Service) Version(
+	ctx context.Context,
+	tx gorp.Tx,
+	credential uuid.UUID,
+) (telem.TimeStamp, error) {
+	var link Link
+	return 0, s.NewRetrieve().Where(MatchKeys(credential)).Entry(&link).Exec(ctx, tx)
 }
 
 func (s *Service) createUser(

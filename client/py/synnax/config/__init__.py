@@ -24,7 +24,7 @@ CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
 
 def default_clusters() -> Clusters:
     """Returns the clusters saved in the user's config file and OS keyring."""
-    return Clusters(File(CONFIG_FILE_PATH), keyring.get_keyring())
+    return Clusters(File(config_dir=CONFIG_FILE_PATH), keyring.get_keyring())
 
 
 def load_options() -> Options | None:
@@ -41,6 +41,7 @@ NO_OPTIONS_MSG = """No options provided and no configuration file was found. Ple
 
 
 def try_load_options_if_none_provided(
+    *,
     host: str = "",
     port: int = 0,
     username: str = "",
