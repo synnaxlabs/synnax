@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <map>
 #include <utility>
 #include <vector>
 
@@ -54,6 +55,41 @@ protected:
         this->mock_api->set_input_domain_size(input_sz);
         ASSERT_NIL(this->master_instance->activate());
     }
+
+    /// @brief makes the slave at the position map 0x6000:01 through PDO 0x1A00 on its
+    /// inputs, and also offer PDO 0x1A01, which maps 0x6010:01.
+    void create_assignable_layout(const uint16_t position = 0) {
+        this->mock_api->fake_syncs = {
+            {EC_DIR_OUTPUT, {}},
+            {EC_DIR_INPUT, {}},
+            {EC_DIR_OUTPUT, {}},
+            {EC_DIR_INPUT, {{0x1A00, {{0x6000, 0x01, 16}}}}},
+        };
+        const std::map<std::pair<uint16_t, uint8_t>, uint32_t> layout{
+            {{0x1C00, 0}, 4},
+            {{0x1C00, 1}, 1},
+            {{0x1C00, 2}, 2},
+            {{0x1C00, 3}, 3},
+            {{0x1C00, 4}, 4},
+            {{0x1C12, 0}, 0},
+            {{0x1C13, 0}, 1},
+            {{0x1C13, 1}, 0x1A00},
+            {{0x1A00, 0}, 1},
+            {{0x1A00, 1}, 0x60000110},
+            {{0x1A01, 0}, 1},
+            {{0x1A01, 1}, 0x60100120},
+        };
+        for (const auto &[key, value]: layout)
+            this->mock_api->objects[{position, key.first, key.second}] = value;
+    }
+};
+
+/// @brief assigns PDO 0x1A01 to the inputs in place of PDO 0x1A00.
+const slave::StartupParameter ASSIGN_INPUTS{
+    .index = 0x1C13,
+    .sub_index = 0x01,
+    .data_type = x::telem::UINT16_T,
+    .value = 0x1A01,
 };
 
 TEST_F(IGHMasterTest, InitializeHappyPath) {
@@ -247,6 +283,113 @@ TEST_F(IGHMasterTest, ActivateSkipsStartupParametersOfDisabledSlave) {
     );
     this->activate_with_domains();
     EXPECT_TRUE(this->mock_api->sdo_downloads.empty());
+}
+
+/// @brief it should register the entries of the PDO a startup parameter assigns, and
+/// configure that layout on the slave.
+TEST_F(IGHMasterTest, ActivateRegistersTheEntriesAStartupParameterAssigns) {
+    this->create_assignable_layout();
+    this->initialize_with_slave();
+    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
+    this->activate_with_domains();
+    const std::vector<std::pair<uint16_t, uint8_t>> registered{{0x6010, 0x01}};
+    EXPECT_EQ(this->mock_api->registered_entries, registered);
+    const std::vector<MockAPI::ConfiguredEntry> configured{
+        {0, 3, 0x1A01, 0x6010, 0x01, 32}
+    };
+    EXPECT_EQ(this->mock_api->configured_entries, configured);
+    const auto inputs = this->master_instance->slaves()[0].properties.input_pdos;
+    ASSERT_EQ(inputs.size(), 1);
+    EXPECT_EQ(inputs[0].index, 0x6010);
+    EXPECT_EQ(inputs[0].bit_length, 32);
+    ASSERT_NIL_P(this->master_instance->pdo_offset(
+        {.slave_position = 0,
+         .index = 0x6010,
+         .sub_index = 0x01,
+         .bit_length = 32,
+         .is_input = true}
+    ));
+}
+
+/// @brief it should keep the scanned layout of a slave that has no sync manager type
+/// object.
+TEST_F(IGHMasterTest, ActivateKeepsTheScannedLayoutWithoutSyncManagerTypes) {
+    this->create_assignable_layout();
+    this->mock_api->objects.erase({0, 0x1C00, 0});
+    this->initialize_with_slave();
+    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
+    this->activate_with_domains();
+    const std::vector<std::pair<uint16_t, uint8_t>> registered{{0x6000, 0x01}};
+    EXPECT_EQ(this->mock_api->registered_entries, registered);
+    EXPECT_TRUE(this->mock_api->configured_entries.empty());
+}
+
+/// @brief it should fail activation when it cannot read the layout after the startup
+/// parameters.
+TEST_F(IGHMasterTest, ActivateFailsWhenTheLayoutCannotBeRead) {
+    this->create_assignable_layout();
+    this->mock_api->objects.erase({0, 0x1A01, 0});
+    this->initialize_with_slave();
+    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
+    const auto err = this->master_instance->activate();
+    ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to read the PDO layout of slave 0 (TestSlave) after its startup "
+        "parameters: failed to read 0x1A01:00: The object does not exist in the "
+        "object directory"
+    );
+    EXPECT_TRUE(this->mock_api->registered_entries.empty());
+}
+
+/// @brief it should read the layout of each slave from that slave's own object
+/// dictionary.
+TEST_F(IGHMasterTest, ActivateReadsTheLayoutOfEachSlaveFromItsOwnDictionary) {
+    this->create_assignable_layout(0);
+    this->create_assignable_layout(1);
+    this->add_default_slave(0);
+    this->add_default_slave(1);
+    ASSERT_NIL(this->master_instance->initialize());
+    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
+    this->master_instance->set_slave_config(1, {.startup_parameters = {FILTER}});
+    this->activate_with_domains();
+    const std::vector<MockAPI::ConfiguredEntry> configured{
+        {0, 3, 0x1A01, 0x6010, 0x01, 32},
+        {1, 3, 0x1A00, 0x6000, 0x01, 16},
+    };
+    EXPECT_EQ(this->mock_api->configured_entries, configured);
+}
+
+/// @brief it should fail activation when a slave counts more sync managers than it can
+/// type.
+TEST_F(IGHMasterTest, ActivateFailsWhenASlaveCountsTooManySyncManagers) {
+    this->create_assignable_layout();
+    this->mock_api->objects[{0, 0x1C00, 0}] = 33;
+    this->initialize_with_slave();
+    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
+    const auto err = this->master_instance->activate();
+    ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to read the PDO layout of slave 0 (TestSlave) after its startup "
+        "parameters: 0x1C00:00 counts 33 entries, above the maximum of 32"
+    );
+}
+
+/// @brief it should fail activation when a PDO counts more entries than a mapping
+/// object can hold.
+TEST_F(IGHMasterTest, ActivateFailsWhenAPDOCountsTooManyEntries) {
+    this->create_assignable_layout();
+    this->mock_api->objects[{0, 0x1A01, 0}] = 0xFFFFFFFF;
+    this->initialize_with_slave();
+    this->master_instance->set_slave_config(0, {.startup_parameters = {ASSIGN_INPUTS}});
+    const auto err = this->master_instance->activate();
+    ASSERT_OCCURRED_AS(err, errors::PDO_DISCOVERY_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to read the PDO layout of slave 0 (TestSlave) after its startup "
+        "parameters: 0x1A01:00 counts 4294967295 entries, above the maximum of 254"
+    );
 }
 
 TEST_F(IGHMasterTest, ActivateHappyPath) {

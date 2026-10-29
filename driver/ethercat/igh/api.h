@@ -57,7 +57,9 @@ class API {
         decltype(&ecrt_slave_config_state) slave_config_state;
         decltype(&ecrt_slave_config_reg_pdo_entry) slave_config_reg_pdo_entry;
         decltype(&ecrt_slave_config_sdo) slave_config_sdo;
+        decltype(&ecrt_slave_config_pdos) slave_config_pdos;
         decltype(&ecrt_master_sdo_download) master_sdo_download;
+        decltype(&ecrt_master_sdo_upload) master_sdo_upload;
         decltype(&ecrt_master_get_sync_manager) master_get_sync_manager;
         decltype(&ecrt_master_get_pdo) master_get_pdo;
         decltype(&ecrt_master_get_pdo_entry) master_get_pdo_entry;
@@ -146,9 +148,17 @@ public:
             .slave_config_sdo = reinterpret_cast<decltype(&ecrt_slave_config_sdo)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_sdo"))
         );
+        this->func_ptrs
+            .slave_config_pdos = reinterpret_cast<decltype(&ecrt_slave_config_pdos)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_slave_config_pdos"))
+        );
         this->func_ptrs.master_sdo_download = reinterpret_cast<
             decltype(&ecrt_master_sdo_download)>(
             const_cast<void *>(this->lib->get_func_ptr("ecrt_master_sdo_download"))
+        );
+        this->func_ptrs
+            .master_sdo_upload = reinterpret_cast<decltype(&ecrt_master_sdo_upload)>(
+            const_cast<void *>(this->lib->get_func_ptr("ecrt_master_sdo_upload"))
         );
         this->func_ptrs.master_get_sync_manager = reinterpret_cast<
             decltype(&ecrt_master_get_sync_manager)>(
@@ -325,6 +335,15 @@ public:
         return this->func_ptrs.slave_config_sdo(sc, index, subindex, data, size);
     }
 
+    /// @brief sets the PDO assignment and mapping the master configures on the slave.
+    [[nodiscard]] virtual int slave_config_pdos(
+        ec_slave_config_t *sc,
+        unsigned int n_syncs,
+        const ec_sync_info_t syncs[]
+    ) const {
+        return this->func_ptrs.slave_config_pdos(sc, n_syncs, syncs);
+    }
+
     /// @brief writes an SDO to a slave and blocks until it answers, setting abort_code
     /// when the slave rejects the write.
     [[nodiscard]] virtual int master_sdo_download(
@@ -343,6 +362,30 @@ public:
             subindex,
             data,
             data_size,
+            abort_code
+        );
+    }
+
+    /// @brief reads an SDO from a slave and blocks until it answers, setting abort_code
+    /// when the slave rejects the read.
+    [[nodiscard]] virtual int master_sdo_upload(
+        ec_master_t *master,
+        uint16_t slave_position,
+        uint16_t index,
+        uint8_t subindex,
+        uint8_t *target,
+        size_t target_size,
+        size_t *result_size,
+        uint32_t *abort_code
+    ) const {
+        return this->func_ptrs.master_sdo_upload(
+            master,
+            slave_position,
+            index,
+            subindex,
+            target,
+            target_size,
+            result_size,
             abort_code
         );
     }
