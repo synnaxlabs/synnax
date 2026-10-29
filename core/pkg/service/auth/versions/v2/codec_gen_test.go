@@ -37,20 +37,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.Session{
-				Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Hash:              []byte{2, 3, 4},
-				Subject:           ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
-				Credential:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-				CredentialVersion: telem.TimeStamp(8),
-				LastActive:        telem.TimeStamp(9),
+				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Hash:       []byte{2, 3, 4},
+				Subject:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+				Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+				LastActive: telem.TimeStamp(8),
 			}),
 			Entry("zero values", v2.Session{
-				Key:               uuid.Nil(),
-				Hash:              nil,
-				Subject:           ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-				Credential:        uuid.Nil(),
-				CredentialVersion: telem.TimeStamp(0),
-				LastActive:        telem.TimeStamp(0),
+				Key:        uuid.Nil(),
+				Hash:       nil,
+				Subject:    ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+				Credential: uuid.Nil(),
+				LastActive: telem.TimeStamp(0),
 			}),
 		)
 	})
@@ -58,12 +56,11 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeSession(b *testing.B) {
 	seed := v2.Session{
-		Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Hash:              []byte{2, 3, 4},
-		Subject:           ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
-		Credential:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-		CredentialVersion: telem.TimeStamp(8),
-		LastActive:        telem.TimeStamp(9),
+		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Hash:       []byte{2, 3, 4},
+		Subject:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+		Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+		LastActive: telem.TimeStamp(8),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -83,12 +80,11 @@ func BenchmarkEncodeDecodeSession(b *testing.B) {
 func FuzzDecodeSession(f *testing.F) {
 	{
 		seed := v2.Session{
-			Key:               uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Hash:              []byte{2, 3, 4},
-			Subject:           ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
-			Credential:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
-			CredentialVersion: telem.TimeStamp(8),
-			LastActive:        telem.TimeStamp(9),
+			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Hash:       []byte{2, 3, 4},
+			Subject:    ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+			Credential: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567806"),
+			LastActive: telem.TimeStamp(8),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -98,12 +94,11 @@ func FuzzDecodeSession(f *testing.F) {
 	}
 	{
 		seed := v2.Session{
-			Key:               uuid.Nil(),
-			Hash:              nil,
-			Subject:           ontology.ID{Type: ontology.ResourceType(""), Key: ""},
-			Credential:        uuid.Nil(),
-			CredentialVersion: telem.TimeStamp(0),
-			LastActive:        telem.TimeStamp(0),
+			Key:        uuid.Nil(),
+			Hash:       nil,
+			Subject:    ontology.ID{Type: ontology.ResourceType(""), Key: ""},
+			Credential: uuid.Nil(),
+			LastActive: telem.TimeStamp(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
