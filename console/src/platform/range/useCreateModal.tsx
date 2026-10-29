@@ -9,7 +9,7 @@
 
 import "@/platform/range/Create.css";
 
-import { type ranger, TimeStamp } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -30,12 +30,9 @@ import { Triggers } from "@/platform/triggers";
 import { Session } from "@/session";
 
 export type CreateModalParams = Omit<
-  Partial<z.infer<typeof Ranger.formSchema>>,
+  Partial<z.infer<typeof Ranger.createFormSchema>>,
   "key"
-> & {
-  /** When provided, the modal edits the existing range with this key. */
-  rangeKey?: string;
-};
+>;
 
 const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
@@ -46,12 +43,8 @@ const ParentRangeIcon = Icon.createComposite(Icon.Range, {
 const PARENT_TRIGGER_PROPS = { placeholder: "Parent range", variant: "text" as const };
 
 const TimelineField = (): ReactElement => {
-  // A range loaded by key carries no parent field, so the read must tolerate its
-  // absence.
-  const parentKey = Form.useFieldValue<string>("parent", { optional: true });
-  const parent = Ranger.useResult(
-    parentKey == null || parentKey === "" ? null : { key: parentKey },
-  );
+  const parentKey = Form.useFieldValue<string>("parent");
+  const parent = Ranger.useResult(parentKey === "" ? null : { key: parentKey });
   const parentRange = parent.data?.timeRange.numeric;
   return (
     <Form.Field<NumericTimeRange>
@@ -66,22 +59,18 @@ const TimelineField = (): ReactElement => {
   );
 };
 
-const Create = ({
-  close,
-  rangeKey,
-  ...params
-}: Modals.ContentProps<CreateModalParams, void>) => {
+const Create = ({ close, ...params }: Modals.ContentProps<CreateModalParams, void>) => {
   const [now] = useState(() => Number(TimeStamp.now().valueOf()));
   const dispatch = Session.useDispatch();
   const { capture } = Analytics.use();
 
   const client = Synnax.use();
   const clientExists = client != null;
-  const { form, save, variant } = Ranger.useForm({
-    query: rangeKey == null ? null : { key: rangeKey },
+  const { form, save, variant } = Ranger.useCreateForm({
+    query: null,
     autoSave: false,
     initialValues: {
-      key: rangeKey ?? uuid.create(),
+      key: uuid.create(),
       name: "",
       labels: [],
       timeRange: { start: now, end: TimeStamp.MAX.nanoseconds },
@@ -89,7 +78,7 @@ const Create = ({
       ...params,
     },
     afterSave: (form) => {
-      if (rangeKey == null) capture("range_created", {});
+      capture("range_created", {});
       close();
       const { key } = form.value();
       if (key == null) return;
@@ -112,16 +101,13 @@ const Create = ({
     close();
   };
 
-  // Makes sure the user doesn't have the option to select the range itself as a parent
-  const recursiveParentFilter = (data: ranger.Payload) => data.key !== rangeKey;
-
   const saveName = "Save to Core";
 
   return (
     <Modal.Frame className={CSS.B("range-create-layout")}>
       <Modal.Header icon={<Icon.Range />}>Range.Create</Modal.Header>
       <Modal.Body>
-        <Form.Form<typeof Ranger.formSchema> {...form}>
+        <Form.Form<typeof Ranger.createFormSchema> {...form}>
           <Flex.Box y gap="huge">
             <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
               {(p) => (
@@ -146,7 +132,6 @@ const Create = ({
                 {({ onChange, value }) => (
                   <Ranger.Select
                     className={CSS.BE("range-create-layout", "parent")}
-                    filter={recursiveParentFilter}
                     value={value}
                     // Clearing the selection reports null, but the schema types an
                     // absent parent as "". Null fails validation on a field that

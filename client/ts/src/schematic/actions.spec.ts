@@ -511,6 +511,53 @@ describe("schematic reducer", () => {
     });
   });
 
+  describe("path actions", () => {
+    const set = (path: string[], value: unknown) => schematic.set({ path, value });
+
+    it("should set a field of an element config from its wire form", () => {
+      const state = empty({ configs: { n1: tank("Pump") } });
+      const { next, targets } = schematic.reduceAll(state, [
+        set(["configs", "n1", "label", "max_inline_size"], 200),
+      ]);
+      expect(next.configs.n1).toEqual(
+        cfg({ variant: "tank", label: { label: "Pump", maxInlineSize: 200 } }),
+      );
+      expect(targets).toEqual(["n1"]);
+    });
+
+    it("should return a wire-form inverse that restores the config", () => {
+      const state = empty({ configs: { n1: tank("Pump") } });
+      const { next, inverse } = schematic.reduceAll(state, [
+        set(["configs", "n1", "label", "max_inline_size"], 200),
+      ]);
+      expect(inverse).toEqual([
+        schematic.set({
+          path: ["configs", "n1", "label", "max_inline_size"],
+          value: 150,
+        }),
+      ]);
+      expect(apply(next, ...inverse)).toEqual(state);
+    });
+
+    it("should keep the other element configs by identity", () => {
+      const state = empty({ configs: { n1: tank("Pump"), n2: tank("Valve") } });
+      const out = apply(state, set(["configs", "n1", "label", "label"], "Tank"));
+      expect(out.configs.n2).toBe(state.configs.n2);
+    });
+
+    it("should remove an element config", () => {
+      const state = empty({ configs: { n1: tank("Pump") } });
+      const out = apply(state, schematic.remove({ path: ["configs"], key: "n1" }));
+      expect(out.configs).toEqual({});
+    });
+
+    it("should throw for a path outside the element configs", () => {
+      expect(() => apply(empty(), set(["name"], "Other"))).toThrow(
+        "name is not inside an entry of configs",
+      );
+    });
+  });
+
   describe("immutability", () => {
     it("should leave the input state object unmodified", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });

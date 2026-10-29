@@ -1,0 +1,402 @@
+{
+  "cases": [
+    {
+      "name": "set replaces a top-level field",
+      "doc": { "name": "a", "rate": 1 },
+      "actions": [{ "type": "set", "path": ["name"], "value": "b" }],
+      "expected": { "name": "b", "rate": 1 }
+    },
+    {
+      "name": "set replaces a nested field",
+      "doc": { "config": { "rate": 1, "stream": 2 } },
+      "actions": [{ "type": "set", "path": ["config", "rate"], "value": 10 }],
+      "expected": { "config": { "rate": 10, "stream": 2 } }
+    },
+    {
+      "name": "set creates absent objects",
+      "doc": {},
+      "actions": [{ "type": "set", "path": ["a", "b", "c"], "value": true }],
+      "expected": { "a": { "b": { "c": true } } }
+    },
+    {
+      "name": "set replaces a null object",
+      "doc": { "a": null },
+      "actions": [{ "type": "set", "path": ["a", "b"], "value": 1 }],
+      "expected": { "a": { "b": 1 } }
+    },
+    {
+      "name": "two sets under one absent object both apply",
+      "doc": {},
+      "actions": [
+        { "type": "set", "path": ["a", "x"], "value": 1 },
+        { "type": "set", "path": ["a", "y"], "value": 2 }
+      ],
+      "expected": { "a": { "x": 1, "y": 2 } }
+    },
+    {
+      "name": "set writes a field of a list entry by key",
+      "doc": {
+        "channels": [
+          { "key": "a", "port": 0 },
+          { "key": "b", "port": 1 }
+        ]
+      },
+      "actions": [{ "type": "set", "path": ["channels", "b", "port"], "value": 5 }],
+      "expected": {
+        "channels": [
+          { "key": "a", "port": 0 },
+          { "key": "b", "port": 5 }
+        ]
+      }
+    },
+    {
+      "name": "set through a missing list entry does nothing",
+      "doc": { "channels": [{ "key": "a", "port": 0 }] },
+      "actions": [{ "type": "set", "path": ["channels", "b", "port"], "value": 5 }],
+      "expected": { "channels": [{ "key": "a", "port": 0 }] }
+    },
+    {
+      "name": "set does not create fields under a missing list entry",
+      "doc": { "channels": [{ "key": "a" }] },
+      "actions": [{ "type": "set", "path": ["channels", "b", "x", "y"], "value": 1 }],
+      "expected": { "channels": [{ "key": "a" }] }
+    },
+    {
+      "name": "set replaces a whole list entry by key",
+      "doc": { "channels": [{ "key": "a", "type": "ai_voltage", "max": 10 }] },
+      "actions": [
+        {
+          "type": "set",
+          "path": ["channels", "a"],
+          "value": { "key": "a", "type": "ai_thermocouple", "units": "C" }
+        }
+      ],
+      "expected": {
+        "channels": [{ "key": "a", "type": "ai_thermocouple", "units": "C" }]
+      }
+    },
+    {
+      "name": "set rejects a list entry with another key",
+      "doc": { "channels": [{ "key": "a" }] },
+      "actions": [
+        { "type": "set", "path": ["channels", "a"], "value": { "key": "b" } }
+      ],
+      "error": "the entry must be an object with the key a"
+    },
+    {
+      "name": "set replaces a list of plain values whole",
+      "doc": { "tags": ["a", "b"] },
+      "actions": [{ "type": "set", "path": ["tags"], "value": ["c"] }],
+      "expected": { "tags": ["c"] }
+    },
+    {
+      "name": "set addresses a key that holds dots",
+      "doc": { "nodes": [{ "key": "ns=2;s=a.b", "enabled": false }] },
+      "actions": [
+        { "type": "set", "path": ["nodes", "ns=2;s=a.b", "enabled"], "value": true }
+      ],
+      "expected": { "nodes": [{ "key": "ns=2;s=a.b", "enabled": true }] }
+    },
+    {
+      "name": "set addresses an object field that holds dots",
+      "doc": { "props": { "a.b": 1 } },
+      "actions": [{ "type": "set", "path": ["props", "a.b"], "value": 2 }],
+      "expected": { "props": { "a.b": 2 } }
+    },
+    {
+      "name": "set writes null",
+      "doc": { "a": 1 },
+      "actions": [{ "type": "set", "path": ["a"], "value": null }],
+      "expected": { "a": null }
+    },
+    {
+      "name": "set through a plain value fails",
+      "doc": { "rate": 1 },
+      "actions": [{ "type": "set", "path": ["rate", "x"], "value": 1 }],
+      "error": "the value is not an object or a list"
+    },
+    {
+      "name": "set with an empty path fails",
+      "doc": {},
+      "actions": [{ "type": "set", "path": [], "value": 1 }],
+      "error": "the path is empty"
+    },
+    {
+      "name": "set with a matching guard applies",
+      "doc": { "channels": [{ "key": "a", "type": "ai_voltage", "max": 10 }] },
+      "actions": [
+        {
+          "type": "set",
+          "path": ["channels", "a", "max"],
+          "value": 5,
+          "guards": [{ "path": ["channels", "a", "type"], "value": "ai_voltage" }]
+        }
+      ],
+      "expected": { "channels": [{ "key": "a", "type": "ai_voltage", "max": 5 }] }
+    },
+    {
+      "name": "set with a stale guard does nothing",
+      "doc": { "channels": [{ "key": "a", "type": "ai_thermocouple", "max": 10 }] },
+      "actions": [
+        {
+          "type": "set",
+          "path": ["channels", "a", "max"],
+          "value": 5,
+          "guards": [{ "path": ["channels", "a", "type"], "value": "ai_voltage" }]
+        }
+      ],
+      "expected": { "channels": [{ "key": "a", "type": "ai_thermocouple", "max": 10 }] }
+    },
+    {
+      "name": "set with a guard through a missing entry does nothing",
+      "doc": { "channels": [] },
+      "actions": [
+        {
+          "type": "set",
+          "path": ["channels", "a", "max"],
+          "value": 5,
+          "guards": [{ "path": ["channels", "a", "type"], "value": "ai_voltage" }]
+        }
+      ],
+      "expected": { "channels": [] }
+    },
+    {
+      "name": "set checks every guard",
+      "doc": { "a": { "type": "x", "b": { "type": "y", "v": 1 } } },
+      "actions": [
+        {
+          "type": "set",
+          "path": ["a", "b", "v"],
+          "value": 2,
+          "guards": [
+            { "path": ["a", "type"], "value": "x" },
+            { "path": ["a", "b", "type"], "value": "z" }
+          ]
+        }
+      ],
+      "expected": { "a": { "type": "x", "b": { "type": "y", "v": 1 } } }
+    },
+    {
+      "name": "a guard without a path fails",
+      "doc": { "a": 1 },
+      "actions": [
+        {
+          "type": "set",
+          "path": ["a"],
+          "value": 2,
+          "guards": [{ "path": [], "value": "x" }]
+        }
+      ],
+      "error": "a guard needs a path"
+    },
+    {
+      "name": "remove deletes a list entry by key",
+      "doc": { "channels": [{ "key": "a" }, { "key": "b" }, { "key": "c" }] },
+      "actions": [{ "type": "remove", "path": ["channels"], "key": "b" }],
+      "expected": { "channels": [{ "key": "a" }, { "key": "c" }] }
+    },
+    {
+      "name": "remove of a missing entry does nothing",
+      "doc": { "channels": [{ "key": "a" }] },
+      "actions": [{ "type": "remove", "path": ["channels"], "key": "b" }],
+      "expected": { "channels": [{ "key": "a" }] }
+    },
+    {
+      "name": "remove deletes an object field",
+      "doc": { "config": { "a": 1, "b": 2 } },
+      "actions": [{ "type": "remove", "path": ["config"], "key": "a" }],
+      "expected": { "config": { "b": 2 } }
+    },
+    {
+      "name": "remove deletes a top-level field",
+      "doc": { "a": 1, "b": 2 },
+      "actions": [{ "type": "remove", "path": [], "key": "a" }],
+      "expected": { "b": 2 }
+    },
+    {
+      "name": "remove under a missing object does nothing",
+      "doc": {},
+      "actions": [{ "type": "remove", "path": ["config"], "key": "a" }],
+      "expected": {}
+    },
+    {
+      "name": "remove of the last entry leaves an empty list",
+      "doc": { "channels": [{ "key": "a" }] },
+      "actions": [{ "type": "remove", "path": ["channels"], "key": "a" }],
+      "expected": { "channels": [] }
+    },
+    {
+      "name": "remove from a plain value fails",
+      "doc": { "rate": 1 },
+      "actions": [{ "type": "remove", "path": ["rate"], "key": "a" }],
+      "error": "the value is not an object or a list"
+    },
+    {
+      "name": "remove with a stale guard does nothing",
+      "doc": { "a": { "type": "y", "list": [{ "key": "k" }] } },
+      "actions": [
+        {
+          "type": "remove",
+          "path": ["a", "list"],
+          "key": "k",
+          "guards": [{ "path": ["a", "type"], "value": "x" }]
+        }
+      ],
+      "expected": { "a": { "type": "y", "list": [{ "key": "k" }] } }
+    },
+    {
+      "name": "insert without after goes first",
+      "doc": { "channels": [{ "key": "a" }] },
+      "actions": [{ "type": "insert", "path": ["channels"], "value": { "key": "b" } }],
+      "expected": { "channels": [{ "key": "b" }, { "key": "a" }] }
+    },
+    {
+      "name": "insert goes after the named entry",
+      "doc": { "channels": [{ "key": "a" }, { "key": "c" }] },
+      "actions": [
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "b" },
+          "after": "a"
+        }
+      ],
+      "expected": { "channels": [{ "key": "a" }, { "key": "b" }, { "key": "c" }] }
+    },
+    {
+      "name": "insert after the last entry goes last",
+      "doc": { "channels": [{ "key": "a" }, { "key": "b" }] },
+      "actions": [
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "c" },
+          "after": "b"
+        }
+      ],
+      "expected": { "channels": [{ "key": "a" }, { "key": "b" }, { "key": "c" }] }
+    },
+    {
+      "name": "insert after a missing entry goes last",
+      "doc": { "channels": [{ "key": "a" }] },
+      "actions": [
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "c" },
+          "after": "x"
+        }
+      ],
+      "expected": { "channels": [{ "key": "a" }, { "key": "c" }] }
+    },
+    {
+      "name": "two inserts after one entry both stay in arrival order",
+      "doc": { "channels": [{ "key": "a" }, { "key": "z" }] },
+      "actions": [
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "b" },
+          "after": "a"
+        },
+        {
+          "type": "insert",
+          "path": ["channels"],
+          "value": { "key": "c" },
+          "after": "a"
+        }
+      ],
+      "expected": {
+        "channels": [{ "key": "a" }, { "key": "c" }, { "key": "b" }, { "key": "z" }]
+      }
+    },
+    {
+      "name": "insert creates an absent list",
+      "doc": {},
+      "actions": [
+        { "type": "insert", "path": ["config", "channels"], "value": { "key": "a" } }
+      ],
+      "expected": { "config": { "channels": [{ "key": "a" }] } }
+    },
+    {
+      "name": "insert of an existing key does nothing",
+      "doc": { "channels": [{ "key": "a", "port": 0 }] },
+      "actions": [
+        { "type": "insert", "path": ["channels"], "value": { "key": "a", "port": 1 } }
+      ],
+      "expected": { "channels": [{ "key": "a", "port": 0 }] }
+    },
+    {
+      "name": "insert under a missing list entry does nothing",
+      "doc": { "devices": [] },
+      "actions": [
+        {
+          "type": "insert",
+          "path": ["devices", "d", "channels"],
+          "value": { "key": "a" }
+        }
+      ],
+      "expected": { "devices": [] }
+    },
+    {
+      "name": "insert of an entry without a key fails",
+      "doc": { "channels": [] },
+      "actions": [{ "type": "insert", "path": ["channels"], "value": { "port": 1 } }],
+      "error": "the entry must be an object with a string key"
+    },
+    {
+      "name": "insert into a value that is not a list fails",
+      "doc": { "channels": { "a": 1 } },
+      "actions": [{ "type": "insert", "path": ["channels"], "value": { "key": "a" } }],
+      "error": "the value is not a list"
+    },
+    {
+      "name": "move without after goes first",
+      "doc": { "channels": [{ "key": "a" }, { "key": "b" }, { "key": "c" }] },
+      "actions": [{ "type": "move", "path": ["channels"], "key": "c" }],
+      "expected": { "channels": [{ "key": "c" }, { "key": "a" }, { "key": "b" }] }
+    },
+    {
+      "name": "move goes after the named entry",
+      "doc": { "channels": [{ "key": "a" }, { "key": "b" }, { "key": "c" }] },
+      "actions": [{ "type": "move", "path": ["channels"], "key": "a", "after": "b" }],
+      "expected": { "channels": [{ "key": "b" }, { "key": "a" }, { "key": "c" }] }
+    },
+    {
+      "name": "move after the last entry goes last",
+      "doc": { "channels": [{ "key": "a" }, { "key": "b" }, { "key": "c" }] },
+      "actions": [{ "type": "move", "path": ["channels"], "key": "a", "after": "c" }],
+      "expected": { "channels": [{ "key": "b" }, { "key": "c" }, { "key": "a" }] }
+    },
+    {
+      "name": "move after itself does nothing",
+      "doc": { "channels": [{ "key": "a" }, { "key": "b" }] },
+      "actions": [{ "type": "move", "path": ["channels"], "key": "b", "after": "b" }],
+      "expected": { "channels": [{ "key": "a" }, { "key": "b" }] }
+    },
+    {
+      "name": "move of a missing entry does nothing",
+      "doc": { "channels": [{ "key": "a" }] },
+      "actions": [{ "type": "move", "path": ["channels"], "key": "x", "after": "a" }],
+      "expected": { "channels": [{ "key": "a" }] }
+    },
+    {
+      "name": "move after a missing entry goes last",
+      "doc": { "channels": [{ "key": "a" }, { "key": "b" }] },
+      "actions": [{ "type": "move", "path": ["channels"], "key": "a", "after": "x" }],
+      "expected": { "channels": [{ "key": "b" }, { "key": "a" }] }
+    },
+    {
+      "name": "move in a missing list does nothing",
+      "doc": {},
+      "actions": [{ "type": "move", "path": ["channels"], "key": "a" }],
+      "expected": {}
+    },
+    {
+      "name": "move in a value that is not a list fails",
+      "doc": { "channels": { "a": 1 } },
+      "actions": [{ "type": "move", "path": ["channels"], "key": "a" }],
+      "error": "the value is not a list"
+    }
+  ]
+}

@@ -163,7 +163,6 @@ export const DigitalRead = Task.wrapForm({
   Form,
   schemas: DIGITAL_READ_SCHEMAS,
   deployConfigZ: deployDigitalReadConfigZ,
-  getInitialValues,
   onConfigure,
   type: "ni_digital_read",
 });

@@ -12,6 +12,7 @@
 package schematic
 
 import (
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
@@ -25,6 +26,10 @@ const (
 	ActionTypeAddEdge         = "add_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
 	ActionTypeSetConfig       = "set_config"
+	ActionTypeSet             = "set"
+	ActionTypeRemove          = "remove"
+	ActionTypeInsert          = "insert"
+	ActionTypeMove            = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -74,6 +79,37 @@ type SetConfigPayload struct {
 	Config ElementConfig `json:"config" msgpack:"config"`
 }
 
+// SetPayload replaces the value at a path in the schematic's element configs.
+type SetPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// RemovePayload removes an entry from a list or a field from an object in the
+// schematic's element configs.
+type RemovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// InsertPayload adds an entry to a list in the schematic's element configs.
+type InsertPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// MovePayload moves an entry in a list in the schematic's element configs.
+type MovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
 // Action is a discriminated union for all Schematic mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
@@ -86,12 +122,15 @@ type Action struct {
 	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitempty"`
 	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitempty"`
 	SetConfig       *SetConfigPayload       `json:"set_config,omitzero" msgpack:"set_config,omitempty"`
+	Set             *SetPayload             `json:"set,omitzero" msgpack:"set,omitempty"`
+	Remove          *RemovePayload          `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Insert          *InsertPayload          `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Move            *MovePayload            `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
-// Reduce applies the given actions sequentially to state by dispatching on
-// each action's Type to the matching payload's Handle method. Unknown action
-// types leave state unchanged. An action whose Type names a known variant but
-// carries a nil payload pointer returns an error. Returns the first error
+// Reduce applies the given actions sequentially to state by dispatching on each
+// action's Type to the matching payload's Handle method. An unknown action type, or a
+// known type with a nil payload pointer, returns an error. Returns the first error
 // encountered along with the partially-reduced state.
 func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 	var err error
@@ -137,8 +176,28 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetConfig.Handle(state)
+		case ActionTypeSet:
+			if a.Set == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Set.Handle(state)
+		case ActionTypeRemove:
+			if a.Remove == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Remove.Handle(state)
+		case ActionTypeInsert:
+			if a.Insert == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Insert.Handle(state)
+		case ActionTypeMove:
+			if a.Move == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Move.Handle(state)
 		default:
-			continue
+			return state, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
 			return state, err
@@ -185,4 +244,24 @@ func NewRemoveEdgeAction(p RemoveEdgePayload) Action {
 // NewSetConfigAction wraps a SetConfigPayload in an Action envelope.
 func NewSetConfigAction(p SetConfigPayload) Action {
 	return Action{Type: ActionTypeSetConfig, SetConfig: &p}
+}
+
+// NewSetAction wraps a SetPayload in an Action envelope.
+func NewSetAction(p SetPayload) Action {
+	return Action{Type: ActionTypeSet, Set: &p}
+}
+
+// NewRemoveAction wraps a RemovePayload in an Action envelope.
+func NewRemoveAction(p RemovePayload) Action {
+	return Action{Type: ActionTypeRemove, Remove: &p}
+}
+
+// NewInsertAction wraps a InsertPayload in an Action envelope.
+func NewInsertAction(p InsertPayload) Action {
+	return Action{Type: ActionTypeInsert, Insert: &p}
+}
+
+// NewMoveAction wraps a MovePayload in an Action envelope.
+func NewMoveAction(p MovePayload) Action {
+	return Action{Type: ActionTypeMove, Move: &p}
 }

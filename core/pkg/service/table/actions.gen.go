@@ -11,7 +11,10 @@
 
 package table
 
-import "github.com/synnaxlabs/x/union"
+import (
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/union"
+)
 
 const (
 	ActionTypeCreate     = "create"
@@ -26,6 +29,10 @@ const (
 	ActionTypeMoveCol    = "move_col"
 	ActionTypeSetCell    = "set_cell"
 	ActionTypeEraseCells = "erase_cells"
+	ActionTypeSet        = "set"
+	ActionTypeRemove     = "remove"
+	ActionTypeInsert     = "insert"
+	ActionTypeMove       = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -139,6 +146,37 @@ type EraseCellsPayload struct {
 	Template CellConfig `json:"template" msgpack:"template"`
 }
 
+// SetPayload replaces the value at a path in the table's cells.
+type SetPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// RemovePayload removes an entry from a list or a field from an object in the table's
+// cells.
+type RemovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// InsertPayload adds an entry to a list in the table's cells.
+type InsertPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// MovePayload moves an entry in a list in the table's cells.
+type MovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
 // Action is a discriminated union for all Table mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
@@ -155,12 +193,15 @@ type Action struct {
 	MoveCol    *MoveColPayload    `json:"move_col,omitzero" msgpack:"move_col,omitempty"`
 	SetCell    *SetCellPayload    `json:"set_cell,omitzero" msgpack:"set_cell,omitempty"`
 	EraseCells *EraseCellsPayload `json:"erase_cells,omitzero" msgpack:"erase_cells,omitempty"`
+	Set        *SetPayload        `json:"set,omitzero" msgpack:"set,omitempty"`
+	Remove     *RemovePayload     `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Insert     *InsertPayload     `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Move       *MovePayload       `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
-// Reduce applies the given actions sequentially to state by dispatching on
-// each action's Type to the matching payload's Handle method. Unknown action
-// types leave state unchanged. An action whose Type names a known variant but
-// carries a nil payload pointer returns an error. Returns the first error
+// Reduce applies the given actions sequentially to state by dispatching on each
+// action's Type to the matching payload's Handle method. An unknown action type, or a
+// known type with a nil payload pointer, returns an error. Returns the first error
 // encountered along with the partially-reduced state.
 func Reduce(state Table, actions ...Action) (Table, error) {
 	var err error
@@ -226,8 +267,28 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.EraseCells.Handle(state)
+		case ActionTypeSet:
+			if a.Set == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Set.Handle(state)
+		case ActionTypeRemove:
+			if a.Remove == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Remove.Handle(state)
+		case ActionTypeInsert:
+			if a.Insert == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Insert.Handle(state)
+		case ActionTypeMove:
+			if a.Move == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.Move.Handle(state)
 		default:
-			continue
+			return state, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
 			return state, err
@@ -294,4 +355,24 @@ func NewSetCellAction(p SetCellPayload) Action {
 // NewEraseCellsAction wraps a EraseCellsPayload in an Action envelope.
 func NewEraseCellsAction(p EraseCellsPayload) Action {
 	return Action{Type: ActionTypeEraseCells, EraseCells: &p}
+}
+
+// NewSetAction wraps a SetPayload in an Action envelope.
+func NewSetAction(p SetPayload) Action {
+	return Action{Type: ActionTypeSet, Set: &p}
+}
+
+// NewRemoveAction wraps a RemovePayload in an Action envelope.
+func NewRemoveAction(p RemovePayload) Action {
+	return Action{Type: ActionTypeRemove, Remove: &p}
+}
+
+// NewInsertAction wraps a InsertPayload in an Action envelope.
+func NewInsertAction(p InsertPayload) Action {
+	return Action{Type: ActionTypeInsert, Insert: &p}
+}
+
+// NewMoveAction wraps a MovePayload in an Action envelope.
+func NewMoveAction(p MovePayload) Action {
+	return Action{Type: ActionTypeMove, Move: &p}
 }

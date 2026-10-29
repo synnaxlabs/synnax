@@ -115,11 +115,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if cfg.Signals != nil {
 		var sig stdio.Closer
-		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
-			Provider: cfg.Signals,
-			State:    s.state,
-			Name:     "table",
-		}); !ok(err, sig) {
+		if sig, err = cfg.Signals.PublishActions(
+			ctx,
+			signals.ActionPublisherConfig[Key, Action]{
+				Observable: s.state,
+				Name:       "table",
+			},
+		); !ok(err, sig) {
 			return nil, err
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
@@ -142,7 +144,7 @@ func (s *Service) Close() error {
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
-	return s.state.OnAction(handler)
+	return s.state.OnChange(handler)
 }
 
 // Dispatch applies a sequence of actions atomically to the table with the given key.
@@ -156,12 +158,18 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
-		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
-			ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
-				return Reduce(t, acts...)
-			}).Exec(ctx, tx)
-	})
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
+				ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
+					return Reduce(t, acts...)
+				}).Exec(ctx, tx)
+		},
+	)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting tables in Synnax.

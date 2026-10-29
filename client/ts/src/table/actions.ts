@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { patch } from "@synnaxlabs/x";
+import { type Draft } from "immer";
+
 import { actions } from "@/actions";
 import {
   type Action,
   addCol,
   addRow,
   createReduceAll,
+  type HandlerResult,
   type Handlers,
   moveCol,
   moveRow,
@@ -23,7 +27,7 @@ import {
   resizeRow,
   setCell,
 } from "@/table/actions.gen";
-import { type Cell, columnZ, rowZ } from "@/table/types.gen";
+import { type Cell, columnZ, rowZ, type Table, tableZ } from "@/table/types.gen";
 
 const MIN_CELL_DIM = 32;
 // baseRow and baseCol are the entries an action gives the opposing axis when it
@@ -54,6 +58,10 @@ const expandTemplate = (template: Cell, count: number): Cell[] =>
     key: deriveKey(template.key, i),
     config: template.config,
   }));
+
+// Path actions edit only the cells.
+const applyPath = (state: Draft<Table>, action: patch.Action): HandlerResult =>
+  actions.applyEntryPath(state, action, ["cells"], tableZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -275,9 +283,26 @@ const handlers: Handlers = {
     }
     return { inverse, targets };
   },
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+/**
+ * Converts a path action from the camelCase form of the cached table into the
+ * snake_case form that the Core stores. Other actions keep their form.
+ */
+export const encode = (state: Table, action: Action): Action => {
+  switch (action.type) {
+    case "set":
+    case "remove":
+    case "insert":
+    case "move":
+      return patch.camelToSnake(action, { schema: tableZ, data: state });
+    default:
+      return action;
+  }
+};
 
 // createOf hands the dispatch controller the document carried by a create
 // action so frames for never-cached documents ingest instead of drop.

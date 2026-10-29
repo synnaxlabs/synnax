@@ -173,28 +173,39 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case LinearScaleType:
-		var v LinearScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			LinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LinearScale
 	case MapScaleType:
-		var v MapScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			MapScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.MapScale
 	case NoneScaleType:
-		var v NoneScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			NoneScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NoneScale
 	default:
 		return errors.Newf("Scale: unknown type %q", disc.Type)
 	}
@@ -389,28 +400,39 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReadChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AnalogReadChannelType:
-		var v AnalogReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			AnalogReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AnalogReadChannel
 	case DigitalReadChannelType:
-		var v DigitalReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			DigitalReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DigitalReadChannel
 	case ThermocoupleReadChannelType:
-		var v ThermocoupleReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			ThermocoupleReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ThermocoupleReadChannel
 	default:
 		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
 	}
@@ -540,22 +562,30 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AnalogWriteChannelType:
-		var v AnalogWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			AnalogWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AnalogWriteChannel
 	case DigitalWriteChannelType:
-		var v DigitalWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			DigitalWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DigitalWriteChannel
 	default:
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}

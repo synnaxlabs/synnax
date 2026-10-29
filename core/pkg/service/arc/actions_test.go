@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // gnode constructs a graph node at the given coordinates.
@@ -338,11 +339,14 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should return state unchanged when Type is unrecognized", func() {
+		It("Should error and leave state unchanged when Type is unrecognized", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
-			Expect(
-				MustSucceed(arc.Reduce(state, arc.Action{Type: "totally_made_up"})),
-			).To(Equal(state))
+			out, err := arc.Reduce(state, arc.Action{Type: "made_up"})
+			Expect(err).To(SatisfyAll(
+				MatchError(union.ErrUnknownVariant),
+				MatchError(ContainSubstring("made_up")),
+			))
+			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(
@@ -377,6 +381,84 @@ var _ = Describe("Reducer", func() {
 			}))
 			Expect(out.Graph.Nodes[0].Position).To(Equal(spatial.XY{X: 50, Y: 60}))
 			Expect(out.Graph.Edges).To(BeEmpty())
+		})
+	})
+})
+
+var _ = Describe("Path actions", func() {
+	var state arc.Arc
+	BeforeEach(func() {
+		state = withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
+		state.Name = "Press"
+		state.Graph.Inputs = map[string]msgpack.EncodedJSON{
+			"n1": {"type": "constant", "value": 1.0},
+		}
+	})
+	set := func(path []string, value any) arc.Action {
+		return arc.NewSetAction(arc.SetPayload{Path: path, Value: value})
+	}
+
+	Describe("SetPayload", func() {
+		It("Should set a field of a node's inputs", func() {
+			next := MustSucceed(arc.Reduce(
+				state,
+				set([]string{"graph", "inputs", "n1", "value"}, 2.0),
+			))
+			Expect(next.Graph.Inputs["n1"]).To(Equal(
+				msgpack.EncodedJSON{"type": "constant", "value": 2.0},
+			))
+			Expect(next.Graph.Nodes).To(Equal(state.Graph.Nodes))
+		})
+
+		DescribeTable("Should reject", func(path []string, value any) {
+			Expect(arc.Reduce(state, set(path, value))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the path is outside")),
+			))
+		},
+			Entry("a path outside the node inputs", []string{"name"}, "Other"),
+			Entry("a path to the graph's nodes", []string{"graph", "nodes"}, nil),
+		)
+	})
+
+	Describe("RemovePayload", func() {
+		It("Should remove a field from a node's inputs", func() {
+			next := MustSucceed(arc.Reduce(state, arc.NewRemoveAction(arc.RemovePayload{
+				Path: []string{"graph", "inputs", "n1"},
+				Key:  "value",
+			})))
+			Expect(next.Graph.Inputs["n1"]).To(Equal(
+				msgpack.EncodedJSON{"type": "constant"},
+			))
+		})
+	})
+
+	Describe("InsertPayload", func() {
+		It("Should add an entry to a list in a node's inputs", func() {
+			next := MustSucceed(arc.Reduce(state, arc.NewInsertAction(arc.InsertPayload{
+				Path:  []string{"graph", "inputs", "n1", "channels"},
+				Value: map[string]any{"key": "a"},
+			})))
+			Expect(next.Graph.Inputs["n1"]["channels"]).To(Equal(
+				[]any{map[string]any{"key": "a"}},
+			))
+		})
+	})
+
+	Describe("MovePayload", func() {
+		It("Should move an entry in a list in a node's inputs", func() {
+			state.Graph.Inputs["n1"]["channels"] = []any{
+				map[string]any{"key": "a"},
+				map[string]any{"key": "b"},
+			}
+			next := MustSucceed(arc.Reduce(state, arc.NewMoveAction(arc.MovePayload{
+				Path: []string{"graph", "inputs", "n1", "channels"},
+				Key:  "b",
+			})))
+			Expect(next.Graph.Inputs["n1"]["channels"]).To(Equal([]any{
+				map[string]any{"key": "b"},
+				map[string]any{"key": "a"},
+			}))
 		})
 	})
 })

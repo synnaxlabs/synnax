@@ -10,6 +10,7 @@
 import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
 import {
   binary,
+  color,
   DataType,
   id,
   math,
@@ -1108,5 +1109,99 @@ describe("write-through", () => {
     await fetchBatch(ranges);
     expect(relationshipFlushes).toBe(1);
     expect(labelFlushes).toBe(1);
+  });
+});
+
+describe("dispatch", () => {
+  beforeAll(async () => {
+    await client.connect();
+    await remote.connect();
+  });
+  const rename = (value: string) => ranger.set({ path: ["name"], value });
+
+  it("should store the actions and keep them in the cached range", async () => {
+    const rng = await createRange();
+    const end = rng.timeRange.end.add(TimeSpan.seconds(9));
+    expect(
+      await client.ranges.dispatch(rng.key, [
+        rename("Cold flow"),
+        ranger.set({ path: ["timeRange", "end"], value: end.valueOf() }),
+      ]),
+    ).toBe(true);
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.name).toBe("Cold flow");
+    expect(stored.timeRange.end).toEqual(end);
+    const cached = expectLive(client.ranges.getCached(rng.key));
+    expect(cached.name).toBe("Cold flow");
+    expect(cached.timeRange.end).toEqual(end);
+  });
+
+  it("should return false without a send when the range is not cached", async () => {
+    const rng = await createRange(remote);
+    const fresh = createTestClient();
+    const send = spyOnSend(fresh);
+    expect(await fresh.ranges.dispatch(rng.key, rename("Cold flow"))).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("should drop actions the Core refuses from the cached range", async () => {
+    const rng = await createRange();
+    await expect(
+      client.ranges.dispatch(rng.key, [
+        rename("Cold flow"),
+        ranger.set({ path: ["timeRange", "start"], value: "0" }),
+      ]),
+    ).rejects.toThrow("time_range.start");
+    const cached = expectLive(client.ranges.getCached(rng.key));
+    expect(cached.name).toBe(rng.name);
+    expect(cached.timeRange).toEqual(rng.timeRange);
+  });
+
+  it("should throw for an action the range cannot hold without a send", async () => {
+    const rng = await createRange();
+    const send = spyOnSend(client);
+    await expect(
+      client.ranges.dispatch(rng.key, ranger.set({ path: ["key"], value: "k" })),
+    ).rejects.toThrow("Failed to parse range");
+    expect(send).not.toHaveBeenCalled();
+    expect(expectLive(client.ranges.getCached(rng.key)).name).toBe(rng.name);
+  });
+
+  it("should send a transaction as one dispatch", async () => {
+    const rng = await createRange();
+    const send = spyOnSend(client);
+    const tx = client.ranges.beginTransaction(rng.key);
+    tx.add(rename("Cold flow"));
+    tx.add(ranger.set({ path: ["color"], value: "#ff0000" }));
+    expect(expectLive(client.ranges.getCached(rng.key)).name).toBe("Cold flow");
+    expect(await tx.commit()).toBe(true);
+    expect(
+      send.mock.calls.filter(([target]) => target === "/range/dispatch"),
+    ).toHaveLength(1);
+    const stored = await createTestClient().ranges.retrieve(rng.key);
+    expect(stored.name).toBe("Cold flow");
+    expect(stored.color).toEqual(color.construct("#ff0000"));
+  });
+
+  it("applies another client's dispatch to a cached range", async () => {
+    const rng = await createRange();
+    await remote.ranges.retrieve(rng.key);
+    await client.ranges.dispatch(rng.key, rename("Cold flow"));
+    await expect
+      .poll(() => {
+        const cached = remote.ranges.getCached(rng.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      })
+      .toBe("Cold flow");
+  });
+
+  it("ingests a range that another client creates", async () => {
+    const rng = await createRange(remote);
+    await expect
+      .poll(() => {
+        const cached = client.ranges.getCached(rng.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      })
+      .toBe(rng.name);
   });
 });

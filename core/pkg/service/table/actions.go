@@ -14,6 +14,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -67,9 +68,12 @@ func colIndex(cols []Column, key string) int {
 	return slices.IndexFunc(cols, func(c Column) bool { return c.Key == key })
 }
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Table) (Table, error) {
-	return p.Table, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// table.
+func (CreatePayload) Handle(Table) (Table, error) {
+	return Table{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a table create",
+	)
 }
 
 // Handle replaces the table's name.
@@ -324,4 +328,46 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 		state.Cells[k] = p.Template
 	}
 	return state, nil
+}
+
+// Handle applies the set to the table's cells.
+func (p SetPayload) Handle(state Table) (Table, error) {
+	return edit(state, patch.Set(p))
+}
+
+// Handle applies the remove to the table's cells.
+func (p RemovePayload) Handle(state Table) (Table, error) {
+	return edit(state, patch.Remove(p))
+}
+
+// Handle applies the insert to the table's cells.
+func (p InsertPayload) Handle(state Table) (Table, error) {
+	return edit(state, patch.Insert(p))
+}
+
+// Handle applies the move to the table's cells.
+func (p MovePayload) Handle(state Table) (Table, error) {
+	return edit(state, patch.Move(p))
+}
+
+// edit applies a path action to the cell config that its path names. A cell config that
+// names no variant or fails its schema is rejected.
+func edit(state Table, a patch.Action) (Table, error) {
+	cells, err := patch.EditMap(state.Cells, []string{"cells"}, a, checkCell)
+	if err != nil {
+		return Table{}, err
+	}
+	state.Cells = cells
+	return state, nil
+}
+
+func checkCell(key string, cfg CellConfig) error {
+	if cfg.Variant == nil {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"[Table] - config for cell %q names no variant",
+			key,
+		)
+	}
+	return validate.PathedError(cfg.Validate(), "cells", key)
 }

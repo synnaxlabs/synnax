@@ -13,7 +13,7 @@ import { z } from "zod";
 import { nameZ } from "@/ranger/payload";
 import { keyZ, type New, newZ, type Payload, payloadZ } from "@/ranger/types.gen";
 
-const createReqZ = z.object({ ranges: newZ.array() });
+const createReqZ = z.object({ ranges: newZ.array(), dispatchKey: z.string() });
 const createResZ = z.object({ ranges: payloadZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -34,10 +34,14 @@ export class Writer {
     await this.client.send("/range/rename", { key, name }, renameReqZ, renameResZ);
   }
 
-  async create(ranges: New[]): Promise<Payload[]> {
+  /**
+   * Creates the ranges. The Core stamps dispatchKey onto the create broadcasts, so the
+   * client that sent them recognizes their echo.
+   */
+  async create(ranges: New[], dispatchKey: string): Promise<Payload[]> {
     const res = await this.client.send(
       "/range/create",
-      { ranges },
+      { ranges, dispatchKey },
       createReqZ,
       createResZ,
     );

@@ -45,9 +45,12 @@ const (
 	maxChannelPrecision int32 = 17
 )
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Log) (Log, error) {
-	return p.Log, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// log.
+func (CreatePayload) Handle(Log) (Log, error) {
+	return Log{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a log create",
+	)
 }
 
 // Handle replaces the log's name.

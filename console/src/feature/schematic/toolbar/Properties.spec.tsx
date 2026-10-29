@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
+import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, location, uuid } from "@synnaxlabs/x";
@@ -140,6 +141,39 @@ describe("Schematic toolbar Properties", () => {
         expect(config.label).toMatchObject({ label: "Main Valve" });
       });
       expect(await screen.findByText("Main Valve")).toBeDefined();
+    });
+
+    it("shows an edit that another client makes to the selected element", async () => {
+      const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
+      fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
+      await waitForStreamLive(client.connection);
+      const remote = createTestClient();
+      await remote.schematics.retrieve(key);
+      await act(async () => {
+        await remote.schematics.dispatch(
+          key,
+          schematic.set({ path: ["configs", "n1", "label", "label"], value: "Remote" }),
+        );
+      });
+      await waitFor(() =>
+        expect(getInputByItemLabel(result.container, "Label").value).toBe("Remote"),
+      );
+    });
+
+    it("prompts for a selection when another client removes the selected element", async () => {
+      const { key } = await renderProperties({ nodeKeys: ["n1"] });
+      await screen.findByRole("tab", { name: "Style" });
+      await waitForStreamLive(client.connection);
+      const remote = createTestClient();
+      await remote.schematics.retrieve(key);
+      await act(async () => {
+        await remote.schematics.dispatch(key, schematic.removeNode({ key: "n1" }));
+      });
+      expect(
+        await screen.findByText(
+          "Select a schematic element to configure its properties",
+        ),
+      ).toBeDefined();
     });
   });
 

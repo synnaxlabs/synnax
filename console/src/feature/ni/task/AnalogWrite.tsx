@@ -233,7 +233,6 @@ export const AnalogWrite = Task.wrapForm({
   schemas: ANALOG_WRITE_SCHEMAS,
   deployConfigZ: deployAnalogWriteConfigZ,
   type: "ni_analog_write",
-  getInitialValues,
   onConfigure,
 });
 

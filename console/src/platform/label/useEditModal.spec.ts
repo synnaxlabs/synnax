@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, type Synnax as Client } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -79,6 +79,16 @@ describe("Label.useEditModal", () => {
     });
   });
 
+  it("should focus the create form's name only once the form shows", async () => {
+    await openEditModal();
+    const name = await waitFor(() =>
+      within(getCreateItem()).getByPlaceholderText("Name"),
+    );
+    expect(document.activeElement).not.toBe(name);
+    fireEvent.click(await findAddButton());
+    await waitFor(() => expect(document.activeElement).toBe(name));
+  });
+
   it("should keep the create form open while the color picker is open", async () => {
     await openEditModal();
     await waitFor(() =>
@@ -124,6 +134,48 @@ describe("Label.useEditModal", () => {
       const found = await client.labels.retrieve({ names: [name] });
       expect(found.length).toBe(1);
     });
+  });
+});
+
+describe("Label.useEditModal listed labels", () => {
+  const createLabel = async () =>
+    await client.labels.create({ name: uniqueName("label"), color: "#0000FF" });
+
+  const getNameInput = (row: HTMLElement): HTMLInputElement =>
+    within(row).getByPlaceholderText<HTMLInputElement>("Name");
+
+  it("should save an edit to a label's name to the Core", async () => {
+    const lbl = await createLabel();
+    await openEditModal();
+    const input = getNameInput(await findLabelRow(lbl.name));
+    const next = uniqueName("label");
+    fireEvent.change(input, { target: { value: next } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect((await client.labels.retrieve(lbl.key)).name).toBe(next),
+    );
+  });
+
+  it("should show a rename from another client", async () => {
+    const lbl = await createLabel();
+    await openEditModal();
+    const row = await findLabelRow(lbl.name);
+    await waitForStreamLive(client.connection);
+    const remote = createTestClient();
+    await remote.labels.retrieve(lbl.key);
+    const next = uniqueName("label");
+    await remote.labels.dispatch(lbl.key, label.set({ path: ["name"], value: next }));
+    await waitFor(() => expect(getNameInput(row).value).toBe(next));
+  });
+
+  it("should drop a label that another client deletes", async () => {
+    const lbl = await createLabel();
+    await openEditModal();
+    const row = await findLabelRow(lbl.name);
+    await waitForStreamLive(client.connection);
+    await createTestClient().labels.delete(lbl.key);
+    await waitFor(() => expect(row.isConnected).toBe(false));
+    expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy();
   });
 });
 

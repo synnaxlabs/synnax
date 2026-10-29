@@ -13,6 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -602,6 +604,101 @@ var _ = Describe("Reducer", func() {
 			)
 			Expect(out.Rows).To(HaveLen(3))
 			Expect(out.Cells).To(HaveLen(9))
+		})
+	})
+})
+
+var _ = Describe("Path actions", func() {
+	set := func(path []string, value any, guards ...patch.Guard) table.Action {
+		return table.NewSetAction(
+			table.SetPayload{Path: path, Value: value, Guards: guards},
+		)
+	}
+
+	Describe("SetPayload", func() {
+		It("Should set a field of a cell config", func() {
+			next := MustSucceed(table.Reduce(
+				create2x2(),
+				set([]string{"cells", "a", "value"}, "Pressure"),
+			))
+			Expect(asText(next.Cells["a"]).Value).To(Equal("Pressure"))
+			Expect(next.Rows).To(Equal(create2x2().Rows))
+		})
+
+		It("Should do nothing when the variant guard fails", func() {
+			next := MustSucceed(table.Reduce(create2x2(), set(
+				[]string{"cells", "a", "value"},
+				"Pressure",
+				patch.Guard{Path: []string{"cells", "a", "variant"}, Value: "value"},
+			)))
+			Expect(asText(next.Cells["a"]).Value).To(BeEmpty())
+		})
+
+		It("Should reject a path outside the cells", func() {
+			Expect(table.Reduce(create2x2(), set([]string{"name"}, "Other"))).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the path is outside")),
+			))
+		})
+
+		It("Should reject a value that fails the cell config's schema", func() {
+			Expect(table.Reduce(create2x2(), set([]string{"cells", "a", "weight"}, 0))).
+				Error().To(MatchError(ContainSubstring(
+				"cells.a.weight: must be greater than or equal to 1",
+			)))
+		})
+
+		It("Should edit a cell beside a stored cell that fails its schema", func() {
+			state := create2x2()
+			state.Cells["b"] = table.CellConfig{Variant: table.TextCellConfig{}}
+			next := MustSucceed(table.Reduce(
+				state,
+				set([]string{"cells", "a", "value"}, "Pressure"),
+			))
+			Expect(asText(next.Cells["a"]).Value).To(Equal("Pressure"))
+		})
+
+		It("Should reject a cell config that names no variant", func() {
+			Expect(table.Reduce(create2x2(), set([]string{"cells", "a"}, nil))).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`config for cell "a" names no variant`)),
+			))
+		})
+	})
+
+	Describe("RemovePayload", func() {
+		It("Should remove a field from a cell config", func() {
+			state := create2x2()
+			text := asText(textCfg(""))
+			text.FillColor = new(MustSucceed(color.FromHex("#ff0000")))
+			state.Cells["a"] = table.CellConfig{Variant: text}
+			next := MustSucceed(table.Reduce(state, table.NewRemoveAction(
+				table.RemovePayload{Path: []string{"cells", "a"}, Key: "fill_color"},
+			)))
+			Expect(asText(next.Cells["a"]).FillColor).To(BeNil())
+		})
+	})
+
+	Describe("InsertPayload", func() {
+		It("Should reject a list the cell config does not declare", func() {
+			Expect(table.Reduce(create2x2(), table.NewInsertAction(table.InsertPayload{
+				Path:  []string{"cells", "a", "tags"},
+				Value: map[string]any{"key": "x"},
+			}))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("decoding entries")),
+			))
+		})
+	})
+
+	Describe("MovePayload", func() {
+		It("Should leave the table unchanged when the list is missing", func() {
+			next := MustSucceed(table.Reduce(create2x2(), table.NewMoveAction(
+				table.MovePayload{Path: []string{"cells", "a", "tags"}, Key: "x"},
+			)))
+			Expect(next).To(Equal(create2x2()))
 		})
 	})
 })

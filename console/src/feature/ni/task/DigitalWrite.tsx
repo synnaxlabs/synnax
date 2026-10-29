@@ -212,7 +212,6 @@ export const DigitalWrite = Task.wrapForm({
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,
   deployConfigZ: deployDigitalWriteConfigZ,
-  getInitialValues,
   onConfigure,
   type: "ni_digital_write",
 });

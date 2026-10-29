@@ -143,7 +143,8 @@ func migrateConfigsToRecords(
 			}
 			continue
 		}
-		if err := store.Write(ctx, tx, t.Key, converted); err != nil {
+		stored, err := store.Write(ctx, tx, t.Key, converted)
+		if err != nil {
 			if err := store.Delete(ctx, tx, t.Key); err != nil {
 				return err
 			}
@@ -154,11 +155,7 @@ func migrateConfigsToRecords(
 			}
 			continue
 		}
-		canonical, err := store.Read(ctx, tx, t.Key)
-		if err != nil {
-			return err
-		}
-		hash, err := hashConfig(configContent(canonical))
+		hash, err := hashConfig(configContent(stored))
 		if err != nil {
 			return err
 		}

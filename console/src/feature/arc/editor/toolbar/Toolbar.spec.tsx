@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -104,6 +104,59 @@ describe("arc editor toolbar", () => {
     const input = await screen.findByDisplayValue("42");
     expect(input).toBeTruthy();
     expect(screen.getAllByText("Constant").length).toBeGreaterThan(0);
+  });
+
+  describe("node properties", () => {
+    const renderNodeForm = async (): Promise<arc.Arc> => {
+      const a = await createGraphArc({
+        nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+        inputs: { n1: { type: "constant", value: 42 } },
+      });
+      const { store } = await renderToolbar(a.key);
+      await screen.findByText("Basic");
+      store.dispatch(Session.Arc.setSelected({ key: a.key, selected: ["n1"] }));
+      fireEvent.click(screen.getByText("Properties"));
+      await screen.findByDisplayValue("42");
+      return a;
+    };
+
+    it("stores an edit to the selected node's inputs", async () => {
+      const a = await renderNodeForm();
+      const input = screen.getByDisplayValue("42");
+      fireEvent.change(input, { target: { value: "7" } });
+      fireEvent.blur(input);
+      const reader = createTestClient();
+      await expect
+        .poll(async () => (await reader.arcs.retrieve(a.key)).graph.inputs.n1)
+        .toEqual({ type: "constant", value: 7 });
+    });
+
+    it("shows an edit that another client makes to the selected node", async () => {
+      const a = await renderNodeForm();
+      await waitForStreamLive(client.connection);
+      const remote = createTestClient();
+      await remote.arcs.retrieve(a.key);
+      await act(async () => {
+        await remote.arcs.dispatch(
+          a.key,
+          arc.set({ path: ["graph", "inputs", "n1", "value"], value: 7 }),
+        );
+      });
+      expect(await screen.findByDisplayValue("7")).toBeTruthy();
+    });
+
+    it("prompts for a selection when another client removes the selected node", async () => {
+      const a = await renderNodeForm();
+      await waitForStreamLive(client.connection);
+      const remote = createTestClient();
+      await remote.arcs.retrieve(a.key);
+      await act(async () => {
+        await remote.arcs.dispatch(a.key, arc.removeNode({ key: "n1" }));
+      });
+      expect(
+        await screen.findByText("Select an Arc element to configure its properties"),
+      ).toBeTruthy();
+    });
   });
 
   it("offers alignment controls when multiple nodes are selected", async () => {

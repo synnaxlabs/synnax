@@ -9,7 +9,7 @@
 
 import "@/platform/label/Edit.css";
 
-import { label, type query } from "@synnaxlabs/client";
+import { label } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Component } from "@synnaxlabs/lyra/component";
@@ -31,113 +31,123 @@ import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 
-interface LabelListItemProps extends List.ItemProps<label.Key> {
-  isCreate?: boolean;
-  visible?: boolean;
-  onClose?: () => void;
+interface FieldsProps {
+  inputProps?: Pick<Input.TextProps, "ref" | "onlyChangeOnBlur">;
 }
 
-const LabelListItem = ({
-  isCreate = false,
-  onClose,
-  visible = true,
-  ...rest
-}: LabelListItemProps) => {
-  const { itemKey } = rest;
-  const initialValues = List.useItem<string, label.Label>(itemKey);
-  const { form, save } = Label.useForm({
-    query: isCreate ? null : { key: itemKey },
-    initialValues,
-    autoSave: !isCreate,
-    afterSave: ({
-      reset,
-    }: Flux.AfterSaveParams<query.Params, typeof Label.formSchema>) => {
-      onClose?.();
-      if (isCreate) reset({ name: "", color: color.construct("#000000") });
-    },
-    sync: true,
-  });
-  const inputRef = useRef<HTMLInputElement>(null);
+const Fields = ({ inputProps }: FieldsProps) => (
+  <Flex.Box x gap="small" align="center">
+    <Form.Field<color.Color> path="color" padHelpText={false} showLabel={false}>
+      {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
+    </Form.Field>
+    <Form.TextField
+      showLabel={false}
+      path="name"
+      showHelpText={false}
+      padHelpText={false}
+      inputProps={{
+        placeholder: "Name",
+        variant: "text",
+        selectOnFocus: true,
+        resetOnBlurIfEmpty: true,
+        onlyChangeOnBlur: true,
+        ...inputProps,
+      }}
+    />
+  </Flex.Box>
+);
+
+const Item = (props: List.ItemProps<label.Key>) => {
+  const { itemKey } = props;
+  const { form } = Label.useForm({ query: { key: itemKey } });
   const { update: handleDelete } = Label.useDelete();
   const canDelete = Access.useDeleteGranted(label.ontologyID(itemKey));
-  useEffect(() => {
-    if (isCreate && visible) inputRef.current?.focus();
-  }, [isCreate, visible]);
-  const ref = useRef<HTMLDivElement>(null);
-  Dialog.useClickOutside({
-    ref,
-    onClickOutside: () => {
-      if (!isCreate) return;
-      if (form.validate()) save();
-      else onClose?.();
-    },
-  });
   return (
     <List.Item
-      ref={ref}
-      className={CSS.cls(
-        CSS.BE("label", "list-item"),
-        isCreate && CSS.M("create"),
-        PCSS.visible(visible),
-      )}
+      className={CSS.BE("label", "list-item")}
       align="center"
       justify="between"
-      {...rest}
+      {...props}
     >
-      <Flex.Box x gap="small" align="center">
-        <Form.Form<typeof Label.formSchema> {...form}>
-          <Form.Field<color.Color> path="color" padHelpText={false} showLabel={false}>
-            {(p) => <Color.Swatch onlyChangeOnBlur variant="text" {...p} />}
-          </Form.Field>
-          <Form.TextField
-            showLabel={false}
-            path="name"
-            showHelpText={false}
-            padHelpText={false}
-            inputProps={{
-              ref: inputRef,
-              placeholder: "Name",
-              variant: "text",
-              selectOnFocus: true,
-              autoFocus: isCreate,
-              resetOnBlurIfEmpty: true,
-              onlyChangeOnBlur: !isCreate,
-            }}
-          />
-        </Form.Form>
-      </Flex.Box>
-      {isCreate ? (
-        <Flex.Box pack>
-          <Button.Button
-            variant="filled"
-            size="small"
-            onClick={() => save()}
-            trigger={visible ? ["Enter"] : undefined}
-            triggerIndicator
-          >
-            <Icon.Check />
-          </Button.Button>
-          <Button.Button variant="outlined" size="small" onClick={onClose}>
-            <Icon.Close />
-          </Button.Button>
-        </Flex.Box>
-      ) : (
-        canDelete && (
-          <Button.Button
-            variant="outlined"
-            size="small"
-            reveal
-            onClick={() => handleDelete(itemKey)}
-          >
-            <Icon.Delete />
-          </Button.Button>
-        )
+      <Form.Form<typeof Label.formSchema> {...form}>
+        <Fields />
+      </Form.Form>
+      {canDelete && (
+        <Button.Button
+          variant="outlined"
+          size="small"
+          reveal
+          onClick={() => handleDelete(itemKey)}
+        >
+          <Icon.Delete />
+        </Button.Button>
       )}
     </List.Item>
   );
 };
 
-const listItem = Component.renderProp(LabelListItem);
+interface CreateItemProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
+const CreateItem = ({ visible, onClose }: CreateItemProps) => {
+  const { form, save } = Label.useCreateForm({
+    query: null,
+    afterSave: ({
+      reset,
+    }: Flux.AfterSaveParams<null, typeof Label.createFormSchema>) => {
+      onClose();
+      reset({ name: "", color: color.construct("#000000") });
+    },
+  });
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (visible) inputRef.current?.focus();
+  }, [visible]);
+  const ref = useRef<HTMLDivElement>(null);
+  Dialog.useClickOutside({
+    ref,
+    onClickOutside: () => {
+      if (form.validate()) save();
+      else onClose();
+    },
+  });
+  return (
+    <List.Item
+      ref={ref}
+      index={0}
+      itemKey=""
+      className={CSS.cls(
+        CSS.BE("label", "list-item"),
+        CSS.M("create"),
+        PCSS.visible(visible),
+      )}
+      align="center"
+      justify="between"
+    >
+      <Form.Form<typeof Label.createFormSchema> {...form}>
+        <Fields inputProps={{ ref: inputRef, onlyChangeOnBlur: false }} />
+      </Form.Form>
+      <Flex.Box pack>
+        <Button.Button
+          variant="filled"
+          size="small"
+          onClick={() => save()}
+          trigger={visible ? ["Enter"] : undefined}
+          triggerIndicator
+        >
+          <Icon.Check />
+        </Button.Button>
+        <Button.Button variant="outlined" size="small" onClick={onClose}>
+          <Icon.Close />
+        </Button.Button>
+      </Flex.Box>
+    </List.Item>
+  );
+};
+
+const listItem = Component.renderProp(Item);
 
 const EMPTY_CONTENT = (
   <Flex.Box center>
@@ -178,11 +188,7 @@ const Edit = () => {
         />
         <Divider.Divider x />
         <Flex.Box y className={CSS.BE("label", "items-container")} empty>
-          <LabelListItem
-            key="form"
-            index={0}
-            itemKey=""
-            isCreate
+          <CreateItem
             visible={newFormVisible}
             onClose={() => setNewFormVisible(false)}
           />

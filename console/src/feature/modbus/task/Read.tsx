@@ -250,7 +250,6 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "modbus_read",
-  getInitialValues,
   onConfigure,
 });
 

@@ -19,6 +19,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
@@ -94,6 +96,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Range]
 	indexes indexes
+	state   *actions.State[Key, Action]
 	cfg     ServiceConfig
 }
 
@@ -105,7 +108,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Range]{
@@ -128,13 +135,51 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if sig, err = cfg.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(
-		err,
-		sig,
-	) {
+	); !ok(err, sig) {
+		return nil, err
+	}
+	if sig, err = cfg.Signals.PublishActions(
+		ctx,
+		signals.ActionPublisherConfig[Key, Action]{
+			Observable: s.state,
+			Name:       "range_action",
+		},
+	); !ok(err, sig) {
 		return nil, err
 	}
 	return s, nil
+}
+
+// OnAction subscribes the given handler to the actions that Dispatch and Writer emit.
+// The handler runs synchronously after the transaction that applied the actions
+// commits. The returned Disconnect removes the handler.
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnChange(handler)
+}
+
+// Dispatch applies the actions atomically to the range with the given key. Dispatches
+// for the same range run one at a time, each in its own transaction, and the actions
+// are broadcast after the commit. dispatchKey is carried onto the broadcast so the
+// sender recognizes its echo. Dispatch returns an error wrapping validate.ErrValidation
+// when an action is a create or the result fails to decode or validate, and an error
+// wrapping query.ErrNotFound when no range has the key.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	acts []Action,
+) error {
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.NewWriter(tx).apply(ctx, key, acts)
+		},
+	)
 }
 
 // Close closes the service and releases any resources that it may have acquired. Close
@@ -147,11 +192,12 @@ func (s *Service) Close() error { return s.closer.Close() }
 // execute all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.cfg.DB, tx),
-		otg:       s.cfg.Ontology,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		label:     s.cfg.Label,
-		table:     s.table,
+		tx:         gorp.OverrideTx(s.cfg.DB, tx),
+		otg:        s.cfg.Ontology,
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		label:      s.cfg.Label,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

@@ -78,4 +78,7 @@ message Command {
   string config_hash = 4;
   // args contains optional arguments for the command.
   google.protobuf.Struct args = 5;
+  // pinned is true when the Driver must refuse a start whose config_hash differs from
+  // the hash of the stored config.
+  bool pinned = 6;
 }

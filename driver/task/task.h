@@ -444,5 +444,10 @@ private:
     void execute_op(const Op &op, const std::shared_ptr<Entry> &entry);
     /// @brief clears the deployed hash so the next start rebuilds.
     static void clear_deploy(const std::shared_ptr<Entry> &entry);
+    /// @brief answers a pinned start whose config changed after the sender saw it.
+    void refuse_pinned_start(
+        const synnax::task::Task &tsk,
+        const synnax::task::Command &cmd
+    );
 };
 }

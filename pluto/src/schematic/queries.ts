@@ -12,7 +12,7 @@ import { array, compare, uuid, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
-import { type ElementConfig } from "@/schematic/element";
+import { type ElementConfig, elementConfigZ } from "@/schematic/element";
 import { Group } from "@/schematic/group";
 import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
@@ -58,6 +58,25 @@ export const useElementConfig = Scope.bindHook(
     ({ configs }, { elKey }) => configs[elKey] as ElementConfig | undefined,
   ),
 );
+
+const useDocumentConfigForm = Flux.createDocumentForm<
+  schematic.Key,
+  schematic.Schematic,
+  typeof elementConfigZ,
+  ConfigParams
+>({
+  name: "schematic element",
+  schema: elementConfigZ,
+  domain: (client) => client.schematics,
+  useEnsure,
+  toValues: ({ configs }, { elKey }) => configs[elKey],
+  pathOf: ({ elKey }) => ["configs", elKey],
+});
+
+const useConfigFormBase = (query: ConfigParams) => useDocumentConfigForm({ query });
+
+/** A form over one element's config in the cached schematic. */
+export const useConfigForm = Scope.bindHook(useConfigFormBase);
 
 export interface ConfigsParams extends KeyParams {
   keys: string[];

@@ -62,6 +62,21 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 	return err
 }
 
+// OnCommit runs fn after tx commits, and never when tx closes without a commit. When tx
+// is a DB used directly, its writes have already committed, so fn runs at once.
+func OnCommit(tx Tx, fn func()) {
+	state := tx.txIdentity()
+	if state == nil {
+		fn()
+		return
+	}
+	state.OnCleanup(func(committed bool) {
+		if committed {
+			fn()
+		}
+	})
+}
+
 // OverrideTx replaces the given Tx with the DB if the given Tx is nil. This
 // method is useful for allowing a caller to execute directly against the underlying
 // DB if they choose to do so, or to execute against a transaction if they provide one.

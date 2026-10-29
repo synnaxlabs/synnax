@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
+import { table } from "@/table";
 import { scopedActionZ } from "@/table/actions.gen";
 
 describe("table action wire decode", () => {
@@ -50,5 +51,44 @@ describe("table action wire decode", () => {
       "SMm7XhRkCJM",
     ]);
     expect(action.create.table.cells.UnSv19BHjPB.variant).toEqual("value");
+  });
+});
+
+describe("table path actions", () => {
+  const create = (): table.Table =>
+    table.tableZ.parse({
+      name: "Readings",
+      cells: {
+        a: { variant: "text", value: "Pressure" },
+        b: { variant: "text", value: "Flow" },
+      },
+    });
+  const set = (path: string[], value: unknown) => table.set({ path, value });
+
+  it("should set a field of a cell config from its wire form", () => {
+    const state = create();
+    const { next, targets } = table.reduceAll(state, [
+      set(["cells", "a", "fill_color"], "#ff0000"),
+    ]);
+    expect(next.cells.a).toMatchObject({ variant: "text", fillColor: "#ff0000" });
+    expect(next.cells.b).toBe(state.cells.b);
+    expect(targets).toEqual(["a"]);
+  });
+
+  it("should return a wire-form inverse that restores the cell", () => {
+    const state = create();
+    const { next, inverse } = table.reduceAll(state, [
+      set(["cells", "a", "value"], "Temperature"),
+    ]);
+    expect(inverse).toEqual([
+      table.set({ path: ["cells", "a", "value"], value: "Pressure" }),
+    ]);
+    expect(table.reduceAll(next, inverse).next).toEqual(state);
+  });
+
+  it("should throw for a path outside the cells", () => {
+    expect(() => table.reduceAll(create(), [set(["name"], "Other")])).toThrow(
+      "name is not inside an entry of cells",
+    );
   });
 });

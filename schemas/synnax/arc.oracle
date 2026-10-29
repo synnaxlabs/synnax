@@ -12,6 +12,7 @@ import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
 import "schemas/x/crdt"
+import "schemas/x/patch"
 import "schemas/x/spatial"
 
 @cpp output "client/cpp/arc"
@@ -174,6 +175,25 @@ Arc struct {
             already deleted, and thus invisible, applying it never changes the
             materialized text.
         """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the graph's node inputs."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the graph's node
+            inputs.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the graph's node inputs."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the graph's node inputs."
     }
 
     @create

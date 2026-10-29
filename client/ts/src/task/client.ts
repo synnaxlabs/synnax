@@ -14,7 +14,6 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
-  errors,
   id,
   primitive,
   type record,
@@ -25,7 +24,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { AccessDeniedError } from "@/errors";
+import { actions } from "@/actions";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -36,6 +35,13 @@ import {
 } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
+import { createOf, encode, reduceAll } from "@/task/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+} from "@/task/actions.gen";
 import {
   type Command,
   commandZ,
@@ -55,11 +61,8 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
 
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
-export const SET_CHANNEL_NAME = "sy_task_set";
+export const ACTION_CHANNEL_NAME = "sy_task_action_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
-
-export const setSignalZ = payloadZ().omit({ config: true, status: true });
-export interface SetSignal extends z.infer<typeof setSignalZ> {}
 
 export interface DriftedParams extends Pick<
   Payload,
@@ -116,7 +119,8 @@ export interface TaskExecuteCommandParams {
 }
 
 /** One command sent to a task, as issued from the client. */
-export interface ExecuteCommandParams extends TaskExecuteCommandParams {
+export interface ExecuteCommandParams
+  extends TaskExecuteCommandParams, Pick<NewCommand, "configHash" | "pinned"> {
   task: Key;
 }
 
@@ -385,7 +389,7 @@ const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ tasks: payloadZ(schemas).array() });
+  z.object({ tasks: payloadZ(schemas).array(), dispatchKey: z.string() });
 const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -428,6 +432,7 @@ export class Client extends query.Retriever<
   /** The task record table; injected into sibling clients at wiring. */
   readonly store: query.Table<Key, Omit<Task, "status">>;
   private readonly cfg: ClientConfig;
+  private readonly dispatcher: actions.Controller<Key, Omit<Task, "status">, Action>;
   private readonly statusesByTask: query.LookupIndex<status.Key, status.Status>;
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
 
@@ -440,49 +445,26 @@ export class Client extends query.Retriever<
       name: "tasks",
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) => await this.fetchThrough({ keys }),
-      listen: [
-        {
-          bind: (table) => ({
-            channel: SET_CHANNEL_NAME,
-            schema: setSignalZ,
-            // The set signal omits config: a changed hash makes the cached one stale.
-            onChange: async (changed: SetSignal[]) => {
-              const stale: Key[] = [];
-              const unheld: Key[] = [];
-              table.batch(() =>
-                changed.forEach((sig) => {
-                  const cached = table.get(sig.key);
-                  if (cached == null) {
-                    unheld.push(sig.key);
-                    return;
-                  }
-                  if (cached.configHash !== sig.configHash) {
-                    stale.push(sig.key);
-                    return;
-                  }
-                  table.set(sig.key, (prev) =>
-                    prev == null ? undefined : this.sugar({ ...prev.payload, ...sig }),
-                  );
-                }),
-              );
-              if (stale.length > 0) await table.retrieve(stale, { refresh: true });
-              // The signal reaches users who cannot read every task, so each key is
-              // fetched alone and a denied one stays out of the table.
-              await Promise.all(
-                unheld.map(async (key) => {
-                  try {
-                    await table.retrieve([key], { refresh: true });
-                  } catch (e) {
-                    if (!AccessDeniedError.matches(e)) throw errors.fromUnknown(e);
-                  }
-                }),
-              );
-            },
-          }),
-        },
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a task reaches the client as actions, the config hash included.
+    const dispatcher = new actions.Controller<Key, Omit<Task, "status">, Action>({
+      store,
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: (task, acts) => {
+        const payload = task.payload;
+        const { next, inverse, targets } = reduceAll(payload, acts);
+        return { next: next === payload ? task : this.sugar(next), inverse, targets };
+      },
+      encode: (task, action) => encode(task.payload, action),
+      createOf: (action) => {
+        const created = createOf(action);
+        return created == null ? undefined : this.sugar(created);
+      },
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     cache.listen({
       channel: COMMAND_CHANNEL_NAME,
       schema: commandZ,
@@ -542,6 +524,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
     this.statusesByTask = statusesByTask;
   }
 
@@ -556,13 +539,19 @@ export class Client extends query.Retriever<
     schemas?: S,
   ): Promise<Task<S> | Task<S>[]> {
     const isSingle = !Array.isArray(task);
+    const tasks = array.toArray(task);
     const createReq = createReqZ(schemas);
     const createRes = createResZ(schemas);
-    const res = await this.cfg.unary.send(
-      "/task/create",
-      { tasks: array.toArray(task) },
-      createReq,
-      createRes,
+    const keys = tasks.flatMap(({ key }) => (key == null ? [] : [key]));
+    const res = await this.dispatcher.create(
+      keys,
+      async (dispatchKey) =>
+        await this.cfg.unary.send(
+          "/task/create",
+          { tasks, dispatchKey },
+          createReq,
+          createRes,
+        ),
     );
     const sugared = this.sugar<S>(res.tasks as Payload<S>[], schemas);
     sugared.forEach((t) => this.writeThrough(t));
@@ -617,6 +606,30 @@ export class Client extends query.Retriever<
         await this.cfg.unary.send("/task/rename", { key, name }, renameReqZ, emptyResZ),
     });
     rename();
+  }
+
+  /**
+   * Applies actions to the cached task and sends them to the Core. Paths and values
+   * take the camelCase form of the cached task. Returns false without side effects when
+   * the task is not cached.
+   * @throws {Error} if the task cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the cached task drops the actions.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
+    return await this.dispatcher.dispatch(key, array.toArray(actions));
+  }
+
+  /**
+   * Resolves once the cached task holds no dispatch that the Core has not echoed, so
+   * its config hash is the one the Core holds for the edits made so far.
+   */
+  async settled(key: Key): Promise<void> {
+    await this.dispatcher.settled(key);
+  }
+
+  /** Stages actions that commit atomically as one dispatch. */
+  beginTransaction(key: Key): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key);
   }
 
   async retrieve<S extends Schemas = Schemas>(
@@ -953,27 +966,15 @@ export const affectedKeys = (
   return keys.length === 0 ? null : keys;
 };
 
-interface ExecuteCommandInternalParams {
+interface ExecuteCommandInternalParams extends NewCommand {
   frameClient: framer.Client | null;
-  task: Key;
-  type: string;
-  args?: {};
-  configHash?: string;
 }
 
 const executeCommand = async ({
   frameClient,
-  task,
-  type,
-  args,
-  configHash,
+  ...command
 }: ExecuteCommandInternalParams): Promise<string> =>
-  (
-    await executeCommands({
-      frameClient,
-      commands: [{ args, task, type, configHash }],
-    })
-  )[0];
+  (await executeCommands({ frameClient, commands: [command] }))[0];
 
 /** A command queued for a task. */
 export interface NewCommand {
@@ -985,6 +986,11 @@ export interface NewCommand {
    * its cached task row.
    */
   configHash?: string;
+  /**
+   * Whether the Driver refuses a start when configHash is not the hash of the stored
+   * config. Pin a start to run only the config that the operator saw.
+   */
+  pinned?: boolean;
 }
 
 interface ExecuteCommandsInternalParams {
@@ -1001,6 +1007,7 @@ const executeCommands = async ({
   const cmds = commands.map((c) => ({
     ...c,
     configHash: c.configHash ?? "",
+    pinned: c.pinned ?? false,
     key: id.create(),
   }));
   await w.write(COMMAND_CHANNEL_NAME, cmds);
@@ -1011,9 +1018,9 @@ const executeCommands = async ({
 interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodNever>
   extends
     Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
-    TaskExecuteCommandSyncParams {
+    TaskExecuteCommandSyncParams,
+    Pick<NewCommand, "configHash" | "pinned"> {
   task: Key;
-  configHash?: string;
 }
 
 const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
@@ -1025,11 +1032,12 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   statusDataZ,
   args,
   configHash,
+  pinned,
 }: ExecuteCommandSyncInternalParams<StatusData>): Promise<Status<StatusData>> =>
   (
     await executeCommandsSync({
       frameClient,
-      commands: [{ args, task, type, configHash }],
+      commands: [{ args, task, type, configHash, pinned }],
       timeout,
       statusDataZ,
       name: taskName,

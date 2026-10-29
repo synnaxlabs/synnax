@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -55,6 +56,39 @@ var _ = Describe("Writer", func() {
 			Expect(a2.Key).ToNot(Equal(uuid.Nil()))
 			Expect(a1.Key).ToNot(Equal(a2.Key))
 		})
+
+		It(
+			"Should broadcast the create with the writer's dispatch key after commit",
+			func(ctx SpecContext) {
+				rec := &Recorder[arc.Key, arc.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				v := arc.Arc{Name: "broadcast", Mode: arc.ModeText}
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Create(ctx, &v),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(v.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(arc.ActionTypeCreate))
+			},
+		)
+
+		It(
+			"Should not broadcast a create whose transaction closes uncommitted",
+			func(ctx SpecContext) {
+				rec := &Recorder[arc.Key, arc.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				uncommitted := db.OpenTx()
+				v := arc.Arc{Name: "discarded", Mode: arc.ModeText}
+				Expect(svc.NewWriter(uncommitted).Create(ctx, &v)).To(Succeed())
+				Expect(uncommitted.Close()).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("CreateMany", func() {

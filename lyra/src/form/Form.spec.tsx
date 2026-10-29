@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
+import { createLocalStore } from "@/form/store";
 import { Input } from "@/input";
 
 const basicFormSchema = z
@@ -769,6 +770,265 @@ describe("Form", () => {
       expect(result.current.field?.[0].name).toBe("Alice");
       expect(result.current.field?.[1].name).toBe("John Doe");
       expect(result.current.field?.[2].name).toBe("Zara");
+    });
+  });
+
+  describe("fieldListUtils over a store", () => {
+    const byName = (a: record.KeyedNamed, b: record.KeyedNamed) =>
+      a.name.localeCompare(b.name);
+    const renderOverStore = () => {
+      const store = createLocalStore({
+        ...deep.copy(initialFormValues),
+        array: [
+          { key: "a", name: "A" },
+          { key: "b", name: "B" },
+          { key: "c", name: "C" },
+        ],
+      });
+      const calls = {
+        insert: vi.spyOn(store, "insert"),
+        move: vi.spyOn(store, "move"),
+        remove: vi.spyOn(store, "remove"),
+        set: vi.spyOn(store, "set"),
+      };
+      const { result } = renderHook(() =>
+        Form.fieldListUtils<string, record.KeyedNamed>(Form.use({ store }), "array"),
+      );
+      return { utils: () => result.current, calls };
+    };
+
+    it("should insert a pushed entry after the last entry", () => {
+      const { utils, calls } = renderOverStore();
+      const d = { key: "d", name: "D" };
+      act(() => utils().push(d));
+      expect(calls.insert.mock.calls).toEqual([["array", d, "c"]]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should insert an added entry after the entry before its index", () => {
+      const { utils, calls } = renderOverStore();
+      const d = { key: "d", name: "D" };
+      const e = { key: "e", name: "E" };
+      act(() => utils().add(d, 1));
+      act(() => utils().add(e, 0));
+      expect(calls.insert.mock.calls).toEqual([
+        ["array", d, "a"],
+        ["array", e, undefined],
+      ]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should move only the entries that a sort puts out of place", () => {
+      const { utils, calls } = renderOverStore();
+      act(() => utils().sort?.(byName));
+      expect(calls.move).not.toHaveBeenCalled();
+      act(() => utils().sort?.((a, b) => byName(b, a)));
+      expect(calls.move.mock.calls).toEqual([
+        ["array", "c", undefined],
+        ["array", "b", "c"],
+      ]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should move a pushed entry into place when the push sorts", () => {
+      const { utils, calls } = renderOverStore();
+      const first = { key: "0", name: "0" };
+      act(() => utils().push(first, byName));
+      expect(calls.insert.mock.calls).toEqual([["array", first, "c"]]);
+      expect(calls.move.mock.calls).toEqual([["array", "0", undefined]]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should remove each dropped entry by its key", () => {
+      const { utils, calls } = renderOverStore();
+      act(() => {
+        utils().remove(["a", "c"]);
+      });
+      expect(calls.remove.mock.calls).toEqual([["array.a"], ["array.c"]]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+
+    it("should remove each entry that keepOnly does not keep", () => {
+      const { utils, calls } = renderOverStore();
+      act(() => {
+        utils().keepOnly("b");
+      });
+      expect(calls.remove.mock.calls).toEqual([["array.a"], ["array.c"]]);
+      expect(calls.set).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("keyed list edits", () => {
+    it("should call onChange with the list path for an insert", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        Form.use<typeof basicFormSchema>({
+          values: deep.copy(initialFormValues),
+          onChange,
+        }),
+      );
+      act(() => result.current.insert("array", { key: "key2", name: "Jane" }, "key1"));
+      expect(result.current.value().array.map(({ key }) => key)).toEqual([
+        "key1",
+        "key2",
+      ]);
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "array", prev: initialFormValues.array }),
+      );
+    });
+
+    it("should move an entry", () => {
+      const { result } = renderHook(() =>
+        Form.use<typeof basicFormSchema>({ values: deep.copy(initialFormValues) }),
+      );
+      act(() => {
+        result.current.insert("array", { key: "key2", name: "Jane" });
+        result.current.move("array", "key1");
+      });
+      expect(result.current.value().array.map(({ key }) => key)).toEqual([
+        "key1",
+        "key2",
+      ]);
+    });
+
+    it("should call onChange once for each entry that a list remove drops", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() => {
+        const form = Form.use<typeof basicFormSchema>({
+          values: deep.copy(initialFormValues),
+          onChange,
+        });
+        const utils = Form.fieldListUtils<string, record.KeyedNamed>(form, "array");
+        return { form, utils };
+      });
+      act(() => result.current.utils.push({ key: "key2", name: "Jane" }));
+      onChange.mockClear();
+      act(() => {
+        result.current.utils.remove(["key1", "key2"]);
+      });
+      expect(result.current.form.value().array).toEqual([]);
+      expect(onChange.mock.calls.map(([{ path }]) => path)).toEqual([
+        "array.key1",
+        "array.key2",
+      ]);
+    });
+
+    it("should validate once for all the edits in a batch", () => {
+      let validations = 0;
+      const schema = basicFormSchema.check(() => {
+        validations++;
+      });
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema }),
+      );
+      validations = 0;
+      act(() =>
+        result.current.batch(() => {
+          result.current.set("name", "Jane Doe");
+          result.current.set("age", 50);
+        }),
+      );
+      expect(validations).toBe(1);
+      expect(result.current.get("age").value).toBe(50);
+    });
+
+    it("should notify once for a batch", () => {
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues) }),
+      );
+      const listener = vi.fn();
+      result.current.bind(listener);
+      act(() =>
+        result.current.batch(() => {
+          result.current.set("name", "Jane Doe");
+          result.current.set("age", 50);
+          result.current.remove("array.key1");
+        }),
+      );
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it("should neither validate nor notify for a batch that changes nothing", () => {
+      let validations = 0;
+      const schema = basicFormSchema.check(() => {
+        validations++;
+      });
+      const { result } = renderHook(() =>
+        Form.use({ values: deep.copy(initialFormValues), schema }),
+      );
+      const listener = vi.fn();
+      result.current.bind(listener);
+      validations = 0;
+      act(() => result.current.batch(() => {}));
+      expect(validations).toBe(0);
+      expect(listener).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("store", () => {
+    const renderWithStore = () => {
+      const store = createLocalStore(deep.copy(initialFormValues));
+      let renders = 0;
+      const res = renderHook(() => {
+        renders++;
+        const form = Form.use({ store, schema: basicFormSchema });
+        const age = Form.useFieldValue<number, number, typeof basicFormSchema>("age", {
+          ctx: form,
+        });
+        return { form, age };
+      });
+      return { store, res, renders: () => renders };
+    };
+
+    it("should read the values that the store holds", () => {
+      const { res } = renderWithStore();
+      expect(res.result.current.age).toBe(42);
+    });
+
+    it("should write edits to the store", () => {
+      const { store, res } = renderWithStore();
+      act(() => res.result.current.form.set("age", 50));
+      expect(store.get().age).toBe(50);
+    });
+
+    it("should re-render a field that another writer changes", () => {
+      const { store, res } = renderWithStore();
+      act(() => store.set("age", 50));
+      expect(res.result.current.age).toBe(50);
+    });
+
+    it("should read another store that replaces the first", () => {
+      const first = createLocalStore(deep.copy(initialFormValues));
+      const second = createLocalStore({ ...deep.copy(initialFormValues), age: 7 });
+      const onHasTouched = vi.fn();
+      const { result, rerender } = renderHook(
+        ({ store }) => {
+          const form = Form.use({ store, schema: basicFormSchema, onHasTouched });
+          const age = Form.useFieldValue<number, number, typeof basicFormSchema>(
+            "age",
+            {
+              ctx: form,
+            },
+          );
+          return { form, age };
+        },
+        { initialProps: { store: first } },
+      );
+      act(() => result.current.form.set("name", "Jane Doe"));
+      rerender({ store: second });
+      expect(result.current.age).toBe(7);
+      expect(onHasTouched).toHaveBeenLastCalledWith(false);
+      act(() => second.set("age", 8));
+      expect(result.current.age).toBe(8);
+      act(() => first.set("age", 9));
+      expect(result.current.age).toBe(8);
+    });
+
+    it("should not re-render for a change that no read field reaches", () => {
+      const { store, renders } = renderWithStore();
+      const before = renders();
+      act(() => store.set("nested.ssn", "000-00-0000"));
+      expect(renders()).toBe(before);
     });
   });
 

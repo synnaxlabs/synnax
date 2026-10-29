@@ -12,10 +12,19 @@ import { type z } from "zod";
 
 import { context } from "@/context";
 import { type State } from "@/form/state";
+import { type Entry } from "@/form/store";
 import { type Status } from "@/status";
 
 export interface RemoveFunc {
   (path: string): void;
+}
+
+export interface InsertFunc {
+  <E extends Entry>(path: string, value: E, after?: string): void;
+}
+
+export interface MoveFunc {
+  (path: string, key: string, after?: string): void;
 }
 
 /** Options for {@link SetFunc}. */
@@ -52,7 +61,20 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   get: typeof State.prototype.getState;
   /** Restores the initial values, or the given ones. */
   reset: (values?: z.infer<Z>) => void;
+  /** Removes the object field or the keyed list entry at the path. */
   remove: RemoveFunc;
+  /**
+   * Inserts an entry into the keyed list at the path, after the entry with the key
+   * `after`. An absent `after` inserts first, and one that names no entry inserts last.
+   */
+  insert: InsertFunc;
+  /** Moves the entry with the key after the entry with the key `after`, as insert. */
+  move: MoveFunc;
+  /**
+   * Runs the edits that the function makes with one validation and one notification.
+   * `onChange` still runs once for each edit.
+   */
+  batch: (fn: () => void) => void;
   /** Reads the whole value tree. It does not re-render the caller. */
   value: () => z.infer<Z>;
   /** Validates the whole form, or one subtree, writing statuses onto the fields. */

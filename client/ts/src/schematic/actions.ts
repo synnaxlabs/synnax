@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { patch } from "@synnaxlabs/x";
+import { type Draft } from "immer";
+
 import { actions } from "@/actions";
 import {
   type Action,
   addEdge,
   createReduceAll,
+  type HandlerResult,
   type Handlers,
   removeEdge,
   removeNode,
@@ -20,6 +24,11 @@ import {
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
+import { type Schematic, schematicZ } from "@/schematic/types.gen";
+
+// Path actions edit only the element configs.
+const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult =>
+  actions.applyEntryPath(state, action, ["configs"], schematicZ);
 
 const handlers: Handlers = {
   create: (state, payload) => {
@@ -129,9 +138,26 @@ const handlers: Handlers = {
       targets: [payload.key],
     };
   },
+  ...actions.createPathHandlers(applyPath),
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+/**
+ * Converts a path action from the camelCase form of the cached schematic into the
+ * snake_case form that the Core stores. Other actions keep their form.
+ */
+export const encode = (state: Schematic, action: Action): Action => {
+  switch (action.type) {
+    case "set":
+    case "remove":
+    case "insert":
+    case "move":
+      return patch.camelToSnake(action, { schema: schematicZ, data: state });
+    default:
+      return action;
+  }
+};
 
 // createOf hands the dispatch controller the document carried by a create
 // action so frames for never-cached documents ingest instead of drop.

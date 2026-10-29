@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -106,6 +107,15 @@ var _ = Describe("Task", Ordered, func() {
 	AfterEach(func(ctx SpecContext) {
 		Expect(tx.Close()).To(Succeed())
 	})
+	type frame = actions.Scoped[task.Key, task.Action]
+	collect := func() *[]frame {
+		GinkgoHelper()
+		var frames []frame
+		DeferCleanup(svc.OnAction(func(_ context.Context, f frame) {
+			frames = append(frames, f)
+		}))
+		return &frames
+	}
 	Describe("CommandChannelKey", func() {
 		It(
 			"Should return zero when no channel service is configured",
@@ -160,6 +170,46 @@ var _ = Describe("Task", Ordered, func() {
 			m := &task.Task{Type: testType, Rack: testRack.Key}
 			Expect(w.Create(ctx, m)).To(MatchError(ContainSubstring("name: required")))
 		})
+		It(
+			"Should broadcast a create with the dispatch key after the commit",
+			func(ctx SpecContext) {
+				frames := collect()
+				createTx := db.OpenTx()
+				defer func() { Expect(createTx.Close()).To(Succeed()) }()
+				m := &task.Task{
+					Type:   testType,
+					Rack:   testRack.Key,
+					Name:   "Broadcast",
+					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
+				}
+				Expect(svc.NewWriter(createTx).
+					WithDispatchKey("dk-create").
+					Create(ctx, m)).To(Succeed())
+				Expect(*frames).To(BeEmpty())
+				Expect(createTx.Commit(ctx)).To(Succeed())
+				Expect(*frames).To(HaveLen(1))
+				f := (*frames)[0]
+				Expect(f.Key).To(Equal(m.Key))
+				Expect(f.DispatchKey).To(Equal("dk-create"))
+				Expect(f.Actions).To(Equal([]task.Action{
+					task.NewCreateAction(task.CreatePayload{Task: *m}),
+				}))
+			},
+		)
+		It(
+			"Should not broadcast when the transaction closes without a commit",
+			func(ctx SpecContext) {
+				frames := collect()
+				discardTx := db.OpenTx()
+				Expect(svc.NewWriter(discardTx).Create(ctx, &task.Task{
+					Type: testType,
+					Rack: testRack.Key,
+					Name: "Discarded",
+				})).To(Succeed())
+				Expect(discardTx.Close()).To(Succeed())
+				Expect(*frames).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("ConfigHash", func() {
@@ -542,289 +592,314 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Copy(ctx, m.Key, "", false)).Error().
 				To(MatchError(ContainSubstring("name: required")))
 		})
-	})
 
-	Describe("Rename", func() {
 		It(
-			"Should rename a task and its status, keeping every other field",
+			"Should broadcast a create of the copy after the commit",
 			func(ctx SpecContext) {
 				m := &task.Task{
-					Type:     testType,
-					Rack:     testRack.Key,
-					Name:     "Before",
-					Internal: true,
-					Snapshot: true,
+					Type:   testType,
+					Rack:   testRack.Key,
+					Name:   "Original",
+					Config: msgpack.EncodedJSON{"routing_key": "rk-1"},
 				}
-				Expect(w.Create(ctx, m)).To(Succeed())
-				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
-				var res task.Task
-				Expect(svc.NewRetrieve().
-					Where(task.MatchKeys(m.Key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				expected := *m
-				expected.Name = "After"
-				expected.Status = nil
-				Expect(res).To(Equal(expected))
-				var renamed task.Status
-				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-					Entry(&renamed).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(renamed.Name).To(Equal("After"))
-				Expect(renamed.Variant).To(Equal(m.Status.Variant))
-				Expect(renamed.Message).To(Equal(m.Status.Message))
-				Expect(renamed.Details.Task).To(Equal(m.Key))
+				Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
+				frames := collect()
+				copied := MustSucceed(w.WithDispatchKey("dk-copy").
+					Copy(ctx, m.Key, "Copied", false))
+				Expect(*frames).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(svc.NewWriter(db).Delete(ctx, m.Key, true)).To(Succeed())
+					Expect(
+						svc.NewWriter(db).Delete(ctx, copied.Key, true),
+					).To(Succeed())
+				})
+				Expect(*frames).To(HaveLen(1))
+				f := (*frames)[0]
+				Expect(f.Key).To(Equal(copied.Key))
+				Expect(f.DispatchKey).To(Equal("dk-copy"))
+				Expect(f.Actions).To(Equal([]task.Action{
+					task.NewCreateAction(task.CreatePayload{Task: copied}),
+				}))
+				Expect(copied.Config).To(HaveKeyWithValue("routing_key", "rk-1"))
 			},
 		)
-		It("Should return a validation error for an empty name", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(w.Rename(ctx, m.Key, "")).
-				To(MatchError(ContainSubstring("name: required")))
-		})
-		It("Should return a not found error for a missing task", func(ctx SpecContext) {
-			Expect(w.Rename(ctx, uuid.New(), "After")).
-				To(MatchError(query.ErrNotFound))
-		})
-		It("Should succeed when the task has no status row", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
-				To(Succeed())
-			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
-		})
-		It("Should notify observers of the rename", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
-			renameTx := db.OpenTx()
-			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
-			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
-			var names []string
-			disconnect := svc.Observe().OnChange(func(
-				ctx context.Context,
-				r gorp.TxReader[task.Key, task.Task],
-			) {
-				for c := range r {
-					names = append(names, c.Value.Name)
-				}
-			})
-			defer disconnect()
-			Expect(renameTx.Commit(ctx)).To(Succeed())
-			Expect(names).To(Equal([]string{"After"}))
-		})
 	})
 
-	Describe("Rename", func() {
-		It(
-			"Should rename a task and its status, keeping every other field",
-			func(ctx SpecContext) {
-				m := &task.Task{
-					Type:     testType,
-					Rack:     testRack.Key,
-					Name:     "Before",
-					Internal: true,
-					Snapshot: true,
-				}
-				Expect(w.Create(ctx, m)).To(Succeed())
-				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
-				var res task.Task
-				Expect(svc.NewRetrieve().
-					Where(task.MatchKeys(m.Key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				expected := *m
-				expected.Name = "After"
-				expected.Status = nil
-				Expect(res).To(Equal(expected))
-				var renamed task.Status
-				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-					Entry(&renamed).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(renamed.Name).To(Equal("After"))
-				Expect(renamed.Variant).To(Equal(m.Status.Variant))
-				Expect(renamed.Message).To(Equal(m.Status.Message))
-				Expect(renamed.Details.Task).To(Equal(m.Key))
-			},
-		)
-		It("Should return a validation error for an empty name", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(w.Rename(ctx, m.Key, "")).
-				To(MatchError(ContainSubstring("name: required")))
-		})
-		It("Should return a not found error for a missing task", func(ctx SpecContext) {
-			Expect(w.Rename(ctx, uuid.New(), "After")).
-				To(MatchError(query.ErrNotFound))
-		})
-		It("Should succeed when the task has no status row", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
-				To(Succeed())
-			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
-		})
-		It("Should notify observers of the rename", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
-			renameTx := db.OpenTx()
-			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
-			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
-			var names []string
-			disconnect := svc.Observe().OnChange(func(
-				ctx context.Context,
-				r gorp.TxReader[task.Key, task.Task],
-			) {
-				for c := range r {
-					names = append(names, c.Value.Name)
-				}
+	Describe("Dispatch", func() {
+		// Dispatch commits on its own, so its tasks commit too and are deleted after
+		// each spec.
+		createCommitted := func(ctx context.Context, t *task.Task) {
+			GinkgoHelper()
+			Expect(svc.NewWriter(db).Create(ctx, t)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(db).Delete(ctx, t.Key, true)).To(Succeed())
 			})
-			defer disconnect()
-			Expect(renameTx.Commit(ctx)).To(Succeed())
-			Expect(names).To(Equal([]string{"After"}))
+		}
+		var alerts *task.Task
+		BeforeEach(func(ctx SpecContext) {
+			alerts = &task.Task{
+				Type: testType,
+				Rack: testRack.Key,
+				Name: "Alerts",
+				Config: msgpack.EncodedJSON{
+					"routing_key": "rk-1",
+					"alerts":      []any{map[string]any{"key": "a", "status": "st-a"}},
+				},
+			}
+			createCommitted(ctx, alerts)
 		})
-	})
+		set := func(path []string, value any) task.Action {
+			return task.NewSetAction(task.SetPayload{Path: path, Value: value})
+		}
+		retrieve := func(ctx context.Context, key task.Key) task.Task {
+			GinkgoHelper()
+			var res task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&res).
+				Exec(ctx, nil)).To(Succeed())
+			return res
+		}
+		expectUnchanged := func(ctx context.Context) {
+			GinkgoHelper()
+			res := retrieve(ctx, alerts.Key)
+			Expect(res.Name).To(Equal(alerts.Name))
+			Expect(res.Config).To(Equal(alerts.Config))
+			Expect(res.ConfigHash).To(Equal(alerts.ConfigHash))
+		}
 
-	Describe("Rename", func() {
-		It(
-			"Should rename a task and its status, keeping every other field",
-			func(ctx SpecContext) {
-				m := &task.Task{
-					Type:     testType,
-					Rack:     testRack.Key,
-					Name:     "Before",
-					Internal: true,
-					Snapshot: true,
-				}
-				Expect(w.Create(ctx, m)).To(Succeed())
-				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
-				var res task.Task
-				Expect(svc.NewRetrieve().
-					Where(task.MatchKeys(m.Key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				expected := *m
-				expected.Name = "After"
-				expected.Status = nil
-				Expect(res).To(Equal(expected))
-				var renamed task.Status
-				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-					Entry(&renamed).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(renamed.Name).To(Equal("After"))
-				Expect(renamed.Variant).To(Equal(m.Status.Variant))
-				Expect(renamed.Message).To(Equal(m.Status.Message))
-				Expect(renamed.Details.Task).To(Equal(m.Key))
-			},
-		)
-		It("Should return a validation error for an empty name", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(w.Rename(ctx, m.Key, "")).
-				To(MatchError(ContainSubstring("name: required")))
+		It("Should store the new config and its hash", func(ctx SpecContext) {
+			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"config", "routing_key"}, "rk-2"),
+			}))
+			res := retrieve(ctx, alerts.Key)
+			Expect(res.Config["routing_key"]).To(Equal("rk-2"))
+			Expect(res.ConfigHash).ToNot(Equal(alerts.ConfigHash))
 		})
-		It("Should return a not found error for a missing task", func(ctx SpecContext) {
-			Expect(w.Rename(ctx, uuid.New(), "After")).
-				To(MatchError(query.ErrNotFound))
-		})
-		It("Should succeed when the task has no status row", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
-				To(Succeed())
-			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
-		})
-		It("Should notify observers of the rename", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
-			renameTx := db.OpenTx()
-			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
-			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
-			var names []string
-			disconnect := svc.Observe().OnChange(func(
-				ctx context.Context,
-				r gorp.TxReader[task.Key, task.Task],
-			) {
-				for c := range r {
-					names = append(names, c.Value.Name)
-				}
-			})
-			defer disconnect()
-			Expect(renameTx.Commit(ctx)).To(Succeed())
-			Expect(names).To(Equal([]string{"After"}))
-		})
-	})
 
-	Describe("Rename", func() {
+		It("Should hash the config as a create of the same config does", func(
+			ctx SpecContext,
+		) {
+			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"config", "routing_key"}, "rk-2"),
+			}))
+			same := &task.Task{
+				Type: testType,
+				Rack: testRack.Key,
+				Name: "Same",
+				Config: msgpack.EncodedJSON{
+					"routing_key": "rk-2",
+					"alerts":      []any{map[string]any{"key": "a", "status": "st-a"}},
+				},
+			}
+			createCommitted(ctx, same)
+			Expect(same.ConfigHash).To(Equal(retrieve(ctx, alerts.Key).ConfigHash))
+		})
+
+		It("Should apply list actions to the config", func(ctx SpecContext) {
+			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				task.NewInsertAction(task.InsertPayload{
+					Path:  []string{"config", "alerts"},
+					Value: map[string]any{"key": "b", "status": "st-b"},
+					After: new("a"),
+				}),
+				task.NewMoveAction(task.MovePayload{
+					Path: []string{"config", "alerts"},
+					Key:  "b",
+				}),
+				task.NewRemoveAction(task.RemovePayload{
+					Path: []string{"config", "alerts"},
+					Key:  "a",
+				}),
+			}))
+			res := retrieve(ctx, alerts.Key)
+			Expect(res.Config["alerts"]).To(HaveExactElements(
+				HaveKeyWithValue("key", "b"),
+			))
+		})
+
+		It("Should rename the task and its status", func(ctx SpecContext) {
+			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"name"}, "Renamed"),
+			}))
+			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
+			var renamed task.Status
+			Expect(stat.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchKeys[task.StatusDetails](
+					alerts.OntologyID().String(),
+				)).
+				Entry(&renamed).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(renamed.Name).To(Equal("Renamed"))
+		})
+
+		It("Should rename a task that has no status", func(ctx SpecContext) {
+			Expect(stat.NewWriter(db).Delete(ctx, alerts.OntologyID().String())).
+				To(Succeed())
+			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"name"}, "Renamed"),
+			}))
+			Expect(retrieve(ctx, alerts.Key).Name).To(Equal("Renamed"))
+		})
+
+		It("Should move the task to another rack", func(ctx SpecContext) {
+			other := &rack.Rack{Name: "Other Rack"}
+			Expect(rackService.NewWriter(db).Create(ctx, other)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(rackService.NewWriter(db).DeleteGuard(ctx, other.Key, nil)).To(Succeed())
+			})
+			MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"rack"}, other.Key),
+			}))
+			Expect(retrieve(ctx, alerts.Key).Rack).To(Equal(other.Key))
+		})
+
+		It("Should apply none of the actions when one fails", func(ctx SpecContext) {
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"config", "routing_key"}, "rk-2"),
+				set([]string{"type"}, "arc"),
+			})).Error().To(MatchError(validate.ErrValidation))
+			expectUnchanged(ctx)
+		})
+
+		It("Should reject a member the config does not declare", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"config", "routng_key"}, "rk-2"),
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`unknown object member name "routng_key"`)),
+			))
+			expectUnchanged(ctx)
+		})
+
+		It("Should reject a config that fails validation", func(ctx SpecContext) {
+			arcTask := &task.Task{
+				Type:   arctask.Type,
+				Rack:   testRack.Key,
+				Name:   "Arc",
+				Config: msgpack.EncodedJSON{"arc_key": uuid.New().String()},
+			}
+			createCommitted(ctx, arcTask)
+			Expect(svc.Dispatch(ctx, arcTask.Key, "dk", []task.Action{
+				set([]string{"config", "performance"}, "BOGUS"),
+			})).Error().To(MatchError(ContainSubstring("invalid performance: BOGUS")))
+		})
+
+		It("Should reject an empty name", func(ctx SpecContext) {
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"name"}, ""),
+			})).Error().To(MatchError(ContainSubstring("name: required")))
+			expectUnchanged(ctx)
+		})
+
+		It("Should reject a create", func(ctx SpecContext) {
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				task.NewCreateAction(task.CreatePayload{Task: *alerts}),
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("only the Core dispatches a task create")),
+			))
+		})
+
+		It("Should rename a snapshot, keeping its config", func(ctx SpecContext) {
+			snap := &task.Task{
+				Type:     testType,
+				Rack:     testRack.Key,
+				Name:     "Snapshot",
+				Snapshot: true,
+			}
+			createCommitted(ctx, snap)
+			MustSucceed(svc.Dispatch(ctx, snap.Key, "dk", []task.Action{
+				set([]string{"name"}, "Renamed"),
+			}))
+			res := retrieve(ctx, snap.Key)
+			Expect(res.Name).To(Equal("Renamed"))
+			Expect(res.Snapshot).To(BeTrue())
+			Expect(res.ConfigHash).To(Equal(snap.ConfigHash))
+		})
+
+		It("Should reject any other edit to a snapshot", func(ctx SpecContext) {
+			snap := &task.Task{
+				Type:     testType,
+				Rack:     testRack.Key,
+				Name:     "Snapshot",
+				Snapshot: true,
+			}
+			createCommitted(ctx, snap)
+			Expect(svc.Dispatch(ctx, snap.Key, "dk", []task.Action{
+				set([]string{"name"}, "Renamed"),
+				set([]string{"config", "routing_key"}, "rk-2"),
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("is a snapshot, so only its name can change"),
+				),
+			))
+			Expect(retrieve(ctx, snap.Key).Name).To(Equal("Snapshot"))
+		})
+
+		It("Should return not found for a missing task", func(ctx SpecContext) {
+			Expect(svc.Dispatch(ctx, uuid.New(), "dk", []task.Action{
+				set([]string{"name"}, "Renamed"),
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should broadcast and return a set of the new config hash", func(
+			ctx SpecContext,
+		) {
+			frames := collect()
+			acts := []task.Action{set([]string{"config", "routing_key"}, "rk-2")}
+			computed := MustSucceed(svc.Dispatch(ctx, alerts.Key, "dk-1", acts))
+			hash := retrieve(ctx, alerts.Key).ConfigHash
+			Expect(
+				computed,
+			).To(Equal([]task.Action{set([]string{"config_hash"}, hash)}))
+			Expect(*frames).To(HaveLen(1))
+			f := (*frames)[0]
+			Expect(f.Key).To(Equal(alerts.Key))
+			Expect(f.DispatchKey).To(Equal("dk-1"))
+			Expect(f.Seq).To(BeNumerically(">", 0))
+			Expect(f.Actions).To(Equal(append(acts, computed...)))
+		})
+
 		It(
-			"Should rename a task and its status, keeping every other field",
-			func(ctx SpecContext) {
-				m := &task.Task{
-					Type:     testType,
-					Rack:     testRack.Key,
-					Name:     "Before",
-					Internal: true,
-					Snapshot: true,
+			"Should broadcast and return the stored config when it fills a default",
+			func(
+				ctx SpecContext,
+			) {
+				arcTask := &task.Task{
+					Type: arctask.Type,
+					Rack: testRack.Key,
+					Name: "Arc",
+					Config: msgpack.EncodedJSON{
+						"arc_key":     uuid.New().String(),
+						"performance": "high",
+					},
 				}
-				Expect(w.Create(ctx, m)).To(Succeed())
-				Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
-				var res task.Task
-				Expect(svc.NewRetrieve().
-					Where(task.MatchKeys(m.Key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				expected := *m
-				expected.Name = "After"
-				expected.Status = nil
-				Expect(res).To(Equal(expected))
-				var renamed task.Status
-				Expect(stat.NewRetrieve[task.StatusDetails]().
-					Where(status.MatchKeys[task.StatusDetails](m.OntologyID().String())).
-					Entry(&renamed).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(renamed.Name).To(Equal("After"))
-				Expect(renamed.Variant).To(Equal(m.Status.Variant))
-				Expect(renamed.Message).To(Equal(m.Status.Message))
-				Expect(renamed.Details.Task).To(Equal(m.Key))
+				createCommitted(ctx, arcTask)
+				frames := collect()
+				acts := []task.Action{set([]string{"config", "performance"}, "")}
+				computed := MustSucceed(svc.Dispatch(ctx, arcTask.Key, "dk", acts))
+				stored := retrieve(ctx, arcTask.Key)
+				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))
+				Expect(computed).To(Equal([]task.Action{
+					set([]string{"config"}, stored.Config),
+					set([]string{"config_hash"}, stored.ConfigHash),
+				}))
+				Expect(*frames).To(HaveLen(1))
+				Expect((*frames)[0].Actions).To(Equal(append(acts, computed...)))
 			},
 		)
-		It("Should return a validation error for an empty name", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(w.Rename(ctx, m.Key, "")).
-				To(MatchError(ContainSubstring("name: required")))
-		})
-		It("Should return a not found error for a missing task", func(ctx SpecContext) {
-			Expect(w.Rename(ctx, uuid.New(), "After")).
-				To(MatchError(query.ErrNotFound))
-		})
-		It("Should succeed when the task has no status row", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(stat.NewWriter(tx).Delete(ctx, m.OntologyID().String())).
-				To(Succeed())
-			Expect(w.Rename(ctx, m.Key, "After")).To(Succeed())
-		})
-		It("Should notify observers of the rename", func(ctx SpecContext) {
-			m := &task.Task{Type: testType, Rack: testRack.Key, Name: "Before"}
-			Expect(svc.NewWriter(db).Create(ctx, m)).To(Succeed())
-			renameTx := db.OpenTx()
-			defer func() { Expect(renameTx.Close()).To(Succeed()) }()
-			Expect(svc.NewWriter(renameTx).Rename(ctx, m.Key, "After")).To(Succeed())
-			var names []string
-			disconnect := svc.Observe().OnChange(func(
-				ctx context.Context,
-				r gorp.TxReader[task.Key, task.Task],
-			) {
-				for c := range r {
-					names = append(names, c.Value.Name)
-				}
-			})
-			defer disconnect()
-			Expect(renameTx.Commit(ctx)).To(Succeed())
-			Expect(names).To(Equal([]string{"After"}))
+
+		It("Should not broadcast a rejected dispatch", func(ctx SpecContext) {
+			frames := collect()
+			Expect(svc.Dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"type"}, "arc"),
+			})).Error().To(MatchError(validate.ErrValidation))
+			Expect(*frames).To(BeEmpty())
 		})
 	})
 

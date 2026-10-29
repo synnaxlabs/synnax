@@ -505,7 +505,6 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "http_read",
-  getInitialValues,
   onConfigure,
 });
 

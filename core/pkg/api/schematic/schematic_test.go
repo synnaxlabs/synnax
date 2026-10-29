@@ -19,6 +19,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -41,6 +43,34 @@ func createSchematic(ctx context.Context, name string) schematic.Schematic {
 }
 
 var _ = Describe("Service", func() {
+	Describe("Create", func() {
+		It("Should stamp the dispatch key onto the create broadcast", func(
+			ctx SpecContext,
+		) {
+			grantOn(
+				ctx,
+				author.OntologyID(),
+				access.ActionCreate,
+				ontology.ID{Type: ontology.ResourceTypeSchematic},
+			)
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(schematicSvc.OnAction(rec.Record))
+			res := MustSucceed(apiSvc.Create(
+				AuthedCtx(ctx, author),
+				db,
+				apischematic.CreateRequest{
+					Project:     proj.Key,
+					Schematics:  []schematic.Schematic{{Name: "broadcast"}},
+					DispatchKey: "dk-create",
+				},
+			))
+			frames := rec.Snapshot()
+			Expect(frames).To(HaveLen(1))
+			Expect(frames[0].Key).To(Equal(res.Schematics[0].Key))
+			Expect(frames[0].DispatchKey).To(Equal("dk-create"))
+		})
+	})
+
 	Describe("Retrieve", func() {
 		It(
 			"Should omit missing keys from a multi-key retrieve instead of failing",

@@ -100,6 +100,25 @@ export const useNodeConfig = Scope.bindHook(
   ),
 );
 
+const useDocumentNodeForm = Flux.createDocumentForm<
+  arc.Key,
+  arc.Arc,
+  typeof Node.configZ,
+  NodePropsParams
+>({
+  name: "Arc node",
+  schema: Node.configZ,
+  domain: (client) => client.arcs,
+  useEnsure,
+  toValues: ({ graph }, { nodeKey }) => graph.inputs[nodeKey] as Node.Config,
+  pathOf: ({ nodeKey }) => ["graph", "inputs", nodeKey],
+});
+
+const useNodeFormBase = (query: NodePropsParams) => useDocumentNodeForm({ query });
+
+/** A form over one node's inputs in the cached Arc graph. */
+export const useNodeForm = Scope.bindHook(useNodeFormBase);
+
 // useMode returns the representation mode of the Arc with the given key. It
 // requires the arc to be cached, so callers must render it beneath an Arc.Suspended
 // boundary that has retrieved the arc.

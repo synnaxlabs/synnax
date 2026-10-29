@@ -416,6 +416,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
+	if closer, err := l.Signals.PublishActions(
+		ctx,
+		signals.ActionPublisherConfig[label.Key, label.Action]{
+			Observable: l.Label.ObserveActions(),
+			Name:       "label_action",
+		},
+	); !ok(err, closer) {
+		return nil, err
+	}
 	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigString(l.Status.Observe()),

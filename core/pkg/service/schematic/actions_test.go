@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
@@ -812,13 +813,14 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("Action envelope", func() {
-		It("Should return state unchanged when Type is unrecognized", func() {
+		It("Should error and leave state unchanged when Type is unrecognized", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			Expect(
-				MustSucceed(
-					schematic.Reduce(state, schematic.Action{Type: "totally_made_up"}),
-				),
-			).To(Equal(state))
+			out, err := schematic.Reduce(state, schematic.Action{Type: "made_up"})
+			Expect(err).To(SatisfyAll(
+				MatchError(union.ErrUnknownVariant),
+				MatchError(ContainSubstring("made_up")),
+			))
+			Expect(out).To(Equal(state))
 		})
 
 		DescribeTable(
@@ -930,5 +932,131 @@ var _ = Describe("Payload decoding", func() {
 		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
 		Expect(cfg.End.X).To(BeZero())
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
+	})
+})
+
+var _ = Describe("Path actions", func() {
+	var state schematic.Schematic
+	BeforeEach(func() {
+		cfg := tankCfg("T1", "")
+		cfg.ApplyDefaults()
+		state = schematic.Schematic{
+			Name:    "Engine",
+			Configs: map[string]schematic.ElementConfig{"n1": cfg},
+		}
+	})
+	set := func(path []string, value any, guards ...patch.Guard) schematic.Action {
+		return schematic.NewSetAction(
+			schematic.SetPayload{Path: path, Value: value, Guards: guards},
+		)
+	}
+	tank := func(s schematic.Schematic) schematic.TankElementConfig {
+		GinkgoHelper()
+		cfg, ok := s.Configs["n1"].Variant.(schematic.TankElementConfig)
+		Expect(ok).To(BeTrue())
+		return cfg
+	}
+
+	Describe("SetPayload", func() {
+		It("Should set a field of an element config", func() {
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "label", "label"}, "T2"),
+			))
+			Expect(tank(next).Label.Label).To(Equal("T2"))
+			Expect(next.Name).To(Equal("Engine"))
+		})
+
+		It("Should set a boolean field", func() {
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "scale_visible"}, true),
+			))
+			Expect(tank(next).ScaleVisible).To(BeTrue())
+		})
+
+		It("Should set a color from its hex form", func() {
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "stroke_color"}, "#ff0000"),
+			))
+			Expect(tank(next).StrokeColor).To(Equal(new(MustSucceed(color.FromHex("#ff0000")))))
+		})
+
+		It("Should do nothing when the variant guard fails", func() {
+			next := MustSucceed(schematic.Reduce(state, set(
+				[]string{"configs", "n1", "label", "label"},
+				"T2",
+				patch.Guard{Path: []string{"configs", "n1", "variant"}, Value: "valve"},
+			)))
+			Expect(tank(next).Label.Label).To(Equal("T1"))
+		})
+
+		It("Should reject a path outside the element configs", func() {
+			Expect(schematic.Reduce(state, set([]string{"name"}, "Other"))).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("the path is outside")),
+			))
+		})
+
+		It("Should reject a value that fails the element config's schema", func() {
+			Expect(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "level"}, "h9"),
+			)).Error().To(MatchError(ContainSubstring("level: invalid level: h9")))
+		})
+
+		It("Should edit a config beside a stored config that fails its schema", func() {
+			state.Configs["n2"] = tankCfg("T2", "")
+			next := MustSucceed(schematic.Reduce(
+				state,
+				set([]string{"configs", "n1", "label", "label"}, "T3"),
+			))
+			Expect(tank(next).Label.Label).To(Equal("T3"))
+		})
+
+		It("Should reject a config that names no variant", func() {
+			Expect(schematic.Reduce(state, set([]string{"configs", "n2"}, nil))).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`config for "n2" names no variant`)),
+			))
+		})
+	})
+
+	Describe("RemovePayload", func() {
+		It("Should remove an element config", func() {
+			next := MustSucceed(schematic.Reduce(state, schematic.NewRemoveAction(
+				schematic.RemovePayload{Path: []string{"configs"}, Key: "n1"},
+			)))
+			Expect(next.Configs).To(BeEmpty())
+		})
+	})
+
+	Describe("InsertPayload", func() {
+		It("Should reject a list the element config does not declare", func() {
+			Expect(schematic.Reduce(state, schematic.NewInsertAction(
+				schematic.InsertPayload{
+					Path:  []string{"configs", "n1", "tags"},
+					Value: map[string]any{"key": "a"},
+				},
+			))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("decoding entries")),
+			))
+		})
+	})
+
+	Describe("MovePayload", func() {
+		It("Should leave the schematic unchanged when the list is missing", func() {
+			next := MustSucceed(schematic.Reduce(state, schematic.NewMoveAction(
+				schematic.MovePayload{
+					Path: []string{"configs", "n1", "tags"},
+					Key:  "a",
+				},
+			)))
+			Expect(next).To(Equal(state))
+		})
 	})
 })

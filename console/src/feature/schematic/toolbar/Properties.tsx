@@ -28,7 +28,6 @@ import {
 import {
   box,
   color,
-  deep,
   type dimensions,
   type direction,
   location,
@@ -68,26 +67,21 @@ interface IndividualConfigProps {
   elKey: string;
 }
 
-const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null => {
-  const config = Schematic.useElementConfig({ elKey });
-  if (config == null) throw new Error(`Element with key ${elKey} not found`);
+const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   const schematicKey = Schematic.useKey();
-  const dispatch = Schematic.useSingleDispatch();
   const sessionDispatch = Session.useDispatch();
   const tab = Session.Schematic.useSelectPropertiesTab({ key: schematicKey });
   const handleTabChange = (tab: PProperties.TabKey) =>
     sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
-  const initialValues = deep.copy(config);
-  const formMethods = Form.use<typeof Schematic.elementConfigZ>({
-    schema: Schematic.elementConfigZ,
-    values: initialValues,
-    sync: true,
-    onChange: ({ values }: Form.OnChangeParams<typeof Schematic.elementConfigZ>) =>
-      dispatch(schematic.setConfig({ key: elKey, config: deep.copy(values) })),
-  });
+  const { form } = Schematic.useConfigForm({ elKey });
+  const variant = Form.useFieldValue<
+    Schematic.ElementConfig["variant"],
+    Schematic.ElementConfig["variant"],
+    typeof Schematic.elementConfigZ
+  >("variant", { ctx: form });
   const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(
     "specKey",
-    { ctx: formMethods, optional: true },
+    { ctx: form, optional: true },
   );
   const isCustom = z.validate(schematic.symbol.keyZ, specKey) && specKey != null;
   const openEditModal = Symbol.Edit.useModal();
@@ -104,8 +98,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
       </Button.Button>
     );
 
-  if (config == null) return null;
-  const C = Schematic.ELEMENT_REGISTRY[config.variant];
+  const C = Schematic.ELEMENT_REGISTRY[variant];
   const formProps: Schematic.Node.FormProps = {
     actions,
     schematicKey,
@@ -114,7 +107,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
   };
   return (
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
-      <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
+      <Form.Form<typeof Schematic.elementConfigZ> {...form}>
         {isCustom ? (
           <CustomVariantForm
             specKey={specKey}

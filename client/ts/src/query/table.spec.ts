@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record, TimeSpan } from "@synnaxlabs/x";
+import { Unreachable } from "@synnaxlabs/freighter";
+import { type record, sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/errors";
@@ -1541,6 +1542,177 @@ describe("Table", () => {
       expect(table.get("a")).toEqual(item("a", "renamed"));
       expect(table.get("b")).toEqual(item("b", "fetched"));
     });
+  });
+});
+
+describe("intercept", () => {
+  interface Counter extends record.Keyed<string> {
+    key: string;
+    n: number;
+  }
+  const counter = (n: number): Counter => ({ key: "a", n });
+
+  // Keeps each base and shows what show returns, as the action controller does.
+  const createOverlay = (show: (base: Counter) => Counter) => {
+    const bases = new Map<string, Counter>();
+    const interceptor: query.Interceptor<string, Counter> = {
+      base: (key) => bases.get(key),
+      apply: (key, value) => {
+        bases.set(key, value);
+        return show(value);
+      },
+    };
+    return { bases, interceptor };
+  };
+
+  const newTable = (show: (base: Counter) => Counter) => {
+    const table = new query.Table<string, Counter>({ onError: noopError });
+    const overlay = createOverlay(show);
+    table.intercept(overlay.interceptor);
+    return { table, bases: overlay.bases };
+  };
+
+  it.each([
+    ["set", (t: query.Table<string, Counter>) => t.set("a", counter(1))],
+    ["ingest", (t: query.Table<string, Counter>) => t.ingest(counter(1))],
+  ])("should store and notify the value the interceptor shows on %s", (_, write) => {
+    const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));
+    const listener = vi.fn();
+    table.subscribe(listener);
+    write(table);
+    expect(bases.get("a")).toEqual(counter(1));
+    expect(table.get("a")).toEqual(counter(11));
+    expect(listener).toHaveBeenCalledExactlyOnceWith({
+      variant: "set",
+      key: "a",
+      value: counter(11),
+    });
+  });
+
+  it("should pass the base to a setter", () => {
+    const { table, bases } = newTable((b) => ({ ...b, n: b.n + 10 }));
+    table.set("a", counter(1));
+    table.set("a", (prev) => (prev == null ? prev : { ...prev, n: prev.n + 1 }));
+    expect(bases.get("a")).toEqual(counter(2));
+    expect(table.get("a")).toEqual(counter(12));
+  });
+
+  it("should notify nothing when the shown value does not change", () => {
+    const { table, bases } = newTable(() => counter(5));
+    table.set("a", counter(1));
+    const listener = vi.fn();
+    table.subscribe(listener);
+    table.set("a", counter(2));
+    expect(listener).not.toHaveBeenCalled();
+    expect(bases.get("a")).toEqual(counter(2));
+    expect(table.get("a")).toEqual(counter(5));
+  });
+
+  it("should restore the base when a write that shows no change rolls back", () => {
+    const { table, bases } = newTable(() => counter(5));
+    table.set("a", counter(1));
+    const rollback = table.set("a", counter(2));
+    rollback();
+    expect(bases.get("a")).toEqual(counter(1));
+    expect(table.get("a")).toEqual(counter(5));
+  });
+
+  it("should restore the base, not the shown value, on a rollback", () => {
+    let offset = 10;
+    const { table } = newTable((b) => ({ ...b, n: b.n + offset }));
+    table.set("a", counter(1));
+    const rollback = table.set("a", counter(2));
+    offset = 20;
+    rollback();
+    expect(table.get("a")).toEqual(counter(21));
+  });
+
+  it.each([
+    ["key", (t: query.Table<string, Counter>) => t.delete("a")],
+    ["filter", (t: query.Table<string, Counter>) => t.delete(({ key }) => key === "a")],
+  ])(
+    "should restore the base, not the shown value, when undoing a delete by %s",
+    (_, remove) => {
+      let offset = 10;
+      const { table } = newTable((b) => ({ ...b, n: b.n + offset }));
+      table.set("a", counter(1));
+      const restore = remove(table);
+      offset = 20;
+      restore();
+      expect(table.get("a")).toEqual(counter(21));
+    },
+  );
+
+  it("should throw when the table already has an interceptor", () => {
+    const { table } = newTable((b) => b);
+    expect(() => table.intercept(createOverlay((b) => b).interceptor)).toThrow(
+      "The table already has an interceptor",
+    );
+  });
+});
+
+describe("delete rollback", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const doc = (name: string): Doc => ({ key: "k1", name });
+
+  const newTable = (
+    fetch: (keys: string[]) => Promise<Doc[]>,
+    onError: (error: Error) => void = noopError,
+  ) => new query.Table<string, Doc>({ onError, fetch });
+
+  it("should fetch the restored entries again", async () => {
+    let stored = doc("a");
+    const table = newTable(async () => [stored]);
+    table.set("k1", doc("a"));
+    const rollback = table.delete("k1");
+    stored = doc("b");
+    rollback();
+    expect(table.get("k1")).toEqual(doc("a"));
+    await expect.poll(() => table.get("k1")).toEqual(doc("b"));
+  });
+
+  it("should not fetch the entries an evict restores", async () => {
+    const fetch = vi.fn(async () => [doc("b")]);
+    const table = newTable(fetch);
+    table.set("k1", doc("a"));
+    table.evict("k1")();
+    await sleep.sleep(TimeSpan.milliseconds(30));
+    expect(fetch).not.toHaveBeenCalled();
+    expect(table.get("k1")).toEqual(doc("a"));
+  });
+
+  it("should report a failed fetch of the restored entries", async () => {
+    const onError = vi.fn();
+    const table = newTable(async () => {
+      throw new Error("boom");
+    }, onError);
+    table.set("k1", doc("a"));
+    table.delete("k1")();
+    await expect
+      .poll(() => onError.mock.calls[0]?.[0])
+      .toEqual(
+        expect.objectContaining({
+          message: "failed to fetch restored entries",
+          cause: expect.objectContaining({ message: "boom" }),
+        }),
+      );
+  });
+
+  it("should not report a fetch that cannot reach the Core", async () => {
+    const onError = vi.fn();
+    const fetch = vi.fn(async (): Promise<Doc[]> => {
+      throw new Unreachable();
+    });
+    const table = newTable(fetch, onError);
+    table.set("k1", doc("a"));
+    table.delete("k1")();
+    await expect.poll(() => fetch.mock.calls.length).toBe(1);
+    await sleep.sleep(TimeSpan.milliseconds(10));
+    expect(onError).not.toHaveBeenCalled();
+    expect(table.get("k1")).toEqual(doc("a"));
   });
 });
 

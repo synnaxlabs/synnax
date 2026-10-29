@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -105,6 +106,9 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
+		// DispatchKey is stamped onto the create broadcasts so the sender skips its
+		// echo.
+		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 	}
 	CreateResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -123,10 +127,34 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Ranges); err != nil {
+	if err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.Ranges); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse(req), nil
+	return CreateResponse{Ranges: req.Ranges}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single range. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[ranger.Key, ranger.Action]
+
+// Dispatch applies the action sequence to the target range atomically. Subscribers to
+// the range action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -243,7 +271,9 @@ func (s *Service) Rename(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	return struct{}{}, s.internal.Dispatch(ctx, req.Key, "", []ranger.Action{
+		ranger.NewSetAction(ranger.SetPayload{Path: []string{"name"}, Value: req.Name}),
+	})
 }
 
 type SetEndRequest struct {
@@ -263,7 +293,12 @@ func (s *Service) SetEnd(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.internal.NewWriter(tx).SetEnd(ctx, req.Key, req.End)
+	return struct{}{}, s.internal.Dispatch(ctx, req.Key, "", []ranger.Action{
+		ranger.NewSetAction(ranger.SetPayload{
+			Path:  []string{"time_range", "end"},
+			Value: req.End,
+		}),
+	})
 }
 
 type DeleteRequest struct {

@@ -11,10 +11,13 @@ package task
 
 import (
 	"context"
+	"reflect"
+	"slices"
 	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -27,13 +30,21 @@ import (
 )
 
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	group     group.Group
-	status    status.Writer
-	table     *gorp.Table[Key, Task]
-	configs   config.Registry
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
+	group      group.Group
+	status     status.Writer
+	table      *gorp.Table[Key, Task]
+	configs    config.Registry
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // resolveStatus returns the status to persist for t. Without a provided status, a task
@@ -95,7 +106,8 @@ func (w Writer) healStatus(ctx context.Context, stat *Status) (*Status, error) {
 // the task's key in its type's config store; the task row itself carries only the
 // config hash. A provided status is persisted as given. Without one, a new task gets
 // a "not deployed" placeholder, and an existing task keeps its reported status (healed
-// to "status unknown" if the row is missing).
+// to "status unknown" if the row is missing). After the transaction commits, Create
+// broadcasts a create action that carries the stored task.
 func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
@@ -136,17 +148,12 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 			t.Config = data
 		}
 	} else {
-		if err := store.Write(ctx, w.tx, t.Key, t.Config); err != nil {
-			return err
-		}
-		// Read the record back so the returned config and its hash reflect the
-		// canonical stored shape, defaults included.
-		canonical, err := store.Read(ctx, w.tx, t.Key)
+		stored, err := store.Write(ctx, w.tx, t.Key, t.Config)
 		if err != nil {
 			return err
 		}
-		t.Config = canonical
-		if t.ConfigHash, err = hashConfig(configContent(canonical)); err != nil {
+		t.Config = stored
+		if t.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
 			return err
 		}
 		// Delete the old type's record only after the new config is stored, so a
@@ -177,6 +184,12 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	t.Status = stat
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		t.Key,
+		NewCreateAction(CreatePayload{Task: *t}),
+	)
 	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
 	if err != nil {
 		return err
@@ -209,29 +222,86 @@ func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
 	return nil
 }
 
-// Rename renames the task with the given key and its status, keeping every other field,
-// including its config. It returns query.ErrNotFound if no task with the key exists and
-// a validation error if name is empty.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	v := validate.New("task.task")
-	v.NotEmptyString("name", name)
-	if err := v.Error(); err != nil {
-		return err
-	}
-	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Task](key)).
-		Change(func(_ gorp.Context, t Task) Task {
-			t.Name = name
-			return t
-		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
+func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 	// A missing status row is valid: the next Create heals it.
 	return errors.Skip(
 		w.status.Rename(ctx, OntologyID(key).String(), name),
 		query.ErrNotFound,
 	)
+}
+
+// apply applies the actions to the task with the given key and stores the result. It
+// returns the actions that only the Core computes: a set of the stored config when
+// storing changed it, such as by filling a default, then a set of the new config hash.
+func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, error) {
+	var prev Task
+	if err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Entry(&prev).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	if prev.Snapshot && !renamesOnly(acts) {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"task %s is a snapshot, so only its name can change",
+			key,
+		)
+	}
+	store, ok := w.configs.Store(prev.Type)
+	if !ok {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"unknown task type %q",
+			prev.Type,
+		)
+	}
+	var err error
+	if prev.Config, err = store.Read(ctx, w.tx, key); err != nil {
+		return nil, err
+	}
+	next, err := Reduce(prev, acts...)
+	if err != nil {
+		return nil, err
+	}
+	if err = next.Validate(); err != nil {
+		return nil, err
+	}
+	stored, err := store.WriteStrict(ctx, w.tx, key, next.Config)
+	if err != nil {
+		return nil, err
+	}
+	if next.ConfigHash, err = hashConfig(configContent(stored)); err != nil {
+		return nil, err
+	}
+	computed := []Action{NewSetAction(SetPayload{
+		Path:  []string{"config_hash"},
+		Value: next.ConfigHash,
+	})}
+	if !reflect.DeepEqual(stored, next.Config) {
+		computed = slices.Insert(computed, 0, NewSetAction(SetPayload{
+			Path:  []string{"config"},
+			Value: stored,
+		}))
+	}
+	next.Config = nil
+	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	if next.Name != prev.Name {
+		if err = w.renameStatus(ctx, key, next.Name); err != nil {
+			return nil, err
+		}
+	}
+	return computed, nil
+}
+
+func renamesOnly(acts []Action) bool {
+	return lo.EveryBy(acts, func(a Action) bool {
+		return a.Type == ActionTypeSet &&
+			a.Set != nil &&
+			slices.Equal(a.Set.Path, []string{"name"})
+	})
 }
 
 // Delete deletes the task with the given key, its config record, and its associated
@@ -287,6 +357,9 @@ func (w Writer) DeleteByRacks(ctx context.Context, keys ...rack.Key) error {
 	return nil
 }
 
+// Copy stores a copy of the task with the given key under a new key and name, with its
+// config. After the transaction commits, Copy broadcasts a create action that carries
+// the copy. It returns query.ErrNotFound if no task with the key exists.
 func (w Writer) Copy(
 	ctx context.Context,
 	key Key,
@@ -313,20 +386,20 @@ func (w Writer) Copy(
 	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
-	store, ok := w.configs.Store(res.Type)
-	if !ok {
-		return res, nil
-	}
-	if err := store.Copy(ctx, w.tx, key, newKey); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return res, nil
+	if store, ok := w.configs.Store(res.Type); ok {
+		if err := store.Copy(ctx, w.tx, key, newKey); err == nil {
+			if res.Config, err = store.Read(ctx, w.tx, newKey); err != nil {
+				return Task{}, err
+			}
+		} else if !errors.Is(err, query.ErrNotFound) {
+			return Task{}, err
 		}
-		return Task{}, err
 	}
-	data, err := store.Read(ctx, w.tx, newKey)
-	if err != nil {
-		return Task{}, err
-	}
-	res.Config = data
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		newKey,
+		NewCreateAction(CreatePayload{Task: res}),
+	)
 	return res, nil
 }

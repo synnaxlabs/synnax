@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -92,6 +93,9 @@ type (
 type (
 	CreateRequest struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		// DispatchKey is stamped onto the create broadcasts so the sender skips its
+		// echo.
+		DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 	}
 	CreateResponse struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
@@ -110,10 +114,39 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.task.NewWriter(tx).CreateMany(ctx, &req.Tasks); err != nil {
+	if err := s.task.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.Tasks); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse(req), nil
+	return CreateResponse{Tasks: req.Tasks}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single task. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
+
+// DispatchResponse carries the actions the Core added to a dispatch: a set of the new
+// config hash, after a set of the stored config when storing changed it.
+type DispatchResponse = actions.DispatchResponse[task.Action]
+
+// Dispatch applies the action sequence to the target task atomically. Subscribers to
+// the task action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (DispatchResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
+	}); err != nil {
+		return DispatchResponse{}, err
+	}
+	computed, err := s.task.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
+	return DispatchResponse{Actions: computed}, err
 }
 
 type (
@@ -233,7 +266,10 @@ func (s *Service) Rename(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.task.NewWriter(tx).Rename(ctx, req.Key, req.Name)
+	_, err := s.task.Dispatch(ctx, req.Key, "", []task.Action{
+		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
+	})
+	return struct{}{}, err
 }
 
 type DeleteRequest struct {

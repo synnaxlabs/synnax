@@ -9,6 +9,7 @@
 
 import { type z } from "zod";
 
+import { narrow } from "@/narrow";
 import { type record } from "@/record";
 
 /** Marks Zod schemas whose keys must not be converted. */
@@ -332,6 +333,90 @@ const camelToSnakeStr = (str: string): string => {
 
 /** Converts a camelCase string to snake_case. */
 export const camelToSnake = createConverter(camelToSnakeStr);
+
+/** Options for {@link snakeToCamelPath} and {@link camelToSnakePath}. */
+export interface PathOptions {
+  /** The schema that the document converts with. */
+  schema?: z.ZodType;
+  /** The document that the path goes into. A segment into a list is an entry key. */
+  data?: unknown;
+}
+
+/** A path converted the way the converter of the same direction converts keys. */
+export interface ConvertedPath {
+  path: string[];
+  /** Converts a value at the end of the path the way the document converts it. */
+  convert: <V>(value: V) => V;
+}
+
+type Converter = ReturnType<typeof createConverter>;
+
+const createPathConverter =
+  (f: (v: string) => string, converter: Converter) =>
+  (path: string[], { schema, data }: PathOptions = {}): ConvertedPath => {
+    const out: string[] = [];
+    let s = schema;
+    let d = data;
+    let preserved = false;
+    for (const seg of path) {
+      if (!preserved && hasPreserveCaseMarker(s)) preserved = true;
+      if (preserved) {
+        out.push(seg);
+        continue;
+      }
+      if (Array.isArray(d) || (d == null && getArrayElementSchema(s) != null)) {
+        out.push(seg);
+        s = getArrayElementSchema(s);
+        d = Array.isArray(d)
+          ? d.find((e) => narrow.isObject(e) && e.key === seg)
+          : undefined;
+        continue;
+      }
+      const keysKept = hasPreserveKeysMarker(s);
+      const next = keysKept ? seg : f(seg);
+      out.push(next);
+      if (keysKept) s = getRecordValueSchema(s);
+      else {
+        const shape = getSchemaShape(s);
+        s = shape != null ? (shape[seg] ?? shape[next]) : undefined;
+      }
+      const obj = narrow.isObject(d) ? d : undefined;
+      d = obj?.[seg] ?? obj?.[next];
+    }
+    const convert = <V>(value: V): V =>
+      preserved ? value : convertChild(value, s, converter);
+    return { path: out, convert };
+  };
+
+// convertChild converts a field value the way the object branch of a converter does.
+const convertChild = <V>(
+  value: V,
+  schema: z.ZodType | undefined,
+  converter: Converter,
+): V => {
+  if (isValidObject(value))
+    return isPreservedType(value) ? value : converter(value, { schema });
+  if (!Array.isArray(value)) return value;
+  const opt: Options = { schema: getArrayElementSchema(schema) };
+  return value.map((v: unknown) => {
+    if (isValidObject(v)) return isPreservedType(v) ? v : converter(v, opt);
+    if (Array.isArray(v)) return converter({ key: v }, opt).key;
+    return v;
+  }) as V;
+};
+
+/**
+ * Converts a snake_case path into a document the way {@link snakeToCamel} converts the
+ * keys of the whole document with the same schema. A segment into a list, into a record
+ * with preserved keys, or under a preserved-case schema stays as it is.
+ */
+export const snakeToCamelPath = createPathConverter(snakeToCamelStr, snakeToCamel);
+
+/**
+ * Converts a camelCase path into a document the way {@link camelToSnake} converts the
+ * keys of the whole document with the same schema.
+ */
+export const camelToSnakePath = createPathConverter(camelToSnakeStr, camelToSnake);
 
 /** Capitalizes the first character of the given string. */
 export const capitalize = (str: string): string => {

@@ -8,15 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -945,6 +959,102 @@ describe("schematic queries", () => {
       });
       const freed = await call(() => result.current(["n1"]));
       expect(freed).toBeNull();
+    });
+  });
+
+  describe("useConfigForm", () => {
+    const remote = createTestClient();
+
+    beforeEach(async () => await waitForStreamLive(client.connection));
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const renderForm = async (key: schematic.Key) =>
+      await renderHookSuspended(
+        ({ elKey }: { elKey: string }) => Schematic.useConfigForm({ key, elKey }),
+        { wrapper: Wrapper, initialProps: { elKey: "n1" } },
+      );
+
+    // A fresh client reads the Core. A streaming client's cache can lag a dispatch.
+    const fetchStoredConfig = async (
+      key: schematic.Key,
+      elKey: string,
+    ): Promise<schematic.ElementConfig> =>
+      (await createTestClient().schematics.retrieve({ key })).configs[elKey];
+
+    it("should show the element's config", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      expect(result.current.form.value()).toMatchObject({
+        variant: "tank",
+        scaleVisible: false,
+      });
+    });
+
+    it("should send an edit as a path action into the element's config", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      const send = spyOnSend(client);
+      act(() => result.current.form.set("scaleVisible", true));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [
+          {
+            type: "set",
+            set: { path: ["configs", "n1", "scale_visible"], value: true },
+          },
+        ],
+      });
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        scaleVisible: true,
+      });
+    });
+
+    it("should show a remote edit to the element", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      await remote.schematics.retrieve({ key: schem.key });
+      await act(async () => {
+        await remote.schematics.dispatch(
+          schem.key,
+          schematic.set({ path: ["configs", "n1", "scaleVisible"], value: true }),
+        );
+      });
+      await waitFor(() =>
+        expect(result.current.form.get("scaleVisible").value).toBe(true),
+      );
+    });
+
+    it("should set the first entry of an empty list without keys", async () => {
+      const schem = await client.schematics.create(proj.key, {
+        name: "test_schematic",
+        nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+        configs: { n1: { variant: "string_display" } },
+      });
+      const { result } = await renderForm(schem.key);
+      act(() => result.current.form.set("tooltip.0", "line"));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        tooltip: ["line"],
+      });
+    });
+
+    it("should edit the new element when the element key changes", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result, rerender } = await renderForm(schem.key);
+      rerender({ elKey: "n2" });
+      act(() => result.current.form.set("scaleVisible", true));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n2")).toMatchObject({
+        scaleVisible: true,
+      });
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        scaleVisible: false,
+      });
     });
   });
 });

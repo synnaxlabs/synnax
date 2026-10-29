@@ -11,7 +11,10 @@
 // where a typed envelope carries a discriminator alongside variant payloads.
 package union
 
-import "github.com/synnaxlabs/x/errors"
+import (
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // ErrMissingPayload is returned when a discriminated-union envelope names a
 // variant via its discriminator but the matching payload is absent. Callers
@@ -22,4 +25,13 @@ var ErrMissingPayload = errors.New("missing payload for declared variant")
 // payload was missing for diagnostic context.
 func MissingPayload(variant string) error {
 	return errors.Wrapf(ErrMissingPayload, "variant %q", variant)
+}
+
+// ErrUnknownVariant is returned when a discriminated-union envelope names a variant
+// that the union does not declare.
+var ErrUnknownVariant = errors.Wrap(validate.ErrValidation, "unknown variant")
+
+// UnknownVariant wraps ErrUnknownVariant with the name of the variant.
+func UnknownVariant(variant string) error {
+	return errors.Wrapf(ErrUnknownVariant, "variant %q", variant)
 }

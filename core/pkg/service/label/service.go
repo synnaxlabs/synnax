@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -75,6 +76,7 @@ type Service struct {
 	closer xio.MultiCloser
 	table  *gorp.Table[Key, Label]
 	search *gorp.SearchIndex[Key, Label]
+	state  *actions.State[Key, Action]
 }
 
 // OpenService opens a new label service using the provided configuration. If error
@@ -85,7 +87,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{
+		cfg:    cfg,
+		search: newSearchIndex(),
+		state:  actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Label]{
@@ -109,6 +115,35 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Label]] {
 	return s.table.Observe()
 }
 
+// ObserveActions returns an observable of the actions that Dispatch and Writer emit.
+// Handlers run synchronously after the transaction that applied the actions commits.
+func (s *Service) ObserveActions() observe.Observable[actions.Scoped[Key, Action]] {
+	return s.state
+}
+
+// Dispatch applies the actions atomically to the label with the given key. Dispatches
+// for the same label run one at a time, each in its own transaction, and the actions
+// are broadcast after the commit. dispatchKey is carried onto the broadcast so the
+// sender recognizes its echo. Dispatch returns an error wrapping validate.ErrValidation
+// when an action is a create or the result fails to decode or validate, and an error
+// wrapping query.ErrNotFound when no label has the key.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	acts []Action,
+) error {
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.NewWriter(tx).apply(ctx, key, acts)
+		},
+	)
+}
+
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
@@ -123,5 +158,10 @@ func (s *Service) NewRetrieve() Retrieve {
 // underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx), table: s.table}
+	return Writer{
+		tx:         tx,
+		otg:        s.cfg.Ontology.NewWriter(tx),
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
+	}
 }

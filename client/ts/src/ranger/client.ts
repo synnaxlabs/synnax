@@ -22,12 +22,20 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { type channel } from "@/channel";
 import { AccessDeniedError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
+import { createOf, encode, reduceAll } from "@/ranger/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+} from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
 import { kv } from "@/ranger/kv";
@@ -44,7 +52,7 @@ import {
 import { Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
-export const SET_CHANNEL_NAME = "sy_range_set";
+export const ACTION_CHANNEL_NAME = "sy_range_action_set";
 export const DELETE_CHANNEL_NAME = "sy_range_delete";
 
 const kvDeleteZ = z
@@ -63,7 +71,6 @@ interface Stores {
 /** Creates the range, range KV, and range alias tables on the given cache. */
 const createTables = (
   cache: query.Cache,
-  sugarOne: (payload: Payload) => Range,
   relationships: query.Table<string, ontology.Relationship>,
   fetch: (keys: Key[]) => Promise<Range[]>,
   backfill: (rel: ontology.Relationship) => Promise<void>,
@@ -72,15 +79,7 @@ const createTables = (
     name: "ranges",
     equal: (a, b) => deep.equal(a.payload, b.payload),
     fetch,
-    listen: [
-      // Labels and parents are composed from the relationship tables on read, so the
-      // event only carries the base payload; enriched fields are preserved.
-      query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
-        value: (changed, prev) =>
-          sugarOne({ ...changed, labels: prev?.labels, parent: prev?.parent }),
-      }),
-      query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-    ],
+    listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
   });
 
   // Fetches missing relationship targets so compositions and membership
@@ -458,6 +457,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly writer: Writer;
   private readonly store: query.Table<Key, Range>;
+  private readonly dispatcher: actions.Controller<Key, Range, Action>;
   private readonly kvPairs: query.Table<string, kv.Pair>;
 
   constructor(cfg: ClientConfig) {
@@ -466,11 +466,33 @@ export class Client extends query.Retriever<
     const { relationships } = ontologyClient.cache;
     const { ranges, kvPairs, aliases } = createTables(
       cache,
-      (payload) => this.sugarOne(payload),
       relationships,
       async (keys) => await this.fetchThrough(keys),
       async (rel) => await this.ensureRelationshipTargets(rel),
     );
+    // Every write to a range reaches the client as actions. Labels and parents are
+    // composed from the relationship tables on read, so actions leave them alone.
+    const dispatcher = new actions.Controller<Key, Range, Action>({
+      store: ranges,
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/range/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: (range, acts) => {
+        const { payload } = range;
+        const { next, inverse, targets } = reduceAll(payload, acts);
+        return {
+          next: next === payload ? range : this.sugarOne(next),
+          inverse,
+          targets,
+        };
+      },
+      encode: (range, action) => encode(range.payload, action),
+      createOf: (action) => {
+        const created = createOf(action);
+        return created == null ? undefined : this.sugarOne(created);
+      },
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     const composed = cache.derive<Key, Range, Range>({
       name: "range.composed",
       source: ranges,
@@ -512,6 +534,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.writer = new Writer(cfg.unary);
     this.store = ranges;
+    this.dispatcher = dispatcher;
     this.kvPairs = kvPairs;
     this.aliases = aliases;
     const children = cache.queries<ChildrenRequest, Range[], Key, Range>({
@@ -574,7 +597,13 @@ export class Client extends query.Retriever<
   async create(ranges: New | New[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
     const news = array.toArray(ranges);
-    const res = this.sugarMany(await this.writer.create(news));
+    const keys = news.flatMap(({ key }) => (key == null ? [] : [key]));
+    const res = this.sugarMany(
+      await this.dispatcher.create(
+        keys,
+        async (dispatchKey) => await this.writer.create(news, dispatchKey),
+      ),
+    );
     res.forEach((r, i) => {
       this.writeThrough(r);
       const parent = news[i]?.parent;
@@ -605,6 +634,22 @@ export class Client extends query.Retriever<
       commit: async () => await this.writer.rename(key, name),
     });
     rename();
+  }
+
+  /**
+   * Applies actions to the cached range and sends them to the Core. Paths and values
+   * take the camelCase form of the cached range. Returns false without side effects
+   * when the range is not cached.
+   * @throws {Error} if the range cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the cached range drops the actions.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<boolean> {
+    return await this.dispatcher.dispatch(key, array.toArray(actions));
+  }
+
+  /** Stages actions that commit atomically as one dispatch. */
+  beginTransaction(key: Key): actions.Transaction<Action> {
+    return this.dispatcher.transaction(key);
   }
 
   async delete(key: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

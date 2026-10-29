@@ -87,6 +87,11 @@ export const commandZ = z.object({
   configHash: z.string().default(""),
   /** args contains optional arguments for the command. */
   args: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
+  /**
+   * pinned is true when the Driver must refuse a start whose config_hash differs from
+   * the hash of the stored config.
+   */
+  pinned: z.boolean().default(false),
 });
 export interface Command extends z.infer<typeof commandZ> {}
 

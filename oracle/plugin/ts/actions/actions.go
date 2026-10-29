@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
@@ -94,9 +95,10 @@ func (p *Plugin) generateFile(
 		Request:    req,
 	}
 
+	tsName := domain.GetName(typ, "ts")
 	data := &templateData{
 		Manager:         mgr,
-		TargetTypeName:  typ.Name,
+		TargetTypeName:  tsName,
 		TargetProseName: proseName(typ.Name),
 	}
 
@@ -117,7 +119,7 @@ func (p *Plugin) generateFile(
 	mgr.AddImport("immer", "Draft")
 	mgr.AddImport("@synnaxlabs/x", "zod")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
-	mgr.AddImport(sameDir+"/types.gen", typ.Name)
+	mgr.AddImport(sameDir+"/types.gen", tsName)
 	mgr.AddImport(sameDir+"/types.gen", "keyZ")
 	mgr.AddImport(paths.CalculateImport(outputPath, "client/ts/src/actions"), "actions")
 
@@ -224,5 +226,7 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
+
+export const dispatchResZ = actions.dispatchResZ(actionZ);
 `),
 )

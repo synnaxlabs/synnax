@@ -89,6 +89,9 @@ struct Command {
     std::string config_hash = "";
     /// @brief args contains optional arguments for the command.
     x::json::json::object_t args = {};
+    /// @brief pinned is true when the Driver must refuse a start whose config_hash
+    /// differs from the hash of the stored config.
+    bool pinned = false;
 
     static Command parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

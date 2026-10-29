@@ -15,18 +15,28 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	table *gorp.Table[Key, Label]
+	tx         gorp.Tx
+	otg        ontology.Writer
+	table      *gorp.Table[Key, Label]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // Create creates a new label, assigning it a unique key if one is not provided. If
-// a label with the same key already exists, it will be overwritten.
+// a label with the same key already exists, it will be overwritten. After the
+// transaction commits, Create broadcasts a create action that carries the stored label.
 func (w Writer) Create(ctx context.Context, l *Label) error {
 	if l.Key == uuid.Nil() {
 		l.Key = uuid.New()
@@ -37,7 +47,31 @@ func (w Writer) Create(ctx context.Context, l *Label) error {
 	if err := w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		l.Key,
+		NewCreateAction(CreatePayload{Label: *l}),
+	)
 	return w.otg.DefineResources(ctx, l.OntologyID())
+}
+
+// apply applies the actions to the label with the given key and stores the result.
+func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
+	return w.table.
+		NewUpdate().
+		Where(gorp.MatchKeys[Key, Label](key)).
+		ChangeErr(func(_ gorp.Context, l Label) (Label, error) {
+			next, err := Reduce(l, acts...)
+			if err != nil {
+				return Label{}, err
+			}
+			if err = next.Validate(); err != nil {
+				return Label{}, err
+			}
+			return next, nil
+		}).
+		Exec(ctx, w.tx)
 }
 
 // CreateMany creates multiple labels in a single transaction. If any of the labels

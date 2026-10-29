@@ -70,6 +70,8 @@ class Command(BaseModel):
             does not know it. The Driver reuses its live instance when the hash matches
             and redeploys when it differs.
         args: Contains optional arguments for the command.
+        pinned: Is true when the Driver must refuse a start whose config_hash differs
+            from the hash of the stored config.
     """
 
     task: Key
@@ -77,6 +79,7 @@ class Command(BaseModel):
     key: str
     config_hash: str = ""
     args: dict[str, JsonValue] = Field(default_factory=dict)
+    pinned: bool = False
 
 
 class StartConfig(KeyedConfig):

@@ -267,11 +267,13 @@ func OpenService(
 	}
 	if cfg.Signals != nil {
 		var sig io.Closer
-		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
-			Provider: cfg.Signals,
-			State:    s.state,
-			Name:     "arc",
-		}); !ok(err, sig) {
+		if sig, err = cfg.Signals.PublishActions(
+			ctx,
+			signals.ActionPublisherConfig[Key, Action]{
+				Observable: s.state,
+				Name:       "arc",
+			},
+		); !ok(err, sig) {
 			return nil, err
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
@@ -289,7 +291,7 @@ func OpenService(
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
-	return s.state.OnAction(handler)
+	return s.state.OnChange(handler)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting Arcs in Synnax. If

@@ -9,7 +9,7 @@
 
 import "@/platform/range/overview/MetaData.css";
 
-import { type query, type ranger } from "@synnaxlabs/client";
+import { type ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -62,105 +62,109 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   );
 };
 
-interface MetaDataListItemProps extends List.ItemProps<string> {
-  isCreate?: boolean;
-  visible?: boolean;
+interface ItemProps extends List.ItemProps<string> {
   rangeKey: ranger.Key;
-  onClose?: () => void;
 }
 
-const MetaDataListItem = ({
-  isCreate = false,
-  onClose,
-  visible = true,
-  rangeKey,
-  ...rest
-}: MetaDataListItemProps) => {
-  const { itemKey } = rest;
-  const initialValues = List.useItem<string, ranger.kv.Pair>(itemKey);
-  const inputRef = useRef<HTMLInputElement>(null);
+const Item = ({ rangeKey, ...rest }: ItemProps): ReactElement | null => {
+  const pair = List.useItem<string, ranger.kv.Pair>(rest.itemKey);
+  const { update: handleChange } = Ranger.useUpdateKV();
   const { update: handleDelete } = Ranger.useDeleteKV();
-  const { form, save } = Ranger.useKVPairForm({
-    query: isCreate ? null : { rangeKey, key: itemKey },
-    autoSave: !isCreate,
-    initialValues: initialValues ?? {
-      key: "",
-      value: "",
-      range: rangeKey,
-    },
-    sync: !isCreate,
-    afterSave: ({
-      reset,
-    }: Flux.AfterSaveParams<query.Params, typeof Ranger.kvPairFormSchema>) => {
-      onClose?.();
-      if (isCreate) reset({ key: "", value: "", range: rangeKey });
-    },
-  });
-  useEffect(() => {
-    if (isCreate) inputRef.current?.focus();
-  }, [isCreate, visible]);
+  if (pair == null) return null;
   return (
     <List.Item
-      className={CSS.cls(
-        CSS.BE("metadata", "list-item"),
-        isCreate && CSS.M("create"),
-        PCSS.visible(visible),
-      )}
+      className={CSS.BE("metadata", "list-item")}
       preventClick
       propagateClick
       {...rest}
     >
+      <Text.Text className={CSS.BE("range-metadata", "key-cell")}>{pair.key}</Text.Text>
+      <Divider.Divider y />
+      <Input.Item showLabel={false} padHelpText>
+        <ValueInput
+          value={pair.value}
+          onChange={(value) => handleChange({ ...pair, rangeKey, value })}
+          onlyChangeOnBlur
+        />
+      </Input.Item>
+      <Button.Button
+        className={CSS.BE("metadata", "delete")}
+        size="small"
+        variant="text"
+        onClick={() => handleDelete({ key: pair.key, rangeKey })}
+      >
+        <Icon.Delete color={10} />
+      </Button.Button>
+    </List.Item>
+  );
+};
+
+interface CreateItemProps {
+  rangeKey: ranger.Key;
+  visible: boolean;
+  onClose: () => void;
+}
+
+const CreateItem = ({ rangeKey, visible, onClose }: CreateItemProps): ReactElement => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const zero = { key: "", value: "", range: rangeKey };
+  const { form, save } = Ranger.useCreateKVPairForm({
+    query: null,
+    initialValues: zero,
+    afterSave: ({
+      reset,
+    }: Flux.AfterSaveParams<null, typeof Ranger.kvPairFormSchema>) => {
+      onClose();
+      reset(zero);
+    },
+  });
+  useEffect(() => {
+    if (visible) inputRef.current?.focus();
+  }, [visible]);
+  return (
+    <List.Item
+      className={CSS.cls(
+        CSS.BE("metadata", "list-item"),
+        CSS.M("create"),
+        PCSS.visible(visible),
+      )}
+      index={0}
+      itemKey=""
+      preventClick
+      propagateClick
+    >
       <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>
-        {isCreate ? (
-          <Form.TextField
-            className={CSS.BE("range-metadata", "key-cell")}
-            path="key"
-            inputProps={{
-              ref: inputRef,
-              autoFocus: isCreate,
-              selectOnFocus: true,
-              resetOnBlurIfEmpty: true,
-              onlyChangeOnBlur: !isCreate,
-              placeholder: "Key",
-              variant: "shadow",
-              weight: 500,
-            }}
-            showLabel={false}
-          />
-        ) : (
-          <Text.Text className={CSS.BE("range-metadata", "key-cell")}>
-            {initialValues?.key}
-          </Text.Text>
-        )}
+        <Form.TextField
+          className={CSS.BE("range-metadata", "key-cell")}
+          path="key"
+          inputProps={{
+            ref: inputRef,
+            selectOnFocus: true,
+            resetOnBlurIfEmpty: true,
+            placeholder: "Key",
+            variant: "shadow",
+            weight: 500,
+          }}
+          showLabel={false}
+        />
         <Divider.Divider y />
         <Form.Field<string> path="value" showLabel={false}>
-          {(p) => <ValueInput onlyChangeOnBlur={!isCreate} {...p} />}
+          {(p) => <ValueInput {...p} />}
         </Form.Field>
-        {isCreate ? (
-          <Flex.Box pack>
-            <Button.Button
-              variant="filled"
-              size="small"
-              onClick={() => save()}
-              trigger={visible ? ["Enter"] : undefined}
-              triggerIndicator
-            >
-              <Icon.Check />
-            </Button.Button>
-            <Button.Button variant="outlined" size="small" onClick={onClose}>
-              <Icon.Close />
-            </Button.Button>
-          </Flex.Box>
-        ) : (
+        <Flex.Box pack>
           <Button.Button
-            className={CSS.BE("metadata", "delete")}
+            variant="filled"
             size="small"
-            variant="text"
-            onClick={() => handleDelete({ key: itemKey, rangeKey })}
+            onClick={() => save()}
+            trigger={visible ? ["Enter"] : undefined}
+            triggerIndicator
           >
-            <Icon.Delete color={10} />
+            <Icon.Check />
           </Button.Button>
-        )}
+          <Button.Button variant="outlined" size="small" onClick={onClose}>
+            <Icon.Close />
+          </Button.Button>
+        </Flex.Box>
       </Form.Form>
     </List.Item>
   );
@@ -191,20 +195,14 @@ export const MetaData = ({ rangeKey }: MetaDataProps): ReactElement | null => {
         </Header.Actions>
       </Header.Header>
       <List.Frame<string, kv.Pair> data={data} getItem={getItem} subscribe={subscribe}>
-        <MetaDataListItem
-          key="new"
-          index={0}
-          itemKey=""
+        <CreateItem
           rangeKey={rangeKey}
-          isCreate
           visible={newFormVisible}
           onClose={() => setNewFormVisible(false)}
         />
         <List.Scroll>
           <List.Items<string, kv.Pair>>
-            {({ key, ...rest }) => (
-              <MetaDataListItem key={key} rangeKey={rangeKey} {...rest} />
-            )}
+            {({ key, ...rest }) => <Item key={key} rangeKey={rangeKey} {...rest} />}
           </List.Items>
         </List.Scroll>
       </List.Frame>

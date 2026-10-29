@@ -17,12 +17,16 @@ import (
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Schematic) (Schematic, error) {
-	return p.Schematic, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// schematic.
+func (CreatePayload) Handle(Schematic) (Schematic, error) {
+	return Schematic{}, errors.Wrap(
+		validate.ErrValidation, "only the Core dispatches a schematic create",
+	)
 }
 
 // Handle replaces the schematic's name.
@@ -224,4 +228,42 @@ func (p *SetConfigPayload) fromRaw(raw rawSetConfigPayload) error {
 	}
 	*p = SetConfigPayload{Key: raw.Key, Config: cfg}
 	return nil
+}
+
+// Handle applies the set to the schematic's element configs.
+func (p SetPayload) Handle(state Schematic) (Schematic, error) {
+	return edit(state, patch.Set(p))
+}
+
+// Handle applies the remove to the schematic's element configs.
+func (p RemovePayload) Handle(state Schematic) (Schematic, error) {
+	return edit(state, patch.Remove(p))
+}
+
+// Handle applies the insert to the schematic's element configs.
+func (p InsertPayload) Handle(state Schematic) (Schematic, error) {
+	return edit(state, patch.Insert(p))
+}
+
+// Handle applies the move to the schematic's element configs.
+func (p MovePayload) Handle(state Schematic) (Schematic, error) {
+	return edit(state, patch.Move(p))
+}
+
+// edit applies a path action to the element config that its path names. A config that
+// names no variant or fails its schema is rejected.
+func edit(state Schematic, a patch.Action) (Schematic, error) {
+	configs, err := patch.EditMap(state.Configs, []string{"configs"}, a, checkConfig)
+	if err != nil {
+		return Schematic{}, err
+	}
+	state.Configs = configs
+	return state, nil
+}
+
+func checkConfig(key string, cfg ElementConfig) error {
+	if cfg.Variant == nil {
+		return noVariantError(key)
+	}
+	return validate.PathedError(cfg.Validate(), "configs", key)
 }
