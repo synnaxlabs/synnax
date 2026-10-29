@@ -25,6 +25,7 @@
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
@@ -32,16 +33,19 @@
 
 .pluto-icon--log {
     --pluto-base-scale: 0.85;
+
     transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--schematic {
     --pluto-base-scale: 1;
+
     transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--decimal {
     --pluto-base-scale: 1.3;
+
     transform: scale(var(--pluto-base-scale));
 }
 
@@ -50,21 +54,15 @@
 .pluto-icon--wave-sine,
 .pluto-icon--wave-sawtooth {
     --pluto-base-scale: 1.25;
+
     transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--units-current,
 .pluto-icon--units-voltage {
     --pluto-base-scale: 1.05;
+
     transform: scale(var(--pluto-base-scale));
-}
-
-.pluto-icon--in-progress {
-    color: var(--pluto-warning-z);
-}
-
-.pluto-icon--completed {
-    color: var(--pluto-primary-z);
 }
 
 .pluto-icon--in-progress {
@@ -91,23 +89,27 @@
 
 .pluto-icon--stop {
     --pluto-base-scale: 1.15;
+
     transform: scale(var(--pluto-base-scale));
 }
 
 .pluto-icon--fitting {
     --pluto-base-scale: 1.8;
+
     transform: scale(var(--pluto-base-scale));
 }
 
 /* The chrome glyph covers 62% of its box, against the 78% Box draws. */
 .pluto-icon--boxes {
     --pluto-base-scale: 1.25;
+
     transform: scale(var(--pluto-base-scale));
 }
 
 /* Same reason as boxes: the mark covers 68% of its box. */
 .pluto-icon--close-thin {
     --pluto-base-scale: 1.15;
+
     transform: scale(var(--pluto-base-scale));
 }
 
@@ -116,7 +118,7 @@
 }
 
 .pluto-icon--boolean {
-    fill: currentColor;
+    fill: currentcolor;
 }
 
 .pluto-icon--true {

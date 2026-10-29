@@ -13,6 +13,7 @@
     /* Fixed rather than a multiple of the border width, which halves on retina and
        would leave a 2.5px drag target. */
     --resize-panel-handle-size: 6px;
+
     position: relative;
 
     &.pluto--location-left > .pluto-resize__handle {
