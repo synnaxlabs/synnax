@@ -329,6 +329,33 @@ func (t *impl) open(ctx context.Context) (err error) {
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
 	}
 
+	sCtx, cancel := signal.Isolated(
+		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
+	)
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, signal.NewHardShutdown(sCtx, cancel).Close())
+		}
+	}()
+	opts := []confluence.Option{
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+		confluence.CancelOnFail(),
+	}
+	if streamer != nil {
+		// Wait for the open ack so the task reads every input written after start
+		// returns. The runtime flows after this, so it never sees the ack.
+		streamer.Flow(sCtx, opts...)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case _, ok := <-streamerResponses.Outlet():
+			if !ok {
+				return errors.New("streamer exited before it opened")
+			}
+		}
+	}
+
 	if len(deps.Writes) > 0 {
 		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
@@ -384,30 +411,6 @@ func (t *impl) open(ctx context.Context) (err error) {
 		}
 		pipeline.SetSink(writerResponsesAddr, writerResponses)
 		pipeline.MustConnect[framer.WriterResponse](writerAddr, writerResponsesAddr, 10)
-	}
-	sCtx, cancel := signal.Isolated(
-		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
-	)
-	opts := []confluence.Option{
-		confluence.CloseOutputInletsOnExit(),
-		confluence.RecoverWithErrOnPanic(),
-		confluence.CancelOnFail(),
-	}
-	if streamer != nil {
-		// Wait for the open ack so the task reads every input written after start
-		// returns. The runtime flows after this, so it never sees the ack.
-		streamer.Flow(sCtx, opts...)
-		select {
-		case <-ctx.Done():
-			err = ctx.Err()
-		case _, ok := <-streamerResponses.Outlet():
-			if !ok {
-				err = errors.New("streamer exited before it opened")
-			}
-		}
-		if err != nil {
-			return errors.Join(err, signal.NewHardShutdown(sCtx, cancel).Close())
-		}
 	}
 	t.sCtx = sCtx
 	t.closer = append(
