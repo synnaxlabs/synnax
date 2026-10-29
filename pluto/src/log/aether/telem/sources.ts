@@ -28,7 +28,6 @@ import {
   type LogSource,
   type LogSourceSpec,
 } from "@/log/aether/telem/types";
-import { type status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 
 const MAX_ENTRIES = 100_000;
@@ -61,10 +60,8 @@ export class StreamMultiChannelLog
   schema = streamMultiChannelLogPropsZ;
 
   private readonly client: telem.Client | null;
-  private readonly onStatusChange?: status.Adder;
   private readonly now: () => TimeStamp;
   private readonly maxEntries: number;
-  private readonly failures: telem.FailureReporter;
   private subscription: framer.Subscription | null = null;
   private readonly cursors = new Map<channel.Key, Cursor>();
   private entries: LogEntry[] = [];
@@ -76,14 +73,11 @@ export class StreamMultiChannelLog
   constructor(
     client: telem.Client | null,
     props: unknown,
-    options?: telem.CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
     maxEntries: number = MAX_ENTRIES,
   ) {
     super(props);
     this.client = client;
-    this.onStatusChange = options?.onStatusChange;
-    this.failures = new telem.FailureReporter(this.onStatusChange);
     this.now = now;
     this.maxEntries = maxEntries;
     this._channels = this.props.channels.filter(
@@ -131,7 +125,7 @@ export class StreamMultiChannelLog
     this.valid = true;
     const { client } = this;
     if (client == null) {
-      this.onStatusChange?.(telem.DISCONNECTED_STATUS);
+      this.status = telem.DISCONNECTED_STATUS;
       return;
     }
     const subscription = client.feed.subscribe(this.request());
@@ -143,8 +137,8 @@ export class StreamMultiChannelLog
   }
 
   // Appends the samples each channel received since the last pull, and returns whether
-  // the entries changed. A channel's entries wait while it loads, so its history lands
-  // in one pull before its live samples and takes the time it loaded.
+  // the entries or the status changed. A channel's entries wait while it loads, so its
+  // history lands in one pull before its live samples and takes the time it loaded.
   private pull(subscription: framer.Subscription): boolean {
     const now = this.now();
     let pushed = 0;
@@ -155,10 +149,10 @@ export class StreamMultiChannelLog
       worst = cstatus.worst(worst, snapshot.status)!;
       if (variant !== "loading") pushed += this.append(key, snapshot, now);
     }
+    const statusChanged = worst !== this.status;
     this.status = worst;
-    this.failures.observe(worst);
     const evicted = this.gcEntries();
-    return pushed > 0 || evicted > 0;
+    return pushed > 0 || evicted > 0 || statusChanged;
   }
 
   // Appends the samples the channel appended since the key's cursor, which are the
@@ -229,7 +223,6 @@ export class StreamMultiChannelLog
     this.entries = [];
     this.status = telem.SUCCESS_STATUS;
     this.valid = false;
-    this.failures.reset();
   }
 }
 

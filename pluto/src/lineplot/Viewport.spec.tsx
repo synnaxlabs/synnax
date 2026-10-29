@@ -87,4 +87,42 @@ describe("Viewport", () => {
       expect(container.querySelector(".pluto-line-plot__fetching")).toBeNull(),
     );
   });
+
+  it("should mark line problems in place of the corner spinner", async () => {
+    const { container, root } = render(
+      <Frame aetherKey="plot">
+        <Viewport />
+      </Frame>,
+      { render: true, registry: lineplot.REGISTRY },
+    );
+    let plot: lineplot.LinePlot | null = null;
+    await waitFor(() => {
+      plot = root.findChildAtPath(WORKER_PATH) as lineplot.LinePlot;
+      expect(plot).toBeInstanceOf(lineplot.LinePlot);
+    });
+    expect(container.querySelector(".pluto-problem-mark")).toBeNull();
+    const problems = [
+      {
+        variant: "error" as const,
+        name: "PT-03",
+        message: "Failed to read channel data",
+        description: "channel 999 not found",
+      },
+    ];
+    act(() => {
+      plot?.setState((p) => ({ ...p, fetching: true, problems }));
+    });
+    await waitFor(() => {
+      const mark = container.querySelector(".pluto-problem-mark");
+      expect(mark?.getAttribute("aria-label")).toBe("Failed to read channel data");
+    });
+    expect(container.querySelector(".pluto-line-plot__fetching")).toBeNull();
+    act(() => {
+      plot?.setState((p) => ({ ...p, problems: [] }));
+    });
+    await waitFor(() => {
+      expect(container.querySelector(".pluto-problem-mark")).toBeNull();
+      expect(container.querySelector(".pluto-line-plot__fetching")).not.toBeNull();
+    });
+  });
 });

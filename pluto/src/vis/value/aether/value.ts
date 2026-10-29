@@ -8,7 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { theme } from "@synnaxlabs/lyra/theme";
-import { border, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
+import {
+  border,
+  box,
+  color,
+  deep,
+  location,
+  notation,
+  scale,
+  text,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -17,6 +27,7 @@ import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
+import { problem } from "@/vis/problem/aether";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -48,6 +59,8 @@ const valueState = staleness.configZ.extend({
   // borderRadius rounds the clip region, in px. Set it when the host has rounded
   // corners, so the background fill does not square them off.
   borderRadius: border.crudeRadiusZ.optional(),
+  /** The problems of the value's data. */
+  problems: problem.problemZ.array().default([]),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -95,8 +108,10 @@ export class Value
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
       i.staleness.received();
+      this.syncProblems();
       this.requestRender();
     });
+    this.syncProblems();
     i.fontString = theme.fontString(i.theme, { level: this.state.level, code: true });
     i.backgroundTelem = telem.useSource(
       ctx,
@@ -119,6 +134,12 @@ export class Value
     if (i.requestRender == null)
       i.renderCtx.erase(box.construct(this.state.box), xy.ZERO, ...CANVAS_VARIANTS);
     else i.requestRender("layout");
+  }
+
+  private syncProblems(): void {
+    const problems = problem.fromStatus(this.internal.telem.value().status);
+    if (deep.equal(problems, this.state.problems)) return;
+    this.setState((p) => ({ ...p, problems }));
   }
 
   private requestRender(): void {

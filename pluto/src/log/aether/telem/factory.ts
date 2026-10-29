@@ -19,10 +19,10 @@ export class LogFactory implements telem.Factory {
     this.client = client;
   }
 
-  create(spec: telem.Spec, options?: telem.CreateOptions): telem.Telem | null {
+  create(spec: telem.Spec): telem.Telem | null {
     if (spec.type === NoopLogSource.TYPE) return new NoopLogSource();
     if (spec.type === StreamMultiChannelLog.TYPE)
-      return new StreamMultiChannelLog(this.client, spec.props, options);
+      return new StreamMultiChannelLog(this.client, spec.props);
     return null;
   }
 }

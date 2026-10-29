@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
+import { log, type status } from "@synnaxlabs/client";
 import { type theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
   box,
   color,
+  deep,
   type destructor,
   notation,
   text,
@@ -31,6 +32,7 @@ import {
 import { telem } from "@/telem/aether";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
+import { problem } from "@/vis/problem/aether";
 import { render } from "@/vis/render";
 
 export const logStateZ = log.logZ
@@ -63,6 +65,7 @@ export const logStateZ = log.logZ
       .array(z.object({ text: z.string(), color: z.string() }))
       .default([]),
     computedLineHeight: z.number().default(0),
+    problems: problem.problemZ.array().default([]),
   });
 
 /**
@@ -266,14 +269,18 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         }));
     }
 
-    this.entries = this.internal.telem.value().data;
+    const { data, status } = i.telem.value();
+    this.entries = data;
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
     this.checkEmpty();
+    this.syncProblems(status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      this.entries = this.internal.telem.value().data;
+      const { data, status } = this.internal.telem.value();
+      this.entries = data;
       this.reanchor();
       this.checkEmpty();
+      this.syncProblems(status);
       if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
@@ -284,6 +291,12 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const actuallyEmpty = this.entries.length === 0;
     if (actuallyEmpty === this.state.empty) return;
     this.setState((s) => ({ ...s, empty: actuallyEmpty }));
+  }
+
+  private syncProblems(s: status.Status): void {
+    const problems = problem.fromStatus(s);
+    if (deep.equal(problems, this.state.problems)) return;
+    this.setState((p) => ({ ...p, problems }));
   }
 
   afterDelete(): void {
