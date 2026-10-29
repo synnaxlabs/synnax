@@ -75,16 +75,18 @@ port for RTU. Tasks and the scanner share it through a `weak_ptr` cache. The OPC
 because a serial port has one owner and small PLCs allow few sockets. Requests take
 turns, and a waiting write goes before waiting reads. Each request sets its unit first
 with `modbus_set_slave`. A device whose serial settings differ from the connection's
-fails at start. The connection opens at the first request, so a task starts while its
-server is off, and its reads retry until the server answers.
+fails at start with a critical error that names both settings. The connection opens at
+the first request, so a task starts while its server is off, and its reads retry until
+the server answers. On RTU, each request waits for 3.5 characters of silence after the
+last one, or 1.75 ms above 19200 baud.
 
 A temporary error (§2.4) retries at once, up to `retries` times. A socket error closes
-the connection, and the next attempt reconnects. A timeout does not close it, because
-other units behind the gateway still answer. The next request flushes the socket first,
-so a late reply cannot answer it. After three timed-out attempts in a row, a unit is
-demoted for 10 s: its requests fail at once with a temporary error, so it cannot slow
-the other units. `delay_ms` counts from the end of the last request on the connection,
-for any unit.
+the connection, and the next attempt reconnects. A timeout or a bad CRC does not close
+it, because other units on the connection still answer. The next request flushes the
+connection first, so a late reply cannot answer it. After three timed-out attempts in a
+row, a unit is demoted for 10 s: its requests fail at once with a temporary error, so it
+cannot slow the other units. `delay_ms` counts from the end of the last request on the
+connection, for any unit.
 
 ### 2.2 Reads
 
@@ -168,7 +170,7 @@ silent and a stalled reply in Phase 2, and an RTU mode on a pseudo-terminal pair
   The connect dialog gets Unit and Advanced tabs, and one Byte order select replaces the
   two swap switches.
 - **Phase 3: RTU serial.** The RTU fields of `connection`, `modbus_new_rtu`, and the
-  serial form in the connect dialog.
+  serial form in the connect dialog, which is now "Modbus server" for both transports.
 - **Phase 4: Channels.** §2.5, bit writes with `mask_write_supported`, and §2.6.
 - **Phase 5: Diagnostics.** §2.7 counters, after RFC 0081 gives the Modbus server its
   own `StatusDetails`.
@@ -249,4 +251,5 @@ one more reason for one connection per endpoint behind a lock.
 **5.11 The serial port is a typed path.** The Driver runs on the rack, often on another
 computer than the Console, so only the Driver can list its serial ports, and that needs
 a new rack command. A typed path such as `/dev/ttyUSB0` or `COM3` works on every
-platform without one.
+platform without one. The Driver adds the `\\.\` prefix that Windows needs for `COM10`
+and up.
