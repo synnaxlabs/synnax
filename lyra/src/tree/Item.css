@@ -14,14 +14,14 @@
         /* One rule per ancestor, starting under the depth 0 caret. */
         content: "";
         position: absolute;
-        left: calc(2.25rem - 1px);
+        left: calc(2.25rem - 0.5px);
         top: 0;
         bottom: 0;
         width: var(--pluto-tree-item-rules-width);
         background: repeating-linear-gradient(
             to right,
-            var(--pluto-gray-l6) 0 2px,
-            transparent 2px var(--pluto-tree-item-step)
+            var(--pluto-gray-l6) 0 1px,
+            transparent 1px var(--pluto-tree-item-step)
         );
         opacity: 0;
         transition: opacity 0.2s ease-in-out;
@@ -53,7 +53,7 @@
             margin-left: var(--pluto-tree-item-offset);
 
             &::after {
-                left: calc(2.25rem - 1px - var(--pluto-tree-item-offset));
+                left: calc(2.25rem - 0.5px - var(--pluto-tree-item-offset));
             }
         }
 

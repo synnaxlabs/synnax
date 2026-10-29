@@ -90,7 +90,7 @@ describe("Tree", () => {
     await userEvent.hover(container.querySelector(".lyra-tree")!);
     const grandchild = rules("grandchild");
     expect(grandchild.opacity).toBe("1");
-    expect(grandchild.start + 1).toBe(caretCenter("parent"));
+    expect(grandchild.start + 0.5).toBe(caretCenter("parent"));
     expect(grandchild.end).toBeGreaterThan(caretCenter("child"));
     expect(rules("child").end).toBeLessThan(caretCenter("child"));
   });
