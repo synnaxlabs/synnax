@@ -14,10 +14,10 @@ useDefault = true
 disabledRules = ["generic-api-key"]
 
 [[allowlists]]
-description = "Test TLS keys for localhost; only the mock servers and specs use them."
+description = "Test TLS keys for localhost; only test servers and specs use them."
 paths = [
-    '''^driver/http/mock/test_key\.pem$''',
-    '''^freighter/cpp/grpc/mock/test_(leaf_)?key\.pem$''',
+    '''^driver/http/(mock|testutil)/test_key\.pem$''',
+    '''^freighter/cpp/grpc/(mock|testutil)/test_(leaf_)?key\.pem$''',
 ]
 
 [[allowlists]]
