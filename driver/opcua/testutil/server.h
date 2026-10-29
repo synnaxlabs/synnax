@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "absl/log/log.h"
-#include "open62541/plugin/pki_default.h"
+#include "open62541/plugin/certificategroup_default.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
 
@@ -411,8 +411,8 @@ public:
                 return;
             }
             if (cfg.trusted_clients.empty()) {
-                UA_CertificateVerification_AcceptAll(&server_config->secureChannelPKI);
-                UA_CertificateVerification_AcceptAll(&server_config->sessionPKI);
+                UA_CertificateGroup_AcceptAll(&server_config->secureChannelPKI);
+                UA_CertificateGroup_AcceptAll(&server_config->sessionPKI);
             }
         } else
             UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
