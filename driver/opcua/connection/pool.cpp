@@ -84,8 +84,7 @@ uint32_t uint32_value(const UA_DataValue &result) {
     return *static_cast<const UA_UInt32 *>(result.value.data);
 }
 
-/// @returns an error if the server answered a request for nodes nodes with a different
-/// number of results.
+/// @returns an error if the number of results does not match the number of nodes.
 x::errors::Error check_results(const size_t results, const size_t nodes) {
     if (results == nodes) return x::errors::NIL;
     return x::errors::Error(
@@ -168,13 +167,12 @@ Pool::Connection::read(const UA_ReadRequest &req) const {
     const size_t limit = this->server_->max_nodes_per_read;
     const size_t total = req.nodesToReadSize;
     if (limit == 0 || total <= limit) {
-        if (const auto err = lost(this->get()))
-            return {types::ReadResponse(), err};
+        if (const auto err = lost(this->get())) return {types::ReadResponse(), err};
         types::ReadResponse res(UA_Client_Service_read(this->get(), req));
         const auto &raw = res.get();
         if (auto err = errors::parse(raw.responseHeader.serviceResult))
             return {std::move(res), err};
-        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        this->pool_->replied(this->key_);
         auto err = check_results(raw.resultsSize, total);
         return {std::move(res), err};
     }
@@ -202,13 +200,12 @@ Pool::Connection::write(const UA_WriteRequest &req) const {
     const size_t limit = this->server_->max_nodes_per_write;
     const size_t total = req.nodesToWriteSize;
     if (limit == 0 || total <= limit) {
-        if (const auto err = lost(this->get()))
-            return {types::WriteResponse(), err};
+        if (const auto err = lost(this->get())) return {types::WriteResponse(), err};
         types::WriteResponse res(UA_Client_Service_write(this->get(), req));
         const auto &raw = res.get();
         if (auto err = errors::parse(raw.responseHeader.serviceResult))
             return {std::move(res), err};
-        if (this->pool_ != nullptr) this->pool_->replied(this->key_);
+        this->pool_->replied(this->key_);
         auto err = check_results(raw.resultsSize, total);
         return {std::move(res), err};
     }

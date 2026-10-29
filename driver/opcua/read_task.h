@@ -246,15 +246,15 @@ protected:
     /// @brief the error of the connection attempt at start, which the first read
     /// returns instead of connecting again.
     x::errors::Error start_err;
-    /// @brief reads the channels on the current connection. It borrows the node IDs
-    /// of cfg.
+    /// @brief reads the channels on the current connection. It borrows the node IDs of
+    /// cfg.
     types::ReadRequestBuilder request_builder;
     /// @brief the place of each channel's result in a response to request_builder, or
     /// nothing when the server lacks the channel's namespace.
     std::vector<std::optional<std::size_t>> positions;
 
-    /// @brief reads the channels on conn from now on, with the namespace indexes of
-    /// its server.
+    /// @brief reads the channels on conn from now on, with the namespace indexes of its
+    /// server.
     void use(connection::Pool::Connection conn) {
         this->connection = std::move(conn);
         this->build_request();
@@ -281,6 +281,17 @@ protected:
         const auto pos = this->positions[i];
         if (!pos.has_value()) return UNKNOWN_NAMESPACE;
         return res.results[pos.value()];
+    }
+
+    /// @returns the text of a bad status of channel i, which names the namespace when
+    /// the server lacks it.
+    [[nodiscard]] std::string
+    bad_status(const std::size_t i, const UA_StatusCode status) const {
+        const auto &ch = *this->cfg.channels[i];
+        if (!this->positions[i].has_value())
+            return ch.ch.name + ": the server has no namespace " +
+                   ch.node.namespace_uri() + ".";
+        return errors::channel_status(ch.ch.name, status);
     }
 
     /// @brief connects with the device's current settings, so a corrected endpoint or
@@ -419,7 +430,7 @@ public:
             x::telem::Series s(ch.ch.data_type, this->cfg.array_size);
             x::errors::Error err;
             if (UA_StatusCode_isBad(result.status))
-                quality.add_bad(errors::channel_status(ch.ch.name, result.status));
+                quality.add_bad(this->bad_status(i, result.status));
             else {
                 if (UA_StatusCode_isUncertain(result.status))
                     quality.add_uncertain(
@@ -488,7 +499,7 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
             const auto &ch = *this->cfg.channels[i];
             const auto &result = this->result(res, i);
             if (UA_StatusCode_isBad(result.status)) {
-                q.add_bad(errors::channel_status(ch.ch.name, result.status));
+                q.add_bad(this->bad_status(i, result.status));
                 values.emplace_back(std::nullopt);
             } else {
                 if (UA_StatusCode_isUncertain(result.status))

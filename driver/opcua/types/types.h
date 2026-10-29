@@ -62,8 +62,8 @@ struct Node {
 
 class NodeId {
     UA_NodeId id_{};
-    /// @brief the namespace of the node when the node ID names it by URI. The
-    /// namespace index of id_ is then not used.
+    /// @brief the namespace of the node when the node ID names it by URI. The namespace
+    /// index of id_ is then not used.
     std::string namespace_uri_;
 
 public:
@@ -108,8 +108,8 @@ public:
     resolve(const std::vector<std::string> &namespaces) const;
 
     /// @brief parses `nsu=<uri>;<id>`, `ns=<index>;<id>`, or `<id>` in namespace 0,
-    /// where `<id>` is `i=`, `s=`, `g=`, or `b=` with its identifier. Prefixes match
-    /// in any case.
+    /// where `<id>` is `i=`, `s=`, `g=`, or `b=` with its identifier. Prefixes match in
+    /// any case.
     static NodeId parse(const std::string &field_name, x::json::Parser &parser);
     static std::pair<NodeId, x::errors::Error> parse(const std::string &node_id_str);
     /// @returns the node ID as `NS=<index>;<id>`.

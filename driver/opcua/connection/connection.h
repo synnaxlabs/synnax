@@ -133,6 +133,7 @@ connect(const Config &cfg, const Security &sec, std::string log_prefix);
 
 /// @brief a way that a server accepts connections.
 struct Endpoint {
+    /// @brief the URL of the endpoint.
     std::string url;
     /// @brief None, Sign, or SignAndEncrypt.
     std::string security_mode;
@@ -144,11 +145,13 @@ struct Endpoint {
     /// @brief how secure the server rates the endpoint. Higher is more secure.
     uint8_t security_level = 0;
 
+    /// @returns the endpoint as JSON.
     [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief asks the server at cfg.endpoint for its endpoints. Opens a channel with no
-/// security and no Session.
+/// security and no Session, and closes it before it returns.
+/// @returns the error that errors::parse_connect gives if the request fails.
 std::pair<std::vector<Endpoint>, x::errors::Error> endpoints(const Config &cfg);
 
 /// @brief closes the client's channel and connects it again with the security it was
@@ -238,8 +241,8 @@ public:
         [[nodiscard]] std::pair<types::ReadResponse, x::errors::Error>
         read(const UA_ReadRequest &req) const;
 
-        /// @brief writes the values in req, in as many requests as the server's
-        /// limit needs.
+        /// @brief writes the values in req, in as many requests as the server's limit
+        /// needs.
         /// @returns errors::NO_CONNECTION without sending req when the connection is
         /// lost, the error of the service result, or errors::CRITICAL when the server
         /// returns a result count that does not match req.

@@ -183,8 +183,8 @@ public:
     }
 
 private:
-    /// @brief fills builder with the frame's values, with the namespace indexes of
-    /// the current connection.
+    /// @brief fills builder with the frame's values, with the namespace indexes of the
+    /// current connection.
     /// @returns a problem for each value that the Driver cannot convert or whose
     /// namespace the server lacks.
     std::vector<std::string> build(const ::x::telem::Frame &frame) {
@@ -199,7 +199,8 @@ private:
             const auto id = ch.node.resolve(namespaces);
             if (!id.has_value()) {
                 problems.push_back(
-                    errors::channel_status(ch.ch.name, UA_STATUSCODE_BADNODEIDUNKNOWN)
+                    ch.ch.name + ": the server has no namespace " +
+                    ch.node.namespace_uri() + "."
                 );
                 continue;
             }

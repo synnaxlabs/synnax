@@ -683,9 +683,7 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
     ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
     EXPECT_EQ(
         err.data,
-        this->uint32_cmd_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space."
+        this->uint32_cmd_channel.name + ": the server has no namespace urn:missing."
     );
     ASSERT_NIL(sink->stop());
 }

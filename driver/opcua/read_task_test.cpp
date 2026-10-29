@@ -447,16 +447,25 @@ TEST_F(TestReadTask, testUnknownNamespaceIsMissingNode) {
     const auto res = source->read(breaker, fr);
     ASSERT_NIL(res.error);
     EXPECT_EQ(res.warning.message, "Received bad values");
-    EXPECT_EQ(
-        res.warning.description,
-        this->float_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space. " +
-            this->float_channel.name +
-            " returned BadNodeIdUnknown. The node id refers to a node that does not "
-            "exist in the server address space."
-    );
+    const auto problem = this->float_channel.name +
+                         ": the server has no namespace urn:missing.";
+    EXPECT_EQ(res.warning.description, problem + " " + problem);
     EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read the other channels when the server lacks the namespace of one,
+/// with NaN for the missing one.
+TEST_F(TestReadTask, testUnknownNamespaceKeepsOtherChannels) {
+    const auto source = this->create_source(
+        mixed_cfg("nsu=urn:missing;s=TestFloat", true)
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_TRUE(std::isnan(fr.at<float>(this->float_channel.key, 0)));
+    EXPECT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
     ASSERT_NIL(source->stop());
 }
 
@@ -468,8 +477,8 @@ testutil::TestNode shared_node(const std::int32_t ns, UA_Float value) {
     return {ns, "Shared", &UA_TYPES[UA_TYPES_FLOAT], variant, "Shared"};
 }
 
-/// @brief it should find a node by its namespace URI after the server restarts with
-/// its namespaces in another order.
+/// @brief it should find a node by its namespace URI after the server restarts with its
+/// namespaces in another order.
 TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
     server->stop();
     testutil::ServerConfig server_cfg;

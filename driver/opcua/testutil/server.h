@@ -350,6 +350,10 @@ public:
     /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
     /// Zero means no delay.
     x::telem::TimeSpan probe_delay;
+    /// @brief the secure channels open on the server as of its last iterate.
+    std::atomic<size_t> channels{0};
+    /// @brief the Sessions that the server created since it started.
+    std::atomic<size_t> sessions_created{0};
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -496,6 +500,9 @@ public:
                     std::chrono::nanoseconds(probe_delay.nanoseconds())
                 );
             UA_Server_run_iterate(server, true);
+            const auto stats = UA_Server_getStatistics(server);
+            this->channels = stats.scs.currentChannelCount;
+            this->sessions_created = stats.ss.cumulatedSessionCount;
         }
 
         ready = false;

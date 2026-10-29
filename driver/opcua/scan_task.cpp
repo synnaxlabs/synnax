@@ -48,6 +48,22 @@ std::string failure_message(
         return "Failed to load the Driver certificate";
     return fallback;
 }
+
+/// @returns an error status for the reply to cmd, which each handler fills in.
+synnax::task::Status
+command_status(const synnax::task::Task &task, const synnax::task::Command &cmd) {
+    return {
+        .key = synnax::task::status_key(task),
+        .name = task.name,
+        .variant = synnax::status::VARIANT_ERROR,
+        .details = synnax::task::StatusDetails{
+            .task = task.key,
+            .running = true,
+            .cmd = cmd.key,
+            .config_hash = task.config_hash,
+        }
+    };
+}
 }
 
 Scanner::Scanner(
@@ -235,17 +251,7 @@ void Scanner::certificates(
     const synnax::task::Command &cmd,
     const bool regenerate
 ) const {
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     x::errors::Error err = x::errors::NIL;
     if (regenerate) err = this->store->regenerate().second;
     auto [current, current_err] = this->store->current();
@@ -332,16 +338,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
 void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
         status.description = common::config_err_description(parser.error());
@@ -398,17 +395,7 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
 void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse test command";
         status.description = common::config_err_description(parser.error());
@@ -449,17 +436,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
 void Scanner::endpoints(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const connection::Config cfg(parser.child("connection"));
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = true,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse endpoints command";
         status.description = common::config_err_description(parser.error());

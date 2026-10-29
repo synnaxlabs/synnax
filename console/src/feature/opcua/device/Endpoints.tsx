@@ -16,6 +16,7 @@ import {
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -129,7 +130,6 @@ type State = { endpoint: string } & (Result | { variant: "loading" });
 
 export interface EndpointsProps {
   rack: rack.Key;
-  connection: ConnectionConfig;
   onSelect: (mode: SecurityMode, policy: SecurityPolicy) => void;
 }
 
@@ -137,16 +137,18 @@ export interface EndpointsProps {
  * Asks the server for its endpoints through the Driver on the rack, and sets the
  * security mode and policy to the endpoint the user selects.
  */
-export const Endpoints = ({
-  rack,
-  connection,
-  onSelect,
-}: EndpointsProps): ReactElement => {
+export const Endpoints = ({ rack, onSelect }: EndpointsProps): ReactElement => {
   const client = Synnax.use();
   const [state, setState] = useState<State | null>(null);
-  const { endpoint, securityMode, securityPolicy } = connection;
+  const { get } = Form.useContext();
+  const endpoint = Form.useFieldValue<string>("properties.connection.endpoint");
+  const securityMode = Form.useFieldValue<string>("properties.connection.securityMode");
+  const securityPolicy = Form.useFieldValue<string>(
+    "properties.connection.securityPolicy",
+  );
   const handleFind = async () => {
     setState({ endpoint, variant: "loading" });
+    const connection = get<ConnectionConfig>("properties.connection").value;
     let next: State;
     try {
       next = { endpoint, ...(await findEndpoints(client, rack, connection)) };

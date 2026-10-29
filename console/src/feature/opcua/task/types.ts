@@ -196,9 +196,9 @@ export interface Endpoint extends z.infer<typeof endpointZ> {}
 
 export const endpointsResponseZ = z.object({ endpoints: z.array(endpointZ) });
 
-// Each command replies with its own shape, and the client drops a reply that fails
-// this schema, so the union must cover every one. The test connection reply matches
-// any object, so it comes last.
+// Each command replies with its own shape, and the client drops a reply that fails this
+// schema, so the union must cover every one. The test connection reply matches any
+// object, so it comes last.
 const scanCommandResponseZ = z
   .union([
     browseResponseZ,

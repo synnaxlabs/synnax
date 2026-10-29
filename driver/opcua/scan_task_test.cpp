@@ -380,7 +380,8 @@ TEST_F(TestScanTask, testBrowseUnknownNamespace) {
     EXPECT_EQ(state.description, "The server has no namespace urn:missing.");
 }
 
-/// @brief it should list the endpoints of a server without opening a Session.
+/// @brief it should list the endpoints of a server without opening a Session, and close
+/// its channel.
 TEST_F(TestScanTask, testGetEndpoints) {
     const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     start_secured_server(server_id);
@@ -410,6 +411,8 @@ TEST_F(TestScanTask, testGetEndpoints) {
     );
     EXPECT_NE(find("Sign", "Basic256Sha256"), endpoints.end());
     EXPECT_EQ(conn_pool->size(), 0);
+    EXPECT_EQ(secured_server->sessions_created.load(), 0);
+    ASSERT_EVENTUALLY_EQ(secured_server->channels.load(), 0);
 }
 
 /// @brief it should fail to list the endpoints of a server that does not answer.
