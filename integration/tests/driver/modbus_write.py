@@ -9,18 +9,26 @@
 
 from typing import Any
 
-from examples.modbus import ModbusSim
-from examples.modbus.server import SLAVE_ID
-from pymodbus.client import ModbusTcpClient
-
 import synnax as sy
 from synnax import modbus
-from tests.driver.modbus_task import ModbusWriteTaskCase
-from tests.driver.task import create_channel, create_index
+from tests.driver.modbus_task import (
+    ModbusWriteTaskCase,
+    assert_sim_coils,
+    assert_sim_registers,
+    float32_words,
+    set_sim_coil,
+    set_sim_register,
+)
+from tests.driver.task import create_channel, create_index, send_and_verify_commands
 
 
 class ModbusWriteCoil(ModbusWriteTaskCase):
     task_name = "Modbus Write Coil"
+    command_values = [[1, 0, 1], [0, 1, 0]]
+
+    def run(self) -> None:
+        super().run()
+        assert_sim_coils(10, [False, True, False])
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
@@ -41,6 +49,12 @@ class ModbusWriteCoil(ModbusWriteTaskCase):
 
 class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
     task_name = "Modbus Write Holding Register"
+    command_values = [[1.5, 2.5, 3.5], [100, 101, 102]]
+
+    def run(self) -> None:
+        super().run()
+        words = [w for v in (100, 101, 102) for w in float32_words(v)]
+        assert_sim_registers(10, words)
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
@@ -62,6 +76,12 @@ class ModbusWriteHoldingRegister(ModbusWriteTaskCase):
 
 class ModbusWriteMixed(ModbusWriteTaskCase):
     task_name = "Modbus Write Mixed"
+    command_values = [[1, 0, 1.5, 2.5], [0, 1, 100, 101]]
+
+    def run(self) -> None:
+        super().run()
+        assert_sim_coils(20, [False, True])
+        assert_sim_registers(20, [*float32_words(100), *float32_words(101)])
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
@@ -124,6 +144,89 @@ class ModbusWriteWordOrder(ModbusWriteTaskCase):
 
     def run(self) -> None:
         super().run()
-        with ModbusTcpClient(ModbusSim.host, port=ModbusSim.port) as sim:
-            res = sim.read_holding_registers(40, count=4, device_id=SLAVE_ID)
-        assert res.registers == [0x3FC0, 0x0000, 0x0000, 0x3FC0], res.registers
+        assert_sim_registers(40, [0x3FC0, 0x0000, 0x0000, 0x3FC0])
+
+
+class ModbusWriteGap(ModbusWriteTaskCase):
+    """Writes channels on both sides of an address that no channel covers, while
+    another client changes that address. The address keeps the other client's value."""
+
+    task_name = "Modbus Write Gap"
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
+        idx = create_index(client, "modbus_gap_cmd_time")
+        registers: list[sy.modbus.WriteChannel] = [
+            modbus.HoldingRegisterWriteChannel(
+                channel=create_channel(
+                    client,
+                    name=f"modbus_gap_hr_cmd_{address}",
+                    data_type=sy.DataType.UINT16,
+                    index=idx.key,
+                ),
+                address=address,
+                data_type=sy.DataType.UINT16,
+            )
+            for address in (120, 122)
+        ]
+        coils: list[sy.modbus.WriteChannel] = [
+            modbus.CoilWriteChannel(
+                channel=create_channel(
+                    client,
+                    name=f"modbus_gap_coil_cmd_{address}",
+                    data_type=sy.DataType.UINT8,
+                    index=idx.key,
+                ),
+                address=address,
+            )
+            for address in (110, 112)
+        ]
+        return registers + coils
+
+    def run(self) -> None:
+        assert self.tsk is not None
+        self.log("Testing: Write around addresses another client changes")
+        with self.tsk.run():
+            self.send_commands([[1, 2, 1, 0], [3, 4, 0, 1]])
+            set_sim_register(121, 7)
+            set_sim_coil(111, False)
+            self.send_commands([[5, 6, 1, 0], [5, 6, 1, 0]])
+        assert_sim_registers(120, [5, 7, 6])
+        assert_sim_coils(110, [True, False, False])
+
+    def send_commands(self, values: list[list[float]]) -> None:
+        assert self.tsk is not None
+        send_and_verify_commands(
+            self.client,
+            cmd_keys=self._channel_keys(self.tsk),
+            writer_name=f"{self.task_name}_test_writer",
+            task_name=self.tsk.name,
+            task_key=self.tsk.key,
+            command_values=values,
+        )
+
+
+class ModbusWriteCoilFloat(ModbusWriteTaskCase):
+    """Drives a coil from a float32 command channel."""
+
+    task_name = "Modbus Write Coil Float"
+    command_values = [[0.0], [1.0]]
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
+        idx = create_index(client, "modbus_coil_float_cmd_time")
+        return [
+            modbus.CoilWriteChannel(
+                channel=create_channel(
+                    client,
+                    name="modbus_coil_float_cmd",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                address=130,
+            )
+        ]
+
+    def run(self) -> None:
+        super().run()
+        assert_sim_coils(130, [True])
