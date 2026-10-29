@@ -10,6 +10,7 @@
 package v1_test
 
 import (
+	"encoding/json"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -76,4 +77,27 @@ var _ = Describe("v0 -> v1 Status migration", func() {
 			Expect(got.Labels).To(BeEmpty())
 		},
 	)
+
+	It("Should keep details integers past 2^53", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		details := json.RawMessage(`{"count":9007199254740993}`)
+		seed := v0.Status[json.RawMessage]{
+			Key:     "status-" + uuid.New().String(),
+			Variant: v0.VariantInfo,
+			Message: "Message",
+			Details: details,
+		}
+		Expect(gorp.NewCreate[v0.Key, v0.Status[json.RawMessage]]().
+			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Status",
+			Migrations: []gorp.Migration{v1.Migration},
+		})).To(Succeed())
+		var got v1.Status[json.RawMessage]
+		Expect(gorp.NewRetrieve[v1.Key, v1.Status[json.RawMessage]]().
+			Where(gorp.MatchKeys[v1.Key, v1.Status[json.RawMessage]](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Details).To(Equal(details))
+	})
 })

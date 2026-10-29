@@ -10,6 +10,8 @@
 package v2_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -60,4 +62,27 @@ var _ = Describe("Migration", func() {
 			}))
 		},
 	)
+
+	It("Should keep details integers past 2^53", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		details := json.RawMessage(`{"count":9007199254740993}`)
+		old := v1.Status[json.RawMessage]{
+			Key:     "rack-1",
+			Variant: v1.VariantInfo,
+			Message: "Message",
+			Details: details,
+		}
+		Expect(gorp.NewCreate[v1.Key, v1.Status[json.RawMessage]]().
+			Entry(&old).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Status",
+			Migrations: []gorp.Migration{v2.Migration},
+		})).To(Succeed())
+		var got v2.Status[json.RawMessage]
+		Expect(gorp.NewRetrieve[v2.Key, v2.Status[json.RawMessage]]().
+			Where(gorp.MatchKeys[v2.Key, v2.Status[json.RawMessage]](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Details).To(Equal(details))
+	})
 })
