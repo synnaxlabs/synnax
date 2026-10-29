@@ -219,10 +219,11 @@ const failClose =
   (Kind: new (message: string) => Error): OpenWriter =>
   async (client, config) => {
     const w = await client.openWriter(config);
-    openWriters.push(w);
-    return Object.assign(Object.create(w) as framer.Writer, {
+    const wrapped = Object.create(w) as framer.Writer;
+    const close = w.close.bind(wrapped);
+    return Object.assign(wrapped, {
       close: async () => {
-        await w.close();
+        await close();
         throw new Kind("close failed");
       },
     });
